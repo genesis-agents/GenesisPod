@@ -10,13 +10,16 @@
  */
 
 // Abstractions
-export * from './abstractions';
+export * from "./abstractions";
 
 // Base
-export * from './base';
+export * from "./base";
 
 // Middleware
-export * from './middleware';
+export * from "./middleware";
 
 // Registry
-export * from './registry';
+export * from "./registry";
+
+// Tool Implementations (46 builtin tools)
+export * from "./categories";

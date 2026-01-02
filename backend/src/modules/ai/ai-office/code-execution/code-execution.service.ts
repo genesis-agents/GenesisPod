@@ -7,7 +7,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import {
   JavaScriptExecutorTool,
   PythonExecutorTool,
-} from "../../ai-agents/tools/execution";
+} from "../../ai-engine/tools/categories/execution";
 import * as ts from "typescript";
 
 export interface ExecuteInput {
@@ -144,22 +144,33 @@ export class CodeExecutionService {
     // 预处理代码，自动添加主函数调用
     const preparedCode = this.prepareCodeForExecution(code);
 
+    const toolContext = {
+      executionId: `code-exec-${Date.now()}`,
+      toolId: this.jsExecutor.id,
+      timeout,
+      createdAt: new Date(),
+    };
+
     const result = await this.jsExecutor.execute(
       {
         code: preparedCode,
         context: { variables: variables || {} },
         options: { timeout },
       },
-      { taskId: "code-exec", timeout },
+      toolContext,
     );
 
     // Check if the tool execution itself failed (validation, timeout, etc.)
     if (!result.success) {
-      this.logger.warn(`JavaScript execution failed: ${result.error}`);
+      const errorMessage =
+        typeof result.error === "string"
+          ? result.error
+          : result.error?.message || "JavaScript executor failed";
+      this.logger.warn(`JavaScript execution failed: ${errorMessage}`);
       return {
         success: false,
-        error: result.error || "JavaScript executor failed",
-        executionTime: result.duration || 0,
+        error: errorMessage,
+        executionTime: result.metadata?.duration || 0,
       };
     }
 
@@ -235,13 +246,20 @@ export class CodeExecutionService {
     variables?: Record<string, unknown>,
     timeout?: number,
   ): Promise<ExecuteResult> {
+    const toolContext = {
+      executionId: `code-exec-${Date.now()}`,
+      toolId: this.pythonExecutor.id,
+      timeout,
+      createdAt: new Date(),
+    };
+
     const result = await this.pythonExecutor.execute(
       {
         code,
         context: { variables: variables || {} },
         options: { timeout },
       },
-      { taskId: "code-exec", timeout },
+      toolContext,
     );
 
     const data = result.data;

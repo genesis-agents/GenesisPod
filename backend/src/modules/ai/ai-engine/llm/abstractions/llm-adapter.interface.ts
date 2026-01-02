@@ -6,7 +6,7 @@
 /**
  * LLM 消息角色
  */
-export type LLMMessageRole = 'system' | 'user' | 'assistant' | 'tool';
+export type LLMMessageRole = "system" | "user" | "assistant" | "tool";
 
 /**
  * LLM 消息
@@ -24,7 +24,7 @@ export interface LLMMessage {
  */
 export interface LLMToolCall {
   id: string;
-  type: 'function';
+  type: "function";
   name: string;
   arguments: Record<string, unknown>;
 }
@@ -33,7 +33,7 @@ export interface LLMToolCall {
  * LLM 工具定义
  */
 export interface LLMToolDefinition {
-  type: 'function';
+  type: "function";
   function: {
     name: string;
     description: string;
@@ -83,12 +83,12 @@ export interface LLMRequestOptions {
   /**
    * 工具选择策略
    */
-  toolChoice?: 'auto' | 'none' | 'required' | { name: string };
+  toolChoice?: "auto" | "none" | "required" | { name: string };
 
   /**
    * 响应格式
    */
-  responseFormat?: 'text' | 'json' | { type: 'json_schema'; schema: unknown };
+  responseFormat?: "text" | "json" | { type: "json_schema"; schema: unknown };
 
   /**
    * 流式输出
@@ -133,7 +133,7 @@ export interface LLMResponse {
   /**
    * 完成原因
    */
-  finishReason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | null;
+  finishReason: "stop" | "length" | "tool_calls" | "content_filter" | null;
 
   /**
    * 使用量统计
@@ -180,7 +180,7 @@ export interface LLMStreamChunk {
   /**
    * 完成原因
    */
-  finishReason?: 'stop' | 'length' | 'tool_calls' | 'content_filter' | null;
+  finishReason?: "stop" | "length" | "tool_calls" | "content_filter" | null;
 
   /**
    * 使用量 (最后一个块)
@@ -220,9 +220,7 @@ export interface ILLMAdapter {
   /**
    * 流式聊天完成
    */
-  chatStream?(
-    options: LLMRequestOptions,
-  ): AsyncGenerator<LLMStreamChunk, void>;
+  chatStream?(options: LLMRequestOptions): AsyncGenerator<LLMStreamChunk, void>;
 
   /**
    * 计算 token 数 (估算)
@@ -259,43 +257,44 @@ export interface LLMModelConfig {
  * 内置 LLM 提供商
  */
 export const LLM_PROVIDERS = {
-  OPENAI: 'openai',
-  ANTHROPIC: 'anthropic',
-  GOOGLE: 'google',
-  XAI: 'xai',
-  DEEPSEEK: 'deepseek',
-  LOCAL: 'local',
+  OPENAI: "openai",
+  ANTHROPIC: "anthropic",
+  GOOGLE: "google",
+  XAI: "xai",
+  GROK: "grok",
+  DEEPSEEK: "deepseek",
+  LOCAL: "local",
 } as const;
 
-export type LLMProvider = typeof LLM_PROVIDERS[keyof typeof LLM_PROVIDERS];
+export type LLMProvider = (typeof LLM_PROVIDERS)[keyof typeof LLM_PROVIDERS];
 
 /**
  * 内置模型常量
  */
 export const LLM_MODELS = {
   // OpenAI
-  GPT4O: 'gpt-4o',
-  GPT4O_MINI: 'gpt-4o-mini',
-  GPT4_TURBO: 'gpt-4-turbo',
-  O1: 'o1',
-  O1_MINI: 'o1-mini',
+  GPT4O: "gpt-4o",
+  GPT4O_MINI: "gpt-4o-mini",
+  GPT4_TURBO: "gpt-4-turbo",
+  O1: "o1",
+  O1_MINI: "o1-mini",
 
   // Anthropic
-  CLAUDE_35_SONNET: 'claude-3-5-sonnet-20241022',
-  CLAUDE_35_HAIKU: 'claude-3-5-haiku-20241022',
-  CLAUDE_3_OPUS: 'claude-3-opus-20240229',
+  CLAUDE_35_SONNET: "claude-3-5-sonnet-20241022",
+  CLAUDE_35_HAIKU: "claude-3-5-haiku-20241022",
+  CLAUDE_3_OPUS: "claude-3-opus-20240229",
 
   // Google
-  GEMINI_PRO: 'gemini-pro',
-  GEMINI_PRO_VISION: 'gemini-pro-vision',
+  GEMINI_PRO: "gemini-pro",
+  GEMINI_PRO_VISION: "gemini-pro-vision",
 
   // xAI
-  GROK_2: 'grok-2-1212',
-  GROK_2_VISION: 'grok-2-vision-1212',
+  GROK_2: "grok-2-1212",
+  GROK_2_VISION: "grok-2-vision-1212",
 
   // DeepSeek
-  DEEPSEEK_CHAT: 'deepseek-chat',
-  DEEPSEEK_REASONER: 'deepseek-reasoner',
+  DEEPSEEK_CHAT: "deepseek-chat",
+  DEEPSEEK_REASONER: "deepseek-reasoner",
 } as const;
 
-export type LLMModel = typeof LLM_MODELS[keyof typeof LLM_MODELS] | string;
+export type LLMModel = (typeof LLM_MODELS)[keyof typeof LLM_MODELS] | string;

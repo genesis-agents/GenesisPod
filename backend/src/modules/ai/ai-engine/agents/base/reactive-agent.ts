@@ -318,7 +318,7 @@ export abstract class ReactiveAgent<
     context: AgentContext,
   ): LLMMessage[] {
     const agentInput = input as unknown as AgentInput;
-    return this.buildMessages(agentInput.message, context);
+    return this.buildMessages(agentInput.prompt, context);
   }
 
   /**

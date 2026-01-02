@@ -78,13 +78,21 @@ export class ValidationMiddleware implements IToolMiddleware {
     // 使用工具自带的验证方法
     if (tool.validateInput) {
       const result = tool.validateInput(input);
-      if (!result.valid) {
+      // 支持返回 boolean 或 ValidationResult
+      const isValid = typeof result === "boolean" ? result : result.valid;
+      if (!isValid) {
+        const errors =
+          typeof result === "boolean"
+            ? [{ path: "", message: "Validation failed", type: "unknown" }]
+            : result.errors?.map((e) => ({
+                path: e.path,
+                message: e.message,
+                type: e.type,
+              })) || [
+                { path: "", message: "Validation failed", type: "unknown" },
+              ];
         throw new ValidationError(
-          result.errors?.map((e) => ({
-            path: e.path,
-            message: e.message,
-            type: e.type,
-          })) || [{ path: "", message: "Validation failed", type: "unknown" }],
+          errors,
           `Input validation failed for tool '${tool.id}'`,
         );
       }

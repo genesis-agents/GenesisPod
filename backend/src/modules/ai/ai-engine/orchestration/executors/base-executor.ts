@@ -243,7 +243,7 @@ export abstract class BaseExecutor implements IExecutor {
   }
 
   /**
-   * 执行 Agent
+   * 执行 Agent（适配 PlanBasedAgent 接口）
    */
   protected async executeAgent(
     agentId: string,
@@ -259,20 +259,33 @@ export abstract class BaseExecutor implements IExecutor {
       throw new Error(`Agent not found: ${agentId}`);
     }
 
-    const result = await agent.execute(input as any, {
-      executionId: context.executionId,
-      agentId,
-      userId: context.userId,
-      sessionId: context.sessionId,
-      signal: context.signal,
-      createdAt: new Date(),
-    });
+    // 将输入转换为 AgentInput 格式
+    const agentInput = {
+      prompt: typeof input === "string" ? input : JSON.stringify(input),
+      options: {
+        executionId: context.executionId,
+        userId: context.userId,
+        sessionId: context.sessionId,
+      },
+    };
 
-    if (!result.success) {
-      throw new Error(result.error?.message || "Agent execution failed");
+    // 生成执行计划
+    const plan = await agent.plan(agentInput);
+
+    // 执行计划并收集结果
+    let lastResult: unknown = null;
+    for await (const event of agent.execute(plan)) {
+      if (event.type === "complete") {
+        if (!event.result.success) {
+          throw new Error(event.result.error || "Agent execution failed");
+        }
+        lastResult = event.result.artifacts;
+      } else if (event.type === "error") {
+        throw new Error(event.error || "Agent execution failed");
+      }
     }
 
-    return result.data;
+    return lastResult;
   }
 
   /**

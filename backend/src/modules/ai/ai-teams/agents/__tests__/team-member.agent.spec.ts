@@ -5,14 +5,14 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { TeamMemberAgent, TeamMemberAgentConfig } from "../team-member.agent";
-import { ToolRegistry } from "../../../ai-agents/core/tool/tool.registry";
-import { ToolType } from "../../../ai-agents/core/agent/agent.types";
+import { ToolRegistry } from "../../../ai-engine/tools/registry";
+import { BUILTIN_TOOLS } from "../../../ai-engine/core";
 import { AICapability, AgentWorkStyle } from "@prisma/client";
+import { BaseTool } from "../../../ai-engine/tools/base";
 import {
-  BaseTool,
   JSONSchema,
   ToolContext,
-} from "../../../ai-agents/core/tool/tool.interface";
+} from "../../../ai-engine/tools/abstractions/tool.interface";
 
 // ============================================================================
 // Mock Tools
@@ -22,9 +22,10 @@ class MockWebSearchTool extends BaseTool<
   { query: string },
   { results: string[] }
 > {
-  readonly type = ToolType.WEB_SEARCH;
+  readonly id = BUILTIN_TOOLS.WEB_SEARCH;
   readonly name = "Mock Web Search";
   readonly description = "Mock web search tool";
+  readonly category = "information";
   readonly inputSchema: JSONSchema = {
     type: "object",
     properties: { query: { type: "string" } },
@@ -47,9 +48,10 @@ class MockCodeGenerationTool extends BaseTool<
   { prompt: string },
   { code: string }
 > {
-  readonly type = ToolType.CODE_GENERATION;
+  readonly id = BUILTIN_TOOLS.CODE_GENERATION;
   readonly name = "Mock Code Generation";
   readonly description = "Mock code generation tool";
+  readonly category = "generation";
   readonly inputSchema: JSONSchema = {
     type: "object",
     properties: { prompt: { type: "string" } },
@@ -72,9 +74,10 @@ class MockDataAnalysisTool extends BaseTool<
   { data: unknown },
   { analysis: string }
 > {
-  readonly type = ToolType.DATA_ANALYSIS;
+  readonly id = BUILTIN_TOOLS.DATA_ANALYSIS;
   readonly name = "Mock Data Analysis";
   readonly description = "Mock data analysis tool";
+  readonly category = "processing";
   readonly inputSchema: JSONSchema = {
     type: "object",
     properties: { data: { type: "object" } },
@@ -144,11 +147,11 @@ describe("TeamMemberAgent", () => {
 
       const tools = agent.resolveTools(config);
 
-      expect(tools).toContain(ToolType.WEB_SEARCH);
-      expect(tools).toContain(ToolType.WEB_SCRAPER);
-      expect(tools).toContain(ToolType.RAG_SEARCH);
-      expect(tools).toContain(ToolType.KNOWLEDGE_GRAPH);
-      expect(tools).toContain(ToolType.SHORT_TERM_MEMORY);
+      expect(tools).toContain(BUILTIN_TOOLS.WEB_SEARCH);
+      expect(tools).toContain(BUILTIN_TOOLS.WEB_SCRAPER);
+      expect(tools).toContain(BUILTIN_TOOLS.RAG_SEARCH);
+      expect(tools).toContain(BUILTIN_TOOLS.KNOWLEDGE_GRAPH);
+      expect(tools).toContain(BUILTIN_TOOLS.SHORT_TERM_MEMORY);
     });
 
     it("应该为 analyst 角色分配数据分析工具", () => {
@@ -164,11 +167,11 @@ describe("TeamMemberAgent", () => {
 
       const tools = agent.resolveTools(config);
 
-      expect(tools).toContain(ToolType.DATA_ANALYSIS);
-      expect(tools).toContain(ToolType.PYTHON_EXECUTOR);
-      expect(tools).toContain(ToolType.DATA_VALIDATION);
-      expect(tools).toContain(ToolType.DATA_CLEANING);
-      expect(tools).toContain(ToolType.STRUCTURED_OUTPUT);
+      expect(tools).toContain(BUILTIN_TOOLS.DATA_ANALYSIS);
+      expect(tools).toContain(BUILTIN_TOOLS.PYTHON_EXECUTOR);
+      expect(tools).toContain(BUILTIN_TOOLS.DATA_VALIDATION);
+      expect(tools).toContain(BUILTIN_TOOLS.DATA_CLEANING);
+      expect(tools).toContain(BUILTIN_TOOLS.STRUCTURED_OUTPUT);
     });
 
     it("应该为 developer 角色分配代码工具", () => {
@@ -184,11 +187,11 @@ describe("TeamMemberAgent", () => {
 
       const tools = agent.resolveTools(config);
 
-      expect(tools).toContain(ToolType.CODE_GENERATION);
-      expect(tools).toContain(ToolType.PYTHON_EXECUTOR);
-      expect(tools).toContain(ToolType.JAVASCRIPT_EXECUTOR);
-      expect(tools).toContain(ToolType.SQL_EXECUTOR);
-      expect(tools).toContain(ToolType.GITHUB_INTEGRATION);
+      expect(tools).toContain(BUILTIN_TOOLS.CODE_GENERATION);
+      expect(tools).toContain(BUILTIN_TOOLS.PYTHON_EXECUTOR);
+      expect(tools).toContain(BUILTIN_TOOLS.JAVASCRIPT_EXECUTOR);
+      expect(tools).toContain(BUILTIN_TOOLS.SQL_EXECUTOR);
+      expect(tools).toContain(BUILTIN_TOOLS.GITHUB_INTEGRATION);
     });
 
     it("应该为 writer 角色分配文档工具", () => {
@@ -204,11 +207,11 @@ describe("TeamMemberAgent", () => {
 
       const tools = agent.resolveTools(config);
 
-      expect(tools).toContain(ToolType.TEXT_GENERATION);
-      expect(tools).toContain(ToolType.EXPORT_DOCX);
-      expect(tools).toContain(ToolType.EXPORT_PDF);
-      expect(tools).toContain(ToolType.TEMPLATE_RENDER);
-      expect(tools).toContain(ToolType.WEB_SEARCH);
+      expect(tools).toContain(BUILTIN_TOOLS.TEXT_GENERATION);
+      expect(tools).toContain(BUILTIN_TOOLS.EXPORT_DOCX);
+      expect(tools).toContain(BUILTIN_TOOLS.EXPORT_PDF);
+      expect(tools).toContain(BUILTIN_TOOLS.TEMPLATE_RENDER);
+      expect(tools).toContain(BUILTIN_TOOLS.WEB_SEARCH);
     });
 
     it("应该为 leader 角色分配协作工具", () => {
@@ -224,12 +227,12 @@ describe("TeamMemberAgent", () => {
 
       const tools = agent.resolveTools(config);
 
-      expect(tools).toContain(ToolType.TEXT_GENERATION);
-      expect(tools).toContain(ToolType.TASK_DELEGATION);
-      expect(tools).toContain(ToolType.AGENT_HANDOFF);
-      expect(tools).toContain(ToolType.CONSENSUS_MECHANISM);
-      expect(tools).toContain(ToolType.WORKFLOW_ORCHESTRATION);
-      expect(tools).toContain(ToolType.HUMAN_APPROVAL);
+      expect(tools).toContain(BUILTIN_TOOLS.TEXT_GENERATION);
+      expect(tools).toContain(BUILTIN_TOOLS.TASK_DELEGATION);
+      expect(tools).toContain(BUILTIN_TOOLS.AGENT_HANDOFF);
+      expect(tools).toContain(BUILTIN_TOOLS.CONSENSUS_MECHANISM);
+      expect(tools).toContain(BUILTIN_TOOLS.WORKFLOW_ORCHESTRATION);
+      expect(tools).toContain(BUILTIN_TOOLS.HUMAN_APPROVAL);
     });
 
     it("应该根据 capabilities 分配额外工具", () => {
@@ -250,17 +253,17 @@ describe("TeamMemberAgent", () => {
       const tools = agent.resolveTools(config);
 
       // CODE_GENERATION capability
-      expect(tools).toContain(ToolType.CODE_GENERATION);
-      expect(tools).toContain(ToolType.PYTHON_EXECUTOR);
-      expect(tools).toContain(ToolType.JAVASCRIPT_EXECUTOR);
+      expect(tools).toContain(BUILTIN_TOOLS.CODE_GENERATION);
+      expect(tools).toContain(BUILTIN_TOOLS.PYTHON_EXECUTOR);
+      expect(tools).toContain(BUILTIN_TOOLS.JAVASCRIPT_EXECUTOR);
 
       // IMAGE_GENERATION capability
-      expect(tools).toContain(ToolType.IMAGE_GENERATION);
-      expect(tools).toContain(ToolType.EXPORT_IMAGE);
+      expect(tools).toContain(BUILTIN_TOOLS.IMAGE_GENERATION);
+      expect(tools).toContain(BUILTIN_TOOLS.EXPORT_IMAGE);
 
       // WEB_SEARCH capability
-      expect(tools).toContain(ToolType.WEB_SEARCH);
-      expect(tools).toContain(ToolType.WEB_SCRAPER);
+      expect(tools).toContain(BUILTIN_TOOLS.WEB_SEARCH);
+      expect(tools).toContain(BUILTIN_TOOLS.WEB_SCRAPER);
     });
 
     it("应该根据 expertiseAreas 推断工具", () => {
@@ -277,16 +280,16 @@ describe("TeamMemberAgent", () => {
       const tools = agent.resolveTools(config);
 
       // 数据分析领域
-      expect(tools).toContain(ToolType.DATA_ANALYSIS);
-      expect(tools).toContain(ToolType.PYTHON_EXECUTOR);
+      expect(tools).toContain(BUILTIN_TOOLS.DATA_ANALYSIS);
+      expect(tools).toContain(BUILTIN_TOOLS.PYTHON_EXECUTOR);
 
       // 编程领域
-      expect(tools).toContain(ToolType.CODE_GENERATION);
+      expect(tools).toContain(BUILTIN_TOOLS.CODE_GENERATION);
 
       // 研究领域
-      expect(tools).toContain(ToolType.WEB_SEARCH);
-      expect(tools).toContain(ToolType.RAG_SEARCH);
-      expect(tools).toContain(ToolType.KNOWLEDGE_GRAPH);
+      expect(tools).toContain(BUILTIN_TOOLS.WEB_SEARCH);
+      expect(tools).toContain(BUILTIN_TOOLS.RAG_SEARCH);
+      expect(tools).toContain(BUILTIN_TOOLS.KNOWLEDGE_GRAPH);
     });
 
     it("应该为 Leader 添加额外的协作工具", () => {
@@ -302,10 +305,10 @@ describe("TeamMemberAgent", () => {
 
       const tools = agent.resolveTools(config);
 
-      expect(tools).toContain(ToolType.TASK_DELEGATION);
-      expect(tools).toContain(ToolType.WORKFLOW_ORCHESTRATION);
-      expect(tools).toContain(ToolType.CONSENSUS_MECHANISM);
-      expect(tools).toContain(ToolType.HUMAN_APPROVAL);
+      expect(tools).toContain(BUILTIN_TOOLS.TASK_DELEGATION);
+      expect(tools).toContain(BUILTIN_TOOLS.WORKFLOW_ORCHESTRATION);
+      expect(tools).toContain(BUILTIN_TOOLS.CONSENSUS_MECHANISM);
+      expect(tools).toContain(BUILTIN_TOOLS.HUMAN_APPROVAL);
     });
 
     it("应该添加自定义工具", () => {
@@ -317,13 +320,16 @@ describe("TeamMemberAgent", () => {
         expertiseAreas: [],
         workStyle: null,
         isLeader: false,
-        customTools: [ToolType.GITHUB_INTEGRATION, ToolType.EMAIL_SENDER],
+        customTools: [
+          BUILTIN_TOOLS.GITHUB_INTEGRATION,
+          BUILTIN_TOOLS.EMAIL_SENDER,
+        ],
       };
 
       const tools = agent.resolveTools(config);
 
-      expect(tools).toContain(ToolType.GITHUB_INTEGRATION);
-      expect(tools).toContain(ToolType.EMAIL_SENDER);
+      expect(tools).toContain(BUILTIN_TOOLS.GITHUB_INTEGRATION);
+      expect(tools).toContain(BUILTIN_TOOLS.EMAIL_SENDER);
     });
 
     it("应该为所有成员添加 SHORT_TERM_MEMORY", () => {
@@ -339,7 +345,7 @@ describe("TeamMemberAgent", () => {
 
       const tools = agent.resolveTools(config);
 
-      expect(tools).toContain(ToolType.SHORT_TERM_MEMORY);
+      expect(tools).toContain(BUILTIN_TOOLS.SHORT_TERM_MEMORY);
     });
 
     it("应该去重工具列表（不重复添加）", () => {
@@ -357,7 +363,7 @@ describe("TeamMemberAgent", () => {
 
       // 统计 WEB_SEARCH 出现次数
       const webSearchCount = tools.filter(
-        (t) => t === ToolType.WEB_SEARCH,
+        (t) => t === BUILTIN_TOOLS.WEB_SEARCH,
       ).length;
 
       expect(webSearchCount).toBe(1); // 应该只出现一次
@@ -437,7 +443,10 @@ describe("TeamMemberAgent", () => {
 
   describe("getToolInstances", () => {
     it("应该返回已注册的工具实例列表", () => {
-      const toolTypes = [ToolType.WEB_SEARCH, ToolType.CODE_GENERATION];
+      const toolTypes = [
+        BUILTIN_TOOLS.WEB_SEARCH,
+        BUILTIN_TOOLS.CODE_GENERATION,
+      ];
 
       const instances = agent.getToolInstances(toolTypes);
 
@@ -448,9 +457,9 @@ describe("TeamMemberAgent", () => {
 
     it("应该跳过未注册的工具并记录警告", () => {
       const toolTypes = [
-        ToolType.WEB_SEARCH,
-        ToolType.IMAGE_GENERATION, // 未注册
-        ToolType.CODE_GENERATION,
+        BUILTIN_TOOLS.WEB_SEARCH,
+        BUILTIN_TOOLS.IMAGE_GENERATION, // 未注册
+        BUILTIN_TOOLS.CODE_GENERATION,
       ];
 
       const instances = agent.getToolInstances(toolTypes);
@@ -482,13 +491,13 @@ describe("TeamMemberAgent", () => {
 
     it("应该成功执行工具", async () => {
       const result = await agent.executeTool(
-        ToolType.WEB_SEARCH,
+        BUILTIN_TOOLS.WEB_SEARCH,
         { query: "test query" },
         context,
       );
 
       expect(result.success).toBe(true);
-      expect(result.toolType).toBe(ToolType.WEB_SEARCH);
+      expect(result.toolType).toBe(BUILTIN_TOOLS.WEB_SEARCH);
       expect(result.output).toEqual({ results: ["Result for: test query"] });
       expect(result.duration).toBeGreaterThanOrEqual(0);
       expect(result.error).toBeUndefined();
@@ -496,13 +505,13 @@ describe("TeamMemberAgent", () => {
 
     it("应该处理工具未找到的情况", async () => {
       const result = await agent.executeTool(
-        ToolType.IMAGE_GENERATION, // 未注册
+        BUILTIN_TOOLS.IMAGE_GENERATION, // 未注册
         { prompt: "test" },
         context,
       );
 
       expect(result.success).toBe(false);
-      expect(result.toolType).toBe(ToolType.IMAGE_GENERATION);
+      expect(result.toolType).toBe(BUILTIN_TOOLS.IMAGE_GENERATION);
       expect(result.error).toContain("Tool not found");
       expect(result.duration).toBeGreaterThanOrEqual(0);
     });
@@ -514,19 +523,19 @@ describe("TeamMemberAgent", () => {
         .mockRejectedValueOnce(new Error("Execution failed"));
 
       const result = await agent.executeTool(
-        ToolType.CODE_GENERATION,
+        BUILTIN_TOOLS.CODE_GENERATION,
         { prompt: "test" },
         context,
       );
 
       expect(result.success).toBe(false);
-      expect(result.toolType).toBe(ToolType.CODE_GENERATION);
+      expect(result.toolType).toBe(BUILTIN_TOOLS.CODE_GENERATION);
       expect(result.error).toBe("Execution failed");
     });
 
     it("应该返回执行时长", async () => {
       const result = await agent.executeTool(
-        ToolType.WEB_SEARCH,
+        BUILTIN_TOOLS.WEB_SEARCH,
         { query: "test" },
         context,
       );
@@ -549,9 +558,12 @@ describe("TeamMemberAgent", () => {
 
     it("应该并行执行多个工具", async () => {
       const executions = [
-        { toolType: ToolType.WEB_SEARCH, input: { query: "query1" } },
-        { toolType: ToolType.CODE_GENERATION, input: { prompt: "prompt1" } },
-        { toolType: ToolType.DATA_ANALYSIS, input: { data: {} } },
+        { toolType: BUILTIN_TOOLS.WEB_SEARCH, input: { query: "query1" } },
+        {
+          toolType: BUILTIN_TOOLS.CODE_GENERATION,
+          input: { prompt: "prompt1" },
+        },
+        { toolType: BUILTIN_TOOLS.DATA_ANALYSIS, input: { data: {} } },
       ];
 
       const results = await agent.executeToolsParallel(executions, context);
@@ -568,8 +580,11 @@ describe("TeamMemberAgent", () => {
         .mockRejectedValueOnce(new Error("Failed"));
 
       const executions = [
-        { toolType: ToolType.WEB_SEARCH, input: { query: "query1" } },
-        { toolType: ToolType.CODE_GENERATION, input: { prompt: "prompt1" } },
+        { toolType: BUILTIN_TOOLS.WEB_SEARCH, input: { query: "query1" } },
+        {
+          toolType: BUILTIN_TOOLS.CODE_GENERATION,
+          input: { prompt: "prompt1" },
+        },
       ];
 
       const results = await agent.executeToolsParallel(executions, context);
@@ -594,15 +609,18 @@ describe("TeamMemberAgent", () => {
 
     it("应该按顺序执行多个工具", async () => {
       const executions = [
-        { toolType: ToolType.WEB_SEARCH, input: { query: "query1" } },
-        { toolType: ToolType.CODE_GENERATION, input: { prompt: "prompt1" } },
+        { toolType: BUILTIN_TOOLS.WEB_SEARCH, input: { query: "query1" } },
+        {
+          toolType: BUILTIN_TOOLS.CODE_GENERATION,
+          input: { prompt: "prompt1" },
+        },
       ];
 
       const results = await agent.executeToolsSequential(executions, context);
 
       expect(results).toHaveLength(2);
-      expect(results[0].toolType).toBe(ToolType.WEB_SEARCH);
-      expect(results[1].toolType).toBe(ToolType.CODE_GENERATION);
+      expect(results[0].toolType).toBe(BUILTIN_TOOLS.WEB_SEARCH);
+      expect(results[1].toolType).toBe(BUILTIN_TOOLS.CODE_GENERATION);
     });
 
     it("失败后应该继续执行剩余工具", async () => {
@@ -611,8 +629,11 @@ describe("TeamMemberAgent", () => {
         .mockRejectedValueOnce(new Error("Failed"));
 
       const executions = [
-        { toolType: ToolType.CODE_GENERATION, input: { prompt: "prompt1" } },
-        { toolType: ToolType.WEB_SEARCH, input: { query: "query1" } },
+        {
+          toolType: BUILTIN_TOOLS.CODE_GENERATION,
+          input: { prompt: "prompt1" },
+        },
+        { toolType: BUILTIN_TOOLS.WEB_SEARCH, input: { query: "query1" } },
       ];
 
       const results = await agent.executeToolsSequential(executions, context);
@@ -629,30 +650,33 @@ describe("TeamMemberAgent", () => {
 
   describe("generateFunctionCallingSchema", () => {
     it("应该生成正确的 Function Calling Schema", () => {
-      const toolTypes = [ToolType.WEB_SEARCH, ToolType.CODE_GENERATION];
+      const toolTypes = [
+        BUILTIN_TOOLS.WEB_SEARCH,
+        BUILTIN_TOOLS.CODE_GENERATION,
+      ];
 
       const schemas = agent.generateFunctionCallingSchema(toolTypes);
 
       expect(schemas).toHaveLength(2);
-      expect(schemas[0].name).toBe(ToolType.WEB_SEARCH);
+      expect(schemas[0].name).toBe(BUILTIN_TOOLS.WEB_SEARCH);
       expect(schemas[0].description).toBe("Mock web search tool");
       expect(schemas[0].parameters).toEqual(mockWebSearch.inputSchema);
 
-      expect(schemas[1].name).toBe(ToolType.CODE_GENERATION);
+      expect(schemas[1].name).toBe(BUILTIN_TOOLS.CODE_GENERATION);
       expect(schemas[1].description).toBe("Mock code generation tool");
       expect(schemas[1].parameters).toEqual(mockCodeGen.inputSchema);
     });
 
     it("应该跳过未注册的工具", () => {
       const toolTypes = [
-        ToolType.WEB_SEARCH,
-        ToolType.IMAGE_GENERATION, // 未注册
+        BUILTIN_TOOLS.WEB_SEARCH,
+        BUILTIN_TOOLS.IMAGE_GENERATION, // 未注册
       ];
 
       const schemas = agent.generateFunctionCallingSchema(toolTypes);
 
       expect(schemas).toHaveLength(1); // 只有已注册的工具
-      expect(schemas[0].name).toBe(ToolType.WEB_SEARCH);
+      expect(schemas[0].name).toBe(BUILTIN_TOOLS.WEB_SEARCH);
     });
   });
 
@@ -662,7 +686,10 @@ describe("TeamMemberAgent", () => {
 
   describe("buildToolsSystemPrompt", () => {
     it("应该生成包含工具描述的提示词", () => {
-      const toolTypes = [ToolType.WEB_SEARCH, ToolType.CODE_GENERATION];
+      const toolTypes = [
+        BUILTIN_TOOLS.WEB_SEARCH,
+        BUILTIN_TOOLS.CODE_GENERATION,
+      ];
 
       const prompt = agent.buildToolsSystemPrompt(toolTypes);
 
@@ -681,8 +708,8 @@ describe("TeamMemberAgent", () => {
 
     it("应该跳过未注册的工具", () => {
       const toolTypes = [
-        ToolType.WEB_SEARCH,
-        ToolType.IMAGE_GENERATION, // 未注册
+        BUILTIN_TOOLS.WEB_SEARCH,
+        BUILTIN_TOOLS.IMAGE_GENERATION, // 未注册
       ];
 
       const prompt = agent.buildToolsSystemPrompt(toolTypes);

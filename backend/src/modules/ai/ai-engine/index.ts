@@ -71,6 +71,33 @@ export {
   AgentErrorCode,
 } from "./core";
 
+// Agent 类型系统
+export {
+  // ID Types
+  AgentId,
+  ToolId,
+  SkillId,
+  // Built-in Constants
+  BUILTIN_AGENTS,
+  BUILTIN_TOOLS,
+  BuiltinAgentId,
+  BuiltinToolId,
+  // Agent Types
+  AgentTaskStatus,
+  ArtifactType,
+  AIModelType,
+  UploadedFile,
+  AgentInput,
+  PlanStep,
+  AgentPlan,
+  AgentTemplate,
+  Artifact,
+  AgentResult,
+  AgentEvent,
+  AgentConfig,
+  AGENT_CONFIGS,
+} from "./core/types/agent.types";
+
 // 子模块命名空间导出
 export * as Core from "./core";
 export * as Tools from "./tools";
@@ -82,6 +109,44 @@ export * as Constraint from "./constraint";
 export * as LLM from "./llm";
 export * as Memory from "./memory";
 export * as MCP from "./mcp";
+export * as Teams from "./teams";
+
+// 常用服务导出（便于直接导入）
+export { ToolRegistry } from "./tools/registry";
+export { FunctionCallingExecutor } from "./orchestration/executors/function-calling-executor";
+export { ShortTermMemoryService } from "./memory/stores/short-term-memory.service";
+export { LongTermMemoryService } from "./memory/stores/long-term-memory.service";
+
+// Teams 模块核心服务
+export {
+  RoleRegistry,
+  TeamRegistry,
+  ConstraintEngine,
+  MissionOrchestrator,
+} from "./teams";
+export {
+  // Team types
+  TeamId,
+  TeamConfig,
+  ITeam,
+  BUILTIN_TEAMS,
+  // Role types
+  RoleId,
+  IRole,
+  BUILTIN_ROLES,
+  // Member types
+  ITeamMember,
+  ILeader,
+  // Mission types
+  MissionInput,
+  MissionResult,
+  MissionEvent,
+  // Constraint types
+  ConstraintProfile,
+  createConstraintProfile,
+  // Predefined teams
+  PREDEFINED_TEAM_CONFIGS,
+} from "./teams";
 
 // NestJS 模块导出
 export {
@@ -93,3 +158,5 @@ export {
   AiEngineCollaborationModule,
   AiEngineConstraintModule,
 } from "./ai-engine.module";
+
+export { TeamsModule } from "./teams";

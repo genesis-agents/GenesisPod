@@ -138,9 +138,9 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
   /**
    * 验证输入（子类可覆盖）
    * @param input 输入参数
-   * @returns 验证结果
+   * @returns 验证结果（ValidationResult 或 boolean）
    */
-  validateInput(_input: TInput): ValidationResult {
+  validateInput(_input: TInput): ValidationResult | boolean {
     // 默认实现：始终通过
     // 子类可以覆盖此方法提供自定义验证
     return { valid: true };

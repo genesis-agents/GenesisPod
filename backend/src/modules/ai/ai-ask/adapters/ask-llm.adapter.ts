@@ -1,7 +1,7 @@
 /**
  * AI Ask LLM Adapter
  * 为 ai-ask 模块提供 LLM 适配层，支持 Function Calling
- * 封装 AiChatService 以兼容 ai-agents 的 ILLMAdapter 接口
+ * 封装 AiChatService 以兼容 ai-engine 的 ILLMAdapter 接口
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -11,12 +11,10 @@ import {
   LLMMessage,
   LLMRequestOptions,
   LLMResponse,
-  LLMProvider,
-} from "../../ai-agents/core/llm/llm-adapter";
-import {
-  FunctionDefinition,
   ToolCallRequest,
-} from "../../ai-agents/core/tool/tool.interface";
+} from "../../ai-engine/orchestration/executors/function-calling-executor";
+import { LLMProvider } from "../../ai-engine/llm/abstractions/llm-adapter.interface";
+import { FunctionDefinition } from "../../ai-engine/tools/abstractions/tool.interface";
 
 /**
  * 模型配置

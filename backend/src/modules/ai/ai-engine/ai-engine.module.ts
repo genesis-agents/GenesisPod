@@ -15,17 +15,26 @@
  */
 
 import { Module, Global, OnModuleInit, Logger } from "@nestjs/common";
+import { PrismaModule } from "../../../common/prisma/prisma.module";
 
 // Registries
 import { ToolRegistry } from "./tools/registry/tool-registry";
 import { SkillRegistry } from "./skills/registry/skill-registry";
-import { AgentRegistry } from "./agents/registry/agent-registry";
+import { AgentRegistry, AgentOrchestrator } from "./agents/registry";
+
+// Agents API Layer
+import { AgentsController, AgentsService } from "./agents/api";
 
 // Orchestration
 import { SequentialExecutor } from "./orchestration/executors/sequential-executor";
 import { DAGExecutor } from "./orchestration/executors/dag-executor";
 import { ParallelExecutor } from "./orchestration/executors/parallel-executor";
 import { CheckpointManager } from "./orchestration/checkpoints/checkpoint-manager";
+import { FunctionCallingExecutor } from "./orchestration/executors/function-calling-executor";
+
+// Memory Services
+import { ShortTermMemoryService } from "./memory/stores/short-term-memory.service";
+import { LongTermMemoryService } from "./memory/stores/long-term-memory.service";
 
 // Tool Middleware
 import { ToolPipeline, ToolExecutor } from "./tools/middleware/tool-pipeline";
@@ -135,11 +144,15 @@ const parallelExecutorFactory = {
  */
 @Global()
 @Module({
+  imports: [PrismaModule],
+  controllers: [AgentsController],
   providers: [
     // === Registries ===
     ToolRegistry,
     SkillRegistry,
     AgentRegistry,
+    AgentOrchestrator,
+    AgentsService,
 
     // === Tool System ===
     toolPipelineFactory,
@@ -150,6 +163,7 @@ const parallelExecutorFactory = {
     dagExecutorFactory,
     parallelExecutorFactory,
     CheckpointManager,
+    FunctionCallingExecutor,
 
     // === Collaboration ===
     VotingManager,
@@ -167,6 +181,8 @@ const parallelExecutorFactory = {
     // === Memory ===
     InMemoryStore,
     ConversationMemory,
+    ShortTermMemoryService,
+    LongTermMemoryService,
 
     // === MCP ===
     MCPManager,
@@ -176,6 +192,8 @@ const parallelExecutorFactory = {
     ToolRegistry,
     SkillRegistry,
     AgentRegistry,
+    AgentOrchestrator,
+    AgentsService,
 
     // === Tool System ===
     ToolPipeline,
@@ -186,6 +204,7 @@ const parallelExecutorFactory = {
     DAGExecutor,
     ParallelExecutor,
     CheckpointManager,
+    FunctionCallingExecutor,
 
     // === Collaboration ===
     VotingManager,
@@ -203,6 +222,8 @@ const parallelExecutorFactory = {
     // === Memory ===
     InMemoryStore,
     ConversationMemory,
+    ShortTermMemoryService,
+    LongTermMemoryService,
 
     // === MCP ===
     MCPManager,

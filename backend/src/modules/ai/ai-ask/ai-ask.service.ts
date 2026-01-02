@@ -7,7 +7,13 @@ import {
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AiChatService } from "../ai-core/ai-chat.service";
 import { AIModelType } from "@prisma/client";
-import { AgentOrchestrator, ToolType, ToolRegistry } from "../ai-agents/core";
+import {
+  FunctionCallingExecutor,
+  ExecutionConfig,
+} from "../ai-engine/orchestration/executors/function-calling-executor";
+import { BUILTIN_TOOLS, BuiltinToolId } from "../ai-engine/core";
+import { ToolRegistry } from "../ai-engine/tools/registry";
+import { ToolContext } from "../ai-engine/tools/abstractions/tool.interface";
 import { AskLLMAdapter } from "./adapters";
 import { RAGPipelineService } from "../rag/services/rag-pipeline.service";
 import { CreditsService } from "../../credits/credits.service";
@@ -41,10 +47,10 @@ interface MessageWithContext {
 /**
  * AI Ask 可用工具列表
  */
-const AI_ASK_TOOLS: ToolType[] = [
-  ToolType.TEXT_GENERATION,
-  ToolType.WEB_SEARCH,
-  ToolType.SHORT_TERM_MEMORY,
+const AI_ASK_TOOLS: BuiltinToolId[] = [
+  BUILTIN_TOOLS.TEXT_GENERATION,
+  BUILTIN_TOOLS.WEB_SEARCH,
+  BUILTIN_TOOLS.SHORT_TERM_MEMORY,
 ];
 
 @Injectable()
@@ -55,7 +61,8 @@ export class AiAskService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiChatService: AiChatService,
-    @Optional() private readonly agentOrchestrator: AgentOrchestrator,
+    @Optional()
+    private readonly functionCallingExecutor: FunctionCallingExecutor,
     @Optional() private readonly askLLMAdapter: AskLLMAdapter,
     @Optional() private readonly toolRegistry: ToolRegistry,
     @Optional() private readonly ragPipelineService: RAGPipelineService,
@@ -67,7 +74,7 @@ export class AiAskService {
    */
   private isToolCapabilityAvailable(): boolean {
     return !!(
-      this.agentOrchestrator &&
+      this.functionCallingExecutor &&
       this.askLLMAdapter &&
       this.toolRegistry
     );
@@ -76,7 +83,7 @@ export class AiAskService {
   /**
    * 获取可用工具列表
    */
-  getAvailableTools(): ToolType[] {
+  getAvailableTools(): BuiltinToolId[] {
     if (!this.isToolCapabilityAvailable()) {
       return [];
     }
@@ -346,22 +353,30 @@ export class AiAskService {
           ragContext,
         );
 
+        // 构建工具执行上下文
+        const toolContext: ToolContext = {
+          executionId: sessionId,
+          toolId: "ai-ask",
+          createdAt: new Date(),
+          timeout: 60000,
+        };
+
+        // 执行配置
+        const executionConfig: Partial<ExecutionConfig> = {
+          maxIterations: 5,
+          maxToolCalls: 10,
+          temperature: 0.7,
+          maxTokens: 4000,
+        };
+
         // 执行自主模式
-        const events = this.agentOrchestrator.executeAutonomous(
+        const events = this.functionCallingExecutor.execute(
           this.askLLMAdapter,
-          {
-            systemPrompt,
-            userPrompt: dto.content,
-            tools: this.getAvailableTools(),
-            userId,
-            taskId: sessionId,
-            config: {
-              maxIterations: 5,
-              maxToolCalls: 10,
-              temperature: 0.7,
-              maxTokens: 4000,
-            },
-          },
+          systemPrompt,
+          dto.content,
+          this.getAvailableTools(),
+          toolContext,
+          executionConfig,
         );
 
         // 收集执行结果

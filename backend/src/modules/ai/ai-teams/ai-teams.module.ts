@@ -1,14 +1,14 @@
-import { Module, forwardRef } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 import {
   AiTeamsController,
   UsersController,
   BookmarksController,
 } from "./ai-teams.controller";
+import { CustomTeamsController } from "./controllers/custom-teams.controller";
 import { AiTeamsService } from "./ai-teams.service";
 import { AiTeamsGateway } from "./ai-teams.gateway";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiCoreModule } from "../ai-core/ai-core.module";
-import { AiAgentsModule } from "../ai-agents/ai-agents.module";
 import { AiEngineModule } from "../ai-engine";
 import { CreditsModule } from "../../credits/credits.module";
 import { TeamMemberAgent, TeamsLLMAdapter } from "./agents";
@@ -28,14 +28,13 @@ import {
 } from "./services";
 
 @Module({
-  imports: [
-    PrismaModule,
-    AiCoreModule,
-    AiEngineModule,
-    forwardRef(() => AiAgentsModule),
-    CreditsModule,
+  imports: [PrismaModule, AiCoreModule, AiEngineModule, CreditsModule],
+  controllers: [
+    AiTeamsController,
+    UsersController,
+    BookmarksController,
+    CustomTeamsController,
   ],
-  controllers: [AiTeamsController, UsersController, BookmarksController],
   providers: [
     AiTeamsService,
     AiTeamsGateway,
@@ -52,7 +51,7 @@ import {
     TeamsLLMAdapter,
     TeamCollaborationService,
     TopicEventEmitterService,
-    // ai-agents 整合服务
+    // ai-engine 整合服务
     AiTeamsIntegrationService,
   ],
   exports: [
@@ -69,7 +68,7 @@ import {
     TeamMemberAgent,
     TeamsLLMAdapter,
     TeamCollaborationService,
-    // ai-agents 整合服务
+    // ai-engine 整合服务
     AiTeamsIntegrationService,
   ],
 })

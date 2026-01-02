@@ -20,9 +20,19 @@ export interface ToolContext {
   toolId: string;
 
   /**
+   * 任务 ID（向后兼容）
+   */
+  taskId?: string;
+
+  /**
    * 用户 ID
    */
   userId?: string;
+
+  /**
+   * 工作区 ID
+   */
+  workspaceId?: string;
 
   /**
    * 会话 ID
@@ -262,6 +272,8 @@ export interface JSONSchema {
   maximum?: number;
   minLength?: number;
   maxLength?: number;
+  minItems?: number;
+  maxItems?: number;
   pattern?: string;
   format?: string;
   additionalProperties?: boolean | JSONSchema;
@@ -359,8 +371,9 @@ export interface ITool<TInput = unknown, TOutput = unknown> {
 
   /**
    * 验证输入
+   * 可以返回 ValidationResult 或 boolean（向后兼容）
    */
-  validateInput?(input: TInput): ValidationResult;
+  validateInput?(input: TInput): ValidationResult | boolean;
 
   /**
    * 转换为 Function Calling 格式

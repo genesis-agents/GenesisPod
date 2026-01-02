@@ -8,15 +8,13 @@
 import { Injectable, Logger } from "@nestjs/common";
 import {
   ILLMAdapter,
-  LLMProvider,
   LLMMessage,
   LLMRequestOptions,
   LLMResponse,
-} from "../../ai-agents/core/llm/llm-adapter";
-import {
-  FunctionDefinition,
   ToolCallRequest,
-} from "../../ai-agents/core/tool/tool.interface";
+} from "../../ai-engine/orchestration/executors/function-calling-executor";
+import { LLMProvider } from "../../ai-engine/llm/abstractions/llm-adapter.interface";
+import { FunctionDefinition } from "../../ai-engine/tools/abstractions/tool.interface";
 import { AiChatService, ChatMessage } from "../../ai-core/ai-chat.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 

@@ -1,4 +1,6 @@
 /**
- * AI Engine - Agents Registry
+ * Agent Registry Module
  */
-export * from './agent-registry';
+
+export { AgentRegistry, AgentRegistryStats } from "./agent-registry";
+export { AgentOrchestrator, AgentStatusReport } from "./agent-orchestrator";

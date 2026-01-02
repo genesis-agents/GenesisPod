@@ -3,8 +3,8 @@
  * Plan-Based 模式 Agent 实现
  */
 
-import { ExecutionMode } from '../../core';
-import { AgentError } from '../../core/errors';
+import { ExecutionMode } from "../../core";
+import { AgentError } from "../../core/errors";
 import {
   AgentContext,
   AgentInput,
@@ -12,9 +12,9 @@ import {
   AgentEvent,
   AgentResult,
   ExecutionPlan,
-  PlanStep,
-} from '../abstractions/agent.interface';
-import { BaseAgent } from './base-agent';
+  ReActPlanStep,
+} from "../abstractions/agent.interface";
+import { BaseAgent } from "./base-agent";
 
 /**
  * Plan Agent 配置
@@ -33,7 +33,7 @@ export interface PlanAgentConfig {
   /**
    * 步骤失败时的策略
    */
-  onStepFailure?: 'abort' | 'skip' | 'replan';
+  onStepFailure?: "abort" | "skip" | "replan";
 
   /**
    * 是否启用检查点
@@ -63,7 +63,7 @@ export abstract class PlanAgent<
   /**
    * 支持的执行模式
    */
-  readonly supportedModes: ExecutionMode[] = ['plan-based'];
+  readonly supportedModes: ExecutionMode[] = ["plan-based"];
 
   /**
    * 配置
@@ -76,7 +76,7 @@ export abstract class PlanAgent<
   private static readonly DEFAULT_CONFIG: PlanAgentConfig = {
     allowReplan: true,
     maxReplans: 3,
-    onStepFailure: 'replan',
+    onStepFailure: "replan",
     enableCheckpoints: true,
   };
 
@@ -145,7 +145,7 @@ export abstract class PlanAgent<
         input,
         context,
         currentPlan,
-        failedStep || '',
+        failedStep || "",
         allResults,
       );
     }
@@ -164,12 +164,12 @@ export abstract class PlanAgent<
     context: AgentContext,
   ): AsyncGenerator<AgentEvent, AgentResult<TOutput>> {
     const startTime = new Date();
-    const executionId = context.executionId || '';
+    const executionId = context.executionId || "";
     let replanCount = 0;
 
     // 发送开始事件
     yield {
-      type: 'started',
+      type: "started",
       agentId: this.id,
       executionId,
       timestamp: new Date(),
@@ -178,11 +178,11 @@ export abstract class PlanAgent<
     try {
       // 生成计划
       yield {
-        type: 'thinking',
+        type: "thinking",
         agentId: this.id,
         executionId,
         timestamp: new Date(),
-        data: { phase: 'planning' },
+        data: { phase: "planning" },
       };
 
       let currentPlan = await this.plan(input, context);
@@ -196,12 +196,12 @@ export abstract class PlanAgent<
         // 执行每个步骤
         for (const step of currentPlan.steps) {
           yield {
-            type: 'thinking',
+            type: "thinking",
             agentId: this.id,
             executionId,
             timestamp: new Date(),
             data: {
-              phase: 'executing',
+              phase: "executing",
               step: step.id,
               description: step.description,
             },
@@ -212,7 +212,7 @@ export abstract class PlanAgent<
 
           if (result.success) {
             yield {
-              type: step.type === 'tool' ? 'tool_result' : 'skill_result',
+              type: step.type === "tool" ? "tool_result" : "skill_result",
               agentId: this.id,
               executionId,
               timestamp: new Date(),
@@ -223,14 +223,14 @@ export abstract class PlanAgent<
             };
           } else {
             // 步骤失败
-            if (this.config.onStepFailure === 'abort') {
+            if (this.config.onStepFailure === "abort") {
               throw AgentError.executionFailed(
                 this.id,
                 `Step ${step.id} failed: ${result.error}`,
               );
             }
 
-            if (this.config.onStepFailure === 'replan') {
+            if (this.config.onStepFailure === "replan") {
               replanCount++;
               if (replanCount > (this.config.maxReplans || 3)) {
                 throw AgentError.executionFailed(
@@ -267,7 +267,7 @@ export abstract class PlanAgent<
         };
 
         yield {
-          type: 'completed',
+          type: "completed",
           agentId: this.id,
           executionId,
           timestamp: new Date(),
@@ -277,15 +277,12 @@ export abstract class PlanAgent<
         return result;
       }
 
-      throw AgentError.executionFailed(
-        this.id,
-        `Exceeded max replan attempts`,
-      );
+      throw AgentError.executionFailed(this.id, `Exceeded max replan attempts`);
     } catch (error) {
       const agentError = AgentError.fromError(error, this.id);
 
       yield {
-        type: 'error',
+        type: "error",
         agentId: this.id,
         executionId,
         timestamp: new Date(),
@@ -340,10 +337,10 @@ export abstract class PlanAgent<
       results.push(result);
 
       if (!result.success) {
-        if (this.config.onStepFailure === 'abort') {
+        if (this.config.onStepFailure === "abort") {
           return { results, needReplan: false, failedStep: step.id };
         }
-        if (this.config.onStepFailure === 'replan') {
+        if (this.config.onStepFailure === "replan") {
           return { results, needReplan: true, failedStep: step.id };
         }
         // skip: 继续执行
@@ -357,7 +354,7 @@ export abstract class PlanAgent<
    * 执行单个步骤
    */
   private async executeStep(
-    step: PlanStep,
+    step: ReActPlanStep,
     context: AgentContext,
   ): Promise<StepResult> {
     const startTime = Date.now();
@@ -366,7 +363,7 @@ export abstract class PlanAgent<
       let output: unknown;
 
       switch (step.type) {
-        case 'tool':
+        case "tool":
           const toolResult = await this.callTool(
             step.executor,
             step.input,
@@ -375,7 +372,7 @@ export abstract class PlanAgent<
           output = toolResult.data;
           break;
 
-        case 'skill':
+        case "skill":
           const skillResult = await this.callSkill(
             step.executor,
             step.input,
@@ -384,21 +381,21 @@ export abstract class PlanAgent<
           output = skillResult.data;
           break;
 
-        case 'agent':
+        case "agent":
           // TODO: 支持调用其他 Agent
-          throw new Error('Agent step not implemented');
+          throw new Error("Agent step not implemented");
 
-        case 'decision':
+        case "decision":
           // 决策步骤由子类实现
           output = await this.executeDecision(step, context);
           break;
 
-        case 'wait':
+        case "wait":
           await this.wait(step.input as number);
           output = { waited: step.input };
           break;
 
-        case 'parallel':
+        case "parallel":
           // 并行执行子步骤
           output = await this.executeParallel(step, context);
           break;
@@ -442,7 +439,7 @@ export abstract class PlanAgent<
    * 执行决策步骤
    */
   protected async executeDecision(
-    step: PlanStep,
+    step: ReActPlanStep,
     _context: AgentContext,
   ): Promise<unknown> {
     // 默认实现：返回条件评估结果
@@ -454,7 +451,7 @@ export abstract class PlanAgent<
    * 并行执行
    */
   private async executeParallel(
-    _step: PlanStep,
+    _step: ReActPlanStep,
     _context: AgentContext,
   ): Promise<unknown[]> {
     // TODO: 实现并行执行逻辑

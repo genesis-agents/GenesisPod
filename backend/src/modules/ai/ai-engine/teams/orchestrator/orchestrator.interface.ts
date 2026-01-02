@@ -1,0 +1,346 @@
+/**
+ * AI Engine - Mission Orchestrator Interface
+ * 任务编排器接口定义
+ *
+ * 核心流程：Mission Input → Parse → Plan → Execute → Review → Deliver
+ */
+
+import { ITeam } from "../abstractions/team.interface";
+import {
+  MissionInput,
+  MissionResult,
+  MissionEvent,
+  ParsedIntent,
+  MissionDeliverable,
+} from "../abstractions/mission.interface";
+import { ConstraintProfile, ResourceUsage } from "../constraints";
+import { WorkflowExecutionState } from "../abstractions/workflow.interface";
+
+// ==================== 执行计划 ====================
+
+/**
+ * Mission 执行计划
+ */
+export interface MissionExecutionPlan {
+  /** 计划 ID */
+  id: string;
+
+  /** Mission ID */
+  missionId: string;
+
+  /** 解析后的意图 */
+  parsedIntent: ParsedIntent;
+
+  /** 计划步骤 */
+  steps: ExecutionStep[];
+
+  /** 预估成本 */
+  estimatedCost: number;
+
+  /** 预估时间（毫秒） */
+  estimatedDuration: number;
+
+  /** 创建时间 */
+  createdAt: Date;
+
+  /** 元数据 */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * 执行步骤
+ */
+export interface ExecutionStep {
+  /** 步骤 ID */
+  id: string;
+
+  /** 步骤名称 */
+  name: string;
+
+  /** 步骤描述 */
+  description: string;
+
+  /** 执行者（成员 ID 或角色 ID） */
+  executor: string;
+
+  /** 步骤类型 */
+  type: "task" | "review" | "integration" | "delivery";
+
+  /** 依赖的步骤 ID */
+  dependencies: string[];
+
+  /** 预估耗时（毫秒） */
+  estimatedDuration: number;
+
+  /** 预估成本 */
+  estimatedCost: number;
+
+  /** 输入参数 */
+  input?: Record<string, unknown>;
+}
+
+// ==================== 执行状态 ====================
+
+/**
+ * Mission 执行状态
+ */
+export interface MissionExecutionState {
+  /** Mission ID */
+  missionId: string;
+
+  /** 当前阶段 */
+  phase: OrchestratorPhase;
+
+  /** 工作流状态 */
+  workflowState?: WorkflowExecutionState;
+
+  /** 资源使用情况 */
+  resourceUsage: ResourceUsage;
+
+  /** 已完成的步骤 */
+  completedSteps: string[];
+
+  /** 当前执行的步骤 */
+  currentSteps: string[];
+
+  /** 失败的步骤 */
+  failedSteps: string[];
+
+  /** 审核结果 */
+  reviewResults: StepReviewResult[];
+
+  /** 中间产出物 */
+  intermediateOutputs: Map<string, unknown>;
+
+  /** 最终交付物 */
+  deliverables: MissionDeliverable[];
+}
+
+/**
+ * 编排器阶段
+ */
+export type OrchestratorPhase =
+  | "idle"
+  | "parsing"
+  | "planning"
+  | "executing"
+  | "reviewing"
+  | "delivering"
+  | "completed"
+  | "failed";
+
+/**
+ * 步骤审核结果
+ */
+export interface StepReviewResult {
+  stepId: string;
+  passed: boolean;
+  score: number;
+  feedback: string;
+  reviewedAt: Date;
+}
+
+// ==================== 编排器配置 ====================
+
+/**
+ * 编排器配置
+ */
+export interface OrchestratorConfig {
+  /** 是否启用自动重试 */
+  enableAutoRetry: boolean;
+
+  /** 最大重试次数 */
+  maxRetries: number;
+
+  /** 是否启用并行执行 */
+  enableParallel: boolean;
+
+  /** 审核策略 */
+  reviewStrategy: "all" | "critical" | "sample" | "none";
+
+  /** 事件缓冲大小 */
+  eventBufferSize: number;
+
+  /** 检查点间隔（毫秒） */
+  checkpointInterval: number;
+}
+
+/**
+ * 默认编排器配置
+ */
+export const DEFAULT_ORCHESTRATOR_CONFIG: OrchestratorConfig = {
+  enableAutoRetry: true,
+  maxRetries: 3,
+  enableParallel: true,
+  reviewStrategy: "critical",
+  eventBufferSize: 100,
+  checkpointInterval: 30000,
+};
+
+// ==================== 编排器接口 ====================
+
+/**
+ * Mission 编排器接口
+ */
+export interface IMissionOrchestrator {
+  /**
+   * 执行 Mission（完整流程）
+   */
+  execute(
+    input: MissionInput,
+    team: ITeam,
+    constraints?: Partial<ConstraintProfile>,
+  ): AsyncGenerator<MissionEvent, MissionResult>;
+
+  /**
+   * 解析 Mission 意图
+   */
+  parse(input: MissionInput): Promise<ParsedIntent>;
+
+  /**
+   * 生成执行计划
+   */
+  plan(
+    intent: ParsedIntent,
+    team: ITeam,
+    constraints: ConstraintProfile,
+  ): Promise<MissionExecutionPlan>;
+
+  /**
+   * 执行计划
+   */
+  executePlan(
+    plan: MissionExecutionPlan,
+    team: ITeam,
+    constraints: ConstraintProfile,
+  ): AsyncGenerator<MissionEvent, MissionExecutionState>;
+
+  /**
+   * 审核步骤输出
+   */
+  review(
+    stepId: string,
+    output: unknown,
+    team: ITeam,
+  ): Promise<StepReviewResult>;
+
+  /**
+   * 生成交付物
+   */
+  deliver(
+    state: MissionExecutionState,
+    team: ITeam,
+  ): Promise<MissionDeliverable[]>;
+
+  /**
+   * 取消执行
+   */
+  cancel(missionId: string): Promise<void>;
+
+  /**
+   * 获取执行状态
+   */
+  getState(missionId: string): MissionExecutionState | undefined;
+
+  /**
+   * 获取资源使用情况
+   */
+  getResourceUsage(missionId: string): ResourceUsage | undefined;
+}
+
+// ==================== 解析器接口 ====================
+
+/**
+ * 意图解析器接口
+ */
+export interface IIntentParser {
+  /**
+   * 解析 Mission 输入
+   */
+  parse(input: MissionInput): Promise<ParsedIntent>;
+}
+
+// ==================== 计划器接口 ====================
+
+/**
+ * 执行计划器接口
+ */
+export interface IExecutionPlanner {
+  /**
+   * 生成执行计划
+   */
+  plan(
+    intent: ParsedIntent,
+    team: ITeam,
+    constraints: ConstraintProfile,
+  ): Promise<MissionExecutionPlan>;
+
+  /**
+   * 优化执行计划
+   */
+  optimize(
+    plan: MissionExecutionPlan,
+    constraints: ConstraintProfile,
+  ): Promise<MissionExecutionPlan>;
+}
+
+// ==================== 审核器接口 ====================
+
+/**
+ * 输出审核器接口
+ */
+export interface IOutputReviewer {
+  /**
+   * 审核步骤输出
+   */
+  review(
+    stepId: string,
+    output: unknown,
+    criteria: ReviewCriteria,
+  ): Promise<StepReviewResult>;
+
+  /**
+   * 批量审核
+   */
+  reviewBatch(
+    items: Array<{ stepId: string; output: unknown }>,
+    criteria: ReviewCriteria,
+  ): Promise<StepReviewResult[]>;
+}
+
+/**
+ * 审核标准
+ */
+export interface ReviewCriteria {
+  /** 最低分数 */
+  minScore: number;
+
+  /** 必须检查项 */
+  requiredChecks: string[];
+
+  /** 可选检查项 */
+  optionalChecks?: string[];
+
+  /** 严格模式 */
+  strictMode: boolean;
+}
+
+// ==================== 交付器接口 ====================
+
+/**
+ * 交付物生成器接口
+ */
+export interface IDeliveryGenerator {
+  /**
+   * 生成交付物
+   */
+  generate(
+    outputs: Map<string, unknown>,
+    deliverableTypes: string[],
+  ): Promise<MissionDeliverable[]>;
+
+  /**
+   * 整合多个输出
+   */
+  integrate(outputs: unknown[], format: string): Promise<unknown>;
+}

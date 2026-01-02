@@ -1,242 +1,134 @@
 /**
  * AI Engine - Agent Registry
- * Agent 注册表实现
+ * Agent 注册中心
  */
 
-import { Injectable } from '@nestjs/common';
-import { BaseRegistry, IRegistry, RegistryStats } from '../../core/interfaces';
-import { ExecutionMode } from '../../core';
-import {
-  IAgent,
-  AgentDefinition,
-  AgentCapability,
-} from '../abstractions/agent.interface';
+import { Injectable, Logger } from "@nestjs/common";
+import { AgentId, AgentConfig } from "../../core/types/agent.types";
+import { IPlanBasedAgent } from "../base/plan-based-agent";
 
 /**
- * Agent 注册表
+ * Agent 注册表统计信息
+ */
+export interface AgentRegistryStats {
+  total: number;
+  byId: Record<string, { executions: number; errors: number }>;
+}
+
+/**
+ * Agent 注册中心
+ * 管理所有已注册的 Agent 实例
  */
 @Injectable()
-export class AgentRegistry extends BaseRegistry<IAgent> implements IRegistry<IAgent> {
-  private readonly byMode = new Map<string, Set<string>>();
-  private readonly byCapability = new Map<string, Set<string>>();
-  private readonly factories = new Map<string, () => IAgent>();
+export class AgentRegistry {
+  private readonly logger = new Logger(AgentRegistry.name);
+  private readonly agents = new Map<AgentId, IPlanBasedAgent>();
+  private readonly stats: AgentRegistryStats = {
+    total: 0,
+    byId: {},
+  };
 
   /**
    * 注册 Agent
    */
-  override register(agent: IAgent): void {
-    super.register(agent);
-
-    // 索引执行模式
-    for (const mode of agent.supportedModes) {
-      if (!this.byMode.has(mode)) {
-        this.byMode.set(mode, new Set());
-      }
-      this.byMode.get(mode)!.add(agent.id);
+  register(agent: IPlanBasedAgent): void {
+    if (this.agents.has(agent.id)) {
+      this.logger.warn(`Agent ${agent.id} already registered, overwriting`);
     }
 
-    // 索引能力
-    for (const capability of agent.capabilities) {
-      if (!this.byCapability.has(capability.id)) {
-        this.byCapability.set(capability.id, new Set());
-      }
-      this.byCapability.get(capability.id)!.add(agent.id);
-    }
+    this.agents.set(agent.id, agent);
+    this.stats.total = this.agents.size;
+    this.stats.byId[agent.id] = { executions: 0, errors: 0 };
+
+    this.logger.log(`Agent registered: ${agent.id} (${agent.name})`);
   }
 
   /**
-   * 注册 Agent 定义
+   * 检查是否已注册
    */
-  registerDefinition<TInput, TOutput>(
-    definition: AgentDefinition<TInput, TOutput>,
-  ): void {
-    if (definition.factory) {
-      this.factories.set(definition.id, definition.factory as () => IAgent);
-    }
+  has(agentId: AgentId): boolean {
+    return this.agents.has(agentId);
   }
 
   /**
-   * 注销 Agent
+   * 获取 Agent
    */
-  override unregister(id: string): boolean {
-    const agent = this.tryGet(id);
+  get(agentId: AgentId): IPlanBasedAgent {
+    const agent = this.agents.get(agentId);
     if (!agent) {
-      return false;
+      throw new Error(`Agent not found: ${agentId}`);
     }
-
-    // 清理模式索引
-    for (const mode of agent.supportedModes) {
-      this.byMode.get(mode)?.delete(id);
-    }
-
-    // 清理能力索引
-    for (const capability of agent.capabilities) {
-      this.byCapability.get(capability.id)?.delete(id);
-    }
-
-    return super.unregister(id);
+    return agent;
   }
 
   /**
-   * 按执行模式获取 Agent
+   * 尝试获取 Agent（不抛出异常）
    */
-  getByMode(mode: ExecutionMode): IAgent[] {
-    const ids = this.byMode.get(mode);
-    if (!ids) return [];
-    return Array.from(ids)
-      .map((id) => this.tryGet(id))
-      .filter((a): a is IAgent => a !== undefined);
+  tryGet(agentId: AgentId): IPlanBasedAgent | undefined {
+    return this.agents.get(agentId);
   }
 
   /**
-   * 按能力获取 Agent
+   * 获取已注册的 Agent 数量
    */
-  getByCapability(capabilityId: string): IAgent[] {
-    const ids = this.byCapability.get(capabilityId);
-    if (!ids) return [];
-    return Array.from(ids)
-      .map((id) => this.tryGet(id))
-      .filter((a): a is IAgent => a !== undefined);
+  size(): number {
+    return this.agents.size;
   }
 
   /**
-   * 获取支持特定能力集的 Agent
+   * 获取所有已注册的 Agent
    */
-  getByCapabilities(capabilityIds: string[]): IAgent[] {
-    const agents = this.getAll();
-    return agents.filter((agent) => {
-      const agentCapabilityIds = agent.capabilities.map((c) => c.id);
-      return capabilityIds.every((id) => agentCapabilityIds.includes(id));
-    });
+  getAll(): IPlanBasedAgent[] {
+    return Array.from(this.agents.values());
   }
 
   /**
-   * 获取所有支持的执行模式
+   * 获取所有 Agent ID
    */
-  getModes(): ExecutionMode[] {
-    return Array.from(this.byMode.keys()) as ExecutionMode[];
+  getAllIds(): AgentId[] {
+    return Array.from(this.agents.keys());
   }
 
   /**
-   * 获取所有能力
+   * 获取所有 Agent 配置
    */
-  getCapabilities(): AgentCapability[] {
-    const capabilities: AgentCapability[] = [];
-    const seen = new Set<string>();
+  getAllConfigs(): AgentConfig[] {
+    return this.getAll().map((agent) => agent.getConfig());
+  }
 
-    for (const agent of this.getAll()) {
-      for (const capability of agent.capabilities) {
-        if (!seen.has(capability.id)) {
-          capabilities.push(capability);
-          seen.add(capability.id);
-        }
-      }
-    }
-
-    return capabilities;
+  /**
+   * 获取 Agent 配置
+   */
+  getConfig(agentId: AgentId): AgentConfig | undefined {
+    const agent = this.agents.get(agentId);
+    return agent?.getConfig();
   }
 
   /**
    * 获取统计信息
    */
-  override getStats(): AgentRegistryStats {
-    const baseStats = super.getStats();
-    const byMode: Record<string, number> = {};
-    const byCapability: Record<string, number> = {};
-
-    for (const [mode, ids] of this.byMode.entries()) {
-      byMode[mode] = ids.size;
-    }
-    for (const [cap, ids] of this.byCapability.entries()) {
-      byCapability[cap] = ids.size;
-    }
-
-    return {
-      ...baseStats,
-      byMode,
-      byCapability,
-    };
+  getStats(): AgentRegistryStats {
+    return { ...this.stats };
   }
 
   /**
-   * 搜索 Agent
+   * 记录执行
    */
-  search(query: AgentSearchQuery): IAgent[] {
-    let results = this.getAll();
-
-    if (query.keyword) {
-      const keyword = query.keyword.toLowerCase();
-      results = results.filter(
-        (agent) =>
-          agent.id.toLowerCase().includes(keyword) ||
-          agent.name.toLowerCase().includes(keyword) ||
-          agent.description.toLowerCase().includes(keyword),
-      );
+  recordExecution(agentId: AgentId, success: boolean): void {
+    if (this.stats.byId[agentId]) {
+      this.stats.byId[agentId].executions++;
+      if (!success) {
+        this.stats.byId[agentId].errors++;
+      }
     }
-
-    if (query.mode) {
-      results = results.filter((agent) =>
-        agent.supportedModes.includes(query.mode!),
-      );
-    }
-
-    if (query.capabilities && query.capabilities.length > 0) {
-      results = results.filter((agent) => {
-        const agentCapabilityIds = agent.capabilities.map((c) => c.id);
-        return query.capabilities!.some((id) => agentCapabilityIds.includes(id));
-      });
-    }
-
-    if (query.requiredTools && query.requiredTools.length > 0) {
-      results = results.filter((agent) => {
-        if (!agent.requiredTools) return false;
-        return query.requiredTools!.every((tool) =>
-          agent.requiredTools!.includes(tool),
-        );
-      });
-    }
-
-    return results;
   }
 
   /**
-   * 根据意图路由到合适的 Agent
+   * 清空注册表
    */
-  routeByIntent(intent: string, _context?: Record<string, unknown>): IAgent | null {
-    // 简单的基于关键词的路由
-    // 实际使用中应该使用更复杂的意图分类
-    const keyword = intent.toLowerCase();
-    const agents = this.getAll();
-
-    // 优先匹配 ID
-    const exactMatch = agents.find((a) => a.id === keyword);
-    if (exactMatch) return exactMatch;
-
-    // 匹配名称或描述
-    const partialMatch = agents.find(
-      (a) =>
-        a.name.toLowerCase().includes(keyword) ||
-        a.description.toLowerCase().includes(keyword),
-    );
-
-    return partialMatch || null;
+  clear(): void {
+    this.agents.clear();
+    this.stats.total = 0;
+    this.stats.byId = {};
   }
-}
-
-/**
- * Agent 注册表统计
- */
-export interface AgentRegistryStats extends RegistryStats {
-  byMode: Record<string, number>;
-  byCapability: Record<string, number>;
-}
-
-/**
- * Agent 搜索查询
- */
-export interface AgentSearchQuery {
-  keyword?: string;
-  mode?: ExecutionMode;
-  capabilities?: string[];
-  requiredTools?: string[];
 }

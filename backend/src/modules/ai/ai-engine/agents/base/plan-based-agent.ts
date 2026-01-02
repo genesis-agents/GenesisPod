@@ -1,0 +1,175 @@
+/**
+ * AI Engine - Plan Based Agent
+ * 基于计划的 Agent 基类
+ * 用于需要先规划再执行的复杂 Agent（如 Slides, Docs 等）
+ */
+
+import {
+  AgentId,
+  BuiltinAgentId,
+  ToolId,
+  BUILTIN_AGENTS,
+  AGENT_CONFIGS,
+  AgentInput,
+  AgentPlan,
+  AgentEvent,
+  AgentTemplate,
+  AgentConfig,
+} from "../../core/types/agent.types";
+
+/**
+ * Plan-Based Agent 接口
+ * 适用于多步骤、可预览计划的 Agent
+ */
+export interface IPlanBasedAgent {
+  /**
+   * Agent 唯一标识符
+   */
+  readonly id: AgentId;
+
+  /**
+   * Agent 名称
+   */
+  readonly name: string;
+
+  /**
+   * Agent 描述
+   */
+  readonly description: string;
+
+  /**
+   * Agent 能力列表
+   */
+  readonly capabilities: string[];
+
+  /**
+   * 所需工具列表
+   */
+  readonly requiredTools: ToolId[];
+
+  /**
+   * 分析用户输入，生成执行计划
+   */
+  plan(input: AgentInput): Promise<AgentPlan>;
+
+  /**
+   * 执行计划，流式返回进度和结果
+   */
+  execute(plan: AgentPlan): AsyncGenerator<AgentEvent>;
+
+  /**
+   * 获取可用模板列表
+   */
+  getTemplates(): AgentTemplate[];
+
+  /**
+   * 获取 Agent 配置
+   */
+  getConfig(): AgentConfig;
+}
+
+/**
+ * Plan-Based Agent 基类
+ * 提供计划执行模式的通用实现
+ *
+ * @example
+ * ```typescript
+ * class SlidesAgent extends PlanBasedAgent {
+ *   readonly id = BUILTIN_AGENTS.SLIDES;
+ *   readonly name = 'AI Slides';
+ *   readonly description = '智能 PPT 生成器';
+ *   readonly capabilities = ['生成大纲', '配图', '导出'];
+ *   readonly requiredTools = [BUILTIN_TOOLS.TEXT_GENERATION];
+ *
+ *   async plan(input: AgentInput): Promise<AgentPlan> {
+ *     // 分析输入，生成执行计划
+ *   }
+ *
+ *   async *execute(plan: AgentPlan): AsyncGenerator<AgentEvent> {
+ *     // 执行计划，流式返回进度
+ *   }
+ * }
+ * ```
+ */
+export abstract class PlanBasedAgent implements IPlanBasedAgent {
+  abstract readonly id: AgentId;
+  abstract readonly name: string;
+  abstract readonly description: string;
+  abstract readonly capabilities: string[];
+  abstract readonly requiredTools: ToolId[];
+
+  /**
+   * 模板列表 - 子类可覆盖
+   */
+  protected templates: AgentTemplate[] = [];
+
+  /**
+   * 分析用户输入，生成执行计划
+   */
+  abstract plan(input: AgentInput): Promise<AgentPlan>;
+
+  /**
+   * 执行计划，流式返回进度和结果
+   */
+  abstract execute(plan: AgentPlan): AsyncGenerator<AgentEvent>;
+
+  /**
+   * 获取可用模板
+   */
+  getTemplates(): AgentTemplate[] {
+    return this.templates;
+  }
+
+  /**
+   * 获取 Agent 配置
+   */
+  getConfig(): AgentConfig {
+    // 尝试从预定义配置获取
+    const predefinedConfig = AGENT_CONFIGS[this.id as BuiltinAgentId];
+    if (predefinedConfig) {
+      return {
+        ...predefinedConfig,
+        templates: this.templates,
+      };
+    }
+
+    // 自定义 Agent 配置
+    return {
+      id: this.id,
+      name: this.name,
+      description: this.description,
+      icon: "🤖",
+      color: "#6B7280",
+      capabilities: this.capabilities,
+      templates: this.templates,
+    };
+  }
+
+  /**
+   * 生成唯一步骤 ID
+   */
+  protected generateStepId(): string {
+    return `step_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * 生成唯一任务 ID
+   */
+  protected generateTaskId(): string {
+    return `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+}
+
+// 重导出常用类型
+export {
+  AgentId,
+  BuiltinAgentId,
+  ToolId,
+  BUILTIN_AGENTS,
+  AGENT_CONFIGS,
+  AgentInput,
+  AgentPlan,
+  AgentEvent,
+  AgentTemplate,
+  AgentConfig,
+};

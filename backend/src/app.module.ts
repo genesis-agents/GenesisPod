@@ -25,7 +25,7 @@ import { StorageModule } from "./modules/core/storage/storage.module";
 import { CreditsModule } from "./modules/credits/credits.module";
 // AI modules
 import { AiCoreModule } from "./modules/ai/ai-core/ai-core.module";
-import { AiAgentsModule } from "./modules/ai/ai-agents/ai-agents.module";
+import { AiEngineModule } from "./modules/ai/ai-engine/ai-engine.module";
 import { AiAskModule } from "./modules/ai/ai-ask/ai-ask.module";
 import { AiImageModule } from "./modules/ai/ai-image/ai-image.module";
 import { AiOfficeModule } from "./modules/ai/ai-office/ai-office.module";
@@ -111,7 +111,7 @@ import { WebhooksModule } from "./modules/webhooks";
 
     // AI modules (ai-* prefix)
     AiCoreModule,
-    AiAgentsModule,
+    AiEngineModule,
     AiAskModule,
     AiImageModule,
     AiOfficeModule,

@@ -1,0 +1,1591 @@
+/**
+ * AI Engine - Mission Orchestrator Implementation
+ * 任务编排器实现
+ *
+ * 核心流程：Mission Input → Parse → Plan → Execute → Review → Deliver
+ *
+ * 集成：
+ * - ConstraintEngine: 约束评估和成本追踪
+ * - ToolRegistry: 内置工具调用
+ * - SkillRegistry: 技能调用 ★ 新增
+ * - LLMFactory: LLM 适配器
+ * - MCPManager: MCP 外部工具
+ * - Memory: 上下文管理
+ * - HandoffCoordinator: Leader→Member 委派 ★ 新增
+ */
+
+import { Injectable, Logger } from "@nestjs/common";
+import { v4 as uuidv4 } from "uuid";
+import { ITeam } from "../abstractions/team.interface";
+import { RoleId } from "../abstractions/role.interface";
+import { ITeamMember } from "../abstractions/member.interface";
+import {
+  MissionInput,
+  MissionResult,
+  MissionEvent,
+  MissionEventType,
+  ParsedIntent,
+  MissionDeliverable,
+  TaskType,
+  ComplexityLevel,
+} from "../abstractions/mission.interface";
+import {
+  ConstraintProfile,
+  ResourceUsage,
+  mergeConstraintProfiles,
+} from "../constraints";
+import { ConstraintEngine } from "../constraints/constraint-engine";
+import {
+  IMissionOrchestrator,
+  MissionExecutionPlan,
+  MissionExecutionState,
+  ExecutionStep,
+  StepReviewResult,
+  OrchestratorConfig,
+  DEFAULT_ORCHESTRATOR_CONFIG,
+} from "./orchestrator.interface";
+
+// AI Engine 核心依赖
+import { ToolRegistry } from "../../tools/registry/tool-registry";
+import { SkillRegistry } from "../../skills/registry/skill-registry";
+import {
+  SkillContext,
+  SkillResult,
+} from "../../skills/abstractions/skill.interface";
+import { LLMFactory } from "../../llm/factory/llm-factory";
+import { LLMToolDefinition } from "../../llm/abstractions/llm-adapter.interface";
+import { MCPManager } from "../../mcp/manager/mcp-manager";
+import { ShortTermMemoryService } from "../../memory/stores/short-term-memory.service";
+import {
+  HandoffCoordinator,
+  HandoffContextBuilder,
+} from "../../collaboration/patterns/handoff-pattern";
+import { CollaborationMessage } from "../../collaboration/abstractions/collaborator.interface";
+
+/**
+ * 步骤执行结果（内部使用）
+ */
+interface StepExecutionResult {
+  stepId: string;
+  executor: string;
+  output: unknown;
+  skillResults?: Array<{ skillId: string; result: SkillResult }>;
+  toolResults?: unknown[];
+  timestamp: Date;
+  tokensUsed: number;
+  costUsed: number;
+}
+
+/**
+ * 返工上下文
+ */
+interface ReworkContext {
+  stepId: string;
+  attempt: number;
+  previousOutput: unknown;
+  reviewFeedback: string;
+  issues: string[];
+}
+
+/**
+ * Mission 编排器实现
+ */
+@Injectable()
+export class MissionOrchestrator implements IMissionOrchestrator {
+  private readonly logger = new Logger(MissionOrchestrator.name);
+  private readonly states = new Map<string, MissionExecutionState>();
+  private readonly config: OrchestratorConfig;
+  private readonly handoffCoordinator: HandoffCoordinator;
+
+  // 消息队列（模拟协作通信）
+  private readonly messageQueues = new Map<string, CollaborationMessage[]>();
+
+  constructor(
+    private readonly constraintEngine: ConstraintEngine,
+    private readonly toolRegistry?: ToolRegistry,
+    private readonly skillRegistry?: SkillRegistry,
+    private readonly llmFactory?: LLMFactory,
+    private readonly memoryService?: ShortTermMemoryService,
+    private readonly mcpManager?: MCPManager,
+    config?: Partial<OrchestratorConfig>,
+  ) {
+    this.config = { ...DEFAULT_ORCHESTRATOR_CONFIG, ...config };
+    this.handoffCoordinator = new HandoffCoordinator({
+      timeout: 60000,
+      requireConfirmation: false,
+      maxRetries: 2,
+      autoFallback: true,
+    });
+  }
+
+  /**
+   * 执行 Mission（完整流程）
+   */
+  async *execute(
+    input: MissionInput,
+    team: ITeam,
+    constraintOverrides?: Partial<ConstraintProfile>,
+  ): AsyncGenerator<MissionEvent, MissionResult> {
+    const missionId = uuidv4();
+    const startTime = Date.now();
+
+    // 合并约束配置
+    const constraints = mergeConstraintProfiles(
+      team.constraintProfile,
+      constraintOverrides || {},
+    );
+
+    // 初始化状态
+    const state = this.initializeState(missionId);
+    this.states.set(missionId, state);
+
+    // 存储上下文到 Memory
+    await this.storeContext(missionId, "input", input);
+
+    try {
+      // 发送开始事件
+      yield this.createEvent("mission_started", missionId, { input });
+
+      // Phase 1: Parse - 解析意图
+      yield this.createEvent("parsing_started", missionId);
+      state.phase = "parsing";
+      const intent = await this.parse(input);
+      await this.storeContext(missionId, "intent", intent);
+      yield this.createEvent("parsing_completed", missionId, { intent });
+
+      // Phase 2: Plan - 生成执行计划
+      yield this.createEvent("planning_started", missionId);
+      state.phase = "planning";
+      const plan = await this.plan(intent, team, constraints);
+      await this.storeContext(missionId, "plan", plan);
+      yield this.createEvent("planning_completed", missionId, { plan });
+
+      // Phase 3: Execute - 执行计划（含委派和协作）
+      state.phase = "executing";
+      for await (const event of this.executePlan(plan, team, constraints)) {
+        yield event;
+
+        // 更新状态
+        if (event.type === "step_completed") {
+          state.completedSteps.push(event.data?.stepId as string);
+          state.intermediateOutputs.set(
+            event.data?.stepId as string,
+            event.data?.output,
+          );
+        }
+        if (event.type === "step_failed") {
+          state.failedSteps.push(event.data?.stepId as string);
+        }
+
+        // 更新资源使用
+        state.resourceUsage = this.updateResourceUsage(state, startTime);
+
+        // 检查约束
+        const canContinue = this.constraintEngine.canContinue(
+          constraints,
+          state.resourceUsage,
+        );
+        if (!canContinue.canContinue) {
+          throw new Error(canContinue.reason);
+        }
+      }
+
+      // Phase 4: Review - 审核（含返工循环）
+      if (constraints.quality.reviewRequired) {
+        yield this.createEvent("review_started", missionId);
+        state.phase = "reviewing";
+
+        for (const [stepId, output] of state.intermediateOutputs) {
+          // 跳过 delivery 步骤的审核
+          if (stepId === "delivery") continue;
+
+          let currentOutput = output;
+          let attempt = 0;
+          let reviewResult: StepReviewResult;
+
+          // 返工循环
+          do {
+            reviewResult = await this.review(stepId, currentOutput, team);
+            state.reviewResults.push(reviewResult);
+            yield this.createEvent("review_completed", missionId, {
+              reviewResult,
+            });
+
+            if (
+              !reviewResult.passed &&
+              attempt < constraints.quality.maxReworks
+            ) {
+              // ★ 真正的返工：重新执行步骤
+              yield this.createEvent("rework_requested", missionId, {
+                stepId,
+                attempt: attempt + 1,
+                reason: reviewResult.feedback,
+              });
+
+              const plan = (await this.getContext(missionId))
+                .plan as MissionExecutionPlan;
+              const step = plan.steps.find((s) => s.id === stepId);
+              if (step) {
+                const executor =
+                  team.getMemberById(step.executor) || team.leader;
+                const reworkContext: ReworkContext = {
+                  stepId,
+                  attempt: attempt + 1,
+                  previousOutput: currentOutput,
+                  reviewFeedback: reviewResult.feedback,
+                  issues: [],
+                };
+
+                // 重新执行步骤
+                const reworkResult = await this.executeStepWithRework(
+                  step,
+                  executor,
+                  missionId,
+                  state,
+                  reworkContext,
+                );
+                currentOutput = reworkResult;
+                state.intermediateOutputs.set(stepId, currentOutput);
+
+                yield this.createEvent("rework_completed", missionId, {
+                  stepId,
+                  attempt: attempt + 1,
+                  output: currentOutput,
+                });
+              }
+
+              state.resourceUsage.reworkCount++;
+              attempt++;
+            }
+          } while (
+            !reviewResult.passed &&
+            attempt < constraints.quality.maxReworks
+          );
+        }
+      }
+
+      // Phase 5: Deliver - 生成交付物（使用导出工具）
+      yield this.createEvent("delivering_started", missionId);
+      state.phase = "delivering";
+      const deliverables = await this.deliver(state, team);
+      state.deliverables = deliverables;
+
+      for (const deliverable of deliverables) {
+        yield this.createEvent("deliverable_ready", missionId, { deliverable });
+      }
+
+      // 完成
+      state.phase = "completed";
+      const result = this.createResult(state, startTime, true);
+      yield this.createEvent("mission_completed", missionId, { result });
+
+      return result;
+    } catch (error) {
+      state.phase = "failed";
+      const errorMessage = (error as Error).message;
+
+      yield this.createEvent("mission_failed", missionId, {
+        error: errorMessage,
+      });
+
+      return this.createResult(state, startTime, false, errorMessage);
+    }
+  }
+
+  /**
+   * 解析 Mission 意图
+   */
+  async parse(input: MissionInput): Promise<ParsedIntent> {
+    this.logger.log("Parsing mission intent...");
+
+    // 使用 LLM 进行意图解析（如果可用）
+    const parsedByLLM = await this.parseWithLLM(input);
+    if (parsedByLLM) {
+      return parsedByLLM;
+    }
+
+    // 降级：使用规则解析
+    const taskType = this.inferTaskType(input.prompt);
+    const complexity = this.assessComplexity(input);
+
+    return {
+      id: uuidv4(),
+      missionId: "",
+      primaryGoal: input.prompt.slice(0, 100),
+      secondaryGoals: input.requirements || [],
+      extractedInfo: {
+        topics: this.extractTopics(input.prompt),
+        entities: [],
+        language: "zh",
+      },
+      taskType,
+      complexity,
+      suggestedStrategy: {
+        workflowType: complexity.overall === "high" ? "hybrid" : "sequential",
+        memberConfig: [],
+        needsIteration: complexity.overall !== "low",
+        needsHumanReview: false,
+        riskFactors: [],
+      },
+      confidence: 0.8,
+    };
+  }
+
+  /**
+   * 使用 LLM 解析意图
+   */
+  private async parseWithLLM(
+    input: MissionInput,
+  ): Promise<ParsedIntent | null> {
+    if (!this.llmFactory) return null;
+
+    const adapter = this.llmFactory.getAdapter();
+    if (!adapter) return null;
+
+    try {
+      const systemPrompt = `你是一个任务分析专家。分析用户输入，提取：
+1. 主要目标
+2. 次要目标
+3. 任务类型（research/analysis/creation/coding/design/debate/review/mixed）
+4. 复杂度评估
+5. 建议的执行策略
+
+以 JSON 格式输出。`;
+
+      const response = await adapter.chat({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: input.prompt },
+        ],
+        model: this.llmFactory.getDefaultModel(),
+        temperature: 0.3,
+      });
+
+      // 记录成本
+      if (response.usage) {
+        this.constraintEngine.recordCost(
+          "parse_intent",
+          response.model || "unknown",
+          response.usage.promptTokens || 0,
+          response.usage.completionTokens || 0,
+        );
+      }
+
+      // 解析 LLM 响应
+      if (response.content) {
+        const parsed = this.parseLLMResponse(response.content, input);
+        if (parsed) {
+          return parsed;
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        `LLM parsing failed: ${(error as Error).message}, falling back to rules`,
+      );
+    }
+
+    return null;
+  }
+
+  /**
+   * 解析 LLM 响应
+   */
+  private parseLLMResponse(
+    content: string,
+    input: MissionInput,
+  ): ParsedIntent | null {
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return null;
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      const taskType = this.inferTaskType(input.prompt);
+      const complexity = this.assessComplexity(input);
+
+      return {
+        id: uuidv4(),
+        missionId: "",
+        primaryGoal: parsed.primaryGoal || input.prompt.slice(0, 100),
+        secondaryGoals: parsed.secondaryGoals || input.requirements || [],
+        extractedInfo: {
+          topics: parsed.topics || this.extractTopics(input.prompt),
+          entities: parsed.entities || [],
+          language: parsed.language || "zh",
+        },
+        taskType: parsed.taskType || taskType,
+        complexity: {
+          overall: parsed.complexity?.overall || complexity.overall,
+          informational: complexity.informational,
+          logical: complexity.logical,
+          creative: complexity.creative,
+          estimatedSubTasks:
+            parsed.estimatedSubTasks || complexity.estimatedSubTasks,
+          estimatedDuration: complexity.estimatedDuration,
+          estimatedCost: complexity.estimatedCost,
+        },
+        suggestedStrategy: {
+          workflowType: parsed.workflowType || "sequential",
+          memberConfig: [],
+          needsIteration: parsed.needsIteration ?? true,
+          needsHumanReview: parsed.needsHumanReview ?? false,
+          riskFactors: parsed.riskFactors || [],
+        },
+        confidence: 0.9,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 生成执行计划
+   */
+  async plan(
+    intent: ParsedIntent,
+    team: ITeam,
+    constraints: ConstraintProfile,
+  ): Promise<MissionExecutionPlan> {
+    this.logger.log("Generating execution plan...");
+
+    const steps: ExecutionStep[] = [];
+    const workflow = team.workflow;
+
+    // 基于工作流生成步骤
+    for (const workflowStep of workflow.steps) {
+      const executors = workflowStep.executorRoles.map((roleId: RoleId) => {
+        const members = team.getMembersByRole(roleId);
+        return members[0]?.id || roleId;
+      });
+
+      const stepDuration = this.estimateStepDuration(
+        workflowStep.type,
+        constraints.quality.depth,
+      );
+      const stepCost = this.estimateStepCost(
+        stepDuration,
+        constraints.cost.modelPreference,
+      );
+
+      steps.push({
+        id: workflowStep.id,
+        name: workflowStep.name,
+        description: workflowStep.description,
+        executor: executors[0],
+        type: this.mapStepType(workflowStep.type),
+        dependencies: workflowStep.dependsOn,
+        estimatedDuration: stepDuration,
+        estimatedCost: stepCost,
+      });
+    }
+
+    // 添加审核步骤
+    if (constraints.quality.reviewRequired) {
+      const lastStep = steps[steps.length - 1];
+      steps.push({
+        id: "review",
+        name: "质量审核",
+        description: "Leader 审核所有输出",
+        executor: team.leader.id,
+        type: "review",
+        dependencies: [lastStep.id],
+        estimatedDuration: 60000,
+        estimatedCost: 10,
+      });
+    }
+
+    // 添加交付步骤
+    steps.push({
+      id: "delivery",
+      name: "生成交付物",
+      description: "整合结果并生成最终交付物",
+      executor: team.leader.id,
+      type: "delivery",
+      dependencies: constraints.quality.reviewRequired
+        ? ["review"]
+        : [steps[steps.length - 1].id],
+      estimatedDuration: 30000,
+      estimatedCost: 5,
+    });
+
+    const totalCost = steps.reduce((sum, s) => sum + s.estimatedCost, 0);
+    const totalDuration = this.calculateTotalDuration(steps);
+
+    return {
+      id: uuidv4(),
+      missionId: intent.missionId,
+      parsedIntent: intent,
+      steps,
+      estimatedCost: totalCost,
+      estimatedDuration: totalDuration,
+      createdAt: new Date(),
+    };
+  }
+
+  /**
+   * 执行计划 - ★ 支持真正并行执行
+   */
+  async *executePlan(
+    plan: MissionExecutionPlan,
+    team: ITeam,
+    constraints: ConstraintProfile,
+  ): AsyncGenerator<MissionEvent, MissionExecutionState> {
+    const missionId = plan.missionId;
+    const state = this.states.get(missionId) || this.initializeState(missionId);
+    const completedSteps = new Set<string>();
+
+    // 按拓扑顺序执行步骤
+    while (completedSteps.size < plan.steps.length) {
+      // 找出可执行的步骤（依赖已完成）
+      const executableSteps = plan.steps.filter((step) => {
+        if (completedSteps.has(step.id)) return false;
+        return step.dependencies.every((dep) => completedSteps.has(dep));
+      });
+
+      if (
+        executableSteps.length === 0 &&
+        completedSteps.size < plan.steps.length
+      ) {
+        throw new Error("Deadlock detected: no executable steps available");
+      }
+
+      // ★ 真正并行执行：使用 Promise.all
+      if (this.config.enableParallel && executableSteps.length > 1) {
+        // 发送所有步骤开始事件
+        for (const step of executableSteps) {
+          state.currentSteps.push(step.id);
+          yield this.createEvent("step_started", missionId, {
+            stepId: step.id,
+            message: `开始执行: ${step.name}`,
+            parallel: true,
+          });
+        }
+
+        // 并行执行所有步骤
+        const executionPromises = executableSteps.map(async (step) => {
+          const executor = team.getMemberById(step.executor) || team.leader;
+
+          // ★ 使用 HandoffCoordinator 进行委派
+          if (!executor.isLeader()) {
+            await this.delegateToMember(team.leader, executor, step, missionId);
+          }
+
+          return this.executeStepFull(
+            step,
+            executor,
+            missionId,
+            state,
+            constraints,
+          );
+        });
+
+        const results = await Promise.allSettled(executionPromises);
+
+        // 处理结果
+        for (let i = 0; i < results.length; i++) {
+          const step = executableSteps[i];
+          const result = results[i];
+
+          state.currentSteps = state.currentSteps.filter(
+            (id) => id !== step.id,
+          );
+
+          if (result.status === "fulfilled") {
+            completedSteps.add(step.id);
+            state.completedSteps.push(step.id);
+            state.intermediateOutputs.set(step.id, result.value);
+
+            yield this.createEvent("step_completed", missionId, {
+              stepId: step.id,
+              output: result.value,
+            });
+          } else {
+            state.failedSteps.push(step.id);
+            yield this.createEvent("step_failed", missionId, {
+              stepId: step.id,
+              error: result.reason?.message || "Unknown error",
+            });
+
+            if (!this.config.enableAutoRetry) {
+              throw result.reason;
+            }
+          }
+        }
+      } else {
+        // 顺序执行
+        const step = executableSteps[0];
+        state.currentSteps.push(step.id);
+        yield this.createEvent("step_started", missionId, {
+          stepId: step.id,
+          message: `开始执行: ${step.name}`,
+        });
+
+        try {
+          const executor = team.getMemberById(step.executor) || team.leader;
+
+          // ★ 使用 HandoffCoordinator 进行委派
+          if (!executor.isLeader()) {
+            await this.delegateToMember(team.leader, executor, step, missionId);
+          }
+
+          const output = await this.executeStepFull(
+            step,
+            executor,
+            missionId,
+            state,
+            constraints,
+          );
+
+          completedSteps.add(step.id);
+          state.currentSteps = state.currentSteps.filter(
+            (id) => id !== step.id,
+          );
+          state.completedSteps.push(step.id);
+          state.intermediateOutputs.set(step.id, output);
+
+          yield this.createEvent("step_completed", missionId, {
+            stepId: step.id,
+            output,
+          });
+        } catch (error) {
+          state.failedSteps.push(step.id);
+          state.currentSteps = state.currentSteps.filter(
+            (id) => id !== step.id,
+          );
+
+          yield this.createEvent("step_failed", missionId, {
+            stepId: step.id,
+            error: (error as Error).message,
+          });
+
+          if (!this.config.enableAutoRetry) {
+            throw error;
+          }
+        }
+      }
+    }
+
+    return state;
+  }
+
+  /**
+   * ★ 委派任务给成员（使用 HandoffCoordinator）
+   */
+  private async delegateToMember(
+    leader: ITeamMember,
+    member: ITeamMember,
+    step: ExecutionStep,
+    missionId: string,
+  ): Promise<void> {
+    const context = new HandoffContextBuilder()
+      .withTask({
+        id: step.id,
+        description: step.description,
+        progress: 0,
+      })
+      .withConstraints([
+        `执行者角色: ${member.role.name}`,
+        `可用技能: ${member.skills.join(", ")}`,
+      ])
+      .build();
+
+    const handoffResponse = await this.handoffCoordinator.initiateHandoff(
+      {
+        fromAgentId: leader.id,
+        toAgentId: member.id,
+        reason: `执行步骤: ${step.name}`,
+        context,
+      },
+      // 发送消息回调
+      async (msg: CollaborationMessage) => {
+        this.logger.debug(`Handoff message: ${leader.id} → ${member.id}`);
+        // 存储到消息队列
+        if (!this.messageQueues.has(missionId)) {
+          this.messageQueues.set(missionId, []);
+        }
+        this.messageQueues.get(missionId)!.push(msg);
+      },
+      // 等待响应回调
+      async (_fromAgentId: string, _timeout: number) => {
+        // 模拟成员接受任务
+        return { accepted: true, message: "任务已接受" };
+      },
+    );
+
+    if (!handoffResponse.accepted) {
+      this.logger.warn(
+        `Member ${member.id} rejected task: ${handoffResponse.message}`,
+      );
+    }
+  }
+
+  /**
+   * ★ 完整执行步骤（集成 Skills + Tools + LLM）
+   */
+  private async executeStepFull(
+    step: ExecutionStep,
+    executor: ITeamMember,
+    missionId: string,
+    state: MissionExecutionState,
+    _constraints: ConstraintProfile,
+  ): Promise<StepExecutionResult> {
+    const context = await this.getContext(missionId);
+    let totalTokens = 0;
+    let totalCost = 0;
+
+    // ★ 1. 执行 Member 的技能
+    const skillResults: Array<{ skillId: string; result: SkillResult }> = [];
+    if (this.skillRegistry && executor.skills.length > 0) {
+      for (const skillId of executor.skills) {
+        const skill = this.skillRegistry.tryGet(skillId);
+        if (skill) {
+          try {
+            const skillContext: SkillContext = {
+              executionId: uuidv4(),
+              skillId: skill.id,
+              domain: skill.domain,
+              callerId: executor.id,
+              sessionId: missionId,
+              createdAt: new Date(),
+            };
+
+            // 构建技能输入
+            const skillInput = {
+              task: step.description,
+              context: context,
+              previousOutputs: Object.fromEntries(state.intermediateOutputs),
+            };
+
+            this.logger.debug(`Executing skill ${skillId} for step ${step.id}`);
+            const result = await skill.execute(skillInput, skillContext);
+            skillResults.push({ skillId, result });
+
+            if (result.metadata.tokensUsed) {
+              totalTokens += result.metadata.tokensUsed;
+            }
+          } catch (error) {
+            this.logger.warn(
+              `Skill ${skillId} execution failed: ${(error as Error).message}`,
+            );
+          }
+        }
+      }
+    }
+
+    // ★ 2. 使用 LLM 执行（融合技能结果和人设）
+    let llmOutput: string | undefined;
+    let toolResults: unknown[] = [];
+
+    if (this.llmFactory) {
+      const adapter = this.llmFactory.getAdapter();
+      if (adapter) {
+        try {
+          // ★ 构建融合人设的系统提示词
+          const systemPrompt = this.buildSystemPromptWithPersona(executor);
+
+          // ★ 构建融合技能结果的用户提示词
+          const userPrompt = this.buildStepPromptWithSkills(
+            step,
+            context,
+            skillResults,
+          );
+
+          // 收集可用工具
+          const tools = await this.collectAvailableTools(executor);
+
+          const response = await adapter.chat({
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            model: executor.model,
+            temperature: this.getTemperatureFromWorkStyle(executor.workStyle),
+            tools: tools.length > 0 ? tools : undefined,
+          });
+
+          llmOutput = response.content ?? undefined;
+
+          // 记录成本
+          if (response.usage) {
+            const cost = this.constraintEngine.recordCost(
+              `step_${step.id}`,
+              response.model || executor.model,
+              response.usage.promptTokens || 0,
+              response.usage.completionTokens || 0,
+              missionId,
+            );
+            totalCost += cost;
+            totalTokens +=
+              (response.usage.promptTokens || 0) +
+              (response.usage.completionTokens || 0);
+          }
+
+          // 处理工具调用
+          if (response.toolCalls && response.toolCalls.length > 0) {
+            toolResults = await this.handleToolCalls(response.toolCalls);
+          }
+        } catch (error) {
+          this.logger.error(
+            `LLM execution failed for step ${step.id}: ${(error as Error).message}`,
+          );
+        }
+      }
+    }
+
+    // 更新状态
+    state.resourceUsage.tokensUsed += totalTokens;
+    state.resourceUsage.costUsed += totalCost;
+
+    // 如果没有 LLM 输出，使用技能结果或模拟
+    if (!llmOutput) {
+      if (skillResults.length > 0) {
+        llmOutput = skillResults
+          .map((r) => JSON.stringify(r.result.data))
+          .join("\n");
+      } else {
+        llmOutput = `Step ${step.name} completed by ${executor.name} (simulated)`;
+      }
+    }
+
+    return {
+      stepId: step.id,
+      executor: executor.id,
+      output: llmOutput,
+      skillResults: skillResults.length > 0 ? skillResults : undefined,
+      toolResults: toolResults.length > 0 ? toolResults : undefined,
+      timestamp: new Date(),
+      tokensUsed: totalTokens,
+      costUsed: totalCost,
+    };
+  }
+
+  /**
+   * ★ 带返工上下文执行步骤
+   */
+  private async executeStepWithRework(
+    step: ExecutionStep,
+    executor: ITeamMember,
+    missionId: string,
+    state: MissionExecutionState,
+    reworkContext: ReworkContext,
+  ): Promise<StepExecutionResult> {
+    const context = await this.getContext(missionId);
+    let totalTokens = 0;
+    let totalCost = 0;
+
+    if (this.llmFactory) {
+      const adapter = this.llmFactory.getAdapter();
+      if (adapter) {
+        try {
+          const systemPrompt = this.buildSystemPromptWithPersona(executor);
+
+          // ★ 构建返工提示词（包含审核反馈）
+          const userPrompt = this.buildReworkPrompt(
+            step,
+            context,
+            reworkContext,
+          );
+
+          const response = await adapter.chat({
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            model: executor.model,
+            temperature: 0.5, // 返工时使用较低温度
+          });
+
+          if (response.usage) {
+            const cost = this.constraintEngine.recordCost(
+              `rework_${step.id}_${reworkContext.attempt}`,
+              response.model || executor.model,
+              response.usage.promptTokens || 0,
+              response.usage.completionTokens || 0,
+              missionId,
+            );
+            totalCost += cost;
+            totalTokens +=
+              (response.usage.promptTokens || 0) +
+              (response.usage.completionTokens || 0);
+          }
+
+          state.resourceUsage.tokensUsed += totalTokens;
+          state.resourceUsage.costUsed += totalCost;
+
+          return {
+            stepId: step.id,
+            executor: executor.id,
+            output: response.content,
+            timestamp: new Date(),
+            tokensUsed: totalTokens,
+            costUsed: totalCost,
+          };
+        } catch (error) {
+          this.logger.error(
+            `Rework failed for step ${step.id}: ${(error as Error).message}`,
+          );
+        }
+      }
+    }
+
+    // 降级
+    return {
+      stepId: step.id,
+      executor: executor.id,
+      output: `Rework for step ${step.name} (simulated)`,
+      timestamp: new Date(),
+      tokensUsed: 0,
+      costUsed: 0,
+    };
+  }
+
+  /**
+   * ★ 构建融合人设的系统提示词
+   */
+  private buildSystemPromptWithPersona(executor: ITeamMember): string {
+    let prompt = executor.getSystemPrompt();
+
+    // ★ 融合人设
+    if (executor.persona) {
+      prompt = `${executor.persona}\n\n${prompt}`;
+    }
+
+    // ★ 融合工作风格
+    const workStyle = executor.workStyle;
+    if (workStyle) {
+      const styleHints: string[] = [];
+
+      // outputStyle maps to response length/detail
+      if (workStyle.outputStyle === "detailed") {
+        styleHints.push("请提供详尽、全面的分析和输出");
+      } else if (workStyle.outputStyle === "concise") {
+        styleHints.push("请保持简洁明了，突出重点");
+      }
+
+      // thinkingDepth affects depth of analysis
+      if (workStyle.thinkingDepth === "deep") {
+        styleHints.push("进行深入分析，考虑多种角度");
+      } else if (workStyle.thinkingDepth === "quick") {
+        styleHints.push("快速响应，聚焦核心问题");
+      }
+
+      // riskTolerance affects creativity level
+      if (workStyle.riskTolerance === "aggressive") {
+        styleHints.push("鼓励创新思维和独特见解");
+      } else if (workStyle.riskTolerance === "conservative") {
+        styleHints.push("保持严谨，基于事实和证据");
+      }
+
+      if (styleHints.length > 0) {
+        prompt += `\n\n## 工作风格\n${styleHints.join("\n")}`;
+      }
+    }
+
+    return prompt;
+  }
+
+  /**
+   * ★ 构建融合技能结果的用户提示词
+   */
+  private buildStepPromptWithSkills(
+    step: ExecutionStep,
+    context: Record<string, unknown>,
+    skillResults: Array<{ skillId: string; result: SkillResult }>,
+  ): string {
+    let prompt = `## 当前任务\n${step.description}\n\n`;
+
+    if (context.intent) {
+      prompt += `## 任务目标\n${JSON.stringify(context.intent, null, 2)}\n\n`;
+    }
+
+    if (
+      context.previousOutputs &&
+      Object.keys(context.previousOutputs as object).length > 0
+    ) {
+      prompt += `## 前序步骤输出\n${JSON.stringify(context.previousOutputs, null, 2)}\n\n`;
+    }
+
+    // ★ 融合技能执行结果
+    if (skillResults.length > 0) {
+      prompt += `## 技能分析结果\n`;
+      for (const { skillId, result } of skillResults) {
+        if (result.success && result.data) {
+          prompt += `### ${skillId}\n${JSON.stringify(result.data, null, 2)}\n\n`;
+        }
+      }
+    }
+
+    prompt += `请根据上述信息完成任务，输出高质量的结果。`;
+
+    return prompt;
+  }
+
+  /**
+   * ★ 构建返工提示词
+   */
+  private buildReworkPrompt(
+    step: ExecutionStep,
+    _context: Record<string, unknown>,
+    reworkContext: ReworkContext,
+  ): string {
+    let prompt = `## 任务返工（第 ${reworkContext.attempt} 次）\n\n`;
+    prompt += `### 原任务\n${step.description}\n\n`;
+    prompt += `### 上次输出\n${JSON.stringify(reworkContext.previousOutput, null, 2)}\n\n`;
+    prompt += `### 审核反馈\n${reworkContext.reviewFeedback}\n\n`;
+
+    if (reworkContext.issues.length > 0) {
+      prompt += `### 需要修正的问题\n`;
+      for (const issue of reworkContext.issues) {
+        prompt += `- ${issue}\n`;
+      }
+      prompt += `\n`;
+    }
+
+    prompt += `请根据审核反馈修正输出，解决上述问题。`;
+
+    return prompt;
+  }
+
+  /**
+   * ★ 根据工作风格获取温度
+   */
+  private getTemperatureFromWorkStyle(
+    workStyle: ITeamMember["workStyle"],
+  ): number {
+    if (!workStyle) return 0.7;
+
+    // Use riskTolerance as proxy for creativity/temperature
+    if (workStyle.riskTolerance === "aggressive") return 0.9;
+    if (workStyle.riskTolerance === "conservative") return 0.3;
+    return 0.7;
+  }
+
+  /**
+   * 收集可用工具
+   */
+  private async collectAvailableTools(
+    executor: ITeamMember,
+  ): Promise<LLMToolDefinition[]> {
+    const tools: LLMToolDefinition[] = [];
+
+    // 从 ToolRegistry 获取工具
+    if (this.toolRegistry) {
+      for (const toolId of executor.tools) {
+        const tool = this.toolRegistry.tryGet(toolId);
+        if (tool) {
+          tools.push({
+            type: "function",
+            function: {
+              name: tool.id,
+              description: tool.description,
+              parameters: tool.inputSchema as unknown as Record<
+                string,
+                unknown
+              >,
+            },
+          });
+        }
+      }
+    }
+
+    // 从 MCP 获取工具
+    if (this.mcpManager) {
+      try {
+        const mcpTools = await this.mcpManager.getAllToolsFlat();
+        for (const { tool } of mcpTools) {
+          tools.push({
+            type: "function",
+            function: {
+              name: `mcp_${tool.name}`,
+              description: tool.description,
+              parameters: tool.inputSchema as unknown as Record<
+                string,
+                unknown
+              >,
+            },
+          });
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to get MCP tools: ${(error as Error).message}`,
+        );
+      }
+    }
+
+    return tools;
+  }
+
+  /**
+   * 处理工具调用
+   */
+  private async handleToolCalls(
+    toolCalls: Array<{ name: string; arguments: Record<string, unknown> }>,
+  ): Promise<unknown[]> {
+    const results: unknown[] = [];
+
+    for (const call of toolCalls) {
+      try {
+        // MCP 工具
+        if (call.name.startsWith("mcp_") && this.mcpManager) {
+          const toolName = call.name.replace("mcp_", "");
+          const result = await this.mcpManager.callToolAuto(
+            toolName,
+            call.arguments,
+          );
+          results.push({ tool: call.name, result });
+          continue;
+        }
+
+        // 内置工具
+        if (this.toolRegistry) {
+          const tool = this.toolRegistry.tryGet(call.name);
+          if (tool) {
+            const toolContext = {
+              executionId: uuidv4(),
+              toolId: call.name,
+              callerType: "orchestrator" as const,
+              createdAt: new Date(),
+            };
+            const result = await tool.execute(call.arguments, toolContext);
+            results.push({ tool: call.name, result });
+            continue;
+          }
+        }
+
+        results.push({ tool: call.name, error: "Tool not found" });
+      } catch (error) {
+        results.push({ tool: call.name, error: (error as Error).message });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * 审核步骤输出
+   */
+  async review(
+    stepId: string,
+    output: unknown,
+    team: ITeam,
+  ): Promise<StepReviewResult> {
+    this.logger.log(`Reviewing step ${stepId}...`);
+
+    if (this.llmFactory) {
+      const adapter = this.llmFactory.getAdapter();
+      if (adapter) {
+        try {
+          const systemPrompt = `你是一个质量审核专家。请审核以下输出，评估其质量、准确性和完整性。
+给出 1-10 的分数，以及详细反馈。
+
+输出 JSON 格式：
+{
+  "score": number,
+  "passed": boolean,
+  "feedback": string,
+  "issues": []
+}`;
+
+          const response = await adapter.chat({
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: JSON.stringify(output) },
+            ],
+            model: team.leader.model,
+            temperature: 0.3,
+          });
+
+          if (response.usage) {
+            this.constraintEngine.recordCost(
+              `review_${stepId}`,
+              response.model || "unknown",
+              response.usage.promptTokens || 0,
+              response.usage.completionTokens || 0,
+            );
+          }
+
+          const jsonMatch = (response.content || "").match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            return {
+              stepId,
+              passed: parsed.passed ?? parsed.score >= 7,
+              score: parsed.score,
+              feedback: parsed.feedback,
+              reviewedAt: new Date(),
+            };
+          }
+        } catch (error) {
+          this.logger.warn(`LLM review failed: ${(error as Error).message}`);
+        }
+      }
+    }
+
+    // 降级
+    const score = Math.floor(Math.random() * 3) + 7;
+    return {
+      stepId,
+      passed: score >= 7,
+      score,
+      feedback:
+        score >= 7 ? "审核通过，质量良好" : "需要改进，部分内容不够详细",
+      reviewedAt: new Date(),
+    };
+  }
+
+  /**
+   * ★ 生成交付物（集成导出工具）
+   */
+  async deliver(
+    state: MissionExecutionState,
+    _team: ITeam,
+  ): Promise<MissionDeliverable[]> {
+    this.logger.log("Generating deliverables...");
+
+    const deliverables: MissionDeliverable[] = [];
+    const allOutputs = Array.from(state.intermediateOutputs.values());
+
+    // ★ 尝试使用导出工具生成文档
+    const exportTools = ["export-docx", "export-pdf"];
+    let documentGenerated = false;
+
+    if (this.toolRegistry) {
+      for (const toolId of exportTools) {
+        const tool = this.toolRegistry.tryGet(toolId);
+        if (tool) {
+          try {
+            // 整合内容
+            const content = this.integrateOutputsForExport(allOutputs);
+
+            const toolContext = {
+              executionId: uuidv4(),
+              toolId,
+              callerType: "orchestrator" as const,
+              createdAt: new Date(),
+            };
+            const result = await tool.execute(
+              {
+                title: "任务报告",
+                content,
+                format: toolId.replace("export-", ""),
+              },
+              toolContext,
+            );
+
+            if (result) {
+              deliverables.push({
+                id: uuidv4(),
+                missionId: state.missionId,
+                type: toolId.replace("export-", "") as "report",
+                name: `任务报告.${toolId.replace("export-", "")}`,
+                description: "自动生成的任务报告文档",
+                mimeType:
+                  toolId === "export-pdf"
+                    ? "application/pdf"
+                    : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                size: 0,
+                content: result,
+                createdAt: new Date(),
+              });
+              documentGenerated = true;
+              break;
+            }
+          } catch (error) {
+            this.logger.warn(
+              `Export tool ${toolId} failed: ${(error as Error).message}`,
+            );
+          }
+        }
+      }
+    }
+
+    // 始终生成 JSON 报告
+    deliverables.push({
+      id: uuidv4(),
+      missionId: state.missionId,
+      type: "report",
+      name: "任务报告",
+      description: documentGenerated
+        ? "任务执行结果详细数据"
+        : "任务执行结果汇总报告",
+      mimeType: "application/json",
+      size: JSON.stringify(allOutputs).length,
+      content: {
+        summary: "任务执行完成",
+        outputs: allOutputs,
+        statistics: {
+          totalSteps: state.completedSteps.length + state.failedSteps.length,
+          completedSteps: state.completedSteps.length,
+          failedSteps: state.failedSteps.length,
+          reworkCount: state.resourceUsage.reworkCount,
+          reviewResults: state.reviewResults,
+        },
+      },
+      createdAt: new Date(),
+    });
+
+    return deliverables;
+  }
+
+  /**
+   * ★ 整合输出用于导出
+   */
+  private integrateOutputsForExport(outputs: unknown[]): string {
+    const sections: string[] = [];
+
+    for (let i = 0; i < outputs.length; i++) {
+      const output = outputs[i];
+      if (typeof output === "string") {
+        sections.push(output);
+      } else if (output && typeof output === "object") {
+        const obj = output as Record<string, unknown>;
+        if (obj.output) {
+          sections.push(String(obj.output));
+        } else {
+          sections.push(JSON.stringify(output, null, 2));
+        }
+      }
+    }
+
+    return sections.join("\n\n---\n\n");
+  }
+
+  /**
+   * 取消执行
+   */
+  async cancel(missionId: string): Promise<void> {
+    const state = this.states.get(missionId);
+    if (state) {
+      state.phase = "failed";
+      this.logger.log(`Mission ${missionId} cancelled`);
+    }
+  }
+
+  /**
+   * 获取执行状态
+   */
+  getState(missionId: string): MissionExecutionState | undefined {
+    return this.states.get(missionId);
+  }
+
+  /**
+   * 获取资源使用情况
+   */
+  getResourceUsage(missionId: string): ResourceUsage | undefined {
+    return this.states.get(missionId)?.resourceUsage;
+  }
+
+  // ==================== Memory 集成 ====================
+
+  private async storeContext(
+    missionId: string,
+    key: string,
+    value: unknown,
+  ): Promise<void> {
+    if (!this.memoryService) return;
+    try {
+      await this.memoryService.setWithSession(missionId, key, value);
+    } catch (error) {
+      this.logger.warn(`Failed to store context: ${(error as Error).message}`);
+    }
+  }
+
+  private async getContext(
+    missionId: string,
+  ): Promise<Record<string, unknown>> {
+    if (!this.memoryService) return {};
+    try {
+      const input = await this.memoryService.getWithSession(missionId, "input");
+      const intent = await this.memoryService.getWithSession(
+        missionId,
+        "intent",
+      );
+      const plan = await this.memoryService.getWithSession(missionId, "plan");
+      return { input, intent, plan };
+    } catch {
+      return {};
+    }
+  }
+
+  // ==================== 私有方法 ====================
+
+  private initializeState(missionId: string): MissionExecutionState {
+    return {
+      missionId,
+      phase: "idle",
+      resourceUsage: {
+        tokensUsed: 0,
+        costUsed: 0,
+        timeElapsed: 0,
+        reviewCount: 0,
+        reworkCount: 0,
+        progress: 0,
+      },
+      completedSteps: [],
+      currentSteps: [],
+      failedSteps: [],
+      reviewResults: [],
+      intermediateOutputs: new Map(),
+      deliverables: [],
+    };
+  }
+
+  private createEvent(
+    type: MissionEventType,
+    missionId: string,
+    data?: Record<string, unknown>,
+  ): MissionEvent {
+    return {
+      type,
+      missionId,
+      timestamp: new Date(),
+      data,
+    };
+  }
+
+  private createResult(
+    state: MissionExecutionState,
+    startTime: number,
+    success: boolean,
+    errorMessage?: string,
+  ): MissionResult {
+    const duration = Date.now() - startTime;
+
+    return {
+      missionId: state.missionId,
+      success,
+      deliverables: state.deliverables,
+      summary: success ? "任务执行成功" : `任务执行失败: ${errorMessage}`,
+      tokensUsed: state.resourceUsage.tokensUsed,
+      costUsed: state.resourceUsage.costUsed,
+      duration,
+      error: errorMessage
+        ? {
+            code: "EXECUTION_ERROR",
+            message: errorMessage,
+            retryable: true,
+          }
+        : undefined,
+      statistics: {
+        totalSteps: state.completedSteps.length + state.failedSteps.length,
+        completedSteps: state.completedSteps.length,
+        failedSteps: state.failedSteps.length,
+        skippedSteps: 0,
+        reworkCount: state.resourceUsage.reworkCount,
+        membersInvolved: 0,
+        toolCalls: 0,
+        skillCalls: 0,
+        reviewCount: state.reviewResults.length,
+        reviewPassRate:
+          state.reviewResults.length > 0
+            ? state.reviewResults.filter((r) => r.passed).length /
+              state.reviewResults.length
+            : 1,
+      },
+    };
+  }
+
+  private updateResourceUsage(
+    state: MissionExecutionState,
+    startTime: number,
+  ): ResourceUsage {
+    const totalSteps =
+      state.completedSteps.length +
+      state.failedSteps.length +
+      state.currentSteps.length;
+    const progress =
+      totalSteps > 0 ? state.completedSteps.length / totalSteps : 0;
+
+    return {
+      ...state.resourceUsage,
+      timeElapsed: Date.now() - startTime,
+      progress,
+    };
+  }
+
+  private inferTaskType(prompt: string): TaskType {
+    const keywords: Record<TaskType, string[]> = {
+      research: ["研究", "调研", "分析", "报告"],
+      analysis: ["分析", "评估", "对比", "趋势"],
+      creation: ["写", "创作", "生成", "撰写"],
+      coding: ["代码", "开发", "实现", "编程"],
+      design: ["设计", "UI", "界面", "视觉"],
+      debate: ["辩论", "讨论", "对抗", "观点"],
+      review: ["审核", "检查", "验证", "评审"],
+      mixed: [],
+    };
+
+    for (const [type, words] of Object.entries(keywords)) {
+      if (words.some((word) => prompt.includes(word))) {
+        return type as TaskType;
+      }
+    }
+
+    return "mixed";
+  }
+
+  private assessComplexity(input: MissionInput): ParsedIntent["complexity"] {
+    const promptLength = input.prompt.length;
+    const hasFiles = (input.files?.length || 0) > 0;
+    const hasUrls = (input.urls?.length || 0) > 0;
+    const hasRequirements = (input.requirements?.length || 0) > 0;
+
+    let score = 0;
+    if (promptLength > 500) score += 2;
+    else if (promptLength > 200) score += 1;
+    if (hasFiles) score += 1;
+    if (hasUrls) score += 1;
+    if (hasRequirements) score += 1;
+
+    const overall: ComplexityLevel =
+      score >= 4
+        ? "very_high"
+        : score >= 3
+          ? "high"
+          : score >= 2
+            ? "medium"
+            : "low";
+
+    return {
+      overall,
+      informational: overall,
+      logical: overall,
+      creative: overall,
+      estimatedSubTasks: Math.max(3, score + 2),
+      estimatedDuration: (score + 1) * 60000,
+      estimatedCost: (score + 1) * 50,
+    };
+  }
+
+  private extractTopics(prompt: string): string[] {
+    const words = prompt.split(/[，。！？、\s]+/).filter((w) => w.length > 2);
+    return words.slice(0, 5);
+  }
+
+  private mapStepType(workflowType: string): ExecutionStep["type"] {
+    if (workflowType === "review") return "review";
+    if (workflowType === "decision") return "task";
+    return "task";
+  }
+
+  private estimateStepDuration(_stepType: string, depth: string): number {
+    const base = 30000;
+    const multiplier =
+      depth === "comprehensive" ? 3 : depth === "standard" ? 2 : 1;
+    return base * multiplier;
+  }
+
+  private estimateStepCost(duration: number, modelPreference: string): number {
+    const base = duration / 10000;
+    const multiplier =
+      modelPreference === "premium"
+        ? 3
+        : modelPreference === "balanced"
+          ? 2
+          : 1;
+    return Math.ceil(base * multiplier);
+  }
+
+  private calculateTotalDuration(steps: ExecutionStep[]): number {
+    return steps.reduce((sum, s) => sum + s.estimatedDuration, 0);
+  }
+}

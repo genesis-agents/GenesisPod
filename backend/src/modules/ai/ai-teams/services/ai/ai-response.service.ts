@@ -14,12 +14,12 @@ import {
 } from "./context-router.service";
 import { ParsedUrl } from "../utils/url-parser.service";
 import { TeamMemberAgent, TeamsLLMAdapter } from "../../agents";
-import { FunctionCallingExecutor } from "../../../ai-agents/core/execution/function-calling-executor";
 import {
-  ToolType,
+  FunctionCallingExecutor,
   AgentEvent,
-} from "../../../ai-agents/core/agent/agent.types";
-import { ToolContext } from "../../../ai-agents/core/tool/tool.interface";
+} from "../../../ai-engine/orchestration/executors/function-calling-executor";
+import { BuiltinToolId } from "../../../ai-engine/core";
+import { ToolContext } from "../../../ai-engine/tools/abstractions/tool.interface";
 import { TopicEventEmitterService } from "../topic-event-emitter.service";
 import { CreditsService } from "../../../../credits/credits.service";
 import { InsufficientCreditsException } from "../../../../credits/exceptions/insufficient-credits.exception";
@@ -1537,7 +1537,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       sender: { username: string | null; fullName: string | null } | null;
       aiMember: { displayName: string } | null;
     }>,
-    toolTypes: ToolType[],
+    toolTypes: BuiltinToolId[],
     systemPrompt: string,
     maxRetries: number = 3,
   ) {
@@ -1635,7 +1635,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       sender: { username: string | null; fullName: string | null } | null;
       aiMember: { displayName: string } | null;
     }>,
-    toolTypes: ToolType[],
+    toolTypes: BuiltinToolId[],
     systemPrompt: string,
   ) {
     this.logger.log(
@@ -1655,15 +1655,18 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
 
     // 构建工具上下文
     const toolContext: ToolContext = {
+      executionId: `topic_${topicId}_${Date.now()}`,
+      toolId: "ai-response",
       taskId: `topic_${topicId}_${Date.now()}`,
       userId: lastUserMessage?.senderId || "system",
       workspaceId: topicId,
+      createdAt: new Date(),
     };
 
     // 执行 Function Calling
     const events: AgentEvent[] = [];
     const toolCalls: Array<{
-      tool: ToolType;
+      tool: string;
       input: unknown;
       output: unknown;
     }> = [];
