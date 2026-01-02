@@ -3,7 +3,7 @@
  * 成本控制器实现
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from "@nestjs/common";
 
 /**
  * 成本记录
@@ -28,13 +28,13 @@ export interface CostRecord {
  * 成本类别
  */
 export type CostCategory =
-  | 'llm'           // LLM 调用
-  | 'embedding'     // 嵌入向量
-  | 'image'         // 图像生成
-  | 'speech'        // 语音
-  | 'search'        // 搜索
-  | 'storage'       // 存储
-  | 'other';        // 其他
+  | "llm" // LLM 调用
+  | "embedding" // 嵌入向量
+  | "image" // 图像生成
+  | "speech" // 语音
+  | "search" // 搜索
+  | "storage" // 存储
+  | "other"; // 其他
 
 /**
  * 成本预算
@@ -89,7 +89,7 @@ export interface CostBudget {
 /**
  * 预算周期
  */
-export type BudgetPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type BudgetPeriod = "hourly" | "daily" | "weekly" | "monthly" | "yearly";
 
 /**
  * 成本检查结果
@@ -150,12 +150,32 @@ export class CostController {
    * 默认定价（USD per million tokens）
    */
   private static readonly DEFAULT_PRICING: ModelPricing[] = [
-    { model: 'gpt-4o', inputPricePerMillion: 2.5, outputPricePerMillion: 10 },
-    { model: 'gpt-4o-mini', inputPricePerMillion: 0.15, outputPricePerMillion: 0.6 },
-    { model: 'gpt-4-turbo', inputPricePerMillion: 10, outputPricePerMillion: 30 },
-    { model: 'claude-3-5-sonnet', inputPricePerMillion: 3, outputPricePerMillion: 15 },
-    { model: 'claude-3-opus', inputPricePerMillion: 15, outputPricePerMillion: 75 },
-    { model: 'claude-3-haiku', inputPricePerMillion: 0.25, outputPricePerMillion: 1.25 },
+    { model: "gpt-4o", inputPricePerMillion: 2.5, outputPricePerMillion: 10 },
+    {
+      model: "gpt-4o-mini",
+      inputPricePerMillion: 0.15,
+      outputPricePerMillion: 0.6,
+    },
+    {
+      model: "gpt-4-turbo",
+      inputPricePerMillion: 10,
+      outputPricePerMillion: 30,
+    },
+    {
+      model: "claude-3-5-sonnet",
+      inputPricePerMillion: 3,
+      outputPricePerMillion: 15,
+    },
+    {
+      model: "claude-3-opus",
+      inputPricePerMillion: 15,
+      outputPricePerMillion: 75,
+    },
+    {
+      model: "claude-3-haiku",
+      inputPricePerMillion: 0.25,
+      outputPricePerMillion: 1.25,
+    },
   ];
 
   constructor() {
@@ -189,7 +209,7 @@ export class CostController {
     const pricing = this.pricing.get(model);
     if (!pricing) {
       // 使用默认估算
-      return (inputTokens + outputTokens) * 0.001 / 1000;
+      return ((inputTokens + outputTokens) * 0.001) / 1000;
     }
 
     const inputCost = (inputTokens / 1000000) * pricing.inputPricePerMillion;
@@ -201,7 +221,7 @@ export class CostController {
   /**
    * 记录成本
    */
-  recordCost(record: Omit<CostRecord, 'id' | 'timestamp'>): CostRecord {
+  recordCost(record: Omit<CostRecord, "id" | "timestamp">): CostRecord {
     const fullRecord: CostRecord = {
       ...record,
       id: crypto.randomUUID(),
@@ -222,7 +242,7 @@ export class CostController {
   checkBudget(
     estimatedCost: number,
     category?: CostCategory,
-    userId?: string,
+    _userId?: string,
   ): CostCheckResult {
     let lowestRemaining = Infinity;
     let highestUsageRate = 0;
@@ -290,7 +310,10 @@ export class CostController {
     alertThreshold?: number;
   }): CostBudget {
     const now = new Date();
-    const { periodStart, periodEnd } = this.calculatePeriod(now, options.period);
+    const { periodStart, periodEnd } = this.calculatePeriod(
+      now,
+      options.period,
+    );
 
     const budget: CostBudget = {
       id: crypto.randomUUID(),
@@ -320,19 +343,19 @@ export class CostController {
     const end = new Date(date);
 
     switch (period) {
-      case 'hourly':
+      case "hourly":
         start.setMinutes(0, 0, 0);
         end.setMinutes(0, 0, 0);
         end.setHours(end.getHours() + 1);
         break;
 
-      case 'daily':
+      case "daily":
         start.setHours(0, 0, 0, 0);
         end.setHours(0, 0, 0, 0);
         end.setDate(end.getDate() + 1);
         break;
 
-      case 'weekly':
+      case "weekly":
         const day = start.getDay();
         start.setDate(start.getDate() - day);
         start.setHours(0, 0, 0, 0);
@@ -340,7 +363,7 @@ export class CostController {
         end.setHours(0, 0, 0, 0);
         break;
 
-      case 'monthly':
+      case "monthly":
         start.setDate(1);
         start.setHours(0, 0, 0, 0);
         end.setMonth(end.getMonth() + 1);
@@ -348,7 +371,7 @@ export class CostController {
         end.setHours(0, 0, 0, 0);
         break;
 
-      case 'yearly':
+      case "yearly":
         start.setMonth(0, 1);
         start.setHours(0, 0, 0, 0);
         end.setFullYear(end.getFullYear() + 1);
@@ -372,10 +395,7 @@ export class CostController {
       }
 
       // 检查类别是否匹配
-      if (
-        budget.categories &&
-        !budget.categories.includes(record.category)
-      ) {
+      if (budget.categories && !budget.categories.includes(record.category)) {
         continue;
       }
 

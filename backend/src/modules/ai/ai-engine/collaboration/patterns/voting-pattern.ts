@@ -3,13 +3,13 @@
  * 投票模式实现
  */
 
-import { v4 as uuid } from 'uuid';
-import { Logger } from '@nestjs/common';
+import { v4 as uuid } from "uuid";
+import { Logger } from "@nestjs/common";
 import {
   VoteRequest,
   VoteOption,
   VoteResult,
-} from '../abstractions/collaborator.interface';
+} from "../abstractions/collaborator.interface";
 
 /**
  * 投票配置
@@ -54,7 +54,7 @@ export interface VotingSession {
   id: string;
   request: VoteRequest;
   votes: Vote[];
-  status: 'open' | 'closed' | 'cancelled';
+  status: "open" | "closed" | "cancelled";
   result?: VoteResult;
   createdAt: Date;
   closedAt?: Date;
@@ -80,15 +80,22 @@ export class VotingManager {
   }
 
   /**
+   * 获取配置
+   */
+  getConfig(): VotingConfig {
+    return { ...this.config };
+  }
+
+  /**
    * 创建投票
    */
-  createVote(request: Omit<VoteRequest, 'id'>): VotingSession {
+  createVote(request: Omit<VoteRequest, "id">): VotingSession {
     const voteId = uuid();
     const session: VotingSession = {
       id: voteId,
       request: { ...request, id: voteId },
       votes: [],
-      status: 'open',
+      status: "open",
       createdAt: new Date(),
     };
 
@@ -111,7 +118,7 @@ export class VotingManager {
     options?: { weight?: number; rank?: number[] },
   ): boolean {
     const session = this.sessions.get(voteId);
-    if (!session || session.status !== 'open') {
+    if (!session || session.status !== "open") {
       return false;
     }
 
@@ -124,7 +131,7 @@ export class VotingManager {
 
     // 检查选项是否有效
     const validOption = session.request.options.find((o) => o.id === optionId);
-    if (!validOption && optionId !== 'abstain') {
+    if (!validOption && optionId !== "abstain") {
       return false;
     }
 
@@ -148,11 +155,11 @@ export class VotingManager {
    */
   closeVote(voteId: string, expectedParticipants: number): VoteResult | null {
     const session = this.sessions.get(voteId);
-    if (!session || session.status !== 'open') {
+    if (!session || session.status !== "open") {
       return null;
     }
 
-    session.status = 'closed';
+    session.status = "closed";
     session.closedAt = new Date();
 
     // 计算结果
@@ -160,7 +167,7 @@ export class VotingManager {
     session.result = result;
 
     this.logger.log(
-      `Voting session ${voteId} closed. Winner: ${result.winner || 'none'}, Consensus: ${result.consensus}`,
+      `Voting session ${voteId} closed. Winner: ${result.winner || "none"}, Consensus: ${result.consensus}`,
     );
 
     return result;
@@ -183,17 +190,21 @@ export class VotingManager {
 
     // 根据策略计算
     switch (request.strategy) {
-      case 'majority':
+      case "majority":
         return this.calculateMajority(votes, tally, expectedParticipants);
 
-      case 'unanimous':
+      case "unanimous":
         return this.calculateUnanimous(votes, tally, expectedParticipants);
 
-      case 'weighted':
+      case "weighted":
         return this.calculateWeighted(votes, tally, expectedParticipants);
 
-      case 'ranked':
-        return this.calculateRanked(votes, request.options, expectedParticipants);
+      case "ranked":
+        return this.calculateRanked(
+          votes,
+          request.options,
+          expectedParticipants,
+        );
 
       default:
         return this.calculateMajority(votes, tally, expectedParticipants);
@@ -210,7 +221,7 @@ export class VotingManager {
   ): VoteResult {
     // 计票
     for (const vote of votes) {
-      if (vote.optionId !== 'abstain') {
+      if (vote.optionId !== "abstain") {
         tally[vote.optionId] = (tally[vote.optionId] || 0) + 1;
       }
     }
@@ -230,7 +241,7 @@ export class VotingManager {
     const consensus = maxVotes >= threshold;
 
     return {
-      voteId: votes[0]?.voterId ? votes[0].voterId : '',
+      voteId: votes[0]?.voterId ? votes[0].voterId : "",
       winner: consensus ? winner : undefined,
       tally,
       consensus,
@@ -249,19 +260,19 @@ export class VotingManager {
   ): VoteResult {
     // 计票
     for (const vote of votes) {
-      if (vote.optionId !== 'abstain') {
+      if (vote.optionId !== "abstain") {
         tally[vote.optionId] = (tally[vote.optionId] || 0) + 1;
       }
     }
 
     // 检查是否全票
-    const nonAbstainVotes = votes.filter((v) => v.optionId !== 'abstain');
+    const nonAbstainVotes = votes.filter((v) => v.optionId !== "abstain");
     const allSame = nonAbstainVotes.every(
       (v) => v.optionId === nonAbstainVotes[0]?.optionId,
     );
 
     return {
-      voteId: '',
+      voteId: "",
       winner: allSame ? nonAbstainVotes[0]?.optionId : undefined,
       tally,
       consensus: allSame && nonAbstainVotes.length > 0,
@@ -280,7 +291,7 @@ export class VotingManager {
   ): VoteResult {
     // 加权计票
     for (const vote of votes) {
-      if (vote.optionId !== 'abstain') {
+      if (vote.optionId !== "abstain") {
         const weight = vote.weight || 1;
         tally[vote.optionId] = (tally[vote.optionId] || 0) + weight;
       }
@@ -297,7 +308,7 @@ export class VotingManager {
     }
 
     return {
-      voteId: '',
+      voteId: "",
       winner,
       tally,
       consensus: maxWeight > 0,
@@ -339,7 +350,7 @@ export class VotingManager {
     }
 
     return {
-      voteId: '',
+      voteId: "",
       winner,
       tally,
       consensus: maxVotes > votes.length / 2,
@@ -358,7 +369,7 @@ export class VotingManager {
   /**
    * 获取投票状态
    */
-  getVoteStatus(voteId: string): VotingSession['status'] | null {
+  getVoteStatus(voteId: string): VotingSession["status"] | null {
     const session = this.sessions.get(voteId);
     return session?.status || null;
   }
@@ -368,11 +379,11 @@ export class VotingManager {
    */
   cancelVote(voteId: string): boolean {
     const session = this.sessions.get(voteId);
-    if (!session || session.status !== 'open') {
+    if (!session || session.status !== "open") {
       return false;
     }
 
-    session.status = 'cancelled';
+    session.status = "cancelled";
     session.closedAt = new Date();
 
     return true;

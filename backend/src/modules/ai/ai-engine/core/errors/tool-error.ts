@@ -3,9 +3,9 @@
  * 工具错误类
  */
 
-import { JsonObject } from '../types';
-import { EngineError } from './base-error';
-import { ToolErrorCode } from './error-codes';
+import { JsonObject } from "../types";
+import { EngineError } from "./base-error";
+import { ToolErrorCode } from "./error-codes";
 
 /**
  * 工具错误
@@ -85,10 +85,7 @@ export class ToolError extends EngineError {
   /**
    * 缺少参数
    */
-  static missingParameter(
-    toolId: string,
-    parameterName: string,
-  ): ToolError {
+  static missingParameter(toolId: string, parameterName: string): ToolError {
     return new ToolError(
       `Missing required parameter '${parameterName}' for tool '${toolId}'`,
       ToolErrorCode.MISSING_PARAMETER,
@@ -136,14 +133,15 @@ export class ToolError extends EngineError {
   /**
    * 速率限制
    */
-  static rateLimited(
-    toolId: string,
-    retryAfter?: number,
-  ): ToolError {
+  static rateLimited(toolId: string, retryAfter?: number): ToolError {
     return new ToolError(
-      `Tool '${toolId}' is rate limited${retryAfter ? `, retry after ${retryAfter}ms` : ''}`,
+      `Tool '${toolId}' is rate limited${retryAfter ? `, retry after ${retryAfter}ms` : ""}`,
       ToolErrorCode.RATE_LIMITED,
-      { toolId, details: { retryAfter }, retryable: true },
+      {
+        toolId,
+        details: retryAfter !== undefined ? { retryAfter } : undefined,
+        retryable: true,
+      },
     );
   }
 
@@ -165,10 +163,7 @@ export class ToolError extends EngineError {
   /**
    * 网络错误
    */
-  static networkError(
-    toolId: string,
-    cause?: Error,
-  ): ToolError {
+  static networkError(toolId: string, cause?: Error): ToolError {
     return new ToolError(
       `Network error in tool '${toolId}'`,
       ToolErrorCode.NETWORK_ERROR,
@@ -229,7 +224,7 @@ export class ToolError extends EngineError {
     }
 
     return new ToolError(
-      typeof error === 'string' ? error : 'Unknown tool error',
+      typeof error === "string" ? error : "Unknown tool error",
       code,
       { toolId, details },
     );

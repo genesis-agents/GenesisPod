@@ -3,8 +3,6 @@
  * Model Context Protocol 接口定义
  */
 
-import { JsonObject } from '../../core';
-
 /**
  * MCP Server 信息
  */
@@ -84,7 +82,7 @@ export interface MCPTool {
  * MCP Schema (JSON Schema 子集)
  */
 export interface MCPSchema {
-  type: 'object' | 'string' | 'number' | 'boolean' | 'array';
+  type: "object" | "string" | "number" | "boolean" | "array";
   properties?: Record<string, MCPSchemaProperty>;
   required?: string[];
   items?: MCPSchemaProperty;
@@ -124,7 +122,7 @@ export interface MCPContent {
   /**
    * 内容类型
    */
-  type: 'text' | 'image' | 'resource';
+  type: "text" | "image" | "resource";
 
   /**
    * 文本内容
@@ -241,7 +239,7 @@ export interface MCPPromptArgument {
  * MCP 提示词消息
  */
 export interface MCPPromptMessage {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: MCPContent;
 }
 
@@ -282,7 +280,10 @@ export interface IMCPClient {
   /**
    * 调用工具
    */
-  callTool(name: string, arguments_: Record<string, unknown>): Promise<MCPToolResult>;
+  callTool(
+    name: string,
+    arguments_: Record<string, unknown>,
+  ): Promise<MCPToolResult>;
 
   /**
    * 获取可用资源列表
@@ -302,7 +303,10 @@ export interface IMCPClient {
   /**
    * 获取提示词内容
    */
-  getPrompt(name: string, arguments_?: Record<string, unknown>): Promise<MCPPromptMessage[]>;
+  getPrompt(
+    name: string,
+    arguments_?: Record<string, unknown>,
+  ): Promise<MCPPromptMessage[]>;
 }
 
 /**
@@ -358,18 +362,18 @@ export interface MCPServerConfig {
 /**
  * MCP 传输类型
  */
-export type MCPTransportType = 'stdio' | 'http' | 'websocket';
+export type MCPTransportType = "stdio" | "http" | "websocket";
 
 /**
  * MCP 事件类型
  */
 export type MCPEventType =
-  | 'connected'
-  | 'disconnected'
-  | 'error'
-  | 'tools_changed'
-  | 'resources_changed'
-  | 'prompts_changed';
+  | "connected"
+  | "disconnected"
+  | "error"
+  | "tools_changed"
+  | "resources_changed"
+  | "prompts_changed";
 
 /**
  * MCP 事件
@@ -423,7 +427,11 @@ export interface IMCPManager {
   /**
    * 调用工具
    */
-  callTool(serverId: string, toolName: string, arguments_: Record<string, unknown>): Promise<MCPToolResult>;
+  callTool(
+    serverId: string,
+    toolName: string,
+    arguments_: Record<string, unknown>,
+  ): Promise<MCPToolResult>;
 
   /**
    * 订阅事件

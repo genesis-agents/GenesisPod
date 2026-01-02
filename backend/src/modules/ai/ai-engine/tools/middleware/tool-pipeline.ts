@@ -3,10 +3,10 @@
  * 工具执行管道
  */
 
-import { v4 as uuid } from 'uuid';
-import { ITool, ToolContext, ToolResult } from '../abstractions/tool.interface';
-import { IToolMiddleware, IMiddlewareChain } from './middleware.interface';
-import { ToolError } from '../../core/errors';
+import { v4 as uuid } from "uuid";
+import { ITool, ToolContext, ToolResult } from "../abstractions/tool.interface";
+import { IToolMiddleware, IMiddlewareChain } from "./middleware.interface";
+import { ToolError } from "../../core/errors";
 
 /**
  * 工具执行管道
@@ -78,7 +78,11 @@ export class ToolPipeline implements IMiddlewareChain {
       for (let i = this.middlewares.length - 1; i >= 0; i--) {
         const middleware = this.middlewares[i];
         if (middleware.after) {
-          result = await middleware.after(result, context, tool);
+          result = (await middleware.after(
+            result,
+            context,
+            tool,
+          )) as ToolResult<TOutput>;
         }
       }
 
@@ -139,9 +143,7 @@ export function createDefaultPipeline(): ToolPipeline {
  * 封装工具注册表和管道
  */
 export class ToolExecutor {
-  constructor(
-    private readonly pipeline: ToolPipeline,
-  ) {}
+  constructor(private readonly pipeline: ToolPipeline) {}
 
   /**
    * 执行工具

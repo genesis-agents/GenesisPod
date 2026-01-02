@@ -3,9 +3,14 @@
  * 验证中间件
  */
 
-import { ValidationError } from '../../core/errors';
-import { ITool, ToolContext, ToolResult, JSONSchema } from '../abstractions/tool.interface';
-import { IToolMiddleware } from './middleware.interface';
+import { ValidationError } from "../../core/errors";
+import {
+  ITool,
+  ToolContext,
+  ToolResult,
+  JSONSchema,
+} from "../abstractions/tool.interface";
+import { IToolMiddleware } from "./middleware.interface";
 
 /**
  * 验证中间件配置
@@ -49,7 +54,7 @@ interface ValidationResult {
  * 在工具执行前验证输入，执行后验证输出
  */
 export class ValidationMiddleware implements IToolMiddleware {
-  readonly name = 'validation';
+  readonly name = "validation";
   readonly priority = 10; // 高优先级，最先执行
 
   constructor(private readonly config: ValidationMiddlewareConfig = {}) {
@@ -63,7 +68,7 @@ export class ValidationMiddleware implements IToolMiddleware {
 
   async before(
     input: unknown,
-    context: ToolContext,
+    _context: ToolContext,
     tool: ITool,
   ): Promise<void> {
     if (!this.config.validateInput) {
@@ -79,7 +84,7 @@ export class ValidationMiddleware implements IToolMiddleware {
             path: e.path,
             message: e.message,
             type: e.type,
-          })) || [{ path: '', message: 'Validation failed', type: 'unknown' }],
+          })) || [{ path: "", message: "Validation failed", type: "unknown" }],
           `Input validation failed for tool '${tool.id}'`,
         );
       }
@@ -108,14 +113,17 @@ export class ValidationMiddleware implements IToolMiddleware {
 
   async after(
     result: ToolResult,
-    context: ToolContext,
+    _context: ToolContext,
     tool: ITool,
   ): Promise<ToolResult> {
     if (!this.config.validateOutput || !result.success) {
       return result;
     }
 
-    const schemaResult = this.validateAgainstSchema(result.data, tool.outputSchema);
+    const schemaResult = this.validateAgainstSchema(
+      result.data,
+      tool.outputSchema,
+    );
     if (!schemaResult.valid) {
       // 输出验证失败时，记录警告但不阻止
       console.warn(
@@ -137,7 +145,7 @@ export class ValidationMiddleware implements IToolMiddleware {
   ): ValidationResult {
     const errors: Array<{ path: string; message: string; type: string }> = [];
 
-    this.validateValue(data, schema, '', errors);
+    this.validateValue(data, schema, "", errors);
 
     return {
       valid: errors.length === 0,
@@ -156,18 +164,25 @@ export class ValidationMiddleware implements IToolMiddleware {
       const types = Array.isArray(schema.type) ? schema.type : [schema.type];
       const actualType = this.getType(value);
 
-      if (!types.includes(actualType) && !(actualType === 'null' && types.includes('null'))) {
+      if (
+        !types.includes(actualType) &&
+        !(actualType === "null" && types.includes("null"))
+      ) {
         errors.push({
-          path: path || 'root',
-          message: `Expected ${types.join(' or ')}, got ${actualType}`,
-          type: 'type',
+          path: path || "root",
+          message: `Expected ${types.join(" or ")}, got ${actualType}`,
+          type: "type",
         });
         return;
       }
     }
 
     // 对象属性检查
-    if (schema.type === 'object' && typeof value === 'object' && value !== null) {
+    if (
+      schema.type === "object" &&
+      typeof value === "object" &&
+      value !== null
+    ) {
       const obj = value as Record<string, unknown>;
 
       // 必填字段检查
@@ -177,7 +192,7 @@ export class ValidationMiddleware implements IToolMiddleware {
             errors.push({
               path: path ? `${path}.${key}` : key,
               message: `Required property '${key}' is missing`,
-              type: 'required',
+              type: "required",
             });
           }
         }
@@ -199,49 +214,44 @@ export class ValidationMiddleware implements IToolMiddleware {
     }
 
     // 数组项检查
-    if (schema.type === 'array' && Array.isArray(value) && schema.items) {
+    if (schema.type === "array" && Array.isArray(value) && schema.items) {
       for (let i = 0; i < value.length; i++) {
-        this.validateValue(
-          value[i],
-          schema.items,
-          `${path}[${i}]`,
-          errors,
-        );
+        this.validateValue(value[i], schema.items, `${path}[${i}]`, errors);
       }
     }
 
     // 字符串长度检查
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       if (schema.minLength !== undefined && value.length < schema.minLength) {
         errors.push({
-          path: path || 'root',
+          path: path || "root",
           message: `String length must be >= ${schema.minLength}`,
-          type: 'minLength',
+          type: "minLength",
         });
       }
       if (schema.maxLength !== undefined && value.length > schema.maxLength) {
         errors.push({
-          path: path || 'root',
+          path: path || "root",
           message: `String length must be <= ${schema.maxLength}`,
-          type: 'maxLength',
+          type: "maxLength",
         });
       }
     }
 
     // 数字范围检查
-    if (typeof value === 'number') {
+    if (typeof value === "number") {
       if (schema.minimum !== undefined && value < schema.minimum) {
         errors.push({
-          path: path || 'root',
+          path: path || "root",
           message: `Value must be >= ${schema.minimum}`,
-          type: 'minimum',
+          type: "minimum",
         });
       }
       if (schema.maximum !== undefined && value > schema.maximum) {
         errors.push({
-          path: path || 'root',
+          path: path || "root",
           message: `Value must be <= ${schema.maximum}`,
-          type: 'maximum',
+          type: "maximum",
         });
       }
     }
@@ -249,16 +259,16 @@ export class ValidationMiddleware implements IToolMiddleware {
     // 枚举检查
     if (schema.enum !== undefined && !schema.enum.includes(value)) {
       errors.push({
-        path: path || 'root',
-        message: `Value must be one of: ${schema.enum.join(', ')}`,
-        type: 'enum',
+        path: path || "root",
+        message: `Value must be one of: ${schema.enum.join(", ")}`,
+        type: "enum",
       });
     }
   }
 
   private getType(value: unknown): string {
-    if (value === null) return 'null';
-    if (Array.isArray(value)) return 'array';
+    if (value === null) return "null";
+    if (Array.isArray(value)) return "array";
     return typeof value;
   }
 }

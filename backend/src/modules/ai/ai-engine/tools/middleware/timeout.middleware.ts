@@ -3,9 +3,9 @@
  * 超时中间件
  */
 
-import { ToolError } from '../../core/errors';
-import { ITool, ToolContext, ToolResult } from '../abstractions/tool.interface';
-import { IToolMiddleware } from './middleware.interface';
+import { ToolError } from "../../core/errors";
+import { ITool, ToolContext, ToolResult } from "../abstractions/tool.interface";
+import { IToolMiddleware } from "./middleware.interface";
 
 /**
  * 超时中间件配置
@@ -27,7 +27,7 @@ export interface TimeoutMiddlewareConfig {
  * 为工具执行添加超时控制
  */
 export class TimeoutMiddleware implements IToolMiddleware {
-  readonly name = 'timeout';
+  readonly name = "timeout";
   readonly priority = 20;
 
   private activeTimers = new Map<string, NodeJS.Timeout>();
@@ -40,7 +40,7 @@ export class TimeoutMiddleware implements IToolMiddleware {
   }
 
   async before(
-    input: unknown,
+    _input: unknown,
     context: ToolContext,
     tool: ITool,
   ): Promise<void> {
@@ -54,7 +54,7 @@ export class TimeoutMiddleware implements IToolMiddleware {
    */
   wrapExecution<TInput, TOutput>(
     tool: ITool<TInput, TOutput>,
-    input: TInput,
+    _input: TInput,
     context: ToolContext,
     executor: () => Promise<ToolResult<TOutput>>,
   ): Promise<ToolResult<TOutput>> {
@@ -70,7 +70,7 @@ export class TimeoutMiddleware implements IToolMiddleware {
           resolve({
             success: false,
             error: {
-              code: 'TOOL_TIMEOUT',
+              code: "TOOL_TIMEOUT",
               message: `Tool '${tool.id}' timed out after ${timeout}ms`,
               retryable: true,
             },

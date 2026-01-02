@@ -5,21 +5,23 @@
  * 将 MCP 工具转换为 ai-engine ITool 接口
  */
 
-import { ITool, ToolContext, ToolResult } from '../../tools/abstractions';
-import { MCPTool, MCPToolResult, IMCPClient } from '../abstractions/mcp.interface';
-import { MCPManager } from '../manager/mcp-manager';
+import { ITool, ToolContext, ToolResult } from "../../tools/abstractions";
+import { MCPTool, MCPToolResult } from "../abstractions/mcp.interface";
+import { MCPManager } from "../manager/mcp-manager";
 
 /**
  * MCP 工具适配器
  * 将 MCP 工具包装为 ITool
  */
-export class MCPToolAdapter implements ITool<Record<string, unknown>, MCPToolResult> {
+export class MCPToolAdapter
+  implements ITool<Record<string, unknown>, MCPToolResult>
+{
   readonly id: string;
   readonly name: string;
   readonly description: string;
-  readonly category = 'mcp';
+  readonly category = "mcp";
   readonly inputSchema: Record<string, unknown>;
-  readonly outputSchema = { type: 'object' };
+  readonly outputSchema = { type: "object" };
   readonly tags: string[];
 
   constructor(
@@ -30,8 +32,11 @@ export class MCPToolAdapter implements ITool<Record<string, unknown>, MCPToolRes
     this.id = `mcp:${serverId}:${mcpTool.name}`;
     this.name = mcpTool.name;
     this.description = mcpTool.description;
-    this.inputSchema = mcpTool.inputSchema as Record<string, unknown>;
-    this.tags = ['mcp', serverId];
+    this.inputSchema = mcpTool.inputSchema as unknown as Record<
+      string,
+      unknown
+    >;
+    this.tags = ["mcp", serverId];
   }
 
   /**
@@ -64,7 +69,7 @@ export class MCPToolAdapter implements ITool<Record<string, unknown>, MCPToolRes
       return {
         success: false,
         error: {
-          code: 'MCP_TOOL_ERROR',
+          code: "MCP_TOOL_ERROR",
           message: (error as Error).message,
         },
         metadata: {
@@ -96,9 +101,7 @@ export class MCPToolAdapter implements ITool<Record<string, unknown>, MCPToolRes
 export class MCPToolRegistrar {
   private registeredTools = new Map<string, MCPToolAdapter>();
 
-  constructor(
-    private readonly mcpManager: MCPManager,
-  ) {}
+  constructor(private readonly mcpManager: MCPManager) {}
 
   /**
    * 同步所有 MCP 工具到注册表
@@ -131,8 +134,8 @@ export class MCPToolRegistrar {
    * 获取指定服务器的工具
    */
   getToolsByServer(serverId: string): MCPToolAdapter[] {
-    return this.getRegisteredTools().filter(
-      (t) => t.id.startsWith(`mcp:${serverId}:`),
+    return this.getRegisteredTools().filter((t) =>
+      t.id.startsWith(`mcp:${serverId}:`),
     );
   }
 
@@ -165,12 +168,12 @@ export function extractTextFromMCPResult(result: MCPToolResult): string {
   const textParts: string[] = [];
 
   for (const content of result.content) {
-    if (content.type === 'text' && content.text) {
+    if (content.type === "text" && content.text) {
       textParts.push(content.text);
     }
   }
 
-  return textParts.join('\n');
+  return textParts.join("\n");
 }
 
 /**
@@ -183,7 +186,7 @@ export function extractImagesFromMCPResult(result: MCPToolResult): Array<{
   const images: Array<{ data: string; mimeType: string }> = [];
 
   for (const content of result.content) {
-    if (content.type === 'image' && content.data && content.mimeType) {
+    if (content.type === "image" && content.data && content.mimeType) {
       images.push({
         data: content.data,
         mimeType: content.mimeType,

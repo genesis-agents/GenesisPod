@@ -3,9 +3,8 @@
  * 执行器基类
  */
 
-import { v4 as uuid } from 'uuid';
-import { Logger } from '@nestjs/common';
-import { JsonObject } from '../../core';
+import { Logger } from "@nestjs/common";
+import { JsonObject, JsonValue } from "../../core";
 import {
   Workflow,
   WorkflowStep,
@@ -14,10 +13,10 @@ import {
   ExecutionResult,
   StepResult,
   StepStatus,
-} from '../abstractions/orchestrator.interface';
-import { ToolRegistry } from '../../tools/registry';
-import { SkillRegistry } from '../../skills/registry';
-import { AgentRegistry } from '../../agents/registry';
+} from "../abstractions/orchestrator.interface";
+import { ToolRegistry } from "../../tools/registry";
+import { SkillRegistry } from "../../skills/registry";
+import { AgentRegistry } from "../../agents/registry";
 
 /**
  * 执行器接口
@@ -80,14 +79,17 @@ export abstract class BaseExecutor implements IExecutor {
     try {
       // 检查取消信号
       if (context.signal?.aborted) {
-        return this.createStepResult(step.id, 'cancelled', startTime);
+        return this.createStepResult(step.id, "cancelled", startTime);
       }
 
       // 检查条件
       if (step.condition) {
-        const shouldExecute = this.evaluateCondition(step.condition.expression, context);
+        const shouldExecute = this.evaluateCondition(
+          step.condition.expression,
+          context,
+        );
         if (!shouldExecute) {
-          return this.createStepResult(step.id, 'skipped', startTime);
+          return this.createStepResult(step.id, "skipped", startTime);
         }
       }
 
@@ -105,31 +107,37 @@ export abstract class BaseExecutor implements IExecutor {
       // 保存步骤结果
       context.stepResults.set(step.id, {
         stepId: step.id,
-        status: 'completed',
+        status: "completed",
         output,
         startTime,
         endTime: new Date(),
         duration: Date.now() - startTime.getTime(),
       });
 
-      return this.createStepResult(step.id, 'completed', startTime, output);
+      return this.createStepResult(step.id, "completed", startTime, output);
     } catch (error) {
       const stepError = {
-        code: 'STEP_EXECUTION_ERROR',
+        code: "STEP_EXECUTION_ERROR",
         message: (error as Error).message,
         stack: (error as Error).stack,
       };
 
       context.stepResults.set(step.id, {
         stepId: step.id,
-        status: 'failed',
+        status: "failed",
         error: stepError,
         startTime,
         endTime: new Date(),
         duration: Date.now() - startTime.getTime(),
       });
 
-      return this.createStepResult(step.id, 'failed', startTime, undefined, stepError);
+      return this.createStepResult(
+        step.id,
+        "failed",
+        startTime,
+        undefined,
+        stepError,
+      );
     }
   }
 
@@ -142,22 +150,22 @@ export abstract class BaseExecutor implements IExecutor {
     context: ExecutionContext,
   ): Promise<unknown> {
     switch (step.type) {
-      case 'tool':
+      case "tool":
         return this.executeTool(step.executor, input, context);
 
-      case 'skill':
+      case "skill":
         return this.executeSkill(step.executor, input, context);
 
-      case 'agent':
+      case "agent":
         return this.executeAgent(step.executor, input, context);
 
-      case 'transform':
+      case "transform":
         return this.executeTransform(step, input, context);
 
-      case 'decision':
+      case "decision":
         return this.executeDecision(step, context);
 
-      case 'wait':
+      case "wait":
         return this.executeWait(input as number);
 
       default:
@@ -174,7 +182,7 @@ export abstract class BaseExecutor implements IExecutor {
     context: ExecutionContext,
   ): Promise<unknown> {
     if (!this.toolRegistry) {
-      throw new Error('Tool registry not set');
+      throw new Error("Tool registry not set");
     }
 
     const tool = this.toolRegistry.tryGet(toolId);
@@ -187,14 +195,14 @@ export abstract class BaseExecutor implements IExecutor {
       toolId,
       userId: context.userId,
       sessionId: context.sessionId,
-      callerId: 'orchestrator',
-      callerType: 'orchestrator',
+      callerId: "orchestrator",
+      callerType: "orchestrator",
       signal: context.signal,
       createdAt: new Date(),
     });
 
     if (!result.success) {
-      throw new Error(result.error?.message || 'Tool execution failed');
+      throw new Error(result.error?.message || "Tool execution failed");
     }
 
     return result.data;
@@ -209,7 +217,7 @@ export abstract class BaseExecutor implements IExecutor {
     context: ExecutionContext,
   ): Promise<unknown> {
     if (!this.skillRegistry) {
-      throw new Error('Skill registry not set');
+      throw new Error("Skill registry not set");
     }
 
     const skill = this.skillRegistry.tryGet(skillId);
@@ -222,13 +230,13 @@ export abstract class BaseExecutor implements IExecutor {
       skillId,
       userId: context.userId,
       sessionId: context.sessionId,
-      callerId: 'orchestrator',
+      callerId: "orchestrator",
       signal: context.signal,
       createdAt: new Date(),
     });
 
     if (!result.success) {
-      throw new Error(result.error?.message || 'Skill execution failed');
+      throw new Error(result.error?.message || "Skill execution failed");
     }
 
     return result.data;
@@ -243,7 +251,7 @@ export abstract class BaseExecutor implements IExecutor {
     context: ExecutionContext,
   ): Promise<unknown> {
     if (!this.agentRegistry) {
-      throw new Error('Agent registry not set');
+      throw new Error("Agent registry not set");
     }
 
     const agent = this.agentRegistry.tryGet(agentId);
@@ -261,7 +269,7 @@ export abstract class BaseExecutor implements IExecutor {
     });
 
     if (!result.success) {
-      throw new Error(result.error?.message || 'Agent execution failed');
+      throw new Error(result.error?.message || "Agent execution failed");
     }
 
     return result.data;
@@ -309,7 +317,7 @@ export abstract class BaseExecutor implements IExecutor {
    * 解析输入
    */
   protected resolveInput(
-    input: WorkflowStep['input'],
+    input: WorkflowStep["input"],
     context: ExecutionContext,
   ): unknown {
     if (!input) {
@@ -326,7 +334,7 @@ export abstract class BaseExecutor implements IExecutor {
     // 从上下文映射
     if (input.fromContext) {
       for (const [key, path] of Object.entries(input.fromContext)) {
-        resolved[key] = this.getContextValue(context.state, path);
+        resolved[key] = this.getContextValue(context.state, path) as JsonValue;
       }
     }
 
@@ -338,7 +346,7 @@ export abstract class BaseExecutor implements IExecutor {
           resolved[key] = this.getContextValue(
             stepResult.output as JsonObject,
             mapping.path,
-          );
+          ) as JsonValue;
         }
       }
     }
@@ -392,7 +400,7 @@ export abstract class BaseExecutor implements IExecutor {
    * 获取上下文值
    */
   protected getContextValue(obj: JsonObject, path: string): unknown {
-    const parts = path.split('.');
+    const parts = path.split(".");
     let current: unknown = obj;
 
     for (const part of parts) {
@@ -408,8 +416,12 @@ export abstract class BaseExecutor implements IExecutor {
   /**
    * 设置上下文值
    */
-  protected setContextValue(obj: JsonObject, path: string, value: unknown): void {
-    const parts = path.split('.');
+  protected setContextValue(
+    obj: JsonObject,
+    path: string,
+    value: unknown,
+  ): void {
+    const parts = path.split(".");
     let current = obj;
 
     for (let i = 0; i < parts.length - 1; i++) {
@@ -431,7 +443,7 @@ export abstract class BaseExecutor implements IExecutor {
     status: StepStatus,
     startTime: Date,
     output?: unknown,
-    error?: StepResult['error'],
+    error?: StepResult["error"],
   ): StepResult {
     const endTime = new Date();
     return {
@@ -449,7 +461,7 @@ export abstract class BaseExecutor implements IExecutor {
    * 创建执行事件
    */
   protected createEvent(
-    type: ExecutionEvent['type'],
+    type: ExecutionEvent["type"],
     context: ExecutionContext,
     stepId?: string,
     data?: unknown,

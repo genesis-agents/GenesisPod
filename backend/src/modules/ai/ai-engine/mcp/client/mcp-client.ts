@@ -3,8 +3,7 @@
  * MCP 客户端实现
  */
 
-import { v4 as uuid } from 'uuid';
-import { Logger } from '@nestjs/common';
+import { Logger } from "@nestjs/common";
 import {
   IMCPClient,
   MCPServerInfo,
@@ -15,13 +14,13 @@ import {
   MCPResourceContent,
   MCPPrompt,
   MCPPromptMessage,
-} from '../abstractions/mcp.interface';
+} from "../abstractions/mcp.interface";
 
 /**
  * MCP 请求
  */
 interface MCPRequest {
-  jsonrpc: '2.0';
+  jsonrpc: "2.0";
   id: string | number;
   method: string;
   params?: unknown;
@@ -31,7 +30,7 @@ interface MCPRequest {
  * MCP 响应
  */
 interface MCPResponse {
-  jsonrpc: '2.0';
+  jsonrpc: "2.0";
   id: string | number;
   result?: unknown;
   error?: {
@@ -51,10 +50,13 @@ export abstract class BaseMCPClient implements IMCPClient {
   protected _connected = false;
   protected _serverInfo?: MCPServerInfo;
   protected requestId = 0;
-  protected pendingRequests = new Map<string | number, {
-    resolve: (value: unknown) => void;
-    reject: (error: Error) => void;
-  }>();
+  protected pendingRequests = new Map<
+    string | number,
+    {
+      resolve: (value: unknown) => void;
+      reject: (error: Error) => void;
+    }
+  >();
 
   constructor(config: MCPServerConfig) {
     this.id = config.id;
@@ -112,19 +114,19 @@ export abstract class BaseMCPClient implements IMCPClient {
    * 初始化（获取服务器信息）
    */
   protected async initialize(): Promise<void> {
-    const result = await this.sendRequest('initialize', {
-      protocolVersion: '2024-11-05',
+    const result = await this.sendRequest("initialize", {
+      protocolVersion: "2024-11-05",
       capabilities: {},
       clientInfo: {
-        name: 'ai-engine',
-        version: '1.0.0',
+        name: "ai-engine",
+        version: "1.0.0",
       },
     });
 
     this._serverInfo = result as MCPServerInfo;
 
     // 发送 initialized 通知
-    await this.sendNotification('notifications/initialized', {});
+    await this.sendNotification("notifications/initialized", {});
   }
 
   /**
@@ -132,16 +134,19 @@ export abstract class BaseMCPClient implements IMCPClient {
    */
   async listTools(): Promise<MCPTool[]> {
     this.ensureConnected();
-    const result = await this.sendRequest('tools/list', {});
+    const result = await this.sendRequest("tools/list", {});
     return (result as { tools: MCPTool[] }).tools || [];
   }
 
   /**
    * 调用工具
    */
-  async callTool(name: string, arguments_: Record<string, unknown>): Promise<MCPToolResult> {
+  async callTool(
+    name: string,
+    arguments_: Record<string, unknown>,
+  ): Promise<MCPToolResult> {
     this.ensureConnected();
-    const result = await this.sendRequest('tools/call', {
+    const result = await this.sendRequest("tools/call", {
       name,
       arguments: arguments_,
     });
@@ -153,7 +158,7 @@ export abstract class BaseMCPClient implements IMCPClient {
    */
   async listResources(): Promise<MCPResource[]> {
     this.ensureConnected();
-    const result = await this.sendRequest('resources/list', {});
+    const result = await this.sendRequest("resources/list", {});
     return (result as { resources: MCPResource[] }).resources || [];
   }
 
@@ -162,9 +167,9 @@ export abstract class BaseMCPClient implements IMCPClient {
    */
   async readResource(uri: string): Promise<MCPResourceContent> {
     this.ensureConnected();
-    const result = await this.sendRequest('resources/read', { uri });
+    const result = await this.sendRequest("resources/read", { uri });
     const contents = (result as { contents: MCPResourceContent[] }).contents;
-    return contents?.[0] || { uri, text: '' };
+    return contents?.[0] || { uri, text: "" };
   }
 
   /**
@@ -172,16 +177,19 @@ export abstract class BaseMCPClient implements IMCPClient {
    */
   async listPrompts(): Promise<MCPPrompt[]> {
     this.ensureConnected();
-    const result = await this.sendRequest('prompts/list', {});
+    const result = await this.sendRequest("prompts/list", {});
     return (result as { prompts: MCPPrompt[] }).prompts || [];
   }
 
   /**
    * 获取提示词内容
    */
-  async getPrompt(name: string, arguments_?: Record<string, unknown>): Promise<MCPPromptMessage[]> {
+  async getPrompt(
+    name: string,
+    arguments_?: Record<string, unknown>,
+  ): Promise<MCPPromptMessage[]> {
     this.ensureConnected();
-    const result = await this.sendRequest('prompts/get', {
+    const result = await this.sendRequest("prompts/get", {
       name,
       arguments: arguments_,
     });
@@ -191,10 +199,13 @@ export abstract class BaseMCPClient implements IMCPClient {
   /**
    * 发送请求
    */
-  protected async sendRequest(method: string, params?: unknown): Promise<unknown> {
+  protected async sendRequest(
+    method: string,
+    params?: unknown,
+  ): Promise<unknown> {
     const id = ++this.requestId;
     const request: MCPRequest = {
-      jsonrpc: '2.0',
+      jsonrpc: "2.0",
       id,
       method,
       params,
@@ -225,9 +236,12 @@ export abstract class BaseMCPClient implements IMCPClient {
   /**
    * 发送通知（无响应）
    */
-  protected async sendNotification(method: string, params?: unknown): Promise<void> {
+  protected async sendNotification(
+    method: string,
+    params?: unknown,
+  ): Promise<void> {
     const notification = {
-      jsonrpc: '2.0' as const,
+      jsonrpc: "2.0" as const,
       method,
       params,
     };
@@ -258,7 +272,7 @@ export abstract class BaseMCPClient implements IMCPClient {
    */
   protected ensureConnected(): void {
     if (!this._connected) {
-      throw new Error('Not connected to MCP server');
+      throw new Error("Not connected to MCP server");
     }
   }
 
@@ -283,39 +297,39 @@ export abstract class BaseMCPClient implements IMCPClient {
  */
 export class StdioMCPClient extends BaseMCPClient {
   private process: any;
-  private buffer = '';
+  private buffer = "";
 
   protected async doConnect(): Promise<void> {
     if (!this.config.command) {
-      throw new Error('Command is required for stdio transport');
+      throw new Error("Command is required for stdio transport");
     }
 
     // 动态导入 child_process（仅在 Node.js 环境）
-    const { spawn } = await import('child_process');
+    const { spawn } = await import("child_process");
 
     this.process = spawn(this.config.command, this.config.args || [], {
       env: { ...process.env, ...this.config.env },
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ["pipe", "pipe", "pipe"],
     });
 
     // 处理 stdout
-    this.process.stdout?.on('data', (data: Buffer) => {
+    this.process.stdout?.on("data", (data: Buffer) => {
       this.buffer += data.toString();
       this.processBuffer();
     });
 
     // 处理 stderr（日志）
-    this.process.stderr?.on('data', (data: Buffer) => {
+    this.process.stderr?.on("data", (data: Buffer) => {
       this.logger.debug(`[stderr] ${data.toString()}`);
     });
 
     // 处理进程退出
-    this.process.on('exit', (code: number) => {
+    this.process.on("exit", (code: number) => {
       this._connected = false;
       this.logger.warn(`MCP server process exited with code ${code}`);
     });
 
-    this.process.on('error', (error: Error) => {
+    this.process.on("error", (error: Error) => {
       this.logger.error(`Process error: ${error.message}`);
     });
   }
@@ -329,10 +343,10 @@ export class StdioMCPClient extends BaseMCPClient {
 
   protected async doSend(message: unknown): Promise<void> {
     if (!this.process?.stdin) {
-      throw new Error('Process not started');
+      throw new Error("Process not started");
     }
 
-    const data = JSON.stringify(message) + '\n';
+    const data = JSON.stringify(message) + "\n";
     this.process.stdin.write(data);
   }
 
@@ -340,8 +354,8 @@ export class StdioMCPClient extends BaseMCPClient {
    * 处理缓冲区中的消息
    */
   private processBuffer(): void {
-    const lines = this.buffer.split('\n');
-    this.buffer = lines.pop() || '';
+    const lines = this.buffer.split("\n");
+    this.buffer = lines.pop() || "";
 
     for (const line of lines) {
       if (!line.trim()) continue;
@@ -363,11 +377,11 @@ export class StdioMCPClient extends BaseMCPClient {
  */
 export function createMCPClient(config: MCPServerConfig): IMCPClient {
   switch (config.transport) {
-    case 'stdio':
+    case "stdio":
       return new StdioMCPClient(config);
 
-    case 'http':
-    case 'websocket':
+    case "http":
+    case "websocket":
       throw new Error(`Transport ${config.transport} not yet implemented`);
 
     default:

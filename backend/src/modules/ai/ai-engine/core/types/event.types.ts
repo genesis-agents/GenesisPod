@@ -3,7 +3,7 @@
  * 事件系统类型定义
  */
 
-import { Id, JsonObject } from './common.types';
+import { JsonObject } from "./common.types";
 
 /**
  * 基础事件
@@ -54,7 +54,7 @@ export type AgentEvent =
  * 计划就绪事件
  */
 export interface AgentPlanReadyEvent extends BaseEvent {
-  type: 'plan_ready';
+  type: "plan_ready";
   plan: ExecutionPlan;
 }
 
@@ -62,7 +62,7 @@ export interface AgentPlanReadyEvent extends BaseEvent {
  * 步骤开始事件
  */
 export interface AgentStepStartEvent extends BaseEvent {
-  type: 'step_start';
+  type: "step_start";
   stepId: string;
   stepName: string;
   message?: string;
@@ -72,7 +72,7 @@ export interface AgentStepStartEvent extends BaseEvent {
  * 步骤进度事件
  */
 export interface AgentStepProgressEvent extends BaseEvent {
-  type: 'step_progress';
+  type: "step_progress";
   stepId: string;
   progress: number; // 0-100
   message?: string;
@@ -82,7 +82,7 @@ export interface AgentStepProgressEvent extends BaseEvent {
  * 步骤完成事件
  */
 export interface AgentStepCompleteEvent extends BaseEvent {
-  type: 'step_complete';
+  type: "step_complete";
   stepId: string;
   result?: unknown;
   duration: number;
@@ -92,7 +92,7 @@ export interface AgentStepCompleteEvent extends BaseEvent {
  * 工具调用事件
  */
 export interface AgentToolCallEvent extends BaseEvent {
-  type: 'tool_call';
+  type: "tool_call";
   toolId: string;
   toolName: string;
   input: unknown;
@@ -102,7 +102,7 @@ export interface AgentToolCallEvent extends BaseEvent {
  * 工具结果事件
  */
 export interface AgentToolResultEvent extends BaseEvent {
-  type: 'tool_result';
+  type: "tool_result";
   toolId: string;
   toolName: string;
   output: unknown;
@@ -114,7 +114,7 @@ export interface AgentToolResultEvent extends BaseEvent {
  * 思考事件
  */
 export interface AgentThinkingEvent extends BaseEvent {
-  type: 'thinking';
+  type: "thinking";
   content: string;
 }
 
@@ -122,7 +122,7 @@ export interface AgentThinkingEvent extends BaseEvent {
  * 产出物事件
  */
 export interface AgentArtifactEvent extends BaseEvent {
-  type: 'artifact';
+  type: "artifact";
   artifact: Artifact;
 }
 
@@ -130,7 +130,7 @@ export interface AgentArtifactEvent extends BaseEvent {
  * 完成事件
  */
 export interface AgentCompleteEvent extends BaseEvent {
-  type: 'complete';
+  type: "complete";
   result: AgentResult;
 }
 
@@ -138,7 +138,7 @@ export interface AgentCompleteEvent extends BaseEvent {
  * 错误事件
  */
 export interface AgentErrorEvent extends BaseEvent {
-  type: 'error';
+  type: "error";
   error: string;
   code?: string;
   recoverable?: boolean;
@@ -206,7 +206,7 @@ export interface PlanStep {
   /**
    * 步骤类型
    */
-  type: 'agent' | 'skill' | 'tool' | 'decision' | 'wait' | 'parallel';
+  type: "agent" | "skill" | "tool" | "decision" | "wait" | "parallel";
 
   /**
    * 执行器 ID
@@ -341,16 +341,16 @@ export interface Artifact {
  * 产出物类型
  */
 export type ArtifactType =
-  | 'text'
-  | 'code'
-  | 'image'
-  | 'document'
-  | 'spreadsheet'
-  | 'presentation'
-  | 'audio'
-  | 'video'
-  | 'data'
-  | 'file';
+  | "text"
+  | "code"
+  | "image"
+  | "document"
+  | "spreadsheet"
+  | "presentation"
+  | "audio"
+  | "video"
+  | "data"
+  | "file";
 
 /**
  * 执行统计
@@ -408,7 +408,7 @@ export interface StepStats {
   /**
    * 状态
    */
-  status: 'completed' | 'failed' | 'skipped';
+  status: "completed" | "failed" | "skipped";
 
   /**
    * 时长（毫秒）
@@ -435,7 +435,7 @@ export type WorkflowEvent =
  * 工作流开始事件
  */
 export interface WorkflowStartEvent extends BaseEvent {
-  type: 'workflow_start';
+  type: "workflow_start";
   workflowId: string;
   workflowName?: string;
 }
@@ -444,10 +444,10 @@ export interface WorkflowStartEvent extends BaseEvent {
  * 工作流步骤事件
  */
 export interface WorkflowStepEvent extends BaseEvent {
-  type: 'workflow_step';
+  type: "workflow_step";
   workflowId: string;
   stepId: string;
-  stepStatus: 'started' | 'completed' | 'failed' | 'skipped';
+  stepStatus: "started" | "completed" | "failed" | "skipped";
   result?: unknown;
 }
 
@@ -455,7 +455,7 @@ export interface WorkflowStepEvent extends BaseEvent {
  * 工作流完成事件
  */
 export interface WorkflowCompleteEvent extends BaseEvent {
-  type: 'workflow_complete';
+  type: "workflow_complete";
   workflowId: string;
   success: boolean;
   result?: unknown;
@@ -465,7 +465,7 @@ export interface WorkflowCompleteEvent extends BaseEvent {
  * 工作流错误事件
  */
 export interface WorkflowErrorEvent extends BaseEvent {
-  type: 'workflow_error';
+  type: "workflow_error";
   workflowId: string;
   stepId?: string;
   error: string;
@@ -475,7 +475,7 @@ export interface WorkflowErrorEvent extends BaseEvent {
  * 工作流检查点事件
  */
 export interface WorkflowCheckpointEvent extends BaseEvent {
-  type: 'workflow_checkpoint';
+  type: "workflow_checkpoint";
   workflowId: string;
   checkpointId: string;
   checkpointType: string;

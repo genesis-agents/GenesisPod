@@ -3,8 +3,8 @@
  * JSON Schema 验证器实现
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import { JsonObject, ValidationResult } from '../../core';
+import { Injectable } from "@nestjs/common";
+import { ValidationResult, ValidationIssue } from "../../core";
 
 /**
  * JSON Schema 定义（简化版）
@@ -45,18 +45,22 @@ export interface ValidationError {
  */
 @Injectable()
 export class SchemaValidator {
-  private readonly logger = new Logger(SchemaValidator.name);
-
   /**
    * 验证数据
    */
   validate(data: unknown, schema: JsonSchema): ValidationResult {
     const errors: ValidationError[] = [];
-    this.validateValue(data, schema, '', errors);
+    this.validateValue(data, schema, "", errors);
 
     return {
       valid: errors.length === 0,
-      errors: errors.map((e) => e.message),
+      errors: errors.map(
+        (e): ValidationIssue => ({
+          path: e.path,
+          message: e.message,
+          type: e.keyword,
+        }),
+      ),
     };
   }
 
@@ -74,8 +78,8 @@ export class SchemaValidator {
       if (!this.validateType(value, schema.type)) {
         errors.push({
           path,
-          message: `${path || 'value'} should be ${schema.type}`,
-          keyword: 'type',
+          message: `${path || "value"} should be ${schema.type}`,
+          keyword: "type",
           params: { type: schema.type },
         });
         return;
@@ -87,30 +91,42 @@ export class SchemaValidator {
       if (!schema.enum.includes(value)) {
         errors.push({
           path,
-          message: `${path || 'value'} should be one of ${schema.enum.join(', ')}`,
-          keyword: 'enum',
+          message: `${path || "value"} should be one of ${schema.enum.join(", ")}`,
+          keyword: "enum",
           params: { enum: schema.enum },
         });
       }
     }
 
     // 对象验证
-    if (schema.type === 'object' && typeof value === 'object' && value !== null) {
-      this.validateObject(value as Record<string, unknown>, schema, path, errors);
+    if (
+      schema.type === "object" &&
+      typeof value === "object" &&
+      value !== null
+    ) {
+      this.validateObject(
+        value as Record<string, unknown>,
+        schema,
+        path,
+        errors,
+      );
     }
 
     // 数组验证
-    if (schema.type === 'array' && Array.isArray(value)) {
+    if (schema.type === "array" && Array.isArray(value)) {
       this.validateArray(value, schema, path, errors);
     }
 
     // 字符串验证
-    if (schema.type === 'string' && typeof value === 'string') {
+    if (schema.type === "string" && typeof value === "string") {
       this.validateString(value, schema, path, errors);
     }
 
     // 数字验证
-    if ((schema.type === 'number' || schema.type === 'integer') && typeof value === 'number') {
+    if (
+      (schema.type === "number" || schema.type === "integer") &&
+      typeof value === "number"
+    ) {
       this.validateNumber(value, schema, path, errors);
     }
 
@@ -137,19 +153,21 @@ export class SchemaValidator {
 
     return types.some((t) => {
       switch (t) {
-        case 'string':
-          return typeof value === 'string';
-        case 'number':
-          return typeof value === 'number' && !isNaN(value);
-        case 'integer':
-          return typeof value === 'number' && Number.isInteger(value);
-        case 'boolean':
-          return typeof value === 'boolean';
-        case 'array':
+        case "string":
+          return typeof value === "string";
+        case "number":
+          return typeof value === "number" && !isNaN(value);
+        case "integer":
+          return typeof value === "number" && Number.isInteger(value);
+        case "boolean":
+          return typeof value === "boolean";
+        case "array":
           return Array.isArray(value);
-        case 'object':
-          return typeof value === 'object' && value !== null && !Array.isArray(value);
-        case 'null':
+        case "object":
+          return (
+            typeof value === "object" && value !== null && !Array.isArray(value)
+          );
+        case "null":
           return value === null;
         default:
           return true;
@@ -173,7 +191,7 @@ export class SchemaValidator {
           errors.push({
             path: `${path}.${field}`,
             message: `${path}.${field} is required`,
-            keyword: 'required',
+            keyword: "required",
             params: { field },
           });
         }
@@ -197,7 +215,7 @@ export class SchemaValidator {
           errors.push({
             path: `${path}.${key}`,
             message: `${path}.${key} is not allowed`,
-            keyword: 'additionalProperties',
+            keyword: "additionalProperties",
           });
         }
       }
@@ -232,8 +250,8 @@ export class SchemaValidator {
     if (schema.minLength !== undefined && str.length < schema.minLength) {
       errors.push({
         path,
-        message: `${path || 'value'} should have at least ${schema.minLength} characters`,
-        keyword: 'minLength',
+        message: `${path || "value"} should have at least ${schema.minLength} characters`,
+        keyword: "minLength",
         params: { minLength: schema.minLength },
       });
     }
@@ -241,8 +259,8 @@ export class SchemaValidator {
     if (schema.maxLength !== undefined && str.length > schema.maxLength) {
       errors.push({
         path,
-        message: `${path || 'value'} should have at most ${schema.maxLength} characters`,
-        keyword: 'maxLength',
+        message: `${path || "value"} should have at most ${schema.maxLength} characters`,
+        keyword: "maxLength",
         params: { maxLength: schema.maxLength },
       });
     }
@@ -252,8 +270,8 @@ export class SchemaValidator {
       if (!regex.test(str)) {
         errors.push({
           path,
-          message: `${path || 'value'} should match pattern ${schema.pattern}`,
-          keyword: 'pattern',
+          message: `${path || "value"} should match pattern ${schema.pattern}`,
+          keyword: "pattern",
           params: { pattern: schema.pattern },
         });
       }
@@ -263,8 +281,8 @@ export class SchemaValidator {
       if (!this.validateFormat(str, schema.format)) {
         errors.push({
           path,
-          message: `${path || 'value'} should be a valid ${schema.format}`,
-          keyword: 'format',
+          message: `${path || "value"} should be a valid ${schema.format}`,
+          keyword: "format",
           params: { format: schema.format },
         });
       }
@@ -283,8 +301,8 @@ export class SchemaValidator {
     if (schema.minimum !== undefined && num < schema.minimum) {
       errors.push({
         path,
-        message: `${path || 'value'} should be >= ${schema.minimum}`,
-        keyword: 'minimum',
+        message: `${path || "value"} should be >= ${schema.minimum}`,
+        keyword: "minimum",
         params: { minimum: schema.minimum },
       });
     }
@@ -292,8 +310,8 @@ export class SchemaValidator {
     if (schema.maximum !== undefined && num > schema.maximum) {
       errors.push({
         path,
-        message: `${path || 'value'} should be <= ${schema.maximum}`,
-        keyword: 'maximum',
+        message: `${path || "value"} should be <= ${schema.maximum}`,
+        keyword: "maximum",
         params: { maximum: schema.maximum },
       });
     }
@@ -304,19 +322,21 @@ export class SchemaValidator {
    */
   private validateFormat(str: string, format: string): boolean {
     switch (format) {
-      case 'email':
+      case "email":
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
-      case 'uri':
+      case "uri":
         try {
           new URL(str);
           return true;
         } catch {
           return false;
         }
-      case 'date':
+      case "date":
         return !isNaN(Date.parse(str));
-      case 'uuid':
-        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+      case "uuid":
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          str,
+        );
       default:
         return true;
     }
@@ -340,8 +360,8 @@ export class SchemaValidator {
     if (validCount !== 1) {
       errors.push({
         path,
-        message: `${path || 'value'} should match exactly one schema`,
-        keyword: 'oneOf',
+        message: `${path || "value"} should match exactly one schema`,
+        keyword: "oneOf",
       });
     }
   }
@@ -364,8 +384,8 @@ export class SchemaValidator {
     if (!valid) {
       errors.push({
         path,
-        message: `${path || 'value'} should match at least one schema`,
-        keyword: 'anyOf',
+        message: `${path || "value"} should match at least one schema`,
+        keyword: "anyOf",
       });
     }
   }
@@ -399,8 +419,8 @@ export class SchemaValidator {
     if (tempErrors.length === 0) {
       errors.push({
         path,
-        message: `${path || 'value'} should not match the schema`,
-        keyword: 'not',
+        message: `${path || "value"} should not match the schema`,
+        keyword: "not",
       });
     }
   }

@@ -3,8 +3,7 @@
  * 内容过滤器实现
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import { JsonObject } from '../../core';
+import { Injectable } from "@nestjs/common";
 
 /**
  * 过滤结果
@@ -58,7 +57,7 @@ export interface FilterViolation {
   /**
    * 严重程度
    */
-  severity: 'low' | 'medium' | 'high' | 'critical';
+  severity: "low" | "medium" | "high" | "critical";
 
   /**
    * 位置
@@ -81,7 +80,7 @@ export interface FilterConfig {
   /**
    * 严重程度阈值
    */
-  severityThreshold?: 'low' | 'medium' | 'high' | 'critical';
+  severityThreshold?: "low" | "medium" | "high" | "critical";
 
   /**
    * 风险评分阈值
@@ -108,15 +107,15 @@ export interface FilterConfig {
  * 过滤类别
  */
 export type FilterCategory =
-  | 'hate'           // 仇恨言论
-  | 'violence'       // 暴力内容
-  | 'sexual'         // 色情内容
-  | 'harassment'     // 骚扰
-  | 'self-harm'      // 自残
-  | 'illegal'        // 非法内容
-  | 'pii'            // 个人信息
-  | 'spam'           // 垃圾信息
-  | 'prompt-injection'; // 提示词注入
+  | "hate" // 仇恨言论
+  | "violence" // 暴力内容
+  | "sexual" // 色情内容
+  | "harassment" // 骚扰
+  | "self-harm" // 自残
+  | "illegal" // 非法内容
+  | "pii" // 个人信息
+  | "spam" // 垃圾信息
+  | "prompt-injection"; // 提示词注入
 
 /**
  * 过滤规则
@@ -126,8 +125,8 @@ export interface FilterRule {
   name: string;
   category: FilterCategory;
   pattern: string | RegExp;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  action: 'block' | 'filter' | 'warn';
+  severity: "low" | "medium" | "high" | "critical";
+  action: "block" | "filter" | "warn";
 }
 
 /**
@@ -135,16 +134,15 @@ export interface FilterRule {
  */
 @Injectable()
 export class ContentFilter {
-  private readonly logger = new Logger(ContentFilter.name);
   private config: Required<FilterConfig>;
   private rules: FilterRule[] = [];
 
   private static readonly DEFAULT_CONFIG: Required<FilterConfig> = {
-    categories: ['hate', 'violence', 'illegal', 'pii', 'prompt-injection'],
-    severityThreshold: 'medium',
+    categories: ["hate", "violence", "illegal", "pii", "prompt-injection"],
+    severityThreshold: "medium",
     riskThreshold: 0.7,
     filterContent: true,
-    replacementChar: '*',
+    replacementChar: "*",
     customRules: [],
   };
 
@@ -160,64 +158,66 @@ export class ContentFilter {
     // PII 规则
     this.rules.push(
       {
-        id: 'pii-email',
-        name: 'Email Address',
-        category: 'pii',
+        id: "pii-email",
+        name: "Email Address",
+        category: "pii",
         pattern: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
-        severity: 'medium',
-        action: 'filter',
+        severity: "medium",
+        action: "filter",
       },
       {
-        id: 'pii-phone',
-        name: 'Phone Number',
-        category: 'pii',
-        pattern: /(?:\+?86)?1[3-9]\d{9}|\+?1?\s*\(?[0-9]{3}\)?[-.\s]*[0-9]{3}[-.\s]*[0-9]{4}/g,
-        severity: 'medium',
-        action: 'filter',
+        id: "pii-phone",
+        name: "Phone Number",
+        category: "pii",
+        pattern:
+          /(?:\+?86)?1[3-9]\d{9}|\+?1?\s*\(?[0-9]{3}\)?[-.\s]*[0-9]{3}[-.\s]*[0-9]{4}/g,
+        severity: "medium",
+        action: "filter",
       },
       {
-        id: 'pii-id-card',
-        name: 'ID Card Number',
-        category: 'pii',
+        id: "pii-id-card",
+        name: "ID Card Number",
+        category: "pii",
         pattern: /\d{17}[\dXx]|\d{15}/g,
-        severity: 'high',
-        action: 'filter',
+        severity: "high",
+        action: "filter",
       },
       {
-        id: 'pii-credit-card',
-        name: 'Credit Card Number',
-        category: 'pii',
+        id: "pii-credit-card",
+        name: "Credit Card Number",
+        category: "pii",
         pattern: /\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}/g,
-        severity: 'critical',
-        action: 'block',
+        severity: "critical",
+        action: "block",
       },
     );
 
     // 提示词注入规则
     this.rules.push(
       {
-        id: 'injection-ignore',
-        name: 'Ignore Instructions',
-        category: 'prompt-injection',
-        pattern: /ignore\s+(previous|all|above)\s+(instructions?|prompts?|rules?)/gi,
-        severity: 'high',
-        action: 'block',
+        id: "injection-ignore",
+        name: "Ignore Instructions",
+        category: "prompt-injection",
+        pattern:
+          /ignore\s+(previous|all|above)\s+(instructions?|prompts?|rules?)/gi,
+        severity: "high",
+        action: "block",
       },
       {
-        id: 'injection-override',
-        name: 'Override System',
-        category: 'prompt-injection',
+        id: "injection-override",
+        name: "Override System",
+        category: "prompt-injection",
         pattern: /override\s+(system|safety|security)/gi,
-        severity: 'high',
-        action: 'block',
+        severity: "high",
+        action: "block",
       },
       {
-        id: 'injection-jailbreak',
-        name: 'Jailbreak Attempt',
-        category: 'prompt-injection',
+        id: "injection-jailbreak",
+        name: "Jailbreak Attempt",
+        category: "prompt-injection",
         pattern: /(?:DAN|jailbreak|bypass\s+(?:filter|safety|restriction))/gi,
-        severity: 'critical',
-        action: 'block',
+        severity: "critical",
+        action: "block",
       },
     );
 
@@ -240,9 +240,10 @@ export class ContentFilter {
         continue;
       }
 
-      const pattern = typeof rule.pattern === 'string'
-        ? new RegExp(rule.pattern, 'gi')
-        : rule.pattern;
+      const pattern =
+        typeof rule.pattern === "string"
+          ? new RegExp(rule.pattern, "gi")
+          : rule.pattern;
 
       const matches = content.matchAll(pattern);
 
@@ -268,7 +269,7 @@ export class ContentFilter {
         );
 
         // 过滤内容
-        if (this.config.filterContent && rule.action !== 'warn') {
+        if (this.config.filterContent && rule.action !== "warn") {
           filteredContent = filteredContent.replace(
             match[0],
             this.config.replacementChar.repeat(match[0].length),
@@ -298,15 +299,15 @@ export class ContentFilter {
   /**
    * 获取严重程度权重
    */
-  private getSeverityWeight(severity: FilterViolation['severity']): number {
+  private getSeverityWeight(severity: FilterViolation["severity"]): number {
     switch (severity) {
-      case 'low':
+      case "low":
         return 0.25;
-      case 'medium':
+      case "medium":
         return 0.5;
-      case 'high':
+      case "high":
         return 0.75;
-      case 'critical':
+      case "critical":
         return 1.0;
     }
   }
@@ -324,7 +325,9 @@ export class ContentFilter {
     }
 
     // 检查严重程度阈值
-    const thresholdWeight = this.getSeverityWeight(this.config.severityThreshold);
+    const thresholdWeight = this.getSeverityWeight(
+      this.config.severityThreshold,
+    );
     const hasBlockingViolation = violations.some(
       (v) => this.getSeverityWeight(v.severity) >= thresholdWeight,
     );

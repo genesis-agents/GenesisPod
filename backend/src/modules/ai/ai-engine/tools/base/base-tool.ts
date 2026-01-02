@@ -3,9 +3,9 @@
  * 工具基类实现
  */
 
-import { v4 as uuid } from 'uuid';
-import { ValidationResult, JsonObject } from '../../core';
-import { ToolError } from '../../core/errors';
+import { v4 as uuid } from "uuid";
+import { ValidationResult, JsonObject } from "../../core";
+import { ToolError } from "../../core/errors";
 import {
   ITool,
   ToolContext,
@@ -14,7 +14,7 @@ import {
   JSONSchema,
   FunctionDefinition,
   ToolId,
-} from '../abstractions/tool.interface';
+} from "../abstractions/tool.interface";
 
 /**
  * 基础工具抽象类
@@ -56,7 +56,7 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
   /**
    * 工具版本
    */
-  readonly version: string = '1.0.0';
+  readonly version: string = "1.0.0";
 
   /**
    * 工具标签
@@ -140,7 +140,7 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
    * @param input 输入参数
    * @returns 验证结果
    */
-  validateInput(input: TInput): ValidationResult {
+  validateInput(_input: TInput): ValidationResult {
     // 默认实现：始终通过
     // 子类可以覆盖此方法提供自定义验证
     return { valid: true };
@@ -188,9 +188,7 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
   /**
    * 创建超时 Promise
    */
-  protected createTimeoutPromise(
-    timeout: number,
-  ): Promise<never> {
+  protected createTimeoutPromise(timeout: number): Promise<never> {
     return new Promise((_, reject) => {
       setTimeout(() => {
         reject(ToolError.timeout(this.id, timeout));
@@ -205,10 +203,7 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
     promise: Promise<T>,
     timeout: number,
   ): Promise<T> {
-    return Promise.race([
-      promise,
-      this.createTimeoutPromise(timeout),
-    ]);
+    return Promise.race([promise, this.createTimeoutPromise(timeout)]);
   }
 }
 
@@ -240,7 +235,10 @@ export function createTool<TInput, TOutput>(options: {
     enabled: true,
     tags: options.tags,
 
-    async execute(input: TInput, context: ToolContext): Promise<ToolResult<TOutput>> {
+    async execute(
+      input: TInput,
+      context: ToolContext,
+    ): Promise<ToolResult<TOutput>> {
       const startTime = new Date();
       const executionId = context.executionId || uuid();
 

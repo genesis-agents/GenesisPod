@@ -3,13 +3,12 @@
  * 检查点管理器实现
  */
 
-import { v4 as uuid } from 'uuid';
-import { Injectable, Logger } from '@nestjs/common';
-import { JsonObject } from '../../core';
+import { v4 as uuid } from "uuid";
+import { Injectable, Logger } from "@nestjs/common";
 import {
   Checkpoint,
   ExecutionContext,
-} from '../abstractions/orchestrator.interface';
+} from "../abstractions/orchestrator.interface";
 
 /**
  * 检查点存储接口
@@ -105,10 +104,7 @@ export class CheckpointManager {
     checkpointTTL: 24 * 60 * 60 * 1000, // 24 hours
   };
 
-  constructor(
-    store?: ICheckpointStore,
-    config?: CheckpointManagerConfig,
-  ) {
+  constructor(store?: ICheckpointStore, config?: CheckpointManagerConfig) {
     this.store = store || new InMemoryCheckpointStore();
     this.config = { ...CheckpointManager.DEFAULT_CONFIG, ...config };
   }
@@ -226,8 +222,10 @@ export class CheckpointManager {
     return {
       ...context,
       stepResults: new Map(
-        Object.entries(context.stepResults as unknown as Record<string, unknown>),
-      ) as ExecutionContext['stepResults'],
+        Object.entries(
+          context.stepResults as unknown as Record<string, unknown>,
+        ),
+      ) as ExecutionContext["stepResults"],
       startTime: new Date(context.startTime),
     };
   }

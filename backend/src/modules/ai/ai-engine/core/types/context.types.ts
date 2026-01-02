@@ -3,7 +3,7 @@
  * 执行上下文类型定义
  */
 
-import { Id, JsonObject, RetryConfig, TimeoutConfig } from './common.types';
+import { JsonObject, RetryConfig, TimeoutConfig } from "./common.types";
 
 /**
  * 基础上下文
@@ -78,7 +78,7 @@ export interface ToolContext extends BaseContext {
   /**
    * 调用者类型
    */
-  callerType?: 'agent' | 'skill' | 'direct';
+  callerType?: "agent" | "skill" | "direct";
 
   /**
    * 输入 Schema
@@ -199,7 +199,7 @@ export interface AgentContext extends BaseContext {
 /**
  * 执行模式
  */
-export type ExecutionMode = 'plan-based' | 'reactive' | 'hybrid';
+export type ExecutionMode = "plan-based" | "reactive" | "hybrid";
 
 /**
  * 对话消息
@@ -208,7 +208,7 @@ export interface ConversationMessage {
   /**
    * 角色
    */
-  role: 'system' | 'user' | 'assistant' | 'function' | 'tool';
+  role: "system" | "user" | "assistant" | "function" | "tool";
 
   /**
    * 内容
@@ -248,7 +248,7 @@ export interface ToolCall {
   /**
    * 类型
    */
-  type: 'function';
+  type: "function";
 
   /**
    * 函数信息
@@ -330,12 +330,12 @@ export interface OrchestrationContext extends BaseContext {
  * 步骤状态
  */
 export type StepStatus =
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'skipped'
-  | 'cancelled';
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "skipped"
+  | "cancelled";
 
 /**
  * 检查点管理器接口（简化版）
@@ -394,15 +394,24 @@ export interface ContextFactory {
   /**
    * 创建工具上下文
    */
-  createToolContext(toolId: string, options?: Partial<ToolContext>): ToolContext;
+  createToolContext(
+    toolId: string,
+    options?: Partial<ToolContext>,
+  ): ToolContext;
 
   /**
    * 创建技能上下文
    */
-  createSkillContext(skillId: string, options?: Partial<SkillContext>): SkillContext;
+  createSkillContext(
+    skillId: string,
+    options?: Partial<SkillContext>,
+  ): SkillContext;
 
   /**
    * 创建 Agent 上下文
    */
-  createAgentContext(agentId: string, options?: Partial<AgentContext>): AgentContext;
+  createAgentContext(
+    agentId: string,
+    options?: Partial<AgentContext>,
+  ): AgentContext;
 }

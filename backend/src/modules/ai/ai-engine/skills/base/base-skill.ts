@@ -3,19 +3,19 @@
  * 技能基类实现
  */
 
-import { v4 as uuid } from 'uuid';
-import { Logger } from '@nestjs/common';
-import { ValidationResult, JsonObject } from '../../core';
-import { SkillError } from '../../core/errors';
-import { ToolRegistry } from '../../tools/registry';
-import { ToolContext, ToolResult } from '../../tools/abstractions';
+import { v4 as uuid } from "uuid";
+import { Logger } from "@nestjs/common";
+import { ValidationResult, JsonObject } from "../../core";
+import { SkillError } from "../../core/errors";
+import { ToolRegistry } from "../../tools/registry";
+import { ToolContext } from "../../tools/abstractions";
 import {
   ISkill,
   SkillContext,
   SkillResult,
   SkillLayer,
   PreconditionResult,
-} from '../abstractions/skill.interface';
+} from "../abstractions/skill.interface";
 
 /**
  * LLM 调用选项
@@ -88,7 +88,7 @@ export abstract class BaseSkill<TInput = unknown, TOutput = unknown>
   /**
    * 版本
    */
-  readonly version: string = '1.0.0';
+  readonly version: string = "1.0.0";
 
   /**
    * 日志记录器
@@ -167,7 +167,7 @@ export abstract class BaseSkill<TInput = unknown, TOutput = unknown>
         if (!precondition.satisfied) {
           throw SkillError.preconditionFailed(
             this.id,
-            precondition.reason || 'Precondition not satisfied',
+            precondition.reason || "Precondition not satisfied",
           );
         }
       }
@@ -255,7 +255,7 @@ export abstract class BaseSkill<TInput = unknown, TOutput = unknown>
     if (missing.length > 0) {
       return {
         satisfied: false,
-        reason: `Missing dependencies: ${missing.join(', ')}`,
+        reason: `Missing dependencies: ${missing.join(", ")}`,
         missingDependencies: missing,
       };
     }
@@ -296,7 +296,7 @@ export abstract class BaseSkill<TInput = unknown, TOutput = unknown>
       userId: context.userId,
       sessionId: context.sessionId,
       callerId: this.id,
-      callerType: 'skill',
+      callerType: "skill",
       signal: context.signal,
       createdAt: new Date(),
     };
@@ -307,7 +307,7 @@ export abstract class BaseSkill<TInput = unknown, TOutput = unknown>
       throw SkillError.toolCallFailed(
         this.id,
         toolId,
-        new Error(result.error?.message || 'Tool execution failed'),
+        new Error(result.error?.message || "Tool execution failed"),
       );
     }
 
@@ -323,14 +323,14 @@ export abstract class BaseSkill<TInput = unknown, TOutput = unknown>
     options?: LLMCallOptions,
   ): Promise<string> {
     if (!this.llmAdapter) {
-      throw SkillError.llmCallFailed(this.id, new Error('LLM adapter not set'));
+      throw SkillError.llmCallFailed(this.id, new Error("LLM adapter not set"));
     }
 
     try {
       const response = await this.llmAdapter.chat({
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
         ],
         ...options,
       });
@@ -344,10 +344,7 @@ export abstract class BaseSkill<TInput = unknown, TOutput = unknown>
   /**
    * 解析 JSON 响应（带容错）
    */
-  protected parseJsonResponse<T>(
-    content: string,
-    fallback?: T,
-  ): T {
+  protected parseJsonResponse<T>(content: string, fallback?: T): T {
     try {
       // 尝试提取 JSON 块
       const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -355,12 +352,12 @@ export abstract class BaseSkill<TInput = unknown, TOutput = unknown>
       return JSON.parse(jsonStr);
     } catch (error) {
       if (fallback !== undefined) {
-        this.logger.warn(
-          `[${this.id}] Failed to parse JSON, using fallback`,
-        );
+        this.logger.warn(`[${this.id}] Failed to parse JSON, using fallback`);
         return fallback;
       }
-      throw new Error(`Failed to parse JSON response: ${(error as Error).message}`);
+      throw new Error(
+        `Failed to parse JSON response: ${(error as Error).message}`,
+      );
     }
   }
 
@@ -416,7 +413,10 @@ export function createSkill<TInput, TOutput>(options: {
     requiredSkills: options.requiredSkills,
     tags: options.tags,
 
-    async execute(input: TInput, context: SkillContext): Promise<SkillResult<TOutput>> {
+    async execute(
+      input: TInput,
+      context: SkillContext,
+    ): Promise<SkillResult<TOutput>> {
       const startTime = new Date();
       const executionId = context.executionId || uuid();
 

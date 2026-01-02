@@ -3,8 +3,8 @@
  * ReAct 模式 Agent 实现
  */
 
-import { ExecutionMode } from '../../core';
-import { AgentError } from '../../core/errors';
+import { ExecutionMode } from "../../core";
+import { AgentError } from "../../core/errors";
 import {
   AgentContext,
   AgentInput,
@@ -12,9 +12,13 @@ import {
   AgentEvent,
   AgentResult,
   ToolCallRecord,
-} from '../abstractions/agent.interface';
-import { BaseAgent } from './base-agent';
-import { LLMMessage, LLMToolCall } from '../../llm/abstractions';
+} from "../abstractions/agent.interface";
+import { BaseAgent } from "./base-agent";
+import {
+  LLMMessage,
+  LLMToolCall,
+  LLMToolDefinition,
+} from "../../llm/abstractions";
 
 /**
  * ReAct Agent 配置
@@ -38,7 +42,7 @@ export interface ReactAgentConfig {
   /**
    * 工具选择策略
    */
-  toolSelectionStrategy?: 'auto' | 'manual';
+  toolSelectionStrategy?: "auto" | "manual";
 }
 
 /**
@@ -52,7 +56,7 @@ export abstract class ReactiveAgent<
   /**
    * 支持的执行模式
    */
-  readonly supportedModes: ExecutionMode[] = ['reactive'];
+  readonly supportedModes: ExecutionMode[] = ["reactive"];
 
   /**
    * 配置
@@ -65,7 +69,7 @@ export abstract class ReactiveAgent<
   private static readonly DEFAULT_CONFIG: ReactAgentConfig = {
     maxIterations: 10,
     autoExecuteTools: true,
-    toolSelectionStrategy: 'auto',
+    toolSelectionStrategy: "auto",
   };
 
   constructor(config?: Partial<ReactAgentConfig>) {
@@ -76,7 +80,7 @@ export abstract class ReactiveAgent<
   /**
    * 获取可用工具定义
    */
-  protected abstract getToolDefinitions(): unknown[];
+  protected abstract getToolDefinitions(): LLMToolDefinition[];
 
   /**
    * 处理最终输出
@@ -122,38 +126,28 @@ export abstract class ReactiveAgent<
 
         // 添加助手消息和工具结果到消息列表
         messages.push({
-          role: 'assistant',
-          content: response.content || '',
+          role: "assistant",
+          content: response.content || "",
           toolCalls: response.toolCalls,
         });
 
         for (const result of results) {
           messages.push({
-            role: 'tool',
+            role: "tool",
             content: JSON.stringify(result.output),
             toolCallId: result.toolId,
           });
         }
       } else {
         // 没有工具调用，返回最终结果
-        return this.processOutput(
-          response.content || '',
-          context,
-          toolResults,
-        );
+        return this.processOutput(response.content || "", context, toolResults);
       }
     }
 
     // 达到最大迭代次数
     const maxIter = this.config.maxIterations || 10;
-    this.logger.warn(
-      `[${this.id}] Reached max iterations (${maxIter})`,
-    );
-    throw AgentError.maxIterationsReached(
-      this.id,
-      iterationCount,
-      maxIter,
-    );
+    this.logger.warn(`[${this.id}] Reached max iterations (${maxIter})`);
+    throw AgentError.maxIterationsReached(this.id, iterationCount, maxIter);
   }
 
   /**
@@ -164,14 +158,14 @@ export abstract class ReactiveAgent<
     context: AgentContext,
   ): AsyncGenerator<AgentEvent, AgentResult<TOutput>> {
     const startTime = new Date();
-    const executionId = context.executionId || '';
+    const executionId = context.executionId || "";
     const toolResults: ToolCallRecord[] = [];
     let iterationCount = 0;
     let messages = this.buildInitialMessages(input, context);
 
     // 发送开始事件
     yield {
-      type: 'started',
+      type: "started",
       agentId: this.id,
       executionId,
       timestamp: new Date(),
@@ -187,7 +181,7 @@ export abstract class ReactiveAgent<
 
         // 发送思考事件
         yield {
-          type: 'thinking',
+          type: "thinking",
           agentId: this.id,
           executionId,
           timestamp: new Date(),
@@ -202,7 +196,7 @@ export abstract class ReactiveAgent<
           for (const toolCall of response.toolCalls) {
             // 发送工具调用事件
             yield {
-              type: 'tool_call',
+              type: "tool_call",
               agentId: this.id,
               executionId,
               timestamp: new Date(),
@@ -218,7 +212,7 @@ export abstract class ReactiveAgent<
 
             // 发送工具结果事件
             yield {
-              type: 'tool_result',
+              type: "tool_result",
               agentId: this.id,
               executionId,
               timestamp: new Date(),
@@ -230,21 +224,21 @@ export abstract class ReactiveAgent<
             };
 
             messages.push({
-              role: 'tool',
+              role: "tool",
               content: JSON.stringify(result.output),
               toolCallId: toolCall.id,
             });
           }
 
           messages.push({
-            role: 'assistant',
-            content: response.content || '',
+            role: "assistant",
+            content: response.content || "",
             toolCalls: response.toolCalls,
           });
         } else {
           // 发送消息事件
           yield {
-            type: 'message',
+            type: "message",
             agentId: this.id,
             executionId,
             timestamp: new Date(),
@@ -252,7 +246,7 @@ export abstract class ReactiveAgent<
           };
 
           const output = await this.processOutput(
-            response.content || '',
+            response.content || "",
             context,
             toolResults,
           );
@@ -271,7 +265,7 @@ export abstract class ReactiveAgent<
           };
 
           yield {
-            type: 'completed',
+            type: "completed",
             agentId: this.id,
             executionId,
             timestamp: new Date(),
@@ -291,7 +285,7 @@ export abstract class ReactiveAgent<
       const agentError = AgentError.fromError(error, this.id);
 
       yield {
-        type: 'error',
+        type: "error",
         agentId: this.id,
         executionId,
         timestamp: new Date(),

@@ -3,14 +3,14 @@
  * LLM 适配器基类
  */
 
-import { Logger } from '@nestjs/common';
+import { Logger } from "@nestjs/common";
 import {
   ILLMAdapter,
   LLMRequestOptions,
   LLMResponse,
   LLMStreamChunk,
   LLMModelConfig,
-} from '../abstractions/llm-adapter.interface';
+} from "../abstractions/llm-adapter.interface";
 
 /**
  * LLM 适配器基类
@@ -69,10 +69,10 @@ export abstract class BaseLLMAdapter implements ILLMAdapter {
    * 流式聊天完成（子类可选实现）
    */
   async *chatStream?(
-    options: LLMRequestOptions,
+    _options: LLMRequestOptions,
   ): AsyncGenerator<LLMStreamChunk, void> {
     // 默认实现：不支持流式
-    throw new Error('Streaming not supported by this adapter');
+    throw new Error("Streaming not supported by this adapter");
   }
 
   /**

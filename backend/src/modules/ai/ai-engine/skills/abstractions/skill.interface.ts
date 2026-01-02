@@ -3,32 +3,32 @@
  * 技能接口定义
  */
 
-import { IExecutable, ValidationResult, JsonObject } from '../../core';
+import { ValidationResult, JsonObject } from "../../core";
 
 /**
  * 技能层次
  */
 export type SkillLayer =
-  | 'understanding'   // 理解层：意图分析、内容分析
-  | 'planning'        // 规划层：大纲规划、叙事规划
-  | 'design'          // 设计层：页面设计、布局选择
-  | 'content'         // 内容层：内容生成、内容压缩
-  | 'rendering'       // 渲染层：模板渲染、图表渲染
-  | 'optimization'    // 优化层：布局优化、节奏控制
-  | 'quality'         // 质量层：质量审核、场景推导
-  | string;           // 允许自定义层次
+  | "understanding" // 理解层：意图分析、内容分析
+  | "planning" // 规划层：大纲规划、叙事规划
+  | "design" // 设计层：页面设计、布局选择
+  | "content" // 内容层：内容生成、内容压缩
+  | "rendering" // 渲染层：模板渲染、图表渲染
+  | "optimization" // 优化层：布局优化、节奏控制
+  | "quality" // 质量层：质量审核、场景推导
+  | string; // 允许自定义层次
 
 /**
  * 内置技能层次常量
  */
 export const SKILL_LAYERS = {
-  UNDERSTANDING: 'understanding',
-  PLANNING: 'planning',
-  DESIGN: 'design',
-  CONTENT: 'content',
-  RENDERING: 'rendering',
-  OPTIMIZATION: 'optimization',
-  QUALITY: 'quality',
+  UNDERSTANDING: "understanding",
+  PLANNING: "planning",
+  DESIGN: "design",
+  CONTENT: "content",
+  RENDERING: "rendering",
+  OPTIMIZATION: "optimization",
+  QUALITY: "quality",
 } as const;
 
 /**
@@ -167,8 +167,21 @@ export interface PreconditionResult {
  * 技能接口
  * Skill = Tool 的高级组合 + 业务领域逻辑
  */
-export interface ISkill<TInput = unknown, TOutput = unknown>
-  extends IExecutable<TInput, TOutput, SkillContext> {
+export interface ISkill<TInput = unknown, TOutput = unknown> {
+  /**
+   * 唯一标识符
+   */
+  readonly id: string;
+
+  /**
+   * 名称
+   */
+  readonly name: string;
+
+  /**
+   * 描述
+   */
+  readonly description: string;
 
   /**
    * 所属层次

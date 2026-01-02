@@ -9,9 +9,8 @@ import {
   ExecutionContext,
   ExecutionEvent,
   ExecutionResult,
-  StepResult,
-} from '../abstractions/orchestrator.interface';
-import { BaseExecutor } from './base-executor';
+} from "../abstractions/orchestrator.interface";
+import { BaseExecutor } from "./base-executor";
 
 /**
  * DAG 节点状态
@@ -20,7 +19,7 @@ interface DAGNode {
   step: WorkflowStep;
   dependencies: Set<string>;
   dependents: Set<string>;
-  status: 'pending' | 'ready' | 'running' | 'completed' | 'failed' | 'skipped';
+  status: "pending" | "ready" | "running" | "completed" | "failed" | "skipped";
 }
 
 /**
@@ -28,8 +27,8 @@ interface DAGNode {
  * 基于依赖关系执行工作流
  */
 export class DAGExecutor extends BaseExecutor {
-  readonly id = 'dag-executor';
-  readonly supportedModes = ['dag'];
+  readonly id = "dag-executor";
+  readonly supportedModes = ["dag"];
 
   private maxConcurrency: number;
 
@@ -44,9 +43,9 @@ export class DAGExecutor extends BaseExecutor {
   ): AsyncGenerator<ExecutionEvent, ExecutionResult> {
     const startTime = new Date();
 
-    yield this.createEvent('workflow_started', context, undefined, {
+    yield this.createEvent("workflow_started", context, undefined, {
       workflow: { id: workflow.id, name: workflow.name },
-      mode: 'dag',
+      mode: "dag",
     });
 
     try {
@@ -55,13 +54,13 @@ export class DAGExecutor extends BaseExecutor {
 
       // 验证 DAG（检测循环依赖）
       if (!this.validateDAG(dag)) {
-        yield this.createEvent('workflow_failed', context, undefined, {
-          error: 'Circular dependency detected',
+        yield this.createEvent("workflow_failed", context, undefined, {
+          error: "Circular dependency detected",
         });
 
         return this.createResult(context, workflow, startTime, false, {
-          code: 'CIRCULAR_DEPENDENCY',
-          message: 'Circular dependency detected in workflow',
+          code: "CIRCULAR_DEPENDENCY",
+          message: "Circular dependency detected in workflow",
         });
       }
 
@@ -76,30 +75,30 @@ export class DAGExecutor extends BaseExecutor {
 
       // 检查是否有失败的节点
       const failedNodes = Array.from(dag.values()).filter(
-        (n) => n.status === 'failed',
+        (n) => n.status === "failed",
       );
 
       if (failedNodes.length > 0) {
-        yield this.createEvent('workflow_failed', context, undefined, {
+        yield this.createEvent("workflow_failed", context, undefined, {
           failedSteps: failedNodes.map((n) => n.step.id),
         });
 
         return this.createResult(context, workflow, startTime, false, {
-          code: 'STEPS_FAILED',
+          code: "STEPS_FAILED",
           message: `${failedNodes.length} step(s) failed`,
         });
       }
 
-      yield this.createEvent('workflow_completed', context);
+      yield this.createEvent("workflow_completed", context);
 
       return this.createResult(context, workflow, startTime, true);
     } catch (error) {
-      yield this.createEvent('workflow_failed', context, undefined, {
+      yield this.createEvent("workflow_failed", context, undefined, {
         error: (error as Error).message,
       });
 
       return this.createResult(context, workflow, startTime, false, {
-        code: 'EXECUTION_ERROR',
+        code: "EXECUTION_ERROR",
         message: (error as Error).message,
       });
     }
@@ -117,7 +116,7 @@ export class DAGExecutor extends BaseExecutor {
         step,
         dependencies: new Set(step.dependsOn || []),
         dependents: new Set(),
-        status: 'pending',
+        status: "pending",
       });
     }
 
@@ -134,7 +133,7 @@ export class DAGExecutor extends BaseExecutor {
     // 标记没有依赖的节点为 ready
     for (const node of dag.values()) {
       if (node.dependencies.size === 0) {
-        node.status = 'ready';
+        node.status = "ready";
       }
     }
 
@@ -195,8 +194,8 @@ export class DAGExecutor extends BaseExecutor {
       // 检查取消信号
       if (context.signal?.aborted) {
         for (const node of dag.values()) {
-          if (node.status === 'pending' || node.status === 'ready') {
-            node.status = 'skipped';
+          if (node.status === "pending" || node.status === "ready") {
+            node.status = "skipped";
           }
         }
         break;
@@ -204,7 +203,7 @@ export class DAGExecutor extends BaseExecutor {
 
       // 获取所有就绪的节点
       const readyNodes = Array.from(dag.values()).filter(
-        (n) => n.status === 'ready',
+        (n) => n.status === "ready",
       );
 
       // 如果没有就绪节点且没有运行中的节点，结束执行
@@ -218,7 +217,7 @@ export class DAGExecutor extends BaseExecutor {
           break;
         }
 
-        node.status = 'running';
+        node.status = "running";
         const promise = this.executeNode(node, dag, context, onEvent).finally(
           () => running.delete(node.step.id),
         );
@@ -242,17 +241,17 @@ export class DAGExecutor extends BaseExecutor {
     onEvent: (event: ExecutionEvent) => void,
   ): Promise<void> {
     onEvent(
-      this.createEvent('step_started', context, node.step.id, {
+      this.createEvent("step_started", context, node.step.id, {
         step: { id: node.step.id, name: node.step.name },
       }),
     );
 
     const result = await this.executeStep(node.step, context);
 
-    if (result.status === 'completed') {
-      node.status = 'completed';
+    if (result.status === "completed") {
+      node.status = "completed";
       onEvent(
-        this.createEvent('step_completed', context, node.step.id, {
+        this.createEvent("step_completed", context, node.step.id, {
           output: result.output,
           duration: result.duration,
         }),
@@ -263,26 +262,29 @@ export class DAGExecutor extends BaseExecutor {
         const dependent = dag.get(dependentId);
         if (dependent) {
           dependent.dependencies.delete(node.step.id);
-          if (dependent.dependencies.size === 0 && dependent.status === 'pending') {
-            dependent.status = 'ready';
+          if (
+            dependent.dependencies.size === 0 &&
+            dependent.status === "pending"
+          ) {
+            dependent.status = "ready";
           }
         }
       }
-    } else if (result.status === 'failed') {
-      node.status = 'failed';
+    } else if (result.status === "failed") {
+      node.status = "failed";
       onEvent(
-        this.createEvent('step_failed', context, node.step.id, {
+        this.createEvent("step_failed", context, node.step.id, {
           error: result.error,
         }),
       );
 
       // 标记所有依赖此节点的节点为 skipped
       this.skipDependents(node.step.id, dag);
-    } else if (result.status === 'skipped') {
-      node.status = 'skipped';
+    } else if (result.status === "skipped") {
+      node.status = "skipped";
       onEvent(
-        this.createEvent('step_skipped', context, node.step.id, {
-          reason: 'Condition not met',
+        this.createEvent("step_skipped", context, node.step.id, {
+          reason: "Condition not met",
         }),
       );
     }
@@ -297,8 +299,8 @@ export class DAGExecutor extends BaseExecutor {
 
     for (const dependentId of node.dependents) {
       const dependent = dag.get(dependentId);
-      if (dependent && dependent.status === 'pending') {
-        dependent.status = 'skipped';
+      if (dependent && dependent.status === "pending") {
+        dependent.status = "skipped";
         this.skipDependents(dependentId, dag);
       }
     }
@@ -320,7 +322,7 @@ export class DAGExecutor extends BaseExecutor {
     // 收集所有成功步骤的输出
     const output: Record<string, unknown> = {};
     for (const result of stepResults) {
-      if (result.status === 'completed' && result.output) {
+      if (result.status === "completed" && result.output) {
         output[result.stepId] = result.output;
       }
     }

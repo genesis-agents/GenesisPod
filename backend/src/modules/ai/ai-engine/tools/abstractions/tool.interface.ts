@@ -3,13 +3,7 @@
  * 工具接口定义
  */
 
-import {
-  IExecutable,
-  ExecutionResult,
-  ValidationResult,
-  CapabilityDescriptor,
-  JsonObject,
-} from '../../core';
+import { ValidationResult, JsonObject } from "../../core";
 
 /**
  * 工具上下文
@@ -43,7 +37,7 @@ export interface ToolContext {
   /**
    * 调用者类型
    */
-  callerType?: 'agent' | 'skill' | 'direct';
+  callerType?: "agent" | "skill" | "direct" | "orchestrator";
 
   /**
    * 取消信号
@@ -166,87 +160,87 @@ export interface ToolResultMetadata {
  * 使用字符串联合类型，支持扩展
  */
 export type ToolCategory =
-  | 'information'    // 信息获取
-  | 'generation'     // 内容生成
-  | 'processing'     // 数据处理
-  | 'execution'      // 代码执行
-  | 'integration'    // 外部集成
-  | 'memory'         // 记忆管理
-  | 'export'         // 导出
-  | 'collaboration'  // 协作
-  | string;          // 允许自定义
+  | "information" // 信息获取
+  | "generation" // 内容生成
+  | "processing" // 数据处理
+  | "execution" // 代码执行
+  | "integration" // 外部集成
+  | "memory" // 记忆管理
+  | "export" // 导出
+  | "collaboration" // 协作
+  | string; // 允许自定义
 
 /**
  * 内置工具 ID 常量
  */
 export const BUILTIN_TOOLS = {
   // 信息获取
-  WEB_SEARCH: 'web-search',
-  WEB_SCRAPER: 'web-scraper',
-  DATA_FETCH: 'data-fetch',
-  RAG_SEARCH: 'rag-search',
-  DATABASE_QUERY: 'database-query',
-  KNOWLEDGE_GRAPH: 'knowledge-graph',
+  WEB_SEARCH: "web-search",
+  WEB_SCRAPER: "web-scraper",
+  DATA_FETCH: "data-fetch",
+  RAG_SEARCH: "rag-search",
+  DATABASE_QUERY: "database-query",
+  KNOWLEDGE_GRAPH: "knowledge-graph",
 
   // 内容生成
-  TEXT_GENERATION: 'text-generation',
-  IMAGE_GENERATION: 'image-generation',
-  CODE_GENERATION: 'code-generation',
-  AUDIO_GENERATION: 'audio-generation',
-  VIDEO_GENERATION: 'video-generation',
-  STRUCTURED_OUTPUT: 'structured-output',
+  TEXT_GENERATION: "text-generation",
+  IMAGE_GENERATION: "image-generation",
+  CODE_GENERATION: "code-generation",
+  AUDIO_GENERATION: "audio-generation",
+  VIDEO_GENERATION: "video-generation",
+  STRUCTURED_OUTPUT: "structured-output",
 
   // 数据处理
-  DATA_ANALYSIS: 'data-analysis',
-  FILE_CONVERSION: 'file-conversion',
-  FILE_PARSER: 'file-parser',
-  DATA_VALIDATION: 'data-validation',
-  DATA_CLEANING: 'data-cleaning',
-  DOCUMENT_DIFF: 'document-diff',
-  TEMPLATE_RENDER: 'template-render',
+  DATA_ANALYSIS: "data-analysis",
+  FILE_CONVERSION: "file-conversion",
+  FILE_PARSER: "file-parser",
+  DATA_VALIDATION: "data-validation",
+  DATA_CLEANING: "data-cleaning",
+  DOCUMENT_DIFF: "document-diff",
+  TEMPLATE_RENDER: "template-render",
 
   // 代码执行
-  PYTHON_EXECUTOR: 'python-executor',
-  JAVASCRIPT_EXECUTOR: 'javascript-executor',
-  SQL_EXECUTOR: 'sql-executor',
-  SHELL_EXECUTOR: 'shell-executor',
-  CONTAINER_EXECUTOR: 'container-executor',
-  OCR_RECOGNITION: 'ocr-recognition',
+  PYTHON_EXECUTOR: "python-executor",
+  JAVASCRIPT_EXECUTOR: "javascript-executor",
+  SQL_EXECUTOR: "sql-executor",
+  SHELL_EXECUTOR: "shell-executor",
+  CONTAINER_EXECUTOR: "container-executor",
+  OCR_RECOGNITION: "ocr-recognition",
 
   // 外部集成
-  MESSAGE_PUSH: 'message-push',
-  CLOUD_STORAGE: 'cloud-storage',
-  GITHUB_INTEGRATION: 'github-integration',
-  EMAIL_SENDER: 'email-sender',
-  CALENDAR_INTEGRATION: 'calendar-integration',
-  WEBHOOK_TRIGGER: 'webhook-trigger',
+  MESSAGE_PUSH: "message-push",
+  CLOUD_STORAGE: "cloud-storage",
+  GITHUB_INTEGRATION: "github-integration",
+  EMAIL_SENDER: "email-sender",
+  CALENDAR_INTEGRATION: "calendar-integration",
+  WEBHOOK_TRIGGER: "webhook-trigger",
 
   // 记忆管理
-  SHORT_TERM_MEMORY: 'short-term-memory',
-  LONG_TERM_MEMORY: 'long-term-memory',
-  ENTITY_MEMORY: 'entity-memory',
-  KNOWLEDGE_BASE: 'knowledge-base',
-  USER_PREFERENCES: 'user-preferences',
+  SHORT_TERM_MEMORY: "short-term-memory",
+  LONG_TERM_MEMORY: "long-term-memory",
+  ENTITY_MEMORY: "entity-memory",
+  KNOWLEDGE_BASE: "knowledge-base",
+  USER_PREFERENCES: "user-preferences",
 
   // 导出
-  EXPORT_PPTX: 'export-pptx',
-  EXPORT_DOCX: 'export-docx',
-  EXPORT_PDF: 'export-pdf',
-  EXPORT_IMAGE: 'export-image',
+  EXPORT_PPTX: "export-pptx",
+  EXPORT_DOCX: "export-docx",
+  EXPORT_PDF: "export-pdf",
+  EXPORT_IMAGE: "export-image",
 
   // 协作
-  AGENT_HANDOFF: 'agent-handoff',
-  HUMAN_APPROVAL: 'human-approval',
-  AGENT_COMMUNICATION: 'agent-communication',
-  TASK_DELEGATION: 'task-delegation',
-  CONSENSUS_MECHANISM: 'consensus-mechanism',
-  WORKFLOW_ORCHESTRATION: 'workflow-orchestration',
+  AGENT_HANDOFF: "agent-handoff",
+  HUMAN_APPROVAL: "human-approval",
+  AGENT_COMMUNICATION: "agent-communication",
+  TASK_DELEGATION: "task-delegation",
+  CONSENSUS_MECHANISM: "consensus-mechanism",
+  WORKFLOW_ORCHESTRATION: "workflow-orchestration",
 } as const;
 
 /**
  * 内置工具 ID 类型
  */
-export type BuiltinToolId = typeof BUILTIN_TOOLS[keyof typeof BUILTIN_TOOLS];
+export type BuiltinToolId = (typeof BUILTIN_TOOLS)[keyof typeof BUILTIN_TOOLS];
 
 /**
  * 工具 ID 类型（支持自定义）
@@ -307,8 +301,22 @@ export interface FunctionDefinition {
  * 工具接口
  * 精简版，专注于单一原子操作
  */
-export interface ITool<TInput = unknown, TOutput = unknown>
-  extends IExecutable<TInput, TOutput, ToolContext> {
+export interface ITool<TInput = unknown, TOutput = unknown> {
+  /**
+   * 唯一标识符
+   */
+  readonly id: string;
+
+  /**
+   * 名称
+   */
+  readonly name: string;
+
+  /**
+   * 描述
+   */
+  readonly description: string;
+
   /**
    * 工具类别
    */
@@ -323,6 +331,11 @@ export interface ITool<TInput = unknown, TOutput = unknown>
    * 输出 Schema
    */
   readonly outputSchema: JSONSchema;
+
+  /**
+   * 标签
+   */
+  readonly tags?: string[];
 
   /**
    * 默认超时时间（毫秒）
@@ -435,7 +448,7 @@ export interface ToolConfig {
   retry?: {
     maxRetries: number;
     delay: number;
-    backoff?: 'linear' | 'exponential';
+    backoff?: "linear" | "exponential";
   };
 
   /**
