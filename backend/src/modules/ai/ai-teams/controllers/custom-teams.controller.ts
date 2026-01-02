@@ -24,7 +24,7 @@ import {
   ApiBearerAuth,
 } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
-import { AiTeamsIntegrationService } from "../ai-teams-integration.service";
+import { AiTeamsIntegrationService } from "../services/integration";
 import {
   CreateCustomTeamDto,
   UpdateCustomTeamDto,

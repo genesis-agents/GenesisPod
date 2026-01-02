@@ -2,14 +2,13 @@
  * Team Collaboration Agent
  * AI 团队协作专家 Agent
  *
- * 复用现有的 ai-teams 模块能力：
- * - TeamCollaborationService: 任务委派和投票
- * - TeamMissionService: 任务编排
- * - DebateService: 辩论管理
- * - AiResponseService: AI 响应生成
+ * 使用 AI Engine 内置能力：
+ * - VotingManager: 共识投票
+ * - HandoffCoordinator: 任务交接
+ * - DAGExecutor: 工作流编排
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import {
   PlanBasedAgent,
   BUILTIN_AGENTS,
@@ -20,9 +19,8 @@ import {
   ToolId,
 } from "../../base/plan-based-agent";
 import { BUILTIN_TOOLS, PlanStep } from "../../../core/types/agent.types";
-import { TeamCollaborationService } from "../../../../ai-teams/services/collaboration/team-collaboration.service";
-import { TeamMissionService } from "../../../../ai-teams/services/collaboration/team-mission.service";
-import { DebateService } from "../../../../ai-teams/services/collaboration/debate.service";
+import { VotingManager } from "../../../collaboration/patterns/voting-pattern";
+import { HandoffCoordinator } from "../../../collaboration/patterns/handoff-pattern";
 
 /**
  * 团队协作任务类型
@@ -141,13 +139,24 @@ export class TeamCollaborationAgent extends PlanBasedAgent {
   ];
 
   constructor(
-    private readonly collaborationService: TeamCollaborationService,
-    private readonly missionService: TeamMissionService,
-    private readonly debateService: DebateService,
+    @Optional() private readonly votingManager?: VotingManager,
+    @Optional() private readonly handoffCoordinator?: HandoffCoordinator,
   ) {
     super();
-    // 保留服务引用供未来使用
-    void [this.collaborationService, this.missionService, this.debateService];
+  }
+
+  /**
+   * 获取投票管理器（用于共识投票流程）
+   */
+  protected getVotingManager(): VotingManager | undefined {
+    return this.votingManager;
+  }
+
+  /**
+   * 获取交接协调器（用于任务交接流程）
+   */
+  protected getHandoffCoordinator(): HandoffCoordinator | undefined {
+    return this.handoffCoordinator;
   }
 
   /**

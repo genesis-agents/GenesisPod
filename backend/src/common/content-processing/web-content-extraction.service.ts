@@ -1,10 +1,21 @@
+/**
+ * Web Content Extraction Service
+ *
+ * 通用 Web 内容提取服务，集成多个外部 API：
+ * - Jina AI Reader - 高质量 URL 转 Markdown（免费）
+ * - Firecrawl - 复杂网站抓取（付费）
+ * - Tavily - 搜索 + 深度研究（付费）
+ *
+ * 从 ai-teams/utils 迁移至 common 模块
+ */
+
 import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../prisma/prisma.service";
 
 /**
  * 内容提取结果
  */
-export interface ExtractedContent {
+export interface WebExtractedContent {
   url: string;
   title?: string;
   description?: string;
@@ -37,16 +48,11 @@ export interface DeepResearchResult {
 }
 
 /**
- * 内容提取服务
- *
- * 集成多个内容提取工具：
- * 1. Jina AI Reader - 高质量 URL 转 Markdown（免费）
- * 2. Firecrawl - 复杂网站抓取（付费）
- * 3. Tavily - 搜索 + 深度研究（付费）
+ * Web 内容提取服务
  */
 @Injectable()
-export class ContentExtractionService {
-  private readonly logger = new Logger(ContentExtractionService.name);
+export class WebContentExtractionService {
+  private readonly logger = new Logger(WebContentExtractionService.name);
 
   // Jina AI Reader API (免费，有速率限制)
   private readonly JINA_READER_URL = "https://r.jina.ai/";
@@ -69,7 +75,7 @@ export class ContentExtractionService {
   // 内容缓存
   private contentCache = new Map<
     string,
-    { data: ExtractedContent; expiresAt: number }
+    { data: WebExtractedContent; expiresAt: number }
   >();
   private readonly CACHE_TTL = 3600 * 1000; // 1小时
 
@@ -154,7 +160,7 @@ export class ContentExtractionService {
   /**
    * 提取 URL 内容（智能选择最佳方式）
    */
-  async extractContent(url: string): Promise<ExtractedContent> {
+  async extractContent(url: string): Promise<WebExtractedContent> {
     // 检查缓存
     const cached = this.getCache(url);
     if (cached) {
@@ -162,7 +168,7 @@ export class ContentExtractionService {
       return cached;
     }
 
-    let result: ExtractedContent;
+    let result: WebExtractedContent;
     const firecrawlKey = await this.getApiKey("firecrawl");
 
     try {
@@ -207,9 +213,8 @@ export class ContentExtractionService {
 
   /**
    * 使用 Jina AI Reader 提取内容
-   * 文档: https://jina.ai/reader/
    */
-  private async extractWithJina(url: string): Promise<ExtractedContent> {
+  private async extractWithJina(url: string): Promise<WebExtractedContent> {
     const jinaUrl = `${this.JINA_READER_URL}${url}`;
     const jinaApiKey = await this.getApiKey("jina");
 
@@ -269,9 +274,10 @@ export class ContentExtractionService {
 
   /**
    * 使用 Firecrawl 提取内容
-   * 文档: https://docs.firecrawl.dev/
    */
-  private async extractWithFirecrawl(url: string): Promise<ExtractedContent> {
+  private async extractWithFirecrawl(
+    url: string,
+  ): Promise<WebExtractedContent> {
     const firecrawlApiKey = await this.getApiKey("firecrawl");
     if (!firecrawlApiKey) {
       throw new Error("Firecrawl API key not configured");
@@ -333,8 +339,8 @@ export class ContentExtractionService {
   async extractMultiple(
     urls: string[],
     maxConcurrent = 3,
-  ): Promise<ExtractedContent[]> {
-    const results: ExtractedContent[] = [];
+  ): Promise<WebExtractedContent[]> {
+    const results: WebExtractedContent[] = [];
 
     // 分批处理
     for (let i = 0; i < urls.length; i += maxConcurrent) {
@@ -473,7 +479,7 @@ export class ContentExtractionService {
   /**
    * 生成 AI 上下文（用于增强 AI 理解）
    */
-  generateAIContext(contents: ExtractedContent[]): string {
+  generateAIContext(contents: WebExtractedContent[]): string {
     if (contents.length === 0) return "";
 
     const sections: string[] = [];
@@ -542,7 +548,7 @@ export class ContentExtractionService {
 
   // ==================== 缓存方法 ====================
 
-  private getCache(url: string): ExtractedContent | null {
+  private getCache(url: string): WebExtractedContent | null {
     const cached = this.contentCache.get(url);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.data;
@@ -551,14 +557,14 @@ export class ContentExtractionService {
     return null;
   }
 
-  private setCache(url: string, data: ExtractedContent): void {
+  private setCache(url: string, data: WebExtractedContent): void {
     this.contentCache.set(url, {
       data,
       expiresAt: Date.now() + this.CACHE_TTL,
     });
   }
 
-  private createErrorResult(url: string, error: string): ExtractedContent {
+  private createErrorResult(url: string, error: string): WebExtractedContent {
     return {
       url,
       content: "",

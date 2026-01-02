@@ -20,18 +20,18 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import {
   RateLimit,
   RateLimitGuard,
-} from "../../../common/guards/rate-limit.guard";
-import { AiTeamsService } from "./ai-teams.service";
-import { AiTeamsGateway } from "./ai-teams.gateway";
+} from "../../../../common/guards/rate-limit.guard";
+import { AiTeamsService } from "../ai-teams.service";
+import { AiTeamsGateway } from "../ai-teams.gateway";
 import {
   DebateService,
   TeamMissionService,
   UrlParserService,
-} from "./services";
+} from "../services";
 import {
   CreateTopicDto,
   UpdateTopicDto,
@@ -47,7 +47,7 @@ import {
   BookmarkMessageDto,
   CreateMissionDto,
   UpdateAIMemberTeamRoleDto,
-} from "./dto";
+} from "../dto";
 import { TopicType, MentionType } from "@prisma/client";
 
 @ApiTags("AI Teams - Topics")

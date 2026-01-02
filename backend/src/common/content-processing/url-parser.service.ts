@@ -1,5 +1,18 @@
+/**
+ * URL Parser Service
+ *
+ * 通用 URL 解析服务，提供：
+ * - URL 检测和验证
+ * - URL 类型识别（网页、图片、视频、代码仓库等）
+ * - 元数据提取
+ * - SSRF 防护
+ * - 缓存管理
+ *
+ * 从 ai-teams/utils 迁移至 common 模块
+ */
+
 import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
-import { ContentExtractionService } from "./content-extraction.service";
+import { WebContentExtractionService } from "./web-content-extraction.service";
 
 /**
  * URL 解析类型
@@ -33,7 +46,7 @@ export interface LinkPreview {
 /**
  * 提取的内容
  */
-export interface ExtractedContent {
+export interface ExtractedUrlContent {
   fullText?: string;
   summary?: string;
   keyPoints?: string[];
@@ -49,7 +62,7 @@ export interface ParsedUrl {
   url: string;
   platform?: string;
   preview: LinkPreview;
-  extractedContent?: ExtractedContent;
+  extractedContent?: ExtractedUrlContent;
   status: ParseStatus;
   error?: string;
 }
@@ -115,8 +128,8 @@ export class UrlParserService {
   ];
 
   constructor(
-    @Inject(forwardRef(() => ContentExtractionService))
-    private contentExtractionService: ContentExtractionService,
+    @Inject(forwardRef(() => WebContentExtractionService))
+    private webContentExtractionService: WebContentExtractionService,
   ) {}
 
   /**
@@ -191,7 +204,7 @@ export class UrlParserService {
   /**
    * 检查是否为被阻止的内网地址
    */
-  private isBlockedHost(url: string): boolean {
+  isBlockedHost(url: string): boolean {
     try {
       const urlObj = new URL(url);
       const host = urlObj.hostname;
@@ -298,12 +311,13 @@ export class UrlParserService {
 
   /**
    * 解析普通网页
-   * 优先使用 Jina AI Reader / Firecrawl 提取高质量内容
+   * 优先使用 WebContentExtractionService 提取高质量内容
    */
   private async parseWebpage(url: string, result: ParsedUrl): Promise<void> {
     try {
-      // 优先使用 ContentExtractionService（Jina AI / Firecrawl）
-      const extracted = await this.contentExtractionService.extractContent(url);
+      // 使用 WebContentExtractionService（Jina AI / Firecrawl）
+      const extracted =
+        await this.webContentExtractionService.extractContent(url);
 
       if (!extracted.error && extracted.content) {
         // 使用高质量提取结果
@@ -337,7 +351,7 @@ export class UrlParserService {
         return;
       }
 
-      // 回退到原始方法
+      // 回退到基本解析
       this.logger.warn(
         `Content extraction failed, falling back to basic parsing: ${extracted.error}`,
       );

@@ -12,7 +12,7 @@ import { Server, Socket } from "socket.io";
 import { Logger, Inject, forwardRef } from "@nestjs/common";
 import { AiTeamsService } from "./ai-teams.service";
 import { SendMessageDto } from "./dto";
-import { TopicEventEmitterService } from "./services/topic-event-emitter.service";
+import { TopicEventEmitterService } from "./services/events";
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;

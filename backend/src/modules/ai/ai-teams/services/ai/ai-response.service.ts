@@ -12,15 +12,16 @@ import {
   ContextRouterService,
   ContextStrategy,
 } from "./context-router.service";
-import { ParsedUrl } from "../utils/url-parser.service";
-import { TeamMemberAgent, TeamsLLMAdapter } from "../../agents";
+import { ParsedUrl } from "../../../../../common/content-processing";
+import { TeamMemberAgent } from "../../agents";
+import { FunctionCallingLLMAdapter } from "../../../ai-engine/llm/adapters/function-calling-llm-adapter";
 import {
   FunctionCallingExecutor,
   AgentEvent,
 } from "../../../ai-engine/orchestration/executors/function-calling-executor";
 import { BuiltinToolId } from "../../../ai-engine/core";
 import { ToolContext } from "../../../ai-engine/tools/abstractions/tool.interface";
-import { TopicEventEmitterService } from "../topic-event-emitter.service";
+import { TopicEventEmitterService } from "../events";
 import { CreditsService } from "../../../../credits/credits.service";
 import { InsufficientCreditsException } from "../../../../credits/exceptions/insufficient-credits.exception";
 import { MetricsService, Trace } from "../../../../../common/observability";
@@ -40,7 +41,7 @@ export class AiResponseService {
     private searchService: SearchService,
     private contextRouter: ContextRouterService,
     private teamMemberAgent: TeamMemberAgent,
-    private teamsLLMAdapter: TeamsLLMAdapter,
+    private functionCallingLLMAdapter: FunctionCallingLLMAdapter,
     private functionCallingExecutor: FunctionCallingExecutor,
     private topicEventEmitter: TopicEventEmitterService,
     @Optional() private creditsService: CreditsService,
@@ -1642,10 +1643,10 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       `[generateWithTools] Generating response with ${toolTypes.length} tools for ${aiMember.displayName}`,
     );
 
-    // 配置 LLM Adapter
-    this.teamsLLMAdapter.setConfig({
+    // 配置 LLM Adapter (使用 AI Engine 的 FunctionCallingLLMAdapter)
+    this.functionCallingLLMAdapter.setConfig({
       aiMemberId: aiMember.id,
-      topicId,
+      workspaceId: topicId,
     });
 
     // 构建用户消息 (最后一条用户消息作为 prompt)
@@ -1674,7 +1675,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
 
     try {
       const eventGenerator = this.functionCallingExecutor.execute(
-        this.teamsLLMAdapter,
+        this.functionCallingLLMAdapter,
         systemPrompt,
         userPrompt,
         toolTypes,

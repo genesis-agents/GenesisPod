@@ -1,36 +1,35 @@
 /**
- * TeamsLLMAdapter - AI Teams 的 LLM 适配器
+ * AI Engine - Function Calling LLM Adapter
+ * 支持 Function Calling 的 LLM 适配器
  *
- * 将 AiChatService 包装为符合 ILLMAdapter 接口的适配器
- * 支持从数据库获取 API Key 或使用环境变量
+ * 用于与 FunctionCallingExecutor 配合使用
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import {
-  ILLMAdapter,
+  ILLMAdapter as FunctionCallingILLMAdapter,
   LLMMessage,
   LLMRequestOptions,
   LLMResponse,
   ToolCallRequest,
-} from "../../ai-engine/orchestration/executors/function-calling-executor";
-import { LLMProvider } from "../../ai-engine/llm/abstractions/llm-adapter.interface";
-import { FunctionDefinition } from "../../ai-engine/tools/abstractions/tool.interface";
-import { AiChatService, ChatMessage } from "../../ai-core/ai-chat.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+} from "../../orchestration/executors/function-calling-executor";
+import { FunctionDefinition } from "../../tools/abstractions/tool.interface";
+import { AiChatService, ChatMessage } from "../../../ai-core/ai-chat.service";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 /**
- * Teams LLM 适配器配置
+ * Function Calling LLM 适配器配置
  */
-export interface TeamsLLMAdapterConfig {
+export interface FunctionCallingLLMAdapterConfig {
   /**
    * AI Member ID (用于获取模型配置)
    */
-  aiMemberId: string;
+  aiMemberId?: string;
 
   /**
-   * Topic ID (用于上下文)
+   * Workspace/Topic ID (用于上下文)
    */
-  topicId: string;
+  workspaceId?: string;
 
   /**
    * Provider 覆盖 (可选)
@@ -46,19 +45,25 @@ export interface TeamsLLMAdapterConfig {
    * API Key 覆盖 (可选)
    */
   apiKey?: string;
+
+  /**
+   * API Endpoint 覆盖 (可选)
+   */
+  apiEndpoint?: string;
 }
 
 /**
- * Teams LLM Adapter
+ * Function Calling LLM Adapter
  *
  * 复用 AiChatService 的能力，支持多 Provider 的 Function Calling
+ * 实现 FunctionCallingExecutor 所需的 ILLMAdapter 接口
  */
 @Injectable()
-export class TeamsLLMAdapter implements ILLMAdapter {
-  private readonly logger = new Logger(TeamsLLMAdapter.name);
-  readonly provider: LLMProvider = "openai"; // 默认使用 OpenAI 格式
+export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
+  private readonly logger = new Logger(FunctionCallingLLMAdapter.name);
+  readonly provider: string = "openai"; // 默认使用 OpenAI 格式
 
-  private config?: TeamsLLMAdapterConfig;
+  private config?: FunctionCallingLLMAdapterConfig;
 
   constructor(
     private readonly aiChatService: AiChatService,
@@ -68,11 +73,18 @@ export class TeamsLLMAdapter implements ILLMAdapter {
   /**
    * 设置适配器配置
    */
-  setConfig(config: TeamsLLMAdapterConfig): void {
+  setConfig(config: FunctionCallingLLMAdapterConfig): void {
     this.config = config;
     this.logger.debug(
-      `[setConfig] Configured for aiMember: ${config.aiMemberId}, topic: ${config.topicId}`,
+      `[setConfig] Configured: aiMemberId=${config.aiMemberId}, workspaceId=${config.workspaceId}`,
     );
+  }
+
+  /**
+   * 获取当前配置
+   */
+  getConfig(): FunctionCallingLLMAdapterConfig | undefined {
+    return this.config;
   }
 
   /**
@@ -148,8 +160,8 @@ export class TeamsLLMAdapter implements ILLMAdapter {
       `[chat] Calling with ${messages.length} messages, ${functions?.length || 0} functions`,
     );
 
-    // 获取 AI Member 配置
-    const aiMemberConfig = await this.getAIMemberConfig();
+    // 获取 LLM 配置
+    const llmConfig = await this.resolveLLMConfig();
 
     // 转换消息格式
     const chatMessages: ChatMessage[] = messages.map((m) =>
@@ -158,10 +170,10 @@ export class TeamsLLMAdapter implements ILLMAdapter {
 
     // 构建请求参数
     const requestParams: any = {
-      provider: this.config?.provider || aiMemberConfig.provider,
-      modelId: this.config?.modelId || model || aiMemberConfig.modelId,
-      apiKey: this.config?.apiKey || aiMemberConfig.apiKey,
-      apiEndpoint: aiMemberConfig.apiEndpoint,
+      provider: this.config?.provider || llmConfig.provider,
+      modelId: this.config?.modelId || model || llmConfig.modelId,
+      apiKey: this.config?.apiKey || llmConfig.apiKey,
+      apiEndpoint: this.config?.apiEndpoint || llmConfig.apiEndpoint,
       messages: chatMessages,
       maxTokens,
       temperature,
@@ -175,9 +187,6 @@ export class TeamsLLMAdapter implements ILLMAdapter {
 
     // 如果有工具定义，添加 tools 参数
     if (functions && functions.length > 0) {
-      // 注意：AiChatService 可能还不支持直接传递 tools
-      // 这里我们需要通过请求体直接传递
-      // 暂时存储在 requestParams 中，后续在调用时处理
       requestParams.tools = this.formatTools(functions);
       requestParams.tool_choice = options.tool_choice || "auto";
     }
@@ -211,42 +220,7 @@ export class TeamsLLMAdapter implements ILLMAdapter {
       tool_choice,
     } = params;
 
-    // 如果有工具定义，需要直接调用底层 API
-    if (tools && tools.length > 0) {
-      this.logger.debug(`[callAiChatServiceWithTools] Calling with tools`);
-
-      // 构建完整的消息数组 (包括系统提示词)
-      const fullMessages: any[] = [];
-      if (systemPrompt) {
-        fullMessages.push({ role: "system", content: systemPrompt });
-      }
-      fullMessages.push(
-        ...messages.map((m: ChatMessage) => ({
-          role: m.role,
-          content: m.content,
-          name: m.name,
-        })),
-      );
-
-      // 使用 HttpService 直接调用
-      // 这里我们复用 AiChatService 的能力，但需要扩展它支持工具
-      return this.aiChatService.generateChatCompletionWithKey({
-        provider,
-        modelId,
-        apiKey,
-        apiEndpoint,
-        systemPrompt,
-        messages,
-        maxTokens,
-        temperature,
-        // 注意：这里传递 tools，但 AiChatService 可能还不支持
-        // 需要在 AiChatService 中添加对 tools 的支持
-        // 暂时作为扩展参数传递
-        ...(tools ? { tools, tool_choice } : {}),
-      } as any);
-    }
-
-    // 没有工具时，使用标准调用
+    // 调用 AiChatService
     return this.aiChatService.generateChatCompletionWithKey({
       provider,
       modelId,
@@ -256,11 +230,36 @@ export class TeamsLLMAdapter implements ILLMAdapter {
       messages,
       maxTokens,
       temperature,
-    });
+      ...(tools ? { tools, tool_choice } : {}),
+    } as any);
   }
 
   /**
-   * 获取 AI Member 配置
+   * 解析 LLM 配置
+   */
+  private async resolveLLMConfig(): Promise<{
+    provider: string;
+    modelId: string;
+    apiKey: string;
+    apiEndpoint?: string;
+  }> {
+    // 如果配置中有 aiMemberId，从数据库获取配置
+    if (this.config?.aiMemberId) {
+      return this.getAIMemberConfig();
+    }
+
+    // 否则使用默认配置或环境变量
+    const provider = this.config?.provider || "openai";
+    const modelId = this.config?.modelId || "gpt-4o";
+    const apiKey = this.config?.apiKey || this.getApiKeyFromEnv(provider) || "";
+    const apiEndpoint =
+      this.config?.apiEndpoint || this.getDefaultEndpoint(provider);
+
+    return { provider, modelId, apiKey, apiEndpoint };
+  }
+
+  /**
+   * 获取 AI Member 配置 (从数据库)
    */
   private async getAIMemberConfig(): Promise<{
     provider: string;
@@ -268,10 +267,8 @@ export class TeamsLLMAdapter implements ILLMAdapter {
     apiKey: string;
     apiEndpoint?: string;
   }> {
-    if (!this.config) {
-      throw new Error(
-        "TeamsLLMAdapter not configured. Call setConfig() first.",
-      );
+    if (!this.config?.aiMemberId) {
+      throw new Error("FunctionCallingLLMAdapter: aiMemberId not configured");
     }
 
     // 从数据库获取 AI Member 配置
@@ -437,12 +434,10 @@ export class TeamsLLMAdapter implements ILLMAdapter {
     const lower = provider.toLowerCase();
 
     if (lower.includes("anthropic") || lower.includes("claude")) {
-      // Anthropic 格式
       return this.parseAnthropicResponse(result);
     }
 
     if (lower.includes("google") || lower.includes("gemini")) {
-      // Google 格式
       return this.parseGoogleResponse(result);
     }
 
@@ -537,9 +532,6 @@ export class TeamsLLMAdapter implements ILLMAdapter {
   private parseGoogleResponse(result: any): LLMResponse {
     const candidate = result.candidates?.[0];
     const content = candidate?.content?.parts?.[0]?.text || null;
-
-    // Google 暂不支持 function calling in this adapter
-    // 可以后续扩展
 
     return {
       content,
