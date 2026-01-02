@@ -90,6 +90,7 @@ const DATA_SOURCE_CONFIGS: DataSourceConfig[] = [
     icon: MessageCircle,
     color: 'bg-green-50 text-green-600 border-green-200',
     connectedColor: 'bg-green-100 text-green-700',
+    settingsUrl: '/profile?tab=integrations',
     isInternal: false,
     subTab: 'wechat',
   },
@@ -303,6 +304,35 @@ export default function DataSourcesTab({
       } catch {
         statuses['NOTION'] = {
           type: 'NOTION',
+          isConnected: false,
+        };
+      }
+
+      // Fetch WeChat Work binding status
+      try {
+        const wechatResponse = await fetch(
+          `${config.apiUrl}/wechat-data-source/binding`,
+          {
+            headers: { ...getAuthHeader() },
+            credentials: 'include',
+          }
+        );
+
+        if (wechatResponse.ok) {
+          const wechatData = await wechatResponse.json();
+          statuses['WECHAT'] = {
+            type: 'WECHAT',
+            isConnected: wechatData.isBound ?? false,
+          };
+        } else {
+          statuses['WECHAT'] = {
+            type: 'WECHAT',
+            isConnected: false,
+          };
+        }
+      } catch {
+        statuses['WECHAT'] = {
+          type: 'WECHAT',
           isConnected: false,
         };
       }
