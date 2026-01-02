@@ -140,6 +140,16 @@ const parallelExecutorFactory = {
 };
 
 /**
+ * 检查点管理器工厂
+ */
+const checkpointManagerFactory = {
+  provide: CheckpointManager,
+  useFactory: () => {
+    return new CheckpointManager();
+  },
+};
+
+/**
  * AI Engine 核心模块
  */
 @Global()
@@ -162,7 +172,7 @@ const parallelExecutorFactory = {
     sequentialExecutorFactory,
     dagExecutorFactory,
     parallelExecutorFactory,
-    CheckpointManager,
+    checkpointManagerFactory,
     FunctionCallingExecutor,
 
     // === Collaboration ===
@@ -285,7 +295,7 @@ export class AiEngineAgentsModule {}
     sequentialExecutorFactory,
     dagExecutorFactory,
     parallelExecutorFactory,
-    CheckpointManager,
+    checkpointManagerFactory,
   ],
   exports: [
     SequentialExecutor,
