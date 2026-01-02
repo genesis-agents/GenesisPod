@@ -27,6 +27,7 @@ export {
 
 // 业务服务
 export * from "./services/document-processor.service";
+export * from "./services/embedding-processor.service";
 export * from "./services/rag-pipeline.service";
 export * from "./services/knowledge-base.service";
 export * from "./services/google-drive-rag.service";

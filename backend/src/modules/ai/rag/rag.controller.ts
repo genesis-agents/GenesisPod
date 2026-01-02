@@ -25,7 +25,7 @@ import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { KnowledgeBaseService } from "./services/knowledge-base.service";
 import { RAGPipelineService } from "./services/rag-pipeline.service";
 import { GoogleDriveRAGService } from "./services/google-drive-rag.service";
-import { EmbeddingService } from "./services/embedding.service";
+import { EmbeddingService } from "../ai-engine/rag";
 import {
   CreateKnowledgeBaseDto,
   UpdateKnowledgeBaseDto,

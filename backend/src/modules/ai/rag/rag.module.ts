@@ -14,6 +14,7 @@ import { AiEngineModule } from "../ai-engine/ai-engine.module";
 
 // Business Services (保留在本模块)
 import { DocumentProcessorService } from "./services/document-processor.service";
+import { EmbeddingProcessorService } from "./services/embedding-processor.service";
 import { RAGPipelineService } from "./services/rag-pipeline.service";
 import { KnowledgeBaseService } from "./services/knowledge-base.service";
 import { GoogleDriveRAGService } from "./services/google-drive-rag.service";
@@ -42,6 +43,7 @@ import { RAGController } from "./rag.controller";
   providers: [
     // 业务服务
     DocumentProcessorService,
+    EmbeddingProcessorService,
     RAGPipelineService,
     KnowledgeBaseService,
     GoogleDriveRAGService,
@@ -56,6 +58,7 @@ import { RAGController } from "./rag.controller";
     DocumentChunker,
     // 业务服务
     DocumentProcessorService,
+    EmbeddingProcessorService,
     RAGPipelineService,
     KnowledgeBaseService,
     GoogleDriveRAGService,

@@ -7,7 +7,7 @@ import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KnowledgeBaseStatus, KnowledgeBaseSourceType } from "@prisma/client";
 import { DocumentProcessorService } from "./document-processor.service";
-import { EmbeddingService } from "./embedding.service";
+import { EmbeddingProcessorService } from "./embedding-processor.service";
 import { KnowledgeBaseStats } from "../interfaces/rag.interfaces";
 
 export interface CreateKnowledgeBaseInput {
@@ -39,7 +39,7 @@ export class KnowledgeBaseService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly documentProcessor: DocumentProcessorService,
-    private readonly embeddingService: EmbeddingService,
+    private readonly embeddingProcessor: EmbeddingProcessorService,
   ) {}
 
   /**
@@ -357,7 +357,7 @@ export class KnowledgeBaseService {
 
       // Generate embeddings
       const embeddingCount =
-        await this.embeddingService.generateEmbeddingsForKnowledgeBase(
+        await this.embeddingProcessor.generateEmbeddingsForKnowledgeBase(
           knowledgeBaseId,
         );
 

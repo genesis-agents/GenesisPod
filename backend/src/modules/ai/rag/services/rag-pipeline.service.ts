@@ -20,8 +20,7 @@ import {
   AiOrchestrationService,
   AiTaskType,
 } from "../../../../common/ai-orchestration";
-import { EmbeddingService } from "./embedding.service";
-import { VectorService } from "./vector.service";
+import { EmbeddingService, VectorService } from "../../ai-engine/rag";
 import {
   RAGQuery,
   RAGResponse,
