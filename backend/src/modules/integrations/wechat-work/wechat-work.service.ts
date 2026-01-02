@@ -172,7 +172,7 @@ export class WechatWorkService {
       if (!platformUserId) {
         await this.sendTextMessage(
           fromUser,
-          "无法识别您的用户身份，请先在平台设置中绑定企业微信。",
+          `无法识别您的用户身份。\n\n请在 DeepDive 平台的"个人设置 → 集成"中绑定企业微信。\n\n您需要绑定的企业微信 UserID 是：\n**${fromUser}**\n\n请复制此 ID 并粘贴到绑定界面中。`,
         );
         return;
       }
@@ -315,7 +315,7 @@ export class WechatWorkService {
         );
         await this.sendTextMessage(
           fromUser,
-          `提示: 您尚未绑定平台账号，内容暂未同步。\n正在进行 AI 分析...`,
+          `提示: 您尚未绑定平台账号，内容暂未同步。\n\n请在 DeepDive "个人设置 → 集成" 中绑定企业微信 UserID：\n**${fromUser}**\n\n正在进行 AI 分析...`,
         );
 
         // Fallback to AI analysis
