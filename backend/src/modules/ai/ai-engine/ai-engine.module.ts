@@ -14,8 +14,15 @@
  * - MCP 协议 (MCP)
  */
 
-import { Module, Global, OnModuleInit, Logger } from "@nestjs/common";
+import {
+  Module,
+  Global,
+  OnModuleInit,
+  Logger,
+  forwardRef,
+} from "@nestjs/common";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
+import { AiCoreModule } from "../ai-core/ai-core.module";
 
 // Registries
 import { ToolRegistry } from "./tools/registry/tool-registry";
@@ -205,7 +212,7 @@ const conversationMemoryFactory = {
  */
 @Global()
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, forwardRef(() => AiCoreModule)],
   controllers: [AgentsController],
   providers: [
     // === Registries ===
