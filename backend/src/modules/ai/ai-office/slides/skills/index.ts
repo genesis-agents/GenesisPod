@@ -49,6 +49,10 @@ export * from "./template-rendering.skill";
 export * from "./chart-renderer.skill";
 export * from "./image-fetcher.skill";
 
+// Layer 4.5 - Content-Driven Layout (v4.0 新增)
+export * from "./content-analyzer.skill"; // 内容分析技能
+export * from "./layout-optimizer.skill"; // 布局优化技能
+
 // Layer 5 - Consistency
 export * from "./terminology-unifier.skill";
 export * from "./transition-checker.skill";

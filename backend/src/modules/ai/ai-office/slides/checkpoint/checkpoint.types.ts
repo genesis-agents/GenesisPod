@@ -282,6 +282,14 @@ export interface PageState {
   images?: GeneratedImage[];
   status: "pending" | "in_progress" | "completed" | "error";
   error?: string;
+  /** v4.0: 内容分析结果（用于调试和反馈循环） */
+  contentAnalysis?: {
+    recommendedLayout: string;
+    totalSections: number;
+    totalCharacters: number;
+    wasCompressed?: boolean;
+    wasSplit?: boolean;
+  };
 }
 
 /**

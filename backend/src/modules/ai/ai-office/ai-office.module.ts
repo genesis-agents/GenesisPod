@@ -26,6 +26,7 @@ import { GenerationController, GenerationService } from "./generation";
 import {
   // Rendering (导出服务)
   SlidesExportService,
+  ParameterizedRendererService, // v4.0: 参数化渲染器
   // Checkpoint
   CheckpointService,
   // Orchestrator
@@ -46,6 +47,8 @@ import {
   ChartRendererSkill,
   ImageFetcherSkill,
   QualityAuditSkill,
+  ContentAnalyzerSkill, // v4.0: 内容分析技能
+  LayoutOptimizerSkill, // v4.0: 布局优化技能
   // Roles
   ArchitectService,
   WriterService,
@@ -103,6 +106,7 @@ import { AIOfficeCommonModule } from "./common";
     GenerationService,
     // Slides Services
     SlidesExportService,
+    ParameterizedRendererService, // v4.0
     CheckpointService,
     MultiModelService,
     SlidesOrchestratorService,
@@ -120,6 +124,8 @@ import { AIOfficeCommonModule } from "./common";
     ChartRendererSkill,
     ImageFetcherSkill,
     QualityAuditSkill,
+    ContentAnalyzerSkill, // v4.0
+    LayoutOptimizerSkill, // v4.0
     // Roles
     ArchitectService,
     WriterService,
@@ -141,6 +147,9 @@ import { AIOfficeCommonModule } from "./common";
     GenerationService,
     // Slides Services
     SlidesExportService,
+    ParameterizedRendererService, // v4.0
+    ContentAnalyzerSkill, // v4.0
+    LayoutOptimizerSkill, // v4.0
     CheckpointService,
     MultiModelService,
     SlidesOrchestratorService,

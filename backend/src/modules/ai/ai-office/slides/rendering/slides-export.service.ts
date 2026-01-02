@@ -15,7 +15,7 @@
  * @see slides/ARCHITECTURE.md 统一架构文档
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import * as puppeteer from "puppeteer";
@@ -27,6 +27,16 @@ import {
   GeneratedSlide,
   GeneratedSlideImage,
 } from "../types/slides.types";
+import {
+  PageContent,
+  GlobalStyles,
+  GENSPARK_DESIGN_SYSTEM,
+} from "../checkpoint/checkpoint.types";
+import { ParameterizedRendererService } from "./parameterized-renderer.service";
+import {
+  LayoutOptimizerSkill,
+  LayoutDecision,
+} from "../skills/layout-optimizer.skill";
 
 // pptxgenjs 类型
 import type PptxGenJSType from "pptxgenjs";
@@ -90,7 +100,13 @@ interface TextStyle {
 export class SlidesExportService {
   private readonly logger = new Logger(SlidesExportService.name);
 
-  constructor(private readonly httpService: HttpService) {
+  constructor(
+    private readonly httpService: HttpService,
+    @Inject(forwardRef(() => ParameterizedRendererService))
+    private readonly parameterizedRenderer: ParameterizedRendererService,
+    @Inject(forwardRef(() => LayoutOptimizerSkill))
+    private readonly layoutOptimizer: LayoutOptimizerSkill,
+  ) {
     this.logger.debug(`[SlidesExport] Service initialized`);
   }
 
@@ -158,6 +174,230 @@ export class SlidesExportService {
       slideCount: document.slides.length,
       fileSize: buffer.length,
     };
+  }
+
+  /**
+   * v4.0: 使用内容驱动架构导出 PPTX（可编辑版本）
+   *
+   * 使用 ContentAnalyzer + LayoutOptimizer + ParameterizedRenderer 管线
+   * 动态计算布局和坐标，生成原生可编辑的 PPTX
+   *
+   * ⚠️ 注意：此方法生成的 PPTX 可能与 HTML 预览有细微差异
+   * 如需 100% 同源一致，请使用 exportToPPTX + HTML 截图模式
+   *
+   * @param pages PageContent 数组
+   * @param options 导出选项
+   */
+  async exportFromPageContentEditable(
+    pages: PageContent[],
+    options: {
+      title: string;
+      subtitle?: string;
+      theme?: GlobalStyles;
+    },
+  ): Promise<PPTXExportResult> {
+    const theme = options.theme || GENSPARK_DESIGN_SYSTEM;
+
+    this.logger.log(
+      `[exportFromPageContent] Starting v4.0 export for: ${options.title}, ${pages.length} pages`,
+    );
+
+    const startTime = Date.now();
+    const pptx = new PptxGenJS();
+
+    // 1. 设置文档属性
+    pptx.title = options.title;
+    pptx.subject = options.subtitle || options.title;
+    pptx.author = "DeepDive AI Office";
+    pptx.company = "DeepDive";
+    pptx.defineLayout({
+      name: "LAYOUT_WIDE",
+      width: 13.33,
+      height: 7.5,
+    });
+    pptx.layout = "LAYOUT_WIDE";
+
+    // 2. 使用 ParameterizedRenderer 渲染每页
+    const renderResults: {
+      pageNumber: number;
+      success: boolean;
+      errors: string[];
+    }[] = [];
+
+    for (let i = 0; i < pages.length; i++) {
+      const pageContent = pages[i];
+      const pageNumber = i + 1;
+
+      try {
+        // 使用 ParameterizedRenderer 渲染
+        const result = await this.parameterizedRenderer.render(
+          pptx,
+          pageContent,
+          {
+            theme,
+            pageNumber,
+          },
+        );
+
+        renderResults.push({
+          pageNumber,
+          success: result.success,
+          errors: result.errors,
+        });
+
+        if (!result.success) {
+          this.logger.warn(
+            `[exportFromPageContent] Page ${pageNumber} had errors: ${result.errors.join(", ")}`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          `[exportFromPageContent] Failed to render page ${pageNumber}:`,
+          error,
+        );
+        renderResults.push({
+          pageNumber,
+          success: false,
+          errors: [String(error)],
+        });
+      }
+    }
+
+    // 3. 生成文件
+    const buffer = (await pptx.write({ outputType: "nodebuffer" })) as Buffer;
+
+    const duration = Date.now() - startTime;
+    const successCount = renderResults.filter((r) => r.success).length;
+    this.logger.log(
+      `[exportFromPageContent] Completed in ${duration}ms, ${successCount}/${pages.length} pages successful, size: ${buffer.length} bytes`,
+    );
+
+    return {
+      buffer,
+      filename: `${options.title}_v4.pptx`,
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      slideCount: pages.length,
+      fileSize: buffer.length,
+    };
+  }
+
+  /**
+   * v4.0: 获取页面的布局决策
+   *
+   * 用于预览或调试，返回 LayoutOptimizer 的决策结果
+   * 同一个 LayoutDecision 应同时用于 HTML 渲染和 PPTX 导出，确保同源
+   */
+  getLayoutDecision(pageContent: PageContent): LayoutDecision {
+    return this.layoutOptimizer.optimize(pageContent);
+  }
+
+  /**
+   * v4.0: 同源导出 - 从 HTML 字符串数组导出 PPTX
+   *
+   * 此方法确保预览和导出 100% 一致：
+   * 1. 使用 LayoutDecision 生成 HTML（预览时已完成）
+   * 2. 将相同的 HTML 截图嵌入 PPTX
+   *
+   * @param htmlSlides HTML 字符串数组
+   * @param options 导出选项
+   */
+  async exportFromHtmlSlides(
+    htmlSlides: string[],
+    options: {
+      title: string;
+      subtitle?: string;
+    },
+  ): Promise<PPTXExportResult> {
+    this.logger.log(
+      `[exportFromHtmlSlides] Starting 同源 export for: ${options.title}, ${htmlSlides.length} slides`,
+    );
+
+    const startTime = Date.now();
+    const pptx = new PptxGenJS();
+
+    // 设置文档属性
+    pptx.title = options.title;
+    pptx.subject = options.subtitle || options.title;
+    pptx.author = "DeepDive AI Office";
+    pptx.company = "DeepDive";
+    pptx.defineLayout({
+      name: "LAYOUT_WIDE",
+      width: 13.33,
+      height: 7.5,
+    });
+    pptx.layout = "LAYOUT_WIDE";
+
+    // 使用 puppeteer 截图每个 HTML 并嵌入
+    await this.renderHtmlSlidesToPptx(pptx, htmlSlides);
+
+    // 生成文件
+    const buffer = (await pptx.write({ outputType: "nodebuffer" })) as Buffer;
+
+    const duration = Date.now() - startTime;
+    this.logger.log(
+      `[exportFromHtmlSlides] Completed in ${duration}ms, size: ${buffer.length} bytes`,
+    );
+
+    return {
+      buffer,
+      filename: `${options.title}.pptx`,
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      slideCount: htmlSlides.length,
+      fileSize: buffer.length,
+    };
+  }
+
+  /**
+   * 将 HTML 字符串数组渲染为 PPTX 幻灯片
+   */
+  private async renderHtmlSlidesToPptx(
+    pptx: PptxInstance,
+    htmlSlides: string[],
+  ): Promise<void> {
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    try {
+      const page = await browser.newPage();
+      await page.setViewport({
+        width: 1280,
+        height: 720,
+        deviceScaleFactor: 2,
+      });
+
+      for (const html of htmlSlides) {
+        const slide = pptx.addSlide();
+
+        // 包装 HTML 以确保正确渲染
+        const wrappedHtml = this.wrapV3HtmlForScreenshot(html);
+
+        await page.setContent(wrappedHtml, {
+          waitUntil: "domcontentloaded",
+          timeout: 15000,
+        });
+
+        // 等待字体加载
+        await page.evaluate(() => document.fonts.ready);
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        // 截图
+        const screenshot = await page.screenshot({
+          type: "png",
+          encoding: "base64",
+        });
+
+        // 嵌入为背景图
+        slide.background = {
+          data: `image/png;base64,${screenshot}`,
+        };
+      }
+    } finally {
+      await browser.close();
+    }
   }
 
   /**

@@ -9,7 +9,7 @@
  * Phase 3: 逐页渲染 (Page-by-Page Rendering)
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { Subject, Observable } from "rxjs";
 
 // Checkpoint
@@ -19,6 +19,7 @@ import {
   TaskDecomposition,
   OutlinePlan,
   PageState,
+  PageContent,
   GlobalStyles,
   StreamEvent,
   StreamEventType,
@@ -32,6 +33,13 @@ import { WriterService } from "../roles/writer.service";
 import { RendererService } from "../roles/renderer.service";
 import { ImageGeneratorService } from "../roles/image-generator.service";
 import { ReviewerService } from "../roles/reviewer.service";
+
+// v4.0: Content-driven skills for feedback loop
+import {
+  ContentAnalyzerSkill,
+  ContentAnalysisResult,
+} from "../skills/content-analyzer.skill";
+import { ContentCompressionSkill } from "../skills/content-compression.skill";
 
 /**
  * 生成输入
@@ -88,6 +96,9 @@ export interface GenerationProgress {
 export class SlidesOrchestratorService {
   private readonly logger = new Logger(SlidesOrchestratorService.name);
 
+  // v4.0: 反馈循环最大重试次数
+  private readonly MAX_FEEDBACK_RETRIES = 2;
+
   constructor(
     private readonly checkpoint: CheckpointService,
     private readonly architect: ArchitectService,
@@ -95,6 +106,11 @@ export class SlidesOrchestratorService {
     private readonly renderer: RendererService,
     private readonly imageGenerator: ImageGeneratorService,
     private readonly reviewer: ReviewerService,
+    // v4.0: Content-driven skills
+    @Inject(forwardRef(() => ContentAnalyzerSkill))
+    private readonly contentAnalyzer: ContentAnalyzerSkill,
+    @Inject(forwardRef(() => ContentCompressionSkill))
+    private readonly contentCompression: ContentCompressionSkill,
   ) {}
 
   /**
@@ -358,12 +374,28 @@ export class SlidesOrchestratorService {
         );
 
         // Step 2: 内容填充
-        const pageContent = await this.writer.fillContent({
+        let pageContent = await this.writer.fillContent({
           pageOutline,
           sourceText: pageSourceText,
           taskDecomposition,
           sessionId,
         });
+
+        // v4.0: Step 2.5 - 反馈循环：分析内容并在必要时压缩
+        const feedbackResult = await this.applyFeedbackLoop(
+          pageContent,
+          pageOutline.templateType,
+          pageOutline.pageNumber,
+        );
+        pageContent = feedbackResult.content;
+        const additionalPages = feedbackResult.additionalPages;
+
+        // 如果内容被拆分成多页，记录日志
+        if (additionalPages.length > 0) {
+          this.logger.log(
+            `[renderAllPages] Page ${pageOutline.pageNumber} was split into ${additionalPages.length + 1} pages due to content overflow`,
+          );
+        }
 
         // Step 3: 四步设计和 HTML 生成
         // Step 3.5: 先生成图像（背景图等），以便在 HTML 中使用
@@ -406,9 +438,21 @@ export class SlidesOrchestratorService {
           html: renderResult.html,
           images: imageResult.images,
           status: "completed",
+          // v4.0: 包含内容分析信息
+          contentAnalysis: {
+            recommendedLayout: feedbackResult.analysis.recommendedLayout,
+            totalSections: feedbackResult.analysis.totalSections,
+            totalCharacters: feedbackResult.analysis.totalCharacters,
+            wasCompressed: feedbackResult.wasCompressed,
+            wasSplit: feedbackResult.wasSplit,
+          },
         };
 
         pages.push(pageState);
+
+        // v4.0: 处理拆分出的额外页面
+        // 注意：这些页面会在后续迭代中自然处理，这里只是记录
+        // 实际拆分逻辑在 applyFeedbackLoop 中处理
 
         subject.next(
           this.createEvent("page_completed", sessionId, {
@@ -583,6 +627,130 @@ export class SlidesOrchestratorService {
     });
 
     return newPageState;
+  }
+
+  // ============================================================================
+  // v4.0: 反馈循环机制
+  // ============================================================================
+
+  /**
+   * 应用反馈循环
+   *
+   * 分析内容，检测溢出，必要时压缩或拆分
+   * 返回处理后的内容和分析结果
+   */
+  private async applyFeedbackLoop(
+    content: PageContent,
+    templateType: string,
+    pageNumber: number,
+  ): Promise<{
+    content: PageContent;
+    additionalPages: PageContent[];
+    analysis: ContentAnalysisResult;
+    wasCompressed: boolean;
+    wasSplit: boolean;
+  }> {
+    // 1. 分析内容
+    const analysis = this.contentAnalyzer.analyze(content);
+
+    this.logger.debug(
+      `[applyFeedbackLoop] Page ${pageNumber}: layout=${analysis.recommendedLayout}, ` +
+        `sections=${analysis.totalSections}, chars=${analysis.totalCharacters}, ` +
+        `fitsOnOnePage=${analysis.estimatedCapacity.fitsOnOnePage}`,
+    );
+
+    // 2. 检测溢出
+    const overflowResult = this.contentCompression.willOverflow(
+      content,
+      templateType,
+    );
+
+    // 如果没有溢出，直接返回
+    if (!overflowResult.overflow) {
+      return {
+        content,
+        additionalPages: [],
+        analysis,
+        wasCompressed: false,
+        wasSplit: false,
+      };
+    }
+
+    this.logger.log(
+      `[applyFeedbackLoop] Page ${pageNumber} overflow detected: ${overflowResult.reason}, excess=${overflowResult.excessAmount}`,
+    );
+
+    // 3. 尝试压缩
+    let retryCount = 0;
+    let currentContent = content;
+    let wasCompressed = false;
+
+    while (retryCount < this.MAX_FEEDBACK_RETRIES) {
+      // 应用自动压缩
+      currentContent = this.contentCompression.autoCompress(
+        currentContent,
+        templateType,
+      );
+      wasCompressed = true;
+
+      // 重新检测溢出
+      const recheckResult = this.contentCompression.willOverflow(
+        currentContent,
+        templateType,
+      );
+
+      if (!recheckResult.overflow) {
+        this.logger.log(
+          `[applyFeedbackLoop] Page ${pageNumber} compressed successfully after ${retryCount + 1} attempts`,
+        );
+        return {
+          content: currentContent,
+          additionalPages: [],
+          analysis: this.contentAnalyzer.analyze(currentContent),
+          wasCompressed: true,
+          wasSplit: false,
+        };
+      }
+
+      retryCount++;
+    }
+
+    // 4. 压缩无法解决，尝试拆分
+    this.logger.log(
+      `[applyFeedbackLoop] Page ${pageNumber} cannot be compressed, attempting split`,
+    );
+
+    const splitPages = this.contentCompression.splitIntoPages(
+      currentContent,
+      templateType,
+    );
+
+    if (splitPages.length > 1) {
+      this.logger.log(
+        `[applyFeedbackLoop] Page ${pageNumber} split into ${splitPages.length} pages`,
+      );
+
+      return {
+        content: splitPages[0], // 第一页作为主内容
+        additionalPages: splitPages.slice(1), // 其余作为额外页
+        analysis: this.contentAnalyzer.analyze(splitPages[0]),
+        wasCompressed,
+        wasSplit: true,
+      };
+    }
+
+    // 5. 拆分也无法解决，返回压缩后的内容
+    this.logger.warn(
+      `[applyFeedbackLoop] Page ${pageNumber} could not be adequately compressed or split, returning best-effort content`,
+    );
+
+    return {
+      content: currentContent,
+      additionalPages: [],
+      analysis: this.contentAnalyzer.analyze(currentContent),
+      wasCompressed,
+      wasSplit: false,
+    };
   }
 
   /**

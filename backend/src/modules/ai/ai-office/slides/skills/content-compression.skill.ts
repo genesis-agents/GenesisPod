@@ -18,6 +18,10 @@ import {
   ChartContent,
 } from "../checkpoint/checkpoint.types";
 import { DataSupplementSkill } from "./data-supplement.skill";
+import {
+  ContentAnalyzerSkill,
+  ContentAnalysisResult,
+} from "./content-analyzer.skill";
 
 /**
  * 重试上下文 - 用于传递之前的审核反馈
@@ -292,6 +296,8 @@ export class ContentCompressionSkill {
     private readonly multiModel: MultiModelService,
     @Inject(forwardRef(() => DataSupplementSkill))
     private readonly dataSupplementSkill: DataSupplementSkill,
+    @Inject(forwardRef(() => ContentAnalyzerSkill))
+    private readonly contentAnalyzer: ContentAnalyzerSkill,
   ) {}
 
   /**
@@ -694,9 +700,15 @@ ${this.getStrategyGuidance(retryContext.strategy)}
       return this.generateFallbackSections(pageOutline, title, subtitle);
     }
 
-    // 4. 检查最小 section 数量
+    // 4. 检查最小 section 数量（使用动态分析）
+    const tempContent: PageContent = {
+      title,
+      subtitle,
+      sections: validSections,
+    };
     const minSections = this.getMinSectionsForTemplate(
       pageOutline.templateType,
+      tempContent,
     );
     if (validSections.length < minSections) {
       this.logger.warn(
@@ -719,23 +731,46 @@ ${this.getStrategyGuidance(retryContext.strategy)}
 
   /**
    * 获取模板类型需要的最小 section 数量
+   * v4.0: 使用内容分析结果动态决定，而非硬编码
    */
-  private getMinSectionsForTemplate(templateType: string): number {
-    const minSectionsMap: Record<string, number> = {
+  private getMinSectionsForTemplate(
+    templateType: string,
+    pageContent?: PageContent,
+  ): number {
+    // 特殊页面类型的硬性要求
+    const specialTypes: Record<string, number> = {
       cover: 0,
       toc: 1,
       sectionDivider: 0,
-      content: 2,
-      comparison: 2,
-      pillars: 3,
-      timeline: 3,
-      evolutionRoadmap: 3,
-      riskOpportunity: 2,
-      dashboard: 3,
-      framework: 2,
-      conclusion: 2,
     };
-    return minSectionsMap[templateType] ?? 2;
+
+    if (templateType in specialTypes) {
+      return specialTypes[templateType];
+    }
+
+    // 如果有内容，使用 ContentAnalyzer 动态分析
+    if (pageContent) {
+      const analysis = this.contentAnalyzer.analyze(pageContent);
+
+      // 根据推荐布局决定最小 sections
+      switch (analysis.recommendedLayout) {
+        case "comparison-grid":
+          return Math.max(2, analysis.comparison.count);
+        case "pillar-showcase":
+          return Math.max(2, Math.min(analysis.pillars.count, 6));
+        case "data-dashboard":
+          return Math.max(2, Math.min(analysis.sectionTypes.stat, 4));
+        case "timeline-progress":
+          return Math.max(2, Math.min(analysis.timeline.nodeCount, 5));
+        case "single-focus":
+          return 0;
+        default:
+          return 2;
+      }
+    }
+
+    // 默认值（无内容时）
+    return 2;
   }
 
   /**
@@ -983,51 +1018,115 @@ ${this.getStrategyGuidance(retryContext.strategy)}
 
   // ============================================================================
   // 溢出检测和内容拆分 (M5: 内容溢出处理)
+  // v4.0: 使用 ContentAnalyzer 动态分析，取代硬编码配置
   // ============================================================================
 
   /**
-   * 模板内容容量配置
-   * 基于模板类型估算可容纳的最大 section 数量和字符数
+   * 获取内容容量配置（动态计算）
+   * v4.0: 根据内容分析结果动态决定容量，而非硬编码
    */
-  private readonly TEMPLATE_CAPACITY: Record<
-    string,
-    { maxSections: number; maxCharsPerSection: number; maxTotalChars: number }
-  > = {
-    cover: { maxSections: 0, maxCharsPerSection: 0, maxTotalChars: 100 },
-    toc: { maxSections: 10, maxCharsPerSection: 50, maxTotalChars: 500 },
-    dashboard: { maxSections: 4, maxCharsPerSection: 80, maxTotalChars: 400 },
-    comparison: { maxSections: 6, maxCharsPerSection: 60, maxTotalChars: 500 },
-    timeline: { maxSections: 5, maxCharsPerSection: 100, maxTotalChars: 600 },
-    pillars: { maxSections: 5, maxCharsPerSection: 80, maxTotalChars: 500 },
-    multiColumn: {
-      maxSections: 4,
-      maxCharsPerSection: 150,
-      maxTotalChars: 700,
-    },
-    splitLayout: {
-      maxSections: 4,
-      maxCharsPerSection: 120,
-      maxTotalChars: 600,
-    },
-    recommendations: {
-      maxSections: 4,
-      maxCharsPerSection: 100,
-      maxTotalChars: 500,
-    },
-    caseStudy: { maxSections: 5, maxCharsPerSection: 100, maxTotalChars: 600 },
-    framework: { maxSections: 4, maxCharsPerSection: 100, maxTotalChars: 500 },
-    default: { maxSections: 5, maxCharsPerSection: 100, maxTotalChars: 600 },
-  };
+  private getCapacityFromAnalysis(content: PageContent): {
+    maxSections: number;
+    maxCharsPerSection: number;
+    maxTotalChars: number;
+  } {
+    const analysis = this.contentAnalyzer.analyze(content);
+
+    // 根据布局类型和视觉复杂度动态决定容量
+    let maxSections: number;
+    let maxCharsPerSection: number;
+    let maxTotalChars: number;
+
+    switch (analysis.recommendedLayout) {
+      case "single-focus":
+        // 封面/章节页：无内容区块
+        maxSections = 0;
+        maxCharsPerSection = 0;
+        maxTotalChars = 100;
+        break;
+
+      case "data-dashboard":
+        // 数据仪表盘：多个统计卡片
+        maxSections = 6;
+        maxCharsPerSection = 80;
+        maxTotalChars = 500;
+        break;
+
+      case "comparison-grid":
+        // 对比网格：根据对比项数量动态调整
+        maxSections = Math.min(analysis.comparison.count + 2, 8);
+        maxCharsPerSection = 100;
+        maxTotalChars = 600;
+        break;
+
+      case "pillar-showcase":
+        // 支柱展示：根据支柱数量动态调整
+        maxSections = Math.min(analysis.pillars.count + 1, 7);
+        maxCharsPerSection = 100;
+        maxTotalChars = 600;
+        break;
+
+      case "timeline-progress":
+        // 时间线：根据节点数量调整
+        maxSections = Math.min(analysis.timeline.nodeCount, 6);
+        maxCharsPerSection = 80;
+        maxTotalChars = 500;
+        break;
+
+      case "content-flow":
+      case "mixed-content":
+      default:
+        // 通用内容页：根据复杂度调整
+        if (analysis.visualComplexity === "simple") {
+          maxSections = 4;
+          maxCharsPerSection = 150;
+          maxTotalChars = 600;
+        } else if (analysis.visualComplexity === "moderate") {
+          maxSections = 5;
+          maxCharsPerSection = 120;
+          maxTotalChars = 650;
+        } else {
+          maxSections = 6;
+          maxCharsPerSection = 100;
+          maxTotalChars = 700;
+        }
+        break;
+    }
+
+    return { maxSections, maxCharsPerSection, maxTotalChars };
+  }
 
   /**
    * 检测内容是否会溢出
+   * v4.0: 使用 ContentAnalyzer 动态分析
    */
   willOverflow(
     content: PageContent,
-    templateType: string,
-  ): { overflow: boolean; reason?: string; excessAmount?: number } {
-    const capacity =
-      this.TEMPLATE_CAPACITY[templateType] || this.TEMPLATE_CAPACITY.default;
+    _templateType: string,
+  ): {
+    overflow: boolean;
+    reason?: string;
+    excessAmount?: number;
+    analysis?: ContentAnalysisResult;
+  } {
+    // 使用 ContentAnalyzer 分析
+    const analysis = this.contentAnalyzer.analyze(content);
+
+    // 直接使用分析结果判断
+    if (!analysis.estimatedCapacity.fitsOnOnePage) {
+      return {
+        overflow: true,
+        reason:
+          analysis.estimatedCapacity.overflowSections > 0
+            ? "sections_exceeded"
+            : "chars_exceeded",
+        excessAmount: analysis.estimatedCapacity.overflowSections,
+        analysis,
+      };
+    }
+
+    // 获取动态容量配置
+    const capacity = this.getCapacityFromAnalysis(content);
     const sections = content.sections || [];
     const totalChars = this.calculateContentLength(content);
 
@@ -1037,6 +1136,7 @@ ${this.getStrategyGuidance(retryContext.strategy)}
         overflow: true,
         reason: "sections_exceeded",
         excessAmount: sections.length - capacity.maxSections,
+        analysis,
       };
     }
 
@@ -1046,6 +1146,7 @@ ${this.getStrategyGuidance(retryContext.strategy)}
         overflow: true,
         reason: "chars_exceeded",
         excessAmount: totalChars - capacity.maxTotalChars,
+        analysis,
       };
     }
 
@@ -1057,11 +1158,12 @@ ${this.getStrategyGuidance(retryContext.strategy)}
           overflow: true,
           reason: "section_too_long",
           excessAmount: sectionLength - capacity.maxCharsPerSection,
+          analysis,
         };
       }
     }
 
-    return { overflow: false };
+    return { overflow: false, analysis };
   }
 
   /**
@@ -1117,10 +1219,11 @@ ${this.getStrategyGuidance(retryContext.strategy)}
 
   /**
    * 自动压缩内容以适应模板
+   * v4.0: 使用 ContentAnalyzer 动态决定容量
    */
-  autoCompress(content: PageContent, templateType: string): PageContent {
-    const capacity =
-      this.TEMPLATE_CAPACITY[templateType] || this.TEMPLATE_CAPACITY.default;
+  autoCompress(content: PageContent, _templateType: string): PageContent {
+    // 使用动态容量配置
+    const capacity = this.getCapacityFromAnalysis(content);
     let sections = [...(content.sections || [])];
 
     // 1. 裁剪超出的 sections
@@ -1160,27 +1263,28 @@ ${this.getStrategyGuidance(retryContext.strategy)}
 
   /**
    * 将内容拆分为多页
-   * 当内容过多无法通过压缩解决时使用
+   * v4.0: 使用 ContentAnalyzer 动态决定拆分策略
    */
   splitIntoPages(
     content: PageContent,
-    templateType: string,
+    _templateType: string,
     _pageOutline?: PageOutline,
   ): PageContent[] {
-    const capacity =
-      this.TEMPLATE_CAPACITY[templateType] || this.TEMPLATE_CAPACITY.default;
-    const sections = content.sections || [];
+    // 使用 ContentAnalyzer 获取拆分建议
+    const splitSuggestion = this.contentAnalyzer.getSplitSuggestion(content);
 
-    if (sections.length <= capacity.maxSections) {
+    if (!splitSuggestion.shouldSplit) {
       return [content];
     }
 
+    const sections = content.sections || [];
     const pages: PageContent[] = [];
     const chunkedSections: ContentSection[][] = [];
 
-    // 按容量分组 sections
-    for (let i = 0; i < sections.length; i += capacity.maxSections) {
-      chunkedSections.push(sections.slice(i, i + capacity.maxSections));
+    // 按建议的每页 section 数量分组
+    const sectionsPerPage = splitSuggestion.sectionsPerPage;
+    for (let i = 0; i < sections.length; i += sectionsPerPage) {
+      chunkedSections.push(sections.slice(i, i + sectionsPerPage));
     }
 
     // 创建多个页面
@@ -1197,8 +1301,16 @@ ${this.getStrategyGuidance(retryContext.strategy)}
     });
 
     this.logger.log(
-      `[splitIntoPages] Split content into ${pages.length} pages`,
+      `[splitIntoPages] Split content into ${pages.length} pages (suggested: ${splitSuggestion.suggestedPageCount})`,
     );
     return pages;
+  }
+
+  /**
+   * 获取内容分析结果
+   * v4.0: 公开方法，供外部调用
+   */
+  analyzeContent(content: PageContent): ContentAnalysisResult {
+    return this.contentAnalyzer.analyze(content);
   }
 }
