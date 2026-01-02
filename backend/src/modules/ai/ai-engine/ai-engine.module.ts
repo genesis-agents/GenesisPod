@@ -180,6 +180,26 @@ const handoffCoordinatorFactory = {
 };
 
 /**
+ * 内存存储工厂
+ */
+const inMemoryStoreFactory = {
+  provide: InMemoryStore,
+  useFactory: () => {
+    return new InMemoryStore();
+  },
+};
+
+/**
+ * 对话记忆工厂
+ */
+const conversationMemoryFactory = {
+  provide: ConversationMemory,
+  useFactory: () => {
+    return new ConversationMemory();
+  },
+};
+
+/**
  * AI Engine 核心模块
  */
 @Global()
@@ -219,8 +239,8 @@ const handoffCoordinatorFactory = {
     LLMFactory,
 
     // === Memory ===
-    InMemoryStore,
-    ConversationMemory,
+    inMemoryStoreFactory,
+    conversationMemoryFactory,
     ShortTermMemoryService,
     LongTermMemoryService,
 
