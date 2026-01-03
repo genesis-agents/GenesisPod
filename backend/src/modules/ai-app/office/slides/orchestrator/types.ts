@@ -5,6 +5,7 @@
  * 实现动态任务规划、审核修订、质量审计
  */
 
+import type { ISkillOutputManager } from "@/modules/ai-engine/skills";
 import type { GeneratedSlide, PPTOutline } from "../types/slides.types";
 
 // ============================================
@@ -294,6 +295,18 @@ export interface SkillExecutionContext {
   sessionId: string;
   taskId: string;
   executionId: string;
+  /**
+   * Skill 输出管理器
+   *
+   * 使用 AI Engine 统一规范管理 Skill 输出
+   * - 自动规范化 Key（去除 slides- 等前缀）
+   * - 支持多种 ID 格式读取
+   * - 同时维护别名映射
+   */
+  outputManager: ISkillOutputManager;
+  /**
+   * @deprecated 使用 outputManager.get(skillId) 代替
+   */
   previousOutputs: Record<string, unknown>;
   globalContext: {
     sourceText: string;

@@ -138,11 +138,23 @@ export class SlidesTeamMember {
 
   /**
    * 构建 Skill 输入
+   *
+   * 使用 AI Engine 统一规范的 SkillOutputManager 获取之前的输出
    */
   private buildSkillInput(
     task: SlidesTask,
     context: SkillExecutionContext,
   ): unknown {
+    // 优先使用 outputManager（新规范），回退到 previousOutputs（兼容）
+    const getOutput = <T>(skillId: string): T | undefined => {
+      if (context.outputManager) {
+        return context.outputManager.get<T>(skillId);
+      }
+      // 兼容旧的 previousOutputs
+      return (context.previousOutputs[skillId] ||
+        context.previousOutputs[`slides-${skillId}`]) as T | undefined;
+    };
+
     // 基础输入
     const baseInput = {
       task: task.description,
@@ -172,10 +184,8 @@ export class SlidesTeamMember {
 
       case "outline-planning":
       case "slides-outline-planning":
-        // 获取之前生成的任务分解结果
-        const taskDecomposition =
-          context.previousOutputs["slides-task-decomposition"] ||
-          context.previousOutputs["task-decomposition"];
+        // 使用 outputManager 获取任务分解结果（自动处理 Key 规范化）
+        const taskDecomposition = getOutput("task-decomposition");
         return {
           taskDecomposition,
           sourceText: context.globalContext.sourceText,
@@ -187,9 +197,7 @@ export class SlidesTeamMember {
 
       case "page-type-selection":
       case "slides-page-type-selection":
-        const outline = context.previousOutputs.outline as {
-          slides?: unknown[];
-        };
+        const outline = getOutput<{ slides?: unknown[] }>("outline");
         return outline?.slides || [];
 
       case "four-step-design":
@@ -205,16 +213,14 @@ export class SlidesTeamMember {
 
       case "page-pipeline":
       case "slides-page-pipeline":
-        // 获取之前生成的大纲
+        // 使用 outputManager 获取大纲（自动处理 Key 规范化）
         const outlineResult =
-          context.previousOutputs["slides-outline-planning"] ||
-          context.previousOutputs["outline-planning"] ||
-          context.globalContext.outline;
+          getOutput("outline-planning") || context.globalContext.outline;
 
-        // ★ 诊断日志：检查大纲是否正确传递
+        // 诊断日志
         const outlinePages = (outlineResult as { pages?: unknown[] })?.pages;
         this.logger.log(
-          `[buildSkillInput] ★ page-pipeline input: outline exists=${!!outlineResult}, pages count=${outlinePages?.length || 0}, previousOutputs keys=${Object.keys(context.previousOutputs).join(", ")}`,
+          `[buildSkillInput] page-pipeline: outline exists=${!!outlineResult}, pages=${outlinePages?.length || 0}, outputManager keys=${context.outputManager?.keys().join(", ") || "N/A"}`,
         );
 
         return {
@@ -229,21 +235,21 @@ export class SlidesTeamMember {
       case "quality-audit":
       case "slides-quality-audit":
         return {
-          pages: context.previousOutputs.pages || [],
+          pages: getOutput("pages") || [],
           ...baseInput,
         };
 
       case "terminology-unifier":
       case "slides-terminology-unifier":
         return {
-          pages: context.previousOutputs.pages || [],
+          pages: getOutput("pages") || [],
           ...baseInput,
         };
 
       case "transition-checker":
       case "slides-transition-checker":
         return {
-          pages: context.previousOutputs.pages || [],
+          pages: getOutput("pages") || [],
           sessionId: context.sessionId,
           ...baseInput,
         };

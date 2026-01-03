@@ -214,6 +214,21 @@ export interface ISkill<TInput = unknown, TOutput = unknown> {
   readonly version?: string;
 
   /**
+   * 输出 Key（用于 SkillOutputManager 存储）
+   *
+   * 规范：
+   * 1. 使用 kebab-case
+   * 2. 不带领域前缀（如 slides-、teams-）
+   * 3. 如果未指定，默认使用规范化后的 id
+   *
+   * 示例：
+   * - "outline-planning"
+   * - "task-decomposition"
+   * - "page-pipeline"
+   */
+  readonly outputKey?: string;
+
+  /**
    * 执行技能
    */
   execute(input: TInput, context: SkillContext): Promise<SkillResult<TOutput>>;
@@ -247,6 +262,11 @@ export interface SkillDefinition<TInput = unknown, TOutput = unknown> {
   requiredSkills?: string[];
   tags?: string[];
   version?: string;
+  /**
+   * 输出 Key（用于 SkillOutputManager 存储）
+   * 如果未指定，默认使用规范化后的 id
+   */
+  outputKey?: string;
   factory?: () => ISkill<TInput, TOutput>;
 }
 

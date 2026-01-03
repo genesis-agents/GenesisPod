@@ -27,6 +27,10 @@ import {
   SlidesExecutionError,
 } from "./types";
 import type { GeneratedSlide, PPTOutline } from "../types/slides.types";
+import {
+  createSkillOutputManager,
+  ISkillOutputManager,
+} from "@/modules/ai-engine/skills";
 
 @Injectable()
 export class SlidesTeamOrchestrator {
@@ -342,7 +346,8 @@ export class SlidesTeamOrchestrator {
     yield phaseEvent;
     await this.persistEvent(phaseEvent);
 
-    const previousOutputs: Record<string, unknown> = {};
+    // 使用 AI Engine 统一规范的 SkillOutputManager
+    const outputManager = createSkillOutputManager({ debug: true });
 
     // 按依赖顺序执行任务
     while (this.hasPendingTasks(mission)) {
@@ -373,7 +378,7 @@ export class SlidesTeamOrchestrator {
       // 并行执行独立任务
       const results = await Promise.all(
         executableTasks.map((task) =>
-          this.executeTask(mission, task, previousOutputs),
+          this.executeTask(mission, task, outputManager),
         ),
       );
 
@@ -387,18 +392,12 @@ export class SlidesTeamOrchestrator {
           task.result = result.result;
           task.completedAt = new Date();
 
-          // 保存输出供后续任务使用
-          // ★ 关键修复：同时存储带前缀和不带前缀的 Key，确保后续任务能找到
-          const normalizedSkillId = task.skillId.split(",")[0].trim();
-          previousOutputs[normalizedSkillId] = result.result;
-          // 如果没有 slides- 前缀，也存储带前缀的版本
-          if (!normalizedSkillId.startsWith("slides-")) {
-            previousOutputs[`slides-${normalizedSkillId}`] = result.result;
-          } else {
-            // 如果有前缀，也存储不带前缀的版本
-            previousOutputs[normalizedSkillId.replace("slides-", "")] =
-              result.result;
-          }
+          // 使用 AI Engine SkillOutputManager 统一存储输出
+          // 自动处理 Key 规范化和别名映射
+          outputManager.store(task.skillId, result.result, {
+            taskId: task.id,
+            completedAt: task.completedAt,
+          });
 
           // ★ 诊断日志：检查任务结果
           const resultObj = result.result as Record<string, unknown> | null;
@@ -491,7 +490,7 @@ export class SlidesTeamOrchestrator {
   private async executeTask(
     mission: SlidesMission,
     task: SlidesTask,
-    previousOutputs: Record<string, unknown>,
+    outputManager: ISkillOutputManager,
   ): Promise<TaskExecutionResult> {
     task.status = "in_progress";
     task.startedAt = new Date();
@@ -501,7 +500,9 @@ export class SlidesTeamOrchestrator {
       sessionId: mission.sessionId,
       taskId: task.id,
       executionId: uuidv4(),
-      previousOutputs,
+      outputManager,
+      // 为了向后兼容，同时提供 previousOutputs（deprecated）
+      previousOutputs: outputManager.exportTo(),
       globalContext: {
         sourceText: mission.sourceText,
         outline: mission.outline,
@@ -611,11 +612,14 @@ export class SlidesTeamOrchestrator {
           await this.persistEvent(revisionEvent);
 
           // 重新执行任务
+          // 在审核阶段重试时，创建新的 outputManager（无历史输出）
+          const retryOutputManager = createSkillOutputManager();
           const context: SkillExecutionContext = {
             missionId: mission.id,
             sessionId: mission.sessionId,
             taskId: task.id,
             executionId: uuidv4(),
+            outputManager: retryOutputManager,
             previousOutputs: {},
             globalContext: {
               sourceText: mission.sourceText,
@@ -800,11 +804,16 @@ export class SlidesTeamOrchestrator {
         createdAt: new Date(),
       };
 
+      // 在审计阶段，创建包含当前页面的 outputManager
+      const auditOutputManager = createSkillOutputManager();
+      auditOutputManager.store("pages", mission.pages);
+
       const context: SkillExecutionContext = {
         missionId: mission.id,
         sessionId: mission.sessionId,
         taskId: task.id,
         executionId: uuidv4(),
+        outputManager: auditOutputManager,
         previousOutputs: { pages: mission.pages },
         globalContext: {
           sourceText: mission.sourceText,

@@ -6,6 +6,7 @@
  * - 技能接口和类型
  * - 基础技能类
  * - 技能注册表
+ * - 输出管理器（统一 Skill 输出 Key 规范）
  */
 
 // Abstractions
@@ -16,3 +17,6 @@ export * from "./base";
 
 // Registry
 export * from "./registry";
+
+// Output Manager - 统一 Skill 输出 Key 管理规范
+export * from "./output-manager";
