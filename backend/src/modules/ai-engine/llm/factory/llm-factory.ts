@@ -84,10 +84,33 @@ export class LLMFactory {
 
   /**
    * 获取适配器
+   * 如果指定了 providerId，返回对应适配器
+   * 否则尝试默认 provider，如果没有则返回第一个可用适配器
    */
   getAdapter(providerId?: string): ILLMAdapter | undefined {
-    const id = providerId || this.defaultProvider;
-    return this.adapters.get(id);
+    // 1. 如果指定了 providerId，直接查找
+    if (providerId) {
+      return this.adapters.get(providerId);
+    }
+
+    // 2. 尝试默认 provider
+    const defaultAdapter = this.adapters.get(this.defaultProvider);
+    if (defaultAdapter) {
+      return defaultAdapter;
+    }
+
+    // 3. 如果默认 provider 不可用，返回第一个可用的适配器
+    // 这对于使用 UniversalLLMAdapter 的场景非常重要
+    const firstAdapter = this.adapters.values().next().value;
+    if (firstAdapter) {
+      this.logger.debug(
+        `Default provider "${this.defaultProvider}" not found, using "${firstAdapter.id}"`,
+      );
+      return firstAdapter;
+    }
+
+    this.logger.warn(`No LLM adapter available`);
+    return undefined;
   }
 
   /**
