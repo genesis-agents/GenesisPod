@@ -764,7 +764,25 @@ export interface QualityIssue {
 // 流事件
 // ============================================================================
 
+/**
+ * 流事件类型
+ * 支持后端发送的所有事件类型
+ */
 export type StreamEventType =
+  // 执行生命周期事件（后端协议）
+  | 'execution:started'
+  | 'execution:completed'
+  | 'execution:failed'
+  // 阶段事件（后端协议）
+  | 'phase:started'
+  | 'phase:progress'
+  | 'phase:completed'
+  // Agent 事件（后端协议）
+  | 'agent:working'
+  | 'agent:completed'
+  // 页面事件（后端协议）
+  | 'slide:generated'
+  // 旧协议兼容（保留）
   | 'session_created'
   | 'phase_started'
   | 'phase_completed'
@@ -783,10 +801,46 @@ export type StreamEventType =
 
 export interface StreamEvent {
   type: StreamEventType;
-  timestamp: Date;
+  timestamp: Date | string;
   sessionId?: string;
+  executionId?: string;
   data: unknown;
 }
+
+/**
+ * 后端阶段名称到前端阶段名称的映射
+ */
+export const PHASE_MAPPING: Record<string, GenerationProgress['phase']> = {
+  // 后端阶段 -> 前端阶段
+  analyzing: 'task_decomposition',
+  'task-decomposition': 'task_decomposition',
+  planning: 'outline_planning',
+  'outline-planning': 'outline_planning',
+  content_filling: 'page_rendering',
+  'content-filling': 'page_rendering',
+  image_generation: 'page_rendering',
+  'image-generation': 'page_rendering',
+  rendering: 'page_rendering',
+  'page-rendering': 'page_rendering',
+  reviewing: 'quality_review',
+  'batch-review': 'quality_review',
+  completed: 'quality_review',
+  // 兼容旧协议
+  task_decomposition: 'task_decomposition',
+  outline_planning: 'outline_planning',
+  page_rendering: 'page_rendering',
+  quality_review: 'quality_review',
+};
+
+/**
+ * Agent 角色类型
+ */
+export type AgentRole =
+  | 'leader'
+  | 'analyst'
+  | 'strategist'
+  | 'writer'
+  | 'reviewer';
 
 // ============================================================================
 // 生成进度
