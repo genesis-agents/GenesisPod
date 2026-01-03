@@ -972,14 +972,26 @@ export class AiChatService {
     }
 
     // 构建正确的 Gemini API URL
-    // apiEndpoint 可能是基础 URL 或完整 URL
+    // apiEndpoint 可能是：
+    // 1. 完整 URL（包含 :generateContent）
+    // 2. 基础 URL（如 https://generativelanguage.googleapis.com/v1beta）
+    // 3. 带 /models 的 URL（如 https://generativelanguage.googleapis.com/v1beta/models）
     let apiUrl: string;
     if (apiEndpoint.includes(":generateContent")) {
+      // 完整 URL，直接使用
       apiUrl = `${apiEndpoint}?key=${apiKey}`;
-    } else if (apiEndpoint.endsWith("/")) {
-      apiUrl = `${apiEndpoint}models/${effectiveModelId}:generateContent?key=${apiKey}`;
+    } else if (apiEndpoint.includes("/models")) {
+      // 已包含 /models，只需添加模型 ID
+      const baseUrl = apiEndpoint.endsWith("/")
+        ? apiEndpoint.slice(0, -1)
+        : apiEndpoint;
+      apiUrl = `${baseUrl}/${effectiveModelId}:generateContent?key=${apiKey}`;
     } else {
-      apiUrl = `${apiEndpoint}/models/${effectiveModelId}:generateContent?key=${apiKey}`;
+      // 基础 URL，需要添加 /models/
+      const baseUrl = apiEndpoint.endsWith("/")
+        ? apiEndpoint.slice(0, -1)
+        : apiEndpoint;
+      apiUrl = `${baseUrl}/models/${effectiveModelId}:generateContent?key=${apiKey}`;
     }
 
     // Extract system message
