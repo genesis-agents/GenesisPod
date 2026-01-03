@@ -144,12 +144,30 @@ export class SlidesTeamMember {
 
     // 根据 Skill ID 进行特殊处理
     switch (task.skillId) {
+      case "task-decomposition":
+      case "slides-task-decomposition":
+        return {
+          sourceText: context.globalContext.sourceText,
+          userRequirement:
+            (task.input as Record<string, unknown>)?.userRequirement || "",
+          targetPages: (task.input as Record<string, unknown>)?.targetPages,
+          stylePreference: context.globalContext.stylePreference || "dark",
+          sessionId: context.sessionId,
+          ...baseInput,
+        };
+
       case "outline-planning":
       case "slides-outline-planning":
+        // 获取之前生成的任务分解结果
+        const taskDecomposition =
+          context.previousOutputs["slides-task-decomposition"] ||
+          context.previousOutputs["task-decomposition"];
         return {
+          taskDecomposition,
           sourceText: context.globalContext.sourceText,
           targetPages: (task.input as Record<string, unknown>)?.targetPages,
           stylePreference: context.globalContext.stylePreference,
+          sessionId: context.sessionId,
           ...baseInput,
         };
 

@@ -4029,6 +4029,7 @@ enum ExportSourceType {
   RESEARCH // Deep Research 会话
   REPORT // Content Report
   RAW // 原始内容 (Markdown/JSON)
+  MISSION // AI Teams 任务报告
 }
 
 enum ExportFormat {

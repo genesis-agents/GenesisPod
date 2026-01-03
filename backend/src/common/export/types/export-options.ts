@@ -31,7 +31,8 @@ export type ExportSource =
   | DocumentSource
   | ResearchSource
   | ReportSource
-  | RawSource;
+  | RawSource
+  | MissionSource;
 
 export interface DocumentSource {
   type: "DOCUMENT";
@@ -53,6 +54,12 @@ export interface RawSource {
   content: string;
   contentType: "markdown" | "html" | "json";
   title?: string;
+}
+
+export interface MissionSource {
+  type: "MISSION";
+  missionId: string;
+  topicId: string;
 }
 
 // ==================== 导出选项 ====================

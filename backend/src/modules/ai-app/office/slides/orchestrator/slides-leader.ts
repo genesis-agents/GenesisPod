@@ -318,12 +318,21 @@ ${mission.sourceText.substring(0, 8000)}${mission.sourceText.length > 8000 ? "\n
   private createDefaultTasks(): TaskBreakdownItem[] {
     return [
       {
+        title: "任务分解",
+        description: "分析源文本，分解为章节和页面任务",
+        assignee: "analyst",
+        skillId: "slides-task-decomposition",
+        priority: "high",
+        dependsOn: [],
+        inputSpec: {},
+      },
+      {
         title: "生成大纲",
-        description: "分析源文本，生成 PPT 大纲结构",
+        description: "基于任务分解生成详细的页面大纲",
         assignee: "analyst",
         skillId: "slides-outline-planning",
         priority: "high",
-        dependsOn: [],
+        dependsOn: [0], // 依赖 task-decomposition
         inputSpec: {},
       },
       {
@@ -332,7 +341,7 @@ ${mission.sourceText.substring(0, 8000)}${mission.sourceText.length > 8000 ? "\n
         assignee: "writer",
         skillId: "slides-page-pipeline",
         priority: "high",
-        dependsOn: [0],
+        dependsOn: [1], // 依赖 outline-planning
         inputSpec: {},
       },
       {
@@ -341,7 +350,7 @@ ${mission.sourceText.substring(0, 8000)}${mission.sourceText.length > 8000 ? "\n
         assignee: "reviewer",
         skillId: "slides-quality-audit",
         priority: "medium",
-        dependsOn: [1],
+        dependsOn: [2], // 依赖 page-pipeline
         inputSpec: {},
       },
     ];

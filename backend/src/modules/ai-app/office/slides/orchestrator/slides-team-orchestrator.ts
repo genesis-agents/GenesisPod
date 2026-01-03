@@ -998,6 +998,16 @@ export class SlidesTeamOrchestrator {
       ) {
         mission.outline = task.result as PPTOutline;
       }
+
+      // 记录 task-decomposition 结果用于调试
+      if (
+        task.skillId === "task-decomposition" ||
+        task.skillId === "slides-task-decomposition"
+      ) {
+        this.logger.log(
+          `[extractPagesFromTasks] Task decomposition completed with ${(task.result as { totalPages?: number })?.totalPages || 0} pages planned`,
+        );
+      }
     }
   }
 
