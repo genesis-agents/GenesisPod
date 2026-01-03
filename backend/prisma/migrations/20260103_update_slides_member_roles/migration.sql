@@ -2,7 +2,32 @@
 -- Creates all required enums and tables for the Team Orchestrator pattern
 
 -- ============================================
--- Create Enums (idempotent)
+-- Create Shared Enums (from AI Teams, needed by Slides)
+-- ============================================
+
+-- VoteStrategy (used by slides_proposals)
+DO $$ BEGIN
+    CREATE TYPE "VoteStrategy" AS ENUM ('MAJORITY', 'SUPERMAJORITY', 'UNANIMOUS');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- ProposalStatus (used by slides_proposals)
+DO $$ BEGIN
+    CREATE TYPE "ProposalStatus" AS ENUM ('OPEN', 'CLOSED');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- VoteValue (used by slides_votes)
+DO $$ BEGIN
+    CREATE TYPE "VoteValue" AS ENUM ('APPROVE', 'REJECT', 'ABSTAIN');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- ============================================
+-- Create Slides-specific Enums (idempotent)
 -- ============================================
 
 -- SlidesMissionStatus
