@@ -154,9 +154,9 @@ export class SlidesEngineService {
       let missionResult: MissionResult | undefined;
 
       for await (const event of generator) {
-        // 6. 转换事件格式
-        const streamEvent = this.transformMissionEvent(event, sessionId);
-        if (streamEvent) {
+        // 6. 转换事件格式（可能返回多个事件）
+        const streamEvents = this.transformMissionEvent(event, sessionId);
+        for (const streamEvent of streamEvents) {
           yield streamEvent;
         }
 
@@ -298,22 +298,27 @@ export class SlidesEngineService {
   }
 
   /**
-   * 转换 MissionEvent 为 StreamEvent
+   * 转换 MissionEvent 为 StreamEvent 数组
    * 使用前端期望的事件类型格式
+   * 同时发送 phase 事件和对应的 agent 事件
    */
   private transformMissionEvent(
     event: MissionEvent,
     sessionId: string,
-  ): StreamEvent | null {
+  ): StreamEvent[] {
     const data = event.data as Record<string, unknown> | undefined;
+    const events: StreamEvent[] = [];
 
     // 根据不同的事件类型返回不同格式的事件
     switch (event.type) {
       case "mission_started":
-        return this.createEvent("execution:started", sessionId, {
-          sessionId,
-          sourceLength: 0,
-        });
+        events.push(
+          this.createEvent("execution:started", sessionId, {
+            sessionId,
+            sourceLength: 0,
+          }),
+        );
+        break;
 
       case "parsing_started":
       case "planning_started":
@@ -322,19 +327,54 @@ export class SlidesEngineService {
         const stepId = data?.stepId || data?.phase || event.type;
         const phase = this.mapStepToPhase(String(stepId));
         const agent = this.mapPhaseToAgent(phase);
-        return this.createEvent("phase:started", sessionId, {
-          phase,
-          agent,
-          description: this.getPhaseDescription(phase),
-        });
+        const agentName = this.getAgentName(agent);
+
+        // 发送 phase:started 事件
+        events.push(
+          this.createEvent("phase:started", sessionId, {
+            phase,
+            agent,
+            description: this.getPhaseDescription(phase),
+          }),
+        );
+
+        // 发送 agent:working 事件 - 让 agent 卡片显示工作状态
+        events.push(
+          this.createEvent("agent:working", sessionId, {
+            agent,
+            agentName,
+            task: this.getPhaseDescription(phase),
+            progress: 0,
+          }),
+        );
+        break;
       }
 
-      case "step_progress":
-        return this.createEvent("phase:progress", sessionId, {
-          phase: data?.stepId || "generating",
-          progress: data?.progress || 0,
-          message: data?.message || "处理中...",
-        });
+      case "step_progress": {
+        const stepId = data?.stepId || "generating";
+        const phase = this.mapStepToPhase(String(stepId));
+        const agent = this.mapPhaseToAgent(phase);
+        const agentName = this.getAgentName(agent);
+
+        events.push(
+          this.createEvent("phase:progress", sessionId, {
+            phase: stepId,
+            progress: data?.progress || 0,
+            message: data?.message || "处理中...",
+          }),
+        );
+
+        // 更新 agent 的工作进度
+        events.push(
+          this.createEvent("agent:working", sessionId, {
+            agent,
+            agentName,
+            task: (data?.message as string) || "处理中...",
+            progress: data?.progress || 0,
+          }),
+        );
+        break;
+      }
 
       case "parsing_completed":
       case "planning_completed":
@@ -342,43 +382,81 @@ export class SlidesEngineService {
       case "review_completed": {
         const stepId = data?.stepId || data?.phase || event.type;
         const phase = this.mapStepToPhase(String(stepId));
-        return this.createEvent("phase:completed", sessionId, {
-          phase,
-          duration: data?.duration || 0,
-          result: data?.output,
-        });
+        const agent = this.mapPhaseToAgent(phase);
+        const agentName = this.getAgentName(agent);
+
+        // 发送 agent:completed 事件
+        events.push(
+          this.createEvent("agent:completed", sessionId, {
+            agent,
+            agentName,
+            result: this.getPhaseCompletedMessage(phase),
+            duration: (data?.duration as number) || 0,
+          }),
+        );
+
+        // 发送 phase:completed 事件
+        events.push(
+          this.createEvent("phase:completed", sessionId, {
+            phase,
+            duration: data?.duration || 0,
+            result: data?.output,
+          }),
+        );
+        break;
       }
 
       case "deliverable_ready": {
         const pageNumber = (data?.pageNumber as number) || 1;
-        return this.createEvent("slide:generated", sessionId, {
-          pageNumber,
-          title: data?.title || `第 ${pageNumber} 页`,
-          contentLength: 0,
-          html: data?.html,
-        });
+        events.push(
+          this.createEvent("slide:generated", sessionId, {
+            pageNumber,
+            title: data?.title || `第 ${pageNumber} 页`,
+            contentLength: 0,
+            html: data?.html,
+          }),
+        );
+        break;
       }
 
       case "mission_completed":
-        return this.createEvent("execution:completed", sessionId, {
-          totalPages:
-            (data?.result as { deliverables?: unknown[] })?.deliverables
-              ?.length || 0,
-          totalTime: (data?.result as { duration?: number })?.duration || 0,
-          checkpointId: sessionId,
-        });
+        // 先完成最后一个 agent（leader）
+        events.push(
+          this.createEvent("agent:completed", sessionId, {
+            agent: "leader",
+            agentName: "Slides Architect",
+            result: "PPT 生成完成！",
+            duration: (data?.result as { duration?: number })?.duration || 0,
+          }),
+        );
+
+        events.push(
+          this.createEvent("execution:completed", sessionId, {
+            totalPages:
+              (data?.result as { deliverables?: unknown[] })?.deliverables
+                ?.length || 0,
+            totalTime: (data?.result as { duration?: number })?.duration || 0,
+            checkpointId: sessionId,
+          }),
+        );
+        break;
 
       case "mission_failed":
-        return this.createEvent("execution:failed", sessionId, {
-          error: (data?.error as string) || "Unknown error",
-          phase: "unknown",
-          recoverable: false,
-        });
+        events.push(
+          this.createEvent("execution:failed", sessionId, {
+            error: (data?.error as string) || "Unknown error",
+            phase: "unknown",
+            recoverable: false,
+          }),
+        );
+        break;
 
       default:
         // 未映射的事件类型，忽略
-        return null;
+        break;
     }
+
+    return events;
   }
 
   /**
@@ -434,6 +512,37 @@ export class SlidesEngineService {
       completed: "生成完成！",
     };
     return descriptions[phase] || "处理中...";
+  }
+
+  /**
+   * 获取 agent 名称
+   */
+  private getAgentName(
+    agent: "leader" | "analyst" | "strategist" | "writer" | "reviewer",
+  ): string {
+    const names: Record<string, string> = {
+      leader: "Slides Architect",
+      analyst: "Content Analyst",
+      strategist: "Visual Strategist",
+      writer: "Content Writer",
+      reviewer: "Quality Reviewer",
+    };
+    return names[agent] || agent;
+  }
+
+  /**
+   * 获取 phase 完成消息
+   */
+  private getPhaseCompletedMessage(phase: string): string {
+    const messages: Record<string, string> = {
+      analyzing: "内容分析完成",
+      planning: "大纲规划完成",
+      generating: "页面生成完成",
+      rendering: "HTML 渲染完成",
+      reviewing: "质量检查完成",
+      completed: "全部完成",
+    };
+    return messages[phase] || "阶段完成";
   }
 
   /**
