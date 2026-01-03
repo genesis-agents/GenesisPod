@@ -16,6 +16,20 @@ import {
 } from "@/modules/ai-engine/skills";
 
 /**
+ * MissionOrchestrator 输入格式
+ */
+export interface PageTypeSelectionOrchestratorInput {
+  task?: string;
+  context?: {
+    input?: {
+      pageOutlines?: PageOutline[];
+    };
+    [key: string]: unknown;
+  };
+  previousOutputs?: Record<string, unknown>;
+}
+
+/**
  * 内容特征分析结果
  */
 export interface ContentFeatures {
@@ -231,14 +245,63 @@ export class PageTypeSelectionSkill
   readonly version = "4.0.0";
 
   /**
+   * 将 MissionOrchestrator 输入格式转换为直接输入格式
+   */
+  private normalizeInput(
+    input: PageOutline[] | PageTypeSelectionOrchestratorInput,
+  ): PageOutline[] | null {
+    // 如果已经是数组格式，直接返回
+    if (Array.isArray(input)) {
+      return input;
+    }
+
+    // 尝试从 orchestrator 格式提取
+    const orchestratorInput = input as PageTypeSelectionOrchestratorInput;
+    const contextInput = orchestratorInput.context?.input;
+
+    if (
+      !contextInput?.pageOutlines ||
+      !Array.isArray(contextInput.pageOutlines)
+    ) {
+      this.logger.warn(
+        "[normalizeInput] Missing required fields in orchestrator input: " +
+          `pageOutlines=${!!contextInput?.pageOutlines}`,
+      );
+      return null;
+    }
+
+    return contextInput.pageOutlines;
+  }
+
+  /**
    * 执行技能 - ISkill interface implementation
    * Executes page type selection for multiple page outlines
    */
   async execute(
-    pageOutlines: PageOutline[],
+    input: PageOutline[] | PageTypeSelectionOrchestratorInput,
     context: SkillContext,
   ): Promise<SkillResult<Map<number, PageTemplateType>>> {
     const startTime = new Date();
+
+    // Normalize input from orchestrator format if needed
+    const pageOutlines = this.normalizeInput(input);
+    if (!pageOutlines) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message:
+            "Failed to normalize input: missing required fields (pageOutlines)",
+          retryable: false,
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime,
+          endTime: new Date(),
+          duration: Date.now() - startTime.getTime(),
+        },
+      };
+    }
 
     try {
       // Call the existing batch selection method

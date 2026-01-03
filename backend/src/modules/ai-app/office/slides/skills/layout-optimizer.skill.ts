@@ -147,6 +147,18 @@ export interface LayoutFeedback {
   };
 }
 
+/**
+ * MissionOrchestrator 传递的输入格式
+ */
+interface OrchestratorInput {
+  task?: string;
+  context?: {
+    input?: PageContent;
+    [key: string]: unknown;
+  };
+  previousOutputs?: Record<string, unknown>;
+}
+
 // ============================================================================
 // Layout Optimizer Service
 // ============================================================================
@@ -199,12 +211,35 @@ export class LayoutOptimizerSkill
   /**
    * 执行技能 - ISkill interface implementation
    * Optimize page layout based on content analysis
+   *
+   * 支持两种输入格式：
+   * 1. 直接调用: PageContent { title, sections, ... }
+   * 2. MissionOrchestrator 格式: { task, context, previousOutputs }
    */
   async execute(
-    content: PageContent,
+    input: PageContent | OrchestratorInput,
     context: SkillContext,
   ): Promise<SkillResult<LayoutDecision>> {
     const startTime = new Date();
+
+    // 处理 Orchestrator 输入格式
+    const content = this.normalizeInput(input);
+    if (!content || !content.title) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "Missing page content or title in input",
+          retryable: false,
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime,
+          endTime: new Date(),
+          duration: Date.now() - startTime.getTime(),
+        },
+      };
+    }
 
     try {
       this.logger.debug(
@@ -976,5 +1011,41 @@ export class LayoutOptimizerSkill
         truncatedSections: actualResult.truncatedSections,
       },
     };
+  }
+
+  /**
+   * 规范化输入格式
+   * 支持直接调用格式和 MissionOrchestrator 格式
+   */
+  private normalizeInput(
+    input: PageContent | OrchestratorInput,
+  ): PageContent | null {
+    // 检查是否是直接调用格式（有 title 属性）
+    if ("title" in input && typeof input.title === "string") {
+      return input as PageContent;
+    }
+
+    // 处理 Orchestrator 格式
+    const orchestratorInput = input as OrchestratorInput;
+    const missionInput = orchestratorInput.context?.input;
+
+    if (missionInput && typeof missionInput.title === "string") {
+      return missionInput;
+    }
+
+    // 尝试从 context 的其他位置获取 PageContent
+    const context = orchestratorInput.context;
+    if (context) {
+      // 检查 context 是否直接是 PageContent
+      if (typeof (context as Record<string, unknown>).title === "string") {
+        return context as unknown as PageContent;
+      }
+    }
+
+    // 返回 null，让调用者处理错误
+    this.logger.warn(
+      `[normalizeInput] Could not extract PageContent from input: ${JSON.stringify(Object.keys(input))}`,
+    );
+    return null;
   }
 }

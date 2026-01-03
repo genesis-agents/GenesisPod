@@ -47,6 +47,23 @@ export interface ImageSearchOptions {
 }
 
 /**
+ * MissionOrchestrator 传递的输入格式
+ */
+interface OrchestratorInput {
+  task?: string;
+  context?: {
+    input?: {
+      keywords?: string[];
+      size?: "small" | "medium" | "large";
+      orientation?: "landscape" | "portrait" | "squarish";
+      count?: number;
+    };
+    [key: string]: unknown;
+  };
+  previousOutputs?: Record<string, unknown>;
+}
+
+/**
  * 本地备选图片库（当 API 不可用时使用）
  * v3.4: 扩展更多主题分类
  */
@@ -259,19 +276,42 @@ export class ImageFetcherSkill
   /**
    * ISkill 执行入口
    * 实现 ISkill<ImageSearchOptions, ImageResult[]> 接口
+   *
+   * 支持两种输入格式：
+   * 1. 直接调用: { keywords, size?, orientation?, count? }
+   * 2. MissionOrchestrator 格式: { task, context, previousOutputs }
    */
   async execute(
-    input: ImageSearchOptions,
+    input: ImageSearchOptions | OrchestratorInput,
     context: SkillContext,
   ): Promise<SkillResult<ImageResult[]>> {
     const startTime = new Date();
+
+    // 处理 Orchestrator 输入格式
+    const actualInput = this.normalizeInput(input);
+    if (!actualInput.keywords || actualInput.keywords.length === 0) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "Missing keywords in input",
+          retryable: false,
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime,
+          endTime: new Date(),
+          duration: Date.now() - startTime.getTime(),
+        },
+      };
+    }
 
     try {
       this.logger.log(
         `[execute] Executing skill ${this.id} with executionId: ${context.executionId}`,
       );
 
-      const result = await this.searchImages(input);
+      const result = await this.searchImages(actualInput);
 
       const endTime = new Date();
 
@@ -515,5 +555,61 @@ export class ImageFetcherSkill
       `[getFallbackImages] Using fallback images for category: ${category}`,
     );
     return results;
+  }
+
+  /**
+   * 规范化输入格式
+   * 支持直接调用格式和 MissionOrchestrator 格式
+   */
+  private normalizeInput(
+    input: ImageSearchOptions | OrchestratorInput,
+  ): ImageSearchOptions {
+    // 检查是否是直接调用格式（有 keywords 属性）
+    if ("keywords" in input && Array.isArray(input.keywords)) {
+      return input as ImageSearchOptions;
+    }
+
+    // 处理 Orchestrator 格式
+    const orchestratorInput = input as OrchestratorInput;
+    const missionInput = orchestratorInput.context?.input;
+
+    if (missionInput?.keywords && Array.isArray(missionInput.keywords)) {
+      return {
+        keywords: missionInput.keywords,
+        size: missionInput.size,
+        orientation: missionInput.orientation,
+        count: missionInput.count,
+      };
+    }
+
+    // 尝试从 context 的其他位置获取 keywords
+    const context = orchestratorInput.context;
+    if (context) {
+      // 检查 context 是否直接有 keywords
+      if (Array.isArray((context as Record<string, unknown>).keywords)) {
+        return {
+          keywords: (context as Record<string, unknown>).keywords as string[],
+          size: (context as Record<string, unknown>).size as
+            | "small"
+            | "medium"
+            | "large"
+            | undefined,
+          orientation: (context as Record<string, unknown>).orientation as
+            | "landscape"
+            | "portrait"
+            | "squarish"
+            | undefined,
+          count: (context as Record<string, unknown>).count as
+            | number
+            | undefined,
+        };
+      }
+    }
+
+    // 返回空输入，让调用者处理错误
+    this.logger.warn(
+      `[normalizeInput] Could not extract keywords from input: ${JSON.stringify(Object.keys(input))}`,
+    );
+    return { keywords: [] };
   }
 }

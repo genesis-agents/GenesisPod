@@ -26,6 +26,20 @@ export interface TerminologyUnifierInput {
 }
 
 /**
+ * MissionOrchestrator 传递的输入格式
+ */
+interface OrchestratorInput {
+  task?: string;
+  context?: {
+    input?: {
+      pages?: PageState[];
+    };
+    [key: string]: unknown;
+  };
+  previousOutputs?: Record<string, unknown>;
+}
+
+/**
  * 术语统一技能结果
  */
 export interface TerminologyUnifierResult extends TerminologyCheckResult {}
@@ -157,13 +171,37 @@ export class TerminologyUnifierSkill
 
   /**
    * 执行术语检查技能
+   *
+   * 支持两种输入格式：
+   * 1. 直接调用: { pages: PageState[] }
+   * 2. MissionOrchestrator 格式: { task, context, previousOutputs }
    */
   async execute(
-    input: TerminologyUnifierInput,
+    input: TerminologyUnifierInput | OrchestratorInput,
     context: SkillContext,
   ): Promise<SkillResult<TerminologyUnifierResult>> {
     const startTime = new Date();
-    const { pages } = input;
+
+    // 处理 Orchestrator 输入格式
+    const actualInput = this.normalizeInput(input);
+    if (!actualInput.pages || actualInput.pages.length === 0) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "Missing pages in input",
+          retryable: false,
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime,
+          endTime: new Date(),
+          duration: Date.now() - startTime.getTime(),
+        },
+      };
+    }
+
+    const { pages } = actualInput;
 
     this.logger.log(
       `[execute] Checking terminology across ${pages.length} pages`,
@@ -517,5 +555,45 @@ ${ruleBasedVariations.map((v) => `- ${v.preferred}: ${v.alternatives.join(", ")}
     const normalizedDeduction = Math.min(deduction, maxDeduction);
 
     return Math.max(0, 100 - normalizedDeduction);
+  }
+
+  /**
+   * 规范化输入格式
+   * 支持直接调用格式和 MissionOrchestrator 格式
+   */
+  private normalizeInput(
+    input: TerminologyUnifierInput | OrchestratorInput,
+  ): TerminologyUnifierInput {
+    // 检查是否是直接调用格式（有 pages 属性）
+    if ("pages" in input && Array.isArray(input.pages)) {
+      return input as TerminologyUnifierInput;
+    }
+
+    // 处理 Orchestrator 格式
+    const orchestratorInput = input as OrchestratorInput;
+    const missionInput = orchestratorInput.context?.input;
+
+    if (missionInput?.pages && Array.isArray(missionInput.pages)) {
+      return {
+        pages: missionInput.pages,
+      };
+    }
+
+    // 尝试从 context 的其他位置获取 pages
+    const context = orchestratorInput.context;
+    if (context) {
+      // 检查 context 是否直接有 pages
+      if (Array.isArray((context as Record<string, unknown>).pages)) {
+        return {
+          pages: (context as Record<string, unknown>).pages as PageState[],
+        };
+      }
+    }
+
+    // 返回空输入，让调用者处理错误
+    this.logger.warn(
+      `[normalizeInput] Could not extract pages from input: ${JSON.stringify(Object.keys(input))}`,
+    );
+    return { pages: [] };
   }
 }

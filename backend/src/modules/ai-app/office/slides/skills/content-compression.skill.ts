@@ -70,6 +70,24 @@ export interface ContentCompressionInput {
 }
 
 /**
+ * MissionOrchestrator 输入格式
+ */
+export interface ContentCompressionOrchestratorInput {
+  task?: string;
+  context?: {
+    input?: {
+      pageOutline?: PageOutline;
+      sourceText?: string;
+      maxCharacters?: number;
+      sessionId?: string;
+      retryContext?: RetryContext;
+    };
+    [key: string]: unknown;
+  };
+  previousOutputs?: Record<string, unknown>;
+}
+
+/**
  * 内容压缩结果
  */
 export interface ContentCompressionResult {
@@ -322,15 +340,68 @@ export class ContentCompressionSkill
   ) {}
 
   /**
+   * 将 MissionOrchestrator 输入格式转换为直接输入格式
+   */
+  private normalizeInput(
+    input: ContentCompressionInput | ContentCompressionOrchestratorInput,
+  ): ContentCompressionInput | null {
+    // 如果已经是直接格式，直接返回
+    if ("pageOutline" in input && "sourceText" in input) {
+      return input as ContentCompressionInput;
+    }
+
+    // 尝试从 orchestrator 格式提取
+    const orchestratorInput = input as ContentCompressionOrchestratorInput;
+    const contextInput = orchestratorInput.context?.input;
+
+    if (!contextInput?.pageOutline || !contextInput?.sourceText) {
+      this.logger.warn(
+        "[normalizeInput] Missing required fields in orchestrator input: " +
+          `pageOutline=${!!contextInput?.pageOutline}, ` +
+          `sourceText=${!!contextInput?.sourceText}`,
+      );
+      return null;
+    }
+
+    return {
+      pageOutline: contextInput.pageOutline,
+      sourceText: contextInput.sourceText,
+      maxCharacters: contextInput.maxCharacters,
+      sessionId: contextInput.sessionId,
+      retryContext: contextInput.retryContext,
+    };
+  }
+
+  /**
    * 执行内容压缩 (ISkill 接口实现)
    */
   async execute(
-    input: ContentCompressionInput,
+    input: ContentCompressionInput | ContentCompressionOrchestratorInput,
     context: SkillContext,
   ): Promise<SkillResult<ContentCompressionResult>> {
     const startTime = new Date();
-    const { pageOutline, sourceText, sessionId } = input;
-    const maxChars = input.maxCharacters ?? 500;
+
+    // Normalize input from orchestrator format if needed
+    const normalizedInput = this.normalizeInput(input);
+    if (!normalizedInput) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message:
+            "Failed to normalize input: missing required fields (pageOutline, sourceText)",
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime,
+          endTime: new Date(),
+          duration: Date.now() - startTime.getTime(),
+        },
+      };
+    }
+
+    const { pageOutline, sourceText, sessionId } = normalizedInput;
+    const maxChars = normalizedInput.maxCharacters ?? 500;
 
     this.logger.log(
       `[execute] Compressing content for page ${pageOutline.pageNumber}, source length: ${sourceText.length}, max: ${maxChars}, executionId: ${context.executionId}`,
@@ -338,7 +409,7 @@ export class ContentCompressionSkill
 
     try {
       // Ensure maxCharacters is set for buildUserMessage
-      const inputWithDefaults = { ...input, maxCharacters: maxChars };
+      const inputWithDefaults = { ...normalizedInput, maxCharacters: maxChars };
       const userMessage = this.buildUserMessage(inputWithDefaults);
 
       // 使用 LLMFactory 调用 LLM

@@ -48,6 +48,23 @@ export interface TemplateRenderingInput {
 }
 
 /**
+ * MissionOrchestrator 传递的输入格式
+ */
+interface OrchestratorInput {
+  task?: string;
+  context?: {
+    input?: {
+      themeId?: string;
+      [key: string]: unknown;
+    };
+    pageOutline?: PageOutline;
+    pageContent?: PageContent;
+    [key: string]: unknown;
+  };
+  previousOutputs?: Record<string, unknown>;
+}
+
+/**
  * 模板渲染结果
  */
 export interface TemplateRenderingResult {
@@ -76,14 +93,46 @@ export class TemplateRenderingSkill
 
   /**
    * ISkill 接口实现：执行技能
+   *
+   * 支持两种输入格式：
+   * 1. 直接调用: { pageOutline, pageContent, usedValues?, themeId? }
+   * 2. MissionOrchestrator 格式: { task, context, previousOutputs }
    */
   async execute(
-    input: TemplateRenderingInput,
+    input: TemplateRenderingInput | OrchestratorInput,
     context: SkillContext,
   ): Promise<SkillResult<TemplateRenderingResult>> {
     const startTime = new Date();
+
+    // 处理 Orchestrator 输入格式
+    const actualInput = this.normalizeInput(input);
+    // 检查必需的属性是否存在（不只是检查对象是否存在，因为空对象 {} 也是 truthy）
+    if (
+      !actualInput.pageOutline?.templateType ||
+      !actualInput.pageContent?.title
+    ) {
+      this.logger.error(
+        `[execute] Invalid input: pageOutline.templateType=${actualInput.pageOutline?.templateType}, pageContent.title=${actualInput.pageContent?.title}`,
+      );
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message:
+            "Missing pageOutline.templateType or pageContent.title in input",
+          retryable: false,
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime,
+          endTime: new Date(),
+          duration: Date.now() - startTime.getTime(),
+        },
+      };
+    }
+
     try {
-      const result = this.render(input);
+      const result = this.render(actualInput);
 
       return {
         success: true,
@@ -125,6 +174,79 @@ export class TemplateRenderingSkill
         },
       };
     }
+  }
+
+  /**
+   * 规范化输入格式
+   * 支持直接调用格式和 MissionOrchestrator 格式
+   */
+  private normalizeInput(
+    input: TemplateRenderingInput | OrchestratorInput,
+  ): TemplateRenderingInput {
+    // 检查是否是直接调用格式（有 pageOutline 属性且类型正确）
+    if (
+      "pageOutline" in input &&
+      input.pageOutline &&
+      typeof input.pageOutline === "object" &&
+      "templateType" in input.pageOutline
+    ) {
+      return input as TemplateRenderingInput;
+    }
+
+    // 处理 Orchestrator 格式
+    const orchestratorInput = input as OrchestratorInput;
+    const previousOutputs = orchestratorInput.previousOutputs || {};
+    const context = orchestratorInput.context || {};
+
+    // 尝试从多个位置获取 pageOutline 和 pageContent
+    let pageOutline = context.pageOutline as PageOutline | undefined;
+    let pageContent = context.pageContent as PageContent | undefined;
+
+    // 如果 context 中没有，尝试从 previousOutputs 获取
+    if (!pageOutline && previousOutputs["slides-outline-planning"]) {
+      const outlinePlan = previousOutputs["slides-outline-planning"] as {
+        pages?: PageOutline[];
+      };
+      // 取第一个 page 作为当前处理的 page（实际场景可能需要更复杂的逻辑）
+      if (outlinePlan.pages && outlinePlan.pages.length > 0) {
+        pageOutline = outlinePlan.pages[0];
+      }
+    }
+
+    // 尝试从 context 中的其他字段获取
+    if (!pageOutline && context.input) {
+      const ctxInput = context.input as Record<string, unknown>;
+      if (ctxInput.pageOutline) {
+        pageOutline = ctxInput.pageOutline as PageOutline;
+      }
+    }
+
+    if (!pageContent && context.input) {
+      const ctxInput = context.input as Record<string, unknown>;
+      if (ctxInput.pageContent) {
+        pageContent = ctxInput.pageContent as PageContent;
+      }
+    }
+
+    const themeId = context.input?.themeId || "genspark-dark";
+
+    if (pageOutline && pageContent) {
+      return {
+        pageOutline,
+        pageContent,
+        themeId,
+      };
+    }
+
+    // 返回不完整输入，让调用者处理错误
+    this.logger.warn(
+      `[normalizeInput] Could not extract required data. pageOutline: ${!!pageOutline}, pageContent: ${!!pageContent}`,
+    );
+    return {
+      pageOutline: pageOutline || ({} as PageOutline),
+      pageContent: pageContent || ({} as PageContent),
+      themeId,
+    };
   }
 
   /**

@@ -41,6 +41,24 @@ export interface OutlinePlanningInput {
 }
 
 /**
+ * MissionOrchestrator 传递的输入格式
+ */
+interface OrchestratorInput {
+  task?: string;
+  context?: {
+    input?: {
+      sourceText?: string;
+      userRequirement?: string;
+      targetPages?: number;
+      stylePreference?: "dark" | "light" | "custom";
+      targetAudience?: string;
+    };
+    [key: string]: unknown;
+  };
+  previousOutputs?: Record<string, unknown>;
+}
+
+/**
  * 大纲规划系统提示词
  */
 const OUTLINE_PLANNING_SYSTEM_PROMPT = `你是一位专业的 PPT 大纲规划师，负责为每一页设计详细的内容大纲。
@@ -302,19 +320,42 @@ export class OutlinePlanningSkill
 
   /**
    * 执行大纲规划 (ISkill 接口实现)
+   *
+   * 支持两种输入格式：
+   * 1. 直接调用: { taskDecomposition, sourceText, sessionId }
+   * 2. MissionOrchestrator 格式: { task, context, previousOutputs }
    */
   async execute(
-    input: OutlinePlanningInput,
+    input: OutlinePlanningInput | OrchestratorInput,
     context: SkillContext,
   ): Promise<SkillResult<OutlinePlan>> {
     const startTime = new Date();
 
+    // 处理 Orchestrator 输入格式
+    const actualInput = this.normalizeInput(input, context);
+    if (!actualInput.taskDecomposition || !actualInput.sourceText) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "Missing taskDecomposition or sourceText in input",
+          retryable: false,
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime,
+          endTime: new Date(),
+          duration: Date.now() - startTime.getTime(),
+        },
+      };
+    }
+
     this.logger.log(
-      `[execute] Starting outline planning for ${input.taskDecomposition.totalPages} pages, executionId: ${context.executionId}`,
+      `[execute] Starting outline planning for ${actualInput.taskDecomposition.totalPages} pages, executionId: ${context.executionId}`,
     );
 
     try {
-      const userMessage = this.buildUserMessage(input);
+      const userMessage = this.buildUserMessage(actualInput);
 
       // 使用 LLMFactory 调用 LLM
       const adapter = await this.llmFactory?.getAdapter("gpt-4o");
@@ -337,7 +378,7 @@ export class OutlinePlanningSkill
 
       const outlinePlan = this.parseResponse(
         response.content,
-        input.taskDecomposition,
+        actualInput.taskDecomposition,
       );
 
       const endTime = new Date();
@@ -375,6 +416,60 @@ export class OutlinePlanningSkill
         },
       };
     }
+  }
+
+  /**
+   * 规范化输入格式
+   * 支持直接调用格式和 MissionOrchestrator 格式
+   */
+  private normalizeInput(
+    input: OutlinePlanningInput | OrchestratorInput,
+    context: SkillContext,
+  ): OutlinePlanningInput {
+    // 检查是否是直接调用格式（有 taskDecomposition 属性）
+    if (
+      "taskDecomposition" in input &&
+      input.taskDecomposition &&
+      "sourceText" in input
+    ) {
+      return input as OutlinePlanningInput;
+    }
+
+    // 处理 Orchestrator 格式
+    const orchestratorInput = input as OrchestratorInput;
+    const previousOutputs = orchestratorInput.previousOutputs || {};
+    const missionInput = orchestratorInput.context?.input;
+
+    // 从 previousOutputs 获取 taskDecomposition
+    const taskDecomposition = previousOutputs["slides-task-decomposition"] as
+      | TaskDecomposition
+      | undefined;
+
+    // 从 context.input 或直接从 context 获取 sourceText
+    let sourceText = missionInput?.sourceText || "";
+    if (!sourceText && orchestratorInput.context) {
+      const ctx = orchestratorInput.context as Record<string, unknown>;
+      if (typeof ctx.sourceText === "string") {
+        sourceText = ctx.sourceText;
+      }
+    }
+
+    if (taskDecomposition && sourceText) {
+      return {
+        taskDecomposition,
+        sourceText,
+        sessionId: context.sessionId,
+      };
+    }
+
+    // 返回不完整输入，让调用者处理错误
+    this.logger.warn(
+      `[normalizeInput] Could not extract required data. taskDecomposition: ${!!taskDecomposition}, sourceText: ${!!sourceText}, previousOutputs keys: ${Object.keys(previousOutputs).join(", ")}`,
+    );
+    return {
+      taskDecomposition: taskDecomposition || ({} as TaskDecomposition),
+      sourceText: sourceText || "",
+    };
   }
 
   /**

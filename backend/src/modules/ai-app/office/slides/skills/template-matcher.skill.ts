@@ -41,6 +41,26 @@ export interface TemplateMatchingContext {
 }
 
 /**
+ * MissionOrchestrator 输入格式
+ */
+export interface TemplateMatcherOrchestratorInput {
+  task?: string;
+  context?: {
+    input?: {
+      pageOutline?: PageOutline;
+      previousPages?: { pageNumber: number; templateId: string }[];
+      nextPageHint?: string;
+      positionInStory?: "opening" | "middle" | "closing";
+      narrativePlan?: NarrativePlan;
+      usedTemplates?: string[];
+      forcedTemplateType?: PageTemplateType | null;
+    };
+    [key: string]: unknown;
+  };
+  previousOutputs?: Record<string, unknown>;
+}
+
+/**
  * 模板匹配结果
  */
 export interface TemplateMatchResult {
@@ -223,15 +243,79 @@ export class TemplateMatcherSkill
   readonly version = "4.0.0";
 
   /**
+   * 将 MissionOrchestrator 输入格式转换为直接输入格式
+   */
+  private normalizeInput(
+    input: TemplateMatchingContext | TemplateMatcherOrchestratorInput,
+  ): TemplateMatchingContext | null {
+    // 如果已经是直接格式，直接返回
+    if (
+      "pageOutline" in input &&
+      "positionInStory" in input &&
+      "usedTemplates" in input
+    ) {
+      return input as TemplateMatchingContext;
+    }
+
+    // 尝试从 orchestrator 格式提取
+    const orchestratorInput = input as TemplateMatcherOrchestratorInput;
+    const contextInput = orchestratorInput.context?.input;
+
+    if (
+      !contextInput?.pageOutline ||
+      !contextInput?.positionInStory ||
+      !contextInput?.usedTemplates
+    ) {
+      this.logger.warn(
+        "[normalizeInput] Missing required fields in orchestrator input: " +
+          `pageOutline=${!!contextInput?.pageOutline}, ` +
+          `positionInStory=${!!contextInput?.positionInStory}, ` +
+          `usedTemplates=${!!contextInput?.usedTemplates}`,
+      );
+      return null;
+    }
+
+    return {
+      pageOutline: contextInput.pageOutline,
+      previousPages: contextInput.previousPages || [],
+      nextPageHint: contextInput.nextPageHint,
+      positionInStory: contextInput.positionInStory,
+      narrativePlan: contextInput.narrativePlan,
+      usedTemplates: contextInput.usedTemplates,
+      forcedTemplateType: contextInput.forcedTemplateType,
+    };
+  }
+
+  /**
    * Execute the skill (ISkill interface implementation)
    */
   async execute(
-    input: TemplateMatchingContext,
+    input: TemplateMatchingContext | TemplateMatcherOrchestratorInput,
     context: SkillContext,
   ): Promise<SkillResult<TemplateMatchResult>> {
     const startTime = new Date();
+
+    // Normalize input from orchestrator format if needed
+    const normalizedInput = this.normalizeInput(input);
+    if (!normalizedInput) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message:
+            "Failed to normalize input: missing required fields (pageOutline, positionInStory, usedTemplates)",
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime,
+          endTime: new Date(),
+          duration: Date.now() - startTime.getTime(),
+        },
+      };
+    }
+
     try {
-      const result = this.match(input);
+      const result = this.match(normalizedInput);
 
       return {
         success: true,

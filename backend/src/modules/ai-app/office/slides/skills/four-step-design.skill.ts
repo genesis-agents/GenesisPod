@@ -50,6 +50,24 @@ export interface FourStepDesignInput {
 }
 
 /**
+ * MissionOrchestrator 输入格式
+ */
+export interface FourStepDesignOrchestratorInput {
+  task?: string;
+  context?: {
+    input?: {
+      pageOutline?: PageOutline;
+      pageContent?: PageContent;
+      globalStyles?: GlobalStyles;
+      sessionId?: string;
+      images?: GeneratedImage[];
+    };
+    [key: string]: unknown;
+  };
+  previousOutputs?: Record<string, unknown>;
+}
+
+/**
  * 四步设计结果
  */
 export interface FourStepDesignResult {
@@ -716,19 +734,81 @@ export class FourStepDesignSkill
   constructor(@Optional() private readonly llmFactory: LLMFactory) {}
 
   /**
+   * 将 MissionOrchestrator 输入格式转换为直接输入格式
+   */
+  private normalizeInput(
+    input: FourStepDesignInput | FourStepDesignOrchestratorInput,
+  ): FourStepDesignInput | null {
+    // 如果已经是直接格式，直接返回
+    if (
+      "pageOutline" in input &&
+      "pageContent" in input &&
+      "globalStyles" in input
+    ) {
+      return input as FourStepDesignInput;
+    }
+
+    // 尝试从 orchestrator 格式提取
+    const orchestratorInput = input as FourStepDesignOrchestratorInput;
+    const contextInput = orchestratorInput.context?.input;
+
+    if (
+      !contextInput?.pageOutline ||
+      !contextInput?.pageContent ||
+      !contextInput?.globalStyles
+    ) {
+      this.logger.warn(
+        "[normalizeInput] Missing required fields in orchestrator input: " +
+          `pageOutline=${!!contextInput?.pageOutline}, ` +
+          `pageContent=${!!contextInput?.pageContent}, ` +
+          `globalStyles=${!!contextInput?.globalStyles}`,
+      );
+      return null;
+    }
+
+    return {
+      pageOutline: contextInput.pageOutline,
+      pageContent: contextInput.pageContent,
+      globalStyles: contextInput.globalStyles,
+      sessionId: contextInput.sessionId,
+      images: contextInput.images,
+    };
+  }
+
+  /**
    * 执行四步设计
    */
   async execute(
-    input: FourStepDesignInput,
+    input: FourStepDesignInput | FourStepDesignOrchestratorInput,
     context: SkillContext,
   ): Promise<SkillResult<FourStepDesignResult>> {
     const startTime = new Date();
 
+    // Normalize input from orchestrator format if needed
+    const normalizedInput = this.normalizeInput(input);
+    if (!normalizedInput) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message:
+            "Failed to normalize input: missing required fields (pageOutline, pageContent, globalStyles)",
+          retryable: false,
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime,
+          endTime: new Date(),
+          duration: Date.now() - startTime.getTime(),
+        },
+      };
+    }
+
     this.logger.log(
-      `[execute] Starting four-step design for page ${input.pageOutline.pageNumber}`,
+      `[execute] Starting four-step design for page ${normalizedInput.pageOutline.pageNumber}`,
     );
 
-    const userMessage = this.buildUserMessage(input);
+    const userMessage = this.buildUserMessage(normalizedInput);
 
     // Get LLM adapter from factory
     const adapter = this.llmFactory?.getAdapter("gpt-4o");
@@ -757,8 +837,8 @@ export class FourStepDesignSkill
       maxTokens: 8192,
       temperature: 0.2,
       metadata: {
-        sessionId: input.sessionId || context.sessionId,
-        pageNumber: input.pageOutline.pageNumber,
+        sessionId: normalizedInput.sessionId || context.sessionId,
+        pageNumber: normalizedInput.pageOutline.pageNumber,
         phase: "four_step_design",
       },
     });
@@ -784,7 +864,7 @@ export class FourStepDesignSkill
 
     const { design, html: rawHtml } = this.parseResponse(
       llmResponse.content,
-      input,
+      normalizedInput,
     );
 
     // 记录完整的 Prompt 和 AI 响应到 design 对象
@@ -799,23 +879,26 @@ export class FourStepDesignSkill
     // 后处理：检测并修复水印文字、占位符、超大字号等问题
     const { html: postProcessedHtml, fixes } = this.postProcessHtml(
       fixedHtml,
-      input.pageOutline,
+      normalizedInput.pageOutline,
     );
 
     if (fixes.length > 0) {
       this.logger.log(
-        `[execute] Post-processing fixes for page ${input.pageOutline.pageNumber}: ${fixes.join(", ")}`,
+        `[execute] Post-processing fixes for page ${normalizedInput.pageOutline.pageNumber}: ${fixes.join(", ")}`,
       );
     }
 
     // 替换图片占位符为真实 URL
-    const html = this.replaceImagePlaceholders(postProcessedHtml, input.images);
+    const html = this.replaceImagePlaceholders(
+      postProcessedHtml,
+      normalizedInput.images,
+    );
 
     const endTime = new Date();
     const durationMs = endTime.getTime() - startTime.getTime();
 
     this.logger.log(
-      `[execute] Four-step design complete for page ${input.pageOutline.pageNumber} in ${durationMs}ms`,
+      `[execute] Four-step design complete for page ${normalizedInput.pageOutline.pageNumber} in ${durationMs}ms`,
     );
 
     return {

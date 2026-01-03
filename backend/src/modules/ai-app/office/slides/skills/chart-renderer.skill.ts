@@ -61,6 +61,21 @@ export interface ChartRendererInput {
 }
 
 /**
+ * MissionOrchestrator 传递的输入格式
+ */
+interface OrchestratorInput {
+  task?: string;
+  context?: {
+    input?: {
+      data?: ChartData;
+      options?: ChartRenderOptions;
+    };
+    [key: string]: unknown;
+  };
+  previousOutputs?: Record<string, unknown>;
+}
+
+/**
  * 图表渲染技能的输出类型
  */
 export interface ChartRendererOutput {
@@ -86,15 +101,38 @@ export class ChartRendererSkill
 
   /**
    * 执行技能：渲染图表为 SVG 字符串
+   *
+   * 支持两种输入格式：
+   * 1. 直接调用: { data, options }
+   * 2. MissionOrchestrator 格式: { task, context, previousOutputs }
    */
   async execute(
-    input: ChartRendererInput,
+    input: ChartRendererInput | OrchestratorInput,
     context: SkillContext,
   ): Promise<SkillResult<ChartRendererOutput>> {
     const startTime = new Date();
 
+    // 处理 Orchestrator 输入格式
+    const actualInput = this.normalizeInput(input);
+    if (!actualInput.data) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "Missing chart data in input",
+          retryable: false,
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime,
+          endTime: new Date(),
+          duration: Date.now() - startTime.getTime(),
+        },
+      };
+    }
+
     try {
-      const { data, options = {} } = input;
+      const { data, options = {} } = actualInput;
 
       // 验证输入
       if (!data || !data.type) {
@@ -627,5 +665,51 @@ export class ChartRendererSkill
       "value" in content &&
       "label" in content
     );
+  }
+
+  /**
+   * 规范化输入格式
+   * 支持直接调用格式和 MissionOrchestrator 格式
+   */
+  private normalizeInput(
+    input: ChartRendererInput | OrchestratorInput,
+  ): ChartRendererInput {
+    // 检查是否是直接调用格式（有 data 属性）
+    if ("data" in input && input.data && typeof input.data === "object") {
+      return input as ChartRendererInput;
+    }
+
+    // 处理 Orchestrator 格式
+    const orchestratorInput = input as OrchestratorInput;
+    const missionInput = orchestratorInput.context?.input;
+
+    if (missionInput?.data) {
+      return {
+        data: missionInput.data,
+        options: missionInput.options,
+      };
+    }
+
+    // 尝试从 context 的其他位置获取 data
+    const context = orchestratorInput.context;
+    if (context) {
+      // 检查 context 是否直接有 data
+      if (
+        typeof (context as Record<string, unknown>).data === "object" &&
+        (context as Record<string, unknown>).data !== null
+      ) {
+        return {
+          data: (context as Record<string, unknown>).data as ChartData,
+          options: (context as Record<string, unknown>)
+            .options as ChartRenderOptions,
+        };
+      }
+    }
+
+    // 返回空输入，让调用者处理错误
+    this.logger.warn(
+      `[normalizeInput] Could not extract chart data from input: ${JSON.stringify(Object.keys(input))}`,
+    );
+    return { data: undefined as unknown as ChartData };
   }
 }

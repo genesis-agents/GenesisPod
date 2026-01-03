@@ -124,6 +124,18 @@ export type RecommendedLayout =
   | "mixed-content"; // 混合内容
 
 /**
+ * MissionOrchestrator 传递的输入格式
+ */
+interface OrchestratorInput {
+  task?: string;
+  context?: {
+    pageContent?: PageContent;
+    [key: string]: unknown;
+  };
+  previousOutputs?: Record<string, unknown>;
+}
+
+/**
  * 内容分析结果（ContentAnalyzer 的输出）
  * 注意：与 page-type-selection.skill.ts 中的 ContentFeatures 不同
  */
@@ -208,12 +220,35 @@ export class ContentAnalyzerSkill
   /**
    * 执行技能 - ISkill 接口实现
    * 执行内容分析并返回标准化的 SkillResult
+   *
+   * 支持两种输入格式：
+   * 1. 直接调用: PageContent
+   * 2. MissionOrchestrator 格式: { task, context, previousOutputs }
    */
   async execute(
-    content: PageContent,
+    input: PageContent | OrchestratorInput,
     context: SkillContext,
   ): Promise<SkillResult<ContentAnalysisResult>> {
     const startTime = new Date();
+
+    // 处理 Orchestrator 输入格式
+    const content = this.normalizeInput(input);
+    if (!content || !content.title) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "Missing or invalid PageContent in input",
+          retryable: false,
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime,
+          endTime: new Date(),
+          duration: Date.now() - startTime.getTime(),
+        },
+      };
+    }
 
     try {
       this.logger.debug(
@@ -267,6 +302,32 @@ export class ContentAnalyzerSkill
         },
       };
     }
+  }
+
+  /**
+   * 规范化输入格式
+   * 支持直接调用格式和 MissionOrchestrator 格式
+   */
+  private normalizeInput(input: PageContent | OrchestratorInput): PageContent {
+    // 检查是否是直接调用格式（PageContent 有 title 和 sections）
+    if ("title" in input && "sections" in input) {
+      return input as PageContent;
+    }
+
+    // 处理 Orchestrator 格式
+    const orchestratorInput = input as OrchestratorInput;
+    const context = orchestratorInput.context || {};
+
+    // 尝试从 context 获取 pageContent
+    if (context.pageContent) {
+      return context.pageContent as PageContent;
+    }
+
+    // 返回空的 PageContent，让调用者处理错误
+    this.logger.warn(
+      `[normalizeInput] Could not extract PageContent from input`,
+    );
+    return { title: "", sections: [] } as unknown as PageContent;
   }
 
   // ============================================================================

@@ -205,6 +205,21 @@ export interface QualityAuditInput {
 }
 
 /**
+ * MissionOrchestrator 传递的输入格式
+ */
+interface OrchestratorInput {
+  task?: string;
+  context?: {
+    pageOutline?: PageOutline;
+    pageContent?: PageContent;
+    html?: string;
+    auditOnly?: boolean;
+    [key: string]: unknown;
+  };
+  previousOutputs?: Record<string, unknown>;
+}
+
+/**
  * 审核和自动修复幻灯片质量的输出类型
  */
 export interface QualityAuditOutput {
@@ -231,32 +246,64 @@ export class QualityAuditSkill
   /**
    * 实现 ISkill 接口的 execute 方法
    * 这是新的主要入口点，支持 SkillContext
+   *
+   * 支持两种输入格式：
+   * 1. 直接调用: { pageOutline, pageContent, html, auditOnly? }
+   * 2. MissionOrchestrator 格式: { task, context, previousOutputs }
    */
   async execute(
-    input: QualityAuditInput,
+    input: QualityAuditInput | OrchestratorInput,
     context: SkillContext,
   ): Promise<SkillResult<QualityAuditOutput>> {
     const startTime = new Date();
 
+    // 处理 Orchestrator 输入格式
+    const actualInput = this.normalizeInput(input);
+    // 检查必需的属性是否存在（不只是检查对象是否存在，因为空对象 {} 也是 truthy）
+    if (
+      !actualInput.pageOutline?.templateType ||
+      !actualInput.pageContent?.sections ||
+      !actualInput.html
+    ) {
+      this.logger.error(
+        `[execute] Invalid input: pageOutline.templateType=${actualInput.pageOutline?.templateType}, pageContent.sections=${!!actualInput.pageContent?.sections}, html=${!!actualInput.html}`,
+      );
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message:
+            "Missing pageOutline.templateType, pageContent.sections, or html in input",
+          retryable: false,
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime,
+          endTime: new Date(),
+          duration: Date.now() - startTime.getTime(),
+        },
+      };
+    }
+
     try {
       // 如果仅审核，则不进行修复
-      if (input.auditOnly) {
+      if (actualInput.auditOnly) {
         const audit = this.auditPage(
-          input.pageOutline,
-          input.pageContent,
-          input.html,
+          actualInput.pageOutline,
+          actualInput.pageContent,
+          actualInput.html,
         );
 
         const fix: AutoFixResult = {
           fixed: false,
-          originalTemplate: input.pageOutline.templateType,
+          originalTemplate: actualInput.pageOutline.templateType,
           fixedIssues: [],
           remainingIssues: [],
         };
 
         const diagnostic = this.generateDiagnostic(
-          input.pageOutline,
-          input.pageContent,
+          actualInput.pageOutline,
+          actualInput.pageContent,
           audit,
           fix,
         );
@@ -277,9 +324,9 @@ export class QualityAuditSkill
 
       // 否则执行审核并修复
       const result = this.auditAndFix(
-        input.pageOutline,
-        input.pageContent,
-        input.html,
+        actualInput.pageOutline,
+        actualInput.pageContent,
+        actualInput.html,
       );
 
       return {
@@ -316,6 +363,64 @@ export class QualityAuditSkill
         },
       };
     }
+  }
+
+  /**
+   * 规范化输入格式
+   * 支持直接调用格式和 MissionOrchestrator 格式
+   */
+  private normalizeInput(
+    input: QualityAuditInput | OrchestratorInput,
+  ): QualityAuditInput {
+    // 检查是否是直接调用格式（有 pageOutline 属性且 html 存在）
+    if (
+      "pageOutline" in input &&
+      input.pageOutline &&
+      typeof input.pageOutline === "object" &&
+      "templateType" in input.pageOutline &&
+      "html" in input
+    ) {
+      return input as QualityAuditInput;
+    }
+
+    // 处理 Orchestrator 格式
+    const orchestratorInput = input as OrchestratorInput;
+    const previousOutputs = orchestratorInput.previousOutputs || {};
+    const context = orchestratorInput.context || {};
+
+    // 尝试从 context 获取
+    let pageOutline = context.pageOutline as PageOutline | undefined;
+    let pageContent = context.pageContent as PageContent | undefined;
+    let html = context.html as string | undefined;
+    const auditOnly = context.auditOnly;
+
+    // 如果 context 中没有 html，尝试从 previousOutputs 的渲染结果获取
+    if (!html && previousOutputs["slides-template-rendering"]) {
+      const renderResult = previousOutputs["slides-template-rendering"] as {
+        html?: string;
+      };
+      html = renderResult.html;
+    }
+
+    if (pageOutline && pageContent && html) {
+      return {
+        pageOutline,
+        pageContent,
+        html,
+        auditOnly,
+      };
+    }
+
+    // 返回不完整输入，让调用者处理错误
+    this.logger.warn(
+      `[normalizeInput] Could not extract required data. pageOutline: ${!!pageOutline}, pageContent: ${!!pageContent}, html: ${!!html}`,
+    );
+    return {
+      pageOutline: pageOutline || ({} as PageOutline),
+      pageContent: pageContent || ({} as PageContent),
+      html: html || "",
+      auditOnly,
+    };
   }
 
   /**
@@ -373,12 +478,13 @@ export class QualityAuditSkill
     _audit: SemanticAuditResult,
     fix: AutoFixResult,
   ): DiagnosticInfo {
-    // 提取内容关键词
+    // 提取内容关键词（防御性检查：pageContent.sections 可能为 undefined）
+    const sections = pageContent?.sections || [];
     const contentText = [
-      pageOutline.title,
-      pageOutline.subtitle || "",
-      pageContent.title,
-      ...pageContent.sections.map((s) => this.getSectionText(s)),
+      pageOutline?.title || "",
+      pageOutline?.subtitle || "",
+      pageContent?.title || "",
+      ...sections.map((s) => this.getSectionText(s)),
     ].join(" ");
 
     const keywords = this.extractKeywords(contentText);
@@ -605,12 +711,14 @@ export class QualityAuditSkill
     pageOutline: PageOutline,
     pageContent: PageContent,
   ): PageTemplateType | null {
+    // 防御性检查：pageContent.sections 可能为 undefined
+    const sections = pageContent?.sections || [];
     const contentText = [
-      pageOutline.title,
-      pageOutline.subtitle || "",
-      pageOutline.contentBrief,
-      pageContent.title,
-      ...pageContent.sections.map((s) => this.getSectionText(s)),
+      pageOutline?.title || "",
+      pageOutline?.subtitle || "",
+      pageOutline?.contentBrief || "",
+      pageContent?.title || "",
+      ...sections.map((s) => this.getSectionText(s)),
     ]
       .join(" ")
       .toLowerCase();
@@ -839,19 +947,20 @@ export class QualityAuditSkill
     pageContent: PageContent,
   ): SemanticIssue[] {
     const issues: SemanticIssue[] = [];
-    const templateType = pageOutline.templateType;
+    const templateType = pageOutline?.templateType;
     const rules = TEMPLATE_CONTENT_RULES[templateType];
 
     if (!rules) return issues;
 
-    // 获取内容文本
+    // 获取内容文本（防御性检查：pageContent.sections 可能为 undefined）
+    const sections = pageContent?.sections || [];
     const contentText = [
-      pageOutline.title,
-      pageOutline.subtitle || "",
-      pageOutline.contentBrief,
-      pageContent.title,
-      pageContent.subtitle || "",
-      ...pageContent.sections.map((s) => this.getSectionText(s)),
+      pageOutline?.title || "",
+      pageOutline?.subtitle || "",
+      pageOutline?.contentBrief || "",
+      pageContent?.title || "",
+      pageContent?.subtitle || "",
+      ...sections.map((s) => this.getSectionText(s)),
     ]
       .join(" ")
       .toLowerCase();
@@ -975,11 +1084,12 @@ export class QualityAuditSkill
     issues.push(...fillerIssues);
 
     // 检查 framework 模板的步骤是否与内容相关
-    if (pageOutline.templateType === "framework") {
+    if (pageOutline?.templateType === "framework") {
+      const keyElements = pageOutline?.keyElements || [];
       const contentText = [
-        pageOutline.title,
-        pageOutline.contentBrief,
-        ...pageOutline.keyElements,
+        pageOutline?.title || "",
+        pageOutline?.contentBrief || "",
+        ...keyElements,
       ].join(" ");
 
       // 检测是否使用了通用/不相关的步骤名称
@@ -990,7 +1100,9 @@ export class QualityAuditSkill
         "上线运维",
         "测试验收",
       ];
-      const sectionsText = pageContent.sections
+      // 防御性检查：pageContent.sections 可能为 undefined
+      const sections = pageContent?.sections || [];
+      const sectionsText = sections
         .map((s) => this.getSectionText(s))
         .join(" ");
 
@@ -1032,11 +1144,12 @@ export class QualityAuditSkill
     pageContent: PageContent,
   ): SemanticIssue[] {
     const issues: SemanticIssue[] = [];
-    const pageTitle = pageOutline.title.toLowerCase();
+    const pageTitle = (pageOutline?.title || "").toLowerCase();
     const fillerFound: string[] = [];
 
-    // 检查每个 section 的内容
-    for (const section of pageContent.sections) {
+    // 检查每个 section 的内容（防御性检查）
+    const sections = pageContent?.sections || [];
+    for (const section of sections) {
       const texts = this.extractTextsFromSection(section);
       for (const text of texts) {
         const trimmed = text.trim();

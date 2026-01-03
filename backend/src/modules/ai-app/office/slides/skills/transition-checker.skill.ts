@@ -63,6 +63,21 @@ export interface TransitionCheckerInput {
 }
 
 /**
+ * MissionOrchestrator 传递的输入格式
+ */
+interface OrchestratorInput {
+  task?: string;
+  context?: {
+    input?: {
+      pages?: PageState[];
+      sessionId?: string;
+    };
+    [key: string]: unknown;
+  };
+  previousOutputs?: Record<string, unknown>;
+}
+
+/**
  * 过渡检查器结果 (用于 SkillResult)
  */
 export interface TransitionCheckerResult extends TransitionCheckResult {}
@@ -203,13 +218,37 @@ export class TransitionCheckerSkill
 
   /**
    * 执行过渡检查 (ISkill 接口实现)
+   *
+   * 支持两种输入格式：
+   * 1. 直接调用: { pages: PageState[], sessionId? }
+   * 2. MissionOrchestrator 格式: { task, context, previousOutputs }
    */
   async execute(
-    input: TransitionCheckerInput,
+    input: TransitionCheckerInput | OrchestratorInput,
     context: SkillContext,
   ): Promise<SkillResult<TransitionCheckerResult>> {
     const startTime = new Date();
-    const { pages, sessionId } = input;
+
+    // 处理 Orchestrator 输入格式
+    const actualInput = this.normalizeInput(input);
+    if (!actualInput.pages || actualInput.pages.length === 0) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "Missing pages in input",
+          retryable: false,
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime,
+          endTime: new Date(),
+          duration: Date.now() - startTime.getTime(),
+        },
+      };
+    }
+
+    const { pages, sessionId } = actualInput;
 
     this.logger.log(
       `[execute] Checking transitions across ${pages.length} pages, executionId: ${context.executionId}`,
@@ -640,5 +679,49 @@ ${ruleBasedTransitions.map((t) => `- 第${t.fromPage}→${t.toPage}页: ${t.qual
       closing: "感谢/结尾页",
     };
     return names[type] || type;
+  }
+
+  /**
+   * 规范化输入格式
+   * 支持直接调用格式和 MissionOrchestrator 格式
+   */
+  private normalizeInput(
+    input: TransitionCheckerInput | OrchestratorInput,
+  ): TransitionCheckerInput {
+    // 检查是否是直接调用格式（有 pages 属性）
+    if ("pages" in input && Array.isArray(input.pages)) {
+      return input as TransitionCheckerInput;
+    }
+
+    // 处理 Orchestrator 格式
+    const orchestratorInput = input as OrchestratorInput;
+    const missionInput = orchestratorInput.context?.input;
+
+    if (missionInput?.pages && Array.isArray(missionInput.pages)) {
+      return {
+        pages: missionInput.pages,
+        sessionId: missionInput.sessionId,
+      };
+    }
+
+    // 尝试从 context 的其他位置获取 pages
+    const context = orchestratorInput.context;
+    if (context) {
+      // 检查 context 是否直接有 pages
+      if (Array.isArray((context as Record<string, unknown>).pages)) {
+        return {
+          pages: (context as Record<string, unknown>).pages as PageState[],
+          sessionId: (context as Record<string, unknown>).sessionId as
+            | string
+            | undefined,
+        };
+      }
+    }
+
+    // 返回空输入，让调用者处理错误
+    this.logger.warn(
+      `[normalizeInput] Could not extract pages from input: ${JSON.stringify(Object.keys(input))}`,
+    );
+    return { pages: [] };
   }
 }

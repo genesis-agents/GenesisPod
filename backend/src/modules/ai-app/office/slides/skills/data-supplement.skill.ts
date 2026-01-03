@@ -39,6 +39,23 @@ export interface DataSupplementInput {
 }
 
 /**
+ * MissionOrchestrator 输入格式
+ */
+export interface DataSupplementOrchestratorInput {
+  task?: string;
+  context?: {
+    input?: {
+      pageContent?: PageContent;
+      topic?: string;
+      sourceText?: string;
+      sessionId?: string;
+    };
+    [key: string]: unknown;
+  };
+  previousOutputs?: Record<string, unknown>;
+}
+
+/**
  * 数据补全结果
  */
 export interface DataSupplementResult {
@@ -107,14 +124,66 @@ export class DataSupplementSkill
   ) {}
 
   /**
+   * 将 MissionOrchestrator 输入格式转换为直接输入格式
+   */
+  private normalizeInput(
+    input: DataSupplementInput | DataSupplementOrchestratorInput,
+  ): DataSupplementInput | null {
+    // 如果已经是直接格式，直接返回
+    if ("pageContent" in input && "topic" in input) {
+      return input as DataSupplementInput;
+    }
+
+    // 尝试从 orchestrator 格式提取
+    const orchestratorInput = input as DataSupplementOrchestratorInput;
+    const contextInput = orchestratorInput.context?.input;
+
+    if (!contextInput?.pageContent || !contextInput?.topic) {
+      this.logger.warn(
+        "[normalizeInput] Missing required fields in orchestrator input: " +
+          `pageContent=${!!contextInput?.pageContent}, ` +
+          `topic=${!!contextInput?.topic}`,
+      );
+      return null;
+    }
+
+    return {
+      pageContent: contextInput.pageContent,
+      topic: contextInput.topic,
+      sourceText: contextInput.sourceText,
+      sessionId: contextInput.sessionId,
+    };
+  }
+
+  /**
    * 执行数据补全
    */
   async execute(
-    input: DataSupplementInput,
+    input: DataSupplementInput | DataSupplementOrchestratorInput,
     context: SkillContext,
   ): Promise<SkillResult<DataSupplementResult>> {
     const startTime = new Date();
-    const { pageContent, topic } = input;
+
+    // Normalize input from orchestrator format if needed
+    const normalizedInput = this.normalizeInput(input);
+    if (!normalizedInput) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message:
+            "Failed to normalize input: missing required fields (pageContent, topic)",
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime,
+          endTime: new Date(),
+          duration: Date.now() - startTime.getTime(),
+        },
+      };
+    }
+
+    const { pageContent, topic } = normalizedInput;
 
     try {
       this.logger.log(`[execute] Checking data completeness for "${topic}"`);
