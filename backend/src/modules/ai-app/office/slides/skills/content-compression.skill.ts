@@ -19,7 +19,11 @@ import {
   SkillLayer,
   SKILL_LAYERS,
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
-import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
+import { AIModelService } from "../../core/ai-model.service";
+import {
+  AiChatService,
+  ChatMessage,
+} from "@/modules/ai-engine/llm/services/ai-chat.service";
 import {
   PageOutline,
   PageContent,
@@ -332,7 +336,8 @@ export class ContentCompressionSkill
   readonly version = "4.0.0";
 
   constructor(
-    @Optional() private readonly llmFactory: LLMFactory,
+    @Optional() private readonly aiModelService: AIModelService,
+    @Optional() private readonly aiChatService: AiChatService,
     @Inject(forwardRef(() => DataSupplementSkill))
     private readonly dataSupplementSkill: DataSupplementSkill,
     @Inject(forwardRef(() => ContentAnalyzerSkill))
@@ -412,22 +417,32 @@ export class ContentCompressionSkill
       const inputWithDefaults = { ...normalizedInput, maxCharacters: maxChars };
       const userMessage = this.buildUserMessage(inputWithDefaults);
 
-      // 使用 LLMFactory 调用 LLM
-      const adapter = await this.llmFactory?.getAdapter("gpt-4o");
-      if (!adapter) {
-        throw new Error("Failed to get LLM adapter");
+      // 使用数据库配置的模型（严禁硬编码模型名！）
+      if (!this.aiModelService || !this.aiChatService) {
+        throw new Error(
+          "AIModelService or AiChatService not available. Please check module configuration.",
+        );
       }
 
-      const response = await adapter.chat({
-        messages: [
-          { role: "system", content: CONTENT_COMPRESSION_SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-        maxTokens: 4096,
-        temperature: 0.5,
+      const model = await this.aiModelService.getDefaultTextModel();
+      this.logger.debug(
+        `[execute] Using model: ${model.displayName} (${model.modelId})`,
+      );
+
+      const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
+
+      const response = await this.aiChatService.generateChatCompletionWithKey({
+        provider: model.provider,
+        modelId: model.modelId,
+        apiKey: model.apiKey || "",
+        apiEndpoint: model.apiEndpoint || undefined,
+        systemPrompt: CONTENT_COMPRESSION_SYSTEM_PROMPT,
+        messages,
+        maxTokens: model.maxTokens || 4096,
+        temperature: model.temperature || 0.5,
       });
 
-      if (!response.content) {
+      if (!response) {
         throw new Error("Empty response from LLM");
       }
 
@@ -482,7 +497,7 @@ export class ContentCompressionSkill
           startTime,
           endTime,
           duration: endTime.getTime() - startTime.getTime(),
-          tokensUsed: response.usage?.totalTokens || 0,
+          tokensUsed: response.tokensUsed || 0,
         },
       };
     } catch (error) {

@@ -155,6 +155,13 @@ export default function MissionProgressPanel({
   const [detailMission, setDetailMission] = useState<TeamMission | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [isCanvasModalOpen, setIsCanvasModalOpen] = useState(false);
+  const [canvasMission, setCanvasMission] = useState<TeamMission | null>(null);
+
+  // 打开 Canvas Modal 并显示指定任务
+  const openCanvasForMission = (mission: TeamMission) => {
+    setCanvasMission(mission);
+    setIsCanvasModalOpen(true);
+  };
 
   // Load missions on mount
   useEffect(() => {
@@ -437,8 +444,10 @@ export default function MissionProgressPanel({
             aiMembers={aiMembers}
             typingAIs={typingAIs}
             onAgentClick={(agent) => {
-              // Could open agent details in the future
-              console.log('Agent clicked:', agent.displayName);
+              // 点击 Team Leader 时显示任务规划清单
+              if (activeMission && agent.id === activeMission.leaderId) {
+                setDetailMission(activeMission);
+              }
             }}
             onTaskClick={(task) => {
               // Find the mission containing this task and show detail
@@ -494,6 +503,7 @@ export default function MissionProgressPanel({
                     onToggle={() => toggleMissionExpand(mission.id)}
                     onViewDetail={() => setDetailMission(mission)}
                     onCancel={() => handleCancelMission(mission.id)}
+                    onOpenCanvas={() => openCanvasForMission(mission)}
                     typingAIs={typingAIs}
                   />
                 ))}
@@ -534,6 +544,7 @@ export default function MissionProgressPanel({
                       onToggle={() => toggleMissionExpand(mission.id)}
                       onViewDetail={() => setDetailMission(mission)}
                       onCancel={() => {}}
+                      onOpenCanvas={() => openCanvasForMission(mission)}
                       typingAIs={typingAIs}
                       isCompact
                     />
@@ -548,8 +559,11 @@ export default function MissionProgressPanel({
       {/* Fullscreen Canvas Modal */}
       <TeamCanvasModal
         isOpen={isCanvasModalOpen}
-        onClose={() => setIsCanvasModalOpen(false)}
-        mission={activeMission}
+        onClose={() => {
+          setIsCanvasModalOpen(false);
+          setCanvasMission(null);
+        }}
+        mission={canvasMission || activeMission}
         aiMembers={aiMembers}
         typingAIs={typingAIs}
       />
@@ -564,6 +578,7 @@ function MissionCard({
   onToggle,
   onViewDetail,
   onCancel,
+  onOpenCanvas,
   typingAIs,
   isCompact = false,
 }: {
@@ -572,6 +587,7 @@ function MissionCard({
   onToggle: () => void;
   onViewDetail: () => void;
   onCancel: () => void;
+  onOpenCanvas: () => void;
   typingAIs: Set<string>;
   isCompact?: boolean;
 }) {
@@ -730,16 +746,42 @@ function MissionCard({
             </div>
           )}
 
-          {/* View Detail Button - Enhanced */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onViewDetail();
-            }}
-            className="w-full rounded-xl bg-gradient-to-r from-gray-800 to-gray-900 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:from-gray-700 hover:to-gray-800 hover:shadow-md"
-          >
-            查看详情
-          </button>
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            {/* View Detail Button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewDetail();
+              }}
+              className="flex-1 rounded-xl bg-gradient-to-r from-gray-800 to-gray-900 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:from-gray-700 hover:to-gray-800 hover:shadow-md"
+            >
+              查看详情
+            </button>
+            {/* Open Canvas Button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenCanvas();
+              }}
+              className="flex items-center justify-center rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-2.5 text-white shadow-sm transition-all hover:from-purple-600 hover:to-indigo-700 hover:shadow-md"
+              title="在Canvas中查看"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                />
+              </svg>
+            </button>
+          </div>
 
           {/* Cancel Button (for active missions) */}
           {(isActive || isPending) && (

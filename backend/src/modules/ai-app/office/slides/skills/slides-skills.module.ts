@@ -19,6 +19,8 @@ import { HttpModule } from "@nestjs/axios";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
 import { AiEngineModule } from "@/modules/ai-engine";
+import { AIModelService } from "../../core/ai-model.service";
+import { PrismaModule } from "@/common/prisma/prisma.module";
 
 // Layer 3 - Template Dispatch
 import { TemplateMatcherSkill } from "./template-matcher.skill";
@@ -77,9 +79,14 @@ const SLIDES_SKILL_PROVIDERS = [
 ];
 
 @Module({
-  imports: [AiEngineModule, HttpModule, EventEmitterModule.forRoot()],
-  providers: [...SLIDES_SKILL_PROVIDERS],
-  exports: [...SLIDES_SKILL_PROVIDERS],
+  imports: [
+    AiEngineModule,
+    HttpModule,
+    EventEmitterModule.forRoot(),
+    PrismaModule,
+  ],
+  providers: [AIModelService, ...SLIDES_SKILL_PROVIDERS],
+  exports: [AIModelService, ...SLIDES_SKILL_PROVIDERS],
 })
 export class SlidesSkillsModule implements OnModuleInit {
   private readonly logger = new Logger(SlidesSkillsModule.name);

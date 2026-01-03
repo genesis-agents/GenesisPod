@@ -14,7 +14,11 @@ import {
   SkillLayer,
   SKILL_LAYERS,
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
-import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
+import { AIModelService } from "../../core/ai-model.service";
+import {
+  AiChatService,
+  ChatMessage,
+} from "@/modules/ai-engine/llm/services/ai-chat.service";
 import { PageState, PageTemplateType } from "../checkpoint/checkpoint.types";
 
 /**
@@ -214,7 +218,10 @@ export class TransitionCheckerSkill
   readonly tags = ["slides", "quality", "transition"];
   readonly version = "4.0.0";
 
-  constructor(@Optional() private readonly llmFactory: LLMFactory) {}
+  constructor(
+    @Optional() private readonly aiModelService: AIModelService,
+    @Optional() private readonly aiChatService: AiChatService,
+  ) {}
 
   /**
    * 执行过渡检查 (ISkill 接口实现)
@@ -517,10 +524,11 @@ ${ruleBasedTransitions.map((t) => `- 第${t.fromPage}→${t.toPage}页: ${t.qual
 
 请深度分析页面过渡质量，输出完整的检查报告（JSON 格式）。`;
 
-    // 使用 LLMFactory 调用 LLM
-    const adapter = this.llmFactory?.getAdapter("gpt-4o");
-    if (!adapter) {
-      this.logger.error("[checkWithAI] Failed to get LLM adapter");
+    // 使用数据库配置的模型（严禁硬编码模型名！）
+    if (!this.aiModelService || !this.aiChatService) {
+      this.logger.error(
+        "[checkWithAI] AIModelService or AiChatService not available",
+      );
       return {
         transitions: ruleBasedTransitions,
         issueCount: ruleBasedTransitions.filter((t) => t.quality !== "smooth")
@@ -531,16 +539,25 @@ ${ruleBasedTransitions.map((t) => `- 第${t.fromPage}→${t.toPage}页: ${t.qual
     }
 
     try {
-      const response = await adapter.chat({
-        messages: [
-          { role: "system", content: TRANSITION_CHECK_SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-        maxTokens: 4096,
-        temperature: 0.1,
+      const model = await this.aiModelService.getDefaultTextModel();
+      this.logger.debug(
+        `[checkWithAI] Using model: ${model.displayName} (${model.modelId})`,
+      );
+
+      const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
+
+      const response = await this.aiChatService.generateChatCompletionWithKey({
+        provider: model.provider,
+        modelId: model.modelId,
+        apiKey: model.apiKey || "",
+        apiEndpoint: model.apiEndpoint || undefined,
+        systemPrompt: TRANSITION_CHECK_SYSTEM_PROMPT,
+        messages,
+        maxTokens: model.maxTokens || 4096,
+        temperature: model.temperature || 0.1,
       });
 
-      if (!response.content) {
+      if (!response) {
         this.logger.error("[checkWithAI] Empty response from LLM");
         return {
           transitions: ruleBasedTransitions,

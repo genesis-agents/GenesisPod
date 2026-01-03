@@ -1690,56 +1690,6 @@ function MessageInput({
 
       {/* Input Area */}
       <div className="flex items-end gap-2">
-        {/* Quick AI Mention Buttons - 放在左边，符合操作流程：选AI -> 输入 -> 发送 */}
-        <div className="flex items-center gap-1">
-          {(topic.aiMembers || []).slice(0, 6).map((ai) => {
-            const providerBrand = getProviderBrand(
-              ai.aiModel || ai.displayName
-            );
-            // Keep full display name for @mention to distinguish AI members
-            const mentionName = ai.displayName.replace(/\s+/g, '-');
-            return (
-              <button
-                key={ai.id}
-                onClick={() => {
-                  setContent((prev) => `${prev}@${mentionName} `);
-                  // 点击后聚焦输入框
-                  setTimeout(() => inputRef.current?.focus(), 0);
-                }}
-                className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:ring-2 hover:ring-purple-300"
-                style={{ background: providerBrand.gradient }}
-                title={`@${ai.displayName}`}
-              >
-                {providerBrand.logo ? (
-                  <img
-                    src={providerBrand.logo}
-                    alt={providerBrand.name}
-                    className="h-5 w-5"
-                    style={{ filter: 'brightness(0) invert(1)' }}
-                  />
-                ) : (
-                  <span className="text-sm font-bold text-white">
-                    {ai.displayName.charAt(0)}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-          {/* 如果 AI 超过 6 个，显示 @All AIs 按钮 */}
-          {(topic.aiMembers || []).length > 6 && (
-            <button
-              onClick={() => {
-                setContent((prev) => `${prev}@AllAIs `);
-                setTimeout(() => inputRef.current?.focus(), 0);
-              }}
-              className="flex h-9 items-center gap-1 rounded-lg bg-purple-100 px-2 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200"
-              title="Mention all AIs"
-            >
-              +{(topic.aiMembers || []).length - 6}
-            </button>
-          )}
-        </div>
-
         {/* Input Field */}
         <div className="flex-1">
           <textarea
@@ -1879,6 +1829,8 @@ export default function TopicPage() {
     missions,
     fetchMissions,
     cancelMission,
+    resumeMission,
+    retryMission,
   } = useAiGroupStore();
 
   // Message selection state
@@ -2608,33 +2560,11 @@ export default function TopicPage() {
           /* Canvas Action Bar - Quick actions for mission control */
           <div className="border-t border-gray-200 bg-white px-4 py-3">
             <div className="flex items-center justify-center gap-3">
-              {/* Switch to Chat */}
-              <button
-                onClick={() => setMainViewMode('chat')}
-                className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
-                title="切换到聊天视图查看详细内容"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                  />
-                </svg>
-                查看聊天
-              </button>
-
               {/* Create Mission */}
               <button
                 onClick={() => setShowMissionDialog(true)}
                 className="flex items-center gap-2 rounded-lg bg-purple-100 px-4 py-2 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-200"
-                title="创建新的AI Team任务"
+                title="创建新任务"
               >
                 <svg
                   className="h-4 w-4"
@@ -2652,20 +2582,100 @@ export default function TopicPage() {
                 创建任务
               </button>
 
-              {/* Continue Mission - only show when mission is active and in progress */}
-              {activeMission && activeMission.status === 'IN_PROGRESS' && (
+              {/* Continue Mission - show for IN_PROGRESS, PAUSED, FAILED states */}
+              {activeMission &&
+                (activeMission.status === 'IN_PROGRESS' ||
+                  activeMission.status === 'PAUSED' ||
+                  activeMission.status === 'FAILED') && (
+                  <button
+                    onClick={async () => {
+                      if (!topicId) return;
+                      try {
+                        if (activeMission.status === 'PAUSED') {
+                          // 恢复已暂停的任务
+                          await resumeMission(topicId, activeMission.id);
+                        } else if (activeMission.status === 'FAILED') {
+                          // 继续执行失败的任务（不重新规划）
+                          await retryMission(topicId, activeMission.id, {
+                            mode: 'continue',
+                          });
+                        } else if (
+                          activeMission.status === 'IN_PROGRESS' &&
+                          activeMission.leaderId
+                        ) {
+                          // IN_PROGRESS 卡住时，通知 Team Leader 继续
+                          await generateAIResponse(
+                            topicId,
+                            activeMission.leaderId
+                          );
+                        }
+                      } catch (error) {
+                        console.error('Failed to continue mission:', error);
+                      }
+                    }}
+                    className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                      activeMission.status === 'PAUSED'
+                        ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                        : activeMission.status === 'FAILED'
+                          ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                          : 'bg-green-100 text-green-700 hover:bg-green-200'
+                    }`}
+                    title={
+                      activeMission.status === 'PAUSED'
+                        ? '恢复已暂停的任务'
+                        : activeMission.status === 'FAILED'
+                          ? '继续执行（从失败处恢复）'
+                          : '通知Team Leader继续执行'
+                    }
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    {activeMission.status === 'PAUSED'
+                      ? '恢复任务'
+                      : activeMission.status === 'FAILED'
+                        ? '继续执行'
+                        : '继续任务'}
+                  </button>
+                )}
+
+              {/* Retry Mission (Full) - only show when mission failed */}
+              {activeMission && activeMission.status === 'FAILED' && (
                 <button
                   onClick={async () => {
-                    if (!topicId || !activeMission.leaderId) return;
-                    try {
-                      // 通知 Team Leader 继续执行任务
-                      await generateAIResponse(topicId, activeMission.leaderId);
-                    } catch (error) {
-                      console.error('Failed to continue mission:', error);
+                    if (!topicId) return;
+                    if (
+                      confirm(
+                        `确定要重新规划并执行任务「${activeMission.title}」吗？`
+                      )
+                    ) {
+                      try {
+                        await retryMission(topicId, activeMission.id, {
+                          mode: 'full',
+                        });
+                      } catch (error) {
+                        console.error('Failed to retry mission:', error);
+                      }
                     }
                   }}
-                  className="flex items-center gap-2 rounded-lg bg-green-100 px-4 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-200"
-                  title="通知Team Leader继续执行（用于任务卡住时）"
+                  className="flex items-center gap-2 rounded-lg bg-blue-100 px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200"
+                  title="完全重新规划并执行任务"
                 >
                   <svg
                     className="h-4 w-4"
@@ -2677,16 +2687,10 @@ export default function TopicPage() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                     />
                   </svg>
-                  继续任务
+                  任务重做
                 </button>
               )}
 

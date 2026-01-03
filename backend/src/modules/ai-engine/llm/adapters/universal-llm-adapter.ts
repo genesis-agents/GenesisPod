@@ -39,6 +39,7 @@ export class UniversalLLMAdapter implements ILLMAdapter {
   // 从数据库动态加载的支持模型列表（缓存）
   private _supportedModels: string[] = [];
   private _defaultModel: string = "";
+  private _modelConfigs: Map<string, LLMModelConfig> = new Map();
   private _cacheTime: number = 0;
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟缓存
 
@@ -81,7 +82,7 @@ export class UniversalLLMAdapter implements ILLMAdapter {
   }
 
   /**
-   * 从数据库加载模型列表
+   * 从数据库加载模型列表和配置（严禁硬编码！）
    */
   private async loadModelsFromDatabase(): Promise<void> {
     // 获取所有启用的 CHAT 类型模型
@@ -94,12 +95,28 @@ export class UniversalLLMAdapter implements ILLMAdapter {
         modelId: true,
         displayName: true,
         isDefault: true,
+        maxTokens: true,
+        modelType: true,
       },
       orderBy: [{ isDefault: "desc" }, { displayName: "asc" }],
     });
 
     this._supportedModels = chatModels.map((m) => m.modelId);
     this._cacheTime = Date.now();
+
+    // 缓存模型配置
+    this._modelConfigs.clear();
+    for (const model of chatModels) {
+      this._modelConfigs.set(model.modelId, {
+        id: model.modelId,
+        name: model.displayName,
+        maxTokens: model.maxTokens || 4096,
+        contextWindow: 128000,
+        supportsTools: true,
+        supportsVision: model.modelType === "MULTIMODAL",
+        supportsStreaming: true,
+      });
+    }
 
     // 找到默认模型
     const defaultModel = chatModels.find((m) => m.isDefault);
@@ -218,30 +235,21 @@ export class UniversalLLMAdapter implements ILLMAdapter {
   }
 
   /**
-   * 获取模型配置
+   * 获取模型配置（从缓存读取，缓存由 loadModelsFromDatabase 定期刷新）
+   * 严禁硬编码模型配置！所有配置都从数据库动态加载
    */
   getModelConfig(model: string): LLMModelConfig | undefined {
-    const configs: Record<string, LLMModelConfig> = {
-      "gpt-4o": {
-        id: "gpt-4o",
-        name: "GPT-4o",
-        maxTokens: 16384,
-        contextWindow: 128000,
-        supportsTools: true,
-        supportsVision: true,
-        supportsStreaming: true,
-      },
-      "gpt-4o-mini": {
-        id: "gpt-4o-mini",
-        name: "GPT-4o Mini",
-        maxTokens: 16384,
-        contextWindow: 128000,
-        supportsTools: true,
-        supportsVision: true,
-        supportsStreaming: true,
-      },
-    };
-    return configs[model];
+    // 触发异步刷新（如果需要）
+    this.refreshModelsIfNeeded();
+
+    // 从缓存读取
+    const config = this._modelConfigs.get(model);
+    if (!config) {
+      this.logger.debug(
+        `[getModelConfig] Model "${model}" not found in cache, available: ${Array.from(this._modelConfigs.keys()).join(", ")}`,
+      );
+    }
+    return config;
   }
 
   /**

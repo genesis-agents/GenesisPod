@@ -14,7 +14,11 @@ import {
   SKILL_LAYERS,
   SkillResultMetadata,
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
-import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
+import { AIModelService } from "../../core/ai-model.service";
+import {
+  AiChatService,
+  ChatMessage,
+} from "@/modules/ai-engine/llm/services/ai-chat.service";
 import { PageState } from "../checkpoint/checkpoint.types";
 
 /**
@@ -167,7 +171,10 @@ export class TerminologyUnifierSkill
 
   private readonly logger = new Logger(TerminologyUnifierSkill.name);
 
-  constructor(@Optional() private readonly llmFactory: LLMFactory) {}
+  constructor(
+    @Optional() private readonly aiModelService: AIModelService,
+    @Optional() private readonly aiChatService: AiChatService,
+  ) {}
 
   /**
    * 执行术语检查技能
@@ -335,7 +342,7 @@ export class TerminologyUnifierSkill
   private async checkWithAI(
     pages: PageState[],
     ruleBasedVariations: TerminologyVariation[],
-    context: SkillContext,
+    _context: SkillContext, // 保留参数以供将来扩展
   ): Promise<TerminologyCheckResult> {
     const pageTexts = pages
       .map((p) => `[第${p.pageNumber}页] ${this.extractPageText(p)}`)
@@ -354,11 +361,10 @@ ${ruleBasedVariations.map((v) => `- ${v.preferred}: ${v.alternatives.join(", ")}
 
 请深度分析术语一致性，输出完整的检查报告（JSON 格式）。`;
 
-    // 使用 LLMFactory 获取适配器
-    const adapter = this.llmFactory?.getAdapter("gpt-4o");
-    if (!adapter) {
+    // 使用数据库配置的模型（严禁硬编码模型名！）
+    if (!this.aiModelService || !this.aiChatService) {
       this.logger.warn(
-        "[checkWithAI] LLM adapter not available, using rule-based result",
+        "[checkWithAI] AIModelService or AiChatService not available, using rule-based result",
       );
       return {
         variations: ruleBasedVariations,
@@ -371,21 +377,25 @@ ${ruleBasedVariations.map((v) => `- ${v.preferred}: ${v.alternatives.join(", ")}
       };
     }
 
-    const response = await adapter.chat({
-      messages: [
-        { role: "system", content: TERMINOLOGY_SYSTEM_PROMPT },
-        { role: "user", content: userMessage },
-      ],
-      // model 留空，由 UniversalLLMAdapter 从数据库获取默认模型
-      maxTokens: 4096,
-      temperature: 0.1,
-      metadata: {
-        sessionId: context.sessionId,
-        phase: "terminology_check",
-      },
+    const model = await this.aiModelService.getDefaultTextModel();
+    this.logger.debug(
+      `[checkWithAI] Using model: ${model.displayName} (${model.modelId})`,
+    );
+
+    const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
+
+    const response = await this.aiChatService.generateChatCompletionWithKey({
+      provider: model.provider,
+      modelId: model.modelId,
+      apiKey: model.apiKey || "",
+      apiEndpoint: model.apiEndpoint || undefined,
+      systemPrompt: TERMINOLOGY_SYSTEM_PROMPT,
+      messages,
+      maxTokens: model.maxTokens || 4096,
+      temperature: model.temperature || 0.1,
     });
 
-    if (!response.content) {
+    if (!response) {
       this.logger.error("[checkWithAI] AI call returned no content");
       return {
         variations: ruleBasedVariations,

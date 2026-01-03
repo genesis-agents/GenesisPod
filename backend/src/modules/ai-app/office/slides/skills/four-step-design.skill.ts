@@ -19,7 +19,11 @@ import {
   SkillLayer,
   SKILL_LAYERS,
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
-import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
+import { AIModelService } from "../../core/ai-model.service";
+import {
+  AiChatService,
+  ChatMessage,
+} from "@/modules/ai-engine/llm/services/ai-chat.service";
 import {
   PageOutline,
   PageContent,
@@ -731,7 +735,10 @@ export class FourStepDesignSkill
 
   private readonly logger = new Logger(FourStepDesignSkill.name);
 
-  constructor(@Optional() private readonly llmFactory: LLMFactory) {}
+  constructor(
+    @Optional() private readonly aiModelService: AIModelService,
+    @Optional() private readonly aiChatService: AiChatService,
+  ) {}
 
   /**
    * 将 MissionOrchestrator 输入格式转换为直接输入格式
@@ -810,14 +817,14 @@ export class FourStepDesignSkill
 
     const userMessage = this.buildUserMessage(normalizedInput);
 
-    // Get LLM adapter from factory
-    const adapter = this.llmFactory?.getAdapter("gpt-4o");
-    if (!adapter) {
+    // 使用数据库配置的模型（严禁硬编码模型名！）
+    if (!this.aiModelService || !this.aiChatService) {
       return {
         success: false,
         error: {
-          code: "LLM_ADAPTER_NOT_FOUND",
-          message: "Failed to get LLM adapter for gpt-4o",
+          code: "SERVICE_NOT_AVAILABLE",
+          message:
+            "AIModelService or AiChatService not available. Please check module configuration.",
           retryable: false,
         },
         metadata: {
@@ -829,21 +836,25 @@ export class FourStepDesignSkill
       };
     }
 
-    const llmResponse = await adapter.chat({
-      messages: [
-        { role: "system", content: FOUR_STEP_DESIGN_SYSTEM_PROMPT },
-        { role: "user", content: userMessage },
-      ],
-      maxTokens: 8192,
-      temperature: 0.2,
-      metadata: {
-        sessionId: normalizedInput.sessionId || context.sessionId,
-        pageNumber: normalizedInput.pageOutline.pageNumber,
-        phase: "four_step_design",
-      },
+    const model = await this.aiModelService.getDefaultTextModel();
+    this.logger.debug(
+      `[execute] Using model: ${model.displayName} (${model.modelId})`,
+    );
+
+    const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
+
+    const llmResponse = await this.aiChatService.generateChatCompletionWithKey({
+      provider: model.provider,
+      modelId: model.modelId,
+      apiKey: model.apiKey || "",
+      apiEndpoint: model.apiEndpoint || undefined,
+      systemPrompt: FOUR_STEP_DESIGN_SYSTEM_PROMPT,
+      messages,
+      maxTokens: model.maxTokens || 8192,
+      temperature: model.temperature || 0.2,
     });
 
-    if (!llmResponse.content) {
+    if (!llmResponse) {
       this.logger.error("[execute] AI call failed: no content returned");
       return {
         success: false,
@@ -857,7 +868,6 @@ export class FourStepDesignSkill
           startTime,
           endTime: new Date(),
           duration: Date.now() - startTime.getTime(),
-          tokensUsed: llmResponse.usage?.totalTokens,
         },
       };
     }
@@ -909,7 +919,7 @@ export class FourStepDesignSkill
         startTime,
         endTime,
         duration: durationMs,
-        tokensUsed: llmResponse.usage?.totalTokens,
+        tokensUsed: llmResponse.tokensUsed,
       },
     };
   }

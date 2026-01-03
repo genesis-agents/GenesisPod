@@ -13,7 +13,11 @@ import {
   SkillLayer,
   SKILL_LAYERS,
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
-import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
+import { AIModelService } from "../../core/ai-model.service";
+import {
+  AiChatService,
+  ChatMessage,
+} from "@/modules/ai-engine/llm/services/ai-chat.service";
 import {
   TaskDecomposition,
   OutlinePlan,
@@ -316,7 +320,10 @@ export class OutlinePlanningSkill
   readonly tags = ["slides", "planning", "outline", "architecture"];
   readonly version = "4.0.0";
 
-  constructor(@Optional() private readonly llmFactory: LLMFactory) {}
+  constructor(
+    @Optional() private readonly aiModelService: AIModelService,
+    @Optional() private readonly aiChatService: AiChatService,
+  ) {}
 
   /**
    * 执行大纲规划 (ISkill 接口实现)
@@ -357,22 +364,32 @@ export class OutlinePlanningSkill
     try {
       const userMessage = this.buildUserMessage(actualInput);
 
-      // 使用 LLMFactory 调用 LLM
-      const adapter = await this.llmFactory?.getAdapter("gpt-4o");
-      if (!adapter) {
-        throw new Error("Failed to get LLM adapter");
+      // 使用数据库配置的模型（严禁硬编码模型名！）
+      if (!this.aiModelService || !this.aiChatService) {
+        throw new Error(
+          "AIModelService or AiChatService not available. Please check module configuration.",
+        );
       }
 
-      const response = await adapter.chat({
-        messages: [
-          { role: "system", content: OUTLINE_PLANNING_SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-        maxTokens: 8192,
-        temperature: 0.3,
+      const model = await this.aiModelService.getDefaultTextModel();
+      this.logger.debug(
+        `[execute] Using model: ${model.displayName} (${model.modelId})`,
+      );
+
+      const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
+
+      const response = await this.aiChatService.generateChatCompletionWithKey({
+        provider: model.provider,
+        modelId: model.modelId,
+        apiKey: model.apiKey || "",
+        apiEndpoint: model.apiEndpoint || undefined,
+        systemPrompt: OUTLINE_PLANNING_SYSTEM_PROMPT,
+        messages,
+        maxTokens: model.maxTokens || 8192,
+        temperature: model.temperature || 0.3,
       });
 
-      if (!response.content) {
+      if (!response) {
         throw new Error("Empty response from LLM");
       }
 
@@ -394,7 +411,7 @@ export class OutlinePlanningSkill
           startTime,
           endTime,
           duration: endTime.getTime() - startTime.getTime(),
-          tokensUsed: response.usage?.totalTokens || 0,
+          tokensUsed: 0, // Token tracking handled by AiChatService
         },
       };
     } catch (error) {
