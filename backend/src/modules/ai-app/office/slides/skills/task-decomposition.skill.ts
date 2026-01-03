@@ -44,6 +44,24 @@ export interface TaskDecompositionInput {
 }
 
 /**
+ * MissionOrchestrator 传递的输入格式
+ */
+interface OrchestratorInput {
+  task?: string;
+  context?: {
+    input?: {
+      sourceText?: string;
+      userRequirement?: string;
+      targetPages?: number;
+      stylePreference?: "dark" | "light" | "custom";
+      targetAudience?: string;
+    };
+    [key: string]: unknown;
+  };
+  previousOutputs?: Record<string, unknown>;
+}
+
+/**
  * 任务分解系统提示词 - 增强版：强化数据提取
  */
 const TASK_DECOMPOSITION_SYSTEM_PROMPT = `你是一位专业的 PPT 架构师，负责分析源材料并规划 PPT 结构。你特别擅长从文本中提取可视化数据。
@@ -219,25 +237,50 @@ export class TaskDecompositionSkill
 
   /**
    * 执行任务分解 (ISkill 接口实现)
+   *
+   * 支持两种输入格式：
+   * 1. 直接调用: { sourceText, userRequirement, ... }
+   * 2. MissionOrchestrator 格式: { task, context, previousOutputs }
    */
   async execute(
-    input: TaskDecompositionInput,
+    input: TaskDecompositionInput | OrchestratorInput,
     context: SkillContext,
   ): Promise<SkillResult<TaskDecomposition>> {
     const startTime = new Date();
     let tokensUsed = 0;
 
+    // 处理 Orchestrator 输入格式
+    const actualInput = this.normalizeInput(input);
+    if (!actualInput.sourceText) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "Missing sourceText in input",
+          retryable: false,
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime,
+          endTime: new Date(),
+          duration: Date.now() - startTime.getTime(),
+        },
+      };
+    }
+
     this.logger.log(
-      `[execute] Starting task decomposition, source length: ${input.sourceText.length}, executionId: ${context.executionId}`,
+      `[execute] Starting task decomposition, source length: ${actualInput.sourceText.length}, executionId: ${context.executionId}`,
     );
 
     try {
       // 第一步：尝试从源文本中搜索补充数据（如果源文本较短）
-      let enrichedSourceText = input.sourceText;
-      if (this.searchService && input.sourceText.length < 2000) {
-        const searchEnrichment = await this.enrichWithSearch(input.sourceText);
+      let enrichedSourceText = actualInput.sourceText;
+      if (this.searchService && actualInput.sourceText.length < 2000) {
+        const searchEnrichment = await this.enrichWithSearch(
+          actualInput.sourceText,
+        );
         if (searchEnrichment) {
-          enrichedSourceText = `${input.sourceText}\n\n## 补充资料（来自网络搜索）\n\n${searchEnrichment}`;
+          enrichedSourceText = `${actualInput.sourceText}\n\n## 补充资料（来自网络搜索）\n\n${searchEnrichment}`;
           this.logger.log(
             `[execute] Enriched source text with ${searchEnrichment.length} chars from search`,
           );
@@ -245,7 +288,7 @@ export class TaskDecompositionSkill
       }
 
       const userMessage = this.buildUserMessage({
-        ...input,
+        ...actualInput,
         sourceText: enrichedSourceText,
       });
 
@@ -405,6 +448,52 @@ export class TaskDecompositionSkill
     // 去重并取前5个
     const unique = [...new Set(keywords)].slice(0, 5);
     return unique.join(" ");
+  }
+
+  /**
+   * 规范化输入格式
+   * 支持直接调用格式和 MissionOrchestrator 格式
+   */
+  private normalizeInput(
+    input: TaskDecompositionInput | OrchestratorInput,
+  ): TaskDecompositionInput {
+    // 检查是否是直接调用格式（有 sourceText 属性）
+    if ("sourceText" in input && typeof input.sourceText === "string") {
+      return input as TaskDecompositionInput;
+    }
+
+    // 处理 Orchestrator 格式
+    const orchestratorInput = input as OrchestratorInput;
+    const missionInput = orchestratorInput.context?.input;
+
+    if (missionInput?.sourceText) {
+      return {
+        sourceText: missionInput.sourceText,
+        userRequirement: missionInput.userRequirement,
+        targetPages: missionInput.targetPages,
+        stylePreference: missionInput.stylePreference,
+        targetAudience: missionInput.targetAudience,
+      };
+    }
+
+    // 尝试从 context 的其他位置获取 sourceText
+    const context = orchestratorInput.context;
+    if (context) {
+      // 检查 context 是否直接有 sourceText（某些情况下可能如此）
+      if (typeof (context as Record<string, unknown>).sourceText === "string") {
+        return {
+          sourceText: (context as Record<string, unknown>).sourceText as string,
+          userRequirement: (context as Record<string, unknown>)
+            .userRequirement as string | undefined,
+        };
+      }
+    }
+
+    // 返回空输入，让调用者处理错误
+    this.logger.warn(
+      `[normalizeInput] Could not extract sourceText from input: ${JSON.stringify(Object.keys(input))}`,
+    );
+    return { sourceText: "" };
   }
 
   /**
