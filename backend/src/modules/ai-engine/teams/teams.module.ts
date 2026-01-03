@@ -28,6 +28,8 @@ import { LLMFactory } from "../llm/factory/llm-factory";
 import { CostController } from "../constraint/guardrails/cost-controller";
 import { ShortTermMemoryService } from "../memory/stores/short-term-memory.service";
 import { MCPManager } from "../mcp/manager/mcp-manager";
+import { AiChatService } from "../llm/services/ai-chat.service";
+import { PrismaService } from "../../../common/prisma/prisma.service";
 
 /**
  * Teams 模块
@@ -73,6 +75,8 @@ import { MCPManager } from "../mcp/manager/mcp-manager";
         llmFactory: LLMFactory,
         memoryService: ShortTermMemoryService,
         mcpManager: MCPManager,
+        aiChatService: AiChatService,
+        prismaService: PrismaService,
       ) => {
         return new MissionOrchestrator(
           constraintEngine,
@@ -81,6 +85,8 @@ import { MCPManager } from "../mcp/manager/mcp-manager";
           llmFactory,
           memoryService,
           mcpManager,
+          aiChatService, // ★ 用于创建 LLM 适配器给 Skills 使用
+          prismaService, // ★ 用于从数据库获取默认 AI 模型配置
         );
       },
       inject: [
@@ -90,6 +96,8 @@ import { MCPManager } from "../mcp/manager/mcp-manager";
         LLMFactory,
         ShortTermMemoryService,
         MCPManager,
+        AiChatService,
+        PrismaService,
       ],
     },
     // TeamsService 依赖所有上层服务

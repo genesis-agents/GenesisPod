@@ -61,6 +61,12 @@ import {
   HandoffContextBuilder,
 } from "../../collaboration/patterns/handoff-pattern";
 import { CollaborationMessage } from "../../collaboration/abstractions/collaborator.interface";
+import { AiChatService } from "../../llm/services/ai-chat.service";
+import {
+  AiChatLLMAdapter,
+  ISimpleLLMAdapter,
+} from "../../llm/adapters/ai-chat-llm-adapter";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 /**
  * 步骤执行结果（内部使用）
@@ -103,6 +109,9 @@ export class MissionOrchestrator implements IMissionOrchestrator {
   // ★ 存储原始输入，不依赖 Memory 服务（修复数据丢失问题）
   private readonly originalInputs = new Map<string, MissionInput>();
 
+  // ★ LLM 适配器（用于 Skills 调用 LLM）
+  private readonly llmAdapter?: ISimpleLLMAdapter;
+
   constructor(
     private readonly constraintEngine: ConstraintEngine,
     private readonly toolRegistry?: ToolRegistry,
@@ -110,6 +119,8 @@ export class MissionOrchestrator implements IMissionOrchestrator {
     private readonly llmFactory?: LLMFactory,
     private readonly memoryService?: ShortTermMemoryService,
     private readonly mcpManager?: MCPManager,
+    private readonly aiChatService?: AiChatService,
+    private readonly prismaService?: PrismaService,
     config?: Partial<OrchestratorConfig>,
   ) {
     this.config = { ...DEFAULT_ORCHESTRATOR_CONFIG, ...config };
@@ -119,6 +130,18 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       maxRetries: 2,
       autoFallback: true,
     });
+
+    // ★ 创建 LLM 适配器（如果 AiChatService 可用）
+    // 传递 PrismaService 以从数据库获取默认模型配置
+    if (this.aiChatService) {
+      this.llmAdapter = new AiChatLLMAdapter(
+        this.aiChatService,
+        this.prismaService,
+      );
+      this.logger.log(
+        "LLM adapter initialized with AiChatService and PrismaService",
+      );
+    }
   }
 
   /**
@@ -811,6 +834,21 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       for (const skillId of executor.skills) {
         const skill = this.skillRegistry.tryGet(skillId);
         if (skill) {
+          // ★ 关键修复：为技能设置 LLM 适配器
+          // Skills 通过 callLLM() 调用 LLM，需要先设置 adapter
+          if (this.llmAdapter && "setLLMAdapter" in skill) {
+            (
+              skill as { setLLMAdapter: (adapter: ISimpleLLMAdapter) => void }
+            ).setLLMAdapter(this.llmAdapter);
+            this.logger.debug(
+              `[executeStepFull] Set LLM adapter for skill ${skillId}`,
+            );
+          } else if (!this.llmAdapter) {
+            this.logger.warn(
+              `[executeStepFull] No LLM adapter available for skill ${skillId}`,
+            );
+          }
+
           try {
             const skillContext: SkillContext = {
               executionId: uuidv4(),
