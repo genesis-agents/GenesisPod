@@ -304,9 +304,7 @@ export function useExport(): UseExportResult {
         params.set('category', category);
       }
 
-      return apiClient.get<ExportTemplate[]>(
-        `/templates?${params.toString()}`
-      );
+      return apiClient.get<ExportTemplate[]>(`/templates?${params.toString()}`);
     },
     []
   );
