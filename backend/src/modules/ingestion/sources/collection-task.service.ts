@@ -5,11 +5,11 @@ import {
   CollectionTaskStatus,
   CollectionTaskType,
 } from "@prisma/client";
-import { ArxivService } from "../crawler/arxiv.service";
-import { GithubService } from "../crawler/github.service";
-import { HackernewsService } from "../crawler/hackernews.service";
-import { RssService, CollectionResult } from "../crawler/rss.service";
-import { WebScraperService } from "../crawler/web-scraper.service";
+import { ArxivService } from "../crawlers/arxiv.service";
+import { GithubService } from "../crawlers/github.service";
+import { HackernewsService } from "../crawlers/hackernews.service";
+import { RssService, CollectionResult } from "../crawlers/rss.service";
+import { WebScraperService } from "../crawlers/web-scraper.service";
 import { getErrorStack } from "../../../common/utils/error.utils";
 
 export interface CreateCollectionTaskDto {

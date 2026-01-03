@@ -4,11 +4,11 @@ import {
   CreateCollectionTaskDto,
 } from "./collection-task.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { ArxivService } from "../crawler/arxiv.service";
-import { GithubService } from "../crawler/github.service";
-import { HackernewsService } from "../crawler/hackernews.service";
-import { RssService } from "../crawler/rss.service";
-import { WebScraperService } from "../crawler/web-scraper.service";
+import { ArxivService } from "../crawlers/arxiv.service";
+import { GithubService } from "../crawlers/github.service";
+import { HackernewsService } from "../crawlers/hackernews.service";
+import { RssService } from "../crawlers/rss.service";
+import { WebScraperService } from "../crawlers/web-scraper.service";
 import { NotFoundException } from "@nestjs/common";
 import { CollectionTaskStatus, CollectionTaskType } from "@prisma/client";
 

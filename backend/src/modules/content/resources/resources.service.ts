@@ -8,7 +8,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 import { MongoDBService } from "../../../common/mongodb/mongodb.service.postgres";
 import { ensureError } from "../../../common/utils/error.utils";
 import { Prisma } from "@prisma/client";
-import { SourceWhitelistService } from "../../data-services/data-management/services/source-whitelist.service";
+import { SourceWhitelistService } from "../../ingestion/config/services/source-whitelist.service";
 import { AIEnrichmentService } from "./ai-enrichment.service";
 
 /**

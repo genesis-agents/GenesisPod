@@ -21,14 +21,12 @@ import { ConfigurationService } from "./services/configuration.service";
 import { AiUrlClassifierService } from "./services/ai-url-classifier.service";
 
 /**
- * Data Management Module
- * 整合数据管理相关的服务、控制器和子模块
- * 包括：
+ * Ingestion Config Module (数据采集配置模块)
+ *
+ * 管理数据采集的配置和规则：
  * - 来源白名单管理
  * - 采集规则引擎
- * - 采集配置管理（专业采集器）
- * - 采集任务监控
- * - 数据质量管理
+ * - 采集配置管理
  * - 导入管理和URL解析
  */
 @Module({
@@ -64,22 +62,18 @@ import { AiUrlClassifierService } from "./services/ai-url-classifier.service";
     AiUrlClassifierService,
   ],
 })
-export class DataManagementModule implements OnModuleInit {
+export class IngestionConfigModule implements OnModuleInit {
   constructor(
     private sourceWhitelistService: SourceWhitelistService,
     private collectionRuleService: CollectionRuleService,
   ) {}
 
-  /**
-   * 模块初始化时初始化默认白名单和采集规则
-   */
   async onModuleInit() {
     try {
       await this.sourceWhitelistService.initializeDefaultWhitelists();
       await this.collectionRuleService.initializeDefaultRules();
     } catch (error) {
-      // 不要让初始化错误阻止应用启动
-      console.warn("Failed to initialize data management defaults:", error);
+      console.warn("Failed to initialize ingestion config defaults:", error);
     }
   }
 }

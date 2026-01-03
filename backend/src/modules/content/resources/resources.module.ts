@@ -6,7 +6,7 @@ import { PdfThumbnailService } from "./pdf-thumbnail.service";
 import { DynamicThumbnailService } from "./dynamic-thumbnail.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { MongoDBModule } from "../../../common/mongodb/mongodb.module";
-import { DataManagementModule } from "../../data-services/data-management/data-management.module";
+import { IngestionConfigModule } from "../../ingestion/config/config.module";
 import { StorageModule } from "../../core/storage/storage.module";
 import { ProxyModule } from "../../integrations/proxy/proxy.module";
 
@@ -17,7 +17,7 @@ import { ProxyModule } from "../../integrations/proxy/proxy.module";
   imports: [
     PrismaModule,
     MongoDBModule,
-    DataManagementModule,
+    IngestionConfigModule,
     StorageModule,
     ProxyModule, // 用于 FlareSolverr 支持
   ],

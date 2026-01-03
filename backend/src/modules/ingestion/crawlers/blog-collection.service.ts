@@ -5,8 +5,8 @@ import {
   CollectedBlogPost,
   CollectionTask,
   RSSFeedItem,
-} from "../types/blog-collection.types";
-import { getErrorMessage } from "../../../../common/utils/error.utils";
+} from "./blog-collection.types";
+import { getErrorMessage } from "../../../common/utils/error.utils";
 
 /**
  * Blog Collection Service

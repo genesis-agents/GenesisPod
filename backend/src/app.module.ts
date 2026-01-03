@@ -42,13 +42,13 @@ import { NotesModule } from "./modules/content/notes/notes.module";
 import { ReportsModule } from "./modules/content/reports/reports.module";
 import { ResourcesModule } from "./modules/content/resources/resources.module";
 import { WorkspaceModule } from "./modules/content/workspace/workspace.module";
-// Data modules
-import { BlogCollectionModule } from "./modules/data-services/blog-collection/blog-collection.module";
-import { CrawlerModule } from "./modules/data-services/crawler/crawler.module";
-import { DataCollectionModule } from "./modules/data-services/data-collection/data-collection.module";
-import { DataManagementModule } from "./modules/data-services/data-management/data-management.module";
-import { KnowledgeGraphModule } from "./modules/data-services/knowledge-graph/knowledge-graph.module";
-import { RecommendationsModule } from "./modules/data-services/recommendations/recommendations.module";
+// Content modules (additional)
+import { KnowledgeGraphModule } from "./modules/content/knowledge-graph/knowledge-graph.module";
+import { RecommendationsModule } from "./modules/content/recommendations/recommendations.module";
+// Ingestion modules
+import { CrawlersModule } from "./modules/ingestion/crawlers/crawlers.module";
+import { SourcesModule } from "./modules/ingestion/sources/sources.module";
+import { IngestionConfigModule } from "./modules/ingestion/config/config.module";
 // Integration modules
 import { ProxyModule } from "./modules/integrations/proxy/proxy.module";
 import { WechatWorkModule } from "./modules/integrations/wechat-work/wechat-work.module";
@@ -120,7 +120,6 @@ import { WebhooksModule } from "./modules/webhooks";
     RAGModule,
 
     // Content modules
-    CrawlerModule,
     ResourcesModule,
     FeedModule,
     CollectionsModule,
@@ -129,13 +128,13 @@ import { WebhooksModule } from "./modules/webhooks";
     ReportsModule,
     ExploreModule,
     WorkspaceModule,
-
-    // Data modules
-    BlogCollectionModule,
-    DataManagementModule,
-    DataCollectionModule,
     KnowledgeGraphModule,
     RecommendationsModule,
+
+    // Ingestion modules
+    CrawlersModule,
+    SourcesModule,
+    IngestionConfigModule,
 
     // Integration modules
     ProxyModule,

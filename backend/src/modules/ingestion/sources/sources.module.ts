@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { MongoDBModule } from "../../../common/mongodb/mongodb.module";
-import { CrawlerModule } from "../crawler/crawler.module";
+import { CrawlersModule } from "../crawlers/crawlers.module";
 
 // Services
 import { DataSourceService } from "./data-source.service";
@@ -20,8 +20,16 @@ import { MonitorController } from "./monitor.controller";
 import { QualityController } from "./quality.controller";
 import { HistoryController } from "./history.controller";
 
+/**
+ * Sources Module (数据源管理模块)
+ *
+ * 管理数据采集源和任务：
+ * - 数据源 CRUD
+ * - 采集任务调度
+ * - 采集监控和质量检查
+ */
 @Module({
-  imports: [PrismaModule, MongoDBModule, CrawlerModule],
+  imports: [PrismaModule, MongoDBModule, CrawlersModule],
   controllers: [
     DataSourceController,
     CollectionTaskController,
@@ -37,7 +45,7 @@ import { HistoryController } from "./history.controller";
     MonitorService,
     QualityService,
     HistoryService,
-    DataSourceSeederService, // Auto-seeds validated data sources on startup
+    DataSourceSeederService,
   ],
   exports: [
     DataSourceService,
@@ -48,4 +56,4 @@ import { HistoryController } from "./history.controller";
     HistoryService,
   ],
 })
-export class DataCollectionModule {}
+export class SourcesModule {}

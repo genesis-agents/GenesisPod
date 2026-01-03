@@ -6,11 +6,8 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { BlogCollectionService } from "./blog-collection.service";
-import {
-  SchedulerConfig,
-  CollectionTask,
-} from "../types/blog-collection.types";
-import { getErrorMessage } from "../../../../common/utils/error.utils";
+import { SchedulerConfig, CollectionTask } from "./blog-collection.types";
+import { getErrorMessage } from "../../../common/utils/error.utils";
 
 /**
  * Blog Scheduler Service

@@ -8,9 +8,9 @@ import {
   Param,
   Logger,
 } from "@nestjs/common";
-import { BlogCollectionService } from "../services/blog-collection.service";
-import { BlogSchedulerService } from "../services/blog-scheduler.service";
-import { SchedulerConfig } from "../types/blog-collection.types";
+import { BlogCollectionService } from "./blog-collection.service";
+import { BlogSchedulerService } from "./blog-scheduler.service";
+import { SchedulerConfig } from "./blog-collection.types";
 
 /**
  * Blog Collection Controller
