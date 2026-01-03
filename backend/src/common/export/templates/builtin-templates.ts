@@ -645,9 +645,117 @@ const businessDocLayout: LayoutConfig = {
 };
 
 /**
+ * AI Teams 任务报告模板
+ */
+const missionReportTheme: ThemeConfig = {
+  colors: {
+    primary: "#7c3aed",
+    secondary: "#8b5cf6",
+    accent: "#22c55e",
+    background: "#ffffff",
+    backgroundAlt: "#faf5ff",
+    text: "#1f2937",
+    textLight: "#6b7280",
+    textSecondary: "#9ca3af",
+    heading: "#111827",
+    link: "#7c3aed",
+    border: "#e5e7eb",
+    divider: "#f3f4f6",
+    success: "#22c55e",
+    warning: "#f59e0b",
+    error: "#ef4444",
+    info: "#6366f1",
+  },
+  fonts: {
+    heading: {
+      family: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+      size: 24,
+      weight: 700,
+      lineHeight: 1.3,
+    },
+    body: {
+      family: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+      size: 14,
+      weight: 400,
+      lineHeight: 1.7,
+    },
+    mono: {
+      family: "JetBrains Mono, Consolas, monospace",
+      size: 13,
+      weight: 400,
+      lineHeight: 1.5,
+    },
+  },
+  spacing: {
+    page: { top: 64, right: 64, bottom: 64, left: 64 },
+    section: 28,
+    paragraph: 14,
+    list: 10,
+    heading: 20,
+  },
+  decorations: {
+    showHeaderLine: false,
+    showFooterLine: false,
+    showPageNumbers: true,
+    pageNumberPosition: "bottom-center",
+    headingUnderline: true,
+    headingBorder: false,
+    showTableBorders: true,
+    roundedCorners: true,
+    shadowEffects: false,
+  },
+};
+
+const missionReportLayout: LayoutConfig = {
+  pageSize: "A4",
+  orientation: "portrait",
+  cover: {
+    enabled: true,
+    style: "prominent",
+    showLogo: false,
+    showDate: true,
+    showAuthor: true,
+  },
+  header: {
+    enabled: false,
+    height: 40,
+    showOnFirstPage: false,
+  },
+  footer: {
+    enabled: true,
+    height: 40,
+    showOnFirstPage: false,
+  },
+  sections: {
+    startOnNewPage: false,
+    numberHeadings: true,
+    indentLevel: 0,
+  },
+};
+
+/**
  * 所有内置模板
  */
 export const BUILTIN_TEMPLATES: BuiltInTemplate[] = [
+  // AI Teams 任务报告模板
+  {
+    id: "mission-report",
+    name: "AI Teams 任务报告",
+    description:
+      "专为 AI Teams 任务执行报告设计，紫色主题，突出统计数据和执行详情",
+    category: ExportTemplateCategory.REPORT,
+    themeConfig: missionReportTheme,
+    layoutConfig: missionReportLayout,
+    supportedFormats: [
+      ExportFormat.PDF,
+      ExportFormat.DOCX,
+      ExportFormat.MARKDOWN,
+      ExportFormat.HTML,
+    ],
+    supportedSources: [ExportSourceType.MISSION],
+    isDefault: false,
+  },
+
   // 报告类模板
   {
     id: "report-professional",

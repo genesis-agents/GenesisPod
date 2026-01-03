@@ -17,7 +17,12 @@ export type ExportFormat =
   | 'MARKDOWN'
   | 'HTML';
 
-export type ExportSourceType = 'DOCUMENT' | 'RESEARCH' | 'REPORT' | 'RAW';
+export type ExportSourceType =
+  | 'DOCUMENT'
+  | 'RESEARCH'
+  | 'REPORT'
+  | 'RAW'
+  | 'MISSION';
 
 export type TemplateCategory =
   | 'REPORT'
@@ -31,6 +36,8 @@ export interface ExportSource {
   documentId?: string;
   sessionId?: string;
   reportId?: string;
+  missionId?: string;
+  topicId?: string;
   content?: string;
   contentType?: 'markdown' | 'html' | 'json';
   title?: string;
@@ -95,6 +102,12 @@ export interface UseExportResult {
   exportDocument: (request: ExportRequest) => Promise<ExportJobResponse>;
   exportResearch: (
     sessionId: string,
+    format: ExportFormat,
+    options?: ExportOptions
+  ) => Promise<ExportJobResponse>;
+  exportMission: (
+    missionId: string,
+    topicId: string,
     format: ExportFormat,
     options?: ExportOptions
   ) => Promise<ExportJobResponse>;
@@ -249,6 +262,34 @@ export function useExport(): UseExportResult {
   );
 
   /**
+   * 导出 AI Teams 任务报告（快捷方法）
+   */
+  const exportMission = useCallback(
+    async (
+      missionId: string,
+      topicId: string,
+      format: ExportFormat,
+      options?: ExportOptions
+    ): Promise<ExportJobResponse> => {
+      return exportDocument({
+        source: {
+          type: 'MISSION',
+          missionId,
+          topicId,
+        },
+        format,
+        templateId: 'mission-report', // 使用 AI Teams 任务报告专用模板
+        options: {
+          includeCover: true,
+          includeTableOfContents: true,
+          ...options,
+        },
+      });
+    },
+    [exportDocument]
+  );
+
+  /**
    * 导出原始内容（快捷方法）
    */
   const exportRaw = useCallback(
@@ -323,6 +364,7 @@ export function useExport(): UseExportResult {
     error,
     exportDocument,
     exportResearch,
+    exportMission,
     exportRaw,
     getTemplates,
     downloadExport,

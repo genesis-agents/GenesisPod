@@ -3,7 +3,13 @@
  * 负责将各种来源的内容转换为统一格式
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Inject,
+  forwardRef,
+} from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import {
   UnifiedContent,
@@ -14,12 +20,17 @@ import {
 } from "../types/unified-content";
 import { ExportSource } from "../types/export-options";
 import { marked } from "marked";
+import { MissionTransformerService } from "./mission-transformer.service";
 
 @Injectable()
 export class ContentTransformerService {
   private readonly logger = new Logger(ContentTransformerService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => MissionTransformerService))
+    private readonly missionTransformer: MissionTransformerService,
+  ) {}
 
   /**
    * 将导出源转换为统一内容格式
@@ -40,6 +51,8 @@ export class ContentTransformerService {
           source.contentType,
           source.title,
         );
+      case "MISSION":
+        return this.missionTransformer.transform(source.missionId);
       default:
         throw new Error(`Unsupported source type: ${(source as any).type}`);
     }

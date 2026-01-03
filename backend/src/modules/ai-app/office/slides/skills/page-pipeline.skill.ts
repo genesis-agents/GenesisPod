@@ -263,14 +263,25 @@ export class PagePipelineSkill
     const previousOutputs = input.previousOutputs || {};
     const contextInput = input.context?.input || {};
 
-    // 尝试从多个位置获取大纲规划
+    // ★ 修复：从多个位置获取大纲规划（包括 input.outline）
+    const inputWithOutline = input as OrchestratorInput & {
+      outline?: OutlinePlan;
+      sourceText?: string;
+      themeId?: string;
+    };
+
     let outlinePlan =
+      // 1. 直接在 input.outline（SlidesTeamMember.buildSkillInput 设置）
+      inputWithOutline.outline ||
+      // 2. 从 previousOutputs 获取（完整 OutlinePlan）
       (previousOutputs["slides-outline-planning"] as OutlinePlan) ||
       (previousOutputs["outline-planning"] as OutlinePlan) ||
+      // 3. 从 context 获取
       (input.context?.outlinePlan as OutlinePlan) ||
+      (input.context?.outline as OutlinePlan) ||
       null;
 
-    // 如果大纲在 data 字段中
+    // 如果大纲在 data 字段中（嵌套结构）
     if (!outlinePlan && previousOutputs["slides-outline-planning"]) {
       const maybeNested = previousOutputs["slides-outline-planning"] as {
         data?: OutlinePlan;
@@ -280,8 +291,21 @@ export class PagePipelineSkill
       }
     }
 
-    const sourceText = (contextInput.sourceText as string) || "";
-    const themeId = (contextInput.themeId as string) || "genspark-dark";
+    // ★ 修复：sourceText 和 themeId 也可能在顶层
+    const sourceText =
+      inputWithOutline.sourceText ||
+      (contextInput.sourceText as string) ||
+      (input.context?.sourceText as string) ||
+      "";
+    const themeId =
+      inputWithOutline.themeId ||
+      (contextInput.themeId as string) ||
+      (input.context?.themeId as string) ||
+      "genspark-dark";
+
+    this.logger.debug(
+      `[extractInputData] Found outline: ${!!outlinePlan}, pages: ${outlinePlan?.pages?.length || 0}, sourceText: ${sourceText.length} chars`,
+    );
 
     return { outlinePlan, sourceText, themeId };
   }

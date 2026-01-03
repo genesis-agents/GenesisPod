@@ -13,6 +13,7 @@ import { TemplateController } from "./controllers/template.controller";
 import { ExportOrchestratorService } from "./services/export-orchestrator.service";
 import { ContentTransformerService } from "./services/content-transformer.service";
 import { TemplateManagerService } from "./services/template-manager.service";
+import { MissionTransformerService } from "./services/mission-transformer.service";
 
 // Renderers
 import { RENDERER_TOKEN } from "./renderers/renderer.interface";
@@ -35,6 +36,7 @@ import { PrismaModule } from "../../common/prisma/prisma.module";
     ExportOrchestratorService,
     ContentTransformerService,
     TemplateManagerService,
+    MissionTransformerService,
 
     // Renderers
     PdfRenderer,
@@ -78,6 +80,7 @@ import { PrismaModule } from "../../common/prisma/prisma.module";
     ExportOrchestratorService,
     ContentTransformerService,
     TemplateManagerService,
+    MissionTransformerService,
   ],
 })
 export class ExportModule {}
