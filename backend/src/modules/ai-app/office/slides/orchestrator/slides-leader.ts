@@ -129,26 +129,22 @@ export class SlidesLeader {
 ## 团队成员
 ${teamMembersInfo}
 
-## 可用技能列表
+## 可用技能列表（每个任务只能使用一个技能）
 ### Analyst 技能
 - task-decomposition: 任务分解，分析源文本结构
-- outline-planning: 大纲规划，生成 PPT 大纲
-- content-analyzer: 内容分析，提取关键信息
+- outline-planning: 大纲规划，生成 PPT 大纲（必须在 task-decomposition 之后）
 
-### Designer 技能
-- four-step-design: 四步设计，生成页面 HTML
-- template-matcher: 模板匹配，选择最佳模板
-- layout-optimizer: 布局优化
-- chart-renderer: 图表渲染
-- image-fetcher: 图片获取
-- content-compression: 内容压缩
-- data-supplement: 数据补全
-- page-type-selection: 页面类型选择
+### Writer 技能（页面生成）
+- page-pipeline: 页面生成流水线，批量生成所有页面的 HTML（★ 推荐用于页面生成）
 
 ### Reviewer 技能
-- terminology-unifier: 术语统一
-- transition-checker: 过渡检查
-- quality-audit: 质量审计
+- quality-audit: 质量审计（在所有页面生成后执行）
+
+## 重要约束
+1. 每个任务只能指定一个技能 ID，不要用逗号分隔多个技能
+2. 必须包含以下核心任务流程：
+   - task-decomposition → outline-planning → page-pipeline → quality-audit
+3. 使用 page-pipeline 生成页面，不要使用 four-step-design
 
 ## 输出格式
 请使用以下 Markdown 表格格式输出任务分解：
@@ -184,11 +180,16 @@ ${mission.sourceText.substring(0, 8000)}${mission.sourceText.length > 8000 ? "\n
 
 请分析源文本，规划 PPT 生成任务。
 
-注意：
-1. 必须先执行 outline-planning 生成大纲
-2. 每个页面需要 four-step-design 技能
-3. 最后需要执行 quality-audit 质量审计
-4. 合理安排任务依赖关系，支持并行执行
+## 必须遵循的任务流程
+1. 第一步：task-decomposition - 分析源文本，分解任务
+2. 第二步：outline-planning - 生成 PPT 大纲（依赖第1步）
+3. 第三步：page-pipeline - 批量生成所有页面 HTML（依赖第2步）
+4. 第四步：quality-audit - 质量审计（依赖第3步）
+
+## 关键约束
+- 每行只能填写一个技能 ID
+- 必须使用 page-pipeline 生成页面
+- 不要添加额外的任务
 `;
   }
 
@@ -253,11 +254,22 @@ ${mission.sourceText.substring(0, 8000)}${mission.sourceText.length > 8000 ? "\n
                   .map((d) => parseInt(d.trim()) - 1)
                   .filter((n) => !isNaN(n));
 
+          // ★ 修复：AI 可能返回逗号分隔的多个技能，只取第一个
+          const normalizedSkillId = this.normalizeSkillId(skillId);
+
+          // 如果技能无效，跳过此任务
+          if (!normalizedSkillId) {
+            this.logger.warn(
+              `[parseTaskBreakdown] Skipping task "${title}" with invalid skillId: "${skillId}"`,
+            );
+            continue;
+          }
+
           const task: TaskBreakdownItem = {
             title,
             description,
             assignee: this.normalizeAssignee(assignee),
-            skillId: skillId.toLowerCase().replace(/\s+/g, "-"),
+            skillId: normalizedSkillId,
             priority: this.normalizePriority(priority),
             dependsOn,
             inputSpec: {},
@@ -313,6 +325,72 @@ ${mission.sourceText.substring(0, 8000)}${mission.sourceText.length > 8000 ? "\n
     if (normalized.includes("high") || normalized.includes("高")) return "high";
     if (normalized.includes("low") || normalized.includes("低")) return "low";
     return "medium";
+  }
+
+  /**
+   * 规范化技能 ID
+   * - 处理 AI 返回的逗号分隔多技能情况（只取第一个）
+   * - 映射到已注册的技能 ID
+   */
+  private normalizeSkillId(skillId: string): string | null {
+    // 1. 如果包含逗号，只取第一个
+    let normalized = skillId
+      .split(",")[0]
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+
+    // 2. 移除可能的前缀/后缀杂质
+    normalized = normalized.replace(/^[-]+|[-]+$/g, "");
+
+    // 3. 映射常见的技能名称到实际注册的技能 ID
+    const skillMapping: Record<string, string> = {
+      // 分析类
+      "task-decomposition": "slides-task-decomposition",
+      "content-analyzer": "slides-content-analyzer",
+      "content-analysis": "slides-task-decomposition",
+      // 规划类
+      "outline-planning": "slides-outline-planning",
+      outline: "slides-outline-planning",
+      // 设计/渲染类
+      "four-step-design": "slides-four-step-design",
+      "page-pipeline": "slides-page-pipeline",
+      "template-rendering": "slides-template-rendering",
+      "template-matcher": "slides-template-matcher",
+      "layout-optimizer": "slides-layout-optimizer",
+      "chart-renderer": "slides-chart-renderer",
+      "image-fetcher": "slides-image-fetcher",
+      "content-compression": "slides-content-compression",
+      "data-supplement": "slides-data-supplement",
+      "page-type-selection": "slides-page-type-selection",
+      // 审核类
+      "terminology-unifier": "slides-terminology-unifier",
+      "transition-checker": "slides-transition-checker",
+      "quality-audit": "slides-quality-audit",
+      // 已带前缀的
+      "slides-task-decomposition": "slides-task-decomposition",
+      "slides-outline-planning": "slides-outline-planning",
+      "slides-four-step-design": "slides-four-step-design",
+      "slides-page-pipeline": "slides-page-pipeline",
+      "slides-quality-audit": "slides-quality-audit",
+    };
+
+    // 4. 尝试映射
+    if (skillMapping[normalized]) {
+      return skillMapping[normalized];
+    }
+
+    // 5. 如果没有映射，尝试添加 slides- 前缀
+    if (!normalized.startsWith("slides-")) {
+      const withPrefix = `slides-${normalized}`;
+      if (skillMapping[withPrefix]) {
+        return skillMapping[withPrefix];
+      }
+      // 返回带前缀的版本，让 SkillRegistry 去验证
+      return withPrefix;
+    }
+
+    return normalized;
   }
 
   private createDefaultTasks(): TaskBreakdownItem[] {

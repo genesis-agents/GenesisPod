@@ -52,6 +52,7 @@ export const SLIDES_TEAM_MEMBERS: Record<
     name: "Content Writer",
     description: "内容撰写师，负责页面内容生成和渲染",
     skills: [
+      "page-pipeline", // ★ 页面生成流水线（推荐）
       "four-step-design",
       "layout-optimizer",
       "chart-renderer",

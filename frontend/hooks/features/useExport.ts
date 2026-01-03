@@ -5,6 +5,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { apiClient } from '@/lib/api/client';
 import { config } from '@/lib/utils/config';
 
 // ==================== 类型定义 ====================
@@ -147,18 +148,9 @@ export function useExport(): UseExportResult {
       const interval = 1000; // 每秒轮询一次
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const response = await fetch(`${config.apiUrl}/export/${jobId}`, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to get export status');
-        }
-
-        const result: ExportJobResponse = await response.json();
+        const result = await apiClient.get<ExportJobResponse>(
+          `/export/${jobId}`
+        );
 
         if (onProgress) {
           onProgress(result.progress);
@@ -192,21 +184,10 @@ export function useExport(): UseExportResult {
 
       try {
         // 1. 创建导出任务
-        const createResponse = await fetch(`${config.apiUrl}/export`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify(request),
-        });
-
-        if (!createResponse.ok) {
-          const err = await createResponse.json();
-          throw new Error(err.message || 'Failed to create export job');
-        }
-
-        const { jobId } = await createResponse.json();
+        const { jobId } = await apiClient.post<{ jobId: string }>(
+          '/export',
+          request
+        );
 
         // 2. 轮询任务状态
         const result = await pollJobStatus(jobId, (progress) => {
@@ -323,21 +304,9 @@ export function useExport(): UseExportResult {
         params.set('category', category);
       }
 
-      const response = await fetch(
-        `${config.apiUrl}/templates?${params.toString()}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        }
+      return apiClient.get<ExportTemplate[]>(
+        `/templates?${params.toString()}`
       );
-
-      if (!response.ok) {
-        throw new Error('Failed to get templates');
-      }
-
-      return response.json();
     },
     []
   );
