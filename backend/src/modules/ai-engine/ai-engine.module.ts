@@ -73,6 +73,9 @@ import { DocumentChunker } from "./rag/chunking";
 // Image
 import { ImageModule } from "./image/image.module";
 
+// Teams
+import { TeamsModule } from "./teams/teams.module";
+
 // Core Services (migrated from ai-core)
 import { AiChatService } from "./llm/services/ai-chat.service";
 import { SearchService } from "./search/search.service";
@@ -219,7 +222,7 @@ const conversationMemoryFactory = {
  */
 @Global()
 @Module({
-  imports: [PrismaModule, HttpModule, ImageModule],
+  imports: [PrismaModule, HttpModule, ImageModule, TeamsModule],
   controllers: [AgentsController, AiCoreController],
   providers: [
     // === Registries ===
@@ -327,6 +330,9 @@ const conversationMemoryFactory = {
 
     // === Image (re-export the module) ===
     ImageModule,
+
+    // === Teams (re-export the module) ===
+    TeamsModule,
   ],
 })
 export class AiEngineModule implements OnModuleInit {
