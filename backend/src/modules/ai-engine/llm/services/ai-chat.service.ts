@@ -3,6 +3,7 @@ import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { AIErrorClassifier } from "../../../../common/ai-orchestration/error-classifier";
 import { AiServiceUnavailableError } from "../../core/exceptions";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -24,6 +25,23 @@ export interface ChatCompletionResult {
   tokensUsed: number;
 }
 
+/**
+ * 数据库中的 AI 模型配置
+ */
+export interface AIModelConfig {
+  id: string;
+  name: string;
+  displayName: string;
+  provider: string;
+  modelId: string;
+  apiEndpoint: string;
+  apiKey: string | null;
+  maxTokens: number;
+  temperature: number;
+  isEnabled: boolean;
+  isDefault: boolean;
+}
+
 @Injectable()
 export class AiChatService {
   private readonly logger = new Logger(AiChatService.name);
@@ -35,7 +53,172 @@ export class AiChatService {
   // 是否在 AI Coding 模式下（严格模式，API失败会抛出异常）
   private strictMode = false;
 
-  constructor(private readonly httpService: HttpService) {}
+  // ==================== 模型配置缓存 ====================
+  // 从数据库加载的模型配置缓存
+  private modelConfigCache = new Map<string, AIModelConfig>();
+  private modelConfigCacheTime = 0;
+  private readonly MODEL_CONFIG_CACHE_TTL = 5 * 60 * 1000; // 5 分钟缓存
+
+  constructor(
+    private readonly httpService: HttpService,
+    private readonly prisma: PrismaService,
+  ) {
+    // 初始化时异步加载模型配置
+    this.refreshModelConfigCache().catch((err) =>
+      this.logger.warn(`Failed to initialize model config cache: ${err}`),
+    );
+  }
+
+  // ==================== 数据库配置读取 ====================
+
+  /**
+   * 刷新模型配置缓存
+   * 从数据库加载所有启用的 CHAT 模型配置
+   */
+  private async refreshModelConfigCache(): Promise<void> {
+    try {
+      const models = await this.prisma.aIModel.findMany({
+        where: {
+          modelType: "CHAT",
+          isEnabled: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          displayName: true,
+          provider: true,
+          modelId: true,
+          apiEndpoint: true,
+          apiKey: true,
+          maxTokens: true,
+          temperature: true,
+          isEnabled: true,
+          isDefault: true,
+        },
+      });
+
+      this.modelConfigCache.clear();
+      for (const model of models) {
+        // 使用 modelId 作为主键（如 "gpt-4o", "gemini-2.0-flash"）
+        this.modelConfigCache.set(model.modelId, model as AIModelConfig);
+        // 同时使用 name 作为别名（如 "grok", "claude"）
+        if (model.name !== model.modelId) {
+          this.modelConfigCache.set(model.name, model as AIModelConfig);
+        }
+      }
+
+      this.modelConfigCacheTime = Date.now();
+      this.logger.log(
+        `[refreshModelConfigCache] Loaded ${models.length} CHAT models from database`,
+      );
+    } catch (error) {
+      this.logger.error(`[refreshModelConfigCache] Failed: ${error}`);
+    }
+  }
+
+  /**
+   * 获取模型配置（优先从数据库，缓存 5 分钟）
+   * @param modelId 模型 ID（如 "gpt-4o", "gemini-2.0-flash", "claude-3-opus"）
+   */
+  async getModelConfig(modelId: string): Promise<AIModelConfig | null> {
+    // 检查缓存是否过期
+    if (Date.now() - this.modelConfigCacheTime > this.MODEL_CONFIG_CACHE_TTL) {
+      await this.refreshModelConfigCache();
+    }
+
+    // 1. 精确匹配
+    if (this.modelConfigCache.has(modelId)) {
+      return this.modelConfigCache.get(modelId)!;
+    }
+
+    // 2. 模糊匹配（支持短名称如 "gpt-4" 匹配 "gpt-4o"）
+    const modelLower = modelId.toLowerCase();
+    for (const [key, config] of this.modelConfigCache.entries()) {
+      const keyLower = key.toLowerCase();
+      if (
+        keyLower.includes(modelLower) ||
+        modelLower.includes(keyLower) ||
+        config.provider.toLowerCase() === modelLower
+      ) {
+        return config;
+      }
+    }
+
+    // 3. 按 provider 匹配（如 "openai" 找默认的 OpenAI 模型）
+    for (const config of this.modelConfigCache.values()) {
+      if (
+        config.provider.toLowerCase() === modelLower ||
+        (modelLower.includes("gpt") &&
+          config.provider.toLowerCase() === "openai") ||
+        (modelLower.includes("claude") &&
+          config.provider.toLowerCase() === "anthropic") ||
+        (modelLower.includes("gemini") &&
+          config.provider.toLowerCase() === "google") ||
+        (modelLower.includes("grok") && config.provider.toLowerCase() === "xai")
+      ) {
+        return config;
+      }
+    }
+
+    // 4. 直接从数据库查询（绕过缓存）
+    try {
+      const model = await this.prisma.aIModel.findFirst({
+        where: {
+          OR: [
+            { modelId: { contains: modelId, mode: "insensitive" } },
+            { name: { contains: modelId, mode: "insensitive" } },
+          ],
+          modelType: "CHAT",
+          isEnabled: true,
+        },
+      });
+
+      if (model) {
+        const config = model as AIModelConfig;
+        this.modelConfigCache.set(modelId, config);
+        return config;
+      }
+    } catch (error) {
+      this.logger.warn(`[getModelConfig] Database query failed: ${error}`);
+    }
+
+    return null;
+  }
+
+  /**
+   * 获取默认模型配置
+   */
+  async getDefaultModelConfig(): Promise<AIModelConfig | null> {
+    // 检查缓存是否过期
+    if (Date.now() - this.modelConfigCacheTime > this.MODEL_CONFIG_CACHE_TTL) {
+      await this.refreshModelConfigCache();
+    }
+
+    // 从缓存找默认模型
+    for (const config of this.modelConfigCache.values()) {
+      if (config.isDefault) {
+        return config;
+      }
+    }
+
+    // 返回任意可用模型
+    const firstConfig = this.modelConfigCache.values().next().value;
+    return firstConfig || null;
+  }
+
+  /**
+   * 根据 provider 确定 API 格式类型
+   */
+  private getApiFormatForProvider(
+    provider: string,
+  ): "openai" | "anthropic" | "google" | "xai" {
+    const p = provider.toLowerCase();
+    if (p === "anthropic" || p === "claude") return "anthropic";
+    if (p === "google" || p === "gemini") return "google";
+    if (p === "xai" || p === "grok") return "xai";
+    // 默认使用 OpenAI 兼容格式（大多数代理服务都兼容）
+    return "openai";
+  }
 
   /**
    * 设置严格模式
@@ -47,6 +230,7 @@ export class AiChatService {
 
   /**
    * 获取指定模型所需的 API 密钥环境变量名
+   * @deprecated 优先使用数据库配置，此方法仅用于环境变量回退
    */
   getRequiredApiKeyName(model: string): string {
     const modelLower = model.toLowerCase();
@@ -69,24 +253,47 @@ export class AiChatService {
 
   /**
    * 验证 AI 服务是否可用
+   * 优先检查数据库配置，其次检查环境变量
    * @param model 要验证的模型名称，不传则验证默认模型
    * @throws AiServiceUnavailableError 如果服务不可用
    */
   async validateAIServiceAvailability(model?: string): Promise<void> {
-    const targetModel = model || process.env.DEFAULT_AI_MODEL || "gemini";
-    const requiredEnvKey = this.getRequiredApiKeyName(targetModel);
+    // 1. 先尝试从数据库获取模型配置
+    let targetModel = model;
+    let hasDbConfig = false;
 
-    if (!process.env[requiredEnvKey]) {
-      throw new AiServiceUnavailableError(
-        `AI服务不可用: 缺少必需的环境变量 ${requiredEnvKey}`,
-        targetModel,
-      );
+    if (model) {
+      const dbConfig = await this.getModelConfig(model);
+      if (dbConfig && dbConfig.apiKey) {
+        hasDbConfig = true;
+        targetModel = dbConfig.modelId;
+      }
+    } else {
+      // 没有指定模型，使用默认模型
+      const defaultConfig = await this.getDefaultModelConfig();
+      if (defaultConfig && defaultConfig.apiKey) {
+        hasDbConfig = true;
+        targetModel = defaultConfig.modelId;
+      }
     }
 
-    // 可选：测试API连通性（发送一个简单请求）
+    // 2. 如果没有数据库配置，回退检查环境变量
+    if (!hasDbConfig) {
+      targetModel = targetModel || process.env.DEFAULT_AI_MODEL || "gemini";
+      const requiredEnvKey = this.getRequiredApiKeyName(targetModel);
+
+      if (!process.env[requiredEnvKey]) {
+        throw new AiServiceUnavailableError(
+          `AI服务不可用: 模型 "${targetModel}" 未在数据库中配置，且环境变量 ${requiredEnvKey} 也未设置`,
+          targetModel,
+        );
+      }
+    }
+
+    // 3. 测试 API 连通性
     try {
       const testResult = await this.generateChatCompletion({
-        model: targetModel,
+        model: targetModel!,
         messages: [{ role: "user", content: "Hello" }],
         maxTokens: 10,
         temperature: 0,
@@ -100,7 +307,7 @@ export class AiChatService {
       ) {
         throw new AiServiceUnavailableError(
           `AI服务响应异常: ${testResult.content.slice(0, 100)}`,
-          targetModel,
+          targetModel!,
         );
       }
     } catch (error) {
@@ -109,13 +316,30 @@ export class AiChatService {
       }
       throw new AiServiceUnavailableError(
         `AI服务连接测试失败: ${error instanceof Error ? error.message : String(error)}`,
-        targetModel,
+        targetModel!,
       );
     }
   }
 
   /**
    * 检查指定模型的 API 密钥是否已配置
+   * 优先检查数据库配置，其次检查环境变量
+   */
+  async isApiKeyConfiguredAsync(model: string): Promise<boolean> {
+    // 1. 检查数据库配置
+    const dbConfig = await this.getModelConfig(model);
+    if (dbConfig && dbConfig.apiKey) {
+      return true;
+    }
+
+    // 2. 回退检查环境变量
+    const requiredEnvKey = this.getRequiredApiKeyName(model);
+    return !!process.env[requiredEnvKey];
+  }
+
+  /**
+   * 检查指定模型的 API 密钥是否已配置（同步版本，仅检查环境变量）
+   * @deprecated 优先使用 isApiKeyConfiguredAsync
    */
   isApiKeyConfigured(model: string): boolean {
     const requiredEnvKey = this.getRequiredApiKeyName(model);
@@ -123,7 +347,27 @@ export class AiChatService {
   }
 
   /**
-   * 获取所有已配置的 AI 模型列表
+   * 获取所有已配置的 AI 模型列表（从数据库）
+   */
+  async getAvailableModelsAsync(): Promise<string[]> {
+    // 刷新缓存
+    if (Date.now() - this.modelConfigCacheTime > this.MODEL_CONFIG_CACHE_TTL) {
+      await this.refreshModelConfigCache();
+    }
+
+    // 返回所有有 apiKey 的模型
+    const models: string[] = [];
+    for (const config of this.modelConfigCache.values()) {
+      if (config.apiKey) {
+        models.push(config.modelId);
+      }
+    }
+    return [...new Set(models)]; // 去重
+  }
+
+  /**
+   * 获取所有已配置的 AI 模型列表（同步版本，仅检查环境变量）
+   * @deprecated 优先使用 getAvailableModelsAsync
    */
   getAvailableModels(): string[] {
     const models: string[] = [];
@@ -440,6 +684,7 @@ export class AiChatService {
 
   /**
    * Generate a chat completion using the specified AI model
+   * 优先从数据库获取模型配置（apiKey, apiEndpoint），仅在找不到时回退到环境变量
    */
   async generateChatCompletion(
     options: ChatCompletionOptions,
@@ -461,29 +706,374 @@ export class AiChatService {
     }
     fullMessages.push(...messages);
 
+    // ==================== 从数据库获取模型配置 ====================
+    const modelConfig = await this.getModelConfig(model);
+
+    if (modelConfig) {
+      // 使用数据库配置调用 API
+      this.logger.debug(
+        `[generateChatCompletion] Using DB config for model: ${modelConfig.modelId} (provider: ${modelConfig.provider})`,
+      );
+      return this.callAPIWithConfig(
+        modelConfig,
+        fullMessages,
+        maxTokens,
+        temperature,
+      );
+    }
+
+    // ==================== 回退：使用环境变量（兼容旧逻辑）====================
+    this.logger.warn(
+      `[generateChatCompletion] Model "${model}" not found in database, falling back to env vars`,
+    );
+
     // Route to appropriate provider based on model
     // Support both short names (grok, gpt-4, claude, gemini) and full model IDs
     const modelLower = model.toLowerCase();
 
     if (modelLower === "grok" || modelLower.includes("grok")) {
-      return this.callGrokAPI(fullMessages, maxTokens, temperature);
+      return this.callGrokAPILegacy(fullMessages, maxTokens, temperature);
     } else if (
       modelLower === "gpt-4" ||
       modelLower.includes("gpt") ||
       modelLower.startsWith("o1") ||
       modelLower.startsWith("o3")
     ) {
-      return this.callOpenAIAPI(fullMessages, maxTokens, temperature);
+      return this.callOpenAIAPILegacy(fullMessages, maxTokens, temperature);
     } else if (modelLower === "claude" || modelLower.includes("claude")) {
-      return this.callClaudeAPI(fullMessages, maxTokens, temperature);
+      return this.callClaudeAPILegacy(fullMessages, maxTokens, temperature);
     } else if (modelLower === "gemini" || modelLower.includes("gemini")) {
-      return this.callGeminiAPI(fullMessages, maxTokens, temperature);
+      return this.callGeminiAPILegacy(fullMessages, maxTokens, temperature);
     } else {
       // Unknown model - return mock response with correct model name
       this.logger.warn(`Unknown model "${model}", returning mock response`);
       return this.getMockResponse(model, messages);
     }
   }
+
+  // ==================== 使用数据库配置调用 API ====================
+
+  /**
+   * 使用数据库配置调用 AI API
+   * 根据 provider 自动选择正确的 API 格式
+   */
+  private async callAPIWithConfig(
+    config: AIModelConfig,
+    messages: ChatMessage[],
+    maxTokens: number,
+    temperature: number,
+  ): Promise<ChatCompletionResult> {
+    const { provider, modelId, apiEndpoint, apiKey } = config;
+
+    if (!apiKey) {
+      const errorMsg = `模型 ${modelId} 的 API Key 未在数据库中配置`;
+      this.logger.error(`[callAPIWithConfig] ${errorMsg}`);
+      if (this.strictMode) {
+        throw new AiServiceUnavailableError(errorMsg, modelId);
+      }
+      return {
+        content: `**API Key 未配置**\n\n${errorMsg}\n\n请在管理后台配置该模型的 API Key。`,
+        model: modelId,
+        tokensUsed: 0,
+      };
+    }
+
+    const apiFormat = this.getApiFormatForProvider(provider);
+    this.logger.debug(
+      `[callAPIWithConfig] Calling ${provider} API (format: ${apiFormat}) with model: ${modelId}`,
+    );
+
+    try {
+      switch (apiFormat) {
+        case "openai":
+          return await this.callOpenAICompatibleAPI(
+            apiEndpoint,
+            apiKey,
+            modelId,
+            messages,
+            maxTokens,
+            temperature,
+          );
+
+        case "anthropic":
+          return await this.callAnthropicAPI(
+            apiEndpoint,
+            apiKey,
+            modelId,
+            messages,
+            maxTokens,
+            temperature,
+          );
+
+        case "google":
+          return await this.callGoogleAPI(
+            apiEndpoint,
+            apiKey,
+            modelId,
+            messages,
+            maxTokens,
+            temperature,
+          );
+
+        case "xai":
+          return await this.callXAIAPI(
+            apiEndpoint,
+            apiKey,
+            modelId,
+            messages,
+            maxTokens,
+            temperature,
+          );
+
+        default:
+          // 默认使用 OpenAI 兼容格式
+          return await this.callOpenAICompatibleAPI(
+            apiEndpoint,
+            apiKey,
+            modelId,
+            messages,
+            maxTokens,
+            temperature,
+          );
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `[callAPIWithConfig] ${provider} API error for ${modelId}: ${errorMsg}`,
+      );
+
+      if (this.strictMode) {
+        throw error;
+      }
+
+      return {
+        content: `**${provider} API 调用失败**\n\n模型：${modelId}\n错误信息：${errorMsg}\n\n请稍后重试或检查 API 配置。`,
+        model: modelId,
+        tokensUsed: 0,
+      };
+    }
+  }
+
+  /**
+   * 调用 OpenAI 兼容格式的 API（OpenAI, Azure, 各种代理服务）
+   */
+  private async callOpenAICompatibleAPI(
+    apiEndpoint: string,
+    apiKey: string,
+    modelId: string,
+    messages: ChatMessage[],
+    maxTokens: number,
+    temperature: number,
+  ): Promise<ChatCompletionResult> {
+    // 使用 max_completion_tokens 用于新模型
+    const isNewerModel =
+      modelId.includes("gpt-4o") ||
+      modelId.includes("gpt-5") ||
+      modelId.startsWith("o1") ||
+      modelId.startsWith("o3");
+
+    const tokenParam = isNewerModel
+      ? { max_completion_tokens: maxTokens }
+      : { max_tokens: maxTokens };
+
+    const response = await firstValueFrom(
+      this.httpService.post(
+        apiEndpoint,
+        {
+          model: modelId,
+          messages: messages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+          ...tokenParam,
+          temperature,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 120000,
+        },
+      ),
+    );
+
+    const data = response.data;
+    return {
+      content: data.choices?.[0]?.message?.content || "",
+      model: modelId,
+      tokensUsed: data.usage?.total_tokens || 0,
+    };
+  }
+
+  /**
+   * 调用 Anthropic Claude API
+   */
+  private async callAnthropicAPI(
+    apiEndpoint: string,
+    apiKey: string,
+    modelId: string,
+    messages: ChatMessage[],
+    maxTokens: number,
+    temperature: number,
+  ): Promise<ChatCompletionResult> {
+    // Extract system message
+    const systemMessage = messages.find((m) => m.role === "system");
+    const otherMessages = messages.filter((m) => m.role !== "system");
+
+    const response = await firstValueFrom(
+      this.httpService.post(
+        apiEndpoint,
+        {
+          model: modelId,
+          max_tokens: maxTokens,
+          temperature,
+          system: systemMessage?.content,
+          messages: otherMessages.map((m) => ({
+            role: m.role === "assistant" ? "assistant" : "user",
+            content: m.content,
+          })),
+        },
+        {
+          headers: {
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+          },
+          timeout: 120000,
+        },
+      ),
+    );
+
+    const data = response.data;
+    return {
+      content: data.content?.[0]?.text || "",
+      model: modelId,
+      tokensUsed:
+        (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0),
+    };
+  }
+
+  /**
+   * 调用 Google Gemini API
+   */
+  private async callGoogleAPI(
+    apiEndpoint: string,
+    apiKey: string,
+    modelId: string,
+    messages: ChatMessage[],
+    maxTokens: number,
+    temperature: number,
+  ): Promise<ChatCompletionResult> {
+    // 构建正确的 Gemini API URL
+    // apiEndpoint 可能是基础 URL 或完整 URL
+    let apiUrl: string;
+    if (apiEndpoint.includes(":generateContent")) {
+      apiUrl = `${apiEndpoint}?key=${apiKey}`;
+    } else if (apiEndpoint.endsWith("/")) {
+      apiUrl = `${apiEndpoint}models/${modelId}:generateContent?key=${apiKey}`;
+    } else {
+      apiUrl = `${apiEndpoint}/models/${modelId}:generateContent?key=${apiKey}`;
+    }
+
+    // Extract system message
+    const systemMessage = messages.find((m) => m.role === "system");
+    const otherMessages = messages.filter((m) => m.role !== "system");
+
+    // Convert to Gemini format
+    const contents = otherMessages.map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+
+    const requestBody: any = {
+      contents,
+      generationConfig: {
+        maxOutputTokens: maxTokens,
+        temperature,
+        topP: 0.95,
+        topK: 40,
+      },
+    };
+
+    if (systemMessage) {
+      requestBody.systemInstruction = {
+        parts: [{ text: systemMessage.content }],
+      };
+    }
+
+    const response = await firstValueFrom(
+      this.httpService.post(apiUrl, requestBody, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        timeout: 120000,
+      }),
+    );
+
+    const data = response.data;
+
+    // Check for blocked content
+    if (data.candidates?.[0]?.finishReason === "SAFETY") {
+      return {
+        content:
+          "I apologize, but I cannot provide a response to that request due to content safety guidelines.",
+        model: modelId,
+        tokensUsed: 0,
+      };
+    }
+
+    return {
+      content: data.candidates?.[0]?.content?.parts?.[0]?.text || "",
+      model: modelId,
+      tokensUsed:
+        (data.usageMetadata?.promptTokenCount || 0) +
+        (data.usageMetadata?.candidatesTokenCount || 0),
+    };
+  }
+
+  /**
+   * 调用 xAI (Grok) API
+   */
+  private async callXAIAPI(
+    apiEndpoint: string,
+    apiKey: string,
+    modelId: string,
+    messages: ChatMessage[],
+    maxTokens: number,
+    temperature: number,
+  ): Promise<ChatCompletionResult> {
+    const response = await firstValueFrom(
+      this.httpService.post(
+        apiEndpoint,
+        {
+          model: modelId,
+          messages: messages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+          max_tokens: maxTokens,
+          temperature,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 120000,
+        },
+      ),
+    );
+
+    const data = response.data;
+    return {
+      content: data.choices?.[0]?.message?.content || "",
+      model: modelId,
+      tokensUsed: data.usage?.total_tokens || 0,
+    };
+  }
+
+  // ==================== 旧版 API 调用（环境变量回退）====================
 
   /**
    * Generate a meeting summary from discussion messages
@@ -517,9 +1107,10 @@ Format the summary in a clear, structured manner using markdown.`;
   }
 
   /**
-   * Call xAI Grok API
+   * [Legacy] Call xAI Grok API using environment variables
+   * @deprecated 使用 callXAIAPI 代替
    */
-  private async callGrokAPI(
+  private async callGrokAPILegacy(
     messages: ChatMessage[],
     maxTokens: number,
     temperature: number,
@@ -529,15 +1120,15 @@ Format the summary in a clear, structured manner using markdown.`;
       process.env.XAI_API_URL || "https://api.x.ai/v1/chat/completions";
 
     if (!apiKey) {
-      this.logger.warn("XAI_API_KEY not configured");
+      this.logger.warn("XAI_API_KEY not configured (legacy fallback)");
       if (this.strictMode) {
         throw new AiServiceUnavailableError(
-          "XAI_API_KEY 环境变量未设置",
+          "XAI_API_KEY 环境变量未设置，且数据库中未找到 Grok 模型配置",
           "grok",
         );
       }
       return {
-        content: `**API Key 未配置**\n\n我是 Grok，但无法生成回复，因为 XAI_API_KEY 环境变量未设置。\n\n请在管理后台配置 API Key 或设置环境变量。`,
+        content: `**API Key 未配置**\n\n我是 Grok，但无法生成回复，因为：\n1. 数据库中未找到该模型的配置\n2. XAI_API_KEY 环境变量也未设置\n\n请在管理后台配置 API Key。`,
         model: "grok",
         tokensUsed: 0,
       };
@@ -583,9 +1174,10 @@ Format the summary in a clear, structured manner using markdown.`;
   }
 
   /**
-   * Call OpenAI API for GPT-4
+   * [Legacy] Call OpenAI API for GPT-4 using environment variables
+   * @deprecated 使用 callOpenAICompatibleAPI 代替
    */
-  private async callOpenAIAPI(
+  private async callOpenAIAPILegacy(
     messages: ChatMessage[],
     maxTokens: number,
     temperature: number,
@@ -594,15 +1186,15 @@ Format the summary in a clear, structured manner using markdown.`;
     const apiUrl = "https://api.openai.com/v1/chat/completions";
 
     if (!apiKey) {
-      this.logger.warn("OPENAI_API_KEY not configured");
+      this.logger.warn("OPENAI_API_KEY not configured (legacy fallback)");
       if (this.strictMode) {
         throw new AiServiceUnavailableError(
-          "OPENAI_API_KEY 环境变量未设置",
+          "OPENAI_API_KEY 环境变量未设置，且数据库中未找到 GPT 模型配置",
           "gpt-4",
         );
       }
       return {
-        content: `**API Key 未配置**\n\n我是 GPT-4，但无法生成回复，因为 OPENAI_API_KEY 环境变量未设置。\n\n请在管理后台配置 API Key 或设置环境变量。`,
+        content: `**API Key 未配置**\n\n我是 GPT-4，但无法生成回复，因为：\n1. 数据库中未找到该模型的配置\n2. OPENAI_API_KEY 环境变量也未设置\n\n请在管理后台配置 API Key。`,
         model: "gpt-4",
         tokensUsed: 0,
       };
@@ -648,9 +1240,10 @@ Format the summary in a clear, structured manner using markdown.`;
   }
 
   /**
-   * Call Anthropic Claude API
+   * [Legacy] Call Anthropic Claude API using environment variables
+   * @deprecated 使用 callAnthropicAPI 代替
    */
-  private async callClaudeAPI(
+  private async callClaudeAPILegacy(
     messages: ChatMessage[],
     maxTokens: number,
     temperature: number,
@@ -659,15 +1252,15 @@ Format the summary in a clear, structured manner using markdown.`;
     const apiUrl = "https://api.anthropic.com/v1/messages";
 
     if (!apiKey) {
-      this.logger.warn("ANTHROPIC_API_KEY not configured");
+      this.logger.warn("ANTHROPIC_API_KEY not configured (legacy fallback)");
       if (this.strictMode) {
         throw new AiServiceUnavailableError(
-          "ANTHROPIC_API_KEY 环境变量未设置",
+          "ANTHROPIC_API_KEY 环境变量未设置，且数据库中未找到 Claude 模型配置",
           "claude",
         );
       }
       return {
-        content: `**API Key 未配置**\n\n我是 Claude，但无法生成回复，因为 ANTHROPIC_API_KEY 环境变量未设置。\n\n请在管理后台配置 API Key 或设置环境变量。`,
+        content: `**API Key 未配置**\n\n我是 Claude，但无法生成回复，因为：\n1. 数据库中未找到该模型的配置\n2. ANTHROPIC_API_KEY 环境变量也未设置\n\n请在管理后台配置 API Key。`,
         model: "claude",
         tokensUsed: 0,
       };
@@ -720,10 +1313,10 @@ Format the summary in a clear, structured manner using markdown.`;
   }
 
   /**
-   * Call Google Gemini API
-   * Using Gemini 2.0 Flash model with system instruction support
+   * [Legacy] Call Google Gemini API using environment variables
+   * @deprecated 使用 callGoogleAPI 代替
    */
-  private async callGeminiAPI(
+  private async callGeminiAPILegacy(
     messages: ChatMessage[],
     maxTokens: number,
     temperature: number,
@@ -731,15 +1324,15 @@ Format the summary in a clear, structured manner using markdown.`;
     const apiKey = process.env.GOOGLE_AI_API_KEY;
 
     if (!apiKey) {
-      this.logger.warn("GOOGLE_AI_API_KEY not configured");
+      this.logger.warn("GOOGLE_AI_API_KEY not configured (legacy fallback)");
       if (this.strictMode) {
         throw new AiServiceUnavailableError(
-          "GOOGLE_AI_API_KEY 环境变量未设置",
+          "GOOGLE_AI_API_KEY 环境变量未设置，且数据库中未找到 Gemini 模型配置",
           "gemini",
         );
       }
       return {
-        content: `**API Key 未配置**\n\n我是 Gemini，但无法生成回复，因为 GOOGLE_AI_API_KEY 环境变量未设置。\n\n请在管理后台配置 API Key 或设置环境变量。`,
+        content: `**API Key 未配置**\n\n我是 Gemini，但无法生成回复，因为：\n1. 数据库中未找到该模型的配置\n2. GOOGLE_AI_API_KEY 环境变量也未设置\n\n请在管理后台配置 API Key。`,
         model: "gemini",
         tokensUsed: 0,
       };
@@ -843,36 +1436,23 @@ Format the summary in a clear, structured manner using markdown.`;
 
     try {
       // Simple test message
-      const testMessages: ChatMessage[] = [
-        { role: "user", content: "Say 'OK' to confirm you are working." },
-      ];
-
-      let result: ChatCompletionResult;
-
-      switch (model) {
-        case "grok":
-          result = await this.callGrokAPI(testMessages, 50, 0);
-          break;
-        case "gpt-4":
-          result = await this.callOpenAIAPI(testMessages, 50, 0);
-          break;
-        case "claude":
-          result = await this.callClaudeAPI(testMessages, 50, 0);
-          break;
-        case "gemini":
-          result = await this.callGeminiAPI(testMessages, 50, 0);
-          break;
-        default:
-          return {
-            success: false,
-            message: `Unknown model: ${model}`,
-          };
-      }
+      // 使用 generateChatCompletion，它会自动从数据库获取配置
+      const result = await this.generateChatCompletion({
+        model,
+        messages: [
+          { role: "user", content: "Say 'OK' to confirm you are working." },
+        ],
+        maxTokens: 50,
+        temperature: 0,
+      });
 
       const latency = Date.now() - startTime;
 
-      // Check if we got a mock response (API key not configured)
-      if (result.content.includes("mock response")) {
+      // Check if we got an error response (API key not configured)
+      if (
+        result.content.includes("API Key 未配置") ||
+        result.content.includes("mock response")
+      ) {
         return {
           success: false,
           message: `API key not configured for ${model}`,

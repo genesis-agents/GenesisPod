@@ -2342,7 +2342,7 @@ function TaskPopover({
       />
       {/* Modal Card - centered */}
       <div
-        className="animate-in fade-in zoom-in-95 fixed left-1/2 top-1/2 z-[201] w-[650px] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 duration-200"
+        className="animate-in fade-in zoom-in-95 fixed left-1/2 top-1/2 z-[201] w-[800px] max-w-[95vw] -translate-x-1/2 -translate-y-1/2 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
@@ -2399,7 +2399,7 @@ function TaskPopover({
           </div>
 
           {/* Content */}
-          <div className="max-h-[60vh] overflow-y-auto p-6">
+          <div className="max-h-[85vh] overflow-y-auto p-6">
             {/* Assignee */}
             <div className="mb-5 flex items-center gap-4 rounded-xl bg-gray-50 p-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-base font-medium text-white">
@@ -2431,7 +2431,7 @@ function TaskPopover({
                 <div className="mb-2 text-sm font-semibold text-gray-600">
                   执行成果
                 </div>
-                <div className="prose prose-sm max-h-[250px] max-w-none overflow-y-auto rounded-xl border border-green-100 bg-green-50 p-4 text-gray-700">
+                <div className="prose prose-sm max-w-none rounded-xl border border-green-100 bg-green-50 p-4 text-gray-700">
                   <ReactMarkdown>{task.result}</ReactMarkdown>
                 </div>
               </div>
@@ -2444,7 +2444,7 @@ function TaskPopover({
                   Leader 评审
                 </div>
                 <div
-                  className={`prose prose-sm max-h-[180px] max-w-none overflow-y-auto rounded-xl border p-4 text-gray-700 ${
+                  className={`prose prose-sm max-w-none rounded-xl border p-4 text-gray-700 ${
                     task.status === 'COMPLETED'
                       ? 'border-green-200 bg-green-50'
                       : task.status === 'REVISION_NEEDED'
