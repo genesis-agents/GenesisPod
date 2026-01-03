@@ -2555,9 +2555,7 @@ export default function TopicPage() {
               <button
                 disabled={
                   !currentMission ||
-                  !['IN_PROGRESS', 'PAUSED', 'FAILED'].includes(
-                    currentMission.status
-                  )
+                  ['COMPLETED', 'CANCELLED'].includes(currentMission.status)
                 }
                 onClick={async () => {
                   if (!topicId || !currentMission) return;
@@ -2567,19 +2565,15 @@ export default function TopicPage() {
                     await retryMission(topicId, currentMission.id, {
                       mode: 'continue',
                     });
-                  } else if (
-                    currentMission.status === 'IN_PROGRESS' &&
-                    currentMission.leaderId
-                  ) {
+                  } else if (currentMission.leaderId) {
+                    // For IN_PROGRESS, PLANNING, REVIEW, PENDING - trigger Leader response
                     await generateAIResponse(topicId, currentMission.leaderId);
                   }
                 }}
                 className={[
                   'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
                   !currentMission ||
-                  !['IN_PROGRESS', 'PAUSED', 'FAILED'].includes(
-                    currentMission.status
-                  )
+                  ['COMPLETED', 'CANCELLED'].includes(currentMission.status)
                     ? 'cursor-not-allowed bg-gray-100 text-gray-400'
                     : currentMission.status === 'PAUSED'
                       ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
@@ -2615,7 +2609,7 @@ export default function TopicPage() {
               <button
                 disabled={
                   !currentMission ||
-                  !['IN_PROGRESS', 'PLANNING', 'PAUSED'].includes(
+                  ['COMPLETED', 'CANCELLED', 'FAILED'].includes(
                     currentMission.status
                   )
                 }
@@ -2630,7 +2624,7 @@ export default function TopicPage() {
                 className={[
                   'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
                   !currentMission ||
-                  !['IN_PROGRESS', 'PLANNING', 'PAUSED'].includes(
+                  ['COMPLETED', 'CANCELLED', 'FAILED'].includes(
                     currentMission.status
                   )
                     ? 'cursor-not-allowed bg-gray-100 text-gray-400'
@@ -2692,40 +2686,6 @@ export default function TopicPage() {
                   任务重做
                 </button>
               )}
-
-              {/* Cancel Mission - only show when mission is active */}
-              {currentMission &&
-                (currentMission.status === 'IN_PROGRESS' ||
-                  currentMission.status === 'PLANNING') && (
-                  <button
-                    onClick={async () => {
-                      if (
-                        confirm(
-                          `确定要取消任务「${currentMission.title}」吗？此操作不可撤销。`
-                        )
-                      ) {
-                        await cancelMission(topicId, currentMission.id);
-                      }
-                    }}
-                    className="flex items-center gap-2 rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-200"
-                    title="取消当前正在执行的任务"
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                    取消任务
-                  </button>
-                )}
 
               {/* Mission Progress Panel Toggle */}
               <button
