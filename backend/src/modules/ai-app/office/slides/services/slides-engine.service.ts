@@ -511,6 +511,10 @@ export class SlidesEngineService {
         const agent = this.mapPhaseToAgent(phase);
         const agentName = this.getAgentName(agent);
 
+        this.logger.log(
+          `[transformSlidesMissionEvent] ${event.type} for skill: ${task?.skillId}, has data.result: ${!!data.result}, has task.result: ${!!task?.result}`,
+        );
+
         events.push(
           this.createEvent("agent:completed", sessionId, {
             agent,
@@ -520,10 +524,17 @@ export class SlidesEngineService {
           }),
         );
 
-        // ★ 从任务结果中提取 HTML 页面
-        // 优先使用 data.result（orchestrator 单独传递），否则用 task.result
-        const taskResult = data.result || task?.result;
-        this.extractPagesFromTaskResult(taskResult, sessionId, events);
+        // ★ 只有 page-pipeline 任务才需要提取 HTML
+        if (
+          task?.skillId === "slides-page-pipeline" ||
+          task?.skillId === "page-pipeline"
+        ) {
+          const taskResult = data.result || task?.result;
+          this.logger.log(
+            `[transformSlidesMissionEvent] ★ Extracting pages from page-pipeline result`,
+          );
+          this.extractPagesFromTaskResult(taskResult, sessionId, events);
+        }
         break;
       }
 
