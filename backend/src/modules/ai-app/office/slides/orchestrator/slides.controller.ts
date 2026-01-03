@@ -215,16 +215,28 @@ export class SlidesController {
    * POST 方式生成幻灯片 (SSE)
    *
    * 支持 POST body 传递更复杂的参数
+   * ★ 手动设置 SSE 响应头，确保 POST 请求也能正确流式传输
    */
   @Post("generate")
-  @Sse()
-  generateSlidesPost(
+  async generateSlidesPost(
     @Body() dto: GenerateDto,
     @Query("userId") userId?: string,
-  ): Observable<MessageEvent> {
+    @Res() res?: Response,
+  ): Promise<void> {
+    if (!res) {
+      throw new HttpException("Response object not available", 500);
+    }
+
     this.logger.log(
       `[generateSlidesPost] Starting generation: ${dto.title?.slice(0, 50)}...`,
     );
+
+    // ★ 手动设置 SSE 响应头
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no"); // 禁用 Nginx/代理缓冲
+    res.flushHeaders(); // 立即发送响应头
 
     const generator = this.slidesEngine.generateSlides({
       userId: userId || "anonymous",
@@ -236,42 +248,51 @@ export class SlidesController {
       themeId: dto.themeId,
     });
 
-    return fromAsyncGenerator(generator).pipe(
-      map((event) => {
-        this.logger.debug(
-          `[generateSlidesPost] Sending SSE event: ${event.type}`,
-        );
-        return {
-          data: JSON.stringify(event),
-        };
-      }),
-      catchError((error) => {
-        this.logger.error("[generateSlidesPost] Error:", error);
-        return of({
-          data: JSON.stringify({
-            type: "error",
-            timestamp: new Date().toISOString(),
-            error: error.message || "Generation failed",
-          }),
-        });
-      }),
-    );
+    try {
+      for await (const event of generator) {
+        const sseData = `data: ${JSON.stringify(event)}\n\n`;
+        res.write(sseData);
+        this.logger.debug(`[generateSlidesPost] Sent SSE event: ${event.type}`);
+      }
+    } catch (error) {
+      this.logger.error("[generateSlidesPost] Error:", error);
+      const errorEvent = {
+        type: "error",
+        timestamp: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "Generation failed",
+      };
+      res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
+    } finally {
+      res.end();
+    }
   }
 
   /**
    * Team 协作生成幻灯片 (SSE)
    *
    * 注：现在使用与普通生成相同的 AI Engine 编排
+   * ★ 手动设置 SSE 响应头，确保 POST 请求也能正确流式传输
    */
   @Post("team/generate")
-  @Sse()
-  generateTeam(
+  async generateTeam(
     @Body() dto: GenerateDto,
     @Query("userId") userId?: string,
-  ): Observable<MessageEvent> {
+    @Res() res?: Response,
+  ): Promise<void> {
+    if (!res) {
+      throw new HttpException("Response object not available", 500);
+    }
+
     this.logger.log(
       `[generateTeam] Starting Team generation with ${dto.sourceText?.length || 0} chars`,
     );
+
+    // ★ 手动设置 SSE 响应头
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no"); // 禁用 Nginx/代理缓冲
+    res.flushHeaders(); // 立即发送响应头
 
     // 使用相同的引擎，AI Engine 会负责团队协作编排
     const generator = this.slidesEngine.generateSlides({
@@ -284,24 +305,25 @@ export class SlidesController {
       themeId: dto.themeId,
     });
 
-    return fromAsyncGenerator(generator).pipe(
-      map((event) => {
-        this.logger.debug(`[generateTeam] SSE event: ${event.type}`);
-        return {
-          data: JSON.stringify(event),
-        };
-      }),
-      catchError((error) => {
-        this.logger.error("[generateTeam] Error:", error);
-        return of({
-          data: JSON.stringify({
-            type: "error",
-            timestamp: new Date().toISOString(),
-            error: error.message || "Team generation failed",
-          }),
-        });
-      }),
-    );
+    try {
+      for await (const event of generator) {
+        const sseData = `data: ${JSON.stringify(event)}\n\n`;
+        res.write(sseData);
+        this.logger.log(`[generateTeam] Sent SSE event: ${event.type}`);
+      }
+      this.logger.log("[generateTeam] SSE stream completed");
+    } catch (error) {
+      this.logger.error("[generateTeam] Error:", error);
+      const errorEvent = {
+        type: "error",
+        timestamp: new Date().toISOString(),
+        error:
+          error instanceof Error ? error.message : "Team generation failed",
+      };
+      res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
+    } finally {
+      res.end();
+    }
   }
 
   // ============================================

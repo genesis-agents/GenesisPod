@@ -2123,6 +2123,9 @@ function AgentPopover({
   missionStatus?: string;
   finalResult?: string | null;
 }) {
+  // State for report modal
+  const [showReportModal, setShowReportModal] = useState(false);
+
   // For Leader, show all tasks as the planning list
   const displayTasks = isLeader ? allTasks : tasks;
   const completedTasks = displayTasks.filter((t) => t.status === 'COMPLETED');
@@ -2136,6 +2139,52 @@ function AgentPopover({
 
   return (
     <>
+      {/* Report Modal */}
+      {showReportModal && finalResult && (
+        <>
+          <div
+            className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowReportModal(false)}
+          />
+          <div className="fixed left-1/2 top-1/2 z-[301] max-h-[80vh] w-[800px] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-xl">
+                  📋
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">任务完成报告</h3>
+                  <p className="text-sm text-white/80">Team Leader 总结</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="rounded-full p-2 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+              >
+                <svg
+                  className="h-6 w-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-[calc(80vh-80px)] overflow-y-auto p-6">
+              <div className="prose prose-sm prose-headings:text-gray-800 prose-p:text-gray-600 prose-li:text-gray-600 prose-strong:text-gray-800 max-w-none">
+                <ReactMarkdown>{finalResult}</ReactMarkdown>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Backdrop - full screen overlay */}
       <div
         className="fixed inset-0 z-[200] bg-black/40 backdrop-blur-sm"
@@ -2242,32 +2291,59 @@ function AgentPopover({
 
             {/* Final Report - Only show for Leader when mission is completed */}
             {isLeader && missionStatus === 'COMPLETED' && finalResult && (
-              <div className="mb-5 rounded-xl border border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 p-4">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-white">
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  </div>
-                  <span className="text-sm font-bold text-green-700">
-                    任务完成报告
-                  </span>
+              <div className="mb-5">
+                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-500">
+                  <span>📄</span>
+                  <span>完成报告</span>
                 </div>
-                <div className="max-h-60 overflow-y-auto rounded-lg bg-white/70 p-3 text-sm leading-relaxed text-gray-700 shadow-inner">
-                  <div className="prose prose-sm max-w-none whitespace-pre-wrap">
-                    {finalResult}
+                <button
+                  onClick={() => setShowReportModal(true)}
+                  className="group w-full rounded-xl border border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 p-4 text-left transition-all hover:border-green-300 hover:shadow-md"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500 text-white">
+                        <svg
+                          className="h-5 w-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-green-800">
+                          任务完成报告
+                        </div>
+                        <div className="text-xs text-green-600">
+                          点击查看详细报告
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-green-600 group-hover:text-green-700">
+                      <span className="text-sm">查看详情</span>
+                      <svg
+                        className="h-5 w-5 transition-transform group-hover:translate-x-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </div>
                   </div>
-                </div>
+                </button>
               </div>
             )}
 
