@@ -332,6 +332,7 @@ export class RoleRegistry implements OnModuleInit {
         "language-polish",
         "slides-content-compression",
         "slides-four-step-design",
+        "slides-page-pipeline", // 逐页生成流水线，协调 content-filling 阶段
       ],
       coreTools: [
         BUILTIN_TOOLS.TEXT_GENERATION,
