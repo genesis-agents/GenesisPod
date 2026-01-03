@@ -1719,17 +1719,27 @@ ${taskResults}
   private parseReviewResult(content: string): boolean {
     const lowerContent = content.toLowerCase();
 
-    // 先检查否定词，避免"暂不通过"被误判为"通过"
+    // 先检查否定词，避免"暂不通过"、"未能审核通过"被误判为"通过"
     const rejectPatterns = [
       "不通过",
       "暂不通过",
       "未通过",
+      "未能通过",
+      "未能审核通过",
+      "无法通过",
+      "没有通过",
+      "没通过",
       "不合格",
       "需要修改",
       "需修改",
       "请修改",
+      "请重新",
+      "需要改进",
+      "不满足",
       "rejected",
       "not approved",
+      "not passed",
+      "failed",
       "needs revision",
       "revise",
       "❌",
@@ -1741,14 +1751,51 @@ ${taskResults}
       }
     }
 
-    // 再检查通过词
-    return (
+    // 检查是否有明确的通过标记
+    const approvePatterns = [
+      "审核通过",
+      "评审通过",
+      "审批通过",
+      "✅ 通过",
+      "✅通过",
+      "approved",
+      "passed",
+      "✅",
+    ];
+
+    for (const pattern of approvePatterns) {
+      if (lowerContent.includes(pattern)) {
+        return true;
+      }
+    }
+
+    // 检查一般通过词（但排除否定上下文）
+    if (
       lowerContent.includes("通过") ||
       lowerContent.includes("合格") ||
-      lowerContent.includes("approved") ||
-      lowerContent.includes("✅") ||
-      (lowerContent.includes("完成") && !lowerContent.includes("修改"))
-    );
+      lowerContent.includes("approved")
+    ) {
+      // 额外检查：确保"通过"前面没有否定词
+      const passIndex = lowerContent.indexOf("通过");
+      if (passIndex > 0) {
+        const beforePass = lowerContent.substring(
+          Math.max(0, passIndex - 5),
+          passIndex,
+        );
+        if (
+          beforePass.includes("未") ||
+          beforePass.includes("不") ||
+          beforePass.includes("没") ||
+          beforePass.includes("无法")
+        ) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // 默认不通过（更保守的策略）
+    return false;
   }
 
   // ==================== 查询方法 ====================
