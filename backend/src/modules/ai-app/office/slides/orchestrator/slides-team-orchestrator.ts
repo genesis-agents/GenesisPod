@@ -390,6 +390,21 @@ export class SlidesTeamOrchestrator {
           // 保存输出供后续任务使用
           previousOutputs[task.skillId] = result.result;
 
+          // ★ 诊断日志：检查任务结果
+          const resultObj = result.result as Record<string, unknown> | null;
+          if (task.skillId.includes("outline-planning")) {
+            const pages = (resultObj as { pages?: unknown[] })?.pages;
+            this.logger.log(
+              `[executeTasksPhase] ★ outline-planning result: pages count=${pages?.length || 0}`,
+            );
+          }
+          if (task.skillId.includes("page-pipeline")) {
+            const pages = (resultObj as { pages?: unknown[] })?.pages;
+            this.logger.log(
+              `[executeTasksPhase] ★ page-pipeline result: pages count=${pages?.length || 0}, result keys=${resultObj ? Object.keys(resultObj).join(", ") : "null"}`,
+            );
+          }
+
           // 持久化任务结果
           if (this.persistenceEnabled && this.repository) {
             await this.repository.updateTaskResult(task.id, result.result);

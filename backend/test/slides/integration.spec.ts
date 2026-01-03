@@ -19,7 +19,7 @@ import { SlidesMissionEvent } from "@/modules/ai-app/office/slides/orchestrator/
  */
 function transformSlidesMissionEvent(
   event: SlidesMissionEvent,
-  sessionId: string,
+  _sessionId: string,
 ): { type: string; data: unknown }[] {
   const events: { type: string; data: unknown }[] = [];
   const { type, data } = event;

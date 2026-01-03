@@ -39,33 +39,42 @@ export class SlidesTeamMember {
   ): Promise<TaskExecutionResult> {
     const startTime = Date.now();
 
+    // ★ 安全处理：如果 skillId 包含逗号，只取第一个并规范化
+    let skillId = task.skillId;
+    if (skillId.includes(",")) {
+      skillId = skillId.split(",")[0].trim();
+      this.logger.warn(
+        `[executeTask] Skill ID contained comma, normalized: "${task.skillId}" → "${skillId}"`,
+      );
+    }
+
     this.logger.log(
-      `[executeTask] Executing task ${task.id}: ${task.title} with skill ${task.skillId}`,
+      `[executeTask] Executing task ${task.id}: ${task.title} with skill ${skillId}`,
     );
 
     try {
       // 获取 Skill (使用 tryGet 避免抛出异常)
-      let skill = this.skillRegistry.tryGet(task.skillId);
+      let skill = this.skillRegistry.tryGet(skillId);
 
       if (!skill) {
         this.logger.log(
-          `[executeTask] Skill not found: ${task.skillId}, trying slides-prefixed version`,
+          `[executeTask] Skill not found: ${skillId}, trying slides-prefixed version`,
         );
 
         // 尝试带 slides- 前缀
-        skill = this.skillRegistry.tryGet(`slides-${task.skillId}`);
+        skill = this.skillRegistry.tryGet(`slides-${skillId}`);
         if (!skill) {
           this.logger.error(
-            `[executeTask] Skill not found with both IDs: ${task.skillId}, slides-${task.skillId}`,
+            `[executeTask] Skill not found with both IDs: ${skillId}, slides-${skillId}`,
           );
           return {
             success: false,
-            error: `Skill not found: ${task.skillId}`,
+            error: `Skill not found: ${skillId}`,
             duration: Date.now() - startTime,
           };
         }
         this.logger.log(
-          `[executeTask] Found skill with slides- prefix: slides-${task.skillId}`,
+          `[executeTask] Found skill with slides- prefix: slides-${skillId}`,
         );
       }
 
@@ -201,6 +210,13 @@ export class SlidesTeamMember {
           context.previousOutputs["slides-outline-planning"] ||
           context.previousOutputs["outline-planning"] ||
           context.globalContext.outline;
+
+        // ★ 诊断日志：检查大纲是否正确传递
+        const outlinePages = (outlineResult as { pages?: unknown[] })?.pages;
+        this.logger.log(
+          `[buildSkillInput] ★ page-pipeline input: outline exists=${!!outlineResult}, pages count=${outlinePages?.length || 0}, previousOutputs keys=${Object.keys(context.previousOutputs).join(", ")}`,
+        );
+
         return {
           outline: outlineResult,
           sourceText: context.globalContext.sourceText,
