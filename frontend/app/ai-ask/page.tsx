@@ -624,14 +624,14 @@ function QuoteCard({ quote }: { quote: Quote }) {
         <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/40" />
 
         {/* Content */}
-        <div className="relative z-10 flex h-full flex-col justify-between p-6">
+        <div className="relative z-10 flex h-full flex-col justify-between p-6 pl-20">
           {/* Quote mark */}
-          <div className="font-serif absolute left-4 top-3 select-none text-4xl text-white/20">
+          <div className="font-serif absolute left-16 top-3 select-none text-4xl text-white/20">
             "
           </div>
 
           {/* Quote text - bilingual */}
-          <div className="space-y-2 pl-6 pr-4">
+          <div className="space-y-2 pr-4">
             <p className="text-lg font-medium leading-relaxed text-white md:text-xl">
               {quote.textZh}
             </p>
