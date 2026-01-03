@@ -611,9 +611,9 @@ const INSPIRATIONAL_QUOTES: Quote[] = [
 // Quote Card Component - Redesigned with background image and bilingual support
 function QuoteCard({ quote }: { quote: Quote }) {
   return (
-    <div className="w-full">
+    <div className="mx-4 mb-4">
       <div
-        className="relative mb-4 overflow-hidden shadow-[0_-4px_20px_rgba(0,0,0,0.15)] transition-all duration-300"
+        className="relative overflow-hidden rounded-2xl shadow-md shadow-black/10 transition-all duration-300"
         style={{ minHeight: '140px' }}
       >
         {/* Background image with overlay */}
