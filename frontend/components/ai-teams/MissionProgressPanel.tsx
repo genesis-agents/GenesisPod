@@ -8,10 +8,6 @@ import {
   AgentTaskStatus,
 } from '@/types/ai-teams';
 import { useAiGroupStore } from '@/stores/aiTeamsStore';
-import TeamCanvasView from './TeamCanvasView';
-import TeamCanvasModal from './TeamCanvasModal';
-
-type ViewMode = 'list' | 'canvas';
 
 interface MissionProgressPanelProps {
   topicId: string;
@@ -155,14 +151,12 @@ export default function MissionProgressPanel({
     new Set()
   );
   const [detailMission, setDetailMission] = useState<TeamMission | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [isCanvasModalOpen, setIsCanvasModalOpen] = useState(false);
-  const [canvasMission, setCanvasMission] = useState<TeamMission | null>(null);
 
-  // 打开 Canvas Modal 并显示指定任务
+  // Open canvas view for a specific mission
   const openCanvasForMission = (mission: TeamMission) => {
-    setCanvasMission(mission);
-    setIsCanvasModalOpen(true);
+    if (onFocusCanvas) {
+      onFocusCanvas(mission);
+    }
   };
 
   // Load missions on mount
@@ -209,8 +203,7 @@ export default function MissionProgressPanel({
     }
   }, [missions]);
 
-  // 【关键修复】当 missions 更新时，同步更新 detailMission
-  // 解决详情视图状态不及时更新的问题
+  // Auto-update detailMission when missions list changes
   useEffect(() => {
     if (detailMission && missions) {
       const updatedMission = missions.find((m) => m.id === detailMission.id);
@@ -276,7 +269,7 @@ export default function MissionProgressPanel({
       m.status === 'CANCELLED'
   );
 
-  // Detail view modal
+  // Detail view modal - when a mission is selected for detail view
   if (detailMission) {
     return (
       <MissionDetailView
@@ -323,146 +316,31 @@ export default function MissionProgressPanel({
 
   return (
     <div className="flex h-full flex-col bg-gradient-to-b from-slate-50/50 to-white">
-      {/* Enhanced Header */}
+      {/* Simple Header - Title only */}
       <div className="border-b border-gray-100 bg-white/80 px-4 py-3 backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-sm">
-              <svg
-                className="h-4 w-4 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                />
-              </svg>
-            </div>
-            <h3 className="text-sm font-bold text-gray-800">Team Missions</h3>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {/* Fullscreen Canvas Button */}
-            <button
-              onClick={() => setIsCanvasModalOpen(true)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-sm transition-all hover:shadow-md"
-              title="全屏Canvas视图"
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-sm">
+            <svg
+              className="h-4 w-4 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                />
-              </svg>
-            </button>
-            {/* View Toggle */}
-            <div className="flex rounded-lg bg-gray-100 p-0.5">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`flex h-7 w-7 items-center justify-center rounded-md transition-all ${
-                  viewMode === 'list'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}
-                title="列表视图"
-              >
-                <svg
-                  className="h-3.5 w-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 10h16M4 14h16M4 18h16"
-                  />
-                </svg>
-              </button>
-              <button
-                onClick={() => setViewMode('canvas')}
-                className={`flex h-7 w-7 items-center justify-center rounded-md transition-all ${
-                  viewMode === 'canvas'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}
-                title="小窗Canvas预览"
-              >
-                <svg
-                  className="h-3.5 w-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
-              </button>
-            </div>
-            {/* New Mission Button */}
-            <button
-              onClick={onCreateMission}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-sm transition-all hover:shadow-md"
-              title="创建新任务"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-            </button>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+              />
+            </svg>
           </div>
+          <h3 className="text-sm font-bold text-gray-800">Team Missions</h3>
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
-        {/* Canvas View */}
-        {viewMode === 'canvas' ? (
-          <TeamCanvasView
-            mission={activeMission}
-            aiMembers={aiMembers}
-            typingAIs={typingAIs}
-            onAgentClick={(agent) => {
-              // 点击 Team Leader 时显示任务规划清单
-              if (activeMission && agent.id === activeMission.leaderId) {
-                setDetailMission(activeMission);
-              }
-            }}
-            onTaskClick={(task) => {
-              // Find the mission containing this task and show detail
-              const mission = missionsList.find((m) =>
-                m.tasks?.some((t) => t.id === task.id)
-              );
-              if (mission) {
-                setDetailMission(mission);
-              }
-            }}
-          />
-        ) : missionsList.length === 0 ? (
+        {missionsList.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center p-6">
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100">
               <span className="text-4xl">🎯</span>
@@ -558,18 +436,6 @@ export default function MissionProgressPanel({
           </div>
         )}
       </div>
-
-      {/* Fullscreen Canvas Modal */}
-      <TeamCanvasModal
-        isOpen={isCanvasModalOpen}
-        onClose={() => {
-          setIsCanvasModalOpen(false);
-          setCanvasMission(null);
-        }}
-        mission={canvasMission || activeMission}
-        aiMembers={aiMembers}
-        typingAIs={typingAIs}
-      />
     </div>
   );
 }
@@ -681,6 +547,30 @@ function MissionCard({
             )}
           </div>
         </div>
+
+        {/* Canvas Quick Access Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenCanvas();
+          }}
+          className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-sm transition-all hover:shadow-md"
+          title="在Canvas中查看"
+        >
+          <svg
+            className="h-3.5 w-3.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+            />
+          </svg>
+        </button>
 
         {/* Expand Arrow */}
         <div

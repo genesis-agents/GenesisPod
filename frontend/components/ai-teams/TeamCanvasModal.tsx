@@ -1530,6 +1530,7 @@ export default function TeamCanvasModal({
               agent={selectedAgent}
               isLeader={selectedAgent.id === mission?.leaderId}
               tasks={tasksByAgent.get(selectedAgent.id) || []}
+              allTasks={mission?.tasks || []}
               isWorking={typingAIs.has(selectedAgent.id)}
               position={popoverPosition}
               onClose={handleClosePopover}
@@ -2100,6 +2101,7 @@ function AgentPopover({
   agent,
   isLeader,
   tasks,
+  allTasks,
   isWorking,
   onClose,
   onTaskClick,
@@ -2108,15 +2110,20 @@ function AgentPopover({
   agent: TopicAIMember;
   isLeader: boolean;
   tasks: AgentTask[];
+  allTasks: AgentTask[];
   isWorking: boolean;
   position: { x: number; y: number };
   onClose: () => void;
   onTaskClick: (task: AgentTask) => void;
   missionTitle?: string;
 }) {
-  const completedTasks = tasks.filter((t) => t.status === 'COMPLETED');
-  const inProgressTasks = tasks.filter((t) => t.status === 'IN_PROGRESS');
-  const totalRevisions = tasks.reduce(
+  // For Leader, show all tasks as the planning list
+  const displayTasks = isLeader ? allTasks : tasks;
+  const completedTasks = displayTasks.filter((t) => t.status === 'COMPLETED');
+  const inProgressTasks = displayTasks.filter(
+    (t) => t.status === 'IN_PROGRESS'
+  );
+  const totalRevisions = displayTasks.reduce(
     (sum, t) => sum + (t.revisionCount || 0),
     0
   );
@@ -2281,14 +2288,24 @@ function AgentPopover({
               </div>
             )}
 
-            {/* Task List */}
-            {tasks.length > 0 && (
+            {/* Task List - For Leader shows full planning list, for members shows assigned tasks */}
+            {displayTasks.length > 0 && (
               <div>
-                <div className="mb-3 text-sm font-medium text-gray-500">
-                  任务列表
+                <div className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-500">
+                  {isLeader ? (
+                    <>
+                      <span>📋</span>
+                      <span>任务规划清单</span>
+                      <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-600">
+                        {displayTasks.length} 项
+                      </span>
+                    </>
+                  ) : (
+                    <span>任务列表</span>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  {tasks.slice(0, 6).map((task) => {
+                  {displayTasks.slice(0, 8).map((task) => {
                     const config = taskStatusConfig[task.status];
                     return (
                       <div
@@ -2304,12 +2321,21 @@ function AgentPopover({
                             {config.icon} {config.label}
                           </span>
                         </div>
+                        {/* Show assignee for Leader's planning list */}
+                        {isLeader && task.assignedTo && (
+                          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-gray-500">
+                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 text-[9px] font-medium text-white">
+                              {task.assignedTo.displayName?.charAt(0) || 'A'}
+                            </span>
+                            <span>{task.assignedTo.displayName}</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
-                  {tasks.length > 6 && (
+                  {displayTasks.length > 8 && (
                     <div className="py-2 text-center text-sm text-gray-400">
-                      还有 {tasks.length - 6} 个任务...
+                      还有 {displayTasks.length - 8} 个任务...
                     </div>
                   )}
                 </div>
