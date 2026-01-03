@@ -36,33 +36,37 @@ export class SlidesLeader {
   // ============================================
 
   private async getDefaultModel(): Promise<string> {
-    try {
-      const defaultModel = await this.prisma.aIModel.findFirst({
-        where: {
-          modelType: "CHAT",
-          isDefault: true,
-          isEnabled: true,
-        },
-        select: { modelId: true },
-      });
+    // 优先获取默认 CHAT 模型
+    const defaultModel = await this.prisma.aIModel.findFirst({
+      where: {
+        modelType: "CHAT",
+        isDefault: true,
+        isEnabled: true,
+      },
+      select: { modelId: true },
+    });
 
-      if (defaultModel) {
-        return defaultModel.modelId;
-      }
-
-      const anyModel = await this.prisma.aIModel.findFirst({
-        where: {
-          modelType: "CHAT",
-          isEnabled: true,
-        },
-        select: { modelId: true },
-      });
-
-      return anyModel?.modelId || "gpt-4o";
-    } catch (error) {
-      this.logger.warn(`Failed to get default model: ${error}`);
-      return "gpt-4o";
+    if (defaultModel) {
+      return defaultModel.modelId;
     }
+
+    // 如果没有默认模型，获取任意启用的 CHAT 模型
+    const anyModel = await this.prisma.aIModel.findFirst({
+      where: {
+        modelType: "CHAT",
+        isEnabled: true,
+      },
+      select: { modelId: true },
+    });
+
+    if (anyModel) {
+      return anyModel.modelId;
+    }
+
+    // 严禁硬编码！如果数据库没有配置任何模型，抛出错误
+    throw new Error(
+      "No AI model configured in database. Please configure a CHAT model in Admin Console.",
+    );
   }
 
   private async callAI(

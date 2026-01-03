@@ -248,14 +248,94 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       return this.getAIMemberConfig();
     }
 
-    // 否则使用默认配置或环境变量
-    const provider = this.config?.provider || "openai";
-    const modelId = this.config?.modelId || "gpt-4o";
-    const apiKey = this.config?.apiKey || this.getApiKeyFromEnv(provider) || "";
-    const apiEndpoint =
-      this.config?.apiEndpoint || this.getDefaultEndpoint(provider);
+    // 如果有显式配置的 modelId，直接使用
+    if (this.config?.modelId) {
+      const provider =
+        this.config.provider || this.inferProvider(this.config.modelId);
+      const apiKey =
+        this.config.apiKey || this.getApiKeyFromEnv(provider) || "";
+      const apiEndpoint =
+        this.config.apiEndpoint || this.getDefaultEndpoint(provider);
+      return { provider, modelId: this.config.modelId, apiKey, apiEndpoint };
+    }
 
-    return { provider, modelId, apiKey, apiEndpoint };
+    // 从数据库获取默认模型，严禁硬编码
+    const defaultModel = await this.getDefaultModelFromDb();
+    const provider =
+      this.config?.provider || this.inferProvider(defaultModel.modelId);
+    const apiKey =
+      this.config?.apiKey ||
+      defaultModel.apiKey ||
+      this.getApiKeyFromEnv(provider) ||
+      "";
+    const apiEndpoint =
+      this.config?.apiEndpoint ||
+      defaultModel.apiEndpoint ||
+      this.getDefaultEndpoint(provider);
+
+    return { provider, modelId: defaultModel.modelId, apiKey, apiEndpoint };
+  }
+
+  /**
+   * 从数据库获取默认模型
+   */
+  private async getDefaultModelFromDb(): Promise<{
+    modelId: string;
+    provider: string;
+    apiKey?: string;
+    apiEndpoint?: string;
+  }> {
+    // 优先获取默认 CHAT 模型
+    const defaultModel = await this.prisma.aIModel.findFirst({
+      where: {
+        modelType: "CHAT",
+        isDefault: true,
+        isEnabled: true,
+      },
+      select: {
+        modelId: true,
+        provider: true,
+        apiKey: true,
+        apiEndpoint: true,
+      },
+    });
+
+    if (defaultModel) {
+      return {
+        modelId: defaultModel.modelId,
+        provider: defaultModel.provider,
+        apiKey: defaultModel.apiKey ?? undefined,
+        apiEndpoint: defaultModel.apiEndpoint ?? undefined,
+      };
+    }
+
+    // 如果没有默认模型，获取任意启用的 CHAT 模型
+    const anyModel = await this.prisma.aIModel.findFirst({
+      where: {
+        modelType: "CHAT",
+        isEnabled: true,
+      },
+      select: {
+        modelId: true,
+        provider: true,
+        apiKey: true,
+        apiEndpoint: true,
+      },
+    });
+
+    if (anyModel) {
+      return {
+        modelId: anyModel.modelId,
+        provider: anyModel.provider,
+        apiKey: anyModel.apiKey ?? undefined,
+        apiEndpoint: anyModel.apiEndpoint ?? undefined,
+      };
+    }
+
+    // 严禁硬编码！如果没有配置模型，抛出错误
+    throw new Error(
+      "No AI model configured in database. Please configure a CHAT model in Admin Console.",
+    );
   }
 
   /**

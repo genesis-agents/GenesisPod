@@ -54,11 +54,15 @@ export interface ILeaderLLMAdapter {
 export class LeaderLLMAdapter implements ILeaderLLMAdapter {
   private readonly logger = new Logger(LeaderLLMAdapter.name);
   private llm: ILLMAdapter | null = null;
+  private readonly model: string;
 
   constructor(
     private readonly llmFactory: LLMFactory,
-    private readonly model: string = "gpt-4o",
-  ) {}
+    model?: string,
+  ) {
+    // 如果未指定模型，从 LLMFactory 获取默认模型，严禁硬编码
+    this.model = model || this.llmFactory.getDefaultModel();
+  }
 
   /**
    * 获取或创建 LLM 适配器

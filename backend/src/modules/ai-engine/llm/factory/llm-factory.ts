@@ -51,7 +51,7 @@ export class LLMFactory {
   private readonly adapters = new Map<string, ILLMAdapter>();
   private readonly providerConfigs = new Map<LLMProvider, ProviderConfig>();
   private defaultProvider: LLMProvider = LLM_PROVIDERS.OPENAI;
-  private defaultModel: LLMModel = "gpt-4o";
+  private _defaultModel: LLMModel | null = null; // 从数据库动态获取，严禁硬编码
 
   constructor() {}
 
@@ -63,7 +63,7 @@ export class LLMFactory {
       this.defaultProvider = config.defaultProvider;
     }
     if (config.defaultModel) {
-      this.defaultModel = config.defaultModel;
+      this._defaultModel = config.defaultModel;
     }
     if (config.providers) {
       for (const [provider, providerConfig] of Object.entries(
@@ -145,16 +145,31 @@ export class LLMFactory {
 
   /**
    * 获取默认模型
+   * 优先从配置获取，然后从适配器获取，严禁硬编码
    */
   getDefaultModel(): LLMModel {
-    return this.defaultModel;
+    // 如果已配置默认模型，直接返回
+    if (this._defaultModel) {
+      return this._defaultModel;
+    }
+
+    // 尝试从已注册的适配器获取默认模型
+    const adapter = this.getAdapter();
+    if (adapter && adapter.defaultModel) {
+      return adapter.defaultModel as LLMModel;
+    }
+
+    // 严禁硬编码！如果没有配置模型，抛出错误
+    throw new Error(
+      "No default AI model configured. Please configure a model in Admin Console or call initialize() with defaultModel.",
+    );
   }
 
   /**
    * 设置默认模型
    */
   setDefaultModel(model: LLMModel): void {
-    this.defaultModel = model;
+    this._defaultModel = model;
   }
 
   /**

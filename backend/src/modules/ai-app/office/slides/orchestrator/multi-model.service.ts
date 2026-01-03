@@ -104,16 +104,10 @@ export class MultiModelService {
    * Map role to model
    * @deprecated Roles should be handled by AI Engine's RoleRegistry
    */
-  private roleToModel(role: string): string {
-    // Default model mapping for backward compatibility
-    const roleModelMap: Record<string, string> = {
-      writer: "gpt-4o",
-      architect: "gpt-4o",
-      reviewer: "gpt-4o",
-      renderer: "gpt-4o-mini",
-      analyst: "gpt-4o",
-    };
-    return roleModelMap[role] || "gpt-4o";
+  private roleToModel(_role: string): string {
+    // 严禁硬编码！使用 LLMFactory 的默认模型
+    // 所有角色使用统一的数据库配置模型
+    return this.llmFactory.getDefaultModel();
   }
 
   /**

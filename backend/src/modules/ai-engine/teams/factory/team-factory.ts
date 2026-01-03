@@ -59,7 +59,11 @@ export class TeamFactory {
   ): ITeam {
     this.logger.log(`Creating team instance: ${config.id} (${config.name})`);
 
-    const defaultModel = options?.defaultModel || "gpt-4o";
+    // 从 LLMFactory 或选项获取默认模型，严禁硬编码
+    const defaultModel =
+      options?.defaultModel ||
+      (this.llmFactory?.getDefaultModel() as string) ||
+      "";
 
     // 1. 解析角色
     const roleMap = this.resolveRoles(config);
@@ -209,20 +213,11 @@ export class TeamFactory {
 
   /**
    * 为角色选择模型
+   * 严禁硬编码模型名称！使用数据库配置的默认模型
    */
-  private selectModelForRole(role: IRole, defaultModel: string): string {
-    // 根据角色类型选择模型
-    // Leader 和需要深度分析的角色用更强的模型
-    if (role.type === "leader") {
-      return "gpt-4o";
-    }
-
-    // 分析师、审核员用较强模型
-    if (["analyst", "reviewer"].includes(role.id)) {
-      return "gpt-4o";
-    }
-
-    // 其他角色用默认模型
+  private selectModelForRole(_role: IRole, defaultModel: string): string {
+    // 所有角色使用统一的默认模型，从数据库配置获取
+    // 严禁硬编码特定模型名称
     return defaultModel;
   }
 
