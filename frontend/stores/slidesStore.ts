@@ -211,11 +211,43 @@ export const useSlidesStore = create<SlidesState & SlidesActions>()(
             pages: [...pages].sort((a, b) => a.pageNumber - b.pageNumber),
           }),
         updatePage: (pageNumber, updates) =>
-          set((state) => ({
-            pages: state.pages.map((p) =>
-              p.pageNumber === pageNumber ? { ...p, ...updates } : p
-            ),
-          })),
+          set((state) => {
+            const existingPage = state.pages.find(
+              (p) => p.pageNumber === pageNumber
+            );
+            if (existingPage) {
+              // 更新已存在的页面
+              return {
+                pages: state.pages
+                  .map((p) =>
+                    p.pageNumber === pageNumber ? { ...p, ...updates } : p
+                  )
+                  .sort((a, b) => a.pageNumber - b.pageNumber),
+              };
+            } else {
+              // ★ 关键修复：如果页面不存在，创建新页面
+              const updatesWithOutline = updates as Partial<PageState>;
+              const newPage: PageState = {
+                pageNumber,
+                outline: {
+                  pageNumber,
+                  title:
+                    updatesWithOutline.outline?.title || `第 ${pageNumber} 页`,
+                  templateType:
+                    updatesWithOutline.outline?.templateType || 'pillars',
+                  purpose: '',
+                  keyPoints: [],
+                },
+                status: 'pending',
+                ...updates,
+              };
+              return {
+                pages: [...state.pages, newPage].sort(
+                  (a, b) => a.pageNumber - b.pageNumber
+                ),
+              };
+            }
+          }),
         setSelectedPageIndex: (selectedPageIndex) => set({ selectedPageIndex }),
 
         // 任务和大纲

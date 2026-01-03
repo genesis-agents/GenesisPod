@@ -365,11 +365,20 @@ export function useSlideGenerationTeam(
           case 'slide:generated': {
             const data = (event.data || {}) as Partial<SlideGeneratedData>;
             const pageNumber = data.pageNumber ?? 1;
-            console.log('[Team SSE] Slide generated:', pageNumber);
+            const title = data.title || `第 ${pageNumber} 页`;
+            console.log('[Team SSE] Slide generated:', pageNumber, title);
 
+            // ★ 修复：传递完整的页面信息，包括 outline
             updatePage(pageNumber, {
               status: 'completed',
               html: data.html || '',
+              outline: {
+                pageNumber,
+                title,
+                templateType: 'pillars',
+                purpose: '',
+                keyPoints: [],
+              },
             });
 
             options.onSlideGenerated?.(pageNumber, data.html);
