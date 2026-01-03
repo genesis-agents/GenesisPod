@@ -138,434 +138,486 @@ export function useSlideGenerationTeam(
 
   const handleTeamEvent = useCallback(
     (event: SlidesTeamEvent) => {
+      // 防御性检查：确保 event 有效
+      if (!event || !event.type) {
+        console.warn('[Team SSE] Invalid event received:', event);
+        return;
+      }
+
       console.log('[Team SSE] Event:', event.type, event.data);
       setTeamEvents((prev) => [...prev, event]);
 
-      switch (event.type) {
-        case 'execution:started': {
-          const data = event.data as ExecutionStartedData;
-          console.log('[Team SSE] Execution started:', data.sessionId);
+      // 使用 try-catch 包装所有事件处理，确保单个事件错误不会影响整体流程
+      try {
+        switch (event.type) {
+          case 'execution:started': {
+            const data = (event.data || {}) as Partial<ExecutionStartedData>;
+            const sessionId = data.sessionId || `session-${Date.now()}`;
+            console.log('[Team SSE] Execution started:', sessionId);
 
-          // 初始化 Team 状态
-          setTeamState({
-            executionId: event.executionId,
-            sessionId: data.sessionId,
-            phase: 'initializing',
-            phaseProgress: 0,
-            overallProgress: 0,
-            agents: createInitialAgentStates(),
-            handoffs: [],
-            issues: [],
-            fixes: [],
-            scoringHistory: [],
-            rejections: [],
-            agentSwitches: [],
-          });
-
-          setSession({
-            id: data.sessionId,
-            userId: user?.id || 'anonymous',
-            title: '演示文稿',
-            status: 'active',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
-
-          options.onExecutionStarted?.(data.sessionId);
-          break;
-        }
-
-        case 'phase:started': {
-          const data = event.data as PhaseStartedData;
-          console.log(
-            '[Team SSE] Phase started:',
-            data.phase,
-            'by',
-            data.agent
-          );
-
-          setTeamState((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              phase: data.phase,
-              currentAgent: data.agent,
+            // 初始化 Team 状态
+            setTeamState({
+              executionId: event.executionId || `exec-${Date.now()}`,
+              sessionId: sessionId,
+              phase: 'initializing',
               phaseProgress: 0,
-            };
-          });
-
-          // 更新进度显示
-          setProgress({
-            phase: mapPhaseToProgress(data.phase),
-            phaseProgress: 0,
-            overallProgress: calculateTeamProgress(data.phase, 0),
-            message: data.description,
-          });
-
-          options.onPhaseStarted?.(data.phase, data.agent);
-          break;
-        }
-
-        case 'phase:progress': {
-          const data = event.data as PhaseProgressData;
-          setTeamState((prev) => {
-            if (!prev) return prev;
-            return { ...prev, phaseProgress: data.progress };
-          });
-
-          const currentProgress = useSlidesStore.getState().progress;
-          setProgress({
-            phase: currentProgress?.phase || mapPhaseToProgress(data.phase),
-            phaseProgress: data.progress,
-            overallProgress: calculateTeamProgress(data.phase, data.progress),
-            message: data.message,
-          });
-          break;
-        }
-
-        case 'phase:completed': {
-          const data = event.data as PhaseCompletedData;
-          console.log(
-            '[Team SSE] Phase completed:',
-            data.phase,
-            'in',
-            data.duration,
-            'ms'
-          );
-
-          // 如果是 planning 阶段完成，初始化页面
-          if (data.phase === 'planning' && data.result) {
-            const planResult = data.result as {
-              totalPages?: number;
-              pageOutlines?: Array<{
-                pageNumber: number;
-                title: string;
-                templateType: string;
-              }>;
-            };
-            // 安全检查：确保 pageOutlines 存在
-            if (
-              planResult.pageOutlines &&
-              Array.isArray(planResult.pageOutlines)
-            ) {
-              const initialPages: PageState[] = planResult.pageOutlines.map(
-                (outline) => ({
-                  pageNumber: outline.pageNumber,
-                  outline: {
-                    pageNumber: outline.pageNumber,
-                    title: outline.title,
-                    templateType:
-                      outline.templateType as PageState['outline']['templateType'],
-                    purpose: '',
-                    keyPoints: [],
-                  },
-                  status: 'pending',
-                })
-              );
-              setPages(initialPages);
-            }
-          }
-          break;
-        }
-
-        case 'agent:thinking': {
-          const data = event.data as AgentThinkingData;
-          updateAgentState(data.agent, {
-            status: 'thinking',
-            thought: data.thought,
-          });
-          options.onAgentThinking?.(data.agent, data.thought);
-          break;
-        }
-
-        case 'agent:working': {
-          const data = event.data as AgentWorkingData;
-          updateAgentState(data.agent, {
-            status: 'working',
-            currentTask: data.task,
-            progress: data.progress,
-          });
-          options.onAgentWorking?.(data.agent, data.task);
-          break;
-        }
-
-        case 'agent:completed': {
-          const data = event.data as AgentCompletedData;
-          updateAgentState(data.agent, {
-            status: 'completed',
-            result: data.result,
-            duration: data.duration,
-          });
-          options.onAgentCompleted?.(data.agent, data.result);
-          break;
-        }
-
-        case 'agent:handoff': {
-          const data = event.data as AgentHandoffData;
-          console.log(
-            '[Team SSE] Handoff:',
-            data.fromAgent,
-            '->',
-            data.toAgent
-          );
-
-          setTeamState((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              currentAgent: data.toAgent,
-              handoffs: [...prev.handoffs, data],
-            };
-          });
-
-          // 重置 toAgent 状态
-          updateAgentState(data.toAgent, { status: 'idle' });
-          options.onHandoff?.(data.fromAgent, data.toAgent);
-          break;
-        }
-
-        case 'slide:generating': {
-          const data = event.data as SlideGeneratingData;
-          console.log('[Team SSE] Slide generating:', data.pageNumber);
-
-          updatePage(data.pageNumber, { status: 'generating' });
-
-          const currentProgress = useSlidesStore.getState().progress;
-          setProgress({
-            phase: currentProgress?.phase || 'page_rendering',
-            phaseProgress: currentProgress?.phaseProgress || 0,
-            overallProgress: currentProgress?.overallProgress || 50,
-            currentPage: data.pageNumber,
-            totalPages: data.totalPages,
-            message: `正在生成第 ${data.pageNumber}/${data.totalPages} 页: ${data.title}`,
-          });
-          break;
-        }
-
-        case 'slide:generated': {
-          const data = event.data as SlideGeneratedData;
-          console.log('[Team SSE] Slide generated:', data.pageNumber);
-
-          updatePage(data.pageNumber, {
-            status: 'completed',
-            html: data.html,
-          });
-
-          options.onSlideGenerated?.(data.pageNumber, data.html);
-          break;
-        }
-
-        case 'review:issue_found': {
-          const data = event.data as ReviewIssueData;
-          console.log(
-            '[Team SSE] Issue found:',
-            data.type,
-            'on page',
-            data.pageNumber
-          );
-
-          setTeamState((prev) => {
-            if (!prev) return prev;
-            return { ...prev, issues: [...prev.issues, data] };
-          });
-          break;
-        }
-
-        case 'review:auto_fixed': {
-          const data = event.data as ReviewFixedData;
-          console.log(
-            '[Team SSE] Issue fixed:',
-            data.issueType,
-            'on page',
-            data.pageNumber
-          );
-
-          setTeamState((prev) => {
-            if (!prev) return prev;
-            return { ...prev, fixes: [...prev.fixes, data] };
-          });
-          break;
-        }
-
-        case 'review:scoring': {
-          const data = event.data as ReviewScoringData;
-          console.log(
-            '[Team SSE] Review scoring:',
-            data.phase,
-            data.score,
-            '/',
-            data.threshold,
-            data.passed ? '✓' : '✗'
-          );
-
-          setTeamState((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              scoringHistory: [...prev.scoringHistory, data],
-            };
-          });
-
-          // 更新对应 Agent 的评分
-          updateAgentState(data.agent, {
-            lastScore: data.score,
-            scoreDimensions: data.dimensions,
-          });
-          break;
-        }
-
-        case 'review:rejected': {
-          const data = event.data as ReviewRejectedData;
-          console.log(
-            '[Team SSE] Review rejected:',
-            data.phase,
-            'attempt',
-            data.attempt,
-            'score',
-            data.score
-          );
-
-          setTeamState((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              rejections: [...prev.rejections, data],
-            };
-          });
-          break;
-        }
-
-        case 'review:max_retries_reached': {
-          const data = event.data as ReviewMaxRetriesData;
-          console.log(
-            '[Team SSE] Max retries reached:',
-            data.phase,
-            'action:',
-            data.action
-          );
-          break;
-        }
-
-        case 'review:diagnostics': {
-          // v3.2: 接收诊断信息
-          const data = event.data as ReviewDiagnosticsData;
-          console.log(
-            '[Team SSE] Diagnostics received:',
-            data.diagnostics.length,
-            'pages, fix rate:',
-            data.overallFixRate + '%'
-          );
-
-          setTeamState((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              diagnostics: data.diagnostics,
-            };
-          });
-          break;
-        }
-
-        case 'phase:retry': {
-          const data = event.data as PhaseRetryData;
-          console.log(
-            '[Team SSE] Phase retry:',
-            data.phase,
-            'attempt',
-            data.attempt,
-            '/',
-            data.maxAttempts
-          );
-
-          // 更新当前 Agent 的重试次数
-          const currentAgent = teamState?.currentAgent;
-          if (currentAgent) {
-            updateAgentState(currentAgent, {
-              retryCount: data.attempt,
+              overallProgress: 0,
+              agents: createInitialAgentStates(),
+              handoffs: [],
+              issues: [],
+              fixes: [],
+              scoringHistory: [],
+              rejections: [],
+              agentSwitches: [],
             });
+
+            setSession({
+              id: sessionId,
+              userId: user?.id || 'anonymous',
+              title: '演示文稿',
+              status: 'active',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+
+            options.onExecutionStarted?.(sessionId);
+            break;
           }
-          break;
+
+          case 'phase:started': {
+            const data = (event.data || {}) as Partial<PhaseStartedData>;
+            const phase = data.phase || 'generating';
+            const agent = data.agent || 'writer';
+            console.log('[Team SSE] Phase started:', phase, 'by', agent);
+
+            setTeamState((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                phase: phase,
+                currentAgent: agent,
+                phaseProgress: 0,
+              };
+            });
+
+            // 更新进度显示
+            setProgress({
+              phase: mapPhaseToProgress(phase),
+              phaseProgress: 0,
+              overallProgress: calculateTeamProgress(phase, 0),
+              message: data.description || '处理中...',
+            });
+
+            options.onPhaseStarted?.(phase, agent);
+            break;
+          }
+
+          case 'phase:progress': {
+            const data = (event.data || {}) as Partial<PhaseProgressData>;
+            const progress = data.progress ?? 0;
+            const phase = data.phase || 'generating';
+
+            setTeamState((prev) => {
+              if (!prev) return prev;
+              return { ...prev, phaseProgress: progress };
+            });
+
+            const currentProgress = useSlidesStore.getState().progress;
+            setProgress({
+              phase: currentProgress?.phase || mapPhaseToProgress(phase),
+              phaseProgress: progress,
+              overallProgress: calculateTeamProgress(phase, progress),
+              message: data.message || '处理中...',
+            });
+            break;
+          }
+
+          case 'phase:completed': {
+            const data = (event.data || {}) as Partial<PhaseCompletedData>;
+            const phase = data.phase || 'generating';
+            console.log(
+              '[Team SSE] Phase completed:',
+              phase,
+              'in',
+              data.duration ?? 0,
+              'ms'
+            );
+
+            // 如果是 planning 阶段完成，初始化页面
+            if (phase === 'planning' && data.result) {
+              const planResult = data.result as {
+                totalPages?: number;
+                pageOutlines?: Array<{
+                  pageNumber: number;
+                  title: string;
+                  templateType: string;
+                }>;
+              };
+              // 安全检查：确保 pageOutlines 存在
+              if (
+                planResult.pageOutlines &&
+                Array.isArray(planResult.pageOutlines)
+              ) {
+                const initialPages: PageState[] = planResult.pageOutlines.map(
+                  (outline) => ({
+                    pageNumber: outline.pageNumber || 1,
+                    outline: {
+                      pageNumber: outline.pageNumber || 1,
+                      title: outline.title || '未命名页面',
+                      templateType:
+                        (outline.templateType as PageState['outline']['templateType']) ||
+                        'content',
+                      purpose: '',
+                      keyPoints: [],
+                    },
+                    status: 'pending',
+                  })
+                );
+                setPages(initialPages);
+              }
+            }
+            break;
+          }
+
+          case 'agent:thinking': {
+            const data = (event.data || {}) as Partial<AgentThinkingData>;
+            if (data.agent) {
+              updateAgentState(data.agent, {
+                status: 'thinking',
+                thought: data.thought || '',
+              });
+              options.onAgentThinking?.(data.agent, data.thought || '');
+            }
+            break;
+          }
+
+          case 'agent:working': {
+            const data = (event.data || {}) as Partial<AgentWorkingData>;
+            if (data.agent) {
+              updateAgentState(data.agent, {
+                status: 'working',
+                currentTask: data.task || '处理中...',
+                progress: data.progress ?? 0,
+              });
+              options.onAgentWorking?.(data.agent, data.task || '');
+            }
+            break;
+          }
+
+          case 'agent:completed': {
+            const data = (event.data || {}) as Partial<AgentCompletedData>;
+            if (data.agent) {
+              updateAgentState(data.agent, {
+                status: 'completed',
+                result: data.result || '完成',
+                duration: data.duration ?? 0,
+              });
+              options.onAgentCompleted?.(data.agent, data.result || '');
+            }
+            break;
+          }
+
+          case 'agent:handoff': {
+            const data = (event.data || {}) as Partial<AgentHandoffData>;
+            if (data.fromAgent && data.toAgent) {
+              console.log(
+                '[Team SSE] Handoff:',
+                data.fromAgent,
+                '->',
+                data.toAgent
+              );
+
+              setTeamState((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  currentAgent: data.toAgent,
+                  handoffs: [...prev.handoffs, data as AgentHandoffData],
+                };
+              });
+
+              // 重置 toAgent 状态
+              updateAgentState(data.toAgent, { status: 'idle' });
+              options.onHandoff?.(data.fromAgent, data.toAgent);
+            }
+            break;
+          }
+
+          case 'slide:generating': {
+            const data = (event.data || {}) as Partial<SlideGeneratingData>;
+            const pageNumber = data.pageNumber ?? 1;
+            console.log('[Team SSE] Slide generating:', pageNumber);
+
+            updatePage(pageNumber, { status: 'generating' });
+
+            const currentProgress = useSlidesStore.getState().progress;
+            setProgress({
+              phase: currentProgress?.phase || 'page_rendering',
+              phaseProgress: currentProgress?.phaseProgress || 0,
+              overallProgress: currentProgress?.overallProgress || 50,
+              currentPage: pageNumber,
+              totalPages: data.totalPages ?? 1,
+              message: `正在生成第 ${pageNumber}/${data.totalPages ?? '?'} 页: ${data.title || ''}`,
+            });
+            break;
+          }
+
+          case 'slide:generated': {
+            const data = (event.data || {}) as Partial<SlideGeneratedData>;
+            const pageNumber = data.pageNumber ?? 1;
+            console.log('[Team SSE] Slide generated:', pageNumber);
+
+            updatePage(pageNumber, {
+              status: 'completed',
+              html: data.html || '',
+            });
+
+            options.onSlideGenerated?.(pageNumber, data.html);
+            break;
+          }
+
+          case 'review:issue_found': {
+            const data = (event.data || {}) as Partial<ReviewIssueData>;
+            console.log(
+              '[Team SSE] Issue found:',
+              data.type,
+              'on page',
+              data.pageNumber
+            );
+
+            if (data.type && data.pageNumber) {
+              setTeamState((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  issues: [...prev.issues, data as ReviewIssueData],
+                };
+              });
+            }
+            break;
+          }
+
+          case 'review:auto_fixed': {
+            const data = (event.data || {}) as Partial<ReviewFixedData>;
+            console.log(
+              '[Team SSE] Issue fixed:',
+              data.issueType,
+              'on page',
+              data.pageNumber
+            );
+
+            if (data.issueType && data.pageNumber) {
+              setTeamState((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  fixes: [...prev.fixes, data as ReviewFixedData],
+                };
+              });
+            }
+            break;
+          }
+
+          case 'review:scoring': {
+            const data = (event.data || {}) as Partial<ReviewScoringData>;
+            console.log(
+              '[Team SSE] Review scoring:',
+              data.phase,
+              data.score,
+              '/',
+              data.threshold,
+              data.passed ? '✓' : '✗'
+            );
+
+            if (data.agent) {
+              setTeamState((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  scoringHistory: [
+                    ...prev.scoringHistory,
+                    data as ReviewScoringData,
+                  ],
+                };
+              });
+
+              // 更新对应 Agent 的评分
+              updateAgentState(data.agent, {
+                lastScore: data.score,
+                scoreDimensions: data.dimensions,
+              });
+            }
+            break;
+          }
+
+          case 'review:rejected': {
+            const data = (event.data || {}) as Partial<ReviewRejectedData>;
+            console.log(
+              '[Team SSE] Review rejected:',
+              data.phase,
+              'attempt',
+              data.attempt,
+              'score',
+              data.score
+            );
+
+            if (data.phase) {
+              setTeamState((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  rejections: [...prev.rejections, data as ReviewRejectedData],
+                };
+              });
+            }
+            break;
+          }
+
+          case 'review:max_retries_reached': {
+            const data = (event.data || {}) as Partial<ReviewMaxRetriesData>;
+            console.log(
+              '[Team SSE] Max retries reached:',
+              data.phase,
+              'action:',
+              data.action
+            );
+            break;
+          }
+
+          case 'review:diagnostics': {
+            // v3.2: 接收诊断信息
+            const data = (event.data || {}) as Partial<ReviewDiagnosticsData>;
+            if (data.diagnostics && Array.isArray(data.diagnostics)) {
+              console.log(
+                '[Team SSE] Diagnostics received:',
+                data.diagnostics.length,
+                'pages, fix rate:',
+                (data.overallFixRate ?? 0) + '%'
+              );
+
+              setTeamState((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  diagnostics: data.diagnostics,
+                };
+              });
+            }
+            break;
+          }
+
+          case 'phase:retry': {
+            const data = (event.data || {}) as Partial<PhaseRetryData>;
+            console.log(
+              '[Team SSE] Phase retry:',
+              data.phase,
+              'attempt',
+              data.attempt,
+              '/',
+              data.maxAttempts
+            );
+
+            // 更新当前 Agent 的重试次数
+            const currentAgent = teamState?.currentAgent;
+            if (currentAgent && data.attempt !== undefined) {
+              updateAgentState(currentAgent, {
+                retryCount: data.attempt,
+              });
+            }
+            break;
+          }
+
+          case 'agent:switched': {
+            const data = (event.data || {}) as Partial<AgentSwitchedData>;
+            if (data.originalAgent && data.newAgent) {
+              console.log(
+                '[Team SSE] Agent switched:',
+                data.originalAgent,
+                '->',
+                data.newAgent
+              );
+
+              setTeamState((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  agentSwitches: [
+                    ...prev.agentSwitches,
+                    data as AgentSwitchedData,
+                  ],
+                };
+              });
+
+              // 更新 Agent 变体信息
+              updateAgentState(data.originalAgent, {
+                variant: data.newAgent,
+                retryCount: 0, // 重置重试次数
+              });
+            }
+            break;
+          }
+
+          case 'execution:completed': {
+            const data = (event.data || {}) as Partial<ExecutionCompletedData>;
+            const totalPages = data.totalPages ?? 0;
+            const totalTime = data.totalTime ?? 0;
+            console.log(
+              '[Team SSE] Execution completed:',
+              totalPages,
+              'pages in',
+              totalTime,
+              'ms'
+            );
+
+            setTeamState((prev) => {
+              if (!prev) return prev;
+              return { ...prev, phase: 'completed', overallProgress: 100 };
+            });
+
+            setProgress({
+              phase: 'quality_review',
+              phaseProgress: 100,
+              overallProgress: 100,
+              totalPages: totalPages,
+              message: '生成完成！',
+            });
+
+            setGenerating(false);
+            options.onComplete?.({
+              sessionId: teamState?.sessionId || '',
+              checkpointId: data.checkpointId || '',
+              totalPages: totalPages,
+            });
+            break;
+          }
+
+          case 'execution:failed': {
+            const data = (event.data || {}) as Partial<ExecutionFailedData>;
+            const errorMsg = data.error || '未知错误';
+            console.error('[Team SSE] Execution failed:', errorMsg);
+
+            setTeamState((prev) => {
+              if (!prev) return prev;
+              return { ...prev, phase: 'failed' };
+            });
+
+            setError(errorMsg);
+            setGenerating(false);
+            options.onError?.(errorMsg);
+            break;
+          }
+
+          case 'heartbeat': {
+            // 心跳事件，保持连接
+            break;
+          }
+
+          default:
+            console.log('[Team SSE] Unknown event:', event.type);
         }
-
-        case 'agent:switched': {
-          const data = event.data as AgentSwitchedData;
-          console.log(
-            '[Team SSE] Agent switched:',
-            data.originalAgent,
-            '->',
-            data.newAgent
-          );
-
-          setTeamState((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              agentSwitches: [...prev.agentSwitches, data],
-            };
-          });
-
-          // 更新 Agent 变体信息
-          updateAgentState(data.originalAgent, {
-            variant: data.newAgent,
-            retryCount: 0, // 重置重试次数
-          });
-          break;
-        }
-
-        case 'execution:completed': {
-          const data = event.data as ExecutionCompletedData;
-          console.log(
-            '[Team SSE] Execution completed:',
-            data.totalPages,
-            'pages in',
-            data.totalTime,
-            'ms'
-          );
-
-          setTeamState((prev) => {
-            if (!prev) return prev;
-            return { ...prev, phase: 'completed', overallProgress: 100 };
-          });
-
-          setProgress({
-            phase: 'quality_review',
-            phaseProgress: 100,
-            overallProgress: 100,
-            totalPages: data.totalPages,
-            message: '生成完成！',
-          });
-
-          setGenerating(false);
-          options.onComplete?.({
-            sessionId: teamState?.sessionId || '',
-            checkpointId: data.checkpointId,
-            totalPages: data.totalPages,
-          });
-          break;
-        }
-
-        case 'execution:failed': {
-          const data = event.data as ExecutionFailedData;
-          console.error('[Team SSE] Execution failed:', data.error);
-
-          setTeamState((prev) => {
-            if (!prev) return prev;
-            return { ...prev, phase: 'failed' };
-          });
-
-          setError(data.error);
-          setGenerating(false);
-          options.onError?.(data.error);
-          break;
-        }
-
-        case 'heartbeat': {
-          // 心跳事件，保持连接
-          break;
-        }
-
-        default:
-          console.log('[Team SSE] Unknown event:', event.type);
+      } catch (err) {
+        // 捕获事件处理中的任何错误，确保不会中断整体流程
+        console.error('[Team SSE] Error handling event:', event.type, err);
       }
     },
     [
