@@ -16,6 +16,7 @@
 
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
 import { AiEngineModule } from "@/modules/ai-engine";
 
@@ -44,10 +45,15 @@ import { TransitionCheckerSkill } from "./transition-checker.skill";
 // Layer 6 - Quality Assurance
 import { QualityAuditSkill } from "./quality-audit.skill";
 
+// Layer 0 - Orchestration
+import { PagePipelineSkill } from "./page-pipeline.skill";
+
 /**
  * 所有 Slides 技能的列表
  */
 const SLIDES_SKILL_PROVIDERS = [
+  // Layer 0 - Orchestration (页面生成流水线)
+  PagePipelineSkill,
   // Layer 3
   TemplateMatcherSkill,
   PageTypeSelectionSkill,
@@ -71,7 +77,7 @@ const SLIDES_SKILL_PROVIDERS = [
 ];
 
 @Module({
-  imports: [AiEngineModule, HttpModule],
+  imports: [AiEngineModule, HttpModule, EventEmitterModule.forRoot()],
   providers: [...SLIDES_SKILL_PROVIDERS],
   exports: [...SLIDES_SKILL_PROVIDERS],
 })
@@ -80,6 +86,8 @@ export class SlidesSkillsModule implements OnModuleInit {
 
   constructor(
     private readonly skillRegistry: SkillRegistry,
+    // Layer 0 - Orchestration
+    private readonly pagePipeline: PagePipelineSkill,
     // Layer 3
     private readonly templateMatcher: TemplateMatcherSkill,
     private readonly pageTypeSelection: PageTypeSelectionSkill,
@@ -109,6 +117,8 @@ export class SlidesSkillsModule implements OnModuleInit {
     this.logger.log("Registering Slides skills to SkillRegistry...");
 
     const skills = [
+      // Layer 0 - Orchestration
+      this.pagePipeline,
       // Layer 3
       this.templateMatcher,
       this.pageTypeSelection,

@@ -13,6 +13,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { OnEvent } from "@nestjs/event-emitter";
 import {
   TeamsService,
   CreateMissionDto,
@@ -29,6 +30,7 @@ import {
   StreamEventType,
   StreamEvent,
 } from "../checkpoint/checkpoint.types";
+import { PageGeneratedEvent } from "../skills/page-pipeline.skill";
 
 /**
  * PPT 生成输入参数
@@ -77,11 +79,62 @@ export interface ExportOptions {
 export class SlidesEngineService {
   private readonly logger = new Logger(SlidesEngineService.name);
 
+  /**
+   * 实时页面事件缓冲区
+   * 用于存储 PagePipelineSkill 通过 EventEmitter2 发出的页面生成事件
+   * 这些事件会在 generateSlides 循环中被提取并发送到 SSE 流
+   */
+  private readonly pageEventBuffer = new Map<string, StreamEvent[]>();
+
   constructor(
     private readonly teamsService: TeamsService,
     private readonly checkpointService: CheckpointService,
     private readonly exportService: SlidesExportService,
   ) {}
+
+  /**
+   * 监听 PagePipelineSkill 发出的实时页面生成事件
+   * 将事件缓存到对应 session 的缓冲区
+   */
+  @OnEvent("slides.page.generated")
+  handlePageGenerated(event: PageGeneratedEvent): void {
+    const sessionId = event.sessionId;
+    if (!sessionId) {
+      this.logger.warn(
+        "[handlePageGenerated] Received page event without sessionId",
+      );
+      return;
+    }
+
+    // 创建 slide:generated 事件
+    const streamEvent = this.createEvent("slide:generated", sessionId, {
+      pageNumber: event.pageNumber,
+      totalPages: event.totalPages,
+      title: event.title,
+      html: event.html,
+      templateId: event.templateId,
+      contentLength: event.html?.length || 0,
+    });
+
+    // 添加到缓冲区
+    if (!this.pageEventBuffer.has(sessionId)) {
+      this.pageEventBuffer.set(sessionId, []);
+    }
+    this.pageEventBuffer.get(sessionId)!.push(streamEvent);
+
+    this.logger.log(
+      `[handlePageGenerated] Buffered page ${event.pageNumber}/${event.totalPages} for session ${sessionId}`,
+    );
+  }
+
+  /**
+   * 提取并清空指定 session 的缓冲事件
+   */
+  private flushPageEventBuffer(sessionId: string): StreamEvent[] {
+    const events = this.pageEventBuffer.get(sessionId) || [];
+    this.pageEventBuffer.delete(sessionId);
+    return events;
+  }
 
   /**
    * 生成 PPT（流式）
@@ -160,6 +213,17 @@ export class SlidesEngineService {
           yield streamEvent;
         }
 
+        // 6.5 ★ 实时页面事件：检查并发送缓冲区中的页面事件
+        // PagePipelineSkill 通过 EventEmitter2 发送的事件会被缓存
+        // 这里立即将其推送到 SSE 流，实现"完成一页发送一页"
+        const bufferedPageEvents = this.flushPageEventBuffer(sessionId);
+        for (const pageEvent of bufferedPageEvents) {
+          yield pageEvent;
+          this.logger.log(
+            `[generateSlides] Yielded buffered page event: page ${(pageEvent.data as { pageNumber?: number })?.pageNumber}`,
+          );
+        }
+
         // 7. 跟踪阶段并保存检查点
         if (event.type === "step_started") {
           currentPhase = (event.data as { stepId?: string })?.stepId || "";
@@ -183,6 +247,15 @@ export class SlidesEngineService {
         await this.saveFinalCheckpoint(sessionId, missionResult);
       }
 
+      // 8.5 最后一次刷新缓冲区，确保所有页面事件都已发送
+      const finalPageEvents = this.flushPageEventBuffer(sessionId);
+      for (const pageEvent of finalPageEvents) {
+        yield pageEvent;
+        this.logger.log(
+          `[generateSlides] Yielded final page event: page ${(pageEvent.data as { pageNumber?: number })?.pageNumber}`,
+        );
+      }
+
       // 9. 发送 execution:completed 事件
       const totalPages =
         (missionResult?.deliverables as unknown[])?.length || 0;
@@ -201,6 +274,8 @@ export class SlidesEngineService {
       });
     } finally {
       clearInterval(heartbeatInterval);
+      // 清理缓冲区，防止内存泄漏
+      this.pageEventBuffer.delete(sessionId);
     }
   }
 
@@ -403,19 +478,211 @@ export class SlidesEngineService {
             result: data?.output,
           }),
         );
+
+        // ★ 关键修复：从 step_completed 事件中提取 HTML 页面并立即发送
+        // 当 page-rendering 或 template-rendering 步骤完成时，提取 HTML
+        const output = data?.output as Record<string, unknown> | undefined;
+        if (output) {
+          // 情况 1: output 直接包含 html（单页渲染结果）
+          if (output.html && typeof output.html === "string") {
+            const pageNumber = (output.pageNumber as number) || 1;
+            events.push(
+              this.createEvent("slide:generated", sessionId, {
+                pageNumber,
+                title: (output.title as string) || `第 ${pageNumber} 页`,
+                contentLength: (output.html as string).length,
+                html: output.html,
+              }),
+            );
+            this.logger.log(
+              `[transformMissionEvent] Emitted slide:generated for page ${pageNumber}`,
+            );
+          }
+
+          // 情况 2: output.skillResults 包含渲染结果（Skill 执行结果）
+          const skillResults = output.skillResults as
+            | Array<{ skillId: string; result: { data?: unknown } }>
+            | undefined;
+          if (skillResults && Array.isArray(skillResults)) {
+            for (const { skillId, result } of skillResults) {
+              if (
+                skillId.includes("template-rendering") ||
+                skillId.includes("page-rendering")
+              ) {
+                const renderResult = result?.data as
+                  | { html?: string; pageNumber?: number; title?: string }
+                  | undefined;
+                if (renderResult?.html) {
+                  const pageNumber = renderResult.pageNumber || 1;
+                  events.push(
+                    this.createEvent("slide:generated", sessionId, {
+                      pageNumber,
+                      title: renderResult.title || `第 ${pageNumber} 页`,
+                      contentLength: renderResult.html.length,
+                      html: renderResult.html,
+                    }),
+                  );
+                  this.logger.log(
+                    `[transformMissionEvent] Emitted slide:generated from skill ${skillId} for page ${pageNumber}`,
+                  );
+                }
+              }
+            }
+          }
+
+          // 情况 3: output.data 包含 html（嵌套结构）
+          const nestedData = output.data as
+            | { html?: string; pageNumber?: number; title?: string }
+            | undefined;
+          if (nestedData?.html && typeof nestedData.html === "string") {
+            const pageNumber = nestedData.pageNumber || 1;
+            events.push(
+              this.createEvent("slide:generated", sessionId, {
+                pageNumber,
+                title: nestedData.title || `第 ${pageNumber} 页`,
+                contentLength: nestedData.html.length,
+                html: nestedData.html,
+              }),
+            );
+            this.logger.log(
+              `[transformMissionEvent] Emitted slide:generated from nested data for page ${pageNumber}`,
+            );
+          }
+
+          // 情况 4: PagePipelineSkill 返回 pages[] 数组
+          // 检查 skillResults 中的 page-pipeline 结果
+          if (skillResults && Array.isArray(skillResults)) {
+            for (const { skillId, result } of skillResults) {
+              if (skillId.includes("page-pipeline")) {
+                const pipelineResult = result?.data as
+                  | {
+                      pages?: Array<{
+                        html?: string;
+                        pageNumber?: number;
+                        title?: string;
+                        templateId?: string;
+                        status?: string;
+                      }>;
+                    }
+                  | undefined;
+
+                if (
+                  pipelineResult?.pages &&
+                  Array.isArray(pipelineResult.pages)
+                ) {
+                  for (const page of pipelineResult.pages) {
+                    if (page.html && page.status === "completed") {
+                      events.push(
+                        this.createEvent("slide:generated", sessionId, {
+                          pageNumber: page.pageNumber || 1,
+                          title: page.title || `第 ${page.pageNumber} 页`,
+                          contentLength: page.html.length,
+                          html: page.html,
+                        }),
+                      );
+                      this.logger.log(
+                        `[transformMissionEvent] Emitted slide:generated from PagePipeline for page ${page.pageNumber}`,
+                      );
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // 情况 5: output.data.pages 直接包含页面数组
+          const pagesData = (output.data as { pages?: unknown[] })?.pages;
+          if (pagesData && Array.isArray(pagesData)) {
+            for (const page of pagesData) {
+              const p = page as {
+                html?: string;
+                pageNumber?: number;
+                title?: string;
+                status?: string;
+              };
+              if (p.html && (!p.status || p.status === "completed")) {
+                events.push(
+                  this.createEvent("slide:generated", sessionId, {
+                    pageNumber: p.pageNumber || 1,
+                    title: p.title || `第 ${p.pageNumber} 页`,
+                    contentLength: p.html.length,
+                    html: p.html,
+                  }),
+                );
+                this.logger.log(
+                  `[transformMissionEvent] Emitted slide:generated from pages array for page ${p.pageNumber}`,
+                );
+              }
+            }
+          }
+        }
         break;
       }
 
       case "deliverable_ready": {
-        const pageNumber = (data?.pageNumber as number) || 1;
-        events.push(
-          this.createEvent("slide:generated", sessionId, {
-            pageNumber,
-            title: data?.title || `第 ${pageNumber} 页`,
-            contentLength: 0,
-            html: data?.html,
-          }),
-        );
+        // deliverable 结构可能是 { deliverable: { ... } } 或直接在 data 里
+        const deliverable = (data?.deliverable || data) as Record<
+          string,
+          unknown
+        >;
+
+        // 检查 deliverable.content.outputs 中是否有 HTML 页面
+        const content = deliverable?.content as Record<string, unknown>;
+        const outputs = content?.outputs as unknown[];
+
+        if (outputs && Array.isArray(outputs)) {
+          // 遍历所有输出，提取包含 HTML 的页面
+          let pageIndex = 1;
+          for (const output of outputs) {
+            const outputObj = output as Record<string, unknown>;
+
+            // 检查是否是渲染结果（包含 html 字段）
+            if (outputObj?.html && typeof outputObj.html === "string") {
+              events.push(
+                this.createEvent("slide:generated", sessionId, {
+                  pageNumber: (outputObj.pageNumber as number) || pageIndex,
+                  title: (outputObj.title as string) || `第 ${pageIndex} 页`,
+                  contentLength: (outputObj.html as string).length,
+                  html: outputObj.html,
+                }),
+              );
+              this.logger.log(
+                `[transformMissionEvent] Extracted slide from deliverable outputs, page ${pageIndex}`,
+              );
+              pageIndex++;
+            }
+
+            // 检查嵌套的 data 字段
+            const nestedData = outputObj?.data as Record<string, unknown>;
+            if (nestedData?.html && typeof nestedData.html === "string") {
+              events.push(
+                this.createEvent("slide:generated", sessionId, {
+                  pageNumber: (nestedData.pageNumber as number) || pageIndex,
+                  title: (nestedData.title as string) || `第 ${pageIndex} 页`,
+                  contentLength: (nestedData.html as string).length,
+                  html: nestedData.html,
+                }),
+              );
+              this.logger.log(
+                `[transformMissionEvent] Extracted slide from nested data, page ${pageIndex}`,
+              );
+              pageIndex++;
+            }
+          }
+        }
+
+        // 兼容旧格式：直接在 data 里有 html
+        if (data?.html && typeof data.html === "string") {
+          const pageNumber = (data?.pageNumber as number) || 1;
+          events.push(
+            this.createEvent("slide:generated", sessionId, {
+              pageNumber,
+              title: (data?.title as string) || `第 ${pageNumber} 页`,
+              contentLength: (data.html as string).length,
+              html: data.html,
+            }),
+          );
+        }
         break;
       }
 

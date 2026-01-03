@@ -418,6 +418,7 @@ export class RoleRegistry implements OnModuleInit {
       type: "member",
       icon: "🖼️",
       coreSkills: [
+        "slides-page-pipeline", // 页面生成流水线（逐页流式输出）
         "slides-template-rendering",
         "slides-template-matcher",
         "slides-layout-optimizer",

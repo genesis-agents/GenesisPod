@@ -171,6 +171,8 @@ export const SLIDES_TEAM_CONFIG: TeamConfig = {
   ],
   workflow: SLIDES_WORKFLOW,
   availableSkills: [
+    // Layer 0: Orchestration (页面生成流水线)
+    "slides-page-pipeline",
     // Layer 1: Intent Understanding
     "intent-analyzer",
     // Layer 2: Narrative Planning
