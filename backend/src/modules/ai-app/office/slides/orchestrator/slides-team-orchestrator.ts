@@ -918,7 +918,7 @@ export class SlidesTeamOrchestrator {
     for (const task of mission.tasks) {
       if (task.status !== "completed" || !task.result) continue;
 
-      // 从 four-step-design 结果中提取页面
+      // 从 four-step-design 结果中提取页面（单页）
       if (
         task.skillId === "four-step-design" ||
         task.skillId === "slides-four-step-design"
@@ -947,6 +947,47 @@ export class SlidesTeamOrchestrator {
           };
 
           mission.pages.push(page);
+        }
+      }
+
+      // 从 page-pipeline 结果中提取页面（多页）
+      if (
+        task.skillId === "page-pipeline" ||
+        task.skillId === "slides-page-pipeline"
+      ) {
+        const result = task.result as {
+          pages?: Array<{
+            html?: string;
+            renderedHtml?: string;
+            pageNumber?: number;
+            title?: string;
+            templateId?: string;
+          }>;
+        };
+
+        if (result.pages && Array.isArray(result.pages)) {
+          for (const pageResult of result.pages) {
+            const html = pageResult.renderedHtml || pageResult.html;
+            if (html) {
+              const page: GeneratedSlide = {
+                id: uuidv4(),
+                index: pageResult.pageNumber || mission.pages.length,
+                spec: { title: pageResult.title } as any,
+                content: {} as any,
+                images: [],
+                renderedHtml: html,
+                html: html,
+                isEdited: false,
+                editHistory: [],
+                generationMetadata: {
+                  textModelUsed: "unknown",
+                  contentGeneratedAt: new Date().toISOString(),
+                },
+              };
+
+              mission.pages.push(page);
+            }
+          }
         }
       }
 

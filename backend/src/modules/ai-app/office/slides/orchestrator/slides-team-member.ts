@@ -171,6 +171,22 @@ export class SlidesTeamMember {
           ...baseInput,
         };
 
+      case "page-pipeline":
+      case "slides-page-pipeline":
+        // 获取之前生成的大纲
+        const outlineResult =
+          context.previousOutputs["slides-outline-planning"] ||
+          context.previousOutputs["outline-planning"] ||
+          context.globalContext.outline;
+        return {
+          outline: outlineResult,
+          sourceText: context.globalContext.sourceText,
+          themeId: context.globalContext.themeId || "genspark-dark",
+          stylePreference: context.globalContext.stylePreference || "dark",
+          sessionId: context.sessionId,
+          ...baseInput,
+        };
+
       case "quality-audit":
       case "slides-quality-audit":
         return {
