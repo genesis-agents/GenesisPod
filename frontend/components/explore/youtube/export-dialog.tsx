@@ -31,23 +31,24 @@ export function ExportDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="mx-4 w-full max-w-md overflow-hidden rounded-lg bg-white shadow-xl">
+      <div className="mx-4 w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl">
         {/* Header */}
-        <div className="border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
-          <h2 className="text-xl font-semibold text-white">
-            Export Subtitles to PDF
-          </h2>
+        <div className="border-b border-gray-100 bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-5">
+          <h2 className="text-xl font-semibold text-white">导出字幕为 PDF</h2>
+          <p className="mt-1 text-sm text-violet-100">选择导出格式和选项</p>
         </div>
 
         {/* Content */}
-        <div className="space-y-6 px-6 py-4">
+        <div className="space-y-6 px-6 py-5">
           {/* Format Selection */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Export Format
+          <div className="space-y-3">
+            <label className="block text-sm font-semibold text-gray-800">
+              导出格式
             </label>
             <div className="space-y-2">
-              <label className="flex cursor-pointer items-center space-x-3 rounded-lg border p-3 transition-colors hover:bg-gray-50">
+              <label
+                className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.format === 'bilingual-side' ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
+              >
                 <input
                   type="radio"
                   name="format"
@@ -59,19 +60,21 @@ export function ExportDialog({
                       format: e.target.value as SubtitleExportOptions['format'],
                     })
                   }
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                  className="h-4 w-4 text-violet-600 focus:ring-violet-500"
                 />
                 <div className="flex-1">
                   <div className="text-sm font-medium text-gray-900">
-                    Bilingual (Side by Side)
+                    双语并排
                   </div>
                   <div className="text-xs text-gray-500">
-                    English and Chinese in parallel columns
+                    英文和中文左右两列对照显示
                   </div>
                 </div>
               </label>
 
-              <label className="flex cursor-pointer items-center space-x-3 rounded-lg border p-3 transition-colors hover:bg-gray-50">
+              <label
+                className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.format === 'bilingual-stack' ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
+              >
                 <input
                   type="radio"
                   name="format"
@@ -83,19 +86,21 @@ export function ExportDialog({
                       format: e.target.value as SubtitleExportOptions['format'],
                     })
                   }
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                  className="h-4 w-4 text-violet-600 focus:ring-violet-500"
                 />
                 <div className="flex-1">
                   <div className="text-sm font-medium text-gray-900">
-                    Bilingual (Stacked)
+                    双语上下
                   </div>
                   <div className="text-xs text-gray-500">
-                    English and Chinese one after another
+                    英文在上，中文在下依次排列
                   </div>
                 </div>
               </label>
 
-              <label className="flex cursor-pointer items-center space-x-3 rounded-lg border p-3 transition-colors hover:bg-gray-50">
+              <label
+                className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.format === 'english-only' ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
+              >
                 <input
                   type="radio"
                   name="format"
@@ -107,19 +112,21 @@ export function ExportDialog({
                       format: e.target.value as SubtitleExportOptions['format'],
                     })
                   }
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                  className="h-4 w-4 text-violet-600 focus:ring-violet-500"
                 />
                 <div className="flex-1">
                   <div className="text-sm font-medium text-gray-900">
-                    English Only
+                    仅英文
                   </div>
                   <div className="text-xs text-gray-500">
-                    Only English subtitles
+                    只导出英文原文字幕
                   </div>
                 </div>
               </label>
 
-              <label className="flex cursor-pointer items-center space-x-3 rounded-lg border p-3 transition-colors hover:bg-gray-50">
+              <label
+                className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.format === 'chinese-only' ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
+              >
                 <input
                   type="radio"
                   name="format"
@@ -131,14 +138,14 @@ export function ExportDialog({
                       format: e.target.value as SubtitleExportOptions['format'],
                     })
                   }
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                  className="h-4 w-4 text-violet-600 focus:ring-violet-500"
                 />
                 <div className="flex-1">
                   <div className="text-sm font-medium text-gray-900">
-                    Chinese Only
+                    仅中文
                   </div>
                   <div className="text-xs text-gray-500">
-                    Only Chinese subtitles
+                    只导出中文翻译字幕
                   </div>
                 </div>
               </label>
@@ -147,11 +154,13 @@ export function ExportDialog({
 
           {/* Options */}
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">
-              Additional Options
+            <label className="block text-sm font-semibold text-gray-800">
+              附加选项
             </label>
 
-            <label className="flex cursor-pointer items-center space-x-3 rounded-lg border p-3 transition-colors hover:bg-gray-50">
+            <label
+              className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.includeTimestamps ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
+            >
               <input
                 type="checkbox"
                 checked={options.includeTimestamps}
@@ -161,52 +170,56 @@ export function ExportDialog({
                     includeTimestamps: e.target.checked,
                   })
                 }
-                className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500"
+                className="h-4 w-4 rounded text-violet-600 focus:ring-violet-500"
               />
               <div className="flex-1">
                 <div className="text-sm font-medium text-gray-900">
-                  Include Timestamps
+                  包含时间戳
                 </div>
                 <div className="text-xs text-gray-500">
-                  Show time markers for each subtitle
+                  显示每段字幕的时间标记
                 </div>
               </div>
             </label>
 
-            <label className="flex cursor-pointer items-center space-x-3 rounded-lg border p-3 transition-colors hover:bg-gray-50">
+            <label
+              className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.includeVideoUrl ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
+            >
               <input
                 type="checkbox"
                 checked={options.includeVideoUrl}
                 onChange={(e) =>
                   setOptions({ ...options, includeVideoUrl: e.target.checked })
                 }
-                className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500"
+                className="h-4 w-4 rounded text-violet-600 focus:ring-violet-500"
               />
               <div className="flex-1">
                 <div className="text-sm font-medium text-gray-900">
-                  Include Video URL
+                  包含视频链接
                 </div>
                 <div className="text-xs text-gray-500">
-                  Add YouTube video link in header
+                  在文档头部添加 YouTube 视频链接
                 </div>
               </div>
             </label>
 
-            <label className="flex cursor-pointer items-center space-x-3 rounded-lg border p-3 transition-colors hover:bg-gray-50">
+            <label
+              className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.includeMetadata ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
+            >
               <input
                 type="checkbox"
                 checked={options.includeMetadata}
                 onChange={(e) =>
                   setOptions({ ...options, includeMetadata: e.target.checked })
                 }
-                className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500"
+                className="h-4 w-4 rounded text-violet-600 focus:ring-violet-500"
               />
               <div className="flex-1">
                 <div className="text-sm font-medium text-gray-900">
-                  Include Metadata
+                  包含元信息
                 </div>
                 <div className="text-xs text-gray-500">
-                  Show video title and export date
+                  显示视频标题和导出日期
                 </div>
               </div>
             </label>
@@ -214,18 +227,18 @@ export function ExportDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end space-x-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+        <div className="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Cancel
+            取消
           </button>
           <button
             onClick={handleExport}
             disabled={isLoading}
-            className="flex items-center space-x-2 rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg border border-transparent bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-violet-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isLoading ? (
               <>
@@ -249,7 +262,7 @@ export function ExportDialog({
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                <span>Exporting...</span>
+                <span>导出中...</span>
               </>
             ) : (
               <>
@@ -266,7 +279,7 @@ export function ExportDialog({
                     d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                   />
                 </svg>
-                <span>Export PDF</span>
+                <span>导出 PDF</span>
               </>
             )}
           </button>

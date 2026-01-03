@@ -229,7 +229,7 @@ export class PdfGeneratorService {
     metadata: VideoMetadata,
     includeUrl: boolean,
   ): string {
-    const exportDate = metadata.exportDate.toLocaleString("en-US", {
+    const exportDate = metadata.exportDate.toLocaleString("zh-CN", {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -248,9 +248,9 @@ export class PdfGeneratorService {
             : ""
         }
         <div class="export-info">
-          Exported on: ${exportDate}
+          导出时间: ${exportDate}
           <br>
-          Video ID: ${metadata.videoId}
+          视频 ID: ${metadata.videoId}
         </div>
       </div>
     `;
@@ -303,9 +303,9 @@ export class PdfGeneratorService {
       transcript.chinese.length,
     );
 
-    let content = `<div class="content-section"><div class="section-title">Bilingual Transcript</div>`;
+    let content = `<div class="content-section"><div class="section-title">双语字幕</div>`;
     content += `<div class="transcript-container">`;
-    content += `<div class="transcript-column"><div class="column-header">EN</div>`;
+    content += `<div class="transcript-column"><div class="column-header">英文</div>`;
 
     for (let i = 0; i < maxLength; i++) {
       const english = transcript.english[i];
@@ -319,7 +319,7 @@ export class PdfGeneratorService {
       }
     }
 
-    content += `</div><div class="transcript-column"><div class="column-header">CN</div>`;
+    content += `</div><div class="transcript-column"><div class="column-header">中文</div>`;
 
     for (let i = 0; i < maxLength; i++) {
       const chinese = transcript.chinese[i];
@@ -349,7 +349,7 @@ export class PdfGeneratorService {
       transcript.chinese.length,
     );
 
-    let content = `<div class="content-section stacked"><div class="section-title">Bilingual Transcript</div>`;
+    let content = `<div class="content-section stacked"><div class="section-title">双语字幕</div>`;
 
     for (let i = 0; i < maxLength; i++) {
       const english = transcript.english[i];
@@ -364,11 +364,11 @@ export class PdfGeneratorService {
         }
 
         if (english) {
-          content += `<div class="text english">EN: ${this.escapeHtml(english.text)}</div>`;
+          content += `<div class="text english">英: ${this.escapeHtml(english.text)}</div>`;
         }
 
         if (chinese) {
-          content += `<div class="text chinese">CN: ${this.escapeHtml(chinese.text)}</div>`;
+          content += `<div class="text chinese">中: ${this.escapeHtml(chinese.text)}</div>`;
         }
 
         content += `</div>`;
@@ -387,7 +387,8 @@ export class PdfGeneratorService {
     language: string,
     includeTimestamps: boolean,
   ): string {
-    let content = `<div class="content-section single-language"><div class="section-title">${language} Transcript</div>`;
+    const langLabel = language === "EN" ? "英文字幕" : "中文字幕";
+    let content = `<div class="content-section single-language"><div class="section-title">${langLabel}</div>`;
 
     for (const segment of segments) {
       content += `<div class="segment">`;

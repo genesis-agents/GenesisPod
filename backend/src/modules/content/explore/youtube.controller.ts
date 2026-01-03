@@ -72,6 +72,7 @@ export class YoutubeController {
 
   /**
    * Get bilingual subtitles (English + Chinese aligned)
+   * First tries to get native Chinese subtitles, then falls back to saved AI translations
    */
   @Post("subtitles")
   async getSubtitles(@Body() body: SubtitlesRequestDto) {
@@ -92,22 +93,74 @@ export class YoutubeController {
         "en",
       );
 
-      // Fetch Chinese subtitles
-      let chineseTranscript;
+      // Try to get Chinese subtitles - first try native, then saved translations
+      let chineseTranscript: {
+        videoId: string;
+        title: string;
+        transcript: Array<{ text: string; start: number; duration: number }>;
+      };
+
+      // Strategy 1: Try native Chinese subtitles from YouTube
       try {
         chineseTranscript = await this.youtubeService.getTranscript(
           cleanVideoId,
           "zh",
         );
+        if (chineseTranscript.transcript.length > 0) {
+          this.logger.log(
+            `Found native Chinese subtitles for ${cleanVideoId} (${chineseTranscript.transcript.length} segments)`,
+          );
+        }
       } catch (error) {
-        this.logger.warn(
-          `Chinese subtitles not available for ${cleanVideoId}, using empty array`,
+        this.logger.debug(
+          `Native Chinese subtitles not available for ${cleanVideoId}: ${error}`,
         );
         chineseTranscript = {
           videoId: cleanVideoId,
           title: englishTranscript.title,
           transcript: [],
         };
+      }
+
+      // Strategy 2: If no native Chinese, check for saved AI translations
+      if (chineseTranscript.transcript.length === 0) {
+        this.logger.log(
+          `No native Chinese subtitles, checking for saved translations for ${cleanVideoId}`,
+        );
+        const translationStatus =
+          await this.youtubeService.getTranslationStatus(cleanVideoId);
+
+        if (translationStatus.hasTranslation) {
+          // Fetch the full transcript with translations
+          const cachedTranscript = await this.youtubeService.getTranscript(
+            cleanVideoId,
+            "en",
+          );
+
+          if (cachedTranscript.hasTranslation && cachedTranscript.transcript) {
+            // Build Chinese transcript from translatedText fields
+            chineseTranscript = {
+              videoId: cleanVideoId,
+              title: cachedTranscript.title,
+              transcript: cachedTranscript.transcript
+                .filter((seg) => seg.translatedText)
+                .map((seg) => ({
+                  text: seg.translatedText!,
+                  start: seg.start,
+                  duration: seg.duration,
+                })),
+            };
+
+            this.logger.log(
+              `Using saved AI translations for ${cleanVideoId} (${chineseTranscript.transcript.length} segments)`,
+            );
+          }
+        } else {
+          this.logger.warn(
+            `No Chinese subtitles or saved translations available for ${cleanVideoId}. ` +
+              `User needs to translate the content in the viewer first.`,
+          );
+        }
       }
 
       // Align transcripts
@@ -122,6 +175,10 @@ export class YoutubeController {
         url: `https://www.youtube.com/watch?v=${cleanVideoId}`,
         english: aligned.english,
         chinese: aligned.chinese,
+        hasTranslation:
+          chineseTranscript.transcript.length > 0 ||
+          (await this.youtubeService.getTranslationStatus(cleanVideoId))
+            .hasTranslation,
       };
     } catch (error) {
       this.logger.error(

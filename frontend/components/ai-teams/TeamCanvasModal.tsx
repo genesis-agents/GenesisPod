@@ -12,12 +12,12 @@ import {
 } from '@/types/ai-teams';
 import { getProviderBrand as getProviderBrandFromLib } from '@/lib/ai-provider-logos';
 import {
-  downloadMissionReportPDF,
   downloadMissionReportHTML,
   previewMissionReport,
   MissionReportData,
 } from '@/lib/utils/mission-report-pdf';
 import * as api from '@/lib/api/ai-teams';
+import { useExport } from '@/hooks/features/useExport';
 
 interface TeamCanvasModalProps {
   isOpen: boolean;
@@ -367,6 +367,10 @@ export default function TeamCanvasModal({
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const lastWheelTime = useRef(0);
 
+  // Export hook for unified export system
+  const { exportMission, exportStatus, isExporting, downloadExport } =
+    useExport();
+
   // Animation loop for dynamic effects
   useEffect(() => {
     if (!isOpen || !mission) return;
@@ -612,81 +616,98 @@ export default function TeamCanvasModal({
     [tasksByAgent]
   );
 
-  // Download results as PDF
+  // Download results as PDF using unified export system
   const handleDownloadResults = useCallback(async () => {
     if (!mission) return;
 
-    // 先获取完整的任务数据（包括所有 tasks 的 result 和 mission 的 finalResult）
-    let fullMission = mission;
     try {
-      console.log('[Report] Fetching full mission data for:', mission.id);
-      fullMission = await api.getMissionById(mission.topicId, mission.id);
-      console.log('[Report] Full mission fetched:', {
-        id: fullMission.id,
-        tasksCount: fullMission.tasks?.length || 0,
-        hasFinalResult: !!fullMission.finalResult,
-        tasksWithResults:
-          fullMission.tasks?.filter((t) => t.result)?.length || 0,
-      });
+      console.log('[Export] Starting unified export for mission:', mission.id);
+
+      // 使用统一导出系统
+      const result = await exportMission(mission.id, mission.topicId, 'PDF');
+
+      console.log('[Export] Export job completed:', result);
+
+      // 触发下载
+      if (result.jobId) {
+        downloadExport(result.jobId);
+      }
     } catch (error) {
-      console.warn(
-        '[Report] Failed to fetch full mission, using current data:',
-        error
-      );
-      // 继续使用当前数据
-    }
+      console.error('[Export] Failed to export via unified system:', error);
 
-    const reportData: MissionReportData = {
-      mission: {
-        id: fullMission.id,
-        title: fullMission.title,
-        description: fullMission.description,
-        status: fullMission.status,
-        leader: fullMission.leader?.displayName || 'Unknown',
-        createdAt: fullMission.createdAt,
-        completedAt: fullMission.completedAt || undefined,
-        finalResult: fullMission.finalResult || undefined,
-      },
-      tasks: (fullMission.tasks || []).map((t) => ({
-        id: t.id,
-        title: t.title,
-        description: t.description,
-        status: t.status,
-        assignedTo: t.assignedTo?.displayName || 'Unassigned',
-        result: t.result || undefined,
-        leaderFeedback: t.leaderFeedback || undefined,
-        revisionCount: t.revisionCount || 0,
-        startedAt: t.startedAt || undefined,
-        completedAt: t.completedAt || undefined,
-      })),
-    };
-
-    // Debug: 打印报告数据
-    console.log('[Report Debug] Mission data:', {
-      id: fullMission.id,
-      title: fullMission.title,
-      status: fullMission.status,
-      finalResult: fullMission.finalResult
-        ? `${fullMission.finalResult.substring(0, 100)}...`
-        : 'NULL',
-      tasksCount: fullMission.tasks?.length || 0,
-      tasksWithResults: fullMission.tasks?.filter((t) => t.result)?.length || 0,
-    });
-    console.log('[Report Debug] Full reportData:', reportData);
-
-    try {
-      await downloadMissionReportPDF(reportData);
-    } catch (error) {
-      console.error('Failed to generate PDF report:', error);
-      // Fallback to HTML if PDF generation fails
+      // Fallback to legacy HTML export
       const useHtml = window.confirm(
-        'PDF生成失败。是否下载HTML版本？\n\n' +
+        'PDF导出失败。是否下载HTML版本？\n\n' +
           '您可以在浏览器中打开HTML文件后使用"打印到PDF"功能。'
       );
+
       if (useHtml) {
+        // 获取完整任务数据用于 fallback
+        let fullMission = mission;
+        try {
+          fullMission = await api.getMissionById(mission.topicId, mission.id);
+        } catch {
+          // 继续使用当前数据
+        }
+
+        const reportData: MissionReportData = {
+          mission: {
+            id: fullMission.id,
+            title: fullMission.title,
+            description: fullMission.description,
+            status: fullMission.status,
+            leader: fullMission.leader?.displayName || 'Unknown',
+            createdAt: fullMission.createdAt,
+            completedAt: fullMission.completedAt || undefined,
+            finalResult: fullMission.finalResult || undefined,
+          },
+          tasks: (fullMission.tasks || []).map((t) => ({
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            status: t.status,
+            assignedTo: t.assignedTo?.displayName || 'Unassigned',
+            result: t.result || undefined,
+            leaderFeedback: t.leaderFeedback || undefined,
+            revisionCount: t.revisionCount || 0,
+            startedAt: t.startedAt || undefined,
+            completedAt: t.completedAt || undefined,
+          })),
+        };
         downloadMissionReportHTML(reportData);
       } else {
         // Open preview in new window
+        let fullMission = mission;
+        try {
+          fullMission = await api.getMissionById(mission.topicId, mission.id);
+        } catch {
+          // 继续使用当前数据
+        }
+
+        const reportData: MissionReportData = {
+          mission: {
+            id: fullMission.id,
+            title: fullMission.title,
+            description: fullMission.description,
+            status: fullMission.status,
+            leader: fullMission.leader?.displayName || 'Unknown',
+            createdAt: fullMission.createdAt,
+            completedAt: fullMission.completedAt || undefined,
+            finalResult: fullMission.finalResult || undefined,
+          },
+          tasks: (fullMission.tasks || []).map((t) => ({
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            status: t.status,
+            assignedTo: t.assignedTo?.displayName || 'Unassigned',
+            result: t.result || undefined,
+            leaderFeedback: t.leaderFeedback || undefined,
+            revisionCount: t.revisionCount || 0,
+            startedAt: t.startedAt || undefined,
+            completedAt: t.completedAt || undefined,
+          })),
+        };
         const previewWin = previewMissionReport(reportData);
         if (previewWin) {
           alert(
@@ -695,7 +716,7 @@ export default function TeamCanvasModal({
         }
       }
     }
-  }, [mission]);
+  }, [mission, exportMission, downloadExport]);
 
   if (!isOpen) return null;
 
@@ -812,23 +833,57 @@ export default function TeamCanvasModal({
           {mission && (
             <button
               onClick={handleDownloadResults}
-              className="flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
-              title="下载PDF格式报告"
+              disabled={isExporting}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                isExporting
+                  ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+              }`}
+              title={isExporting ? '正在导出...' : '下载PDF格式报告'}
             >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                />
-              </svg>
-              下载PDF报告
+              {isExporting ? (
+                <>
+                  <svg
+                    className="h-4 w-4 animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  {exportStatus.progress !== undefined
+                    ? `导出中 ${Math.round(exportStatus.progress)}%`
+                    : '导出中...'}
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    />
+                  </svg>
+                  下载PDF报告
+                </>
+              )}
             </button>
           )}
           {/* Close Button */}
