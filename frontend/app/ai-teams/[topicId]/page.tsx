@@ -2555,7 +2555,7 @@ export default function TopicPage() {
                         ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
                         : 'bg-green-100 text-green-700 hover:bg-green-200',
                 ].join(' ')}
-                title="??????"
+                title="继续当前任务"
               >
                 <svg
                   className="h-4 w-4"
@@ -2576,7 +2576,7 @@ export default function TopicPage() {
                     d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                ????
+                继续任务
               </button>
 
               {/* Cancel Mission */}
@@ -2590,9 +2590,7 @@ export default function TopicPage() {
                 onClick={async () => {
                   if (!topicId || !activeMission) return;
                   if (
-                    confirm(`???????????
-
-${activeMission.title}`)
+                    confirm(`确认要取消当前任务吗？\n\n${activeMission.title}`)
                   ) {
                     await cancelMission(topicId, activeMission.id);
                   }
@@ -2606,7 +2604,7 @@ ${activeMission.title}`)
                     ? 'cursor-not-allowed bg-gray-100 text-gray-400'
                     : 'bg-red-100 text-red-700 hover:bg-red-200',
                 ].join(' ')}
-                title="??????"
+                title="取消当前任务"
               >
                 <svg
                   className="h-4 w-4"
@@ -2621,7 +2619,7 @@ ${activeMission.title}`)
                     d="M6 18L18 6M6 6l12 12"
                   />
                 </svg>
-                ????
+                取消任务
               </button>
 
               {/* Retry Mission (Full) - only show when mission failed */}
@@ -2733,6 +2731,7 @@ ${activeMission.title}`)
           <MissionProgressPanel
             topicId={topicId}
             onCreateMission={() => setShowMissionDialog(true)}
+            onFocusCanvas={() => setMainViewMode('canvas')}
           />
         </div>
       )}

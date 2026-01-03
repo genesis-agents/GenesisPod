@@ -1153,6 +1153,15 @@ function TaskDetailCard({
       className={`rounded-xl border transition-all ${
         isExpanded ? 'border-blue-300 shadow-sm' : statusConfig.borderColor
       } ${statusConfig.bgColor}`}
+      onClick={onFocusCanvas}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onFocusCanvas?.();
+        }
+      }}
     >
       {/* Task Header */}
       <div
