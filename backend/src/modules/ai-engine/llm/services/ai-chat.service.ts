@@ -945,31 +945,10 @@ export class AiChatService {
     maxTokens: number,
     temperature: number,
   ): Promise<ChatCompletionResult> {
-    // 验证并修正 Gemini 模型 ID
-    // 已知有效的 Gemini 模型格式：gemini-{version}-{type} 或 gemini-{version}-{type}-{variant}
-    // 有效版本：1.0, 1.5, 2.0, exp
-    // 无效示例：gemini-3-flash-preview（不存在 gemini 3.x）
-    let effectiveModelId = modelId;
-
-    // 检查是否是已知无效的模型 ID（如 gemini-3-xxx）
-    const invalidModelPatterns = [
-      /^gemini-3-/i, // gemini-3.x 系列不存在
-      /^gemini-4-/i, // gemini-4.x 系列不存在
-    ];
-
-    const isInvalidModel = invalidModelPatterns.some((pattern) =>
-      pattern.test(modelId),
-    );
-
-    if (isInvalidModel) {
-      // 回退到已知有效的模型
-      const fallbackModel = "gemini-2.0-flash-exp";
-      this.logger.warn(
-        `[callGoogleAPI] Invalid model ID "${modelId}" - falling back to "${fallbackModel}". ` +
-          `Please update the model configuration in Admin Console.`,
-      );
-      effectiveModelId = fallbackModel;
-    }
+    // 直接使用数据库配置的模型 ID，不做额外验证
+    // 如果模型无效，Google API 会返回明确错误，不应静默替换
+    // 用户在管理后台配置的模型如果通过测试，就应该被信任
+    const effectiveModelId = modelId;
 
     // 构建正确的 Gemini API URL
     // apiEndpoint 可能是：
@@ -2611,27 +2590,12 @@ Generate an image that fulfills the current request while maintaining consistenc
     const isImageOnlyModel =
       modelIdLower.includes("image") || modelIdLower.startsWith("imagen");
 
-    // Determine the effective model to use
+    // 直接使用数据库配置的模型 ID，不做额外验证
+    // 如果模型无效，Google API 会返回明确错误，不应静默替换
+    // 用户在管理后台配置的模型如果通过测试，就应该被信任
     let effectiveModelId = modelId;
 
-    // 检查是否是已知无效的模型 ID（如 gemini-3-xxx、gemini-4-xxx）
-    // 这些模型版本不存在，需要回退到有效模型
-    const invalidModelPatterns = [
-      /^gemini-3-/i, // gemini-3.x 系列不存在
-      /^gemini-4-/i, // gemini-4.x 系列不存在
-    ];
-    const isInvalidModel = invalidModelPatterns.some((pattern) =>
-      pattern.test(modelId),
-    );
-
-    if (isInvalidModel) {
-      // 无效模型 ID，回退到已知有效的模型
-      effectiveModelId = "gemini-2.0-flash-exp";
-      this.logger.warn(
-        `[Gemini] Invalid model ID "${modelId}" - falling back to "${effectiveModelId}". ` +
-          `Please update the model configuration in Admin Console.`,
-      );
-    } else if (isImageOnlyModel && !isImageRequest) {
+    if (isImageOnlyModel && !isImageRequest) {
       // Image-only models can't do text conversations - fall back to text model
       effectiveModelId = "gemini-2.0-flash-exp";
       this.logger.log(
