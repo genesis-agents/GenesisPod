@@ -5089,8 +5089,10 @@ enum SlidesTaskPriority {
 enum SlidesMemberRole {
   LEADER // 架构师
   ANALYST // 分析师
-  DESIGNER // 设计师
+  STRATEGIST // 策略师
+  WRITER // 撰写师
   REVIEWER // 审核员
+  DESIGNER // @deprecated - 保留用于向后兼容，新代码使用 WRITER
 }
 
 enum SlidesEventType {

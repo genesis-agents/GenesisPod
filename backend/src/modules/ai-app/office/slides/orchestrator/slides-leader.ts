@@ -280,13 +280,24 @@ ${mission.sourceText.substring(0, 8000)}${mission.sourceText.length > 8000 ? "\n
     if (normalized.includes("analyst") || normalized.includes("分析")) {
       return "analyst";
     }
-    if (normalized.includes("designer") || normalized.includes("设计")) {
-      return "designer";
+    if (normalized.includes("strategist") || normalized.includes("策略")) {
+      return "strategist";
+    }
+    if (
+      normalized.includes("writer") ||
+      normalized.includes("撰写") ||
+      normalized.includes("内容")
+    ) {
+      return "writer";
     }
     if (normalized.includes("reviewer") || normalized.includes("审核")) {
       return "reviewer";
     }
-    return "designer";
+    // Default to writer for design/generation tasks
+    if (normalized.includes("designer") || normalized.includes("设计")) {
+      return "writer";
+    }
+    return "writer";
   }
 
   private normalizePriority(
@@ -314,7 +325,7 @@ ${mission.sourceText.substring(0, 8000)}${mission.sourceText.length > 8000 ? "\n
       {
         title: "选择页面类型",
         description: "为每个页面选择合适的模板类型",
-        assignee: "designer",
+        assignee: "strategist",
         skillId: "page-type-selection",
         priority: "medium",
         dependsOn: [0],

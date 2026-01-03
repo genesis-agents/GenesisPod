@@ -14,7 +14,8 @@ import type { GeneratedSlide, PPTOutline } from "../types/slides.types";
 export type SlidesTeamMemberRole =
   | "leader"
   | "analyst"
-  | "designer"
+  | "strategist"
+  | "writer"
   | "reviewer";
 
 export interface SlidesTeamMemberConfig {
@@ -37,22 +38,26 @@ export const SLIDES_TEAM_MEMBERS: Record<
   analyst: {
     role: "analyst",
     name: "Content Analyst",
-    description: "内容分析师，负责源文本分析和大纲生成",
-    skills: ["task-decomposition", "outline-planning", "content-analyzer"],
+    description: "内容分析师，负责源文本分析和结构解析",
+    skills: ["task-decomposition", "content-analyzer"],
   },
-  designer: {
-    role: "designer",
-    name: "Visual Designer",
-    description: "视觉设计师，负责页面设计和布局",
+  strategist: {
+    role: "strategist",
+    name: "Visual Strategist",
+    description: "视觉策略师，负责设计策略和模板选择",
+    skills: ["outline-planning", "template-matcher", "page-type-selection"],
+  },
+  writer: {
+    role: "writer",
+    name: "Content Writer",
+    description: "内容撰写师，负责页面内容生成和渲染",
     skills: [
       "four-step-design",
-      "template-matcher",
       "layout-optimizer",
       "chart-renderer",
       "image-fetcher",
       "content-compression",
       "data-supplement",
-      "page-type-selection",
     ],
   },
   reviewer: {

@@ -66,7 +66,8 @@ const PRIORITY_MAP: Record<SlidesTaskPriority, string> = {
 const ROLE_MAP: Record<SlidesTeamMemberRole, string> = {
   leader: "LEADER",
   analyst: "ANALYST",
-  designer: "DESIGNER",
+  strategist: "STRATEGIST",
+  writer: "WRITER",
   reviewer: "REVIEWER",
 };
 
@@ -353,8 +354,10 @@ export class SlidesRepository {
         assignee: ROLE_MAP[task.assignee] as
           | "LEADER"
           | "ANALYST"
-          | "DESIGNER"
-          | "REVIEWER",
+          | "STRATEGIST"
+          | "WRITER"
+          | "REVIEWER"
+          | "DESIGNER",
         skillId: task.skillId,
         input: task.input as Prisma.InputJsonValue,
         dependencies: task.dependencies,

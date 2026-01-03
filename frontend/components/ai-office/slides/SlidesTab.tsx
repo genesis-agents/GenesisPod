@@ -370,50 +370,14 @@ export function SlidesTab() {
           status: 'error',
           timestamp: new Date(event.timestamp),
         });
-      } else if (event.type === 'agent:thinking') {
-        const data = event.data as { agentName?: string; thought?: string };
-        calls.push({
-          id,
-          type: 'thinking',
-          title: `💭 ${data.agentName || 'Agent'} 思考中`,
-          content: data.thought,
-          status: 'running',
-          timestamp: new Date(event.timestamp),
-        });
-      } else if (event.type === 'agent:working') {
-        const data = event.data as { agentName?: string; task?: string };
-        calls.push({
-          id,
-          type: 'step',
-          title: `⚙️ ${data.agentName || 'Agent'} 工作中`,
-          content: data.task,
-          status: 'running',
-          timestamp: new Date(event.timestamp),
-        });
-      } else if (event.type === 'agent:completed') {
-        const data = event.data as { agentName?: string; result?: string };
-        calls.push({
-          id,
-          type: 'step',
-          title: `✓ ${data.agentName || 'Agent'} 完成`,
-          content: data.result,
-          status: 'completed',
-          timestamp: new Date(event.timestamp),
-        });
-      } else if (event.type === 'agent:handoff') {
-        const data = event.data as {
-          fromAgent?: string;
-          toAgent?: string;
-          message?: string;
-        };
-        calls.push({
-          id,
-          type: 'step',
-          title: `🔄 任务交接`,
-          content: data.message || `${data.fromAgent} → ${data.toAgent}`,
-          status: 'completed',
-          timestamp: new Date(event.timestamp),
-        });
+      } else if (
+        event.type === 'agent:thinking' ||
+        event.type === 'agent:working' ||
+        event.type === 'agent:completed' ||
+        event.type === 'agent:handoff'
+      ) {
+        // Agent 事件由 AgentTeamPanel 处理，不在 timeline 中显示
+        // 避免与 phase:* 事件重复
       } else if (event.type === 'heartbeat') {
         // 心跳事件，不显示
       }
