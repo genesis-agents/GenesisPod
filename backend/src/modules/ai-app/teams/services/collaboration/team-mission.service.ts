@@ -341,10 +341,24 @@ export class TeamMissionService {
         },
       );
 
+      // 清除 Leader 规划状态 (规划完成)
+      this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:agent_done", {
+        missionId: mission.id,
+        taskId: null,
+        agentId: leader.id,
+      });
+
       // 开始执行任务
       await this.executeNextTasks(mission.id);
     } catch (error) {
       this.logger.error(`Leader planning failed: ${error}`);
+
+      // 清除 Leader 规划状态 (规划失败)
+      this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:agent_done", {
+        missionId: mission.id,
+        taskId: null,
+        agentId: leader.id,
+      });
 
       await this.prisma.teamMission.update({
         where: { id: mission.id },
