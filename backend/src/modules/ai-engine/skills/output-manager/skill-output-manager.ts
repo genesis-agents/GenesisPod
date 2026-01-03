@@ -189,10 +189,34 @@ export class SkillOutputManager implements ISkillOutputManager {
   }
 
   /**
-   * 导出为普通对象
+   * 导出为普通对象（包含原始 key 和规范化 key）
+   *
+   * 为了向后兼容，同时返回：
+   * - 规范化后的 key（如 "outline-planning"）
+   * - 原始 skill ID（如 "slides-outline-planning"）
    */
-  exportTo(): Record<NormalizedSkillKey, unknown> {
-    return this.getAll();
+  exportTo(): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+
+    for (const [key, entry] of this._store.entries()) {
+      // 1. 规范化 key
+      result[key] = entry.data;
+
+      // 2. 原始 skill ID（向后兼容）
+      if (entry.originalSkillId && entry.originalSkillId !== key) {
+        result[entry.originalSkillId] = entry.data;
+      }
+
+      // 3. 带前缀的变体（确保 slides-xxx 格式可用）
+      for (const prefix of this.config.knownPrefixes) {
+        const prefixedKey = `${prefix}${key}`;
+        if (!result[prefixedKey]) {
+          result[prefixedKey] = entry.data;
+        }
+      }
+    }
+
+    return result;
   }
 
   /**

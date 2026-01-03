@@ -108,8 +108,13 @@ export interface ISkillOutputManager {
 
   /**
    * 导出为普通对象（用于序列化）
+   *
+   * 为了向后兼容，同时返回：
+   * - 规范化后的 key（如 "outline-planning"）
+   * - 原始 skill ID（如 "slides-outline-planning"）
+   * - 带前缀的变体（确保 slides-xxx 格式可用）
    */
-  exportTo(): Record<NormalizedSkillKey, unknown>;
+  exportTo(): Record<string, unknown>;
 
   /**
    * 规范化 Skill ID 为标准 Key
