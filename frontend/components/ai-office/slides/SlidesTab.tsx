@@ -139,237 +139,63 @@ export function SlidesTab() {
     refreshSessions();
   }, [refreshSessions]);
 
-  // 将 streamEvents 和 teamEvents 转换为 toolCalls - 增强版：提取更多详细信息
-  // 使用 Set 进行去重，避免重复显示
+  // 将 streamEvents 和 teamEvents 转换为 toolCalls
+  // 精简版：只显示关键节点，Agent 状态由 AgentTeamPanel 负责
+  // 目标：最多显示 5-8 个条目，而不是 20+ 个
   useEffect(() => {
     const calls: ToolCallItem[] = [];
-    // 跟踪已添加的阶段，避免重复
-    const addedPhases = new Set<string>();
-    // 跟踪特殊事件，确保只添加一次
     let hasExecutionStarted = false;
     let hasExecutionCompleted = false;
+    let totalPagesGenerated = 0;
 
-    // 处理 store 中的 streamEvents（旧格式，下划线分隔）
-    streamEvents.forEach((event) => {
-      const id = `${event.type}-${event.timestamp}`;
-
-      if (event.type === 'phase_started') {
-        const data = event.data as { phase: string };
-        const phaseTitle = getPhaseTitle(data.phase);
-        // 去重：如果已经添加过这个阶段，跳过
-        if (!addedPhases.has(phaseTitle)) {
-          addedPhases.add(phaseTitle);
-          calls.push({
-            id,
-            type: 'step',
-            title: phaseTitle,
-            status: 'running',
-            timestamp: new Date(event.timestamp),
-          });
-        }
-      } else if (event.type === 'phase_completed') {
-        const eventData = event.data as { phase: string };
-        const existingIndex = calls.findIndex(
-          (c) =>
-            c.title === getPhaseTitle(eventData.phase) && c.status === 'running'
-        );
-        if (existingIndex >= 0) {
-          calls[existingIndex] = {
-            ...calls[existingIndex],
-            status: 'completed',
-          };
-        }
-      }
-    });
-
-    // 处理 Team hook 中的 teamEvents（新格式，冒号分隔）
+    // 只处理 teamEvents（新格式），忽略旧格式的 streamEvents
     teamEvents.forEach((event) => {
       const id = `team-${event.type}-${event.timestamp}`;
 
-      if (event.type === 'phase:started') {
-        const data = event.data as { phase: string; description?: string };
-        const phaseTitle = getPhaseTitle(data.phase);
-        // 去重：如果已经添加过这个阶段，跳过
-        if (!addedPhases.has(phaseTitle)) {
-          addedPhases.add(phaseTitle);
-          calls.push({
-            id,
-            type: 'step',
-            title: phaseTitle,
-            content: data.description,
-            status: 'running',
-            timestamp: new Date(event.timestamp),
-          });
-        }
-      } else if (event.type === 'phase:completed') {
-        // 后端发送格式: { phase, data: actualResult }
-        const eventData = event.data as {
-          phase: string;
-          data?: Record<string, unknown>;
-        };
-
-        // 从嵌套的 data 字段提取实际结果
-        const phaseResult = eventData.data as
-          | {
-              // 任务分解结果
-              totalPages?: number;
-              chapters?: Array<{ title: string; pageRange: number[] }>;
-              sourceAnalysis?: {
-                dataPoints?: Array<{
-                  type: string;
-                  value: string;
-                  context: string;
-                }>;
-                keyInsights?: string[];
-              };
-              // 大纲规划结果
-              pages?: Array<{
-                title: string;
-                templateType: string;
-                pageNumber: number;
-              }>;
-              globalStyles?: Record<string, unknown>;
-              // 页面渲染结果
-              completedPages?: number;
-              // 质量审核结果
-              overallScore?: number;
-              suggestions?: string[];
-            }
-          | undefined;
-
-        const existingIndex = calls.findIndex(
-          (c) =>
-            c.title === getPhaseTitle(eventData.phase) && c.status === 'running'
-        );
-
-        // 提取详细内容
-        let content: string | undefined;
-        let details: Record<string, unknown> | undefined;
-
-        // 任务分解阶段 - 提取章节信息
-        if (eventData.phase === 'task_decomposition' && phaseResult?.chapters) {
-          content = phaseResult.chapters
-            .map(
-              (ch) =>
-                `• ${ch.title} (第${ch.pageRange?.[0]}-${ch.pageRange?.[1]}页)`
-            )
-            .join('\n');
-          if (phaseResult.sourceAnalysis) {
-            details = {
-              dataPoints: phaseResult.sourceAnalysis.dataPoints?.slice(0, 5),
-              insights: phaseResult.sourceAnalysis.keyInsights?.slice(0, 3),
-            };
-          }
-        }
-        // 大纲规划阶段 - 提取页面列表
-        else if (eventData.phase === 'outline_planning' && phaseResult?.pages) {
-          content = phaseResult.pages
-            .slice(0, 8)
-            .map((p) => `${p.pageNumber}. ${p.title} [${p.templateType}]`)
-            .join('\n');
-          if (phaseResult.pages.length > 8) {
-            content += `\n... 及其他 ${phaseResult.pages.length - 8} 页`;
-          }
-        }
-        // 页面渲染阶段
-        else if (
-          eventData.phase === 'page_rendering' &&
-          phaseResult?.completedPages
-        ) {
-          content = `完成渲染 ${phaseResult.completedPages} 页`;
-        }
-        // 质量审核阶段
-        else if (eventData.phase === 'quality_review' && phaseResult) {
-          if (phaseResult.overallScore !== undefined) {
-            content = `质量评分: ${phaseResult.overallScore}/100`;
-          }
-          if (phaseResult.suggestions?.length) {
-            details = { suggestions: phaseResult.suggestions.slice(0, 3) };
-          }
-        }
-
-        if (existingIndex >= 0) {
-          calls[existingIndex].status = 'completed';
-          if (content) calls[existingIndex].content = content;
-          if (details) calls[existingIndex].details = details;
-        } else {
-          calls.push({
-            id,
-            type:
-              eventData.phase === 'task_decomposition'
-                ? 'thinking'
-                : eventData.phase === 'outline_planning'
-                  ? 'outline'
-                  : 'step',
-            title: getPhaseTitle(eventData.phase),
-            status: 'completed',
-            content,
-            details,
-            timestamp: new Date(event.timestamp),
-          });
-        }
-      } else if (event.type === 'slide:generating') {
-        const data = event.data as {
-          pageNumber: number;
-          title?: string;
-          templateType?: string;
-        };
-        const pageTitle = data.title || `第 ${data.pageNumber} 页`;
-        calls.push({
-          id,
-          type: 'render',
-          title: `🎨 渲染: ${pageTitle}`,
-          content: data.templateType ? `模板: ${data.templateType}` : undefined,
-          status: 'running',
-          details: { pageNumber: data.pageNumber },
-          timestamp: new Date(event.timestamp),
-        });
-      } else if (event.type === 'slide:generated') {
-        const data = event.data as {
-          pageNumber: number;
-          title?: string;
-          html?: string;
-        };
-        const existingIndex = calls.findIndex(
-          (c) =>
-            c.type === 'render' &&
-            c.details?.pageNumber === data.pageNumber &&
-            c.status === 'running'
-        );
-        if (existingIndex >= 0) {
-          calls[existingIndex].status = 'completed';
-          if (data.html) {
-            calls[existingIndex].content =
-              `HTML 大小: ${(data.html.length / 1024).toFixed(1)} KB`;
-          }
-        } else {
-          calls.push({
-            id,
-            type: 'render',
-            title: `🎨 渲染完成: ${data.title || `第 ${data.pageNumber} 页`}`,
-            status: 'completed',
-            details: { pageNumber: data.pageNumber },
-            timestamp: new Date(event.timestamp),
-          });
-        }
-      } else if (event.type === 'execution:started') {
-        // 去重：确保只显示一个 "开始生成" 条目
+      // 1. 开始事件 - 只显示一次
+      if (event.type === 'execution:started') {
         if (!hasExecutionStarted) {
           hasExecutionStarted = true;
-          const data = event.data as { sessionId?: string };
           calls.push({
             id,
             type: 'step',
-            title: `🚀 开始生成`,
-            content: data.sessionId
-              ? `会话: ${data.sessionId.slice(0, 8)}...`
-              : undefined,
+            title: '🚀 开始生成',
             status: 'completed',
             timestamp: new Date(event.timestamp),
           });
         }
-      } else if (event.type === 'execution:completed') {
-        // 去重：确保只显示一个 "生成完成" 条目
+      }
+      // 2. 阶段完成事件 - 只显示主要阶段的完成（不显示开始）
+      else if (event.type === 'phase:completed') {
+        const eventData = event.data as {
+          phase: string;
+          result?: Record<string, unknown>;
+        };
+
+        // 只显示关键阶段完成
+        const keyPhases = ['analyzing', 'planning', 'generating', 'reviewing'];
+        if (keyPhases.includes(eventData.phase)) {
+          const phaseNames: Record<string, string> = {
+            analyzing: '📊 内容分析完成',
+            planning: '📝 大纲规划完成',
+            generating: '🎨 页面生成完成',
+            reviewing: '✅ 质量检查完成',
+          };
+          calls.push({
+            id,
+            type: 'step',
+            title: phaseNames[eventData.phase] || eventData.phase,
+            status: 'completed',
+            timestamp: new Date(event.timestamp),
+          });
+        }
+      }
+      // 3. 页面生成 - 只统计数量，不单独显示每页
+      else if (event.type === 'slide:generated') {
+        totalPagesGenerated++;
+      }
+      // 4. 完成事件 - 只显示一次
+      else if (event.type === 'execution:completed') {
         if (!hasExecutionCompleted) {
           hasExecutionCompleted = true;
           const data = event.data as {
@@ -379,35 +205,31 @@ export function SlidesTab() {
           calls.push({
             id,
             type: 'checkpoint',
-            title: `✅ 生成完成`,
+            title: '🎉 生成完成',
             content: data.totalPages
               ? `共 ${data.totalPages} 页，耗时 ${((data.totalTime || 0) / 1000).toFixed(1)}s`
-              : undefined,
+              : totalPagesGenerated > 0
+                ? `共 ${totalPagesGenerated} 页`
+                : undefined,
             status: 'completed',
             timestamp: new Date(event.timestamp),
           });
         }
-      } else if (event.type === 'execution:failed') {
-        const data = event.data as { error?: string; phase?: string };
+      }
+      // 5. 失败事件
+      else if (event.type === 'execution:failed') {
+        const data = event.data as { error?: string };
         calls.push({
           id,
           type: 'step',
-          title: `❌ 生成失败`,
+          title: '❌ 生成失败',
           content: data.error,
           status: 'error',
           timestamp: new Date(event.timestamp),
         });
-      } else if (
-        event.type === 'agent:thinking' ||
-        event.type === 'agent:working' ||
-        event.type === 'agent:completed' ||
-        event.type === 'agent:handoff'
-      ) {
-        // Agent 事件由 AgentTeamPanel 处理，不在 timeline 中显示
-        // 避免与 phase:* 事件重复
-      } else if (event.type === 'heartbeat') {
-        // 心跳事件，不显示
       }
+      // 其他事件（agent:*, phase:started, heartbeat 等）不显示在时间线
+      // Agent 状态完全由 AgentTeamPanel 负责显示
     });
 
     setToolCalls(calls);
