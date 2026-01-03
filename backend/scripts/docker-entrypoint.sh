@@ -3,6 +3,9 @@
 echo "🔧 Step 0: Fixing enum values (outside Prisma transaction)..."
 node ./scripts/fix-enum-values.js || true
 
+echo "🔧 Step 0.5: Creating export tables if needed..."
+node ./scripts/fix-export-tables.js || true
+
 echo "🔧 Step 1: Resolving failed migrations..."
 
 # Check if the migration is marked as failed and resolve it
