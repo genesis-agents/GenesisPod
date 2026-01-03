@@ -6,8 +6,8 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AiChatService } from "../../ai/ai-core/ai-chat.service";
-import { AIModelService } from "../../ai/ai-office/core";
+import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { AIModelService } from "../../ai-app/office/core";
 import {
   CreateCollectionDto,
   UpdateCollectionDto,

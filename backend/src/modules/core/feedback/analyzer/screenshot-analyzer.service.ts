@@ -14,7 +14,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { AIModelService } from "../../../ai/ai-office/core/ai-model.service";
+import { AIModelService } from "../../../ai-app/office/core/ai-model.service";
 import type {
   ScreenshotAnalysis,
   FeedbackAttachment,

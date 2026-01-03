@@ -24,16 +24,15 @@ import { SettingsModule } from "./modules/core/settings/settings.module";
 import { StorageModule } from "./modules/core/storage/storage.module";
 import { CreditsModule } from "./modules/credits/credits.module";
 // AI modules
-import { AiCoreModule } from "./modules/ai/ai-core/ai-core.module";
-import { AiEngineModule } from "./modules/ai/ai-engine/ai-engine.module";
-import { AiAskModule } from "./modules/ai/ai-ask/ai-ask.module";
-import { AiImageModule } from "./modules/ai/ai-image/ai-image.module";
-import { AiOfficeModule } from "./modules/ai/ai-office/ai-office.module";
-import { AiSimulationModule } from "./modules/ai/ai-simulation/ai-simulation.module";
-import { AiStudioModule } from "./modules/ai/ai-studio/ai-studio.module";
-import { AiTeamsModule } from "./modules/ai/ai-teams/ai-teams.module";
-import { AiCodingModule } from "./modules/ai/ai-coding/ai-coding.module";
-import { RAGModule } from "./modules/ai/rag/rag.module";
+import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
+import { AiAskModule } from "./modules/ai-app/ask/ai-ask.module";
+import { AiImageModule } from "./modules/ai-app/image/ai-image.module";
+import { AiOfficeModule } from "./modules/ai-app/office/ai-office.module";
+import { AiSimulationModule } from "./modules/ai-app/simulation/ai-simulation.module";
+import { AiStudioModule } from "./modules/ai-app/studio/ai-studio.module";
+import { AiTeamsModule } from "./modules/ai-app/teams/ai-teams.module";
+import { AiCodingModule } from "./modules/ai-app/coding/ai-coding.module";
+import { RAGModule } from "./modules/ai-app/rag/rag.module";
 // Content modules
 import { CollectionsModule } from "./modules/content/collections/collections.module";
 import { CommentsModule } from "./modules/content/comments/comments.module";
@@ -57,7 +56,7 @@ import { NotionModule } from "./modules/integrations/notion/notion.module";
 import { GoogleDriveModule } from "./modules/integrations/google-drive/google-drive.module";
 import { AiFileOrganizerModule } from "./modules/integrations/ai-file-organizer/ai-file-organizer.module";
 // Export module
-import { ExportModule } from "./modules/export";
+import { ExportModule } from "./common/export";
 // Webhooks module
 import { WebhooksModule } from "./modules/webhooks";
 
@@ -110,7 +109,6 @@ import { WebhooksModule } from "./modules/webhooks";
     CreditsModule,
 
     // AI modules (ai-* prefix)
-    AiCoreModule,
     AiEngineModule,
     AiAskModule,
     AiImageModule,

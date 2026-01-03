@@ -3,9 +3,9 @@ import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AiChatService, ChatMessage } from "../../ai/ai-core/ai-chat.service";
+import { AiChatService, ChatMessage } from "../../ai-engine/llm/services/ai-chat.service";
 import { WechatDataSourceService } from "./wechat-data-source.service";
-import { UrlFetchService } from "../../ai/rag/services/url-fetch.service";
+import { UrlFetchService } from "../../ai-app/rag/services/url-fetch.service";
 
 /**
  * 企业微信消息类型

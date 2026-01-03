@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AiChatService } from "../../ai/ai-core/ai-chat.service";
+import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
 
 export interface FileInfo {
   id: string;

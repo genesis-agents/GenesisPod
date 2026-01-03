@@ -14,7 +14,7 @@ import {
 import { AdminService } from "./admin.service";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { AiChatService } from "../../ai/ai-core/ai-chat.service";
+import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
 import { AIModelType } from "@prisma/client";
 
 /**

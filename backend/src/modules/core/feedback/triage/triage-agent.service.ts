@@ -14,8 +14,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { SimilarityMatcherService } from "./similarity-matcher.service";
 import { ScreenshotAnalyzerService } from "../analyzer/screenshot-analyzer.service";
-import { AiChatService } from "../../../ai/ai-core/ai-chat.service";
-import { AIModelService } from "../../../ai/ai-office/core/ai-model.service";
+import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { AIModelService } from "../../../ai-app/office/core/ai-model.service";
 import {
   TriageInput,
   TriageDecision,

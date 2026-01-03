@@ -8,8 +8,7 @@ import { StorageModule } from "../storage/storage.module";
 import { EmailModule } from "../email/email.module";
 
 // AI Services
-import { AiCoreModule } from "../../ai/ai-core/ai-core.module";
-import { AiOfficeModule } from "../../ai/ai-office/ai-office.module";
+import { AiOfficeModule } from "../../ai-app/office/ai-office.module";
 
 // Triage
 import { TriageAgentService } from "./triage/triage-agent.service";
@@ -32,7 +31,6 @@ import { FeedbackEventListener } from "./events/feedback-event.listener";
     EmailModule,
     EventEmitterModule.forRoot(),
     // AI Services for Triage and Screenshot Analysis
-    AiCoreModule,
     AiOfficeModule,
   ],
   controllers: [FeedbackController],

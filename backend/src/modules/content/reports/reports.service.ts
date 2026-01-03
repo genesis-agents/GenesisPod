@@ -9,7 +9,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { GenerateReportDto } from "./dto/generate-report.dto";
-import { ExportOrchestratorService } from "../../export";
+import { ExportOrchestratorService } from "../../../common/export";
 import { ExportFormat } from "@prisma/client";
 import axios from "axios";
 

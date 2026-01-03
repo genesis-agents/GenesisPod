@@ -6,8 +6,8 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
-import { AiChatService } from "../../ai/ai-core/ai-chat.service";
-import { AIModelService } from "../../ai/ai-office/core";
+import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { AIModelService } from "../../ai-app/office/core";
 
 /**
  * 笔记服务
