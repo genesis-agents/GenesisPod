@@ -240,10 +240,10 @@ export class RoleRegistry implements OnModuleInit {
       type: "leader",
       icon: "📊",
       coreSkills: [
-        "task-decomposition",
-        "outline-planning",
-        "quality-review",
-        "content-integration",
+        "slides-task-decomposition",
+        "slides-outline-planning",
+        "slides-quality-audit",
+        "slides-template-rendering",
       ],
       coreTools: [
         BUILTIN_TOOLS.TEXT_GENERATION,
@@ -332,6 +332,8 @@ export class RoleRegistry implements OnModuleInit {
         "content-creation",
         "structure-organization",
         "language-polish",
+        "slides-content-compression",
+        "slides-four-step-design",
       ],
       coreTools: [
         BUILTIN_TOOLS.TEXT_GENERATION,
@@ -386,7 +388,13 @@ export class RoleRegistry implements OnModuleInit {
       description: ROLE_DESCRIPTIONS[BUILTIN_ROLES.DESIGNER],
       type: "member",
       icon: "🎨",
-      coreSkills: ["visual-design", "creative-thinking", "user-experience"],
+      coreSkills: [
+        "visual-design",
+        "creative-thinking",
+        "user-experience",
+        "slides-image-fetcher",
+        "slides-chart-renderer",
+      ],
       coreTools: [BUILTIN_TOOLS.IMAGE_GENERATION, BUILTIN_TOOLS.EXPORT_IMAGE],
       responsibilities: [
         "进行视觉设计",
@@ -410,9 +418,9 @@ export class RoleRegistry implements OnModuleInit {
       type: "member",
       icon: "🖼️",
       coreSkills: [
-        "template-rendering",
-        "html-generation",
-        "style-application",
+        "slides-template-rendering",
+        "slides-template-matcher",
+        "slides-layout-optimizer",
       ],
       coreTools: [
         BUILTIN_TOOLS.TEXT_GENERATION,
@@ -439,7 +447,14 @@ export class RoleRegistry implements OnModuleInit {
       description: ROLE_DESCRIPTIONS[BUILTIN_ROLES.REVIEWER],
       type: "member",
       icon: "✅",
-      coreSkills: ["quality-check", "risk-identification", "compliance-review"],
+      coreSkills: [
+        "quality-check",
+        "risk-identification",
+        "compliance-review",
+        "slides-quality-audit",
+        "slides-terminology-unifier",
+        "slides-transition-checker",
+      ],
       coreTools: [BUILTIN_TOOLS.DATA_VALIDATION],
       responsibilities: [
         "检查内容质量",
