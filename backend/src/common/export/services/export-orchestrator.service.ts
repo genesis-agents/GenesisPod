@@ -56,14 +56,19 @@ export class ExportOrchestratorService {
     }
 
     // 构建源数据
-    const sourceData: Prisma.InputJsonValue | undefined =
-      request.source.type === "RAW"
-        ? {
-            content: (request.source as any).content,
-            contentType: (request.source as any).contentType,
-            title: (request.source as any).title,
-          }
-        : undefined;
+    let sourceData: Prisma.InputJsonValue | undefined;
+    if (request.source.type === "RAW") {
+      sourceData = {
+        content: (request.source as any).content,
+        contentType: (request.source as any).contentType,
+        title: (request.source as any).title,
+      };
+    } else if (request.source.type === "MISSION") {
+      // MISSION 类型需要存储 topicId
+      sourceData = {
+        topicId: (request.source as any).topicId,
+      };
+    }
 
     // 构建选项
     const options: Prisma.InputJsonValue = {
@@ -84,7 +89,9 @@ export class ExportOrchestratorService {
               ? request.source.sessionId
               : "reportId" in request.source
                 ? request.source.reportId
-                : null,
+                : "missionId" in request.source
+                  ? request.source.missionId
+                  : null,
         sourceData,
         format: request.format,
         templateId: request.templateId,
@@ -282,6 +289,12 @@ export class ExportOrchestratorService {
           content: job.sourceData.content,
           contentType: job.sourceData.contentType,
           title: job.sourceData.title,
+        };
+      case "MISSION":
+        return {
+          type: "MISSION",
+          missionId: job.sourceId,
+          topicId: job.sourceData?.topicId,
         };
       default:
         throw new Error(`Unknown source type: ${job.sourceType}`);
