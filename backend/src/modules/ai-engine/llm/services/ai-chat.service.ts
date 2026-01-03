@@ -2614,7 +2614,24 @@ Generate an image that fulfills the current request while maintaining consistenc
     // Determine the effective model to use
     let effectiveModelId = modelId;
 
-    if (isImageOnlyModel && !isImageRequest) {
+    // 检查是否是已知无效的模型 ID（如 gemini-3-xxx、gemini-4-xxx）
+    // 这些模型版本不存在，需要回退到有效模型
+    const invalidModelPatterns = [
+      /^gemini-3-/i, // gemini-3.x 系列不存在
+      /^gemini-4-/i, // gemini-4.x 系列不存在
+    ];
+    const isInvalidModel = invalidModelPatterns.some((pattern) =>
+      pattern.test(modelId),
+    );
+
+    if (isInvalidModel) {
+      // 无效模型 ID，回退到已知有效的模型
+      effectiveModelId = "gemini-2.0-flash-exp";
+      this.logger.warn(
+        `[Gemini] Invalid model ID "${modelId}" - falling back to "${effectiveModelId}". ` +
+          `Please update the model configuration in Admin Console.`,
+      );
+    } else if (isImageOnlyModel && !isImageRequest) {
       // Image-only models can't do text conversations - fall back to text model
       effectiveModelId = "gemini-2.0-flash-exp";
       this.logger.log(
