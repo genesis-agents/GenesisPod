@@ -1,11 +1,19 @@
 /**
  * Slides Engine - Orchestrator Module
  *
- * Note: Core orchestration logic has been moved to AI Engine.
- * This module now only contains the API controller.
+ * v5.0: 采用 AI Teams Leader 协调模式
+ * - SlidesTeamOrchestrator: 主编排器
+ * - SlidesLeader: Leader 角色（规划、审核、综合）
+ * - SlidesTeamMember: 成员基类（执行 Skills）
  */
 
 export * from "./slides.controller";
+
+// v5.0: Team-based Orchestrator
+export * from "./types";
+export * from "./slides-leader";
+export * from "./slides-team-member";
+export * from "./slides-team-orchestrator";
 
 // Deprecated: Kept for backward compatibility during skill migration
 export * from "./multi-model.service";

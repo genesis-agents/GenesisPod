@@ -22,7 +22,7 @@ import { DocumentsController, DocumentsService } from "./document-management";
 // Generation
 import { GenerationController, GenerationService } from "./generation";
 
-// Slides (幻灯片生成) - v4.0: 使用 AI Engine 编排
+// Slides (幻灯片生成) - v5.0: 使用 AI Teams Leader 协调模式
 import {
   // Rendering (导出服务)
   SlidesExportService,
@@ -31,10 +31,14 @@ import {
   CheckpointService,
   // Controller
   SlidesController,
-  // Engine Service (v4.0: 新的核心服务)
+  // Engine Service (v4.0: 核心服务)
   SlidesEngineService,
   // Skills Module (v4.0: 技能注册模块)
   SlidesSkillsModule,
+  // v5.0: Team-based Orchestrator
+  SlidesLeader,
+  SlidesTeamMember,
+  SlidesTeamOrchestrator,
   // Deprecated: Kept for backward compatibility during skill migration
   MultiModelService,
 } from "./slides";
@@ -87,11 +91,14 @@ import { AIOfficeCommonModule } from "./common";
     IntentParserService,
     DocumentsService,
     GenerationService,
-    // Slides Services (v4.0: 简化架构)
+    // Slides Services (v5.0: Team-based Orchestrator)
     SlidesExportService,
     ParameterizedRendererService,
     CheckpointService,
     SlidesEngineService, // v4.0: 核心引擎服务
+    SlidesLeader, // v5.0: Leader 角色
+    SlidesTeamMember, // v5.0: 成员基类
+    SlidesTeamOrchestrator, // v5.0: 主编排器
     MultiModelService, // @deprecated: Kept for skill compatibility during migration
     // Docs
     DocsOrchestratorService,
@@ -106,11 +113,14 @@ import { AIOfficeCommonModule } from "./common";
     IntentParserService,
     DocumentsService,
     GenerationService,
-    // Slides Services (v4.0: 简化导出)
+    // Slides Services (v5.0: Team-based Orchestrator)
     SlidesExportService,
     ParameterizedRendererService,
     CheckpointService,
     SlidesEngineService,
+    SlidesLeader, // v5.0: Leader 角色
+    SlidesTeamMember, // v5.0: 成员基类
+    SlidesTeamOrchestrator, // v5.0: 主编排器
     // Docs
     DocsOrchestratorService,
     DocsGeneratorService,

@@ -1,0 +1,528 @@
+/**
+ * Slides Leader - 幻灯片架构师
+ *
+ * 负责：
+ * - 任务规划：分析源文本，动态分解任务
+ * - 任务审核：检查任务输出质量，决定通过/修订/失败
+ * - 结果综合：整合所有页面输出，生成最终 PPT 结构
+ */
+
+import { Injectable, Logger } from "@nestjs/common";
+import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { v4 as uuidv4 } from "uuid";
+import {
+  TaskBreakdown,
+  TaskBreakdownItem,
+  SlidesTask,
+  SlidesTeamMemberRole,
+  ReviewResult,
+  ReviewDecision,
+  SlidesMission,
+  SLIDES_TEAM_MEMBERS,
+} from "./types";
+
+@Injectable()
+export class SlidesLeader {
+  private readonly logger = new Logger(SlidesLeader.name);
+
+  constructor(
+    private readonly aiChatService: AiChatService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  // ============================================
+  // AI 调用辅助方法
+  // ============================================
+
+  private async getDefaultModel(): Promise<string> {
+    try {
+      const defaultModel = await this.prisma.aIModel.findFirst({
+        where: {
+          modelType: "CHAT",
+          isDefault: true,
+          isEnabled: true,
+        },
+        select: { modelId: true },
+      });
+
+      if (defaultModel) {
+        return defaultModel.modelId;
+      }
+
+      const anyModel = await this.prisma.aIModel.findFirst({
+        where: {
+          modelType: "CHAT",
+          isEnabled: true,
+        },
+        select: { modelId: true },
+      });
+
+      return anyModel?.modelId || "gpt-4o";
+    } catch (error) {
+      this.logger.warn(`Failed to get default model: ${error}`);
+      return "gpt-4o";
+    }
+  }
+
+  private async callAI(
+    systemPrompt: string,
+    userMessage: string,
+    options?: { maxTokens?: number; temperature?: number },
+  ): Promise<string> {
+    const model = await this.getDefaultModel();
+
+    const result = await this.aiChatService.generateChatCompletion({
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      maxTokens: options?.maxTokens ?? 4000,
+      temperature: options?.temperature ?? 0.3,
+    });
+
+    return result.content || "";
+  }
+
+  // ============================================
+  // 任务规划
+  // ============================================
+
+  async planTasks(mission: SlidesMission): Promise<TaskBreakdown> {
+    this.logger.log(`[planTasks] Planning tasks for mission ${mission.id}`);
+
+    const systemPrompt = this.getLeaderPlanningSystemPrompt();
+    const userPrompt = this.buildPlanningPrompt(mission);
+
+    const response = await this.callAI(systemPrompt, userPrompt, {
+      maxTokens: 8000,
+      temperature: 0.3,
+    });
+
+    const breakdown = this.parseTaskBreakdown(response);
+
+    this.logger.log(
+      `[planTasks] Planned ${breakdown.tasks.length} tasks for mission ${mission.id}`,
+    );
+
+    return breakdown;
+  }
+
+  private getLeaderPlanningSystemPrompt(): string {
+    const teamMembersInfo = Object.values(SLIDES_TEAM_MEMBERS)
+      .map(
+        (m) =>
+          `- **${m.name}** (${m.role}): ${m.description}\n  Skills: ${m.skills.join(", ")}`,
+      )
+      .join("\n");
+
+    return `你是 Slides Architect，一位资深的幻灯片设计架构师。
+
+## 你的职责
+分析用户提供的源文本，规划 PPT 生成任务，并将任务分配给团队成员。
+
+## 团队成员
+${teamMembersInfo}
+
+## 可用技能列表
+### Analyst 技能
+- task-decomposition: 任务分解，分析源文本结构
+- outline-planning: 大纲规划，生成 PPT 大纲
+- content-analyzer: 内容分析，提取关键信息
+
+### Designer 技能
+- four-step-design: 四步设计，生成页面 HTML
+- template-matcher: 模板匹配，选择最佳模板
+- layout-optimizer: 布局优化
+- chart-renderer: 图表渲染
+- image-fetcher: 图片获取
+- content-compression: 内容压缩
+- data-supplement: 数据补全
+- page-type-selection: 页面类型选择
+
+### Reviewer 技能
+- terminology-unifier: 术语统一
+- transition-checker: 过渡检查
+- quality-audit: 质量审计
+
+## 输出格式
+请使用以下 Markdown 表格格式输出任务分解：
+
+### 任务理解
+[简要描述你对任务的理解]
+
+### 任务列表
+| 序号 | 任务标题 | 描述 | 负责人 | 技能ID | 优先级 | 依赖 |
+|------|----------|------|--------|--------|--------|------|
+| 1 | xxx | xxx | analyst/designer/reviewer | skill-id | high/medium/low | - |
+
+### 执行计划
+[描述任务执行顺序和并行策略]
+
+### 风险提示
+[列出可能的风险和缓解措施]
+`;
+  }
+
+  private buildPlanningPrompt(mission: SlidesMission): string {
+    return `## PPT 生成任务
+
+**用户需求**: ${mission.userRequirement || "生成专业的 PPT"}
+**目标页数**: ${mission.targetPages || "自动推断"}
+**风格偏好**: ${mission.stylePreference || "dark"}
+**主题**: ${mission.themeId || "genspark-dark"}
+
+## 源文本内容
+\`\`\`
+${mission.sourceText.substring(0, 8000)}${mission.sourceText.length > 8000 ? "\n...[内容已截断]" : ""}
+\`\`\`
+
+请分析源文本，规划 PPT 生成任务。
+
+注意：
+1. 必须先执行 outline-planning 生成大纲
+2. 每个页面需要 four-step-design 技能
+3. 最后需要执行 quality-audit 质量审计
+4. 合理安排任务依赖关系，支持并行执行
+`;
+  }
+
+  private parseTaskBreakdown(response: string): TaskBreakdown {
+    const breakdown: TaskBreakdown = {
+      understanding: "",
+      tasks: [],
+      executionPlan: "",
+      risks: "",
+    };
+
+    // 提取任务理解
+    const understandingMatch = response.match(
+      /### 任务理解\s*\n([\s\S]*?)(?=###|$)/,
+    );
+    if (understandingMatch) {
+      breakdown.understanding = understandingMatch[1].trim();
+    }
+
+    // 提取执行计划
+    const planMatch = response.match(/### 执行计划\s*\n([\s\S]*?)(?=###|$)/);
+    if (planMatch) {
+      breakdown.executionPlan = planMatch[1].trim();
+    }
+
+    // 提取风险提示
+    const risksMatch = response.match(/### 风险提示\s*\n([\s\S]*?)(?=###|$)/);
+    if (risksMatch) {
+      breakdown.risks = risksMatch[1].trim();
+    }
+
+    // 解析任务表格
+    const tableMatch = response.match(
+      /\| 序号 \| 任务标题 \| 描述 \| 负责人 \| 技能ID \| 优先级 \| 依赖 \|\s*\n\|[-|\s]+\|\s*\n([\s\S]*?)(?=\n\n|\n###|$)/,
+    );
+
+    if (tableMatch) {
+      const tableRows = tableMatch[1].trim().split("\n");
+
+      for (const row of tableRows) {
+        const cells = row
+          .split("|")
+          .map((c) => c.trim())
+          .filter((c) => c);
+
+        if (cells.length >= 7) {
+          const [
+            _index,
+            title,
+            description,
+            assignee,
+            skillId,
+            priority,
+            dependsOnStr,
+          ] = cells;
+
+          const dependsOn =
+            dependsOnStr === "-" || dependsOnStr === ""
+              ? []
+              : dependsOnStr
+                  .split(",")
+                  .map((d) => parseInt(d.trim()) - 1)
+                  .filter((n) => !isNaN(n));
+
+          const task: TaskBreakdownItem = {
+            title,
+            description,
+            assignee: this.normalizeAssignee(assignee),
+            skillId: skillId.toLowerCase().replace(/\s+/g, "-"),
+            priority: this.normalizePriority(priority),
+            dependsOn,
+            inputSpec: {},
+          };
+
+          breakdown.tasks.push(task);
+        }
+      }
+    }
+
+    // 如果没有解析到任务，创建默认任务
+    if (breakdown.tasks.length === 0) {
+      this.logger.warn(
+        "[parseTaskBreakdown] No tasks parsed, creating default tasks",
+      );
+      breakdown.tasks = this.createDefaultTasks();
+    }
+
+    return breakdown;
+  }
+
+  private normalizeAssignee(assignee: string): SlidesTeamMemberRole {
+    const normalized = assignee.toLowerCase().trim();
+    if (normalized.includes("analyst") || normalized.includes("分析")) {
+      return "analyst";
+    }
+    if (normalized.includes("designer") || normalized.includes("设计")) {
+      return "designer";
+    }
+    if (normalized.includes("reviewer") || normalized.includes("审核")) {
+      return "reviewer";
+    }
+    return "designer";
+  }
+
+  private normalizePriority(
+    priority: string,
+  ): "critical" | "high" | "medium" | "low" {
+    const normalized = priority.toLowerCase().trim();
+    if (normalized.includes("critical") || normalized.includes("紧急"))
+      return "critical";
+    if (normalized.includes("high") || normalized.includes("高")) return "high";
+    if (normalized.includes("low") || normalized.includes("低")) return "low";
+    return "medium";
+  }
+
+  private createDefaultTasks(): TaskBreakdownItem[] {
+    return [
+      {
+        title: "生成大纲",
+        description: "分析源文本，生成 PPT 大纲结构",
+        assignee: "analyst",
+        skillId: "outline-planning",
+        priority: "high",
+        dependsOn: [],
+        inputSpec: {},
+      },
+      {
+        title: "选择页面类型",
+        description: "为每个页面选择合适的模板类型",
+        assignee: "designer",
+        skillId: "page-type-selection",
+        priority: "medium",
+        dependsOn: [0],
+        inputSpec: {},
+      },
+      {
+        title: "质量审计",
+        description: "检查整体质量和一致性",
+        assignee: "reviewer",
+        skillId: "quality-audit",
+        priority: "high",
+        dependsOn: [1],
+        inputSpec: {},
+      },
+    ];
+  }
+
+  createTasksFromBreakdown(breakdown: TaskBreakdown): SlidesTask[] {
+    const tasks: SlidesTask[] = [];
+
+    for (let i = 0; i < breakdown.tasks.length; i++) {
+      const item = breakdown.tasks[i];
+
+      const task: SlidesTask = {
+        id: uuidv4(),
+        title: item.title,
+        description: item.description,
+        assignee: item.assignee,
+        skillId: item.skillId,
+        input: item.inputSpec,
+        dependencies: item.dependsOn
+          .map((idx) => tasks[idx]?.id)
+          .filter(Boolean),
+        status: "pending",
+        priority: item.priority,
+        revisionCount: 0,
+        maxRevisions: 3,
+        createdAt: new Date(),
+      };
+
+      tasks.push(task);
+    }
+
+    return tasks;
+  }
+
+  // ============================================
+  // 任务审核
+  // ============================================
+
+  async reviewTask(
+    mission: SlidesMission,
+    task: SlidesTask,
+    result: unknown,
+  ): Promise<ReviewResult> {
+    this.logger.log(`[reviewTask] Reviewing task ${task.id}: ${task.title}`);
+
+    const systemPrompt = this.getLeaderReviewSystemPrompt();
+    const userPrompt = this.buildReviewPrompt(mission, task, result);
+
+    const response = await this.callAI(systemPrompt, userPrompt, {
+      maxTokens: 2000,
+      temperature: 0.2,
+    });
+
+    const reviewResult = this.parseReviewResult(response);
+
+    this.logger.log(
+      `[reviewTask] Review decision for task ${task.id}: ${reviewResult.decision}`,
+    );
+
+    return reviewResult;
+  }
+
+  private getLeaderReviewSystemPrompt(): string {
+    return `你是 Slides Architect，正在审核团队成员提交的任务结果。
+
+## 审核标准
+1. **完整性**: 是否完成了任务要求
+2. **质量**: 输出质量是否达标
+3. **一致性**: 是否与整体风格一致
+4. **准确性**: 内容是否准确无误
+
+## 输出格式
+请使用以下格式输出审核结果：
+
+### 决定
+approved / revision_needed / failed
+
+### 评分
+[0-100 分数]
+
+### 反馈
+[详细反馈]
+
+### 建议
+- [建议1]
+- [建议2]
+`;
+  }
+
+  private buildReviewPrompt(
+    mission: SlidesMission,
+    task: SlidesTask,
+    result: unknown,
+  ): string {
+    return `## 审核任务
+
+**任务标题**: ${task.title}
+**任务描述**: ${task.description}
+**负责人**: ${task.assignee}
+**技能**: ${task.skillId}
+**修订次数**: ${task.revisionCount}/${task.maxRevisions}
+
+## 任务结果
+\`\`\`json
+${JSON.stringify(result, null, 2).substring(0, 4000)}
+\`\`\`
+
+## Mission 上下文
+**用户需求**: ${mission.userRequirement || "生成专业的 PPT"}
+**风格偏好**: ${mission.stylePreference || "dark"}
+
+请审核此任务结果，并给出审核决定。
+`;
+  }
+
+  private parseReviewResult(response: string): ReviewResult {
+    const result: ReviewResult = {
+      decision: "approved",
+      feedback: "",
+      suggestions: [],
+    };
+
+    // 提取决定
+    const decisionMatch = response.match(
+      /### 决定\s*\n(approved|revision_needed|failed)/i,
+    );
+    if (decisionMatch) {
+      result.decision = decisionMatch[1].toLowerCase() as ReviewDecision;
+    }
+
+    // 提取评分
+    const scoreMatch = response.match(/### 评分\s*\n(\d+)/);
+    if (scoreMatch) {
+      result.score = parseInt(scoreMatch[1]);
+    }
+
+    // 提取反馈
+    const feedbackMatch = response.match(/### 反馈\s*\n([\s\S]*?)(?=###|$)/);
+    if (feedbackMatch) {
+      result.feedback = feedbackMatch[1].trim();
+    }
+
+    // 提取建议
+    const suggestionsMatch = response.match(/### 建议\s*\n([\s\S]*?)(?=###|$)/);
+    if (suggestionsMatch) {
+      const suggestions = suggestionsMatch[1]
+        .split("\n")
+        .filter((line) => line.trim().startsWith("-"))
+        .map((line) => line.replace(/^-\s*/, "").trim());
+      result.suggestions = suggestions;
+    }
+
+    return result;
+  }
+
+  // ============================================
+  // 结果综合
+  // ============================================
+
+  async synthesizeResults(
+    mission: SlidesMission,
+  ): Promise<{ success: boolean; summary: string }> {
+    this.logger.log(
+      `[synthesizeResults] Synthesizing results for mission ${mission.id}`,
+    );
+
+    const completedTasks = mission.tasks.filter(
+      (t) => t.status === "completed",
+    );
+    const totalPages = mission.pages.length;
+
+    const systemPrompt = `你是 Slides Architect，正在综合 PPT 生成的所有结果。
+
+请简要总结生成结果，包括：
+1. 完成情况
+2. 亮点
+3. 待优化点
+`;
+
+    const userPrompt = `## Mission 综合
+
+**任务数**: ${completedTasks.length}/${mission.tasks.length} 已完成
+**页面数**: ${totalPages}
+**用户需求**: ${mission.userRequirement || "生成专业的 PPT"}
+
+请综合生成结果，输出简短的总结。
+`;
+
+    const response = await this.callAI(systemPrompt, userPrompt, {
+      maxTokens: 1000,
+      temperature: 0.3,
+    });
+
+    return {
+      success: true,
+      summary: response,
+    };
+  }
+}
