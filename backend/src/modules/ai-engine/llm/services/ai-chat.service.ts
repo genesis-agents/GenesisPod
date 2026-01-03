@@ -945,15 +945,41 @@ export class AiChatService {
     maxTokens: number,
     temperature: number,
   ): Promise<ChatCompletionResult> {
+    // 验证并修正 Gemini 模型 ID
+    // 已知有效的 Gemini 模型格式：gemini-{version}-{type} 或 gemini-{version}-{type}-{variant}
+    // 有效版本：1.0, 1.5, 2.0, exp
+    // 无效示例：gemini-3-flash-preview（不存在 gemini 3.x）
+    let effectiveModelId = modelId;
+
+    // 检查是否是已知无效的模型 ID（如 gemini-3-xxx）
+    const invalidModelPatterns = [
+      /^gemini-3-/i, // gemini-3.x 系列不存在
+      /^gemini-4-/i, // gemini-4.x 系列不存在
+    ];
+
+    const isInvalidModel = invalidModelPatterns.some((pattern) =>
+      pattern.test(modelId),
+    );
+
+    if (isInvalidModel) {
+      // 回退到已知有效的模型
+      const fallbackModel = "gemini-2.0-flash-exp";
+      this.logger.warn(
+        `[callGoogleAPI] Invalid model ID "${modelId}" - falling back to "${fallbackModel}". ` +
+          `Please update the model configuration in Admin Console.`,
+      );
+      effectiveModelId = fallbackModel;
+    }
+
     // 构建正确的 Gemini API URL
     // apiEndpoint 可能是基础 URL 或完整 URL
     let apiUrl: string;
     if (apiEndpoint.includes(":generateContent")) {
       apiUrl = `${apiEndpoint}?key=${apiKey}`;
     } else if (apiEndpoint.endsWith("/")) {
-      apiUrl = `${apiEndpoint}models/${modelId}:generateContent?key=${apiKey}`;
+      apiUrl = `${apiEndpoint}models/${effectiveModelId}:generateContent?key=${apiKey}`;
     } else {
-      apiUrl = `${apiEndpoint}/models/${modelId}:generateContent?key=${apiKey}`;
+      apiUrl = `${apiEndpoint}/models/${effectiveModelId}:generateContent?key=${apiKey}`;
     }
 
     // Extract system message
@@ -998,14 +1024,14 @@ export class AiChatService {
       return {
         content:
           "I apologize, but I cannot provide a response to that request due to content safety guidelines.",
-        model: modelId,
+        model: effectiveModelId,
         tokensUsed: 0,
       };
     }
 
     return {
       content: data.candidates?.[0]?.content?.parts?.[0]?.text || "",
-      model: modelId,
+      model: effectiveModelId,
       tokensUsed:
         (data.usageMetadata?.promptTokenCount || 0) +
         (data.usageMetadata?.candidatesTokenCount || 0),

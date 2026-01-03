@@ -475,10 +475,12 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
 
   /**
    * 开始生成幻灯片
+   * 使用 POST + fetch 代替 GET + EventSource，解决 URL 长度限制问题
    */
   const generate = useCallback(
     async (request: GenerateRequest) => {
       console.log('[SSE] Starting generation:', request.title);
+      console.log('[SSE] Source text length:', request.sourceText?.length || 0);
 
       // 清理之前的状态
       clearStreamEvents();
@@ -495,84 +497,97 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
       abortControllerRef.current = new AbortController();
 
       try {
-        // 构建 SSE URL
-        const params = new URLSearchParams({
-          userId: user?.id || 'anonymous',
-          title: request.title,
-          sourceText: request.sourceText,
+        // 使用 POST 请求，通过 body 传递数据（避免 URL 长度限制）
+        const url = `${API_BASE}/ai-office/slides/generate?userId=${encodeURIComponent(user?.id || 'anonymous')}`;
+        console.log('[SSE] Connecting via POST to:', url);
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream',
+          },
+          body: JSON.stringify({
+            title: request.title,
+            sourceText: request.sourceText,
+            userRequirement: request.userRequirement,
+            targetPages: request.targetPages,
+            stylePreference: request.stylePreference,
+            targetAudience: request.targetAudience,
+          }),
+          signal: abortControllerRef.current.signal,
         });
 
-        if (request.userRequirement) {
-          params.append('userRequirement', request.userRequirement);
-        }
-        if (request.targetPages) {
-          params.append('targetPages', request.targetPages.toString());
-        }
-        if (request.stylePreference) {
-          params.append('stylePreference', request.stylePreference);
-        }
-        if (request.targetAudience) {
-          params.append('targetAudience', request.targetAudience);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        const url = `${API_BASE}/ai-office/slides/generate?${params.toString()}`;
-        console.log('[SSE] Connecting to:', url);
+        if (!response.body) {
+          throw new Error('Response body is null');
+        }
 
-        // 创建 EventSource
-        const eventSource = new EventSource(url);
+        console.log('[SSE] Connection opened via POST');
 
-        // 连接成功
-        eventSource.onopen = () => {
-          console.log(
-            '[SSE] Connection opened, readyState:',
-            eventSource.readyState
-          );
-        };
+        // 使用 ReadableStream 读取 SSE 流
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-        // 接收消息
-        eventSource.onmessage = (event) => {
-          console.log(
-            '[SSE] Raw message received:',
-            event.data?.substring(0, 200)
-          );
+        const processStream = async () => {
           try {
-            const streamEvent: StreamEvent = JSON.parse(event.data);
-            addStreamEvent(streamEvent);
-            handleStreamEvent(streamEvent);
-          } catch (e) {
-            console.error(
-              '[SSE] Failed to parse stream event:',
-              e,
-              'Data:',
-              event.data
-            );
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) {
+                console.log('[SSE] Stream completed');
+                break;
+              }
+
+              buffer += decoder.decode(value, { stream: true });
+
+              // 解析 SSE 事件（格式: data: {...}\n\n）
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || ''; // 保留不完整的行
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6).trim();
+                  if (data) {
+                    console.log(
+                      '[SSE] Raw message received:',
+                      data.substring(0, 200)
+                    );
+                    try {
+                      const streamEvent: StreamEvent = JSON.parse(data);
+                      addStreamEvent(streamEvent);
+                      handleStreamEvent(streamEvent);
+                    } catch (e) {
+                      console.error(
+                        '[SSE] Failed to parse stream event:',
+                        e,
+                        'Data:',
+                        data
+                      );
+                    }
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            if ((err as Error).name === 'AbortError') {
+              console.log('[SSE] Stream aborted by user');
+            } else {
+              throw err;
+            }
           }
         };
 
-        // 错误处理
-        eventSource.onerror = (event) => {
-          console.error(
-            '[SSE] Error occurred, readyState:',
-            eventSource.readyState,
-            'Event:',
-            event
-          );
-          eventSource.close();
-          setGenerating(false);
-          setError('连接中断，请重试');
-          options.onError?.('连接中断，请重试');
-        };
-
-        // 存储 eventSource 以便取消
-        (abortControllerRef.current as any).eventSource = eventSource;
-
-        // 监听 abort
-        abortControllerRef.current.signal.addEventListener('abort', () => {
-          console.log('[SSE] Aborting connection');
-          eventSource.close();
-        });
+        await processStream();
       } catch (err) {
-        console.error('[SSE] Setup error:', err);
+        if ((err as Error).name === 'AbortError') {
+          console.log('[SSE] Request aborted');
+          return;
+        }
+        console.error('[SSE] Error:', err);
         const errorMessage = err instanceof Error ? err.message : '生成失败';
         setError(errorMessage);
         setGenerating(false);
