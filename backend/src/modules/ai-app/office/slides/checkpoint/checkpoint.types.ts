@@ -497,30 +497,46 @@ export const ROLE_CONFIGS: Record<SlidesRole, RoleConfig> = {
 
 /**
  * 流事件类型
+ * 使用 colon 分隔符以匹配前端的 SlidesTeamEventType
  */
 export type StreamEventType =
-  | "session_created"
-  | "phase_started"
-  | "phase_completed"
-  | "tool_call_started"
-  | "tool_call_completed"
-  | "checkpoint_created"
-  | "page_started"
-  | "page_completed"
-  | "progress_update"
-  | "heartbeat"
-  | "error"
-  | "complete";
+  // 执行生命周期
+  | "execution:started"
+  | "execution:completed"
+  | "execution:failed"
+  // 阶段变化
+  | "phase:started"
+  | "phase:progress"
+  | "phase:completed"
+  | "phase:retry"
+  // Agent 活动
+  | "agent:thinking"
+  | "agent:working"
+  | "agent:completed"
+  | "agent:handoff"
+  | "agent:switched"
+  // 内容生成
+  | "slide:generating"
+  | "slide:generated"
+  // 质量检查
+  | "review:issue_found"
+  | "review:auto_fixed"
+  | "review:scoring"
+  | "review:rejected"
+  | "review:max_retries_reached"
+  | "review:diagnostics"
+  // 心跳
+  | "heartbeat";
 
 /**
  * 流事件
+ * 匹配前端的 SlidesTeamEvent 接口
  */
 export interface StreamEvent {
   type: StreamEventType;
-  timestamp: Date;
+  timestamp: string; // ISO string 格式
+  executionId: string;
   data: unknown;
-  sessionId: string;
-  checkpointId?: string;
 }
 
 // ============================================================================

@@ -104,10 +104,11 @@ export class SlidesEngineService {
       sessionId = session.id;
     }
 
-    // 2. 发送会话创建事件
-    yield this.createEvent("session_created", sessionId, {
+    // 2. 发送 execution:started 事件
+    yield this.createEvent("execution:started", sessionId, {
       sessionId,
-      userId: input.userId,
+      sourceLength: input.sourceText?.length || 0,
+      targetPages: input.targetPages,
     });
 
     // 3. 构建 Mission 输入
@@ -182,18 +183,21 @@ export class SlidesEngineService {
         await this.saveFinalCheckpoint(sessionId, missionResult);
       }
 
-      // 9. 发送完成事件
-      yield this.createEvent("complete", sessionId, {
-        success: true,
-        sessionId,
-        result: missionResult,
+      // 9. 发送 execution:completed 事件
+      const totalPages =
+        (missionResult?.deliverables as unknown[])?.length || 0;
+      yield this.createEvent("execution:completed", sessionId, {
+        totalPages,
+        totalTime: missionResult?.duration || 0,
+        checkpointId: sessionId, // 使用 sessionId 作为 checkpointId
       });
     } catch (error) {
       this.logger.error(`[generateSlides] Error: ${error}`);
 
-      yield this.createEvent("error", sessionId, {
-        message: error instanceof Error ? error.message : String(error),
+      yield this.createEvent("execution:failed", sessionId, {
+        error: error instanceof Error ? error.message : String(error),
         phase: "unknown",
+        recoverable: false,
       });
     } finally {
       clearInterval(heartbeatInterval);
@@ -295,94 +299,156 @@ export class SlidesEngineService {
 
   /**
    * 转换 MissionEvent 为 StreamEvent
+   * 使用前端期望的事件类型格式
    */
   private transformMissionEvent(
     event: MissionEvent,
     sessionId: string,
   ): StreamEvent | null {
-    const typeMapping: Record<string, StreamEventType> = {
-      mission_started: "session_created",
-      parsing_started: "phase_started",
-      parsing_completed: "phase_completed",
-      planning_started: "phase_started",
-      planning_completed: "phase_completed",
-      step_started: "phase_started",
-      step_progress: "progress_update",
-      step_completed: "phase_completed",
-      review_started: "phase_started",
-      review_completed: "phase_completed",
-      deliverable_ready: "page_completed",
-      mission_completed: "complete",
-      mission_failed: "error",
-    };
+    const data = event.data as Record<string, unknown> | undefined;
 
-    const mappedType = typeMapping[event.type];
-    if (!mappedType) {
-      // 未映射的事件类型，忽略或作为 progress_update
-      return null;
+    // 根据不同的事件类型返回不同格式的事件
+    switch (event.type) {
+      case "mission_started":
+        return this.createEvent("execution:started", sessionId, {
+          sessionId,
+          sourceLength: 0,
+        });
+
+      case "parsing_started":
+      case "planning_started":
+      case "step_started":
+      case "review_started": {
+        const stepId = data?.stepId || data?.phase || event.type;
+        const phase = this.mapStepToPhase(String(stepId));
+        const agent = this.mapPhaseToAgent(phase);
+        return this.createEvent("phase:started", sessionId, {
+          phase,
+          agent,
+          description: this.getPhaseDescription(phase),
+        });
+      }
+
+      case "step_progress":
+        return this.createEvent("phase:progress", sessionId, {
+          phase: data?.stepId || "generating",
+          progress: data?.progress || 0,
+          message: data?.message || "处理中...",
+        });
+
+      case "parsing_completed":
+      case "planning_completed":
+      case "step_completed":
+      case "review_completed": {
+        const stepId = data?.stepId || data?.phase || event.type;
+        const phase = this.mapStepToPhase(String(stepId));
+        return this.createEvent("phase:completed", sessionId, {
+          phase,
+          duration: data?.duration || 0,
+          result: data?.output,
+        });
+      }
+
+      case "deliverable_ready": {
+        const pageNumber = (data?.pageNumber as number) || 1;
+        return this.createEvent("slide:generated", sessionId, {
+          pageNumber,
+          title: data?.title || `第 ${pageNumber} 页`,
+          contentLength: 0,
+          html: data?.html,
+        });
+      }
+
+      case "mission_completed":
+        return this.createEvent("execution:completed", sessionId, {
+          totalPages:
+            (data?.result as { deliverables?: unknown[] })?.deliverables
+              ?.length || 0,
+          totalTime: (data?.result as { duration?: number })?.duration || 0,
+          checkpointId: sessionId,
+        });
+
+      case "mission_failed":
+        return this.createEvent("execution:failed", sessionId, {
+          error: (data?.error as string) || "Unknown error",
+          phase: "unknown",
+          recoverable: false,
+        });
+
+      default:
+        // 未映射的事件类型，忽略
+        return null;
     }
-
-    return {
-      type: mappedType,
-      timestamp: event.timestamp,
-      sessionId,
-      data: this.transformEventData(event),
-    };
   }
 
   /**
-   * 转换事件数据
+   * 将 step ID 映射到 phase
    */
-  private transformEventData(event: MissionEvent): unknown {
-    const data = event.data as Record<string, unknown> | undefined;
+  private mapStepToPhase(stepId: string): string {
+    const mapping: Record<string, string> = {
+      "task-decomposition": "analyzing",
+      "outline-planning": "planning",
+      "page-rendering": "generating",
+      "batch-review": "reviewing",
+      finalize: "completed",
+      parsing_started: "analyzing",
+      planning_started: "planning",
+      step_started: "generating",
+      review_started: "reviewing",
+    };
+    return mapping[stepId] || "generating";
+  }
 
-    switch (event.type) {
-      case "step_started":
-        return {
-          phase: data?.stepId,
-        };
+  /**
+   * 将 phase 映射到 agent role
+   */
+  private mapPhaseToAgent(
+    phase: string,
+  ): "leader" | "analyst" | "strategist" | "writer" | "reviewer" {
+    const mapping: Record<
+      string,
+      "leader" | "analyst" | "strategist" | "writer" | "reviewer"
+    > = {
+      initializing: "leader",
+      analyzing: "analyst",
+      planning: "strategist",
+      generating: "writer",
+      rendering: "writer",
+      reviewing: "reviewer",
+      completed: "leader",
+    };
+    return mapping[phase] || "writer";
+  }
 
-      case "step_completed":
-        return {
-          phase: data?.stepId,
-          output: data?.output,
-        };
-
-      case "step_progress":
-        return {
-          progress: data?.progress,
-          message: data?.message,
-        };
-
-      case "mission_completed":
-        return {
-          success: true,
-          result: data?.result,
-        };
-
-      case "mission_failed":
-        return {
-          success: false,
-          error: data?.error,
-        };
-
-      default:
-        return data;
-    }
+  /**
+   * 获取 phase 描述
+   */
+  private getPhaseDescription(phase: string): string {
+    const descriptions: Record<string, string> = {
+      initializing: "正在初始化 AI 团队...",
+      analyzing: "正在分析内容结构...",
+      planning: "正在规划 PPT 大纲...",
+      generating: "正在生成页面内容...",
+      rendering: "正在渲染 HTML...",
+      reviewing: "正在进行质量检查...",
+      completed: "生成完成！",
+    };
+    return descriptions[phase] || "处理中...";
   }
 
   /**
    * 创建流式事件
+   * 使用前端期望的 SlidesTeamEvent 格式
    */
   private createEvent(
     type: StreamEventType,
-    sessionId: string,
+    executionId: string,
     data: unknown = {},
   ): StreamEvent {
     return {
       type,
-      timestamp: new Date(),
-      sessionId,
+      timestamp: new Date().toISOString(),
+      executionId,
       data,
     };
   }

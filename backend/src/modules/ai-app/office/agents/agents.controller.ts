@@ -406,20 +406,22 @@ export class AgentsController {
         const agentEvent = this.convertPPTEvent(taskId, event);
         this.emitEvent(taskId, agentEvent);
 
-        if (event.type === "complete" && event.data) {
+        if (event.type === "execution:completed" && event.data) {
           const eventData = event.data as Record<string, unknown>;
+          const sessionId =
+            (eventData.checkpointId as string) || event.executionId;
           task.result = {
-            documentId: (eventData.sessionId as string) || event.sessionId,
+            documentId: sessionId,
             artifacts: [
               {
-                id: (eventData.sessionId as string) || event.sessionId,
+                id: sessionId,
                 type: "pptx",
                 name: input.title || "演示文稿",
-                url: `/api/ai-office/slides/sessions/${(eventData.sessionId as string) || event.sessionId}`,
+                url: `/api/ai-office/slides/sessions/${sessionId}`,
               },
             ],
             summary: `生成了 ${eventData.totalPages || 0} 页幻灯片`,
-            duration: (eventData.totalDuration as number) || 0,
+            duration: (eventData.totalTime as number) || 0,
           };
         }
       }
@@ -532,6 +534,7 @@ export class AgentsController {
 
   /**
    * 转换 PPT 事件 (StreamEvent)
+   * 使用新的事件类型格式
    */
   private convertPPTEvent(
     taskId: string,
@@ -544,23 +547,23 @@ export class AgentsController {
     const eventData = event.data as Record<string, unknown> | undefined;
 
     switch (event.type) {
-      case "progress_update":
+      case "phase:progress":
         return {
           ...base,
           type: "progress",
           data: {
             phase: eventData?.phase,
-            percentage: eventData?.overallProgress || 0,
+            percentage: eventData?.progress || 0,
             message: eventData?.message,
           },
         };
-      case "phase_completed":
+      case "phase:completed":
         return {
           ...base,
           type: "plan_ready",
-          data: { outline: eventData },
+          data: { outline: eventData?.result },
         };
-      case "page_completed":
+      case "slide:generated":
         return {
           ...base,
           type: "step_complete",
@@ -569,17 +572,17 @@ export class AgentsController {
             html: eventData?.html,
           },
         };
-      case "complete":
+      case "execution:completed":
         return {
           ...base,
           type: "complete",
           data: eventData,
         };
-      case "error":
+      case "execution:failed":
         return {
           ...base,
           type: "error",
-          data: { message: eventData?.message || "Unknown error" },
+          data: { message: eventData?.error || "Unknown error" },
         };
       default:
         return { ...base, type: event.type, data: eventData };

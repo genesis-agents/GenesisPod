@@ -123,21 +123,22 @@ export class AiOfficeIntegrationService {
 
   /**
    * 转换事件为旧 PPT 事件格式
+   * 使用新的事件类型格式
    */
   private convertEventToPPTEvent(event: StreamEvent): PPTStreamEvent {
     const eventData = event.data as Record<string, unknown> | undefined;
 
     switch (event.type) {
-      case "progress_update":
+      case "phase:progress":
         return {
           type: "progress",
           progress: {
             phase: (eventData?.phase as string) || "generating",
-            percentage: (eventData?.overallProgress as number) || 0,
+            percentage: (eventData?.progress as number) || 0,
             message: (eventData?.message as string) || "",
           },
         };
-      case "page_completed":
+      case "slide:generated":
         return {
           type: "slide_complete",
           slide: {
@@ -145,19 +146,20 @@ export class AiOfficeIntegrationService {
             html: (eventData?.html as string) || "",
           },
         };
-      case "complete":
+      case "execution:completed":
         return {
           type: "complete",
           result: {
-            pptId: (eventData?.sessionId as string) || event.sessionId || "",
+            pptId:
+              (eventData?.checkpointId as string) || event.executionId || "",
             totalSlides: (eventData?.totalPages as number) || 0,
-            duration: (eventData?.totalDuration as number) || 0,
+            duration: (eventData?.totalTime as number) || 0,
           },
         };
-      case "error":
+      case "execution:failed":
         return {
           type: "error",
-          error: (eventData?.message as string) || "Unknown error",
+          error: (eventData?.error as string) || "Unknown error",
         };
       default:
         return { type: event.type, ...(eventData || {}) };
