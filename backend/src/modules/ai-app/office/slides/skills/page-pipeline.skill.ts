@@ -167,6 +167,11 @@ export class PagePipelineSkill
         );
 
         if (renderResult.success && renderResult.data) {
+          const htmlLength = renderResult.data.html?.length || 0;
+          this.logger.log(
+            `[execute] ★ Page ${pageNumber} rendered successfully, HTML length: ${htmlLength}`,
+          );
+
           const result: PageGenerationResult = {
             pageNumber,
             title: pageOutline.title,
@@ -303,9 +308,14 @@ export class PagePipelineSkill
       (input.context?.themeId as string) ||
       "genspark-dark";
 
-    this.logger.debug(
-      `[extractInputData] Found outline: ${!!outlinePlan}, pages: ${outlinePlan?.pages?.length || 0}, sourceText: ${sourceText.length} chars`,
+    this.logger.log(
+      `[extractInputData] ★ Found outline: ${!!outlinePlan}, pages: ${outlinePlan?.pages?.length || 0}, sourceText: ${sourceText.length} chars, themeId: ${themeId}`,
     );
+    if (!outlinePlan) {
+      this.logger.error(
+        `[extractInputData] ✗ OUTLINE NOT FOUND! input keys: ${Object.keys(input).join(", ")}, previousOutputs keys: ${Object.keys(input.previousOutputs || {}).join(", ")}`,
+      );
+    }
 
     return { outlinePlan, sourceText, themeId };
   }

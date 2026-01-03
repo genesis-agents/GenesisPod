@@ -521,7 +521,9 @@ export class SlidesEngineService {
         );
 
         // ★ 从任务结果中提取 HTML 页面
-        this.extractPagesFromTaskResult(task?.result, sessionId, events);
+        // 优先使用 data.result（orchestrator 单独传递），否则用 task.result
+        const taskResult = data.result || task?.result;
+        this.extractPagesFromTaskResult(taskResult, sessionId, events);
         break;
       }
 
@@ -735,9 +737,21 @@ export class SlidesEngineService {
     sessionId: string,
     events: StreamEvent[],
   ): void {
-    if (!result || typeof result !== "object") return;
+    this.logger.log(
+      `[extractPagesFromTaskResult] Called with result type: ${typeof result}, isNull: ${result === null}`,
+    );
+
+    if (!result || typeof result !== "object") {
+      this.logger.warn(
+        `[extractPagesFromTaskResult] Result is null/undefined or not object`,
+      );
+      return;
+    }
 
     const resultObj = result as Record<string, unknown>;
+    this.logger.log(
+      `[extractPagesFromTaskResult] Result keys: ${Object.keys(resultObj).join(", ")}`,
+    );
 
     // 情况 1: 直接包含 html
     if (resultObj.html && typeof resultObj.html === "string") {
@@ -757,17 +771,27 @@ export class SlidesEngineService {
 
     // 情况 2: 包含 pages 数组
     const pages = resultObj.pages as unknown[];
+    this.logger.log(
+      `[extractPagesFromTaskResult] pages exists: ${!!pages}, isArray: ${Array.isArray(pages)}, length: ${pages?.length || 0}`,
+    );
+
     if (pages && Array.isArray(pages)) {
-      for (const page of pages) {
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i];
         const p = page as {
           html?: string;
           renderedHtml?: string;
           pageNumber?: number;
           title?: string;
+          status?: string;
         };
         const html = p.renderedHtml || p.html;
+        this.logger.log(
+          `[extractPagesFromTaskResult] Page ${i}: status=${p.status}, htmlLength=${html?.length || 0}, title=${p.title}`,
+        );
+
         if (html) {
-          const pageNumber = p.pageNumber || 1;
+          const pageNumber = p.pageNumber || i + 1;
           events.push(
             this.createEvent("slide:generated", sessionId, {
               pageNumber,
@@ -777,10 +801,18 @@ export class SlidesEngineService {
             }),
           );
           this.logger.log(
-            `[extractPagesFromTaskResult] Emitted slide:generated from pages array for page ${pageNumber}`,
+            `[extractPagesFromTaskResult] ✓ Emitted slide:generated for page ${pageNumber}`,
+          );
+        } else {
+          this.logger.warn(
+            `[extractPagesFromTaskResult] ✗ Page ${i} has no HTML content!`,
           );
         }
       }
+    } else {
+      this.logger.warn(
+        `[extractPagesFromTaskResult] No valid pages array in result`,
+      );
     }
   }
 
