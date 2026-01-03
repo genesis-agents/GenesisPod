@@ -533,7 +533,50 @@ export class SlidesEngineService {
           }),
         );
 
-        // ★ 只有 page-pipeline 任务才需要提取 HTML
+        // ★ outline-planning 完成时，发送页面大纲给前端初始化 pages 数组
+        if (
+          task?.skillId === "slides-outline-planning" ||
+          task?.skillId === "outline-planning"
+        ) {
+          const taskResult = data.result || task?.result;
+          if (taskResult && typeof taskResult === "object") {
+            const outlineResult = taskResult as {
+              pages?: unknown[];
+              title?: string;
+            };
+            if (outlineResult.pages && Array.isArray(outlineResult.pages)) {
+              const pageOutlines = outlineResult.pages.map(
+                (page: unknown, idx: number) => {
+                  const p = page as {
+                    pageNumber?: number;
+                    title?: string;
+                    templateType?: string;
+                  };
+                  return {
+                    pageNumber: p.pageNumber || idx + 1,
+                    title: p.title || `第 ${idx + 1} 页`,
+                    templateType: p.templateType || "content",
+                  };
+                },
+              );
+              this.logger.log(
+                `[transformSlidesMissionEvent] ★ OUTLINE-PLANNING DETECTED! Sending ${pageOutlines.length} pageOutlines to frontend`,
+              );
+              events.push(
+                this.createEvent("phase:completed", sessionId, {
+                  phase: "planning",
+                  duration: 0,
+                  result: {
+                    totalPages: pageOutlines.length,
+                    pageOutlines,
+                  },
+                }),
+              );
+            }
+          }
+        }
+
+        // ★ page-pipeline 任务完成时提取 HTML
         if (
           task?.skillId === "slides-page-pipeline" ||
           task?.skillId === "page-pipeline"
