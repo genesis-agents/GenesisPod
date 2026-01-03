@@ -100,6 +100,9 @@ export class MissionOrchestrator implements IMissionOrchestrator {
   // 消息队列（模拟协作通信）
   private readonly messageQueues = new Map<string, CollaborationMessage[]>();
 
+  // ★ 存储原始输入，不依赖 Memory 服务（修复数据丢失问题）
+  private readonly originalInputs = new Map<string, MissionInput>();
+
   constructor(
     private readonly constraintEngine: ConstraintEngine,
     private readonly toolRegistry?: ToolRegistry,
@@ -139,7 +142,10 @@ export class MissionOrchestrator implements IMissionOrchestrator {
     const state = this.initializeState(missionId);
     this.states.set(missionId, state);
 
-    // 存储上下文到 Memory
+    // ★ 直接存储原始输入（不依赖 Memory 服务）
+    this.originalInputs.set(missionId, input);
+
+    // 存储上下文到 Memory（可选，用于持久化）
     await this.storeContext(missionId, "input", input);
 
     try {
@@ -279,6 +285,9 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       const result = this.createResult(state, startTime, true);
       yield this.createEvent("mission_completed", missionId, { result });
 
+      // ★ 清理原始输入，防止内存泄漏
+      this.originalInputs.delete(missionId);
+
       return result;
     } catch (error) {
       state.phase = "failed";
@@ -287,6 +296,9 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       yield this.createEvent("mission_failed", missionId, {
         error: errorMessage,
       });
+
+      // ★ 清理原始输入，防止内存泄漏
+      this.originalInputs.delete(missionId);
 
       return this.createResult(state, startTime, false, errorMessage);
     }
@@ -732,6 +744,22 @@ export class MissionOrchestrator implements IMissionOrchestrator {
     let totalTokens = 0;
     let totalCost = 0;
 
+    // ★ 优先使用直接存储的原始输入（不依赖 Memory 服务）
+    const originalInput = this.originalInputs.get(missionId);
+    const missionInput =
+      originalInput || (context.input as MissionInput | undefined);
+
+    // ★ 调试日志：确认数据来源
+    if (!missionInput) {
+      this.logger.warn(
+        `[executeStepFull] No MissionInput found for ${missionId}. originalInput: ${!!originalInput}, context.input: ${!!context.input}`,
+      );
+    } else {
+      this.logger.debug(
+        `[executeStepFull] MissionInput found. sourceText length: ${(missionInput.metadata?.context as string)?.length || 0}`,
+      );
+    }
+
     // ★ 1. 执行 Member 的技能
     const skillResults: Array<{ skillId: string; result: SkillResult }> = [];
     if (this.skillRegistry && executor.skills.length > 0) {
@@ -748,10 +776,47 @@ export class MissionOrchestrator implements IMissionOrchestrator {
               createdAt: new Date(),
             };
 
-            // 构建技能输入
+            // ★ 构建技能输入 - 从 metadata.context 提取 sourceText
+            // 数据流：SlidesEngineService 的 context: input.sourceText
+            //        → TeamsService 的 metadata.context
+            //        → 这里提取到 skillInput.context.input.sourceText
+            const sourceText =
+              (missionInput?.metadata?.context as string) || "";
+            const userRequirement = missionInput?.prompt || "";
+
+            if (!sourceText) {
+              this.logger.warn(
+                `[executeStepFull] sourceText is empty! metadata: ${JSON.stringify(missionInput?.metadata || {})}`,
+              );
+            }
+
             const skillInput = {
               task: step.description,
-              context: context,
+              context: {
+                ...context,
+                input: {
+                  // ★ 将 metadata 中的字段提升到 input 层级，便于技能访问
+                  sourceText,
+                  userRequirement,
+                  targetPages: missionInput?.metadata?.targetPages as
+                    | number
+                    | undefined,
+                  stylePreference: missionInput?.metadata?.stylePreference as
+                    | string
+                    | undefined,
+                  targetAudience: missionInput?.metadata?.targetAudience as
+                    | string
+                    | undefined,
+                  themeId: missionInput?.metadata?.themeId as
+                    | string
+                    | undefined,
+                  sessionId: missionInput?.metadata?.sessionId as
+                    | string
+                    | undefined,
+                  // 保留原始 input 作为 _raw
+                  _raw: missionInput,
+                },
+              },
               previousOutputs: Object.fromEntries(state.intermediateOutputs),
             };
 
@@ -1358,6 +1423,8 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       state.phase = "failed";
       this.logger.log(`Mission ${missionId} cancelled`);
     }
+    // ★ 清理原始输入，防止内存泄漏
+    this.originalInputs.delete(missionId);
   }
 
   /**
