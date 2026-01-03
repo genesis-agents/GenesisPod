@@ -388,7 +388,17 @@ export class SlidesTeamOrchestrator {
           task.completedAt = new Date();
 
           // 保存输出供后续任务使用
-          previousOutputs[task.skillId] = result.result;
+          // ★ 关键修复：同时存储带前缀和不带前缀的 Key，确保后续任务能找到
+          const normalizedSkillId = task.skillId.split(",")[0].trim();
+          previousOutputs[normalizedSkillId] = result.result;
+          // 如果没有 slides- 前缀，也存储带前缀的版本
+          if (!normalizedSkillId.startsWith("slides-")) {
+            previousOutputs[`slides-${normalizedSkillId}`] = result.result;
+          } else {
+            // 如果有前缀，也存储不带前缀的版本
+            previousOutputs[normalizedSkillId.replace("slides-", "")] =
+              result.result;
+          }
 
           // ★ 诊断日志：检查任务结果
           const resultObj = result.result as Record<string, unknown> | null;
