@@ -55,6 +55,7 @@ import { RateLimiter } from "./constraint/guardrails/rate-limiter";
 // LLM
 import { LLMFactory } from "./llm/factory/llm-factory";
 import { FunctionCallingLLMAdapter } from "./llm/adapters/function-calling-llm-adapter";
+import { AiChatLLMAdapter } from "./llm/adapters/ai-chat-llm-adapter";
 
 // Memory
 import {
@@ -256,6 +257,7 @@ const conversationMemoryFactory = {
     // === LLM ===
     LLMFactory,
     FunctionCallingLLMAdapter,
+    AiChatLLMAdapter,
 
     // === Core Services (from ai-core) ===
     AiChatService,
@@ -308,6 +310,7 @@ const conversationMemoryFactory = {
     // === LLM ===
     LLMFactory,
     FunctionCallingLLMAdapter,
+    AiChatLLMAdapter,
 
     // === Core Services (from ai-core) ===
     AiChatService,
