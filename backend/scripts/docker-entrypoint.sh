@@ -12,5 +12,8 @@ npx prisma migrate resolve --applied 20251204000000_add_team_collaboration --sch
 echo "🔄 Step 2: Running database migrations..."
 npx prisma migrate deploy --schema=./prisma/schema.prisma
 
+echo "🔧 Step 2.5: Regenerating Prisma Client..."
+npx prisma generate --schema=./prisma/schema.prisma
+
 echo "🚀 Step 3: Starting application..."
 exec node dist/main
