@@ -850,12 +850,17 @@ export class MissionOrchestrator implements IMissionOrchestrator {
           }
 
           try {
+            // ★ 优先使用 missionInput.metadata.sessionId（Slides 等应用传入的实际会话 ID）
+            // 否则回退到 missionId（默认行为）
+            const actualSessionId =
+              (missionInput?.metadata?.sessionId as string) || missionId;
+
             const skillContext: SkillContext = {
               executionId: uuidv4(),
               skillId: skill.id,
               domain: skill.domain,
               callerId: executor.id,
-              sessionId: missionId,
+              sessionId: actualSessionId,
               createdAt: new Date(),
             };
 
