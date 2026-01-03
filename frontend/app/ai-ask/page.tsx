@@ -611,10 +611,10 @@ const INSPIRATIONAL_QUOTES: Quote[] = [
 // Quote Card Component - Redesigned with background image and bilingual support
 function QuoteCard({ quote }: { quote: Quote }) {
   return (
-    <div className="mx-auto mb-6 w-full max-w-2xl">
+    <div className="w-full">
       <div
-        className="relative overflow-hidden rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl"
-        style={{ minHeight: '160px' }}
+        className="relative overflow-hidden transition-all duration-300"
+        style={{ minHeight: '140px' }}
       >
         {/* Background image with overlay */}
         <div
@@ -1577,107 +1577,369 @@ export default function AskPage() {
       <main className="flex flex-1 flex-col overflow-hidden">
         {messages.length === 0 ? (
           /* Welcome Screen */
-          <div className="flex flex-1 flex-col items-center justify-center px-4">
-            <div className="w-full max-w-2xl">
-              {/* Show login prompt for unauthenticated users */}
-              {!token ? (
-                <div className="mb-12 text-center">
-                  <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500">
-                    <svg
-                      className="h-10 w-10 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+          <div className="flex flex-1 flex-col">
+            {/* Main content area - centered */}
+            <div className="flex flex-1 items-center justify-center px-4">
+              <div className="w-full max-w-2xl">
+                {/* Show login prompt for unauthenticated users */}
+                {!token ? (
+                  <div className="mb-12 text-center">
+                    <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500">
+                      <svg
+                        className="h-10 w-10 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                        />
+                      </svg>
+                    </div>
+                    <h1 className="mb-4 text-3xl font-medium text-gray-800 md:text-4xl">
+                      {t('aiAsk.login.title')}
+                    </h1>
+                    <p className="mb-8 text-gray-500">
+                      {t('aiAsk.login.description')}
+                    </p>
+                    <div className="mb-8 flex flex-wrap justify-center gap-3">
+                      <span className="rounded-full bg-violet-100 px-3 py-1 text-sm text-violet-700">
+                        {t('aiAsk.login.features.multiModel')}
+                      </span>
+                      <span className="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">
+                        {t('aiAsk.login.features.knowledgeBase')}
+                      </span>
+                      <span className="rounded-full bg-fuchsia-100 px-3 py-1 text-sm text-fuchsia-700">
+                        {t('aiAsk.login.features.webSearch')}
+                      </span>
+                      <span className="rounded-full bg-pink-100 px-3 py-1 text-sm text-pink-700">
+                        {t('aiAsk.login.features.sessionHistory')}
+                      </span>
+                    </div>
+                    <button
+                      onClick={loginWithGoogle}
+                      className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 px-8 py-3 text-lg font-medium text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                      />
-                    </svg>
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"
+                        />
+                      </svg>
+                      {t('aiAsk.login.button')}
+                    </button>
                   </div>
-                  <h1 className="mb-4 text-3xl font-medium text-gray-800 md:text-4xl">
-                    {t('aiAsk.login.title')}
+                ) : (
+                  <h1 className="mb-12 text-center text-4xl font-light text-gray-800 md:text-5xl">
+                    <span className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 bg-clip-text text-transparent">
+                      {getGreeting()}
+                    </span>
+                    {user?.username && (
+                      <span className="text-gray-700">
+                        , {user.username.split(' ')[0]}
+                      </span>
+                    )}
                   </h1>
-                  <p className="mb-8 text-gray-500">
-                    {t('aiAsk.login.description')}
-                  </p>
-                  <div className="mb-8 flex flex-wrap justify-center gap-3">
-                    <span className="rounded-full bg-violet-100 px-3 py-1 text-sm text-violet-700">
-                      {t('aiAsk.login.features.multiModel')}
-                    </span>
-                    <span className="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">
-                      {t('aiAsk.login.features.knowledgeBase')}
-                    </span>
-                    <span className="rounded-full bg-fuchsia-100 px-3 py-1 text-sm text-fuchsia-700">
-                      {t('aiAsk.login.features.webSearch')}
-                    </span>
-                    <span className="rounded-full bg-pink-100 px-3 py-1 text-sm text-pink-700">
-                      {t('aiAsk.login.features.sessionHistory')}
-                    </span>
-                  </div>
-                  <button
-                    onClick={loginWithGoogle}
-                    className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 px-8 py-3 text-lg font-medium text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl"
-                  >
-                    <svg
-                      className="h-5 w-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"
-                      />
-                    </svg>
-                    {t('aiAsk.login.button')}
-                  </button>
-                </div>
-              ) : (
-                <h1 className="mb-12 text-center text-4xl font-light text-gray-800 md:text-5xl">
-                  <span className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 bg-clip-text text-transparent">
-                    {getGreeting()}
-                  </span>
-                  {user?.username && (
-                    <span className="text-gray-700">
-                      , {user.username.split(' ')[0]}
-                    </span>
-                  )}
-                </h1>
-              )}
+                )}
 
-              {/* Input Box and Quote - Only show when logged in */}
-              {token && (
-                <>
-                  <div className="relative">
-                    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm transition-all focus-within:border-purple-300 focus-within:shadow-md">
-                      <textarea
-                        ref={inputRef}
-                        value={input}
-                        onChange={handleInputChange}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Ask anything..."
-                        rows={1}
-                        className="w-full resize-none rounded-t-2xl bg-transparent px-4 py-4 text-gray-900 placeholder-gray-400 focus:outline-none"
-                        disabled={isLoading || modelsLoading}
-                      />
+                {/* Input Box and Quote - Only show when logged in */}
+                {token && (
+                  <>
+                    <div className="relative">
+                      <div className="rounded-3xl border border-gray-200/80 bg-white shadow-lg shadow-purple-500/10 transition-all focus-within:border-purple-400 focus-within:shadow-xl focus-within:shadow-purple-500/20">
+                        <textarea
+                          ref={inputRef}
+                          value={input}
+                          onChange={handleInputChange}
+                          onKeyDown={handleKeyDown}
+                          placeholder="Ask anything..."
+                          rows={2}
+                          className="w-full resize-none rounded-t-3xl bg-transparent px-6 py-5 text-lg text-gray-900 placeholder-gray-400 focus:outline-none"
+                          disabled={isLoading || modelsLoading}
+                        />
 
-                      <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          {/* Tools Button */}
-                          <div className="relative" ref={toolsRef}>
+                        <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            {/* Tools Button */}
+                            <div className="relative" ref={toolsRef}>
+                              <button
+                                type="button"
+                                onClick={() => setShowTools(!showTools)}
+                                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                                  showTools
+                                    ? 'bg-purple-100 text-purple-700'
+                                    : 'text-gray-500 hover:bg-gray-100'
+                                }`}
+                              >
+                                <svg
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                                  />
+                                </svg>
+                                Tools
+                              </button>
+
+                              {showTools && (
+                                <div className="absolute bottom-full left-0 z-50 mb-2 max-h-96 w-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
+                                  {/* AI Office Agents */}
+                                  <div className="px-3 pb-1 text-xs font-medium text-gray-400">
+                                    AI Office
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setShowTools(false);
+                                      router.push('/ai-office?tab=slides');
+                                    }}
+                                  >
+                                    <span className="text-base">📊</span>
+                                    <span className="flex-1">AI Slides</span>
+                                    <span className="text-xs text-gray-400">
+                                      PPT
+                                    </span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setShowTools(false);
+                                      router.push('/ai-office?tab=docs');
+                                    }}
+                                  >
+                                    <span className="text-base">📝</span>
+                                    <span className="flex-1">AI Docs</span>
+                                    <span className="text-xs text-gray-400">
+                                      Word
+                                    </span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setShowTools(false);
+                                      router.push('/ai-office?tab=designer');
+                                    }}
+                                  >
+                                    <span className="text-base">🎨</span>
+                                    <span className="flex-1">AI Designer</span>
+                                    <span className="text-xs text-gray-400">
+                                      Design
+                                    </span>
+                                  </button>
+
+                                  {/* Divider */}
+                                  <div className="my-2 border-t border-gray-100" />
+
+                                  {/* AI Teams */}
+                                  <div className="px-3 pb-1 text-xs font-medium text-gray-400">
+                                    Collaboration
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setShowTools(false);
+                                      router.push('/ai-teams');
+                                    }}
+                                  >
+                                    <span className="text-base">👥</span>
+                                    <span className="flex-1">AI Teams</span>
+                                    <span className="text-xs text-gray-400">
+                                      Multi-Agent
+                                    </span>
+                                  </button>
+
+                                  {/* Divider */}
+                                  <div className="my-2 border-t border-gray-100" />
+
+                                  {/* Creative */}
+                                  <div className="px-3 pb-1 text-xs font-medium text-gray-400">
+                                    Creative
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setShowTools(false);
+                                      router.push('/studio?tab=create');
+                                    }}
+                                  >
+                                    <span className="text-base">🖼️</span>
+                                    <span className="flex-1">
+                                      Image Generation
+                                    </span>
+                                    <span className="text-xs text-gray-400">
+                                      DALL-E
+                                    </span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setShowTools(false);
+                                      router.push('/ai-studio');
+                                    }}
+                                  >
+                                    <span className="text-base">🎬</span>
+                                    <span className="flex-1">AI Studio</span>
+                                    <span className="text-xs text-gray-400">
+                                      Projects
+                                    </span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Model Selector */}
+                            <div className="relative" ref={modelSelectorRef}>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setShowModelSelector(!showModelSelector)
+                                }
+                                disabled={modelsLoading}
+                                className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-100"
+                              >
+                                {modelsLoading ? (
+                                  <span className="text-gray-400">
+                                    Loading...
+                                  </span>
+                                ) : (
+                                  <>
+                                    {isMixtureMode ? (
+                                      <span>🔀</span>
+                                    ) : selectedModelInfo ? (
+                                      <ModelIcon
+                                        model={selectedModelInfo}
+                                        size={16}
+                                      />
+                                    ) : (
+                                      <span>🤖</span>
+                                    )}
+                                    <span>
+                                      {isMixtureMode
+                                        ? 'Mixture'
+                                        : selectedModelInfo?.name || 'Select'}
+                                    </span>
+                                    <svg
+                                      className="h-4 w-4 text-gray-400"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M19 9l-7 7-7-7"
+                                      />
+                                    </svg>
+                                  </>
+                                )}
+                              </button>
+
+                              {showModelSelector && (
+                                <div className="absolute bottom-full left-0 z-50 mb-2 max-h-80 w-56 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1.5 shadow-xl">
+                                  <div className="px-3 pb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">
+                                    Chat Models
+                                  </div>
+                                  {modelOptions.map((model) => (
+                                    <button
+                                      key={model.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedModel(model.id);
+                                        setShowModelSelector(false);
+                                      }}
+                                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-gray-50 ${
+                                        selectedModel === model.id
+                                          ? 'bg-purple-50'
+                                          : ''
+                                      }`}
+                                    >
+                                      <ModelIcon model={model} size={16} />
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="truncate text-sm font-medium text-gray-900">
+                                            {model.name}
+                                          </span>
+                                          {'isMixture' in model &&
+                                            model.isMixture && (
+                                              <span className="shrink-0 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1 py-0.5 text-[10px] text-white">
+                                                Multi
+                                              </span>
+                                            )}
+                                        </div>
+                                        <span className="text-[11px] text-gray-500">
+                                          {model.provider}
+                                        </span>
+                                      </div>
+                                      {selectedModel === model.id && (
+                                        <svg
+                                          className="h-4 w-4 shrink-0 text-purple-600"
+                                          fill="currentColor"
+                                          viewBox="0 0 20 20"
+                                        >
+                                          <path
+                                            fillRule="evenodd"
+                                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                            clipRule="evenodd"
+                                          />
+                                        </svg>
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Web Search Toggle */}
                             <button
                               type="button"
-                              onClick={() => setShowTools(!showTools)}
+                              onClick={() =>
+                                setWebSearchEnabled(!webSearchEnabled)
+                              }
                               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                                showTools
-                                  ? 'bg-purple-100 text-purple-700'
-                                  : 'text-gray-500 hover:bg-gray-100'
+                                webSearchEnabled
+                                  ? 'bg-blue-50 text-blue-600'
+                                  : 'text-gray-400 hover:bg-gray-100'
                               }`}
+                              title={
+                                webSearchEnabled
+                                  ? 'Web search enabled'
+                                  : 'Web search disabled'
+                              }
                             >
                               <svg
                                 className="h-4 w-4"
@@ -1689,356 +1951,109 @@ export default function AskPage() {
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
                                   strokeWidth={2}
-                                  d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                                  d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
                                 />
                               </svg>
-                              Tools
-                            </button>
-
-                            {showTools && (
-                              <div className="absolute bottom-full left-0 z-50 mb-2 max-h-96 w-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
-                                {/* AI Office Agents */}
-                                <div className="px-3 pb-1 text-xs font-medium text-gray-400">
-                                  AI Office
-                                </div>
-                                <button
-                                  type="button"
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setShowTools(false);
-                                    router.push('/ai-office?tab=slides');
-                                  }}
+                              <span>Search</span>
+                              {webSearchEnabled && (
+                                <svg
+                                  className="h-3.5 w-3.5"
+                                  fill="currentColor"
+                                  viewBox="0 0 20 20"
                                 >
-                                  <span className="text-base">📊</span>
-                                  <span className="flex-1">AI Slides</span>
-                                  <span className="text-xs text-gray-400">
-                                    PPT
-                                  </span>
-                                </button>
-                                <button
-                                  type="button"
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setShowTools(false);
-                                    router.push('/ai-office?tab=docs');
-                                  }}
-                                >
-                                  <span className="text-base">📝</span>
-                                  <span className="flex-1">AI Docs</span>
-                                  <span className="text-xs text-gray-400">
-                                    Word
-                                  </span>
-                                </button>
-                                <button
-                                  type="button"
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setShowTools(false);
-                                    router.push('/ai-office?tab=designer');
-                                  }}
-                                >
-                                  <span className="text-base">🎨</span>
-                                  <span className="flex-1">AI Designer</span>
-                                  <span className="text-xs text-gray-400">
-                                    Design
-                                  </span>
-                                </button>
-
-                                {/* Divider */}
-                                <div className="my-2 border-t border-gray-100" />
-
-                                {/* AI Teams */}
-                                <div className="px-3 pb-1 text-xs font-medium text-gray-400">
-                                  Collaboration
-                                </div>
-                                <button
-                                  type="button"
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setShowTools(false);
-                                    router.push('/ai-teams');
-                                  }}
-                                >
-                                  <span className="text-base">👥</span>
-                                  <span className="flex-1">AI Teams</span>
-                                  <span className="text-xs text-gray-400">
-                                    Multi-Agent
-                                  </span>
-                                </button>
-
-                                {/* Divider */}
-                                <div className="my-2 border-t border-gray-100" />
-
-                                {/* Creative */}
-                                <div className="px-3 pb-1 text-xs font-medium text-gray-400">
-                                  Creative
-                                </div>
-                                <button
-                                  type="button"
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setShowTools(false);
-                                    router.push('/studio?tab=create');
-                                  }}
-                                >
-                                  <span className="text-base">🖼️</span>
-                                  <span className="flex-1">
-                                    Image Generation
-                                  </span>
-                                  <span className="text-xs text-gray-400">
-                                    DALL-E
-                                  </span>
-                                </button>
-                                <button
-                                  type="button"
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setShowTools(false);
-                                    router.push('/ai-studio');
-                                  }}
-                                >
-                                  <span className="text-base">🎬</span>
-                                  <span className="flex-1">AI Studio</span>
-                                  <span className="text-xs text-gray-400">
-                                    Projects
-                                  </span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Model Selector */}
-                          <div className="relative" ref={modelSelectorRef}>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setShowModelSelector(!showModelSelector)
-                              }
-                              disabled={modelsLoading}
-                              className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-100"
-                            >
-                              {modelsLoading ? (
-                                <span className="text-gray-400">
-                                  Loading...
-                                </span>
-                              ) : (
-                                <>
-                                  {isMixtureMode ? (
-                                    <span>🔀</span>
-                                  ) : selectedModelInfo ? (
-                                    <ModelIcon
-                                      model={selectedModelInfo}
-                                      size={16}
-                                    />
-                                  ) : (
-                                    <span>🤖</span>
-                                  )}
-                                  <span>
-                                    {isMixtureMode
-                                      ? 'Mixture'
-                                      : selectedModelInfo?.name || 'Select'}
-                                  </span>
-                                  <svg
-                                    className="h-4 w-4 text-gray-400"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M19 9l-7 7-7-7"
-                                    />
-                                  </svg>
-                                </>
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
                               )}
                             </button>
 
-                            {showModelSelector && (
-                              <div className="absolute bottom-full left-0 z-50 mb-2 max-h-80 w-56 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1.5 shadow-xl">
-                                <div className="px-3 pb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">
-                                  Chat Models
-                                </div>
-                                {modelOptions.map((model) => (
-                                  <button
-                                    key={model.id}
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedModel(model.id);
-                                      setShowModelSelector(false);
-                                    }}
-                                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-gray-50 ${
-                                      selectedModel === model.id
-                                        ? 'bg-purple-50'
-                                        : ''
-                                    }`}
-                                  >
-                                    <ModelIcon model={model} size={16} />
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="truncate text-sm font-medium text-gray-900">
-                                          {model.name}
-                                        </span>
-                                        {'isMixture' in model &&
-                                          model.isMixture && (
-                                            <span className="shrink-0 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1 py-0.5 text-[10px] text-white">
-                                              Multi
-                                            </span>
-                                          )}
-                                      </div>
-                                      <span className="text-[11px] text-gray-500">
-                                        {model.provider}
-                                      </span>
-                                    </div>
-                                    {selectedModel === model.id && (
-                                      <svg
-                                        className="h-4 w-4 shrink-0 text-purple-600"
-                                        fill="currentColor"
-                                        viewBox="0 0 20 20"
-                                      >
-                                        <path
-                                          fillRule="evenodd"
-                                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                          clipRule="evenodd"
-                                        />
-                                      </svg>
-                                    )}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
+                            {/* Knowledge Base Selector */}
+                            <KnowledgeBaseSelector
+                              selectedIds={selectedKnowledgeBases}
+                              onSelectionChange={setSelectedKnowledgeBases}
+                              multiple={true}
+                              maxSelections={3}
+                              compact={true}
+                              onlyReady={false}
+                              disabled={isLoading}
+                            />
                           </div>
 
-                          {/* Web Search Toggle */}
+                          {/* Send/Stop Button */}
                           <button
                             type="button"
                             onClick={() =>
-                              setWebSearchEnabled(!webSearchEnabled)
+                              isLoading
+                                ? handleStopGeneration()
+                                : handleSubmit()
                             }
-                            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                              webSearchEnabled
-                                ? 'bg-blue-50 text-blue-600'
-                                : 'text-gray-400 hover:bg-gray-100'
+                            disabled={
+                              !isLoading &&
+                              ((!input.trim() &&
+                                attachedFiles.length === 0 &&
+                                !quotedMessage) ||
+                                modelsLoading)
+                            }
+                            className={`flex h-9 w-9 items-center justify-center rounded-xl text-white transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
+                              isLoading
+                                ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
+                                : 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700'
                             }`}
                             title={
-                              webSearchEnabled
-                                ? 'Web search enabled'
-                                : 'Web search disabled'
+                              isLoading ? 'Stop generation' : 'Send message'
                             }
                           >
-                            <svg
-                              className="h-4 w-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
-                              />
-                            </svg>
-                            <span>Search</span>
-                            {webSearchEnabled && (
+                            {isLoading ? (
                               <svg
-                                className="h-3.5 w-3.5"
+                                className="h-5 w-5"
                                 fill="currentColor"
-                                viewBox="0 0 20 20"
+                                viewBox="0 0 24 24"
+                              >
+                                <rect
+                                  x="6"
+                                  y="6"
+                                  width="12"
+                                  height="12"
+                                  rx="1"
+                                />
+                              </svg>
+                            ) : (
+                              <svg
+                                className="h-5 w-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
                               >
                                 <path
-                                  fillRule="evenodd"
-                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                  clipRule="evenodd"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
                                 />
                               </svg>
                             )}
                           </button>
-
-                          {/* Knowledge Base Selector */}
-                          <KnowledgeBaseSelector
-                            selectedIds={selectedKnowledgeBases}
-                            onSelectionChange={setSelectedKnowledgeBases}
-                            multiple={true}
-                            maxSelections={3}
-                            compact={true}
-                            onlyReady={false}
-                            disabled={isLoading}
-                          />
                         </div>
-
-                        {/* Send/Stop Button */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            isLoading ? handleStopGeneration() : handleSubmit()
-                          }
-                          disabled={
-                            !isLoading &&
-                            ((!input.trim() &&
-                              attachedFiles.length === 0 &&
-                              !quotedMessage) ||
-                              modelsLoading)
-                          }
-                          className={`flex h-9 w-9 items-center justify-center rounded-xl text-white transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
-                            isLoading
-                              ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
-                              : 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700'
-                          }`}
-                          title={isLoading ? 'Stop generation' : 'Send message'}
-                        >
-                          {isLoading ? (
-                            <svg
-                              className="h-5 w-5"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <rect x="6" y="6" width="12" height="12" rx="1" />
-                            </svg>
-                          ) : (
-                            <svg
-                              className="h-5 w-5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                              />
-                            </svg>
-                          )}
-                        </button>
                       </div>
+
+                      <p className="mt-3 text-center text-xs text-gray-400">
+                        Press Enter to send, Shift+Enter for new line
+                      </p>
                     </div>
-
-                    <p className="mt-3 text-center text-xs text-gray-400">
-                      Press Enter to send, Shift+Enter for new line
-                    </p>
-                  </div>
-
-                  {/* Inspirational Quote - Below search box */}
-                  <div className="mt-8">
-                    <QuoteCard quote={randomQuote} />
-                  </div>
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </div>
+
+            {/* Inspirational Quote - Fixed at bottom, full width */}
+            {token && (
+              <div className="flex-shrink-0">
+                <QuoteCard quote={randomQuote} />
+              </div>
+            )}
           </div>
         ) : (
           /* Chat Messages */

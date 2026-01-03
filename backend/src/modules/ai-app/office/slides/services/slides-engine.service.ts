@@ -312,11 +312,11 @@ export class SlidesEngineService {
     // 根据不同的事件类型返回不同格式的事件
     switch (event.type) {
       case "mission_started":
-        events.push(
-          this.createEvent("execution:started", sessionId, {
-            sessionId,
-            sourceLength: 0,
-          }),
+        // 注意: execution:started 已在 generateSlides() 开始时发送
+        // 这里不再重复发送，避免前端收到两个 "开始生成" 事件
+        // 如果需要，可以发送一个内部的 mission 状态事件
+        this.logger.debug(
+          `[transformMissionEvent] mission_started received, skipping duplicate execution:started`,
         );
         break;
 
@@ -420,7 +420,7 @@ export class SlidesEngineService {
       }
 
       case "mission_completed":
-        // 先完成最后一个 agent（leader）
+        // 发送 leader 完成事件（用于 AgentTeamPanel）
         events.push(
           this.createEvent("agent:completed", sessionId, {
             agent: "leader",
@@ -429,15 +429,10 @@ export class SlidesEngineService {
             duration: (data?.result as { duration?: number })?.duration || 0,
           }),
         );
-
-        events.push(
-          this.createEvent("execution:completed", sessionId, {
-            totalPages:
-              (data?.result as { deliverables?: unknown[] })?.deliverables
-                ?.length || 0,
-            totalTime: (data?.result as { duration?: number })?.duration || 0,
-            checkpointId: sessionId,
-          }),
+        // 注意: execution:completed 在 generateSlides() 循环结束后发送
+        // 这里不再重复发送，避免前端收到两个 "生成完成" 事件
+        this.logger.debug(
+          `[transformMissionEvent] mission_completed received, execution:completed will be sent after loop`,
         );
         break;
 

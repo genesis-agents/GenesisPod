@@ -56,6 +56,7 @@ import { RateLimiter } from "./constraint/guardrails/rate-limiter";
 import { LLMFactory } from "./llm/factory/llm-factory";
 import { FunctionCallingLLMAdapter } from "./llm/adapters/function-calling-llm-adapter";
 import { AiChatLLMAdapter } from "./llm/adapters/ai-chat-llm-adapter";
+import { UniversalLLMAdapter } from "./llm/adapters/universal-llm-adapter";
 
 // Memory
 import {
@@ -258,6 +259,7 @@ const conversationMemoryFactory = {
     LLMFactory,
     FunctionCallingLLMAdapter,
     AiChatLLMAdapter,
+    UniversalLLMAdapter,
 
     // === Core Services (from ai-core) ===
     AiChatService,
@@ -311,6 +313,7 @@ const conversationMemoryFactory = {
     LLMFactory,
     FunctionCallingLLMAdapter,
     AiChatLLMAdapter,
+    UniversalLLMAdapter,
 
     // === Core Services (from ai-core) ===
     AiChatService,
@@ -345,13 +348,21 @@ export class AiEngineModule implements OnModuleInit {
     private readonly toolRegistry: ToolRegistry,
     private readonly skillRegistry: SkillRegistry,
     private readonly agentRegistry: AgentRegistry,
+    private readonly llmFactory: LLMFactory,
+    private readonly universalLLMAdapter: UniversalLLMAdapter,
   ) {}
 
   onModuleInit() {
+    // 注册 LLM 适配器到工厂
+    this.llmFactory.registerAdapter(this.universalLLMAdapter);
+
     this.logger.log("AI Engine Module initialized");
     this.logger.log(`  Tools: ${this.toolRegistry.size()}`);
     this.logger.log(`  Skills: ${this.skillRegistry.size()}`);
     this.logger.log(`  Agents: ${this.agentRegistry.size()}`);
+    this.logger.log(
+      `  LLM Adapters: ${this.llmFactory.getAllAdapters().length}`,
+    );
   }
 }
 

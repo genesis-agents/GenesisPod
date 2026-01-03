@@ -140,8 +140,14 @@ export function SlidesTab() {
   }, [refreshSessions]);
 
   // 将 streamEvents 和 teamEvents 转换为 toolCalls - 增强版：提取更多详细信息
+  // 使用 Set 进行去重，避免重复显示
   useEffect(() => {
     const calls: ToolCallItem[] = [];
+    // 跟踪已添加的阶段，避免重复
+    const addedPhases = new Set<string>();
+    // 跟踪特殊事件，确保只添加一次
+    let hasExecutionStarted = false;
+    let hasExecutionCompleted = false;
 
     // 处理 store 中的 streamEvents（旧格式，下划线分隔）
     streamEvents.forEach((event) => {
@@ -149,13 +155,18 @@ export function SlidesTab() {
 
       if (event.type === 'phase_started') {
         const data = event.data as { phase: string };
-        calls.push({
-          id,
-          type: 'step',
-          title: getPhaseTitle(data.phase),
-          status: 'running',
-          timestamp: new Date(event.timestamp),
-        });
+        const phaseTitle = getPhaseTitle(data.phase);
+        // 去重：如果已经添加过这个阶段，跳过
+        if (!addedPhases.has(phaseTitle)) {
+          addedPhases.add(phaseTitle);
+          calls.push({
+            id,
+            type: 'step',
+            title: phaseTitle,
+            status: 'running',
+            timestamp: new Date(event.timestamp),
+          });
+        }
       } else if (event.type === 'phase_completed') {
         const eventData = event.data as { phase: string };
         const existingIndex = calls.findIndex(
@@ -177,14 +188,19 @@ export function SlidesTab() {
 
       if (event.type === 'phase:started') {
         const data = event.data as { phase: string; description?: string };
-        calls.push({
-          id,
-          type: 'step',
-          title: getPhaseTitle(data.phase),
-          content: data.description,
-          status: 'running',
-          timestamp: new Date(event.timestamp),
-        });
+        const phaseTitle = getPhaseTitle(data.phase);
+        // 去重：如果已经添加过这个阶段，跳过
+        if (!addedPhases.has(phaseTitle)) {
+          addedPhases.add(phaseTitle);
+          calls.push({
+            id,
+            type: 'step',
+            title: phaseTitle,
+            content: data.description,
+            status: 'running',
+            timestamp: new Date(event.timestamp),
+          });
+        }
       } else if (event.type === 'phase:completed') {
         // 后端发送格式: { phase, data: actualResult }
         const eventData = event.data as {
@@ -337,29 +353,40 @@ export function SlidesTab() {
           });
         }
       } else if (event.type === 'execution:started') {
-        const data = event.data as { sessionId?: string };
-        calls.push({
-          id,
-          type: 'step',
-          title: `🚀 开始生成`,
-          content: data.sessionId
-            ? `会话: ${data.sessionId.slice(0, 8)}...`
-            : undefined,
-          status: 'completed',
-          timestamp: new Date(event.timestamp),
-        });
+        // 去重：确保只显示一个 "开始生成" 条目
+        if (!hasExecutionStarted) {
+          hasExecutionStarted = true;
+          const data = event.data as { sessionId?: string };
+          calls.push({
+            id,
+            type: 'step',
+            title: `🚀 开始生成`,
+            content: data.sessionId
+              ? `会话: ${data.sessionId.slice(0, 8)}...`
+              : undefined,
+            status: 'completed',
+            timestamp: new Date(event.timestamp),
+          });
+        }
       } else if (event.type === 'execution:completed') {
-        const data = event.data as { totalPages?: number; totalTime?: number };
-        calls.push({
-          id,
-          type: 'checkpoint',
-          title: `✅ 生成完成`,
-          content: data.totalPages
-            ? `共 ${data.totalPages} 页，耗时 ${((data.totalTime || 0) / 1000).toFixed(1)}s`
-            : undefined,
-          status: 'completed',
-          timestamp: new Date(event.timestamp),
-        });
+        // 去重：确保只显示一个 "生成完成" 条目
+        if (!hasExecutionCompleted) {
+          hasExecutionCompleted = true;
+          const data = event.data as {
+            totalPages?: number;
+            totalTime?: number;
+          };
+          calls.push({
+            id,
+            type: 'checkpoint',
+            title: `✅ 生成完成`,
+            content: data.totalPages
+              ? `共 ${data.totalPages} 页，耗时 ${((data.totalTime || 0) / 1000).toFixed(1)}s`
+              : undefined,
+            status: 'completed',
+            timestamp: new Date(event.timestamp),
+          });
+        }
       } else if (event.type === 'execution:failed') {
         const data = event.data as { error?: string; phase?: string };
         calls.push({
