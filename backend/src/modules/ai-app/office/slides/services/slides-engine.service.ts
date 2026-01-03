@@ -260,13 +260,22 @@ export class SlidesEngineService {
 
         // 6. 转换 SlidesMissionEvent 为 StreamEvent（可能返回多个事件）
         const streamEvents = this.transformSlidesMissionEvent(event, sessionId);
-        this.logger.debug(
-          `[generateSlides] Transformed to ${streamEvents.length} stream events`,
+        const slideGenCount = streamEvents.filter(
+          (e) => e.type === "slide:generated",
+        ).length;
+        this.logger.log(
+          `[generateSlides] Transformed ${event.type} to ${streamEvents.length} stream events (${slideGenCount} slide:generated)`,
         );
         for (const streamEvent of streamEvents) {
-          this.logger.log(
-            `[generateSlides] Yielding stream event: ${streamEvent.type}`,
-          );
+          if (streamEvent.type === "slide:generated") {
+            const pageData = streamEvent.data as {
+              pageNumber?: number;
+              title?: string;
+            };
+            this.logger.log(
+              `[generateSlides] ★ YIELDING slide:generated for page ${pageData.pageNumber}: ${pageData.title}`,
+            );
+          }
           yield streamEvent;
         }
 
@@ -531,9 +540,21 @@ export class SlidesEngineService {
         ) {
           const taskResult = data.result || task?.result;
           this.logger.log(
-            `[transformSlidesMissionEvent] ★ Extracting pages from page-pipeline result`,
+            `[transformSlidesMissionEvent] ★ PAGE-PIPELINE DETECTED! Extracting pages...`,
           );
+          this.logger.log(
+            `[transformSlidesMissionEvent] taskResult type: ${typeof taskResult}, isNull: ${taskResult === null}, keys: ${taskResult && typeof taskResult === "object" ? Object.keys(taskResult as object).join(",") : "N/A"}`,
+          );
+          const beforeCount = events.length;
           this.extractPagesFromTaskResult(taskResult, sessionId, events);
+          const afterCount = events.length;
+          this.logger.log(
+            `[transformSlidesMissionEvent] ★ Extracted ${afterCount - beforeCount} slide:generated events`,
+          );
+        } else {
+          this.logger.debug(
+            `[transformSlidesMissionEvent] Skipping non-page-pipeline task: ${task?.skillId}`,
+          );
         }
         break;
       }

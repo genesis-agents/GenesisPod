@@ -3,22 +3,22 @@
  * 验证从 orchestrator 到事件转换的整个链路
  */
 
-import { SlidesTeamOrchestrator } from "./orchestrator/slides-team-orchestrator";
-import { SlidesTeamMember } from "./orchestrator/slides-team-member";
-import { SlidesLeader } from "./orchestrator/slides-leader";
+import { SlidesTeamOrchestrator } from "@/modules/ai-app/office/slides/orchestrator/slides-team-orchestrator";
+import { SlidesTeamMember } from "@/modules/ai-app/office/slides/orchestrator/slides-team-member";
+import { SlidesLeader } from "@/modules/ai-app/office/slides/orchestrator/slides-leader";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
-import { PagePipelineSkill } from "./skills/page-pipeline.skill";
-import { TemplateRenderingSkill } from "./skills/template-rendering.skill";
-import { ContentCompressionSkill } from "./skills/content-compression.skill";
-import { ChartRendererSkill } from "./skills/chart-renderer.skill";
-import { TaskDecompositionSkill } from "./skills/task-decomposition.skill";
-import { OutlinePlanningSkill } from "./skills/outline-planning.skill";
-import { QualityAuditSkill } from "./skills/quality-audit.skill";
+import { PagePipelineSkill } from "@/modules/ai-app/office/slides/skills/page-pipeline.skill";
+import { TemplateRenderingSkill } from "@/modules/ai-app/office/slides/skills/template-rendering.skill";
+import { ContentCompressionSkill } from "@/modules/ai-app/office/slides/skills/content-compression.skill";
+import { ChartRendererSkill } from "@/modules/ai-app/office/slides/skills/chart-renderer.skill";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { SlidesMissionEvent } from "./orchestrator/types";
+import { SlidesMissionEvent } from "@/modules/ai-app/office/slides/orchestrator/types";
 
 // 模拟 SlidesEngineService.transformSlidesMissionEvent
-function transformSlidesMissionEvent(event: SlidesMissionEvent, sessionId: string) {
+function transformSlidesMissionEvent(
+  event: SlidesMissionEvent,
+  _sessionId: string,
+) {
   const events: { type: string; data: unknown }[] = [];
   const { type, data } = event;
 
@@ -58,7 +58,11 @@ function transformSlidesMissionEvent(event: SlidesMissionEvent, sessionId: strin
           if (pages && Array.isArray(pages)) {
             console.log(`  pages count: ${pages.length}`);
             for (let i = 0; i < pages.length; i++) {
-              const page = pages[i] as { html?: string; pageNumber?: number; title?: string };
+              const page = pages[i] as {
+                html?: string;
+                pageNumber?: number;
+                title?: string;
+              };
               const html = page.html;
               if (html) {
                 events.push({
@@ -69,7 +73,9 @@ function transformSlidesMissionEvent(event: SlidesMissionEvent, sessionId: strin
                     contentLength: html.length,
                   },
                 });
-                console.log(`    ✓ Page ${page.pageNumber}: ${page.title} (${html.length} chars)`);
+                console.log(
+                  `    ✓ Page ${page.pageNumber}: ${page.title} (${html.length} chars)`,
+                );
               } else {
                 console.log(`    ✗ Page ${i}: no HTML`);
               }
@@ -123,12 +129,19 @@ async function runE2ETest() {
       success: true,
       data: {
         totalPages: 3,
-        chapters: [{ id: "ch1", title: "测试章节", pageRange: [1, 3], keyPoints: [] }],
+        chapters: [
+          { id: "ch1", title: "测试章节", pageRange: [1, 3], keyPoints: [] },
+        ],
         todoList: [],
         designStrategy: { colorScheme: "dark", accentColor: "#D4AF37" },
         sourceAnalysis: { totalWords: 100, language: "zh-CN", topics: [] },
       },
-      metadata: { executionId: "test", startTime: new Date(), endTime: new Date(), duration: 100 },
+      metadata: {
+        executionId: "test",
+        startTime: new Date(),
+        endTime: new Date(),
+        duration: 100,
+      },
     }),
   };
 
@@ -139,9 +152,33 @@ async function runE2ETest() {
       data: {
         title: "测试PPT",
         pages: [
-          { pageNumber: 1, title: "封面", templateType: "cover", logicType: "narrative", contentBrief: "", keyElements: ["标题"], layoutHints: [] },
-          { pageNumber: 2, title: "目录", templateType: "toc", logicType: "narrative", contentBrief: "", keyElements: ["章节1"], layoutHints: [] },
-          { pageNumber: 3, title: "内容", templateType: "pillars", logicType: "parallel", contentBrief: "", keyElements: ["要点1", "要点2"], layoutHints: [] },
+          {
+            pageNumber: 1,
+            title: "封面",
+            templateType: "cover",
+            logicType: "narrative",
+            contentBrief: "",
+            keyElements: ["标题"],
+            layoutHints: [],
+          },
+          {
+            pageNumber: 2,
+            title: "目录",
+            templateType: "toc",
+            logicType: "narrative",
+            contentBrief: "",
+            keyElements: ["章节1"],
+            layoutHints: [],
+          },
+          {
+            pageNumber: 3,
+            title: "内容",
+            templateType: "pillars",
+            logicType: "parallel",
+            contentBrief: "",
+            keyElements: ["要点1", "要点2"],
+            layoutHints: [],
+          },
         ],
         globalStyles: {
           backgroundColor: "#0F172A",
@@ -157,9 +194,18 @@ async function runE2ETest() {
           pagePadding: "50px",
           bottomSafeZone: 80,
         },
-        contentFlow: { narrativeArc: "problem-solution", keyTransitions: [], conclusionStyle: "summary" },
+        contentFlow: {
+          narrativeArc: "problem-solution",
+          keyTransitions: [],
+          conclusionStyle: "summary",
+        },
       },
-      metadata: { executionId: "test", startTime: new Date(), endTime: new Date(), duration: 100 },
+      metadata: {
+        executionId: "test",
+        startTime: new Date(),
+        endTime: new Date(),
+        duration: 100,
+      },
     }),
   };
 
@@ -168,7 +214,12 @@ async function runE2ETest() {
     execute: async () => ({
       success: true,
       data: { overallScore: 85, issues: [], recommendations: [] },
-      metadata: { executionId: "test", startTime: new Date(), endTime: new Date(), duration: 100 },
+      metadata: {
+        executionId: "test",
+        startTime: new Date(),
+        endTime: new Date(),
+        duration: 100,
+      },
     }),
   };
 
@@ -179,16 +230,74 @@ async function runE2ETest() {
   skillRegistry.register(pagePipeline);
   skillRegistry.register(mockQualityAudit as any);
 
-  console.log("Registered skills:", skillRegistry.getAll().map(s => s.id).join(", "));
+  console.log(
+    "Registered skills:",
+    skillRegistry
+      .getAll()
+      .map((s) => s.id)
+      .join(", "),
+  );
 
   // 3. 创建 SlidesTeamMember
   const teamMember = new SlidesTeamMember(skillRegistry, null as any);
 
-  // 4. 创建 SlidesLeader
-  const leader = new SlidesLeader(null as any);
+  // 4. 创建 SlidesLeader (mock aiChatService and prisma)
+  const leader = new SlidesLeader(null as any, null as any);
 
-  // 5. 创建 Orchestrator
-  const orchestrator = new SlidesTeamOrchestrator(teamMember, leader, eventEmitter);
+  // Mock planTasks to return default tasks without calling AI
+  leader.planTasks = async () => ({
+    understanding: "测试任务",
+    tasks: [
+      {
+        title: "任务分解",
+        description: "分析源文本，分解为章节和页面任务",
+        assignee: "analyst" as const,
+        skillId: "slides-task-decomposition",
+        priority: "high" as const,
+        dependsOn: [],
+        inputSpec: {},
+      },
+      {
+        title: "生成大纲",
+        description: "基于任务分解生成详细的页面大纲",
+        assignee: "analyst" as const,
+        skillId: "slides-outline-planning",
+        priority: "high" as const,
+        dependsOn: [0],
+        inputSpec: {},
+      },
+      {
+        title: "生成页面内容",
+        description: "根据大纲逐页生成 HTML 内容",
+        assignee: "writer" as const,
+        skillId: "slides-page-pipeline",
+        priority: "high" as const,
+        dependsOn: [1],
+        inputSpec: {},
+      },
+      {
+        title: "质量审计",
+        description: "检查整体质量和一致性",
+        assignee: "reviewer" as const,
+        skillId: "slides-quality-audit",
+        priority: "medium" as const,
+        dependsOn: [2],
+        inputSpec: {},
+      },
+    ],
+    executionPlan: "测试计划",
+    risks: "",
+  });
+
+  // Mock reviewTask to auto-approve
+  leader.reviewTask = async () => ({
+    decision: "approved" as const,
+    feedback: "测试通过",
+    score: 95,
+  });
+
+  // 5. 创建 Orchestrator (leader, teamMember, repository?)
+  const orchestrator = new SlidesTeamOrchestrator(leader, teamMember);
 
   // 6. 执行
   const input = {
@@ -217,12 +326,20 @@ async function runE2ETest() {
   console.log("\n=== 最终输出事件汇总 ===");
   console.log(`总事件数: ${allTransformedEvents.length}`);
 
-  const slideEvents = allTransformedEvents.filter(e => e.type === "slide:generated");
+  const slideEvents = allTransformedEvents.filter(
+    (e) => e.type === "slide:generated",
+  );
   console.log(`slide:generated 事件数: ${slideEvents.length}`);
 
   for (const e of slideEvents) {
-    const d = e.data as { pageNumber: number; title: string; contentLength: number };
-    console.log(`  Page ${d.pageNumber}: ${d.title} (${d.contentLength} chars)`);
+    const d = e.data as {
+      pageNumber: number;
+      title: string;
+      contentLength: number;
+    };
+    console.log(
+      `  Page ${d.pageNumber}: ${d.title} (${d.contentLength} chars)`,
+    );
   }
 
   if (slideEvents.length === 0) {
@@ -232,10 +349,12 @@ async function runE2ETest() {
   }
 }
 
-runE2ETest().then(() => {
-  console.log("\n=== 测试完成 ===");
-  process.exit(0);
-}).catch((err) => {
-  console.error("测试失败:", err);
-  process.exit(1);
-});
+runE2ETest()
+  .then(() => {
+    console.log("\n=== 测试完成 ===");
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error("测试失败:", err);
+    process.exit(1);
+  });

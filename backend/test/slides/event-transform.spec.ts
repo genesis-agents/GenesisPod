@@ -15,9 +15,30 @@ const mockTaskEvent = {
       status: "awaiting_review",
       result: {
         pages: [
-          { pageNumber: 1, title: "封面页", html: "<div>封面HTML内容...</div>", status: "completed", templateId: "N-001", duration: 2 },
-          { pageNumber: 2, title: "目录", html: "<div>目录HTML内容...</div>", status: "completed", templateId: "N-004", duration: 1 },
-          { pageNumber: 3, title: "核心内容", html: "<div>核心内容HTML...</div>", status: "completed", templateId: "S-003", duration: 1 },
+          {
+            pageNumber: 1,
+            title: "封面页",
+            html: "<div>封面HTML内容...</div>",
+            status: "completed",
+            templateId: "N-001",
+            duration: 2,
+          },
+          {
+            pageNumber: 2,
+            title: "目录",
+            html: "<div>目录HTML内容...</div>",
+            status: "completed",
+            templateId: "N-004",
+            duration: 1,
+          },
+          {
+            pageNumber: 3,
+            title: "核心内容",
+            html: "<div>核心内容HTML...</div>",
+            status: "completed",
+            templateId: "S-003",
+            duration: 1,
+          },
         ],
         totalPages: 3,
         completedPages: 3,
@@ -27,9 +48,30 @@ const mockTaskEvent = {
     },
     result: {
       pages: [
-        { pageNumber: 1, title: "封面页", html: "<div>封面HTML内容...</div>", status: "completed", templateId: "N-001", duration: 2 },
-        { pageNumber: 2, title: "目录", html: "<div>目录HTML内容...</div>", status: "completed", templateId: "N-004", duration: 1 },
-        { pageNumber: 3, title: "核心内容", html: "<div>核心内容HTML...</div>", status: "completed", templateId: "S-003", duration: 1 },
+        {
+          pageNumber: 1,
+          title: "封面页",
+          html: "<div>封面HTML内容...</div>",
+          status: "completed",
+          templateId: "N-001",
+          duration: 2,
+        },
+        {
+          pageNumber: 2,
+          title: "目录",
+          html: "<div>目录HTML内容...</div>",
+          status: "completed",
+          templateId: "N-004",
+          duration: 1,
+        },
+        {
+          pageNumber: 3,
+          title: "核心内容",
+          html: "<div>核心内容HTML...</div>",
+          status: "completed",
+          templateId: "S-003",
+          duration: 1,
+        },
       ],
       totalPages: 3,
       completedPages: 3,
@@ -40,14 +82,26 @@ const mockTaskEvent = {
 };
 
 // 模拟 SlidesEngineService 的事件转换逻辑
-function transformSlidesMissionEvent(event: typeof mockTaskEvent, sessionId: string) {
+function transformSlidesMissionEvent(
+  event: {
+    type: string;
+    missionId: string;
+    timestamp: string;
+    data: typeof mockTaskEvent.data;
+  },
+  sessionId: string,
+) {
   const events: { type: string; data: unknown }[] = [];
   const { type, data } = event;
 
   console.log(`\n=== 处理事件: ${type} ===`);
-  console.log(`data.task: ${JSON.stringify(data.task ? { id: data.task.id, skillId: data.task.skillId, status: data.task.status } : null)}`);
+  console.log(
+    `data.task: ${JSON.stringify(data.task ? { id: data.task.id, skillId: data.task.skillId, status: data.task.status } : null)}`,
+  );
   console.log(`data.result exists: ${!!data.result}`);
-  console.log(`data.task.result exists: ${!!(data.task as { result?: unknown })?.result}`);
+  console.log(
+    `data.task.result exists: ${!!(data.task as { result?: unknown })?.result}`,
+  );
 
   switch (type) {
     case "task:awaiting_review":
@@ -59,7 +113,9 @@ function transformSlidesMissionEvent(event: typeof mockTaskEvent, sessionId: str
       };
 
       console.log(`\n检查 skillId: "${task?.skillId}"`);
-      console.log(`是否匹配 slides-page-pipeline: ${task?.skillId === "slides-page-pipeline"}`);
+      console.log(
+        `是否匹配 slides-page-pipeline: ${task?.skillId === "slides-page-pipeline"}`,
+      );
 
       // 添加 agent:completed 事件
       events.push({
@@ -87,7 +143,7 @@ function transformSlidesMissionEvent(event: typeof mockTaskEvent, sessionId: str
 
 function extractPagesFromTaskResult(
   result: unknown,
-  sessionId: string,
+  _sessionId: string,
   events: { type: string; data: unknown }[],
 ) {
   console.log(`\n--- extractPagesFromTaskResult ---`);
@@ -102,13 +158,22 @@ function extractPagesFromTaskResult(
   console.log(`result keys: ${Object.keys(resultObj).join(", ")}`);
 
   const pages = resultObj.pages as unknown[];
-  console.log(`pages exists: ${!!pages}, isArray: ${Array.isArray(pages)}, length: ${pages?.length || 0}`);
+  console.log(
+    `pages exists: ${!!pages}, isArray: ${Array.isArray(pages)}, length: ${pages?.length || 0}`,
+  );
 
   if (pages && Array.isArray(pages)) {
     for (let i = 0; i < pages.length; i++) {
-      const page = pages[i] as { html?: string; pageNumber?: number; title?: string; status?: string };
+      const page = pages[i] as {
+        html?: string;
+        pageNumber?: number;
+        title?: string;
+        status?: string;
+      };
       const html = page.html;
-      console.log(`  Page ${i}: status=${page.status}, htmlLength=${html?.length || 0}`);
+      console.log(
+        `  Page ${i}: status=${page.status}, htmlLength=${html?.length || 0}`,
+      );
 
       if (html) {
         events.push({
@@ -136,8 +201,14 @@ const outputEvents = transformSlidesMissionEvent(mockTaskEvent, sessionId);
 console.log(`\n=== 输出事件 (${outputEvents.length} 个) ===`);
 for (const e of outputEvents) {
   if (e.type === "slide:generated") {
-    const d = e.data as { pageNumber: number; title: string; contentLength: number };
-    console.log(`${e.type}: Page ${d.pageNumber} - ${d.title} (${d.contentLength} chars)`);
+    const d = e.data as {
+      pageNumber: number;
+      title: string;
+      contentLength: number;
+    };
+    console.log(
+      `${e.type}: Page ${d.pageNumber} - ${d.title} (${d.contentLength} chars)`,
+    );
   } else {
     console.log(`${e.type}: ${JSON.stringify(e.data)}`);
   }

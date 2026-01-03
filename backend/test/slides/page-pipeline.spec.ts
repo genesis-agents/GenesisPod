@@ -1,14 +1,17 @@
 /**
  * 本地测试脚本 - 验证 slides 生成流程
- * 运行: npx ts-node -r tsconfig-paths/register src/modules/ai-app/office/slides/test-slides-pipeline.ts
+ * 运行: npx ts-node -r tsconfig-paths/register test/slides/page-pipeline.spec.ts
  */
 
-import { PagePipelineSkill, PagePipelineOutput } from "./skills/page-pipeline.skill";
-import { TemplateRenderingSkill } from "./skills/template-rendering.skill";
-import { ContentCompressionSkill } from "./skills/content-compression.skill";
-import { ChartRendererSkill } from "./skills/chart-renderer.skill";
+import {
+  PagePipelineSkill,
+  PagePipelineOutput,
+} from "@/modules/ai-app/office/slides/skills/page-pipeline.skill";
+import { TemplateRenderingSkill } from "@/modules/ai-app/office/slides/skills/template-rendering.skill";
+import { ContentCompressionSkill } from "@/modules/ai-app/office/slides/skills/content-compression.skill";
+import { ChartRendererSkill } from "@/modules/ai-app/office/slides/skills/chart-renderer.skill";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { OutlinePlan } from "./checkpoint/checkpoint.types";
+import { OutlinePlan } from "@/modules/ai-app/office/slides/checkpoint/checkpoint.types";
 
 // Mock 数据
 const mockOutlinePlan: OutlinePlan = {
@@ -88,7 +91,9 @@ async function testPagePipeline() {
 
   // 监听事件
   eventEmitter.on("slides.page.generated", (event) => {
-    console.log(`[EVENT] page:generated - Page ${event.pageNumber}, HTML length: ${event.html?.length || 0}`);
+    console.log(
+      `[EVENT] page:generated - Page ${event.pageNumber}, HTML length: ${event.html?.length || 0}`,
+    );
   });
 
   // 构造输入 - 模拟 buildSkillInput 的输出
@@ -111,7 +116,9 @@ async function testPagePipeline() {
   console.log("输入结构:");
   console.log(`  - input.outline: ${!!input.outline}`);
   console.log(`  - input.outline.pages: ${input.outline?.pages?.length}`);
-  console.log(`  - input.previousOutputs keys: ${Object.keys(input.previousOutputs).join(", ")}`);
+  console.log(
+    `  - input.previousOutputs keys: ${Object.keys(input.previousOutputs).join(", ")}`,
+  );
   console.log("");
 
   // 执行
@@ -158,10 +165,12 @@ async function testPagePipeline() {
 }
 
 // 运行测试
-testPagePipeline().then(() => {
-  console.log("\n=== 测试完成 ===");
-  process.exit(0);
-}).catch((err) => {
-  console.error("测试失败:", err);
-  process.exit(1);
-});
+testPagePipeline()
+  .then(() => {
+    console.log("\n=== 测试完成 ===");
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error("测试失败:", err);
+    process.exit(1);
+  });

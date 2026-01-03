@@ -44,27 +44,32 @@ export class SlidesTeamMember {
     );
 
     try {
-      // 获取 Skill
-      const skill = this.skillRegistry.get(task.skillId);
+      // 获取 Skill (使用 tryGet 避免抛出异常)
+      let skill = this.skillRegistry.tryGet(task.skillId);
 
       if (!skill) {
-        this.logger.warn(
+        this.logger.log(
           `[executeTask] Skill not found: ${task.skillId}, trying slides-prefixed version`,
         );
 
         // 尝试带 slides- 前缀
-        const slidesSkill = this.skillRegistry.get(`slides-${task.skillId}`);
-        if (!slidesSkill) {
+        skill = this.skillRegistry.tryGet(`slides-${task.skillId}`);
+        if (!skill) {
+          this.logger.error(
+            `[executeTask] Skill not found with both IDs: ${task.skillId}, slides-${task.skillId}`,
+          );
           return {
             success: false,
             error: `Skill not found: ${task.skillId}`,
             duration: Date.now() - startTime,
           };
         }
+        this.logger.log(
+          `[executeTask] Found skill with slides- prefix: slides-${task.skillId}`,
+        );
       }
 
-      const targetSkill =
-        skill || this.skillRegistry.get(`slides-${task.skillId}`);
+      const targetSkill = skill;
 
       if (!targetSkill) {
         return {
