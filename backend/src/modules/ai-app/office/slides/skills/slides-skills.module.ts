@@ -15,6 +15,7 @@
  */
 
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
+import { HttpModule } from "@nestjs/axios";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
 import { AiEngineModule } from "@/modules/ai-engine";
 
@@ -70,7 +71,7 @@ const SLIDES_SKILL_PROVIDERS = [
 ];
 
 @Module({
-  imports: [AiEngineModule],
+  imports: [AiEngineModule, HttpModule],
   providers: [...SLIDES_SKILL_PROVIDERS],
   exports: [...SLIDES_SKILL_PROVIDERS],
 })
