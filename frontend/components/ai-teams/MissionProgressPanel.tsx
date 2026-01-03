@@ -16,6 +16,7 @@ type ViewMode = 'list' | 'canvas';
 interface MissionProgressPanelProps {
   topicId: string;
   onCreateMission?: () => void;
+  onFocusCanvas?: (mission: TeamMission, task?: AgentTask) => void;
 }
 
 // Status colors and labels
@@ -137,6 +138,7 @@ const taskStatusConfig: Record<
 export default function MissionProgressPanel({
   topicId,
   onCreateMission,
+  onFocusCanvas,
 }: MissionProgressPanelProps) {
   const {
     missions,
@@ -284,6 +286,7 @@ export default function MissionProgressPanel({
         onCancel={() => handleCancelMission(detailMission.id)}
         onRetry={(mode) => handleRetryMission(detailMission.id, mode)}
         onResume={() => handleResumeMission(detailMission.id)}
+        onFocusCanvas={onFocusCanvas}
       />
     );
   }
@@ -809,6 +812,7 @@ function MissionDetailView({
   onCancel,
   onRetry,
   onResume,
+  onFocusCanvas,
 }: {
   mission: TeamMission;
   typingAIs: Set<string>;
@@ -816,6 +820,7 @@ function MissionDetailView({
   onCancel: () => void;
   onRetry?: (mode: 'full' | 'continue') => void;
   onResume?: () => void;
+  onFocusCanvas?: (mission: TeamMission, task?: AgentTask) => void;
 }) {
   const statusConfig = missionStatusConfig[mission.status];
   const tasks = mission.tasks || [];
@@ -995,6 +1000,11 @@ function MissionDetailView({
                   task={task}
                   isWorking={typingAIs.has(task.assignedToId)}
                   taskNumber={index + 1}
+                  onFocusCanvas={
+                    onFocusCanvas
+                      ? () => onFocusCanvas(mission, task)
+                      : undefined
+                  }
                 />
               ))}
             </div>
@@ -1116,10 +1126,12 @@ function TaskDetailCard({
   task,
   isWorking,
   taskNumber,
+  onFocusCanvas,
 }: {
   task: AgentTask;
   isWorking: boolean;
   taskNumber: number;
+  onFocusCanvas?: () => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const statusConfig = taskStatusConfig[task.status];

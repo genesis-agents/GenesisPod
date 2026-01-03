@@ -150,19 +150,27 @@ export class SlidesEngineService {
     // 1. 创建或恢复会话
     let sessionId = input.sessionId;
     if (!sessionId) {
+      this.logger.log(`[generateSlides] Creating new session...`);
       const session = await this.checkpointService.createSession(
         input.userId,
         input.userRequirement || "PPT 生成",
       );
       sessionId = session.id;
+      this.logger.log(`[generateSlides] Session created: ${sessionId}`);
+    } else {
+      this.logger.log(`[generateSlides] Using existing session: ${sessionId}`);
     }
 
     // 2. 发送 execution:started 事件
+    this.logger.log(
+      `[generateSlides] Sending execution:started event for session ${sessionId}`,
+    );
     yield this.createEvent("execution:started", sessionId, {
       sessionId,
       sourceLength: input.sourceText?.length || 0,
       targetPages: input.targetPages,
     });
+    this.logger.log(`[generateSlides] execution:started event sent`);
 
     // 3. 构建 Mission 输入
     const missionDto: CreateMissionDto = {
@@ -201,15 +209,31 @@ export class SlidesEngineService {
 
     try {
       // 5. 执行 Mission（流式）
+      this.logger.log(
+        `[generateSlides] Starting mission execution for team ${missionDto.teamId}`,
+      );
       const generator = this.teamsService.executeMissionStream(missionDto);
+      this.logger.log(`[generateSlides] Mission generator created`);
 
       let currentPhase = "";
       let missionResult: MissionResult | undefined;
+      let eventCount = 0;
 
       for await (const event of generator) {
+        eventCount++;
+        this.logger.log(
+          `[generateSlides] Received event #${eventCount}: ${event.type}`,
+        );
+
         // 6. 转换事件格式（可能返回多个事件）
         const streamEvents = this.transformMissionEvent(event, sessionId);
+        this.logger.debug(
+          `[generateSlides] Transformed to ${streamEvents.length} stream events`,
+        );
         for (const streamEvent of streamEvents) {
+          this.logger.log(
+            `[generateSlides] Yielding stream event: ${streamEvent.type}`,
+          );
           yield streamEvent;
         }
 
@@ -265,10 +289,18 @@ export class SlidesEngineService {
         checkpointId: sessionId, // 使用 sessionId 作为 checkpointId
       });
     } catch (error) {
-      this.logger.error(`[generateSlides] Error: ${error}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(
+        `[generateSlides] Error during PPT generation: ${errorMessage}`,
+      );
+      if (errorStack) {
+        this.logger.error(`[generateSlides] Stack trace:\n${errorStack}`);
+      }
 
       yield this.createEvent("execution:failed", sessionId, {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
         phase: "unknown",
         recoverable: false,
       });

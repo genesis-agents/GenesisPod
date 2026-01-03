@@ -2387,31 +2387,6 @@ export default function TopicPage() {
                 Canvas
               </button>
             </div>
-            <button
-              onClick={() => setShowSettings(true)}
-              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-              title="Settings"
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-            </button>
           </div>
         </div>
 
@@ -2544,78 +2519,110 @@ export default function TopicPage() {
                 创建任务
               </button>
 
-              {/* Continue Mission - show for IN_PROGRESS, PAUSED, FAILED states */}
-              {activeMission &&
-                (activeMission.status === 'IN_PROGRESS' ||
-                  activeMission.status === 'PAUSED' ||
-                  activeMission.status === 'FAILED') && (
-                  <button
-                    onClick={async () => {
-                      if (!topicId) return;
-                      try {
-                        if (activeMission.status === 'PAUSED') {
-                          // 恢复已暂停的任务
-                          await resumeMission(topicId, activeMission.id);
-                        } else if (activeMission.status === 'FAILED') {
-                          // 继续执行失败的任务（不重新规划）
-                          await retryMission(topicId, activeMission.id, {
-                            mode: 'continue',
-                          });
-                        } else if (
-                          activeMission.status === 'IN_PROGRESS' &&
-                          activeMission.leaderId
-                        ) {
-                          // IN_PROGRESS 卡住时，通知 Team Leader 继续
-                          await generateAIResponse(
-                            topicId,
-                            activeMission.leaderId
-                          );
-                        }
-                      } catch (error) {
-                        console.error('Failed to continue mission:', error);
-                      }
-                    }}
-                    className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                      activeMission.status === 'PAUSED'
-                        ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                        : activeMission.status === 'FAILED'
-                          ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                          : 'bg-green-100 text-green-700 hover:bg-green-200'
-                    }`}
-                    title={
-                      activeMission.status === 'PAUSED'
-                        ? '恢复已暂停的任务'
-                        : activeMission.status === 'FAILED'
-                          ? '继续执行（从失败处恢复）'
-                          : '通知Team Leader继续执行'
-                    }
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    {activeMission.status === 'PAUSED'
-                      ? '恢复任务'
+              {/* Continue Mission */}
+              <button
+                disabled={
+                  !activeMission ||
+                  !['IN_PROGRESS', 'PAUSED', 'FAILED'].includes(
+                    activeMission.status
+                  )
+                }
+                onClick={async () => {
+                  if (!topicId || !activeMission) return;
+                  if (activeMission.status === 'PAUSED') {
+                    await resumeMission(topicId, activeMission.id);
+                  } else if (activeMission.status === 'FAILED') {
+                    await retryMission(topicId, activeMission.id, {
+                      mode: 'continue',
+                    });
+                  } else if (
+                    activeMission.status === 'IN_PROGRESS' &&
+                    activeMission.leaderId
+                  ) {
+                    await generateAIResponse(topicId, activeMission.leaderId);
+                  }
+                }}
+                className={[
+                  'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+                  !activeMission ||
+                  !['IN_PROGRESS', 'PAUSED', 'FAILED'].includes(
+                    activeMission.status
+                  )
+                    ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                    : activeMission.status === 'PAUSED'
+                      ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
                       : activeMission.status === 'FAILED'
-                        ? '继续执行'
-                        : '继续任务'}
-                  </button>
-                )}
+                        ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                        : 'bg-green-100 text-green-700 hover:bg-green-200',
+                ].join(' ')}
+                title="??????"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                ????
+              </button>
+
+              {/* Cancel Mission */}
+              <button
+                disabled={
+                  !activeMission ||
+                  !['IN_PROGRESS', 'PLANNING', 'PAUSED'].includes(
+                    activeMission.status
+                  )
+                }
+                onClick={async () => {
+                  if (!topicId || !activeMission) return;
+                  if (
+                    confirm(`???????????
+
+${activeMission.title}`)
+                  ) {
+                    await cancelMission(topicId, activeMission.id);
+                  }
+                }}
+                className={[
+                  'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+                  !activeMission ||
+                  !['IN_PROGRESS', 'PLANNING', 'PAUSED'].includes(
+                    activeMission.status
+                  )
+                    ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                    : 'bg-red-100 text-red-700 hover:bg-red-200',
+                ].join(' ')}
+                title="??????"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+                ????
+              </button>
 
               {/* Retry Mission (Full) - only show when mission failed */}
               {activeMission && activeMission.status === 'FAILED' && (
