@@ -136,6 +136,10 @@ model User {
   // Webhook 订阅
   webhooks WebhookSubscription[]
 
+  // AI Slides v5.0 Team Orchestrator
+  slidesMissions          SlidesMission[]          @relation("SlidesMissionUser")
+  slidesTeamMemberConfigs SlidesTeamMemberConfig[] @relation("SlidesTeamMemberConfigUser")
+
   @@map("users")
 }
 
@@ -4925,16 +4929,16 @@ model WebhookSubscription {
   topicIds String[]           @map("topic_ids") // 限制特定话题，空表示所有
 
   // 状态
-  isActive       Boolean @default(true) @map("is_active")
-  failureCount   Int     @default(0) @map("failure_count") // 连续失败次数
+  isActive       Boolean   @default(true) @map("is_active")
+  failureCount   Int       @default(0) @map("failure_count") // 连续失败次数
   lastFailureAt  DateTime? @map("last_failure_at")
   disabledReason String?   @map("disabled_reason") @db.VarChar(500)
 
   // 配置
-  retryCount    Int @default(3) @map("retry_count") // 重试次数
-  timeoutMs     Int @default(30000) @map("timeout_ms") // 超时时间
-  batchSize     Int @default(1) @map("batch_size") // 批量发送大小
-  batchDelayMs  Int @default(0) @map("batch_delay_ms") // 批量延迟
+  retryCount   Int @default(3) @map("retry_count") // 重试次数
+  timeoutMs    Int @default(30000) @map("timeout_ms") // 超时时间
+  batchSize    Int @default(1) @map("batch_size") // 批量发送大小
+  batchDelayMs Int @default(0) @map("batch_delay_ms") // 批量延迟
 
   // 时间戳
   createdAt DateTime @default(now()) @map("created_at")
@@ -4951,11 +4955,11 @@ model WebhookSubscription {
 
 /// Webhook 投递状态
 enum WebhookDeliveryStatus {
-  PENDING   // 等待发送
-  SENDING   // 发送中
-  SUCCESS   // 成功
-  FAILED    // 失败
-  RETRYING  // 重试中
+  PENDING // 等待发送
+  SENDING // 发送中
+  SUCCESS // 成功
+  FAILED // 失败
+  RETRYING // 重试中
 }
 
 /// Webhook 投递日志
@@ -5013,8 +5017,8 @@ model WechatItem {
   thumbnail   String? @db.VarChar(2000)
 
   // 元数据
-  author      String? @db.VarChar(200)
-  source      String? @db.VarChar(200) // 公众号名称等
+  author      String?   @db.VarChar(200)
+  source      String?   @db.VarChar(200) // 公众号名称等
   publishedAt DateTime? @map("published_at")
 
   // 同步信息
@@ -5023,8 +5027,8 @@ model WechatItem {
   wechatWorkUser String?  @map("wechat_work_user") // 发送消息的企业微信用户
 
   // 是否已同步到知识库
-  syncedToRag    Boolean  @default(false) @map("synced_to_rag")
-  ragDocumentId  String?  @map("rag_document_id")
+  syncedToRag        Boolean @default(false) @map("synced_to_rag")
+  ragDocumentId      String? @map("rag_document_id")
   ragKnowledgeBaseId String? @map("rag_knowledge_base_id")
 
   // 时间戳
@@ -5039,4 +5043,305 @@ model WechatItem {
   @@index([userId, createdAt(sort: Desc)])
   @@index([syncedToRag])
   @@map("wechat_items")
+}
+
+// ============ AI Slides - Team Orchestrator (v5.0) ============
+
+enum SlidesMissionStatus {
+  PENDING // 待开始
+  PLANNING // 规划中（Leader分解任务）
+  EXECUTING // 执行中
+  REVIEWING // 审核中（Leader审核任务）
+  AUDITING // 质量审计中
+  SYNTHESIZING // 综合整理中
+  COMPLETED // 已完成
+  FAILED // 失败
+  CANCELLED // 已取消
+}
+
+enum SlidesMissionPhase {
+  PLANNING // 规划阶段
+  EXECUTING // 执行阶段
+  REVIEWING // 审核阶段
+  AUDITING // 审计阶段
+  SYNTHESIZING // 综合阶段
+  COMPLETED // 完成
+  FAILED // 失败
+}
+
+enum SlidesTaskStatus {
+  PENDING // 待开始
+  IN_PROGRESS // 执行中
+  AWAITING_REVIEW // 等待审核
+  REVISION_NEEDED // 需要修订
+  COMPLETED // 已完成
+  FAILED // 失败
+  CANCELLED // 已取消
+}
+
+enum SlidesTaskPriority {
+  CRITICAL // 关键
+  HIGH // 高
+  MEDIUM // 中
+  LOW // 低
+}
+
+enum SlidesMemberRole {
+  LEADER // 架构师
+  ANALYST // 分析师
+  DESIGNER // 设计师
+  REVIEWER // 审核员
+}
+
+enum SlidesEventType {
+  MISSION_CREATED
+  MISSION_STARTED
+  MISSION_PHASE_CHANGED
+  MISSION_STATUS_CHANGED
+  MISSION_COMPLETED
+  MISSION_FAILED
+  PLANNING_STARTED
+  PLANNING_COMPLETED
+  TASK_CREATED
+  TASK_STARTED
+  TASK_COMPLETED
+  TASK_AWAITING_REVIEW
+  TASK_REVISION_NEEDED
+  TASK_FAILED
+  REVIEW_STARTED
+  REVIEW_APPROVED
+  REVIEW_REVISION_REQUESTED
+  AUDIT_STARTED
+  AUDIT_COMPLETED
+  SYNTHESIS_STARTED
+  SYNTHESIS_COMPLETED
+  PAGE_GENERATED
+  PROGRESS
+}
+
+// AI Slides Mission (主任务)
+model SlidesMission {
+  id String @id @default(uuid())
+
+  // 用户和会话
+  userId    String @map("user_id")
+  user      User   @relation("SlidesMissionUser", fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String @map("session_id")
+
+  // 输入内容
+  sourceText      String  @map("source_text") @db.Text
+  userRequirement String? @map("user_requirement") @db.Text
+  targetPages     Int?    @map("target_pages")
+  stylePreference String? @default("dark") @map("style_preference") @db.VarChar(20)
+  themeId         String? @map("theme_id") @db.VarChar(100)
+  targetAudience  String? @map("target_audience") @db.VarChar(500)
+
+  // 执行状态
+  status       SlidesMissionStatus @default(PENDING)
+  currentPhase SlidesMissionPhase  @default(PLANNING) @map("current_phase")
+
+  // 任务分解（Leader生成，JSON格式）
+  taskBreakdown Json? @map("task_breakdown")
+
+  // 大纲（Analyst生成，JSON格式）
+  outline Json?
+
+  // 生成的页面（JSON数组）
+  pages Json @default("[]")
+
+  // 质量审计结果（JSON格式）
+  qualityAudit Json? @map("quality_audit")
+
+  // 进度统计
+  totalTasks     Int @default(0) @map("total_tasks")
+  completedTasks Int @default(0) @map("completed_tasks")
+
+  // 错误信息
+  errors       Json?   @default("[]") // 错误列表
+  errorMessage String? @map("error_message") @db.Text
+
+  // 元数据
+  metadata Json @default("{}")
+
+  // 时间戳
+  createdAt   DateTime  @default(now()) @map("created_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // 执行时长（毫秒）
+  duration Int?
+
+  // 关系
+  tasks     SlidesTask[]
+  events    SlidesMissionEvent[]
+  proposals SlidesProposal[]
+
+  @@index([userId, status])
+  @@index([sessionId])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("slides_missions")
+}
+
+// AI Slides Task (子任务)
+model SlidesTask {
+  id String @id @default(uuid())
+
+  missionId String        @map("mission_id")
+  mission   SlidesMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  // 任务信息
+  title       String             @db.VarChar(500)
+  description String             @db.Text
+  priority    SlidesTaskPriority @default(MEDIUM)
+
+  // 分配信息
+  assignee SlidesMemberRole
+  skillId  String           @map("skill_id") @db.VarChar(100)
+
+  // 输入数据（JSON格式）
+  input Json @default("{}")
+
+  // 依赖关系（存储依赖的任务ID列表）
+  dependencies String[] @default([])
+
+  // 执行状态
+  status      SlidesTaskStatus @default(PENDING)
+  startedAt   DateTime?        @map("started_at")
+  completedAt DateTime?        @map("completed_at")
+
+  // 任务结果（JSON格式）
+  result Json?
+
+  // 审核信息
+  reviewFeedback String? @map("review_feedback") @db.Text
+  reviewScore    Float?  @map("review_score")
+
+  // 修订控制
+  revisionCount Int @default(0) @map("revision_count")
+  maxRevisions  Int @default(3) @map("max_revisions")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([missionId, status])
+  @@index([assignee])
+  @@index([skillId])
+  @@map("slides_tasks")
+}
+
+// AI Slides Mission Event (事件日志)
+model SlidesMissionEvent {
+  id String @id @default(uuid())
+
+  missionId String        @map("mission_id")
+  mission   SlidesMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  // 事件信息
+  type SlidesEventType
+  data Json            @default("{}")
+
+  // 可选关联
+  taskId   String? @map("task_id")
+  memberId String? @map("member_id") // 成员角色
+
+  // 时间戳
+  timestamp DateTime @default(now())
+
+  @@index([missionId, timestamp(sort: Desc)])
+  @@index([type])
+  @@map("slides_mission_events")
+}
+
+// AI Slides Team Member Config (动态成员配置)
+model SlidesTeamMemberConfig {
+  id String @id @default(uuid())
+
+  // 关联用户（允许用户自定义团队成员）
+  userId String @map("user_id")
+  user   User   @relation("SlidesTeamMemberConfigUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  // 成员信息
+  role        SlidesMemberRole
+  name        String           @db.VarChar(100)
+  description String           @db.Text
+
+  // 技能列表
+  skills String[] @default([])
+
+  // 自定义提示词
+  systemPrompt String? @map("system_prompt") @db.Text
+
+  // 模型配置
+  modelId String? @map("model_id") @db.VarChar(100)
+
+  // 是否启用
+  isEnabled Boolean @default(true) @map("is_enabled")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, role])
+  @@index([userId, isEnabled])
+  @@map("slides_team_member_configs")
+}
+
+// AI Slides Proposal (投票提案)
+model SlidesProposal {
+  id String @id @default(uuid())
+
+  missionId String        @map("mission_id")
+  mission   SlidesMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  // 提案信息
+  title       String @db.VarChar(500)
+  description String @db.Text
+  context     String @db.Text // 提案上下文
+
+  // 发起者
+  initiatorRole SlidesMemberRole @map("initiator_role")
+
+  // 投票策略
+  strategy VoteStrategy   @default(MAJORITY)
+  status   ProposalStatus @default(OPEN)
+
+  // 结果
+  decision String? @db.VarChar(100) // APPROVED/REJECTED/NO_CONSENSUS
+  summary  String? @db.Text
+
+  // 时间戳
+  createdAt DateTime  @default(now()) @map("created_at")
+  closedAt  DateTime? @map("closed_at")
+
+  // 关系
+  votes SlidesVote[]
+
+  @@index([missionId, status])
+  @@index([createdAt(sort: Desc)])
+  @@map("slides_proposals")
+}
+
+// AI Slides Vote (投票记录)
+model SlidesVote {
+  id String @id @default(uuid())
+
+  proposalId String         @map("proposal_id")
+  proposal   SlidesProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  // 投票者
+  voterRole SlidesMemberRole @map("voter_role")
+
+  // 投票内容
+  value      VoteValue
+  reason     String?   @db.Text
+  confidence Float? // 0-1
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([proposalId, voterRole])
+  @@index([proposalId])
+  @@map("slides_votes")
 }

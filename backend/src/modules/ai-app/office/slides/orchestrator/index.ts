@@ -14,6 +14,7 @@ export * from "./types";
 export * from "./slides-leader";
 export * from "./slides-team-member";
 export * from "./slides-team-orchestrator";
+export * from "./slides-repository";
 
 // Deprecated: Kept for backward compatibility during skill migration
 export * from "./multi-model.service";

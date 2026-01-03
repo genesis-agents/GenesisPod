@@ -11,10 +11,11 @@
  * 5. Leader 综合 - 整合所有输出
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { SlidesLeader } from "./slides-leader";
 import { SlidesTeamMember, TaskExecutionResult } from "./slides-team-member";
+import { SlidesRepository } from "./slides-repository";
 import {
   SlidesMission,
   SlidesMissionEvent,
@@ -23,6 +24,7 @@ import {
   SlidesTeamOrchestratorOutput,
   SkillExecutionContext,
   QualityAuditResult,
+  SlidesExecutionError,
 } from "./types";
 import type { GeneratedSlide, PPTOutline } from "../types/slides.types";
 
@@ -30,10 +32,19 @@ import type { GeneratedSlide, PPTOutline } from "../types/slides.types";
 export class SlidesTeamOrchestrator {
   private readonly logger = new Logger(SlidesTeamOrchestrator.name);
 
+  // 是否启用持久化
+  private readonly persistenceEnabled: boolean;
+
   constructor(
     private readonly leader: SlidesLeader,
     private readonly teamMember: SlidesTeamMember,
-  ) {}
+    @Optional() private readonly repository?: SlidesRepository,
+  ) {
+    this.persistenceEnabled = !!repository;
+    this.logger.log(
+      `[constructor] Persistence ${this.persistenceEnabled ? "enabled" : "disabled"}`,
+    );
+  }
 
   /**
    * 执行 Mission（流式）
@@ -41,74 +52,132 @@ export class SlidesTeamOrchestrator {
   async *executeMission(
     input: SlidesTeamOrchestratorInput,
   ): AsyncGenerator<SlidesMissionEvent> {
-    const missionId = uuidv4();
     const startTime = Date.now();
+    const errors: SlidesExecutionError[] = [];
 
-    this.logger.log(`[executeMission] Starting mission ${missionId}`);
+    // 创建 Mission（持久化或内存）
+    let mission: SlidesMission;
+    if (this.persistenceEnabled && this.repository) {
+      mission = await this.repository.createMission(input);
+    } else {
+      mission = {
+        id: uuidv4(),
+        userId: input.userId,
+        sessionId: input.sessionId,
+        sourceText: input.sourceText,
+        userRequirement: input.userRequirement,
+        targetPages: input.targetPages,
+        stylePreference: input.stylePreference,
+        themeId: input.themeId,
+        tasks: [],
+        currentPhase: "planning",
+        status: "pending",
+        pages: [],
+        createdAt: new Date(),
+        totalTasks: 0,
+        completedTasks: 0,
+        metadata: {
+          targetAudience: input.targetAudience,
+        },
+      };
+    }
 
-    // 创建 Mission
-    const mission: SlidesMission = {
-      id: missionId,
-      userId: input.userId,
-      sessionId: input.sessionId,
-      sourceText: input.sourceText,
-      userRequirement: input.userRequirement,
-      targetPages: input.targetPages,
-      stylePreference: input.stylePreference,
-      themeId: input.themeId,
-      tasks: [],
-      currentPhase: "planning",
-      status: "pending",
-      pages: [],
-      createdAt: new Date(),
-      totalTasks: 0,
-      completedTasks: 0,
-      metadata: {
-        targetAudience: input.targetAudience,
-      },
-    };
+    this.logger.log(`[executeMission] Starting mission ${mission.id}`);
 
-    yield this.createEvent("mission:created", mission.id, { mission });
+    const createdEvent = this.createEvent("mission:created", mission.id, {
+      mission,
+    });
+    yield createdEvent;
+    await this.persistEvent(createdEvent);
 
     try {
       // Phase 1: Leader 规划
-      yield* this.executePlanningPhase(mission);
+      yield* this.executePlanningPhase(mission, errors);
 
       // Phase 2: 任务执行
-      yield* this.executeTasksPhase(mission);
+      yield* this.executeTasksPhase(mission, errors);
 
       // Phase 3: Leader 审核
-      yield* this.executeReviewPhase(mission);
+      yield* this.executeReviewPhase(mission, errors);
 
       // Phase 4: 质量审计
-      yield* this.executeAuditPhase(mission);
+      yield* this.executeAuditPhase(mission, errors);
 
       // Phase 5: Leader 综合
-      yield* this.executeSynthesisPhase(mission);
+      yield* this.executeSynthesisPhase(mission, errors);
 
       // 完成
       mission.status = "completed";
       mission.currentPhase = "completed";
       mission.completedAt = new Date();
 
-      yield this.createEvent("mission:completed", mission.id, {
+      const duration = Date.now() - startTime;
+
+      // 持久化完成状态
+      if (this.persistenceEnabled && this.repository) {
+        await this.repository.completeMission(
+          mission.id,
+          mission.pages,
+          duration,
+          mission.metadata.qualityAudit as QualityAuditResult | undefined,
+        );
+      }
+
+      const completedEvent = this.createEvent("mission:completed", mission.id, {
         mission,
-        duration: Date.now() - startTime,
+        duration,
         pages: mission.pages,
+        outline: mission.outline,
+        qualityAudit: mission.metadata.qualityAudit,
+        errors: errors.length > 0 ? errors : undefined,
       });
+      yield completedEvent;
+      await this.persistEvent(completedEvent);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `[executeMission] Mission ${missionId} failed: ${errorMsg}`,
+        `[executeMission] Mission ${mission.id} failed: ${errorMsg}`,
       );
 
       mission.status = "failed";
       mission.currentPhase = "failed";
 
-      yield this.createEvent("mission:failed", mission.id, {
+      // 记录错误
+      const execError: SlidesExecutionError = {
+        taskId: "",
+        phase: mission.currentPhase,
+        errorType: "execution_failed",
+        message: errorMsg,
+        timestamp: new Date(),
+        retryCount: 0,
+      };
+      errors.push(execError);
+
+      // 持久化错误状态
+      if (this.persistenceEnabled && this.repository) {
+        await this.repository.updateMissionError(mission.id, errorMsg, errors);
+      }
+
+      const failedEvent = this.createEvent("mission:failed", mission.id, {
         error: errorMsg,
         phase: mission.currentPhase,
+        errors,
       });
+      yield failedEvent;
+      await this.persistEvent(failedEvent);
+    }
+  }
+
+  /**
+   * 持久化事件
+   */
+  private async persistEvent(event: SlidesMissionEvent): Promise<void> {
+    if (this.persistenceEnabled && this.repository) {
+      try {
+        await this.repository.recordEvent(event);
+      } catch (error) {
+        this.logger.warn(`[persistEvent] Failed to persist event: ${error}`);
+      }
     }
   }
 
@@ -166,6 +235,7 @@ export class SlidesTeamOrchestrator {
 
   private async *executePlanningPhase(
     mission: SlidesMission,
+    errors: SlidesExecutionError[],
   ): AsyncGenerator<SlidesMissionEvent> {
     this.logger.log(
       `[executePlanningPhase] Starting planning for mission ${mission.id}`,
@@ -175,26 +245,70 @@ export class SlidesTeamOrchestrator {
     mission.status = "planning";
     mission.startedAt = new Date();
 
-    yield this.createEvent("planning:started", mission.id, {
+    // 持久化状态
+    if (this.persistenceEnabled && this.repository) {
+      await this.repository.updateMissionStatus(
+        mission.id,
+        "planning",
+        "planning",
+      );
+    }
+
+    const startedEvent = this.createEvent("planning:started", mission.id, {
       phase: "planning",
     });
+    yield startedEvent;
+    await this.persistEvent(startedEvent);
 
-    // Leader 规划任务
-    const breakdown = await this.leader.planTasks(mission);
-    mission.taskBreakdown = breakdown;
+    try {
+      // Leader 规划任务
+      const breakdown = await this.leader.planTasks(mission);
+      mission.taskBreakdown = breakdown;
 
-    // 创建任务
-    mission.tasks = this.leader.createTasksFromBreakdown(breakdown);
-    mission.totalTasks = mission.tasks.length;
+      // 创建任务
+      mission.tasks = this.leader.createTasksFromBreakdown(breakdown);
+      mission.totalTasks = mission.tasks.length;
 
-    yield this.createEvent("planning:completed", mission.id, {
-      breakdown,
-      taskCount: mission.tasks.length,
-    });
+      // 持久化任务分解和任务
+      if (this.persistenceEnabled && this.repository) {
+        await this.repository.updateMissionTaskBreakdown(
+          mission.id,
+          breakdown,
+          mission.tasks.length,
+        );
+        await this.repository.createTasks(mission.id, mission.tasks);
+      }
 
-    // 发送任务创建事件
-    for (const task of mission.tasks) {
-      yield this.createEvent("task:created", mission.id, { task });
+      const completedEvent = this.createEvent(
+        "planning:completed",
+        mission.id,
+        {
+          breakdown,
+          taskCount: mission.tasks.length,
+        },
+      );
+      yield completedEvent;
+      await this.persistEvent(completedEvent);
+
+      // 发送任务创建事件
+      for (const task of mission.tasks) {
+        const taskEvent = this.createEvent("task:created", mission.id, {
+          task,
+        });
+        yield taskEvent;
+        await this.persistEvent(taskEvent);
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      errors.push({
+        taskId: "",
+        phase: "planning",
+        errorType: "execution_failed",
+        message: errorMsg,
+        timestamp: new Date(),
+        retryCount: 0,
+      });
+      throw error;
     }
   }
 
@@ -204,6 +318,7 @@ export class SlidesTeamOrchestrator {
 
   private async *executeTasksPhase(
     mission: SlidesMission,
+    errors: SlidesExecutionError[],
   ): AsyncGenerator<SlidesMissionEvent> {
     this.logger.log(
       `[executeTasksPhase] Starting task execution for mission ${mission.id}`,
@@ -212,9 +327,20 @@ export class SlidesTeamOrchestrator {
     mission.currentPhase = "executing";
     mission.status = "in_progress";
 
-    yield this.createEvent("mission:phase_changed", mission.id, {
+    // 持久化状态
+    if (this.persistenceEnabled && this.repository) {
+      await this.repository.updateMissionStatus(
+        mission.id,
+        "in_progress",
+        "executing",
+      );
+    }
+
+    const phaseEvent = this.createEvent("mission:phase_changed", mission.id, {
       phase: "executing",
     });
+    yield phaseEvent;
+    await this.persistEvent(phaseEvent);
 
     const previousOutputs: Record<string, unknown> = {};
 
@@ -231,6 +357,14 @@ export class SlidesTeamOrchestrator {
           this.logger.warn(
             `[executeTasksPhase] Deadlock detected: ${pendingTasks.length} pending tasks with unmet dependencies`,
           );
+          errors.push({
+            taskId: "",
+            phase: "executing",
+            errorType: "execution_failed",
+            message: `Deadlock: ${pendingTasks.length} tasks with unmet dependencies`,
+            timestamp: new Date(),
+            retryCount: 0,
+          });
           break;
         }
         break;
@@ -256,18 +390,56 @@ export class SlidesTeamOrchestrator {
           // 保存输出供后续任务使用
           previousOutputs[task.skillId] = result.result;
 
-          yield this.createEvent("task:awaiting_review", mission.id, {
-            task,
-            result: result.result,
-          });
+          // 持久化任务结果
+          if (this.persistenceEnabled && this.repository) {
+            await this.repository.updateTaskResult(task.id, result.result);
+          }
+
+          const taskEvent = this.createEvent(
+            "task:awaiting_review",
+            mission.id,
+            {
+              task,
+              result: result.result,
+            },
+          );
+          yield taskEvent;
+          await this.persistEvent(taskEvent);
         } else {
           task.status = "failed";
 
-          yield this.createEvent("task:failed", mission.id, {
+          // 记录错误
+          errors.push({
+            taskId: task.id,
+            phase: "executing",
+            errorType: "execution_failed",
+            message: result.error || "Unknown error",
+            timestamp: new Date(),
+            retryCount: 0,
+          });
+
+          // 持久化任务失败状态
+          if (this.persistenceEnabled && this.repository) {
+            await this.repository.updateTaskStatus(task.id, "failed");
+          }
+
+          const failEvent = this.createEvent("task:failed", mission.id, {
             task,
             error: result.error,
           });
+          yield failEvent;
+          await this.persistEvent(failEvent);
         }
+      }
+
+      // 更新进度
+      if (this.persistenceEnabled && this.repository) {
+        await this.repository.updateMissionProgress(
+          mission.id,
+          mission.tasks.filter(
+            (t) => t.status === "completed" || t.status === "awaiting_review",
+          ).length,
+        );
       }
     }
   }
@@ -322,6 +494,7 @@ export class SlidesTeamOrchestrator {
 
   private async *executeReviewPhase(
     mission: SlidesMission,
+    errors: SlidesExecutionError[],
   ): AsyncGenerator<SlidesMissionEvent> {
     this.logger.log(
       `[executeReviewPhase] Starting review for mission ${mission.id}`,
@@ -330,9 +503,20 @@ export class SlidesTeamOrchestrator {
     mission.currentPhase = "reviewing";
     mission.status = "reviewing";
 
-    yield this.createEvent("mission:phase_changed", mission.id, {
+    // 持久化状态
+    if (this.persistenceEnabled && this.repository) {
+      await this.repository.updateMissionStatus(
+        mission.id,
+        "reviewing",
+        "reviewing",
+      );
+    }
+
+    const phaseEvent = this.createEvent("mission:phase_changed", mission.id, {
       phase: "reviewing",
     });
+    yield phaseEvent;
+    await this.persistEvent(phaseEvent);
 
     // 审核所有待审核的任务
     const tasksToReview = mission.tasks.filter(
@@ -340,7 +524,11 @@ export class SlidesTeamOrchestrator {
     );
 
     for (const task of tasksToReview) {
-      yield this.createEvent("review:started", mission.id, { task });
+      const reviewStartEvent = this.createEvent("review:started", mission.id, {
+        task,
+      });
+      yield reviewStartEvent;
+      await this.persistEvent(reviewStartEvent);
 
       const reviewResult = await this.leader.reviewTask(
         mission,
@@ -352,20 +540,50 @@ export class SlidesTeamOrchestrator {
         task.status = "completed";
         mission.completedTasks++;
 
-        yield this.createEvent("review:approved", mission.id, {
+        // 持久化审核结果
+        if (this.persistenceEnabled && this.repository) {
+          await this.repository.updateTaskReview(
+            task.id,
+            reviewResult.feedback,
+            reviewResult.score,
+            false,
+          );
+        }
+
+        const approvedEvent = this.createEvent("review:approved", mission.id, {
           task,
           review: reviewResult,
         });
+        yield approvedEvent;
+        await this.persistEvent(approvedEvent);
       } else if (reviewResult.decision === "revision_needed") {
         if (task.revisionCount < task.maxRevisions) {
           task.status = "revision_needed";
           task.revisionCount++;
           task.reviewFeedback = reviewResult.feedback;
 
-          yield this.createEvent("review:revision_requested", mission.id, {
-            task,
-            review: reviewResult,
-          });
+          // 持久化需要修订的状态
+          if (this.persistenceEnabled && this.repository) {
+            await this.repository.updateTaskReview(
+              task.id,
+              reviewResult.feedback,
+              reviewResult.score,
+              true,
+            );
+          }
+
+          const revisionEvent = this.createEvent(
+            "review:revision_requested",
+            mission.id,
+            {
+              task,
+              review: reviewResult,
+              revisionCount: task.revisionCount,
+              maxRevisions: task.maxRevisions,
+            },
+          );
+          yield revisionEvent;
+          await this.persistEvent(revisionEvent);
 
           // 重新执行任务
           const context: SkillExecutionContext = {
@@ -389,17 +607,48 @@ export class SlidesTeamOrchestrator {
             task.status = "completed";
             mission.completedTasks++;
 
-            yield this.createEvent("task:completed", mission.id, {
-              task,
-              result: retryResult.result,
-            });
+            // 持久化成功结果
+            if (this.persistenceEnabled && this.repository) {
+              await this.repository.updateTaskResult(
+                task.id,
+                retryResult.result,
+              );
+            }
+
+            const completedEvent = this.createEvent(
+              "task:completed",
+              mission.id,
+              {
+                task,
+                result: retryResult.result,
+              },
+            );
+            yield completedEvent;
+            await this.persistEvent(completedEvent);
           } else {
             task.status = "failed";
 
-            yield this.createEvent("task:failed", mission.id, {
+            // 记录错误
+            errors.push({
+              taskId: task.id,
+              phase: "reviewing",
+              errorType: "review_failed",
+              message: retryResult.error || "Revision failed",
+              timestamp: new Date(),
+              retryCount: task.revisionCount,
+            });
+
+            // 持久化失败状态
+            if (this.persistenceEnabled && this.repository) {
+              await this.repository.updateTaskStatus(task.id, "failed");
+            }
+
+            const failedEvent = this.createEvent("task:failed", mission.id, {
               task,
               error: retryResult.error,
             });
+            yield failedEvent;
+            await this.persistEvent(failedEvent);
           }
         } else {
           // 超过最大修订次数，标记为完成（降级处理）
@@ -410,20 +659,61 @@ export class SlidesTeamOrchestrator {
             `[executeReviewPhase] Task ${task.id} exceeded max revisions, accepting as-is`,
           );
 
-          yield this.createEvent("review:approved", mission.id, {
-            task,
-            review: reviewResult,
-            degraded: true,
-          });
+          // 持久化降级完成
+          if (this.persistenceEnabled && this.repository) {
+            await this.repository.updateTaskReview(
+              task.id,
+              reviewResult.feedback + " [DEGRADED: max revisions exceeded]",
+              reviewResult.score,
+              false,
+            );
+          }
+
+          const degradedEvent = this.createEvent(
+            "review:approved",
+            mission.id,
+            {
+              task,
+              review: reviewResult,
+              degraded: true,
+            },
+          );
+          yield degradedEvent;
+          await this.persistEvent(degradedEvent);
         }
       } else {
         task.status = "failed";
 
-        yield this.createEvent("task:failed", mission.id, {
+        // 记录错误
+        errors.push({
+          taskId: task.id,
+          phase: "reviewing",
+          errorType: "review_failed",
+          message: reviewResult.feedback || "Review failed",
+          timestamp: new Date(),
+          retryCount: task.revisionCount,
+        });
+
+        // 持久化失败状态
+        if (this.persistenceEnabled && this.repository) {
+          await this.repository.updateTaskStatus(task.id, "failed");
+        }
+
+        const failedEvent = this.createEvent("task:failed", mission.id, {
           task,
           review: reviewResult,
         });
+        yield failedEvent;
+        await this.persistEvent(failedEvent);
       }
+    }
+
+    // 更新进度
+    if (this.persistenceEnabled && this.repository) {
+      await this.repository.updateMissionProgress(
+        mission.id,
+        mission.completedTasks,
+      );
     }
   }
 
@@ -433,6 +723,7 @@ export class SlidesTeamOrchestrator {
 
   private async *executeAuditPhase(
     mission: SlidesMission,
+    _errors: SlidesExecutionError[],
   ): AsyncGenerator<SlidesMissionEvent> {
     this.logger.log(
       `[executeAuditPhase] Starting quality audit for mission ${mission.id}`,
@@ -441,11 +732,24 @@ export class SlidesTeamOrchestrator {
     mission.currentPhase = "auditing";
     mission.status = "auditing";
 
-    yield this.createEvent("mission:phase_changed", mission.id, {
+    // 持久化状态
+    if (this.persistenceEnabled && this.repository) {
+      await this.repository.updateMissionStatus(
+        mission.id,
+        "auditing",
+        "auditing",
+      );
+    }
+
+    const phaseEvent = this.createEvent("mission:phase_changed", mission.id, {
       phase: "auditing",
     });
+    yield phaseEvent;
+    await this.persistEvent(phaseEvent);
 
-    yield this.createEvent("audit:started", mission.id, {});
+    const auditStartEvent = this.createEvent("audit:started", mission.id, {});
+    yield auditStartEvent;
+    await this.persistEvent(auditStartEvent);
 
     // 执行质量审计 Skills
     const auditSkills = [
@@ -485,9 +789,21 @@ export class SlidesTeamOrchestrator {
         },
       };
 
-      const result = await this.teamMember.executeTask(task, context);
-      if (result.success) {
-        auditResults[skillId] = result.result;
+      try {
+        const result = await this.teamMember.executeTask(task, context);
+        if (result.success) {
+          auditResults[skillId] = result.result;
+        } else {
+          // 记录审计技能失败（非致命）
+          this.logger.warn(
+            `[executeAuditPhase] Audit skill ${skillId} failed: ${result.error}`,
+          );
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `[executeAuditPhase] Audit skill ${skillId} error: ${errorMsg}`,
+        );
       }
     }
 
@@ -506,9 +822,19 @@ export class SlidesTeamOrchestrator {
       suggestions: [],
     };
 
-    yield this.createEvent("audit:completed", mission.id, {
+    // 保存审计结果到 mission 元数据
+    mission.metadata.qualityAudit = qualityAudit;
+
+    // 持久化审计结果
+    if (this.persistenceEnabled && this.repository) {
+      await this.repository.updateMissionQualityAudit(mission.id, qualityAudit);
+    }
+
+    const auditCompleteEvent = this.createEvent("audit:completed", mission.id, {
       qualityAudit,
     });
+    yield auditCompleteEvent;
+    await this.persistEvent(auditCompleteEvent);
   }
 
   // ============================================
@@ -517,6 +843,7 @@ export class SlidesTeamOrchestrator {
 
   private async *executeSynthesisPhase(
     mission: SlidesMission,
+    _errors: SlidesExecutionError[],
   ): AsyncGenerator<SlidesMissionEvent> {
     this.logger.log(
       `[executeSynthesisPhase] Starting synthesis for mission ${mission.id}`,
@@ -525,22 +852,63 @@ export class SlidesTeamOrchestrator {
     mission.currentPhase = "synthesizing";
     mission.status = "synthesizing";
 
-    yield this.createEvent("mission:phase_changed", mission.id, {
+    // 持久化状态
+    if (this.persistenceEnabled && this.repository) {
+      await this.repository.updateMissionStatus(
+        mission.id,
+        "synthesizing",
+        "synthesizing",
+      );
+    }
+
+    const phaseEvent = this.createEvent("mission:phase_changed", mission.id, {
       phase: "synthesizing",
     });
+    yield phaseEvent;
+    await this.persistEvent(phaseEvent);
 
-    yield this.createEvent("synthesis:started", mission.id, {});
+    const synthesisStartEvent = this.createEvent(
+      "synthesis:started",
+      mission.id,
+      {},
+    );
+    yield synthesisStartEvent;
+    await this.persistEvent(synthesisStartEvent);
 
     // 从任务结果中提取页面
     this.extractPagesFromTasks(mission);
 
+    // 持久化页面
+    if (this.persistenceEnabled && this.repository) {
+      await this.repository.updateMissionPages(mission.id, mission.pages);
+      if (mission.outline) {
+        await this.repository.updateMissionOutline(mission.id, mission.outline);
+      }
+    }
+
     // Leader 综合结果
     const synthesis = await this.leader.synthesizeResults(mission);
 
-    yield this.createEvent("synthesis:completed", mission.id, {
-      synthesis,
-      pageCount: mission.pages.length,
-    });
+    // 发送页面生成事件
+    for (let i = 0; i < mission.pages.length; i++) {
+      const pageEvent = this.createEvent("page:generated", mission.id, {
+        pageIndex: i,
+        page: mission.pages[i],
+      });
+      yield pageEvent;
+      await this.persistEvent(pageEvent);
+    }
+
+    const synthesisCompleteEvent = this.createEvent(
+      "synthesis:completed",
+      mission.id,
+      {
+        synthesis,
+        pageCount: mission.pages.length,
+      },
+    );
+    yield synthesisCompleteEvent;
+    await this.persistEvent(synthesisCompleteEvent);
   }
 
   /**

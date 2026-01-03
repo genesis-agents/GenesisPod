@@ -152,6 +152,7 @@ export interface SlidesMission {
   taskBreakdown?: TaskBreakdown;
   outline?: PPTOutline;
   pages: GeneratedSlide[];
+  qualityAudit?: QualityAuditResult;
   createdAt: Date;
   startedAt?: Date;
   completedAt?: Date;
@@ -229,6 +230,27 @@ export interface SlidesQualityIssue {
   pageIndex?: number;
   description: string;
   suggestion?: string;
+}
+
+// ============================================
+// 错误追踪定义
+// ============================================
+
+export type SlidesExecutionErrorType =
+  | "skill_not_found"
+  | "execution_failed"
+  | "review_failed"
+  | "audit_failed"
+  | "synthesis_failed";
+
+export interface SlidesExecutionError {
+  taskId: string;
+  phase: SlidesMissionPhase;
+  errorType: SlidesExecutionErrorType;
+  message: string;
+  timestamp: Date;
+  retryCount: number;
+  stack?: string;
 }
 
 // ============================================

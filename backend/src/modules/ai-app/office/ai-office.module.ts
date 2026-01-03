@@ -39,6 +39,7 @@ import {
   SlidesLeader,
   SlidesTeamMember,
   SlidesTeamOrchestrator,
+  SlidesRepository,
   // Deprecated: Kept for backward compatibility during skill migration
   MultiModelService,
 } from "./slides";
@@ -99,6 +100,7 @@ import { AIOfficeCommonModule } from "./common";
     SlidesLeader, // v5.0: Leader 角色
     SlidesTeamMember, // v5.0: 成员基类
     SlidesTeamOrchestrator, // v5.0: 主编排器
+    SlidesRepository, // v5.0: 持久化层
     MultiModelService, // @deprecated: Kept for skill compatibility during migration
     // Docs
     DocsOrchestratorService,
@@ -121,6 +123,7 @@ import { AIOfficeCommonModule } from "./common";
     SlidesLeader, // v5.0: Leader 角色
     SlidesTeamMember, // v5.0: 成员基类
     SlidesTeamOrchestrator, // v5.0: 主编排器
+    SlidesRepository, // v5.0: 持久化层
     // Docs
     DocsOrchestratorService,
     DocsGeneratorService,
