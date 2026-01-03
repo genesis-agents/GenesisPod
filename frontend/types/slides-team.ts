@@ -351,6 +351,7 @@ export interface TeamExecutionState {
 // ============================================================================
 
 export interface GenerateTeamRequest {
+  title: string;
   sourceText: string;
   userRequirement?: string;
   targetPages?: number;

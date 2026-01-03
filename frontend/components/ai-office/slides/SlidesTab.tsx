@@ -411,8 +411,9 @@ export function SlidesTab() {
       currentHistoryIdRef.current = historyId;
       // 转换为 Team 请求格式
       const teamRequest: GenerateTeamRequest = {
+        title: request.title,
         sourceText: request.sourceText,
-        userRequirement: request.title, // 使用标题作为用户需求
+        userRequirement: request.title, // 同时作为用户需求
         targetPages: request.targetPages,
         stylePreference: request.stylePreference,
         themeId: request.themeId,
