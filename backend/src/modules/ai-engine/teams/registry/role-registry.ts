@@ -206,6 +206,67 @@ export class RoleRegistry implements OnModuleInit {
 请保持中立、公正，引导讨论深入进行。`,
     });
 
+    // Tech Lead
+    this.registerFromConfig({
+      id: BUILTIN_ROLES.TECH_LEAD,
+      name: "技术领导",
+      description: ROLE_DESCRIPTIONS[BUILTIN_ROLES.TECH_LEAD],
+      type: "leader",
+      icon: "👨‍💻",
+      coreSkills: ["architecture-design", "task-decomposition", "code-review"],
+      coreTools: [
+        BUILTIN_TOOLS.CODE_GENERATION,
+        BUILTIN_TOOLS.STRUCTURED_OUTPUT,
+      ],
+      responsibilities: [
+        "设计系统架构",
+        "分解技术任务",
+        "审核代码质量",
+        "做出技术决策",
+      ],
+      systemPromptTemplate: `你是{{role_name}}，{{role_description}}
+
+你的职责：
+{{responsibilities}}
+
+请以专业、务实的态度领导技术团队。`,
+    });
+
+    // Slides Lead (PPT 架构师)
+    this.registerFromConfig({
+      id: BUILTIN_ROLES.SLIDES_LEAD,
+      name: "PPT 架构师",
+      description: ROLE_DESCRIPTIONS[BUILTIN_ROLES.SLIDES_LEAD],
+      type: "leader",
+      icon: "📊",
+      coreSkills: [
+        "task-decomposition",
+        "outline-planning",
+        "quality-review",
+        "content-integration",
+      ],
+      coreTools: [
+        BUILTIN_TOOLS.TEXT_GENERATION,
+        BUILTIN_TOOLS.STRUCTURED_OUTPUT,
+      ],
+      responsibilities: [
+        "分析源文本并制定 PPT 结构",
+        "规划每页的观点、逻辑和数据",
+        "协调团队成员完成内容生成",
+        "审核整体质量和一致性",
+      ],
+      limitations: ["不直接生成页面 HTML", "不进行图像创作"],
+      systemPromptTemplate: `你是{{role_name}}，{{role_description}}
+
+你的职责：
+{{responsibilities}}
+
+注意事项：
+{{limitations}}
+
+请以专业、高效的态度领导 PPT 生成团队。`,
+    });
+
     // Researcher
     this.registerFromConfig({
       id: BUILTIN_ROLES.RESEARCHER,
@@ -339,6 +400,36 @@ export class RoleRegistry implements OnModuleInit {
 {{responsibilities}}
 
 请注重美观和用户体验。`,
+    });
+
+    // Renderer (页面渲染师)
+    this.registerFromConfig({
+      id: BUILTIN_ROLES.RENDERER,
+      name: "渲染师",
+      description: ROLE_DESCRIPTIONS[BUILTIN_ROLES.RENDERER],
+      type: "member",
+      icon: "🖼️",
+      coreSkills: [
+        "template-rendering",
+        "html-generation",
+        "style-application",
+      ],
+      coreTools: [
+        BUILTIN_TOOLS.TEXT_GENERATION,
+        BUILTIN_TOOLS.STRUCTURED_OUTPUT,
+      ],
+      responsibilities: [
+        "使用模板渲染页面",
+        "生成高质量 HTML 代码",
+        "应用主题样式",
+        "确保视觉呈现一致",
+      ],
+      systemPromptTemplate: `你是{{role_name}}，{{role_description}}
+
+你的职责：
+{{responsibilities}}
+
+请确保生成的 HTML 布局美观、响应式、无溢出。`,
     });
 
     // Reviewer
