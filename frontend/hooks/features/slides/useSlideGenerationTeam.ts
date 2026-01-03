@@ -236,28 +236,34 @@ export function useSlideGenerationTeam(
           // 如果是 planning 阶段完成，初始化页面
           if (data.phase === 'planning' && data.result) {
             const planResult = data.result as {
-              totalPages: number;
-              pageOutlines: Array<{
+              totalPages?: number;
+              pageOutlines?: Array<{
                 pageNumber: number;
                 title: string;
                 templateType: string;
               }>;
             };
-            const initialPages: PageState[] = planResult.pageOutlines.map(
-              (outline) => ({
-                pageNumber: outline.pageNumber,
-                outline: {
+            // 安全检查：确保 pageOutlines 存在
+            if (
+              planResult.pageOutlines &&
+              Array.isArray(planResult.pageOutlines)
+            ) {
+              const initialPages: PageState[] = planResult.pageOutlines.map(
+                (outline) => ({
                   pageNumber: outline.pageNumber,
-                  title: outline.title,
-                  templateType:
-                    outline.templateType as PageState['outline']['templateType'],
-                  purpose: '',
-                  keyPoints: [],
-                },
-                status: 'pending',
-              })
-            );
-            setPages(initialPages);
+                  outline: {
+                    pageNumber: outline.pageNumber,
+                    title: outline.title,
+                    templateType:
+                      outline.templateType as PageState['outline']['templateType'],
+                    purpose: '',
+                    keyPoints: [],
+                  },
+                  status: 'pending',
+                })
+              );
+              setPages(initialPages);
+            }
           }
           break;
         }
