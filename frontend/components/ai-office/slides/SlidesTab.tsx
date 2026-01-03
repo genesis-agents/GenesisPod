@@ -109,7 +109,8 @@ interface ToolCallItem {
 export function SlidesTab() {
   const { session, pages, generating, streamEvents, progress, outlinePlan } =
     useSlidesStore();
-  const { generateWithTeam, cancel, teamState } = useSlideGenerationTeam();
+  const { generateWithTeam, cancel, teamState, teamEvents } =
+    useSlideGenerationTeam();
   const { createCheckpoint, checkpoints } = useCheckpoints();
   const { history, addHistory, updateHistory, removeHistory, clearHistory } =
     useSlidesHistoryStore();
@@ -138,10 +139,11 @@ export function SlidesTab() {
     refreshSessions();
   }, [refreshSessions]);
 
-  // 将 streamEvents 转换为 toolCalls - 增强版：提取更多详细信息
+  // 将 streamEvents 和 teamEvents 转换为 toolCalls - 增强版：提取更多详细信息
   useEffect(() => {
     const calls: ToolCallItem[] = [];
 
+    // 处理 store 中的 streamEvents（旧格式，下划线分隔）
     streamEvents.forEach((event) => {
       const id = `${event.type}-${event.timestamp}`;
 
@@ -155,6 +157,35 @@ export function SlidesTab() {
           timestamp: new Date(event.timestamp),
         });
       } else if (event.type === 'phase_completed') {
+        const eventData = event.data as { phase: string };
+        const existingIndex = calls.findIndex(
+          (c) =>
+            c.title === getPhaseTitle(eventData.phase) && c.status === 'running'
+        );
+        if (existingIndex >= 0) {
+          calls[existingIndex] = {
+            ...calls[existingIndex],
+            status: 'completed',
+          };
+        }
+      }
+    });
+
+    // 处理 Team hook 中的 teamEvents（新格式，冒号分隔）
+    teamEvents.forEach((event) => {
+      const id = `team-${event.type}-${event.timestamp}`;
+
+      if (event.type === 'phase:started') {
+        const data = event.data as { phase: string; description?: string };
+        calls.push({
+          id,
+          type: 'step',
+          title: getPhaseTitle(data.phase),
+          content: data.description,
+          status: 'running',
+          timestamp: new Date(event.timestamp),
+        });
+      } else if (event.type === 'phase:completed') {
         // 后端发送格式: { phase, data: actualResult }
         const eventData = event.data as {
           phase: string;
@@ -261,33 +292,28 @@ export function SlidesTab() {
             timestamp: new Date(event.timestamp),
           });
         }
-      } else if (event.type === 'checkpoint_created') {
-        const data = event.data as { name?: string; type?: string };
-        calls.push({
-          id,
-          type: 'checkpoint',
-          title: `💾 ${data.name || data.type || '自动保存'}`,
-          status: 'completed',
-          timestamp: new Date(event.timestamp),
-        });
-      } else if (event.type === 'page_started') {
+      } else if (event.type === 'slide:generating') {
         const data = event.data as {
           pageNumber: number;
-          outline?: { title: string; templateType: string };
+          title?: string;
+          templateType?: string;
         };
-        const pageTitle = data.outline?.title || `第 ${data.pageNumber} 页`;
-        const templateType = data.outline?.templateType || '';
+        const pageTitle = data.title || `第 ${data.pageNumber} 页`;
         calls.push({
           id,
           type: 'render',
           title: `🎨 渲染: ${pageTitle}`,
-          content: templateType ? `模板: ${templateType}` : undefined,
+          content: data.templateType ? `模板: ${data.templateType}` : undefined,
           status: 'running',
           details: { pageNumber: data.pageNumber },
           timestamp: new Date(event.timestamp),
         });
-      } else if (event.type === 'page_completed') {
-        const data = event.data as { pageNumber: number; html?: string };
+      } else if (event.type === 'slide:generated') {
+        const data = event.data as {
+          pageNumber: number;
+          title?: string;
+          html?: string;
+        };
         const existingIndex = calls.findIndex(
           (c) =>
             c.type === 'render' &&
@@ -296,68 +322,105 @@ export function SlidesTab() {
         );
         if (existingIndex >= 0) {
           calls[existingIndex].status = 'completed';
-          // 添加生成内容长度信息
           if (data.html) {
             calls[existingIndex].content =
               `HTML 大小: ${(data.html.length / 1024).toFixed(1)} KB`;
           }
+        } else {
+          calls.push({
+            id,
+            type: 'render',
+            title: `🎨 渲染完成: ${data.title || `第 ${data.pageNumber} 页`}`,
+            status: 'completed',
+            details: { pageNumber: data.pageNumber },
+            timestamp: new Date(event.timestamp),
+          });
         }
-      } else if (event.type === 'error') {
-        const data = event.data as { message?: string; phase?: string };
+      } else if (event.type === 'execution:started') {
+        const data = event.data as { sessionId?: string };
         calls.push({
           id,
           type: 'step',
-          title: `❌ 错误: ${data.phase || '未知阶段'}`,
-          content: data.message,
-          status: 'error',
-          timestamp: new Date(event.timestamp),
-        });
-      } else if (event.type === 'session_created') {
-        const data = event.data as { session?: { id: string; title: string } };
-        calls.push({
-          id,
-          type: 'step',
-          title: `🚀 会话已创建`,
-          content: data.session?.title,
-          status: 'completed',
-          timestamp: new Date(event.timestamp),
-        });
-      } else if (event.type === 'complete') {
-        calls.push({
-          id,
-          type: 'checkpoint',
-          title: `✅ 生成完成`,
-          status: 'completed',
-          timestamp: new Date(event.timestamp),
-        });
-      } else if (event.type === 'user_message') {
-        const data = event.data as { message: string; pageNumber?: number };
-        calls.push({
-          id,
-          type: 'user',
-          title: `💬 用户输入`,
-          content: data.message,
-          details: data.pageNumber
-            ? { pageNumber: data.pageNumber }
+          title: `🚀 开始生成`,
+          content: data.sessionId
+            ? `会话: ${data.sessionId.slice(0, 8)}...`
             : undefined,
           status: 'completed',
           timestamp: new Date(event.timestamp),
         });
-      } else if (event.type === 'system_message') {
-        const data = event.data as { message: string };
+      } else if (event.type === 'execution:completed') {
+        const data = event.data as { totalPages?: number; totalTime?: number };
         calls.push({
           id,
-          type: 'system',
-          title: `🤖 系统提示`,
-          content: data.message,
+          type: 'checkpoint',
+          title: `✅ 生成完成`,
+          content: data.totalPages
+            ? `共 ${data.totalPages} 页，耗时 ${((data.totalTime || 0) / 1000).toFixed(1)}s`
+            : undefined,
           status: 'completed',
           timestamp: new Date(event.timestamp),
         });
+      } else if (event.type === 'execution:failed') {
+        const data = event.data as { error?: string; phase?: string };
+        calls.push({
+          id,
+          type: 'step',
+          title: `❌ 生成失败`,
+          content: data.error,
+          status: 'error',
+          timestamp: new Date(event.timestamp),
+        });
+      } else if (event.type === 'agent:thinking') {
+        const data = event.data as { agentName?: string; thought?: string };
+        calls.push({
+          id,
+          type: 'thinking',
+          title: `💭 ${data.agentName || 'Agent'} 思考中`,
+          content: data.thought,
+          status: 'running',
+          timestamp: new Date(event.timestamp),
+        });
+      } else if (event.type === 'agent:working') {
+        const data = event.data as { agentName?: string; task?: string };
+        calls.push({
+          id,
+          type: 'step',
+          title: `⚙️ ${data.agentName || 'Agent'} 工作中`,
+          content: data.task,
+          status: 'running',
+          timestamp: new Date(event.timestamp),
+        });
+      } else if (event.type === 'agent:completed') {
+        const data = event.data as { agentName?: string; result?: string };
+        calls.push({
+          id,
+          type: 'step',
+          title: `✓ ${data.agentName || 'Agent'} 完成`,
+          content: data.result,
+          status: 'completed',
+          timestamp: new Date(event.timestamp),
+        });
+      } else if (event.type === 'agent:handoff') {
+        const data = event.data as {
+          fromAgent?: string;
+          toAgent?: string;
+          message?: string;
+        };
+        calls.push({
+          id,
+          type: 'step',
+          title: `🔄 任务交接`,
+          content: data.message || `${data.fromAgent} → ${data.toAgent}`,
+          status: 'completed',
+          timestamp: new Date(event.timestamp),
+        });
+      } else if (event.type === 'heartbeat') {
+        // 心跳事件，不显示
       }
     });
 
     setToolCalls(calls);
-  }, [streamEvents]);
+  }, [streamEvents, teamEvents]);
 
   const handleSendMessage = useCallback((message: string) => {
     // 添加用户消息到 streamEvents
