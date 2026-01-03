@@ -235,6 +235,15 @@ export class TeamMissionService {
       previousStatus: MissionStatus.PENDING,
     });
 
+    // 广播 Leader 开始规划 (显示 thinking 状态)
+    this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:agent_working", {
+      missionId: mission.id,
+      taskId: null,
+      agentId: mission.leader.id,
+      agentName: mission.leader.agentName || mission.leader.displayName,
+      status: "planning",
+    });
+
     // 发送 Leader 正在思考的消息
     await this.sendMessageToTopic(
       mission.topicId,
@@ -470,13 +479,17 @@ export class TeamMissionService {
       );
 
       // 广播 Agent 工作状态
-      this.aiTeamsGateway.emitToTopic(mission.topicId, "agent:working", {
-        missionId: mission.id,
-        taskId: task.id,
-        agentId: assignedTo.id,
-        agentName: assignedTo.agentName || assignedTo.displayName,
-        status: "started",
-      });
+      this.aiTeamsGateway.emitToTopic(
+        mission.topicId,
+        "mission:agent_working",
+        {
+          missionId: mission.id,
+          taskId: task.id,
+          agentId: assignedTo.id,
+          agentName: assignedTo.agentName || assignedTo.displayName,
+          status: "started",
+        },
+      );
 
       // 检查是否需要联网搜索（检测任务描述中的关键词）
       let searchContext = "";
@@ -578,7 +591,7 @@ export class TeamMissionService {
       });
 
       // 清除Agent工作状态 (任务执行完成)
-      this.aiTeamsGateway.emitToTopic(mission.topicId, "agent:done", {
+      this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:agent_done", {
         missionId: mission.id,
         taskId: task.id,
         agentId: assignedTo.id,
@@ -762,13 +775,17 @@ export class TeamMissionService {
 
     try {
       // 广播 Leader 开始审核 (显示 thinking 状态)
-      this.aiTeamsGateway.emitToTopic(mission.topicId, "agent:working", {
-        missionId: mission.id,
-        taskId: task.id,
-        agentId: leader.id,
-        agentName: leader.agentName || leader.displayName,
-        status: "reviewing",
-      });
+      this.aiTeamsGateway.emitToTopic(
+        mission.topicId,
+        "mission:agent_working",
+        {
+          missionId: mission.id,
+          taskId: task.id,
+          agentId: leader.id,
+          agentName: leader.agentName || leader.displayName,
+          status: "reviewing",
+        },
+      );
 
       // 构建审核提示词
       const reviewPrompt = this.buildLeaderReviewPrompt(
@@ -821,7 +838,7 @@ export class TeamMissionService {
       });
 
       // 清除 Leader 审核状态 (审核完成)
-      this.aiTeamsGateway.emitToTopic(mission.topicId, "agent:done", {
+      this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:agent_done", {
         missionId: mission.id,
         taskId: task.id,
         agentId: leader.id,

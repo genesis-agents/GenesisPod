@@ -1539,6 +1539,8 @@ export default function TeamCanvasModal({
                 setSelectedAgent(null);
               }}
               missionTitle={mission?.title}
+              missionStatus={mission?.status}
+              finalResult={mission?.finalResult}
             />
           )}
 
@@ -2106,6 +2108,8 @@ function AgentPopover({
   onClose,
   onTaskClick,
   missionTitle,
+  missionStatus,
+  finalResult,
 }: {
   agent: TopicAIMember;
   isLeader: boolean;
@@ -2116,6 +2120,8 @@ function AgentPopover({
   onClose: () => void;
   onTaskClick: (task: AgentTask) => void;
   missionTitle?: string;
+  missionStatus?: string;
+  finalResult?: string | null;
 }) {
   // For Leader, show all tasks as the planning list
   const displayTasks = isLeader ? allTasks : tasks;
@@ -2230,6 +2236,37 @@ function AgentPopover({
                     : isLeader
                       ? `协调团队完成：${missionTitle || '待分配任务'}`
                       : '等待任务分配'}
+                </div>
+              </div>
+            )}
+
+            {/* Final Report - Only show for Leader when mission is completed */}
+            {isLeader && missionStatus === 'COMPLETED' && finalResult && (
+              <div className="mb-5 rounded-xl border border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-white">
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </div>
+                  <span className="text-sm font-bold text-green-700">
+                    任务完成报告
+                  </span>
+                </div>
+                <div className="max-h-60 overflow-y-auto rounded-lg bg-white/70 p-3 text-sm leading-relaxed text-gray-700 shadow-inner">
+                  <div className="prose prose-sm max-w-none whitespace-pre-wrap">
+                    {finalResult}
+                  </div>
                 </div>
               </div>
             )}

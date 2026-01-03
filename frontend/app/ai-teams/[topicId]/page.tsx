@@ -1899,7 +1899,9 @@ export default function TopicPage() {
   const [showMissionDialog, setShowMissionDialog] = useState(false);
   const [showMissionPanel, setShowMissionPanel] = useState(false);
   const [mainViewMode, setMainViewMode] = useState<'chat' | 'canvas'>('canvas');
-  const [selectedMission, setSelectedMission] = useState<TeamMission | null>(null);
+  const [selectedMission, setSelectedMission] = useState<TeamMission | null>(
+    null
+  );
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageCountRef = useRef(0);
@@ -1997,6 +1999,9 @@ export default function TopicPage() {
       null
     );
   }, [missions]);
+
+  // Current mission being displayed (selectedMission takes priority over activeMission)
+  const currentMission = selectedMission || activeMission;
 
   // Get AI members for canvas view
   const aiMembers = currentTopic?.aiMembers || [];
@@ -2424,7 +2429,7 @@ export default function TopicPage() {
             <TeamCanvasModal
               isOpen={true}
               onClose={() => setMainViewMode('chat')}
-              mission={selectedMission || activeMission}
+              mission={currentMission}
               aiMembers={aiMembers}
               typingAIs={typingAIs}
               embedded={true}
@@ -2549,36 +2554,36 @@ export default function TopicPage() {
               {/* Continue Mission */}
               <button
                 disabled={
-                  !activeMission ||
+                  !currentMission ||
                   !['IN_PROGRESS', 'PAUSED', 'FAILED'].includes(
-                    activeMission.status
+                    currentMission.status
                   )
                 }
                 onClick={async () => {
-                  if (!topicId || !activeMission) return;
-                  if (activeMission.status === 'PAUSED') {
-                    await resumeMission(topicId, activeMission.id);
-                  } else if (activeMission.status === 'FAILED') {
-                    await retryMission(topicId, activeMission.id, {
+                  if (!topicId || !currentMission) return;
+                  if (currentMission.status === 'PAUSED') {
+                    await resumeMission(topicId, currentMission.id);
+                  } else if (currentMission.status === 'FAILED') {
+                    await retryMission(topicId, currentMission.id, {
                       mode: 'continue',
                     });
                   } else if (
-                    activeMission.status === 'IN_PROGRESS' &&
-                    activeMission.leaderId
+                    currentMission.status === 'IN_PROGRESS' &&
+                    currentMission.leaderId
                   ) {
-                    await generateAIResponse(topicId, activeMission.leaderId);
+                    await generateAIResponse(topicId, currentMission.leaderId);
                   }
                 }}
                 className={[
                   'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-                  !activeMission ||
+                  !currentMission ||
                   !['IN_PROGRESS', 'PAUSED', 'FAILED'].includes(
-                    activeMission.status
+                    currentMission.status
                   )
                     ? 'cursor-not-allowed bg-gray-100 text-gray-400'
-                    : activeMission.status === 'PAUSED'
+                    : currentMission.status === 'PAUSED'
                       ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                      : activeMission.status === 'FAILED'
+                      : currentMission.status === 'FAILED'
                         ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
                         : 'bg-green-100 text-green-700 hover:bg-green-200',
                 ].join(' ')}
@@ -2609,24 +2614,24 @@ export default function TopicPage() {
               {/* Cancel Mission */}
               <button
                 disabled={
-                  !activeMission ||
+                  !currentMission ||
                   !['IN_PROGRESS', 'PLANNING', 'PAUSED'].includes(
-                    activeMission.status
+                    currentMission.status
                   )
                 }
                 onClick={async () => {
-                  if (!topicId || !activeMission) return;
+                  if (!topicId || !currentMission) return;
                   if (
-                    confirm(`确认要取消当前任务吗？\n\n${activeMission.title}`)
+                    confirm(`确认要取消当前任务吗？\n\n${currentMission.title}`)
                   ) {
-                    await cancelMission(topicId, activeMission.id);
+                    await cancelMission(topicId, currentMission.id);
                   }
                 }}
                 className={[
                   'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-                  !activeMission ||
+                  !currentMission ||
                   !['IN_PROGRESS', 'PLANNING', 'PAUSED'].includes(
-                    activeMission.status
+                    currentMission.status
                   )
                     ? 'cursor-not-allowed bg-gray-100 text-gray-400'
                     : 'bg-red-100 text-red-700 hover:bg-red-200',
@@ -2650,17 +2655,17 @@ export default function TopicPage() {
               </button>
 
               {/* Retry Mission (Full) - only show when mission failed */}
-              {activeMission && activeMission.status === 'FAILED' && (
+              {currentMission && currentMission.status === 'FAILED' && (
                 <button
                   onClick={async () => {
                     if (!topicId) return;
                     if (
                       confirm(
-                        `确定要重新规划并执行任务「${activeMission.title}」吗？`
+                        `确定要重新规划并执行任务「${currentMission.title}」吗？`
                       )
                     ) {
                       try {
-                        await retryMission(topicId, activeMission.id, {
+                        await retryMission(topicId, currentMission.id, {
                           mode: 'full',
                         });
                       } catch (error) {
@@ -2689,17 +2694,17 @@ export default function TopicPage() {
               )}
 
               {/* Cancel Mission - only show when mission is active */}
-              {activeMission &&
-                (activeMission.status === 'IN_PROGRESS' ||
-                  activeMission.status === 'PLANNING') && (
+              {currentMission &&
+                (currentMission.status === 'IN_PROGRESS' ||
+                  currentMission.status === 'PLANNING') && (
                   <button
                     onClick={async () => {
                       if (
                         confirm(
-                          `确定要取消任务「${activeMission.title}」吗？此操作不可撤销。`
+                          `确定要取消任务「${currentMission.title}」吗？此操作不可撤销。`
                         )
                       ) {
-                        await cancelMission(topicId, activeMission.id);
+                        await cancelMission(topicId, currentMission.id);
                       }
                     }}
                     className="flex items-center gap-2 rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-200"

@@ -202,10 +202,8 @@ export class SlidesEngineService {
       },
     };
 
-    // 4. 启动心跳
-    const heartbeatInterval = setInterval(() => {
-      // 心跳由调用方处理，这里不直接发送
-    }, 15000);
+    // 4. 心跳/缓冲区刷新间隔（不再只是空心跳）
+    const BUFFER_FLUSH_INTERVAL_MS = 2000; // 每 2 秒检查一次缓冲区
 
     try {
       // 5. 执行 Mission（流式）
@@ -218,8 +216,58 @@ export class SlidesEngineService {
       let currentPhase = "";
       let missionResult: MissionResult | undefined;
       let eventCount = 0;
+      let done = false;
 
-      for await (const event of generator) {
+      // ★ 使用 Promise.race 实现实时事件推送
+      // 每次等待时，要么收到 MissionEvent，要么超时后刷新缓冲区
+      const iterator = generator[Symbol.asyncIterator]();
+
+      while (!done) {
+        // 创建超时 Promise，用于定期刷新缓冲区
+        const timeoutPromise = new Promise<{ timeout: true }>((resolve) =>
+          setTimeout(
+            () => resolve({ timeout: true }),
+            BUFFER_FLUSH_INTERVAL_MS,
+          ),
+        );
+
+        // 获取下一个 MissionEvent 的 Promise
+        const nextEventPromise = iterator.next().then((result) => ({
+          timeout: false as const,
+          result,
+        }));
+
+        // Race: 要么收到事件，要么超时
+        const raceResult = await Promise.race([
+          nextEventPromise,
+          timeoutPromise,
+        ]);
+
+        // ★ 无论哪种情况，先刷新缓冲区（实时推送页面事件）
+        const bufferedPageEvents = this.flushPageEventBuffer(sessionId);
+        for (const pageEvent of bufferedPageEvents) {
+          yield pageEvent;
+          this.logger.log(
+            `[generateSlides] Yielded buffered page event: page ${(pageEvent.data as { pageNumber?: number })?.pageNumber}`,
+          );
+        }
+
+        if (raceResult.timeout) {
+          // 超时：只刷新缓冲区，继续等待
+          this.logger.debug(
+            `[generateSlides] Buffer flush tick, buffered ${bufferedPageEvents.length} events`,
+          );
+          continue;
+        }
+
+        // 收到 MissionEvent
+        const { result } = raceResult;
+        if (result.done) {
+          done = true;
+          continue;
+        }
+
+        const event = result.value;
         eventCount++;
         this.logger.log(
           `[generateSlides] Received event #${eventCount}: ${event.type}`,
@@ -235,17 +283,6 @@ export class SlidesEngineService {
             `[generateSlides] Yielding stream event: ${streamEvent.type}`,
           );
           yield streamEvent;
-        }
-
-        // 6.5 ★ 实时页面事件：检查并发送缓冲区中的页面事件
-        // PagePipelineSkill 通过 EventEmitter2 发送的事件会被缓存
-        // 这里立即将其推送到 SSE 流，实现"完成一页发送一页"
-        const bufferedPageEvents = this.flushPageEventBuffer(sessionId);
-        for (const pageEvent of bufferedPageEvents) {
-          yield pageEvent;
-          this.logger.log(
-            `[generateSlides] Yielded buffered page event: page ${(pageEvent.data as { pageNumber?: number })?.pageNumber}`,
-          );
         }
 
         // 7. 跟踪阶段并保存检查点
@@ -305,7 +342,6 @@ export class SlidesEngineService {
         recoverable: false,
       });
     } finally {
-      clearInterval(heartbeatInterval);
       // 清理缓冲区，防止内存泄漏
       this.pageEventBuffer.delete(sessionId);
     }
