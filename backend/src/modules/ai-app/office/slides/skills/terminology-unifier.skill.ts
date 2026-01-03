@@ -376,7 +376,7 @@ ${ruleBasedVariations.map((v) => `- ${v.preferred}: ${v.alternatives.join(", ")}
         { role: "system", content: TERMINOLOGY_SYSTEM_PROMPT },
         { role: "user", content: userMessage },
       ],
-      model: "gpt-4o",
+      // model 留空，由 UniversalLLMAdapter 从数据库获取默认模型
       maxTokens: 4096,
       temperature: 0.1,
       metadata: {

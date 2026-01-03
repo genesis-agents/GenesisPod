@@ -560,7 +560,8 @@ ${resultsSummary}
     ];
 
     try {
-      const adapter = this.llmFactory?.getAdapter("openai");
+      // 不指定 provider，使用数据库默认适配器
+      const adapter = this.llmFactory?.getAdapter();
       if (!adapter) {
         this.logger.warn("[extractDataFromResults] No LLM adapter available");
         return { extractedData: {}, tokensUsed: 0 };
@@ -568,7 +569,7 @@ ${resultsSummary}
 
       const response = await adapter.chat({
         messages,
-        model: "gpt-4o",
+        // model 留空，由 UniversalLLMAdapter 从数据库获取默认模型
         maxTokens: 1024,
         temperature: 0.2,
       });

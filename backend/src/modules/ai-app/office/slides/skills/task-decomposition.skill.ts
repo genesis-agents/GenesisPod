@@ -292,13 +292,13 @@ export class TaskDecompositionSkill
         sourceText: enrichedSourceText,
       });
 
-      // 使用 LLMFactory 调用 LLM
+      // 使用 LLMFactory 调用 LLM（不指定 model，使用数据库默认模型）
       const llmOptions: LLMRequestOptions = {
         messages: [
           { role: "system", content: TASK_DECOMPOSITION_SYSTEM_PROMPT },
           { role: "user", content: userMessage },
         ],
-        model: "gpt-4o",
+        // model 留空，由 UniversalLLMAdapter 从数据库获取默认模型
         maxTokens: 4096,
         temperature: 0.3,
         responseFormat: "json",

@@ -2652,6 +2652,44 @@ export default function TopicPage() {
                 创建任务
               </button>
 
+              {/* Continue Mission - only show when mission is active and in progress */}
+              {activeMission && activeMission.status === 'IN_PROGRESS' && (
+                <button
+                  onClick={async () => {
+                    if (!topicId || !activeMission.leaderId) return;
+                    try {
+                      // 通知 Team Leader 继续执行任务
+                      await generateAIResponse(topicId, activeMission.leaderId);
+                    } catch (error) {
+                      console.error('Failed to continue mission:', error);
+                    }
+                  }}
+                  className="flex items-center gap-2 rounded-lg bg-green-100 px-4 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-200"
+                  title="通知Team Leader继续执行（用于任务卡住时）"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  继续任务
+                </button>
+              )}
+
               {/* Cancel Mission - only show when mission is active */}
               {activeMission &&
                 (activeMission.status === 'IN_PROGRESS' ||
