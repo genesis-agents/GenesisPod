@@ -1,28 +1,31 @@
 /**
- * Slides Engine Service v4.0
+ * Slides Engine Service v5.0
  * 幻灯片生成引擎服务
  *
  * 核心职责：
- * - 通过 AI Engine 的 TeamsService 编排 PPT 生成任务
- * - 事件格式转换（MissionEvent → StreamEvent）
+ * - 通过 SlidesTeamOrchestrator 编排 PPT 生成任务
+ * - 事件格式转换（SlidesMissionEvent → StreamEvent）
  * - 检查点管理
  * - 导出功能
  *
  * 架构：
- * SlidesEngineService → TeamsService → MissionOrchestrator → slides-team
+ * SlidesEngineService → SlidesTeamOrchestrator → SlidesLeader/SlidesTeamMember
+ *
+ * 5阶段执行流程：
+ * 1. Leader 规划 - 分析源文本，动态分解任务
+ * 2. 任务执行 - 成员执行任务，调用 Skills
+ * 3. Leader 审核 - 检查任务输出，支持修订
+ * 4. 质量审计 - 全局质量检查
+ * 5. Leader 综合 - 整合所有输出
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
+import { SlidesTeamOrchestrator } from "../orchestrator/slides-team-orchestrator";
 import {
-  TeamsService,
-  CreateMissionDto,
-} from "@/modules/ai-engine/teams/services/teams.service";
-import {
-  MissionEvent,
-  MissionResult,
-} from "@/modules/ai-engine/teams/abstractions/mission.interface";
-import { BUILTIN_TEAMS } from "@/modules/ai-engine/teams/abstractions/team.interface";
+  SlidesTeamOrchestratorInput,
+  SlidesMissionEvent,
+} from "../orchestrator/types";
 import { CheckpointService } from "../checkpoint/checkpoint.service";
 import { SlidesExportService } from "../rendering/slides-export.service";
 import {
@@ -87,7 +90,7 @@ export class SlidesEngineService {
   private readonly pageEventBuffer = new Map<string, StreamEvent[]>();
 
   constructor(
-    private readonly teamsService: TeamsService,
+    private readonly orchestrator: SlidesTeamOrchestrator,
     private readonly checkpointService: CheckpointService,
     private readonly exportService: SlidesExportService,
   ) {}
@@ -172,54 +175,36 @@ export class SlidesEngineService {
     });
     this.logger.log(`[generateSlides] execution:started event sent`);
 
-    // 3. 构建 Mission 输入
-    const missionDto: CreateMissionDto = {
-      teamId: BUILTIN_TEAMS.SLIDES,
-      goal: this.buildMissionGoal(input),
-      context: input.sourceText,
-      constraints: {
-        quality: {
-          depth: "standard",
-          accuracy: "prefer_evidence",
-          reviewRequired: true,
-          minReviewScore: 7,
-          maxReworks: 2,
-        },
-        efficiency: {
-          maxDuration: 10 * 60 * 1000, // 10 分钟
-          priority: "normal",
-          allowParallel: true,
-          maxParallelism: 3,
-        },
-      },
+    // 3. 构建 SlidesTeamOrchestrator 输入
+    const orchestratorInput: SlidesTeamOrchestratorInput = {
       userId: input.userId,
       sessionId,
-      metadata: {
-        themeId: input.themeId || "genspark-dark",
-        stylePreference: input.stylePreference || "dark",
-        targetPages: input.targetPages,
-        targetAudience: input.targetAudience,
-      },
+      sourceText: input.sourceText,
+      userRequirement: input.userRequirement,
+      targetPages: input.targetPages,
+      stylePreference: input.stylePreference || "dark",
+      themeId: input.themeId || "genspark-dark",
+      targetAudience: input.targetAudience,
     };
 
     // 4. 心跳/缓冲区刷新间隔（不再只是空心跳）
     const BUFFER_FLUSH_INTERVAL_MS = 2000; // 每 2 秒检查一次缓冲区
 
     try {
-      // 5. 执行 Mission（流式）
+      // 5. 执行 Mission（流式）- 使用 SlidesTeamOrchestrator
       this.logger.log(
-        `[generateSlides] Starting mission execution for team ${missionDto.teamId}`,
+        `[generateSlides] Starting mission via SlidesTeamOrchestrator`,
       );
-      const generator = this.teamsService.executeMissionStream(missionDto);
-      this.logger.log(`[generateSlides] Mission generator created`);
+      const generator = this.orchestrator.executeMission(orchestratorInput);
+      this.logger.log(`[generateSlides] Orchestrator generator created`);
 
       let currentPhase = "";
-      let missionResult: MissionResult | undefined;
       let eventCount = 0;
       let done = false;
+      let missionCompleteData: Record<string, unknown> | undefined;
 
       // ★ 使用 Promise.race 实现实时事件推送
-      // 每次等待时，要么收到 MissionEvent，要么超时后刷新缓冲区
+      // 每次等待时，要么收到 SlidesMissionEvent，要么超时后刷新缓冲区
       const iterator = generator[Symbol.asyncIterator]();
 
       while (!done) {
@@ -231,7 +216,7 @@ export class SlidesEngineService {
           ),
         );
 
-        // 获取下一个 MissionEvent 的 Promise
+        // 获取下一个 SlidesMissionEvent 的 Promise
         const nextEventPromise = iterator.next().then((result) => ({
           timeout: false as const,
           result,
@@ -260,21 +245,21 @@ export class SlidesEngineService {
           continue;
         }
 
-        // 收到 MissionEvent
+        // 收到 SlidesMissionEvent
         const { result } = raceResult;
         if (result.done) {
           done = true;
           continue;
         }
 
-        const event = result.value;
+        const event = result.value as SlidesMissionEvent;
         eventCount++;
         this.logger.log(
           `[generateSlides] Received event #${eventCount}: ${event.type}`,
         );
 
-        // 6. 转换事件格式（可能返回多个事件）
-        const streamEvents = this.transformMissionEvent(event, sessionId);
+        // 6. 转换 SlidesMissionEvent 为 StreamEvent（可能返回多个事件）
+        const streamEvents = this.transformSlidesMissionEvent(event, sessionId);
         this.logger.debug(
           `[generateSlides] Transformed to ${streamEvents.length} stream events`,
         );
@@ -286,26 +271,31 @@ export class SlidesEngineService {
         }
 
         // 7. 跟踪阶段并保存检查点
-        if (event.type === "step_started") {
-          currentPhase = (event.data as { stepId?: string })?.stepId || "";
-          this.logger.debug(`[generateSlides] Phase started: ${currentPhase}`);
+        if (event.type === "mission:phase_changed") {
+          currentPhase = (event.data.phase as string) || "";
+          this.logger.debug(`[generateSlides] Phase changed: ${currentPhase}`);
         }
 
-        if (event.type === "step_completed") {
-          const stepId = (event.data as { stepId?: string })?.stepId;
-          if (stepId && this.isCheckpointPhase(stepId)) {
-            await this.saveCheckpoint(sessionId, stepId, event.data);
+        // 保存阶段检查点
+        if (
+          event.type === "planning:completed" ||
+          event.type === "synthesis:completed"
+        ) {
+          const phase = event.type.replace(":completed", "");
+          if (this.isCheckpointPhase(phase)) {
+            await this.saveCheckpoint(sessionId, phase, event.data);
           }
         }
 
-        if (event.type === "mission_completed") {
-          missionResult = (event.data as { result?: MissionResult })?.result;
+        // 捕获 mission:completed 数据
+        if (event.type === "mission:completed") {
+          missionCompleteData = event.data;
         }
       }
 
       // 8. 保存最终检查点
-      if (missionResult) {
-        await this.saveFinalCheckpoint(sessionId, missionResult);
+      if (missionCompleteData) {
+        await this.saveFinalCheckpointFromEvent(sessionId, missionCompleteData);
       }
 
       // 8.5 最后一次刷新缓冲区，确保所有页面事件都已发送
@@ -318,12 +308,11 @@ export class SlidesEngineService {
       }
 
       // 9. 发送 execution:completed 事件
-      const totalPages =
-        (missionResult?.deliverables as unknown[])?.length || 0;
+      const pages = (missionCompleteData?.pages as unknown[]) || [];
       yield this.createEvent("execution:completed", sessionId, {
-        totalPages,
-        totalTime: missionResult?.duration || 0,
-        checkpointId: sessionId, // 使用 sessionId 作为 checkpointId
+        totalPages: pages.length,
+        totalTime: (missionCompleteData?.duration as number) || 0,
+        checkpointId: sessionId,
       });
     } catch (error) {
       const errorMessage =
@@ -420,369 +409,318 @@ export class SlidesEngineService {
   // ==================== 私有方法 ====================
 
   /**
-   * 构建任务目标描述
-   */
-  private buildMissionGoal(input: SlidesGenerateInput): string {
-    let goal = "根据提供的内容生成专业的 PPT 演示文稿";
-
-    if (input.targetPages) {
-      goal += `，目标 ${input.targetPages} 页`;
-    }
-
-    if (input.userRequirement) {
-      goal += `。用户需求：${input.userRequirement}`;
-    }
-
-    if (input.targetAudience) {
-      goal += `。目标受众：${input.targetAudience}`;
-    }
-
-    return goal;
-  }
-
-  /**
-   * 转换 MissionEvent 为 StreamEvent 数组
+   * 转换 SlidesMissionEvent 为 StreamEvent 数组
    * 使用前端期望的事件类型格式
    * 同时发送 phase 事件和对应的 agent 事件
    */
-  private transformMissionEvent(
-    event: MissionEvent,
+  private transformSlidesMissionEvent(
+    event: SlidesMissionEvent,
     sessionId: string,
   ): StreamEvent[] {
-    const data = event.data as Record<string, unknown> | undefined;
+    const data = event.data;
     const events: StreamEvent[] = [];
 
-    // 根据不同的事件类型返回不同格式的事件
+    // 根据 SlidesMissionEvent 类型返回对应的 StreamEvent
     switch (event.type) {
-      case "mission_started":
-        // 注意: execution:started 已在 generateSlides() 开始时发送
-        // 这里不再重复发送，避免前端收到两个 "开始生成" 事件
-        // 如果需要，可以发送一个内部的 mission 状态事件
+      case "mission:created":
+        // Mission 创建，发送初始化事件
         this.logger.debug(
-          `[transformMissionEvent] mission_started received, skipping duplicate execution:started`,
+          `[transformSlidesMissionEvent] mission:created received`,
+        );
+        events.push(
+          this.createEvent("agent:working", sessionId, {
+            agent: "leader",
+            agentName: "Slides Architect",
+            task: "正在初始化 AI 团队...",
+            progress: 0,
+          }),
         );
         break;
 
-      case "parsing_started":
-      case "planning_started":
-      case "step_started":
-      case "review_started": {
-        const stepId = data?.stepId || data?.phase || event.type;
-        const phase = this.mapStepToPhase(String(stepId));
+      case "planning:started":
+        events.push(
+          this.createEvent("phase:started", sessionId, {
+            phase: "planning",
+            agent: "strategist",
+            description: "正在规划任务...",
+          }),
+        );
+        events.push(
+          this.createEvent("agent:working", sessionId, {
+            agent: "strategist",
+            agentName: "Visual Strategist",
+            task: "正在分析内容并规划任务...",
+            progress: 0,
+          }),
+        );
+        break;
+
+      case "planning:completed": {
+        const taskCount = (data.taskCount as number) || 0;
+        events.push(
+          this.createEvent("agent:completed", sessionId, {
+            agent: "strategist",
+            agentName: "Visual Strategist",
+            result: `任务规划完成，共 ${taskCount} 个任务`,
+            duration: 0,
+          }),
+        );
+        events.push(
+          this.createEvent("phase:completed", sessionId, {
+            phase: "planning",
+            duration: 0,
+            result: data.breakdown,
+          }),
+        );
+        break;
+      }
+
+      case "task:created": {
+        const task = data.task as { title?: string; skillId?: string };
+        this.logger.debug(
+          `[transformSlidesMissionEvent] task:created: ${task?.title || task?.skillId}`,
+        );
+        break;
+      }
+
+      case "task:started": {
+        const task = data.task as { skillId?: string; title?: string };
+        const phase = this.mapSkillToPhase(task?.skillId || "");
         const agent = this.mapPhaseToAgent(phase);
         const agentName = this.getAgentName(agent);
 
-        // 发送 phase:started 事件
-        events.push(
-          this.createEvent("phase:started", sessionId, {
-            phase,
-            agent,
-            description: this.getPhaseDescription(phase),
-          }),
-        );
-
-        // 发送 agent:working 事件 - 让 agent 卡片显示工作状态
         events.push(
           this.createEvent("agent:working", sessionId, {
             agent,
             agentName,
-            task: this.getPhaseDescription(phase),
+            task: task?.title || this.getPhaseDescription(phase),
             progress: 0,
           }),
         );
         break;
       }
 
-      case "step_progress": {
-        const stepId = data?.stepId || "generating";
-        const phase = this.mapStepToPhase(String(stepId));
+      case "task:awaiting_review":
+      case "task:completed": {
+        const task = data.task as {
+          skillId?: string;
+          title?: string;
+          result?: unknown;
+        };
+        const phase = this.mapSkillToPhase(task?.skillId || "");
         const agent = this.mapPhaseToAgent(phase);
         const agentName = this.getAgentName(agent);
 
-        events.push(
-          this.createEvent("phase:progress", sessionId, {
-            phase: stepId,
-            progress: data?.progress || 0,
-            message: data?.message || "处理中...",
-          }),
-        );
-
-        // 更新 agent 的工作进度
-        events.push(
-          this.createEvent("agent:working", sessionId, {
-            agent,
-            agentName,
-            task: (data?.message as string) || "处理中...",
-            progress: data?.progress || 0,
-          }),
-        );
-        break;
-      }
-
-      case "parsing_completed":
-      case "planning_completed":
-      case "step_completed":
-      case "review_completed": {
-        const stepId = data?.stepId || data?.phase || event.type;
-        const phase = this.mapStepToPhase(String(stepId));
-        const agent = this.mapPhaseToAgent(phase);
-        const agentName = this.getAgentName(agent);
-
-        // 发送 agent:completed 事件
         events.push(
           this.createEvent("agent:completed", sessionId, {
             agent,
             agentName,
-            result: this.getPhaseCompletedMessage(phase),
-            duration: (data?.duration as number) || 0,
+            result: `${task?.title || phase} 完成`,
+            duration: 0,
           }),
         );
 
-        // 发送 phase:completed 事件
-        events.push(
-          this.createEvent("phase:completed", sessionId, {
-            phase,
-            duration: data?.duration || 0,
-            result: data?.output,
-          }),
-        );
-
-        // ★ 关键修复：从 step_completed 事件中提取 HTML 页面并立即发送
-        // 当 page-rendering 或 template-rendering 步骤完成时，提取 HTML
-        const output = data?.output as Record<string, unknown> | undefined;
-        if (output) {
-          // 情况 1: output 直接包含 html（单页渲染结果）
-          if (output.html && typeof output.html === "string") {
-            const pageNumber = (output.pageNumber as number) || 1;
-            events.push(
-              this.createEvent("slide:generated", sessionId, {
-                pageNumber,
-                title: (output.title as string) || `第 ${pageNumber} 页`,
-                contentLength: (output.html as string).length,
-                html: output.html,
-              }),
-            );
-            this.logger.log(
-              `[transformMissionEvent] Emitted slide:generated for page ${pageNumber}`,
-            );
-          }
-
-          // 情况 2: output.skillResults 包含渲染结果（Skill 执行结果）
-          const skillResults = output.skillResults as
-            | Array<{ skillId: string; result: { data?: unknown } }>
-            | undefined;
-          if (skillResults && Array.isArray(skillResults)) {
-            for (const { skillId, result } of skillResults) {
-              if (
-                skillId.includes("template-rendering") ||
-                skillId.includes("page-rendering")
-              ) {
-                const renderResult = result?.data as
-                  | { html?: string; pageNumber?: number; title?: string }
-                  | undefined;
-                if (renderResult?.html) {
-                  const pageNumber = renderResult.pageNumber || 1;
-                  events.push(
-                    this.createEvent("slide:generated", sessionId, {
-                      pageNumber,
-                      title: renderResult.title || `第 ${pageNumber} 页`,
-                      contentLength: renderResult.html.length,
-                      html: renderResult.html,
-                    }),
-                  );
-                  this.logger.log(
-                    `[transformMissionEvent] Emitted slide:generated from skill ${skillId} for page ${pageNumber}`,
-                  );
-                }
-              }
-            }
-          }
-
-          // 情况 3: output.data 包含 html（嵌套结构）
-          const nestedData = output.data as
-            | { html?: string; pageNumber?: number; title?: string }
-            | undefined;
-          if (nestedData?.html && typeof nestedData.html === "string") {
-            const pageNumber = nestedData.pageNumber || 1;
-            events.push(
-              this.createEvent("slide:generated", sessionId, {
-                pageNumber,
-                title: nestedData.title || `第 ${pageNumber} 页`,
-                contentLength: nestedData.html.length,
-                html: nestedData.html,
-              }),
-            );
-            this.logger.log(
-              `[transformMissionEvent] Emitted slide:generated from nested data for page ${pageNumber}`,
-            );
-          }
-
-          // 情况 4: PagePipelineSkill 返回 pages[] 数组
-          // 检查 skillResults 中的 page-pipeline 结果
-          if (skillResults && Array.isArray(skillResults)) {
-            for (const { skillId, result } of skillResults) {
-              if (skillId.includes("page-pipeline")) {
-                const pipelineResult = result?.data as
-                  | {
-                      pages?: Array<{
-                        html?: string;
-                        pageNumber?: number;
-                        title?: string;
-                        templateId?: string;
-                        status?: string;
-                      }>;
-                    }
-                  | undefined;
-
-                if (
-                  pipelineResult?.pages &&
-                  Array.isArray(pipelineResult.pages)
-                ) {
-                  for (const page of pipelineResult.pages) {
-                    if (page.html && page.status === "completed") {
-                      events.push(
-                        this.createEvent("slide:generated", sessionId, {
-                          pageNumber: page.pageNumber || 1,
-                          title: page.title || `第 ${page.pageNumber} 页`,
-                          contentLength: page.html.length,
-                          html: page.html,
-                        }),
-                      );
-                      this.logger.log(
-                        `[transformMissionEvent] Emitted slide:generated from PagePipeline for page ${page.pageNumber}`,
-                      );
-                    }
-                  }
-                }
-              }
-            }
-          }
-
-          // 情况 5: output.data.pages 直接包含页面数组
-          const pagesData = (output.data as { pages?: unknown[] })?.pages;
-          if (pagesData && Array.isArray(pagesData)) {
-            for (const page of pagesData) {
-              const p = page as {
-                html?: string;
-                pageNumber?: number;
-                title?: string;
-                status?: string;
-              };
-              if (p.html && (!p.status || p.status === "completed")) {
-                events.push(
-                  this.createEvent("slide:generated", sessionId, {
-                    pageNumber: p.pageNumber || 1,
-                    title: p.title || `第 ${p.pageNumber} 页`,
-                    contentLength: p.html.length,
-                    html: p.html,
-                  }),
-                );
-                this.logger.log(
-                  `[transformMissionEvent] Emitted slide:generated from pages array for page ${p.pageNumber}`,
-                );
-              }
-            }
-          }
-        }
+        // ★ 从任务结果中提取 HTML 页面
+        this.extractPagesFromTaskResult(task?.result, sessionId, events);
         break;
       }
 
-      case "deliverable_ready": {
-        // deliverable 结构可能是 { deliverable: { ... } } 或直接在 data 里
-        const deliverable = (data?.deliverable || data) as Record<
-          string,
-          unknown
-        >;
+      case "task:failed": {
+        const task = data.task as { skillId?: string; title?: string };
+        const error = data.error as string;
+        this.logger.warn(
+          `[transformSlidesMissionEvent] task:failed: ${task?.title} - ${error}`,
+        );
+        break;
+      }
 
-        // 检查 deliverable.content.outputs 中是否有 HTML 页面
-        const content = deliverable?.content as Record<string, unknown>;
-        const outputs = content?.outputs as unknown[];
+      case "mission:phase_changed": {
+        const phase = data.phase as string;
+        const mappedPhase = this.mapOrchestratorPhase(phase);
+        const agent = this.mapPhaseToAgent(mappedPhase);
+        const agentName = this.getAgentName(agent);
 
-        if (outputs && Array.isArray(outputs)) {
-          // 遍历所有输出，提取包含 HTML 的页面
-          let pageIndex = 1;
-          for (const output of outputs) {
-            const outputObj = output as Record<string, unknown>;
+        events.push(
+          this.createEvent("phase:started", sessionId, {
+            phase: mappedPhase,
+            agent,
+            description: this.getPhaseDescription(mappedPhase),
+          }),
+        );
+        events.push(
+          this.createEvent("agent:working", sessionId, {
+            agent,
+            agentName,
+            task: this.getPhaseDescription(mappedPhase),
+            progress: 0,
+          }),
+        );
+        break;
+      }
 
-            // 检查是否是渲染结果（包含 html 字段）
-            if (outputObj?.html && typeof outputObj.html === "string") {
-              events.push(
-                this.createEvent("slide:generated", sessionId, {
-                  pageNumber: (outputObj.pageNumber as number) || pageIndex,
-                  title: (outputObj.title as string) || `第 ${pageIndex} 页`,
-                  contentLength: (outputObj.html as string).length,
-                  html: outputObj.html,
-                }),
-              );
-              this.logger.log(
-                `[transformMissionEvent] Extracted slide from deliverable outputs, page ${pageIndex}`,
-              );
-              pageIndex++;
-            }
+      case "review:started": {
+        events.push(
+          this.createEvent("agent:working", sessionId, {
+            agent: "reviewer",
+            agentName: "Quality Reviewer",
+            task: "正在审核任务输出...",
+            progress: 0,
+          }),
+        );
+        break;
+      }
 
-            // 检查嵌套的 data 字段
-            const nestedData = outputObj?.data as Record<string, unknown>;
-            if (nestedData?.html && typeof nestedData.html === "string") {
-              events.push(
-                this.createEvent("slide:generated", sessionId, {
-                  pageNumber: (nestedData.pageNumber as number) || pageIndex,
-                  title: (nestedData.title as string) || `第 ${pageIndex} 页`,
-                  contentLength: (nestedData.html as string).length,
-                  html: nestedData.html,
-                }),
-              );
-              this.logger.log(
-                `[transformMissionEvent] Extracted slide from nested data, page ${pageIndex}`,
-              );
-              pageIndex++;
-            }
-          }
-        }
+      case "review:approved":
+      case "review:revision_requested": {
+        const task = data.task as { title?: string };
+        events.push(
+          this.createEvent("agent:completed", sessionId, {
+            agent: "reviewer",
+            agentName: "Quality Reviewer",
+            result: `审核完成: ${task?.title}`,
+            duration: 0,
+          }),
+        );
+        break;
+      }
 
-        // 兼容旧格式：直接在 data 里有 html
-        if (data?.html && typeof data.html === "string") {
-          const pageNumber = (data?.pageNumber as number) || 1;
+      case "audit:started":
+        events.push(
+          this.createEvent("phase:started", sessionId, {
+            phase: "reviewing",
+            agent: "reviewer",
+            description: "正在进行质量审计...",
+          }),
+        );
+        events.push(
+          this.createEvent("agent:working", sessionId, {
+            agent: "reviewer",
+            agentName: "Quality Reviewer",
+            task: "正在进行质量审计...",
+            progress: 0,
+          }),
+        );
+        break;
+
+      case "audit:completed": {
+        const qualityAudit = data.qualityAudit as { overallScore?: number };
+        events.push(
+          this.createEvent("agent:completed", sessionId, {
+            agent: "reviewer",
+            agentName: "Quality Reviewer",
+            result: `质量审计完成，得分: ${qualityAudit?.overallScore || 0}`,
+            duration: 0,
+          }),
+        );
+        events.push(
+          this.createEvent("phase:completed", sessionId, {
+            phase: "reviewing",
+            duration: 0,
+            result: qualityAudit,
+          }),
+        );
+        break;
+      }
+
+      case "synthesis:started":
+        events.push(
+          this.createEvent("phase:started", sessionId, {
+            phase: "rendering",
+            agent: "writer",
+            description: "正在综合生成页面...",
+          }),
+        );
+        events.push(
+          this.createEvent("agent:working", sessionId, {
+            agent: "writer",
+            agentName: "Content Writer",
+            task: "正在综合生成页面...",
+            progress: 0,
+          }),
+        );
+        break;
+
+      case "synthesis:completed": {
+        const pageCount = (data.pageCount as number) || 0;
+        events.push(
+          this.createEvent("agent:completed", sessionId, {
+            agent: "writer",
+            agentName: "Content Writer",
+            result: `页面综合完成，共 ${pageCount} 页`,
+            duration: 0,
+          }),
+        );
+        events.push(
+          this.createEvent("phase:completed", sessionId, {
+            phase: "rendering",
+            duration: 0,
+            result: { pageCount },
+          }),
+        );
+        break;
+      }
+
+      case "page:generated": {
+        const pageIndex = (data.pageIndex as number) || 0;
+        const page = data.page as {
+          html?: string;
+          renderedHtml?: string;
+          spec?: { title?: string };
+        };
+        const html = page?.renderedHtml || page?.html;
+
+        if (html) {
           events.push(
             this.createEvent("slide:generated", sessionId, {
-              pageNumber,
-              title: (data?.title as string) || `第 ${pageNumber} 页`,
-              contentLength: (data.html as string).length,
-              html: data.html,
+              pageNumber: pageIndex + 1,
+              title: page?.spec?.title || `第 ${pageIndex + 1} 页`,
+              contentLength: html.length,
+              html,
             }),
+          );
+          this.logger.log(
+            `[transformSlidesMissionEvent] Emitted slide:generated for page ${pageIndex + 1}`,
           );
         }
         break;
       }
 
-      case "mission_completed":
-        // 发送 leader 完成事件（用于 AgentTeamPanel）
+      case "mission:completed": {
+        const duration = (data.duration as number) || 0;
+        const pages = (data.pages as unknown[]) || [];
+
+        // 发送 leader 完成事件
         events.push(
           this.createEvent("agent:completed", sessionId, {
             agent: "leader",
             agentName: "Slides Architect",
-            result: "PPT 生成完成！",
-            duration: (data?.result as { duration?: number })?.duration || 0,
+            result: `PPT 生成完成！共 ${pages.length} 页`,
+            duration,
           }),
         );
-        // 注意: execution:completed 在 generateSlides() 循环结束后发送
-        // 这里不再重复发送，避免前端收到两个 "生成完成" 事件
         this.logger.debug(
-          `[transformMissionEvent] mission_completed received, execution:completed will be sent after loop`,
+          `[transformSlidesMissionEvent] mission:completed received`,
         );
         break;
+      }
 
-      case "mission_failed":
+      case "mission:failed": {
+        const error = (data.error as string) || "Unknown error";
         events.push(
           this.createEvent("execution:failed", sessionId, {
-            error: (data?.error as string) || "Unknown error",
-            phase: "unknown",
+            error,
+            phase: (data.phase as string) || "unknown",
             recoverable: false,
           }),
         );
         break;
+      }
 
       default:
-        // 未映射的事件类型，忽略
+        // 其他事件类型，记录日志
+        this.logger.debug(
+          `[transformSlidesMissionEvent] Unhandled event type: ${event.type}`,
+        );
         break;
     }
 
@@ -790,25 +728,101 @@ export class SlidesEngineService {
   }
 
   /**
-   * 将 step ID 映射到 phase
+   * 从任务结果中提取 HTML 页面
    */
-  private mapStepToPhase(stepId: string): string {
+  private extractPagesFromTaskResult(
+    result: unknown,
+    sessionId: string,
+    events: StreamEvent[],
+  ): void {
+    if (!result || typeof result !== "object") return;
+
+    const resultObj = result as Record<string, unknown>;
+
+    // 情况 1: 直接包含 html
+    if (resultObj.html && typeof resultObj.html === "string") {
+      const pageNumber = (resultObj.pageNumber as number) || 1;
+      events.push(
+        this.createEvent("slide:generated", sessionId, {
+          pageNumber,
+          title: (resultObj.title as string) || `第 ${pageNumber} 页`,
+          contentLength: (resultObj.html as string).length,
+          html: resultObj.html,
+        }),
+      );
+      this.logger.log(
+        `[extractPagesFromTaskResult] Emitted slide:generated for page ${pageNumber}`,
+      );
+    }
+
+    // 情况 2: 包含 pages 数组
+    const pages = resultObj.pages as unknown[];
+    if (pages && Array.isArray(pages)) {
+      for (const page of pages) {
+        const p = page as {
+          html?: string;
+          renderedHtml?: string;
+          pageNumber?: number;
+          title?: string;
+        };
+        const html = p.renderedHtml || p.html;
+        if (html) {
+          const pageNumber = p.pageNumber || 1;
+          events.push(
+            this.createEvent("slide:generated", sessionId, {
+              pageNumber,
+              title: p.title || `第 ${pageNumber} 页`,
+              contentLength: html.length,
+              html,
+            }),
+          );
+          this.logger.log(
+            `[extractPagesFromTaskResult] Emitted slide:generated from pages array for page ${pageNumber}`,
+          );
+        }
+      }
+    }
+  }
+
+  /**
+   * 将 Skill ID 映射到 phase
+   */
+  private mapSkillToPhase(skillId: string): string {
     const mapping: Record<string, string> = {
-      // Workflow 步骤映射
       "task-decomposition": "analyzing",
+      "slides-task-decomposition": "analyzing",
       "outline-planning": "planning",
-      "content-filling": "content_filling", // 内容填充阶段
-      "image-generation": "image_generation", // 图片生成阶段
-      "page-rendering": "rendering", // 页面渲染阶段
-      "batch-review": "reviewing",
-      finalize: "completed",
-      // 事件类型映射
-      parsing_started: "analyzing",
-      planning_started: "planning",
-      review_started: "reviewing",
+      "slides-outline-planning": "planning",
+      "four-step-design": "rendering",
+      "slides-four-step-design": "rendering",
+      "template-rendering": "rendering",
+      "slides-template-rendering": "rendering",
+      "page-pipeline": "rendering",
+      "slides-page-pipeline": "rendering",
+      "quality-audit": "reviewing",
+      "slides-quality-audit": "reviewing",
+      "terminology-unifier": "reviewing",
+      "slides-terminology-unifier": "reviewing",
+      "transition-checker": "reviewing",
+      "slides-transition-checker": "reviewing",
     };
-    // 如果找不到映射，返回原始 stepId 而不是默认 generating
-    return mapping[stepId] || stepId;
+    return mapping[skillId] || "rendering";
+  }
+
+  /**
+   * 将 Orchestrator 阶段映射到前端阶段
+   */
+  private mapOrchestratorPhase(phase: string): string {
+    const mapping: Record<string, string> = {
+      planning: "planning",
+      executing: "rendering",
+      reviewing: "reviewing",
+      auditing: "reviewing",
+      synthesizing: "rendering",
+      completed: "completed",
+      failed: "failed",
+    };
+    return mapping[phase] || phase;
   }
 
   /**
@@ -867,22 +881,6 @@ export class SlidesEngineService {
   }
 
   /**
-   * 获取 phase 完成消息
-   */
-  private getPhaseCompletedMessage(phase: string): string {
-    const messages: Record<string, string> = {
-      analyzing: "内容分析完成",
-      planning: "大纲规划完成",
-      content_filling: "内容填充完成",
-      image_generation: "配图生成完成",
-      rendering: "页面渲染完成",
-      reviewing: "质量检查完成",
-      completed: "全部完成",
-    };
-    return messages[phase] || `${phase} 完成`;
-  }
-
-  /**
    * 创建流式事件
    * 使用前端期望的 SlidesTeamEvent 格式
    */
@@ -902,15 +900,20 @@ export class SlidesEngineService {
   /**
    * 判断是否为需要保存检查点的阶段
    */
-  private isCheckpointPhase(stepId: string): boolean {
+  private isCheckpointPhase(phase: string): boolean {
     const checkpointPhases = [
+      "planning",
+      "synthesis",
+      "reviewing",
+      "auditing",
+      // 兼容旧格式
       "task-decomposition",
       "outline-planning",
       "page-rendering",
       "batch-review",
       "finalize",
     ];
-    return checkpointPhases.includes(stepId);
+    return checkpointPhases.includes(phase);
   }
 
   /**
@@ -942,31 +945,36 @@ export class SlidesEngineService {
   }
 
   /**
-   * 保存最终检查点
+   * 从 mission:completed 事件数据保存最终检查点
    */
-  private async saveFinalCheckpoint(
+  private async saveFinalCheckpointFromEvent(
     sessionId: string,
-    result: MissionResult,
+    eventData: Record<string, unknown>,
   ): Promise<void> {
     try {
+      const pages = (eventData.pages as unknown[]) || [];
+      const duration = (eventData.duration as number) || 0;
+
       await this.checkpointService.create({
         sessionId,
         type: "batch_rendered",
         state: {
-          // 从 result 中提取最终状态
-          pages: result.deliverables || [],
+          pages,
+          outline: eventData.outline,
+          qualityAudit: eventData.qualityAudit,
         } as unknown as CheckpointState,
         metadata: {
           trigger: "auto",
           description: "Mission completed",
-          tokensUsed: result.tokensUsed,
-          durationMs: result.duration,
+          durationMs: duration,
         },
       });
-      this.logger.log(`[saveFinalCheckpoint] Saved final checkpoint`);
+      this.logger.log(
+        `[saveFinalCheckpointFromEvent] Saved final checkpoint with ${pages.length} pages`,
+      );
     } catch (error) {
       this.logger.warn(
-        `[saveFinalCheckpoint] Failed to save final checkpoint: ${error}`,
+        `[saveFinalCheckpointFromEvent] Failed to save final checkpoint: ${error}`,
       );
     }
   }
