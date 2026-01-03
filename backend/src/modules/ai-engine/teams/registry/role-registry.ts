@@ -233,18 +233,16 @@ export class RoleRegistry implements OnModuleInit {
     });
 
     // Slides Lead (PPT 架构师)
+    // 注意：slides-quality-audit 属于 REVIEWER 角色
+    //       slides-template-rendering 属于 RENDERER 角色
+    // Leader 只负责任务分解和大纲规划
     this.registerFromConfig({
       id: BUILTIN_ROLES.SLIDES_LEAD,
       name: "PPT 架构师",
       description: ROLE_DESCRIPTIONS[BUILTIN_ROLES.SLIDES_LEAD],
       type: "leader",
       icon: "📊",
-      coreSkills: [
-        "slides-task-decomposition",
-        "slides-outline-planning",
-        "slides-quality-audit",
-        "slides-template-rendering",
-      ],
+      coreSkills: ["slides-task-decomposition", "slides-outline-planning"],
       coreTools: [
         BUILTIN_TOOLS.TEXT_GENERATION,
         BUILTIN_TOOLS.STRUCTURED_OUTPUT,
