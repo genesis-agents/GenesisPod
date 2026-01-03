@@ -726,17 +726,21 @@ export class SlidesEngineService {
    */
   private mapStepToPhase(stepId: string): string {
     const mapping: Record<string, string> = {
+      // Workflow 步骤映射
       "task-decomposition": "analyzing",
       "outline-planning": "planning",
-      "page-rendering": "generating",
+      "content-filling": "content_filling", // 内容填充阶段
+      "image-generation": "image_generation", // 图片生成阶段
+      "page-rendering": "rendering", // 页面渲染阶段
       "batch-review": "reviewing",
       finalize: "completed",
+      // 事件类型映射
       parsing_started: "analyzing",
       planning_started: "planning",
-      step_started: "generating",
       review_started: "reviewing",
     };
-    return mapping[stepId] || "generating";
+    // 如果找不到映射，返回原始 stepId 而不是默认 generating
+    return mapping[stepId] || stepId;
   }
 
   /**
@@ -752,12 +756,13 @@ export class SlidesEngineService {
       initializing: "leader",
       analyzing: "analyst",
       planning: "strategist",
-      generating: "writer",
-      rendering: "writer",
+      content_filling: "writer", // 内容填充由 Writer 负责
+      image_generation: "writer", // 图片生成由 Writer/Designer 负责
+      rendering: "writer", // 渲染由 Writer 负责
       reviewing: "reviewer",
       completed: "leader",
     };
-    return mapping[phase] || "writer";
+    return mapping[phase] || "leader";
   }
 
   /**
@@ -768,12 +773,13 @@ export class SlidesEngineService {
       initializing: "正在初始化 AI 团队...",
       analyzing: "正在分析内容结构...",
       planning: "正在规划 PPT 大纲...",
-      generating: "正在生成页面内容...",
-      rendering: "正在渲染 HTML...",
+      content_filling: "正在填充页面内容...",
+      image_generation: "正在生成配图...",
+      rendering: "正在渲染页面 HTML...",
       reviewing: "正在进行质量检查...",
       completed: "生成完成！",
     };
-    return descriptions[phase] || "处理中...";
+    return descriptions[phase] || `正在执行 ${phase}...`;
   }
 
   /**
@@ -799,12 +805,13 @@ export class SlidesEngineService {
     const messages: Record<string, string> = {
       analyzing: "内容分析完成",
       planning: "大纲规划完成",
-      generating: "页面生成完成",
-      rendering: "HTML 渲染完成",
+      content_filling: "内容填充完成",
+      image_generation: "配图生成完成",
+      rendering: "页面渲染完成",
       reviewing: "质量检查完成",
       completed: "全部完成",
     };
-    return messages[phase] || "阶段完成";
+    return messages[phase] || `${phase} 完成`;
   }
 
   /**

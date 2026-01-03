@@ -66,6 +66,7 @@ import type {
 } from '@/types/slides';
 import type { GenerateTeamRequest } from '@/types/slides-team';
 import { AgentTeamPanel } from './AgentTeamPanel';
+import { PhaseTimeline } from './PhaseTimeline';
 import {
   useSlidesHistoryStore,
   formatRelativeTime,
@@ -1166,49 +1167,33 @@ function ConversationPanel({
 
       {/* 滚动区域 */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3">
-        {/* AI 团队协作面板 */}
-        {(generating || teamState) && (
-          <div className="mb-4">
-            <AgentTeamPanel teamState={teamState} compact />
+        {/* 阶段时间线 - 按角色分组显示，替换混乱的 toolCalls 列表 */}
+        <PhaseTimeline
+          teamState={teamState}
+          generating={generating}
+          progress={
+            progress
+              ? {
+                  currentPage: progress.currentPage,
+                  totalPages: progress.totalPages,
+                  message: progress.message,
+                }
+              : undefined
+          }
+        />
+
+        {/* 取消按钮 */}
+        {generating && (
+          <div className="mt-4 flex justify-center">
+            <button
+              onClick={onCancel}
+              className="flex items-center gap-1.5 rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
+            >
+              <X className="h-4 w-4" />
+              取消生成
+            </button>
           </div>
         )}
-
-        {/* 工具调用展示 */}
-        <div className="space-y-2">
-          {toolCalls.length === 0 && !generating && !teamState ? (
-            <div className="py-3 text-center text-sm text-gray-400">
-              开始生成后将显示过程信息
-            </div>
-          ) : (
-            toolCalls.map((call) => <ToolCallCard key={call.id} call={call} />)
-          )}
-
-          {/* 当前进度 */}
-          {generating && progress && (
-            <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-orange-700">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm font-medium">
-                    {progress.message}
-                  </span>
-                </div>
-                <button
-                  onClick={onCancel}
-                  className="flex items-center gap-1 rounded-lg bg-orange-100 px-2 py-1 text-xs font-medium text-orange-700 transition-colors hover:bg-orange-200"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  取消
-                </button>
-              </div>
-              {progress.totalPages && (
-                <div className="mt-1.5 text-xs text-orange-600">
-                  页面 {progress.currentPage || 0} / {progress.totalPages}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
 
         {/* 大纲预览 */}
         {outlinePlan && (
