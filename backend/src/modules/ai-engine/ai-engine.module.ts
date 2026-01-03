@@ -72,7 +72,6 @@ import { DocumentChunker } from "./rag/chunking";
 
 // Image
 import { ImageModule } from "./image/image.module";
-import { ImageFactory } from "./image/factory/image-factory";
 
 // Core Services (migrated from ai-core)
 import { AiChatService } from "./llm/services/ai-chat.service";
@@ -326,8 +325,8 @@ const conversationMemoryFactory = {
     VectorService,
     DocumentChunker,
 
-    // === Image (re-exported from ImageModule) ===
-    ImageFactory,
+    // === Image (re-export the module) ===
+    ImageModule,
   ],
 })
 export class AiEngineModule implements OnModuleInit {
