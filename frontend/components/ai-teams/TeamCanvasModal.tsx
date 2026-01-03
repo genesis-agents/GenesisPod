@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   TeamMission,
   AgentTask,
@@ -141,6 +142,26 @@ const taskStatusConfig: Record<
     icon: '○',
     label: '已取消',
   },
+};
+
+// Fix markdown table formatting (convert single-line tables to multi-line)
+const fixMarkdownTables = (content: string): string => {
+  if (!content) return content;
+
+  // Split by "| |" pattern which indicates row boundaries in compressed tables
+  // Pattern: "| |" appears between rows in single-line tables
+  let result = content;
+
+  // First, handle the separator row pattern: | |---| or | |:---| or similar
+  // This converts "| |---" to "|\n|---"
+  result = result.replace(/\|\s+\|([-:\s]+\|)/g, '|\n|$1');
+
+  // Then handle regular row boundaries: "| |" that aren't separators
+  // Look for pattern where one row ends with | and next starts with |
+  // But avoid breaking inside cells
+  result = result.replace(/\|\s+\|(?![-:])/g, '|\n|');
+
+  return result;
 };
 
 // Get agent status color for canvas nodes
@@ -2177,8 +2198,10 @@ function AgentPopover({
               </button>
             </div>
             <div className="max-h-[calc(80vh-80px)] overflow-y-auto p-6">
-              <div className="prose prose-sm prose-headings:text-gray-800 prose-p:text-gray-600 prose-li:text-gray-600 prose-strong:text-gray-800 max-w-none">
-                <ReactMarkdown>{finalResult}</ReactMarkdown>
+              <div className="prose prose-sm prose-headings:text-gray-800 prose-p:text-gray-600 prose-li:text-gray-600 prose-strong:text-gray-800 prose-table:w-full prose-th:bg-gray-100 prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:font-semibold prose-th:text-gray-700 prose-td:px-3 prose-td:py-2 prose-td:text-gray-600 prose-tr:border-b prose-tr:border-gray-200 max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {fixMarkdownTables(finalResult)}
+                </ReactMarkdown>
               </div>
             </div>
           </div>
