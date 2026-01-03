@@ -456,8 +456,12 @@ export class CheckpointService {
     }
 
     // 比较页面
-    const pages1 = new Map(cp1.state.pages.map((p) => [p.pageNumber, p]));
-    const pages2 = new Map(cp2.state.pages.map((p) => [p.pageNumber, p]));
+    const pages1 = new Map(
+      (cp1.state.pages || []).map((p) => [p.pageNumber, p]),
+    );
+    const pages2 = new Map(
+      (cp2.state.pages || []).map((p) => [p.pageNumber, p]),
+    );
 
     // 找出新增的页面
     for (const pageNum of pages2.keys()) {
@@ -643,10 +647,11 @@ export class CheckpointService {
       case "outline_confirmed":
         return `大纲确认 - ${timestamp}`;
       case "page_rendered":
-        const completedPages = state.pages.filter(
+        const pages = state.pages || [];
+        const completedPages = pages.filter(
           (p) => p.status === "completed",
         ).length;
-        return `页面渲染 (${completedPages}/${state.pages.length}) - ${timestamp}`;
+        return `页面渲染 (${completedPages}/${pages.length}) - ${timestamp}`;
       case "batch_rendered":
         return `批量渲染完成 - ${timestamp}`;
       case "user_modified":
