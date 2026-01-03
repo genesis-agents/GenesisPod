@@ -70,7 +70,9 @@ export class TogetherImageAdapter extends BaseImageAdapter {
   /**
    * 生成图像
    */
-  async generate(options: ImageGenerationOptions): Promise<ImageGenerationResult> {
+  async generate(
+    options: ImageGenerationOptions,
+  ): Promise<ImageGenerationResult> {
     const model = this.getEffectiveModel(options.model);
     const apiKey = this.apiKey;
 

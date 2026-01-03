@@ -3,7 +3,7 @@
  * 协作者接口定义
  */
 
-import { JsonObject } from '../../core';
+import { JsonObject } from "../../core";
 
 /**
  * 协作消息
@@ -49,15 +49,15 @@ export interface CollaborationMessage {
  * 消息类型
  */
 export type MessageType =
-  | 'request'      // 请求
-  | 'response'     // 响应
-  | 'handoff'      // 交接
-  | 'proposal'     // 提案
-  | 'vote'         // 投票
-  | 'feedback'     // 反馈
-  | 'notification' // 通知
-  | 'sync'         // 同步
-  | string;        // 自定义
+  | "request" // 请求
+  | "response" // 响应
+  | "handoff" // 交接
+  | "proposal" // 提案
+  | "vote" // 投票
+  | "feedback" // 反馈
+  | "notification" // 通知
+  | "sync" // 同步
+  | string; // 自定义
 
 /**
  * 协作会话
@@ -152,39 +152,39 @@ export interface Participant {
 /**
  * 参与者类型
  */
-export type ParticipantType = 'agent' | 'human' | 'system';
+export type ParticipantType = "agent" | "human" | "system";
 
 /**
  * 参与者角色
  */
 export type ParticipantRole =
-  | 'leader'      // 领导者
-  | 'coordinator' // 协调者
-  | 'worker'      // 执行者
-  | 'reviewer'    // 审核者
-  | 'observer'    // 观察者
-  | string;       // 自定义
+  | "leader" // 领导者
+  | "coordinator" // 协调者
+  | "worker" // 执行者
+  | "reviewer" // 审核者
+  | "observer" // 观察者
+  | string; // 自定义
 
 /**
  * 参与者状态
  */
-export type ParticipantStatus = 'active' | 'idle' | 'busy' | 'offline';
+export type ParticipantStatus = "active" | "idle" | "busy" | "offline";
 
 /**
  * 会话状态
  */
-export type SessionStatus = 'active' | 'paused' | 'completed' | 'cancelled';
+export type SessionStatus = "active" | "paused" | "completed" | "cancelled";
 
 /**
  * 协作模式
  */
 export type CollaborationPattern =
-  | 'handoff'     // 交接模式
-  | 'voting'      // 投票模式
-  | 'review'      // 审核模式
-  | 'delegation'  // 委派模式
-  | 'broadcast'   // 广播模式
-  | 'pipeline';   // 管道模式
+  | "handoff" // 交接模式
+  | "voting" // 投票模式
+  | "review" // 审核模式
+  | "delegation" // 委派模式
+  | "broadcast" // 广播模式
+  | "pipeline"; // 管道模式
 
 /**
  * 交接请求
@@ -288,10 +288,10 @@ export interface VoteOption {
  * 投票策略
  */
 export type VotingStrategy =
-  | 'majority'    // 多数票
-  | 'unanimous'   // 一致同意
-  | 'weighted'    // 加权投票
-  | 'ranked';     // 排名投票
+  | "majority" // 多数票
+  | "unanimous" // 一致同意
+  | "weighted" // 加权投票
+  | "ranked"; // 排名投票
 
 /**
  * 投票结果
@@ -380,7 +380,7 @@ export interface ReviewResult {
   /**
    * 审核状态
    */
-  status: 'approved' | 'rejected' | 'needs_revision';
+  status: "approved" | "rejected" | "needs_revision";
 
   /**
    * 评分
@@ -420,7 +420,9 @@ export interface ICollaborator {
   /**
    * 发送消息
    */
-  sendMessage(message: Omit<CollaborationMessage, 'id' | 'timestamp'>): Promise<void>;
+  sendMessage(
+    message: Omit<CollaborationMessage, "id" | "timestamp">,
+  ): Promise<void>;
 
   /**
    * 接收消息
@@ -480,7 +482,10 @@ export interface ICollaborationManager {
   /**
    * 广播消息
    */
-  broadcast(sessionId: string, message: Omit<CollaborationMessage, 'id' | 'timestamp'>): Promise<void>;
+  broadcast(
+    sessionId: string,
+    message: Omit<CollaborationMessage, "id" | "timestamp">,
+  ): Promise<void>;
 
   /**
    * 结束会话

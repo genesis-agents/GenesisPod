@@ -230,4 +230,6 @@ export const IMAGE_MODELS = {
   FLUX_PRO: "black-forest-labs/FLUX.1.1-pro",
 } as const;
 
-export type ImageModel = (typeof IMAGE_MODELS)[keyof typeof IMAGE_MODELS] | string;
+export type ImageModel =
+  | (typeof IMAGE_MODELS)[keyof typeof IMAGE_MODELS]
+  | string;

@@ -33,7 +33,9 @@ export abstract class BaseImageAdapter implements IImageAdapter {
   /**
    * 生成图像 - 子类实现
    */
-  abstract generate(options: ImageGenerationOptions): Promise<ImageGenerationResult>;
+  abstract generate(
+    options: ImageGenerationOptions,
+  ): Promise<ImageGenerationResult>;
 
   /**
    * 图像到图像转换 - 可选实现
@@ -82,10 +84,7 @@ export abstract class BaseImageAdapter implements IImageAdapter {
   /**
    * 计算宽高比
    */
-  protected calculateAspectRatio(
-    width: number,
-    height: number,
-  ): string {
+  protected calculateAspectRatio(width: number, height: number): string {
     if (width === height) return "1:1";
     if (width > height) {
       const ratio = width / height;

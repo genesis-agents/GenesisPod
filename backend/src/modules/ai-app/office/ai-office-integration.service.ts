@@ -192,7 +192,9 @@ export class AiOfficeIntegrationService {
       );
 
       for await (const chunk of generator) {
-        yield this.mapToDocStreamEvent(chunk as unknown as Record<string, unknown>);
+        yield this.mapToDocStreamEvent(
+          chunk as unknown as Record<string, unknown>,
+        );
       }
     } catch (error) {
       this.logger.error(`[generateDocument] Error: ${error}`);
@@ -264,9 +266,15 @@ export class AiOfficeIntegrationService {
       case "progress":
         return {
           type: "progress",
-          step: ((chunk.progress as Record<string, unknown>)?.step as string) || "unknown",
-          percentage: ((chunk.progress as Record<string, unknown>)?.percentage as number) || 0,
-          message: ((chunk.progress as Record<string, unknown>)?.message as string) || "",
+          step:
+            ((chunk.progress as Record<string, unknown>)?.step as string) ||
+            "unknown",
+          percentage:
+            ((chunk.progress as Record<string, unknown>)
+              ?.percentage as number) || 0,
+          message:
+            ((chunk.progress as Record<string, unknown>)?.message as string) ||
+            "",
         };
       case "content":
         return {

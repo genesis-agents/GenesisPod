@@ -3,7 +3,7 @@
  * MCP 管理器实现
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from "@nestjs/common";
 import {
   IMCPManager,
   IMCPClient,
@@ -12,8 +12,8 @@ import {
   MCPToolResult,
   MCPEvent,
   MCPEventType,
-} from '../abstractions/mcp.interface';
-import { createMCPClient } from '../client/mcp-client';
+} from "../abstractions/mcp.interface";
+import { createMCPClient } from "../client/mcp-client";
 
 /**
  * MCP 管理器
@@ -90,7 +90,7 @@ export class MCPManager implements IMCPManager {
 
     if (!client.connected) {
       await client.connect();
-      this.emitEvent('connected', serverId);
+      this.emitEvent("connected", serverId);
     }
   }
 
@@ -103,8 +103,10 @@ export class MCPManager implements IMCPManager {
     for (const serverId of this.configs.keys()) {
       promises.push(
         this.connect(serverId).catch((error) => {
-          this.logger.error(`Failed to connect to ${serverId}: ${error.message}`);
-          this.emitEvent('error', serverId, { error: error.message });
+          this.logger.error(
+            `Failed to connect to ${serverId}: ${error.message}`,
+          );
+          this.emitEvent("error", serverId, { error: error.message });
         }),
       );
     }
@@ -119,7 +121,7 @@ export class MCPManager implements IMCPManager {
     const client = this.clients.get(serverId);
     if (client?.connected) {
       await client.disconnect();
-      this.emitEvent('disconnected', serverId);
+      this.emitEvent("disconnected", serverId);
     }
   }
 
@@ -133,7 +135,9 @@ export class MCPManager implements IMCPManager {
       if (client.connected) {
         promises.push(
           client.disconnect().catch((error) => {
-            this.logger.error(`Failed to disconnect from ${serverId}: ${error.message}`);
+            this.logger.error(
+              `Failed to disconnect from ${serverId}: ${error.message}`,
+            );
           }),
         );
       }
@@ -154,7 +158,9 @@ export class MCPManager implements IMCPManager {
           const tools = await client.listTools();
           result.set(serverId, tools);
         } catch (error) {
-          this.logger.error(`Failed to list tools from ${serverId}: ${(error as Error).message}`);
+          this.logger.error(
+            `Failed to list tools from ${serverId}: ${(error as Error).message}`,
+          );
           result.set(serverId, []);
         }
       }
@@ -228,7 +234,11 @@ export class MCPManager implements IMCPManager {
   /**
    * 发送事件
    */
-  private emitEvent(type: MCPEventType, serverId: string, data?: unknown): void {
+  private emitEvent(
+    type: MCPEventType,
+    serverId: string,
+    data?: unknown,
+  ): void {
     const event: MCPEvent = {
       type,
       serverId,

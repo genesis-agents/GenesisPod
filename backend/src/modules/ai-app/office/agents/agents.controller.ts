@@ -257,7 +257,8 @@ export class AgentsController {
       task.completedAt = new Date();
       task.updatedAt = new Date();
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       this.logger.error(`[runAgentTask] Error: ${errorMessage}`);
       task.status = "failed";
       task.error = errorMessage;
@@ -294,7 +295,10 @@ export class AgentsController {
       stream.subscribe({
         next: (event) => {
           // 转换事件格式
-          const agentEvent = this.convertDocsEvent(taskId, event as unknown as Record<string, unknown>);
+          const agentEvent = this.convertDocsEvent(
+            taskId,
+            event as unknown as Record<string, unknown>,
+          );
           this.emitEvent(taskId, agentEvent);
 
           // 如果完成，设置结果
@@ -348,7 +352,10 @@ export class AgentsController {
     return new Promise((resolve, reject) => {
       stream.subscribe({
         next: (event) => {
-          const agentEvent = this.convertDesignerEvent(taskId, event as unknown as Record<string, unknown>);
+          const agentEvent = this.convertDesignerEvent(
+            taskId,
+            event as unknown as Record<string, unknown>,
+          );
           this.emitEvent(taskId, agentEvent);
 
           const eventData = event as unknown as Record<string, unknown>;
@@ -393,7 +400,9 @@ export class AgentsController {
 
     try {
       // 使用 AsyncGenerator
-      for await (const event of this.slidesEngine.generateSlides(generateInput)) {
+      for await (const event of this.slidesEngine.generateSlides(
+        generateInput,
+      )) {
         const agentEvent = this.convertPPTEvent(taskId, event);
         this.emitEvent(taskId, agentEvent);
 
@@ -410,7 +419,7 @@ export class AgentsController {
               },
             ],
             summary: `生成了 ${eventData.totalPages || 0} 页幻灯片`,
-            duration: eventData.totalDuration as number || 0,
+            duration: (eventData.totalDuration as number) || 0,
           };
         }
       }
@@ -422,7 +431,10 @@ export class AgentsController {
   /**
    * 转换 Docs 事件
    */
-  private convertDocsEvent(taskId: string, event: Record<string, unknown>): Record<string, unknown> {
+  private convertDocsEvent(
+    taskId: string,
+    event: Record<string, unknown>,
+  ): Record<string, unknown> {
     const base = {
       timestamp: event.timestamp,
       taskId,
@@ -473,7 +485,10 @@ export class AgentsController {
   /**
    * 转换 Designer 事件
    */
-  private convertDesignerEvent(taskId: string, event: Record<string, unknown>): Record<string, unknown> {
+  private convertDesignerEvent(
+    taskId: string,
+    event: Record<string, unknown>,
+  ): Record<string, unknown> {
     const base = {
       timestamp: event.timestamp,
       taskId,
@@ -518,7 +533,10 @@ export class AgentsController {
   /**
    * 转换 PPT 事件 (StreamEvent)
    */
-  private convertPPTEvent(taskId: string, event: StreamEvent): Record<string, unknown> {
+  private convertPPTEvent(
+    taskId: string,
+    event: StreamEvent,
+  ): Record<string, unknown> {
     const base = {
       timestamp: event.timestamp || new Date().toISOString(),
       taskId,

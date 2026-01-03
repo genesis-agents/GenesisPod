@@ -64,52 +64,52 @@ export enum LifecycleState {
   /**
    * 未初始化
    */
-  UNINITIALIZED = 'uninitialized',
+  UNINITIALIZED = "uninitialized",
 
   /**
    * 初始化中
    */
-  INITIALIZING = 'initializing',
+  INITIALIZING = "initializing",
 
   /**
    * 已初始化
    */
-  INITIALIZED = 'initialized',
+  INITIALIZED = "initialized",
 
   /**
    * 启动中
    */
-  STARTING = 'starting',
+  STARTING = "starting",
 
   /**
    * 运行中
    */
-  RUNNING = 'running',
+  RUNNING = "running",
 
   /**
    * 停止中
    */
-  STOPPING = 'stopping',
+  STOPPING = "stopping",
 
   /**
    * 已停止
    */
-  STOPPED = 'stopped',
+  STOPPED = "stopped",
 
   /**
    * 销毁中
    */
-  DESTROYING = 'destroying',
+  DESTROYING = "destroying",
 
   /**
    * 已销毁
    */
-  DESTROYED = 'destroyed',
+  DESTROYED = "destroyed",
 
   /**
    * 错误状态
    */
-  ERROR = 'error',
+  ERROR = "error",
 }
 
 /**
@@ -276,10 +276,10 @@ export interface DependencyStatus {
  */
 export function hasOnInit(obj: unknown): obj is IOnInit {
   return (
-    typeof obj === 'object' &&
+    typeof obj === "object" &&
     obj !== null &&
-    'onInit' in obj &&
-    typeof (obj as IOnInit).onInit === 'function'
+    "onInit" in obj &&
+    typeof (obj as IOnInit).onInit === "function"
   );
 }
 
@@ -288,10 +288,10 @@ export function hasOnInit(obj: unknown): obj is IOnInit {
  */
 export function hasOnDestroy(obj: unknown): obj is IOnDestroy {
   return (
-    typeof obj === 'object' &&
+    typeof obj === "object" &&
     obj !== null &&
-    'onDestroy' in obj &&
-    typeof (obj as IOnDestroy).onDestroy === 'function'
+    "onDestroy" in obj &&
+    typeof (obj as IOnDestroy).onDestroy === "function"
   );
 }
 

@@ -174,7 +174,9 @@ export interface ContentAnalysisResult {
 // ============================================================================
 
 @Injectable()
-export class ContentAnalyzerSkill implements ISkill<PageContent, ContentAnalysisResult> {
+export class ContentAnalyzerSkill
+  implements ISkill<PageContent, ContentAnalysisResult>
+{
   private readonly logger = new Logger(ContentAnalyzerSkill.name);
   private readonly ANALYSIS_VERSION = "4.0.0";
 
@@ -240,7 +242,8 @@ export class ContentAnalyzerSkill implements ISkill<PageContent, ContentAnalysis
       };
     } catch (error) {
       const endTime = new Date();
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       this.logger.error(
         `[execute] Content analysis failed - executionId: ${context.executionId}, error: ${errorMessage}`,

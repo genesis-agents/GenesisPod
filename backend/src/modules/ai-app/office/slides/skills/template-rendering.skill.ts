@@ -97,9 +97,7 @@ export class TemplateRenderingSkill
       };
     } catch (error) {
       const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "模板渲染失败：未知错误";
+        error instanceof Error ? error.message : "模板渲染失败：未知错误";
 
       this.logger.error(
         `[execute] Template rendering failed: ${errorMessage}`,

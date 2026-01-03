@@ -357,7 +357,8 @@ export class OutlinePlanningSkill
         },
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       const endTime = new Date();
       this.logger.error(`[execute] Outline planning failed: ${errorMessage}`);
       return {

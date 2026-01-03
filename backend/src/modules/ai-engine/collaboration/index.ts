@@ -9,7 +9,7 @@
  */
 
 // Abstractions
-export * from './abstractions';
+export * from "./abstractions";
 
 // Patterns
-export * from './patterns';
+export * from "./patterns";

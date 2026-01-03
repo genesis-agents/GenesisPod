@@ -10,13 +10,13 @@
  */
 
 // Abstractions
-export * from './abstractions';
+export * from "./abstractions";
 
 // Client
-export * from './client';
+export * from "./client";
 
 // Manager
-export * from './manager';
+export * from "./manager";
 
 // Tools
-export * from './tools';
+export * from "./tools";

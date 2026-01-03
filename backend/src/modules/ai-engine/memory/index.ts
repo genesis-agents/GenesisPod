@@ -10,7 +10,7 @@
  */
 
 // Abstractions
-export * from './abstractions';
+export * from "./abstractions";
 
 // Stores
-export * from './stores';
+export * from "./stores";

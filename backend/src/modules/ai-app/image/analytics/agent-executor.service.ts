@@ -220,10 +220,7 @@ export class AgentExecutorService {
     const startTime = Date.now();
 
     try {
-      const response = await this.callLLM(
-        CONTENT_AGENT_PROMPT,
-        content,
-      );
+      const response = await this.callLLM(CONTENT_AGENT_PROMPT, content);
 
       const data = this.parseJSONResponse<ContentAgentOutput>(response);
 
@@ -263,10 +260,7 @@ export class AgentExecutorService {
         2,
       );
 
-      const response = await this.callLLM(
-        LAYOUT_AGENT_PROMPT,
-        context,
-      );
+      const response = await this.callLLM(LAYOUT_AGENT_PROMPT, context);
 
       const data = this.parseJSONResponse<LayoutAgentOutput>(response);
 
@@ -326,10 +320,7 @@ export class AgentExecutorService {
         2,
       );
 
-      const response = await this.callLLM(
-        VISUAL_AGENT_PROMPT,
-        context,
-      );
+      const response = await this.callLLM(VISUAL_AGENT_PROMPT, context);
 
       const data = this.parseJSONResponse<VisualAgentOutput>(response);
 
@@ -370,10 +361,7 @@ export class AgentExecutorService {
         2,
       );
 
-      const response = await this.callLLM(
-        STYLE_AGENT_PROMPT,
-        context,
-      );
+      const response = await this.callLLM(STYLE_AGENT_PROMPT, context);
 
       const data = this.parseJSONResponse<StyleAgentOutput>(response);
 

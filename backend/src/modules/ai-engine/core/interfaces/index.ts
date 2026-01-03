@@ -3,6 +3,6 @@
  * 核心接口导出
  */
 
-export * from './executable.interface';
-export * from './registry.interface';
-export * from './lifecycle.interface';
+export * from "./executable.interface";
+export * from "./registry.interface";
+export * from "./lifecycle.interface";

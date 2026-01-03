@@ -1,4 +1,4 @@
 /**
  * AI Engine - Memory Abstractions
  */
-export * from './memory.interface';
+export * from "./memory.interface";

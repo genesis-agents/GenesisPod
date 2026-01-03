@@ -214,7 +214,9 @@ export interface QualityAuditOutput {
 }
 
 @Injectable()
-export class QualityAuditSkill implements ISkill<QualityAuditInput, QualityAuditOutput> {
+export class QualityAuditSkill
+  implements ISkill<QualityAuditInput, QualityAuditOutput>
+{
   private readonly logger = new Logger(QualityAuditSkill.name);
 
   // ISkill interface 属性

@@ -3,13 +3,13 @@
  * LLM 适配器工厂
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from "@nestjs/common";
 import {
   ILLMAdapter,
   LLM_PROVIDERS,
   LLMProvider,
   LLMModel,
-} from '../abstractions/llm-adapter.interface';
+} from "../abstractions/llm-adapter.interface";
 
 /**
  * LLM 工厂配置
@@ -51,7 +51,7 @@ export class LLMFactory {
   private readonly adapters = new Map<string, ILLMAdapter>();
   private readonly providerConfigs = new Map<LLMProvider, ProviderConfig>();
   private defaultProvider: LLMProvider = LLM_PROVIDERS.OPENAI;
-  private defaultModel: LLMModel = 'gpt-4o';
+  private defaultModel: LLMModel = "gpt-4o";
 
   constructor() {}
 
@@ -66,7 +66,9 @@ export class LLMFactory {
       this.defaultModel = config.defaultModel;
     }
     if (config.providers) {
-      for (const [provider, providerConfig] of Object.entries(config.providers)) {
+      for (const [provider, providerConfig] of Object.entries(
+        config.providers,
+      )) {
         this.providerConfigs.set(provider as LLMProvider, providerConfig);
       }
     }

@@ -3,7 +3,10 @@ import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AiChatService, ChatMessage } from "../../ai-engine/llm/services/ai-chat.service";
+import {
+  AiChatService,
+  ChatMessage,
+} from "../../ai-engine/llm/services/ai-chat.service";
 import { WechatDataSourceService } from "./wechat-data-source.service";
 import { UrlFetchService } from "../../ai-app/rag/services/url-fetch.service";
 

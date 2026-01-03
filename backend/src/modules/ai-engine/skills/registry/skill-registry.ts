@@ -3,15 +3,22 @@
  * 技能注册表实现
  */
 
-import { Injectable } from '@nestjs/common';
-import { BaseRegistry, IRegistry, RegistryStats } from '../../core/interfaces';
-import { ISkill, SkillLayer, SkillDefinition } from '../abstractions/skill.interface';
+import { Injectable } from "@nestjs/common";
+import { BaseRegistry, IRegistry, RegistryStats } from "../../core/interfaces";
+import {
+  ISkill,
+  SkillLayer,
+  SkillDefinition,
+} from "../abstractions/skill.interface";
 
 /**
  * 技能注册表
  */
 @Injectable()
-export class SkillRegistry extends BaseRegistry<ISkill> implements IRegistry<ISkill> {
+export class SkillRegistry
+  extends BaseRegistry<ISkill>
+  implements IRegistry<ISkill>
+{
   private readonly byLayer = new Map<string, Set<string>>();
   private readonly byDomain = new Map<string, Set<string>>();
   private readonly byTag = new Map<string, Set<string>>();

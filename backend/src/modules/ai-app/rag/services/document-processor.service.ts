@@ -15,7 +15,10 @@ import {
   ProcessedDocument,
   ParentChunkData,
 } from "../interfaces/rag.interfaces";
-import { ChunkingConfig, DEFAULT_CHUNKING_CONFIG } from "../../../ai-engine/rag";
+import {
+  ChunkingConfig,
+  DEFAULT_CHUNKING_CONFIG,
+} from "../../../ai-engine/rag";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { v4: uuidv4 } = require("uuid") as { v4: () => string };
 

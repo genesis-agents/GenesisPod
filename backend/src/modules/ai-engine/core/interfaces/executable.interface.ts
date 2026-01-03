@@ -8,7 +8,7 @@ import {
   ExecutionResult,
   ValidationResult,
   CapabilityDescriptor,
-} from '../types';
+} from "../types";
 
 /**
  * 可执行组件接口
@@ -212,7 +212,7 @@ export interface HealthCheckResult {
   /**
    * 状态
    */
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: "healthy" | "degraded" | "unhealthy";
 
   /**
    * 消息

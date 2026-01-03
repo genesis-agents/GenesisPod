@@ -11,10 +11,7 @@ import {
   ToolCategory,
 } from "../../abstractions/tool.interface";
 
-import {
-  SearchService,
-  SearchResult,
-} from "../../../search/search.service";
+import { SearchService, SearchResult } from "../../../search/search.service";
 
 // ============================================================================
 // Types

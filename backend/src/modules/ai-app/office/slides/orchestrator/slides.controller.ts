@@ -392,9 +392,7 @@ export class SlidesController {
       };
     } catch (error: unknown) {
       const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Failed to restore checkpoint";
+        error instanceof Error ? error.message : "Failed to restore checkpoint";
       this.logger.error(`[restoreCheckpoint] Error: ${errorMessage}`);
       throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
     }

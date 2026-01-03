@@ -3,7 +3,7 @@
  * 编排器接口定义
  */
 
-import { JsonObject } from '../../core';
+import { JsonObject } from "../../core";
 
 /**
  * 工作流定义
@@ -53,7 +53,7 @@ export interface Workflow {
 /**
  * 工作流模式
  */
-export type WorkflowMode = 'sequential' | 'parallel' | 'dag' | 'reactive';
+export type WorkflowMode = "sequential" | "parallel" | "dag" | "reactive";
 
 /**
  * 工作流步骤
@@ -129,19 +129,19 @@ export interface WorkflowStep {
  * 步骤类型
  */
 export type StepType =
-  | 'tool'       // 工具调用
-  | 'skill'      // 技能调用
-  | 'agent'      // Agent 调用
-  | 'decision'   // 决策节点
-  | 'wait'       // 等待
-  | 'parallel'   // 并行执行
-  | 'loop'       // 循环
-  | 'map'        // 映射（并行处理数组）
-  | 'reduce'     // 归约
-  | 'transform'  // 数据转换
-  | 'checkpoint' // 检查点
-  | 'human'      // 人工介入
-  | 'subflow';   // 子工作流
+  | "tool" // 工具调用
+  | "skill" // 技能调用
+  | "agent" // Agent 调用
+  | "decision" // 决策节点
+  | "wait" // 等待
+  | "parallel" // 并行执行
+  | "loop" // 循环
+  | "map" // 映射（并行处理数组）
+  | "reduce" // 归约
+  | "transform" // 数据转换
+  | "checkpoint" // 检查点
+  | "human" // 人工介入
+  | "subflow"; // 子工作流
 
 /**
  * 步骤输入
@@ -216,7 +216,7 @@ export interface ErrorHandler {
   /**
    * 处理策略
    */
-  strategy: 'abort' | 'skip' | 'retry' | 'fallback' | 'compensate';
+  strategy: "abort" | "skip" | "retry" | "fallback" | "compensate";
 
   /**
    * 降级步骤 ID
@@ -332,12 +332,12 @@ export interface StepResult {
  * 步骤状态
  */
 export type StepStatus =
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'skipped'
-  | 'cancelled';
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "skipped"
+  | "cancelled";
 
 /**
  * 步骤错误
@@ -365,17 +365,17 @@ export interface ExecutionEvent {
  * 执行事件类型
  */
 export type ExecutionEventType =
-  | 'workflow_started'
-  | 'workflow_completed'
-  | 'workflow_failed'
-  | 'workflow_cancelled'
-  | 'step_started'
-  | 'step_completed'
-  | 'step_failed'
-  | 'step_skipped'
-  | 'step_retry'
-  | 'checkpoint_saved'
-  | 'checkpoint_restored';
+  | "workflow_started"
+  | "workflow_completed"
+  | "workflow_failed"
+  | "workflow_cancelled"
+  | "step_started"
+  | "step_completed"
+  | "step_failed"
+  | "step_skipped"
+  | "step_retry"
+  | "checkpoint_saved"
+  | "checkpoint_restored";
 
 /**
  * 执行结果
@@ -461,10 +461,7 @@ export interface IOrchestrator {
   /**
    * 恢复执行
    */
-  resume(
-    executionId: string,
-    checkpoint: Checkpoint,
-  ): Promise<ExecutionResult>;
+  resume(executionId: string, checkpoint: Checkpoint): Promise<ExecutionResult>;
 
   /**
    * 取消执行
@@ -494,7 +491,7 @@ export interface OrchestratorOptions {
 export interface ExecutionStatus {
   executionId: string;
   workflowId: string;
-  status: 'running' | 'completed' | 'failed' | 'cancelled';
+  status: "running" | "completed" | "failed" | "cancelled";
   currentStep?: string;
   progress: number;
   startTime: Date;

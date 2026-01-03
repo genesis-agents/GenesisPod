@@ -13,12 +13,8 @@ import {
   SkillLayer,
   SKILL_LAYERS,
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
-import {
-  LLMFactory,
-} from "@/modules/ai-engine/llm/factory/llm-factory";
-import {
-  LLMRequestOptions,
-} from "@/modules/ai-engine/llm/abstractions/llm-adapter.interface";
+import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
+import { LLMRequestOptions } from "@/modules/ai-engine/llm/abstractions/llm-adapter.interface";
 import {
   TaskDecomposition,
   Chapter,
@@ -332,7 +328,9 @@ export class TaskDecompositionSkill
    * 兼容旧接口的执行方法
    * @deprecated 使用 execute(input, context) 代替
    */
-  async executeCompat(input: TaskDecompositionInput): Promise<TaskDecomposition> {
+  async executeCompat(
+    input: TaskDecompositionInput,
+  ): Promise<TaskDecomposition> {
     const context: SkillContext = {
       executionId: `compat-${Date.now()}`,
       skillId: this.id,

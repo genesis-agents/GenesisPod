@@ -152,9 +152,7 @@ export class SlidesSkillsModule implements OnModuleInit {
           error instanceof Error
             ? error.message
             : "Unknown error during skill registration";
-        this.logger.error(
-          `Failed to register skill: ${errorMsg}`,
-        );
+        this.logger.error(`Failed to register skill: ${errorMsg}`);
       }
     }
 

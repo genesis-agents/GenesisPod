@@ -14,7 +14,10 @@ import {
   SKILL_LAYERS,
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
 import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
-import { SearchService, SearchResult } from "../../../../ai-engine/search/search.service";
+import {
+  SearchService,
+  SearchResult,
+} from "../../../../ai-engine/search/search.service";
 import { PageContent, StatContent } from "../checkpoint/checkpoint.types";
 import {
   MISSING_PLACEHOLDER,
@@ -503,14 +506,20 @@ ${resultsSummary}
 
       if (!response.content) {
         this.logger.warn("[extractDataFromResults] AI extraction failed");
-        return { extractedData: {}, tokensUsed: response.usage?.totalTokens || 0 };
+        return {
+          extractedData: {},
+          tokensUsed: response.usage?.totalTokens || 0,
+        };
       }
 
       // 解析 JSON 响应
       const jsonMatch = response.content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         this.logger.warn("[extractDataFromResults] No JSON found in response");
-        return { extractedData: {}, tokensUsed: response.usage?.totalTokens || 0 };
+        return {
+          extractedData: {},
+          tokensUsed: response.usage?.totalTokens || 0,
+        };
       }
 
       const extracted = JSON.parse(jsonMatch[0]);

@@ -3,9 +3,9 @@
  * 技能错误类
  */
 
-import { JsonObject } from '../types';
-import { EngineError } from './base-error';
-import { SkillErrorCode } from './error-codes';
+import { JsonObject } from "../types";
+import { EngineError } from "./base-error";
+import { SkillErrorCode } from "./error-codes";
 
 /**
  * 技能错误
@@ -78,10 +78,7 @@ export class SkillError extends EngineError {
   /**
    * 前置条件失败
    */
-  static preconditionFailed(
-    skillId: string,
-    reason: string,
-  ): SkillError {
+  static preconditionFailed(skillId: string, reason: string): SkillError {
     return new SkillError(
       `Precondition failed for skill '${skillId}': ${reason}`,
       SkillErrorCode.PRECONDITION_FAILED,
@@ -92,10 +89,7 @@ export class SkillError extends EngineError {
   /**
    * 缺少工具
    */
-  static missingTool(
-    skillId: string,
-    toolId: string,
-  ): SkillError {
+  static missingTool(skillId: string, toolId: string): SkillError {
     return new SkillError(
       `Skill '${skillId}' requires tool '${toolId}' which is not available`,
       SkillErrorCode.MISSING_TOOL,
@@ -106,10 +100,7 @@ export class SkillError extends EngineError {
   /**
    * 缺少技能
    */
-  static missingSkill(
-    skillId: string,
-    requiredSkillId: string,
-  ): SkillError {
+  static missingSkill(skillId: string, requiredSkillId: string): SkillError {
     return new SkillError(
       `Skill '${skillId}' requires skill '${requiredSkillId}' which is not available`,
       SkillErrorCode.MISSING_SKILL,
@@ -172,10 +163,7 @@ export class SkillError extends EngineError {
   /**
    * 组合失败
    */
-  static compositionFailed(
-    skillId: string,
-    reason: string,
-  ): SkillError {
+  static compositionFailed(skillId: string, reason: string): SkillError {
     return new SkillError(
       `Skill composition failed for '${skillId}': ${reason}`,
       SkillErrorCode.COMPOSITION_FAILED,
@@ -201,10 +189,7 @@ export class SkillError extends EngineError {
   /**
    * LLM 调用失败
    */
-  static llmCallFailed(
-    skillId: string,
-    cause?: Error,
-  ): SkillError {
+  static llmCallFailed(skillId: string, cause?: Error): SkillError {
     return new SkillError(
       `LLM call failed in skill '${skillId}'`,
       SkillErrorCode.LLM_CALL_FAILED,
@@ -235,7 +220,7 @@ export class SkillError extends EngineError {
     }
 
     return new SkillError(
-      typeof error === 'string' ? error : 'Unknown skill error',
+      typeof error === "string" ? error : "Unknown skill error",
       code,
       { skillId, details },
     );

@@ -3,14 +3,14 @@
  * 交接模式实现
  */
 
-import { v4 as uuid } from 'uuid';
-import { Logger } from '@nestjs/common';
-import { JsonObject } from '../../core';
+import { v4 as uuid } from "uuid";
+import { Logger } from "@nestjs/common";
+import { JsonObject } from "../../core";
 import {
   HandoffRequest,
   HandoffResponse,
   CollaborationMessage,
-} from '../abstractions/collaborator.interface';
+} from "../abstractions/collaborator.interface";
 
 /**
  * 交接配置
@@ -43,7 +43,7 @@ export interface HandoffConfig {
 export interface HandoffState {
   id: string;
   request: HandoffRequest;
-  status: 'pending' | 'accepted' | 'rejected' | 'timeout';
+  status: "pending" | "accepted" | "rejected" | "timeout";
   response?: HandoffResponse;
   createdAt: Date;
   completedAt?: Date;
@@ -74,13 +74,16 @@ export class HandoffCoordinator {
   async initiateHandoff(
     request: HandoffRequest,
     onMessage: (msg: CollaborationMessage) => Promise<void>,
-    waitForResponse: (fromAgentId: string, timeout: number) => Promise<HandoffResponse | null>,
+    waitForResponse: (
+      fromAgentId: string,
+      timeout: number,
+    ) => Promise<HandoffResponse | null>,
   ): Promise<HandoffResponse> {
     const handoffId = uuid();
     const state: HandoffState = {
       id: handoffId,
       request,
-      status: 'pending',
+      status: "pending",
       createdAt: new Date(),
     };
 
@@ -95,7 +98,7 @@ export class HandoffCoordinator {
       id: uuid(),
       senderId: request.fromAgentId,
       receiverId: request.toAgentId,
-      type: 'handoff',
+      type: "handoff",
       content: {
         handoffId,
         request,
@@ -112,7 +115,7 @@ export class HandoffCoordinator {
       );
 
       if (response) {
-        state.status = response.accepted ? 'accepted' : 'rejected';
+        state.status = response.accepted ? "accepted" : "rejected";
         state.response = response;
         state.completedAt = new Date();
         this.pendingHandoffs.delete(handoffId);
@@ -144,13 +147,13 @@ export class HandoffCoordinator {
     }
 
     // 超时
-    state.status = 'timeout';
+    state.status = "timeout";
     state.completedAt = new Date();
     this.pendingHandoffs.delete(handoffId);
 
     return {
       accepted: false,
-      message: 'Handoff request timed out',
+      message: "Handoff request timed out",
     };
   }
 
@@ -167,7 +170,7 @@ export class HandoffCoordinator {
     if (accepted) {
       return {
         accepted: true,
-        message: 'Handoff accepted',
+        message: "Handoff accepted",
       };
     }
 
@@ -182,7 +185,7 @@ export class HandoffCoordinator {
 
     return {
       accepted: false,
-      message: 'Unable to accept handoff at this time',
+      message: "Unable to accept handoff at this time",
       suggestedAgent,
     };
   }
@@ -199,11 +202,11 @@ export class HandoffCoordinator {
    */
   cancelHandoff(handoffId: string): boolean {
     const state = this.pendingHandoffs.get(handoffId);
-    if (!state || state.status !== 'pending') {
+    if (!state || state.status !== "pending") {
       return false;
     }
 
-    state.status = 'rejected';
+    state.status = "rejected";
     state.completedAt = new Date();
     this.pendingHandoffs.delete(handoffId);
 
@@ -221,7 +224,7 @@ export class HandoffContextBuilder {
    * 添加任务信息
    */
   withTask(task: { id: string; description: string; progress?: number }): this {
-    this.context['task'] = task;
+    this.context["task"] = task;
     return this;
   }
 
@@ -229,7 +232,7 @@ export class HandoffContextBuilder {
    * 添加对话历史
    */
   withConversation(messages: Array<{ role: string; content: string }>): this {
-    this.context['conversation'] = messages;
+    this.context["conversation"] = messages;
     return this;
   }
 
@@ -237,7 +240,7 @@ export class HandoffContextBuilder {
    * 添加工作记忆
    */
   withWorkingMemory(memory: JsonObject): this {
-    this.context['workingMemory'] = memory;
+    this.context["workingMemory"] = memory;
     return this;
   }
 
@@ -245,7 +248,7 @@ export class HandoffContextBuilder {
    * 添加中间结果
    */
   withIntermediateResults(results: JsonObject[]): this {
-    this.context['intermediateResults'] = results;
+    this.context["intermediateResults"] = results;
     return this;
   }
 
@@ -253,7 +256,7 @@ export class HandoffContextBuilder {
    * 添加约束条件
    */
   withConstraints(constraints: string[]): this {
-    this.context['constraints'] = constraints;
+    this.context["constraints"] = constraints;
     return this;
   }
 

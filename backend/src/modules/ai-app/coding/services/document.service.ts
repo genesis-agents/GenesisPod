@@ -6,7 +6,10 @@
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AiChatService, ChatMessage } from "../../../ai-engine/llm/services/ai-chat.service";
+import {
+  AiChatService,
+  ChatMessage,
+} from "../../../ai-engine/llm/services/ai-chat.service";
 import { AiCodingDocumentType, Prisma } from "@prisma/client";
 
 /**

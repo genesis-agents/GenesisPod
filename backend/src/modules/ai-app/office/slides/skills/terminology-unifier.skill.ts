@@ -319,7 +319,9 @@ ${ruleBasedVariations.map((v) => `- ${v.preferred}: ${v.alternatives.join(", ")}
     // 使用 LLMFactory 获取适配器
     const adapter = this.llmFactory?.getAdapter("gpt-4o");
     if (!adapter) {
-      this.logger.warn("[checkWithAI] LLM adapter not available, using rule-based result");
+      this.logger.warn(
+        "[checkWithAI] LLM adapter not available, using rule-based result",
+      );
       return {
         variations: ruleBasedVariations,
         fixes: this.generateFixes(ruleBasedVariations),

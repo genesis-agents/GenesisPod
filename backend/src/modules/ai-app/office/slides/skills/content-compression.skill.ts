@@ -5,7 +5,13 @@
  * 实现 AI Engine ISkill 接口，注册到 SkillRegistry
  */
 
-import { Injectable, Logger, Inject, forwardRef, Optional } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  Inject,
+  forwardRef,
+  Optional,
+} from "@nestjs/common";
 import {
   ISkill,
   SkillContext,
@@ -370,7 +376,10 @@ export class ContentCompressionSkill
             context,
           );
 
-          if (supplementResult.success && supplementResult.data?.wasSupplemented) {
+          if (
+            supplementResult.success &&
+            supplementResult.data?.wasSupplemented
+          ) {
             this.logger.log(
               `[execute] Data supplemented: ${supplementResult.data.supplementedFields.join(", ")}`,
             );
@@ -406,9 +415,12 @@ export class ContentCompressionSkill
         },
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       const endTime = new Date();
-      this.logger.error(`[execute] Content compression failed: ${errorMessage}`);
+      this.logger.error(
+        `[execute] Content compression failed: ${errorMessage}`,
+      );
       return {
         success: false,
         error: {
@@ -457,7 +469,10 @@ export class ContentCompressionSkill
           try {
             const skillResult = await this.execute(input, context);
             if (skillResult.success && skillResult.data) {
-              return { pageNumber: input.pageOutline.pageNumber, result: skillResult.data };
+              return {
+                pageNumber: input.pageOutline.pageNumber,
+                result: skillResult.data,
+              };
             }
             return {
               pageNumber: input.pageOutline.pageNumber,

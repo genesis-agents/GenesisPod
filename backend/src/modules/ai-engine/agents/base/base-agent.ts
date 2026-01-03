@@ -3,14 +3,14 @@
  * Agent 基类实现
  */
 
-import { v4 as uuid } from 'uuid';
-import { Logger } from '@nestjs/common';
-import { ExecutionMode, JsonObject } from '../../core';
-import { AgentError } from '../../core/errors';
-import { ToolRegistry } from '../../tools/registry';
-import { ToolContext, ToolResult } from '../../tools/abstractions';
-import { SkillRegistry } from '../../skills/registry';
-import { SkillContext, SkillResult } from '../../skills/abstractions';
+import { v4 as uuid } from "uuid";
+import { Logger } from "@nestjs/common";
+import { ExecutionMode, JsonObject } from "../../core";
+import { AgentError } from "../../core/errors";
+import { ToolRegistry } from "../../tools/registry";
+import { ToolContext, ToolResult } from "../../tools/abstractions";
+import { SkillRegistry } from "../../skills/registry";
+import { SkillContext, SkillResult } from "../../skills/abstractions";
 import {
   IAgent,
   AgentContext,
@@ -20,8 +20,13 @@ import {
   AgentEvent,
   AgentCapability,
   ExecutionPlan,
-} from '../abstractions/agent.interface';
-import { ILLMAdapter, LLMMessage, LLMResponse, LLMToolDefinition } from '../../llm/abstractions';
+} from "../abstractions/agent.interface";
+import {
+  ILLMAdapter,
+  LLMMessage,
+  LLMResponse,
+  LLMToolDefinition,
+} from "../../llm/abstractions";
 
 /**
  * 基础 Agent 抽象类
@@ -67,7 +72,7 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
   /**
    * 版本
    */
-  readonly version: string = '1.0.0';
+  readonly version: string = "1.0.0";
 
   /**
    * 日志记录器
@@ -166,7 +171,11 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
 
       // 验证执行模式
       if (context.mode && !this.supportedModes.includes(context.mode)) {
-        throw AgentError.invalidMode(this.id, context.mode, this.supportedModes);
+        throw AgentError.invalidMode(
+          this.id,
+          context.mode,
+          this.supportedModes,
+        );
       }
 
       // 执行核心逻辑
@@ -217,7 +226,7 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
 
     // 发送开始事件
     yield {
-      type: 'started',
+      type: "started",
       agentId: this.id,
       executionId,
       timestamp: new Date(),
@@ -228,7 +237,7 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
       const result = await this.execute(input, context);
 
       yield {
-        type: 'completed',
+        type: "completed",
         agentId: this.id,
         executionId,
         timestamp: new Date(),
@@ -240,7 +249,7 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
       const agentError = AgentError.fromError(error, this.id);
 
       yield {
-        type: 'error',
+        type: "error",
         agentId: this.id,
         executionId,
         timestamp: new Date(),
@@ -289,12 +298,12 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
     context: AgentContext,
   ): Promise<ToolResult<T>> {
     if (!this.toolRegistry) {
-      throw AgentError.missingDependency(this.id, 'tool', toolId);
+      throw AgentError.missingDependency(this.id, "tool", toolId);
     }
 
     const tool = this.toolRegistry.tryGet(toolId);
     if (!tool) {
-      throw AgentError.missingDependency(this.id, 'tool', toolId);
+      throw AgentError.missingDependency(this.id, "tool", toolId);
     }
 
     const toolContext: ToolContext = {
@@ -303,7 +312,7 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
       userId: context.userId,
       sessionId: context.sessionId,
       callerId: this.id,
-      callerType: 'agent',
+      callerType: "agent",
       signal: context.signal,
       createdAt: new Date(),
     };
@@ -320,12 +329,12 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
     context: AgentContext,
   ): Promise<SkillResult<TSkillOutput>> {
     if (!this.skillRegistry) {
-      throw AgentError.missingDependency(this.id, 'skill', skillId);
+      throw AgentError.missingDependency(this.id, "skill", skillId);
     }
 
     const skill = this.skillRegistry.tryGet(skillId);
     if (!skill) {
-      throw AgentError.missingDependency(this.id, 'skill', skillId);
+      throw AgentError.missingDependency(this.id, "skill", skillId);
     }
 
     const skillContext: SkillContext = {
@@ -340,7 +349,9 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
       createdAt: new Date(),
     };
 
-    return skill.execute(skillInput, skillContext) as Promise<SkillResult<TSkillOutput>>;
+    return skill.execute(skillInput, skillContext) as Promise<
+      SkillResult<TSkillOutput>
+    >;
   }
 
   /**
@@ -356,7 +367,7 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
     },
   ): Promise<LLMResponse> {
     if (!this.llmAdapter) {
-      throw AgentError.llmCallFailed(this.id, 'LLM adapter not set');
+      throw AgentError.llmCallFailed(this.id, "LLM adapter not set");
     }
 
     try {
@@ -371,7 +382,11 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
 
       return response;
     } catch (error) {
-      throw AgentError.llmCallFailed(this.id, (error as Error).message, error as Error);
+      throw AgentError.llmCallFailed(
+        this.id,
+        (error as Error).message,
+        error as Error,
+      );
     }
   }
 
@@ -387,7 +402,7 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
     // 添加系统提示词
     if (this.systemPrompt) {
       messages.push({
-        role: 'system',
+        role: "system",
         content: this.systemPrompt,
       });
     }
@@ -399,7 +414,7 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
 
     // 添加用户消息
     messages.push({
-      role: 'user',
+      role: "user",
       content: userMessage,
     });
 
@@ -419,7 +434,9 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
         this.logger.warn(`[${this.id}] Failed to parse JSON, using fallback`);
         return fallback;
       }
-      throw new Error(`Failed to parse JSON response: ${(error as Error).message}`);
+      throw new Error(
+        `Failed to parse JSON response: ${(error as Error).message}`,
+      );
     }
   }
 
@@ -454,7 +471,10 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
 /**
  * 创建简单 Agent 的工厂函数
  */
-export function createAgent<TInput = AgentInput, TOutput = AgentOutput>(options: {
+export function createAgent<
+  TInput = AgentInput,
+  TOutput = AgentOutput,
+>(options: {
   id: string;
   name: string;
   description: string;
@@ -473,7 +493,10 @@ export function createAgent<TInput = AgentInput, TOutput = AgentOutput>(options:
     requiredTools: options.requiredTools,
     requiredSkills: options.requiredSkills,
 
-    async execute(input: TInput, context: AgentContext): Promise<AgentResult<TOutput>> {
+    async execute(
+      input: TInput,
+      context: AgentContext,
+    ): Promise<AgentResult<TOutput>> {
       const startTime = new Date();
       const executionId = context.executionId || uuid();
 

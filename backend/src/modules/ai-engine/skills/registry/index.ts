@@ -1,4 +1,4 @@
 /**
  * AI Engine - Skills Registry
  */
-export * from './skill-registry';
+export * from "./skill-registry";

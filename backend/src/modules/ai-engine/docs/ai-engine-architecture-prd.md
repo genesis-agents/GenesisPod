@@ -10,14 +10,16 @@
 将现有 `ai-agents` 模块重构为分层的 `ai-engine` 架构：**AI Application → AI Engine → AI Core**
 
 ### 1.1 决策确认
-| 决策项 | 选择 |
-|--------|------|
-| 迁移策略 | 一次性迁移（直接重构，不保留兼容层） |
-| 应用层处理 | 提取通用能力到 ai-engine |
-| Skill 动态性 | 静态注册 |
-| 交付阶段 | 6 个阶段 |
+
+| 决策项       | 选择                                 |
+| ------------ | ------------------------------------ |
+| 迁移策略     | 一次性迁移（直接重构，不保留兼容层） |
+| 应用层处理   | 提取通用能力到 ai-engine             |
+| Skill 动态性 | 静态注册                             |
+| 交付阶段     | 6 个阶段                             |
 
 ### 1.2 设计原则
+
 - **SOLID 原则**: 单一职责、开闭原则、依赖倒置
 - **可扩展性**: 使用字符串 ID 替代枚举，支持动态注册
 - **职责分离**: 工具中间件模式，BaseTool 精简化
@@ -136,7 +138,10 @@ interface IAgent<TInput = AgentInput, TOutput = AgentResult>
   readonly capabilities: AgentCapability[];
   readonly supportedModes: ExecutionMode[];
   plan?(input: TInput, context: AgentContext): Promise<ExecutionPlan>;
-  executeStream?(plan: ExecutionPlan, context: AgentContext): AsyncGenerator<AgentEvent>;
+  executeStream?(
+    plan: ExecutionPlan,
+    context: AgentContext,
+  ): AsyncGenerator<AgentEvent>;
 }
 ```
 
@@ -176,13 +181,13 @@ registry.register({ id: 'my-custom-agent', ... });
 
 ## 5. 完成状态
 
-| 阶段 | 内容 | 状态 |
-|------|------|------|
-| 阶段 1 | Core 核心层 | ✅ 完成 |
-| 阶段 2 | Tools 工具系统 | ✅ 完成 |
-| 阶段 3 | Skills 技能系统 | ✅ 完成 |
+| 阶段   | 内容                       | 状态    |
+| ------ | -------------------------- | ------- |
+| 阶段 1 | Core 核心层                | ✅ 完成 |
+| 阶段 2 | Tools 工具系统             | ✅ 完成 |
+| 阶段 3 | Skills 技能系统            | ✅ 完成 |
 | 阶段 4 | Agents 框架 + LLM + Memory | ✅ 完成 |
-| 阶段 5 | Orchestration 编排引擎 | ✅ 完成 |
+| 阶段 5 | Orchestration 编排引擎     | ✅ 完成 |
 | 阶段 6 | Collaboration + Constraint | ✅ 完成 |
 
 ---
@@ -192,6 +197,7 @@ registry.register({ id: 'my-custom-agent', ... });
 ### 已创建文件
 
 **Core (~15 files)**
+
 - `core/types/common.types.ts`
 - `core/types/context.types.ts`
 - `core/types/event.types.ts`
@@ -205,6 +211,7 @@ registry.register({ id: 'my-custom-agent', ... });
 - `core/interfaces/lifecycle.interface.ts`
 
 **Tools (~12 files)**
+
 - `tools/abstractions/tool.interface.ts`
 - `tools/base/base-tool.ts`
 - `tools/middleware/middleware.interface.ts`
@@ -214,11 +221,13 @@ registry.register({ id: 'my-custom-agent', ... });
 - `tools/registry/tool-registry.ts`
 
 **Skills (~6 files)**
+
 - `skills/abstractions/skill.interface.ts`
 - `skills/base/base-skill.ts`
 - `skills/registry/skill-registry.ts`
 
 **Agents (~8 files)**
+
 - `agents/abstractions/agent.interface.ts`
 - `agents/base/base-agent.ts`
 - `agents/base/reactive-agent.ts`
@@ -226,15 +235,18 @@ registry.register({ id: 'my-custom-agent', ... });
 - `agents/registry/agent-registry.ts`
 
 **LLM (~4 files)**
+
 - `llm/abstractions/llm-adapter.interface.ts`
 - `llm/adapters/base-llm-adapter.ts`
 - `llm/factory/llm-factory.ts`
 
 **Memory (~4 files)**
+
 - `memory/abstractions/memory.interface.ts`
 - `memory/stores/in-memory-store.ts`
 
 **Orchestration (~8 files)**
+
 - `orchestration/abstractions/orchestrator.interface.ts`
 - `orchestration/executors/base-executor.ts`
 - `orchestration/executors/sequential-executor.ts`
@@ -243,11 +255,13 @@ registry.register({ id: 'my-custom-agent', ... });
 - `orchestration/checkpoints/checkpoint-manager.ts`
 
 **Collaboration (~4 files)**
+
 - `collaboration/abstractions/collaborator.interface.ts`
 - `collaboration/patterns/handoff-pattern.ts`
 - `collaboration/patterns/voting-pattern.ts`
 
 **Constraint (~4 files)**
+
 - `constraint/validators/schema-validator.ts`
 - `constraint/guardrails/content-filter.ts`
 - `constraint/guardrails/rate-limiter.ts`
@@ -284,16 +298,16 @@ core ─────┬───────────────────
 
 ### 8.1 模块完成度评分
 
-| 模块 | 完成度 | 质量 | 说明 |
-|------|--------|------|------|
-| **Core** | 100% | ⭐⭐⭐⭐ | 类型系统完整，错误处理规范 |
-| **Tools** | 100% | ⭐⭐⭐⭐⭐ | 48 个工具 + 中间件链 + 注册表 |
-| **Skills** | 100% | ⭐⭐⭐⭐ | 层次/领域/标签索引完善 |
-| **Agents** | 100% | ⭐⭐⭐⭐ | 6 个实现 + BaseAgent 抽象良好 |
-| **Orchestration** | 100% | ⭐⭐⭐⭐⭐ | 4 种模式 + 11 种步骤类型 + 检查点 |
-| **Collaboration** | 90% | ⭐⭐⭐⭐⭐ | Handoff + Voting + 数据库持久化 |
-| **Constraint** | 55% | ⭐⭐⭐ | 成本控制完整 + DTO 约束定义，执行层待完善 |
-| **Memory** | 60% | ⭐⭐⭐ | 短期/长期记忆服务 (内存实现，待持久化) |
+| 模块              | 完成度 | 质量       | 说明                                      |
+| ----------------- | ------ | ---------- | ----------------------------------------- |
+| **Core**          | 100%   | ⭐⭐⭐⭐   | 类型系统完整，错误处理规范                |
+| **Tools**         | 100%   | ⭐⭐⭐⭐⭐ | 48 个工具 + 中间件链 + 注册表             |
+| **Skills**        | 100%   | ⭐⭐⭐⭐   | 层次/领域/标签索引完善                    |
+| **Agents**        | 100%   | ⭐⭐⭐⭐   | 6 个实现 + BaseAgent 抽象良好             |
+| **Orchestration** | 100%   | ⭐⭐⭐⭐⭐ | 4 种模式 + 11 种步骤类型 + 检查点         |
+| **Collaboration** | 90%    | ⭐⭐⭐⭐⭐ | Handoff + Voting + 数据库持久化           |
+| **Constraint**    | 55%    | ⭐⭐⭐     | 成本控制完整 + DTO 约束定义，执行层待完善 |
+| **Memory**        | 60%    | ⭐⭐⭐     | 短期/长期记忆服务 (内存实现，待持久化)    |
 
 ### 8.2 架构亮点
 
@@ -301,21 +315,21 @@ core ─────┬───────────────────
 
 ```typescript
 // 支持 4 种执行模式
-type WorkflowMode = 'sequential' | 'parallel' | 'dag' | 'reactive';
+type WorkflowMode = "sequential" | "parallel" | "dag" | "reactive";
 
 // 丰富的步骤类型（超越大多数开源框架）
 type StepType =
-  | 'tool'       // 工具调用
-  | 'skill'      // 技能调用
-  | 'agent'      // Agent 调用
-  | 'decision'   // 决策节点
-  | 'parallel'   // 并行执行
-  | 'loop'       // 循环
-  | 'map'        // 映射（并行处理数组）
-  | 'reduce'     // 归约
-  | 'checkpoint' // 检查点
-  | 'human'      // 人工介入
-  | 'subflow';   // 子工作流
+  | "tool" // 工具调用
+  | "skill" // 技能调用
+  | "agent" // Agent 调用
+  | "decision" // 决策节点
+  | "parallel" // 并行执行
+  | "loop" // 循环
+  | "map" // 映射（并行处理数组）
+  | "reduce" // 归约
+  | "checkpoint" // 检查点
+  | "human" // 人工介入
+  | "subflow"; // 子工作流
 ```
 
 #### DAG 执行器 (`dag-executor.ts`)
@@ -334,12 +348,12 @@ type StepType =
 
 ### 8.3 架构短板
 
-| 缺失能力 | 产品愿景要求 | 当前状态 | 优先级 |
-|---------|-------------|---------|--------|
-| **约束执行层** | 约束触发 → 自动调整策略 | 🔶 DTO 已定义，执行联动待完善 | P1 |
-| **记忆持久化** | 向量存储 + 数据库 | 🔶 内存实现，待对接 PostgreSQL/Vector | P1 |
-| **场景统一** | 基于 Team 模型重构各场景 | 🔶 各场景独立实现，未统一 | P2 |
-| **动态降级** | 约束触发时自动选择低成本方案 | ❌ 未实现 | P2 |
+| 缺失能力       | 产品愿景要求                 | 当前状态                              | 优先级 |
+| -------------- | ---------------------------- | ------------------------------------- | ------ |
+| **约束执行层** | 约束触发 → 自动调整策略      | 🔶 DTO 已定义，执行联动待完善         | P1     |
+| **记忆持久化** | 向量存储 + 数据库            | 🔶 内存实现，待对接 PostgreSQL/Vector | P1     |
+| **场景统一**   | 基于 Team 模型重构各场景     | 🔶 各场景独立实现，未统一             | P2     |
+| **动态降级**   | 约束触发时自动选择低成本方案 | ❌ 未实现                             | P2     |
 
 ---
 
@@ -377,11 +391,13 @@ type StepType =
 ### 9.2 核心理念对齐
 
 **愿景核心理念：**
+
 ```
 用户 → AI Team (Leader + Members) → 在约束条件下交付
 ```
 
 **当前实现模式：**
+
 ```
 用户 → AI Team (Leader + Members) → 在约束条件下交付 ✅ (已基本实现)
         ↓
@@ -442,14 +458,14 @@ interface IConstraintEngine {
 }
 
 interface QualityConstraint {
-  depth: 'quick' | 'standard' | 'comprehensive';
-  accuracy: 'allow_inference' | 'require_evidence';
+  depth: "quick" | "standard" | "comprehensive";
+  accuracy: "allow_inference" | "require_evidence";
   reviewRequired: boolean;
 }
 
 interface EfficiencyConstraint {
   deadline?: Date;
-  priority: 'urgent' | 'normal' | 'low';
+  priority: "urgent" | "normal" | "low";
   maxDuration?: number;
 }
 ```
@@ -460,24 +476,24 @@ interface EfficiencyConstraint {
 
 ### 10.1 竞品能力矩阵
 
-| 框架 | 多Agent协作 | 工作流引擎 | 约束控制 | 企业级 | 总分 |
-|------|------------|-----------|---------|--------|------|
-| **DeepDive Engine** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ | 15 |
-| AutoGPT | ⭐⭐ | ⭐⭐ | ⭐ | ⭐ | 6 |
-| CrewAI | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐ | ⭐⭐ | 10 |
-| LangGraph | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐ | ⭐⭐⭐ | 11 |
-| Microsoft AutoGen | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ | 12 |
-| Anthropic Claude Code | ⭐ | ⭐ | ⭐ | ⭐⭐⭐⭐⭐ | 8 |
+| 框架                  | 多Agent协作 | 工作流引擎 | 约束控制 | 企业级     | 总分 |
+| --------------------- | ----------- | ---------- | -------- | ---------- | ---- |
+| **DeepDive Engine**   | ⭐⭐⭐      | ⭐⭐⭐⭐⭐ | ⭐⭐⭐   | ⭐⭐⭐⭐   | 15   |
+| AutoGPT               | ⭐⭐        | ⭐⭐       | ⭐       | ⭐         | 6    |
+| CrewAI                | ⭐⭐⭐⭐    | ⭐⭐⭐     | ⭐       | ⭐⭐       | 10   |
+| LangGraph             | ⭐⭐⭐      | ⭐⭐⭐⭐   | ⭐       | ⭐⭐⭐     | 11   |
+| Microsoft AutoGen     | ⭐⭐⭐⭐    | ⭐⭐⭐     | ⭐⭐     | ⭐⭐⭐     | 12   |
+| Anthropic Claude Code | ⭐          | ⭐         | ⭐       | ⭐⭐⭐⭐⭐ | 8    |
 
 ### 10.2 独特差异化
 
-| 特性 | 业界现状 | DeepDive 愿景 | 领先程度 |
-|------|---------|--------------|---------|
-| **约束铁三角** | 几乎无产品实现 | 成本-质量-效率动态权衡 | 🥇 领先 |
-| **团队隐喻** | CrewAI 有 Crew 概念 | Leader-Member 组织架构 | 🥈 并列 |
-| **审核机制** | 无 | Leader 质量把关闭环 | 🥇 领先 |
-| **预定义场景** | 通用框架为主 | 垂直场景优化 Team | 🥇 领先 |
-| **DAG 编排** | LangGraph 支持 | 完整 DAG + 检查点 | 🥈 并列 |
+| 特性           | 业界现状            | DeepDive 愿景          | 领先程度 |
+| -------------- | ------------------- | ---------------------- | -------- |
+| **约束铁三角** | 几乎无产品实现      | 成本-质量-效率动态权衡 | 🥇 领先  |
+| **团队隐喻**   | CrewAI 有 Crew 概念 | Leader-Member 组织架构 | 🥈 并列  |
+| **审核机制**   | 无                  | Leader 质量把关闭环    | 🥇 领先  |
+| **预定义场景** | 通用框架为主        | 垂直场景优化 Team      | 🥇 领先  |
+| **DAG 编排**   | LangGraph 支持      | 完整 DAG + 检查点      | 🥈 并列  |
 
 ### 10.3 成熟度定位
 
@@ -505,23 +521,23 @@ interface EfficiencyConstraint {
 
 **目标**: 将 DTO 定义的约束与执行层联动
 
-| 任务 | 文件 | 状态 |
-|------|------|------|
-| 成本控制器 | `constraint/guardrails/cost-controller.ts` | ✅ 已完成 |
-| 约束 DTO 定义 | `ai-teams/dto/create-custom-team.dto.ts` | ✅ 已完成 |
-| 约束评估器 | `constraint/evaluators/constraint-evaluator.ts` | ⬜ 待实现 |
-| 动态降级策略 | `constraint/strategies/degradation-strategy.ts` | ⬜ 待实现 |
+| 任务          | 文件                                            | 状态      |
+| ------------- | ----------------------------------------------- | --------- |
+| 成本控制器    | `constraint/guardrails/cost-controller.ts`      | ✅ 已完成 |
+| 约束 DTO 定义 | `ai-teams/dto/create-custom-team.dto.ts`        | ✅ 已完成 |
+| 约束评估器    | `constraint/evaluators/constraint-evaluator.ts` | ⬜ 待实现 |
+| 动态降级策略  | `constraint/strategies/degradation-strategy.ts` | ⬜ 待实现 |
 
 ### Phase 2: 记忆持久化 (1-2 周) 🟡 P1
 
 **目标**: 对接数据库和向量存储
 
-| 任务 | 说明 | 状态 |
-|------|------|------|
-| 短期记忆服务 | `memory/stores/short-term-memory.service.ts` | ✅ 内存实现 |
-| 长期记忆服务 | `memory/stores/long-term-memory.service.ts` | ✅ 内存实现 |
-| PostgreSQL 适配器 | 对接 Prisma | ⬜ 待实现 |
-| 向量存储适配器 | 对接 pgvector 或外部服务 | ⬜ 待实现 |
+| 任务              | 说明                                         | 状态        |
+| ----------------- | -------------------------------------------- | ----------- |
+| 短期记忆服务      | `memory/stores/short-term-memory.service.ts` | ✅ 内存实现 |
+| 长期记忆服务      | `memory/stores/long-term-memory.service.ts`  | ✅ 内存实现 |
+| PostgreSQL 适配器 | 对接 Prisma                                  | ⬜ 待实现   |
+| 向量存储适配器    | 对接 pgvector 或外部服务                     | ⬜ 待实现   |
 
 ### Phase 3: 场景统一收敛 (3-4 周) 🟢 P2
 
@@ -555,14 +571,14 @@ interface EfficiencyConstraint {
 
 ## 12. 综合评分
 
-| 评估维度 | 分数 | 说明 |
-|---------|------|------|
-| **设计规范** | 9/10 | SOLID 原则、TypeScript 类型安全、接口抽象清晰 |
-| **扩展能力** | 8/10 | Registry 模式、中间件链、工厂模式 |
-| **执行引擎** | 9/10 | DAG + 并发控制 + 检查点，超越大多数开源框架 |
-| **愿景覆盖** | 7.5/10 | 三层架构基本实现，约束执行层待联动 |
-| **业界对比** | 8.5/10 | Leader-Member 协作 + 约束三角属业界领先 |
-| **综合评分** | **8.4/10** | 架构成熟，核心闭环已形成，待统一收敛 |
+| 评估维度     | 分数       | 说明                                          |
+| ------------ | ---------- | --------------------------------------------- |
+| **设计规范** | 9/10       | SOLID 原则、TypeScript 类型安全、接口抽象清晰 |
+| **扩展能力** | 8/10       | Registry 模式、中间件链、工厂模式             |
+| **执行引擎** | 9/10       | DAG + 并发控制 + 检查点，超越大多数开源框架   |
+| **愿景覆盖** | 7.5/10     | 三层架构基本实现，约束执行层待联动            |
+| **业界对比** | 8.5/10     | Leader-Member 协作 + 约束三角属业界领先       |
+| **综合评分** | **8.4/10** | 架构成熟，核心闭环已形成，待统一收敛          |
 
 ---
 
@@ -602,7 +618,7 @@ interface EfficiencyConstraint {
 
 ### B. 变更历史
 
-| 版本 | 日期 | 变更内容 |
-|------|------|---------|
-| v1.0 | 2026-01-02 | 初始版本，6 阶段重构完成 |
+| 版本 | 日期       | 变更内容                                   |
+| ---- | ---------- | ------------------------------------------ |
+| v1.0 | 2026-01-02 | 初始版本，6 阶段重构完成                   |
 | v1.1 | 2026-01-02 | 新增架构评估、愿景对比、业界分析、演进路线 |

@@ -10,16 +10,16 @@ import {
   ExecutionEvent,
   ExecutionResult,
   StepResult,
-} from '../abstractions/orchestrator.interface';
-import { BaseExecutor } from './base-executor';
+} from "../abstractions/orchestrator.interface";
+import { BaseExecutor } from "./base-executor";
 
 /**
  * 并行执行器
  * 并行执行所有没有依赖的步骤
  */
 export class ParallelExecutor extends BaseExecutor {
-  readonly id = 'parallel-executor';
-  readonly supportedModes = ['parallel'];
+  readonly id = "parallel-executor";
+  readonly supportedModes = ["parallel"];
 
   /**
    * 最大并发数
@@ -37,9 +37,9 @@ export class ParallelExecutor extends BaseExecutor {
   ): AsyncGenerator<ExecutionEvent, ExecutionResult> {
     const startTime = new Date();
 
-    yield this.createEvent('workflow_started', context, undefined, {
+    yield this.createEvent("workflow_started", context, undefined, {
       workflow: { id: workflow.id, name: workflow.name },
-      mode: 'parallel',
+      mode: "parallel",
     });
 
     try {
@@ -52,13 +52,13 @@ export class ParallelExecutor extends BaseExecutor {
 
       // 收集事件（简化处理，实际应该流式发送）
       for (const [stepId, result] of Object.entries(results)) {
-        if (result.status === 'completed') {
-          yield this.createEvent('step_completed', context, stepId, {
+        if (result.status === "completed") {
+          yield this.createEvent("step_completed", context, stepId, {
             output: result.output,
             duration: result.duration,
           });
-        } else if (result.status === 'failed') {
-          yield this.createEvent('step_failed', context, stepId, {
+        } else if (result.status === "failed") {
+          yield this.createEvent("step_failed", context, stepId, {
             error: result.error,
           });
         }
@@ -66,30 +66,30 @@ export class ParallelExecutor extends BaseExecutor {
 
       // 检查是否有失败的步骤
       const failedSteps = Object.entries(results).filter(
-        ([, r]) => r.status === 'failed',
+        ([, r]) => r.status === "failed",
       );
 
       if (failedSteps.length > 0) {
-        yield this.createEvent('workflow_failed', context, undefined, {
+        yield this.createEvent("workflow_failed", context, undefined, {
           failedSteps: failedSteps.map(([id]) => id),
         });
 
         return this.createResult(context, workflow, startTime, false, {
-          code: 'STEPS_FAILED',
+          code: "STEPS_FAILED",
           message: `${failedSteps.length} step(s) failed`,
         });
       }
 
-      yield this.createEvent('workflow_completed', context);
+      yield this.createEvent("workflow_completed", context);
 
       return this.createResult(context, workflow, startTime, true);
     } catch (error) {
-      yield this.createEvent('workflow_failed', context, undefined, {
+      yield this.createEvent("workflow_failed", context, undefined, {
         error: (error as Error).message,
       });
 
       return this.createResult(context, workflow, startTime, false, {
-        code: 'EXECUTION_ERROR',
+        code: "EXECUTION_ERROR",
         message: (error as Error).message,
       });
     }
@@ -114,7 +114,7 @@ export class ParallelExecutor extends BaseExecutor {
         for (const stepId of running.keys()) {
           results[stepId] = {
             stepId,
-            status: 'cancelled',
+            status: "cancelled",
             startTime: new Date(),
             endTime: new Date(),
             duration: 0,
@@ -130,8 +130,7 @@ export class ParallelExecutor extends BaseExecutor {
         // 检查依赖是否满足
         if (step.dependsOn && step.dependsOn.length > 0) {
           const unmetDeps = step.dependsOn.filter(
-            (depId) =>
-              !results[depId] || results[depId].status !== 'completed',
+            (depId) => !results[depId] || results[depId].status !== "completed",
           );
 
           if (unmetDeps.length > 0) {
@@ -144,7 +143,7 @@ export class ParallelExecutor extends BaseExecutor {
         // 启动步骤执行
         const promise = (async () => {
           onEvent(
-            this.createEvent('step_started', context, step.id, {
+            this.createEvent("step_started", context, step.id, {
               step: { id: step.id, name: step.name },
             }),
           );
@@ -182,7 +181,7 @@ export class ParallelExecutor extends BaseExecutor {
     // 合并所有成功步骤的输出
     const output: Record<string, unknown> = {};
     for (const result of stepResults) {
-      if (result.status === 'completed' && result.output) {
+      if (result.status === "completed" && result.output) {
         output[result.stepId] = result.output;
       }
     }

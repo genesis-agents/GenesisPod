@@ -3,7 +3,7 @@
  * 工具中间件接口定义
  */
 
-import { ITool, ToolContext, ToolResult } from '../abstractions/tool.interface';
+import { ITool, ToolContext, ToolResult } from "../abstractions/tool.interface";
 
 /**
  * 工具中间件接口

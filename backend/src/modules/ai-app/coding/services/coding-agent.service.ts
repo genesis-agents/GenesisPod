@@ -10,7 +10,10 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AiChatService, ChatMessage } from "../../../ai-engine/llm/services/ai-chat.service";
+import {
+  AiChatService,
+  ChatMessage,
+} from "../../../ai-engine/llm/services/ai-chat.service";
 import { CodingTeamService, DefaultAIModel } from "./coding-team.service";
 import {
   CodingMissionService,

@@ -231,7 +231,7 @@ export interface RetryConfig {
   /**
    * 退避策略
    */
-  backoff?: 'linear' | 'exponential';
+  backoff?: "linear" | "exponential";
 
   /**
    * 最大延迟（毫秒）

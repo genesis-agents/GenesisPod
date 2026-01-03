@@ -3,7 +3,7 @@
  * 记忆系统接口定义
  */
 
-import { JsonObject } from '../../core';
+import { JsonObject } from "../../core";
 
 /**
  * 记忆条目
@@ -22,12 +22,12 @@ export interface MemoryEntry {
  * 记忆类型
  */
 export type MemoryType =
-  | 'conversation'  // 对话记忆
-  | 'fact'          // 事实记忆
-  | 'episode'       // 情景记忆
-  | 'summary'       // 摘要记忆
-  | 'preference'    // 偏好记忆
-  | string;         // 自定义类型
+  | "conversation" // 对话记忆
+  | "fact" // 事实记忆
+  | "episode" // 情景记忆
+  | "summary" // 摘要记忆
+  | "preference" // 偏好记忆
+  | string; // 自定义类型
 
 /**
  * 记忆搜索选项
@@ -92,12 +92,14 @@ export interface IMemoryStore {
   /**
    * 添加记忆
    */
-  add(entry: Omit<MemoryEntry, 'id' | 'timestamp'>): Promise<MemoryEntry>;
+  add(entry: Omit<MemoryEntry, "id" | "timestamp">): Promise<MemoryEntry>;
 
   /**
    * 批量添加记忆
    */
-  addBatch(entries: Omit<MemoryEntry, 'id' | 'timestamp'>[]): Promise<MemoryEntry[]>;
+  addBatch(
+    entries: Omit<MemoryEntry, "id" | "timestamp">[],
+  ): Promise<MemoryEntry[]>;
 
   /**
    * 获取记忆
@@ -107,7 +109,10 @@ export interface IMemoryStore {
   /**
    * 更新记忆
    */
-  update(id: string, updates: Partial<MemoryEntry>): Promise<MemoryEntry | null>;
+  update(
+    id: string,
+    updates: Partial<MemoryEntry>,
+  ): Promise<MemoryEntry | null>;
 
   /**
    * 删除记忆
@@ -180,7 +185,7 @@ export interface IConversationMemory {
  */
 export interface ConversationMessage {
   id?: string;
-  role: 'system' | 'user' | 'assistant' | 'tool';
+  role: "system" | "user" | "assistant" | "tool";
   content: string;
   name?: string;
   toolCallId?: string;
@@ -245,12 +250,18 @@ export interface IVectorStore {
   /**
    * 批量添加向量
    */
-  addBatch(items: Array<{ id: string; embedding: number[]; metadata?: JsonObject }>): Promise<void>;
+  addBatch(
+    items: Array<{ id: string; embedding: number[]; metadata?: JsonObject }>,
+  ): Promise<void>;
 
   /**
    * 搜索相似向量
    */
-  search(embedding: number[], limit: number, minScore?: number): Promise<VectorSearchResult[]>;
+  search(
+    embedding: number[],
+    limit: number,
+    minScore?: number,
+  ): Promise<VectorSearchResult[]>;
 
   /**
    * 删除向量

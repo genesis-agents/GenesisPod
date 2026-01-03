@@ -1,4 +1,4 @@
 /**
  * AI Engine - Skills Base
  */
-export * from './base-skill';
+export * from "./base-skill";

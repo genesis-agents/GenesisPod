@@ -122,8 +122,9 @@ export interface RegistryStats {
 /**
  * 带分类的注册表接口
  */
-export interface ICategorizedRegistry<T extends IRegisterable & { category?: string }>
-  extends IRegistry<T> {
+export interface ICategorizedRegistry<
+  T extends IRegisterable & { category?: string },
+> extends IRegistry<T> {
   /**
    * 按分类获取
    * @param category 分类
@@ -162,7 +163,8 @@ export interface ITaggedRegistry<T extends IRegisterable & { tags?: string[] }>
 /**
  * 可搜索的注册表接口
  */
-export interface ISearchableRegistry<T extends IRegisterable> extends IRegistry<T> {
+export interface ISearchableRegistry<T extends IRegisterable>
+  extends IRegistry<T> {
   /**
    * 搜索
    * @param query 查询条件
@@ -214,14 +216,15 @@ export interface SearchQuery {
    */
   sort?: {
     field: string;
-    order: 'asc' | 'desc';
+    order: "asc" | "desc";
   };
 }
 
 /**
  * 可观察的注册表接口
  */
-export interface IObservableRegistry<T extends IRegisterable> extends IRegistry<T> {
+export interface IObservableRegistry<T extends IRegisterable>
+  extends IRegistry<T> {
   /**
    * 订阅注册事件
    * @param listener 监听器
@@ -275,7 +278,9 @@ export interface IFactoryRegistry<T extends IRegisterable> {
 /**
  * 基础注册表实现
  */
-export abstract class BaseRegistry<T extends IRegisterable> implements IRegistry<T> {
+export abstract class BaseRegistry<T extends IRegisterable>
+  implements IRegistry<T>
+{
   protected readonly items = new Map<string, T>();
   protected lastRegisteredAt?: Date;
   protected lastAccessedAt?: Date;

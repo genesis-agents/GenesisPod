@@ -3,20 +3,23 @@
  * 工具注册表实现
  */
 
-import { Injectable } from '@nestjs/common';
-import { BaseRegistry, IRegistry, RegistryStats } from '../../core/interfaces';
+import { Injectable } from "@nestjs/common";
+import { BaseRegistry, IRegistry, RegistryStats } from "../../core/interfaces";
 import {
   ITool,
   ToolCategory,
   FunctionDefinition,
   ToolDefinition,
-} from '../abstractions/tool.interface';
+} from "../abstractions/tool.interface";
 
 /**
  * 工具注册表
  */
 @Injectable()
-export class ToolRegistry extends BaseRegistry<ITool> implements IRegistry<ITool> {
+export class ToolRegistry
+  extends BaseRegistry<ITool>
+  implements IRegistry<ITool>
+{
   private readonly byCategory = new Map<string, Set<string>>();
   private readonly byTag = new Map<string, Set<string>>();
   private readonly factories = new Map<string, () => ITool>();
@@ -137,7 +140,9 @@ export class ToolRegistry extends BaseRegistry<ITool> implements IRegistry<ITool
   getFunctionDefinitions(ids: string[]): FunctionDefinition[] {
     return ids
       .map((id) => this.tryGet(id))
-      .filter((tool): tool is ITool => tool !== undefined && tool.enabled !== false)
+      .filter(
+        (tool): tool is ITool => tool !== undefined && tool.enabled !== false,
+      )
       .map((tool) => tool.toFunctionDefinition());
   }
 

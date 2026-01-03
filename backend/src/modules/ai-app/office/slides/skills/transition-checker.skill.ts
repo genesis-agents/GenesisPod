@@ -268,7 +268,8 @@ export class TransitionCheckerSkill
         },
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       const endTime = new Date();
       this.logger.error(`[execute] Transition check failed: ${errorMessage}`);
       return {

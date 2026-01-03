@@ -3,8 +3,8 @@
  * 基础错误类
  */
 
-import { JsonObject, JsonValue } from '../types';
-import { CommonErrorCode, getErrorCodeMeta } from './error-codes';
+import { JsonObject, JsonValue } from "../types";
+import { CommonErrorCode, getErrorCodeMeta } from "./error-codes";
 
 /**
  * 引擎错误基类
@@ -98,7 +98,7 @@ export class EngineError extends Error {
     }
 
     return new EngineError(
-      typeof error === 'string' ? error : 'Unknown error',
+      typeof error === "string" ? error : "Unknown error",
       code,
       { details },
     );
@@ -175,15 +175,19 @@ export class ValidationError extends EngineError {
    */
   readonly validationErrors: ValidationErrorItem[];
 
-  constructor(
-    errors: ValidationErrorItem[],
-    message?: string,
-  ) {
+  constructor(errors: ValidationErrorItem[], message?: string) {
     super(
-      message || `Validation failed: ${errors.map((e) => e.message).join(', ')}`,
+      message ||
+        `Validation failed: ${errors.map((e) => e.message).join(", ")}`,
       CommonErrorCode.VALIDATION_FAILED,
       {
-        details: { errors: errors.map(e => ({ path: e.path, message: e.message, type: e.type })) },
+        details: {
+          errors: errors.map((e) => ({
+            path: e.path,
+            message: e.message,
+            type: e.type,
+          })),
+        },
         retryable: false,
         httpStatus: 400,
       },
@@ -244,14 +248,10 @@ export class TimeoutError extends EngineError {
  */
 export class CancelledError extends EngineError {
   constructor(message?: string) {
-    super(
-      message || 'Operation was cancelled',
-      CommonErrorCode.CANCELLED,
-      {
-        retryable: false,
-        httpStatus: 499, // Client Closed Request
-      },
-    );
+    super(message || "Operation was cancelled", CommonErrorCode.CANCELLED, {
+      retryable: false,
+      httpStatus: 499, // Client Closed Request
+    });
   }
 }
 
@@ -325,7 +325,7 @@ export class PreconditionError extends EngineError {
   constructor(conditions: string | string[], message?: string) {
     const conditionList = Array.isArray(conditions) ? conditions : [conditions];
     super(
-      message || `Precondition failed: ${conditionList.join(', ')}`,
+      message || `Precondition failed: ${conditionList.join(", ")}`,
       CommonErrorCode.PRECONDITION_FAILED,
       {
         details: { conditions: conditionList },
@@ -348,7 +348,7 @@ export class DependencyError extends EngineError {
 
   constructor(dependencies: string[], message?: string) {
     super(
-      message || `Missing dependencies: ${dependencies.join(', ')}`,
+      message || `Missing dependencies: ${dependencies.join(", ")}`,
       CommonErrorCode.DEPENDENCY_MISSING,
       {
         details: { dependencies },
@@ -369,15 +369,11 @@ export class RateLimitError extends EngineError {
   readonly retryAfter?: number;
 
   constructor(retryAfter?: number, message?: string) {
-    super(
-      message || 'Rate limit exceeded',
-      CommonErrorCode.RATE_LIMITED,
-      {
-        details: retryAfter ? { retryAfter } : undefined,
-        retryable: true,
-        httpStatus: 429,
-      },
-    );
+    super(message || "Rate limit exceeded", CommonErrorCode.RATE_LIMITED, {
+      details: retryAfter ? { retryAfter } : undefined,
+      retryable: true,
+      httpStatus: 429,
+    });
     this.retryAfter = retryAfter;
   }
 }

@@ -3,9 +3,9 @@
  * Agent 错误类
  */
 
-import { JsonObject } from '../types';
-import { EngineError } from './base-error';
-import { AgentErrorCode } from './error-codes';
+import { JsonObject } from "../types";
+import { EngineError } from "./base-error";
+import { AgentErrorCode } from "./error-codes";
 
 /**
  * Agent 错误
@@ -72,7 +72,7 @@ export class AgentError extends EngineError {
    */
   static notReady(agentId: string, reason?: string): AgentError {
     return new AgentError(
-      `Agent '${agentId}' is not ready${reason ? `: ${reason}` : ''}`,
+      `Agent '${agentId}' is not ready${reason ? `: ${reason}` : ""}`,
       AgentErrorCode.NOT_READY,
       { agentId, details: reason ? { reason } : undefined, retryable: true },
     );
@@ -159,9 +159,13 @@ export class AgentError extends EngineError {
   /**
    * 无效的执行模式
    */
-  static invalidMode(agentId: string, mode: string, supportedModes: string[]): AgentError {
+  static invalidMode(
+    agentId: string,
+    mode: string,
+    supportedModes: string[],
+  ): AgentError {
     return new AgentError(
-      `Invalid execution mode '${mode}' for agent '${agentId}'. Supported: ${supportedModes.join(', ')}`,
+      `Invalid execution mode '${mode}' for agent '${agentId}'. Supported: ${supportedModes.join(", ")}`,
       AgentErrorCode.NOT_READY,
       { agentId, details: { mode, supportedModes }, retryable: false },
     );
@@ -170,7 +174,11 @@ export class AgentError extends EngineError {
   /**
    * 缺少依赖
    */
-  static missingDependency(agentId: string, dependencyType: string, dependencyId: string): AgentError {
+  static missingDependency(
+    agentId: string,
+    dependencyType: string,
+    dependencyId: string,
+  ): AgentError {
     return new AgentError(
       `Agent '${agentId}' missing ${dependencyType}: ${dependencyId}`,
       AgentErrorCode.NOT_READY,
@@ -181,7 +189,11 @@ export class AgentError extends EngineError {
   /**
    * LLM 调用失败
    */
-  static llmCallFailed(agentId: string, reason: string, cause?: Error): AgentError {
+  static llmCallFailed(
+    agentId: string,
+    reason: string,
+    cause?: Error,
+  ): AgentError {
     return new AgentError(
       `LLM call failed for agent '${agentId}': ${reason}`,
       AgentErrorCode.EXECUTION_FAILED,
@@ -251,12 +263,9 @@ export class AgentError extends EngineError {
   /**
    * 路由歧义
    */
-  static ambiguousRouting(
-    candidates: string[],
-    input: string,
-  ): AgentError {
+  static ambiguousRouting(candidates: string[], input: string): AgentError {
     return new AgentError(
-      `Ambiguous routing: multiple agents match (${candidates.join(', ')})`,
+      `Ambiguous routing: multiple agents match (${candidates.join(", ")})`,
       AgentErrorCode.AMBIGUOUS_ROUTING,
       {
         details: { candidates, inputPreview: input.substring(0, 100) },
@@ -288,7 +297,7 @@ export class AgentError extends EngineError {
     }
 
     return new AgentError(
-      typeof error === 'string' ? error : 'Unknown agent error',
+      typeof error === "string" ? error : "Unknown agent error",
       code,
       { agentId, details },
     );

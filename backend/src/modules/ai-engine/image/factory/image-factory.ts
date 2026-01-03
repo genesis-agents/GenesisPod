@@ -51,7 +51,10 @@ export interface ImageProviderConfig {
 export class ImageFactory {
   private readonly logger = new Logger(ImageFactory.name);
   private readonly adapters = new Map<string, IImageAdapter>();
-  private readonly providerConfigs = new Map<ImageProvider, ImageProviderConfig>();
+  private readonly providerConfigs = new Map<
+    ImageProvider,
+    ImageProviderConfig
+  >();
   private defaultProvider: ImageProvider = IMAGE_PROVIDERS.GEMINI;
   private defaultModel: ImageModel = "gemini-2.0-flash-exp";
 
@@ -68,7 +71,9 @@ export class ImageFactory {
       this.defaultModel = config.defaultModel;
     }
     if (config.providers) {
-      for (const [provider, providerConfig] of Object.entries(config.providers)) {
+      for (const [provider, providerConfig] of Object.entries(
+        config.providers,
+      )) {
         this.providerConfigs.set(provider as ImageProvider, providerConfig);
       }
     }
@@ -110,7 +115,9 @@ export class ImageFactory {
   /**
    * 生成图像 - 统一入口
    */
-  async generate(options: ImageGenerationOptions): Promise<ImageGenerationResult> {
+  async generate(
+    options: ImageGenerationOptions,
+  ): Promise<ImageGenerationResult> {
     const adapter = options.model
       ? this.getAdapterForModel(options.model)
       : this.getAdapter();
@@ -153,9 +160,7 @@ export class ImageFactory {
     }
 
     if (!adapter.imageToImage) {
-      throw new Error(
-        `Image-to-image not supported by adapter: ${adapter.id}`,
-      );
+      throw new Error(`Image-to-image not supported by adapter: ${adapter.id}`);
     }
 
     this.logger.log(

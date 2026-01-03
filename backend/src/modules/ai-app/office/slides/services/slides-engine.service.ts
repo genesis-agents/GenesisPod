@@ -226,7 +226,9 @@ export class SlidesEngineService {
     if (!state) {
       throw new Error(`Session ${sessionId} not found`);
     }
-    const result = await this.exportService.exportToPPTX(state as unknown as Parameters<typeof this.exportService.exportToPPTX>[0]);
+    const result = await this.exportService.exportToPPTX(
+      state as unknown as Parameters<typeof this.exportService.exportToPPTX>[0],
+    );
     return result.buffer;
   }
 
@@ -238,7 +240,9 @@ export class SlidesEngineService {
     if (!state) {
       throw new Error(`Session ${sessionId} not found`);
     }
-    const result = await this.exportService.exportToPDF(state as unknown as Parameters<typeof this.exportService.exportToPDF>[0]);
+    const result = await this.exportService.exportToPDF(
+      state as unknown as Parameters<typeof this.exportService.exportToPDF>[0],
+    );
     return result.buffer;
   }
 
@@ -460,7 +464,11 @@ export class SlidesEngineService {
    */
   private stepIdToCheckpointType(
     stepId: string,
-  ): "task_decomposition" | "outline_confirmed" | "page_rendered" | "batch_rendered" {
+  ):
+    | "task_decomposition"
+    | "outline_confirmed"
+    | "page_rendered"
+    | "batch_rendered" {
     switch (stepId) {
       case "task-decomposition":
         return "task_decomposition";

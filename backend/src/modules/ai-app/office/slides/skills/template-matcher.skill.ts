@@ -206,7 +206,9 @@ const KEYWORD_TO_TEMPLATE: Record<string, PageTemplateType[]> = {
 };
 
 @Injectable()
-export class TemplateMatcherSkill implements ISkill<TemplateMatchingContext, TemplateMatchResult> {
+export class TemplateMatcherSkill
+  implements ISkill<TemplateMatchingContext, TemplateMatchResult>
+{
   private readonly logger = new Logger(TemplateMatcherSkill.name);
 
   /**
@@ -242,7 +244,8 @@ export class TemplateMatcherSkill implements ISkill<TemplateMatchingContext, Tem
         },
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       this.logger.error(
         `[execute] Error during template matching: ${errorMessage}`,
         error instanceof Error ? error.stack : undefined,

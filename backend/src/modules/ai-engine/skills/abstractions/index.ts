@@ -1,4 +1,4 @@
 /**
  * AI Engine - Skills Abstractions
  */
-export * from './skill.interface';
+export * from "./skill.interface";

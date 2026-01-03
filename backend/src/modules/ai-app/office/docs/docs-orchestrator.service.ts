@@ -17,7 +17,10 @@ import {
   ContentExtractorService,
   DataFetchingService,
 } from "../../../../common/content-processing";
-import { AiChatService, ChatMessage } from "../../../ai-engine/llm/services/ai-chat.service";
+import {
+  AiChatService,
+  ChatMessage,
+} from "../../../ai-engine/llm/services/ai-chat.service";
 import { AIModelService } from "../core";
 import {
   DocsGenerationInput,

@@ -3,7 +3,7 @@
  * 速率限制器实现
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from "@nestjs/common";
 
 /**
  * 速率限制结果
@@ -90,7 +90,7 @@ export class RateLimiter {
     windowMs: 60000, // 1 分钟
     maxRequests: 60, // 60 请求/分钟
     sliding: true,
-    keyPrefix: 'ratelimit',
+    keyPrefix: "ratelimit",
   };
 
   constructor() {
@@ -279,7 +279,9 @@ export class TokenBucket {
       // 计算需要等待的时间
       const needed = count - this.tokens;
       const waitMs = Math.ceil((needed / this.refillRate) * 1000);
-      await new Promise((resolve) => setTimeout(resolve, Math.min(waitMs, 100)));
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.min(waitMs, 100)),
+      );
     }
 
     return false;

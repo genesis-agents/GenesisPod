@@ -216,7 +216,9 @@ const TEMPLATE_RULES: TemplateRule[] = [
 ];
 
 @Injectable()
-export class PageTypeSelectionSkill implements ISkill<PageOutline[], Map<number, PageTemplateType>> {
+export class PageTypeSelectionSkill
+  implements ISkill<PageOutline[], Map<number, PageTemplateType>>
+{
   private readonly logger = new Logger(PageTypeSelectionSkill.name);
 
   // ISkill Implementation - Required Properties

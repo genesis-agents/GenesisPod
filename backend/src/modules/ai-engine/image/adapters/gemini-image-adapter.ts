@@ -72,7 +72,9 @@ export class GeminiImageAdapter extends BaseImageAdapter {
   /**
    * 生成图像
    */
-  async generate(options: ImageGenerationOptions): Promise<ImageGenerationResult> {
+  async generate(
+    options: ImageGenerationOptions,
+  ): Promise<ImageGenerationResult> {
     const model = this.getEffectiveModel(options.model);
     const apiKey = this.apiKey;
 
@@ -84,10 +86,16 @@ export class GeminiImageAdapter extends BaseImageAdapter {
 
     // Route to appropriate method based on model
     if (model.includes("imagen")) {
-      return this.generateWithImagen(apiKey, model, options.prompt, { width, height });
+      return this.generateWithImagen(apiKey, model, options.prompt, {
+        width,
+        height,
+      });
     }
 
-    return this.generateWithGemini(apiKey, model, options.prompt, { width, height });
+    return this.generateWithGemini(apiKey, model, options.prompt, {
+      width,
+      height,
+    });
   }
 
   /**
@@ -152,7 +160,9 @@ export class GeminiImageAdapter extends BaseImageAdapter {
   ): Promise<ImageGenerationResult> {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    this.logger.log(`Gemini generate: ${model}, prompt="${prompt.slice(0, 50)}..."`);
+    this.logger.log(
+      `Gemini generate: ${model}, prompt="${prompt.slice(0, 50)}..."`,
+    );
 
     const response = await firstValueFrom(
       this.httpService.post(
@@ -182,7 +192,10 @@ export class GeminiImageAdapter extends BaseImageAdapter {
     prompt: string,
     dimensions: { width: number; height: number },
   ): Promise<ImageGenerationResult> {
-    const aspectRatio = this.calculateAspectRatio(dimensions.width, dimensions.height);
+    const aspectRatio = this.calculateAspectRatio(
+      dimensions.width,
+      dimensions.height,
+    );
 
     // Try generateImages endpoint first
     try {
@@ -212,7 +225,12 @@ export class GeminiImageAdapter extends BaseImageAdapter {
       // Fallback to predict endpoint or Gemini Flash
       if (error.response?.status === 404) {
         this.logger.warn(`Imagen generateImages not found, trying predict...`);
-        return this.generateWithImagenPredict(apiKey, model, prompt, aspectRatio);
+        return this.generateWithImagenPredict(
+          apiKey,
+          model,
+          prompt,
+          aspectRatio,
+        );
       }
       throw error;
     }
