@@ -42,7 +42,8 @@ import type {
 } from '@/types/slides-team';
 import type { PageState, GenerationProgress } from '@/types/slides';
 
-const API_BASE = config.apiUrl || '';
+// 使用前端 API 代理，避免 CORS 问题
+const API_BASE = '/api';
 
 // ============================================================================
 // 初始 Agent 状态
