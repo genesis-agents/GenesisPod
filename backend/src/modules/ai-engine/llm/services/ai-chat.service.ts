@@ -126,48 +126,24 @@ export class AiChatService {
       await this.refreshModelConfigCache();
     }
 
-    // 1. 精确匹配
+    // 1. 精确匹配（区分大小写）
     if (this.modelConfigCache.has(modelId)) {
       return this.modelConfigCache.get(modelId)!;
     }
 
-    // 2. 模糊匹配（支持短名称如 "gpt-4" 匹配 "gpt-4o"）
+    // 2. 精确匹配（不区分大小写）
     const modelLower = modelId.toLowerCase();
     for (const [key, config] of this.modelConfigCache.entries()) {
-      const keyLower = key.toLowerCase();
-      if (
-        keyLower.includes(modelLower) ||
-        modelLower.includes(keyLower) ||
-        config.provider.toLowerCase() === modelLower
-      ) {
+      if (key.toLowerCase() === modelLower) {
         return config;
       }
     }
 
-    // 3. 按 provider 匹配（如 "openai" 找默认的 OpenAI 模型）
-    for (const config of this.modelConfigCache.values()) {
-      if (
-        config.provider.toLowerCase() === modelLower ||
-        (modelLower.includes("gpt") &&
-          config.provider.toLowerCase() === "openai") ||
-        (modelLower.includes("claude") &&
-          config.provider.toLowerCase() === "anthropic") ||
-        (modelLower.includes("gemini") &&
-          config.provider.toLowerCase() === "google") ||
-        (modelLower.includes("grok") && config.provider.toLowerCase() === "xai")
-      ) {
-        return config;
-      }
-    }
-
-    // 4. 直接从数据库查询（绕过缓存）
+    // 3. 直接从数据库精确查询（不用模糊匹配，完全信任数据库配置）
     try {
       const model = await this.prisma.aIModel.findFirst({
         where: {
-          OR: [
-            { modelId: { contains: modelId, mode: "insensitive" } },
-            { name: { contains: modelId, mode: "insensitive" } },
-          ],
+          modelId: { equals: modelId, mode: "insensitive" },
           modelType: "CHAT",
           isEnabled: true,
         },
@@ -182,6 +158,10 @@ export class AiChatService {
       this.logger.warn(`[getModelConfig] Database query failed: ${error}`);
     }
 
+    // 4. 找不到就返回 null，不要瞎猜
+    this.logger.warn(
+      `[getModelConfig] Model "${modelId}" not found in database`,
+    );
     return null;
   }
 

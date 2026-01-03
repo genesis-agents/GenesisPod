@@ -52,7 +52,7 @@ export class UniversalLLMAdapter implements ILLMAdapter {
   get defaultModel(): string {
     // 返回缓存的默认模型，异步刷新
     this.refreshModelsIfNeeded();
-    return this._defaultModel || "gemini-3-flash-preview";
+    return this._defaultModel; // 完全从数据库读取，不硬编码任何回退值
   }
 
   constructor(
