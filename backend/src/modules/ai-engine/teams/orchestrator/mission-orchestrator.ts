@@ -156,6 +156,9 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       yield this.createEvent("parsing_started", missionId);
       state.phase = "parsing";
       const intent = await this.parse(input);
+      // ★ 关键修复：确保 intent.missionId 与当前 missionId 一致
+      // parse() 返回的 intent.missionId 可能是空字符串，需要覆盖
+      intent.missionId = missionId;
       await this.storeContext(missionId, "intent", intent);
       yield this.createEvent("parsing_completed", missionId, { intent });
 
@@ -178,6 +181,16 @@ export class MissionOrchestrator implements IMissionOrchestrator {
             event.data?.stepId as string,
             event.data?.output,
           );
+
+          // ★ 同步技能结果到 intermediateOutputs（以技能 ID 为键）
+          const stepOutput = event.data?.output as StepExecutionResult;
+          if (stepOutput?.skillResults) {
+            for (const { skillId, result } of stepOutput.skillResults) {
+              if (result.success && result.data) {
+                state.intermediateOutputs.set(skillId, result.data);
+              }
+            }
+          }
         }
         if (event.type === "step_failed") {
           state.failedSteps.push(event.data?.stepId as string);
@@ -606,6 +619,23 @@ export class MissionOrchestrator implements IMissionOrchestrator {
             state.completedSteps.push(step.id);
             state.intermediateOutputs.set(step.id, result.value);
 
+            // ★ 关键修复：同时以技能 ID 为键存储技能结果
+            // 技能的 normalizeInput 需要通过 skillId 查找前置技能的输出
+            const stepResult = result.value as StepExecutionResult;
+            if (stepResult.skillResults) {
+              for (const {
+                skillId,
+                result: skillResult,
+              } of stepResult.skillResults) {
+                if (skillResult.success && skillResult.data) {
+                  state.intermediateOutputs.set(skillId, skillResult.data);
+                  this.logger.debug(
+                    `[executePlan] Stored skill output for ${skillId}`,
+                  );
+                }
+              }
+            }
+
             yield this.createEvent("step_completed", missionId, {
               stepId: step.id,
               output: result.value,
@@ -653,6 +683,21 @@ export class MissionOrchestrator implements IMissionOrchestrator {
           );
           state.completedSteps.push(step.id);
           state.intermediateOutputs.set(step.id, output);
+
+          // ★ 关键修复：同时以技能 ID 为键存储技能结果
+          if (output.skillResults) {
+            for (const {
+              skillId,
+              result: skillResult,
+            } of output.skillResults) {
+              if (skillResult.success && skillResult.data) {
+                state.intermediateOutputs.set(skillId, skillResult.data);
+                this.logger.debug(
+                  `[executePlan] Stored skill output for ${skillId}`,
+                );
+              }
+            }
+          }
 
           yield this.createEvent("step_completed", missionId, {
             stepId: step.id,
