@@ -251,10 +251,14 @@ export default function MissionProgressPanel({
     });
   };
 
-  // Ensure missions is always an array
+  // Ensure missions is always an array and deduplicate by id
   const missionsList = missions || [];
+  const uniqueMissions = missionsList.filter(
+    (mission, index, self) =>
+      self.findIndex((m) => m.id === mission.id) === index
+  );
 
-  const activeMissions = missionsList.filter(
+  const activeMissions = uniqueMissions.filter(
     (m) =>
       m.status === 'IN_PROGRESS' ||
       m.status === 'PLANNING' ||
@@ -262,7 +266,7 @@ export default function MissionProgressPanel({
       m.status === 'PENDING'
   );
 
-  const completedMissions = missionsList.filter(
+  const completedMissions = uniqueMissions.filter(
     (m) =>
       m.status === 'COMPLETED' ||
       m.status === 'FAILED' ||
@@ -650,29 +654,6 @@ function MissionCard({
               className="flex-1 rounded-xl bg-gradient-to-r from-gray-800 to-gray-900 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:from-gray-700 hover:to-gray-800 hover:shadow-md"
             >
               查看详情
-            </button>
-            {/* Open Canvas Button */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenCanvas();
-              }}
-              className="flex items-center justify-center rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-2.5 text-white shadow-sm transition-all hover:from-purple-600 hover:to-indigo-700 hover:shadow-md"
-              title="在Canvas中查看"
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                />
-              </svg>
             </button>
           </div>
 
