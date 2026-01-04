@@ -1526,161 +1526,191 @@ function ConversationPanel({
 
   return (
     <div className="flex h-full w-[360px] flex-shrink-0 flex-col border-r border-slate-200 bg-slate-50">
-      {/* 顶部标题栏 */}
-      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-3 py-2">
-        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-          <Terminal className="h-4 w-4 text-orange-500" />
-          生成过程 ({toolCalls.length})
+      {/* 顶部：Agent 团队栏 */}
+      <div className="flex-shrink-0 border-b border-slate-200 bg-gradient-to-r from-slate-800 to-slate-900 px-3 py-2">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-xs font-medium text-slate-400">AI 团队</span>
+          <button
+            onClick={handleCopyLog}
+            disabled={streamEvents.length === 0}
+            className={cn(
+              'flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors',
+              copied
+                ? 'bg-green-500/20 text-green-400'
+                : 'text-slate-500 hover:bg-slate-700 hover:text-slate-300'
+            )}
+            title="复制完整日志"
+          >
+            {copied ? (
+              <>
+                <CheckCircle2 className="h-3 w-3" />
+                已复制
+              </>
+            ) : (
+              <>
+                <Copy className="h-3 w-3" />
+                日志
+              </>
+            )}
+          </button>
         </div>
-        <button
-          onClick={handleCopyLog}
-          disabled={streamEvents.length === 0}
-          className={cn(
-            'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
-            copied
-              ? 'bg-green-100 text-green-700'
-              : 'text-gray-600 hover:bg-gray-100'
-          )}
-          title="复制完整日志"
-        >
-          {copied ? (
-            <>
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              已复制
-            </>
-          ) : (
-            <>
-              <Copy className="h-3.5 w-3.5" />
-              复制日志
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-1">
+          {MENTION_OPTIONS.map((agent) => (
+            <button
+              key={agent.id}
+              onClick={() => {
+                setInputValue((prev) => prev + agent.label + ' ');
+                textareaRef.current?.focus();
+              }}
+              className="group flex items-center gap-1 rounded-md bg-slate-700/50 px-2 py-1 text-xs transition-all hover:bg-slate-600"
+              title={agent.description}
+            >
+              <agent.icon className={cn('h-3 w-3', agent.color)} />
+              <span className="text-slate-300 group-hover:text-white">
+                {agent.id}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* 滚动区域 */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3">
-        {/* 阶段时间线 - 按角色分组显示，替换混乱的 toolCalls 列表 */}
+      {/* 中间：对话和进度区域 */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
         {/* 对话记录 */}
-        <div className="mb-3 space-y-2">
-          <div className="flex items-center justify-between text-xs text-gray-500">
-            <span>对话</span>
-            <span>{chatMessages.length} 条</span>
+        <div className="border-b border-slate-200 bg-white p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-600">对话</span>
+            <span className="text-[10px] text-slate-400">
+              {chatMessages.length} 条
+            </span>
           </div>
-          {chatMessages.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-200 bg-white px-3 py-2 text-xs text-gray-500">
-              暂无消息，输入 @leader/@analyst 等与团队沟通
-            </div>
-          ) : (
-            chatMessages.map((msg) => (
-              <div
-                key={msg.id}
-                className="rounded-lg border border-gray-200 bg-white p-3"
-              >
-                <div className="mb-1 flex items-center gap-2 text-xs text-gray-500">
-                  <span
-                    className={cn(
-                      'rounded px-1.5 py-0.5',
-                      msg.role === 'user' && 'bg-blue-50 text-blue-700',
-                      msg.role === 'system' && 'bg-slate-100 text-slate-700',
-                      msg.role === 'agent' && 'bg-amber-50 text-amber-700'
-                    )}
-                  >
-                    {msg.author}
-                  </span>
-                  <span>{msg.timestamp.toLocaleTimeString()}</span>
-                </div>
-                <div className="whitespace-pre-wrap text-sm text-gray-900">
-                  {renderMessageText(msg.message)}
-                </div>
+          <div className="space-y-2">
+            {chatMessages.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs text-slate-400">
+                点击上方 Agent 或输入 @ 开始对话
               </div>
-            ))
-          )}
+            ) : (
+              chatMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={cn(
+                    'rounded-lg p-2.5',
+                    msg.role === 'user' && 'ml-4 bg-blue-50',
+                    msg.role === 'system' && 'bg-slate-100',
+                    msg.role === 'agent' && 'mr-4 bg-amber-50'
+                  )}
+                >
+                  <div className="mb-1 flex items-center gap-1.5 text-[10px]">
+                    <span
+                      className={cn(
+                        'font-medium',
+                        msg.role === 'user' && 'text-blue-600',
+                        msg.role === 'system' && 'text-slate-600',
+                        msg.role === 'agent' && 'text-amber-600'
+                      )}
+                    >
+                      {msg.author}
+                    </span>
+                    <span className="text-slate-400">
+                      {msg.timestamp.toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <div className="whitespace-pre-wrap text-sm text-slate-800">
+                    {renderMessageText(msg.message)}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
-        <PhaseTimeline
-          teamState={teamState}
-          generating={generating}
-          progress={
-            progress
-              ? {
-                  currentPage: progress.currentPage,
-                  totalPages: progress.totalPages,
-                  message: progress.message,
-                }
-              : undefined
-          }
-        />
+        {/* 生成进度 */}
+        <div className="p-3">
+          <PhaseTimeline
+            teamState={teamState}
+            generating={generating}
+            progress={
+              progress
+                ? {
+                    currentPage: progress.currentPage,
+                    totalPages: progress.totalPages,
+                    message: progress.message,
+                  }
+                : undefined
+            }
+          />
 
-        {/* 取消按钮 */}
-        {generating && (
-          <div className="mt-4 flex justify-center">
-            <button
-              onClick={onCancel}
-              className="flex items-center gap-1.5 rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
-            >
-              <X className="h-4 w-4" />
-              取消生成
-            </button>
-          </div>
-        )}
+          {/* 取消按钮 */}
+          {generating && (
+            <div className="mt-3 flex justify-center">
+              <button
+                onClick={onCancel}
+                className="flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100"
+              >
+                <X className="h-3.5 w-3.5" />
+                取消生成
+              </button>
+            </div>
+          )}
 
-        {/* 大纲预览 */}
-        {outlinePlan && (
-          <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3">
-            <button
-              onClick={() => setOutlineExpanded(!outlineExpanded)}
-              className="flex w-full items-center gap-2 text-left text-sm font-medium text-gray-700"
-            >
-              <FileText className="h-4 w-4 text-blue-500" />
-              大纲预览 ({outlinePlan.pages.length} 页)
-              <ChevronDown
-                className={cn(
-                  'ml-auto h-4 w-4 transition-transform',
-                  outlineExpanded ? '' : '-rotate-90'
+          {/* 大纲预览 */}
+          {outlinePlan && (
+            <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2.5">
+              <button
+                onClick={() => setOutlineExpanded(!outlineExpanded)}
+                className="flex w-full items-center gap-2 text-left text-xs font-medium text-slate-700"
+              >
+                <FileText className="h-3.5 w-3.5 text-blue-500" />
+                大纲 ({outlinePlan.pages.length} 页)
+                <ChevronDown
+                  className={cn(
+                    'ml-auto h-3.5 w-3.5 transition-transform',
+                    outlineExpanded ? '' : '-rotate-90'
+                  )}
+                />
+              </button>
+
+              <AnimatePresence>
+                {outlineExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-2 space-y-1">
+                      {outlinePlan.pages.map(
+                        (page: PageOutline, index: number) => (
+                          <OutlineItem
+                            key={index}
+                            page={page}
+                            index={index}
+                            isSelected={selectedPageIndex === index}
+                            onClick={() => setSelectedPageIndex(index)}
+                          />
+                        )
+                      )}
+                    </div>
+
+                    <div className="mt-2">
+                      {generating ? (
+                        <div className="flex items-center justify-center gap-1.5 rounded bg-orange-100 py-1 text-xs font-medium text-orange-700">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          生成中...
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-1.5 rounded bg-green-100 py-1 text-xs font-medium text-green-700">
+                          <CheckCircle2 className="h-3 w-3" />
+                          已完成
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
                 )}
-              />
-            </button>
-
-            <AnimatePresence>
-              {outlineExpanded && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="mt-2 space-y-1">
-                    {outlinePlan.pages.map(
-                      (page: PageOutline, index: number) => (
-                        <OutlineItem
-                          key={index}
-                          page={page}
-                          index={index}
-                          isSelected={selectedPageIndex === index}
-                          onClick={() => setSelectedPageIndex(index)}
-                        />
-                      )
-                    )}
-                  </div>
-
-                  <div className="mt-3">
-                    {generating ? (
-                      <div className="flex items-center justify-center gap-2 rounded-lg bg-orange-100 py-1.5 text-sm font-medium text-orange-700">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        正在生成页面...
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center gap-2 rounded-lg bg-green-100 py-1.5 text-sm font-medium text-green-700">
-                        <CheckCircle2 className="h-4 w-4" />
-                        大纲已确认，生成完成
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 固定在底部的输入框 */}
@@ -2081,9 +2111,12 @@ function PreviewPanel() {
   const SLIDE_HEIGHT = 720;
   const PADDING = 24;
 
-  // 计算可用空间
-  const availableWidth = Math.max(dimensions.width - PADDING, 300);
-  const availableHeight = Math.max(dimensions.height - PADDING, 200);
+  // 检查容器尺寸是否已正确测量
+  const isDimensionsReady = dimensions.width > 100 && dimensions.height > 100;
+
+  // 计算可用空间 - 只在尺寸准备好后使用真实值
+  const availableWidth = isDimensionsReady ? dimensions.width - PADDING : 800; // 默认宽度
+  const availableHeight = isDimensionsReady ? dimensions.height - PADDING : 450; // 默认高度 (16:9)
 
   // 计算缩放比例，保持宽高比，允许放大以填充空间
   const scaleX = availableWidth / SLIDE_WIDTH;

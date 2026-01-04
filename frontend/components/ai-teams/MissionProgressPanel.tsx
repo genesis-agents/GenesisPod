@@ -477,6 +477,8 @@ function MissionCard({
   const isPending = mission.status === 'PENDING';
   const isFailed = mission.status === 'FAILED';
   const isCancelled = mission.status === 'CANCELLED';
+  const isPaused = mission.status === 'PAUSED';
+  const canRetry = isFailed || isCancelled || isPaused;
 
   // Calculate task statistics
   const tasks = mission.tasks || [];
@@ -677,8 +679,8 @@ function MissionCard({
             </button>
           )}
 
-          {/* ★ 继续执行按钮 (for cancelled/failed missions) */}
-          {(isFailed || isCancelled) && onRetry && (
+          {/* ★ 继续执行按钮 (for cancelled/failed/paused missions) */}
+          {canRetry && onRetry && (
             <div className="mt-2 flex gap-2">
               <button
                 onClick={(e) => {
@@ -734,6 +736,7 @@ function MissionDetailView({
   const isFailed = mission.status === 'FAILED';
   const isCancelled = mission.status === 'CANCELLED';
   const isPaused = mission.status === 'PAUSED';
+  const canRetry = isFailed || isCancelled || isPaused;
 
   // Calculate stats
   const completedCount = tasks.filter((t) => t.status === 'COMPLETED').length;
@@ -1003,7 +1006,7 @@ function MissionDetailView({
       )}
 
       {/* Failed/Cancelled Mission Actions */}
-      {(isFailed || isCancelled) && onRetry && (
+      {canRetry && onRetry && (
         <div className="space-y-2 border-t border-gray-200 p-4">
           <button
             onClick={() => onRetry('continue')}
