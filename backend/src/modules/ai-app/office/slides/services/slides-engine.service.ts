@@ -357,14 +357,14 @@ export class SlidesEngineService {
           this.logger.debug(`[generateSlides] Phase changed: ${currentPhase}`);
         }
 
-        // 保存阶段检查点
-        if (
-          event.type === "planning:completed" ||
-          event.type === "synthesis:completed"
-        ) {
+        // 保存阶段检查点 - 每个关键阶段完成后都保存
+        if (event.type.endsWith(":completed")) {
           const phase = event.type.replace(":completed", "");
           if (this.isCheckpointPhase(phase)) {
             await this.saveCheckpoint(sessionId, phase, event.data);
+            this.logger.log(
+              `[generateSlides] ★ Saved checkpoint for phase: ${phase}`,
+            );
           }
         }
 
@@ -1336,7 +1336,10 @@ export class SlidesEngineService {
    */
   private isCheckpointPhase(phase: string): boolean {
     const checkpointPhases = [
+      // 新格式阶段
+      "analyzing",
       "planning",
+      "generating",
       "synthesis",
       "reviewing",
       "auditing",
@@ -1432,6 +1435,18 @@ export class SlidesEngineService {
     | "page_rendered"
     | "batch_rendered" {
     switch (stepId) {
+      // 新格式阶段
+      case "analyzing":
+        return "task_decomposition";
+      case "planning":
+        return "outline_confirmed";
+      case "generating":
+      case "synthesis":
+        return "page_rendered";
+      case "reviewing":
+      case "auditing":
+        return "batch_rendered";
+      // 兼容旧格式
       case "task-decomposition":
         return "task_decomposition";
       case "outline-planning":
