@@ -137,8 +137,11 @@ export class TaskGranularityService {
 - **禁止合并**：${constraint.allowMerge ? "允许合理合并" : `不得将多个${granularityName}合并为一个任务`}
 `;
 
-    if (constraint.expectedTotalTasks) {
-      prompt += `- **预期任务数**：约 ${constraint.expectedTotalTasks} 个任务\n`;
+    // 注意：不再显示"预期任务数"，避免 Leader 误解为上限
+    // 改为强调按用户需求分解
+    if (constraint.expectedTotalTasks && constraint.expectedTotalTasks > 10) {
+      prompt += `- **重要**：这是一个大型任务，预计需要 ${constraint.expectedTotalTasks} 个以上的${granularityName}级任务\n`;
+      prompt += `- **禁止分批**：必须一次性列出所有任务，不得只列出"前几个"或"第一批"\n`;
     }
 
     // 添加错误示例
@@ -195,8 +198,8 @@ export class TaskGranularityService {
 ### 验证规则
 系统将自动验证你的任务分解：
 - 如果单个任务包含多个${granularityName}，将被自动拆分
-${constraint.expectedTotalTasks ? `- 如果总任务数与预期 (${constraint.expectedTotalTasks}) 相差超过 20%，将要求重新分解` : ""}
 - 每个任务的标题必须明确指出是第几${granularityName}
+- **必须按用户需求的完整结构分解**，不得自行缩减范围
 `;
 
     if (options?.additionalConstraints) {
