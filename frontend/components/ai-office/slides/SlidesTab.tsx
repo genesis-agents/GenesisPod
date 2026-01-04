@@ -2060,24 +2060,69 @@ function PreviewPanel() {
                           </span>
                         </div>
                         {currentPage.design.step4_formulatingHTML
-                          ?.externalDependencies &&
-                          currentPage.design.step4_formulatingHTML
-                            .externalDependencies.length > 0 && (
-                            <div>
-                              <span className="text-slate-500">外部依赖:</span>
-                              <ul className="mt-1 list-inside list-disc text-xs text-slate-600">
-                                {currentPage.design.step4_formulatingHTML.externalDependencies.map(
-                                  (dep, i) => (
-                                    <li key={i} className="truncate">
-                                      {dep}
-                                    </li>
-                                  )
-                                )}
-                              </ul>
-                            </div>
-                          )}
+                          ?.templateUsed && (
+                          <div>
+                            <span className="text-slate-500">使用模板: </span>
+                            <span className="rounded bg-orange-100 px-2 py-0.5 text-orange-700">
+                              {
+                                currentPage.design.step4_formulatingHTML
+                                  .templateUsed
+                              }
+                            </span>
+                          </div>
+                        )}
+                        {currentPage.design.step4_formulatingHTML
+                          ?.sectionsCount !== undefined && (
+                          <div>
+                            <span className="text-slate-500">内容区块: </span>
+                            <span className="text-slate-700">
+                              {
+                                currentPage.design.step4_formulatingHTML
+                                  .sectionsCount
+                              }{' '}
+                              个
+                            </span>
+                          </div>
+                        )}
+                        {currentPage.design.step4_formulatingHTML?.hasImages !==
+                          undefined && (
+                          <div>
+                            <span className="text-slate-500">包含图片: </span>
+                            <span
+                              className={cn('rounded px-2 py-0.5', {
+                                'bg-green-100 text-green-700':
+                                  currentPage.design.step4_formulatingHTML
+                                    .hasImages,
+                                'bg-slate-100 text-slate-600':
+                                  !currentPage.design.step4_formulatingHTML
+                                    .hasImages,
+                              })}
+                            >
+                              {currentPage.design.step4_formulatingHTML
+                                .hasImages
+                                ? '是'
+                                : '否'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
+
+                    {/* AI 完整思考过程 - 可折叠 */}
+                    {currentPage.design.rawResponse && (
+                      <details className="group rounded-lg border border-slate-200 bg-white">
+                        <summary className="flex cursor-pointer items-center gap-2 p-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+                          <Brain className="h-4 w-4 text-orange-500" />
+                          AI 完整思考过程
+                          <ChevronRight className="ml-auto h-4 w-4 text-slate-400 transition-transform group-open:rotate-90" />
+                        </summary>
+                        <div className="border-t border-slate-100 p-4">
+                          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-600">
+                            {currentPage.design.rawResponse}
+                          </pre>
+                        </div>
+                      </details>
+                    )}
                   </>
                 )}
 

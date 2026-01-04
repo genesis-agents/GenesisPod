@@ -114,7 +114,7 @@ export class SlidesEngineService {
       return;
     }
 
-    // 创建 slide:generated 事件
+    // 创建 slide:generated 事件（包含设计思考数据）
     const streamEvent = this.createEvent("slide:generated", sessionId, {
       pageNumber: event.pageNumber,
       totalPages: event.totalPages,
@@ -122,6 +122,9 @@ export class SlidesEngineService {
       html: event.html,
       templateId: event.templateId,
       contentLength: event.html?.length || 0,
+      // ★ 新增：设计思考数据，同步到 Thinking TAB
+      design: event.design,
+      keyPoints: event.keyPoints,
     });
 
     // 添加到缓冲区
@@ -130,8 +133,19 @@ export class SlidesEngineService {
     }
     this.pageEventBuffer.get(sessionId)!.push(streamEvent);
 
+    // ★ 发送设计思考事件到 Thinking TAB（如果有 design 数据）
+    if (event.design?.reasoning) {
+      const thinkingEvent = this.createEvent("agent:thinking", sessionId, {
+        agent: "writer",
+        agentName: "Content Writer",
+        thought: event.design.reasoning,
+        phase: `page-${event.pageNumber}-design`,
+      });
+      this.pageEventBuffer.get(sessionId)!.push(thinkingEvent);
+    }
+
     this.logger.log(
-      `[handlePageGenerated] Buffered page ${event.pageNumber}/${event.totalPages} for session ${sessionId}`,
+      `[handlePageGenerated] Buffered page ${event.pageNumber}/${event.totalPages} for session ${sessionId}, design=${!!event.design}`,
     );
   }
 

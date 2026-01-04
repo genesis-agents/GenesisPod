@@ -658,8 +658,14 @@ export interface VisualResult {
 }
 
 export interface HTMLResult {
-  html: string;
-  externalDependencies: string[];
+  html?: string;
+  externalDependencies?: string[];
+  /** 使用的模板 ID */
+  templateUsed?: string;
+  /** 内容区块数量 */
+  sectionsCount?: number;
+  /** 是否包含图片 */
+  hasImages?: boolean;
 }
 
 // ============================================================================

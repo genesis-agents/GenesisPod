@@ -380,10 +380,22 @@ export function useSlideGenerationTeam(
 
             // ★★★ 关键诊断日志 ★★★
             console.log(
-              `[Team SSE] ★★★ PROCESSING slide:generated ★★★ pageNumber=${pageNumber}, title=${title}, htmlLength=${data.html?.length || 0}`
+              `[Team SSE] ★★★ PROCESSING slide:generated ★★★ pageNumber=${pageNumber}, title=${title}, htmlLength=${data.html?.length || 0}, hasDesign=${!!data.design}`
             );
 
-            // ★ 修复：传递完整的页面信息，包括 outline
+            // ★ 将 PageDesignThinking 转换为 PageDesign 格式
+            const design = data.design
+              ? {
+                  step1_drafting: data.design.step1_drafting,
+                  step2_refiningLayout: data.design.step2_refiningLayout,
+                  step3_planningVisuals: data.design.step3_planningVisuals,
+                  step4_formulatingHTML: data.design.step4_formulatingHTML,
+                  // 将 reasoning 存储在 rawResponse 字段中
+                  rawResponse: data.design.reasoning,
+                }
+              : undefined;
+
+            // ★ 修复：传递完整的页面信息，包括 outline 和 design
             const pageUpdate = {
               status: 'completed' as const,
               html: data.html || '',
@@ -392,12 +404,14 @@ export function useSlideGenerationTeam(
                 title,
                 templateType: 'pillars' as const,
                 purpose: '',
-                keyPoints: [],
+                keyPoints: data.keyPoints || [],
               },
+              // ★ 新增：包含设计思考数据，同步到 Thinking TAB
+              design,
             };
 
             console.log(
-              `[Team SSE] ★★★ CALLING updatePage(${pageNumber}, ...) ★★★`
+              `[Team SSE] ★★★ CALLING updatePage(${pageNumber}, ...) with design=${!!design} ★★★`
             );
             updatePage(pageNumber, pageUpdate);
 

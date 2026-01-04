@@ -51,6 +51,33 @@ export interface PagePipelineOutput {
 }
 
 /**
+ * 页面设计思考数据（同步到 Thinking TAB）
+ */
+export interface PageDesignThinking {
+  step1_drafting: {
+    style: string;
+    coreElements: string[];
+    mood: string;
+  };
+  step2_refiningLayout: {
+    alignment: string;
+    graphicsPosition: string;
+    spacing: string;
+  };
+  step3_planningVisuals: {
+    backgroundColor: string;
+    accentColors: string[];
+    decorations: string[];
+  };
+  step4_formulatingHTML: {
+    templateUsed: string;
+    sectionsCount: number;
+    hasImages: boolean;
+  };
+  reasoning: string; // 整体思考过程
+}
+
+/**
  * 页面生成事件（用于流式输出）
  */
 export interface PageGeneratedEvent {
@@ -61,6 +88,10 @@ export interface PageGeneratedEvent {
   html: string;
   templateId: string;
   sessionId: string;
+  /** 页面设计思考数据 */
+  design?: PageDesignThinking;
+  /** 页面大纲关键点 */
+  keyPoints?: string[];
 }
 
 /**
@@ -210,7 +241,14 @@ export class PagePipelineSkill
           pages.push(result);
           completedPages++;
 
-          // 2c. 发送页面生成事件（流式输出的关键）
+          // 2c. 生成设计思考数据
+          const designThinking = this.generateDesignThinking(
+            pageOutline,
+            pageContent,
+            renderResult.data.templateId,
+          );
+
+          // 2d. 发送页面生成事件（流式输出的关键）
           this.emitPageGenerated({
             type: "page:generated",
             pageNumber,
@@ -219,6 +257,8 @@ export class PagePipelineSkill
             html: renderResult.data.html,
             templateId: renderResult.data.templateId,
             sessionId,
+            design: designThinking,
+            keyPoints: pageOutline.keyElements || [],
           });
 
           this.logger.log(
@@ -418,6 +458,159 @@ export class PagePipelineSkill
         executionId: `${context.executionId}-render-${pageOutline.pageNumber}`,
       },
     );
+  }
+
+  /**
+   * 生成页面设计思考数据
+   * 这些数据将同步到前端的 Thinking TAB，便于 AI 持续改进
+   */
+  private generateDesignThinking(
+    pageOutline: PageOutline,
+    pageContent: PageContent,
+    templateId: string,
+  ): PageDesignThinking {
+    // 从页面大纲和内容中提取设计思考
+    const templateType = pageOutline.templateType || "content";
+    const hasSubtitle = !!pageOutline.subtitle || !!pageContent.subtitle;
+    const sectionsCount = pageContent.sections?.length || 0;
+    const hasImages = pageContent.sections?.some((s) => s.type === "image");
+
+    // 根据模板类型确定样式
+    const styleMap: Record<string, string> = {
+      cover: "大标题居中，强调视觉冲击",
+      chapterTitle: "章节标题突出，引导阅读",
+      toc: "目录结构清晰，便于导航",
+      questions: "问题导向，引发思考",
+      pillars: "支柱结构，层次分明",
+      framework: "框架展示，逻辑清晰",
+      timeline: "时间线结构，流程清晰",
+      evolutionRoadmap: "演进路线图，发展脉络",
+      dashboard: "数据仪表盘，指标突出",
+      comparison: "对比布局，差异突出",
+      splitLayout: "分栏布局，内容均衡",
+      caseStudy: "案例分析，深度剖析",
+      multiColumn: "多栏布局，信息密集",
+      recommendations: "建议方案，行动导向",
+      maturityModel: "成熟度模型，阶段清晰",
+      riskOpportunity: "风险机遇分析，决策支持",
+      closing: "总结归纳，要点突出",
+    };
+
+    // 根据模板类型确定对齐方式
+    const alignmentMap: Record<string, string> = {
+      cover: "居中对齐，视觉焦点集中",
+      chapterTitle: "左对齐标题，右侧装饰",
+      toc: "左对齐列表，层次缩进",
+      questions: "居中问题，答案分布",
+      pillars: "多栏均分，间距适中",
+      framework: "框架居中，元素环绕",
+      timeline: "时间轴居中，事件左右交替",
+      evolutionRoadmap: "横向时间轴，阶段分明",
+      dashboard: "网格布局，指标卡片",
+      comparison: "左右对称，对比鲜明",
+      splitLayout: "左右分栏，比例均衡",
+      caseStudy: "上下结构，案例详情",
+      multiColumn: "多栏并列，内容独立",
+      recommendations: "列表布局，优先级排列",
+      maturityModel: "阶梯布局，层级递进",
+      riskOpportunity: "双栏对比，红绿标识",
+      closing: "居中总结，要点列表",
+    };
+
+    // 生成核心元素列表
+    const coreElements: string[] = [
+      `标题: ${pageOutline.title}`,
+      ...(hasSubtitle ? [`副标题: ${pageOutline.subtitle}`] : []),
+      ...(pageOutline.keyElements?.slice(0, 3).map((e) => `要点: ${e}`) || []),
+    ];
+
+    // 推断情绪/氛围
+    const moodMap: Record<string, string> = {
+      cover: "专业、大气、引人注目",
+      chapterTitle: "过渡、引导、承上启下",
+      toc: "结构化、导航感、全局视角",
+      questions: "好奇、探索、引人思考",
+      pillars: "稳固、支撑、核心要素",
+      framework: "系统化、结构化、逻辑性",
+      timeline: "有序、流程感、时间感",
+      evolutionRoadmap: "发展、进步、未来导向",
+      dashboard: "数据驱动、量化、精确",
+      comparison: "对比、选择、决策导向",
+      splitLayout: "对比、平衡、逻辑清晰",
+      caseStudy: "实践、证据、深度分析",
+      multiColumn: "信息密集、并列、多维度",
+      recommendations: "行动导向、建议、下一步",
+      maturityModel: "成长、阶段、进阶",
+      riskOpportunity: "权衡、决策、战略思维",
+      closing: "归纳、重点、收尾",
+    };
+
+    // 生成装饰元素列表
+    const decorations: string[] = [];
+    if (templateType === "cover") {
+      decorations.push("渐变背景", "品牌 Logo", "装饰线条");
+    } else if (templateType === "chapterTitle") {
+      decorations.push("章节编号", "分隔线", "背景图案");
+    } else if (templateType === "dashboard") {
+      decorations.push("指标卡片", "进度条", "图表边框");
+    } else {
+      decorations.push("列表图标", "分隔线");
+      if (hasImages) decorations.push("图片边框", "阴影效果");
+    }
+
+    // 构建完整的思考过程
+    const reasoning = `
+【页面 ${pageOutline.pageNumber} 设计思考】
+
+1️⃣ 草稿阶段 (Drafting):
+   - 确定页面类型: ${templateType}
+   - 核心内容: ${pageOutline.title}
+   - 关键要素: ${pageOutline.keyElements?.join(", ") || "无"}
+
+2️⃣ 布局精化 (Refining Layout):
+   - 选择模板: ${templateId}
+   - 对齐方式: ${alignmentMap[templateType] || "标准左对齐"}
+   - 内容区块: ${sectionsCount} 个部分
+
+3️⃣ 视觉规划 (Planning Visuals):
+   - 配色方案: 继承主题色
+   - 装饰元素: ${decorations.join(", ")}
+   - 图片使用: ${hasImages ? "是" : "否"}
+
+4️⃣ HTML 生成 (Formulating HTML):
+   - 使用模板: ${templateId}
+   - 响应式设计: 是
+   - 动画效果: 淡入
+
+✅ 设计决策依据:
+   - 模板 "${templateType}" 适合展示 "${pageOutline.title}"
+   - ${sectionsCount} 个内容块保持页面信息量适中
+   - ${hasSubtitle ? "副标题增强了层次感" : "无副标题，保持简洁"}
+`.trim();
+
+    return {
+      step1_drafting: {
+        style: styleMap[templateType] || "标准内容布局",
+        coreElements,
+        mood: moodMap[templateType] || "专业、清晰",
+      },
+      step2_refiningLayout: {
+        alignment: alignmentMap[templateType] || "左对齐",
+        graphicsPosition: hasImages ? "右侧或下方" : "无图片",
+        spacing: "标准间距 (24px)",
+      },
+      step3_planningVisuals: {
+        backgroundColor: "继承主题背景色",
+        accentColors: ["主题强调色", "辅助色"],
+        decorations,
+      },
+      step4_formulatingHTML: {
+        templateUsed: templateId,
+        sectionsCount,
+        hasImages: hasImages || false,
+      },
+      reasoning,
+    };
   }
 
   /**

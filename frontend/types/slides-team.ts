@@ -233,6 +233,41 @@ export interface SlideGeneratedData {
   title: string;
   contentLength: number;
   html?: string;
+  totalPages?: number;
+  templateId?: string;
+  /** 页面设计思考数据，用于同步到 Thinking TAB */
+  design?: PageDesignThinking;
+  /** 页面大纲关键点 */
+  keyPoints?: string[];
+}
+
+/**
+ * 页面设计思考数据（与后端 PageDesignThinking 对应）
+ * 这些数据会同步到前端的 Thinking TAB，便于 AI 持续改进
+ */
+export interface PageDesignThinking {
+  step1_drafting: {
+    style: string;
+    coreElements: string[];
+    mood: string;
+  };
+  step2_refiningLayout: {
+    alignment: string;
+    graphicsPosition: string;
+    spacing: string;
+  };
+  step3_planningVisuals: {
+    backgroundColor: string;
+    accentColors: string[];
+    decorations: string[];
+  };
+  step4_formulatingHTML: {
+    templateUsed: string;
+    sectionsCount: number;
+    hasImages: boolean;
+  };
+  /** 完整的思考过程，用于显示在 Thinking TAB */
+  reasoning: string;
 }
 
 export interface ReviewIssueData {
