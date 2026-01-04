@@ -346,6 +346,14 @@ export interface HeartbeatData {
 // Agent 状态（前端 UI 用）
 // ============================================================================
 
+export interface AgentTaskHistoryItem {
+  timestamp: number;
+  task: string;
+  thought?: string;
+  pageNumber?: number;
+  phase?: string;
+}
+
 export interface AgentState {
   role: SlidesAgentRole;
   name: string;
@@ -360,6 +368,8 @@ export interface AgentState {
   scoreDimensions?: ReviewDimension[];
   retryCount?: number;
   variant?: string; // 当前 Agent 变体
+  // 任务历史记录 - 累积显示每页的思考过程
+  taskHistory?: AgentTaskHistoryItem[];
 }
 
 export interface TeamExecutionState {

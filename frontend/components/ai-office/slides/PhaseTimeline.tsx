@@ -34,6 +34,7 @@ import type {
   SlidesAgentRole,
   TeamExecutionState,
   AgentState,
+  AgentTaskHistoryItem,
   ReviewIssueData,
   ReviewFixedData,
   AgentHandoffData,
@@ -312,9 +313,54 @@ function PhaseItem({
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden border-t border-gray-100"
             >
-              <div className="space-y-2 p-3 pt-2">
-                {/* 动态状态优先显示，否则显示静态描述 */}
-                {status === 'active' && agentState?.currentTask ? (
+              <div className="max-h-80 space-y-2 overflow-y-auto p-3 pt-2">
+                {/* 任务历史记录 - 结构化显示每一步 */}
+                {agentState?.taskHistory &&
+                agentState.taskHistory.length > 0 ? (
+                  <div className="space-y-2">
+                    {agentState.taskHistory.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className={cn(
+                          'rounded-md border-l-2 p-2 text-xs',
+                          idx === agentState.taskHistory!.length - 1 &&
+                            status === 'active'
+                            ? 'border-blue-400 bg-blue-50'
+                            : 'border-gray-200 bg-gray-50'
+                        )}
+                      >
+                        {/* 页码/阶段标签 */}
+                        <div className="mb-1 flex items-center gap-2">
+                          {item.pageNumber && (
+                            <span className="rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700">
+                              第{item.pageNumber}页
+                            </span>
+                          )}
+                          <span className="text-gray-400">
+                            {new Date(item.timestamp).toLocaleTimeString(
+                              'zh-CN',
+                              {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                              }
+                            )}
+                          </span>
+                        </div>
+                        {/* 任务内容 */}
+                        <p className="whitespace-pre-wrap leading-relaxed text-gray-700">
+                          {item.task}
+                        </p>
+                        {/* 思考内容 */}
+                        {item.thought && (
+                          <p className="mt-1 italic text-amber-600">
+                            💭 {item.thought}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : status === 'active' && agentState?.currentTask ? (
                   <div className="rounded-md bg-blue-50 p-2">
                     <div className="mb-1 flex items-center gap-1 text-xs font-medium text-blue-700">
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -328,12 +374,14 @@ function PhaseItem({
                   <p className="text-xs text-gray-500">{config.description}</p>
                 )}
 
-                {/* Agent 思考 */}
-                {agentState?.thought && (
-                  <div className="rounded bg-amber-50 p-2 text-xs italic text-amber-700">
-                    💭 {agentState.thought}
-                  </div>
-                )}
+                {/* Agent 思考 (当前，不在历史中时显示) */}
+                {agentState?.thought &&
+                  (!agentState.taskHistory ||
+                    agentState.taskHistory.length === 0) && (
+                    <div className="rounded bg-amber-50 p-2 text-xs italic text-amber-700">
+                      💭 {agentState.thought}
+                    </div>
+                  )}
 
                 {/* 进度条 */}
                 {status === 'active' && progress && (

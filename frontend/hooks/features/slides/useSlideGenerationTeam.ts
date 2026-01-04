@@ -118,14 +118,53 @@ export function useSlideGenerationTeam(
   // ============================================================================
 
   const updateAgentState = useCallback(
-    (role: SlidesAgentRole, updates: Partial<AgentState>) => {
+    (
+      role: SlidesAgentRole,
+      updates: Partial<AgentState>,
+      pageNumber?: number
+    ) => {
       setTeamState((prev) => {
         if (!prev) return prev;
+
+        const currentAgent = prev.agents[role];
+        const newTaskHistory = currentAgent.taskHistory || [];
+
+        // 如果有新的 task 或 thought，添加到历史记录
+        if (updates.currentTask || updates.thought) {
+          // 只有当内容发生变化时才添加到历史
+          const lastItem = newTaskHistory[newTaskHistory.length - 1];
+          const newTask = updates.currentTask || currentAgent.currentTask;
+          const newThought = updates.thought || currentAgent.thought;
+
+          if (
+            !lastItem ||
+            lastItem.task !== newTask ||
+            lastItem.thought !== newThought
+          ) {
+            newTaskHistory.push({
+              timestamp: Date.now(),
+              task: newTask || '',
+              thought: newThought,
+              pageNumber,
+              phase: prev.phase,
+            });
+
+            // 限制历史记录数量，防止内存溢出
+            if (newTaskHistory.length > 100) {
+              newTaskHistory.shift();
+            }
+          }
+        }
+
         return {
           ...prev,
           agents: {
             ...prev.agents,
-            [role]: { ...prev.agents[role], ...updates },
+            [role]: {
+              ...currentAgent,
+              ...updates,
+              taskHistory: newTaskHistory,
+            },
           },
         };
       });
@@ -361,6 +400,16 @@ export function useSlideGenerationTeam(
 
             updatePage(pageNumber, { status: 'generating' });
 
+            // 更新 writer agent 状态，包含页码信息
+            updateAgentState(
+              'writer',
+              {
+                status: 'working',
+                currentTask: `正在生成第 ${pageNumber} 页: ${data.title || ''}`,
+              },
+              pageNumber
+            );
+
             const currentProgress = useSlidesStore.getState().progress;
             setProgress({
               phase: currentProgress?.phase || 'page_rendering',
@@ -419,6 +468,15 @@ export function useSlideGenerationTeam(
             const currentPages = useSlidesStore.getState().pages;
             console.log(
               `[Team SSE] ★★★ AFTER updatePage: pages.length=${currentPages.length}, pageNumbers=${currentPages.map((p) => p.pageNumber).join(',')} ★★★`
+            );
+
+            // 记录页面完成到 writer 的任务历史
+            updateAgentState(
+              'writer',
+              {
+                currentTask: `✅ 第 ${pageNumber} 页完成: ${title}`,
+              },
+              pageNumber
             );
 
             options.onSlideGenerated?.(pageNumber, data.html);
