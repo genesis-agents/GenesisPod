@@ -15,6 +15,7 @@ import {
   ContextRouterService,
   ContextStrategy,
 } from "./context-router.service";
+import { TopicContextRetrievalService } from "./topic-context-retrieval.service";
 import { ParsedUrl } from "../../../../../common/content-processing";
 import { TeamMemberAgent } from "../../agents";
 import { FunctionCallingLLMAdapter } from "../../../../ai-engine/llm/adapters/function-calling-llm-adapter";
@@ -47,6 +48,7 @@ export class AiResponseService {
     private functionCallingLLMAdapter: FunctionCallingLLMAdapter,
     private functionCallingExecutor: FunctionCallingExecutor,
     private topicEventEmitter: TopicEventEmitterService,
+    @Optional() private contextRetrievalService: TopicContextRetrievalService,
     @Optional() private creditsService: CreditsService,
     @Optional() private metricsService: MetricsService,
     @Optional() private auditService: AuditService,
@@ -252,13 +254,14 @@ export class AiResponseService {
     }
 
     // 4. 如果消息被截断太多，生成早期消息的摘要
+    // 【改进】不仅记录参与者，还保留关键内容摘要（情节、决策、结论等）
     let summary: string | null = null;
     const droppedCount = filteredMessages.length - topMessages.length;
-    if (droppedCount > 10) {
-      // 获取被丢弃的早期消息的简要摘要
+    if (droppedCount > 5) {
+      // 获取被丢弃的早期消息
       const droppedMessages = scoredMessages
         .filter((m) => !topMessages.find((t) => t.id === m.id))
-        .slice(0, 10);
+        .slice(0, 15); // 增加到15条以获取更多上下文
 
       if (droppedMessages.length > 0) {
         const participants = [
@@ -272,7 +275,55 @@ export class AiResponseService {
             ),
           ),
         ];
-        summary = `[Earlier discussion (${droppedCount} messages) involved: ${participants.join(", ")}]`;
+
+        // 【长文支持】提取关键内容摘要
+        const contentSummaries: string[] = [];
+        for (const msg of droppedMessages.slice(0, 8)) {
+          const content = msg.content;
+          // 提取章节标题（如：第X章、Chapter X）
+          const chapterMatch = content.match(
+            /(?:第\s*[一二三四五六七八九十\d]+\s*章[：:\s]*[^\n]+|Chapter\s*\d+[：:\s]*[^\n]+)/i,
+          );
+          if (chapterMatch) {
+            contentSummaries.push(`📖 ${chapterMatch[0].substring(0, 50)}`);
+            continue;
+          }
+          // 提取决策/结论（如：决定、确定、结论、总结）
+          const decisionMatch = content.match(
+            /(?:我们决定|最终确定|结论是|总结：|决定采用)[^。！\n]{10,50}/,
+          );
+          if (decisionMatch) {
+            contentSummaries.push(`✅ ${decisionMatch[0]}`);
+            continue;
+          }
+          // 提取任务/目标（如：任务、目标、需要完成）
+          const taskMatch = content.match(
+            /(?:主要任务|核心目标|需要完成|接下来要)[^。！\n]{10,50}/,
+          );
+          if (taskMatch) {
+            contentSummaries.push(`🎯 ${taskMatch[0]}`);
+            continue;
+          }
+          // 如果没有特殊标记，提取第一句有意义的内容
+          const firstSentence = content
+            .replace(/[\n\r]+/g, " ")
+            .match(/[^。！？]{20,80}[。！？]/);
+          if (firstSentence && contentSummaries.length < 5) {
+            const sender =
+              msg.sender?.fullName ||
+              msg.sender?.username ||
+              msg.aiMember?.displayName ||
+              "";
+            contentSummaries.push(`${sender}: ${firstSentence[0].trim()}`);
+          }
+        }
+
+        // 构建增强摘要
+        let enhancedSummary = `[Earlier discussion (${droppedCount} messages) involved: ${participants.join(", ")}]`;
+        if (contentSummaries.length > 0) {
+          enhancedSummary += `\n\n**Key points from earlier:**\n${contentSummaries.slice(0, 5).join("\n")}`;
+        }
+        summary = enhancedSummary;
       }
     }
 
@@ -638,6 +689,40 @@ ${aiList}
 
     const combinedUrlContext = parsedUrlsContext || urlContext;
 
+    // 【长文支持】使用向量检索获取相关历史上下文
+    let semanticRetrievalContext = "";
+    if (this.contextRetrievalService && !debateRole) {
+      try {
+        const recentMessageIds = contextMessages.map((m) => m.id);
+        const currentQuery =
+          contextMessages
+            .filter((m) => m.senderId)
+            .slice(-3)
+            .map((m) => m.content)
+            .join(" ") || "";
+
+        if (currentQuery.length > 50) {
+          semanticRetrievalContext =
+            await this.contextRetrievalService.buildEnhancedContext(
+              topicId,
+              currentQuery,
+              recentMessageIds,
+            );
+          if (semanticRetrievalContext) {
+            this.logger.log(
+              `[Long Text Support] Added semantic retrieval context (${semanticRetrievalContext.length} chars)`,
+            );
+          }
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[Long Text Support] Semantic retrieval failed:`,
+          error,
+        );
+        // 失败不影响主流程
+      }
+    }
+
     const systemPrompt = debatePrompt
       ? `You are ${aiMember.displayName}.
 ${debatePrompt}
@@ -646,7 +731,7 @@ ${contextSummarySection}${resourceContext}${combinedUrlContext}${searchContext}`
         `You are ${aiMember.displayName}, an AI assistant participating in a group discussion.
 ${aiMember.roleDescription ? `Your role: ${aiMember.roleDescription}` : ""}
 You are in a discussion group called "${topic?.name}".
-${topic?.description ? `Group description: ${topic.description}` : ""}${contextSummarySection}${resourceContext}${combinedUrlContext}${searchContext}${aiCollaborationPrompt}
+${topic?.description ? `Group description: ${topic.description}` : ""}${contextSummarySection}${resourceContext}${combinedUrlContext}${searchContext}${semanticRetrievalContext}${aiCollaborationPrompt}
 
 Respond naturally and helpfully to the discussion. When relevant, reference the shared materials, fetched web content, and search results to provide accurate, up-to-date information. Keep your responses concise but informative.`;
 
@@ -911,8 +996,9 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
     }
 
     // 2. 限制总字符数
-    // 目标：~15k tokens = ~60k chars（更保守，为响应留更多空间）
-    const MAX_TOTAL_CONTEXT_CHARS = 60000;
+    // 目标：~25k tokens = ~100k chars（扩展以支持长文创作场景）
+    // 注：大多数模型支持 128k+ 上下文，100k chars 约占用 25% 容量
+    const MAX_TOTAL_CONTEXT_CHARS = 100000;
     let totalContextChars = normalContextMessages.reduce(
       (sum, m) => sum + m.content.length,
       0,
@@ -1119,15 +1205,15 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
           modelId.includes("claude") ||
           modelId.includes("gemini");
 
-        // Increased max_tokens to prevent truncation in team conversations
-        // - Reasoning models: 8192 tokens (complex multi-step tasks)
-        // - Large models: 4096 tokens (standard conversations)
-        // - Other models: 2048 tokens (simpler responses)
+        // 【长文支持】增加 max_tokens 以支持长文创作场景
+        // - Reasoning models: 16384 tokens (复杂多步骤任务、长文创作)
+        // - Large models: 8192 tokens (标准对话、中等长度内容)
+        // - Other models: 4096 tokens (简单响应)
         const effectiveMaxTokens = isReasoningModel
-          ? 8192
+          ? 16384
           : isLargeModel
-            ? 4096
-            : 2048;
+            ? 8192
+            : 4096;
 
         this.logger.log(
           `Calling AI API: provider=${provider}, modelId=${modelId}, maxTokens=${effectiveMaxTokens}`,

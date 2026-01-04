@@ -1,2 +1,3 @@
 export * from "./ai-response.service";
 export * from "./context-router.service";
+export * from "./topic-context-retrieval.service";

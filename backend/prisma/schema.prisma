@@ -1635,6 +1635,7 @@ model TopicMessage {
   attachments     TopicMessageAttachment[]
   reactions       TopicMessageReaction[]
   sourceResources TopicResource[]          @relation("TopicResourceSource")
+  embedding       TopicMessageEmbedding?   // 长文上下文检索用
 
   // 解析的 URL 内容（用于 AI 上下文增强）
   parsedUrls Json? @map("parsed_urls") // ParsedUrl[] - 检测到的 URL 及其解析结果
@@ -1647,6 +1648,31 @@ model TopicMessage {
   @@index([senderId])
   @@index([aiMemberId])
   @@map("topic_messages")
+}
+
+// Topic 消息嵌入（用于长文上下文检索）
+// 存储消息的向量嵌入，支持语义相似度搜索
+model TopicMessageEmbedding {
+  id        String       @id @default(uuid())
+  messageId String       @unique @map("message_id")
+  message   TopicMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  // 向量数据 - 使用 JSONB 存储（兼容 Railway PostgreSQL）
+  embedding  Json   @default("[]") // Float[] 数组
+  model      String @default("text-embedding-3-small") @db.VarChar(100)
+  dimensions Int    @default(1536)
+
+  // 内容摘要（用于快速预览）
+  contentSummary String? @map("content_summary") @db.Text
+
+  // 元数据
+  tokenCount Int? @map("token_count") // 原始内容的 token 数
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([messageId])
+  @@map("topic_message_embeddings")
 }
 
 // 消息@提及
