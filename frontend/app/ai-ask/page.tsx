@@ -1719,38 +1719,6 @@ export default function AskPage() {
                                       PPT
                                     </span>
                                   </button>
-                                  <button
-                                    type="button"
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setShowTools(false);
-                                      router.push('/ai-office?tab=docs');
-                                    }}
-                                  >
-                                    <span className="text-base">📝</span>
-                                    <span className="flex-1">AI Docs</span>
-                                    <span className="text-xs text-gray-400">
-                                      Word
-                                    </span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setShowTools(false);
-                                      router.push('/ai-office?tab=designer');
-                                    }}
-                                  >
-                                    <span className="text-base">🎨</span>
-                                    <span className="flex-1">AI Designer</span>
-                                    <span className="text-xs text-gray-400">
-                                      Design
-                                    </span>
-                                  </button>
 
                                   {/* Divider */}
                                   <div className="my-2 border-t border-gray-100" />
@@ -2556,38 +2524,6 @@ export default function AskPage() {
                                 <span className="flex-1">AI Slides</span>
                                 <span className="text-xs text-gray-400">
                                   PPT
-                                </span>
-                              </button>
-                              <button
-                                type="button"
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setShowTools(false);
-                                  router.push('/ai-office?tab=docs');
-                                }}
-                              >
-                                <span className="text-base">📝</span>
-                                <span className="flex-1">AI Docs</span>
-                                <span className="text-xs text-gray-400">
-                                  Word
-                                </span>
-                              </button>
-                              <button
-                                type="button"
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setShowTools(false);
-                                  router.push('/ai-office?tab=designer');
-                                }}
-                              >
-                                <span className="text-base">🎨</span>
-                                <span className="flex-1">AI Designer</span>
-                                <span className="text-xs text-gray-400">
-                                  Design
                                 </span>
                               </button>
 
