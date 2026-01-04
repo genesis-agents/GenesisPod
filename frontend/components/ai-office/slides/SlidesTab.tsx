@@ -317,10 +317,38 @@ export function SlidesTab() {
     });
 
     // 解析用户意图：提取页码和修改要求
-    const pageMatch = message.match(/第\s*(\d+)\s*页|page\s*(\d+)|(\d+)\s*页/i);
-    const targetPageNumber = pageMatch
-      ? parseInt(pageMatch[1] || pageMatch[2] || pageMatch[3], 10)
-      : pages[selectedPageIndex]?.pageNumber;
+    // 支持中文数字（一二三...）和阿拉伯数字
+    const chineseNumMap: Record<string, number> = {
+      一: 1,
+      二: 2,
+      三: 3,
+      四: 4,
+      五: 5,
+      六: 6,
+      七: 7,
+      八: 8,
+      九: 9,
+      十: 10,
+      十一: 11,
+      十二: 12,
+      十三: 13,
+      十四: 14,
+      十五: 15,
+    };
+    const chineseNumPattern = Object.keys(chineseNumMap).join('|');
+    const pageMatch = message.match(
+      new RegExp(
+        `第\\s*(\\d+|${chineseNumPattern})\\s*页|page\\s*(\\d+)|(\\d+)\\s*页`,
+        'i'
+      )
+    );
+    let targetPageNumber: number | undefined;
+    if (pageMatch) {
+      const matched = pageMatch[1] || pageMatch[2] || pageMatch[3];
+      targetPageNumber = chineseNumMap[matched] || parseInt(matched, 10);
+    } else {
+      targetPageNumber = pages[selectedPageIndex]?.pageNumber;
+    }
 
     // 检查是否是 @leader 继续执行命令
     if (message.toLowerCase().includes('@leader') && message.includes('继续')) {
