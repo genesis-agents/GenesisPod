@@ -14,10 +14,14 @@ import {
 import { BUILTIN_TOOLS, BuiltinToolId } from "../../ai-engine/core";
 import { ToolRegistry } from "../../ai-engine/tools/registry";
 import { ToolContext } from "../../ai-engine/tools/abstractions/tool.interface";
-import { AskLLMAdapter } from "./adapters";
+import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
 import { RAGPipelineService } from "../rag/services/rag-pipeline.service";
 import { CreditsService } from "../../credits/credits.service";
 import { InsufficientCreditsException } from "../../credits/exceptions/insufficient-credits.exception";
+import {
+  DEEPDIVE_ENGINE_CONTEXT,
+  isProjectRelatedQuery,
+} from "./constants/project-context";
 
 interface CreateSessionDto {
   title?: string;
@@ -63,7 +67,8 @@ export class AiAskService {
     private readonly aiChatService: AiChatService,
     @Optional()
     private readonly functionCallingExecutor: FunctionCallingExecutor,
-    @Optional() private readonly askLLMAdapter: AskLLMAdapter,
+    @Optional()
+    private readonly functionCallingLLMAdapter: FunctionCallingLLMAdapter,
     @Optional() private readonly toolRegistry: ToolRegistry,
     @Optional() private readonly ragPipelineService: RAGPipelineService,
     @Optional() private readonly creditsService: CreditsService,
@@ -75,7 +80,7 @@ export class AiAskService {
   private isToolCapabilityAvailable(): boolean {
     return !!(
       this.functionCallingExecutor &&
-      this.askLLMAdapter &&
+      this.functionCallingLLMAdapter &&
       this.toolRegistry
     );
   }
@@ -339,18 +344,19 @@ export class AiAskService {
           `[sendMessage] Using tool-enabled mode for session ${sessionId}`,
         );
 
-        // 配置 LLM 适配器
-        this.askLLMAdapter.setModelConfig({
+        // 配置 LLM 适配器（使用 AI Engine 的 FunctionCallingLLMAdapter）
+        this.functionCallingLLMAdapter.setConfig({
           provider: modelConfig.provider,
           modelId: modelConfig.modelId,
-          apiKey: modelConfig.apiKey ?? "",
+          apiKey: modelConfig.apiKey ?? undefined,
           apiEndpoint: modelConfig.apiEndpoint ?? undefined,
         });
 
-        // 构建系统提示词（包含 RAG 上下文）
+        // 构建系统提示词（包含 RAG 上下文和项目上下文）
         const systemPrompt = this.buildSystemPromptWithContext(
           contextMessages,
           ragContext,
+          dto.content,
         );
 
         // 构建工具执行上下文
@@ -369,9 +375,9 @@ export class AiAskService {
           maxTokens: 4000,
         };
 
-        // 执行自主模式
+        // 执行自主模式（使用 AI Engine 的 FunctionCallingLLMAdapter）
         const events = this.functionCallingExecutor.execute(
-          this.askLLMAdapter,
+          this.functionCallingLLMAdapter,
           systemPrompt,
           dto.content,
           this.getAvailableTools(),
@@ -400,16 +406,19 @@ export class AiAskService {
         aiResponseContent = finalContent || "抱歉，我无法完成这个请求。";
       } else {
         // 使用传统模式（直接调用 AiChatService）
-        // 如果有 RAG 上下文，添加系统消息
-        const messagesWithRAG = ragContext
-          ? [
-              {
-                role: "system" as const,
-                content: this.buildSystemPromptForRAG(ragContext),
-              },
-              ...contextMessages,
-            ]
-          : contextMessages;
+        // 构建系统提示词（包含项目上下文和 RAG 上下文）
+        const systemPrompt = this.buildSystemPromptForChat(
+          dto.content,
+          ragContext,
+        );
+
+        const messagesWithSystem = [
+          {
+            role: "system" as const,
+            content: systemPrompt,
+          },
+          ...contextMessages,
+        ];
 
         const aiResponse =
           await this.aiChatService.generateChatCompletionWithKey({
@@ -417,7 +426,7 @@ export class AiAskService {
             modelId: modelConfig.modelId,
             apiKey: modelConfig.apiKey ?? "",
             apiEndpoint: modelConfig.apiEndpoint ?? undefined,
-            messages: messagesWithRAG,
+            messages: messagesWithSystem,
             maxTokens: 4000,
             temperature: 0.7,
           });
@@ -516,16 +525,32 @@ export class AiAskService {
 
   /**
    * 构建带上下文的系统提示词
+   * @param contextMessages 对话历史
+   * @param ragContext RAG 检索的知识库内容
+   * @param userQuery 当前用户问题（用于判断是否需要项目上下文）
    */
   private buildSystemPromptWithContext(
     contextMessages: MessageWithContext[],
     ragContext?: string,
+    userQuery?: string,
   ): string {
     const systemParts = [
       "你是一个智能助手，可以帮助用户回答问题、搜索信息和完成各种任务。",
       "请用中文回答，除非用户明确要求使用其他语言。",
       "回答要准确、简洁、有帮助。",
     ];
+
+    // 如果问题与 DeepDive Engine 项目相关，添加项目上下文
+    if (userQuery && isProjectRelatedQuery(userQuery)) {
+      systemParts.push("\n## DeepDive Engine 项目知识库");
+      systemParts.push(
+        "以下是 DeepDive Engine 项目的内置知识，请基于这些信息回答关于本项目的问题：",
+      );
+      systemParts.push(DEEPDIVE_ENGINE_CONTEXT);
+      this.logger.debug(
+        "[buildSystemPromptWithContext] Added DeepDive Engine project context",
+      );
+    }
 
     // 如果有 RAG 上下文，添加知识库内容
     if (ragContext) {
@@ -557,20 +582,44 @@ export class AiAskService {
   }
 
   /**
-   * 构建 RAG 系统提示词
+   * 构建聊天系统提示词（传统模式）
+   * 包含项目上下文和 RAG 上下文
    */
-  private buildSystemPromptForRAG(ragContext: string): string {
-    return `你是一个智能助手。以下是从用户知识库中检索到的相关内容，请基于这些内容回答用户的问题。
+  private buildSystemPromptForChat(
+    userQuery: string,
+    ragContext?: string,
+  ): string {
+    const parts = [
+      "你是一个智能助手，可以帮助用户回答问题、搜索信息和完成各种任务。",
+    ];
 
-## 参考知识库内容
-${ragContext}
+    // 如果问题与 DeepDive Engine 项目相关，添加项目上下文
+    if (isProjectRelatedQuery(userQuery)) {
+      parts.push("\n## DeepDive Engine 项目知识库");
+      parts.push(
+        "以下是 DeepDive Engine 项目的内置知识，请基于这些信息回答关于本项目的问题：",
+      );
+      parts.push(DEEPDIVE_ENGINE_CONTEXT);
+      this.logger.debug(
+        "[buildSystemPromptForChat] Added DeepDive Engine project context",
+      );
+    }
 
-## 回答要求
-1. 优先使用知识库中的内容来回答问题
-2. 如果知识库内容与问题相关，请基于这些内容给出准确答案
-3. 如果知识库内容不足以回答问题，可以结合你自身的知识进行补充
-4. 请用中文回答，除非用户明确要求使用其他语言
-5. 回答要准确、简洁、有帮助`;
+    // 如果有 RAG 上下文，添加知识库内容
+    if (ragContext) {
+      parts.push("\n## 参考知识库内容");
+      parts.push("以下是从用户知识库中检索到的相关内容：");
+      parts.push(ragContext);
+    }
+
+    parts.push("\n## 回答要求");
+    parts.push("1. 优先使用上述知识库内容来回答问题");
+    parts.push("2. 如果知识库内容与问题相关，请基于这些内容给出准确答案");
+    parts.push("3. 如果知识库内容不足以回答问题，可以结合你自身的知识进行补充");
+    parts.push("4. 请用中文回答，除非用户明确要求使用其他语言");
+    parts.push("5. 回答要准确、简洁、有帮助");
+
+    return parts.join("\n");
   }
 
   /**
