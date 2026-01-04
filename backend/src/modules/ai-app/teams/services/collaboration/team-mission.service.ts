@@ -44,6 +44,67 @@ interface TaskBreakdown {
 export class TeamMissionService {
   private readonly logger = new Logger(TeamMissionService.name);
 
+  // ==================== 重试与 Agent 切换配置 ====================
+
+  /**
+   * 重试配置
+   * - maxRetries: 最大重试次数
+   * - initialDelayMs: 初始延迟（毫秒）
+   * - maxDelayMs: 最大延迟（毫秒）
+   * - backoffMultiplier: 退避系数（指数退避）
+   */
+  private readonly RETRY_CONFIG = {
+    maxRetries: 3,
+    initialDelayMs: 1000,
+    maxDelayMs: 10000,
+    backoffMultiplier: 2,
+    // 可重试的错误模式（临时性错误）
+    retryablePatterns: [
+      /timeout/i,
+      /timed?\s*out/i,
+      /rate.?limit/i,
+      /too many requests/i,
+      /429/,
+      /5\d{2}/, // 5xx 服务器错误
+      /ECONNRESET/i,
+      /ETIMEDOUT/i,
+      /ENOTFOUND/i,
+      /network/i,
+      /socket hang up/i,
+      /connection.*refused/i,
+      /temporarily unavailable/i,
+      /service unavailable/i,
+      /overloaded/i,
+    ],
+    // 不可重试的错误模式（永久性错误）
+    nonRetryablePatterns: [
+      /context.*(too large|overflow|exceed)/i,
+      /token.*(limit|exceed|max)/i,
+      /invalid.*(request|api.?key|model)/i,
+      /authentication/i,
+      /authorization/i,
+      /forbidden/i,
+      /not found/i,
+      /model.*not.*available/i,
+      /content.*policy/i,
+      /403/,
+      /401/,
+      /404/,
+    ],
+  };
+
+  /**
+   * Agent 切换配置
+   */
+  private readonly AGENT_SWITCH_CONFIG = {
+    // 允许切换的最大次数
+    maxSwitches: 2,
+    // 是否允许 Leader 作为最后备选
+    allowLeaderFallback: true,
+    // 任务负载权重（优先选择负载低的 Agent）
+    loadBalancingEnabled: true,
+  };
+
   constructor(
     private prisma: PrismaService,
     private aiChatService: AiChatService,
@@ -116,6 +177,218 @@ export class TeamMissionService {
       maxTokens: options?.maxTokens ?? defaultMaxTokens,
       temperature: options?.temperature ?? 0.7,
     });
+  }
+
+  // ==================== 重试与 Agent 切换辅助方法 ====================
+
+  /**
+   * 判断错误是否可重试
+   * 可重试：超时、速率限制、服务器错误（5xx）、网络错误
+   * 不可重试：上下文过大、认证错误、无效请求（4xx）
+   */
+  private isRetryableError(errorMsg: string): boolean {
+    // 先检查不可重试的错误（优先级更高）
+    for (const pattern of this.RETRY_CONFIG.nonRetryablePatterns) {
+      if (pattern.test(errorMsg)) {
+        this.logger.debug(
+          `[isRetryableError] Non-retryable error detected: ${errorMsg}`,
+        );
+        return false;
+      }
+    }
+
+    // 检查可重试的错误
+    for (const pattern of this.RETRY_CONFIG.retryablePatterns) {
+      if (pattern.test(errorMsg)) {
+        this.logger.debug(
+          `[isRetryableError] Retryable error detected: ${errorMsg}`,
+        );
+        return true;
+      }
+    }
+
+    // 默认：重试（大多数未知错误是临时性的）
+    return true;
+  }
+
+  /**
+   * 睡眠指定毫秒数
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * 查找替代 Agent
+   * 优先选择：
+   * 1. 当前负载最低的 Agent
+   * 2. 非 Leader（除非没有其他选择）
+   * 3. 未曾尝试过此任务的 Agent
+   */
+  private async findAlternativeAgent(
+    mission: any,
+    failedAgentIds: string[],
+    _task: any, // 保留用于未来扩展（如按任务类型选择 Agent）
+  ): Promise<any | null> {
+    try {
+      // 获取所有团队成员
+      const teamMemberResult = await this.getTeamMembers(mission.topicId);
+      const allMembers = teamMemberResult.all || [];
+
+      if (allMembers.length <= 1) {
+        this.logger.warn(
+          `[findAlternativeAgent] No alternative agents available (only ${allMembers.length} member)`,
+        );
+        return null;
+      }
+
+      // 过滤：排除已失败的 Agent 和 Leader（优先）
+      let candidates = allMembers.filter(
+        (m: any) => !failedAgentIds.includes(m.id) && !m.isLeader,
+      );
+
+      this.logger.log(
+        `[findAlternativeAgent] Found ${candidates.length} non-leader candidates (excluded: ${failedAgentIds.join(", ")})`,
+      );
+
+      // 如果没有非 Leader 候选，且配置允许，考虑 Leader 作为备选
+      if (
+        candidates.length === 0 &&
+        this.AGENT_SWITCH_CONFIG.allowLeaderFallback
+      ) {
+        const leader = allMembers.find(
+          (m: any) => m.isLeader && !failedAgentIds.includes(m.id),
+        );
+        if (leader) {
+          this.logger.log(
+            `[findAlternativeAgent] Using Leader ${leader.displayName} as fallback`,
+          );
+          return leader;
+        }
+      }
+
+      if (candidates.length === 0) {
+        this.logger.warn(
+          `[findAlternativeAgent] No alternative agents available after filtering`,
+        );
+        return null;
+      }
+
+      // 如果启用负载均衡，按当前任务数排序
+      if (
+        this.AGENT_SWITCH_CONFIG.loadBalancingEnabled &&
+        candidates.length > 1
+      ) {
+        const agentTaskCounts = await this.prisma.agentTask.groupBy({
+          by: ["assignedToId"],
+          where: {
+            missionId: mission.id,
+            status: { in: ["PENDING", "IN_PROGRESS"] },
+          },
+          _count: { _all: true },
+        });
+
+        const taskCountMap = new Map(
+          agentTaskCounts.map((a) => [a.assignedToId, a._count._all]),
+        );
+
+        candidates.sort((a: any, b: any) => {
+          const countA = taskCountMap.get(a.id) || 0;
+          const countB = taskCountMap.get(b.id) || 0;
+          return countA - countB;
+        });
+
+        this.logger.log(
+          `[findAlternativeAgent] Sorted by load: ${candidates.map((c: any) => `${c.displayName}(${taskCountMap.get(c.id) || 0})`).join(", ")}`,
+        );
+      }
+
+      const selected = candidates[0];
+      this.logger.log(
+        `[findAlternativeAgent] Selected: ${selected.displayName} (${selected.aiModel})`,
+      );
+      return selected;
+    } catch (error) {
+      this.logger.error(`[findAlternativeAgent] Error:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * 带重试的 AI 调用
+   * 支持指数退避重试策略
+   */
+  private async callAIWithRetry(
+    aiModel: string,
+    messages: { role: string; content: string }[],
+    systemPrompt: string,
+    options: { maxTokens?: number; temperature?: number },
+    taskContext: { taskId: string; taskTitle: string; missionId: string },
+  ): Promise<{
+    success: boolean;
+    content?: string;
+    error?: string;
+    attempts: number;
+    finalModel: string;
+  }> {
+    const { maxRetries, initialDelayMs, maxDelayMs, backoffMultiplier } =
+      this.RETRY_CONFIG;
+    let lastError = "";
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        this.logger.log(
+          `[callAIWithRetry] Task "${taskContext.taskTitle}" attempt ${attempt}/${maxRetries} with model ${aiModel}`,
+        );
+
+        const response = await this.callAIWithConfig(
+          aiModel,
+          messages,
+          systemPrompt,
+          options,
+        );
+
+        this.logger.log(
+          `[callAIWithRetry] Task "${taskContext.taskTitle}" succeeded on attempt ${attempt}`,
+        );
+
+        return {
+          success: true,
+          content: response.content,
+          attempts: attempt,
+          finalModel: aiModel,
+        };
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+
+        this.logger.warn(
+          `[callAIWithRetry] Task "${taskContext.taskTitle}" attempt ${attempt}/${maxRetries} failed: ${lastError}`,
+        );
+
+        // 检查是否应该重试
+        if (attempt < maxRetries && this.isRetryableError(lastError)) {
+          const delay = Math.min(
+            initialDelayMs * Math.pow(backoffMultiplier, attempt - 1),
+            maxDelayMs,
+          );
+          this.logger.log(
+            `[callAIWithRetry] Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})...`,
+          );
+          await this.sleep(delay);
+          continue;
+        }
+
+        // 不可重试或已达最大重试次数
+        break;
+      }
+    }
+
+    return {
+      success: false,
+      error: lastError,
+      attempts: maxRetries,
+      finalModel: aiModel,
+    };
   }
 
   // ==================== 创建团队任务 ====================
@@ -542,37 +815,151 @@ export class TeamMissionService {
         searchContext,
       );
 
-      // 调用 AI 执行任务 (使用数据库 API Key)
+      // ==================== 带重试和 Agent 切换的 AI 调用 ====================
       // 使用更大的 max_tokens (8000) 确保有足够空间生成响应
-      let aiResponse;
-      try {
-        aiResponse = await this.callAIWithConfig(
-          assignedTo.aiModel,
-          [{ role: "user", content: taskPrompt }],
-          this.getAgentSystemPrompt(assignedTo, task),
-          { maxTokens: 8000, temperature: 0.7 },
-        );
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        this.logger.error(
-          `[executeTask] AI call failed for task ${task.id}: ${errorMsg}`,
+
+      let currentAgent = assignedTo;
+      const failedAgentIds: string[] = [];
+      let aiResponse: { content: string } | null = null;
+      let switchCount = 0;
+
+      // 外层循环：Agent 切换
+      while (switchCount <= this.AGENT_SWITCH_CONFIG.maxSwitches) {
+        this.logger.log(
+          `[executeTask] Attempting task "${task.title}" with agent ${currentAgent.displayName} (${currentAgent.aiModel})`,
         );
 
-        // 任务执行失败，需要 Leader 重新规划
+        // 如果切换了 Agent，发送通知
+        if (switchCount > 0) {
+          await this.sendMessageToTopic(
+            mission.topicId,
+            currentAgent.id,
+            `[任务接手]\n\n由于原负责人遇到技术问题，我将接手任务「${task.title}」的执行。`,
+            MessageContentType.TEXT,
+          );
+
+          // 更新任务的负责人
+          await this.prisma.agentTask.update({
+            where: { id: task.id },
+            data: { assignedToId: currentAgent.id },
+          });
+
+          // 广播 Agent 切换
+          this.aiTeamsGateway.emitToTopic(
+            mission.topicId,
+            "mission:agent_switched",
+            {
+              missionId: mission.id,
+              taskId: task.id,
+              previousAgentId: failedAgentIds[failedAgentIds.length - 1],
+              newAgentId: currentAgent.id,
+              newAgentName: currentAgent.displayName,
+              reason: "retry_exhausted",
+            },
+          );
+        }
+
+        // 内层调用：带重试的 AI 调用
+        const result = await this.callAIWithRetry(
+          currentAgent.aiModel,
+          [{ role: "user", content: taskPrompt }],
+          this.getAgentSystemPrompt(currentAgent, task),
+          { maxTokens: 8000, temperature: 0.7 },
+          {
+            taskId: task.id,
+            taskTitle: task.title,
+            missionId: mission.id,
+          },
+        );
+
+        if (result.success && result.content) {
+          aiResponse = { content: result.content };
+          this.logger.log(
+            `[executeTask] Task "${task.title}" completed successfully by ${currentAgent.displayName} after ${result.attempts} attempt(s)`,
+          );
+          break;
+        }
+
+        // 重试失败，记录失败的 Agent
+        failedAgentIds.push(currentAgent.id);
+        const errorMsg = result.error || "Unknown error";
+
+        this.logger.warn(
+          `[executeTask] Agent ${currentAgent.displayName} failed after ${result.attempts} retries: ${errorMsg}`,
+        );
+
+        // 发送失败通知
+        await this.sendMessageToTopic(
+          mission.topicId,
+          currentAgent.id,
+          `⚠️ **执行受阻**\n\n任务「${task.title}」执行过程中遇到问题（已重试 ${result.attempts} 次）：\n\n> ${errorMsg}\n\n正在尝试切换到其他团队成员...`,
+          MessageContentType.TEXT,
+        );
+
+        // 检查错误类型决定是否切换 Agent
+        if (!this.isRetryableError(errorMsg)) {
+          // 永久性错误（如上下文过大），直接走 Leader 重新规划
+          this.logger.log(
+            `[executeTask] Non-retryable error, skipping agent switch and going to Leader replan`,
+          );
+          await this.handleTaskExecutionFailure(
+            mission,
+            task,
+            currentAgent,
+            errorMsg,
+          );
+          return;
+        }
+
+        // 尝试查找替代 Agent
+        const alternativeAgent = await this.findAlternativeAgent(
+          mission,
+          failedAgentIds,
+          task,
+        );
+
+        if (!alternativeAgent) {
+          this.logger.warn(
+            `[executeTask] No alternative agents available, going to Leader replan`,
+          );
+          await this.handleTaskExecutionFailure(
+            mission,
+            task,
+            currentAgent,
+            `${errorMsg} (已尝试 ${failedAgentIds.length} 个 Agent，均无法完成)`,
+          );
+          return;
+        }
+
+        // 切换到新 Agent
+        this.logger.log(
+          `[executeTask] Switching from ${currentAgent.displayName} to ${alternativeAgent.displayName}`,
+        );
+        currentAgent = alternativeAgent;
+        switchCount++;
+      }
+
+      // 如果所有 Agent 都失败了
+      if (!aiResponse) {
+        this.logger.error(
+          `[executeTask] All agents failed for task "${task.title}"`,
+        );
         await this.handleTaskExecutionFailure(
           mission,
           task,
-          assignedTo,
-          errorMsg,
+          currentAgent,
+          `所有可用 Agent 均无法完成此任务（已尝试 ${failedAgentIds.length + 1} 个 Agent）`,
         );
-        return; // 结束当前任务执行
+        return;
       }
 
-      // 发送工作汇报消息
+      // ==================== AI 调用成功，继续处理结果 ====================
+
+      // 发送工作汇报消息（使用实际完成任务的 Agent）
       const leaderName = mission.leader.agentName || mission.leader.displayName;
       const resultMessage = await this.sendMessageToTopic(
         mission.topicId,
-        assignedTo.id,
+        currentAgent.id,
         `[工作汇报]\n\n@${leaderName} 任务「${task.title}」已完成！\n\n${aiResponse.content}`,
         MessageContentType.TEXT,
       );
@@ -589,11 +976,11 @@ export class TeamMissionService {
 
       await this.createLog(mission.id, {
         type: MissionLogType.TASK_COMPLETED,
-        agentId: assignedTo.id,
-        agentName: assignedTo.agentName || assignedTo.displayName,
+        agentId: currentAgent.id,
+        agentName: currentAgent.agentName || currentAgent.displayName,
         taskId: task.id,
         taskTitle: task.title,
-        content: `任务「${task.title}」执行完成，等待 Leader 审核`,
+        content: `任务「${task.title}」执行完成，等待 Leader 审核${failedAgentIds.length > 0 ? ` (经过 ${failedAgentIds.length} 次 Agent 切换)` : ""}`,
         messageId: resultMessage?.id,
       });
 
@@ -601,14 +988,14 @@ export class TeamMissionService {
       this.aiTeamsGateway.emitToTopic(mission.topicId, "task:completed", {
         missionId: mission.id,
         taskId: task.id,
-        agentId: assignedTo.id,
+        agentId: currentAgent.id,
       });
 
       // 清除Agent工作状态 (任务执行完成)
       this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:agent_done", {
         missionId: mission.id,
         taskId: task.id,
-        agentId: assignedTo.id,
+        agentId: currentAgent.id,
       });
 
       // Leader 审核
