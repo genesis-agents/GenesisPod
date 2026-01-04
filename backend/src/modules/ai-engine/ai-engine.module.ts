@@ -78,6 +78,9 @@ import { ImageModule } from "./image/image.module";
 // Teams
 import { TeamsModule } from "./teams/teams.module";
 
+// Long Content Engine
+import { LongContentModule } from "./long-content/long-content.module";
+
 // Core Services (migrated from ai-core)
 import { AiChatService } from "./llm/services/ai-chat.service";
 import { SearchService } from "./search/search.service";
@@ -224,7 +227,13 @@ const conversationMemoryFactory = {
  */
 @Global()
 @Module({
-  imports: [PrismaModule, HttpModule, ImageModule, TeamsModule],
+  imports: [
+    PrismaModule,
+    HttpModule,
+    ImageModule,
+    TeamsModule,
+    LongContentModule,
+  ],
   controllers: [AgentsController, AiCoreController],
   providers: [
     // === Registries ===
@@ -339,6 +348,9 @@ const conversationMemoryFactory = {
 
     // === Teams (re-export the module) ===
     TeamsModule,
+
+    // === Long Content Engine ===
+    LongContentModule,
   ],
 })
 export class AiEngineModule implements OnModuleInit {

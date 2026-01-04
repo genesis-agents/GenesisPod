@@ -33,6 +33,7 @@ import {
   ContextRouterService,
   AiResponseService,
   TopicContextRetrievalService,
+  TeamsLongContentService,
   // 协作服务
   DebateService,
   TeamMissionService,
@@ -66,6 +67,7 @@ import { TeamMemberAgent } from "./agents";
     ContextRouterService,
     AiResponseService,
     TopicContextRetrievalService,
+    TeamsLongContentService,
     TeamMemberAgent,
 
     // 协作服务
@@ -91,6 +93,7 @@ import { TeamMemberAgent } from "./agents";
     ContextRouterService,
     AiResponseService,
     TopicContextRetrievalService,
+    TeamsLongContentService,
 
     // 协作服务
     DebateService,
