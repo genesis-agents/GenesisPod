@@ -1516,7 +1516,7 @@ function PreviewPanel() {
   const containerRef = useRef<HTMLDivElement>(null);
   const thumbnailStripRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [viewMode, setViewMode] = useState<ViewMode>('code');
+  const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const lastWheelTime = useRef<number>(0);
   const accumulatedDelta = useRef<number>(0);
 
@@ -1690,21 +1690,9 @@ function PreviewPanel() {
         </div>
       </div>
 
-      {/* 视图模式切换标签 - Code | Preview | Thinking */}
+      {/* 视图模式切换标签 - Preview | Code | Thinking */}
       <div className="flex-shrink-0 border-b border-slate-200 bg-white/60 px-4 py-2 backdrop-blur-sm">
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => setViewMode('code')}
-            className={cn(
-              'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all',
-              viewMode === 'code'
-                ? 'bg-orange-100 text-orange-700 shadow-sm'
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-            )}
-          >
-            <Terminal className="h-4 w-4" />
-            Code
-          </button>
           <button
             onClick={() => setViewMode('preview')}
             className={cn(
@@ -1716,6 +1704,18 @@ function PreviewPanel() {
           >
             <Eye className="h-4 w-4" />
             Preview
+          </button>
+          <button
+            onClick={() => setViewMode('code')}
+            className={cn(
+              'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all',
+              viewMode === 'code'
+                ? 'bg-orange-100 text-orange-700 shadow-sm'
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+            )}
+          >
+            <Terminal className="h-4 w-4" />
+            Code
           </button>
           <button
             onClick={() => setViewMode('thinking')}

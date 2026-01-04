@@ -445,54 +445,112 @@ export class SlidesEngineService {
 
     // 根据 SlidesMissionEvent 类型返回对应的 StreamEvent
     switch (event.type) {
-      case "mission:created":
+      case "mission:created": {
         // Mission 创建，发送初始化事件
+        const sourceLength = (data.sourceLength as number) || 0;
+        const targetPages = (data.targetPages as number) || 0;
         this.logger.debug(
-          `[transformSlidesMissionEvent] mission:created received`,
+          `[transformSlidesMissionEvent] mission:created received, sourceLength=${sourceLength}`,
+        );
+        // 发送 Leader 思考
+        events.push(
+          this.createEvent("agent:thinking", sessionId, {
+            agent: "leader",
+            agentName: "Slides Architect",
+            thought: `正在分析输入内容（${sourceLength > 0 ? `${Math.round(sourceLength / 100) / 10}k 字符` : ""}）${targetPages > 0 ? `，目标 ${targetPages} 页` : ""}，准备分配任务给团队成员...`,
+          }),
         );
         events.push(
           this.createEvent("agent:working", sessionId, {
             agent: "leader",
             agentName: "Slides Architect",
-            task: "正在初始化 AI 团队...",
+            task: "正在初始化 AI 团队，分析内容结构...",
             progress: 0,
           }),
         );
         break;
+      }
 
-      case "planning:started":
+      case "planning:started": {
+        // 发送 Analyst 思考
+        events.push(
+          this.createEvent("agent:thinking", sessionId, {
+            agent: "analyst",
+            agentName: "Content Analyst",
+            thought: "开始分析源文本，识别关键概念、逻辑结构和重要信息点...",
+          }),
+        );
         events.push(
           this.createEvent("phase:started", sessionId, {
-            phase: "planning",
-            agent: "strategist",
-            description: "正在规划任务...",
+            phase: "analyzing",
+            agent: "analyst",
+            description: "正在分析内容结构...",
           }),
         );
         events.push(
           this.createEvent("agent:working", sessionId, {
-            agent: "strategist",
-            agentName: "Visual Strategist",
-            task: "正在分析内容并规划任务...",
+            agent: "analyst",
+            agentName: "Content Analyst",
+            task: "提取关键信息、识别主题层次、分析逻辑关系...",
             progress: 0,
           }),
         );
         break;
+      }
 
       case "planning:completed": {
         const taskCount = (data.taskCount as number) || 0;
+        const breakdown = data.breakdown as {
+          tasks?: Array<{ title?: string; skillId?: string }>;
+        };
+        const taskNames =
+          breakdown?.tasks
+            ?.slice(0, 3)
+            .map((t) => t.title || t.skillId)
+            .join("、") || "";
+
+        // Analyst 完成
         events.push(
           this.createEvent("agent:completed", sessionId, {
-            agent: "strategist",
-            agentName: "Visual Strategist",
-            result: `任务规划完成，共 ${taskCount} 个任务`,
-            duration: 0,
+            agent: "analyst",
+            agentName: "Content Analyst",
+            result: `内容分析完成，识别了 ${taskCount} 个关键模块`,
+            duration: (data.duration as number) || 0,
           }),
         );
+
+        // 发送 Handoff 事件
         events.push(
-          this.createEvent("phase:completed", sessionId, {
+          this.createEvent("agent:handoff", sessionId, {
+            fromAgent: "analyst",
+            toAgent: "strategist",
+            message: "内容分析完成，交接给策略师进行大纲规划",
+          }),
+        );
+
+        // Strategist 思考
+        events.push(
+          this.createEvent("agent:thinking", sessionId, {
+            agent: "strategist",
+            agentName: "Visual Strategist",
+            thought: `基于分析结果，设计 PPT 结构：${taskNames}...`,
+          }),
+        );
+
+        events.push(
+          this.createEvent("phase:started", sessionId, {
             phase: "planning",
-            duration: 0,
-            result: data.breakdown,
+            agent: "strategist",
+            description: "正在设计 PPT 大纲...",
+          }),
+        );
+
+        events.push(
+          this.createEvent("agent:working", sessionId, {
+            agent: "strategist",
+            agentName: "Visual Strategist",
+            task: `规划 ${taskCount} 个模块的页面结构和视觉策略`,
+            progress: 0,
           }),
         );
         break;
@@ -531,20 +589,13 @@ export class SlidesEngineService {
           result?: unknown;
         };
         const phase = this.mapSkillToPhase(task?.skillId || "");
-        const agent = this.mapPhaseToAgent(phase);
+        const mappedPhase = this.mapOrchestratorPhase(phase);
+        const agent = this.mapPhaseToAgent(mappedPhase);
         const agentName = this.getAgentName(agent);
+        const duration = (data.duration as number) || 0;
 
         this.logger.log(
           `[transformSlidesMissionEvent] ${event.type} for skill: ${task?.skillId}, has data.result: ${!!data.result}, has task.result: ${!!task?.result}`,
-        );
-
-        events.push(
-          this.createEvent("agent:completed", sessionId, {
-            agent,
-            agentName,
-            result: `${task?.title || phase} 完成`,
-            duration: 0,
-          }),
         );
 
         // ★ outline-planning 完成时，发送页面大纲给前端初始化 pages 数组
@@ -573,21 +624,64 @@ export class SlidesEngineService {
                   };
                 },
               );
+              const pageTitles = pageOutlines
+                .slice(0, 3)
+                .map((p) => p.title)
+                .join("、");
               this.logger.log(
                 `[transformSlidesMissionEvent] ★ OUTLINE-PLANNING DETECTED! Sending ${pageOutlines.length} pageOutlines to frontend`,
               );
+
+              // Strategist 完成
+              events.push(
+                this.createEvent("agent:completed", sessionId, {
+                  agent: "strategist",
+                  agentName: "Visual Strategist",
+                  result: `大纲规划完成：${pageOutlines.length} 页（${pageTitles}${pageOutlines.length > 3 ? "..." : ""}）`,
+                  duration,
+                }),
+              );
+
               events.push(
                 this.createEvent("phase:completed", sessionId, {
                   phase: "planning",
-                  duration: 0,
+                  duration,
                   result: {
                     totalPages: pageOutlines.length,
                     pageOutlines,
                   },
                 }),
               );
+
+              // 发送 Handoff 到 Writer
+              events.push(
+                this.createEvent("agent:handoff", sessionId, {
+                  fromAgent: "strategist",
+                  toAgent: "writer",
+                  message: `大纲交接完成，开始生成 ${pageOutlines.length} 页内容`,
+                }),
+              );
+
+              // Writer 思考
+              events.push(
+                this.createEvent("agent:thinking", sessionId, {
+                  agent: "writer",
+                  agentName: "Content Writer",
+                  thought: `收到 ${pageOutlines.length} 页的大纲，将依次为每页生成内容和布局...`,
+                }),
+              );
             }
           }
+        } else {
+          // 其他任务的通用完成事件
+          events.push(
+            this.createEvent("agent:completed", sessionId, {
+              agent,
+              agentName,
+              result: `${task?.title || this.getPhaseDescription(mappedPhase)} 完成`,
+              duration,
+            }),
+          );
         }
 
         // ★ page-pipeline 任务完成时提取 HTML
@@ -650,32 +744,96 @@ export class SlidesEngineService {
       }
 
       case "review:started": {
+        const task = data.task as { title?: string; skillId?: string };
+        // Reviewer 思考
+        events.push(
+          this.createEvent("agent:thinking", sessionId, {
+            agent: "reviewer",
+            agentName: "Quality Reviewer",
+            thought: `开始审核「${task?.title || "任务输出"}」，检查内容质量、格式规范和一致性...`,
+          }),
+        );
         events.push(
           this.createEvent("agent:working", sessionId, {
             agent: "reviewer",
             agentName: "Quality Reviewer",
-            task: "正在审核任务输出...",
+            task: `审核中：${task?.title || "任务输出"}`,
             progress: 0,
           }),
         );
         break;
       }
 
-      case "review:approved":
-      case "review:revision_requested": {
+      case "review:approved": {
         const task = data.task as { title?: string };
+        const score = (data.score as number) || 0;
+        events.push(
+          this.createEvent("review:scoring", sessionId, {
+            phase: "task_review",
+            agent: "reviewer",
+            score,
+            threshold: 70,
+            passed: true,
+            dimensions: [],
+            summary: `✓ 审核通过：${task?.title}`,
+          }),
+        );
         events.push(
           this.createEvent("agent:completed", sessionId, {
             agent: "reviewer",
             agentName: "Quality Reviewer",
-            result: `审核完成: ${task?.title}`,
-            duration: 0,
+            result: `✓ 审核通过：${task?.title}（${score > 0 ? `${score}分` : "符合标准"}）`,
+            duration: (data.duration as number) || 0,
           }),
         );
         break;
       }
 
-      case "audit:started":
+      case "review:revision_requested": {
+        const task = data.task as { title?: string };
+        const feedback = (data.feedback as string) || "";
+        const score = (data.score as number) || 0;
+        events.push(
+          this.createEvent("review:rejected", sessionId, {
+            phase: "task_review",
+            attempt: (data.attempt as number) || 1,
+            score,
+            threshold: 70,
+            feedback,
+            willRetry: true,
+          }),
+        );
+        events.push(
+          this.createEvent("agent:working", sessionId, {
+            agent: "reviewer",
+            agentName: "Quality Reviewer",
+            task: `需要修改：${task?.title}${feedback ? `（${feedback}）` : ""}`,
+            progress: 0,
+          }),
+        );
+        break;
+      }
+
+      case "audit:started": {
+        // 发送 Handoff 从 Writer 到 Reviewer
+        events.push(
+          this.createEvent("agent:handoff", sessionId, {
+            fromAgent: "writer",
+            toAgent: "reviewer",
+            message: "页面生成完成，交接给审核员进行质量检查",
+          }),
+        );
+
+        // Reviewer 思考
+        events.push(
+          this.createEvent("agent:thinking", sessionId, {
+            agent: "reviewer",
+            agentName: "Quality Reviewer",
+            thought:
+              "开始全面审核所有页面，检查内容准确性、视觉一致性、术语统一性...",
+          }),
+        );
+
         events.push(
           this.createEvent("phase:started", sessionId, {
             phase: "reviewing",
@@ -687,26 +845,85 @@ export class SlidesEngineService {
           this.createEvent("agent:working", sessionId, {
             agent: "reviewer",
             agentName: "Quality Reviewer",
-            task: "正在进行质量审计...",
+            task: "全面审核：内容准确性、视觉一致性、术语统一性",
             progress: 0,
           }),
         );
         break;
+      }
 
       case "audit:completed": {
-        const qualityAudit = data.qualityAudit as { overallScore?: number };
+        const qualityAudit = data.qualityAudit as {
+          overallScore?: number;
+          dimensions?: Array<{
+            name: string;
+            score: number;
+            weight?: number;
+          }>;
+          issues?: Array<{ type: string; message: string }>;
+          fixes?: Array<{ type: string; description: string }>;
+        };
+        const score = qualityAudit?.overallScore || 0;
+        const issueCount = qualityAudit?.issues?.length || 0;
+        const fixCount = qualityAudit?.fixes?.length || 0;
+
+        // 发送评分事件
+        events.push(
+          this.createEvent("review:scoring", sessionId, {
+            phase: "quality_audit",
+            agent: "reviewer",
+            score,
+            threshold: 70,
+            passed: score >= 70,
+            dimensions:
+              qualityAudit?.dimensions?.map((d) => ({
+                name: d.name,
+                score: d.score,
+                weight: d.weight || 1,
+              })) || [],
+            summary: `质量审计完成：${score}分${issueCount > 0 ? `，发现 ${issueCount} 个问题` : ""}${fixCount > 0 ? `，自动修复 ${fixCount} 个` : ""}`,
+          }),
+        );
+
+        // 发送问题事件
+        if (qualityAudit?.issues) {
+          for (const issue of qualityAudit.issues) {
+            events.push(
+              this.createEvent("review:issue_found", sessionId, {
+                pageNumber: 0,
+                severity: "warning" as const,
+                type: issue.type,
+                message: issue.message,
+              }),
+            );
+          }
+        }
+
+        // 发送修复事件
+        if (qualityAudit?.fixes) {
+          for (const fix of qualityAudit.fixes) {
+            events.push(
+              this.createEvent("review:auto_fixed", sessionId, {
+                pageNumber: 0,
+                issueType: fix.type,
+                fixDescription: fix.description,
+              }),
+            );
+          }
+        }
+
         events.push(
           this.createEvent("agent:completed", sessionId, {
             agent: "reviewer",
             agentName: "Quality Reviewer",
-            result: `质量审计完成，得分: ${qualityAudit?.overallScore || 0}`,
-            duration: 0,
+            result: `质量审计完成：${score}分${issueCount > 0 ? `，${issueCount} 个问题` : ""}${fixCount > 0 ? `，${fixCount} 个已修复` : ""}`,
+            duration: (data.duration as number) || 0,
           }),
         );
         events.push(
           this.createEvent("phase:completed", sessionId, {
             phase: "reviewing",
-            duration: 0,
+            duration: (data.duration as number) || 0,
             result: qualityAudit,
           }),
         );

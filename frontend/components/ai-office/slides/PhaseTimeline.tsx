@@ -21,8 +21,12 @@ import {
   CheckCircle2,
   Clock,
   ChevronDown,
-  ChevronUp,
-  ArrowDown,
+  AlertTriangle,
+  Wrench,
+  ArrowRight,
+  Star,
+  Timer,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import type {
@@ -30,7 +34,26 @@ import type {
   SlidesAgentRole,
   TeamExecutionState,
   AgentState,
+  ReviewIssueData,
+  ReviewFixedData,
+  AgentHandoffData,
+  ReviewDimension,
 } from '@/types/slides-team';
+
+// ============================================================================
+// 辅助函数
+// ============================================================================
+
+function getAgentDisplayName(role: SlidesAgentRole): string {
+  const names: Record<SlidesAgentRole, string> = {
+    leader: '协调者',
+    analyst: '分析师',
+    strategist: '策略师',
+    writer: '写手',
+    reviewer: '审核员',
+  };
+  return names[role] || role;
+}
 
 // ============================================================================
 // 阶段配置
@@ -342,20 +365,72 @@ function PhaseItem({
 
                 {/* 评分 */}
                 {agentState?.lastScore !== undefined && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">评分：</span>
-                    <span
-                      className={cn(
-                        'rounded px-1.5 py-0.5 text-xs font-medium',
-                        agentState.lastScore >= 70
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-amber-100 text-amber-700'
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Star className="h-3 w-3 text-amber-500" />
+                      <span className="text-xs text-gray-500">评分：</span>
+                      <span
+                        className={cn(
+                          'rounded px-1.5 py-0.5 text-xs font-medium',
+                          agentState.lastScore >= 70
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-amber-100 text-amber-700'
+                        )}
+                      >
+                        {agentState.lastScore}分
+                      </span>
+                    </div>
+                    {/* 评分维度详情 */}
+                    {agentState.scoreDimensions &&
+                      agentState.scoreDimensions.length > 0 && (
+                        <div className="ml-5 space-y-0.5">
+                          {agentState.scoreDimensions.map((dim, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center gap-2 text-xs"
+                            >
+                              <span className="text-gray-400">{dim.name}:</span>
+                              <div className="h-1 flex-1 rounded-full bg-gray-200">
+                                <div
+                                  className={cn(
+                                    'h-1 rounded-full',
+                                    dim.score >= 70
+                                      ? 'bg-green-400'
+                                      : dim.score >= 50
+                                        ? 'bg-amber-400'
+                                        : 'bg-red-400'
+                                  )}
+                                  style={{ width: `${dim.score}%` }}
+                                />
+                              </div>
+                              <span className="w-8 text-right text-gray-500">
+                                {dim.score}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       )}
-                    >
-                      {agentState.lastScore}分
-                    </span>
                   </div>
                 )}
+
+                {/* 重试次数 */}
+                {agentState?.retryCount !== undefined &&
+                  agentState.retryCount > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-amber-600">
+                      <AlertTriangle className="h-3 w-3" />
+                      <span>重试 {agentState.retryCount} 次</span>
+                    </div>
+                  )}
+
+                {/* 耗时 */}
+                {status === 'completed' &&
+                  agentState?.duration !== undefined &&
+                  agentState.duration > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-gray-400">
+                      <Timer className="h-3 w-3" />
+                      <span>{(agentState.duration / 1000).toFixed(1)}s</span>
+                    </div>
+                  )}
               </div>
             </motion.div>
           )}
@@ -520,6 +595,84 @@ export function PhaseTimeline({
           );
         })}
       </div>
+
+      {/* Agent 交接历史 */}
+      {teamState.handoffs && teamState.handoffs.length > 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <div className="mb-2 flex items-center gap-2 text-xs font-medium text-gray-600">
+            <ArrowRight className="h-3 w-3" />
+            <span>Agent 协作历史</span>
+          </div>
+          <div className="space-y-1.5">
+            {teamState.handoffs.slice(-3).map((handoff, idx) => (
+              <div
+                key={idx}
+                className="flex items-center gap-2 text-xs text-gray-500"
+              >
+                <span className="rounded bg-blue-100 px-1.5 py-0.5 text-blue-700">
+                  {getAgentDisplayName(handoff.fromAgent)}
+                </span>
+                <ArrowRight className="h-3 w-3 text-gray-300" />
+                <span className="rounded bg-purple-100 px-1.5 py-0.5 text-purple-700">
+                  {getAgentDisplayName(handoff.toAgent)}
+                </span>
+                {handoff.message && (
+                  <span className="flex-1 truncate text-gray-400">
+                    {handoff.message}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 问题和修复 */}
+      {(teamState.issues?.length > 0 || teamState.fixes?.length > 0) && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div className="mb-2 flex items-center gap-2 text-xs font-medium text-amber-700">
+            <Wrench className="h-3 w-3" />
+            <span>质量检查结果</span>
+          </div>
+          <div className="space-y-1.5">
+            {/* 问题列表 */}
+            {teamState.issues?.slice(-3).map((issue, idx) => (
+              <div
+                key={`issue-${idx}`}
+                className="flex items-start gap-2 text-xs"
+              >
+                <AlertTriangle
+                  className={cn(
+                    'mt-0.5 h-3 w-3 flex-shrink-0',
+                    issue.severity === 'error'
+                      ? 'text-red-500'
+                      : issue.severity === 'warning'
+                        ? 'text-amber-500'
+                        : 'text-blue-500'
+                  )}
+                />
+                <span className="text-gray-600">
+                  {issue.pageNumber > 0 && `第${issue.pageNumber}页：`}
+                  {issue.message}
+                </span>
+              </div>
+            ))}
+            {/* 修复列表 */}
+            {teamState.fixes?.slice(-3).map((fix, idx) => (
+              <div
+                key={`fix-${idx}`}
+                className="flex items-start gap-2 text-xs"
+              >
+                <CheckCircle2 className="mt-0.5 h-3 w-3 flex-shrink-0 text-green-500" />
+                <span className="text-green-600">
+                  {fix.pageNumber > 0 && `第${fix.pageNumber}页：`}
+                  {fix.fixDescription}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 完成状态 */}
       {currentPhase === 'completed' && (
