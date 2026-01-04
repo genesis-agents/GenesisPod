@@ -140,6 +140,20 @@ export function SlidesTab() {
     refreshSessions();
   }, [refreshSessions]);
 
+  // ★ 清理不一致的状态：如果 generating=true 但没有活跃的生成进程，重置状态
+  // 这可能发生在页面刷新或中途关闭后重新打开时
+  useEffect(() => {
+    const store = useSlidesStore.getState();
+    // 如果标记为生成中，但没有 teamState（即没有活跃的 SSE 连接），说明是残留状态
+    if (store.generating && !teamState) {
+      console.log(
+        '[SlidesTab] Cleaning up stale generating state, resetting to gallery'
+      );
+      store.reset(); // 完全重置，回到画廊视图
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 只在挂载时执行一次
+
   // 将 streamEvents 和 teamEvents 转换为 toolCalls
   // 精简版：只显示关键节点，Agent 状态由 AgentTeamPanel 负责
   // 目标：最多显示 5-8 个条目，而不是 20+ 个
