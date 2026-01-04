@@ -67,6 +67,10 @@ const nextConfig = {
         source: '/api/ai-service/:path*',
         destination: `${aiUrl}/api/v1/:path*`,
       },
+      {
+        source: '/api/ai-office/:path*',
+        destination: `${apiUrl}/api/v1/ai-office/:path*`,
+      },
     ];
   },
   // 添加安全头部配置以支持iframe预览
