@@ -343,36 +343,204 @@ export function SlidesTab() {
     createCheckpoint('用户保存点');
   }, [createCheckpoint]);
 
-  // 智能标签生成
+  // 智能标签生成 - 基于内容主题分析
   const handleSmartTags = useCallback(async () => {
-    const { pages } = useSlidesStore.getState();
+    const { pages, addStreamEvent } = useSlidesStore.getState();
     if (pages.length === 0) return;
 
     // 收集所有页面的文本内容用于分析
     const allText = pages
       .map((p) => {
-        // 从 HTML 中提取纯文本
+        // 从 HTML 中提取纯文本，但排除 style 和 script 标签内容
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = p.html || '';
+        // 移除 style 和 script 标签
+        tempDiv.querySelectorAll('style, script').forEach((el) => el.remove());
         return tempDiv.textContent || tempDiv.innerText || '';
       })
       .join(' ');
 
-    // 简单的关键词提取算法
-    const words = allText
-      .replace(/[^\u4e00-\u9fa5a-zA-Z\s]/g, ' ') // 保留中文和英文
-      .split(/\s+/)
-      .filter((w) => w.length >= 2);
+    // 提取中文词组（2-4字的有意义词汇）
+    const chineseWords: string[] = [];
+    const chinesePattern = /[\u4e00-\u9fa5]{2,6}/g;
+    let match;
+    while ((match = chinesePattern.exec(allText)) !== null) {
+      chineseWords.push(match[0]);
+    }
 
-    // 统计词频
-    const wordCount: Record<string, number> = {};
-    words.forEach((w) => {
-      const key = w.toLowerCase();
-      wordCount[key] = (wordCount[key] || 0) + 1;
+    // 提取英文单词（排除常见技术词汇）
+    const englishWords = allText
+      .replace(/[\u4e00-\u9fa5]/g, ' ')
+      .toLowerCase()
+      .split(/[^a-z]+/)
+      .filter((w) => w.length >= 4);
+
+    // CSS/HTML/技术停用词（这些不是内容相关的）
+    const techStopWords = new Set([
+      // CSS 属性
+      'slide',
+      'container',
+      'overflow',
+      'hidden',
+      'height',
+      'width',
+      'display',
+      'flex',
+      'grid',
+      'margin',
+      'padding',
+      'border',
+      'background',
+      'color',
+      'font',
+      'size',
+      'style',
+      'class',
+      'position',
+      'absolute',
+      'relative',
+      'fixed',
+      'center',
+      'left',
+      'right',
+      'top',
+      'bottom',
+      'auto',
+      'none',
+      'block',
+      'inline',
+      'item',
+      'items',
+      'content',
+      'justify',
+      'align',
+      'text',
+      'weight',
+      'bold',
+      'normal',
+      'italic',
+      'rgba',
+      'rgb',
+      'hover',
+      'active',
+      'focus',
+      'before',
+      'after',
+      'first',
+      'last',
+      // HTML 标签
+      'div',
+      'span',
+      'section',
+      'header',
+      'footer',
+      'main',
+      'article',
+      'html',
+      'body',
+      'head',
+      'title',
+      'meta',
+      'link',
+      'script',
+      // 通用技术词
+      'function',
+      'return',
+      'const',
+      'let',
+      'var',
+      'import',
+      'export',
+      'true',
+      'false',
+      'null',
+      'undefined',
+      'object',
+      'array',
+      'string',
+      'number',
+      'boolean',
+      'type',
+      'interface',
+      'class',
+      'props',
+    ]);
+
+    // 中文停用词
+    const chineseStopWords = new Set([
+      '的',
+      '了',
+      '是',
+      '在',
+      '有',
+      '和',
+      '与',
+      '等',
+      '为',
+      '中',
+      '对',
+      '个',
+      '上',
+      '下',
+      '不',
+      '也',
+      '就',
+      '都',
+      '而',
+      '及',
+      '这',
+      '那',
+      '你',
+      '我',
+      '他',
+      '她',
+      '它',
+      '们',
+      '会',
+      '能',
+      '要',
+      '从',
+      '到',
+      '以',
+      '可',
+      '被',
+      '让',
+      '把',
+      '将',
+      '向',
+      '着',
+      '过',
+      '给',
+      '但',
+      '如',
+      '很',
+      '更',
+      '最',
+      '还',
+      '只',
+      '又',
+      '已',
+      '所',
+      '每',
+      '其',
+      '此',
+      '或',
+      '并',
+      '使',
+      '因',
+    ]);
+
+    // 统计中文词频
+    const chineseWordCount: Record<string, number> = {};
+    chineseWords.forEach((w) => {
+      if (!chineseStopWords.has(w) && w.length >= 2) {
+        chineseWordCount[w] = (chineseWordCount[w] || 0) + 1;
+      }
     });
 
-    // 过滤常用停用词
-    const stopWords = new Set([
+    // 统计英文词频（排除技术词汇）
+    const englishWordCount: Record<string, number> = {};
+    const commonStopWords = new Set([
       'the',
       'a',
       'an',
@@ -422,34 +590,35 @@ export function SlidesTab() {
       'than',
       'so',
       'such',
-      '的',
-      '了',
-      '是',
-      '在',
-      '有',
-      '和',
-      '与',
-      '等',
-      '为',
-      '中',
-      '对',
-      '个',
-      '上',
-      '下',
-      '不',
-      '也',
-      '就',
-      '都',
-      '而',
-      '及',
+      'what',
+      'which',
+      'who',
+      'whom',
+      'when',
+      'where',
+      'why',
+      'how',
     ]);
+    englishWords.forEach((w) => {
+      if (!techStopWords.has(w) && !commonStopWords.has(w)) {
+        englishWordCount[w] = (englishWordCount[w] || 0) + 1;
+      }
+    });
 
-    // 获取高频词作为标签
-    const tags = Object.entries(wordCount)
-      .filter(([word]) => !stopWords.has(word) && word.length >= 2)
+    // 获取高频中文词作为主要标签
+    const chineseTags = Object.entries(chineseWordCount)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
+      .slice(0, 4)
       .map(([word]) => word);
+
+    // 获取高频英文词作为补充标签（首字母大写）
+    const englishTags = Object.entries(englishWordCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([word]) => word.charAt(0).toUpperCase() + word.slice(1));
+
+    // 合并标签，优先中文
+    const tags = [...chineseTags, ...englishTags].slice(0, 5);
 
     // 如果当前有 session，更新历史记录
     if (session?.id) {
@@ -462,7 +631,6 @@ export function SlidesTab() {
     }
 
     // 显示成功提示
-    const { addStreamEvent } = useSlidesStore.getState();
     addStreamEvent({
       type: 'system_message',
       timestamp: new Date(),
