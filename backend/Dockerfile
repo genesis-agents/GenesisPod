@@ -1,4 +1,5 @@
 # Multi-stage build for production
+# FORCE_REBUILD=2026-01-04-v2-export-tables
 FROM node:20-slim AS builder
 
 # Install dependencies for native modules (canvas requires cairo, pango, etc.)
