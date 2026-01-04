@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Use the main backend API URL (NestJS)
+function ensureProtocol(url: string): string {
+  if (!url) return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `https://${url}`;
+}
 function getBackendUrl() {
-  return (
+  return ensureProtocol(
     process.env.BACKEND_INTERNAL_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    'http://localhost:4000'
+      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.RAILWAY_SERVICE_BACKEND_URL ||
+      'http://localhost:4000'
   );
 }
 const API_URL = getBackendUrl();

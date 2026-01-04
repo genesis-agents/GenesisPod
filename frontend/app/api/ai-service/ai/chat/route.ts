@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Use the main backend API URL (NestJS), not separate AI service
-// Priority: BACKEND_INTERNAL_URL (Railway internal) > NEXT_PUBLIC_API_URL > localhost
+// Priority: BACKEND_INTERNAL_URL > NEXT_PUBLIC_API_URL > RAILWAY_SERVICE_BACKEND_URL > localhost
+function ensureProtocol(url: string): string {
+  if (!url) return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  return `https://${url}`;
+}
+
 function getBackendUrl() {
   if (process.env.BACKEND_INTERNAL_URL) {
-    return process.env.BACKEND_INTERNAL_URL;
+    return ensureProtocol(process.env.BACKEND_INTERNAL_URL);
   }
   if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
+    return ensureProtocol(process.env.NEXT_PUBLIC_API_URL);
   }
   // In Railway, try to construct from service name
   if (process.env.RAILWAY_SERVICE_BACKEND_URL) {
-    return process.env.RAILWAY_SERVICE_BACKEND_URL;
+    return ensureProtocol(process.env.RAILWAY_SERVICE_BACKEND_URL);
   }
   return 'http://localhost:4000';
 }
