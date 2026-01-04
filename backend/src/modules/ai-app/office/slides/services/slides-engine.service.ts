@@ -243,10 +243,19 @@ export class SlidesEngineService {
         }
 
         if (raceResult.timeout) {
-          // 超时：只刷新缓冲区，继续等待
+          // 超时：刷新缓冲区，并发送心跳保持连接
           this.logger.debug(
             `[generateSlides] Buffer flush tick, buffered ${bufferedPageEvents.length} events`,
           );
+
+          // ★★★ 关键修复：发送心跳事件保持 SSE 连接 ★★★
+          // Vercel/Railway 代理有 30 秒空闲超时，必须定期发送数据
+          if (bufferedPageEvents.length === 0) {
+            yield this.createEvent("heartbeat", sessionId, {
+              timestamp: new Date().toISOString(),
+              phase: currentPhase || "processing",
+            });
+          }
           continue;
         }
 
