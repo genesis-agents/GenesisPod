@@ -786,6 +786,9 @@ export type StreamEventType =
   // Agent 事件（后端协议）
   | 'agent:working'
   | 'agent:completed'
+  // Mission Agent 事件（后端新协议）
+  | 'mission:agent_working'
+  | 'mission:agent_done'
   // 页面事件（后端协议）
   | 'slide:generated'
   // 旧协议兼容（保留）

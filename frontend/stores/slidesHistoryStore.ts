@@ -35,6 +35,8 @@ export interface SlidesHistoryItem {
   status: 'success' | 'error' | 'pending';
   sessionId?: string;
   checkpointId?: string;
+  /** 智能标签 */
+  tags?: string[];
   /** 保存结果以便恢复 */
   result?: {
     artifacts: SlidesArtifact[];

@@ -343,6 +343,136 @@ export function SlidesTab() {
     createCheckpoint('用户保存点');
   }, [createCheckpoint]);
 
+  // 智能标签生成
+  const handleSmartTags = useCallback(async () => {
+    const { pages } = useSlidesStore.getState();
+    if (pages.length === 0) return;
+
+    // 收集所有页面的文本内容用于分析
+    const allText = pages
+      .map((p) => {
+        // 从 HTML 中提取纯文本
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = p.html || '';
+        return tempDiv.textContent || tempDiv.innerText || '';
+      })
+      .join(' ');
+
+    // 简单的关键词提取算法
+    const words = allText
+      .replace(/[^\u4e00-\u9fa5a-zA-Z\s]/g, ' ') // 保留中文和英文
+      .split(/\s+/)
+      .filter((w) => w.length >= 2);
+
+    // 统计词频
+    const wordCount: Record<string, number> = {};
+    words.forEach((w) => {
+      const key = w.toLowerCase();
+      wordCount[key] = (wordCount[key] || 0) + 1;
+    });
+
+    // 过滤常用停用词
+    const stopWords = new Set([
+      'the',
+      'a',
+      'an',
+      'is',
+      'are',
+      'was',
+      'were',
+      'be',
+      'been',
+      'have',
+      'has',
+      'had',
+      'do',
+      'does',
+      'did',
+      'will',
+      'would',
+      'could',
+      'should',
+      'may',
+      'might',
+      'must',
+      'shall',
+      'can',
+      'to',
+      'of',
+      'in',
+      'for',
+      'on',
+      'with',
+      'at',
+      'by',
+      'from',
+      'and',
+      'or',
+      'but',
+      'not',
+      'this',
+      'that',
+      'these',
+      'those',
+      'it',
+      'its',
+      'as',
+      'if',
+      'then',
+      'than',
+      'so',
+      'such',
+      '的',
+      '了',
+      '是',
+      '在',
+      '有',
+      '和',
+      '与',
+      '等',
+      '为',
+      '中',
+      '对',
+      '个',
+      '上',
+      '下',
+      '不',
+      '也',
+      '就',
+      '都',
+      '而',
+      '及',
+    ]);
+
+    // 获取高频词作为标签
+    const tags = Object.entries(wordCount)
+      .filter(([word]) => !stopWords.has(word) && word.length >= 2)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([word]) => word);
+
+    // 如果当前有 session，更新历史记录
+    if (session?.id) {
+      const historyItem = history.find(
+        (h) => h.sessionId === session.id || h.checkpointId === session.id
+      );
+      if (historyItem) {
+        updateHistory(historyItem.id, { tags });
+      }
+    }
+
+    // 显示成功提示
+    const { addStreamEvent } = useSlidesStore.getState();
+    addStreamEvent({
+      type: 'system_message',
+      timestamp: new Date(),
+      data: {
+        message: `已生成智能标签：${tags.join('、') || '暂无标签'}`,
+        source: 'AI 辅助',
+      },
+    });
+  }, [session, history, updateHistory]);
+
   const handleGenerate = useCallback(
     (request: GenerateRequest) => {
       const historyId = addHistory({
@@ -469,6 +599,7 @@ export function SlidesTab() {
           onViewModeChange={setViewMode}
           onNewClick={() => setShowNewForm(true)}
           showViewToggle={!showNewForm}
+          onSmartTags={handleSmartTags}
         />
 
         {/* 历史记录面板 */}
@@ -517,6 +648,7 @@ export function SlidesTab() {
         onBackToGallery={handleBackToGallery}
         onStartPresentation={() => setShowPresentation(true)}
         hasPages={pages.length > 0}
+        onSmartTags={handleSmartTags}
       />
 
       {/* 历史记录面板 */}
@@ -789,6 +921,7 @@ function Header({
   onViewModeChange,
   onNewClick,
   onStartPresentation,
+  onSmartTags,
   showViewToggle = false,
   showBackButton = false,
   hasPages = false,
@@ -802,6 +935,7 @@ function Header({
   onViewModeChange?: (mode: 'grid' | 'list') => void;
   onNewClick?: () => void;
   onStartPresentation?: () => void;
+  onSmartTags?: () => Promise<void>;
   showViewToggle?: boolean;
   showBackButton?: boolean;
   hasPages?: boolean;
@@ -844,7 +978,9 @@ function Header({
           )}
 
           {/* ★ AI 辅助菜单 - 首页显示在新建按钮旁 */}
-          {onNewClick && <AIAssistMenu disabled={false} />}
+          {onNewClick && (
+            <AIAssistMenu onSmartTags={onSmartTags} disabled={!hasPages} />
+          )}
 
           {/* 视图切换 */}
           {showViewToggle && viewMode && onViewModeChange && (
@@ -902,7 +1038,9 @@ function Header({
           </button>
 
           {/* AI 辅助菜单 */}
-          {hasPages && <AIAssistMenu disabled={false} />}
+          {hasPages && (
+            <AIAssistMenu onSmartTags={onSmartTags} disabled={false} />
+          )}
 
           {/* 播放演示 */}
           {hasPages && onStartPresentation && (
@@ -1229,7 +1367,12 @@ function ConversationPanel({
         return;
       }
 
-      if (event.type === 'agent:working' || event.type === 'agent:completed') {
+      if (
+        event.type === 'agent:working' ||
+        event.type === 'agent:completed' ||
+        event.type === 'mission:agent_working' ||
+        event.type === 'mission:agent_done'
+      ) {
         const message =
           data.thought || data.task || data.result || data.message || '';
         if (!message) return;
