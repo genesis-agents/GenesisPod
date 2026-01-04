@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Try NestJS backend first, fallback to AI service
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-const AI_SERVICE_URL =
-  process.env.NEXT_PUBLIC_AI_URL || 'http://localhost:5000';
+function getBackendUrl() {
+  return (
+    process.env.BACKEND_INTERNAL_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    'http://localhost:4000'
+  );
+}
+const API_URL = getBackendUrl();
+// AI service as fallback (should be same as backend in most cases)
+const AI_SERVICE_URL = getBackendUrl();
 
 // 增加超时时间到5分钟
 export const maxDuration = 300;

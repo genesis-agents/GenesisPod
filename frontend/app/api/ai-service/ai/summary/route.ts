@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Use the main backend API URL (NestJS)
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+function getBackendUrl() {
+  return (
+    process.env.BACKEND_INTERNAL_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    'http://localhost:4000'
+  );
+}
+const API_URL = getBackendUrl();
 
 export async function POST(request: NextRequest) {
   try {

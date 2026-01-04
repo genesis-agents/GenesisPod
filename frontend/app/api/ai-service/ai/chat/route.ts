@@ -1,12 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Use the main backend API URL (NestJS), not separate AI service
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+// Priority: BACKEND_INTERNAL_URL (Railway internal) > NEXT_PUBLIC_API_URL > localhost
+function getBackendUrl() {
+  if (process.env.BACKEND_INTERNAL_URL) {
+    return process.env.BACKEND_INTERNAL_URL;
+  }
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  // In Railway, try to construct from service name
+  if (process.env.RAILWAY_SERVICE_BACKEND_URL) {
+    return process.env.RAILWAY_SERVICE_BACKEND_URL;
+  }
+  return 'http://localhost:4000';
+}
+
+const API_URL = getBackendUrl();
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { message, context, model = 'gemini', stream = true } = body;
+
+    // 诊断日志
+    console.log('[AI Chat API] Using backend URL:', API_URL);
+    console.log('[AI Chat API] ENV check:', {
+      BACKEND_INTERNAL_URL: process.env.BACKEND_INTERNAL_URL
+        ? 'set'
+        : 'not set',
+      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ? 'set' : 'not set',
+      RAILWAY_SERVICE_BACKEND_URL: process.env.RAILWAY_SERVICE_BACKEND_URL
+        ? 'set'
+        : 'not set',
+    });
 
     // Forward request to NestJS backend simple-chat endpoint
     const response = await fetch(`${API_URL}/api/v1/ai/simple-chat`, {
