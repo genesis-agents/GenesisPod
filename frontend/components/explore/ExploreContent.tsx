@@ -1120,8 +1120,7 @@ function HomeContent() {
       console.error('Failed to send message:', error);
       const errorMessage: AIMessage = {
         role: 'assistant',
-        content:
-          'AI服务暂时不可用，请检查AI服务是否运行（http://localhost:5000）',
+        content: 'AI 服务暂时不可用，请稍后重试。如果问题持续，请联系管理员。',
         timestamp: new Date(),
       };
       setAiMessages((prev) => [...prev, errorMessage]);
