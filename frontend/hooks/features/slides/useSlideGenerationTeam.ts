@@ -145,7 +145,17 @@ export function useSlideGenerationTeam(
         return;
       }
 
-      console.log('[Team SSE] Event:', event.type, event.data);
+      // ★★★ 关键诊断日志 ★★★
+      console.log(
+        `[Team SSE] ★ Event received: type=${event.type}, data keys=${Object.keys(event.data || {}).join(',')}`
+      );
+      if (event.type === 'slide:generated') {
+        const slideData = event.data as { pageNumber?: number; html?: string };
+        console.log(
+          `[Team SSE] ★★★ SLIDE:GENERATED ★★★ pageNumber=${slideData.pageNumber}, htmlLength=${slideData.html?.length || 0}`
+        );
+      }
+
       setTeamEvents((prev) => [...prev, event]);
 
       // 使用 try-catch 包装所有事件处理，确保单个事件错误不会影响整体流程
@@ -367,20 +377,35 @@ export function useSlideGenerationTeam(
             const data = (event.data || {}) as Partial<SlideGeneratedData>;
             const pageNumber = data.pageNumber ?? 1;
             const title = data.title || `第 ${pageNumber} 页`;
-            console.log('[Team SSE] Slide generated:', pageNumber, title);
+
+            // ★★★ 关键诊断日志 ★★★
+            console.log(
+              `[Team SSE] ★★★ PROCESSING slide:generated ★★★ pageNumber=${pageNumber}, title=${title}, htmlLength=${data.html?.length || 0}`
+            );
 
             // ★ 修复：传递完整的页面信息，包括 outline
-            updatePage(pageNumber, {
-              status: 'completed',
+            const pageUpdate = {
+              status: 'completed' as const,
               html: data.html || '',
               outline: {
                 pageNumber,
                 title,
-                templateType: 'pillars',
+                templateType: 'pillars' as const,
                 purpose: '',
                 keyPoints: [],
               },
-            });
+            };
+
+            console.log(
+              `[Team SSE] ★★★ CALLING updatePage(${pageNumber}, ...) ★★★`
+            );
+            updatePage(pageNumber, pageUpdate);
+
+            // ★ 验证更新后的状态
+            const currentPages = useSlidesStore.getState().pages;
+            console.log(
+              `[Team SSE] ★★★ AFTER updatePage: pages.length=${currentPages.length}, pageNumbers=${currentPages.map((p) => p.pageNumber).join(',')} ★★★`
+            );
 
             options.onSlideGenerated?.(pageNumber, data.html);
             break;
@@ -694,16 +719,29 @@ export function useSlideGenerationTeam(
 
         const decoder = new TextDecoder();
         let buffer = '';
+        let eventCount = 0;
+
+        console.log('[Team SSE] ★★★ Starting stream read loop ★★★');
 
         while (true) {
           const { done, value } = await reader.read();
 
           if (done) {
-            console.log('[Team SSE] Stream ended');
+            console.log(
+              `[Team SSE] ★★★ Stream ended. Total events received: ${eventCount} ★★★`
+            );
             break;
           }
 
-          buffer += decoder.decode(value, { stream: true });
+          const chunk = decoder.decode(value, { stream: true });
+          buffer += chunk;
+
+          // ★ 诊断：显示接收的数据块
+          if (chunk.includes('slide:generated')) {
+            console.log(
+              `[Team SSE] ★★★ CHUNK contains slide:generated ★★★ chunkLength=${chunk.length}`
+            );
+          }
 
           // 解析 SSE 事件
           const lines = buffer.split('\n');
@@ -715,9 +753,20 @@ export function useSlideGenerationTeam(
               if (jsonStr) {
                 try {
                   const event: SlidesTeamEvent = JSON.parse(jsonStr);
+                  eventCount++;
+                  console.log(
+                    `[Team SSE] ★ Parsed event #${eventCount}: ${event.type}`
+                  );
                   handleTeamEvent(event);
                 } catch (e) {
-                  console.error('[Team SSE] Parse error:', e, 'Data:', jsonStr);
+                  console.error(
+                    '[Team SSE] ★★★ PARSE ERROR ★★★:',
+                    e,
+                    'Data length:',
+                    jsonStr.length,
+                    'First 200 chars:',
+                    jsonStr.substring(0, 200)
+                  );
                 }
               }
             }

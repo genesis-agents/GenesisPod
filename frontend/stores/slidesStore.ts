@@ -212,20 +212,35 @@ export const useSlidesStore = create<SlidesState & SlidesActions>()(
           }),
         updatePage: (pageNumber, updates) =>
           set((state) => {
+            // ★★★ 关键诊断日志 ★★★
+            console.log(
+              `[SlidesStore] ★★★ updatePage CALLED ★★★ pageNumber=${pageNumber}, currentPagesCount=${state.pages.length}`
+            );
+            console.log(
+              `[SlidesStore] updates.status=${(updates as { status?: string }).status}, updates.html?.length=${(updates as { html?: string }).html?.length || 0}`
+            );
+
             const existingPage = state.pages.find(
               (p) => p.pageNumber === pageNumber
             );
+
             if (existingPage) {
               // 更新已存在的页面
-              return {
-                pages: state.pages
-                  .map((p) =>
-                    p.pageNumber === pageNumber ? { ...p, ...updates } : p
-                  )
-                  .sort((a, b) => a.pageNumber - b.pageNumber),
-              };
+              console.log(
+                `[SlidesStore] ★ Updating existing page ${pageNumber}`
+              );
+              const newPages = state.pages
+                .map((p) =>
+                  p.pageNumber === pageNumber ? { ...p, ...updates } : p
+                )
+                .sort((a, b) => a.pageNumber - b.pageNumber);
+              console.log(
+                `[SlidesStore] ★ After update: pages.length=${newPages.length}`
+              );
+              return { pages: newPages };
             } else {
               // ★ 关键修复：如果页面不存在，创建新页面
+              console.log(`[SlidesStore] ★ Creating NEW page ${pageNumber}`);
               const updatesWithOutline = updates as Partial<PageState>;
               const newPage: PageState = {
                 pageNumber,
@@ -241,11 +256,13 @@ export const useSlidesStore = create<SlidesState & SlidesActions>()(
                 status: 'pending',
                 ...updates,
               };
-              return {
-                pages: [...state.pages, newPage].sort(
-                  (a, b) => a.pageNumber - b.pageNumber
-                ),
-              };
+              const newPages = [...state.pages, newPage].sort(
+                (a, b) => a.pageNumber - b.pageNumber
+              );
+              console.log(
+                `[SlidesStore] ★ After create: pages.length=${newPages.length}, newPage.status=${newPage.status}`
+              );
+              return { pages: newPages };
             }
           }),
         setSelectedPageIndex: (selectedPageIndex) => set({ selectedPageIndex }),
