@@ -1188,11 +1188,31 @@ export class TeamMissionService {
         },
       );
 
+      // 对长内容先生成 AI 摘要，确保 Leader 能全面了解内容质量
+      let reviewContent = taskResult;
+      if (taskResult.length > 3000) {
+        this.logger.log(
+          `[leaderReviewTask] 任务产出较长(${taskResult.length}字符)，生成摘要...`,
+        );
+        const { summary, keyExcerpts } = await this.summarizeForLeaderReview(
+          taskResult,
+          task.title,
+          leader.aiModel,
+        );
+        // 使用摘要 + 关键片段作为审核内容
+        reviewContent = keyExcerpts
+          ? `【AI 生成的内容摘要】\n${summary}\n\n【原文关键片段】\n${keyExcerpts}`
+          : summary;
+        this.logger.log(
+          `[leaderReviewTask] 摘要生成完成，审核内容长度: ${reviewContent.length}字符`,
+        );
+      }
+
       // 构建审核提示词
       const reviewPrompt = this.buildLeaderReviewPrompt(
         mission,
         task,
-        taskResult,
+        reviewContent,
       );
 
       // 调用 AI 进行审核 (使用数据库 API Key)
@@ -1457,46 +1477,52 @@ export class TeamMissionService {
         MessageContentType.TEXT,
       );
 
-      // 构建整合提示词
-      const synthesisPrompt = this.buildLeaderSynthesisPrompt(mission);
+      // 使用新方法构建完整报告（保证数据完整性）
+      const { fullContent, summaryPrompt } =
+        this.buildFinalReportWithFullContent(mission);
 
-      // 调用 AI 生成详尽的最终报告
-      let aiResponse;
+      // 只让 AI 生成执行总结，不处理完整内容（避免截断）
+      let executiveSummary = "";
       try {
-        aiResponse = await this.callAIWithConfig(
+        const summaryResponse = await this.callAIWithConfig(
           mission.leader.aiModel,
-          [{ role: "user", content: synthesisPrompt }],
+          [{ role: "user", content: summaryPrompt }],
           this.getLeaderSystemPrompt(mission.leader),
-          { maxTokens: 10000, temperature: 0.7 },
+          { maxTokens: 2000, temperature: 0.5 },
         );
+        executiveSummary = summaryResponse.content;
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        this.logger.error(`[synthesizeResults] AI call failed: ${errorMsg}`);
-        // 仅在 AI 调用失败时使用简单拼接
-        const taskResults = (mission.tasks || [])
-          .filter((t: any) => t.status === AgentTaskStatus.COMPLETED)
-          .map((t: any) => `### ${t.title}\n${t.result || "无结果"}`)
-          .join("\n\n");
-        aiResponse = {
-          content: `## 任务结果汇总\n\n（由于 AI 综合失败，以下为原始结果）\n\n${taskResults}`,
-        };
+        this.logger.warn(`[completeMission] 执行总结生成失败: ${errorMsg}`);
+        // 生成基础总结
+        const taskCount = (mission.tasks || []).filter(
+          (t: any) => t.status === AgentTaskStatus.COMPLETED,
+        ).length;
+        executiveSummary = `## 执行总结\n\n共完成 ${taskCount} 个子任务。`;
       }
+
+      // 最终报告 = 完整内容 + 执行总结
+      const finalReport = `${fullContent}\n\n---\n\n${executiveSummary}`;
+
+      this.logger.log(
+        `[completeMission] 最终报告生成完成，总长度: ${finalReport.length} 字符`,
+      );
 
       // 发送最终交付消息
       const finalMessage = await this.sendMessageToTopic(
         mission.topicId,
         mission.leader.id,
-        `[最终交付]\n\n🎉 任务完成！\n\n${aiResponse.content}`,
+        `[最终交付]\n\n🎉 任务完成！\n\n${finalReport}`,
         MessageContentType.TEXT,
       );
 
-      // 更新任务为已完成
+      // 更新任务为已完成（存储完整报告）
       await this.prisma.teamMission.update({
         where: { id: missionId },
         data: {
           status: MissionStatus.COMPLETED,
           completedAt: new Date(),
-          finalResult: aiResponse.content,
+          finalResult: finalReport, // 存储完整报告，不截断
           progressPercent: 100,
         },
       });
@@ -1517,7 +1543,7 @@ export class TeamMissionService {
 
       this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:completed", {
         missionId,
-        finalResult: aiResponse.content,
+        finalResult: finalReport, // 发送完整报告
         participantAIIds,
       });
     } catch (error) {
@@ -1885,32 +1911,109 @@ ${searchSection}
     return query;
   }
 
+  /**
+   * 为长内容生成 AI 摘要，用于 Leader 审核
+   * 对于小说等长文创作，生成包含情节梗概、角色、主题的结构化摘要
+   */
+  private async summarizeForLeaderReview(
+    content: string,
+    taskTitle: string,
+    leaderModel: string,
+  ): Promise<{ summary: string; keyExcerpts: string }> {
+    const SUMMARY_THRESHOLD = 3000; // 超过3000字符才需要摘要
+
+    if (content.length <= SUMMARY_THRESHOLD) {
+      return { summary: content, keyExcerpts: "" };
+    }
+
+    try {
+      const prompt = `请为以下创作内容生成审核摘要，帮助 Leader 评估内容质量：
+
+【任务】${taskTitle}
+
+【原文内容】（共${content.length}字符）
+${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略]" : ""}
+
+请输出以下结构化摘要：
+
+## 内容概要
+[用200-300字概括主要内容、情节发展、核心观点]
+
+## 关键要素
+- 主题/立意：[简述]
+- 结构/逻辑：[简述是否清晰完整]
+- 风格/语言：[简述文风特点]
+
+## 亮点摘录
+[摘录2-3段精彩片段，每段不超过100字]
+
+## 潜在问题
+[如有发现，列出可能需要改进的地方]`;
+
+      const response = await this.callAIWithConfig(
+        leaderModel,
+        [{ role: "user", content: prompt }],
+        "你是一位专业的内容审核助手，擅长快速提炼长文精华。请客观、准确地生成摘要。",
+        { maxTokens: 1500, temperature: 0.3 },
+      );
+
+      // 提取开头和结尾的关键片段
+      const headExcerpt = content.substring(0, 500);
+      const tailExcerpt = content.substring(content.length - 500);
+      const keyExcerpts = `【开篇】\n${headExcerpt}\n\n【结尾】\n${tailExcerpt}`;
+
+      return {
+        summary: response.content,
+        keyExcerpts,
+      };
+    } catch (error) {
+      this.logger.warn(
+        `[summarizeForLeaderReview] 摘要生成失败，使用截断模式: ${error}`,
+      );
+      // 失败时回退到首尾截取
+      const head = content.substring(0, 1500);
+      const tail = content.substring(content.length - 800);
+      return {
+        summary: `${head}\n\n...[中间省略]...\n\n${tail}`,
+        keyExcerpts: "",
+      };
+    }
+  }
+
   private buildLeaderReviewPrompt(
     mission: any,
     task: any,
     taskResult: string,
   ): string {
     // 截断任务产出，防止上下文过大导致 Gemini 等模型报错
-    const MAX_RESULT_LENGTH = 6000;
-    const truncatedResult =
-      taskResult.length > MAX_RESULT_LENGTH
-        ? taskResult.substring(0, MAX_RESULT_LENGTH) +
-          "\n\n...[内容已截断，仅显示前6000字符]"
-        : taskResult;
+    // 使用更保守的限制，并采用首尾截取策略保留关键信息
+    const MAX_RESULT_LENGTH = 2500;
+    let truncatedResult: string;
+
+    if (taskResult.length > MAX_RESULT_LENGTH) {
+      // 首尾截取：开头1500字符 + 结尾800字符，保留开篇和结局
+      const headLength = 1500;
+      const tailLength = 800;
+      const head = taskResult.substring(0, headLength);
+      const tail = taskResult.substring(taskResult.length - tailLength);
+      truncatedResult = `${head}\n\n...[中间内容已省略，原文共${taskResult.length}字符]...\n\n${tail}`;
+    } else {
+      truncatedResult = taskResult;
+    }
 
     // 获取已完成任务的摘要，用于一致性检查
     const completedTasks = (mission.tasks || [])
       .filter(
         (t: any) => t.status === "COMPLETED" && t.id !== task.id && t.result,
       )
-      .slice(-3); // 只取最近3个已完成任务
+      .slice(-2); // 只取最近2个已完成任务，减少上下文
 
     const completedSummary =
       completedTasks.length > 0
         ? completedTasks
             .map((t: any) => {
-              const resultPreview = (t.result || "").substring(0, 300);
-              return `- ${t.title}（${t.assignedTo?.agentName || t.assignedTo?.displayName || "未知"}）: ${resultPreview}${t.result?.length > 300 ? "..." : ""}`;
+              const resultPreview = (t.result || "").substring(0, 200);
+              return `- ${t.title}（${t.assignedTo?.agentName || t.assignedTo?.displayName || "未知"}）: ${resultPreview}${t.result?.length > 200 ? "..." : ""}`;
             })
             .join("\n")
         : "（暂无已完成任务）";
@@ -1948,13 +2051,20 @@ ${completedSummary}
     task: any,
     feedback: string,
   ): string {
-    // 截断之前的产出，防止上下文过大
-    const MAX_RESULT_LENGTH = 4000;
+    // 截断之前的产出，防止上下文过大（使用首尾截取策略）
+    const MAX_RESULT_LENGTH = 2500;
     const previousResult = task.result || "（无记录）";
-    const truncatedPreviousResult =
-      previousResult.length > MAX_RESULT_LENGTH
-        ? previousResult.substring(0, MAX_RESULT_LENGTH) + "\n\n...[内容已截断]"
-        : previousResult;
+    let truncatedPreviousResult: string;
+
+    if (previousResult.length > MAX_RESULT_LENGTH) {
+      const headLength = 1500;
+      const tailLength = 800;
+      const head = previousResult.substring(0, headLength);
+      const tail = previousResult.substring(previousResult.length - tailLength);
+      truncatedPreviousResult = `${head}\n\n...[中间内容已省略，原文共${previousResult.length}字符]...\n\n${tail}`;
+    } else {
+      truncatedPreviousResult = previousResult;
+    }
 
     return `你之前提交的任务需要修改。
 
@@ -1972,49 +2082,97 @@ ${feedback}
 请根据 Leader 的反馈修改你的产出，输出修改后的完整内容。`;
   }
 
-  private buildLeaderSynthesisPrompt(mission: any): string {
-    // 每个任务结果最多保留2000字符，防止综合时上下文过大
-    const MAX_PER_TASK_LENGTH = 2000;
-    const taskResults = mission.tasks
-      .map((t: any) => {
-        const result = t.result || "（无产出）";
-        const truncatedResult =
-          result.length > MAX_PER_TASK_LENGTH
-            ? result.substring(0, MAX_PER_TASK_LENGTH) + "\n...[已截断]"
-            : result;
-        return `【${t.title}】by ${t.assignedTo.agentName || t.assignedTo.displayName}
-${truncatedResult}`;
-      })
-      .join("\n\n---\n\n");
+  /**
+   * 构建完整的最终报告（不截断任何内容）
+   * 保证数据完整性：所有任务产出完整保留，按章节/卷结构展示
+   */
+  private buildFinalReportWithFullContent(mission: any): {
+    fullContent: string;
+    summaryPrompt: string;
+  } {
+    const completedTasks = (mission.tasks || []).filter(
+      (t: any) => t.status === "COMPLETED" && t.result,
+    );
 
-    return `你是团队 Leader，所有子任务已完成，请整合最终成果。
+    // 构建完整的分章节内容
+    const chapters = completedTasks.map((t: any, index: number) => {
+      const agentName =
+        t.assignedTo?.agentName || t.assignedTo?.displayName || "未知";
+      return `## 第${index + 1}章：${t.title}
+> 作者/负责人：${agentName}
+> 字数：${(t.result || "").length} 字
+
+${t.result || "（无内容）"}`;
+    });
+
+    const fullContent = `# ${mission.title}
+
+${mission.description || ""}
+
+---
+
+${chapters.join("\n\n---\n\n")}`;
+
+    // 为 AI 生成执行总结准备的简化信息（不包含完整内容，只包含元数据）
+    interface TaskMeta {
+      title: string;
+      agent: string;
+      wordCount: number;
+      preview: string;
+    }
+    const taskMeta: TaskMeta[] = completedTasks.map((t: any) => ({
+      title: t.title as string,
+      agent: (t.assignedTo?.agentName ||
+        t.assignedTo?.displayName ||
+        "未知") as string,
+      wordCount: ((t.result || "") as string).length,
+      preview: ((t.result || "") as string).substring(0, 200) + "...",
+    }));
+
+    const taskList = taskMeta
+      .map(
+        (t: TaskMeta, i: number) =>
+          `${i + 1}. ${t.title}（${t.agent}）- ${t.wordCount}字\n   预览：${t.preview}`,
+      )
+      .join("\n");
+    const totalWords = taskMeta.reduce(
+      (sum: number, t: TaskMeta) => sum + t.wordCount,
+      0,
+    );
+    const participants = [
+      ...new Set(taskMeta.map((t: TaskMeta) => t.agent)),
+    ].join("、");
+
+    const summaryPrompt = `你是团队 Leader，所有子任务已完成。请根据以下信息生成执行总结（注意：完整内容已单独保存，你只需生成总结）。
 
 【任务信息】
 标题：${mission.title}
 描述：${mission.description}
 ${mission.deliverables?.length ? `期望交付物：${mission.deliverables.join("、")}` : ""}
 
-【各成员产出】
-${taskResults}
+【任务完成情况】
+共完成 ${completedTasks.length} 个子任务：
+${taskList}
 
-【要求】
-请整合所有产出，生成最终交付物：
-1. 使用清晰的结构组织内容
-2. 确保覆盖所有期望交付物
-3. 在最后添加执行总结
+【总字数】${totalWords} 字
 
-输出格式：
-# ${mission.title} - 最终成果
+请生成执行总结，包括：
+1. 任务完成概述
+2. 各成员贡献
+3. 总体评价
 
-[整合后的完整内容]
-
+格式：
 ## 执行总结
+
 | 指标 | 数据 |
 |------|------|
-| 总任务数 | ${mission.tasks.length} |
-| 参与成员 | ... |
+| 总任务数 | ${completedTasks.length} |
+| 参与成员 | ${participants} |
+| 总字数 | ${totalWords} |
 
 [总结性评价]`;
+
+    return { fullContent, summaryPrompt };
   }
 
   private getLeaderSystemPrompt(leader: any): string {

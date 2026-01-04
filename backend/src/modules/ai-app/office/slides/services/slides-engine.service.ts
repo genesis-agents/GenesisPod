@@ -19,8 +19,8 @@
  * 5. Leader 综合 - 整合所有输出
  */
 
-import { Injectable, Logger } from "@nestjs/common";
-import { OnEvent } from "@nestjs/event-emitter";
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import { OnEvent, EventEmitter2 } from "@nestjs/event-emitter";
 import { SlidesTeamOrchestrator } from "../orchestrator/slides-team-orchestrator";
 import {
   SlidesTeamOrchestratorInput,
@@ -32,8 +32,12 @@ import {
   CheckpointState,
   StreamEventType,
   StreamEvent,
+  PageOutline,
 } from "../checkpoint/checkpoint.types";
 import { PageGeneratedEvent } from "../skills/page-pipeline.skill";
+import { ContentCompressionSkill } from "../skills/content-compression.skill";
+import { TemplateRenderingSkill } from "../skills/template-rendering.skill";
+import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
 
 /**
  * PPT 生成输入参数
@@ -108,6 +112,10 @@ export class SlidesEngineService {
     private readonly orchestrator: SlidesTeamOrchestrator,
     private readonly checkpointService: CheckpointService,
     private readonly exportService: SlidesExportService,
+    @Optional() private readonly contentCompression: ContentCompressionSkill,
+    @Optional() private readonly templateRendering: TemplateRenderingSkill,
+    @Optional() private readonly aiChatService: AiChatService,
+    @Optional() private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -599,26 +607,296 @@ export class SlidesEngineService {
 
   /**
    * 重新生成指定页面
+   * 根据用户反馈修改页面内容并重新渲染
    */
   async regeneratePage(
     sessionId: string,
     pageNumber: number,
-    _feedback?: string,
+    feedback?: string,
   ): Promise<StreamEvent[]> {
     this.logger.log(
-      `[regeneratePage] Regenerating page ${pageNumber} for session ${sessionId}`,
+      `[regeneratePage] Regenerating page ${pageNumber} for session ${sessionId}, feedback: "${feedback}"`,
     );
 
-    // 获取当前状态
+    const events: StreamEvent[] = [];
+
+    // 1. 获取当前状态
     const state = await this.getSessionState(sessionId);
     if (!state) {
       throw new Error(`Session ${sessionId} not found`);
     }
 
-    // TODO: 实现单页重新生成逻辑
-    // 这需要调用特定的技能来重新生成单个页面
+    // 2. 找到目标页面
+    const pageIndex = pageNumber - 1;
+    const currentPage = state.pages[pageIndex];
+    if (!currentPage) {
+      throw new Error(`Page ${pageNumber} not found in session ${sessionId}`);
+    }
 
-    return [];
+    // 3. 检查必要的服务是否可用
+    if (!this.contentCompression || !this.templateRendering) {
+      this.logger.warn(
+        "[regeneratePage] Content compression or template rendering skills not available",
+      );
+      throw new Error("页面重新生成服务不可用，请稍后重试");
+    }
+
+    try {
+      // 4. 解析用户反馈，生成修改后的页面大纲
+      const modifiedOutline = await this.interpretFeedbackAndModifyOutline(
+        currentPage.outline,
+        feedback || "",
+        sessionId,
+      );
+
+      this.logger.log(
+        `[regeneratePage] Modified outline: title="${modifiedOutline.title}"`,
+      );
+
+      // 5. 发送开始重新生成事件
+      events.push(
+        this.createEvent("agent:working", sessionId, {
+          agent: "designer",
+          agentName: "Slide Designer",
+          task: `正在重新生成第 ${pageNumber} 页: ${feedback || "用户请求修改"}`,
+          progress: 0,
+        }),
+      );
+
+      // 6. 使用 ContentCompression 重新生成内容
+      const compressionResult = await this.contentCompression.execute(
+        {
+          pageOutline: modifiedOutline,
+          sourceText: currentPage.outline.keyElements?.join("\n") || "",
+          maxCharacters: 500,
+          sessionId,
+          retryContext: {
+            attempt: 1,
+            feedback: feedback || "用户请求修改页面内容",
+          },
+        },
+        {
+          executionId: `regenerate-${sessionId}-${pageNumber}-${Date.now()}`,
+          skillId: "content-compression",
+          createdAt: new Date(),
+        },
+      );
+
+      if (!compressionResult.success || !compressionResult.data?.pageContent) {
+        throw new Error("内容生成失败");
+      }
+
+      const newContent = compressionResult.data.pageContent;
+      this.logger.log(
+        `[regeneratePage] New content generated: title="${newContent.title}"`,
+      );
+
+      // 7. 使用 TemplateRendering 重新渲染 HTML
+      const themeId =
+        (state.globalStyles as { themeId?: string })?.themeId || "tech-dark";
+      const renderResult = await this.templateRendering.execute(
+        {
+          pageOutline: modifiedOutline,
+          pageContent: newContent,
+          themeId,
+        },
+        {
+          executionId: `render-${sessionId}-${pageNumber}-${Date.now()}`,
+          skillId: "template-rendering",
+          createdAt: new Date(),
+        },
+      );
+
+      if (!renderResult.success || !renderResult.data?.html) {
+        throw new Error("HTML 渲染失败");
+      }
+
+      const newHtml = renderResult.data.html;
+      this.logger.log(
+        `[regeneratePage] New HTML rendered: ${newHtml.length} characters`,
+      );
+
+      // 8. 更新页面状态
+      state.pages[pageIndex] = {
+        ...currentPage,
+        outline: modifiedOutline,
+        content: newContent,
+        html: newHtml,
+        status: "completed",
+      };
+
+      // 9. 保存更新后的检查点
+      await this.checkpointService.create({
+        sessionId,
+        name: `页面 ${pageNumber} 已根据反馈重新生成`,
+        type: "user_modified",
+        state,
+      });
+
+      // 10. 发送页面更新事件
+      events.push(
+        this.createEvent("slide:generated", sessionId, {
+          pageNumber,
+          totalPages: state.pages.length,
+          title: modifiedOutline.title,
+          html: newHtml,
+          templateId: renderResult.data.templateId,
+          contentLength: newHtml.length,
+          isRegenerated: true,
+        }),
+      );
+
+      // 11. 通过 EventEmitter 广播页面更新（供前端实时更新）
+      if (this.eventEmitter) {
+        this.eventEmitter.emit("slides.page.regenerated", {
+          sessionId,
+          pageNumber,
+          title: modifiedOutline.title,
+          html: newHtml,
+          templateId: renderResult.data.templateId,
+        });
+      }
+
+      events.push(
+        this.createEvent("agent:completed", sessionId, {
+          agent: "designer",
+          agentName: "Slide Designer",
+          task: `第 ${pageNumber} 页重新生成完成`,
+          result: "success",
+        }),
+      );
+
+      this.logger.log(
+        `[regeneratePage] Page ${pageNumber} regenerated successfully`,
+      );
+
+      return events;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      this.logger.error(`[regeneratePage] Failed: ${errorMessage}`);
+
+      events.push(
+        this.createEvent("execution:failed", sessionId, {
+          phase: "regeneration",
+          message: `页面 ${pageNumber} 重新生成失败: ${errorMessage}`,
+          recoverable: true,
+        }),
+      );
+
+      return events;
+    }
+  }
+
+  /**
+   * 解析用户反馈并修改页面大纲
+   * 使用 AI 理解用户意图并生成修改后的大纲
+   */
+  private async interpretFeedbackAndModifyOutline(
+    originalOutline: PageOutline,
+    feedback: string,
+    _sessionId: string, // 保留用于未来日志记录
+  ): Promise<PageOutline> {
+    // 如果没有 AI 服务或反馈为空，直接返回原大纲
+    if (!this.aiChatService || !feedback.trim()) {
+      this.logger.warn(
+        "[interpretFeedbackAndModifyOutline] No AI service or empty feedback, returning original outline",
+      );
+      return originalOutline;
+    }
+
+    try {
+      const prompt = `你是一个幻灯片内容专家。请根据用户的反馈修改以下幻灯片大纲。
+
+## 当前页面大纲
+- 标题: ${originalOutline.title}
+- 副标题: ${originalOutline.subtitle || "无"}
+- 模板类型: ${originalOutline.templateType}
+- 关键内容: ${originalOutline.keyElements?.join(", ") || "无"}
+
+## 用户反馈
+${feedback}
+
+## 任务
+请理解用户的修改意图，输出修改后的页面大纲。必须以 JSON 格式返回：
+
+\`\`\`json
+{
+  "title": "新标题",
+  "subtitle": "新副标题（可选）",
+  "templateType": "${originalOutline.templateType}",
+  "keyElements": ["关键点1", "关键点2", "关键点3"]
+}
+\`\`\`
+
+注意：
+1. 如果用户要求修改标题，直接使用用户指定的内容
+2. 保持模板类型不变，除非用户明确要求更改
+3. 关键内容应该与新标题相关
+4. 只输出 JSON，不要其他内容`;
+
+      const response = await this.aiChatService.generateChatCompletion({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+        maxTokens: 500,
+      });
+
+      // 解析 AI 响应
+      const jsonMatch = response.content.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[1]);
+        return {
+          ...originalOutline,
+          title: parsed.title || originalOutline.title,
+          subtitle: parsed.subtitle || originalOutline.subtitle,
+          templateType: parsed.templateType || originalOutline.templateType,
+          keyElements: parsed.keyElements || originalOutline.keyElements,
+        };
+      }
+
+      // 尝试直接解析（没有 code block 的情况）
+      try {
+        const parsed = JSON.parse(response.content.trim());
+        return {
+          ...originalOutline,
+          title: parsed.title || originalOutline.title,
+          subtitle: parsed.subtitle || originalOutline.subtitle,
+          templateType: parsed.templateType || originalOutline.templateType,
+          keyElements: parsed.keyElements || originalOutline.keyElements,
+        };
+      } catch {
+        // 如果解析失败，尝试简单的标题替换
+        if (feedback.includes("改为") || feedback.includes("修改为")) {
+          const match = feedback.match(/(?:改为|修改为)[：:\s]*(.+)/);
+          if (match) {
+            return {
+              ...originalOutline,
+              title: match[1].trim(),
+            };
+          }
+        }
+      }
+
+      this.logger.warn(
+        "[interpretFeedbackAndModifyOutline] Failed to parse AI response, returning original outline",
+      );
+      return originalOutline;
+    } catch (error) {
+      this.logger.error(
+        `[interpretFeedbackAndModifyOutline] AI interpretation failed: ${error}`,
+      );
+      // 降级处理：尝试简单的文本替换
+      if (feedback.includes("改为") || feedback.includes("修改为")) {
+        const match = feedback.match(/(?:改为|修改为)[：:\s]*(.+)/);
+        if (match) {
+          return {
+            ...originalOutline,
+            title: match[1].trim(),
+          };
+        }
+      }
+      return originalOutline;
+    }
   }
 
   // ==================== 私有方法 ====================
