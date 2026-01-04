@@ -716,9 +716,9 @@ export class SlidesEngineService {
       case "synthesis:started":
         events.push(
           this.createEvent("phase:started", sessionId, {
-            phase: "rendering",
+            phase: "generating", // ★ 修复：前端期望 generating 而非 rendering
             agent: "writer",
-            description: "正在综合生成页面...",
+            description: "正在生成页面内容...",
           }),
         );
         events.push(
@@ -932,14 +932,16 @@ export class SlidesEngineService {
 
   /**
    * 将 Orchestrator 阶段映射到前端阶段
+   * ★ 注意：前端 PhaseTimeline 只支持 analyzing, planning, generating, reviewing
    */
   private mapOrchestratorPhase(phase: string): string {
     const mapping: Record<string, string> = {
       planning: "planning",
-      executing: "rendering",
+      executing: "generating", // ★ 修复：前端期望 generating 而非 rendering
+      rendering: "generating", // ★ 修复：确保兼容性
       reviewing: "reviewing",
       auditing: "reviewing",
-      synthesizing: "rendering",
+      synthesizing: "generating", // ★ 修复：前端期望 generating
       completed: "completed",
       failed: "failed",
     };
@@ -959,9 +961,10 @@ export class SlidesEngineService {
       initializing: "leader",
       analyzing: "analyst",
       planning: "strategist",
+      generating: "writer", // ★ 前端期望的阶段名
       content_filling: "writer", // 内容填充由 Writer 负责
       image_generation: "writer", // 图片生成由 Writer/Designer 负责
-      rendering: "writer", // 渲染由 Writer 负责
+      rendering: "writer", // 渲染由 Writer 负责（兼容旧代码）
       reviewing: "reviewer",
       completed: "leader",
     };
@@ -976,9 +979,10 @@ export class SlidesEngineService {
       initializing: "正在初始化 AI 团队...",
       analyzing: "正在分析内容结构...",
       planning: "正在规划 PPT 大纲...",
+      generating: "正在生成页面内容...", // ★ 前端期望的阶段名
       content_filling: "正在填充页面内容...",
       image_generation: "正在生成配图...",
-      rendering: "正在渲染页面 HTML...",
+      rendering: "正在渲染页面 HTML...", // 兼容旧代码
       reviewing: "正在进行质量检查...",
       completed: "生成完成！",
     };
