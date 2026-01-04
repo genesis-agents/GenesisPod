@@ -1188,11 +1188,82 @@ function ConversationPanel({
   const { streamEvents, selectedPageIndex, setSelectedPageIndex } =
     useSlidesStore();
 
+  // ƒ~. ‚?%‚­1‘?›Š_?‘,?‘?r‡""„§Z‘~_‡§‡"¯†¯S
+  const chatMessages = React.useMemo(() => {
+    const items: Array<{
+      id: string;
+      role: 'user' | 'system' | 'agent';
+      author: string;
+      message: string;
+      timestamp: Date;
+    }> = [];
+
+    streamEvents.forEach((event, index) => {
+      const data = (event.data || {}) as Record<string, any>;
+      const timestamp =
+        event.timestamp instanceof Date
+          ? event.timestamp
+          : new Date(event.timestamp);
+
+      if (event.type === 'user_message') {
+        if (!data.message) return;
+        items.push({
+          id: `${event.type}-${timestamp.getTime()}-${index}`,
+          role: 'user',
+          author: '我',
+          message: String(data.message),
+          timestamp,
+        });
+        return;
+      }
+
+      if (event.type === 'system_message') {
+        if (!data.message) return;
+        items.push({
+          id: `${event.type}-${timestamp.getTime()}-${index}`,
+          role: 'system',
+          author: data.source || '系统',
+          message: String(data.message),
+          timestamp,
+        });
+        return;
+      }
+
+      if (event.type === 'agent:working' || event.type === 'agent:completed') {
+        const message =
+          data.thought || data.task || data.result || data.message || '';
+        if (!message) return;
+        items.push({
+          id: `${event.type}-${timestamp.getTime()}-${index}`,
+          role: 'agent',
+          author: data.agentName || data.agent || 'Agent',
+          message: String(message),
+          timestamp,
+        });
+      }
+    });
+
+    return items.slice(-50);
+  }, [streamEvents]);
+
+  const renderMessageText = useCallback((text: string) => {
+    return text.split(/(@[\w-]+)/g).map((part, idx) => {
+      if (part.startsWith('@')) {
+        return (
+          <span key={idx} className="font-medium text-orange-600">
+            {part}
+          </span>
+        );
+      }
+      return <span key={idx}>{part}</span>;
+    });
+  }, []);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [toolCalls, progress]);
+  }, [toolCalls, progress, chatMessages]);
 
   // ★ 检测 @ mention
   useEffect(() => {
@@ -1245,6 +1316,8 @@ function ConversationPanel({
     if (!inputValue.trim()) return;
     onSendMessage(inputValue.trim());
     setInputValue('');
+    setShowMentionMenu(false);
+    setMentionFilter('');
   }, [inputValue, onSendMessage]);
 
   const handleKeyDown = useCallback(
@@ -1344,6 +1417,43 @@ function ConversationPanel({
       {/* 滚动区域 */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3">
         {/* 阶段时间线 - 按角色分组显示，替换混乱的 toolCalls 列表 */}
+        {/* 对话记录 */}
+        <div className="mb-3 space-y-2">
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>对话</span>
+            <span>{chatMessages.length} 条</span>
+          </div>
+          {chatMessages.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-200 bg-white px-3 py-2 text-xs text-gray-500">
+              暂无消息，输入 @leader/@analyst 等与团队沟通
+            </div>
+          ) : (
+            chatMessages.map((msg) => (
+              <div
+                key={msg.id}
+                className="rounded-lg border border-gray-200 bg-white p-3"
+              >
+                <div className="mb-1 flex items-center gap-2 text-xs text-gray-500">
+                  <span
+                    className={cn(
+                      'rounded px-1.5 py-0.5',
+                      msg.role === 'user' && 'bg-blue-50 text-blue-700',
+                      msg.role === 'system' && 'bg-slate-100 text-slate-700',
+                      msg.role === 'agent' && 'bg-amber-50 text-amber-700'
+                    )}
+                  >
+                    {msg.author}
+                  </span>
+                  <span>{msg.timestamp.toLocaleTimeString()}</span>
+                </div>
+                <div className="whitespace-pre-wrap text-sm text-gray-900">
+                  {renderMessageText(msg.message)}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
         <PhaseTimeline
           teamState={teamState}
           generating={generating}

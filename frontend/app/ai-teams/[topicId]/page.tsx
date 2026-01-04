@@ -1010,6 +1010,35 @@ const MessageBubble = memo(function MessageBubble({
                             img: ({ node, ...props }) => (
                               <MarkdownImage {...props} />
                             ),
+                            // ★ 表格渲染组件 - 确保表格正确显示
+                            table: ({ children }) => (
+                              <div className="my-3 overflow-x-auto">
+                                <table className="min-w-full border-collapse text-sm">
+                                  {children}
+                                </table>
+                              </div>
+                            ),
+                            thead: ({ children }) => (
+                              <thead className="bg-gray-100">{children}</thead>
+                            ),
+                            th: ({ children }) => (
+                              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold text-gray-900">
+                                {children}
+                              </th>
+                            ),
+                            tbody: ({ children }) => (
+                              <tbody className="divide-y divide-gray-200">
+                                {children}
+                              </tbody>
+                            ),
+                            tr: ({ children }) => (
+                              <tr className="hover:bg-gray-50">{children}</tr>
+                            ),
+                            td: ({ children }) => (
+                              <td className="border border-gray-200 px-3 py-2 text-gray-700">
+                                {children}
+                              </td>
+                            ),
                           }}
                         >
                           {textContent}
@@ -2554,30 +2583,35 @@ export default function TopicPage() {
               {/* Continue Mission */}
               <button
                 disabled={
-                  !currentMission ||
-                  ['COMPLETED', 'CANCELLED'].includes(currentMission.status)
+                  !currentMission || currentMission.status === 'COMPLETED'
                 }
                 onClick={async () => {
                   if (!topicId || !currentMission) return;
                   if (currentMission.status === 'PAUSED') {
                     await resumeMission(topicId, currentMission.id);
-                  } else if (currentMission.status === 'FAILED') {
+                  } else if (
+                    currentMission.status === 'FAILED' ||
+                    currentMission.status === 'CANCELLED'
+                  ) {
+                    // ★ 修复：已取消/失败的任务调用 retryMission
                     await retryMission(topicId, currentMission.id, {
                       mode: 'continue',
                     });
                   } else if (currentMission.leaderId) {
-                    // For IN_PROGRESS, PLANNING, REVIEW, PENDING - trigger Leader response
-                    await generateAIResponse(topicId, currentMission.leaderId);
+                    // ★ 修复：对于进行中的任务，也调用 retryMission 触发 @Leader
+                    await retryMission(topicId, currentMission.id, {
+                      mode: 'continue',
+                    });
                   }
                 }}
                 className={[
                   'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-                  !currentMission ||
-                  ['COMPLETED', 'CANCELLED'].includes(currentMission.status)
+                  !currentMission || currentMission.status === 'COMPLETED'
                     ? 'cursor-not-allowed bg-gray-100 text-gray-400'
                     : currentMission.status === 'PAUSED'
                       ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                      : currentMission.status === 'FAILED'
+                      : currentMission.status === 'FAILED' ||
+                          currentMission.status === 'CANCELLED'
                         ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
                         : 'bg-green-100 text-green-700 hover:bg-green-200',
                 ].join(' ')}
