@@ -21,6 +21,7 @@ import {
   mapWithConcurrency,
   ConcurrencyLimits,
 } from "../../../../../common/utils/concurrency.utils";
+import { TeamsLongContentService } from "../ai/teams-long-content.service";
 
 interface TaskBreakdownItem {
   title: string;
@@ -110,6 +111,7 @@ export class TeamMissionService {
     private aiChatService: AiChatService,
     private searchService: SearchService,
     private aiTeamsGateway: AiTeamsGateway,
+    private longContentService: TeamsLongContentService,
   ) {}
 
   /**
@@ -525,6 +527,27 @@ export class TeamMissionService {
       MessageContentType.TEXT,
     );
 
+    // 初始化长内容处理服务
+    try {
+      await this.longContentService.initMission({
+        missionId: mission.id,
+        missionTitle: mission.title,
+        missionDescription: mission.description || "",
+        objectives: mission.objectives || [],
+        constraints: mission.constraints || [],
+        expectedTaskCount: mission.totalTasks || undefined,
+        granularityLevel: "chapter", // 默认按章节粒度分解
+      });
+      this.logger.log(
+        `[startMission] Long content service initialized for mission: ${mission.id}`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `[startMission] Failed to init long content service: ${error}`,
+      );
+      // 不阻塞任务执行，长内容服务初始化失败时继续执行
+    }
+
     // 执行 Leader 任务规划
     await this.executeLeaderPlanning(mission);
   }
@@ -537,11 +560,28 @@ export class TeamMissionService {
 
     try {
       // 构建 Leader 规划提示词
-      const planningPrompt = this.buildLeaderPlanningPrompt(
+      let planningPrompt = this.buildLeaderPlanningPrompt(
         mission,
         leader,
         teamMembers,
       );
+
+      // 添加粒度约束（确保按用户要求的粒度分解任务）
+      try {
+        const granularityConstraint =
+          this.longContentService.buildGranularityConstraintPrompt(mission.id);
+        if (granularityConstraint) {
+          planningPrompt += `\n\n${granularityConstraint}`;
+          this.logger.debug(
+            `[executeLeaderPlanning] Added granularity constraint for mission: ${mission.id}`,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[executeLeaderPlanning] Failed to get granularity constraint: ${error}`,
+        );
+        // 继续执行，不阻塞
+      }
 
       // 调用 AI 生成任务分解 (使用数据库 API Key)
       let aiResponse;
@@ -955,12 +995,118 @@ export class TeamMissionService {
 
       // ==================== AI 调用成功，继续处理结果 ====================
 
+      // 检测是否需要续写（处理"未完待续"等中断情况）
+      let finalContent = aiResponse.content;
+      try {
+        const completionResult =
+          await this.longContentService.processTaskCompletion(
+            mission.id,
+            task.id,
+            task.title,
+            aiResponse.content,
+          );
+
+        if (completionResult.needsContinuation) {
+          this.logger.log(
+            `[executeTask] Task "${task.title}" needs continuation, current: ${completionResult.continuationState?.continuationCount || 0}/${completionResult.continuationState?.maxContinuations || 3}`,
+          );
+
+          // 发送续写中的消息
+          await this.sendMessageToTopic(
+            mission.topicId,
+            currentAgent.id,
+            `[续写中...]\n\n任务内容较长，正在继续生成...`,
+            MessageContentType.TEXT,
+          );
+
+          // 执行续写循环
+          let continuationState = completionResult.continuationState;
+          while (
+            continuationState &&
+            continuationState.continuationCount <
+              continuationState.maxContinuations
+          ) {
+            // 构建续写 Prompt
+            const continuationPrompt =
+              this.longContentService.buildContinuationPrompt(
+                task.id,
+                task.title,
+                task.description || task.title,
+              );
+
+            // 调用 AI 续写
+            const continuationResult = await this.callAIWithRetry(
+              currentAgent.aiModel,
+              [{ role: "user", content: continuationPrompt }],
+              this.getAgentSystemPrompt(currentAgent, task),
+              { maxTokens: 8000, temperature: 0.7 },
+              {
+                taskId: task.id,
+                taskTitle: task.title,
+                missionId: mission.id,
+              },
+            );
+
+            if (!continuationResult.success || !continuationResult.content) {
+              this.logger.warn(
+                `[executeTask] Continuation failed for task "${task.title}"`,
+              );
+              break;
+            }
+
+            // 处理续写结果
+            const nextResult =
+              await this.longContentService.processTaskCompletion(
+                mission.id,
+                task.id,
+                task.title,
+                continuationResult.content,
+              );
+
+            if (!nextResult.needsContinuation) {
+              // 续写完成
+              finalContent =
+                nextResult.finalContent || continuationResult.content;
+              this.logger.log(
+                `[executeTask] Continuation completed for task "${task.title}"`,
+              );
+              break;
+            }
+
+            continuationState = nextResult.continuationState;
+          }
+
+          // 获取最终合并的结果
+          const mergedContent = this.longContentService.getFinalResult(task.id);
+          if (mergedContent) {
+            finalContent = mergedContent;
+          }
+        } else if (completionResult.finalContent) {
+          finalContent = completionResult.finalContent;
+        }
+
+        // 检查质量干预建议
+        if (
+          completionResult.intervention &&
+          completionResult.intervention.level >= 2
+        ) {
+          this.logger.warn(
+            `[executeTask] Quality intervention recommended for task "${task.title}": ${completionResult.intervention.reason}`,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[executeTask] Long content processing failed: ${error}`,
+        );
+        // 继续使用原始结果
+      }
+
       // 发送工作汇报消息（使用实际完成任务的 Agent）
       const leaderName = mission.leader.agentName || mission.leader.displayName;
       const resultMessage = await this.sendMessageToTopic(
         mission.topicId,
         currentAgent.id,
-        `[工作汇报]\n\n@${leaderName} 任务「${task.title}」已完成！\n\n${aiResponse.content}`,
+        `[工作汇报]\n\n@${leaderName} 任务「${task.title}」已完成！\n\n${finalContent}`,
         MessageContentType.TEXT,
       );
 
@@ -969,7 +1115,7 @@ export class TeamMissionService {
         where: { id: task.id },
         data: {
           status: AgentTaskStatus.AWAITING_REVIEW,
-          result: aiResponse.content,
+          result: finalContent,
           resultMessageId: resultMessage?.id,
         },
       });
@@ -999,7 +1145,7 @@ export class TeamMissionService {
       });
 
       // Leader 审核
-      await this.leaderReviewTask(mission, task, aiResponse.content);
+      await this.leaderReviewTask(mission, task, finalContent);
     } catch (error) {
       this.logger.error(`Task execution failed: ${error}`);
 
@@ -1208,12 +1354,33 @@ export class TeamMissionService {
         );
       }
 
+      // 获取质量趋势上下文（用于辅助 Leader 审核判断）
+      let qualityContext = "";
+      try {
+        const qualityCheck = this.longContentService.checkQualityIntervention(
+          mission.id,
+        );
+        if (qualityCheck.needed) {
+          qualityContext = `\n\n【质量预警】${qualityCheck.reason}`;
+          this.logger.log(
+            `[leaderReviewTask] Quality warning: ${qualityCheck.reason}`,
+          );
+        }
+      } catch (error) {
+        // 质量检查失败不影响审核流程
+      }
+
       // 构建审核提示词
-      const reviewPrompt = this.buildLeaderReviewPrompt(
+      let reviewPrompt = this.buildLeaderReviewPrompt(
         mission,
         task,
         reviewContent,
       );
+
+      // 添加质量上下文到审核提示词
+      if (qualityContext) {
+        reviewPrompt += qualityContext;
+      }
 
       // 调用 AI 进行审核 (使用数据库 API Key)
       let aiResponse;
@@ -1477,36 +1644,63 @@ export class TeamMissionService {
         MessageContentType.TEXT,
       );
 
-      // 使用新方法构建完整报告（保证数据完整性）
-      const { fullContent, summaryPrompt } =
-        this.buildFinalReportWithFullContent(mission);
+      // 尝试使用长内容服务生成最终报告（包含质量仪表盘）
+      let finalReport = "";
+      let qualityDashboard = null;
 
-      // 只让 AI 生成执行总结，不处理完整内容（避免截断）
-      let executiveSummary = "";
       try {
-        const summaryResponse = await this.callAIWithConfig(
-          mission.leader.aiModel,
-          [{ role: "user", content: summaryPrompt }],
-          this.getLeaderSystemPrompt(mission.leader),
-          { maxTokens: 2000, temperature: 0.5 },
+        const longContentReport =
+          await this.longContentService.buildFinalReport(missionId);
+        finalReport = longContentReport.fullContent;
+        qualityDashboard = longContentReport.dashboard;
+        this.logger.log(
+          `[completeMission] 使用长内容服务生成报告，质量评分: ${qualityDashboard.quality.overallScore.toFixed(1)}/10`,
         );
-        executiveSummary = summaryResponse.content;
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`[completeMission] 执行总结生成失败: ${errorMsg}`);
-        // 生成基础总结
-        const taskCount = (mission.tasks || []).filter(
-          (t: any) => t.status === AgentTaskStatus.COMPLETED,
-        ).length;
-        executiveSummary = `## 执行总结\n\n共完成 ${taskCount} 个子任务。`;
-      }
+        this.logger.warn(
+          `[completeMission] 长内容服务报告生成失败，使用默认方式: ${error}`,
+        );
+        // 回退到原有方式
+        const { fullContent, summaryPrompt } =
+          this.buildFinalReportWithFullContent(mission);
 
-      // 最终报告 = 完整内容 + 执行总结
-      const finalReport = `${fullContent}\n\n---\n\n${executiveSummary}`;
+        // 只让 AI 生成执行总结，不处理完整内容（避免截断）
+        let executiveSummary = "";
+        try {
+          const summaryResponse = await this.callAIWithConfig(
+            mission.leader.aiModel,
+            [{ role: "user", content: summaryPrompt }],
+            this.getLeaderSystemPrompt(mission.leader),
+            { maxTokens: 2000, temperature: 0.5 },
+          );
+          executiveSummary = summaryResponse.content;
+        } catch (summaryError) {
+          const errorMsg =
+            summaryError instanceof Error
+              ? summaryError.message
+              : String(summaryError);
+          this.logger.warn(`[completeMission] 执行总结生成失败: ${errorMsg}`);
+          // 生成基础总结
+          const taskCount = (mission.tasks || []).filter(
+            (t: any) => t.status === AgentTaskStatus.COMPLETED,
+          ).length;
+          executiveSummary = `## 执行总结\n\n共完成 ${taskCount} 个子任务。`;
+        }
+
+        // 最终报告 = 完整内容 + 执行总结
+        finalReport = `${fullContent}\n\n---\n\n${executiveSummary}`;
+      }
 
       this.logger.log(
         `[completeMission] 最终报告生成完成，总长度: ${finalReport.length} 字符`,
       );
+
+      // 清理长内容服务的任务状态
+      try {
+        this.longContentService.clearMission(missionId);
+      } catch {
+        // 清理失败不影响流程
+      }
 
       // 发送最终交付消息
       const finalMessage = await this.sendMessageToTopic(
