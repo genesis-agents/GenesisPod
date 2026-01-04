@@ -16,7 +16,6 @@
 
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
-import { EventEmitterModule } from "@nestjs/event-emitter";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
 import { AiEngineModule } from "@/modules/ai-engine";
 import { AIModelService } from "../../core/ai-model.service";
@@ -79,12 +78,7 @@ const SLIDES_SKILL_PROVIDERS = [
 ];
 
 @Module({
-  imports: [
-    AiEngineModule,
-    HttpModule,
-    EventEmitterModule.forRoot(),
-    PrismaModule,
-  ],
+  imports: [AiEngineModule, HttpModule, PrismaModule],
   providers: [AIModelService, ...SLIDES_SKILL_PROVIDERS],
   exports: [AIModelService, ...SLIDES_SKILL_PROVIDERS],
 })

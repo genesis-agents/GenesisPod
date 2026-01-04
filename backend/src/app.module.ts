@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ServeStaticModule } from "@nestjs/serve-static";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 import { APP_GUARD } from "@nestjs/core";
 import { join } from "path";
 import { AppController } from "./app.controller";
@@ -67,6 +68,9 @@ import { WebhooksModule } from "./modules/webhooks";
       isGlobal: true,
       envFilePath: ".env",
     }),
+
+    // 全局事件模块（必须在 AppModule 中只调用一次 forRoot）
+    EventEmitterModule.forRoot(),
 
     // API限流保护 - 全局默认60请求/分钟
     ThrottlerModule.forRootAsync({

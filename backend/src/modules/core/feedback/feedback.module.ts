@@ -1,6 +1,5 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { EventEmitterModule } from "@nestjs/event-emitter";
 import { FeedbackController } from "./feedback.controller";
 import { FeedbackService } from "./feedback.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
@@ -29,7 +28,6 @@ import { FeedbackEventListener } from "./events/feedback-event.listener";
     StorageModule,
     ConfigModule,
     EmailModule,
-    EventEmitterModule.forRoot(),
     // AI Services for Triage and Screenshot Analysis
     AiOfficeModule,
   ],
