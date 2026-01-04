@@ -86,6 +86,23 @@ class RerenderPageDto {
   feedback?: string;
 }
 
+class CreateCheckpointDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsIn([
+    "task_decomposition",
+    "outline_confirmed",
+    "page_rendered",
+    "batch_rendered",
+    "user_modified",
+    "auto_save",
+  ])
+  type?: string;
+}
+
 class ExportDto {
   @IsIn(["pptx", "pdf", "png", "html"])
   format!: "pptx" | "pdf" | "png" | "html";
@@ -359,6 +376,71 @@ export class SlidesController {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to get checkpoints";
       this.logger.error(`[getCheckpoints] Error: ${errorMessage}`);
+      throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * 手动创建检查点
+   * 用于用户手动保存当前状态
+   */
+  @Post("sessions/:sessionId/checkpoints")
+  async createCheckpoint(
+    @Param("sessionId") sessionId: string,
+    @Body() dto: CreateCheckpointDto,
+  ): Promise<object> {
+    this.logger.log(
+      `[createCheckpoint] Session: ${sessionId}, Name: ${dto.name || "auto"}`,
+    );
+
+    try {
+      // 获取最新检查点的状态
+      const latestCheckpoint =
+        await this.checkpointService.getLatestCheckpoint(sessionId);
+
+      if (!latestCheckpoint) {
+        throw new HttpException(
+          "No existing checkpoint found. Cannot create a new checkpoint without state.",
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // 创建新检查点
+      const checkpoint = await this.checkpointService.create({
+        sessionId,
+        name: dto.name,
+        type:
+          (dto.type as
+            | "task_decomposition"
+            | "outline_confirmed"
+            | "page_rendered"
+            | "batch_rendered"
+            | "user_modified"
+            | "auto_save") || "user_modified",
+        state: latestCheckpoint.state,
+        metadata: {
+          trigger: "user",
+          description: dto.name || "User created checkpoint",
+        },
+      });
+
+      return {
+        success: true,
+        checkpoint: {
+          id: checkpoint.id,
+          name: checkpoint.name,
+          type: checkpoint.type,
+          version: checkpoint.version,
+          timestamp: checkpoint.timestamp,
+        },
+      };
+    } catch (error: unknown) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to create checkpoint";
+      this.logger.error(`[createCheckpoint] Error: ${errorMessage}`);
       throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
