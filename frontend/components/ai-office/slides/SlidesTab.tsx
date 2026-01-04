@@ -1694,35 +1694,9 @@ function ConversationPanel({
 
   return (
     <div className="flex h-full w-[360px] flex-shrink-0 flex-col border-r border-slate-200 bg-slate-50">
-      {/* 顶部：Agent 团队栏 */}
-      <div className="flex-shrink-0 border-b border-slate-200 bg-gradient-to-r from-slate-800 to-slate-900 px-3 py-2">
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-xs font-medium text-slate-400">AI 团队</span>
-          <button
-            onClick={handleCopyLog}
-            disabled={streamEvents.length === 0}
-            className={cn(
-              'flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors',
-              copied
-                ? 'bg-green-500/20 text-green-400'
-                : 'text-slate-500 hover:bg-slate-700 hover:text-slate-300'
-            )}
-            title="复制完整日志"
-          >
-            {copied ? (
-              <>
-                <CheckCircle2 className="h-3 w-3" />
-                已复制
-              </>
-            ) : (
-              <>
-                <Copy className="h-3 w-3" />
-                日志
-              </>
-            )}
-          </button>
-        </div>
-        <div className="flex items-center gap-1">
+      {/* 顶部：Agent 团队栏 - 紧凑图标设计 */}
+      <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-800 to-slate-900 px-3 py-1.5">
+        <div className="flex items-center gap-0.5">
           {MENTION_OPTIONS.map((agent) => (
             <button
               key={agent.id}
@@ -1730,16 +1704,28 @@ function ConversationPanel({
                 setInputValue((prev) => prev + agent.label + ' ');
                 textareaRef.current?.focus();
               }}
-              className="group flex items-center gap-1 rounded-md bg-slate-700/50 px-2 py-1 text-xs transition-all hover:bg-slate-600"
-              title={agent.description}
+              className="group relative rounded p-1.5 transition-all hover:bg-slate-700"
+              title={`@${agent.id} - ${agent.description}`}
             >
-              <agent.icon className={cn('h-3 w-3', agent.color)} />
-              <span className="text-slate-300 group-hover:text-white">
-                {agent.id}
-              </span>
+              <agent.icon className={cn('h-4 w-4', agent.color)} />
             </button>
           ))}
         </div>
+        <button
+          onClick={handleCopyLog}
+          disabled={streamEvents.length === 0}
+          className={cn(
+            'rounded p-1.5 text-slate-500 transition-colors hover:bg-slate-700 hover:text-slate-300',
+            copied && 'text-green-400'
+          )}
+          title="复制日志"
+        >
+          {copied ? (
+            <CheckCircle2 className="h-4 w-4" />
+          ) : (
+            <Copy className="h-4 w-4" />
+          )}
+        </button>
       </div>
 
       {/* 中间：对话和进度区域 */}
@@ -1754,8 +1740,8 @@ function ConversationPanel({
           </div>
           <div className="space-y-2">
             {chatMessages.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs text-slate-400">
-                点击上方 Agent 或输入 @ 开始对话
+              <div className="py-2 text-center text-xs text-slate-400">
+                暂无对话
               </div>
             ) : (
               chatMessages.map((msg) => (
@@ -1890,36 +1876,32 @@ function ConversationPanel({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="absolute bottom-full left-3 right-3 z-50 mb-2 rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
+              className="absolute bottom-full left-3 right-3 z-50 mb-2 rounded-lg border border-gray-200 bg-white shadow-lg"
             >
-              <div className="mb-2 px-2 text-xs text-gray-500">
-                提及 Agent（使用 ↑↓ 选择，Enter 确认）
-              </div>
-              <div className="space-y-1">
-                {filteredMentionOptions.map((option, index) => (
-                  <button
-                    key={option.id}
-                    className={cn(
-                      'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors',
-                      index === selectedMentionIndex
-                        ? 'bg-orange-100 text-orange-700'
-                        : 'hover:bg-gray-100'
-                    )}
-                    onClick={() => handleMentionSelect(option)}
-                    onMouseEnter={() => setSelectedMentionIndex(index)}
-                  >
-                    <option.icon
-                      className={cn('h-5 w-5 flex-shrink-0', option.color)}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium">{option.label}</div>
-                      <div className="truncate text-xs text-gray-500">
-                        {option.description}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
+              {filteredMentionOptions.map((option, index) => (
+                <button
+                  key={option.id}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors',
+                    index === selectedMentionIndex
+                      ? 'bg-orange-50 text-orange-700'
+                      : 'hover:bg-gray-50',
+                    index === 0 && 'rounded-t-lg',
+                    index === filteredMentionOptions.length - 1 &&
+                      'rounded-b-lg'
+                  )}
+                  onClick={() => handleMentionSelect(option)}
+                  onMouseEnter={() => setSelectedMentionIndex(index)}
+                >
+                  <option.icon
+                    className={cn('h-4 w-4 flex-shrink-0', option.color)}
+                  />
+                  <span className="text-sm font-medium">{option.label}</span>
+                  <span className="truncate text-xs text-gray-400">
+                    {option.description}
+                  </span>
+                </button>
+              ))}
             </motion.div>
           )}
         </AnimatePresence>
@@ -1930,9 +1912,9 @@ function ConversationPanel({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入修改建议或反馈... (输入 @ 提及 Agent)"
-            rows={3}
-            className="max-h-40 min-h-[80px] flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+            placeholder="输入 @ 选择Agent对话..."
+            rows={2}
+            className="max-h-32 min-h-[56px] flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
           />
           <button
             onClick={handleSend}

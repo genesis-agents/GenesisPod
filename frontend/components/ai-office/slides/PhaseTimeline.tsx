@@ -715,57 +715,13 @@ export function PhaseTimeline({
   // ★ 恢复状态：有进度数据但没有 teamState（从 checkpoint 恢复）
   if (!teamState && !generating && progress) {
     return (
-      <div className={cn('space-y-4', className)}>
-        {/* 恢复状态卡片 */}
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-            </div>
-            <div className="flex-1">
-              <div className="text-sm font-medium text-green-900">
-                已从保存点恢复
-              </div>
-              <div className="mt-0.5 text-xs text-green-700">
-                {progress.message || `${progress.totalPages || 0} 页已恢复`}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 可用 Agent 列表 - 方便用户 @ */}
-        <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <div className="mb-3 text-sm font-medium text-gray-700">
-            可用 Agent（输入 @ 提及）
-          </div>
-          <div className="space-y-2">
-            {PHASE_CONFIG.map((config) => {
-              const Icon = config.icon;
-              return (
-                <div
-                  key={config.phase}
-                  className="flex items-center gap-3 rounded-lg bg-gray-50 p-2"
-                >
-                  <div
-                    className={cn(
-                      'flex h-8 w-8 items-center justify-center rounded-full',
-                      config.bgColor
-                    )}
-                  >
-                    <Icon className={cn('h-4 w-4', config.color)} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-gray-700">
-                      @{config.agent}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {config.description}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      <div className={cn('', className)}>
+        {/* 恢复状态提示 - 紧凑设计 */}
+        <div className="flex items-center gap-2 rounded-md bg-green-50 px-2.5 py-1.5 text-xs">
+          <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+          <span className="text-green-700">
+            已恢复 {progress.totalPages || 0} 页
+          </span>
         </div>
       </div>
     );
