@@ -79,6 +79,16 @@ export class AiChatService {
     return !unsupportedModels.includes(model.toLowerCase());
   }
 
+  /**
+   * Check if the model supports the temperature parameter
+   */
+  private isTemperatureSupported(model: string): boolean {
+    // Add logic to determine if the model supports the temperature parameter
+    // For example, some models might not support temperature adjustments
+    const unsupportedModels = ["model_without_temperature_support"];
+    return !unsupportedModels.includes(model.toLowerCase());
+  }
+
   // ==================== 数据库配置读取 ====================
 
   /**
