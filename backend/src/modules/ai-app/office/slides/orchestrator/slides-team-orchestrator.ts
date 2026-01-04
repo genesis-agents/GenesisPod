@@ -949,8 +949,21 @@ export class SlidesTeamOrchestrator {
    * 从任务结果中提取页面
    */
   private extractPagesFromTasks(mission: SlidesMission): void {
+    this.logger.log(
+      `[extractPagesFromTasks] Starting extraction, ${mission.tasks.length} tasks to process`,
+    );
+
     for (const task of mission.tasks) {
-      if (task.status !== "completed" || !task.result) continue;
+      this.logger.debug(
+        `[extractPagesFromTasks] Task ${task.id}: skillId=${task.skillId}, status=${task.status}, hasResult=${!!task.result}`,
+      );
+
+      if (task.status !== "completed" || !task.result) {
+        this.logger.debug(
+          `[extractPagesFromTasks] Skipping task ${task.id}: not completed or no result`,
+        );
+        continue;
+      }
 
       // 从 four-step-design 结果中提取页面（单页）
       if (
@@ -999,9 +1012,16 @@ export class SlidesTeamOrchestrator {
           }>;
         };
 
+        this.logger.log(
+          `[extractPagesFromTasks] ★ Found page-pipeline task, pages count=${result.pages?.length || 0}, result keys=${Object.keys(task.result as object).join(", ")}`,
+        );
+
         if (result.pages && Array.isArray(result.pages)) {
           for (const pageResult of result.pages) {
             const html = pageResult.renderedHtml || pageResult.html;
+            this.logger.debug(
+              `[extractPagesFromTasks] Page ${pageResult.pageNumber}: html length=${html?.length || 0}`,
+            );
             if (html) {
               const page: GeneratedSlide = {
                 id: uuidv4(),
@@ -1043,6 +1063,11 @@ export class SlidesTeamOrchestrator {
         );
       }
     }
+
+    // ★ 最终统计
+    this.logger.log(
+      `[extractPagesFromTasks] ★ Extraction complete: ${mission.pages.length} pages extracted`,
+    );
   }
 
   // ============================================

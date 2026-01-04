@@ -1389,6 +1389,14 @@ export class SlidesEngineService {
       const pages = (eventData.pages as unknown[]) || [];
       const duration = (eventData.duration as number) || 0;
 
+      // ★ 诊断日志
+      this.logger.log(
+        `[saveFinalCheckpointFromEvent] ★ Event data keys: ${Object.keys(eventData).join(", ")}`,
+      );
+      this.logger.log(
+        `[saveFinalCheckpointFromEvent] ★ Pages from event: ${pages.length}, pages type: ${typeof eventData.pages}`,
+      );
+
       await this.checkpointService.create({
         sessionId,
         type: "batch_rendered",
@@ -1404,7 +1412,7 @@ export class SlidesEngineService {
         },
       });
       this.logger.log(
-        `[saveFinalCheckpointFromEvent] Saved final checkpoint with ${pages.length} pages`,
+        `[saveFinalCheckpointFromEvent] ★ Saved final checkpoint with ${pages.length} pages for session ${sessionId}`,
       );
     } catch (error) {
       this.logger.warn(
