@@ -20,8 +20,6 @@ import { ApiTags, ApiOperation, ApiBody, ApiParam } from "@nestjs/swagger";
 import { Response } from "express";
 import { randomUUID } from "crypto";
 import { AgentType, AgentTask, taskStore } from "./agents.types";
-import { DocsOrchestratorService } from "../docs";
-import { DesignerOrchestratorService } from "../designer";
 import {
   SlidesEngineService,
   SlidesGenerateInput,
@@ -42,11 +40,7 @@ interface ExecuteAgentDto {
 export class AgentsController {
   private readonly logger = new Logger(AgentsController.name);
 
-  constructor(
-    private readonly docsOrchestrator: DocsOrchestratorService,
-    private readonly designerOrchestrator: DesignerOrchestratorService,
-    private readonly slidesEngine: SlidesEngineService,
-  ) {}
+  constructor(private readonly slidesEngine: SlidesEngineService) {}
 
   /**
    * 执行 Agent 任务
@@ -58,7 +52,7 @@ export class AgentsController {
     @Body() body: ExecuteAgentDto,
   ): Promise<{ taskId: string; status: string }> {
     const taskId = randomUUID();
-    const agentType = body.agentType || AgentType.DOCS;
+    const agentType = body.agentType || AgentType.SLIDES;
 
     this.logger.log(
       `[executeAgent] Creating task ${taskId} for agent ${agentType}`,
@@ -240,12 +234,6 @@ export class AgentsController {
 
     try {
       switch (task.agentType) {
-        case AgentType.DOCS:
-          await this.runDocsAgent(taskId, task);
-          break;
-        case AgentType.DESIGNER:
-          await this.runDesignerAgent(taskId, task);
-          break;
         case AgentType.SLIDES:
           await this.runSlidesAgent(taskId, task);
           break;
@@ -271,115 +259,6 @@ export class AgentsController {
         data: { error: errorMessage },
       });
     }
-  }
-
-  /**
-   * 运行 Docs Agent
-   */
-  private async runDocsAgent(taskId: string, task: AgentTask): Promise<void> {
-    const input = task.input;
-    const options = input.options || {};
-
-    const stream = this.docsOrchestrator.generateDocsStream({
-      prompt: input.prompt,
-      title: input.title,
-      documentType: options.documentType,
-      detailLevel: options.detailLevel,
-      language: options.language,
-      urls: input.urls,
-      resourceIds: input.resourceIds,
-      userId: options.userId,
-    });
-
-    return new Promise((resolve, reject) => {
-      stream.subscribe({
-        next: (event) => {
-          // 转换事件格式
-          const agentEvent = this.convertDocsEvent(
-            taskId,
-            event as unknown as Record<string, unknown>,
-          );
-          this.emitEvent(taskId, agentEvent);
-
-          // 如果完成，设置结果
-          const eventData = event as unknown as Record<string, unknown>;
-          if (eventData.type === "complete" && eventData.result) {
-            const result = eventData.result as Record<string, unknown>;
-            task.result = {
-              documentId: result.docId as string,
-              artifacts: [
-                {
-                  id: result.docId as string,
-                  type: "document",
-                  name: input.title || "文档",
-                  url: `/api/ai-office/documents/${result.docId}`,
-                },
-              ],
-              summary: `生成了 ${result.totalSections} 个章节，共 ${result.wordCount} 字`,
-              duration: result.duration as number,
-            };
-          }
-        },
-        error: (err: Error) => reject(err),
-        complete: () => resolve(),
-      });
-    });
-  }
-
-  /**
-   * 运行 Designer Agent
-   */
-  private async runDesignerAgent(
-    taskId: string,
-    task: AgentTask,
-  ): Promise<void> {
-    const input = task.input;
-    const options = input.options || {};
-
-    const stream = this.designerOrchestrator.generateDesignStream({
-      prompt: input.prompt,
-      title: input.title,
-      designType: options.designType,
-      style: options.style,
-      aspectRatio: options.aspectRatio,
-      layout: options.templateLayout,
-      language: options.language,
-      urls: input.urls,
-      resourceIds: input.resourceIds,
-      userId: options.userId,
-    });
-
-    return new Promise((resolve, reject) => {
-      stream.subscribe({
-        next: (event) => {
-          const agentEvent = this.convertDesignerEvent(
-            taskId,
-            event as unknown as Record<string, unknown>,
-          );
-          this.emitEvent(taskId, agentEvent);
-
-          const eventData = event as unknown as Record<string, unknown>;
-          if (eventData.type === "complete" && eventData.result) {
-            const result = eventData.result as Record<string, unknown>;
-            task.result = {
-              documentId: result.designId as string,
-              artifacts: [
-                {
-                  id: result.designId as string,
-                  type: "html",
-                  name: input.title || "设计",
-                  url: `/api/ai-office/documents/${result.designId}`,
-                },
-              ],
-              summary: "设计生成完成",
-              duration: result.duration as number,
-            };
-          }
-        },
-        error: (err: Error) => reject(err),
-        complete: () => resolve(),
-      });
-    });
   }
 
   /**
@@ -427,108 +306,6 @@ export class AgentsController {
       }
     } catch (error) {
       throw error;
-    }
-  }
-
-  /**
-   * 转换 Docs 事件
-   */
-  private convertDocsEvent(
-    taskId: string,
-    event: Record<string, unknown>,
-  ): Record<string, unknown> {
-    const base = {
-      timestamp: event.timestamp,
-      taskId,
-    };
-
-    switch (event.type) {
-      case "progress":
-        return {
-          ...base,
-          type: "progress",
-          data: event.progress,
-        };
-      case "outline_complete":
-        return {
-          ...base,
-          type: "plan_ready",
-          data: { outline: event.outline },
-        };
-      case "section_start":
-        return {
-          ...base,
-          type: "step_start",
-          data: event.section,
-        };
-      case "section_complete":
-        return {
-          ...base,
-          type: "step_complete",
-          data: event.section,
-        };
-      case "complete":
-        return {
-          ...base,
-          type: "complete",
-          data: event.result,
-        };
-      case "error":
-        return {
-          ...base,
-          type: "error",
-          data: event.error,
-        };
-      default:
-        return { ...base, type: event.type as string, data: event };
-    }
-  }
-
-  /**
-   * 转换 Designer 事件
-   */
-  private convertDesignerEvent(
-    taskId: string,
-    event: Record<string, unknown>,
-  ): Record<string, unknown> {
-    const base = {
-      timestamp: event.timestamp,
-      taskId,
-    };
-
-    switch (event.type) {
-      case "progress":
-        return {
-          ...base,
-          type: "progress",
-          data: event.progress,
-        };
-      case "spec_complete":
-        return {
-          ...base,
-          type: "plan_ready",
-          data: { spec: event.spec },
-        };
-      case "render_complete":
-        return {
-          ...base,
-          type: "artifact",
-          data: event.design,
-        };
-      case "complete":
-        return {
-          ...base,
-          type: "complete",
-          data: event.result,
-        };
-      case "error":
-        return {
-          ...base,
-          type: "error",
-          data: event.error,
-        };
-      default:
-        return { ...base, type: event.type as string, data: event };
     }
   }
 

@@ -525,7 +525,11 @@
     "tabs": {
       "slides": "AI Slides",
       "docs": "AI Docs",
-      "designer": "AI Designer"
+      "excel": "AI Excel"
+    },
+    "comingSoon": {
+      "badge": "开发中",
+      "description": "该功能正在开发中，敬请期待"
     },
     "taskButton": {
       "title": "打开任务列表",

@@ -53,12 +53,6 @@ import {
   CodeExecutionService,
 } from "./code-execution";
 
-// Docs (文档生成)
-import { DocsOrchestratorService, DocsGeneratorService } from "./docs";
-
-// Designer
-import { DesignerOrchestratorService } from "./designer";
-
 // Agents
 import { AgentsController } from "./agents";
 
@@ -102,11 +96,6 @@ import { AIOfficeCommonModule } from "./common";
     SlidesTeamOrchestrator, // v5.0: 主编排器
     SlidesRepository, // v5.0: 持久化层
     MultiModelService, // @deprecated: Kept for skill compatibility during migration
-    // Docs
-    DocsOrchestratorService,
-    DocsGeneratorService,
-    // Designer
-    DesignerOrchestratorService,
     AiOfficeIntegrationService,
     CodeExecutionService,
   ],
@@ -124,11 +113,6 @@ import { AIOfficeCommonModule } from "./common";
     SlidesTeamMember, // v5.0: 成员基类
     SlidesTeamOrchestrator, // v5.0: 主编排器
     SlidesRepository, // v5.0: 持久化层
-    // Docs
-    DocsOrchestratorService,
-    DocsGeneratorService,
-    // Designer
-    DesignerOrchestratorService,
     AiOfficeIntegrationService,
     // Common - re-export the module to make its services available
     AIOfficeCommonModule,

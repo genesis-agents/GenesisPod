@@ -313,21 +313,25 @@ function PhaseItem({
               className="overflow-hidden border-t border-gray-100"
             >
               <div className="space-y-2 p-3 pt-2">
-                {/* 描述 */}
-                <p className="text-xs text-gray-500">{config.description}</p>
+                {/* 动态状态优先显示，否则显示静态描述 */}
+                {status === 'active' && agentState?.currentTask ? (
+                  <div className="rounded-md bg-blue-50 p-2">
+                    <div className="mb-1 flex items-center gap-1 text-xs font-medium text-blue-700">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>执行中</span>
+                    </div>
+                    <p className="text-sm text-blue-800">
+                      {agentState.currentTask}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">{config.description}</p>
+                )}
 
                 {/* Agent 思考 */}
                 {agentState?.thought && (
                   <div className="rounded bg-amber-50 p-2 text-xs italic text-amber-700">
                     💭 {agentState.thought}
-                  </div>
-                )}
-
-                {/* 当前任务 */}
-                {status === 'active' && agentState?.currentTask && (
-                  <div className="text-xs text-gray-600">
-                    <span className="font-medium">当前：</span>
-                    {agentState.currentTask}
                   </div>
                 )}
 

@@ -5,8 +5,6 @@
 
 // 办公类 Agents
 // Note: SlidesAgent moved to AI Office module (uses SlidesEngineService)
-export { DocsAgent } from "./docs";
-export { DesignerAgent } from "./designer";
 export { DeveloperAgent } from "./developer";
 
 // 研究类 Agents

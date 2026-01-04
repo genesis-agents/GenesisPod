@@ -17,11 +17,8 @@ export {
   // GenerationResult 由 slides 导出，此处跳过
 } from "./generation";
 
-// Slides (幻灯片生成) - 优先导出，包含主要类型定义
+// Slides (幻灯片生成) - v5.0: 使用 AI Teams Leader 协调模式
 export * from "./slides";
-
-// Docs (文档生成)
-export * from "./docs";
 
 // Common (共享服务) - 选择性导出避免与 slides 重复
 export {
@@ -46,8 +43,11 @@ export {
   type OptimizedSection,
 } from "./common";
 
-// Designer
-export * from "./designer";
+// Agents
+export * from "./agents";
+
+// Code Execution
+export * from "./code-execution";
 
 // Integration
 export { AiOfficeIntegrationService } from "./ai-office-integration.service";

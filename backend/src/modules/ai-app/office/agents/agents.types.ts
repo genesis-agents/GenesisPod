@@ -4,8 +4,6 @@
 
 export enum AgentType {
   SLIDES = "SLIDES",
-  DOCS = "DOCS",
-  DESIGNER = "DESIGNER",
   DEVELOPER = "DEVELOPER",
 }
 
