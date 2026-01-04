@@ -108,6 +108,76 @@ export class TeamsLongContentService {
     this.logger.log(`Mission ${missionId} cleared`);
   }
 
+  /**
+   * 获取预期任务数量
+   */
+  getExpectedTaskCount(missionId: string): number | undefined {
+    try {
+      const projectConfig = this.longContentEngine.getProjectConfig(missionId);
+      return projectConfig?.totalTasks;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * 验证任务分解结果
+   * 返回验证结果和建议
+   */
+  validateTaskCount(
+    missionId: string,
+    actualTaskCount: number,
+  ): {
+    isValid: boolean;
+    expectedCount?: number;
+    deviation?: number;
+    warning?: string;
+    suggestion?: string;
+  } {
+    const expectedCount = this.getExpectedTaskCount(missionId);
+
+    if (!expectedCount) {
+      return { isValid: true }; // 没有预期值，跳过验证
+    }
+
+    const deviation = Math.abs(actualTaskCount - expectedCount) / expectedCount;
+
+    // 允许 20% 的偏差
+    if (deviation <= 0.2) {
+      return { isValid: true, expectedCount, deviation };
+    }
+
+    // 任务数量严重不足（少于预期的 50%）
+    if (actualTaskCount < expectedCount * 0.5) {
+      return {
+        isValid: false,
+        expectedCount,
+        deviation,
+        warning: `任务数量严重不足：预期 ${expectedCount} 个，实际只有 ${actualTaskCount} 个`,
+        suggestion: `Leader 可能没有完整分解任务。用户要求的是完整作品（${expectedCount} 个任务），但只分解了 ${actualTaskCount} 个。请检查是否遗漏了大部分内容。`,
+      };
+    }
+
+    // 任务数量偏少（50%-80%）
+    if (actualTaskCount < expectedCount * 0.8) {
+      return {
+        isValid: false,
+        expectedCount,
+        deviation,
+        warning: `任务数量偏少：预期 ${expectedCount} 个，实际 ${actualTaskCount} 个`,
+        suggestion: `建议检查任务分解是否完整覆盖了用户需求。`,
+      };
+    }
+
+    // 任务数量偏多（超过 120%）
+    return {
+      isValid: true, // 偏多不算严重问题
+      expectedCount,
+      deviation,
+      warning: `任务数量偏多：预期 ${expectedCount} 个，实际 ${actualTaskCount} 个`,
+    };
+  }
+
   // ============ 任务规模预估 ============
 
   /**

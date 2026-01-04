@@ -128,6 +128,13 @@ export class LongContentEngineService {
     this.logger.log(`Project cleared: ${projectId}`);
   }
 
+  /**
+   * 获取项目配置
+   */
+  getProjectConfig(projectId: string): LongContentProjectConfig | undefined {
+    return this.projectConfigs.get(projectId);
+  }
+
   // ============ 任务分解 ============
 
   /**

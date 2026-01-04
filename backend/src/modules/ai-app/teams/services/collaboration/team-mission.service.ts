@@ -606,6 +606,34 @@ export class TeamMissionService {
         teamMembers,
       );
 
+      // 验证任务分解数量是否符合预期
+      try {
+        const validation = this.longContentService.validateTaskCount(
+          mission.id,
+          breakdown.tasks.length,
+        );
+        if (!validation.isValid) {
+          this.logger.warn(
+            `[executeLeaderPlanning] Task count validation failed: ${validation.warning}`,
+          );
+          // 记录警告日志（使用 LEADER_FEEDBACK 类型），但不阻塞执行
+          await this.createLog(mission.id, {
+            type: MissionLogType.LEADER_FEEDBACK,
+            agentId: leader.id,
+            agentName: leader.agentName || leader.displayName,
+            content: `⚠️ 任务数量校验警告\n${validation.warning}\n${validation.suggestion || ""}`,
+          });
+        } else if (validation.warning) {
+          this.logger.log(
+            `[executeLeaderPlanning] Task count info: ${validation.warning}`,
+          );
+        }
+      } catch (error) {
+        this.logger.debug(
+          `[executeLeaderPlanning] Task count validation skipped: ${error}`,
+        );
+      }
+
       // 保存任务分解方案
       await this.prisma.teamMission.update({
         where: { id: mission.id },
@@ -1917,6 +1945,9 @@ export class TeamMissionService {
       )
       .join("\n");
 
+    // 检测是否为大型内容创作任务，添加特殊约束
+    const scopeGuidance = this.buildScopeGuidance(mission);
+
     return `你是团队的 Leader「${leader.agentName || leader.displayName}」。
 
 【你的团队成员】
@@ -1928,7 +1959,7 @@ ${membersInfo}
 ${mission.objectives?.length ? `目标：${mission.objectives.join("、")}` : ""}
 ${mission.constraints?.length ? `约束：${mission.constraints.join("、")}` : ""}
 ${mission.deliverables?.length ? `期望交付物：${mission.deliverables.join("、")}` : ""}
-
+${scopeGuidance}
 【你的职责】
 请分析任务并进行分解，输出格式如下：
 
@@ -1955,6 +1986,97 @@ ${mission.deliverables?.length ? `期望交付物：${mission.deliverables.join(
 - 你自己也要承担适合的任务
 - 确保任务依赖关系合理
 - 优先利用并行执行提高效率`;
+  }
+
+  /**
+   * 构建任务范围指导
+   * 针对大型内容创作任务，明确要求一次性分解全部任务
+   */
+  private buildScopeGuidance(mission: any): string {
+    const text = `${mission.title || ""} ${mission.description || ""}`;
+
+    // 检测大型内容创作任务的特征
+    const isLargeContentTask = this.detectLargeContentTask(text);
+
+    if (!isLargeContentTask) {
+      return "";
+    }
+
+    return `
+【⚠️ 重要：任务范围约束】
+这是一个大型内容创作任务。你必须严格遵守以下规则：
+
+1. **一次性分解全部任务** - 禁止"分批次"、"先做几个"、"后续再补充"的做法
+2. **按用户要求的完整结构分解** - 如果用户要求 8 卷，必须分解所有 8 卷的全部章节
+3. **不得自行缩减范围** - 用户要求写完整的作品，你必须规划完整的作品
+4. **任务数量必须与用户期望一致** - 用户说 N 章就是 N 章，不是"先写 3 章看看"
+
+❌ 错误示例："本轮预期拆出约 3 个章节级任务，作为后续全书连载的起始批次"
+✅ 正确做法：一次性列出用户要求的所有章节任务
+
+`;
+  }
+
+  /**
+   * 检测是否为大型内容创作任务
+   */
+  private detectLargeContentTask(text: string): boolean {
+    // 内容创作相关关键词
+    const contentKeywords = [
+      "小说",
+      "武侠",
+      "奇幻",
+      "玄幻",
+      "科幻",
+      "言情",
+      "悬疑",
+      "推理",
+      "历史",
+      "传记",
+      "剧本",
+      "故事",
+      "连载",
+      "长篇",
+      "系列",
+      "动漫",
+      "漫画",
+      "剧集",
+      "课程",
+      "教程",
+      "专栏",
+      "文章",
+    ];
+
+    // 结构化单位关键词（大单位）
+    const structureKeywords = [
+      "卷",
+      "部",
+      "篇",
+      "季",
+      "册",
+      "辑",
+      "编",
+      "章",
+      "回",
+      "集",
+      "话",
+      "期",
+      "幕",
+      "讲",
+      "课",
+    ];
+
+    // 数量模式
+    const quantityPattern = /(\d+)\s*(卷|部|篇|季|册|章|回|集|话|期|幕|讲|课)/;
+
+    const hasContentKeyword = contentKeywords.some((kw) => text.includes(kw));
+    const hasStructureKeyword = structureKeywords.some((kw) =>
+      text.includes(kw),
+    );
+    const hasQuantity = quantityPattern.test(text);
+
+    // 如果同时满足内容关键词和结构关键词，或者有明确数量
+    return (hasContentKeyword && hasStructureKeyword) || hasQuantity;
   }
 
   private buildTaskExecutionPrompt(
