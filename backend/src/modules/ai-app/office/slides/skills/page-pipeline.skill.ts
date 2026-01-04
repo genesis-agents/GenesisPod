@@ -167,6 +167,15 @@ export class PagePipelineSkill
         `[execute] Processing page ${pageNumber}/${totalPages}: ${pageOutline.title}`,
       );
 
+      // ★ 发送页面开始生成事件
+      this.eventEmitter.emit("slides.page.generating", {
+        pageNumber,
+        totalPages,
+        title: pageOutline.title,
+        templateType: pageOutline.templateType || "content",
+        sessionId,
+      });
+
       try {
         // 2a. 生成页面内容
         const pageContent = await this.generatePageContent(

@@ -136,6 +136,50 @@ export class SlidesEngineService {
   }
 
   /**
+   * 监听页面开始生成事件
+   * 发送 slide:generating 事件到前端，显示当前正在生成哪一页
+   */
+  @OnEvent("slides.page.generating")
+  handlePageGenerating(event: {
+    pageNumber: number;
+    totalPages: number;
+    title: string;
+    templateType: string;
+    sessionId: string;
+  }): void {
+    const sessionId = event.sessionId;
+    if (!sessionId) {
+      return;
+    }
+
+    this.logger.log(
+      `[handlePageGenerating] ★ Starting page ${event.pageNumber}/${event.totalPages}: ${event.title}`,
+    );
+
+    // 创建 slide:generating 事件
+    const streamEvent = this.createEvent("slide:generating", sessionId, {
+      pageNumber: event.pageNumber,
+      totalPages: event.totalPages,
+      title: event.title,
+      templateType: event.templateType,
+    });
+
+    // 同时发送 agent:working 事件更新状态栏
+    const agentWorkingEvent = this.createEvent("agent:working", sessionId, {
+      agent: "writer",
+      agentName: "Content Writer",
+      task: `正在生成第 ${event.pageNumber}/${event.totalPages} 页：${event.title}`,
+      progress: Math.round(((event.pageNumber - 1) / event.totalPages) * 100),
+    });
+
+    // 缓存到 buffer
+    if (!this.pageEventBuffer.has(sessionId)) {
+      this.pageEventBuffer.set(sessionId, []);
+    }
+    this.pageEventBuffer.get(sessionId)!.push(agentWorkingEvent, streamEvent);
+  }
+
+  /**
    * 提取并清空指定 session 的缓冲事件
    */
   private flushPageEventBuffer(sessionId: string): StreamEvent[] {
@@ -472,12 +516,17 @@ export class SlidesEngineService {
       }
 
       case "planning:started": {
+        const sourceLength = (data.sourceLength as number) || 0;
+        const sourceSummary =
+          sourceLength > 0
+            ? `${Math.round(sourceLength / 100) / 10}k 字符的`
+            : "";
         // 发送 Analyst 思考
         events.push(
           this.createEvent("agent:thinking", sessionId, {
             agent: "analyst",
             agentName: "Content Analyst",
-            thought: "开始分析源文本，识别关键概念、逻辑结构和重要信息点...",
+            thought: `开始分析${sourceSummary}源文本，识别关键概念和逻辑结构...`,
           }),
         );
         events.push(
@@ -502,6 +551,8 @@ export class SlidesEngineService {
         const taskCount = (data.taskCount as number) || 0;
         const breakdown = data.breakdown as {
           tasks?: Array<{ title?: string; skillId?: string }>;
+          themes?: string[];
+          keywords?: string[];
         };
         const taskNames =
           breakdown?.tasks
@@ -509,12 +560,25 @@ export class SlidesEngineService {
             .map((t) => t.title || t.skillId)
             .join("、") || "";
 
+        // 提取主题和关键词（如果有的话）
+        const themes = breakdown?.themes?.slice(0, 3).join("、") || "";
+        const keywords = breakdown?.keywords?.slice(0, 5).join("、") || "";
+
+        // 构建分析结果描述
+        let analysisResult = `内容分析完成，识别了 ${taskCount} 个关键模块`;
+        if (themes) {
+          analysisResult += `\n主题：${themes}`;
+        }
+        if (keywords) {
+          analysisResult += `\n关键词：${keywords}`;
+        }
+
         // Analyst 完成
         events.push(
           this.createEvent("agent:completed", sessionId, {
             agent: "analyst",
             agentName: "Content Analyst",
-            result: `内容分析完成，识别了 ${taskCount} 个关键模块`,
+            result: analysisResult,
             duration: (data.duration as number) || 0,
           }),
         );
@@ -524,7 +588,7 @@ export class SlidesEngineService {
           this.createEvent("agent:handoff", sessionId, {
             fromAgent: "analyst",
             toAgent: "strategist",
-            message: "内容分析完成，交接给策略师进行大纲规划",
+            message: `内容分析完成，识别 ${taskCount} 个模块${themes ? `（${themes}）` : ""}`,
           }),
         );
 
@@ -533,7 +597,7 @@ export class SlidesEngineService {
           this.createEvent("agent:thinking", sessionId, {
             agent: "strategist",
             agentName: "Visual Strategist",
-            thought: `基于分析结果，设计 PPT 结构：${taskNames}...`,
+            thought: `基于分析结果设计 PPT 结构，将围绕${taskNames || "核心内容"}展开...`,
           }),
         );
 
@@ -549,7 +613,7 @@ export class SlidesEngineService {
           this.createEvent("agent:working", sessionId, {
             agent: "strategist",
             agentName: "Visual Strategist",
-            task: `规划 ${taskCount} 个模块的页面结构和视觉策略`,
+            task: `为 ${taskCount} 个模块设计页面结构和视觉策略`,
             progress: 0,
           }),
         );
@@ -624,21 +688,31 @@ export class SlidesEngineService {
                   };
                 },
               );
-              const pageTitles = pageOutlines
+              // 构建详细的页面列表字符串
+              const pageListStr = pageOutlines
+                .map(
+                  (p) =>
+                    `${p.pageNumber}. ${p.title}${p.templateType !== "content" ? ` [${p.templateType}]` : ""}`,
+                )
+                .join("\n");
+              const shortSummary = pageOutlines
                 .slice(0, 3)
                 .map((p) => p.title)
                 .join("、");
+
               this.logger.log(
                 `[transformSlidesMissionEvent] ★ OUTLINE-PLANNING DETECTED! Sending ${pageOutlines.length} pageOutlines to frontend`,
               );
 
-              // Strategist 完成
+              // Strategist 完成 - 包含完整页面列表
               events.push(
                 this.createEvent("agent:completed", sessionId, {
                   agent: "strategist",
                   agentName: "Visual Strategist",
-                  result: `大纲规划完成：${pageOutlines.length} 页（${pageTitles}${pageOutlines.length > 3 ? "..." : ""}）`,
+                  result: `大纲规划完成，共 ${pageOutlines.length} 页：\n${pageListStr}`,
                   duration,
+                  // 附加结构化数据供前端使用
+                  pageOutlines,
                 }),
               );
 
@@ -653,21 +727,25 @@ export class SlidesEngineService {
                 }),
               );
 
-              // 发送 Handoff 到 Writer
+              // 发送 Handoff 到 Writer - 包含简要信息
               events.push(
                 this.createEvent("agent:handoff", sessionId, {
                   fromAgent: "strategist",
                   toAgent: "writer",
-                  message: `大纲交接完成，开始生成 ${pageOutlines.length} 页内容`,
+                  message: `大纲已规划完成：${shortSummary}${pageOutlines.length > 3 ? "..." : ""}，共 ${pageOutlines.length} 页`,
                 }),
               );
 
-              // Writer 思考
+              // Writer 思考 - 显示将要生成的页面
+              const firstPages = pageOutlines
+                .slice(0, 2)
+                .map((p) => p.title)
+                .join("、");
               events.push(
                 this.createEvent("agent:thinking", sessionId, {
                   agent: "writer",
                   agentName: "Content Writer",
-                  thought: `收到 ${pageOutlines.length} 页的大纲，将依次为每页生成内容和布局...`,
+                  thought: `收到大纲，将依次生成：${firstPages}${pageOutlines.length > 2 ? `... 等 ${pageOutlines.length} 页` : ""}`,
                 }),
               );
             }

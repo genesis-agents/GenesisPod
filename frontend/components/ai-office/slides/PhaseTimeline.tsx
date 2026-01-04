@@ -355,11 +355,16 @@ function PhaseItem({
                   </div>
                 )}
 
-                {/* 完成结果 */}
+                {/* 完成结果 - 支持多行显示 */}
                 {status === 'completed' && agentState?.result && (
-                  <div className="flex items-start gap-1 text-xs text-green-600">
-                    <CheckCircle2 className="mt-0.5 h-3 w-3 flex-shrink-0" />
-                    <span>{agentState.result}</span>
+                  <div className="rounded-md bg-green-50 p-2 text-xs text-green-700">
+                    <div className="mb-1 flex items-center gap-1 font-medium">
+                      <CheckCircle2 className="h-3 w-3" />
+                      <span>完成</span>
+                    </div>
+                    <pre className="whitespace-pre-wrap font-sans leading-relaxed">
+                      {agentState.result}
+                    </pre>
                   </div>
                 )}
 
