@@ -1,6 +1,6 @@
 /**
  * AI Office 共享模块
- * 为 Slides 和 Docs 提供统一的类型定义和工具
+ * 为 Slides 提供统一的类型定义和工具
  */
 
 // ============================================================================
@@ -33,7 +33,6 @@ export { ContentAnalysisService } from "./content-analysis.service";
 export {
   TemplateSelectionService,
   type SlidePlanItem,
-  type DocsSectionPlanItem,
   type PlanningResult,
 } from "./template-selection.service";
 

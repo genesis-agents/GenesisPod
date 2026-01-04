@@ -1,29 +1,18 @@
 /**
  * AI Office Module
- * 统一导出所有子模块的服务、控制器和类型
+ * 统一导出 Slides 相关服务、控制器和类型
  */
 
-// Core
+// Core (AIModelService 作为 Skills 后备)
 export * from "./core";
-
-// Document Management (CRUD)
-export * from "./document-management";
-
-// Generation (排除与 slides 冲突的类型)
-export {
-  GenerationController,
-  GenerationService,
-  type GenerationConfig,
-  // GenerationResult 由 slides 导出，此处跳过
-} from "./generation";
 
 // Slides (幻灯片生成) - v5.0: 使用 AI Teams Leader 协调模式
 export * from "./slides";
 
-// Common (共享服务) - 选择性导出避免与 slides 重复
+// Common (共享服务) - Slides 使用的分析和模板选择服务
 export {
   AIOfficeCommonModule,
-  // 枚举类型（不与 slides 冲突）
+  // 枚举类型
   ContentComplexity,
   ContentCategory,
   DataDensity,
@@ -35,7 +24,6 @@ export {
   ReadingExperienceService,
   // 服务相关类型
   type SlidePlanItem,
-  type DocsSectionPlanItem,
   type PlanningResult,
   type ImagePrompt,
   type ImageMatchingResult,
@@ -45,9 +33,6 @@ export {
 
 // Agents
 export * from "./agents";
-
-// Integration
-export { AiOfficeIntegrationService } from "./ai-office-integration.service";
 
 // Module
 export { AiOfficeModule } from "./ai-office.module";

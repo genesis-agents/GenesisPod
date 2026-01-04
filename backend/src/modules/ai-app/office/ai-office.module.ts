@@ -8,14 +8,8 @@ import { StorageModule } from "../../core/storage/storage.module";
 import { CreditsModule } from "../../credits/credits.module";
 import { ExportModule } from "../../../common/export/export.module";
 
-// Core
+// Core (AIModelService 作为 Skills 后备，待迁移到 AI Engine)
 import { AIModelController, AIModelService } from "./core";
-
-// Document Management (CRUD)
-import { DocumentsController, DocumentsService } from "./document-management";
-
-// Generation
-import { GenerationController, GenerationService } from "./generation";
 
 // Slides (幻灯片生成) - v5.0: 使用 AI Teams Leader 协调模式
 import {
@@ -39,9 +33,6 @@ import {
   MultiModelService,
 } from "./slides";
 
-// Integration
-import { AiOfficeIntegrationService } from "./ai-office-integration.service";
-
 // Agents
 import { AgentsController } from "./agents";
 
@@ -61,17 +52,9 @@ import { AIOfficeCommonModule } from "./common";
     AIOfficeCommonModule,
     SlidesSkillsModule, // v4.0: 注册 Slides 技能到 AI Engine
   ],
-  controllers: [
-    AIModelController,
-    DocumentsController,
-    GenerationController,
-    SlidesController,
-    AgentsController,
-  ],
+  controllers: [AIModelController, SlidesController, AgentsController],
   providers: [
     AIModelService,
-    DocumentsService,
-    GenerationService,
     // Slides Services (v5.0: Team-based Orchestrator)
     SlidesExportService,
     ParameterizedRendererService,
@@ -82,22 +65,18 @@ import { AIOfficeCommonModule } from "./common";
     SlidesTeamOrchestrator, // v5.0: 主编排器
     SlidesRepository, // v5.0: 持久化层
     MultiModelService, // @deprecated: Kept for skill compatibility during migration
-    AiOfficeIntegrationService,
   ],
   exports: [
     AIModelService,
-    DocumentsService,
-    GenerationService,
     // Slides Services (v5.0: Team-based Orchestrator)
     SlidesExportService,
     ParameterizedRendererService,
     CheckpointService,
     SlidesEngineService,
-    SlidesLeader, // v5.0: Leader 角色
-    SlidesTeamMember, // v5.0: 成员基类
-    SlidesTeamOrchestrator, // v5.0: 主编排器
-    SlidesRepository, // v5.0: 持久化层
-    AiOfficeIntegrationService,
+    SlidesLeader,
+    SlidesTeamMember,
+    SlidesTeamOrchestrator,
+    SlidesRepository,
     // Common - re-export the module to make its services available
     AIOfficeCommonModule,
   ],
