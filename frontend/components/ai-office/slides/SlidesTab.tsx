@@ -373,17 +373,30 @@ export function SlidesTab() {
   // 恢复后端会话
   const handleRestoreSession = useCallback(
     async (sessionItem: SessionWithCheckpoint) => {
+      console.log(
+        '[SlidesTab] handleRestoreSession called:',
+        sessionItem.id,
+        sessionItem.title
+      );
       setRestoring(true);
       try {
         if (sessionItem.latestCheckpoint?.id) {
+          console.log(
+            '[SlidesTab] Restoring from checkpoint:',
+            sessionItem.latestCheckpoint.id
+          );
           await restoreCheckpoint(sessionItem.latestCheckpoint.id);
         } else {
+          console.log('[SlidesTab] Restoring from session:', sessionItem.id);
           await restoreBySessionId(sessionItem.id);
         }
+        console.log('[SlidesTab] Restore completed successfully');
         setShowHistory(false);
         setShowNewForm(false);
       } catch (err) {
-        console.error('Failed to restore session:', err);
+        console.error('[SlidesTab] Failed to restore session:', err);
+        // 显示错误提示给用户
+        alert('恢复失败: ' + (err instanceof Error ? err.message : '未知错误'));
       } finally {
         setRestoring(false);
       }
@@ -430,6 +443,7 @@ export function SlidesTab() {
             onRestoreHistory={handleRestoreHistory}
             onNewClick={() => setShowNewForm(true)}
             loading={sessionsLoading}
+            restoring={restoring}
             onUpdateSession={updateSession}
             onDeleteSession={deleteSession}
           />
@@ -2464,6 +2478,7 @@ function SessionsGallery({
   onRestoreHistory,
   onNewClick,
   loading,
+  restoring,
   onUpdateSession,
   onDeleteSession,
 }: {
@@ -2474,6 +2489,7 @@ function SessionsGallery({
   onRestoreHistory: (item: SlidesHistoryItem) => void;
   onNewClick: () => void;
   loading?: boolean;
+  restoring?: boolean;
   onUpdateSession?: (sessionId: string, title: string) => Promise<boolean>;
   onDeleteSession?: (sessionId: string) => Promise<boolean>;
 }) {
@@ -2518,7 +2534,18 @@ function SessionsGallery({
   }
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col bg-gray-50">
+    <main className="relative flex min-h-0 flex-1 flex-col bg-gray-50">
+      {/* 恢复加载遮罩 */}
+      {restoring && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/80">
+          <div className="text-center">
+            <Loader2 className="mx-auto mb-3 h-10 w-10 animate-spin text-orange-500" />
+            <p className="text-sm font-medium text-gray-600">
+              正在恢复演示文稿...
+            </p>
+          </div>
+        </div>
+      )}
       <div className="flex-1 overflow-auto p-6">
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
