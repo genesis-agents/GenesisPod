@@ -223,6 +223,28 @@ export class SlidesEngineService {
       );
       sessionId = session.id;
       this.logger.log(`[generateSlides] Session created: ${sessionId}`);
+
+      // ★ 立即保存初始检查点，确保至少有一个检查点
+      await this.checkpointService.create({
+        sessionId,
+        type: "task_decomposition",
+        state: {
+          sourceText: input.sourceText,
+          userRequirement: input.userRequirement,
+          targetPages: input.targetPages,
+          stylePreference: input.stylePreference,
+          themeId: input.themeId,
+          pages: [], // 初始为空
+          conversation: [],
+        } as unknown as CheckpointState,
+        metadata: {
+          trigger: "auto",
+          description: "Initial checkpoint - session created",
+        },
+      });
+      this.logger.log(
+        `[generateSlides] ★ Saved initial checkpoint for session ${sessionId}`,
+      );
     } else {
       this.logger.log(`[generateSlides] Using existing session: ${sessionId}`);
     }
