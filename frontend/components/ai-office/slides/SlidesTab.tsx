@@ -1916,18 +1916,27 @@ function ConversationPanel({
             rows={2}
             className="max-h-32 min-h-[56px] flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
           />
-          <button
-            onClick={handleSend}
-            disabled={!inputValue.trim()}
-            className={cn(
-              'rounded-lg p-2.5 transition-colors',
-              inputValue.trim()
-                ? 'bg-orange-500 text-white hover:bg-orange-600'
-                : 'bg-gray-100 text-gray-400'
-            )}
-          >
-            <Send className="h-5 w-5" />
-          </button>
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={() => onSendMessage('@leader 继续执行')}
+              className="rounded-lg bg-green-500 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-600"
+              title="发送继续执行消息给Leader"
+            >
+              继续
+            </button>
+            <button
+              onClick={handleSend}
+              disabled={!inputValue.trim()}
+              className={cn(
+                'rounded-lg p-2 transition-colors',
+                inputValue.trim()
+                  ? 'bg-orange-500 text-white hover:bg-orange-600'
+                  : 'bg-gray-100 text-gray-400'
+              )}
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
