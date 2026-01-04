@@ -1,12 +1,12 @@
-﻿'use client';
+'use client';
 
 /**
- * Slides Engine - ä¸»é¡µé¢ç»„ä»¶
+ * Slides Engine - 主页面组件
  *
- * æ ¹æ®è®¾è®¡æ–‡æ¡£ Section 7 å®žçŽ°ï¼š
- * - æµ…è‰²ä¸»é¢˜ï¼Œä¸Žé¡¹ç›®æ•´ä½“é£Žæ ¼ä¸€è‡´
- * - ä¸¤æ å¸ƒå±€ï¼šå¯¹è¯é¢æ¿ + é¢„è§ˆé¢æ¿
- * - åº•éƒ¨è¿›åº¦æ¡
+ * 根据设计文档 Section 7 实现：
+ * - 浅色主题，与项目整体风格一致
+ * - 两栏布局：对话面板 + 预览面板
+ * - 底部进度条
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -69,7 +69,7 @@ import type {
   GenerationProgress,
   OutlinePlan,
 } from '@/types/slides';
-import type { GenerateTeamRequest, SlidesTeamEvent } from '@/types/slides-team';
+import type { GenerateTeamRequest } from '@/types/slides-team';
 import { AgentTeamPanel } from './AgentTeamPanel';
 import { PhaseTimeline } from './PhaseTimeline';
 import { AIAssistMenu } from './AIAssistMenu';
@@ -87,7 +87,7 @@ import {
 } from './ThemeSelector';
 
 // ============================================================================
-// ç±»åž‹å®šä¹‰
+// 类型定义
 // ============================================================================
 
 interface ToolCallItem {
@@ -109,47 +109,47 @@ interface ToolCallItem {
   timestamp: Date;
 }
 
-// â˜… @ Mention é€‰é¡¹å®šä¹‰
+// ★ @ Mention 选项定义
 const MENTION_OPTIONS = [
   {
     id: 'leader',
     label: '@leader',
-    description: 'è®© Leader åˆ†å‘ä»»åŠ¡ç»™å›¢é˜Ÿ',
+    description: '让 Leader 分发任务给团队',
     icon: Crown,
     color: 'text-amber-500',
   },
   {
     id: 'analyst',
     label: '@analyst',
-    description: 'è®©åˆ†æžå¸ˆåˆ†æžå†…å®¹',
+    description: '让分析师分析内容',
     icon: Search,
     color: 'text-blue-500',
   },
   {
     id: 'writer',
     label: '@writer',
-    description: 'è®©å†™æ‰‹ä¿®æ”¹æˆ–é‡å†™å†…å®¹',
+    description: '让写手修改或重写内容',
     icon: PenTool,
     color: 'text-green-500',
   },
   {
     id: 'reviewer',
     label: '@reviewer',
-    description: 'è®©å®¡æ ¸å‘˜æ£€æŸ¥è´¨é‡',
+    description: '让审核员检查质量',
     icon: CheckCircle,
     color: 'text-purple-500',
   },
   {
     id: 'team',
     label: '@team',
-    description: 'é€šçŸ¥æ•´ä¸ªå›¢é˜Ÿ',
+    description: '通知整个团队',
     icon: Users,
     color: 'text-orange-500',
   },
 ];
 
 // ============================================================================
-// ä¸»ç»„ä»¶
+// 主组件
 // ============================================================================
 
 export function SlidesTab() {
@@ -177,7 +177,7 @@ export function SlidesTab() {
   const [showPresentation, setShowPresentation] = useState(false);
   const currentHistoryIdRef = useRef<string | null>(null);
 
-  // é‡ç½®å›žåˆ°åŽ†å²è®°å½•ç”»å»Š
+  // 重置回到历史记录画廊
   const handleBackToGallery = useCallback(() => {
     const { reset } = useSlidesStore.getState();
     reset();
@@ -185,68 +185,68 @@ export function SlidesTab() {
     refreshSessions();
   }, [refreshSessions]);
 
-  // â˜… æ¸…ç†ä¸ä¸€è‡´çš„çŠ¶æ€ï¼šå¦‚æžœ generating=true ä½†æ²¡æœ‰æ´»è·ƒçš„ç”Ÿæˆè¿›ç¨‹ï¼Œé‡ç½®çŠ¶æ€
-  // è¿™å¯èƒ½å‘ç”Ÿåœ¨é¡µé¢åˆ·æ–°æˆ–ä¸­é€”å…³é—­åŽé‡æ–°æ‰“å¼€æ—¶
+  // ★ 清理不一致的状态：如果 generating=true 但没有活跃的生成进程，重置状态
+  // 这可能发生在页面刷新或中途关闭后重新打开时
   useEffect(() => {
     const store = useSlidesStore.getState();
-    // å¦‚æžœæ ‡è®°ä¸ºç”Ÿæˆä¸­ï¼Œä½†æ²¡æœ‰ teamStateï¼ˆå³æ²¡æœ‰æ´»è·ƒçš„ SSE è¿žæŽ¥ï¼‰ï¼Œè¯´æ˜Žæ˜¯æ®‹ç•™çŠ¶æ€
+    // 如果标记为生成中，但没有 teamState（即没有活跃的 SSE 连接），说明是残留状态
     if (store.generating && !teamState) {
       console.log(
         '[SlidesTab] Cleaning up stale generating state, resetting to gallery'
       );
-      store.reset(); // å®Œå…¨é‡ç½®ï¼Œå›žåˆ°ç”»å»Šè§†å›¾
+      store.reset(); // 完全重置，回到画廊视图
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // åªåœ¨æŒ‚è½½æ—¶æ‰§è¡Œä¸€æ¬¡
+  }, []); // 只在挂载时执行一次
 
-  // â˜… è‡ªåŠ¨éšè—åŽ†å²è®°å½•ï¼šå½“æœ‰æ´»è·ƒä¼šè¯ã€é¡µé¢å†…å®¹æˆ–æ­£åœ¨ç”Ÿæˆæ—¶
+  // ★ 自动隐藏历史记录：当有活跃会话、页面内容或正在生成时
   useEffect(() => {
     if (session || pages.length > 0 || generating) {
       setShowHistory(false);
     }
   }, [session, pages.length, generating]);
 
-  // å°† streamEvents å’Œ teamEvents è½¬æ¢ä¸º toolCalls
-  // ç²¾ç®€ç‰ˆï¼šåªæ˜¾ç¤ºå…³é”®èŠ‚ç‚¹ï¼ŒAgent çŠ¶æ€ç”± AgentTeamPanel è´Ÿè´£
-  // ç›®æ ‡ï¼šæœ€å¤šæ˜¾ç¤º 5-8 ä¸ªæ¡ç›®ï¼Œè€Œä¸æ˜¯ 20+ ä¸ª
+  // 将 streamEvents 和 teamEvents 转换为 toolCalls
+  // 精简版：只显示关键节点，Agent 状态由 AgentTeamPanel 负责
+  // 目标：最多显示 5-8 个条目，而不是 20+ 个
   useEffect(() => {
     const calls: ToolCallItem[] = [];
     let hasExecutionStarted = false;
     let hasExecutionCompleted = false;
     let totalPagesGenerated = 0;
 
-    // åªå¤„ç† teamEventsï¼ˆæ–°æ ¼å¼ï¼‰ï¼Œå¿½ç•¥æ—§æ ¼å¼çš„ streamEvents
+    // 只处理 teamEvents（新格式），忽略旧格式的 streamEvents
     teamEvents.forEach((event) => {
       const id = `team-${event.type}-${event.timestamp}`;
 
-      // 1. å¼€å§‹äº‹ä»¶ - åªæ˜¾ç¤ºä¸€æ¬¡
+      // 1. 开始事件 - 只显示一次
       if (event.type === 'execution:started') {
         if (!hasExecutionStarted) {
           hasExecutionStarted = true;
           calls.push({
             id,
             type: 'step',
-            title: 'ðŸš€ å¼€å§‹ç”Ÿæˆ',
+            title: '🚀 开始生成',
             status: 'completed',
             timestamp: new Date(event.timestamp),
           });
         }
       }
-      // 2. é˜¶æ®µå®Œæˆäº‹ä»¶ - åªæ˜¾ç¤ºä¸»è¦é˜¶æ®µçš„å®Œæˆï¼ˆä¸æ˜¾ç¤ºå¼€å§‹ï¼‰
+      // 2. 阶段完成事件 - 只显示主要阶段的完成（不显示开始）
       else if (event.type === 'phase:completed') {
         const eventData = event.data as {
           phase: string;
           result?: Record<string, unknown>;
         };
 
-        // åªæ˜¾ç¤ºå…³é”®é˜¶æ®µå®Œæˆ
+        // 只显示关键阶段完成
         const keyPhases = ['analyzing', 'planning', 'generating', 'reviewing'];
         if (keyPhases.includes(eventData.phase)) {
           const phaseNames: Record<string, string> = {
-            analyzing: 'ðŸ“Š å†…å®¹åˆ†æžå®Œæˆ',
-            planning: 'ðŸ“ å¤§çº²è§„åˆ’å®Œæˆ',
-            generating: 'ðŸŽ¨ é¡µé¢ç”Ÿæˆå®Œæˆ',
-            reviewing: 'âœ… è´¨é‡æ£€æŸ¥å®Œæˆ',
+            analyzing: '📊 内容分析完成',
+            planning: '📝 大纲规划完成',
+            generating: '🎨 页面生成完成',
+            reviewing: '✅ 质量检查完成',
           };
           calls.push({
             id,
@@ -257,11 +257,11 @@ export function SlidesTab() {
           });
         }
       }
-      // 3. é¡µé¢ç”Ÿæˆ - åªç»Ÿè®¡æ•°é‡ï¼Œä¸å•ç‹¬æ˜¾ç¤ºæ¯é¡µ
+      // 3. 页面生成 - 只统计数量，不单独显示每页
       else if (event.type === 'slide:generated') {
         totalPagesGenerated++;
       }
-      // 4. å®Œæˆäº‹ä»¶ - åªæ˜¾ç¤ºä¸€æ¬¡
+      // 4. 完成事件 - 只显示一次
       else if (event.type === 'execution:completed') {
         if (!hasExecutionCompleted) {
           hasExecutionCompleted = true;
@@ -272,42 +272,42 @@ export function SlidesTab() {
           calls.push({
             id,
             type: 'checkpoint',
-            title: 'ðŸŽ‰ ç”Ÿæˆå®Œæˆ',
+            title: '🎉 生成完成',
             content: data.totalPages
-              ? `å…± ${data.totalPages} é¡µï¼Œè€—æ—¶ ${((data.totalTime || 0) / 1000).toFixed(1)}s`
+              ? `共 ${data.totalPages} 页，耗时 ${((data.totalTime || 0) / 1000).toFixed(1)}s`
               : totalPagesGenerated > 0
-                ? `å…± ${totalPagesGenerated} é¡µ`
+                ? `共 ${totalPagesGenerated} 页`
                 : undefined,
             status: 'completed',
             timestamp: new Date(event.timestamp),
           });
         }
       }
-      // 5. å¤±è´¥äº‹ä»¶
+      // 5. 失败事件
       else if (event.type === 'execution:failed') {
         const data = event.data as { error?: string };
         calls.push({
           id,
           type: 'step',
-          title: 'âŒ ç”Ÿæˆå¤±è´¥',
+          title: '❌ 生成失败',
           content: data.error,
           status: 'error',
           timestamp: new Date(event.timestamp),
         });
       }
-      // å…¶ä»–äº‹ä»¶ï¼ˆagent:*, phase:started, heartbeat ç­‰ï¼‰ä¸æ˜¾ç¤ºåœ¨æ—¶é—´çº¿
-      // Agent çŠ¶æ€å®Œå…¨ç”± AgentTeamPanel è´Ÿè´£æ˜¾ç¤º
+      // 其他事件（agent:*, phase:started, heartbeat 等）不显示在时间线
+      // Agent 状态完全由 AgentTeamPanel 负责显示
     });
 
     setToolCalls(calls);
   }, [streamEvents, teamEvents]);
 
   const handleSendMessage = useCallback((message: string) => {
-    // æ·»åŠ ç”¨æˆ·æ¶ˆæ¯åˆ° streamEvents
+    // 添加用户消息到 streamEvents
     const { addStreamEvent, pages, selectedPageIndex } =
       useSlidesStore.getState();
 
-    // æ·»åŠ ç”¨æˆ·æ¶ˆæ¯äº‹ä»¶
+    // 添加用户消息事件
     addStreamEvent({
       type: 'user_message',
       timestamp: new Date(),
@@ -317,15 +317,15 @@ export function SlidesTab() {
       },
     });
 
-    // TODO: å®žçŽ°åŽç«¯æŽ¥ç»­ç”Ÿæˆ API
-    // ç›®å‰æ˜¾ç¤ºæç¤ºä¿¡æ¯
+    // TODO: 实现后端接续生成 API
+    // 目前显示提示信息
     const currentPage = pages[selectedPageIndex];
     if (currentPage) {
       addStreamEvent({
         type: 'system_message',
         timestamp: new Date(),
         data: {
-          message: `æ”¶åˆ°æ‚¨å¯¹ç¬¬ ${currentPage.pageNumber} é¡µçš„ä¿®æ”¹å»ºè®®ã€‚æŽ¥ç»­ç¼–è¾‘åŠŸèƒ½æ­£åœ¨å¼€å‘ä¸­ï¼Œæ•¬è¯·æœŸå¾…ï¼`,
+          message: `收到您对第 ${currentPage.pageNumber} 页的修改建议。接续编辑功能正在开发中，敬请期待！`,
         },
       });
     } else {
@@ -333,15 +333,14 @@ export function SlidesTab() {
         type: 'system_message',
         timestamp: new Date(),
         data: {
-          message:
-            'æ”¶åˆ°æ‚¨çš„åé¦ˆã€‚æŽ¥ç»­ç¼–è¾‘åŠŸèƒ½æ­£åœ¨å¼€å‘ä¸­ï¼Œæ•¬è¯·æœŸå¾…ï¼',
+          message: '收到您的反馈。接续编辑功能正在开发中，敬请期待！',
         },
       });
     }
   }, []);
 
   const handleCreateCheckpoint = useCallback(() => {
-    createCheckpoint('ç”¨æˆ·ä¿å­˜ç‚¹');
+    createCheckpoint('用户保存点');
   }, [createCheckpoint]);
 
   const handleGenerate = useCallback(
@@ -353,11 +352,11 @@ export function SlidesTab() {
         status: 'pending',
       });
       currentHistoryIdRef.current = historyId;
-      // è½¬æ¢ä¸º Team è¯·æ±‚æ ¼å¼
+      // 转换为 Team 请求格式
       const teamRequest: GenerateTeamRequest = {
         title: request.title,
         sourceText: request.sourceText,
-        userRequirement: request.title, // åŒæ—¶ä½œä¸ºç”¨æˆ·éœ€æ±‚
+        userRequirement: request.title, // 同时作为用户需求
         targetPages: request.targetPages,
         stylePreference: request.stylePreference,
         themeId: request.themeId,
@@ -367,12 +366,12 @@ export function SlidesTab() {
     [generateWithTeam, addHistory]
   );
 
-  // ç›‘å¬ session åˆ›å»ºå’Œå®Œæˆäº‹ä»¶ï¼Œæ›´æ–°åŽ†å²è®°å½•
+  // 监听 session 创建和完成事件，更新历史记录
   useEffect(() => {
     const historyId = currentHistoryIdRef.current;
     if (!historyId) return;
 
-    // æŸ¥æ‰¾æœ€æ–°çš„ session_created å’Œ complete äº‹ä»¶
+    // 查找最新的 session_created 和 complete 事件
     const sessionEvent = streamEvents.find((e) => e.type === 'session_created');
     const completeEvent = streamEvents.find((e) => e.type === 'complete');
 
@@ -399,12 +398,12 @@ export function SlidesTab() {
     }
   }, [streamEvents, updateHistory]);
 
-  // æ¢å¤åŽ†å²è®°å½•ï¼ˆlocalStorageï¼‰
+  // 恢复历史记录（localStorage）
   const handleRestoreHistory = useCallback(
     async (item: SlidesHistoryItem) => {
       setRestoring(true);
       try {
-        // ä¼˜å…ˆä½¿ç”¨ checkpointIdï¼Œå¦‚æžœæ²¡æœ‰åˆ™ä½¿ç”¨ sessionId
+        // 优先使用 checkpointId，如果没有则使用 sessionId
         if (item.checkpointId) {
           await restoreCheckpoint(item.checkpointId);
         } else if (item.sessionId) {
@@ -423,7 +422,7 @@ export function SlidesTab() {
     [restoreCheckpoint, restoreBySessionId]
   );
 
-  // æ¢å¤åŽç«¯ä¼šè¯
+  // 恢复后端会话
   const handleRestoreSession = useCallback(
     async (sessionItem: SessionWithCheckpoint) => {
       console.log(
@@ -448,11 +447,8 @@ export function SlidesTab() {
         setShowNewForm(false);
       } catch (err) {
         console.error('[SlidesTab] Failed to restore session:', err);
-        // æ˜¾ç¤ºé”™è¯¯æç¤ºç»™ç”¨æˆ·
-        alert(
-          'æ¢å¤å¤±è´¥: ' +
-            (err instanceof Error ? err.message : 'æœªçŸ¥é”™è¯¯')
-        );
+        // 显示错误提示给用户
+        alert('恢复失败: ' + (err instanceof Error ? err.message : '未知错误'));
       } finally {
         setRestoring(false);
       }
@@ -460,11 +456,11 @@ export function SlidesTab() {
     [restoreCheckpoint, restoreBySessionId]
   );
 
-  // åˆå§‹çŠ¶æ€ - æ˜¾ç¤º Sessions ç”»å»Šæˆ–è¾“å…¥è¡¨å•
+  // 初始状态 - 显示 Sessions 画廊或输入表单
   if (!session && pages.length === 0 && !generating) {
     return (
       <div className="flex h-full flex-col overflow-hidden bg-white">
-        {/* å¤´éƒ¨ */}
+        {/* 头部 */}
         <Header
           showHistory={showHistory}
           onToggleHistory={() => setShowHistory(!showHistory)}
@@ -475,7 +471,7 @@ export function SlidesTab() {
           showViewToggle={!showNewForm}
         />
 
-        {/* åŽ†å²è®°å½•é¢æ¿ */}
+        {/* 历史记录面板 */}
         <HistoryPanel
           show={showHistory}
           history={history}
@@ -484,7 +480,7 @@ export function SlidesTab() {
           onRestore={handleRestoreHistory}
         />
 
-        {/* æ ¹æ®çŠ¶æ€æ˜¾ç¤ºç”»å»Šæˆ–è¾“å…¥è¡¨å• */}
+        {/* 根据状态显示画廊或输入表单 */}
         {showNewForm ? (
           <InitialInputForm
             onGenerate={handleGenerate}
@@ -508,10 +504,10 @@ export function SlidesTab() {
     );
   }
 
-  // ç”Ÿæˆä¸­æˆ–å·²æœ‰å†…å®¹ - æ˜¾ç¤ºä¸¤æ å¸ƒå±€
+  // 生成中或已有内容 - 显示两栏布局
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white">
-      {/* å¤´éƒ¨ */}
+      {/* 头部 */}
       <Header
         title={session?.title}
         showHistory={showHistory}
@@ -523,7 +519,7 @@ export function SlidesTab() {
         hasPages={pages.length > 0}
       />
 
-      {/* åŽ†å²è®°å½•é¢æ¿ */}
+      {/* 历史记录面板 */}
       <HistoryPanel
         show={showHistory}
         history={history}
@@ -532,7 +528,7 @@ export function SlidesTab() {
         onRestore={handleRestoreHistory}
       />
 
-      {/* ä¸¤æ å¸ƒå±€ */}
+      {/* 两栏布局 */}
       <div className="flex flex-1 overflow-hidden">
         <ConversationPanel
           onSendMessage={handleSendMessage}
@@ -542,15 +538,14 @@ export function SlidesTab() {
           progress={progress}
           outlinePlan={outlinePlan}
           teamState={teamState}
-          teamEvents={teamEvents}
         />
         <PreviewPanel />
       </div>
 
-      {/* åº•éƒ¨è¿›åº¦æ¡ */}
+      {/* 底部进度条 */}
       <ProgressBar />
 
-      {/* æ¼”ç¤ºæ¨¡å¼ */}
+      {/* 演示模式 */}
       {showPresentation && (
         <PresentationMode
           pages={pages}
@@ -562,7 +557,7 @@ export function SlidesTab() {
 }
 
 // ============================================================================
-// PresentationMode ç»„ä»¶ - å…¨å±æ¼”ç¤º
+// PresentationMode 组件 - 全屏演示
 // ============================================================================
 
 function PresentationMode({
@@ -575,19 +570,19 @@ function PresentationMode({
   const [currentIndex, setCurrentIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // ç¡®ä¿å®¹å™¨èŽ·å¾—ç„¦ç‚¹ï¼ˆé˜²æ­¢ iframe æŠ¢å ç„¦ç‚¹å¯¼è‡´é”®ç›˜äº‹ä»¶å¤±æ•ˆï¼‰
+  // 确保容器获得焦点（防止 iframe 抢占焦点导致键盘事件失效）
   useEffect(() => {
-    // çŸ­æš‚å»¶è¿ŸåŽèšç„¦å®¹å™¨ï¼Œç¡®ä¿ DOM å·²æ¸²æŸ“
+    // 短暂延迟后聚焦容器，确保 DOM 已渲染
     const focusTimer = setTimeout(() => {
       containerRef.current?.focus();
     }, 100);
     return () => clearTimeout(focusTimer);
   }, []);
 
-  // é”®ç›˜å¯¼èˆª - ä½¿ç”¨ capture æ¨¡å¼ç¡®ä¿ä¼˜å…ˆå¤„ç†
+  // 键盘导航 - 使用 capture 模式确保优先处理
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // ç¡®ä¿å®¹å™¨ä¿æŒç„¦ç‚¹
+      // 确保容器保持焦点
       if (document.activeElement !== containerRef.current) {
         containerRef.current?.focus();
       }
@@ -626,17 +621,17 @@ function PresentationMode({
       }
     };
 
-    // ä½¿ç”¨ capture æ¨¡å¼ä¼˜å…ˆæ•èŽ·é”®ç›˜äº‹ä»¶
+    // 使用 capture 模式优先捕获键盘事件
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [pages.length, onClose]);
 
-  // è¿›å…¥/é€€å‡ºå…¨å±
+  // 进入/退出全屏
   useEffect(() => {
     const container = containerRef.current;
     if (container && document.fullscreenEnabled) {
       container.requestFullscreen?.().catch(() => {
-        // å…¨å±è¯·æ±‚å¤±è´¥ï¼Œé™é»˜å¤„ç†
+        // 全屏请求失败，静默处理
       });
     }
 
@@ -649,11 +644,11 @@ function PresentationMode({
 
   const currentPage = pages[currentIndex];
 
-  // å›ºå®šç”»å¸ƒå°ºå¯¸ (16:9)
+  // 固定画布尺寸 (16:9)
   const SLIDE_WIDTH = 1280;
   const SLIDE_HEIGHT = 720;
 
-  // è®¡ç®—å…¨å±ç¼©æ”¾
+  // 计算全屏缩放
   const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
   const screenHeight =
     typeof window !== 'undefined' ? window.innerHeight : 1080;
@@ -664,7 +659,7 @@ function PresentationMode({
   const scaledWidth = Math.floor(SLIDE_WIDTH * scale);
   const scaledHeight = Math.floor(SLIDE_HEIGHT * scale);
 
-  // ä¸º iframe æ·»åŠ ç¼©æ”¾æ ·å¼
+  // 为 iframe 添加缩放样式
   const enhanceHtmlForPresentation = (
     html: string,
     zoomScale: number
@@ -703,17 +698,17 @@ function PresentationMode({
       tabIndex={0}
       className="fixed inset-0 z-50 flex flex-col bg-black outline-none"
       onClick={(e) => {
-        // ç‚¹å‡»ç©ºç™½åŒºåŸŸä¸‹ä¸€é¡µ
+        // 点击空白区域下一页
         if (e.target === e.currentTarget) {
           setCurrentIndex((prev) => Math.min(prev + 1, pages.length - 1));
         }
       }}
       onMouseMove={() => {
-        // é¼ æ ‡ç§»åŠ¨æ—¶ç¡®ä¿å®¹å™¨èŽ·å¾—ç„¦ç‚¹
+        // 鼠标移动时确保容器获得焦点
         containerRef.current?.focus();
       }}
     >
-      {/* å¹»ç¯ç‰‡å†…å®¹ */}
+      {/* 幻灯片内容 */}
       <div className="flex flex-1 items-center justify-center">
         {currentPage?.html ? (
           <iframe
@@ -724,31 +719,31 @@ function PresentationMode({
               border: 'none',
               display: 'block',
               backgroundColor: '#0f172a',
-              pointerEvents: 'none', // é˜²æ­¢ iframe æˆªèŽ·äº¤äº’
+              pointerEvents: 'none', // 防止 iframe 截获交互
             }}
-            tabIndex={-1} // é˜²æ­¢ iframe èŽ·å¾—ç„¦ç‚¹
+            tabIndex={-1} // 防止 iframe 获得焦点
             sandbox="allow-scripts"
           />
         ) : (
           <div className="text-center text-white">
             <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin" />
-            <p>åŠ è½½ä¸­...</p>
+            <p>加载中...</p>
           </div>
         )}
       </div>
 
-      {/* æŽ§åˆ¶æ  */}
+      {/* 控制栏 */}
       <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between bg-gradient-to-t from-black/80 to-transparent px-6 py-4 opacity-0 transition-opacity hover:opacity-100">
         <div className="flex items-center gap-4">
           <button
             onClick={onClose}
             className="rounded-lg bg-white/10 p-2 text-white hover:bg-white/20"
-            title="é€€å‡ºæ¼”ç¤º (Esc)"
+            title="退出演示 (Esc)"
           >
             <X className="h-5 w-5" />
           </button>
           <span className="text-sm text-white/80">
-            æŒ‰ Esc é€€å‡º | æ–¹å‘é”®æˆ–ç©ºæ ¼åˆ‡æ¢é¡µé¢
+            按 Esc 退出 | 方向键或空格切换页面
           </span>
         </div>
 
@@ -781,7 +776,7 @@ function PresentationMode({
 }
 
 // ============================================================================
-// Header ç»„ä»¶
+// Header 组件
 // ============================================================================
 
 function Header({
@@ -817,12 +812,12 @@ function Header({
     <header className="flex-shrink-0 border-b border-gray-200 bg-white">
       <div className="flex h-14 items-center justify-between px-6">
         <div className="flex items-center gap-3">
-          {/* è¿”å›žæŒ‰é’® */}
+          {/* 返回按钮 */}
           {showBackButton && onBackToGallery && (
             <button
               onClick={onBackToGallery}
               className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-              title="è¿”å›žåŽ†å²è®°å½•"
+              title="返回历史记录"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
@@ -831,29 +826,27 @@ function Header({
             <Sparkles className="h-4 w-4 text-white" />
           </div>
           <div>
-            <h1 className="text-sm font-semibold">
-              {title || 'AI æ¼”ç¤ºæ–‡ç¨¿'}
-            </h1>
-            <p className="text-xs text-gray-500">æ™ºèƒ½PPTç”Ÿæˆ</p>
+            <h1 className="text-sm font-semibold">{title || 'AI 演示文稿'}</h1>
+            <p className="text-xs text-gray-500">智能PPT生成</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* æ–°å»ºæŒ‰é’® */}
+          {/* 新建按钮 */}
           {onNewClick && (
             <button
               onClick={onNewClick}
               className="flex items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-sm font-medium text-white hover:bg-orange-600"
             >
               <Plus className="h-4 w-4" />
-              æ–°å»º
+              新建
             </button>
           )}
 
-          {/* â˜… AI è¾…åŠ©èœå• - é¦–é¡µæ˜¾ç¤ºåœ¨æ–°å»ºæŒ‰é’®æ— */}
+          {/* ★ AI 辅助菜单 - 首页显示在新建按钮旁 */}
           {onNewClick && <AIAssistMenu disabled={false} />}
 
-          {/* è§†å›¾åˆ‡æ¢ */}
+          {/* 视图切换 */}
           {showViewToggle && viewMode && onViewModeChange && (
             <div className="flex items-center rounded-lg border border-gray-200 p-1">
               <button
@@ -864,7 +857,7 @@ function Header({
                     ? 'bg-orange-100 text-orange-600'
                     : 'text-gray-400 hover:text-gray-600'
                 )}
-                title="ç½‘æ ¼è§†å›¾"
+                title="网格视图"
               >
                 <LayoutGrid className="h-4 w-4" />
               </button>
@@ -876,14 +869,14 @@ function Header({
                     ? 'bg-orange-100 text-orange-600'
                     : 'text-gray-400 hover:text-gray-600'
                 )}
-                title="åˆ—è¡¨è§†å›¾"
+                title="列表视图"
               >
                 <List className="h-4 w-4" />
               </button>
             </div>
           )}
 
-          {/* åŽ†å²è®°å½• - ä»…åœ¨é¦–é¡µæ˜¾ç¤ºï¼Œç¼–è¾‘é¡µéšè— */}
+          {/* 历史记录 - 仅在首页显示，编辑页隐藏 */}
           {!showBackButton && (
             <button
               onClick={onToggleHistory}
@@ -895,41 +888,41 @@ function Header({
               )}
             >
               <History className="h-4 w-4" />
-              åŽ†å²è®°å½•
+              历史记录
             </button>
           )}
 
-          {/* åˆ›å»ºä¿å­˜ç‚¹ */}
+          {/* 创建保存点 */}
           <button
             onClick={onCreateCheckpoint}
             className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
           >
             <Save className="h-4 w-4" />
-            åˆ›å»ºä¿å­˜ç‚¹
+            创建保存点
           </button>
 
-          {/* AI è¾…åŠ©èœå• */}
+          {/* AI 辅助菜单 */}
           {hasPages && <AIAssistMenu disabled={false} />}
 
-          {/* æ’­æ”¾æ¼”ç¤º */}
+          {/* 播放演示 */}
           {hasPages && onStartPresentation && (
             <button
               onClick={onStartPresentation}
               className="flex items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-sm text-white hover:bg-orange-600"
             >
               <Play className="h-4 w-4" />
-              æ’­æ”¾
+              播放
             </button>
           )}
 
-          {/* å¯¼å‡º */}
+          {/* 导出 */}
           <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
               className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
             >
               <Download className="h-4 w-4" />
-              å¯¼å‡º
+              导出
               <ChevronDown className="h-3 w-3" />
             </button>
             {showExportMenu && (
@@ -943,7 +936,7 @@ function Header({
 }
 
 // ============================================================================
-// åŽ†å²è®°å½•é¢æ¿
+// 历史记录面板
 // ============================================================================
 
 function HistoryPanel({
@@ -970,20 +963,20 @@ function HistoryPanel({
         >
           <div className="max-h-[280px] overflow-y-auto p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-medium text-gray-700">ç”ŸæˆåŽ†å²</h3>
+              <h3 className="text-sm font-medium text-gray-700">生成历史</h3>
               {history.length > 0 && (
                 <button
                   onClick={onClear}
                   className="text-xs text-red-500 hover:text-red-600"
                 >
-                  æ¸…ç©º
+                  清空
                 </button>
               )}
             </div>
 
             {history.length === 0 ? (
               <p className="py-4 text-center text-xs text-gray-400">
-                æš‚æ— åŽ†å²è®°å½•
+                暂无历史记录
               </p>
             ) : (
               <div className="space-y-2">
@@ -1007,7 +1000,7 @@ function HistoryPanel({
                           {formatRelativeTime(item.timestamp)}
                         </span>
                         <span className="rounded bg-orange-100 px-1.5 py-0.5 text-xs text-orange-600">
-                          {item.targetPages} é¡µ
+                          {item.targetPages} 页
                         </span>
                         {item.status === 'success' ? (
                           <CheckCircle2 className="h-3 w-3 text-green-500" />
@@ -1018,7 +1011,7 @@ function HistoryPanel({
                         )}
                         {item.sessionId && (
                           <span className="text-xs text-orange-500">
-                            ç‚¹å‡»æ¢å¤
+                            点击恢复
                           </span>
                         )}
                       </div>
@@ -1030,7 +1023,7 @@ function HistoryPanel({
                           onRemove(item.id);
                         }}
                         className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-500"
-                        title="åˆ é™¤"
+                        title="删除"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -1047,7 +1040,7 @@ function HistoryPanel({
 }
 
 // ============================================================================
-// å¯¼å‡ºä¸‹æ‹‰èœå•
+// 导出下拉菜单
 // ============================================================================
 
 function ExportDropdown({ onClose }: { onClose: () => void }) {
@@ -1071,7 +1064,7 @@ function ExportDropdown({ onClose }: { onClose: () => void }) {
   const handleExport = useCallback(
     async (format: 'pptx' | 'pdf') => {
       if (!session?.id) {
-        alert('è¯·å…ˆç”Ÿæˆå¹»ç¯ç‰‡');
+        alert('请先生成幻灯片');
         return;
       }
 
@@ -1093,12 +1086,10 @@ function ExportDropdown({ onClose }: { onClose: () => void }) {
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(
-            errorData.message || `å¯¼å‡ºå¤±è´¥: ${response.status}`
-          );
+          throw new Error(errorData.message || `导出失败: ${response.status}`);
         }
 
-        // èŽ·å–æ–‡ä»¶å
+        // 获取文件名
         const contentDisposition = response.headers.get('Content-Disposition');
         let filename = `slides.${format}`;
         if (contentDisposition) {
@@ -1108,7 +1099,7 @@ function ExportDropdown({ onClose }: { onClose: () => void }) {
           }
         }
 
-        // ä¸‹è½½æ–‡ä»¶
+        // 下载文件
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -1122,9 +1113,7 @@ function ExportDropdown({ onClose }: { onClose: () => void }) {
         onClose();
       } catch (error: unknown) {
         console.error('Export failed:', error);
-        alert(
-          error instanceof Error ? error.message : 'å¯¼å‡ºå¤±è´¥ï¼Œè¯·é‡è¯•'
-        );
+        alert(error instanceof Error ? error.message : '导出失败，请重试');
       } finally {
         setExporting(null);
       }
@@ -1147,7 +1136,7 @@ function ExportDropdown({ onClose }: { onClose: () => void }) {
         ) : (
           <FileText className="h-4 w-4" />
         )}
-        å¯¼å‡º PPTX
+        导出 PPTX
       </button>
       <button
         onClick={() => handleExport('pdf')}
@@ -1159,14 +1148,14 @@ function ExportDropdown({ onClose }: { onClose: () => void }) {
         ) : (
           <FileText className="h-4 w-4" />
         )}
-        å¯¼å‡º PDF
+        导出 PDF
       </button>
     </div>
   );
 }
 
 // ============================================================================
-// å¯¹è¯é¢æ¿ - å·¦ä¾§
+// 对话面板 - 左侧
 // ============================================================================
 
 function ConversationPanel({
@@ -1177,7 +1166,6 @@ function ConversationPanel({
   progress,
   outlinePlan,
   teamState,
-  teamEvents,
 }: {
   onSendMessage: (message: string) => void;
   onCancel: () => void;
@@ -1186,12 +1174,11 @@ function ConversationPanel({
   progress: GenerationProgress | null;
   outlinePlan: OutlinePlan | null;
   teamState: import('@/types/slides-team').TeamExecutionState | null;
-  teamEvents: SlidesTeamEvent[];
 }) {
   const [inputValue, setInputValue] = useState('');
   const [outlineExpanded, setOutlineExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
-  // â˜… @ Mention çŠ¶æ€
+  // ★ @ Mention 状态
   const [showMentionMenu, setShowMentionMenu] = useState(false);
   const [mentionFilter, setMentionFilter] = useState('');
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
@@ -1201,7 +1188,7 @@ function ConversationPanel({
   const { streamEvents, selectedPageIndex, setSelectedPageIndex } =
     useSlidesStore();
 
-  // Aggregate chat messages (user/system + team SSE)
+  // ƒ~. ‚?%‚­1‘?›Š_?‘,?‘?r‡""„§Z‘~_‡§‡"¯†¯S
   const chatMessages = React.useMemo(() => {
     const items: Array<{
       id: string;
@@ -1211,7 +1198,6 @@ function ConversationPanel({
       timestamp: Date;
     }> = [];
 
-    // Store events (user/system/agent)
     streamEvents.forEach((event, index) => {
       const data = (event.data || {}) as Record<string, any>;
       const timestamp =
@@ -1224,7 +1210,7 @@ function ConversationPanel({
         items.push({
           id: `${event.type}-${timestamp.getTime()}-${index}`,
           role: 'user',
-          author: 'me',
+          author: '我',
           message: String(data.message),
           timestamp,
         });
@@ -1236,7 +1222,7 @@ function ConversationPanel({
         items.push({
           id: `${event.type}-${timestamp.getTime()}-${index}`,
           role: 'system',
-          author: data.source || 'system',
+          author: data.source || '系统',
           message: String(data.message),
           timestamp,
         });
@@ -1257,48 +1243,8 @@ function ConversationPanel({
       }
     });
 
-    // Team SSE events (Agent/phase)
-    teamEvents.forEach((event, index) => {
-      const data = (event.data || {}) as Record<string, any>;
-      const timestamp = data.timestamp
-        ? new Date(data.timestamp as string)
-        : (event as { timestamp?: string | Date }).timestamp
-          ? new Date((event as { timestamp?: string | Date }).timestamp as any)
-          : new Date();
-
-      if (event.type === 'agent:working' || event.type === 'agent:completed') {
-        const message =
-          data.thought || data.task || data.result || data.message || '';
-        if (!message) return;
-        items.push({
-          id: `${event.type}-${timestamp.getTime()}-team-${index}`,
-          role: 'agent',
-          author: data.agentName || data.agent || 'Agent',
-          message: String(message),
-          timestamp,
-        });
-        return;
-      }
-
-      if (event.type === 'phase:started' || event.type === 'phase:completed') {
-        const message =
-          data.message ||
-          (data.phase
-            ? `${event.type === 'phase:started' ? 'phase started' : 'phase completed'}: ${data.phase}`
-            : '');
-        if (!message) return;
-        items.push({
-          id: `${event.type}-${timestamp.getTime()}-team-${index}`,
-          role: 'system',
-          author: 'system',
-          message: String(message),
-          timestamp,
-        });
-      }
-    });
-
     return items.slice(-50);
-  }, [streamEvents, teamEvents]);
+  }, [streamEvents]);
 
   const renderMessageText = useCallback((text: string) => {
     return text.split(/(@[\w-]+)/g).map((part, idx) => {
@@ -1319,14 +1265,14 @@ function ConversationPanel({
     }
   }, [toolCalls, progress, chatMessages]);
 
-  // â˜… æ£€æµ‹ @ mention
+  // ★ 检测 @ mention
   useEffect(() => {
     const text = inputValue;
     const lastAtIndex = text.lastIndexOf('@');
 
     if (lastAtIndex !== -1) {
       const afterAt = text.slice(lastAtIndex + 1);
-      // å¦‚æžœ @ åŽé¢æ²¡æœ‰ç©ºæ ¼ï¼Œè¯´æ˜Žç”¨æˆ·æ­£åœ¨è¾“å…¥ mention
+      // 如果 @ 后面没有空格，说明用户正在输入 mention
       if (!afterAt.includes(' ')) {
         setShowMentionMenu(true);
         setMentionFilter(afterAt.toLowerCase());
@@ -1341,7 +1287,7 @@ function ConversationPanel({
     }
   }, [inputValue]);
 
-  // â˜… è¿‡æ»¤åŽçš„ mention é€‰é¡¹
+  // ★ 过滤后的 mention 选项
   const filteredMentionOptions = React.useMemo(() => {
     if (!mentionFilter) return MENTION_OPTIONS;
     return MENTION_OPTIONS.filter(
@@ -1351,7 +1297,7 @@ function ConversationPanel({
     );
   }, [mentionFilter]);
 
-  // â˜… å¤„ç† mention é€‰æ‹©
+  // ★ 处理 mention 选择
   const handleMentionSelect = useCallback(
     (option: (typeof MENTION_OPTIONS)[0]) => {
       const lastAtIndex = inputValue.lastIndexOf('@');
@@ -1376,7 +1322,7 @@ function ConversationPanel({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      // â˜… å¤„ç† mention èœå•å¯¼èˆª
+      // ★ 处理 mention 菜单导航
       if (showMentionMenu && filteredMentionOptions.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
@@ -1404,7 +1350,7 @@ function ConversationPanel({
         }
       }
 
-      // æ­£å¸¸çš„ Enter æäº¤
+      // 正常的 Enter 提交
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
@@ -1419,7 +1365,7 @@ function ConversationPanel({
     ]
   );
 
-  // å¤åˆ¶æ—¥å¿—åˆ°å‰ªè´´æ¿
+  // 复制日志到剪贴板
   const handleCopyLog = useCallback(() => {
     const logText = streamEvents
       .map((event) => {
@@ -1437,11 +1383,11 @@ function ConversationPanel({
 
   return (
     <div className="flex h-full w-[360px] flex-shrink-0 flex-col border-r border-slate-200 bg-slate-50">
-      {/* é¡¶éƒ¨æ ‡é¢˜æ  */}
+      {/* 顶部标题栏 */}
       <div className="flex items-center justify-between border-b border-slate-200 bg-white px-3 py-2">
         <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
           <Terminal className="h-4 w-4 text-orange-500" />
-          ç”Ÿæˆè¿‡ç¨‹ ({toolCalls.length})
+          生成过程 ({toolCalls.length})
         </div>
         <button
           onClick={handleCopyLog}
@@ -1452,34 +1398,34 @@ function ConversationPanel({
               ? 'bg-green-100 text-green-700'
               : 'text-gray-600 hover:bg-gray-100'
           )}
-          title="å¤åˆ¶å®Œæ•´æ—¥å¿—"
+          title="复制完整日志"
         >
           {copied ? (
             <>
               <CheckCircle2 className="h-3.5 w-3.5" />
-              å·²å¤åˆ¶
+              已复制
             </>
           ) : (
             <>
               <Copy className="h-3.5 w-3.5" />
-              å¤åˆ¶æ—¥å¿—
+              复制日志
             </>
           )}
         </button>
       </div>
 
-      {/* æ»šåŠ¨åŒºåŸŸ */}
+      {/* 滚动区域 */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3">
-        {/* é˜¶æ®µæ—¶é—´çº¿ - æŒ‰è§’è‰²åˆ†ç»„æ˜¾ç¤ºï¼Œæ›¿æ¢æ··ä¹±çš„ toolCalls åˆ—è¡¨ */}
-        {/* å¯¹è¯è®°å½• */}
+        {/* 阶段时间线 - 按角色分组显示，替换混乱的 toolCalls 列表 */}
+        {/* 对话记录 */}
         <div className="mb-3 space-y-2">
           <div className="flex items-center justify-between text-xs text-gray-500">
-            <span>å¯¹è¯</span>
-            <span>{chatMessages.length} æ¡</span>
+            <span>对话</span>
+            <span>{chatMessages.length} 条</span>
           </div>
           {chatMessages.length === 0 ? (
             <div className="rounded-lg border border-dashed border-gray-200 bg-white px-3 py-2 text-xs text-gray-500">
-              æš‚æ— æ¶ˆæ¯ï¼Œè¾“å…¥ @leader/@analyst ç­‰ä¸Žå›¢é˜Ÿæ²Ÿé€š
+              暂无消息，输入 @leader/@analyst 等与团队沟通
             </div>
           ) : (
             chatMessages.map((msg) => (
@@ -1522,7 +1468,7 @@ function ConversationPanel({
           }
         />
 
-        {/* å–æ¶ˆæŒ‰é’® */}
+        {/* 取消按钮 */}
         {generating && (
           <div className="mt-4 flex justify-center">
             <button
@@ -1530,12 +1476,12 @@ function ConversationPanel({
               className="flex items-center gap-1.5 rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
             >
               <X className="h-4 w-4" />
-              å–æ¶ˆç”Ÿæˆ
+              取消生成
             </button>
           </div>
         )}
 
-        {/* å¤§çº²é¢„è§ˆ */}
+        {/* 大纲预览 */}
         {outlinePlan && (
           <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3">
             <button
@@ -1543,7 +1489,7 @@ function ConversationPanel({
               className="flex w-full items-center gap-2 text-left text-sm font-medium text-gray-700"
             >
               <FileText className="h-4 w-4 text-blue-500" />
-              å¤§çº²é¢„è§ˆ ({outlinePlan.pages.length} é¡µ)
+              大纲预览 ({outlinePlan.pages.length} 页)
               <ChevronDown
                 className={cn(
                   'ml-auto h-4 w-4 transition-transform',
@@ -1578,12 +1524,12 @@ function ConversationPanel({
                     {generating ? (
                       <div className="flex items-center justify-center gap-2 rounded-lg bg-orange-100 py-1.5 text-sm font-medium text-orange-700">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        æ­£åœ¨ç”Ÿæˆé¡µé¢...
+                        正在生成页面...
                       </div>
                     ) : (
                       <div className="flex items-center justify-center gap-2 rounded-lg bg-green-100 py-1.5 text-sm font-medium text-green-700">
                         <CheckCircle2 className="h-4 w-4" />
-                        å¤§çº²å·²ç¡®è®¤ï¼Œç”Ÿæˆå®Œæˆ
+                        大纲已确认，生成完成
                       </div>
                     )}
                   </div>
@@ -1594,9 +1540,9 @@ function ConversationPanel({
         )}
       </div>
 
-      {/* å›ºå®šåœ¨åº•éƒ¨çš„è¾“å…¥æ¡† */}
+      {/* 固定在底部的输入框 */}
       <div className="relative flex-shrink-0 border-t border-gray-200 bg-white p-3">
-        {/* â˜… @ Mention èœå• */}
+        {/* ★ @ Mention 菜单 */}
         <AnimatePresence>
           {showMentionMenu && filteredMentionOptions.length > 0 && (
             <motion.div
@@ -1606,7 +1552,7 @@ function ConversationPanel({
               className="absolute bottom-full left-3 right-3 z-50 mb-2 rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
             >
               <div className="mb-2 px-2 text-xs text-gray-500">
-                æåŠ Agentï¼ˆä½¿ç”¨ â†‘â†“ é€‰æ‹©ï¼ŒEnter ç¡®è®¤ï¼‰
+                提及 Agent（使用 ↑↓ 选择，Enter 确认）
               </div>
               <div className="space-y-1">
                 {filteredMentionOptions.map((option, index) => (
@@ -1643,7 +1589,7 @@ function ConversationPanel({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="è¾“å…¥ä¿®æ”¹å»ºè®®æˆ–åé¦ˆ... (è¾“å…¥ @ æåŠ Agent)"
+            placeholder="输入修改建议或反馈... (输入 @ 提及 Agent)"
             rows={3}
             className="max-h-40 min-h-[80px] flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
           />
@@ -1666,7 +1612,7 @@ function ConversationPanel({
 }
 
 // ============================================================================
-// å·¥å…·è°ƒç”¨å¡ç‰‡
+// 工具调用卡片
 // ============================================================================
 
 function ToolCallCard({ call }: { call: ToolCallItem }) {
@@ -1716,7 +1662,7 @@ function ToolCallCard({ call }: { call: ToolCallItem }) {
     }
   };
 
-  // æ¸²æŸ“è¯¦ç»†ä¿¡æ¯
+  // 渲染详细信息
   const renderDetails = () => {
     if (!call.details) return null;
 
@@ -1730,7 +1676,7 @@ function ToolCallCard({ call }: { call: ToolCallItem }) {
         {details.dataPoints && details.dataPoints.length > 0 && (
           <div>
             <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
-              æ•°æ®ç‚¹
+              数据点
             </div>
             <div className="space-y-1">
               {details.dataPoints.map((dp, i) => (
@@ -1750,7 +1696,7 @@ function ToolCallCard({ call }: { call: ToolCallItem }) {
         {details.insights && details.insights.length > 0 && (
           <div>
             <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">
-              å…³é”®æ´žå¯Ÿ
+              关键洞察
             </div>
             <div className="space-y-1">
               {details.insights.map((insight, i) => (
@@ -1758,7 +1704,7 @@ function ToolCallCard({ call }: { call: ToolCallItem }) {
                   key={i}
                   className="rounded bg-green-50 px-2 py-1 text-xs text-green-700"
                 >
-                  ðŸ’¡ {insight}
+                  💡 {insight}
                 </div>
               ))}
             </div>
@@ -1835,7 +1781,7 @@ function ToolCallCard({ call }: { call: ToolCallItem }) {
 }
 
 // ============================================================================
-// å¤§çº²é¡¹
+// 大纲项
 // ============================================================================
 
 function OutlineItem({
@@ -1887,7 +1833,7 @@ function OutlineItem({
 }
 
 // ============================================================================
-// é¢„è§ˆé¢æ¿ - å³ä¾§
+// 预览面板 - 右侧
 // ============================================================================
 
 type ViewMode = 'preview' | 'code' | 'thinking';
@@ -1902,47 +1848,47 @@ function PreviewPanel() {
   const lastWheelTime = useRef<number>(0);
   const accumulatedDelta = useRef<number>(0);
 
-  // é¼ æ ‡æ»šè½®åˆ‡æ¢é¡µé¢ï¼ˆä»…åž‚ç›´æ»šåŠ¨æ—¶ï¼Œå…è®¸æ°´å¹³æ»šåŠ¨æ­£å¸¸å·¥ä½œï¼‰
-  // æ·»åŠ é˜²æŠ–å’Œé˜ˆå€¼æŽ§åˆ¶ï¼Œé˜²æ­¢æ»šåŠ¨å¤ªå¿«
+  // 鼠标滚轮切换页面（仅垂直滚动时，允许水平滚动正常工作）
+  // 添加防抖和阈值控制，防止滚动太快
   const handleThumbnailWheel = useCallback(
     (e: React.WheelEvent) => {
       if (pages.length <= 1) return;
 
-      // å¦‚æžœæ˜¯æ°´å¹³æ»šåŠ¨ï¼ˆdeltaX å¤§äºŽ deltaYï¼‰ï¼Œè®©åŽŸç”Ÿæ»šåŠ¨å¤„ç†
+      // 如果是水平滚动（deltaX 大于 deltaY），让原生滚动处理
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        return; // ä¸é˜»æ­¢é»˜è®¤è¡Œä¸ºï¼Œå…è®¸æ°´å¹³æ»šåŠ¨
+        return; // 不阻止默认行为，允许水平滚动
       }
 
-      // åž‚ç›´æ»šåŠ¨æ—¶åˆ‡æ¢é¡µé¢
+      // 垂直滚动时切换页面
       e.preventDefault();
 
       const now = Date.now();
       const timeSinceLastWheel = now - lastWheelTime.current;
 
-      // å¦‚æžœè·ç¦»ä¸Šæ¬¡æ»šåŠ¨è¶…è¿‡ 150msï¼Œé‡ç½®ç´¯ç§¯å€¼
+      // 如果距离上次滚动超过 150ms，重置累积值
       if (timeSinceLastWheel > 150) {
         accumulatedDelta.current = 0;
       }
 
-      // ç´¯ç§¯æ»šåŠ¨é‡
+      // 累积滚动量
       accumulatedDelta.current += e.deltaY;
 
-      // éœ€è¦ç´¯ç§¯è¶³å¤Ÿçš„æ»šåŠ¨é‡æ‰è§¦å‘ç¿»é¡µï¼ˆé˜ˆå€¼ 50ï¼‰
-      // å¹¶ä¸”è·ç¦»ä¸Šæ¬¡ç¿»é¡µè‡³å°‘ 200msï¼ˆé˜²æŠ–ï¼‰
+      // 需要累积足够的滚动量才触发翻页（阈值 50）
+      // 并且距离上次翻页至少 200ms（防抖）
       if (
         Math.abs(accumulatedDelta.current) >= 50 &&
         timeSinceLastWheel >= 200
       ) {
         if (accumulatedDelta.current > 0) {
-          // ä¸‹ä¸€é¡µ
+          // 下一页
           setSelectedPageIndex(
             Math.min(selectedPageIndex + 1, pages.length - 1)
           );
         } else {
-          // ä¸Šä¸€é¡µ
+          // 上一页
           setSelectedPageIndex(Math.max(selectedPageIndex - 1, 0));
         }
-        // é‡ç½®
+        // 重置
         accumulatedDelta.current = 0;
         lastWheelTime.current = now;
       }
@@ -1950,7 +1896,7 @@ function PreviewPanel() {
     [pages.length, selectedPageIndex, setSelectedPageIndex]
   );
 
-  // è‡ªåŠ¨æ»šåŠ¨ç¼©ç•¥å›¾åˆ°å½“å‰é€‰ä¸­é¡µ
+  // 自动滚动缩略图到当前选中页
   useEffect(() => {
     if (thumbnailStripRef.current && pages.length > 0) {
       const strip = thumbnailStripRef.current;
@@ -1965,12 +1911,12 @@ function PreviewPanel() {
     }
   }, [selectedPageIndex, pages.length]);
 
-  // ä½¿ç”¨ ResizeObserver ç›‘å¬å®¹å™¨å°ºå¯¸å˜åŒ–
+  // 使用 ResizeObserver 监听容器尺寸变化
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    // åˆå§‹åŒ–æ—¶ç«‹å³èŽ·å–å°ºå¯¸
+    // 初始化时立即获取尺寸
     const rect = container.getBoundingClientRect();
     setDimensions({ width: rect.width, height: rect.height });
 
@@ -1987,29 +1933,29 @@ function PreviewPanel() {
     return () => resizeObserver.disconnect();
   }, []);
 
-  // å›ºå®šç”»å¸ƒå°ºå¯¸ (16:9)
+  // 固定画布尺寸 (16:9)
   const SLIDE_WIDTH = 1280;
   const SLIDE_HEIGHT = 720;
   const PADDING = 24;
 
-  // è®¡ç®—å¯ç”¨ç©ºé—´
+  // 计算可用空间
   const availableWidth = Math.max(dimensions.width - PADDING, 300);
   const availableHeight = Math.max(dimensions.height - PADDING, 200);
 
-  // è®¡ç®—ç¼©æ”¾æ¯”ä¾‹ï¼Œä¿æŒå®½é«˜æ¯”ï¼Œå…è®¸æ”¾å¤§ä»¥å¡«å……ç©ºé—´
+  // 计算缩放比例，保持宽高比，允许放大以填充空间
   const scaleX = availableWidth / SLIDE_WIDTH;
   const scaleY = availableHeight / SLIDE_HEIGHT;
-  const scale = Math.min(scaleX, scaleY); // ç§»é™¤æœ€å¤§ 1 çš„é™åˆ¶ï¼Œå…è®¸æ”¾å¤§
+  const scale = Math.min(scaleX, scaleY); // 移除最大 1 的限制，允许放大
 
-  // ç¼©æ”¾åŽçš„å°ºå¯¸
+  // 缩放后的尺寸
   const scaledWidth = Math.floor(SLIDE_WIDTH * scale);
   const scaledHeight = Math.floor(SLIDE_HEIGHT * scale);
 
-  // ä¸º iframe å†…å®¹æ·»åŠ ç¼©æ”¾æ ·å¼ - ä½¿ç”¨å†…éƒ¨ç¼©æ”¾è€Œéžå¤–éƒ¨ transform
-  // è¿™æ ·æ¸²æŸ“æ›´æ¸…æ™°ï¼Œå› ä¸ºæµè§ˆå™¨ä¼šé‡æ–°æ¸²æŸ“è€Œä¸æ˜¯ç¼©æ”¾åƒç´
+  // 为 iframe 内容添加缩放样式 - 使用内部缩放而非外部 transform
+  // 这样渲染更清晰，因为浏览器会重新渲染而不是缩放像素
   const enhanceHtmlForClarity = useCallback(
     (html: string, zoomScale: number): string => {
-      // æ³¨å…¥ç¼©æ”¾å’Œå­—ä½“å¹³æ»‘æ ·å¼
+      // 注入缩放和字体平滑样式
       const enhancementStyles = `
       <style>
         * {
@@ -2029,11 +1975,11 @@ function PreviewPanel() {
         }
       </style>
     `;
-      // åœ¨ </head> å‰æ’å…¥æ ·å¼
+      // 在 </head> 前插入样式
       if (html.includes('</head>')) {
         return html.replace('</head>', enhancementStyles + '</head>');
       }
-      // å¦‚æžœæ²¡æœ‰ headï¼Œåœ¨ body å‰æ’å…¥
+      // 如果没有 head，在 body 前插入
       if (html.includes('<body')) {
         return html.replace('<body', enhancementStyles + '<body');
       }
@@ -2044,7 +1990,7 @@ function PreviewPanel() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-gradient-to-br from-slate-100 to-slate-200">
-      {/* ç¼©ç•¥å›¾åŒºåŸŸ - æ”¯æŒé¼ æ ‡æ»šè½®åˆ‡æ¢é¡µé¢å’Œæ°´å¹³æ»šåŠ¨ */}
+      {/* 缩略图区域 - 支持鼠标滚轮切换页面和水平滚动 */}
       <div
         className="flex-shrink-0 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-sm"
         onWheel={handleThumbnailWheel}
@@ -2056,7 +2002,7 @@ function PreviewPanel() {
           {pages.length === 0 ? (
             <div className="flex h-14 w-full items-center justify-center text-sm text-slate-500">
               <Layers className="mr-2 h-4 w-4 opacity-50" />
-              å¼€å§‹ç”ŸæˆåŽå°†æ˜¾ç¤ºç¼©ç•¥å›¾
+              开始生成后将显示缩略图
             </div>
           ) : (
             pages.map((page, index) => (
@@ -2072,7 +2018,7 @@ function PreviewPanel() {
         </div>
       </div>
 
-      {/* è§†å›¾æ¨¡å¼åˆ‡æ¢æ ‡ç­¾ - Preview | Code | Thinking */}
+      {/* 视图模式切换标签 - Preview | Code | Thinking */}
       <div className="flex-shrink-0 border-b border-slate-200 bg-white/60 px-4 py-2 backdrop-blur-sm">
         <div className="flex items-center gap-1">
           <button
@@ -2112,7 +2058,7 @@ function PreviewPanel() {
             Thinking
           </button>
 
-          {/* å³ä¾§æ“ä½œæŒ‰é’® */}
+          {/* 右侧操作按钮 */}
           {currentPage?.html && viewMode === 'code' && (
             <div className="ml-auto">
               <button
@@ -2129,12 +2075,12 @@ function PreviewPanel() {
         </div>
       </div>
 
-      {/* ä¸»å†…å®¹åŒºåŸŸ - æ ¹æ® viewMode æ˜¾ç¤ºä¸åŒå†…å®¹ */}
+      {/* 主内容区域 - 根据 viewMode 显示不同内容 */}
       <div
         ref={containerRef}
         className="relative flex min-h-0 flex-1 overflow-hidden"
       >
-        {/* Preview æ¨¡å¼ */}
+        {/* Preview 模式 */}
         {viewMode === 'preview' && (
           <div className="flex flex-1 items-center justify-center p-4">
             {currentPage ? (
@@ -2170,25 +2116,25 @@ function PreviewPanel() {
                       <div className="text-center">
                         <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-orange-400" />
                         <p className="text-sm font-medium text-slate-300">
-                          æ­£åœ¨ç”Ÿæˆç¬¬ {currentPage.pageNumber} é¡µ...
+                          正在生成第 {currentPage.pageNumber} 页...
                         </p>
-                        <p className="mt-1 text-xs text-slate-500">è¯·ç¨å€™</p>
+                        <p className="mt-1 text-xs text-slate-500">请稍候</p>
                       </div>
                     ) : currentPage.status === 'error' ? (
                       <div className="text-center">
                         <AlertCircle className="mx-auto mb-4 h-10 w-10 text-red-400" />
                         <p className="text-sm font-medium text-red-300">
-                          {currentPage.error || 'ç”Ÿæˆå¤±è´¥'}
+                          {currentPage.error || '生成失败'}
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
-                          è¯·é‡è¯•æˆ–æ£€æŸ¥å†…å®¹
+                          请重试或检查内容
                         </p>
                       </div>
                     ) : (
                       <div className="text-center">
                         <Layers className="mx-auto mb-4 h-10 w-10 text-slate-600" />
                         <p className="text-sm font-medium text-slate-400">
-                          ç­‰å¾…ç”Ÿæˆ...
+                          等待生成...
                         </p>
                       </div>
                     )}
@@ -2201,17 +2147,17 @@ function PreviewPanel() {
                   <Grid3X3 className="h-10 w-10 text-slate-400" />
                 </div>
                 <p className="text-lg font-medium text-slate-700">
-                  å¼€å§‹ç”Ÿæˆæ¼”ç¤ºæ–‡ç¨¿
+                  开始生成演示文稿
                 </p>
                 <p className="mt-2 text-sm text-slate-500">
-                  åœ¨å·¦ä¾§è¾“å…¥å†…å®¹å¹¶ç‚¹å‡»ç”Ÿæˆ
+                  在左侧输入内容并点击生成
                 </p>
               </div>
             )}
           </div>
         )}
 
-        {/* Code æ¨¡å¼ - æ˜¾ç¤ºå½“å‰é¡µé¢çš„ HTML ä»£ç  */}
+        {/* Code 模式 - 显示当前页面的 HTML 代码 */}
         {viewMode === 'code' && (
           <div className="flex-1 overflow-auto bg-slate-900 p-4">
             {currentPage?.html ? (
@@ -2224,8 +2170,8 @@ function PreviewPanel() {
                   <Terminal className="mx-auto mb-4 h-10 w-10 text-slate-600" />
                   <p className="text-sm text-slate-500">
                     {currentPage
-                      ? 'ä»£ç å°†åœ¨ç”Ÿæˆå®ŒæˆåŽæ˜¾ç¤º'
-                      : 'é€‰æ‹©ä¸€ä¸ªé¡µé¢æŸ¥çœ‹ä»£ç '}
+                      ? '代码将在生成完成后显示'
+                      : '选择一个页面查看代码'}
                   </p>
                 </div>
               </div>
@@ -2233,34 +2179,34 @@ function PreviewPanel() {
           </div>
         )}
 
-        {/* Thinking æ¨¡å¼ - æ˜¾ç¤º AI çš„æ€è€ƒè¿‡ç¨‹ */}
+        {/* Thinking 模式 - 显示 AI 的思考过程 */}
         {viewMode === 'thinking' && (
           <div className="flex-1 overflow-auto bg-slate-50 p-4">
             {currentPage ? (
               <div className="space-y-4">
-                {/* é¡µé¢å¤§çº²ä¿¡æ¯ */}
+                {/* 页面大纲信息 */}
                 <div className="rounded-lg border border-slate-200 bg-white p-4">
                   <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
                     <FileText className="h-4 w-4 text-orange-500" />
-                    é¡µé¢å¤§çº²
+                    页面大纲
                   </h3>
                   <div className="space-y-2 text-sm">
                     <div>
-                      <span className="text-slate-500">æ ‡é¢˜: </span>
+                      <span className="text-slate-500">标题: </span>
                       <span className="font-medium text-slate-700">
-                        {currentPage.outline?.title || 'æœªè®¾ç½®'}
+                        {currentPage.outline?.title || '未设置'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-500">æ¨¡æ¿ç±»åž‹: </span>
+                      <span className="text-slate-500">模板类型: </span>
                       <span className="rounded bg-orange-100 px-2 py-0.5 text-orange-700">
-                        {currentPage.outline?.templateType || 'æœªçŸ¥'}
+                        {currentPage.outline?.templateType || '未知'}
                       </span>
                     </div>
                     {currentPage.outline?.keyPoints &&
                       currentPage.outline.keyPoints.length > 0 && (
                         <div>
-                          <span className="text-slate-500">è¦ç‚¹:</span>
+                          <span className="text-slate-500">要点:</span>
                           <ul className="mt-1 list-inside list-disc space-y-1 text-slate-600">
                             {currentPage.outline.keyPoints.map((point, i) => (
                               <li key={i}>{point}</li>
@@ -2271,35 +2217,33 @@ function PreviewPanel() {
                   </div>
                 </div>
 
-                {/* è®¾è®¡æ€è€ƒè¿‡ç¨‹ - 4 æ­¥ */}
+                {/* 设计思考过程 - 4 步 */}
                 {currentPage.design && (
                   <>
-                    {/* Step 1: è‰ç¨¿è®¾è®¡ */}
+                    {/* Step 1: 草稿设计 */}
                     <div className="rounded-lg border border-slate-200 bg-white p-4">
                       <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
                           1
                         </span>
-                        Drafting è‰ç¨¿è®¾è®¡
+                        Drafting 草稿设计
                       </h3>
                       <div className="space-y-2 text-sm">
                         <div>
-                          <span className="text-slate-500">é£Žæ ¼: </span>
+                          <span className="text-slate-500">风格: </span>
                           <span className="text-slate-700">
                             {currentPage.design.step1_drafting?.style || '-'}
                           </span>
                         </div>
                         <div>
-                          <span className="text-slate-500">æƒ…ç»ª: </span>
+                          <span className="text-slate-500">情绪: </span>
                           <span className="text-slate-700">
                             {currentPage.design.step1_drafting?.mood || '-'}
                           </span>
                         </div>
                         {currentPage.design.step1_drafting?.coreElements && (
                           <div>
-                            <span className="text-slate-500">
-                              æ ¸å¿ƒå…ƒç´ :
-                            </span>
+                            <span className="text-slate-500">核心元素:</span>
                             <div className="mt-1 flex flex-wrap gap-1">
                               {currentPage.design.step1_drafting.coreElements.map(
                                 (el, i) => (
@@ -2317,31 +2261,31 @@ function PreviewPanel() {
                       </div>
                     </div>
 
-                    {/* Step 2: å¸ƒå±€ä¼˜åŒ– */}
+                    {/* Step 2: 布局优化 */}
                     <div className="rounded-lg border border-slate-200 bg-white p-4">
                       <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-green-100 text-xs font-bold text-green-700">
                           2
                         </span>
-                        Layout å¸ƒå±€ä¼˜åŒ–
+                        Layout 布局优化
                       </h3>
                       <div className="space-y-2 text-sm">
                         <div>
-                          <span className="text-slate-500">å¯¹é½æ–¹å¼: </span>
+                          <span className="text-slate-500">对齐方式: </span>
                           <span className="text-slate-700">
                             {currentPage.design.step2_refiningLayout
                               ?.alignment || '-'}
                           </span>
                         </div>
                         <div>
-                          <span className="text-slate-500">å›¾å½¢ä½ç½®: </span>
+                          <span className="text-slate-500">图形位置: </span>
                           <span className="text-slate-700">
                             {currentPage.design.step2_refiningLayout
                               ?.graphicsPosition || '-'}
                           </span>
                         </div>
                         <div>
-                          <span className="text-slate-500">é—´è·: </span>
+                          <span className="text-slate-500">间距: </span>
                           <span className="text-slate-700">
                             {currentPage.design.step2_refiningLayout?.spacing ||
                               '-'}
@@ -2350,17 +2294,17 @@ function PreviewPanel() {
                       </div>
                     </div>
 
-                    {/* Step 3: è§†è§‰è§„åˆ’ */}
+                    {/* Step 3: 视觉规划 */}
                     <div className="rounded-lg border border-slate-200 bg-white p-4">
                       <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-100 text-xs font-bold text-purple-700">
                           3
                         </span>
-                        Visuals è§†è§‰è§„åˆ’
+                        Visuals 视觉规划
                       </h3>
                       <div className="space-y-2 text-sm">
                         <div className="flex items-center gap-2">
-                          <span className="text-slate-500">èƒŒæ™¯è‰²: </span>
+                          <span className="text-slate-500">背景色: </span>
                           {currentPage.design.step3_planningVisuals
                             ?.backgroundColor && (
                             <>
@@ -2384,7 +2328,7 @@ function PreviewPanel() {
                         {currentPage.design.step3_planningVisuals
                           ?.accentColors && (
                           <div className="flex items-center gap-2">
-                            <span className="text-slate-500">å¼ºè°ƒè‰²:</span>
+                            <span className="text-slate-500">强调色:</span>
                             <div className="flex gap-1">
                               {currentPage.design.step3_planningVisuals.accentColors.map(
                                 (color, i) => (
@@ -2404,9 +2348,7 @@ function PreviewPanel() {
                           currentPage.design.step3_planningVisuals.decorations
                             .length > 0 && (
                             <div>
-                              <span className="text-slate-500">
-                                è£…é¥°å…ƒç´ :
-                              </span>
+                              <span className="text-slate-500">装饰元素:</span>
                               <div className="mt-1 flex flex-wrap gap-1">
                                 {currentPage.design.step3_planningVisuals.decorations.map(
                                   (dec, i) => (
@@ -2424,17 +2366,17 @@ function PreviewPanel() {
                       </div>
                     </div>
 
-                    {/* Step 4: HTML ç”Ÿæˆ */}
+                    {/* Step 4: HTML 生成 */}
                     <div className="rounded-lg border border-slate-200 bg-white p-4">
                       <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-100 text-xs font-bold text-orange-700">
                           4
                         </span>
-                        HTML ç”Ÿæˆ
+                        HTML 生成
                       </h3>
                       <div className="space-y-2 text-sm">
                         <div>
-                          <span className="text-slate-500">çŠ¶æ€: </span>
+                          <span className="text-slate-500">状态: </span>
                           <span
                             className={cn('rounded px-2 py-0.5', {
                               'bg-green-100 text-green-700': currentPage.html,
@@ -2442,15 +2384,13 @@ function PreviewPanel() {
                                 !currentPage.html,
                             })}
                           >
-                            {currentPage.html ? 'å·²ç”Ÿæˆ' : 'å¾…ç”Ÿæˆ'}
+                            {currentPage.html ? '已生成' : '待生成'}
                           </span>
                         </div>
                         {currentPage.design.step4_formulatingHTML
                           ?.templateUsed && (
                           <div>
-                            <span className="text-slate-500">
-                              ä½¿ç”¨æ¨¡æ¿:{' '}
-                            </span>
+                            <span className="text-slate-500">使用模板: </span>
                             <span className="rounded bg-orange-100 px-2 py-0.5 text-orange-700">
                               {
                                 currentPage.design.step4_formulatingHTML
@@ -2462,24 +2402,20 @@ function PreviewPanel() {
                         {currentPage.design.step4_formulatingHTML
                           ?.sectionsCount !== undefined && (
                           <div>
-                            <span className="text-slate-500">
-                              å†…å®¹åŒºå—:{' '}
-                            </span>
+                            <span className="text-slate-500">内容区块: </span>
                             <span className="text-slate-700">
                               {
                                 currentPage.design.step4_formulatingHTML
                                   .sectionsCount
                               }{' '}
-                              ä¸ª
+                              个
                             </span>
                           </div>
                         )}
                         {currentPage.design.step4_formulatingHTML?.hasImages !==
                           undefined && (
                           <div>
-                            <span className="text-slate-500">
-                              åŒ…å«å›¾ç‰‡:{' '}
-                            </span>
+                            <span className="text-slate-500">包含图片: </span>
                             <span
                               className={cn('rounded px-2 py-0.5', {
                                 'bg-green-100 text-green-700':
@@ -2492,20 +2428,20 @@ function PreviewPanel() {
                             >
                               {currentPage.design.step4_formulatingHTML
                                 .hasImages
-                                ? 'æ˜¯'
-                                : 'å¦'}
+                                ? '是'
+                                : '否'}
                             </span>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* AI å®Œæ•´æ€è€ƒè¿‡ç¨‹ - å¯æŠ˜å  */}
+                    {/* AI 完整思考过程 - 可折叠 */}
                     {currentPage.design.rawResponse && (
                       <details className="group rounded-lg border border-slate-200 bg-white">
                         <summary className="flex cursor-pointer items-center gap-2 p-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">
                           <Brain className="h-4 w-4 text-orange-500" />
-                          AI å®Œæ•´æ€è€ƒè¿‡ç¨‹
+                          AI 完整思考过程
                           <ChevronRight className="ml-auto h-4 w-4 text-slate-400 transition-transform group-open:rotate-90" />
                         </summary>
                         <div className="border-t border-slate-100 p-4">
@@ -2518,14 +2454,14 @@ function PreviewPanel() {
                   </>
                 )}
 
-                {/* å¦‚æžœæ²¡æœ‰è®¾è®¡æ•°æ® */}
+                {/* 如果没有设计数据 */}
                 {!currentPage.design && (
                   <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
                     <Brain className="mx-auto mb-3 h-8 w-8 text-slate-400" />
                     <p className="text-sm text-slate-500">
                       {currentPage.status === 'generating'
-                        ? 'æ­£åœ¨æ€è€ƒä¸­...'
-                        : 'è®¾è®¡æ€è€ƒæ•°æ®å°†åœ¨ç”Ÿæˆæ—¶æ˜¾ç¤º'}
+                        ? '正在思考中...'
+                        : '设计思考数据将在生成时显示'}
                     </p>
                   </div>
                 )}
@@ -2535,7 +2471,7 @@ function PreviewPanel() {
                 <div className="text-center">
                   <Brain className="mx-auto mb-4 h-10 w-10 text-slate-400" />
                   <p className="text-sm text-slate-500">
-                    é€‰æ‹©ä¸€ä¸ªé¡µé¢æŸ¥çœ‹ AI æ€è€ƒè¿‡ç¨‹
+                    选择一个页面查看 AI 思考过程
                   </p>
                 </div>
               </div>
@@ -2544,19 +2480,19 @@ function PreviewPanel() {
         )}
       </div>
 
-      {/* å±žæ€§é¢æ¿ */}
+      {/* 属性面板 */}
       {currentPage && (
         <div className="flex-shrink-0 border-t border-slate-200 bg-white/90 px-6 py-3 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-1.5">
-                <span className="text-slate-500">æ¨¡æ¿:</span>
+                <span className="text-slate-500">模板:</span>
                 <span className="rounded bg-slate-100 px-2 py-0.5 font-medium text-slate-700">
-                  {currentPage.outline?.templateType || 'æœªçŸ¥'}
+                  {currentPage.outline?.templateType || '未知'}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-slate-500">çŠ¶æ€:</span>
+                <span className="text-slate-500">状态:</span>
                 <span
                   className={cn('rounded px-2 py-0.5 font-medium', {
                     'bg-green-100 text-green-700':
@@ -2577,7 +2513,7 @@ function PreviewPanel() {
                 {selectedPageIndex + 1}
               </span>
               <span className="text-slate-400">/</span>
-              <span className="text-slate-500">{pages.length} é¡µ</span>
+              <span className="text-slate-500">{pages.length} 页</span>
             </div>
           </div>
         </div>
@@ -2587,7 +2523,7 @@ function PreviewPanel() {
 }
 
 // ============================================================================
-// ç¼©ç•¥å›¾å¡ç‰‡
+// 缩略图卡片
 // ============================================================================
 
 function ThumbnailCard({
@@ -2644,7 +2580,7 @@ function ThumbnailCard({
 }
 
 // ============================================================================
-// åº•éƒ¨è¿›åº¦æ¡
+// 底部进度条
 // ============================================================================
 
 function ProgressBar() {
@@ -2677,14 +2613,14 @@ function ProgressBar() {
         </div>
 
         <span className="text-sm text-gray-500">
-          {completedPages} / {pages.length} é¡µ
+          {completedPages} / {pages.length} 页
         </span>
       </div>
 
       {latestCheckpoint && (
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Save className="h-4 w-4" />
-          <span>æ£€æŸ¥ç‚¹: {latestCheckpoint.name}</span>
+          <span>检查点: {latestCheckpoint.name}</span>
         </div>
       )}
     </div>
@@ -2692,7 +2628,7 @@ function ProgressBar() {
 }
 
 // ============================================================================
-// è¾“å…¥è¡¨å•ï¼ˆåˆå§‹çŠ¶æ€ï¼‰
+// 输入表单（初始状态）
 // ============================================================================
 
 function InitialInputForm({
@@ -2726,14 +2662,14 @@ function InitialInputForm({
           <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-900">
-                åˆ›å»ºæ–°çš„æ¼”ç¤ºæ–‡ç¨¿
+                创建新的演示文稿
               </h2>
               {onCancel && (
                 <button
                   onClick={onCancel}
                   className="text-sm text-gray-500 hover:text-gray-700"
                 >
-                  å–æ¶ˆ
+                  取消
                 </button>
               )}
             </div>
@@ -2741,25 +2677,25 @@ function InitialInputForm({
             <div className="space-y-6">
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
-                  æ ‡é¢˜
+                  标题
                 </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="è¾“å…¥æ¼”ç¤ºæ–‡ç¨¿æ ‡é¢˜..."
+                  placeholder="输入演示文稿标题..."
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                 />
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
-                  ç´ æå†…å®¹
+                  素材内容
                 </label>
                 <textarea
                   value={sourceText}
                   onChange={(e) => setSourceText(e.target.value)}
-                  placeholder="ç²˜è´´è¦è½¬æ¢ä¸ºå¹»ç¯ç‰‡çš„æ–‡æœ¬å†…å®¹..."
+                  placeholder="粘贴要转换为幻灯片的文本内容..."
                   rows={8}
                   className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                 />
@@ -2767,7 +2703,7 @@ function InitialInputForm({
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
-                  ç›®æ ‡é¡µæ•°: {targetPages} é¡µ
+                  目标页数: {targetPages} 页
                 </label>
                 <input
                   type="range"
@@ -2778,15 +2714,15 @@ function InitialInputForm({
                   className="w-full accent-orange-500"
                 />
                 <div className="mt-1 flex justify-between text-xs text-gray-500">
-                  <span>5 é¡µ</span>
-                  <span>30 é¡µ</span>
+                  <span>5 页</span>
+                  <span>30 页</span>
                 </div>
               </div>
 
-              {/* ä¸»é¢˜é€‰æ‹© */}
+              {/* 主题选择 */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
-                  ä¸»é¢˜é£Žæ ¼
+                  主题风格
                 </label>
                 <ThemeSelector
                   value={themeId}
@@ -2799,7 +2735,7 @@ function InitialInputForm({
         </div>
       </div>
 
-      {/* å›ºå®šåœ¨åº•éƒ¨çš„æŒ‰é’® */}
+      {/* 固定在底部的按钮 */}
       <div className="flex-shrink-0 border-t border-gray-200 bg-white p-4">
         <div className="mx-auto w-full max-w-2xl">
           <button
@@ -2815,12 +2751,12 @@ function InitialInputForm({
             {generating ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                ç”Ÿæˆä¸­...
+                生成中...
               </>
             ) : (
               <>
                 <Layers className="h-5 w-5" />
-                å¼€å§‹ç”Ÿæˆ
+                开始生成
               </>
             )}
           </button>
@@ -2831,7 +2767,7 @@ function InitialInputForm({
 }
 
 // ============================================================================
-// Sessions ç”»å»Šç»„ä»¶
+// Sessions 画廊组件
 // ============================================================================
 
 function SessionsGallery({
@@ -2857,7 +2793,7 @@ function SessionsGallery({
   onUpdateSession?: (sessionId: string, title: string) => Promise<boolean>;
   onDeleteSession?: (sessionId: string) => Promise<boolean>;
 }) {
-  // ä¼˜å…ˆä½¿ç”¨åŽç«¯ä¼šè¯ï¼Œå¦‚æžœæ²¡æœ‰åˆ™ä½¿ç”¨æœ¬åœ°åŽ†å²
+  // 优先使用后端会话，如果没有则使用本地历史
   const hasBackendSessions = backendSessions.length > 0;
   const localSessions = localHistory.filter(
     (item) => item.sessionId && item.status === 'success'
@@ -2868,7 +2804,7 @@ function SessionsGallery({
       <main className="flex min-h-0 flex-1 flex-col items-center justify-center bg-gray-50 p-8">
         <div className="text-center">
           <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-orange-500" />
-          <p className="text-sm text-gray-500">åŠ è½½åŽ†å²è®°å½•...</p>
+          <p className="text-sm text-gray-500">加载历史记录...</p>
         </div>
       </main>
     );
@@ -2880,17 +2816,17 @@ function SessionsGallery({
         <div className="text-center">
           <FolderOpen className="mx-auto mb-4 h-16 w-16 text-gray-300" />
           <h2 className="mb-2 text-lg font-medium text-gray-900">
-            è¿˜æ²¡æœ‰æ¼”ç¤ºæ–‡ç¨¿
+            还没有演示文稿
           </h2>
           <p className="mb-6 text-sm text-gray-500">
-            ç‚¹å‡»æ–°å»ºæŒ‰é’®åˆ›å»ºæ‚¨çš„ç¬¬ä¸€ä¸ª AI æ¼”ç¤ºæ–‡ç¨¿
+            点击新建按钮创建您的第一个 AI 演示文稿
           </p>
           <button
             onClick={onNewClick}
             className="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-6 py-3 text-sm font-medium text-white hover:bg-orange-600"
           >
             <Plus className="h-4 w-4" />
-            æ–°å»ºæ¼”ç¤ºæ–‡ç¨¿
+            新建演示文稿
           </button>
         </div>
       </main>
@@ -2899,13 +2835,13 @@ function SessionsGallery({
 
   return (
     <main className="relative flex min-h-0 flex-1 flex-col bg-gray-50">
-      {/* æ¢å¤åŠ è½½é®ç½© */}
+      {/* 恢复加载遮罩 */}
       {restoring && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/80">
           <div className="text-center">
             <Loader2 className="mx-auto mb-3 h-10 w-10 animate-spin text-orange-500" />
             <p className="text-sm font-medium text-gray-600">
-              æ­£åœ¨æ¢å¤æ¼”ç¤ºæ–‡ç¨¿...
+              正在恢复演示文稿...
             </p>
           </div>
         </div>
@@ -2913,7 +2849,7 @@ function SessionsGallery({
       <div className="flex-1 overflow-auto p-6">
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {/* åŽç«¯ä¼šè¯ */}
+            {/* 后端会话 */}
             {backendSessions.map((session) => (
               <BackendSessionCard
                 key={session.id}
@@ -2923,7 +2859,7 @@ function SessionsGallery({
                 onDelete={onDeleteSession}
               />
             ))}
-            {/* æœ¬åœ°åŽ†å²ï¼ˆåªæ˜¾ç¤ºä¸åœ¨åŽç«¯çš„ï¼‰ */}
+            {/* 本地历史（只显示不在后端的） */}
             {!hasBackendSessions &&
               localSessions.map((item) => (
                 <SessionGridCard
@@ -2935,7 +2871,7 @@ function SessionsGallery({
           </div>
         ) : (
           <div className="space-y-2">
-            {/* åŽç«¯ä¼šè¯ */}
+            {/* 后端会话 */}
             {backendSessions.map((session) => (
               <BackendSessionListItem
                 key={session.id}
@@ -2945,7 +2881,7 @@ function SessionsGallery({
                 onDelete={onDeleteSession}
               />
             ))}
-            {/* æœ¬åœ°åŽ†å² */}
+            {/* 本地历史 */}
             {!hasBackendSessions &&
               localSessions.map((item) => (
                 <SessionListItem
@@ -2961,7 +2897,7 @@ function SessionsGallery({
   );
 }
 
-// åŽç«¯ä¼šè¯å¡ç‰‡
+// 后端会话卡片
 function BackendSessionCard({
   session,
   onClick,
@@ -2998,21 +2934,17 @@ function BackendSessionCard({
       console.warn('[SessionCard] onDelete is not provided');
       return;
     }
-    if (
-      !confirm('ç¡®å®šè¦åˆ é™¤è¿™ä¸ªæ¼”ç¤ºæ–‡ç¨¿å—ï¼Ÿæ­¤æ“ä½œä¸å¯æ’¤é”€ã€‚')
-    )
-      return;
+    if (!confirm('确定要删除这个演示文稿吗？此操作不可撤销。')) return;
     setIsDeleting(true);
     try {
       const success = await onDelete(session.id);
       if (!success) {
-        alert('åˆ é™¤å¤±è´¥ï¼Œè¯·é‡è¯•');
+        alert('删除失败，请重试');
       }
     } catch (error) {
       console.error('[SessionCard] Delete error:', error);
       alert(
-        'åˆ é™¤å¤±è´¥: ' +
-          (error instanceof Error ? error.message : 'æœªçŸ¥é”™è¯¯')
+        '删除失败: ' + (error instanceof Error ? error.message : '未知错误')
       );
     } finally {
       setIsDeleting(false);
@@ -3033,29 +2965,29 @@ function BackendSessionCard({
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white text-left transition-all hover:border-orange-300 hover:shadow-lg">
-      {/* ç¼©ç•¥å›¾åŒºåŸŸ - æ˜¾ç¤ºæ ‡é¢˜é¢„è§ˆ */}
+      {/* 缩略图区域 - 显示标题预览 */}
       <button
         onClick={onClick}
         className="relative aspect-[16/9] bg-gradient-to-br from-slate-800 to-slate-900"
       >
-        {/* å°é¢å†…å®¹é¢„è§ˆ */}
+        {/* 封面内容预览 */}
         <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
           <Layers className="mb-2 h-6 w-6 text-slate-500" />
           <h3 className="line-clamp-2 text-center text-sm font-medium text-white/90">
-            {session.title || 'æ— æ ‡é¢˜'}
+            {session.title || '无标题'}
           </h3>
         </div>
-        {/* é¡µæ•°æ ‡ç­¾ */}
+        {/* 页数标签 */}
         <div className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-xs font-medium text-white">
-          {pagesCount > 0 ? `${pagesCount} é¡µ` : 'ç©º'}
+          {pagesCount > 0 ? `${pagesCount} 页` : '空'}
         </div>
-        {/* æ¥æºæ ‡è¯† */}
+        {/* 来源标识 */}
         <div className="absolute left-2 top-2 rounded bg-green-500/80 px-1.5 py-0.5 text-xs text-white">
-          å·²ä¿å­˜
+          已保存
         </div>
       </button>
 
-      {/* ä¿¡æ¯å’Œæ“ä½œæŒ‰é’® */}
+      {/* 信息和操作按钮 */}
       <div className="flex-1 p-3">
         {isEditing ? (
           <div className="flex items-center gap-1">
@@ -3080,7 +3012,7 @@ function BackendSessionCard({
               </p>
             </button>
 
-            {/* æ“ä½œèœå• */}
+            {/* 操作菜单 */}
             <div className="relative flex-shrink-0">
               <button
                 onClick={(e) => {
@@ -3094,7 +3026,7 @@ function BackendSessionCard({
 
               {showMenu && (
                 <>
-                  {/* ç‚¹å‡»å¤–éƒ¨å…³é—­èœå•çš„é®ç½©å±‚ */}
+                  {/* 点击外部关闭菜单的遮罩层 */}
                   <div
                     className="fixed inset-0 z-40"
                     onClick={(e) => {
@@ -3102,7 +3034,7 @@ function BackendSessionCard({
                       setShowMenu(false);
                     }}
                   />
-                  {/* ä¸‹æ‹‰èœå• - å‘ä¸Šå¼¹å‡ºé¿å…è¢«æˆªæ–­ */}
+                  {/* 下拉菜单 - 向上弹出避免被截断 */}
                   <div className="absolute bottom-full right-0 z-50 mb-1 w-28 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                     <button
                       onClick={(e) => {
@@ -3113,7 +3045,7 @@ function BackendSessionCard({
                       className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                     >
                       <Pencil className="h-3.5 w-3.5" />
-                      é‡å‘½å
+                      重命名
                     </button>
                     <button
                       onClick={(e) => {
@@ -3129,7 +3061,7 @@ function BackendSessionCard({
                       ) : (
                         <Trash2 className="h-3.5 w-3.5" />
                       )}
-                      åˆ é™¤
+                      删除
                     </button>
                   </div>
                 </>
@@ -3142,7 +3074,7 @@ function BackendSessionCard({
   );
 }
 
-// åŽç«¯ä¼šè¯åˆ—è¡¨é¡¹
+// 后端会话列表项
 function BackendSessionListItem({
   session,
   onClick,
@@ -3178,21 +3110,17 @@ function BackendSessionListItem({
       console.warn('[SessionCard] onDelete is not provided');
       return;
     }
-    if (
-      !confirm('ç¡®å®šè¦åˆ é™¤è¿™ä¸ªæ¼”ç¤ºæ–‡ç¨¿å—ï¼Ÿæ­¤æ“ä½œä¸å¯æ’¤é”€ã€‚')
-    )
-      return;
+    if (!confirm('确定要删除这个演示文稿吗？此操作不可撤销。')) return;
     setIsDeleting(true);
     try {
       const success = await onDelete(session.id);
       if (!success) {
-        alert('åˆ é™¤å¤±è´¥ï¼Œè¯·é‡è¯•');
+        alert('删除失败，请重试');
       }
     } catch (error) {
       console.error('[SessionCard] Delete error:', error);
       alert(
-        'åˆ é™¤å¤±è´¥: ' +
-          (error instanceof Error ? error.message : 'æœªçŸ¥é”™è¯¯')
+        '删除失败: ' + (error instanceof Error ? error.message : '未知错误')
       );
     } finally {
       setIsDeleting(false);
@@ -3211,7 +3139,7 @@ function BackendSessionListItem({
 
   return (
     <div className="group flex w-full items-center gap-4 rounded-lg border border-gray-200 bg-white p-4 text-left transition-all hover:border-orange-300 hover:bg-orange-50">
-      {/* ç¼©ç•¥å›¾ - å¯ç‚¹å‡» */}
+      {/* 缩略图 - 可点击 */}
       <button
         onClick={onClick}
         className="relative h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-slate-800 to-slate-900"
@@ -3219,13 +3147,13 @@ function BackendSessionListItem({
         <div className="absolute inset-0 flex items-center justify-center">
           <Layers className="h-6 w-6 text-slate-600" />
         </div>
-        {/* æ¥æºæ ‡è¯† */}
+        {/* 来源标识 */}
         <div className="absolute left-1 top-1 rounded bg-green-500/80 px-1 py-0.5 text-[10px] text-white">
-          å·²ä¿å­˜
+          已保存
         </div>
       </button>
 
-      {/* ä¿¡æ¯ */}
+      {/* 信息 */}
       <div className="min-w-0 flex-1">
         {isEditing ? (
           <input
@@ -3247,15 +3175,15 @@ function BackendSessionListItem({
               <span>{formatRelativeTime(session.updatedAt)}</span>
               <span className="rounded bg-orange-100 px-1.5 py-0.5 text-orange-600">
                 {(session.latestCheckpoint?.pagesCount ?? 0) > 0
-                  ? `${session.latestCheckpoint?.pagesCount} é¡µ`
-                  : 'ç©º'}
+                  ? `${session.latestCheckpoint?.pagesCount} 页`
+                  : '空'}
               </span>
             </div>
           </button>
         )}
       </div>
 
-      {/* æ“ä½œæŒ‰é’® */}
+      {/* 操作按钮 */}
       <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <button
           onClick={(e) => {
@@ -3263,7 +3191,7 @@ function BackendSessionListItem({
             setIsEditing(true);
           }}
           className="rounded p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          title="é‡å‘½å"
+          title="重命名"
         >
           <Pencil className="h-4 w-4" />
         </button>
@@ -3274,7 +3202,7 @@ function BackendSessionListItem({
           }}
           disabled={isDeleting}
           className="rounded p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
-          title="åˆ é™¤"
+          title="删除"
         >
           {isDeleting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -3284,7 +3212,7 @@ function BackendSessionListItem({
         </button>
       </div>
 
-      {/* ç®­å¤´ */}
+      {/* 箭头 */}
       <button onClick={onClick}>
         <ChevronDown className="h-5 w-5 -rotate-90 text-gray-400" />
       </button>
@@ -3292,7 +3220,7 @@ function BackendSessionListItem({
   );
 }
 
-// ç½‘æ ¼å¡ç‰‡
+// 网格卡片
 function SessionGridCard({
   item,
   onClick,
@@ -3305,17 +3233,17 @@ function SessionGridCard({
       onClick={onClick}
       className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white text-left transition-all hover:border-orange-300 hover:shadow-lg"
     >
-      {/* ç¼©ç•¥å›¾å ä½ */}
+      {/* 缩略图占位 */}
       <div className="relative aspect-[16/9] bg-gradient-to-br from-slate-800 to-slate-900">
         <div className="absolute inset-0 flex items-center justify-center">
           <Layers className="h-8 w-8 text-slate-600" />
         </div>
         <div className="absolute bottom-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-xs text-white">
-          {item.targetPages || '?'} é¡µ
+          {item.targetPages || '?'} 页
         </div>
       </div>
 
-      {/* ä¿¡æ¯ */}
+      {/* 信息 */}
       <div className="flex-1 p-3">
         <h3 className="line-clamp-2 text-sm font-medium text-gray-900 group-hover:text-orange-600">
           {item.title}
@@ -3328,7 +3256,7 @@ function SessionGridCard({
   );
 }
 
-// åˆ—è¡¨é¡¹
+// 列表项
 function SessionListItem({
   item,
   onClick,
@@ -3341,14 +3269,14 @@ function SessionListItem({
       onClick={onClick}
       className="flex w-full items-center gap-4 rounded-lg border border-gray-200 bg-white p-4 text-left transition-all hover:border-orange-300 hover:bg-orange-50"
     >
-      {/* ç¼©ç•¥å›¾ */}
+      {/* 缩略图 */}
       <div className="relative h-16 w-28 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-slate-800 to-slate-900">
         <div className="absolute inset-0 flex items-center justify-center">
           <Layers className="h-6 w-6 text-slate-600" />
         </div>
       </div>
 
-      {/* ä¿¡æ¯ */}
+      {/* 信息 */}
       <div className="min-w-0 flex-1">
         <h3 className="truncate text-sm font-medium text-gray-900">
           {item.title}
@@ -3356,43 +3284,43 @@ function SessionListItem({
         <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
           <span>{formatRelativeTime(item.timestamp)}</span>
           <span className="rounded bg-orange-100 px-1.5 py-0.5 text-orange-600">
-            {item.targetPages || '?'} é¡µ
+            {item.targetPages || '?'} 页
           </span>
         </div>
       </div>
 
-      {/* ç®­å¤´ */}
+      {/* 箭头 */}
       <ChevronDown className="h-5 w-5 -rotate-90 text-gray-400" />
     </button>
   );
 }
 
 // ============================================================================
-// å·¥å…·å‡½æ•°
+// 工具函数
 // ============================================================================
 
 function getPhaseTitle(phase: string): string {
   const titles: Record<string, string> = {
-    task_decomposition: 'ðŸ§  æ·±åº¦æ€è€ƒ - ä»»åŠ¡åˆ†è§£',
-    outline_planning: 'ðŸ“„ å¤§çº²è§„åˆ’',
-    page_rendering: 'ðŸŽ¨ é¡µé¢æ¸²æŸ“',
-    quality_review: 'âœ… è´¨é‡æ£€æŸ¥',
+    task_decomposition: '🧠 深度思考 - 任务分解',
+    outline_planning: '📄 大纲规划',
+    page_rendering: '🎨 页面渲染',
+    quality_review: '✅ 质量检查',
   };
   return titles[phase] || phase;
 }
 
 function getStatusText(status: string): string {
   const texts: Record<string, string> = {
-    pending: 'ç­‰å¾…ä¸­',
-    generating: 'ç”Ÿæˆä¸­',
-    completed: 'å·²å®Œæˆ',
-    error: 'å¤±è´¥',
+    pending: '等待中',
+    generating: '生成中',
+    completed: '已完成',
+    error: '失败',
   };
   return texts[status] || status;
 }
 
 /**
- * æ ¼å¼åŒ– HTML ä»£ç ï¼Œæ·»åŠ ç¼©è¿›ä»¥æé«˜å¯è¯»æ€§
+ * 格式化 HTML 代码，添加缩进以提高可读性
  */
 function formatHtmlCode(html: string): string {
   try {
@@ -3401,7 +3329,7 @@ function formatHtmlCode(html: string): string {
     const lines = html.split(/>\s*</);
 
     lines.forEach((line, i) => {
-      // æ£€æµ‹æ˜¯å¦ä¸ºè‡ªé—­åˆæ ‡ç­¾æˆ–é—­åˆæ ‡ç­¾
+      // 检测是否为自闭合标签或闭合标签
       const isClosingTag = line.match(/^\/\w/);
       const isSelfClosing = line.match(/\/$/);
       const isOpeningTag =
@@ -3422,7 +3350,7 @@ function formatHtmlCode(html: string): string {
 
     return formatted.trim();
   } catch {
-    return html; // å¦‚æžœæ ¼å¼åŒ–å¤±è´¥ï¼Œè¿”å›žåŽŸå§‹ä»£ç 
+    return html; // 如果格式化失败，返回原始代码
   }
 }
 
