@@ -2593,15 +2593,17 @@ export default function TopicPage() {
                     currentMission.status === 'FAILED' ||
                     currentMission.status === 'CANCELLED'
                   ) {
-                    // ★ 修复：已取消/失败的任务调用 retryMission
                     await retryMission(topicId, currentMission.id, {
                       mode: 'continue',
                     });
                   } else if (currentMission.leaderId) {
-                    // ★ 修复：对于进行中的任务，也调用 retryMission 触发 @Leader
-                    await retryMission(topicId, currentMission.id, {
-                      mode: 'continue',
-                    });
+                    // 直接发送消息给Leader继续任务，不调用retry API
+                    await handleSendMessage('@leader 继续执行当前任务', [
+                      {
+                        aiMemberId: currentMission.leaderId,
+                        mentionType: MentionType.AI,
+                      },
+                    ]);
                   }
                 }}
                 className={[
