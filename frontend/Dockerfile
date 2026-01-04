@@ -1,5 +1,9 @@
 FROM node:20-alpine AS builder
 
+# 设置 UTF-8 编码环境
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
 # 接收构建时参数 - Railway 会自动传递同名环境变量作为 build args
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_AI_URL
@@ -17,6 +21,10 @@ COPY . .
 RUN npm run build
 
 FROM node:20-alpine
+
+# 设置 UTF-8 编码环境
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 WORKDIR /app
 
