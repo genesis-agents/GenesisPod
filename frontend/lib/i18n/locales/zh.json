@@ -470,7 +470,11 @@
       "justNow": "刚刚",
       "mAgo": "{{count}}分钟前",
       "hAgo": "{{count}}小时前",
-      "dAgo": "{{count}}天前"
+      "dAgo": "{{count}}天前",
+      "public": "公开",
+      "private": "私有",
+      "makePublic": "点击设为公开，其他人可以发现并申请加入",
+      "makePrivate": "点击设为私有，仅成员可见"
     },
     "joinRequest": {
       "title": "申请加入团队",

@@ -470,7 +470,11 @@
       "justNow": "Just now",
       "mAgo": "{{count}}m ago",
       "hAgo": "{{count}}h ago",
-      "dAgo": "{{count}}d ago"
+      "dAgo": "{{count}}d ago",
+      "public": "Public",
+      "private": "Private",
+      "makePublic": "Click to make public, others can discover and request to join",
+      "makePrivate": "Click to make private, only members can see"
     },
     "joinRequest": {
       "title": "Request to Join Team",

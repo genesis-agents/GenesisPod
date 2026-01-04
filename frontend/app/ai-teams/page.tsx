@@ -4,7 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAiGroupStore } from '@/stores/aiTeamsStore';
-import { Topic, CreateTopicDto, UpdateTopicDto } from '@/types/ai-teams';
+import {
+  Topic,
+  TopicType,
+  CreateTopicDto,
+  UpdateTopicDto,
+} from '@/types/ai-teams';
 import { useAIModels, AIModel } from '@/hooks';
 import AppShell from '@/components/layout/AppShell';
 import * as api from '@/lib/api/ai-teams';
@@ -347,6 +352,14 @@ export default function AIGroupPage() {
                           await fetchTopics();
                         }
                       }}
+                      onTogglePublic={async (topicId, makePublic) => {
+                        await updateTopic(topicId, {
+                          type: makePublic
+                            ? TopicType.PUBLIC
+                            : TopicType.PRIVATE,
+                        });
+                        await fetchTopics();
+                      }}
                       findModel={findModel}
                     />
                   ))}
@@ -609,6 +622,51 @@ export default function AIGroupPage() {
   );
 }
 
+// Vibrant gradient color schemes for team cards
+const TEAM_GRADIENTS = [
+  {
+    from: 'from-violet-500',
+    to: 'to-purple-600',
+    shadow: 'shadow-violet-500/30',
+  },
+  { from: 'from-blue-500', to: 'to-cyan-500', shadow: 'shadow-blue-500/30' },
+  {
+    from: 'from-emerald-500',
+    to: 'to-teal-500',
+    shadow: 'shadow-emerald-500/30',
+  },
+  { from: 'from-orange-500', to: 'to-red-500', shadow: 'shadow-orange-500/30' },
+  { from: 'from-pink-500', to: 'to-rose-500', shadow: 'shadow-pink-500/30' },
+  {
+    from: 'from-indigo-500',
+    to: 'to-blue-600',
+    shadow: 'shadow-indigo-500/30',
+  },
+  {
+    from: 'from-amber-500',
+    to: 'to-orange-500',
+    shadow: 'shadow-amber-500/30',
+  },
+  { from: 'from-cyan-500', to: 'to-blue-500', shadow: 'shadow-cyan-500/30' },
+  {
+    from: 'from-fuchsia-500',
+    to: 'to-pink-500',
+    shadow: 'shadow-fuchsia-500/30',
+  },
+  { from: 'from-lime-500', to: 'to-green-500', shadow: 'shadow-lime-500/30' },
+];
+
+// Get consistent gradient based on topic id
+function getTeamGradient(topicId: string) {
+  let hash = 0;
+  for (let i = 0; i < topicId.length; i++) {
+    hash = (hash << 5) - hash + topicId.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % TEAM_GRADIENTS.length;
+  return TEAM_GRADIENTS[index];
+}
+
 // Topic Card Component
 function TopicCard({
   topic,
@@ -616,6 +674,7 @@ function TopicCard({
   onClick,
   onEdit,
   onDelete,
+  onTogglePublic,
   findModel,
 }: {
   topic: Topic;
@@ -623,9 +682,11 @@ function TopicCard({
   onClick: () => void;
   onEdit: (topic: Topic) => void;
   onDelete: (topicId: string) => void;
+  onTogglePublic: (topicId: string, isPublic: boolean) => void;
   findModel: (aiModel: string) => AIModel | undefined;
 }) {
   const { t } = useTranslation();
+  const [isTogglingPublic, setIsTogglingPublic] = useState(false);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -644,6 +705,25 @@ function TopicCard({
 
   // Check if current user is the creator (owner)
   const isOwner = currentUserId === topic.createdById;
+
+  // Get gradient colors for this topic
+  const gradient = getTeamGradient(topic.id);
+
+  // Check if topic is public
+  const isPublic = topic.type === TopicType.PUBLIC;
+
+  // Handle public toggle
+  const handleTogglePublic = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isOwner || isTogglingPublic) return;
+
+    setIsTogglingPublic(true);
+    try {
+      await onTogglePublic(topic.id, !isPublic);
+    } finally {
+      setIsTogglingPublic(false);
+    }
+  };
 
   return (
     <div className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-blue-300 hover:shadow-md">
@@ -699,14 +779,16 @@ function TopicCard({
 
       {/* Card Content */}
       <div onClick={onClick}>
-        {/* Avatar */}
+        {/* Avatar with vibrant gradient */}
         <div className="flex items-start justify-between">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-500">
+          <div
+            className={`relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient.from} ${gradient.to} shadow-lg ${gradient.shadow} transition-transform group-hover:scale-105`}
+          >
             {topic.avatar ? (
-              <span className="text-2xl">{topic.avatar}</span>
+              <span className="text-3xl drop-shadow-sm">{topic.avatar}</span>
             ) : (
               <svg
-                className="h-6 w-6 text-white"
+                className="h-7 w-7 text-white drop-shadow-sm"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -719,12 +801,87 @@ function TopicCard({
                 />
               </svg>
             )}
+            {/* Decorative ring animation on hover */}
+            <div className="absolute inset-0 rounded-2xl ring-2 ring-white/20 transition-all group-hover:ring-4 group-hover:ring-white/30" />
           </div>
-          {topic.unreadCount && topic.unreadCount > 0 && (
-            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-2 text-xs font-semibold text-white">
-              {topic.unreadCount > 99 ? '99+' : topic.unreadCount}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Public/Private indicator with toggle */}
+            {isOwner ? (
+              <button
+                onClick={handleTogglePublic}
+                disabled={isTogglingPublic}
+                className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-all ${
+                  isPublic
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                } ${isTogglingPublic ? 'cursor-wait opacity-70' : ''}`}
+                title={
+                  isPublic
+                    ? t('aiTeams.card.makePrivate')
+                    : t('aiTeams.card.makePublic')
+                }
+              >
+                {isTogglingPublic ? (
+                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : isPublic ? (
+                  <svg
+                    className="h-3 w-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="h-3 w-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    />
+                  </svg>
+                )}
+                <span className="hidden sm:inline">
+                  {isPublic
+                    ? t('aiTeams.card.public')
+                    : t('aiTeams.card.private')}
+                </span>
+              </button>
+            ) : isPublic ? (
+              <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
+                <svg
+                  className="h-3 w-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </span>
+            ) : null}
+            {/* Unread count badge */}
+            {topic.unreadCount && topic.unreadCount > 0 && (
+              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-2 text-xs font-semibold text-white shadow-sm">
+                {topic.unreadCount > 99 ? '99+' : topic.unreadCount}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Title & Description */}
