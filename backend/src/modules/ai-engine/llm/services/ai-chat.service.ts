@@ -79,16 +79,6 @@ export class AiChatService {
     return !unsupportedModels.includes(model.toLowerCase());
   }
 
-  /**
-   * Check if the model supports the temperature parameter
-   */
-  private isTemperatureSupported(model: string): boolean {
-    // Add logic to determine if the model supports the temperature parameter
-    // For example, some models might not support temperature adjustments
-    const unsupportedModels = ["model_without_temperature_support"];
-    return !unsupportedModels.includes(model.toLowerCase());
-  }
-
   // ==================== 数据库配置读取 ====================
 
   /**
@@ -694,12 +684,15 @@ export class AiChatService {
       systemPrompt,
       messages,
       maxTokens = 2048,
-      temperature,
+      temperature: inputTemperature,
     } = options;
 
     // Check if the model supports the temperature parameter
+    let temperature = inputTemperature;
     if (!this.isTemperatureSupported(model) && temperature !== undefined) {
-      this.logger.warn(`Model "${model}" does not support the temperature parameter. Ignoring temperature.`);
+      this.logger.warn(
+        `Model "${model}" does not support the temperature parameter. Ignoring temperature.`,
+      );
       temperature = undefined; // Set temperature to undefined if not supported
     }
 
@@ -767,7 +760,7 @@ export class AiChatService {
     config: AIModelConfig,
     messages: ChatMessage[],
     maxTokens: number,
-    temperature: number,
+    temperature?: number,
   ): Promise<ChatCompletionResult> {
     const { provider, modelId, apiEndpoint, apiKey } = config;
 
@@ -869,7 +862,7 @@ export class AiChatService {
     modelId: string,
     messages: ChatMessage[],
     maxTokens: number,
-    temperature: number,
+    temperature?: number,
   ): Promise<ChatCompletionResult> {
     // 使用 max_completion_tokens 用于新模型
     const isNewerModel =
@@ -921,7 +914,7 @@ export class AiChatService {
     modelId: string,
     messages: ChatMessage[],
     maxTokens: number,
-    temperature: number,
+    temperature?: number,
   ): Promise<ChatCompletionResult> {
     // Extract system message
     const systemMessage = messages.find((m) => m.role === "system");
@@ -969,7 +962,7 @@ export class AiChatService {
     modelId: string,
     messages: ChatMessage[],
     maxTokens: number,
-    temperature: number,
+    temperature?: number,
   ): Promise<ChatCompletionResult> {
     // 直接使用数据库配置的模型 ID，不做额外验证
     // 如果模型无效，Google API 会返回明确错误，不应静默替换
@@ -1064,7 +1057,7 @@ export class AiChatService {
     modelId: string,
     messages: ChatMessage[],
     maxTokens: number,
-    temperature: number,
+    temperature?: number,
   ): Promise<ChatCompletionResult> {
     const response = await firstValueFrom(
       this.httpService.post(
@@ -1136,7 +1129,7 @@ Format the summary in a clear, structured manner using markdown.`;
   private async callGrokAPILegacy(
     messages: ChatMessage[],
     maxTokens: number,
-    temperature: number,
+    temperature?: number,
   ): Promise<ChatCompletionResult> {
     const apiKey = process.env.XAI_API_KEY;
     const apiUrl =
@@ -1203,7 +1196,7 @@ Format the summary in a clear, structured manner using markdown.`;
   private async callOpenAIAPILegacy(
     messages: ChatMessage[],
     maxTokens: number,
-    temperature: number,
+    temperature?: number,
   ): Promise<ChatCompletionResult> {
     const apiKey = process.env.OPENAI_API_KEY;
     const apiUrl = "https://api.openai.com/v1/chat/completions";
@@ -1269,7 +1262,7 @@ Format the summary in a clear, structured manner using markdown.`;
   private async callClaudeAPILegacy(
     messages: ChatMessage[],
     maxTokens: number,
-    temperature: number,
+    temperature?: number,
   ): Promise<ChatCompletionResult> {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     const apiUrl = "https://api.anthropic.com/v1/messages";
@@ -1342,7 +1335,7 @@ Format the summary in a clear, structured manner using markdown.`;
   private async callGeminiAPILegacy(
     messages: ChatMessage[],
     maxTokens: number,
-    temperature: number,
+    temperature?: number,
   ): Promise<ChatCompletionResult> {
     const apiKey = process.env.GOOGLE_AI_API_KEY;
 
