@@ -105,3 +105,4 @@ infra/oci/terraform/*.tfplan
 !.edgeone/project.json
 .tef_dist/*
   
+.aider*

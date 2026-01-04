@@ -882,19 +882,29 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       }
     );
 
-    // Agent工作中
+    // Agent工作中 (Mission 协作场景)
     newSocket.on(
-      'agent:working',
+      'mission:agent_working',
       ({
         missionId,
         agentId,
         taskId,
+        agentName,
+        status,
       }: {
         missionId: string;
         agentId: string;
-        taskId: string;
+        taskId: string | null;
+        agentName?: string;
+        status?: string; // planning, started, reviewing
       }) => {
-        console.log('[WS] Agent working:', { missionId, agentId, taskId });
+        console.log('[WS] Mission agent working:', {
+          missionId,
+          agentId,
+          taskId,
+          agentName,
+          status,
+        });
         set((state) => {
           const newSet = new Set(state.typingAIs);
           newSet.add(agentId);
@@ -903,9 +913,9 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       }
     );
 
-    // Agent完成工作
+    // Agent完成工作 (Mission 协作场景)
     newSocket.on(
-      'agent:done',
+      'mission:agent_done',
       ({
         missionId,
         agentId,
@@ -913,9 +923,9 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       }: {
         missionId: string;
         agentId: string;
-        taskId: string;
+        taskId: string | null;
       }) => {
-        console.log('[WS] Agent done:', { missionId, agentId, taskId });
+        console.log('[WS] Mission agent done:', { missionId, agentId, taskId });
         set((state) => {
           const newSet = new Set(state.typingAIs);
           newSet.delete(agentId);
