@@ -1,11 +1,13 @@
 /**
  * Fix export tables - creates them if they don't exist
  * This runs before Prisma migrations to handle edge cases
+ * Version: 2 - Force rebuild
  */
 
 const { PrismaClient } = require("@prisma/client");
 
 async function main() {
+  console.log("=== fix-export-tables.js starting ===");
   const prisma = new PrismaClient();
 
   try {
@@ -20,7 +22,13 @@ async function main() {
       );
     `;
 
-    if (!tableExists[0].exists) {
+    console.log("Table check result:", JSON.stringify(tableExists));
+
+    // Handle both boolean and string returns from PostgreSQL
+    const exists =
+      tableExists[0]?.exists === true || tableExists[0]?.exists === "t";
+
+    if (!exists) {
       console.log("📦 Creating export tables...");
 
       // Create enums if they don't exist
