@@ -69,6 +69,16 @@ export class AiChatService {
     );
   }
 
+  /**
+   * Check if the model supports the temperature parameter
+   */
+  private isTemperatureSupported(model: string): boolean {
+    // Add logic to determine if the model supports the temperature parameter
+    // For example, some models might not support temperature adjustments
+    const unsupportedModels = ["model_without_temperature_support"];
+    return !unsupportedModels.includes(model.toLowerCase());
+  }
+
   // ==================== 数据库配置读取 ====================
 
   /**
@@ -674,8 +684,14 @@ export class AiChatService {
       systemPrompt,
       messages,
       maxTokens = 2048,
-      temperature = 0.7,
+      temperature,
     } = options;
+
+    // Check if the model supports the temperature parameter
+    if (!this.isTemperatureSupported(model) && temperature !== undefined) {
+      this.logger.warn(`Model "${model}" does not support the temperature parameter. Ignoring temperature.`);
+      temperature = undefined; // Set temperature to undefined if not supported
+    }
 
     this.logger.log(`Generating chat completion with model: ${model}`);
 
