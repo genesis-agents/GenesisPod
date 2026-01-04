@@ -127,23 +127,33 @@ export function useSlideGenerationTeam(
         if (!prev) return prev;
 
         const currentAgent = prev.agents[role];
-        const newTaskHistory = currentAgent.taskHistory || [];
+        const newTaskHistory = [...(currentAgent.taskHistory || [])];
 
-        // 如果有新的 task 或 thought，添加到历史记录
-        if (updates.currentTask || updates.thought) {
-          // 只有当内容发生变化时才添加到历史
+        // ★ 修复：任何有意义的内容都添加到历史记录
+        // 包括：currentTask、thought、result
+        const hasNewContent =
+          updates.currentTask || updates.thought || updates.result;
+
+        if (hasNewContent) {
+          const newTask =
+            updates.currentTask ||
+            (updates.result ? `✅ ${updates.result}` : '') ||
+            currentAgent.currentTask ||
+            '';
+          const newThought = updates.thought || '';
+
+          // 检查是否与最后一条记录完全相同（避免重复）
           const lastItem = newTaskHistory[newTaskHistory.length - 1];
-          const newTask = updates.currentTask || currentAgent.currentTask;
-          const newThought = updates.thought || currentAgent.thought;
+          const isDuplicate =
+            lastItem &&
+            lastItem.task === newTask &&
+            lastItem.thought === newThought &&
+            lastItem.pageNumber === pageNumber;
 
-          if (
-            !lastItem ||
-            lastItem.task !== newTask ||
-            lastItem.thought !== newThought
-          ) {
+          if (!isDuplicate && (newTask || newThought)) {
             newTaskHistory.push({
               timestamp: Date.now(),
-              task: newTask || '',
+              task: newTask,
               thought: newThought,
               pageNumber,
               phase: prev.phase,
