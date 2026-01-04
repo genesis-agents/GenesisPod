@@ -396,9 +396,12 @@ export class CheckpointService {
     });
 
     // 创建一个恢复检查点以记录操作
+    // 清除名称中已有的 "Restored from: " 前缀，避免无限累积
+    const baseName = checkpoint.name.replace(/^(Restored from: )+/, "");
+    const restoredName = `Restored: ${baseName}`.substring(0, 200); // 限制长度
     await this.create({
       sessionId: checkpoint.sessionId,
-      name: `Restored from: ${checkpoint.name}`,
+      name: restoredName,
       type: "user_modified",
       state: checkpoint.state,
       metadata: {
