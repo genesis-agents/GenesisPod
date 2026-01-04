@@ -302,9 +302,8 @@ export function SlidesTab() {
     setToolCalls(calls);
   }, [streamEvents, teamEvents]);
 
-  const handleSendMessage = useCallback((message: string) => {
-    // 添加用户消息到 streamEvents
-    const { addStreamEvent, pages, selectedPageIndex } =
+  const handleSendMessage = useCallback(async (message: string) => {
+    const { addStreamEvent, pages, selectedPageIndex, session } =
       useSlidesStore.getState();
 
     // 添加用户消息事件
@@ -317,26 +316,96 @@ export function SlidesTab() {
       },
     });
 
-    // TODO: 实现后端接续生成 API
-    // 目前显示提示信息
-    const currentPage = pages[selectedPageIndex];
-    if (currentPage) {
+    // 解析用户意图：提取页码和修改要求
+    const pageMatch = message.match(/第\s*(\d+)\s*页|page\s*(\d+)|(\d+)\s*页/i);
+    const targetPageNumber = pageMatch
+      ? parseInt(pageMatch[1] || pageMatch[2] || pageMatch[3], 10)
+      : pages[selectedPageIndex]?.pageNumber;
+
+    // 检查是否是 @leader 继续执行命令
+    if (message.toLowerCase().includes('@leader') && message.includes('继续')) {
       addStreamEvent({
         type: 'system_message',
         timestamp: new Date(),
         data: {
-          message: `收到您对第 ${currentPage.pageNumber} 页的修改建议。接续编辑功能正在开发中，敬请期待！`,
+          message: '正在通知 Leader 继续执行任务...',
+          source: '系统',
         },
       });
-    } else {
-      addStreamEvent({
-        type: 'system_message',
-        timestamp: new Date(),
-        data: {
-          message: '收到您的反馈。接续编辑功能正在开发中，敬请期待！',
-        },
-      });
+      // TODO: 实际触发后端继续任务
+      return;
     }
+
+    // 如果有 session 和目标页面，调用重新渲染 API
+    if (session?.id && targetPageNumber) {
+      const targetPage = pages.find((p) => p.pageNumber === targetPageNumber);
+      if (targetPage) {
+        addStreamEvent({
+          type: 'system_message',
+          timestamp: new Date(),
+          data: {
+            message: `正在处理第 ${targetPageNumber} 页的修改请求...`,
+            source: 'AI 助手',
+          },
+        });
+
+        try {
+          const response = await fetch(
+            `/api/ai-office/slides/sessions/${session.id}/rerender/${targetPageNumber}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ feedback: message }),
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.json();
+            addStreamEvent({
+              type: 'system_message',
+              timestamp: new Date(),
+              data: {
+                message: `第 ${targetPageNumber} 页已重新生成。${result.events?.length || 0} 个更新事件。`,
+                source: 'AI 助手',
+              },
+            });
+          } else {
+            const errorData = await response.json().catch(() => ({}));
+            addStreamEvent({
+              type: 'system_message',
+              timestamp: new Date(),
+              data: {
+                message: `修改请求失败: ${errorData.message || '请稍后重试'}`,
+                source: '系统',
+              },
+            });
+          }
+        } catch (error) {
+          addStreamEvent({
+            type: 'system_message',
+            timestamp: new Date(),
+            data: {
+              message: `网络错误，请检查连接后重试。`,
+              source: '系统',
+            },
+          });
+        }
+        return;
+      }
+    }
+
+    // 无法确定页面时的默认响应
+    const currentPage = pages[selectedPageIndex];
+    addStreamEvent({
+      type: 'system_message',
+      timestamp: new Date(),
+      data: {
+        message: currentPage
+          ? `收到您对第 ${currentPage.pageNumber} 页的修改建议。请确保演示文稿已完成生成后再进行修改。`
+          : '请先选择一个页面，或在消息中指定页码（如"修改第3页"）。',
+        source: 'AI 助手',
+      },
+    });
   }, []);
 
   const handleCreateCheckpoint = useCallback(() => {
@@ -466,8 +535,9 @@ export function SlidesTab() {
       'props',
     ]);
 
-    // 中文停用词
+    // 中文停用词（包括PPT结构性词汇和占位符）
     const chineseStopWords = new Set([
+      // 基础停用词
       '的',
       '了',
       '是',
@@ -528,12 +598,81 @@ export function SlidesTab() {
       '并',
       '使',
       '因',
+      // PPT结构性词汇（不是内容主题）
+      '目录',
+      '报告',
+      '方案',
+      '介绍',
+      '概述',
+      '总结',
+      '结论',
+      '分析',
+      '内容',
+      '标题',
+      '副标题',
+      '章节',
+      '部分',
+      '页面',
+      '幻灯片',
+      '演示',
+      '文稿',
+      '说明',
+      '备注',
+      '附录',
+      '参考',
+      '引用',
+      '来源',
+      '图片',
+      '图表',
+      '数据',
+      '表格',
+      // 占位符词汇
+      '缺失',
+      '待补充',
+      '待完善',
+      '待更新',
+      '请输入',
+      '请填写',
+      '此处',
+      '这里',
+      '示例',
+      '样例',
+      '模板',
+      '占位',
+      '未知',
+      '无',
+      // 泛化动词
+      '提供',
+      '包括',
+      '包含',
+      '涉及',
+      '实现',
+      '完成',
+      '进行',
+      '开展',
+      '推进',
+      '促进',
+      '加强',
+      '提升',
+      '优化',
+      '改进',
+      '支持',
+      '帮助',
+      '服务',
     ]);
 
-    // 统计中文词频
+    // 检查词是否包含停用词（只检查长度>=2的停用词，避免单字误过滤）
+    const containsStopWord = (word: string) => {
+      for (const stopWord of chineseStopWords) {
+        if (stopWord.length >= 2 && word.includes(stopWord)) return true;
+      }
+      return false;
+    };
+
+    // 统计中文词频（过滤停用词和包含停用词的复合词）
     const chineseWordCount: Record<string, number> = {};
     chineseWords.forEach((w) => {
-      if (!chineseStopWords.has(w) && w.length >= 2) {
+      if (!chineseStopWords.has(w) && !containsStopWord(w) && w.length >= 2) {
         chineseWordCount[w] = (chineseWordCount[w] || 0) + 1;
       }
     });
@@ -700,19 +839,56 @@ export function SlidesTab() {
   const handleRestoreHistory = useCallback(
     async (item: SlidesHistoryItem) => {
       setRestoring(true);
+      const { addStreamEvent } = useSlidesStore.getState();
+
       try {
         // 优先使用 checkpointId，如果没有则使用 sessionId
         if (item.checkpointId) {
+          console.log(
+            '[SlidesTab] Restoring from checkpointId:',
+            item.checkpointId
+          );
           await restoreCheckpoint(item.checkpointId);
         } else if (item.sessionId) {
+          console.log('[SlidesTab] Restoring from sessionId:', item.sessionId);
           await restoreBySessionId(item.sessionId);
         } else {
-          console.warn('No checkpointId or sessionId in history item');
+          // 没有 checkpointId 或 sessionId，显示错误
+          addStreamEvent({
+            type: 'system_message',
+            timestamp: new Date(),
+            data: {
+              message: '此历史记录没有可恢复的会话信息',
+              source: '系统',
+            },
+          });
           return;
         }
+
+        // 恢复成功，添加成功消息
+        addStreamEvent({
+          type: 'system_message',
+          timestamp: new Date(),
+          data: {
+            message: `已恢复: ${item.title || '演示文稿'}`,
+            source: '系统',
+          },
+        });
+
         setShowHistory(false);
       } catch (err) {
-        console.error('Failed to restore:', err);
+        console.error('[SlidesTab] Failed to restore:', err);
+        const errorMessage = err instanceof Error ? err.message : '恢复失败';
+
+        // 显示用户友好的错误消息
+        addStreamEvent({
+          type: 'system_message',
+          timestamp: new Date(),
+          data: {
+            message: `恢复失败: ${errorMessage}。会话可能已被清理，请尝试重新生成。`,
+            source: '系统',
+          },
+        });
       } finally {
         setRestoring(false);
       }
@@ -729,6 +905,8 @@ export function SlidesTab() {
         sessionItem.title
       );
       setRestoring(true);
+      const { addStreamEvent } = useSlidesStore.getState();
+
       try {
         if (sessionItem.latestCheckpoint?.id) {
           console.log(
@@ -740,13 +918,34 @@ export function SlidesTab() {
           console.log('[SlidesTab] Restoring from session:', sessionItem.id);
           await restoreBySessionId(sessionItem.id);
         }
+
         console.log('[SlidesTab] Restore completed successfully');
+
+        // 恢复成功，添加成功消息
+        addStreamEvent({
+          type: 'system_message',
+          timestamp: new Date(),
+          data: {
+            message: `已恢复: ${sessionItem.title || '演示文稿'}`,
+            source: '系统',
+          },
+        });
+
         setShowHistory(false);
         setShowNewForm(false);
       } catch (err) {
         console.error('[SlidesTab] Failed to restore session:', err);
-        // 显示错误提示给用户
-        alert('恢复失败: ' + (err instanceof Error ? err.message : '未知错误'));
+        const errorMessage = err instanceof Error ? err.message : '恢复失败';
+
+        // 使用 streamEvent 显示错误消息，而不是 alert
+        addStreamEvent({
+          type: 'system_message',
+          timestamp: new Date(),
+          data: {
+            message: `恢复失败: ${errorMessage}`,
+            source: '系统',
+          },
+        });
       } finally {
         setRestoring(false);
       }
@@ -1924,9 +2123,19 @@ function ConversationPanel({
                 onSendMessage('@leader 继续执行');
               }
             }}
-            className="rounded-lg bg-orange-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600"
+            className={cn(
+              'rounded-lg p-2.5 transition-colors',
+              inputValue.trim()
+                ? 'bg-orange-500 text-white hover:bg-orange-600'
+                : 'bg-green-500 text-white hover:bg-green-600'
+            )}
+            title={inputValue.trim() ? '发送消息' : '继续执行'}
           >
-            {inputValue.trim() ? '发送' : '继续'}
+            {inputValue.trim() ? (
+              <Send className="h-5 w-5" />
+            ) : (
+              <Play className="h-5 w-5" />
+            )}
           </button>
         </div>
       </div>
