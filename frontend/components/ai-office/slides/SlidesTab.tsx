@@ -47,6 +47,11 @@ import {
   Pencil,
   Check,
   MoreVertical,
+  Crown,
+  Search,
+  PenTool,
+  CheckCircle,
+  Users,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils/common';
@@ -103,6 +108,45 @@ interface ToolCallItem {
   details?: Record<string, unknown>;
   timestamp: Date;
 }
+
+// ★ @ Mention 选项定义
+const MENTION_OPTIONS = [
+  {
+    id: 'leader',
+    label: '@leader',
+    description: '让 Leader 分发任务给团队',
+    icon: Crown,
+    color: 'text-amber-500',
+  },
+  {
+    id: 'analyst',
+    label: '@analyst',
+    description: '让分析师分析内容',
+    icon: Search,
+    color: 'text-blue-500',
+  },
+  {
+    id: 'writer',
+    label: '@writer',
+    description: '让写手修改或重写内容',
+    icon: PenTool,
+    color: 'text-green-500',
+  },
+  {
+    id: 'reviewer',
+    label: '@reviewer',
+    description: '让审核员检查质量',
+    icon: CheckCircle,
+    color: 'text-purple-500',
+  },
+  {
+    id: 'team',
+    label: '@team',
+    description: '通知整个团队',
+    icon: Users,
+    color: 'text-orange-500',
+  },
+];
 
 // ============================================================================
 // 主组件
@@ -799,6 +843,9 @@ function Header({
             </button>
           )}
 
+          {/* ★ AI 辅助菜单 - 首页显示在新建按钮旁 */}
+          {onNewClick && <AIAssistMenu disabled={false} />}
+
           {/* 视图切换 */}
           {showViewToggle && viewMode && onViewModeChange && (
             <div className="flex items-center rounded-lg border border-gray-200 p-1">
@@ -829,19 +876,21 @@ function Header({
             </div>
           )}
 
-          {/* 历史记录 */}
-          <button
-            onClick={onToggleHistory}
-            className={cn(
-              'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition-colors',
-              showHistory
-                ? 'bg-orange-100 text-orange-600'
-                : 'text-gray-600 hover:bg-gray-100'
-            )}
-          >
-            <History className="h-4 w-4" />
-            历史记录
-          </button>
+          {/* 历史记录 - 仅在首页显示，编辑页隐藏 */}
+          {!showBackButton && (
+            <button
+              onClick={onToggleHistory}
+              className={cn(
+                'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition-colors',
+                showHistory
+                  ? 'bg-orange-100 text-orange-600'
+                  : 'text-gray-600 hover:bg-gray-100'
+              )}
+            >
+              <History className="h-4 w-4" />
+              历史记录
+            </button>
+          )}
 
           {/* 创建保存点 */}
           <button
@@ -1129,7 +1178,13 @@ function ConversationPanel({
   const [inputValue, setInputValue] = useState('');
   const [outlineExpanded, setOutlineExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
+  // ★ @ Mention 状态
+  const [showMentionMenu, setShowMentionMenu] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState('');
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { streamEvents, selectedPageIndex, setSelectedPageIndex } =
     useSlidesStore();
 
@@ -1139,6 +1194,53 @@ function ConversationPanel({
     }
   }, [toolCalls, progress]);
 
+  // ★ 检测 @ mention
+  useEffect(() => {
+    const text = inputValue;
+    const lastAtIndex = text.lastIndexOf('@');
+
+    if (lastAtIndex !== -1) {
+      const afterAt = text.slice(lastAtIndex + 1);
+      // 如果 @ 后面没有空格，说明用户正在输入 mention
+      if (!afterAt.includes(' ')) {
+        setShowMentionMenu(true);
+        setMentionFilter(afterAt.toLowerCase());
+        setSelectedMentionIndex(0);
+      } else {
+        setShowMentionMenu(false);
+        setMentionFilter('');
+      }
+    } else {
+      setShowMentionMenu(false);
+      setMentionFilter('');
+    }
+  }, [inputValue]);
+
+  // ★ 过滤后的 mention 选项
+  const filteredMentionOptions = React.useMemo(() => {
+    if (!mentionFilter) return MENTION_OPTIONS;
+    return MENTION_OPTIONS.filter(
+      (opt) =>
+        opt.id.toLowerCase().includes(mentionFilter) ||
+        opt.label.toLowerCase().includes(mentionFilter)
+    );
+  }, [mentionFilter]);
+
+  // ★ 处理 mention 选择
+  const handleMentionSelect = useCallback(
+    (option: (typeof MENTION_OPTIONS)[0]) => {
+      const lastAtIndex = inputValue.lastIndexOf('@');
+      if (lastAtIndex !== -1) {
+        const newValue = inputValue.slice(0, lastAtIndex) + option.label + ' ';
+        setInputValue(newValue);
+      }
+      setShowMentionMenu(false);
+      setMentionFilter('');
+      textareaRef.current?.focus();
+    },
+    [inputValue]
+  );
+
   const handleSend = useCallback(() => {
     if (!inputValue.trim()) return;
     onSendMessage(inputValue.trim());
@@ -1147,12 +1249,47 @@ function ConversationPanel({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // ★ 处理 mention 菜单导航
+      if (showMentionMenu && filteredMentionOptions.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSelectedMentionIndex((prev) =>
+            prev < filteredMentionOptions.length - 1 ? prev + 1 : 0
+          );
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSelectedMentionIndex((prev) =>
+            prev > 0 ? prev - 1 : filteredMentionOptions.length - 1
+          );
+          return;
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault();
+          handleMentionSelect(filteredMentionOptions[selectedMentionIndex]);
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setShowMentionMenu(false);
+          return;
+        }
+      }
+
+      // 正常的 Enter 提交
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
     },
-    [handleSend]
+    [
+      handleSend,
+      showMentionMenu,
+      filteredMentionOptions,
+      selectedMentionIndex,
+      handleMentionSelect,
+    ]
   );
 
   // 复制日志到剪贴板
@@ -1294,13 +1431,55 @@ function ConversationPanel({
       </div>
 
       {/* 固定在底部的输入框 */}
-      <div className="flex-shrink-0 border-t border-gray-200 bg-white p-3">
+      <div className="relative flex-shrink-0 border-t border-gray-200 bg-white p-3">
+        {/* ★ @ Mention 菜单 */}
+        <AnimatePresence>
+          {showMentionMenu && filteredMentionOptions.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="absolute bottom-full left-3 right-3 z-50 mb-2 rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
+            >
+              <div className="mb-2 px-2 text-xs text-gray-500">
+                提及 Agent（使用 ↑↓ 选择，Enter 确认）
+              </div>
+              <div className="space-y-1">
+                {filteredMentionOptions.map((option, index) => (
+                  <button
+                    key={option.id}
+                    className={cn(
+                      'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors',
+                      index === selectedMentionIndex
+                        ? 'bg-orange-100 text-orange-700'
+                        : 'hover:bg-gray-100'
+                    )}
+                    onClick={() => handleMentionSelect(option)}
+                    onMouseEnter={() => setSelectedMentionIndex(index)}
+                  >
+                    <option.icon
+                      className={cn('h-5 w-5 flex-shrink-0', option.color)}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium">{option.label}</div>
+                      <div className="truncate text-xs text-gray-500">
+                        {option.description}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="flex items-end gap-2">
           <textarea
+            ref={textareaRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入修改建议或反馈..."
+            placeholder="输入修改建议或反馈... (输入 @ 提及 Agent)"
             rows={3}
             className="max-h-40 min-h-[80px] flex-1 resize-none rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
           />

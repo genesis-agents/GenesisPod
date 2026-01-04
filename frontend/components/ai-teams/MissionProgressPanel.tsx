@@ -8,6 +8,7 @@ import {
   AgentTaskStatus,
 } from '@/types/ai-teams';
 import { useAiGroupStore } from '@/stores/aiTeamsStore';
+import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
 
 interface MissionProgressPanelProps {
   topicId: string;
@@ -389,6 +390,7 @@ export default function MissionProgressPanel({
                     onViewDetail={() => setDetailMission(mission)}
                     onCancel={() => handleCancelMission(mission.id)}
                     onOpenCanvas={() => openCanvasForMission(mission)}
+                    onRetry={(mode) => handleRetryMission(mission.id, mode)}
                     typingAIs={typingAIs}
                   />
                 ))}
@@ -430,6 +432,7 @@ export default function MissionProgressPanel({
                       onViewDetail={() => setDetailMission(mission)}
                       onCancel={() => {}}
                       onOpenCanvas={() => openCanvasForMission(mission)}
+                      onRetry={(mode) => handleRetryMission(mission.id, mode)}
                       typingAIs={typingAIs}
                       isCompact
                     />
@@ -452,6 +455,7 @@ function MissionCard({
   onViewDetail,
   onCancel,
   onOpenCanvas,
+  onRetry,
   typingAIs,
   isCompact = false,
 }: {
@@ -461,6 +465,7 @@ function MissionCard({
   onViewDetail: () => void;
   onCancel: () => void;
   onOpenCanvas: () => void;
+  onRetry?: (mode: 'full' | 'continue') => void;
   typingAIs: Set<string>;
   isCompact?: boolean;
 }) {
@@ -470,6 +475,8 @@ function MissionCard({
     mission.status === 'PLANNING' ||
     mission.status === 'REVIEW';
   const isPending = mission.status === 'PENDING';
+  const isFailed = mission.status === 'FAILED';
+  const isCancelled = mission.status === 'CANCELLED';
 
   // Calculate task statistics
   const tasks = mission.tasks || [];
@@ -668,6 +675,30 @@ function MissionCard({
             >
               取消任务
             </button>
+          )}
+
+          {/* ★ 继续执行按钮 (for cancelled/failed missions) */}
+          {(isFailed || isCancelled) && onRetry && (
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetry('continue');
+                }}
+                className="flex-1 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:from-blue-600 hover:to-indigo-700 hover:shadow-md"
+              >
+                ▶️ 继续执行
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetry('full');
+                }}
+                className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-all hover:bg-gray-50"
+              >
+                🔄
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -1150,14 +1181,14 @@ function TaskDetailCard({
             </div>
           )}
 
-          {/* Task Result */}
+          {/* Task Result - 使用 Markdown 渲染支持表格 */}
           {hasResult && (
             <div className="rounded-lg bg-white/80 p-3">
               <div className="mb-2 flex items-center gap-2 text-xs font-medium text-gray-600">
                 📝 执行成果
               </div>
-              <div className="max-h-64 overflow-auto whitespace-pre-wrap text-sm text-gray-700">
-                {task.result}
+              <div className="prose prose-sm prose-gray max-w-none">
+                <AIMessageRenderer content={task.result || ''} />
               </div>
             </div>
           )}

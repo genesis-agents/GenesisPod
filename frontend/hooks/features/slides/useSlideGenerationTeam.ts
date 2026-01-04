@@ -303,6 +303,14 @@ export function useSlideGenerationTeam(
               'ms'
             );
 
+            // ★ 修复：阶段完成时更新进度到 100%
+            setProgress({
+              phase: mapPhaseToProgress(phase),
+              phaseProgress: 100,
+              overallProgress: calculateTeamProgress(phase, 100),
+              message: `${getPhaseDisplayName(phase)}完成`,
+            });
+
             // 如果是 planning 阶段完成，初始化页面
             if (phase === 'planning' && data.result) {
               const planResult = data.result as {
@@ -406,7 +414,13 @@ export function useSlideGenerationTeam(
           case 'slide:generating': {
             const data = (event.data || {}) as Partial<SlideGeneratingData>;
             const pageNumber = data.pageNumber ?? 1;
-            console.log('[Team SSE] Slide generating:', pageNumber);
+            const totalPages = data.totalPages ?? 1;
+            console.log(
+              '[Team SSE] Slide generating:',
+              pageNumber,
+              '/',
+              totalPages
+            );
 
             updatePage(pageNumber, { status: 'generating' });
 
@@ -420,14 +434,20 @@ export function useSlideGenerationTeam(
               pageNumber
             );
 
-            const currentProgress = useSlidesStore.getState().progress;
+            // ★ 修复：基于当前页数/总页数计算进度
+            const phaseProgress = Math.round(
+              ((pageNumber - 1) / totalPages) * 100
+            );
             setProgress({
-              phase: currentProgress?.phase || 'page_rendering',
-              phaseProgress: currentProgress?.phaseProgress || 0,
-              overallProgress: currentProgress?.overallProgress || 50,
+              phase: 'page_rendering',
+              phaseProgress,
+              overallProgress: calculateTeamProgress(
+                'generating',
+                phaseProgress
+              ),
               currentPage: pageNumber,
-              totalPages: data.totalPages ?? 1,
-              message: `正在生成第 ${pageNumber}/${data.totalPages ?? '?'} 页: ${data.title || ''}`,
+              totalPages: totalPages,
+              message: `正在生成第 ${pageNumber}/${totalPages} 页: ${data.title || ''}`,
             });
             break;
           }
@@ -488,6 +508,26 @@ export function useSlideGenerationTeam(
               },
               pageNumber
             );
+
+            // ★ 修复：基于完成页数计算进度
+            const completedCount = currentPages.filter(
+              (p) => p.status === 'completed'
+            ).length;
+            const totalPagesCount = currentPages.length || 1;
+            const generatedPhaseProgress = Math.round(
+              (completedCount / totalPagesCount) * 100
+            );
+            setProgress({
+              phase: 'page_rendering',
+              phaseProgress: generatedPhaseProgress,
+              overallProgress: calculateTeamProgress(
+                'generating',
+                generatedPhaseProgress
+              ),
+              currentPage: pageNumber,
+              totalPages: totalPagesCount,
+              message: `已完成第 ${pageNumber} 页 (${completedCount}/${totalPagesCount})`,
+            });
 
             options.onSlideGenerated?.(pageNumber, data.html);
             break;
@@ -964,6 +1004,22 @@ function calculateTeamProgress(phase: string, phaseProgress: number): number {
 
   const config = phaseWeights[phase] || { start: 0, weight: 10 };
   return Math.min(100, config.start + (phaseProgress / 100) * config.weight);
+}
+
+/**
+ * 获取阶段的中文显示名称
+ */
+function getPhaseDisplayName(phase: string): string {
+  const phaseNames: Record<string, string> = {
+    initializing: '初始化',
+    analyzing: '内容分析',
+    planning: '大纲规划',
+    generating: '页面生成',
+    rendering: '页面渲染',
+    reviewing: '质量审核',
+    completed: '生成',
+  };
+  return phaseNames[phase] || phase;
 }
 
 export default useSlideGenerationTeam;

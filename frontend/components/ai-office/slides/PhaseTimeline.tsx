@@ -45,6 +45,124 @@ import type {
 // 辅助函数
 // ============================================================================
 
+/**
+ * 解析设计思考内容，将其结构化显示
+ */
+function parseDesignThinking(thought: string): {
+  isDesignThinking: boolean;
+  steps: Array<{ title: string; content: string[] }>;
+  reasoning?: string;
+} {
+  // 检测是否包含设计思考格式
+  const stepPatterns = [
+    /1️⃣\s*草稿阶段\s*\(Drafting\):/,
+    /2️⃣\s*布局精化\s*\(Refining Layout\):/,
+    /3️⃣\s*视觉规划\s*\(Planning Visuals\):/,
+    /4️⃣\s*HTML 生成\s*\(Formulating HTML\):/,
+  ];
+
+  const hasDesignFormat = stepPatterns.some((p) => p.test(thought));
+  if (!hasDesignFormat) {
+    return { isDesignThinking: false, steps: [] };
+  }
+
+  const steps: Array<{ title: string; content: string[] }> = [];
+  let reasoning: string | undefined;
+
+  // 分割成各个步骤
+  const sections = thought.split(/(?=\d️⃣)/);
+
+  for (const section of sections) {
+    if (!section.trim()) continue;
+
+    // 检查是否是设计决策依据
+    if (section.includes('设计决策依据') || section.includes('✅ 设计决策')) {
+      const reasoningMatch = section.match(
+        /(?:设计决策依据|✅ 设计决策.*?)[:：]?\s*([\s\S]+)/
+      );
+      if (reasoningMatch) {
+        reasoning = reasoningMatch[1].trim();
+      }
+      continue;
+    }
+
+    // 解析步骤标题和内容
+    const titleMatch = section.match(/^\d️⃣\s*([^:\n]+)[:：]?\s*/);
+    if (titleMatch) {
+      const title = titleMatch[1].trim();
+      const contentStr = section.slice(titleMatch[0].length);
+
+      // 解析内容项（以 - 开头的行）
+      const contentLines = contentStr
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith('-'))
+        .map((line) => line.slice(1).trim());
+
+      steps.push({ title, content: contentLines });
+    }
+  }
+
+  return { isDesignThinking: true, steps, reasoning };
+}
+
+/**
+ * 结构化设计思考组件
+ */
+function DesignThinkingDisplay({ thought }: { thought: string }) {
+  const { isDesignThinking, steps, reasoning } = parseDesignThinking(thought);
+
+  if (!isDesignThinking) {
+    return <p className="mt-1 italic text-amber-600">💭 {thought}</p>;
+  }
+
+  const stepColors = [
+    { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700' },
+    { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700' },
+    {
+      bg: 'bg-purple-50',
+      border: 'border-purple-200',
+      text: 'text-purple-700',
+    },
+    { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
+  ];
+
+  return (
+    <div className="mt-2 space-y-2">
+      {steps.map((step, idx) => {
+        const colors = stepColors[idx % stepColors.length];
+        return (
+          <div
+            key={idx}
+            className={cn('rounded-md border p-2', colors.bg, colors.border)}
+          >
+            <div className={cn('text-xs font-medium', colors.text)}>
+              Step {idx + 1}: {step.title}
+            </div>
+            {step.content.length > 0 && (
+              <ul className="mt-1 space-y-0.5">
+                {step.content.map((item, i) => (
+                  <li key={i} className="text-xs text-gray-600">
+                    • {item}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })}
+      {reasoning && (
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
+          <div className="text-xs font-medium text-gray-600">
+            ✅ 设计决策依据
+          </div>
+          <p className="mt-1 text-xs text-gray-500">{reasoning}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function getAgentDisplayName(role: SlidesAgentRole): string {
   const names: Record<SlidesAgentRole, string> = {
     leader: '协调者',
@@ -313,7 +431,8 @@ function PhaseItem({
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden border-t border-gray-100"
             >
-              <div className="max-h-80 space-y-2 overflow-y-auto p-3 pt-2">
+              {/* ★ 修复：移除内层滚动，避免双层滚动 */}
+              <div className="space-y-2 p-3 pt-2">
                 {/* 任务历史记录 - 结构化显示每一步 */}
                 {agentState?.taskHistory &&
                 agentState.taskHistory.length > 0 ? (
@@ -351,11 +470,9 @@ function PhaseItem({
                         <p className="whitespace-pre-wrap leading-relaxed text-gray-700">
                           {item.task}
                         </p>
-                        {/* 思考内容 */}
+                        {/* 思考内容 - 使用结构化显示 */}
                         {item.thought && (
-                          <p className="mt-1 italic text-amber-600">
-                            💭 {item.thought}
-                          </p>
+                          <DesignThinkingDisplay thought={item.thought} />
                         )}
                       </div>
                     ))}
@@ -374,13 +491,11 @@ function PhaseItem({
                   <p className="text-xs text-gray-500">{config.description}</p>
                 )}
 
-                {/* Agent 思考 (当前，不在历史中时显示) */}
+                {/* Agent 思考 (当前，不在历史中时显示) - 使用结构化显示 */}
                 {agentState?.thought &&
                   (!agentState.taskHistory ||
                     agentState.taskHistory.length === 0) && (
-                    <div className="rounded bg-amber-50 p-2 text-xs italic text-amber-700">
-                      💭 {agentState.thought}
-                    </div>
+                    <DesignThinkingDisplay thought={agentState.thought} />
                   )}
 
                 {/* 进度条 */}
@@ -582,8 +697,8 @@ export function PhaseTimeline({
   progress,
   className,
 }: PhaseTimelineProps) {
-  // 未开始状态
-  if (!teamState && !generating) {
+  // 未开始状态（且没有进度数据 - 表示还没开始生成）
+  if (!teamState && !generating && !progress) {
     return (
       <div className={cn('py-8 text-center', className)}>
         <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
@@ -593,6 +708,65 @@ export function PhaseTimeline({
         <p className="mt-1 text-xs text-gray-400">
           输入内容后，5 个专业 Agent 将协作为您生成 PPT
         </p>
+      </div>
+    );
+  }
+
+  // ★ 恢复状态：有进度数据但没有 teamState（从 checkpoint 恢复）
+  if (!teamState && !generating && progress) {
+    return (
+      <div className={cn('space-y-4', className)}>
+        {/* 恢复状态卡片 */}
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            </div>
+            <div className="flex-1">
+              <div className="text-sm font-medium text-green-900">
+                已从保存点恢复
+              </div>
+              <div className="mt-0.5 text-xs text-green-700">
+                {progress.message || `${progress.totalPages || 0} 页已恢复`}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 可用 Agent 列表 - 方便用户 @ */}
+        <div className="rounded-lg border border-gray-200 bg-white p-3">
+          <div className="mb-3 text-sm font-medium text-gray-700">
+            可用 Agent（输入 @ 提及）
+          </div>
+          <div className="space-y-2">
+            {PHASE_CONFIG.map((config) => {
+              const Icon = config.icon;
+              return (
+                <div
+                  key={config.phase}
+                  className="flex items-center gap-3 rounded-lg bg-gray-50 p-2"
+                >
+                  <div
+                    className={cn(
+                      'flex h-8 w-8 items-center justify-center rounded-full',
+                      config.bgColor
+                    )}
+                  >
+                    <Icon className={cn('h-4 w-4', config.color)} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-gray-700">
+                      @{config.agent}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {config.description}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     );
   }

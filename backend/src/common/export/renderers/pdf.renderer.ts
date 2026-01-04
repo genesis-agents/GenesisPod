@@ -19,6 +19,7 @@ import { UnifiedContent, ContentSection } from "../types/unified-content";
 import { ThemeConfig, LayoutConfig } from "../types/theme-config";
 import { ExportOptions } from "../types/export-options";
 import puppeteer from "puppeteer";
+import * as PDFDocument from "pdfkit";
 
 @Injectable()
 export class PdfRenderer implements ExportRenderer {
@@ -33,13 +34,40 @@ export class PdfRenderer implements ExportRenderer {
   ): Promise<Buffer> {
     this.logger.debug("Rendering PDF...");
 
+    // 尝试使用 Puppeteer 渲染（高质量 HTML 转 PDF）
+    try {
+      return await this.renderWithPuppeteer(content, theme, layout, options);
+    } catch (puppeteerError) {
+      this.logger.warn(
+        `Puppeteer PDF rendering failed, falling back to PDFKit: ${puppeteerError}`,
+      );
+
+      // 回退到 PDFKit（不需要 Chromium，在云环境更可靠）
+      return await this.renderWithPDFKit(content, theme, layout, options);
+    }
+  }
+
+  /**
+   * 使用 Puppeteer 渲染 PDF（高质量，需要 Chromium）
+   */
+  private async renderWithPuppeteer(
+    content: UnifiedContent,
+    theme: ThemeConfig,
+    layout: LayoutConfig,
+    options: ExportOptions,
+  ): Promise<Buffer> {
     // 生成 HTML
     const html = this.generateHtml(content, theme, layout, options);
 
     // 使用 Puppeteer 转换为 PDF
     const browser = await puppeteer.launch({
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+      ],
     });
 
     try {
@@ -71,11 +99,224 @@ export class PdfRenderer implements ExportRenderer {
       }
 
       const pdfBuffer = await page.pdf(pdfOptions);
-      this.logger.debug(`PDF generated: ${pdfBuffer.length} bytes`);
+      this.logger.debug(
+        `PDF generated with Puppeteer: ${pdfBuffer.length} bytes`,
+      );
 
       return Buffer.from(pdfBuffer);
     } finally {
       await browser.close();
+    }
+  }
+
+  /**
+   * 使用 PDFKit 渲染 PDF（纯 Node.js，无需 Chromium）
+   */
+  private async renderWithPDFKit(
+    content: UnifiedContent,
+    theme: ThemeConfig,
+    layout: LayoutConfig,
+    options: ExportOptions,
+  ): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({
+          size: this.mapPageSize(layout.pageSize).toUpperCase() as
+            | "A4"
+            | "A3"
+            | "LETTER"
+            | "LEGAL",
+          layout: layout.orientation === "landscape" ? "landscape" : "portrait",
+          margins: {
+            top: theme.spacing.page.top,
+            bottom: theme.spacing.page.bottom,
+            left: theme.spacing.page.left,
+            right: theme.spacing.page.right,
+          },
+        });
+
+        const chunks: Buffer[] = [];
+        doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+        doc.on("end", () => {
+          const pdfBuffer = Buffer.concat(chunks);
+          this.logger.debug(
+            `PDF generated with PDFKit: ${pdfBuffer.length} bytes`,
+          );
+          resolve(pdfBuffer);
+        });
+        doc.on("error", reject);
+
+        // 封面
+        if (options.includeCover !== false) {
+          this.renderPDFKitCover(doc, content, theme);
+          doc.addPage();
+        }
+
+        // 正文内容
+        this.renderPDFKitContent(doc, content, theme);
+
+        doc.end();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * PDFKit 渲染封面
+   */
+  private renderPDFKitCover(
+    doc: typeof PDFDocument,
+    content: UnifiedContent,
+    theme: ThemeConfig,
+  ): void {
+    const pageWidth = doc.page.width;
+    const pageHeight = doc.page.height;
+
+    // 居中标题
+    doc
+      .fontSize(28)
+      .fillColor(theme.colors.heading)
+      .text(content.metadata.title, 0, pageHeight / 3, {
+        align: "center",
+        width: pageWidth,
+      });
+
+    // 副标题
+    if (content.metadata.subtitle) {
+      doc
+        .fontSize(16)
+        .fillColor(theme.colors.textLight)
+        .text(content.metadata.subtitle, 0, pageHeight / 3 + 50, {
+          align: "center",
+          width: pageWidth,
+        });
+    }
+
+    // 日期
+    if (content.metadata.date) {
+      doc
+        .fontSize(12)
+        .fillColor(theme.colors.textLight)
+        .text(
+          new Date(content.metadata.date).toLocaleDateString("zh-CN"),
+          0,
+          pageHeight / 3 + 100,
+          { align: "center", width: pageWidth },
+        );
+    }
+  }
+
+  /**
+   * PDFKit 渲染正文
+   */
+  private renderPDFKitContent(
+    doc: typeof PDFDocument,
+    content: UnifiedContent,
+    theme: ThemeConfig,
+  ): void {
+    for (const section of content.sections) {
+      this.renderPDFKitSection(doc, section, theme);
+    }
+  }
+
+  /**
+   * PDFKit 渲染单个内容节
+   */
+  private renderPDFKitSection(
+    doc: typeof PDFDocument,
+    section: ContentSection,
+    theme: ThemeConfig,
+  ): void {
+    const margin = 50;
+    const maxWidth = doc.page.width - margin * 2;
+
+    switch (section.type) {
+      case "heading": {
+        const fontSize =
+          section.level === 1 ? 22 : section.level === 2 ? 18 : 14;
+        doc.moveDown(0.5);
+        doc
+          .fontSize(fontSize)
+          .fillColor(theme.colors.heading)
+          .text(section.content || "", { width: maxWidth, continued: false });
+        doc.moveDown(0.3);
+        break;
+      }
+
+      case "paragraph": {
+        doc
+          .fontSize(12)
+          .fillColor(theme.colors.text)
+          .text(section.content || "", {
+            width: maxWidth,
+            align: "justify",
+            continued: false,
+          });
+        doc.moveDown(0.5);
+        break;
+      }
+
+      case "list": {
+        const items = section.items || [];
+        for (let i = 0; i < items.length; i++) {
+          const bullet = section.ordered ? `${i + 1}. ` : "• ";
+          doc
+            .fontSize(12)
+            .fillColor(theme.colors.text)
+            .text(bullet + items[i].content, margin + 20, undefined, {
+              width: maxWidth - 20,
+            });
+        }
+        doc.moveDown(0.5);
+        break;
+      }
+
+      case "code": {
+        doc
+          .fontSize(10)
+          .fillColor("#333")
+          .text(section.content || "", {
+            width: maxWidth,
+          });
+        doc.moveDown(0.5);
+        break;
+      }
+
+      case "quote": {
+        doc.moveDown(0.3);
+        doc
+          .fontSize(11)
+          .fillColor(theme.colors.textLight)
+          .text(`"${section.content || ""}"`, margin + 30, undefined, {
+            width: maxWidth - 30,
+            oblique: true,
+          });
+        doc.moveDown(0.5);
+        break;
+      }
+
+      case "divider": {
+        doc.moveDown(0.5);
+        doc
+          .moveTo(margin, doc.y)
+          .lineTo(doc.page.width - margin, doc.y)
+          .stroke(theme.colors.border);
+        doc.moveDown(0.5);
+        break;
+      }
+
+      default: {
+        // 默认作为段落处理
+        if (section.content) {
+          doc
+            .fontSize(12)
+            .fillColor(theme.colors.text)
+            .text(section.content, { width: maxWidth });
+          doc.moveDown(0.5);
+        }
+        break;
+      }
     }
   }
 

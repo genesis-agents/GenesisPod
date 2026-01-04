@@ -2308,11 +2308,16 @@ ${taskResults}
         content: `任务继续执行，${logMsg}${options?.reason ? `，原因：${options.reason}` : ""}`,
       });
 
+      // ★ 关键修复：发送 @Leader 消息，触发 Leader 重新编排任务
+      const leaderName = mission.leader.agentName || mission.leader.displayName;
+      const mentionMessage = `@${leaderName} 继续当前任务`;
+
+      // 发送用户消息 @mention Leader
       await this.sendMessageToTopic(
         mission.topicId,
-        null,
-        `▶️ **任务继续**\n\n任务「${mission.title}」继续执行，${logMsg}...${options?.reason ? `\n\n> 原因：${options.reason}` : ""}`,
-        MessageContentType.SYSTEM,
+        null, // 系统代发
+        mentionMessage,
+        MessageContentType.TEXT, // ★ 改为 TEXT，模拟用户消息
       );
 
       this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:retried", {
@@ -2323,9 +2328,22 @@ ${taskResults}
         stuckTaskCount: stuckCount,
       });
 
-      // 继续执行下一批任务
-      this.executeNextTasks(missionId).catch((err) => {
-        this.logger.error(`Failed to continue mission ${missionId}: ${err}`);
+      // ★ 调用 handleLeaderMentionCommand 触发 Leader 重新编排
+      // 这会让 Leader 检查任务状态并继续组织执行
+      this.handleLeaderMentionCommand(
+        mission.topicId,
+        userId,
+        mentionMessage,
+      ).catch((err) => {
+        this.logger.error(
+          `Failed to trigger leader command for mission ${missionId}: ${err}`,
+        );
+        // 如果 Leader 命令失败，回退到直接执行
+        this.executeNextTasks(missionId).catch((execErr) => {
+          this.logger.error(
+            `Fallback executeNextTasks also failed for ${missionId}: ${execErr}`,
+          );
+        });
       });
     }
 
