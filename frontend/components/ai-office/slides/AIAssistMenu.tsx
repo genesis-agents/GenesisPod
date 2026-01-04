@@ -12,23 +12,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Wand2,
-  Tags,
-  Sparkles,
-  LayoutGrid,
-  MessageCircle,
-  ChevronDown,
-  Loader2,
-  X,
-} from 'lucide-react';
+import { Wand2, Tags, ChevronDown, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 
 interface AIAssistMenuProps {
   onSmartTags?: () => Promise<void>;
-  onOptimizeContent?: () => Promise<void>;
-  onReorganize?: () => Promise<void>;
-  onAIChat?: () => void;
   disabled?: boolean;
   className?: string;
 }
@@ -39,7 +27,7 @@ interface MenuItem {
   label: string;
   description: string;
   color: string;
-  action: 'smartTags' | 'optimizeContent' | 'reorganize' | 'aiChat';
+  action: 'smartTags';
 }
 
 const MENU_ITEMS: MenuItem[] = [
@@ -51,37 +39,10 @@ const MENU_ITEMS: MenuItem[] = [
     color: 'text-blue-600',
     action: 'smartTags',
   },
-  {
-    id: 'optimize',
-    icon: Sparkles,
-    label: '内容优化',
-    description: 'AI 建议改进内容',
-    color: 'text-amber-600',
-    action: 'optimizeContent',
-  },
-  {
-    id: 'reorganize',
-    icon: LayoutGrid,
-    label: '重新组织',
-    description: '优化页面结构',
-    color: 'text-purple-600',
-    action: 'reorganize',
-  },
-  {
-    id: 'ai-chat',
-    icon: MessageCircle,
-    label: 'AI 对话',
-    description: '与 AI 讨论修改',
-    color: 'text-green-600',
-    action: 'aiChat',
-  },
 ];
 
 export function AIAssistMenu({
   onSmartTags,
-  onOptimizeContent,
-  onReorganize,
-  onAIChat,
   disabled = false,
   className,
 }: AIAssistMenuProps) {
@@ -110,19 +71,8 @@ export function AIAssistMenu({
     setLoading(item.id);
 
     try {
-      switch (item.action) {
-        case 'smartTags':
-          if (onSmartTags) await onSmartTags();
-          break;
-        case 'optimizeContent':
-          if (onOptimizeContent) await onOptimizeContent();
-          break;
-        case 'reorganize':
-          if (onReorganize) await onReorganize();
-          break;
-        case 'aiChat':
-          if (onAIChat) onAIChat();
-          break;
+      if (item.action === 'smartTags' && onSmartTags) {
+        await onSmartTags();
       }
     } finally {
       setLoading(null);
@@ -196,11 +146,7 @@ export function AIAssistMenu({
                 const Icon = item.icon;
                 const isLoading = loading === item.id;
                 const isDisabled =
-                  isLoading ||
-                  (item.action === 'smartTags' && !onSmartTags) ||
-                  (item.action === 'optimizeContent' && !onOptimizeContent) ||
-                  (item.action === 'reorganize' && !onReorganize) ||
-                  (item.action === 'aiChat' && !onAIChat);
+                  isLoading || (item.action === 'smartTags' && !onSmartTags);
 
                 return (
                   <button
@@ -236,13 +182,6 @@ export function AIAssistMenu({
                   </button>
                 );
               })}
-            </div>
-
-            {/* 菜单底部提示 */}
-            <div className="border-t border-gray-100 px-4 py-2.5">
-              <p className="text-center text-xs text-gray-400">
-                更多 AI 功能即将推出
-              </p>
             </div>
           </motion.div>
         )}
