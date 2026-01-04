@@ -69,8 +69,10 @@ import { WebhooksModule } from "./modules/webhooks";
       envFilePath: ".env",
     }),
 
-    // 全局事件模块（必须在 AppModule 中只调用一次 forRoot）
-    EventEmitterModule.forRoot(),
+    // 全局事件模块（必须在 AppModule 中只调用一次 forRoot，设置 global: true 确保全局可用）
+    EventEmitterModule.forRoot({
+      global: true,
+    }),
 
     // API限流保护 - 全局默认60请求/分钟
     ThrottlerModule.forRootAsync({

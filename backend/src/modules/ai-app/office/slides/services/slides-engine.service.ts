@@ -101,6 +101,11 @@ export class SlidesEngineService {
    */
   @OnEvent("slides.page.generated")
   handlePageGenerated(event: PageGeneratedEvent): void {
+    // ★★★ 关键诊断日志 ★★★
+    this.logger.warn(
+      `[handlePageGenerated] ★★★ EVENT RECEIVED ★★★ page=${event.pageNumber}, sessionId=${event.sessionId}`,
+    );
+
     const sessionId = event.sessionId;
     if (!sessionId) {
       this.logger.warn(

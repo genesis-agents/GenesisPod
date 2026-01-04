@@ -110,6 +110,23 @@ export class PagePipelineSkill
     const startTime = Date.now();
     const sessionId = context.sessionId || "unknown";
 
+    // ★★★ 关键诊断日志 ★★★
+    this.logger.warn(
+      `[execute] ★★★ PAGE-PIPELINE CALLED ★★★ sessionId=${sessionId}, eventEmitter exists=${!!this.eventEmitter}`,
+    );
+    this.logger.warn(
+      `[execute] ★★★ INPUT KEYS: ${Object.keys(input).join(", ")}`,
+    );
+    if (input.previousOutputs) {
+      this.logger.warn(
+        `[execute] ★★★ previousOutputs KEYS: ${Object.keys(input.previousOutputs).join(", ")}`,
+      );
+    }
+    const inputWithOutline = input as OrchestratorInput & { outline?: unknown };
+    this.logger.warn(
+      `[execute] ★★★ input.outline exists=${!!inputWithOutline.outline}, type=${typeof inputWithOutline.outline}`,
+    );
+
     this.logger.log(
       `[execute] Starting page pipeline for session ${sessionId}`,
     );
@@ -398,11 +415,23 @@ export class PagePipelineSkill
    * 发送页面生成事件
    */
   private emitPageGenerated(event: PageGeneratedEvent): void {
+    // ★★★ 关键诊断日志 ★★★
+    this.logger.warn(
+      `[emitPageGenerated] ★★★ EMITTING EVENT ★★★ page=${event.pageNumber}, sessionId=${event.sessionId}, htmlLength=${event.html?.length || 0}`,
+    );
+
     // 通过 EventEmitter 发送事件
+    if (!this.eventEmitter) {
+      this.logger.error(
+        `[emitPageGenerated] ★★★ ERROR: eventEmitter is NULL! ★★★`,
+      );
+      return;
+    }
+
     this.eventEmitter.emit("slides.page.generated", event);
 
-    this.logger.debug(
-      `[emitPageGenerated] Emitted event for page ${event.pageNumber}`,
+    this.logger.warn(
+      `[emitPageGenerated] ★★★ EVENT EMITTED ★★★ page=${event.pageNumber}`,
     );
   }
 }
