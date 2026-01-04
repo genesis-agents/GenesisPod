@@ -134,6 +134,8 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
           err instanceof Error ? err.message : '恢复检查点失败';
         setError(errorMessage);
         options.onRestoreError?.(errorMessage);
+        // 重新抛出错误，让调用方可以处理
+        throw err;
       } finally {
         setRestoring(false);
       }
@@ -209,6 +211,8 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
           err instanceof Error ? err.message : '恢复会话失败';
         setError(errorMessage);
         options.onRestoreError?.(errorMessage);
+        // 重新抛出错误，让调用方可以处理
+        throw err;
       } finally {
         setRestoring(false);
       }
