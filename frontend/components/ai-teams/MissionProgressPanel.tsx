@@ -478,7 +478,8 @@ function MissionCard({
   const isFailed = mission.status === 'FAILED';
   const isCancelled = mission.status === 'CANCELLED';
   const isPaused = mission.status === 'PAUSED';
-  const canRetry = isFailed || isCancelled || isPaused;
+  // 只有 FAILED 和 CANCELLED 可以重试，PAUSED 使用 onResume
+  const canRetry = isFailed || isCancelled;
 
   // Calculate task statistics
   const tasks = mission.tasks || [];
@@ -736,7 +737,8 @@ function MissionDetailView({
   const isFailed = mission.status === 'FAILED';
   const isCancelled = mission.status === 'CANCELLED';
   const isPaused = mission.status === 'PAUSED';
-  const canRetry = isFailed || isCancelled || isPaused;
+  // 只有 FAILED 和 CANCELLED 可以重试，PAUSED 使用 onResume
+  const canRetry = isFailed || isCancelled;
 
   // Calculate stats
   const completedCount = tasks.filter((t) => t.status === 'COMPLETED').length;
