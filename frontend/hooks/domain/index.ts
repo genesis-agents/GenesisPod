@@ -9,7 +9,6 @@ export { useResources } from './useResources';
 export { useResourceDetail } from './useResourceDetail';
 
 // AI hooks
-export { useAIOffice } from './useAIOffice';
 export { useAIImage } from './useAIImage';
 export { useAICoding } from './useAICoding';
 

@@ -46,9 +46,6 @@ export {
 // Agents
 export * from "./agents";
 
-// Code Execution
-export * from "./code-execution";
-
 // Integration
 export { AiOfficeIntegrationService } from "./ai-office-integration.service";
 

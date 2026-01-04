@@ -2620,18 +2620,25 @@ function BackendSessionCard({
     }
   };
 
+  const pagesCount = session.latestCheckpoint?.pagesCount ?? 0;
+
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white text-left transition-all hover:border-orange-300 hover:shadow-lg">
-      {/* 缩略图占位 - 可点击 */}
+      {/* 缩略图区域 - 显示标题预览 */}
       <button
         onClick={onClick}
         className="relative aspect-[16/9] bg-gradient-to-br from-slate-800 to-slate-900"
       >
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Layers className="h-8 w-8 text-slate-600" />
+        {/* 封面内容预览 */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
+          <Layers className="mb-2 h-6 w-6 text-slate-500" />
+          <h3 className="line-clamp-2 text-center text-sm font-medium text-white/90">
+            {session.title || '无标题'}
+          </h3>
         </div>
-        <div className="absolute bottom-2 right-2 rounded bg-black/50 px-1.5 py-0.5 text-xs text-white">
-          {session.latestCheckpoint?.pagesCount || '?'} 页
+        {/* 页数标签 */}
+        <div className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-xs font-medium text-white">
+          {pagesCount > 0 ? `${pagesCount} 页` : '空'}
         </div>
         {/* 来源标识 */}
         <div className="absolute left-2 top-2 rounded bg-green-500/80 px-1.5 py-0.5 text-xs text-white">
@@ -2826,7 +2833,9 @@ function BackendSessionListItem({
             <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
               <span>{formatRelativeTime(session.updatedAt)}</span>
               <span className="rounded bg-orange-100 px-1.5 py-0.5 text-orange-600">
-                {session.latestCheckpoint?.pagesCount || '?'} 页
+                {(session.latestCheckpoint?.pagesCount ?? 0) > 0
+                  ? `${session.latestCheckpoint?.pagesCount} 页`
+                  : '空'}
               </span>
             </div>
           </button>

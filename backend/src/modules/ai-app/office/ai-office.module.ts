@@ -9,12 +9,7 @@ import { CreditsModule } from "../../credits/credits.module";
 import { ExportModule } from "../../../common/export/export.module";
 
 // Core
-import {
-  AIModelController,
-  AIModelService,
-  IntentParserService,
-  IntentParserController,
-} from "./core";
+import { AIModelController, AIModelService } from "./core";
 
 // Document Management (CRUD)
 import { DocumentsController, DocumentsService } from "./document-management";
@@ -47,12 +42,6 @@ import {
 // Integration
 import { AiOfficeIntegrationService } from "./ai-office-integration.service";
 
-// Code Execution
-import {
-  CodeExecutionController,
-  CodeExecutionService,
-} from "./code-execution";
-
 // Agents
 import { AgentsController } from "./agents";
 
@@ -74,16 +63,13 @@ import { AIOfficeCommonModule } from "./common";
   ],
   controllers: [
     AIModelController,
-    IntentParserController,
     DocumentsController,
     GenerationController,
     SlidesController,
-    CodeExecutionController,
     AgentsController,
   ],
   providers: [
     AIModelService,
-    IntentParserService,
     DocumentsService,
     GenerationService,
     // Slides Services (v5.0: Team-based Orchestrator)
@@ -97,11 +83,9 @@ import { AIOfficeCommonModule } from "./common";
     SlidesRepository, // v5.0: 持久化层
     MultiModelService, // @deprecated: Kept for skill compatibility during migration
     AiOfficeIntegrationService,
-    CodeExecutionService,
   ],
   exports: [
     AIModelService,
-    IntentParserService,
     DocumentsService,
     GenerationService,
     // Slides Services (v5.0: Team-based Orchestrator)
