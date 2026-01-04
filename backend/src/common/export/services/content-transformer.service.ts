@@ -34,8 +34,13 @@ export class ContentTransformerService {
 
   /**
    * 将导出源转换为统一内容格式
+   * @param source 导出源
+   * @param options 转换选项（如 simplifiedMode 用于简化导出）
    */
-  async transform(source: ExportSource): Promise<UnifiedContent> {
+  async transform(
+    source: ExportSource,
+    options?: { simplifiedMode?: boolean },
+  ): Promise<UnifiedContent> {
     this.logger.debug(`Transforming source: ${source.type}`);
 
     switch (source.type) {
@@ -52,7 +57,10 @@ export class ContentTransformerService {
           source.title,
         );
       case "MISSION":
-        return this.missionTransformer.transform(source.missionId);
+        return this.missionTransformer.transform(
+          source.missionId,
+          options?.simplifiedMode,
+        );
       default:
         throw new Error(`Unsupported source type: ${(source as any).type}`);
     }

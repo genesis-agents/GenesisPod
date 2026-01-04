@@ -191,7 +191,10 @@ export class ExportOrchestratorService {
   /**
    * 处理导出任务
    */
-  private async processExportJob(jobId: string): Promise<void> {
+  private async processExportJob(
+    jobId: string,
+    retryWithSimplified = false,
+  ): Promise<void> {
     const job = await this.prisma.exportJob.findUnique({
       where: { id: jobId },
     });
@@ -206,11 +209,20 @@ export class ExportOrchestratorService {
 
       // 1. 获取源内容
       const source = this.reconstructSource(job);
-      const content = await this.contentTransformer.transform(source);
+      const options = job.options as any;
+
+      // 对于 MISSION 类型，传递 simplifiedMode 选项
+      const transformOptions =
+        source.type === "MISSION"
+          ? { simplifiedMode: retryWithSimplified || options?.simplifiedMode }
+          : undefined;
+      const content = await this.contentTransformer.transform(
+        source,
+        transformOptions,
+      );
       await this.updateJobStatus(jobId, ExportJobStatus.PROCESSING, 30);
 
       // 2. 获取模板配置
-      const options = job.options as any;
       const { theme, layout } = await this.templateManager.getThemeAndLayout(
         job.templateId || undefined,
         options?.customTheme,
@@ -249,7 +261,7 @@ export class ExportOrchestratorService {
         data: {
           status: ExportJobStatus.COMPLETED,
           progress: 100,
-          fileName,
+          fileName: retryWithSimplified ? `${fileName} (简化版)` : fileName,
           fileSize: buffer.length,
           filePath,
           downloadUrl,
@@ -258,9 +270,27 @@ export class ExportOrchestratorService {
         },
       });
 
-      this.logger.log(`Export job completed: ${jobId}`);
+      this.logger.log(
+        `Export job completed: ${jobId}${retryWithSimplified ? " (simplified mode)" : ""}`,
+      );
     } catch (error) {
       this.logger.error(`Export job failed: ${jobId}`, error);
+
+      // 对于 MISSION 类型，如果完整导出失败且未使用简化模式，自动重试简化导出
+      const source = this.reconstructSource(job);
+      if (source.type === "MISSION" && !retryWithSimplified) {
+        this.logger.log(`Retrying export job ${jobId} with simplified mode...`);
+        try {
+          await this.processExportJob(jobId, true);
+          return; // 简化模式成功，直接返回
+        } catch (retryError) {
+          this.logger.error(
+            `Simplified export also failed: ${jobId}`,
+            retryError,
+          );
+          // 简化模式也失败，继续使用原始错误
+        }
+      }
 
       await this.prisma.exportJob.update({
         where: { id: jobId },

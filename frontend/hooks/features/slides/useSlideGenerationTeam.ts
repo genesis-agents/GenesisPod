@@ -946,15 +946,19 @@ function mapPhaseToProgress(
 
 /**
  * 计算 Team 整体进度
+ * ★ 调整权重分配，让前期阶段更加可见
  */
 function calculateTeamProgress(phase: string, phaseProgress: number): number {
+  // 前期阶段（0-30%）：initializing + analyzing + planning
+  // 主要阶段（30-80%）：generating
+  // 后期阶段（80-100%）：rendering + reviewing
   const phaseWeights: Record<string, { start: number; weight: number }> = {
-    initializing: { start: 0, weight: 5 },
-    analyzing: { start: 5, weight: 15 },
-    planning: { start: 20, weight: 15 },
-    generating: { start: 35, weight: 40 },
-    rendering: { start: 75, weight: 15 },
-    reviewing: { start: 90, weight: 10 },
+    initializing: { start: 0, weight: 5 }, // 0-5%：初始化
+    analyzing: { start: 5, weight: 10 }, // 5-15%：分析需求
+    planning: { start: 15, weight: 15 }, // 15-30%：规划大纲
+    generating: { start: 30, weight: 50 }, // 30-80%：生成内容
+    rendering: { start: 80, weight: 12 }, // 80-92%：渲染页面
+    reviewing: { start: 92, weight: 8 }, // 92-100%：质量审核
     completed: { start: 100, weight: 0 },
   };
 

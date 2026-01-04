@@ -86,6 +86,10 @@ export interface ExportOptions {
 
   // 语言
   language?: string;
+
+  // Mission 导出专用选项
+  // 简化模式：只导出核心结果，跳过详细的任务执行报告和附录
+  simplifiedMode?: boolean;
 }
 
 // ==================== 导出响应 ====================

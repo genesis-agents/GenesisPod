@@ -10,9 +10,16 @@
  * - URL 自动识别
  * - @资源 提及
  * - 快捷命令 (/ppt, /doc, /design)
+ * - @Agent 提及（触发特定 Agent 执行任务）
  */
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useMemo,
+} from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Send,
@@ -24,6 +31,11 @@ import {
   FileText,
   Image as ImageIcon,
   Presentation,
+  Crown,
+  Search,
+  PenTool,
+  CheckCircle,
+  Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/common';
@@ -53,6 +65,45 @@ const QUICK_COMMANDS = [
   { cmd: '/design', agent: AgentType.DESIGNER, icon: ImageIcon, label: '设计' },
 ];
 
+// @ Mention 选项定义
+const MENTION_OPTIONS = [
+  {
+    id: 'leader',
+    label: '@leader',
+    description: '让 Leader 分发任务给团队',
+    icon: Crown,
+    color: 'text-amber-500',
+  },
+  {
+    id: 'analyst',
+    label: '@analyst',
+    description: '让分析师分析内容',
+    icon: Search,
+    color: 'text-blue-500',
+  },
+  {
+    id: 'writer',
+    label: '@writer',
+    description: '让写手修改或重写内容',
+    icon: PenTool,
+    color: 'text-green-500',
+  },
+  {
+    id: 'reviewer',
+    label: '@reviewer',
+    description: '让审核员检查质量',
+    icon: CheckCircle,
+    color: 'text-purple-500',
+  },
+  {
+    id: 'team',
+    label: '@team',
+    description: '通知整个团队',
+    icon: Users,
+    color: 'text-orange-500',
+  },
+];
+
 export function PromptBar({
   placeholder = '描述你想要创建的内容...',
   agentType,
@@ -69,6 +120,10 @@ export function PromptBar({
   const [urls, setUrls] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showCommands, setShowCommands] = useState(false);
+  // @ Mention 状态
+  const [showMentionMenu, setShowMentionMenu] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState('');
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -100,6 +155,55 @@ export function PromptBar({
     }
   }, [prompt]);
 
+  // ★ 检测 @ mention
+  useEffect(() => {
+    const text = prompt;
+    const lastAtIndex = text.lastIndexOf('@');
+
+    if (lastAtIndex !== -1) {
+      const afterAt = text.slice(lastAtIndex + 1);
+      // 如果 @ 后面没有空格，说明用户正在输入 mention
+      if (!afterAt.includes(' ')) {
+        setShowMentionMenu(true);
+        setMentionFilter(afterAt.toLowerCase());
+        setSelectedMentionIndex(0); // 重置选中索引
+      } else {
+        setShowMentionMenu(false);
+        setMentionFilter('');
+      }
+    } else {
+      setShowMentionMenu(false);
+      setMentionFilter('');
+    }
+  }, [prompt]);
+
+  // ★ 过滤后的 mention 选项
+  const filteredMentionOptions = useMemo(() => {
+    if (!mentionFilter) return MENTION_OPTIONS;
+    return MENTION_OPTIONS.filter(
+      (opt) =>
+        opt.id.toLowerCase().includes(mentionFilter) ||
+        opt.label.toLowerCase().includes(mentionFilter) ||
+        opt.description.toLowerCase().includes(mentionFilter)
+    );
+  }, [mentionFilter]);
+
+  // ★ 处理 mention 选择
+  const handleMentionSelect = useCallback(
+    (option: (typeof MENTION_OPTIONS)[0]) => {
+      const lastAtIndex = prompt.lastIndexOf('@');
+      if (lastAtIndex !== -1) {
+        // 替换 @ 后面的内容为选中的 mention
+        const newPrompt = prompt.slice(0, lastAtIndex) + option.label + ' ';
+        setPrompt(newPrompt);
+      }
+      setShowMentionMenu(false);
+      setMentionFilter('');
+      textareaRef.current?.focus();
+    },
+    [prompt]
+  );
+
   // 提交处理
   const handleSubmit = useCallback(() => {
     if (!prompt.trim() && files.length === 0) return;
@@ -119,6 +223,35 @@ export function PromptBar({
 
   // 键盘事件
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // ★ 处理 mention 菜单导航
+    if (showMentionMenu && filteredMentionOptions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedMentionIndex((prev) =>
+          prev < filteredMentionOptions.length - 1 ? prev + 1 : 0
+        );
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedMentionIndex((prev) =>
+          prev > 0 ? prev - 1 : filteredMentionOptions.length - 1
+        );
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        handleMentionSelect(filteredMentionOptions[selectedMentionIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowMentionMenu(false);
+        return;
+      }
+    }
+
+    // 正常的 Enter 提交
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -314,6 +447,52 @@ export function PromptBar({
                 </button>
               ))}
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ★ @ Mention 菜单 */}
+      <AnimatePresence>
+        {showMentionMenu && filteredMentionOptions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="bg-card absolute bottom-full left-0 right-0 z-50 mb-2 rounded-lg border p-2 shadow-lg"
+          >
+            <div className="text-muted-foreground mb-2 px-2 text-xs">
+              提及 Agent（使用 ↑↓ 选择，Enter 确认）
+            </div>
+            <div className="space-y-1">
+              {filteredMentionOptions.map((option, index) => (
+                <button
+                  key={option.id}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors',
+                    index === selectedMentionIndex
+                      ? 'bg-primary/10 text-primary'
+                      : 'hover:bg-muted'
+                  )}
+                  onClick={() => handleMentionSelect(option)}
+                  onMouseEnter={() => setSelectedMentionIndex(index)}
+                >
+                  <option.icon
+                    className={cn('h-5 w-5 flex-shrink-0', option.color)}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">{option.label}</div>
+                    <div className="text-muted-foreground truncate text-xs">
+                      {option.description}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            {filteredMentionOptions.length === 0 && (
+              <div className="text-muted-foreground px-3 py-2 text-sm">
+                没有匹配的 Agent
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

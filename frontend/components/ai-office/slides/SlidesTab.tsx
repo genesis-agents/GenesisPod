@@ -67,6 +67,7 @@ import type {
 import type { GenerateTeamRequest } from '@/types/slides-team';
 import { AgentTeamPanel } from './AgentTeamPanel';
 import { PhaseTimeline } from './PhaseTimeline';
+import { AIAssistMenu } from './AIAssistMenu';
 import {
   useSlidesHistoryStore,
   formatRelativeTime,
@@ -153,6 +154,13 @@ export function SlidesTab() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 只在挂载时执行一次
+
+  // ★ 自动隐藏历史记录：当有活跃会话、页面内容或正在生成时
+  useEffect(() => {
+    if (session || pages.length > 0 || generating) {
+      setShowHistory(false);
+    }
+  }, [session, pages.length, generating]);
 
   // 将 streamEvents 和 teamEvents 转换为 toolCalls
   // 精简版：只显示关键节点，Agent 状态由 AgentTeamPanel 负责
@@ -843,6 +851,9 @@ function Header({
             <Save className="h-4 w-4" />
             创建保存点
           </button>
+
+          {/* AI 辅助菜单 */}
+          {hasPages && <AIAssistMenu disabled={false} />}
 
           {/* 播放演示 */}
           {hasPages && onStartPresentation && (

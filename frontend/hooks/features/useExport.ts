@@ -53,6 +53,8 @@ export interface ExportOptions {
   orientation?: 'portrait' | 'landscape';
   watermark?: string;
   fileName?: string;
+  // Mission 导出专用：简化模式只导出核心结果
+  simplifiedMode?: boolean;
 }
 
 export interface ExportRequest {

@@ -89,6 +89,21 @@ export class SlidesEngineService {
    */
   private readonly pageEventBuffer = new Map<string, StreamEvent[]>();
 
+  /**
+   * 自动保存跟踪器
+   * 记录每个 session 已保存的最新页码，用于触发中间检查点
+   */
+  private readonly autoSaveTracker = new Map<
+    string,
+    {
+      lastSavedPage: number;
+      pages: Map<number, { html: string; design?: unknown }>;
+    }
+  >();
+
+  /** 每隔多少页自动保存一次 */
+  private readonly AUTO_SAVE_INTERVAL = 3;
+
   constructor(
     private readonly orchestrator: SlidesTeamOrchestrator,
     private readonly checkpointService: CheckpointService,
@@ -147,6 +162,100 @@ export class SlidesEngineService {
     this.logger.log(
       `[handlePageGenerated] Buffered page ${event.pageNumber}/${event.totalPages} for session ${sessionId}, design=${!!event.design}`,
     );
+
+    // ★ 自动保存机制：跟踪页面并在达到阈值时保存中间检查点
+    this.trackPageForAutoSave(sessionId, event);
+  }
+
+  /**
+   * 跟踪页面生成并在达到阈值时保存中间检查点
+   */
+  private trackPageForAutoSave(
+    sessionId: string,
+    event: PageGeneratedEvent,
+  ): void {
+    // 初始化跟踪器
+    if (!this.autoSaveTracker.has(sessionId)) {
+      this.autoSaveTracker.set(sessionId, {
+        lastSavedPage: 0,
+        pages: new Map(),
+      });
+    }
+
+    const tracker = this.autoSaveTracker.get(sessionId)!;
+
+    // 保存页面数据
+    if (event.html) {
+      tracker.pages.set(event.pageNumber, {
+        html: event.html,
+        design: event.design,
+      });
+    }
+
+    // 检查是否需要保存中间检查点
+    const completedPages = tracker.pages.size;
+    const pagesSinceLastSave = completedPages - tracker.lastSavedPage;
+
+    if (pagesSinceLastSave >= this.AUTO_SAVE_INTERVAL) {
+      this.logger.log(
+        `[trackPageForAutoSave] ★ Triggering auto-save at page ${event.pageNumber} (${completedPages} pages completed)`,
+      );
+
+      // 异步保存中间检查点
+      this.saveIntermediateCheckpoint(sessionId, tracker).catch((error) => {
+        this.logger.warn(
+          `[trackPageForAutoSave] Failed to save intermediate checkpoint: ${error}`,
+        );
+      });
+
+      // 更新已保存页码
+      tracker.lastSavedPage = completedPages;
+    }
+  }
+
+  /**
+   * 保存中间检查点
+   */
+  private async saveIntermediateCheckpoint(
+    sessionId: string,
+    tracker: {
+      lastSavedPage: number;
+      pages: Map<number, { html: string; design?: unknown }>;
+    },
+  ): Promise<void> {
+    try {
+      // 将页面数据转换为数组格式
+      const pagesArray = Array.from(tracker.pages.entries())
+        .sort(([a], [b]) => a - b)
+        .map(([pageNumber, data]) => ({
+          pageNumber,
+          html: data.html,
+          design: data.design,
+          status: "completed" as const,
+        }));
+
+      await this.checkpointService.create({
+        sessionId,
+        type: "page_rendered",
+        name: `自动保存点 - 已完成 ${pagesArray.length} 页`,
+        state: {
+          pages: pagesArray,
+          conversation: [],
+        } as unknown as import("../checkpoint/checkpoint.types").CheckpointState,
+        metadata: {
+          trigger: "auto",
+          description: `自动保存 - 已完成 ${pagesArray.length} 页`,
+        },
+      });
+
+      this.logger.log(
+        `[saveIntermediateCheckpoint] ★ Saved intermediate checkpoint with ${pagesArray.length} pages for session ${sessionId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[saveIntermediateCheckpoint] Failed to save: ${error}`,
+      );
+    }
   }
 
   /**
@@ -400,6 +509,9 @@ export class SlidesEngineService {
       if (missionCompleteData) {
         await this.saveFinalCheckpointFromEvent(sessionId, missionCompleteData);
       }
+
+      // 8.1 清理自动保存跟踪器
+      this.autoSaveTracker.delete(sessionId);
 
       // 8.5 最后一次刷新缓冲区，确保所有页面事件都已发送
       const finalPageEvents = this.flushPageEventBuffer(sessionId);
@@ -1405,6 +1517,7 @@ export class SlidesEngineService {
 
   /**
    * 从 mission:completed 事件数据保存最终检查点
+   * ★ 关键修复：确保保存完整的页面数据（包括 HTML 和 design）
    */
   private async saveFinalCheckpointFromEvent(
     sessionId: string,
@@ -1422,25 +1535,79 @@ export class SlidesEngineService {
         `[saveFinalCheckpointFromEvent] ★ Pages from event: ${pages.length}, pages type: ${typeof eventData.pages}`,
       );
 
+      // ★ 关键修复：验证并规范化每个页面的数据
+      const pagesWithHtml = pages.filter((p: unknown) => {
+        const page = p as { html?: string; renderedHtml?: string };
+        return page.html || page.renderedHtml;
+      });
+      this.logger.log(
+        `[saveFinalCheckpointFromEvent] ★ Pages with HTML: ${pagesWithHtml.length}/${pages.length}`,
+      );
+
+      // ★ 规范化页面数据，确保 html 字段存在
+      const normalizedPages = pages.map((page: unknown) => {
+        const p = page as {
+          html?: string;
+          renderedHtml?: string;
+          pageNumber?: number;
+          title?: string;
+          status?: string;
+          design?: unknown;
+          outline?: unknown;
+        };
+        const html = p.html || p.renderedHtml;
+        return {
+          ...p,
+          html, // 确保 html 字段存在
+          status: html ? "completed" : p.status || "pending",
+        };
+      });
+
+      // ★ 诊断：打印每个页面的关键信息
+      normalizedPages.forEach((p, i) => {
+        this.logger.log(
+          `[saveFinalCheckpointFromEvent]   Page ${i + 1}: htmlLength=${(p.html as string)?.length || 0}, hasDesign=${!!p.design}, status=${p.status}`,
+        );
+      });
+
       await this.checkpointService.create({
         sessionId,
         type: "batch_rendered",
+        name: "自动保存点 - 生成完成", // ★ 添加明确名称
         state: {
-          pages,
-          outline: eventData.outline,
+          pages: normalizedPages, // ★ 使用规范化后的 pages
+          outlinePlan: eventData.outline || eventData.outlinePlan,
+          taskDecomposition: eventData.taskDecomposition,
           qualityAudit: eventData.qualityAudit,
+          conversation: [],
         } as unknown as CheckpointState,
         metadata: {
           trigger: "auto",
-          description: "Mission completed",
+          description: `任务完成 - 自动保存 (共 ${normalizedPages.length} 页，${pagesWithHtml.length} 页已渲染)`,
           durationMs: duration,
         },
       });
+
+      // ★ 更新会话状态为已完成
+      try {
+        await this.checkpointService.updateSessionStatus(
+          sessionId,
+          "completed",
+        );
+        this.logger.log(
+          `[saveFinalCheckpointFromEvent] ★ Updated session ${sessionId} status to completed`,
+        );
+      } catch (statusError) {
+        this.logger.warn(
+          `[saveFinalCheckpointFromEvent] Failed to update session status: ${statusError}`,
+        );
+      }
+
       this.logger.log(
-        `[saveFinalCheckpointFromEvent] ★ Saved final checkpoint with ${pages.length} pages for session ${sessionId}`,
+        `[saveFinalCheckpointFromEvent] ★ Saved final checkpoint with ${normalizedPages.length} pages (${pagesWithHtml.length} with HTML) for session ${sessionId}`,
       );
     } catch (error) {
-      this.logger.warn(
+      this.logger.error(
         `[saveFinalCheckpointFromEvent] Failed to save final checkpoint: ${error}`,
       );
     }

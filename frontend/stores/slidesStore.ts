@@ -296,17 +296,55 @@ export const useSlidesStore = create<SlidesState & SlidesActions>()(
 
         // 从检查点恢复状态
         restoreFromCheckpointState: (checkpointState) => {
+          // ★ 诊断日志
+          console.log(
+            '[SlidesStore] ★★★ restoreFromCheckpointState CALLED ★★★'
+          );
+          console.log(
+            '[SlidesStore] checkpointState keys:',
+            Object.keys(checkpointState)
+          );
+          console.log(
+            '[SlidesStore] pages count:',
+            checkpointState.pages?.length || 0
+          );
+          console.log(
+            '[SlidesStore] has taskDecomposition:',
+            !!checkpointState.taskDecomposition
+          );
+          console.log(
+            '[SlidesStore] has outlinePlan:',
+            !!checkpointState.outlinePlan
+          );
+
           // 确保页面状态正确：如果有 HTML，则状态应该是 completed
           // 并按 pageNumber 排序，确保页面顺序正确
+          // ★ 关键修复：确保 design 数据被保留
           const restoredPages = (checkpointState.pages || [])
-            .map((page) => ({
-              ...page,
-              // 如果页面有 HTML，确保状态是 completed
-              status: page.html
-                ? ('completed' as const)
-                : page.status || ('pending' as const),
-            }))
+            .map((page) => {
+              // 兼容不同的 HTML 字段名
+              const html =
+                page.html || (page as { renderedHtml?: string }).renderedHtml;
+              return {
+                ...page,
+                html, // 确保 html 字段存在
+                // ★ 确保 design 数据被恢复（用于 Thinking TAB）
+                design: page.design,
+                // 如果页面有 HTML，确保状态是 completed
+                status: html
+                  ? ('completed' as const)
+                  : page.status || ('pending' as const),
+              };
+            })
             .sort((a, b) => a.pageNumber - b.pageNumber);
+
+          // ★ 诊断日志：检查恢复后的页面数据
+          console.log('[SlidesStore] ★ Restored pages:', restoredPages.length);
+          restoredPages.forEach((p, i) => {
+            console.log(
+              `[SlidesStore]   Page ${i + 1}: status=${p.status}, htmlLength=${p.html?.length || 0}, hasDesign=${!!p.design}`
+            );
+          });
 
           // 重建 streamEvents 用于显示生成过程
           const reconstructedEvents: StreamEvent[] = [];
@@ -349,7 +387,7 @@ export const useSlidesStore = create<SlidesState & SlidesActions>()(
             });
           }
 
-          // 为每个已完成的页面添加事件
+          // ★ 为每个已完成的页面添加事件（包含 design 数据用于 Thinking TAB）
           restoredPages.forEach((page) => {
             if (page.status === 'completed' && page.html) {
               reconstructedEvents.push({
@@ -360,16 +398,52 @@ export const useSlidesStore = create<SlidesState & SlidesActions>()(
                   outline: page.outline,
                 },
               });
+              // ★ 关键修复：使用 slide:generated 事件类型，包含 HTML 和 design
               reconstructedEvents.push({
-                type: 'page_completed',
+                type: 'slide:generated',
                 timestamp: new Date(),
                 data: {
                   pageNumber: page.pageNumber,
                   title: page.outline?.title || `第 ${page.pageNumber} 页`,
+                  html: page.html,
+                  design: page.design, // ★ 包含设计思考数据
                 },
               });
             }
           });
+
+          // ★ 计算恢复后的进度状态
+          const completedCount = restoredPages.filter(
+            (p) => p.status === 'completed'
+          ).length;
+          const totalCount = restoredPages.length;
+          const restoredProgress: GenerationProgress | null =
+            totalCount > 0
+              ? {
+                  phase:
+                    completedCount === totalCount
+                      ? 'quality_review'
+                      : 'page_rendering',
+                  phaseProgress:
+                    totalCount > 0
+                      ? Math.round((completedCount / totalCount) * 100)
+                      : 0,
+                  overallProgress:
+                    totalCount > 0
+                      ? Math.round((completedCount / totalCount) * 100)
+                      : 0,
+                  totalPages: totalCount,
+                  message:
+                    completedCount === totalCount
+                      ? '已恢复完成'
+                      : `已恢复 ${completedCount}/${totalCount} 页`,
+                }
+              : null;
+
+          console.log(
+            '[SlidesStore] ★ Setting state with progress:',
+            restoredProgress
+          );
 
           set({
             taskDecomposition: checkpointState.taskDecomposition || null,
@@ -379,11 +453,16 @@ export const useSlidesStore = create<SlidesState & SlidesActions>()(
             error: null,
             // 重置生成状态
             generating: false,
-            progress: null,
+            // ★ 设置恢复后的进度状态（而不是 null）
+            progress: restoredProgress,
             // 恢复重建的事件（而不是清空）
             streamEvents: reconstructedEvents,
             selectedPageIndex: 0,
           });
+
+          console.log(
+            '[SlidesStore] ★★★ restoreFromCheckpointState COMPLETED ★★★'
+          );
         },
 
         // 重置

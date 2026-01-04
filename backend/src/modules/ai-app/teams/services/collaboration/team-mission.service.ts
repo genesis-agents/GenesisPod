@@ -1499,7 +1499,7 @@ ${searchSection}
   }
 
   private buildLeaderReviewPrompt(
-    _mission: any,
+    mission: any,
     task: any,
     taskResult: string,
   ): string {
@@ -1511,9 +1511,31 @@ ${searchSection}
           "\n\n...[内容已截断，仅显示前6000字符]"
         : taskResult;
 
-    return `你是团队 Leader，请审核以下任务产出。
+    // 获取已完成任务的摘要，用于一致性检查
+    const completedTasks = (mission.tasks || [])
+      .filter(
+        (t: any) => t.status === "COMPLETED" && t.id !== task.id && t.result,
+      )
+      .slice(-3); // 只取最近3个已完成任务
 
-【任务信息】
+    const completedSummary =
+      completedTasks.length > 0
+        ? completedTasks
+            .map((t: any) => {
+              const resultPreview = (t.result || "").substring(0, 300);
+              return `- ${t.title}（${t.assignedTo?.agentName || t.assignedTo?.displayName || "未知"}）: ${resultPreview}${t.result?.length > 300 ? "..." : ""}`;
+            })
+            .join("\n")
+        : "（暂无已完成任务）";
+
+    return `你是团队 Leader，请审核以下任务产出，确保其质量和与整体任务的一致性。
+
+【整体任务背景】
+任务主题：${mission.title || "未知"}
+任务描述：${mission.description || "无描述"}
+${mission.goals ? `任务目标：${mission.goals}` : ""}
+
+【本次审核任务】
 任务名称：${task.title}
 任务描述：${task.description}
 负责人：${task.assignedTo.agentName || task.assignedTo.displayName}
@@ -1521,10 +1543,15 @@ ${searchSection}
 【任务产出】
 ${truncatedResult}
 
+【已完成的其他任务摘要】
+${completedSummary}
+
 【审核要求】
-1. 评估产出是否满足任务要求
-2. 如果合格，明确表示"审核通过"，并给出简短肯定
-3. 如果需要修改，明确指出需要改进的具体内容
+1. 评估产出是否满足任务要求，内容是否完整准确
+2. 检查产出是否与整体任务主题和目标保持一致
+3. 检查与其他已完成任务的风格、术语、论述角度是否协调统一
+4. 如果合格，明确表示"审核通过"，并给出简短肯定
+5. 如果需要修改，指出具体需要改进的内容，特别是一致性问题
 
 请直接给出审核意见：`;
   }
@@ -2072,10 +2099,43 @@ ${taskResults}
   }
 
   /**
+   * ★ 辅助方法：检测任务是否卡住
+   * 如果任务超过指定时间未更新，则视为卡住
+   */
+  private isMissionStuck(
+    mission: {
+      tasks?: Array<{
+        status: string;
+        startedAt?: Date | null;
+        updatedAt?: Date;
+      }>;
+      updatedAt?: Date;
+    },
+    thresholdMs = 10 * 60 * 1000, // 默认 10 分钟
+  ): boolean {
+    const now = Date.now();
+
+    // 检查是否有任务卡在 IN_PROGRESS 状态
+    const hasStuckTasks = (mission.tasks || []).some((t) => {
+      if (t.status !== "IN_PROGRESS") return false;
+      const startTime = t.startedAt
+        ? new Date(t.startedAt).getTime()
+        : t.updatedAt
+          ? new Date(t.updatedAt).getTime()
+          : 0;
+      return startTime > 0 && now - startTime > thresholdMs;
+    });
+
+    return hasStuckTasks;
+  }
+
+  /**
    * 重试失败或已取消的任务
    * 支持两种模式：
    * 1. 完全重试：重新规划并执行所有任务
    * 2. 继续执行：仅继续执行未完成的任务
+   *
+   * ★ 扩展支持：PAUSED 状态和卡住的 IN_PROGRESS 状态
    */
   async retryMission(
     missionId: string,
@@ -2099,12 +2159,29 @@ ${taskResults}
       throw new NotFoundException("任务不存在");
     }
 
-    // 只有 FAILED 或 CANCELLED 状态的任务可以重试
-    if (
-      mission.status !== MissionStatus.FAILED &&
-      mission.status !== MissionStatus.CANCELLED
-    ) {
-      throw new BadRequestException("只有失败或已取消的任务可以重试");
+    // ★ 扩展支持的状态：FAILED, CANCELLED, PAUSED, 以及卡住的 IN_PROGRESS
+    const allowedStatuses: MissionStatus[] = [
+      MissionStatus.FAILED,
+      MissionStatus.CANCELLED,
+      MissionStatus.PAUSED,
+    ];
+
+    // ★ 检查是否是卡住的 IN_PROGRESS 任务
+    const isStuckInProgress =
+      mission.status === MissionStatus.IN_PROGRESS &&
+      this.isMissionStuck(mission);
+
+    if (!allowedStatuses.includes(mission.status) && !isStuckInProgress) {
+      throw new BadRequestException(
+        "只有失败、已取消、已暂停或卡住的任务可以重试",
+      );
+    }
+
+    // ★ 如果是卡住的任务，记录日志
+    if (isStuckInProgress) {
+      this.logger.warn(
+        `[retryMission] Mission ${missionId} detected as stuck, allowing retry`,
+      );
     }
 
     const previousStatus = mission.status;
@@ -2153,15 +2230,34 @@ ${taskResults}
         this.logger.error(`Failed to restart mission ${missionId}: ${err}`);
       });
     } else {
-      // 继续执行：将失败/取消的任务标记为 PENDING，继续执行
-      const failedTasks = mission.tasks.filter(
-        (t) =>
-          t.status === AgentTaskStatus.CANCELLED ||
-          t.status === AgentTaskStatus.BLOCKED,
-      );
+      // 继续执行：将失败/取消/卡住的任务标记为 PENDING，继续执行
+      const stuckThreshold = 10 * 60 * 1000; // 10 分钟
+      const now = Date.now();
 
-      if (failedTasks.length === 0) {
-        // 没有失败的任务，检查是否有等待执行的任务
+      // ★ 扩展：同时检测失败、取消、阻塞和卡住的任务
+      const tasksToReset = mission.tasks.filter((t) => {
+        // 失败或取消的任务
+        if (
+          t.status === AgentTaskStatus.CANCELLED ||
+          t.status === AgentTaskStatus.BLOCKED
+        ) {
+          return true;
+        }
+        // ★ 卡住的 IN_PROGRESS 任务（超过 10 分钟未更新）
+        if (t.status === AgentTaskStatus.IN_PROGRESS && t.startedAt) {
+          const startTime = new Date(t.startedAt).getTime();
+          if (now - startTime > stuckThreshold) {
+            this.logger.warn(
+              `[retryMission] Task ${t.id} is stuck (started ${Math.round((now - startTime) / 60000)} min ago)`,
+            );
+            return true;
+          }
+        }
+        return false;
+      });
+
+      if (tasksToReset.length === 0) {
+        // 没有需要重置的任务，检查是否有等待执行的任务
         const pendingTasks = mission.tasks.filter(
           (t) => t.status === AgentTaskStatus.PENDING,
         );
@@ -2171,8 +2267,8 @@ ${taskResults}
         }
       }
 
-      // 将失败的任务重置为 PENDING
-      for (const task of failedTasks) {
+      // 将需要重置的任务设为 PENDING
+      for (const task of tasksToReset) {
         await this.prisma.agentTask.update({
           where: { id: task.id },
           data: {
@@ -2193,17 +2289,29 @@ ${taskResults}
         },
       });
 
+      // ★ 生成更详细的日志消息
+      const stuckCount = tasksToReset.filter(
+        (t) => t.status === AgentTaskStatus.IN_PROGRESS,
+      ).length;
+      const failedCount = tasksToReset.length - stuckCount;
+      const logMsg =
+        stuckCount > 0 && failedCount > 0
+          ? `${failedCount} 个失败任务和 ${stuckCount} 个卡住任务将重新执行`
+          : stuckCount > 0
+            ? `${stuckCount} 个卡住的任务将重新执行`
+            : `${failedCount} 个任务将重新执行`;
+
       await this.createLog(missionId, {
         type: MissionLogType.TASK_STARTED,
         agentId: mission.leader.id,
         agentName: mission.leader.agentName || mission.leader.displayName,
-        content: `任务继续执行，${failedTasks.length} 个任务将重新执行${options?.reason ? `，原因：${options.reason}` : ""}`,
+        content: `任务继续执行，${logMsg}${options?.reason ? `，原因：${options.reason}` : ""}`,
       });
 
       await this.sendMessageToTopic(
         mission.topicId,
         null,
-        `▶️ **任务继续**\n\n任务「${mission.title}」继续执行，${failedTasks.length} 个任务将重新执行...${options?.reason ? `\n\n> 原因：${options.reason}` : ""}`,
+        `▶️ **任务继续**\n\n任务「${mission.title}」继续执行，${logMsg}...${options?.reason ? `\n\n> 原因：${options.reason}` : ""}`,
         MessageContentType.SYSTEM,
       );
 
@@ -2211,7 +2319,8 @@ ${taskResults}
         missionId,
         mode: "continue",
         previousStatus,
-        retriedTaskCount: failedTasks.length,
+        retriedTaskCount: tasksToReset.length,
+        stuckTaskCount: stuckCount,
       });
 
       // 继续执行下一批任务
@@ -2491,18 +2600,11 @@ ${taskResults}
             );
           });
 
-          const resetMsg =
-            stuckInProgressTasks.length > 0
-              ? `\n已重置 ${stuckInProgressTasks.length} 个卡住的任务`
-              : "";
-          const blockedMsg =
-            blockedTasks.length > 0
-              ? `\n等待依赖完成的任务：${blockedTasks.length} 个`
-              : "";
+          // ★ 简化消息：不再显示详细的任务统计信息
           await this.sendMessageToTopic(
             topicId,
             updatedMission.leader?.id || null,
-            `✅ 收到指令，正在继续组织团队完成任务...\n\n可立即执行的任务：${tasksCanStart.length} 个${blockedMsg}${resetMsg}`,
+            `✅ 收到，继续执行任务...`,
             MessageContentType.TEXT,
           );
 
@@ -2523,10 +2625,11 @@ ${taskResults}
           this.logger.log(
             `[Leader Command] Re-triggering review for ${awaitingReviewBlocking.length} blocking AWAITING_REVIEW tasks`,
           );
+          // ★ 简化消息
           await this.sendMessageToTopic(
             topicId,
             updatedMission.leader?.id || null,
-            `🔄 检测到 ${pendingTasks.length} 个待执行任务被阻塞\n正在重新审核 ${awaitingReviewBlocking.length} 个待审核的依赖任务...`,
+            `✅ 收到，正在处理待审核任务...`,
             MessageContentType.TEXT,
           );
 
@@ -2554,10 +2657,11 @@ ${taskResults}
           this.logger.log(
             `[Leader Command] Re-triggering revision for ${revisionNeededBlocking.length} blocking REVISION_NEEDED tasks`,
           );
+          // ★ 简化消息
           await this.sendMessageToTopic(
             topicId,
             updatedMission.leader?.id || null,
-            `🔄 检测到 ${pendingTasks.length} 个待执行任务被阻塞\n正在重新触发 ${revisionNeededBlocking.length} 个需要修订的依赖任务...`,
+            `✅ 收到，正在处理待修订任务...`,
             MessageContentType.TEXT,
           );
 

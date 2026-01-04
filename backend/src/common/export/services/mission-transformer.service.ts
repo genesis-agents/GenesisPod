@@ -67,19 +67,58 @@ export class MissionTransformerService {
 
   /**
    * 将 TeamMission 转换为 UnifiedContent 格式
+   * @param missionId 任务 ID
+   * @param simplifiedMode 简化模式，只导出核心结果（用于避免复杂导出失败）
    */
-  async transform(missionId: string): Promise<UnifiedContent> {
-    this.logger.debug(`Transforming mission: ${missionId}`);
+  async transform(
+    missionId: string,
+    simplifiedMode = false,
+  ): Promise<UnifiedContent> {
+    this.logger.debug(
+      `Transforming mission: ${missionId}, simplified: ${simplifiedMode}`,
+    );
     this.sectionCounter = 0;
 
     // 1. 获取任务及其关联数据
     const mission = await this.fetchMissionWithRelations(missionId);
 
-    // 2. 计算统计数据
-    const stats = this.calculateStatistics(mission);
-
     // 3. 构建元数据
     const metadata = this.buildMetadata(mission);
+
+    // 简化模式：只包含核心结果
+    if (simplifiedMode && mission.finalResult) {
+      const sections: ContentSection[] = [
+        {
+          id: this.nextSectionId(),
+          type: "heading",
+          content: mission.title,
+          level: 1,
+        },
+        {
+          id: this.nextSectionId(),
+          type: "paragraph",
+          content: mission.description,
+        },
+        {
+          id: this.nextSectionId(),
+          type: "heading",
+          content: "任务成果",
+          level: 1,
+        },
+        ...this.parseMarkdown(mission.finalResult),
+      ];
+
+      return {
+        metadata,
+        cover: {
+          showCover: true,
+        },
+        sections,
+      };
+    }
+
+    // 2. 计算统计数据
+    const stats = this.calculateStatistics(mission);
 
     // 4. 构建各部分内容
     const sections: ContentSection[] = [
