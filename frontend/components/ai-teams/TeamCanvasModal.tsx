@@ -2495,8 +2495,8 @@ function AgentPopover({
                     <span>任务列表</span>
                   )}
                 </div>
-                <div className="space-y-2">
-                  {displayTasks.slice(0, 8).map((task) => {
+                <div className="max-h-[400px] space-y-2 overflow-y-auto pr-1">
+                  {displayTasks.map((task) => {
                     const config = taskStatusConfig[task.status];
                     return (
                       <div
@@ -2524,11 +2524,6 @@ function AgentPopover({
                       </div>
                     );
                   })}
-                  {displayTasks.length > 8 && (
-                    <div className="py-2 text-center text-sm text-gray-400">
-                      还有 {displayTasks.length - 8} 个任务...
-                    </div>
-                  )}
                 </div>
               </div>
             )}
