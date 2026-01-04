@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
 } from "@nestjs/common";
+import { SkipThrottle } from "@nestjs/throttler";
 import {
   CollectionTaskService,
   CreateCollectionTaskDto,
@@ -62,6 +63,7 @@ export class CollectionTaskController {
    * 获取运行中的任务
    * GET /data-collection/tasks/running
    */
+  @SkipThrottle()
   @Get("running")
   async getRunning() {
     const tasks = await this.taskService.getRunningTasks();
@@ -76,6 +78,7 @@ export class CollectionTaskController {
    * 获取待执行的任务
    * GET /data-collection/tasks/pending
    */
+  @SkipThrottle()
   @Get("pending")
   async getPending() {
     const tasks = await this.taskService.getPendingTasks();
@@ -87,9 +90,10 @@ export class CollectionTaskController {
   }
 
   /**
-   * 获取单个任务
+   * 获取单个任务 - 用于状态轮询，跳过限流
    * GET /data-collection/tasks/:id
    */
+  @SkipThrottle()
   @Get(":id")
   async findOne(@Param("id") id: string) {
     const task = await this.taskService.findOne(id);
