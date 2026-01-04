@@ -2632,7 +2632,33 @@ function TaskPopover({
                   任务描述
                 </div>
                 <div className="prose prose-sm max-w-none rounded-xl border border-gray-100 bg-gray-50 p-4 text-gray-700">
-                  <ReactMarkdown>{task.description}</ReactMarkdown>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      table: ({ children }) => (
+                        <div className="my-2 overflow-x-auto">
+                          <table className="min-w-full border-collapse text-sm">
+                            {children}
+                          </table>
+                        </div>
+                      ),
+                      thead: ({ children }) => (
+                        <thead className="bg-gray-200">{children}</thead>
+                      ),
+                      th: ({ children }) => (
+                        <th className="border border-gray-300 px-3 py-2 text-left text-xs font-semibold">
+                          {children}
+                        </th>
+                      ),
+                      td: ({ children }) => (
+                        <td className="border border-gray-200 px-3 py-2">
+                          {children}
+                        </td>
+                      ),
+                    }}
+                  >
+                    {task.description}
+                  </ReactMarkdown>
                 </div>
               </div>
             )}
@@ -2644,7 +2670,33 @@ function TaskPopover({
                   执行成果
                 </div>
                 <div className="prose prose-sm max-w-none rounded-xl border border-green-100 bg-green-50 p-4 text-gray-700">
-                  <ReactMarkdown>{task.result}</ReactMarkdown>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      table: ({ children }) => (
+                        <div className="my-2 overflow-x-auto">
+                          <table className="min-w-full border-collapse text-sm">
+                            {children}
+                          </table>
+                        </div>
+                      ),
+                      thead: ({ children }) => (
+                        <thead className="bg-green-100">{children}</thead>
+                      ),
+                      th: ({ children }) => (
+                        <th className="border border-green-200 px-3 py-2 text-left text-xs font-semibold">
+                          {children}
+                        </th>
+                      ),
+                      td: ({ children }) => (
+                        <td className="border border-green-200 px-3 py-2">
+                          {children}
+                        </td>
+                      ),
+                    }}
+                  >
+                    {task.result}
+                  </ReactMarkdown>
                 </div>
               </div>
             )}
@@ -2664,7 +2716,33 @@ function TaskPopover({
                         : 'border-purple-200 bg-purple-50'
                   }`}
                 >
-                  <ReactMarkdown>{task.leaderFeedback}</ReactMarkdown>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      table: ({ children }) => (
+                        <div className="my-2 overflow-x-auto">
+                          <table className="min-w-full border-collapse text-sm">
+                            {children}
+                          </table>
+                        </div>
+                      ),
+                      thead: ({ children }) => (
+                        <thead className="bg-purple-100">{children}</thead>
+                      ),
+                      th: ({ children }) => (
+                        <th className="border border-purple-200 px-3 py-2 text-left text-xs font-semibold">
+                          {children}
+                        </th>
+                      ),
+                      td: ({ children }) => (
+                        <td className="border border-purple-200 px-3 py-2">
+                          {children}
+                        </td>
+                      ),
+                    }}
+                  >
+                    {task.leaderFeedback}
+                  </ReactMarkdown>
                 </div>
               </div>
             )}
