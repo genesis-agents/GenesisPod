@@ -1916,6 +1916,9 @@ model TeamMission {
   completedTasks  Int @default(0) @map("completed_tasks")
   progressPercent Int @default(0) @map("progress_percent")
 
+  // Token 消耗统计
+  totalTokensUsed Int @default(0) @map("total_tokens_used") // 任务累计消耗的 token 数
+
   // 时间线
   createdById String    @map("created_by_id")
   createdBy   User      @relation("MissionCreator", fields: [createdById], references: [id])

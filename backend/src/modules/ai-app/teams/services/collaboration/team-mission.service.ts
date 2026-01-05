@@ -164,12 +164,13 @@ export class TeamMissionService {
 
   /**
    * Call AI with database API key
+   * Optionally tracks token usage for a mission
    */
   private async callAIWithConfig(
     aiModel: string,
     messages: { role: string; content: string }[],
     systemPrompt: string,
-    options?: { maxTokens?: number; temperature?: number },
+    options?: { maxTokens?: number; temperature?: number; missionId?: string },
   ) {
     const modelConfig = await this.getModelConfig(aiModel);
 
@@ -183,9 +184,10 @@ export class TeamMissionService {
       aiModel.startsWith("o3");
     const defaultMaxTokens = isLargeModel ? 6000 : 4000;
 
+    let result;
     if (modelConfig && modelConfig.apiKey) {
       // Use database API key
-      return this.aiChatService.generateChatCompletionWithKey({
+      result = await this.aiChatService.generateChatCompletionWithKey({
         provider: modelConfig.provider,
         modelId: modelConfig.modelId,
         apiKey: modelConfig.apiKey,
@@ -195,16 +197,54 @@ export class TeamMissionService {
         maxTokens: options?.maxTokens ?? defaultMaxTokens,
         temperature: options?.temperature ?? 0.7,
       });
+    } else {
+      // Fallback to environment variable based method
+      result = await this.aiChatService.generateChatCompletion({
+        model: aiModel,
+        messages: messages as any,
+        systemPrompt,
+        maxTokens: options?.maxTokens ?? defaultMaxTokens,
+        temperature: options?.temperature ?? 0.7,
+      });
     }
 
-    // Fallback to environment variable based method
-    return this.aiChatService.generateChatCompletion({
-      model: aiModel,
-      messages: messages as any,
-      systemPrompt,
-      maxTokens: options?.maxTokens ?? defaultMaxTokens,
-      temperature: options?.temperature ?? 0.7,
-    });
+    // ★ Track token consumption for mission
+    if (options?.missionId && result.tokensUsed > 0) {
+      this.trackMissionTokens(options.missionId, result.tokensUsed).catch(
+        (err) => {
+          this.logger.warn(
+            `[callAIWithConfig] Failed to track tokens for mission ${options.missionId}: ${err}`,
+          );
+        },
+      );
+    }
+
+    return result;
+  }
+
+  /**
+   * 追踪任务的 Token 消耗
+   * 使用原始 SQL 更新以支持尚未 regenerate 的 Prisma client
+   */
+  private async trackMissionTokens(
+    missionId: string,
+    tokensUsed: number,
+  ): Promise<void> {
+    try {
+      // 使用原始 SQL 更新，避免 Prisma client 未 regenerate 的问题
+      await this.prisma.$executeRaw`
+        UPDATE team_missions
+        SET total_tokens_used = COALESCE(total_tokens_used, 0) + ${tokensUsed}
+        WHERE id = ${missionId}
+      `;
+      this.logger.debug(
+        `[trackMissionTokens] Added ${tokensUsed} tokens to mission ${missionId}`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `[trackMissionTokens] Failed to update tokens for mission ${missionId}: ${error}`,
+      );
+    }
   }
 
   // ==================== 重试与 Agent 切换辅助方法 ====================
@@ -417,7 +457,7 @@ export class TeamMissionService {
           aiModel,
           messages,
           systemPrompt,
-          options,
+          { ...options, missionId: taskContext.missionId },
         );
 
         this.logger.log(
@@ -661,7 +701,7 @@ export class TeamMissionService {
           leader.aiModel,
           [{ role: "user", content: planningPrompt }],
           this.getLeaderSystemPrompt(leader),
-          { maxTokens: 8000, temperature: 0.7 },
+          { maxTokens: 8000, temperature: 0.7, missionId: mission.id },
         );
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
@@ -1693,7 +1733,7 @@ export class TeamMissionService {
         leader.aiModel,
         [{ role: "user", content: replanPrompt }],
         this.getLeaderSystemPrompt(leader),
-        { maxTokens: 4000, temperature: 0.7 },
+        { maxTokens: 4000, temperature: 0.7, missionId: mission.id },
       );
 
       // 发送 Leader 的重新规划消息
@@ -1802,6 +1842,7 @@ export class TeamMissionService {
           taskResult,
           task.title,
           leader.aiModel,
+          mission.id,
         );
         // 使用摘要 + 关键片段作为审核内容
         reviewContent = keyExcerpts
@@ -1847,7 +1888,7 @@ export class TeamMissionService {
           leader.aiModel,
           [{ role: "user", content: reviewPrompt }],
           this.getLeaderSystemPrompt(leader),
-          { maxTokens: 4000, temperature: 0.5 },
+          { maxTokens: 4000, temperature: 0.5, missionId: mission.id },
         );
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
@@ -2082,7 +2123,7 @@ export class TeamMissionService {
           assignedTo.aiModel,
           [{ role: "user", content: revisionPrompt }],
           this.getAgentSystemPrompt(assignedTo, latestTask),
-          { maxTokens: 8000, temperature: 0.7 },
+          { maxTokens: 8000, temperature: 0.7, missionId: mission.id },
         );
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
@@ -2289,7 +2330,7 @@ export class TeamMissionService {
             mission.leader.aiModel,
             [{ role: "user", content: summaryPrompt }],
             this.getLeaderSystemPrompt(mission.leader),
-            { maxTokens: 2000, temperature: 0.5 },
+            { maxTokens: 2000, temperature: 0.5, missionId },
           );
           executiveSummary = summaryResponse.content;
         } catch (summaryError) {
@@ -2320,11 +2361,30 @@ export class TeamMissionService {
         // 清理失败不影响流程
       }
 
+      // ★ 获取最新的 token 消耗统计（使用原始 SQL 避免 Prisma client 未 regenerate 的问题）
+      let totalTokensUsed = 0;
+      try {
+        const tokenResult = await this.prisma.$queryRaw<
+          { total_tokens_used: number | null }[]
+        >`SELECT total_tokens_used FROM team_missions WHERE id = ${missionId}`;
+        totalTokensUsed = tokenResult[0]?.total_tokens_used || 0;
+      } catch (error) {
+        this.logger.warn(
+          `[completeMission] Failed to get token stats: ${error}`,
+        );
+      }
+
+      // ★ 构建 Token 消耗报告
+      const tokenReport =
+        totalTokensUsed > 0
+          ? `\n\n---\n\n## 📊 资源消耗统计\n\n| 指标 | 数值 |\n|------|------|\n| 总 Token 消耗 | ${totalTokensUsed.toLocaleString()} tokens |\n| 预估成本 | $${(totalTokensUsed * 0.00001).toFixed(4)} |`
+          : "";
+
       // 发送最终交付消息
       const finalMessage = await this.sendMessageToTopic(
         mission.topicId,
         mission.leader.id,
-        `[最终交付]\n\n🎉 任务完成！\n\n${finalReport}`,
+        `[最终交付]\n\n🎉 任务完成！\n\n${finalReport}${tokenReport}`,
         MessageContentType.TEXT,
       );
 
@@ -3213,24 +3273,199 @@ ${taskBreakdown.executionPlan ? `\n执行计划：${taskBreakdown.executionPlan}
 `
       : "";
 
+    // ★ 新增：强制约束条件（从 mission.constraints 提取）
+    const constraintsSection =
+      mission.constraints?.length > 0
+        ? `
+
+【🚫 强制约束 - 违反将导致审核不通过】
+以下约束条件必须严格遵守，否则会被 Leader 打回修改：
+${mission.constraints.map((c: string, i: number) => `${i + 1}. ${c}`).join("\n")}
+
+---
+
+`
+        : "";
+
+    // ★ 新增：从任务描述中提取关键约束（如字数要求、禁止事项）
+    const extractedConstraints = this.extractTaskConstraints(
+      mission.description || "",
+      task.description || "",
+    );
+
+    const extractedConstraintsSection =
+      extractedConstraints.length > 0
+        ? `
+
+【📋 任务关键要求（从描述中提取）】
+${extractedConstraints.map((c, i) => `${i + 1}. ${c}`).join("\n")}
+
+---
+
+`
+        : "";
+
+    // ★ 新增：已完成任务摘要（保持一致性）
+    const completedTasksSection = this.buildCompletedTasksSummary(
+      mission.tasks || [],
+      task.id,
+    );
+
+    // ★ 新增：明确输出格式要求
+    const wordCountHint = this.extractWordCount(
+      task.description || mission.description || "",
+    );
+    const outputRequirements = `
+
+【✅ 输出要求】
+- 字数要求：${wordCountHint || "内容充实，不少于1000字"}
+- 格式要求：直接输出正文内容，不要包含"本章小结"、"未完待续"、"字数统计"等元信息
+- 一致性：必须与已完成章节的人物设定、世界观、文风保持一致
+- 完整性：确保内容完整，有头有尾，情节流畅`;
+
     return `你正在执行团队任务中的一个子任务。
 
 【总任务背景】
 标题：${mission.title}
 描述：${mission.description}
-${outlineSection}${searchSection}
+${mission.objectives?.length ? `\n目标：${mission.objectives.join("、")}` : ""}
+${constraintsSection}${extractedConstraintsSection}${outlineSection}${completedTasksSection}${searchSection}
 【你的子任务】
 任务名称：${task.title}
 任务描述：${task.description}
 任务类型：${task.taskType}
+${outputRequirements}
 
-【要求】
+【执行要求】
 请认真完成这个任务，输出完整的工作成果。
 - **⚠️ 务必遵循上面的整体大纲和规划**，保持与其他章节的一致性
+- **⚠️ 严格遵守所有强制约束条件**
 - 确保输出内容完整、专业
 - 如果有参考资料，请充分利用并注明来源
-- 如果需要其他成员协助，可以 @他们的名字
 - 完成后会由 Leader 审核`;
+  }
+
+  /**
+   * 从任务描述中提取关键约束条件
+   */
+  private extractTaskConstraints(
+    missionDescription: string,
+    taskDescription: string,
+  ): string[] {
+    const constraints: string[] = [];
+    const combinedText = `${missionDescription} ${taskDescription}`;
+
+    // 提取字数要求
+    const wordCountMatch = combinedText.match(
+      /(\d+)\s*字[左右以上]?|每[章节篇][约不少于]*\s*(\d+)\s*字|字数[：:约]\s*(\d+)/,
+    );
+    if (wordCountMatch) {
+      const count = wordCountMatch[1] || wordCountMatch[2] || wordCountMatch[3];
+      constraints.push(`字数要求：${count}字左右`);
+    }
+
+    // 提取"不能"、"禁止"、"不要"等禁止条件
+    const prohibitionPatterns = [
+      /([^，。！？\n]{2,30})(不能|禁止|不要|切勿|严禁|不可以|不得)[^，。！？\n]{2,50}/g,
+      /(禁止|不能|不要|切勿|严禁|不可以|不得)[^，。！？\n]{2,50}/g,
+    ];
+
+    for (const pattern of prohibitionPatterns) {
+      const matches = combinedText.matchAll(pattern);
+      for (const match of matches) {
+        const constraint = match[0].trim();
+        if (
+          constraint.length > 5 &&
+          constraint.length < 100 &&
+          !constraints.includes(constraint)
+        ) {
+          constraints.push(constraint);
+        }
+      }
+    }
+
+    // 提取"必须"、"一定要"等强制条件
+    const mandatoryPatterns = [
+      /(必须|一定要|务必|确保|需要)[^，。！？\n]{2,50}/g,
+    ];
+
+    for (const pattern of mandatoryPatterns) {
+      const matches = combinedText.matchAll(pattern);
+      for (const match of matches) {
+        const constraint = match[0].trim();
+        if (
+          constraint.length > 5 &&
+          constraint.length < 100 &&
+          !constraints.includes(constraint)
+        ) {
+          constraints.push(constraint);
+        }
+      }
+    }
+
+    return constraints.slice(0, 10); // 最多10条约束
+  }
+
+  /**
+   * 从文本中提取字数要求
+   */
+  private extractWordCount(text: string): string | null {
+    const patterns = [
+      /(\d+)\s*字[左右以上]?/,
+      /每[章节篇][约不少于]*\s*(\d+)\s*字/,
+      /字数[：:约]\s*(\d+)/,
+      /不少于\s*(\d+)\s*字/,
+      /至少\s*(\d+)\s*字/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const count = match[1];
+        return `${count}字左右`;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * 构建已完成任务摘要（用于保持一致性）
+   */
+  private buildCompletedTasksSummary(
+    tasks: any[],
+    currentTaskId: string,
+  ): string {
+    const completedTasks = tasks.filter(
+      (t) =>
+        t.status === AgentTaskStatus.COMPLETED &&
+        t.id !== currentTaskId &&
+        t.result,
+    );
+
+    if (completedTasks.length === 0) {
+      return "";
+    }
+
+    // 最多展示前3个已完成任务的摘要
+    const summaries = completedTasks.slice(0, 3).map((t) => {
+      const resultPreview =
+        t.result.length > 300 ? t.result.substring(0, 300) + "..." : t.result;
+      const agentName =
+        t.assignedTo?.agentName || t.assignedTo?.displayName || "未知";
+      return `📖 **${t.title}**（${agentName}完成）\n${resultPreview}`;
+    });
+
+    return `
+
+【📚 已完成任务参考 - 请保持一致性】
+以下是其他成员已完成的任务摘要，请参考其风格、设定、术语，确保你的输出与之保持一致：
+
+${summaries.join("\n\n---\n\n")}
+
+---
+
+`;
   }
 
   /**
@@ -3344,6 +3579,7 @@ ${outlineSection}${searchSection}
     content: string,
     taskTitle: string,
     leaderModel: string,
+    missionId?: string,
   ): Promise<{ summary: string; keyExcerpts: string }> {
     const SUMMARY_THRESHOLD = 3000; // 超过3000字符才需要摘要
 
@@ -3379,7 +3615,7 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
         leaderModel,
         [{ role: "user", content: prompt }],
         "你是一位专业的内容审核助手，擅长快速提炼长文精华。请客观、准确地生成摘要。",
-        { maxTokens: 1500, temperature: 0.3 },
+        { maxTokens: 1500, temperature: 0.3, missionId },
       );
 
       // 提取开头和结尾的关键片段
@@ -3443,13 +3679,19 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
             .join("\n")
         : "（暂无已完成任务）";
 
+    // ★ 构建约束条件提示（用于审核时参考）
+    const constraintsHint =
+      mission.constraints?.length > 0
+        ? `\n**强制约束条件：**\n${mission.constraints.map((c: string, i: number) => `${i + 1}. ${c}`).join("\n")}\n`
+        : "";
+
     return `你是团队 Leader，请审核以下任务产出，确保其质量和与整体任务的一致性。
 
 【整体任务背景】
 任务主题：${mission.title || "未知"}
 任务描述：${mission.description || "无描述"}
 ${mission.goals ? `任务目标：${mission.goals}` : ""}
-
+${constraintsHint}
 【本次审核任务】
 任务名称：${task.title}
 任务描述：${task.description}
@@ -3461,14 +3703,39 @@ ${truncatedResult}
 【已完成的其他任务摘要】
 ${completedSummary}
 
-【审核要求】
-1. 评估产出是否满足任务要求，内容是否完整准确
-2. 检查产出是否与整体任务主题和目标保持一致
-3. 检查与其他已完成任务的风格、术语、论述角度是否协调统一
-4. 如果合格，明确表示"审核通过"，并给出简短肯定
-5. 如果需要修改，指出具体需要改进的内容，特别是一致性问题
+【⚠️ 审核规则 - 区分硬性错误与软性建议】
 
-请直接给出审核意见：`;
+请使用以下分类标准评估产出：
+
+🚫 **硬性错误（必须修改才能通过）：**
+- 违反任务约束条件（如人物设定冲突、情节矛盾）
+- 严重偏离任务要求（如主题完全不符）
+- 关键内容缺失（如遗漏必要元素）
+- 字数严重不足（低于要求的 50%）
+- 严重的事实性错误
+
+💡 **软性建议（可选改进，不影响通过）：**
+- 文笔优化建议
+- 细节补充建议
+- 风格微调
+- 扩展性建议
+
+**审核决策原则：**
+- 如果只有软性建议，没有硬性错误 → **审核通过**，附带改进建议
+- 如果存在硬性错误 → **需要修改**，明确列出必须修复的问题
+
+请按以下格式输出审核意见：
+
+## 审核结果：[通过/需要修改]
+
+### 硬性问题（如有）
+[列出必须修复的问题]
+
+### 改进建议（如有）
+[列出可选的优化建议]
+
+### 总体评价
+[简短总结]`;
   }
 
   private buildTaskRevisionPrompt(
