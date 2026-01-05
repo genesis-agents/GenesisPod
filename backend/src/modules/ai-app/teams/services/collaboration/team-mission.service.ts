@@ -45,6 +45,23 @@ interface TaskBreakdown {
 export class TeamMissionService {
   private readonly logger = new Logger(TeamMissionService.name);
 
+  // ==================== 并发控制锁 ====================
+
+  /**
+   * 正在执行的任务 ID 集合（防止同一任务被重复执行）
+   */
+  private readonly executingTasks = new Set<string>();
+
+  /**
+   * 正在执行 executeNextTasks 的 Mission ID 集合（防止并发调用）
+   */
+  private readonly executingMissions = new Set<string>();
+
+  /**
+   * 正在执行修订的任务 ID 集合
+   */
+  private readonly revisingTasks = new Set<string>();
+
   // ==================== 重试与 Agent 切换配置 ====================
 
   /**
@@ -762,87 +779,118 @@ export class TeamMissionService {
   // ==================== 执行下一批任务 ====================
 
   private async executeNextTasks(missionId: string) {
-    const mission = await this.prisma.teamMission.findUnique({
-      where: { id: missionId },
-      include: {
-        tasks: {
-          include: {
-            assignedTo: true,
-          },
-        },
-        leader: true,
-      },
-    });
-
-    if (!mission || mission.status !== MissionStatus.IN_PROGRESS) {
+    // 🔒 并发控制：防止同一 Mission 的 executeNextTasks 被并发调用
+    if (this.executingMissions.has(missionId)) {
+      this.logger.debug(
+        `[executeNextTasks] Mission ${missionId} is already being processed, skipping`,
+      );
       return;
     }
 
-    // 找出所有可以开始的任务（依赖已完成）
-    const pendingTasks = mission.tasks.filter(
-      (t) => t.status === AgentTaskStatus.PENDING,
+    this.executingMissions.add(missionId);
+    this.logger.debug(
+      `[executeNextTasks] Acquired lock for mission ${missionId}`,
     );
 
-    const tasksToStart: typeof pendingTasks = [];
-
-    for (const task of pendingTasks) {
-      const dependsOnIds = task.dependsOnIds || [];
-
-      // 检查所有依赖是否已完成
-      const allDependenciesCompleted = dependsOnIds.every((depId) => {
-        const depTask = mission.tasks.find((t) => t.id === depId);
-        return depTask?.status === AgentTaskStatus.COMPLETED;
+    try {
+      const mission = await this.prisma.teamMission.findUnique({
+        where: { id: missionId },
+        include: {
+          tasks: {
+            include: {
+              assignedTo: true,
+            },
+          },
+          leader: true,
+        },
       });
 
-      if (allDependenciesCompleted) {
-        tasksToStart.push(task);
-      }
-    }
-
-    if (tasksToStart.length === 0) {
-      // 检查是否所有任务都已完成
-      const allCompleted = mission.tasks.every(
-        (t) => t.status === AgentTaskStatus.COMPLETED,
-      );
-
-      if (allCompleted) {
-        await this.completeMission(missionId);
+      if (!mission || mission.status !== MissionStatus.IN_PROGRESS) {
         return;
       }
 
-      // 检查是否有卡住的任务需要重新处理
-      const stuckTasks = mission.tasks.filter(
+      // 找出所有可以开始的任务（依赖已完成，且不在执行中）
+      const pendingTasks = mission.tasks.filter(
         (t) =>
-          t.status === AgentTaskStatus.REVISION_NEEDED ||
-          t.status === AgentTaskStatus.AWAITING_REVIEW,
+          t.status === AgentTaskStatus.PENDING &&
+          !this.executingTasks.has(t.id), // 🔒 排除已在执行中的任务
       );
 
-      if (stuckTasks.length > 0) {
-        this.logger.warn(
-          `[Mission ${missionId}] Found ${stuckTasks.length} stuck tasks: ${stuckTasks.map((t) => `${t.title}(${t.status})`).join(", ")}`,
-        );
-        // 任务正在等待审核或修改中，不需要额外处理，等待异步流程完成
+      const tasksToStart: typeof pendingTasks = [];
+
+      for (const task of pendingTasks) {
+        const dependsOnIds = task.dependsOnIds || [];
+
+        // 检查所有依赖是否已完成
+        const allDependenciesCompleted = dependsOnIds.every((depId) => {
+          const depTask = mission.tasks.find((t) => t.id === depId);
+          return depTask?.status === AgentTaskStatus.COMPLETED;
+        });
+
+        if (allDependenciesCompleted) {
+          tasksToStart.push(task);
+        }
       }
 
-      return;
-    }
+      if (tasksToStart.length === 0) {
+        // 检查是否所有任务都已完成
+        const allCompleted = mission.tasks.every(
+          (t) => t.status === AgentTaskStatus.COMPLETED,
+        );
 
-    // 发送任务分配消息
-    for (const task of tasksToStart) {
-      await this.sendMessageToTopic(
-        mission.topicId,
-        null,
-        `📋 [任务分配] 任务「${task.title}」已分配给 @${task.assignedTo.agentName || task.assignedTo.displayName}`,
-        MessageContentType.SYSTEM,
+        if (allCompleted) {
+          await this.completeMission(missionId);
+          return;
+        }
+
+        // 检查是否有卡住的任务需要重新处理
+        const stuckTasks = mission.tasks.filter(
+          (t) =>
+            t.status === AgentTaskStatus.REVISION_NEEDED ||
+            t.status === AgentTaskStatus.AWAITING_REVIEW,
+        );
+
+        if (stuckTasks.length > 0) {
+          this.logger.warn(
+            `[Mission ${missionId}] Found ${stuckTasks.length} stuck tasks: ${stuckTasks.map((t) => `${t.title}(${t.status})`).join(", ")}`,
+          );
+          // 任务正在等待审核或修改中，不需要额外处理，等待异步流程完成
+        }
+
+        return;
+      }
+
+      // 🔒 在执行前先标记所有任务为"执行中"（防止并发重复执行）
+      for (const task of tasksToStart) {
+        this.executingTasks.add(task.id);
+        this.logger.debug(
+          `[executeNextTasks] Marked task ${task.id} (${task.title}) as executing`,
+        );
+      }
+
+      // 发送任务分配消息
+      for (const task of tasksToStart) {
+        await this.sendMessageToTopic(
+          mission.topicId,
+          null,
+          `📋 [任务分配] 任务「${task.title}」已分配给 @${task.assignedTo.agentName || task.assignedTo.displayName}`,
+          MessageContentType.SYSTEM,
+        );
+      }
+
+      // 并行执行所有可开始的任务（限制并发数，避免AI调用过载）
+      await mapWithConcurrency(
+        tasksToStart,
+        (task) => this.executeTask(mission, task),
+        ConcurrencyLimits.AI,
+      );
+    } finally {
+      // 🔒 释放 Mission 锁
+      this.executingMissions.delete(missionId);
+      this.logger.debug(
+        `[executeNextTasks] Released lock for mission ${missionId}`,
       );
     }
-
-    // 并行执行所有可开始的任务（限制并发数，避免AI调用过载）
-    await mapWithConcurrency(
-      tasksToStart,
-      (task) => this.executeTask(mission, task),
-      ConcurrencyLimits.AI,
-    );
   }
 
   // ==================== 执行单个任务 ====================
@@ -851,14 +899,30 @@ export class TeamMissionService {
     const { assignedTo } = task;
 
     try {
-      // 更新任务状态
-      await this.prisma.agentTask.update({
-        where: { id: task.id },
+      // 🔒 原子状态更新：使用 CAS 模式，只有 PENDING 状态的任务才能开始执行
+      // 这可以防止同一任务被多次执行
+      const updateResult = await this.prisma.agentTask.updateMany({
+        where: {
+          id: task.id,
+          status: AgentTaskStatus.PENDING, // 只更新 PENDING 状态的任务
+        },
         data: {
           status: AgentTaskStatus.IN_PROGRESS,
           startedAt: new Date(),
         },
       });
+
+      // 如果没有更新任何记录，说明任务已经不是 PENDING 状态（可能被其他调用抢先执行了）
+      if (updateResult.count === 0) {
+        this.logger.warn(
+          `[executeTask] Task "${task.title}" (${task.id}) is no longer PENDING, skipping execution`,
+        );
+        return;
+      }
+
+      this.logger.debug(
+        `[executeTask] Successfully acquired task "${task.title}" (${task.id}) for execution`,
+      );
 
       await this.createLog(mission.id, {
         type: MissionLogType.TASK_STARTED,
@@ -1254,6 +1318,12 @@ export class TeamMissionService {
         `❌ 任务执行出错：${error instanceof Error ? error.message : "未知错误"}`,
         MessageContentType.TEXT,
       );
+    } finally {
+      // 🔒 释放任务锁
+      this.executingTasks.delete(task.id);
+      this.logger.debug(
+        `[executeTask] Released lock for task "${task.title}" (${task.id})`,
+      );
     }
   }
 
@@ -1600,19 +1670,48 @@ export class TeamMissionService {
   private async executeTaskRevision(mission: any, task: any, feedback: string) {
     const { assignedTo } = task;
 
-    // 重新获取最新任务数据
-    const latestTask = await this.prisma.agentTask.findUnique({
-      where: { id: task.id },
-      include: { assignedTo: true },
-    });
+    // 🔒 并发控制：防止同一任务的修订被并发执行
+    if (this.revisingTasks.has(task.id)) {
+      this.logger.debug(
+        `[executeTaskRevision] Task "${task.title}" (${task.id}) is already being revised, skipping`,
+      );
+      return;
+    }
 
-    if (!latestTask) return;
+    this.revisingTasks.add(task.id);
+    this.logger.debug(
+      `[executeTaskRevision] Acquired revision lock for task "${task.title}" (${task.id})`,
+    );
 
     try {
-      await this.prisma.agentTask.update({
+      // 重新获取最新任务数据
+      const latestTask = await this.prisma.agentTask.findUnique({
         where: { id: task.id },
+        include: { assignedTo: true },
+      });
+
+      if (!latestTask) {
+        this.logger.warn(
+          `[executeTaskRevision] Task ${task.id} not found, skipping revision`,
+        );
+        return;
+      }
+
+      // 🔒 原子状态更新：只有 REVISION_NEEDED 状态的任务才能进入修订
+      const updateResult = await this.prisma.agentTask.updateMany({
+        where: {
+          id: task.id,
+          status: AgentTaskStatus.REVISION_NEEDED,
+        },
         data: { status: AgentTaskStatus.IN_PROGRESS },
       });
+
+      if (updateResult.count === 0) {
+        this.logger.warn(
+          `[executeTaskRevision] Task "${task.title}" (${task.id}) is no longer REVISION_NEEDED, skipping`,
+        );
+        return;
+      }
 
       // 发送修改开始消息
       await this.sendMessageToTopic(
@@ -1753,6 +1852,12 @@ export class TeamMissionService {
 
       await this.updateMissionProgress(mission.id);
       await this.executeNextTasks(mission.id);
+    } finally {
+      // 🔒 释放修订锁
+      this.revisingTasks.delete(task.id);
+      this.logger.debug(
+        `[executeTaskRevision] Released revision lock for task "${task.title}" (${task.id})`,
+      );
     }
   }
 
