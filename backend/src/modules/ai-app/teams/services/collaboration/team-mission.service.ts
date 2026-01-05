@@ -699,20 +699,76 @@ export class TeamMissionService {
       }
 
       // 调用 AI 生成任务分解 (使用数据库 API Key)
+      // ★ 带重试机制：如果上下文过大失败，自动用更短的描述重试
       let aiResponse;
-      try {
-        aiResponse = await this.callAIWithConfig(
-          leader.aiModel,
-          [{ role: "user", content: planningPrompt }],
-          this.getLeaderSystemPrompt(leader),
-          { maxTokens: 8000, temperature: 0.7, missionId: mission.id },
-        );
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
+      const descriptionLengthLevels = [8000, 4000, 2000, 1000]; // 逐级缩短
+      let lastError: Error | null = null;
+
+      for (const maxDescLen of descriptionLengthLevels) {
+        try {
+          // 重新构建 prompt（可能使用更短的描述）
+          const currentPrompt =
+            maxDescLen === 8000
+              ? planningPrompt
+              : this.buildLeaderPlanningPrompt(
+                  mission,
+                  leader,
+                  teamMembers,
+                  maxDescLen,
+                );
+
+          if (maxDescLen < 8000) {
+            this.logger.warn(
+              `[executeLeaderPlanning] Retrying with shorter description: maxDescLen=${maxDescLen}`,
+            );
+          }
+
+          aiResponse = await this.callAIWithConfig(
+            leader.aiModel,
+            [{ role: "user", content: currentPrompt }],
+            this.getLeaderSystemPrompt(leader),
+            { maxTokens: 8000, temperature: 0.7, missionId: mission.id },
+          );
+
+          // 成功则跳出循环
+          if (maxDescLen < 8000) {
+            this.logger.log(
+              `[executeLeaderPlanning] Succeeded with maxDescLen=${maxDescLen}`,
+            );
+          }
+          break;
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
+          const errorMsg = lastError.message;
+
+          // 只有上下文过大的错误才重试
+          if (
+            errorMsg.includes("截断") ||
+            errorMsg.includes("上下文") ||
+            errorMsg.includes("context") ||
+            errorMsg.includes("token")
+          ) {
+            this.logger.warn(
+              `[executeLeaderPlanning] Context too large with maxDescLen=${maxDescLen}, will retry with shorter`,
+            );
+            continue; // 尝试更短的描述
+          }
+
+          // 其他错误直接抛出
+          this.logger.error(
+            `[executeLeaderPlanning] Planning AI call failed: ${errorMsg}`,
+          );
+          throw new Error(`任务规划失败: ${errorMsg}`);
+        }
+      }
+
+      // 如果所有重试都失败
+      if (!aiResponse) {
+        const errorMsg = lastError?.message || "未知错误";
         this.logger.error(
-          `[startMission] Planning AI call failed: ${errorMsg}`,
+          `[executeLeaderPlanning] All retries failed: ${errorMsg}`,
         );
-        throw new Error(`任务规划失败: ${errorMsg}`);
+        throw new Error(`任务规划失败（已尝试缩短描述但仍失败）: ${errorMsg}`);
       }
 
       // 解析任务分解结果
@@ -3070,10 +3126,35 @@ export class TeamMissionService {
 
   // ==================== 提示词构建 ====================
 
+  /**
+   * 智能截断长文本，保留开头和结尾的关键信息
+   */
+  private truncateDescription(
+    text: string,
+    maxLength: number,
+    preserveEnding = true,
+  ): string {
+    if (!text || text.length <= maxLength) {
+      return text;
+    }
+
+    if (preserveEnding) {
+      // 保留开头 70% 和结尾 30%
+      const headLength = Math.floor(maxLength * 0.7);
+      const tailLength = maxLength - headLength - 50; // 留 50 字符给省略提示
+      const head = text.substring(0, headLength);
+      const tail = text.substring(text.length - tailLength);
+      return `${head}\n\n...[内容过长，已省略中间 ${text.length - headLength - tailLength} 字]...\n\n${tail}`;
+    } else {
+      return text.substring(0, maxLength) + "\n\n...[内容过长，已截断]...";
+    }
+  }
+
   private buildLeaderPlanningPrompt(
     mission: any,
     leader: any,
     teamMembers: any[],
+    maxDescriptionLength = 8000, // 默认限制描述长度为 8000 字符
   ): string {
     // ★ 构建精确的成员名称列表，用于强调必须使用这些名称
     const memberNames = teamMembers
@@ -3095,6 +3176,20 @@ export class TeamMissionService {
     // 检测是否为大型内容创作任务，添加特殊约束
     const scopeGuidance = this.buildScopeGuidance(mission);
 
+    // ★ 智能截断过长的描述，防止上下文溢出
+    const truncatedDescription = this.truncateDescription(
+      mission.description || "",
+      maxDescriptionLength,
+    );
+    if (
+      mission.description &&
+      mission.description.length > maxDescriptionLength
+    ) {
+      this.logger.warn(
+        `[buildLeaderPlanningPrompt] Description truncated: ${mission.description.length} -> ${truncatedDescription.length} chars`,
+      );
+    }
+
     return `你是团队的 Leader「${leader.agentName || leader.displayName}」。
 
 【你的团队成员】
@@ -3114,7 +3209,7 @@ ${memberNames.map((name) => `- @${name}`).join("\n")}
 
 【用户任务】
 标题：${mission.title}
-描述：${mission.description}
+描述：${truncatedDescription}
 ${mission.objectives?.length ? `目标：${mission.objectives.join("、")}` : ""}
 ${mission.constraints?.length ? `约束：${mission.constraints.join("、")}` : ""}
 ${mission.deliverables?.length ? `期望交付物：${mission.deliverables.join("、")}` : ""}
