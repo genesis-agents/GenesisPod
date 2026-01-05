@@ -1911,6 +1911,9 @@ model TeamMission {
   // 任务分解（Leader生成的分解方案，JSON格式）
   taskBreakdown Json? @map("task_breakdown")
 
+  // Mission Context Package (Leader 解析任务后生成的上下文，包含实体定义、约束等)
+  contextPackage Json? @map("context_package")
+
   // 进度统计
   totalTasks      Int @default(0) @map("total_tasks")
   completedTasks  Int @default(0) @map("completed_tasks")
@@ -3843,6 +3846,9 @@ model CodingMission {
   // AI生成的任务分解
   taskBreakdown Json? @map("task_breakdown")
 
+  // Mission Context Package (Leader 解析任务后生成的上下文，包含实体定义、约束等)
+  contextPackage Json? @map("context_package")
+
   // 最终产出
   finalResult Json? @map("final_result")
 
@@ -5177,6 +5183,9 @@ model SlidesMission {
 
   // 任务分解（Leader生成，JSON格式）
   taskBreakdown Json? @map("task_breakdown")
+
+  // Mission Context Package (Leader 解析任务后生成的上下文，包含实体定义、约束等)
+  contextPackage Json? @map("context_package")
 
   // 大纲（Analyst生成，JSON格式）
   outline Json?

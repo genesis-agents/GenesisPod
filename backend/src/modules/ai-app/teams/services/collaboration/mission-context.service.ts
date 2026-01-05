@@ -1,0 +1,469 @@
+import { Injectable, Logger } from "@nestjs/common";
+import {
+  MissionContextPackage,
+  validateContextPackage,
+  createEmptyContextPackage,
+} from "../../interfaces/mission-context.interface";
+
+/**
+ * Mission Context Service
+ *
+ * 负责：
+ * 1. 从 Leader 输出中提取结构化的 Mission Context Package (JSON)
+ * 2. 构建包含上下文的 Agent System Prompt
+ * 3. 校验任务输出是否符合上下文约束
+ */
+@Injectable()
+export class MissionContextService {
+  private readonly logger = new Logger(MissionContextService.name);
+
+  // ==================== Leader 输出解析 ====================
+
+  /**
+   * 从 Leader 输出中提取 Mission Context Package
+   */
+  extractContextFromLeaderOutput(
+    leaderOutput: string,
+    leaderId: string,
+  ): MissionContextPackage | null {
+    // 尝试提取 JSON 代码块
+    const jsonMatch = leaderOutput.match(/```json\s*([\s\S]*?)\s*```/);
+
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[1]);
+        const validated = validateContextPackage(parsed);
+
+        if (validated) {
+          validated.generatedBy = leaderId;
+          validated.generatedAt = new Date().toISOString();
+          this.logger.log(
+            `Successfully extracted Mission Context Package with ${validated.entities.length} entities, ${validated.hardConstraints.length} constraints`,
+          );
+          return validated;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to parse JSON from Leader output: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+    }
+
+    // 降级：尝试从自然语言中提取
+    this.logger.warn(
+      "No JSON block found in Leader output, attempting natural language extraction",
+    );
+    return this.extractContextFromNaturalLanguage(leaderOutput, leaderId);
+  }
+
+  /**
+   * 从自然语言中提取上下文（降级方案）
+   */
+  private extractContextFromNaturalLanguage(
+    content: string,
+    leaderId: string,
+  ): MissionContextPackage | null {
+    const context = createEmptyContextPackage(leaderId);
+
+    // 提取任务理解
+    const understandingMatch = content.match(
+      /(?:任务理解|任务背景|总体理解)[：:]\s*([^\n]+)/,
+    );
+    if (understandingMatch) {
+      context.understanding.summary = understandingMatch[1].trim();
+    }
+
+    // 提取硬性约束
+    const constraintPatterns = [
+      /(?:硬性约束|必须遵循|强制要求)[：:]?\s*\n((?:[-•*\d]\s*[^\n]+\n?)+)/gi,
+      /(?:约束条件|规则要求)[：:]?\s*\n((?:[-•*\d]\s*[^\n]+\n?)+)/gi,
+    ];
+
+    for (const pattern of constraintPatterns) {
+      const match = content.match(pattern);
+      if (match) {
+        const lines = match[1].split("\n").filter((line) => line.trim());
+        for (const line of lines) {
+          const rule = line.replace(/^[-•*\d.、]+\s*/, "").trim();
+          if (rule.length > 3) {
+            context.hardConstraints.push({
+              id: `HC-${context.hardConstraints.length + 1}`,
+              rule,
+              severity: "MUST",
+            });
+          }
+        }
+        break;
+      }
+    }
+
+    // 提取禁止事项
+    const prohibitionPatterns = [
+      /(?:禁止事项|不能|禁止)[：:]?\s*\n((?:[-•*\d]\s*[^\n]+\n?)+)/gi,
+      /(禁止|不能|不要|切勿|严禁)[^，。！？\n]{5,50}/g,
+    ];
+
+    for (const pattern of prohibitionPatterns) {
+      const matches = content.matchAll(pattern);
+      for (const match of matches) {
+        const desc = match[1] || match[0];
+        if (
+          desc.length > 5 &&
+          !context.prohibitions.some((p) => p.description.includes(desc))
+        ) {
+          context.prohibitions.push({
+            description: desc.replace(/^[-•*\d.、]+\s*/, "").trim(),
+          });
+        }
+      }
+    }
+
+    // 提取实体（人物/概念等）
+    // 查找表格形式的实体定义
+    const tablePattern = /\|([^|]+)\|([^|]+)\|([^|]+)\|/g;
+    const tableMatches = content.matchAll(tablePattern);
+    for (const match of tableMatches) {
+      const name = match[1].trim();
+      const type = match[2].trim();
+      const definition = match[3].trim();
+
+      // 跳过表头
+      if (
+        name.includes("名") ||
+        name.includes("---") ||
+        type.includes("类型") ||
+        type.includes("---")
+      ) {
+        continue;
+      }
+
+      if (name.length > 0 && definition.length > 0) {
+        context.entities.push({
+          name,
+          type: type || "未知",
+          definition,
+        });
+      }
+    }
+
+    // 如果提取到了有意义的内容，返回
+    if (
+      context.hardConstraints.length > 0 ||
+      context.entities.length > 0 ||
+      context.prohibitions.length > 0
+    ) {
+      this.logger.log(
+        `Extracted context from natural language: ${context.entities.length} entities, ${context.hardConstraints.length} constraints`,
+      );
+      return context;
+    }
+
+    return null;
+  }
+
+  // ==================== Agent Prompt 构建 ====================
+
+  /**
+   * 构建包含上下文的 Agent System Prompt
+   */
+  buildAgentSystemPromptWithContext(
+    agent: {
+      displayName: string;
+      agentName?: string;
+      agentIdentity?: string;
+      roleDescription?: string;
+      expertiseAreas?: string[];
+    },
+    task: {
+      title: string;
+      description?: string;
+    },
+    context: MissionContextPackage | null,
+  ): string {
+    const agentName = agent.agentName || agent.displayName;
+    const identity =
+      agent.agentIdentity || agent.roleDescription || "专业团队成员";
+    const expertise = agent.expertiseAreas?.join("、") || "多个领域";
+
+    // 如果没有上下文，返回简单的 prompt
+    if (!context) {
+      return `你是「${agentName}」，团队成员。
+身份：${identity}
+擅长：${expertise}
+当前任务：${task.title}`;
+    }
+
+    // 构建各个区块
+    const blocks: string[] = [];
+
+    // 硬性约束区块
+    if (context.hardConstraints.length > 0) {
+      const mustConstraints = context.hardConstraints.filter(
+        (c) => c.severity === "MUST",
+      );
+      const shouldConstraints = context.hardConstraints.filter(
+        (c) => c.severity === "SHOULD",
+      );
+
+      let constraintBlock = "【🚫 硬性约束 - 违反将导致任务失败】\n";
+      if (mustConstraints.length > 0) {
+        constraintBlock += mustConstraints
+          .map((c) => `• [${c.id}] ${c.rule}`)
+          .join("\n");
+      }
+      if (shouldConstraints.length > 0) {
+        constraintBlock += "\n\n【建议遵循】\n";
+        constraintBlock += shouldConstraints
+          .map((c) => `• [${c.id}] ${c.rule}`)
+          .join("\n");
+      }
+      blocks.push(constraintBlock);
+    }
+
+    // 实体定义区块
+    if (context.entities.length > 0) {
+      let entityBlock = "【📋 核心定义 - 必须严格遵循】\n";
+      for (const entity of context.entities) {
+        entityBlock += `• ${entity.name}（${entity.type}）：${entity.definition}`;
+        if (entity.attributes && Object.keys(entity.attributes).length > 0) {
+          const attrs = Object.entries(entity.attributes)
+            .map(([k, v]) => `${k}=${v}`)
+            .join("，");
+          entityBlock += `\n  属性：${attrs}`;
+        }
+        if (entity.relations && entity.relations.length > 0) {
+          const rels = entity.relations
+            .map((r) => `${r.relation} ${r.target}`)
+            .join("，");
+          entityBlock += `\n  关系：${rels}`;
+        }
+        entityBlock += "\n";
+      }
+      blocks.push(entityBlock.trim());
+    }
+
+    // 禁止事项区块
+    if (context.prohibitions.length > 0) {
+      let prohibitionBlock = "【⛔ 禁止事项】\n";
+      prohibitionBlock += context.prohibitions
+        .map((p) => {
+          let line = `• ${p.description}`;
+          if (p.reason) {
+            line += `（原因：${p.reason}）`;
+          }
+          return line;
+        })
+        .join("\n");
+      blocks.push(prohibitionBlock);
+    }
+
+    // 术语表区块
+    if (context.glossary && Object.keys(context.glossary).length > 0) {
+      let glossaryBlock = "【📖 术语表】\n";
+      glossaryBlock += Object.entries(context.glossary)
+        .map(([term, def]) => `• ${term}：${def}`)
+        .join("\n");
+      blocks.push(glossaryBlock);
+    }
+
+    // 质量标准区块
+    if (context.qualityStandards.length > 0) {
+      let qualityBlock = "【✅ 质量标准】\n";
+      qualityBlock += context.qualityStandards
+        .map((q) => {
+          let line = `• ${q.dimension}：${q.requirement}`;
+          if (q.metric) {
+            line += `（指标：${q.metric}）`;
+          }
+          return line;
+        })
+        .join("\n");
+      blocks.push(qualityBlock);
+    }
+
+    // 组装完整的 System Prompt
+    const contextSection =
+      blocks.length > 0
+        ? `
+═══════════════════════════════════════════
+              任务上下文（必读）
+═══════════════════════════════════════════
+
+${blocks.join("\n\n")}
+
+═══════════════════════════════════════════
+`
+        : "";
+
+    return `你是「${agentName}」，团队成员。
+身份：${identity}
+擅长：${expertise}
+${contextSection}
+【你的任务】
+${task.title}
+${task.description ? `\n任务描述：${task.description}` : ""}
+
+【执行要求】
+1. 严格遵守上述所有约束和定义
+2. 如果任务内容与约束冲突，以约束为准
+3. 不确定的内容标注 [待确认]，不要自行编造
+4. 确保输出内容与已完成的任务保持一致`;
+  }
+
+  // ==================== 构建 Leader 规划 Prompt ====================
+
+  /**
+   * 构建要求 Leader 输出 JSON Context Package 的 Prompt 片段
+   */
+  buildContextPackagePromptSection(memberNames: string[]): string {
+    return `
+【⚠️ 重要：你必须输出 Mission Context Package（JSON格式）】
+
+在任务分解之前，你需要先输出一个 JSON 代码块，包含你对任务的理解和关键约束。
+这些信息会自动同步给所有执行成员，确保团队理解一致。
+
+请输出以下格式的 JSON（放在 \`\`\`json 代码块中）：
+
+\`\`\`json
+{
+  "understanding": {
+    "summary": "一句话总结任务目标",
+    "scope": "任务范围和边界",
+    "expectedOutput": "预期的交付物形式"
+  },
+  "hardConstraints": [
+    {
+      "id": "HC-001",
+      "rule": "必须遵循的规则，违反将导致任务失败",
+      "severity": "MUST"
+    }
+  ],
+  "entities": [
+    {
+      "name": "实体名称（如人物名、概念名、术语等）",
+      "type": "类型（人物/概念/指标/组织/地点等）",
+      "definition": "详细定义，确保所有成员理解一致",
+      "attributes": {
+        "属性名": "属性值"
+      },
+      "relations": [
+        {
+          "target": "关联实体",
+          "relation": "关系类型"
+        }
+      ]
+    }
+  ],
+  "prohibitions": [
+    {
+      "description": "禁止做的事情",
+      "reason": "为什么禁止"
+    }
+  ],
+  "qualityStandards": [
+    {
+      "dimension": "质量维度（如准确性、一致性等）",
+      "requirement": "具体要求"
+    }
+  ],
+  "glossary": {
+    "术语": "定义"
+  }
+}
+\`\`\`
+
+【JSON 输出要求】
+1. entities 中必须包含任务涉及的所有核心实体（人物、概念、术语等）
+2. hardConstraints 中列出所有必须遵循的规则
+3. prohibitions 中列出所有禁止事项
+4. 确保 JSON 格式正确，可被解析
+
+【可分配的成员】
+分配任务时，必须使用以下精确的成员名称：
+${memberNames.map((name, i) => `${i + 1}. ${name}`).join("\n")}
+
+⚠️ 分配任务时请使用上述精确名称，不要添加前缀（如 @AI-）或后缀（如 #1, #2）。
+`;
+  }
+
+  // ==================== 输出校验 ====================
+
+  /**
+   * 校验任务输出是否符合上下文约束
+   */
+  validateOutputAgainstContext(
+    output: string,
+    context: MissionContextPackage,
+  ): {
+    valid: boolean;
+    violations: Array<{
+      constraintId: string;
+      description: string;
+      severity: "MUST" | "SHOULD";
+    }>;
+    warnings: string[];
+  } {
+    const violations: Array<{
+      constraintId: string;
+      description: string;
+      severity: "MUST" | "SHOULD";
+    }> = [];
+    const warnings: string[] = [];
+
+    // 检查禁止事项
+    for (const prohibition of context.prohibitions) {
+      // 简单的关键词检查（可以扩展为更复杂的语义检查）
+      const keywords = prohibition.description
+        .split(/[，,、]/g)
+        .filter((k) => k.length > 2);
+
+      for (const keyword of keywords) {
+        if (output.includes(keyword)) {
+          warnings.push(`可能违反禁止事项：${prohibition.description}`);
+          break;
+        }
+      }
+    }
+
+    // 检查实体一致性
+    for (const entity of context.entities) {
+      if (output.includes(entity.name)) {
+        // 实体被提及，检查是否有明显的定义冲突
+        // 这里是简化的检查，实际可以用 AI 做更深入的语义校验
+        if (entity.attributes) {
+          for (const [attrName, attrValue] of Object.entries(
+            entity.attributes,
+          )) {
+            // 检查是否有与定义冲突的描述
+            // 例如：如果定义是 "门派=青崖观"，但输出中写了 "寒江剑社的弟子"
+            if (
+              attrName === "门派" &&
+              output.includes(entity.name) &&
+              !output.includes(attrValue)
+            ) {
+              // 检查是否提到了其他门派
+              const otherSects = ["寒江剑社", "冥渊教", "月轮教", "长安剑社"];
+              for (const sect of otherSects) {
+                if (
+                  output.includes(sect) &&
+                  output.includes(entity.name) &&
+                  sect !== attrValue
+                ) {
+                  warnings.push(
+                    `${entity.name} 的门派应为「${attrValue}」，但文中可能将其与「${sect}」关联`,
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      valid: violations.filter((v) => v.severity === "MUST").length === 0,
+      violations,
+      warnings,
+    };
+  }
+}

@@ -37,6 +37,7 @@ import { AiChatService } from "../../../../../ai-engine/llm/services/ai-chat.ser
 import { SearchService } from "../../../../../ai-engine/search/search.service";
 import { AiTeamsGateway } from "../../../ai-teams.gateway";
 import { AgentCircuitBreakerService } from "../agent-circuit-breaker.service";
+import { MissionContextService } from "../mission-context.service";
 import { EmailService } from "../../../../../core/email/email.service";
 import { ConfigService } from "@nestjs/config";
 
@@ -143,6 +144,14 @@ describe("TeamMissionService Long Content Integration", () => {
           provide: ConfigService,
           useValue: {
             get: jest.fn().mockReturnValue("http://localhost:3000"),
+          },
+        },
+        {
+          provide: MissionContextService,
+          useValue: {
+            extractContextFromLeaderOutput: jest.fn().mockReturnValue(null),
+            buildAgentSystemPromptWithContext: jest.fn().mockReturnValue(""),
+            buildContextPackagePromptSection: jest.fn().mockReturnValue(""),
           },
         },
       ],

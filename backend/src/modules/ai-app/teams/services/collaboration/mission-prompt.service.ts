@@ -1,5 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { AgentTaskStatus } from "@prisma/client";
+import { MissionContextService } from "./mission-context.service";
+import { findMemberByName } from "./member-matching.utils";
 
 /**
  * 任务分解结果项
@@ -45,6 +47,8 @@ export interface TeamMemberInfo {
  */
 @Injectable()
 export class MissionPromptService {
+  constructor(private readonly missionContextService: MissionContextService) {}
+
   // ==================== Leader 规划提示词 ====================
 
   /**
@@ -73,6 +77,11 @@ export class MissionPromptService {
 
     const scopeGuidance = this.buildScopeGuidance(mission);
 
+    // 获取精确的成员名称列表，用于 Context Package 提示
+    const memberNames = teamMembers.map((m) => m.agentName || m.displayName);
+    const contextPackageSection =
+      this.missionContextService.buildContextPackagePromptSection(memberNames);
+
     return `你是团队的 Leader「${leader.agentName || leader.displayName}」。
 
 【你的团队成员】
@@ -85,6 +94,7 @@ ${mission.objectives?.length ? `目标：${mission.objectives.join("、")}` : ""
 ${mission.constraints?.length ? `约束：${mission.constraints.join("、")}` : ""}
 ${mission.deliverables?.length ? `期望交付物：${mission.deliverables.join("、")}` : ""}
 ${scopeGuidance}
+${contextPackageSection}
 【你的职责】
 请分析任务并进行分解，输出格式如下：
 
@@ -696,11 +706,8 @@ ${taskList}
           const priorityStr = cells[4]?.trim().toLowerCase() || "medium";
           const dependsStr = cells[5]?.trim() || "";
 
-          const assignee = teamMembers.find(
-            (m) =>
-              (m.agentName || m.displayName).includes(assigneeName) ||
-              assigneeName.includes(m.agentName || m.displayName),
-          );
+          // 使用精确匹配代替模糊匹配，避免 "@AI-Gemini (Flash) #10" 错误匹配到 "Gemini (Flash)"
+          const assignee = findMemberByName(assigneeName, teamMembers);
 
           const dependsOn: number[] = [];
           const depMatches = dependsStr.match(/\d+/g);

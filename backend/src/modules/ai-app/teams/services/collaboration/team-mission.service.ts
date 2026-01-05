@@ -28,6 +28,9 @@ import {
 } from "./agent-circuit-breaker.service";
 import { EmailService } from "../../../../core/email/email.service";
 import { ConfigService } from "@nestjs/config";
+import { findMemberByName } from "./member-matching.utils";
+import { MissionContextService } from "./mission-context.service";
+import { MissionContextPackage } from "../../interfaces/mission-context.interface";
 
 interface TaskBreakdownItem {
   title: string;
@@ -138,6 +141,7 @@ export class TeamMissionService {
     private circuitBreaker: AgentCircuitBreakerService,
     private emailService: EmailService,
     private configService: ConfigService,
+    private missionContextService: MissionContextService,
   ) {}
 
   /**
@@ -717,6 +721,18 @@ export class TeamMissionService {
         teamMembers,
       );
 
+      // 提取 Mission Context Package (从 Leader 输出的 JSON 中)
+      const contextPackage =
+        this.missionContextService.extractContextFromLeaderOutput(
+          aiResponse.content,
+          leader.id,
+        );
+      if (contextPackage) {
+        this.logger.log(
+          `[startMission] Extracted context with ${contextPackage.entities.length} entities, ${contextPackage.hardConstraints.length} constraints`,
+        );
+      }
+
       // 验证任务分解数量是否符合预期
       try {
         const validation = this.longContentService.validateTaskCount(
@@ -745,11 +761,12 @@ export class TeamMissionService {
         );
       }
 
-      // 保存任务分解方案
+      // 保存任务分解方案和上下文
       await this.prisma.teamMission.update({
         where: { id: mission.id },
         data: {
           taskBreakdown: breakdown as any,
+          contextPackage: contextPackage as any,
         },
       });
 
@@ -1252,7 +1269,11 @@ export class TeamMissionService {
         const result = await this.callAIWithRetry(
           currentAgent.aiModel,
           [{ role: "user", content: taskPrompt }],
-          this.getAgentSystemPrompt(currentAgent, task),
+          this.getAgentSystemPrompt(
+            currentAgent,
+            task,
+            mission.contextPackage as MissionContextPackage | null,
+          ),
           { maxTokens: 8000, temperature: 0.7 },
           {
             taskId: task.id,
@@ -1400,7 +1421,11 @@ export class TeamMissionService {
             const continuationResult = await this.callAIWithRetry(
               currentAgent.aiModel,
               [{ role: "user", content: continuationPrompt }],
-              this.getAgentSystemPrompt(currentAgent, task),
+              this.getAgentSystemPrompt(
+                currentAgent,
+                task,
+                mission.contextPackage as MissionContextPackage | null,
+              ),
               { maxTokens: 8000, temperature: 0.7 },
               {
                 taskId: task.id,
@@ -2122,7 +2147,11 @@ export class TeamMissionService {
         aiResponse = await this.callAIWithConfig(
           assignedTo.aiModel,
           [{ role: "user", content: revisionPrompt }],
-          this.getAgentSystemPrompt(assignedTo, latestTask),
+          this.getAgentSystemPrompt(
+            assignedTo,
+            latestTask,
+            mission.contextPackage as MissionContextPackage | null,
+          ),
           { maxTokens: 8000, temperature: 0.7, missionId: mission.id },
         );
       } catch (error) {
@@ -3910,7 +3939,30 @@ ${taskList}
 风格：专业、清晰、有建设性。`;
   }
 
-  private getAgentSystemPrompt(agent: any, task: any): string {
+  private getAgentSystemPrompt(
+    agent: any,
+    task: any,
+    context?: MissionContextPackage | null,
+  ): string {
+    // If context is available, use MissionContextService to build prompt with context
+    if (context) {
+      return this.missionContextService.buildAgentSystemPromptWithContext(
+        {
+          displayName: agent.displayName,
+          agentName: agent.agentName,
+          agentIdentity: agent.agentIdentity,
+          roleDescription: agent.roleDescription,
+          expertiseAreas: agent.expertiseAreas,
+        },
+        {
+          title: task.title,
+          description: task.description,
+        },
+        context,
+      );
+    }
+
+    // Fallback to simple prompt if no context
     return `你是「${agent.agentName || agent.displayName}」，团队成员。
 身份：${agent.agentIdentity || agent.roleDescription || "专业人员"}
 擅长：${(agent.expertiseAreas || []).join("、") || "多个领域"}
@@ -3944,11 +3996,8 @@ ${taskList}
           const dependsStr = cells[5]?.trim() || "";
 
           // 查找对应的成员
-          const assignee = teamMembers.find(
-            (m) =>
-              (m.agentName || m.displayName).includes(assigneeName) ||
-              assigneeName.includes(m.agentName || m.displayName),
-          );
+          // Use findMemberByName for precise matching
+          const assignee = findMemberByName(assigneeName, teamMembers);
 
           // 解析依赖
           const dependsOn: number[] = [];
