@@ -1886,6 +1886,94 @@ export default function TopicPage() {
     setSelectedMessages(new Set());
   }, []);
 
+  // Export all chat messages
+  const handleExportAll = useCallback(async () => {
+    if (!messages || messages.length === 0) {
+      alert('没有可导出的消息');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const timestamp = new Date().toISOString().split('T')[0];
+      const topicName = currentTopic?.name || 'AI-Teams';
+
+      // Build export content
+      let content = `# ${topicName} - 聊天记录导出\n`;
+      content += `导出时间: ${new Date().toLocaleString()}\n`;
+      content += `消息总数: ${messages.length}\n\n`;
+      content += '---\n\n';
+
+      // Collect participants
+      const participants = new Set<string>();
+      messages.forEach((m) => {
+        const sender =
+          m.sender?.fullName ||
+          m.sender?.username ||
+          m.aiMember?.displayName ||
+          'Unknown';
+        participants.add(sender);
+      });
+
+      content += '## 参与者\n';
+      content += Array.from(participants)
+        .map((p) => `- ${p}`)
+        .join('\n');
+      content += '\n\n---\n\n';
+
+      content += '## 消息记录\n\n';
+
+      // Sort messages by time and add to content
+      const sortedMessages = [...messages].sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+
+      sortedMessages.forEach((m) => {
+        const sender =
+          m.sender?.fullName ||
+          m.sender?.username ||
+          m.aiMember?.displayName ||
+          'Unknown';
+        const isAI = !!m.aiMemberId;
+        const time = new Date(m.createdAt).toLocaleString();
+        const modelInfo = m.modelUsed ? ` [${m.modelUsed}]` : '';
+
+        content += `### ${isAI ? '🤖 ' : '👤 '}${sender}${modelInfo}\n`;
+        content += `*${time}*\n\n`;
+
+        // Handle reply context
+        if (m.replyTo) {
+          const replyToSender =
+            m.replyTo.sender?.fullName ||
+            m.replyTo.sender?.username ||
+            m.replyTo.aiMember?.displayName ||
+            'Unknown';
+          content += `> 回复 ${replyToSender}: ${m.replyTo.content?.substring(0, 100)}${(m.replyTo.content?.length || 0) > 100 ? '...' : ''}\n\n`;
+        }
+
+        content += `${m.content || ''}\n\n`;
+        content += '---\n\n';
+      });
+
+      // Create and download file
+      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${topicName.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_')}_聊天记录_${timestamp}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('导出失败，请重试');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [messages, currentTopic]);
+
   // 查找模型：优先用 modelId 匹配（新方式），兼容旧数据
   const findModel = useCallback(
     (aiModel: string) => {
@@ -1903,6 +1991,7 @@ export default function TopicPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [showResources, setShowResources] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
@@ -2423,6 +2512,50 @@ export default function TopicPage() {
                 Canvas
               </button>
             </div>
+            {/* Export All Button */}
+            <button
+              onClick={handleExportAll}
+              disabled={isExporting || !messages || messages.length === 0}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50"
+              title="导出所有聊天记录"
+            >
+              {isExporting ? (
+                <svg
+                  className="h-4 w-4 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              )}
+              {isExporting ? '导出中...' : '导出'}
+            </button>
             <button
               onClick={() => setShowSettings(true)}
               className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
