@@ -183,6 +183,74 @@ export class ConstraintEnforcementService {
       });
     }
 
+    // 检测 "X（别名）...哑仆/哑巴" 人设描述模式
+    // 匹配: "钟长生（钟叔）的人设...哑仆" 或 "表面身份：...的哑仆"
+    const characterSetupPattern =
+      /(\S{1,10})(?:[（(](\S{1,10})[)）])?(?:的人设|人物设定)[^。]*?(哑巴|哑仆|聋哑人|不能说话|自毁声带)/g;
+    characterSetupPattern.lastIndex = 0;
+    while ((match = characterSetupPattern.exec(description)) !== null) {
+      const mainName = match[1];
+      const aliasName = match[2];
+      // match[3] 是 muteType（哑巴/哑仆等），已通过模式匹配确认存在
+      // 为主名和别名都生成约束
+      const names = aliasName ? [mainName, aliasName] : [mainName];
+      for (const name of names) {
+        // 避免重复添加
+        const existingRule = constraints.find(
+          (c) => c.rule.includes(name) && c.rule.includes("不能说话"),
+        );
+        if (!existingRule) {
+          constraints.push({
+            id: `HC-IMP-${constraints.length + 1}`,
+            type: "MUST",
+            rule: `${name}不能说话、不能发出声音`,
+            source: match[0],
+            confidence: 0.9,
+          });
+        }
+      }
+    }
+
+    // 检测 "表面身份：...的哑仆/哑巴" 模式
+    const surfaceIdentityPattern =
+      /(\S{1,10})(?:[（(]\S{1,10}[)）])?[^。]*?表面身份[：:][^。]*?(哑巴|哑仆|聋哑人)/g;
+    surfaceIdentityPattern.lastIndex = 0;
+    while ((match = surfaceIdentityPattern.exec(description)) !== null) {
+      const character = match[1];
+      // 避免重复添加
+      const existingRule = constraints.find(
+        (c) => c.rule.includes(character) && c.rule.includes("不能说话"),
+      );
+      if (!existingRule) {
+        constraints.push({
+          id: `HC-IMP-${constraints.length + 1}`,
+          type: "MUST",
+          rule: `${character}不能说话、不能发出声音`,
+          source: match[0],
+          confidence: 0.9,
+        });
+      }
+    }
+
+    // 检测 "X自毁声带" 模式
+    const destroyedVoicePattern = /(\S{1,10})自毁声带/g;
+    destroyedVoicePattern.lastIndex = 0;
+    while ((match = destroyedVoicePattern.exec(description)) !== null) {
+      const character = match[1];
+      const existingRule = constraints.find(
+        (c) => c.rule.includes(character) && c.rule.includes("不能说话"),
+      );
+      if (!existingRule) {
+        constraints.push({
+          id: `HC-IMP-${constraints.length + 1}`,
+          type: "MUST",
+          rule: `${character}不能说话、不能发出声音`,
+          source: match[0],
+          confidence: 0.95,
+        });
+      }
+    }
+
     // 检测时代设定约束（限制时代名最多10字符）
     const periodPatterns = [
       {
