@@ -1273,6 +1273,7 @@ export class TeamMissionService {
             currentAgent,
             task,
             mission.contextPackage as MissionContextPackage | null,
+            mission.description || undefined,
           ),
           { maxTokens: 8000, temperature: 0.7 },
           {
@@ -1425,6 +1426,7 @@ export class TeamMissionService {
                 currentAgent,
                 task,
                 mission.contextPackage as MissionContextPackage | null,
+                mission.description || undefined,
               ),
               { maxTokens: 8000, temperature: 0.7 },
               {
@@ -2151,6 +2153,7 @@ export class TeamMissionService {
             assignedTo,
             latestTask,
             mission.contextPackage as MissionContextPackage | null,
+            mission.description || undefined,
           ),
           { maxTokens: 8000, temperature: 0.7, missionId: mission.id },
         );
@@ -3943,9 +3946,11 @@ ${taskList}
     agent: any,
     task: any,
     context?: MissionContextPackage | null,
+    missionDescription?: string,
   ): string {
-    // If context is available, use MissionContextService to build prompt with context
-    if (context) {
+    // Use MissionContextService to build prompt with context and/or mission description
+    // This ensures agents receive both structured context AND mission background
+    if (context || missionDescription) {
       return this.missionContextService.buildAgentSystemPromptWithContext(
         {
           displayName: agent.displayName,
@@ -3958,11 +3963,12 @@ ${taskList}
           title: task.title,
           description: task.description,
         },
-        context,
+        context || null,
+        missionDescription,
       );
     }
 
-    // Fallback to simple prompt if no context
+    // Fallback to simple prompt if no context and no description
     return `你是「${agent.agentName || agent.displayName}」，团队成员。
 身份：${agent.agentIdentity || agent.roleDescription || "专业人员"}
 擅长：${(agent.expertiseAreas || []).join("、") || "多个领域"}

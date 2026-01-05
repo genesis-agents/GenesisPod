@@ -179,14 +179,18 @@ export class MissionContextService {
       description?: string;
     },
     context: MissionContextPackage | null,
+    missionDescription?: string,
   ): string {
     const agentName = agent.agentName || agent.displayName;
     const identity =
       agent.agentIdentity || agent.roleDescription || "专业团队成员";
     const expertise = agent.expertiseAreas?.join("、") || "多个领域";
 
-    // 如果没有上下文，返回简单的 prompt
-    if (!context) {
+    // 提取任务背景摘要（如果有 mission description）
+    const backgroundSection = this.extractMissionBackground(missionDescription);
+
+    // 如果没有上下文也没有背景，返回简单的 prompt
+    if (!context && !backgroundSection) {
       return `你是「${agentName}」，团队成员。
 身份：${identity}
 擅长：${expertise}
@@ -196,89 +200,92 @@ export class MissionContextService {
     // 构建各个区块
     const blocks: string[] = [];
 
-    // 硬性约束区块
-    if (context.hardConstraints.length > 0) {
-      const mustConstraints = context.hardConstraints.filter(
-        (c) => c.severity === "MUST",
-      );
-      const shouldConstraints = context.hardConstraints.filter(
-        (c) => c.severity === "SHOULD",
-      );
+    // 以下区块仅在有 context 时构建
+    if (context) {
+      // 硬性约束区块
+      if (context.hardConstraints.length > 0) {
+        const mustConstraints = context.hardConstraints.filter(
+          (c) => c.severity === "MUST",
+        );
+        const shouldConstraints = context.hardConstraints.filter(
+          (c) => c.severity === "SHOULD",
+        );
 
-      let constraintBlock = "【🚫 硬性约束 - 违反将导致任务失败】\n";
-      if (mustConstraints.length > 0) {
-        constraintBlock += mustConstraints
-          .map((c) => `• [${c.id}] ${c.rule}`)
-          .join("\n");
-      }
-      if (shouldConstraints.length > 0) {
-        constraintBlock += "\n\n【建议遵循】\n";
-        constraintBlock += shouldConstraints
-          .map((c) => `• [${c.id}] ${c.rule}`)
-          .join("\n");
-      }
-      blocks.push(constraintBlock);
-    }
-
-    // 实体定义区块
-    if (context.entities.length > 0) {
-      let entityBlock = "【📋 核心定义 - 必须严格遵循】\n";
-      for (const entity of context.entities) {
-        entityBlock += `• ${entity.name}（${entity.type}）：${entity.definition}`;
-        if (entity.attributes && Object.keys(entity.attributes).length > 0) {
-          const attrs = Object.entries(entity.attributes)
-            .map(([k, v]) => `${k}=${v}`)
-            .join("，");
-          entityBlock += `\n  属性：${attrs}`;
+        let constraintBlock = "【🚫 硬性约束 - 违反将导致任务失败】\n";
+        if (mustConstraints.length > 0) {
+          constraintBlock += mustConstraints
+            .map((c) => `• [${c.id}] ${c.rule}`)
+            .join("\n");
         }
-        if (entity.relations && entity.relations.length > 0) {
-          const rels = entity.relations
-            .map((r) => `${r.relation} ${r.target}`)
-            .join("，");
-          entityBlock += `\n  关系：${rels}`;
+        if (shouldConstraints.length > 0) {
+          constraintBlock += "\n\n【建议遵循】\n";
+          constraintBlock += shouldConstraints
+            .map((c) => `• [${c.id}] ${c.rule}`)
+            .join("\n");
         }
-        entityBlock += "\n";
+        blocks.push(constraintBlock);
       }
-      blocks.push(entityBlock.trim());
-    }
 
-    // 禁止事项区块
-    if (context.prohibitions.length > 0) {
-      let prohibitionBlock = "【⛔ 禁止事项】\n";
-      prohibitionBlock += context.prohibitions
-        .map((p) => {
-          let line = `• ${p.description}`;
-          if (p.reason) {
-            line += `（原因：${p.reason}）`;
+      // 实体定义区块
+      if (context.entities.length > 0) {
+        let entityBlock = "【📋 核心定义 - 必须严格遵循】\n";
+        for (const entity of context.entities) {
+          entityBlock += `• ${entity.name}（${entity.type}）：${entity.definition}`;
+          if (entity.attributes && Object.keys(entity.attributes).length > 0) {
+            const attrs = Object.entries(entity.attributes)
+              .map(([k, v]) => `${k}=${v}`)
+              .join("，");
+            entityBlock += `\n  属性：${attrs}`;
           }
-          return line;
-        })
-        .join("\n");
-      blocks.push(prohibitionBlock);
-    }
-
-    // 术语表区块
-    if (context.glossary && Object.keys(context.glossary).length > 0) {
-      let glossaryBlock = "【📖 术语表】\n";
-      glossaryBlock += Object.entries(context.glossary)
-        .map(([term, def]) => `• ${term}：${def}`)
-        .join("\n");
-      blocks.push(glossaryBlock);
-    }
-
-    // 质量标准区块
-    if (context.qualityStandards.length > 0) {
-      let qualityBlock = "【✅ 质量标准】\n";
-      qualityBlock += context.qualityStandards
-        .map((q) => {
-          let line = `• ${q.dimension}：${q.requirement}`;
-          if (q.metric) {
-            line += `（指标：${q.metric}）`;
+          if (entity.relations && entity.relations.length > 0) {
+            const rels = entity.relations
+              .map((r) => `${r.relation} ${r.target}`)
+              .join("，");
+            entityBlock += `\n  关系：${rels}`;
           }
-          return line;
-        })
-        .join("\n");
-      blocks.push(qualityBlock);
+          entityBlock += "\n";
+        }
+        blocks.push(entityBlock.trim());
+      }
+
+      // 禁止事项区块
+      if (context.prohibitions.length > 0) {
+        let prohibitionBlock = "【⛔ 禁止事项】\n";
+        prohibitionBlock += context.prohibitions
+          .map((p) => {
+            let line = `• ${p.description}`;
+            if (p.reason) {
+              line += `（原因：${p.reason}）`;
+            }
+            return line;
+          })
+          .join("\n");
+        blocks.push(prohibitionBlock);
+      }
+
+      // 术语表区块
+      if (context.glossary && Object.keys(context.glossary).length > 0) {
+        let glossaryBlock = "【📖 术语表】\n";
+        glossaryBlock += Object.entries(context.glossary)
+          .map(([term, def]) => `• ${term}：${def}`)
+          .join("\n");
+        blocks.push(glossaryBlock);
+      }
+
+      // 质量标准区块
+      if (context.qualityStandards.length > 0) {
+        let qualityBlock = "【✅ 质量标准】\n";
+        qualityBlock += context.qualityStandards
+          .map((q) => {
+            let line = `• ${q.dimension}：${q.requirement}`;
+            if (q.metric) {
+              line += `（指标：${q.metric}）`;
+            }
+            return line;
+          })
+          .join("\n");
+        blocks.push(qualityBlock);
+      }
     }
 
     // 组装完整的 System Prompt
@@ -295,10 +302,23 @@ ${blocks.join("\n\n")}
 `
         : "";
 
+    // 如果有背景但没有结构化上下文，使用背景作为上下文
+    const finalContextSection =
+      contextSection || backgroundSection
+        ? `
+═══════════════════════════════════════════
+              任务上下文（必读）
+═══════════════════════════════════════════
+${backgroundSection ? `\n【📖 任务背景】\n${backgroundSection}\n` : ""}
+${blocks.length > 0 ? blocks.join("\n\n") : ""}
+═══════════════════════════════════════════
+`
+        : "";
+
     return `你是「${agentName}」，团队成员。
 身份：${identity}
 擅长：${expertise}
-${contextSection}
+${finalContextSection}
 【你的任务】
 ${task.title}
 ${task.description ? `\n任务描述：${task.description}` : ""}
@@ -465,5 +485,94 @@ ${memberNames.map((name, i) => `${i + 1}. ${name}`).join("\n")}
       violations,
       warnings,
     };
+  }
+
+  // ==================== 任务背景提取 ====================
+
+  /**
+   * 从 mission description 中提取关键背景信息
+   * 用于在没有结构化上下文时，仍然传递重要设定给执行 Agent
+   */
+  private extractMissionBackground(missionDescription?: string): string | null {
+    if (!missionDescription || missionDescription.length < 50) {
+      return null;
+    }
+
+    const sections: string[] = [];
+
+    // 1. 提取人物设定部分
+    const characterPatterns = [
+      /(?:人物设定|角色设定|主要人物|核心人物)[：:]\s*([\s\S]*?)(?=\n\n|\n#{1,3}\s|$)/gi,
+      /(?:人物|角色)(?:简介|描述)?[：:]\s*([\s\S]*?)(?=\n\n|\n#{1,3}\s|$)/gi,
+    ];
+
+    for (const pattern of characterPatterns) {
+      const match = missionDescription.match(pattern);
+      if (match && match[0].length > 20) {
+        sections.push(`【人物设定】\n${match[0].trim()}`);
+        break;
+      }
+    }
+
+    // 2. 提取约束/规则部分
+    const constraintPatterns = [
+      /(?:硬性约束|写作约束|必须遵守|强制规则)[：:]\s*([\s\S]*?)(?=\n\n|\n#{1,3}\s|$)/gi,
+      /(?:约束条件|规则要求|注意事项)[：:]\s*([\s\S]*?)(?=\n\n|\n#{1,3}\s|$)/gi,
+    ];
+
+    for (const pattern of constraintPatterns) {
+      const match = missionDescription.match(pattern);
+      if (match && match[0].length > 20) {
+        sections.push(`【约束条件】\n${match[0].trim()}`);
+        break;
+      }
+    }
+
+    // 3. 提取世界观/背景设定
+    const worldPatterns = [
+      /(?:世界观|背景设定|故事背景)[：:]\s*([\s\S]*?)(?=\n\n|\n#{1,3}\s|$)/gi,
+    ];
+
+    for (const pattern of worldPatterns) {
+      const match = missionDescription.match(pattern);
+      if (match && match[0].length > 20 && match[0].length < 2000) {
+        sections.push(`【背景设定】\n${match[0].trim()}`);
+        break;
+      }
+    }
+
+    // 4. 提取文风/风格要求
+    const stylePatterns = [
+      /(?:文风|写作风格|语言风格|风格要求)[：:]\s*([\s\S]*?)(?=\n\n|\n#{1,3}\s|$)/gi,
+    ];
+
+    for (const pattern of stylePatterns) {
+      const match = missionDescription.match(pattern);
+      if (match && match[0].length > 10 && match[0].length < 500) {
+        sections.push(`【文风要求】\n${match[0].trim()}`);
+        break;
+      }
+    }
+
+    // 5. 如果没有提取到结构化内容，但内容较短，直接使用摘要
+    if (sections.length === 0 && missionDescription.length < 3000) {
+      // 取前 2000 字符作为背景
+      const summary = missionDescription.slice(0, 2000);
+      if (summary.length > 100) {
+        return summary + (missionDescription.length > 2000 ? "\n..." : "");
+      }
+    }
+
+    // 6. 如果提取到了内容，组合返回
+    if (sections.length > 0) {
+      // 限制总长度
+      let result = sections.join("\n\n");
+      if (result.length > 4000) {
+        result = result.slice(0, 4000) + "\n...（已截断）";
+      }
+      return result;
+    }
+
+    return null;
   }
 }
