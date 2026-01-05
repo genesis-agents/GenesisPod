@@ -61,8 +61,20 @@ const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   "gpt-4o": 128000,
   "gpt-4o-mini": 128000,
   "gpt-4-turbo": 128000,
+  "gpt-4-turbo-preview": 128000,
   "gpt-4": 8192,
+  "gpt-4-32k": 32768,
   "gpt-3.5-turbo": 16385,
+  // OpenAI o1/o3 reasoning models
+  o1: 200000,
+  "o1-preview": 128000,
+  "o1-mini": 128000,
+  "o3-mini": 200000,
+  // ★ gpt-5 系列（如果 OpenAI 已发布，请验证实际 context window）
+  // 注意：gpt-5.1 可能不是有效的 OpenAI 模型 ID
+  // 有效的模型 ID 通常是: gpt-4o, gpt-4-turbo, o1-preview 等
+  "gpt-5": 128000, // 假设值，待验证
+  "gpt-5.1": 128000, // 假设值，待验证
 
   // Anthropic
   "claude-3-5-sonnet-20241022": 200000,
@@ -75,6 +87,7 @@ const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   "gemini-1.5-pro": 2000000,
   "gemini-1.5-flash": 1000000,
   "gemini-2.0-flash-exp": 1000000,
+  "gemini-3-flash-preview": 1000000,
 
   // xAI
   "grok-beta": 131072,
@@ -88,12 +101,24 @@ const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
  * 默认模型输出 token 限制
  */
 const MODEL_MAX_OUTPUT: Record<string, number> = {
+  // OpenAI
   "gpt-4o": 16384,
   "gpt-4o-mini": 16384,
+  "gpt-4-turbo": 4096,
+  "gpt-4-turbo-preview": 4096,
+  o1: 100000,
+  "o1-preview": 32768,
+  "o1-mini": 65536,
+  "o3-mini": 100000,
+  "gpt-5": 16384, // 假设值
+  "gpt-5.1": 16384, // 假设值
+  // Anthropic
   "claude-3-5-sonnet-20241022": 8192,
   "claude-3-5-haiku-20241022": 8192,
+  // Google
   "gemini-1.5-pro": 8192,
   "gemini-2.0-flash-exp": 8192,
+  "gemini-3-flash-preview": 8192,
   default: 4096,
 };
 

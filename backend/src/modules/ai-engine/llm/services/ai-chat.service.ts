@@ -2255,6 +2255,37 @@ Format the summary in a clear, structured manner using markdown.`;
           // Use max_completion_tokens for newer models (gpt-4o, gpt-5, o1, o3, etc.)
           // and max_tokens for older models (gpt-4-turbo, gpt-3.5-turbo)
           const effectiveModelId = modelId || "gpt-4-turbo-preview";
+
+          // ★ 验证 OpenAI 模型 ID 是否为已知模型
+          const knownOpenAIModels = [
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4-turbo",
+            "gpt-4-turbo-preview",
+            "gpt-4",
+            "gpt-4-32k",
+            "gpt-3.5-turbo",
+            "o1",
+            "o1-preview",
+            "o1-mini",
+            "o3-mini",
+            // 如果 OpenAI 发布了 gpt-5 系列，请添加到此列表
+          ];
+
+          const isKnownModel = knownOpenAIModels.some(
+            (known) =>
+              effectiveModelId === known ||
+              effectiveModelId.startsWith(known + "-"),
+          );
+
+          if (!isKnownModel) {
+            this.logger.warn(
+              `[OpenAI] Unknown model ID: "${effectiveModelId}". ` +
+                `If this is a new model, please add it to knownOpenAIModels. ` +
+                `Known models: ${knownOpenAIModels.join(", ")}`,
+            );
+          }
+
           const isNewModel =
             effectiveModelId.includes("gpt-5") ||
             effectiveModelId.includes("gpt-4o") ||
@@ -2263,6 +2294,10 @@ Format the summary in a clear, structured manner using markdown.`;
           const tokenParam = isNewModel
             ? { max_completion_tokens: maxTokens }
             : { max_tokens: maxTokens };
+
+          this.logger.log(
+            `[OpenAI] Calling API with model=${effectiveModelId}, ${isNewModel ? "max_completion_tokens" : "max_tokens"}=${maxTokens}`,
+          );
 
           return await this.callApiWithKey(
             apiEndpoint || "https://api.openai.com/v1/chat/completions",
@@ -2376,10 +2411,41 @@ Format the summary in a clear, structured manner using markdown.`;
     headers: Record<string, string>,
     modelName: string,
   ): Promise<ChatCompletionResult> {
+    // ★ 估算请求 token 数量（用于诊断）
+    const estimateTokens = (text: string): number => {
+      if (!text) return 0;
+      const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+      const totalChars = text.length;
+      const chineseRatio = chineseChars / totalChars || 0;
+      return Math.ceil(
+        totalChars * (chineseRatio * 1.5 + (1 - chineseRatio) * 0.25),
+      );
+    };
+
+    const systemPromptTokens = body.messages?.find(
+      (m: any) => m.role === "system",
+    )?.content
+      ? estimateTokens(
+          body.messages.find((m: any) => m.role === "system").content,
+        )
+      : 0;
+    const userTokens =
+      body.messages
+        ?.filter((m: any) => m.role === "user")
+        .reduce(
+          (sum: number, m: any) => sum + estimateTokens(m.content || ""),
+          0,
+        ) || 0;
+    const totalEstimatedTokens = systemPromptTokens + userTokens;
+
     this.logger.debug(
       `[${modelName}] Calling API: ${url.replace(/Bearer\s+\S+/, "Bearer ***")}`,
     );
-    this.logger.debug(`[${modelName}] Request body model: ${body.model}`);
+    this.logger.log(
+      `[${body.model}] Request: model=${body.model}, ` +
+        `maxTokens=${body.max_completion_tokens || body.max_tokens || "?"}, ` +
+        `estimatedPromptTokens=${totalEstimatedTokens} (system=${systemPromptTokens}, user=${userTokens})`,
+    );
 
     // Wrap API call with retry logic for network errors
     return await this.withRetry(
