@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { AgentTaskStatus } from "@prisma/client";
 import { MissionContextService } from "./mission-context.service";
 import { findMemberByName } from "./member-matching.utils";
@@ -47,6 +47,8 @@ export interface TeamMemberInfo {
  */
 @Injectable()
 export class MissionPromptService {
+  private readonly logger = new Logger(MissionPromptService.name);
+
   constructor(private readonly missionContextService: MissionContextService) {}
 
   // ==================== Leader 规划提示词 ====================
@@ -688,6 +690,25 @@ ${taskList}
   ): TaskBreakdown {
     const tasks: TaskBreakdownItem[] = [];
 
+    // ★ 诊断日志：记录可用的成员名称列表
+    const availableMemberNames = teamMembers.map((m) => ({
+      id: m.id,
+      agentName: m.agentName,
+      displayName: m.displayName,
+      matchKey: (m.agentName || m.displayName)?.toLowerCase(),
+    }));
+    this.logger.debug(
+      `[parseTaskBreakdown] Available members (${teamMembers.length}): ${JSON.stringify(availableMemberNames.map((m) => m.agentName || m.displayName))}`,
+    );
+
+    // 统计匹配情况
+    const matchStats = {
+      totalRows: 0,
+      matched: 0,
+      unmatched: [] as string[],
+      memberTaskCount: new Map<string, number>(),
+    };
+
     const tableMatch = content.match(
       /\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|/g,
     );
@@ -700,6 +721,7 @@ ${taskList}
           !cells[0].includes("#") &&
           !cells[0].includes("-")
         ) {
+          matchStats.totalRows++;
           const title = cells[1]?.trim() || "";
           const assigneeName = cells[2]?.trim().replace("@", "") || "";
           const reason = cells[3]?.trim() || "";
@@ -708,6 +730,14 @@ ${taskList}
 
           // 使用精确匹配代替模糊匹配，避免 "@AI-Gemini (Flash) #10" 错误匹配到 "Gemini (Flash)"
           const assignee = findMemberByName(assigneeName, teamMembers);
+
+          // ★ 诊断日志：记录匹配失败的情况
+          if (!assignee && assigneeName) {
+            matchStats.unmatched.push(assigneeName);
+            this.logger.warn(
+              `[parseTaskBreakdown] ❌ Member match FAILED: "${assigneeName}" | Available: [${availableMemberNames.map((m) => m.agentName || m.displayName).join(", ")}]`,
+            );
+          }
 
           const dependsOn: number[] = [];
           const depMatches = dependsStr.match(/\d+/g);
@@ -736,6 +766,13 @@ ${taskList}
           }
 
           if (title && assignee) {
+            matchStats.matched++;
+            const memberKey = assignee.agentName || assignee.displayName;
+            matchStats.memberTaskCount.set(
+              memberKey,
+              (matchStats.memberTaskCount.get(memberKey) || 0) + 1,
+            );
+
             tasks.push({
               title,
               description: title,
@@ -751,7 +788,35 @@ ${taskList}
       }
     }
 
+    // ★ 诊断日志：输出匹配统计摘要
+    const taskDistribution = Object.fromEntries(matchStats.memberTaskCount);
+    const membersWithNoTasks = teamMembers.filter(
+      (m) => !matchStats.memberTaskCount.has(m.agentName || m.displayName),
+    );
+
+    this.logger.log(
+      `[parseTaskBreakdown] 📊 Match Summary: ${matchStats.matched}/${matchStats.totalRows} tasks matched`,
+    );
+    this.logger.log(
+      `[parseTaskBreakdown] 📊 Task Distribution: ${JSON.stringify(taskDistribution)}`,
+    );
+
+    if (matchStats.unmatched.length > 0) {
+      this.logger.warn(
+        `[parseTaskBreakdown] ⚠️ Unmatched names (${matchStats.unmatched.length}): ${JSON.stringify(matchStats.unmatched)}`,
+      );
+    }
+
+    if (membersWithNoTasks.length > 0) {
+      this.logger.warn(
+        `[parseTaskBreakdown] ⚠️ Members with NO tasks (${membersWithNoTasks.length}): ${JSON.stringify(membersWithNoTasks.map((m) => m.agentName || m.displayName))}`,
+      );
+    }
+
     if (tasks.length === 0 && teamMembers.length > 0) {
+      this.logger.warn(
+        `[parseTaskBreakdown] ⚠️ No tasks parsed, creating default task for first member`,
+      );
       tasks.push({
         title: "执行任务",
         description: "完成用户请求的任务",
