@@ -28,7 +28,14 @@ import {
 } from "./agent-circuit-breaker.service";
 import { EmailService } from "../../../../core/email/email.service";
 import { ConfigService } from "@nestjs/config";
-import { findMemberByName } from "./member-matching.utils";
+import {
+  findMemberByNameEnhanced,
+  createMatchStatistics,
+  isMatchFailureRateExceeded,
+  formatMatchFailureError,
+  type MatchStatistics,
+  type UnmatchedItem,
+} from "./member-matching.utils";
 import { MissionContextService } from "./mission-context.service";
 import { MissionContextPackage } from "../../interfaces/mission-context.interface";
 
@@ -48,6 +55,16 @@ interface TaskBreakdown {
   tasks: TaskBreakdownItem[];
   executionPlan: string;
   risks: string;
+}
+
+/**
+ * 审核结果（增强版，带置信度）
+ */
+interface ReviewResult {
+  isApproved: boolean;
+  confidence: number;
+  reason: string;
+  matchedPattern?: string;
 }
 
 @Injectable()
@@ -1984,8 +2001,15 @@ export class TeamMissionService {
         };
       }
 
-      // 解析审核结果
-      const isApproved = this.parseReviewResult(aiResponse.content);
+      // 解析审核结果（增强版，带置信度）
+      const reviewResult = this.parseReviewResult(aiResponse.content);
+      const isApproved = reviewResult.isApproved;
+
+      // 记录审核解析详情
+      this.logger.log(
+        `[leaderReviewTask] Review result: ${isApproved ? "APPROVED" : "REJECTED"} ` +
+          `(confidence: ${reviewResult.confidence.toFixed(2)}, reason: ${reviewResult.reason})`,
+      );
 
       // 发送 Leader 反馈消息
       const agentName =
@@ -4088,13 +4112,8 @@ ${taskList}
       `[parseTaskBreakdown] Available members (${teamMembers.length}): ${JSON.stringify(availableMemberNames.map((m) => m.agentName || m.displayName))}`,
     );
 
-    // 统计匹配情况
-    const matchStats = {
-      totalRows: 0,
-      matched: 0,
-      unmatched: [] as string[],
-      memberTaskCount: new Map<string, number>(),
-    };
+    // 使用增强的匹配统计
+    const matchStats: MatchStatistics = createMatchStatistics();
 
     // 尝试解析表格
     const tableMatch = content.match(
@@ -4116,15 +4135,30 @@ ${taskList}
           const priorityStr = cells[4]?.trim().toLowerCase() || "medium";
           const dependsStr = cells[5]?.trim() || "";
 
-          // 查找对应的成员
-          // Use findMemberByName for precise matching
-          const assignee = findMemberByName(assigneeName, teamMembers);
+          // 使用增强版成员匹配（支持模糊匹配）
+          const matchResult = findMemberByNameEnhanced(
+            assigneeName,
+            teamMembers,
+          );
+          const assignee = matchResult.member;
 
-          // ★ 诊断日志：记录匹配失败的情况
-          if (!assignee && assigneeName) {
-            matchStats.unmatched.push(assigneeName);
+          // ★ 诊断日志：根据匹配类型记录
+          if (matchResult.matchInfo.type === "none" && assigneeName) {
+            const unmatchedItem: UnmatchedItem = {
+              taskTitle: title,
+              inputName: assigneeName,
+              availableMembers: availableMemberNames.map(
+                (m) => m.agentName || m.displayName,
+              ),
+            };
+            matchStats.unmatched.push(unmatchedItem);
             this.logger.warn(
               `[parseTaskBreakdown] ❌ Member match FAILED: "${assigneeName}" | Available: [${availableMemberNames.map((m) => m.agentName || m.displayName).join(", ")}]`,
+            );
+          } else if (matchResult.matchInfo.type === "fuzzy") {
+            matchStats.fuzzyMatched++;
+            this.logger.warn(
+              `[parseTaskBreakdown] ⚠️ Fuzzy match: "${assigneeName}" → "${matchResult.matchInfo.suggestion}" (confidence: ${matchResult.matchInfo.confidence.toFixed(2)})`,
             );
           }
 
@@ -4186,7 +4220,7 @@ ${taskList}
     );
 
     this.logger.log(
-      `[parseTaskBreakdown] 📊 Match Summary: ${matchStats.matched}/${matchStats.totalRows} tasks matched`,
+      `[parseTaskBreakdown] 📊 Match Summary: ${matchStats.matched}/${matchStats.totalRows} tasks matched (fuzzy: ${matchStats.fuzzyMatched})`,
     );
     this.logger.log(
       `[parseTaskBreakdown] 📊 Task Distribution: ${JSON.stringify(taskDistribution)}`,
@@ -4194,7 +4228,7 @@ ${taskList}
 
     if (matchStats.unmatched.length > 0) {
       this.logger.warn(
-        `[parseTaskBreakdown] ⚠️ Unmatched names (${matchStats.unmatched.length}): ${JSON.stringify(matchStats.unmatched)}`,
+        `[parseTaskBreakdown] ⚠️ Unmatched names (${matchStats.unmatched.length}): ${JSON.stringify(matchStats.unmatched.map((u) => u.inputName))}`,
       );
     }
 
@@ -4202,6 +4236,16 @@ ${taskList}
       this.logger.warn(
         `[parseTaskBreakdown] ⚠️ Members with NO tasks (${membersWithNoTasks.length}): ${JSON.stringify(membersWithNoTasks.map((m) => m.agentName || m.displayName))}`,
       );
+    }
+
+    // ★ 失败率检测：超过 10% 视为规划失败
+    if (isMatchFailureRateExceeded(matchStats, 0.1)) {
+      const errorMsg = formatMatchFailureError(
+        matchStats,
+        availableMemberNames.map((m) => m.agentName || m.displayName),
+      );
+      this.logger.error(`[parseTaskBreakdown] ❌ ${errorMsg}`);
+      throw new BadRequestException(errorMsg);
     }
 
     // 如果解析失败，创建一个默认任务
@@ -4229,86 +4273,119 @@ ${taskList}
     };
   }
 
-  private parseReviewResult(content: string): boolean {
+  /**
+   * 解析审核结果（增强版，带置信度和原因）
+   *
+   * 策略优先级：
+   * 1. 否定词检测（最高优先级，权重 1.0）
+   * 2. 明确通过标记（权重 1.0）
+   * 3. 上下文感知的"通过"检测（权重 0.7-0.9）
+   * 4. 默认不通过（保守策略，权重 0.5）
+   */
+  private parseReviewResult(content: string): ReviewResult {
     const lowerContent = content.toLowerCase();
 
-    // 先检查否定词，避免"暂不通过"、"未能审核通过"被误判为"通过"
-    const rejectPatterns = [
-      "不通过",
-      "暂不通过",
-      "未通过",
-      "未能通过",
-      "未能审核通过",
-      "无法通过",
-      "没有通过",
-      "没通过",
-      "不合格",
-      "需要修改",
-      "需修改",
-      "请修改",
-      "请重新",
-      "需要改进",
-      "不满足",
-      "rejected",
-      "not approved",
-      "not passed",
-      "failed",
-      "needs revision",
-      "revise",
-      "❌",
+    // ★ 否定模式检测（最高优先级）
+    const rejectPatterns: Array<{ pattern: string; weight: number }> = [
+      { pattern: "不通过", weight: 1.0 },
+      { pattern: "暂不通过", weight: 1.0 },
+      { pattern: "未通过", weight: 1.0 },
+      { pattern: "未能通过", weight: 1.0 },
+      { pattern: "未能审核通过", weight: 1.0 },
+      { pattern: "无法通过", weight: 1.0 },
+      { pattern: "没有通过", weight: 1.0 },
+      { pattern: "没通过", weight: 1.0 },
+      { pattern: "不合格", weight: 0.95 },
+      { pattern: "需要修改", weight: 0.9 },
+      { pattern: "需修改", weight: 0.9 },
+      { pattern: "请修改", weight: 0.9 },
+      { pattern: "请重新", weight: 0.85 },
+      { pattern: "需要改进", weight: 0.8 },
+      { pattern: "不满足", weight: 0.9 },
+      { pattern: "rejected", weight: 1.0 },
+      { pattern: "not approved", weight: 1.0 },
+      { pattern: "not passed", weight: 1.0 },
+      { pattern: "failed", weight: 0.9 },
+      { pattern: "needs revision", weight: 0.9 },
+      { pattern: "revise", weight: 0.8 },
+      { pattern: "❌", weight: 1.0 },
     ];
 
-    for (const pattern of rejectPatterns) {
+    for (const { pattern, weight } of rejectPatterns) {
       if (lowerContent.includes(pattern)) {
-        return false;
+        return {
+          isApproved: false,
+          confidence: weight,
+          reason: `检测到否定词: "${pattern}"`,
+          matchedPattern: pattern,
+        };
       }
     }
 
-    // 检查是否有明确的通过标记
-    const approvePatterns = [
-      "审核通过",
-      "评审通过",
-      "审批通过",
-      "✅ 通过",
-      "✅通过",
-      "approved",
-      "passed",
-      "✅",
+    // ★ 明确通过标记检测
+    const approvePatterns: Array<{ pattern: string; weight: number }> = [
+      { pattern: "审核通过", weight: 1.0 },
+      { pattern: "评审通过", weight: 1.0 },
+      { pattern: "审批通过", weight: 1.0 },
+      { pattern: "✅ 通过", weight: 1.0 },
+      { pattern: "✅通过", weight: 1.0 },
+      { pattern: "approved", weight: 0.95 },
+      { pattern: "passed", weight: 0.9 },
+      { pattern: "✅", weight: 0.85 },
     ];
 
-    for (const pattern of approvePatterns) {
+    for (const { pattern, weight } of approvePatterns) {
       if (lowerContent.includes(pattern)) {
-        return true;
+        return {
+          isApproved: true,
+          confidence: weight,
+          reason: `检测到通过标记: "${pattern}"`,
+          matchedPattern: pattern,
+        };
       }
     }
 
-    // 检查一般通过词（但排除否定上下文）
+    // ★ 上下文感知的"通过"检测
     if (
       lowerContent.includes("通过") ||
       lowerContent.includes("合格") ||
       lowerContent.includes("approved")
     ) {
-      // 额外检查：确保"通过"前面没有否定词
       const passIndex = lowerContent.indexOf("通过");
       if (passIndex > 0) {
         const beforePass = lowerContent.substring(
           Math.max(0, passIndex - 5),
           passIndex,
         );
+        // 检查前面是否有否定词
         if (
           beforePass.includes("未") ||
           beforePass.includes("不") ||
           beforePass.includes("没") ||
           beforePass.includes("无法")
         ) {
-          return false;
+          return {
+            isApproved: false,
+            confidence: 0.9,
+            reason: '上下文检测: "通过"前有否定词',
+            matchedPattern: beforePass + "通过",
+          };
         }
       }
-      return true;
+      return {
+        isApproved: true,
+        confidence: 0.7,
+        reason: '检测到"通过"或"合格"',
+        matchedPattern: "通过",
+      };
     }
 
-    // 默认不通过（更保守的策略）
-    return false;
+    // ★ 默认不通过（更保守的策略）
+    return {
+      isApproved: false,
+      confidence: 0.5,
+      reason: "未检测到明确的审核结论，默认不通过",
+    };
   }
 
   // ==================== 查询方法 ====================

@@ -1914,6 +1914,18 @@ model TeamMission {
   // Mission Context Package (Leader 解析任务后生成的上下文，包含实体定义、约束等)
   contextPackage Json? @map("context_package")
 
+  // 结构化输入（长内容处理）
+  inputBackground  String? @map("input_background") @db.Text // 背景描述
+  inputConstraints Json?   @map("input_constraints") // 约束列表 [{type, rule, severity}]
+  inputEntities    Json?   @map("input_entities") // 实体定义 [{name, type, definition}]
+  inputExamples    Json?   @map("input_examples") // 示例 [{title, content}]
+  inputProcessed   Boolean @default(false) @map("input_processed") // 是否已处理
+  inputSummary     String? @map("input_summary") @db.Text // 输入摘要（用于长内容）
+
+  // 约束追踪
+  mustConstraints      Json? @map("must_constraints") // 提取的硬约束
+  constraintViolations Json? @map("constraint_violations") // 违规记录
+
   // 进度统计
   totalTasks      Int @default(0) @map("total_tasks")
   completedTasks  Int @default(0) @map("completed_tasks")
@@ -1984,6 +1996,10 @@ model AgentTask {
   needsRevision     Boolean @default(false) @map("needs_revision")
   revisionCount     Int     @default(0) @map("revision_count")
   maxRevisions      Int     @default(3) @map("max_revisions")
+
+  // 审核追踪（长内容增强）
+  reviewHistory        Json? @map("review_history") // 审核历史 [{time, result, feedback, confidence}]
+  constraintViolations Json? @map("constraint_violations") // 约束违规 [{constraintId, text, position}]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

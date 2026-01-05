@@ -42,6 +42,10 @@ import {
   MissionPromptService,
   MissionQueryService,
   MissionContextService,
+  // 长内容处理增强服务
+  ConstraintEnforcementService,
+  TokenBudgetService,
+  MissionInputService,
   // Topic 领域服务
   TopicMembershipService,
   TopicPublicService,
@@ -83,6 +87,11 @@ import { TeamMemberAgent } from "./agents";
     MissionQueryService,
     MissionContextService,
 
+    // 长内容处理增强服务
+    ConstraintEnforcementService,
+    TokenBudgetService,
+    MissionInputService,
+
     // Topic 领域服务
     TopicMembershipService,
     TopicPublicService,
@@ -108,6 +117,11 @@ import { TeamMemberAgent } from "./agents";
     TeamMissionService,
     TeamCollaborationService,
     AgentCircuitBreakerService,
+
+    // 长内容处理增强服务
+    ConstraintEnforcementService,
+    TokenBudgetService,
+    MissionInputService,
 
     // Topic 领域服务
     TopicMembershipService,
