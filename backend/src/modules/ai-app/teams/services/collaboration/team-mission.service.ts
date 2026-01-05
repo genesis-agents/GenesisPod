@@ -704,6 +704,9 @@ export class TeamMissionService {
           },
         });
 
+        // ★ 同时更新内存中的 mission 对象，确保后续流程可以访问
+        (mission as any).mustConstraints = hardConstraints;
+
         this.logger.log(
           `[startMission] Extracted ${hardConstraints.length} constraints from mission description:`,
         );
@@ -1913,6 +1916,8 @@ export class TeamMissionService {
                     status: AgentTaskStatus.PENDING,
                     priority: TaskPriority.HIGH,
                     taskType: TaskType.IMPLEMENTATION,
+                    revisionCount: 0, // ★ 初始化修改次数
+                    maxRevisions: 3, // ★ 初始化最大修改次数
                   },
                 });
 
@@ -3162,6 +3167,8 @@ export class TeamMissionService {
           assignedReason: taskItem.reason,
           dependsOnIds,
           status: AgentTaskStatus.PENDING,
+          revisionCount: 0, // ★ 初始化修改次数
+          maxRevisions: 3, // ★ 初始化最大修改次数
         },
       });
 
@@ -3255,6 +3262,19 @@ export class TeamMissionService {
       );
     }
 
+    // ★ 构建已提取的用户约束区块（如"钟叔是哑巴"）
+    const mustConstraints = (mission.mustConstraints as any[]) || [];
+    const userConstraintsSection =
+      mustConstraints.length > 0
+        ? `
+【⚠️ 用户输入中的硬性约束 - 规划时必须遵守】
+以下约束是从用户输入中自动提取的，任务分解时所有任务都必须遵守：
+${mustConstraints.map((c) => `- [${c.id}] ${c.rule} (${c.severity})`).join("\n")}
+
+🚫 禁止分配任何与上述约束冲突的任务。例如：如果约束是"钟叔是哑巴"，则不能分配"钟叔说话/对话"的任务。
+`
+        : "";
+
     return `你是团队的 Leader「${leader.agentName || leader.displayName}」。
 
 【你的团队成员】
@@ -3271,7 +3291,7 @@ ${memberNames.map((name) => `- @${name}`).join("\n")}
 
 ✅ **正确示例：** @${firstMemberExample}
 ❌ **错误示例：** @G4o-mini、@Gem、@GPT（这些别名会导致任务分配失败！）
-
+${userConstraintsSection}
 【用户任务】
 标题：${mission.title}
 描述：${truncatedDescription}
@@ -3967,7 +3987,7 @@ ${completedSummary}
   }
 
   private buildTaskRevisionPrompt(
-    _mission: any,
+    mission: any,
     task: any,
     feedback: string,
   ): string {
@@ -3986,8 +4006,35 @@ ${completedSummary}
       truncatedPreviousResult = previousResult;
     }
 
-    return `你之前提交的任务需要修改。
+    // ★ 合并约束：用户输入约束 + Leader 提取约束（去重）
+    const mustConstraints = (mission.mustConstraints as any[]) || [];
+    const contextConstraints =
+      (mission.contextPackage as MissionContextPackage | null)
+        ?.hardConstraints || [];
 
+    // 去重合并：以 id 为准，用户约束优先
+    const constraintMap = new Map<string, any>();
+    mustConstraints.forEach((c) => constraintMap.set(c.id, c));
+    contextConstraints.forEach((c) => {
+      if (!constraintMap.has(c.id)) {
+        constraintMap.set(c.id, c);
+      }
+    });
+    const allConstraints = Array.from(constraintMap.values());
+
+    // 构建约束提示区块
+    const constraintsSection =
+      allConstraints.length > 0
+        ? `
+【🚫 硬性约束 - 修改时必须遵守】
+${allConstraints.map((c) => `• [${c.id}] ${c.rule}`).join("\n")}
+
+⚠️ 违反任何硬性约束将导致再次被驳回。
+`
+        : "";
+
+    return `你之前提交的任务需要修改。
+${constraintsSection}
 【任务信息】
 任务名称：${task.title}
 任务描述：${task.description}
@@ -3999,7 +4046,7 @@ ${truncatedPreviousResult}
 ${feedback}
 
 【要求】
-请根据 Leader 的反馈修改你的产出，输出修改后的完整内容。`;
+请根据 Leader 的反馈修改你的产出，确保遵守所有硬性约束，输出修改后的完整内容。`;
   }
 
   /**
