@@ -36,6 +36,7 @@ import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { AiChatService } from "../../../../../ai-engine/llm/services/ai-chat.service";
 import { SearchService } from "../../../../../ai-engine/search/search.service";
 import { AiTeamsGateway } from "../../../ai-teams.gateway";
+import { AgentCircuitBreakerService } from "../agent-circuit-breaker.service";
 
 /**
  * 这些测试验证 TeamMissionService 与 LongContentEngine 的集成
@@ -92,6 +93,19 @@ describe("TeamMissionService Long Content Integration", () => {
     emitToTopic: jest.fn(),
   };
 
+  const mockAgentCircuitBreakerService = {
+    canExecute: jest.fn().mockReturnValue(true),
+    recordSuccess: jest.fn(),
+    recordFailure: jest.fn(),
+    selectBestAgent: jest
+      .fn()
+      .mockImplementation((agentIds: string[]) => agentIds[0] || null),
+    getAgentStats: jest
+      .fn()
+      .mockReturnValue({ state: "CLOSED", failureCount: 0 }),
+    reset: jest.fn(),
+  };
+
   beforeEach(async () => {
     // 重置捕获的调用
     Object.keys(capturedCalls).forEach((key) => {
@@ -111,6 +125,10 @@ describe("TeamMissionService Long Content Integration", () => {
         { provide: AiChatService, useValue: mockAiChatService },
         { provide: SearchService, useValue: mockSearchService },
         { provide: AiTeamsGateway, useValue: mockAiTeamsGateway },
+        {
+          provide: AgentCircuitBreakerService,
+          useValue: mockAgentCircuitBreakerService,
+        },
       ],
     }).compile();
 
