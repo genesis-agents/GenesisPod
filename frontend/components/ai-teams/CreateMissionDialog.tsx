@@ -25,6 +25,7 @@ export default function CreateMissionDialog({
 
   const [selectedLeaderId, setSelectedLeaderId] = useState<string>('');
   const [taskDescription, setTaskDescription] = useState('');
+  const [notificationEmail, setNotificationEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,6 +65,9 @@ export default function CreateMissionDialog({
         description: taskDescription.trim(),
         leaderId: selectedLeaderId,
         autoStart: true,
+        ...(notificationEmail.trim() && {
+          notificationEmail: notificationEmail.trim(),
+        }),
       };
 
       await createMission(topicId, dto);
@@ -200,6 +204,27 @@ export default function CreateMissionDialog({
             <p className="mt-2 text-xs text-gray-500">
               The leader will analyze this task and coordinate the team to
               complete it.
+            </p>
+          </div>
+
+          {/* Notification Email */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              Notification Email
+              <span className="ml-1 text-xs font-normal text-gray-400">
+                (Optional)
+              </span>
+            </label>
+            <input
+              type="email"
+              value={notificationEmail}
+              onChange={(e) => setNotificationEmail(e.target.value)}
+              placeholder="Enter email to receive completion notification"
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <p className="mt-2 text-xs text-gray-500">
+              When the mission completes, a report link will be sent to this
+              email.
             </p>
           </div>
 

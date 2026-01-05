@@ -609,6 +609,7 @@ export interface CreateMissionDto {
   constraints?: string[];
   deliverables?: string[];
   autoStart?: boolean;
+  notificationEmail?: string;
 }
 
 export interface UpdateAIMemberTeamRoleDto {
