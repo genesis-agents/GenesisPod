@@ -1,17 +1,17 @@
 /**
  * 成员名称匹配工具函数
  *
- * 简单原则：只移除 @ 和 AI- 前缀，然后直接和真实名字匹配
+ * 简单原则：只移除 @ 前缀，然后直接和真实名字匹配
+ * 注意：不移除 AI- 前缀，因为数据库中的成员名称本身就带 AI- 前缀
  */
 
 /**
- * 清理 AI 输出的名称，只移除 @ 和 AI- 前缀
- * 例如: "@AI-Gemini (Flash) #10" -> "Gemini (Flash) #10"
+ * 清理 AI 输出的名称，只移除 @ 前缀
+ * 例如: "@AI-ChatGPT (gpt-4o)" -> "AI-ChatGPT (gpt-4o)"
  */
 export function cleanMemberName(name: string): string {
   return name
-    .replace(/^@/, "") // 移除 @ 前缀
-    .replace(/^AI-/i, "") // 移除 AI- 前缀
+    .replace(/^@/, "") // 只移除 @ 前缀
     .trim();
 }
 
