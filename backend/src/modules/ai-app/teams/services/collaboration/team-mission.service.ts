@@ -3949,80 +3949,54 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
       truncatedResult = taskResult;
     }
 
-    // 获取已完成任务的摘要，用于一致性检查
-    const completedTasks = (mission.tasks || [])
-      .filter(
-        (t: any) => t.status === "COMPLETED" && t.id !== task.id && t.result,
-      )
-      .slice(-2); // 只取最近2个已完成任务，减少上下文
-
-    const completedSummary =
-      completedTasks.length > 0
-        ? completedTasks
-            .map((t: any) => {
-              const resultPreview = (t.result || "").substring(0, 200);
-              return `- ${t.title}（${t.assignedTo?.agentName || t.assignedTo?.displayName || "未知"}）: ${resultPreview}${t.result?.length > 200 ? "..." : ""}`;
-            })
-            .join("\n")
-        : "（暂无已完成任务）";
-
     // ★ 构建约束条件提示（用于审核时参考）
     const constraintsHint =
       mission.constraints?.length > 0
         ? `\n**强制约束条件：**\n${mission.constraints.map((c: string, i: number) => `${i + 1}. ${c}`).join("\n")}\n`
         : "";
 
-    return `你是团队 Leader，请审核以下任务产出，确保其质量和与整体任务的一致性。
+    return `你是团队 Leader，请审核以下任务产出。
 
 【整体任务背景】
 任务主题：${mission.title || "未知"}
-任务描述：${mission.description || "无描述"}
 ${mission.goals ? `任务目标：${mission.goals}` : ""}
 ${constraintsHint}
 【本次审核任务】
 任务名称：${task.title}
 任务描述：${task.description}
-负责人：${task.assignedTo.agentName || task.assignedTo.displayName}
 
 【任务产出】
 ${truncatedResult}
 
-【已完成的其他任务摘要】
-${completedSummary}
+【⚠️ 审核原则 - 宽进严出，鼓励创作】
 
-【⚠️ 审核规则 - 区分硬性错误与软性建议】
+**核心原则：质量达标即通过。完美是好的敌人。**
 
-请使用以下分类标准评估产出：
+✅ **审核通过的标准（满足以下任一即可通过）：**
+- 完成了任务的核心要求
+- 内容质量达到可接受水平
+- 无严重的设定冲突或事实错误
 
-🚫 **硬性错误（必须修改才能通过）：**
-- 违反任务约束条件（如人物设定冲突、情节矛盾）
-- 严重偏离任务要求（如主题完全不符）
-- 关键内容缺失（如遗漏必要元素）
-- 字数严重不足（低于要求的 50%）
-- 严重的事实性错误
+❌ **仅以下情况才需要修改（非常严格的标准）：**
+- 完全偏离任务主题（写的内容与任务无关）
+- 严重违反人物核心设定（如让哑巴说话、让死人复活）
+- 字数严重不足（低于要求的 30%）
+- 内容明显不完整（只有开头没有结尾）
 
-💡 **软性建议（可选改进，不影响通过）：**
-- 文笔优化建议
-- 细节补充建议
-- 风格微调
-- 扩展性建议
+**重要提醒：**
+- 文笔风格、细节处理、情节安排等都属于"可接受的创作差异"，不是拒绝理由
+- 与你期望的不完全一致 ≠ 需要修改
+- 有改进空间 ≠ 需要修改
+- 能够串联进整体故事即可通过
 
-**审核决策原则：**
-- 如果只有软性建议，没有硬性错误 → **审核通过**，附带改进建议
-- 如果存在硬性错误 → **需要修改**，明确列出必须修复的问题
+请直接输出：
 
-请按以下格式输出审核意见：
+## 审核结果：通过
 
-## 审核结果：[通过/需要修改]
+或
 
-### 硬性问题（如有）
-[列出必须修复的问题]
-
-### 改进建议（如有）
-[列出可选的优化建议]
-
-### 总体评价
-[简短总结]`;
+## 审核结果：需要修改
+[仅列出上述❌中的严重问题]`;
   }
 
   private buildTaskRevisionPrompt(
@@ -4446,31 +4420,68 @@ ${taskList}
    * 4. 默认不通过（保守策略，权重 0.5）
    */
   private parseReviewResult(content: string): ReviewResult {
+    // ★★★ 最高优先级：检查标准格式 "## 审核结果：通过/需要修改" ★★★
+    // 这是 Prompt 要求的输出格式，应优先匹配
+    const formatMatch = content.match(/##\s*审核结果[：:]\s*(通过|需要修改)/);
+    if (formatMatch) {
+      const result = formatMatch[1];
+      if (result === "通过") {
+        return {
+          isApproved: true,
+          confidence: 1.0,
+          reason: `标准格式匹配: "审核结果：通过"`,
+          matchedPattern: "## 审核结果：通过",
+        };
+      } else {
+        return {
+          isApproved: false,
+          confidence: 1.0,
+          reason: `标准格式匹配: "审核结果：需要修改"`,
+          matchedPattern: "## 审核结果：需要修改",
+        };
+      }
+    }
+
     const lowerContent = content.toLowerCase();
 
-    // ★ 否定模式检测（最高优先级）
+    // ★ 明确通过标记检测（优先于否定词，因为我们希望更宽容）
+    const approvePatterns: Array<{ pattern: string; weight: number }> = [
+      { pattern: "审核通过", weight: 1.0 },
+      { pattern: "评审通过", weight: 1.0 },
+      { pattern: "审批通过", weight: 1.0 },
+      { pattern: "✅ 通过", weight: 1.0 },
+      { pattern: "✅通过", weight: 1.0 },
+      { pattern: "approved", weight: 0.95 },
+      { pattern: "passed", weight: 0.9 },
+      { pattern: "✅", weight: 0.85 },
+      { pattern: "符合要求", weight: 0.85 },
+      { pattern: "质量达标", weight: 0.85 },
+      { pattern: "可以接受", weight: 0.8 },
+    ];
+
+    for (const { pattern, weight } of approvePatterns) {
+      if (lowerContent.includes(pattern)) {
+        return {
+          isApproved: true,
+          confidence: weight,
+          reason: `检测到通过标记: "${pattern}"`,
+          matchedPattern: pattern,
+        };
+      }
+    }
+
+    // ★ 否定模式检测（只有在没有通过标记时才检查）
     const rejectPatterns: Array<{ pattern: string; weight: number }> = [
       { pattern: "不通过", weight: 1.0 },
       { pattern: "暂不通过", weight: 1.0 },
       { pattern: "未通过", weight: 1.0 },
       { pattern: "未能通过", weight: 1.0 },
-      { pattern: "未能审核通过", weight: 1.0 },
       { pattern: "无法通过", weight: 1.0 },
-      { pattern: "没有通过", weight: 1.0 },
       { pattern: "没通过", weight: 1.0 },
       { pattern: "不合格", weight: 0.95 },
-      { pattern: "需要修改", weight: 0.9 },
-      { pattern: "需修改", weight: 0.9 },
-      { pattern: "请修改", weight: 0.9 },
-      { pattern: "请重新", weight: 0.85 },
-      { pattern: "需要改进", weight: 0.8 },
-      { pattern: "不满足", weight: 0.9 },
       { pattern: "rejected", weight: 1.0 },
       { pattern: "not approved", weight: 1.0 },
-      { pattern: "not passed", weight: 1.0 },
       { pattern: "failed", weight: 0.9 },
-      { pattern: "needs revision", weight: 0.9 },
-      { pattern: "revise", weight: 0.8 },
       { pattern: "❌", weight: 1.0 },
     ];
 
@@ -4485,69 +4496,13 @@ ${taskList}
       }
     }
 
-    // ★ 明确通过标记检测
-    const approvePatterns: Array<{ pattern: string; weight: number }> = [
-      { pattern: "审核通过", weight: 1.0 },
-      { pattern: "评审通过", weight: 1.0 },
-      { pattern: "审批通过", weight: 1.0 },
-      { pattern: "✅ 通过", weight: 1.0 },
-      { pattern: "✅通过", weight: 1.0 },
-      { pattern: "approved", weight: 0.95 },
-      { pattern: "passed", weight: 0.9 },
-      { pattern: "✅", weight: 0.85 },
-    ];
-
-    for (const { pattern, weight } of approvePatterns) {
-      if (lowerContent.includes(pattern)) {
-        return {
-          isApproved: true,
-          confidence: weight,
-          reason: `检测到通过标记: "${pattern}"`,
-          matchedPattern: pattern,
-        };
-      }
-    }
-
-    // ★ 上下文感知的"通过"检测
-    if (
-      lowerContent.includes("通过") ||
-      lowerContent.includes("合格") ||
-      lowerContent.includes("approved")
-    ) {
-      const passIndex = lowerContent.indexOf("通过");
-      if (passIndex > 0) {
-        const beforePass = lowerContent.substring(
-          Math.max(0, passIndex - 5),
-          passIndex,
-        );
-        // 检查前面是否有否定词
-        if (
-          beforePass.includes("未") ||
-          beforePass.includes("不") ||
-          beforePass.includes("没") ||
-          beforePass.includes("无法")
-        ) {
-          return {
-            isApproved: false,
-            confidence: 0.9,
-            reason: '上下文检测: "通过"前有否定词',
-            matchedPattern: beforePass + "通过",
-          };
-        }
-      }
-      return {
-        isApproved: true,
-        confidence: 0.7,
-        reason: '检测到"通过"或"合格"',
-        matchedPattern: "通过",
-      };
-    }
-
-    // ★ 默认不通过（更保守的策略）
+    // ★ 默认通过（宽容策略，而非保守策略）
+    // 如果没有明确的通过或拒绝标记，倾向于通过
     return {
-      isApproved: false,
-      confidence: 0.5,
-      reason: "未检测到明确的审核结论，默认不通过",
+      isApproved: true,
+      confidence: 0.6,
+      reason: "未检测到明确的拒绝标记，默认通过",
+      matchedPattern: "default_approve",
     };
   }
 
