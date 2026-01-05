@@ -104,13 +104,12 @@ export class TeamMissionService {
     maxDelayMs: 10000,
     backoffMultiplier: 2,
     // 可重试的错误模式（临时性错误）
+    // ★ 注意：Rate Limit 错误已移至 nonRetryablePatterns
+    // 因为重试只会让限速情况更糟，应该直接走 CircuitBreaker 切换 Agent
     retryablePatterns: [
       /timeout/i,
       /timed?\s*out/i,
-      /rate.?limit/i,
-      /too many requests/i,
-      /429/,
-      /5\d{2}/, // 5xx 服务器错误
+      /5\d{2}/, // 5xx 服务器错误（非 429）
       /ECONNRESET/i,
       /ETIMEDOUT/i,
       /ENOTFOUND/i,
@@ -121,8 +120,15 @@ export class TeamMissionService {
       /service unavailable/i,
       /overloaded/i,
     ],
-    // 不可重试的错误模式（永久性错误）
+    // 不可重试的错误模式（永久性错误 + 限速错误）
+    // ★ Rate Limit 错误不应重试，应该立即切换 Agent
     nonRetryablePatterns: [
+      // Rate Limit - 需要立即停止并切换 Agent
+      /rate.?limit/i,
+      /too many requests/i,
+      /429/,
+      /quota/i,
+      // 永久性错误
       /context.*(too large|overflow|exceed)/i,
       /token.*(limit|exceed|max)/i,
       /invalid.*(request|api.?key|model)/i,
@@ -309,6 +315,42 @@ export class TeamMissionService {
 
     // 默认：重试（大多数未知错误是临时性的）
     return true;
+  }
+
+  /**
+   * 检查是否是 Rate Limit 错误
+   * Rate Limit 错误需要特殊处理：不重试，但可以切换 Agent
+   */
+  private isRateLimitError(errorMsg: string): boolean {
+    const rateLimitPatterns = [
+      /rate.?limit/i,
+      /too many requests/i,
+      /429/,
+      /quota/i,
+    ];
+    return rateLimitPatterns.some((pattern) => pattern.test(errorMsg));
+  }
+
+  /**
+   * 检查是否是永久性错误（不能通过切换 Agent 解决）
+   * 如：上下文过大、认证错误、无效请求等
+   */
+  private isPermanentError(errorMsg: string): boolean {
+    const permanentPatterns = [
+      /context.*(too large|overflow|exceed)/i,
+      /token.*(limit|exceed|max)/i,
+      /invalid.*(request|api.?key|model)/i,
+      /authentication/i,
+      /authorization/i,
+      /forbidden/i,
+      /not found/i,
+      /model.*not.*available/i,
+      /content.*policy/i,
+      /403/,
+      /401/,
+      /404/,
+    ];
+    return permanentPatterns.some((pattern) => pattern.test(errorMsg));
   }
 
   /**
@@ -1542,10 +1584,12 @@ export class TeamMissionService {
         );
 
         // 检查错误类型决定是否切换 Agent
-        if (!this.isRetryableError(errorMsg)) {
-          // 永久性错误（如上下文过大），直接走 Leader 重新规划
+        // ★ 使用 isPermanentError 而不是 !isRetryableError
+        // Rate Limit 错误虽然不应重试，但可以通过切换 Agent 解决
+        if (this.isPermanentError(errorMsg)) {
+          // 真正的永久性错误（如上下文过大），直接走 Leader 重新规划
           this.logger.log(
-            `[executeTask] Non-retryable error, skipping agent switch and going to Leader replan`,
+            `[executeTask] Permanent error detected, skipping agent switch and going to Leader replan`,
           );
           await this.handleTaskExecutionFailure(
             mission,
@@ -1554,6 +1598,13 @@ export class TeamMissionService {
             errorMsg,
           );
           return;
+        }
+
+        // Rate Limit 错误：记录日志，然后尝试切换 Agent
+        if (this.isRateLimitError(errorMsg)) {
+          this.logger.warn(
+            `[executeTask] Rate limit detected for ${currentAgent.displayName}, switching to alternative agent immediately`,
+          );
         }
 
         // 🔒 Circuit Breaker: 检查替代 Agent 是否可用
