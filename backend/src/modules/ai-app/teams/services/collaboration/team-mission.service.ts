@@ -193,7 +193,12 @@ export class TeamMissionService {
     aiModel: string,
     messages: { role: string; content: string }[],
     systemPrompt: string,
-    options?: { maxTokens?: number; temperature?: number; missionId?: string },
+    options?: {
+      maxTokens?: number;
+      temperature?: number;
+      missionId?: string;
+      enableSearch?: boolean; // ★ 是否启用网页搜索，内部调用默认关闭
+    },
   ) {
     const modelConfig = await this.getModelConfig(aiModel);
 
@@ -207,6 +212,9 @@ export class TeamMissionService {
       aiModel.startsWith("o3");
     const defaultMaxTokens = isLargeModel ? 6000 : 4000;
 
+    // ★ 内部调用默认关闭网页搜索，避免任务修订等场景误触发搜索
+    const enableSearch = options?.enableSearch ?? false;
+
     let result;
     if (modelConfig && modelConfig.apiKey) {
       // Use database API key
@@ -219,6 +227,7 @@ export class TeamMissionService {
         messages: messages as any,
         maxTokens: options?.maxTokens ?? defaultMaxTokens,
         temperature: options?.temperature ?? 0.7,
+        enableSearch, // ★ 传递搜索开关
       });
     } else {
       // Fallback to environment variable based method

@@ -619,9 +619,13 @@ export class AiChatService {
   /**
    * Process messages to fetch URL content and perform web search if needed
    * This gives all AI models the ability to access the internet
+   * @param messages - Chat messages to process
+   * @param enableSearch - Whether to perform web search (default: true)
+   *                       Set to false for internal system calls to avoid unnecessary searches
    */
   private async augmentMessagesWithUrlContent(
     messages: ChatMessage[],
+    enableSearch = true,
   ): Promise<ChatMessage[]> {
     const augmentedMessages: ChatMessage[] = [];
 
@@ -651,7 +655,12 @@ export class AiChatService {
         }
 
         // 2. Perform web search if message indicates search intent (and no URLs)
-        if (urls.length === 0 && this.needsWebSearch(message.content)) {
+        // ★ Skip web search for internal system calls (enableSearch=false)
+        if (
+          enableSearch &&
+          urls.length === 0 &&
+          this.needsWebSearch(message.content)
+        ) {
           const searchQuery = this.extractSearchQuery(message.content);
           if (searchQuery.length > 3) {
             this.logger.log(`Detected search intent, query: ${searchQuery}`);
@@ -2147,8 +2156,12 @@ Format the summary in a clear, structured manner using markdown.`;
 
     // Augment messages with URL content for all AI providers
     // This enables AI models to "access" URLs by fetching content server-side
-    const augmentedMessages =
-      await this.augmentMessagesWithUrlContent(messages);
+    // ★ Pass enableSearch to control whether web search is performed
+    //   Internal system calls should set enableSearch=false to avoid unnecessary searches
+    const augmentedMessages = await this.augmentMessagesWithUrlContent(
+      messages,
+      enableSearch,
+    );
 
     // Build full messages with system prompt
     const fullMessages: ChatMessage[] = [];
