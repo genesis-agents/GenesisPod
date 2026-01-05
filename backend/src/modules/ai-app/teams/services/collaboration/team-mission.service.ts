@@ -3043,6 +3043,12 @@ export class TeamMissionService {
     leader: any,
     teamMembers: any[],
   ): string {
+    // ★ 构建精确的成员名称列表，用于强调必须使用这些名称
+    const memberNames = teamMembers
+      .map((m) => m.agentName || m.displayName)
+      .filter(Boolean);
+    const firstMemberExample = memberNames[0] || "成员名";
+
     const membersInfo = teamMembers
       .map(
         (m) =>
@@ -3061,6 +3067,18 @@ export class TeamMissionService {
 【你的团队成员】
 ${membersInfo}
 
+【⚠️ 极其重要：成员名称必须精确匹配】
+**在任务分解表格的"负责人"列，你必须使用以下精确名称之一（复制粘贴，不可修改）：**
+${memberNames.map((name) => `- @${name}`).join("\n")}
+
+🚫 **禁止行为：**
+- 禁止使用别名、简称、缩写（如 @G4o-mini、@Gem-F1、@GPT5.1 都是无效的）
+- 禁止自创名称或修改成员名称
+- 禁止省略 @ 符号
+
+✅ **正确示例：** @${firstMemberExample}
+❌ **错误示例：** @G4o-mini、@Gem、@GPT（这些别名会导致任务分配失败！）
+
 【用户任务】
 标题：${mission.title}
 描述：${mission.description}
@@ -3077,9 +3095,9 @@ ${scopeGuidance}
 ## 任务分解
 | # | 任务名称 | 负责人 | 分配理由 | 优先级 | 依赖 |
 |---|----------|--------|----------|--------|------|
-| 1 | ... | @成员名 | ... | 高/中/低 | 无 |
-| 2 | ... | @成员名 | ... | 高/中/低 | 任务1 |
-（继续添加更多任务...）
+| 1 | ... | @${firstMemberExample} | ... | 高/中/低 | 无 |
+| 2 | ... | @${firstMemberExample} | ... | 高/中/低 | 任务1 |
+（继续添加更多任务...负责人必须从上面的成员列表中精确选择）
 
 ## 执行计划
 - 第一阶段：[并行执行的任务]
@@ -3096,7 +3114,8 @@ ${scopeGuidance}
 - 你自己（Leader）只承担协调和审核任务，具体执行任务尽量分配给其他成员
 - 确保任务依赖关系合理
 - 优先利用并行执行提高效率
-- 如果某个成员能力较强，可以分配稍多一点，但差距不要太大（最多 1.5 倍）`;
+- 如果某个成员能力较强，可以分配稍多一点，但差距不要太大（最多 1.5 倍）
+- **再次强调：负责人名称必须与上方成员列表完全一致，不可使用任何别名**`;
   }
 
   /**
