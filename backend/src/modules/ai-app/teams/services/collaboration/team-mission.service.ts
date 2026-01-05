@@ -461,6 +461,7 @@ export class TeamMissionService {
   /**
    * 带重试的 AI 调用
    * 支持指数退避重试策略
+   * ★ 支持心跳机制，让前端实时感知 Agent 正在工作
    */
   private async callAIWithRetry(
     aiModel: string,
@@ -468,6 +469,11 @@ export class TeamMissionService {
     systemPrompt: string,
     options: { maxTokens?: number; temperature?: number },
     taskContext: { taskId: string; taskTitle: string; missionId: string },
+    heartbeatContext?: {
+      topicId: string;
+      agentId: string;
+      agentName: string;
+    },
   ): Promise<{
     success: boolean;
     content?: string;
@@ -479,11 +485,47 @@ export class TeamMissionService {
       this.RETRY_CONFIG;
     let lastError = "";
 
+    // ★ 心跳机制：每 3 秒发送一次状态更新，让前端知道 Agent 还活着
+    const HEARTBEAT_INTERVAL_MS = 3000;
+    let heartbeatTimer: NodeJS.Timeout | null = null;
+    let heartbeatCount = 0;
+
+    const startHeartbeat = () => {
+      if (!heartbeatContext) return;
+      heartbeatCount = 0;
+      heartbeatTimer = setInterval(() => {
+        heartbeatCount++;
+        this.aiTeamsGateway.emitToTopic(
+          heartbeatContext.topicId,
+          "mission:agent_working",
+          {
+            missionId: taskContext.missionId,
+            taskId: taskContext.taskId,
+            agentId: heartbeatContext.agentId,
+            agentName: heartbeatContext.agentName,
+            status: "thinking",
+            heartbeat: heartbeatCount,
+            elapsedSeconds: heartbeatCount * 3,
+          },
+        );
+      }, HEARTBEAT_INTERVAL_MS);
+    };
+
+    const stopHeartbeat = () => {
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
+    };
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         this.logger.log(
           `[callAIWithRetry] Task "${taskContext.taskTitle}" attempt ${attempt}/${maxRetries} with model ${aiModel}`,
         );
+
+        // ★ 启动心跳
+        startHeartbeat();
 
         const response = await this.callAIWithConfig(
           aiModel,
@@ -491,6 +533,9 @@ export class TeamMissionService {
           systemPrompt,
           { ...options, missionId: taskContext.missionId },
         );
+
+        // ★ 停止心跳
+        stopHeartbeat();
 
         this.logger.log(
           `[callAIWithRetry] Task "${taskContext.taskTitle}" succeeded on attempt ${attempt}`,
@@ -503,6 +548,9 @@ export class TeamMissionService {
           finalModel: aiModel,
         };
       } catch (error) {
+        // ★ 停止心跳
+        stopHeartbeat();
+
         lastError = error instanceof Error ? error.message : String(error);
 
         this.logger.warn(
@@ -1205,22 +1253,31 @@ export class TeamMissionService {
         );
       }
 
-      // 发送任务分配消息
-      for (const task of finalTasksToStart) {
-        await this.sendMessageToTopic(
+      // ★ 优化：批量发送任务分配消息（不阻塞任务执行）
+      // 使用 Promise.all 并行发送所有消息，但不等待完成
+      const messagePromises = finalTasksToStart.map((task) =>
+        this.sendMessageToTopic(
           mission.topicId,
           null,
           `📋 [任务分配] 任务「${task.title}」已分配给 @${task.assignedTo.agentName || task.assignedTo.displayName}`,
           MessageContentType.SYSTEM,
-        );
-      }
+        ).catch((e) =>
+          this.logger.warn(
+            `[executeNextTasks] Failed to send assignment message: ${e}`,
+          ),
+        ),
+      );
 
       // 并行执行所有可开始的任务（限制并发数，避免AI调用过载）
-      await mapWithConcurrency(
-        finalTasksToStart,
-        (task) => this.executeTask(mission, task),
-        ConcurrencyLimits.AI,
-      );
+      // ★ 优化：消息发送和任务执行同时进行
+      await Promise.all([
+        Promise.all(messagePromises),
+        mapWithConcurrency(
+          finalTasksToStart,
+          (task) => this.executeTask(mission, task),
+          ConcurrencyLimits.AI,
+        ),
+      ]);
     } finally {
       // 🔒 释放 Mission 锁
       this.executingMissions.delete(missionId);
@@ -1261,24 +1318,30 @@ export class TeamMissionService {
         `[executeTask] Successfully acquired task "${task.title}" (${task.id}) for execution`,
       );
 
-      await this.createLog(mission.id, {
-        type: MissionLogType.TASK_STARTED,
-        agentId: assignedTo.id,
-        agentName: assignedTo.agentName || assignedTo.displayName,
-        taskId: task.id,
-        taskTitle: task.title,
-        content: `开始执行任务「${task.title}」`,
-      });
+      // ★ 优化：日志记录和消息发送并行执行，不阻塞 AI 调用
+      // 使用 fire-and-forget 模式，失败时只记录警告
+      Promise.all([
+        this.createLog(mission.id, {
+          type: MissionLogType.TASK_STARTED,
+          agentId: assignedTo.id,
+          agentName: assignedTo.agentName || assignedTo.displayName,
+          taskId: task.id,
+          taskTitle: task.title,
+          content: `开始执行任务「${task.title}」`,
+        }).catch((e) =>
+          this.logger.warn(`[executeTask] Failed to create log: ${e}`),
+        ),
+        this.sendMessageToTopic(
+          mission.topicId,
+          assignedTo.id,
+          `[开始工作]\n\n收到任务「${task.title}」，开始执行...`,
+          MessageContentType.TEXT,
+        ).catch((e) =>
+          this.logger.warn(`[executeTask] Failed to send start message: ${e}`),
+        ),
+      ]);
 
-      // 发送开始工作消息
-      await this.sendMessageToTopic(
-        mission.topicId,
-        assignedTo.id,
-        `[开始工作]\n\n收到任务「${task.title}」，开始执行...`,
-        MessageContentType.TEXT,
-      );
-
-      // 广播 Agent 工作状态
+      // 广播 Agent 工作状态（WebSocket 本身是非阻塞的）
       this.aiTeamsGateway.emitToTopic(
         mission.topicId,
         "mission:agent_working",
@@ -1418,7 +1481,7 @@ export class TeamMissionService {
           );
         }
 
-        // 内层调用：带重试的 AI 调用
+        // 内层调用：带重试的 AI 调用（★ 带心跳机制）
         const result = await this.callAIWithRetry(
           currentAgent.aiModel,
           [{ role: "user", content: taskPrompt }],
@@ -1434,6 +1497,12 @@ export class TeamMissionService {
             taskId: task.id,
             taskTitle: task.title,
             missionId: mission.id,
+          },
+          // ★ 心跳上下文：让前端实时显示 Agent 正在思考
+          {
+            topicId: mission.topicId,
+            agentId: currentAgent.id,
+            agentName: currentAgent.agentName || currentAgent.displayName,
           },
         );
 
@@ -1572,7 +1641,7 @@ export class TeamMissionService {
                 task.description || task.title,
               );
 
-            // 调用 AI 续写
+            // 调用 AI 续写（★ 带心跳机制）
             const continuationResult = await this.callAIWithRetry(
               currentAgent.aiModel,
               [{ role: "user", content: continuationPrompt }],
@@ -1588,6 +1657,12 @@ export class TeamMissionService {
                 taskId: task.id,
                 taskTitle: task.title,
                 missionId: mission.id,
+              },
+              // ★ 心跳上下文：续写时也显示思考状态
+              {
+                topicId: mission.topicId,
+                agentId: currentAgent.id,
+                agentName: currentAgent.agentName || currentAgent.displayName,
               },
             );
 
@@ -2066,8 +2141,30 @@ export class TeamMissionService {
       }
 
       // 调用 AI 进行审核 (使用数据库 API Key)
+      // ★ 添加心跳机制，让前端持续显示 Leader 正在审核
       let aiResponse;
+      let reviewHeartbeatTimer: NodeJS.Timeout | null = null;
+      let reviewHeartbeatCount = 0;
+
       try {
+        // 启动审核心跳
+        reviewHeartbeatTimer = setInterval(() => {
+          reviewHeartbeatCount++;
+          this.aiTeamsGateway.emitToTopic(
+            mission.topicId,
+            "mission:agent_working",
+            {
+              missionId: mission.id,
+              taskId: task.id,
+              agentId: leader.id,
+              agentName: leader.agentName || leader.displayName,
+              status: "reviewing",
+              heartbeat: reviewHeartbeatCount,
+              elapsedSeconds: reviewHeartbeatCount * 3,
+            },
+          );
+        }, 3000);
+
         aiResponse = await this.callAIWithConfig(
           leader.aiModel,
           [{ role: "user", content: reviewPrompt }],
@@ -2083,6 +2180,12 @@ export class TeamMissionService {
         aiResponse = {
           content: `审核失败: ${errorMsg}\n\n不通过。请重新执行任务。`,
         };
+      } finally {
+        // 停止审核心跳
+        if (reviewHeartbeatTimer) {
+          clearInterval(reviewHeartbeatTimer);
+          reviewHeartbeatTimer = null;
+        }
       }
 
       // 解析审核结果（增强版，带置信度）
