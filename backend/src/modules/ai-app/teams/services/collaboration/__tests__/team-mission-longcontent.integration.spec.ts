@@ -38,6 +38,7 @@ import { SearchService } from "../../../../../ai-engine/search/search.service";
 import { AiTeamsGateway } from "../../../ai-teams.gateway";
 import { AgentCircuitBreakerService } from "../agent-circuit-breaker.service";
 import { MissionContextService } from "../mission-context.service";
+import { ConstraintEnforcementService } from "../constraint-enforcement.service";
 import { EmailService } from "../../../../../core/email/email.service";
 import { ConfigService } from "@nestjs/config";
 
@@ -152,6 +153,17 @@ describe("TeamMissionService Long Content Integration", () => {
             extractContextFromLeaderOutput: jest.fn().mockReturnValue(null),
             buildAgentSystemPromptWithContext: jest.fn().mockReturnValue(""),
             buildContextPackagePromptSection: jest.fn().mockReturnValue(""),
+          },
+        },
+        {
+          provide: ConstraintEnforcementService,
+          useValue: {
+            extractConstraints: jest.fn().mockReturnValue([]),
+            toHardConstraints: jest.fn().mockReturnValue([]),
+            validateOutput: jest
+              .fn()
+              .mockResolvedValue({ isValid: true, violations: [] }),
+            formatConstraintsForPrompt: jest.fn().mockReturnValue(""),
           },
         },
       ],
