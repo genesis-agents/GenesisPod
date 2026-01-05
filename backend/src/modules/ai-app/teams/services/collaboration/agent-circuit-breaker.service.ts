@@ -79,11 +79,12 @@ export class AgentCircuitBreakerService {
   // Number of consecutive failures to trigger circuit open
   private readonly FAILURE_THRESHOLD = 3;
 
-  // Default cooldown period (5 minutes)
-  private readonly DEFAULT_COOLDOWN_MS = 5 * 60 * 1000;
+  // Default cooldown period (3 minutes - reduced for better UX)
+  private readonly DEFAULT_COOLDOWN_MS = 3 * 60 * 1000;
 
-  // Rate limit cooldown (10 minutes - more conservative)
-  private readonly RATE_LIMIT_COOLDOWN_MS = 10 * 60 * 1000;
+  // Rate limit cooldown (5 minutes - reduced from 10 for better responsiveness)
+  // ★ 用户反馈：原来 10 分钟太长，Agent 故障后等待太久
+  private readonly RATE_LIMIT_COOLDOWN_MS = 5 * 60 * 1000;
 
   // Half-open state: allow one test request after cooldown
   private readonly HALF_OPEN_SUCCESS_THRESHOLD = 2;

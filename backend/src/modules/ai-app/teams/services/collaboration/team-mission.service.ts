@@ -846,11 +846,13 @@ export class TeamMissionService {
             `[executeLeaderPlanning] Prompt sizes: userPrompt=${promptLength} chars, systemPrompt=${systemPromptLength} chars, total=${promptLength + systemPromptLength} chars (~${Math.round((promptLength + systemPromptLength) / 4)} tokens), maxDescLen=${maxDescLen}`,
           );
 
+          // ★ 增加 maxTokens 到 16000，以支持大量任务（如 96+ 章节）的规划输出
+          // 原 8000 tokens 约能输出 12-15 个任务，对于长篇小说远远不够
           aiResponse = await this.callAIWithConfig(
             leader.aiModel,
             [{ role: "user", content: currentPrompt }],
             this.getLeaderSystemPrompt(leader),
-            { maxTokens: 8000, temperature: 0.7, missionId: mission.id },
+            { maxTokens: 16000, temperature: 0.7, missionId: mission.id },
           );
 
           // ★ 检查响应是否实际上是错误消息（以 "API Error:" 开头）
@@ -4092,14 +4094,24 @@ ${truncatedResult}
 - 有改进空间 ≠ 需要修改
 - 能够串联进整体故事即可通过
 
-请直接输出：
+请按以下格式输出：
 
 ## 审核结果：通过
 
-或
+**内容亮点：**
+- [列出1-2个内容亮点，如人物刻画生动、情节紧凑等]
+
+**改进建议（可选）：**
+- [如有轻微可改进之处，简要提及，但不影响通过]
+
+---
+
+或者如果存在严重问题：
 
 ## 审核结果：需要修改
-[仅列出上述❌中的严重问题]`;
+
+**必须修复的问题：**
+- [仅列出上述❌中的严重问题]`;
   }
 
   private buildTaskRevisionPrompt(
