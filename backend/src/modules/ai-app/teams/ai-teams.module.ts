@@ -38,6 +38,9 @@ import {
   DebateService,
   TeamMissionService,
   TeamCollaborationService,
+  AgentCircuitBreakerService,
+  MissionPromptService,
+  MissionQueryService,
   // Topic 领域服务
   TopicMembershipService,
   TopicPublicService,
@@ -74,6 +77,9 @@ import { TeamMemberAgent } from "./agents";
     DebateService,
     TeamMissionService,
     TeamCollaborationService,
+    AgentCircuitBreakerService,
+    MissionPromptService,
+    MissionQueryService,
 
     // Topic 领域服务
     TopicMembershipService,
@@ -99,6 +105,7 @@ import { TeamMemberAgent } from "./agents";
     DebateService,
     TeamMissionService,
     TeamCollaborationService,
+    AgentCircuitBreakerService,
 
     // Topic 领域服务
     TopicMembershipService,
