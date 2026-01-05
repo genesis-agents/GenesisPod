@@ -41,6 +41,7 @@ import {
   AgentCircuitBreakerService,
   MissionPromptService,
   MissionQueryService,
+  MissionContextService,
   // Topic 领域服务
   TopicMembershipService,
   TopicPublicService,
@@ -80,6 +81,7 @@ import { TeamMemberAgent } from "./agents";
     AgentCircuitBreakerService,
     MissionPromptService,
     MissionQueryService,
+    MissionContextService,
 
     // Topic 领域服务
     TopicMembershipService,
