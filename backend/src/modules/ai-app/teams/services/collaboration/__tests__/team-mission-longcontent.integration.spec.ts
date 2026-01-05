@@ -37,6 +37,8 @@ import { AiChatService } from "../../../../../ai-engine/llm/services/ai-chat.ser
 import { SearchService } from "../../../../../ai-engine/search/search.service";
 import { AiTeamsGateway } from "../../../ai-teams.gateway";
 import { AgentCircuitBreakerService } from "../agent-circuit-breaker.service";
+import { EmailService } from "../../../../../core/email/email.service";
+import { ConfigService } from "@nestjs/config";
 
 /**
  * 这些测试验证 TeamMissionService 与 LongContentEngine 的集成
@@ -128,6 +130,20 @@ describe("TeamMissionService Long Content Integration", () => {
         {
           provide: AgentCircuitBreakerService,
           useValue: mockAgentCircuitBreakerService,
+        },
+        {
+          provide: EmailService,
+          useValue: {
+            sendMissionCompletionNotification: jest
+              .fn()
+              .mockResolvedValue(true),
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn().mockReturnValue("http://localhost:3000"),
+          },
         },
       ],
     }).compile();

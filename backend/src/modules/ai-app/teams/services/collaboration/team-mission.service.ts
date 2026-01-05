@@ -26,6 +26,8 @@ import {
   AgentCircuitBreakerService,
   TaskCompletionType,
 } from "./agent-circuit-breaker.service";
+import { EmailService } from "../../../../core/email/email.service";
+import { ConfigService } from "@nestjs/config";
 
 interface TaskBreakdownItem {
   title: string;
@@ -134,6 +136,8 @@ export class TeamMissionService {
     private aiTeamsGateway: AiTeamsGateway,
     private longContentService: TeamsLongContentService,
     private circuitBreaker: AgentCircuitBreakerService,
+    private emailService: EmailService,
+    private configService: ConfigService,
   ) {}
 
   /**
@@ -488,6 +492,7 @@ export class TeamMissionService {
         leaderId: dto.leaderId,
         createdById: userId,
         status: MissionStatus.PENDING,
+        notificationEmail: dto.notificationEmail || null, // 任务完成通知邮箱
       },
       include: {
         leader: true,
@@ -2353,6 +2358,41 @@ export class TeamMissionService {
         finalResult: finalReport, // 发送完整报告
         participantAIIds,
       });
+
+      // ★ 发送邮件通知（如果配置了通知邮箱）
+      if (mission.notificationEmail) {
+        const appUrl = this.configService.get(
+          "APP_URL",
+          "http://localhost:3000",
+        );
+        const reportUrl = `${appUrl}/ai-teams/topics/${mission.topicId}?mission=${missionId}`;
+
+        this.emailService
+          .sendMissionCompletionNotification({
+            to: mission.notificationEmail,
+            missionId,
+            missionTitle: mission.title,
+            reportUrl,
+            summary: finalReport.slice(0, 1000), // 截取摘要
+            completedAt: new Date(),
+          })
+          .then((success: boolean) => {
+            if (success) {
+              this.logger.log(
+                `[completeMission] Email notification sent to ${mission.notificationEmail}`,
+              );
+            } else {
+              this.logger.warn(
+                `[completeMission] Failed to send email notification to ${mission.notificationEmail}`,
+              );
+            }
+          })
+          .catch((error: Error) => {
+            this.logger.error(
+              `[completeMission] Email notification error: ${error}`,
+            );
+          });
+      }
     } catch (error) {
       this.logger.error(`Mission completion failed: ${error}`);
 
@@ -3891,6 +3931,52 @@ ${taskList}
     });
 
     return { success: true, message: "任务已取消" };
+  }
+
+  /**
+   * 更新任务通知配置
+   * 支持在任务创建后修改通知邮箱
+   */
+  async updateMissionNotification(
+    missionId: string,
+    _userId: string,
+    dto: { notificationEmail?: string | null },
+  ) {
+    const mission = await this.prisma.teamMission.findUnique({
+      where: { id: missionId },
+    });
+
+    if (!mission) {
+      throw new NotFoundException("任务不存在");
+    }
+
+    const updated = await this.prisma.teamMission.update({
+      where: { id: missionId },
+      data: {
+        notificationEmail: dto.notificationEmail ?? null,
+      },
+      select: {
+        id: true,
+        notificationEmail: true,
+      },
+    });
+
+    await this.createLog(missionId, {
+      type: MissionLogType.TASK_PROGRESS,
+      content: dto.notificationEmail
+        ? `通知邮箱已更新为: ${dto.notificationEmail}`
+        : "通知邮箱已清除",
+    });
+
+    this.logger.log(
+      `[Mission ${missionId}] Notification email updated: ${dto.notificationEmail || "(cleared)"}`,
+    );
+
+    return {
+      success: true,
+      message: dto.notificationEmail ? "通知配置已更新" : "通知配置已清除",
+      notificationEmail: updated.notificationEmail,
+    };
   }
 
   /**

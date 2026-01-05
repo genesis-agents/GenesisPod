@@ -1927,6 +1927,9 @@ model TeamMission {
   finalResult String? @map("final_result") @db.Text // 最终交付成果
   summary     String? @db.Text // 执行总结
 
+  // 通知配置
+  notificationEmail String? @map("notification_email") @db.VarChar(255) // 任务完成后通知的邮箱
+
   // 关系
   tasks AgentTask[]
   logs  MissionLog[]

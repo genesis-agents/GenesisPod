@@ -46,6 +46,7 @@ import {
   ForwardMessagesDto,
   BookmarkMessageDto,
   CreateMissionDto,
+  UpdateMissionNotificationDto,
   UpdateAIMemberTeamRoleDto,
 } from "../dto";
 import { TopicType, MentionType } from "@prisma/client";
@@ -1278,6 +1279,25 @@ export class AiTeamsController {
       limit: limit ? parseInt(limit) : undefined,
       cursor,
     });
+  }
+
+  @Patch(":topicId/missions/:missionId/notification")
+  @ApiOperation({
+    summary: "更新任务通知配置",
+    description: "更新任务完成后的邮件通知配置",
+  })
+  @ApiResponse({ status: 200, description: "通知配置更新成功" })
+  async updateMissionNotification(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("missionId") missionId: string,
+    @Body() dto: UpdateMissionNotificationDto,
+  ) {
+    return this.teamMissionService.updateMissionNotification(
+      missionId,
+      req.user.id,
+      dto,
+    );
   }
 
   // ==================== Team Role API ====================

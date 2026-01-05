@@ -562,6 +562,97 @@ DeepDive Feedback Notification
   }
 
   /**
+   * Send mission completion notification
+   * 任务完成时发送邮件通知
+   */
+  async sendMissionCompletionNotification(options: {
+    to: string;
+    missionId: string;
+    missionTitle: string;
+    reportUrl: string;
+    summary?: string;
+    completedAt: Date;
+  }): Promise<boolean> {
+    this.logger.log(
+      `Sending mission completion notification to ${options.to} for mission: ${options.missionTitle}`,
+    );
+
+    const appUrl = this.configService.get("APP_URL", "http://localhost:3000");
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">✅ 任务完成通知</h1>
+        </div>
+
+        <div style="background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 10px 10px;">
+          <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+            <h2 style="color: #1e293b; margin: 0 0 10px 0; font-size: 20px;">
+              ${options.missionTitle}
+            </h2>
+            <p style="margin: 0; color: #64748b; font-size: 14px;">
+              完成时间: ${options.completedAt.toLocaleString("zh-CN")}
+            </p>
+          </div>
+
+          ${
+            options.summary
+              ? `
+          <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; border-left: 4px solid #22c55e; margin-bottom: 20px;">
+            <h3 style="color: #166534; margin: 0 0 10px 0; font-size: 14px;">任务摘要:</h3>
+            <p style="margin: 0; color: #15803d; white-space: pre-wrap;">${options.summary.slice(0, 500)}${options.summary.length > 500 ? "..." : ""}</p>
+          </div>
+          `
+              : ""
+          }
+
+          <div style="text-align: center; margin-top: 25px;">
+            <a href="${options.reportUrl}"
+               style="display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+              📄 查看完整报告
+            </a>
+          </div>
+
+          <p style="text-align: center; color: #64748b; margin-top: 20px; font-size: 14px;">
+            或复制链接: <a href="${options.reportUrl}" style="color: #22c55e; word-break: break-all;">${options.reportUrl}</a>
+          </p>
+        </div>
+
+        <div style="text-align: center; padding: 20px; color: #94a3b8; font-size: 12px;">
+          <p style="margin: 0;">此邮件由 DeepDive AI Teams 自动发送</p>
+          <p style="margin: 5px 0 0 0;"><a href="${appUrl}" style="color: #94a3b8;">DeepDive Engine</a></p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const text = `
+任务完成通知
+
+任务: ${options.missionTitle}
+完成时间: ${options.completedAt.toLocaleString("zh-CN")}
+${options.summary ? `\n摘要:\n${options.summary.slice(0, 500)}${options.summary.length > 500 ? "..." : ""}\n` : ""}
+查看完整报告: ${options.reportUrl}
+
+---
+此邮件由 DeepDive AI Teams 自动发送
+    `;
+
+    return this.sendEmail({
+      to: options.to,
+      subject: `[DeepDive] 任务完成: ${options.missionTitle}`,
+      html,
+      text,
+    });
+  }
+
+  /**
    * Send feedback status update notification to user
    */
   async sendFeedbackStatusUpdate(feedback: {

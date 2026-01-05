@@ -4,6 +4,7 @@ import {
   IsArray,
   MaxLength,
   IsBoolean,
+  IsEmail,
 } from "class-validator";
 
 export class CreateMissionDto {
@@ -35,4 +36,19 @@ export class CreateMissionDto {
   @IsOptional()
   @IsBoolean()
   autoStart?: boolean; // 是否自动开始（默认 true）
+
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(255)
+  notificationEmail?: string; // 任务完成后通知的邮箱
+}
+
+/**
+ * 更新任务通知邮箱 DTO
+ */
+export class UpdateMissionNotificationDto {
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(255)
+  notificationEmail?: string | null; // 设为 null 可清除邮箱
 }
