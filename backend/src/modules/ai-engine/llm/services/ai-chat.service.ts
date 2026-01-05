@@ -2256,54 +2256,30 @@ Format the summary in a clear, structured manner using markdown.`;
           // and max_tokens for older models (gpt-4-turbo, gpt-3.5-turbo)
           const effectiveModelId = modelId || "gpt-4-turbo-preview";
 
-          // ★ 验证 OpenAI 模型 ID 是否为已知模型
-          const knownOpenAIModels = [
-            // GPT-4 系列
-            "gpt-4o",
-            "gpt-4o-mini",
-            "gpt-4-turbo",
-            "gpt-4-turbo-preview",
-            "gpt-4",
-            "gpt-4-32k",
-            "gpt-3.5-turbo",
-            // Reasoning 模型
-            "o1",
-            "o1-preview",
-            "o1-mini",
-            "o3-mini",
-            // GPT-5 系列 (2025年发布)
-            "gpt-5",
-            "gpt-5.1",
-            "gpt-5.1-chat-latest",
-            "gpt-5.2",
-            "gpt-5-mini",
-          ];
-
-          const isKnownModel = knownOpenAIModels.some(
-            (known) =>
-              effectiveModelId === known ||
-              effectiveModelId.startsWith(known + "-"),
-          );
-
-          if (!isKnownModel) {
-            this.logger.warn(
-              `[OpenAI] Unknown model ID: "${effectiveModelId}". ` +
-                `If this is a new model, please add it to knownOpenAIModels. ` +
-                `Known models: ${knownOpenAIModels.join(", ")}`,
-            );
-          }
-
           const isNewModel =
             effectiveModelId.includes("gpt-5") ||
             effectiveModelId.includes("gpt-4o") ||
             effectiveModelId.startsWith("o1") ||
             effectiveModelId.startsWith("o3");
+
+          // ★ GPT-5 系列是推理模型，需要特殊处理
+          // 问题：推理 tokens 会消耗 max_completion_tokens 预算，可能导致实际输出为空
+          // 解决：设置 reasoning_effort: "none" 禁用推理，避免推理 tokens 占用输出预算
+          const isGPT5 = effectiveModelId.includes("gpt-5");
+
           const tokenParam = isNewModel
             ? { max_completion_tokens: maxTokens }
             : { max_tokens: maxTokens };
 
+          // GPT-5 系列添加 reasoning_effort 参数
+          const reasoningParam = isGPT5
+            ? { reasoning_effort: "none" } // 禁用推理，避免空响应问题
+            : {};
+
           this.logger.log(
-            `[OpenAI] Calling API with model=${effectiveModelId}, ${isNewModel ? "max_completion_tokens" : "max_tokens"}=${maxTokens}`,
+            `[OpenAI] Calling API with model=${effectiveModelId}, ` +
+              `${isNewModel ? "max_completion_tokens" : "max_tokens"}=${maxTokens}` +
+              `${isGPT5 ? ", reasoning_effort=none" : ""}`,
           );
 
           return await this.callApiWithKey(
@@ -2315,6 +2291,7 @@ Format the summary in a clear, structured manner using markdown.`;
                 content: m.content,
               })),
               ...tokenParam,
+              ...reasoningParam,
               temperature,
             },
             { Authorization: `Bearer ${apiKey}` },
