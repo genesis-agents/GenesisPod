@@ -122,6 +122,7 @@ interface AiGroupState {
     dto: CreateMissionDto
   ) => Promise<TeamMission>;
   cancelMission: (topicId: string, missionId: string) => Promise<void>;
+  deleteMission: (topicId: string, missionId: string) => Promise<void>;
   pauseMission: (topicId: string, missionId: string) => Promise<void>;
   resumeMission: (topicId: string, missionId: string) => Promise<void>;
   retryMission: (
@@ -1184,6 +1185,16 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
       missions: state.missions.map((m) => (m.id === missionId ? mission : m)),
       currentMission:
         state.currentMission?.id === missionId ? mission : state.currentMission,
+    }));
+  },
+
+  deleteMission: async (topicId, missionId) => {
+    await api.deleteMission(topicId, missionId);
+    // 从列表中移除已删除的任务
+    set((state) => ({
+      missions: state.missions.filter((m) => m.id !== missionId),
+      currentMission:
+        state.currentMission?.id === missionId ? null : state.currentMission,
     }));
   },
 

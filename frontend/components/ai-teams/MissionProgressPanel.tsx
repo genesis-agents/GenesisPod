@@ -142,6 +142,7 @@ export default function MissionProgressPanel({
     isLoadingMissions,
     fetchMissions,
     cancelMission,
+    deleteMission,
     retryMission,
     resumeMission,
     typingAIs,
@@ -152,6 +153,7 @@ export default function MissionProgressPanel({
     new Set()
   );
   const [detailMission, setDetailMission] = useState<TeamMission | null>(null);
+  const [showAllHistory, setShowAllHistory] = useState(false); // ★ 控制显示全部历史记录
 
   // Open canvas view for a specific mission
   const openCanvasForMission = (mission: TeamMission) => {
@@ -233,6 +235,12 @@ export default function MissionProgressPanel({
         : '确定要继续执行此任务吗？';
     if (confirm(confirmMsg)) {
       await retryMission(topicId, missionId, { mode });
+    }
+  };
+
+  const handleDeleteMission = async (missionId: string) => {
+    if (confirm('确定要删除此任务吗？此操作不可恢复。')) {
+      await deleteMission(topicId, missionId);
     }
   };
 
@@ -417,13 +425,16 @@ export default function MissionProgressPanel({
                       />
                     </svg>
                     <span className="text-xs font-medium text-gray-500">
-                      历史任务
+                      历史任务 ({completedMissions.length})
                     </span>
                   </div>
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
                 </div>
                 <div className="space-y-2">
-                  {completedMissions.slice(0, 5).map((mission) => (
+                  {(showAllHistory
+                    ? completedMissions
+                    : completedMissions.slice(0, 5)
+                  ).map((mission) => (
                     <MissionCard
                       key={mission.id}
                       mission={mission}
@@ -431,6 +442,7 @@ export default function MissionProgressPanel({
                       onToggle={() => toggleMissionExpand(mission.id)}
                       onViewDetail={() => setDetailMission(mission)}
                       onCancel={() => {}}
+                      onDelete={() => handleDeleteMission(mission.id)}
                       onOpenCanvas={() => openCanvasForMission(mission)}
                       onRetry={(mode) => handleRetryMission(mission.id, mode)}
                       typingAIs={typingAIs}
@@ -438,6 +450,49 @@ export default function MissionProgressPanel({
                     />
                   ))}
                 </div>
+                {/* ★ 展开/收起更多历史记录 */}
+                {completedMissions.length > 5 && (
+                  <button
+                    onClick={() => setShowAllHistory(!showAllHistory)}
+                    className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg py-2 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
+                  >
+                    {showAllHistory ? (
+                      <>
+                        <svg
+                          className="h-3 w-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 15l7-7 7 7"
+                          />
+                        </svg>
+                        收起
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="h-3 w-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                        显示更多 ({completedMissions.length - 5} 个)
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -454,6 +509,7 @@ function MissionCard({
   onToggle,
   onViewDetail,
   onCancel,
+  onDelete,
   onOpenCanvas,
   onRetry,
   typingAIs,
@@ -464,6 +520,7 @@ function MissionCard({
   onToggle: () => void;
   onViewDetail: () => void;
   onCancel: () => void;
+  onDelete?: () => void;
   onOpenCanvas: () => void;
   onRetry?: (mode: 'full' | 'continue') => void;
   typingAIs: Set<string>;
@@ -680,7 +737,7 @@ function MissionCard({
             </button>
           )}
 
-          {/* ★ 继续执行按钮 (for cancelled/failed/paused missions) */}
+          {/* ★ 继续执行按钮 (for cancelled/failed missions) */}
           {canRetry && onRetry && (
             <div className="mt-2 flex gap-2">
               <button
@@ -690,7 +747,7 @@ function MissionCard({
                 }}
                 className="flex-1 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:from-blue-600 hover:to-indigo-700 hover:shadow-md"
               >
-                ▶️ 继续执行
+                继续执行
               </button>
               <button
                 onClick={(e) => {
@@ -698,11 +755,41 @@ function MissionCard({
                   onRetry('full');
                 }}
                 className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-all hover:bg-gray-50"
+                title="重新规划"
               >
                 🔄
               </button>
             </div>
           )}
+
+          {/* ★ 删除按钮 (for completed/failed/cancelled missions) */}
+          {(mission.status === 'COMPLETED' ||
+            mission.status === 'FAILED' ||
+            mission.status === 'CANCELLED') &&
+            onDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                className="mt-2 flex w-full items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white py-2 text-sm font-medium text-gray-500 transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+              >
+                <svg
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+                删除
+              </button>
+            )}
         </div>
       )}
     </div>

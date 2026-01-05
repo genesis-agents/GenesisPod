@@ -1300,6 +1300,21 @@ export class AiTeamsController {
     );
   }
 
+  @Delete(":topicId/missions/:missionId")
+  @ApiOperation({
+    summary: "删除任务",
+    description: "删除已完成、失败或取消的任务（仅限历史任务）",
+  })
+  @ApiResponse({ status: 200, description: "任务删除成功" })
+  @ApiResponse({ status: 400, description: "任务正在执行中，无法删除" })
+  async deleteMission(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("missionId") missionId: string,
+  ) {
+    return this.teamMissionService.deleteMission(missionId, req.user.id);
+  }
+
   // ==================== Team Role API ====================
 
   @Post(":topicId/ai-members/:aiMemberId/set-leader")

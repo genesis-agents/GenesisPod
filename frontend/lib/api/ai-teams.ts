@@ -459,6 +459,18 @@ export async function retryMission(
 }
 
 /**
+ * 删除任务（仅限历史任务：已完成、失败或取消的任务）
+ */
+export async function deleteMission(
+  topicId: string,
+  missionId: string
+): Promise<{ success: boolean; message: string }> {
+  return fetchWithAuth(`/api/v1/topics/${topicId}/missions/${missionId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
  * 获取任务执行日志
  */
 export async function getMissionLogs(

@@ -4651,6 +4651,56 @@ ${taskList}
   }
 
   /**
+   * 删除任务（仅限历史任务：已完成、失败或取消的任务）
+   */
+  async deleteMission(missionId: string, _userId: string) {
+    const mission = await this.prisma.teamMission.findUnique({
+      where: { id: missionId },
+    });
+
+    if (!mission) {
+      throw new NotFoundException("任务不存在");
+    }
+
+    // 只有已完成、失败或取消的任务可以删除
+    const deletableStatuses: MissionStatus[] = [
+      MissionStatus.COMPLETED,
+      MissionStatus.FAILED,
+      MissionStatus.CANCELLED,
+    ];
+
+    if (!deletableStatuses.includes(mission.status)) {
+      throw new BadRequestException(
+        `当前状态(${mission.status})的任务无法删除，只有已完成、失败或取消的任务可以删除`,
+      );
+    }
+
+    // 先删除关联的日志
+    await this.prisma.missionLog.deleteMany({
+      where: { missionId },
+    });
+
+    // 删除关联的子任务
+    await this.prisma.agentTask.deleteMany({
+      where: { missionId },
+    });
+
+    // 删除任务本身
+    await this.prisma.teamMission.delete({
+      where: { id: missionId },
+    });
+
+    this.logger.log(`[Mission ${missionId}] Deleted by user`);
+
+    // 通知前端任务已删除
+    this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:deleted", {
+      missionId,
+    });
+
+    return { success: true, message: "任务已删除" };
+  }
+
+  /**
    * 更新任务通知配置
    * 支持在任务创建后修改通知邮箱
    */
