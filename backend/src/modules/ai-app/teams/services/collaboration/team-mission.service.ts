@@ -214,6 +214,50 @@ export class TeamMissionService {
   }
 
   /**
+   * 检查内容是否包含API错误信息
+   * 用于识别那些虽然请求成功但内容实际上是错误的情况
+   */
+  private isApiErrorContent(content: string): boolean {
+    if (!content) return false;
+
+    const errorPatterns = [
+      /API Error[:：]/i,
+      /Rate limit exceeded/i,
+      /Please check your API key/i,
+      /请检查.*API/,
+      /Provider[:：]\s*\w+\s*Model[:：]/i, // "Provider: xAI\nModel: grok-3" 这种格式
+      /\[修订失败\]/,
+      /\[任务执行失败\]/,
+      /ECONNREFUSED/,
+      /ETIMEDOUT/,
+      /500 Internal Server Error/i,
+      /503 Service Unavailable/i,
+      /quota exceeded/i,
+      /insufficient.*quota/i,
+    ];
+
+    for (const pattern of errorPatterns) {
+      if (pattern.test(content)) {
+        this.logger.debug(
+          `[isApiErrorContent] API error pattern detected: ${pattern}`,
+        );
+        return true;
+      }
+    }
+
+    // 检查内容是否过短且不像正常内容（API错误通常很短）
+    const trimmedContent = content.trim();
+    if (
+      trimmedContent.length < 100 &&
+      (trimmedContent.includes("Error") || trimmedContent.includes("错误"))
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * 睡眠指定毫秒数
    */
   private sleep(ms: number): Promise<void> {
@@ -1129,7 +1173,29 @@ export class TeamMissionService {
         // 继续使用原始结果
       }
 
-      // 发送工作汇报消息（使用实际完成任务的 Agent）
+      // 检查最终内容是否包含API错误（防止错误内容被当作成功结果）
+      const isApiError = this.isApiErrorContent(finalContent);
+      if (isApiError) {
+        this.logger.warn(
+          `[executeTask] Task "${task.title}" result contains API error, treating as failure`,
+        );
+        await this.sendMessageToTopic(
+          mission.topicId,
+          currentAgent.id,
+          `[任务执行失败]\n\n任务「${task.title}」执行过程中遇到技术问题，需要重试：\n\n> ${finalContent.substring(0, 500)}`,
+          MessageContentType.TEXT,
+        );
+
+        await this.handleTaskExecutionFailure(
+          mission,
+          task,
+          currentAgent,
+          "AI响应包含错误信息",
+        );
+        return;
+      }
+
+      // 发送工作汇报消息（使用实际完成任务的 Agent，包含任务标题便于追踪）
       const leaderName = mission.leader.agentName || mission.leader.displayName;
       const resultMessage = await this.sendMessageToTopic(
         mission.topicId,
@@ -1577,17 +1643,65 @@ export class TeamMissionService {
         this.logger.error(
           `[handleTaskRevision] Revision AI call failed: ${errorMsg}`,
         );
-        aiResponse = {
-          content: `[修订失败] AI 无法生成修订响应。\n\n错误原因：${errorMsg}`,
-        };
+
+        // 发送失败消息，而不是假装完成
+        const leaderName =
+          mission.leader.agentName || mission.leader.displayName;
+        await this.sendMessageToTopic(
+          mission.topicId,
+          assignedTo.id,
+          `[任务修改失败]\n\n@${leaderName} 任务「${task.title}」修改过程中遇到技术问题：\n\n> ${errorMsg}\n\n请稍后重试或由其他成员接手。`,
+          MessageContentType.TEXT,
+        );
+
+        // 保持任务在 REVISION_NEEDED 状态，不要标记为完成
+        await this.createLog(mission.id, {
+          type: MissionLogType.TASK_FAILED,
+          agentId: assignedTo.id,
+          agentName: assignedTo.agentName || assignedTo.displayName,
+          taskId: task.id,
+          taskTitle: task.title,
+          content: `任务「${task.title}」修改失败: ${errorMsg}`,
+        });
+
+        return; // 不继续执行后续的"完成"逻辑
       }
 
-      // 发送修改后的汇报
+      // 检查 AI 响应是否包含错误信息（API 错误等）
+      const isApiError =
+        aiResponse.content.includes("API Error") ||
+        aiResponse.content.includes("Rate limit") ||
+        aiResponse.content.includes("请检查") ||
+        aiResponse.content.includes("[修订失败]");
+
+      if (isApiError) {
+        const leaderName =
+          mission.leader.agentName || mission.leader.displayName;
+        await this.sendMessageToTopic(
+          mission.topicId,
+          assignedTo.id,
+          `[任务修改失败]\n\n@${leaderName} 任务「${task.title}」修改过程中遇到技术问题：\n\n> ${aiResponse.content}\n\n请稍后重试。`,
+          MessageContentType.TEXT,
+        );
+
+        await this.createLog(mission.id, {
+          type: MissionLogType.TASK_FAILED,
+          agentId: assignedTo.id,
+          agentName: assignedTo.agentName || assignedTo.displayName,
+          taskId: task.id,
+          taskTitle: task.title,
+          content: `任务「${task.title}」修改失败: AI响应包含错误`,
+        });
+
+        return; // 不继续执行后续的"完成"逻辑
+      }
+
+      // 发送修改后的汇报（确保包含任务标题以便追踪）
       const leaderName = mission.leader.agentName || mission.leader.displayName;
       const resultMessage = await this.sendMessageToTopic(
         mission.topicId,
         assignedTo.id,
-        `[工作汇报]\n\n@${leaderName} 已根据反馈修改完成！\n\n${aiResponse.content}`,
+        `[工作汇报]\n\n@${leaderName} 任务「${task.title}」已根据反馈修改完成！\n\n${aiResponse.content}`,
         MessageContentType.TEXT,
       );
 
