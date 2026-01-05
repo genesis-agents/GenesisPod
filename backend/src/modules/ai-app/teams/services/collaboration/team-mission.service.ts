@@ -38,6 +38,7 @@ import {
 } from "./member-matching.utils";
 import { MissionContextService } from "./mission-context.service";
 import { MissionContextPackage } from "../../interfaces/mission-context.interface";
+import { ConstraintEnforcementService } from "./constraint-enforcement.service";
 
 interface TaskBreakdownItem {
   title: string;
@@ -159,6 +160,7 @@ export class TeamMissionService {
     private emailService: EmailService,
     private configService: ConfigService,
     private missionContextService: MissionContextService,
+    private constraintEnforcementService: ConstraintEnforcementService,
   ) {}
 
   /**
@@ -678,6 +680,42 @@ export class TeamMissionService {
         `[startMission] Failed to init long content service: ${error}`,
       );
       // 不阻塞任务执行，长内容服务初始化失败时继续执行
+    }
+
+    // ★ 从用户输入中提取约束（包括 MUST 约束如 "钟叔是哑巴"）
+    try {
+      const extractedConstraints =
+        this.constraintEnforcementService.extractConstraints(
+          mission.description || "",
+        );
+
+      if (extractedConstraints.length > 0) {
+        // 转换为 HardConstraint 格式
+        const hardConstraints =
+          this.constraintEnforcementService.toHardConstraints(
+            extractedConstraints,
+          );
+
+        // 存储到数据库
+        await this.prisma.teamMission.update({
+          where: { id: mission.id },
+          data: {
+            mustConstraints: hardConstraints as any,
+          },
+        });
+
+        this.logger.log(
+          `[startMission] Extracted ${hardConstraints.length} constraints from mission description:`,
+        );
+        for (const c of hardConstraints) {
+          this.logger.log(`  - [${c.id}] ${c.rule} (${c.severity})`);
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[startMission] Failed to extract constraints: ${error}`,
+      );
+      // 不阻塞任务执行
     }
 
     // 执行 Leader 任务规划
@@ -1347,6 +1385,7 @@ export class TeamMissionService {
             task,
             mission.contextPackage as MissionContextPackage | null,
             mission.description || undefined,
+            (mission.mustConstraints as any[]) || undefined, // ★ 注入用户约束
           ),
           { maxTokens: 8000, temperature: 0.7 },
           {
@@ -1500,6 +1539,7 @@ export class TeamMissionService {
                 task,
                 mission.contextPackage as MissionContextPackage | null,
                 mission.description || undefined,
+                (mission.mustConstraints as any[]) || undefined, // ★ 注入用户约束
               ),
               { maxTokens: 8000, temperature: 0.7 },
               {
@@ -2234,6 +2274,7 @@ export class TeamMissionService {
             latestTask,
             mission.contextPackage as MissionContextPackage | null,
             mission.description || undefined,
+            (mission.mustConstraints as any[]) || undefined, // ★ 注入用户约束
           ),
           { maxTokens: 8000, temperature: 0.7, missionId: mission.id },
         );
@@ -4066,10 +4107,46 @@ ${taskList}
     task: any,
     context?: MissionContextPackage | null,
     missionDescription?: string,
+    mustConstraints?: any[], // 从用户输入中提取的硬约束
   ): string {
+    // ★ 合并从用户输入提取的约束到 context
+    let effectiveContext = context;
+    if (mustConstraints && mustConstraints.length > 0) {
+      // 如果有用户提取的约束，需要合并到 context 中
+      if (effectiveContext) {
+        // 合并到现有 context
+        effectiveContext = {
+          ...effectiveContext,
+          hardConstraints: [
+            ...mustConstraints, // 用户约束优先
+            ...effectiveContext.hardConstraints.filter(
+              (c) => !mustConstraints.some((mc) => mc.id === c.id),
+            ), // 去重
+          ],
+        };
+      } else {
+        // 创建新的 context 仅包含约束
+        effectiveContext = {
+          version: "1.0",
+          generatedAt: new Date().toISOString(),
+          generatedBy: "system",
+          understanding: { summary: "", scope: "", expectedOutput: "" },
+          hardConstraints: mustConstraints,
+          entities: [],
+          prohibitions: [],
+          qualityStandards: [],
+          glossary: {},
+          extensions: {},
+        };
+      }
+      this.logger.debug(
+        `[getAgentSystemPrompt] Injected ${mustConstraints.length} user constraints for task "${task.title}"`,
+      );
+    }
+
     // Use MissionContextService to build prompt with context and/or mission description
     // This ensures agents receive both structured context AND mission background
-    if (context || missionDescription) {
+    if (effectiveContext || missionDescription) {
       return this.missionContextService.buildAgentSystemPromptWithContext(
         {
           displayName: agent.displayName,
@@ -4082,7 +4159,7 @@ ${taskList}
           title: task.title,
           description: task.description,
         },
-        context || null,
+        effectiveContext || null,
         missionDescription,
       );
     }
