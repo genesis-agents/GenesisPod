@@ -155,7 +155,7 @@ export class ConstraintEnforcementService {
     constraints: ExtractedConstraint[],
   ): void {
     // 检测 "X是哑巴" 这类隐含约束（限制实体名最多20字符，防止 ReDoS）
-    const mutePattern = /(\S{1,20})[是为]哑巴/g;
+    const mutePattern = /(\S{1,20})[是为](哑巴|哑仆|聋哑人)/g;
     mutePattern.lastIndex = 0; // 重置 lastIndex
     let match;
     while ((match = mutePattern.exec(description)) !== null) {
