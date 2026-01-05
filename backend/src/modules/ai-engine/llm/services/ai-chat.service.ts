@@ -2324,11 +2324,28 @@ Format the summary in a clear, structured manner using markdown.`;
       this.logger.error(
         `API call failed for ${provider}: ${JSON.stringify(errorDetails)}`,
       );
-      // IMPORTANT: Return error message instead of mock response
-      // This helps users understand what went wrong
+
       const errorMessage =
         (error as any).response?.data?.error?.message ||
         (error instanceof Error ? error.message : "Unknown API error");
+
+      // ★ 对于上下文过大导致的截断错误，重新抛出让调用方处理（触发重试机制）
+      // 这些错误可以通过减少上下文来恢复
+      if (
+        errorMessage.includes("截断") ||
+        errorMessage.includes("上下文") ||
+        errorMessage.includes("context") ||
+        errorMessage.includes("token") ||
+        errorMessage.includes("length")
+      ) {
+        this.logger.warn(
+          `[${provider}] Rethrowing context-related error for caller to handle: ${errorMessage}`,
+        );
+        throw error;
+      }
+
+      // IMPORTANT: Return error message instead of mock response
+      // This helps users understand what went wrong
       return {
         content: `API Error: ${errorMessage}\n\nProvider: ${provider}\nModel: ${modelId}\n\nPlease check your API key and model configuration.`,
         model: modelId,

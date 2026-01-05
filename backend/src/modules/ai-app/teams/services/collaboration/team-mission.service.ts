@@ -759,7 +759,8 @@ export class TeamMissionService {
       // 调用 AI 生成任务分解 (使用数据库 API Key)
       // ★ 带重试机制：如果上下文过大失败，自动用更短的描述重试
       let aiResponse;
-      const descriptionLengthLevels = [8000, 4000, 2000, 1000]; // 逐级缩短
+      // ★ 更激进的截断级别，处理超长内容
+      const descriptionLengthLevels = [8000, 4000, 2000, 1000, 500]; // 逐级缩短
       let lastError: Error | null = null;
 
       for (const maxDescLen of descriptionLengthLevels) {
@@ -788,6 +789,27 @@ export class TeamMissionService {
             { maxTokens: 8000, temperature: 0.7, missionId: mission.id },
           );
 
+          // ★ 检查响应是否实际上是错误消息（以 "API Error:" 开头）
+          if (aiResponse?.content?.startsWith("API Error:")) {
+            const errorContent = aiResponse.content;
+            this.logger.warn(
+              `[executeLeaderPlanning] Received error as content: ${errorContent.substring(0, 200)}`,
+            );
+            // 检查是否是上下文相关错误
+            if (
+              errorContent.includes("截断") ||
+              errorContent.includes("上下文") ||
+              errorContent.includes("context") ||
+              errorContent.includes("token") ||
+              errorContent.includes("length")
+            ) {
+              lastError = new Error(errorContent);
+              continue; // 重试
+            }
+            // 其他 API 错误，抛出
+            throw new Error(errorContent);
+          }
+
           // 成功则跳出循环
           if (maxDescLen < 8000) {
             this.logger.log(
@@ -804,7 +826,8 @@ export class TeamMissionService {
             errorMsg.includes("截断") ||
             errorMsg.includes("上下文") ||
             errorMsg.includes("context") ||
-            errorMsg.includes("token")
+            errorMsg.includes("token") ||
+            errorMsg.includes("length") // ★ 添加 length 检查
           ) {
             this.logger.warn(
               `[executeLeaderPlanning] Context too large with maxDescLen=${maxDescLen}, will retry with shorter`,
