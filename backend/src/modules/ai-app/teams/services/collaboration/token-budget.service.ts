@@ -70,11 +70,14 @@ const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   "o1-preview": 128000,
   "o1-mini": 128000,
   "o3-mini": 200000,
-  // ★ gpt-5 系列（如果 OpenAI 已发布，请验证实际 context window）
-  // 注意：gpt-5.1 可能不是有效的 OpenAI 模型 ID
-  // 有效的模型 ID 通常是: gpt-4o, gpt-4-turbo, o1-preview 等
-  "gpt-5": 128000, // 假设值，待验证
-  "gpt-5.1": 128000, // 假设值，待验证
+  // GPT-5 系列 (2025年发布)
+  // GPT-5.2: 400K context, 128K max output
+  // GPT-5.1: 类似规格，支持 adaptive reasoning
+  "gpt-5": 256000,
+  "gpt-5.1": 256000,
+  "gpt-5.1-chat-latest": 256000,
+  "gpt-5.2": 400000,
+  "gpt-5-mini": 128000,
 
   // Anthropic
   "claude-3-5-sonnet-20241022": 200000,
@@ -110,8 +113,12 @@ const MODEL_MAX_OUTPUT: Record<string, number> = {
   "o1-preview": 32768,
   "o1-mini": 65536,
   "o3-mini": 100000,
-  "gpt-5": 16384, // 假设值
-  "gpt-5.1": 16384, // 假设值
+  // GPT-5 系列 (2025年发布) - 128K max output
+  "gpt-5": 128000,
+  "gpt-5.1": 128000,
+  "gpt-5.1-chat-latest": 128000,
+  "gpt-5.2": 128000,
+  "gpt-5-mini": 32768,
   // Anthropic
   "claude-3-5-sonnet-20241022": 8192,
   "claude-3-5-haiku-20241022": 8192,

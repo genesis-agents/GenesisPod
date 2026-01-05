@@ -2258,6 +2258,7 @@ Format the summary in a clear, structured manner using markdown.`;
 
           // ★ 验证 OpenAI 模型 ID 是否为已知模型
           const knownOpenAIModels = [
+            // GPT-4 系列
             "gpt-4o",
             "gpt-4o-mini",
             "gpt-4-turbo",
@@ -2265,11 +2266,17 @@ Format the summary in a clear, structured manner using markdown.`;
             "gpt-4",
             "gpt-4-32k",
             "gpt-3.5-turbo",
+            // Reasoning 模型
             "o1",
             "o1-preview",
             "o1-mini",
             "o3-mini",
-            // 如果 OpenAI 发布了 gpt-5 系列，请添加到此列表
+            // GPT-5 系列 (2025年发布)
+            "gpt-5",
+            "gpt-5.1",
+            "gpt-5.1-chat-latest",
+            "gpt-5.2",
+            "gpt-5-mini",
           ];
 
           const isKnownModel = knownOpenAIModels.some(
