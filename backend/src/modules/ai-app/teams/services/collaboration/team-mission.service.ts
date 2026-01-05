@@ -815,11 +815,17 @@ export class TeamMissionService {
       }
 
       // 找出所有可以开始的任务（依赖已完成，且不在执行中）
-      const pendingTasks = mission.tasks.filter(
-        (t) =>
-          t.status === AgentTaskStatus.PENDING &&
-          !this.executingTasks.has(t.id), // 🔒 排除已在执行中的任务
-      );
+      // ★ 按创建时间排序，确保按顺序执行
+      const pendingTasks = mission.tasks
+        .filter(
+          (t) =>
+            t.status === AgentTaskStatus.PENDING &&
+            !this.executingTasks.has(t.id), // 🔒 排除已在执行中的任务
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        );
 
       const tasksToStart: typeof pendingTasks = [];
 
@@ -837,7 +843,45 @@ export class TeamMissionService {
         }
       }
 
-      if (tasksToStart.length === 0) {
+      // ★ 检测是否为顺序执行任务（如小说章节）
+      // 如果大部分任务没有依赖关系，但任务数量很多，则限制并发执行数量
+      const isSequentialCreativeTask = this.detectSequentialCreativeTask(
+        mission,
+        tasksToStart,
+      );
+
+      // ★ 如果是顺序创作任务，限制每次只启动少量任务
+      let actualTasksToStart = tasksToStart;
+      if (isSequentialCreativeTask && tasksToStart.length > 3) {
+        // 计算当前正在执行的任务数
+        const currentInProgress = mission.tasks.filter(
+          (t) =>
+            t.status === AgentTaskStatus.IN_PROGRESS ||
+            t.status === AgentTaskStatus.REVISION_NEEDED ||
+            t.status === AgentTaskStatus.AWAITING_REVIEW,
+        ).length;
+
+        // 限制总并发数为 3
+        const maxConcurrent = 3;
+        const canStart = Math.max(0, maxConcurrent - currentInProgress);
+
+        if (canStart > 0) {
+          actualTasksToStart = tasksToStart.slice(0, canStart);
+          this.logger.log(
+            `[Mission ${missionId}] Sequential creative task detected. Starting ${actualTasksToStart.length} of ${tasksToStart.length} available tasks (${currentInProgress} in progress)`,
+          );
+        } else {
+          actualTasksToStart = [];
+          this.logger.debug(
+            `[Mission ${missionId}] Sequential creative task: waiting for ${currentInProgress} tasks to complete before starting more`,
+          );
+        }
+      }
+
+      // 使用限制后的任务列表
+      const finalTasksToStart = actualTasksToStart;
+
+      if (finalTasksToStart.length === 0) {
         // 检查是否所有任务都已完成
         const completedTasks = mission.tasks.filter(
           (t) => t.status === AgentTaskStatus.COMPLETED,
@@ -973,7 +1017,7 @@ export class TeamMissionService {
       }
 
       // 🔒 在执行前先标记所有任务为"执行中"（防止并发重复执行）
-      for (const task of tasksToStart) {
+      for (const task of finalTasksToStart) {
         this.executingTasks.add(task.id);
         this.logger.debug(
           `[executeNextTasks] Marked task ${task.id} (${task.title}) as executing`,
@@ -981,7 +1025,7 @@ export class TeamMissionService {
       }
 
       // 发送任务分配消息
-      for (const task of tasksToStart) {
+      for (const task of finalTasksToStart) {
         await this.sendMessageToTopic(
           mission.topicId,
           null,
@@ -992,7 +1036,7 @@ export class TeamMissionService {
 
       // 并行执行所有可开始的任务（限制并发数，避免AI调用过载）
       await mapWithConcurrency(
-        tasksToStart,
+        finalTasksToStart,
         (task) => this.executeTask(mission, task),
         ConcurrencyLimits.AI,
       );
@@ -3114,6 +3158,41 @@ ${structureHint}
 
     // 如果同时满足内容关键词和结构关键词，或者有明确数量
     return (hasContentKeyword && hasStructureKeyword) || hasQuantity;
+  }
+
+  /**
+   * 检测是否为需要顺序执行的创作任务
+   * 如小说章节、连续剧集等需要按顺序执行的任务
+   */
+  private detectSequentialCreativeTask(
+    mission: any,
+    tasksToStart: any[],
+  ): boolean {
+    // 检测任务标题是否包含章节模式
+    const chapterPattern =
+      /(?:第\s*)?[\d一二三四五六七八九十百千]+\s*[章回节卷部篇集话期幕讲课]/;
+
+    // 统计包含章节模式的任务数量
+    const chapterTaskCount = tasksToStart.filter((t) =>
+      chapterPattern.test(t.title),
+    ).length;
+
+    // 如果超过 50% 的任务包含章节模式，认为是顺序创作任务
+    const isSequentialByTitle =
+      tasksToStart.length > 5 && chapterTaskCount / tasksToStart.length > 0.5;
+
+    // 检测 mission 标题/描述是否包含创作类关键词
+    const missionText = `${mission.title || ""} ${mission.description || ""}`;
+    const isCreativeTask = this.detectLargeContentTask(missionText);
+
+    // 如果任务数量很多（> 20）且大部分没有依赖关系，也应该限制并发
+    const tasksWithoutDeps = tasksToStart.filter(
+      (t) => !t.dependsOnIds || t.dependsOnIds.length === 0,
+    ).length;
+    const mostTasksNoDeps =
+      tasksToStart.length > 20 && tasksWithoutDeps / tasksToStart.length > 0.8;
+
+    return isSequentialByTitle || (isCreativeTask && mostTasksNoDeps);
   }
 
   private buildTaskExecutionPrompt(
