@@ -2419,14 +2419,23 @@ Format the summary in a clear, structured manner using markdown.`;
         const finishReason = data.choices?.[0]?.finish_reason;
 
         if (!content) {
+          // ★ 详细记录 token 使用情况，帮助诊断问题
+          const usage = data.usage || {};
           this.logger.warn(
-            `[${modelName}] API returned empty content (finish_reason=${finishReason}), full response: ${JSON.stringify(data).substring(0, 500)}`,
+            `[${modelName}] API returned empty content! ` +
+              `finish_reason=${finishReason}, ` +
+              `prompt_tokens=${usage.prompt_tokens || "?"}, ` +
+              `completion_tokens=${usage.completion_tokens || "?"}, ` +
+              `total_tokens=${usage.total_tokens || "?"}, ` +
+              `full response: ${JSON.stringify(data).substring(0, 800)}`,
           );
           // 如果是因为max_tokens不足导致的空内容
           // 这通常意味着上下文太大，没有空间给响应
           if (finishReason === "length") {
             this.logger.error(
-              `[${modelName}] CRITICAL: Response completely truncated (no content generated). Context may be too large!`,
+              `[${modelName}] CRITICAL: Response completely truncated (no content generated). ` +
+                `This usually means the context is too large for the model. ` +
+                `prompt_tokens=${usage.prompt_tokens || "?"}, max_tokens requested in API call may be too low.`,
             );
             // 抛出错误，让调用方知道需要减少上下文或增加 max_tokens
             throw new Error(

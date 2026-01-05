@@ -791,6 +791,13 @@ export class TeamMissionService {
             );
           }
 
+          // ★ 诊断日志：记录实际 prompt 大小
+          const promptLength = currentPrompt.length;
+          const systemPromptLength = this.getLeaderSystemPrompt(leader).length;
+          this.logger.log(
+            `[executeLeaderPlanning] Prompt sizes: userPrompt=${promptLength} chars, systemPrompt=${systemPromptLength} chars, total=${promptLength + systemPromptLength} chars (~${Math.round((promptLength + systemPromptLength) / 4)} tokens), maxDescLen=${maxDescLen}`,
+          );
+
           aiResponse = await this.callAIWithConfig(
             leader.aiModel,
             [{ role: "user", content: currentPrompt }],
