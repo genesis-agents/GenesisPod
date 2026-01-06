@@ -65,6 +65,7 @@ describe("TeamMissionService Long Content Integration", () => {
     processCompletion: [] as any[],
     qualityCheck: [] as any[],
     buildFinalReport: [] as any[],
+    getQualityDashboard: [] as any[],
   };
 
   // Mock services
@@ -355,6 +356,50 @@ describe("TeamMissionService Long Content Integration", () => {
           },
         };
       });
+
+    jest
+      .spyOn(teamsLongContentService, "getQualityDashboard")
+      .mockImplementation((missionId) => {
+        capturedCalls.getQualityDashboard.push(missionId);
+        return {
+          projectId: missionId,
+          projectTitle: "测试任务",
+          progress: {
+            completedTasks: 10,
+            totalTasks: 10,
+            percentage: 100,
+          },
+          wordStats: {
+            totalWords: 15000,
+            averagePerTask: 1500,
+            minTask: { id: "task-1", title: "第一章", words: 1200 },
+            maxTask: { id: "task-5", title: "第五章", words: 1800 },
+          },
+          quality: {
+            overallScore: 8.5,
+            recentAverage: 8.5,
+            trend: {
+              trend: "stable" as const,
+              trendConfidence: 0.8,
+              recentScores: [8, 8.5, 9],
+              averageScore: 8.5,
+              scoreStdDev: 0.5,
+              consecutiveDeclines: 0,
+              consecutiveBelowThreshold: 0,
+              calculatedAt: new Date(),
+            },
+            interventionCount: 0,
+          },
+          timeline: {
+            startedAt: new Date(),
+            estimatedEndAt: new Date(),
+            lastActivityAt: new Date(),
+          },
+          anomalies: [],
+          interventions: [],
+          generatedAt: new Date(),
+        };
+      });
   });
 
   afterEach(() => {
@@ -544,11 +589,13 @@ describe("TeamMissionService Long Content Integration", () => {
   // ============ 问题 4：最终报告测试 ============
 
   describe("问题 4: 使用长内容服务生成最终报告", () => {
-    it("completeMission 应该尝试使用 buildFinalReport", async () => {
+    it("completeMission 应该从数据库获取完整内容并尝试获取质量仪表盘", async () => {
       const missionId = "mission-final-1";
 
       mockPrismaService.teamMission.findUnique.mockResolvedValue({
         id: missionId,
+        title: "测试任务",
+        description: "任务描述",
         topicId: "topic-1",
         leader: {
           id: "leader-1",
@@ -560,9 +607,19 @@ describe("TeamMissionService Long Content Integration", () => {
         tasks: [
           {
             id: "task-1",
+            title: "第一章",
             status: "COMPLETED",
             assignedToId: "member-1",
-            result: "任务1结果",
+            assignedTo: { agentName: "Writer", displayName: "Writer" },
+            result: "这是第一章的完整内容，包含所有细节...",
+          },
+          {
+            id: "task-2",
+            title: "第二章",
+            status: "COMPLETED",
+            assignedToId: "member-2",
+            assignedTo: { agentName: "Editor", displayName: "Editor" },
+            result: "这是第二章的完整内容，包含所有细节...",
           },
         ],
       });
@@ -570,8 +627,8 @@ describe("TeamMissionService Long Content Integration", () => {
       // 调用 completeMission
       await (teamMissionService as any).completeMission(missionId);
 
-      // 验证 buildFinalReport 被调用
-      expect(capturedCalls.buildFinalReport).toContain(missionId);
+      // 验证 getQualityDashboard 被调用（用于获取统计信息）
+      expect(capturedCalls.getQualityDashboard).toContain(missionId);
     });
   });
 
