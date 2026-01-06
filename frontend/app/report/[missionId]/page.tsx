@@ -63,6 +63,24 @@ export default function PublicReportPage() {
     fetchReport();
   }, [missionId]);
 
+  // Extract display title from content (e.g., 《人间长歌》)
+  const displayTitle = useMemo(() => {
+    if (!report?.fullContent) return report?.title || '报告';
+
+    // Look for 《XXX》 pattern in the content (usually from chapter titles)
+    const bookTitleMatch = report.fullContent.match(/《([^》]+)》/);
+    if (bookTitleMatch) {
+      return `《${bookTitleMatch[1]}》`;
+    }
+
+    // Fallback: if title is too long, truncate it
+    if (report.title && report.title.length > 30) {
+      return report.title.substring(0, 30) + '...';
+    }
+
+    return report?.title || '报告';
+  }, [report?.fullContent, report?.title]);
+
   // Split content into chapters
   const chapters = useMemo(() => {
     if (!report?.fullContent) return [];
@@ -175,7 +193,7 @@ export default function PublicReportPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-gray-800">
-                {report.title}
+                {displayTitle}
               </h1>
               <p className="mt-1 text-sm text-gray-500">
                 {report.taskCount} 章节 | {report.totalWords.toLocaleString()}{' '}
