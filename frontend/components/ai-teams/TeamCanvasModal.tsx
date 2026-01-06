@@ -1617,6 +1617,8 @@ export default function TeamCanvasModal({
               missionTitle={mission?.title}
               missionStatus={mission?.status}
               finalResult={mission?.finalResult}
+              mission={mission}
+              topicId={mission?.topicId}
             />
           )}
 
@@ -2186,6 +2188,8 @@ function AgentPopover({
   missionTitle,
   missionStatus,
   finalResult,
+  mission,
+  topicId,
 }: {
   agent: TopicAIMember;
   isLeader: boolean;
@@ -2198,9 +2202,90 @@ function AgentPopover({
   missionTitle?: string;
   missionStatus?: string;
   finalResult?: string | null;
+  mission?: TeamMission | null;
+  topicId?: string;
 }) {
   // State for report modal
   const [showReportModal, setShowReportModal] = useState(false);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0);
+  // Copy status for share link
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
+
+  // Split content into chapters for pagination
+  const chapters = useMemo(() => {
+    if (!finalResult) return [];
+
+    // Split by chapter markers: "## 第X章", "# 第X章", "## Chapter", or any "## " heading
+    const chapterRegex =
+      /(?=^##?\s+(?:第[一二三四五六七八九十\d]+章|Chapter\s+\d+|[^#\n]+))/gm;
+    const parts = finalResult.split(chapterRegex).filter(Boolean);
+
+    // If no chapters found, return the whole content as one page
+    if (parts.length <= 1) {
+      // Try splitting by "---" horizontal rules as fallback
+      const hrParts = finalResult.split(/\n---\n/).filter(Boolean);
+      if (hrParts.length > 1) {
+        return hrParts.map((content, idx) => ({
+          title: `第 ${idx + 1} 部分`,
+          content: content.trim(),
+        }));
+      }
+      return [{ title: '完整报告', content: finalResult }];
+    }
+
+    return parts.map((content, idx) => {
+      // Extract chapter title from the first line
+      const firstLine = content
+        .split('\n')[0]
+        .replace(/^#+\s*/, '')
+        .trim();
+      return {
+        title: firstLine || `第 ${idx + 1} 部分`,
+        content: content.trim(),
+      };
+    });
+  }, [finalResult]);
+
+  // Handle share link
+  const handleShareLink = useCallback(() => {
+    if (!topicId || !mission?.id) return;
+    const shareUrl = `${window.location.origin}/topic/${topicId}?mission=${mission.id}`;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopyStatus('copied');
+      setTimeout(() => setCopyStatus('idle'), 2000);
+    });
+  }, [topicId, mission?.id]);
+
+  // Handle download
+  const handleDownload = useCallback(() => {
+    if (!mission) return;
+    const reportData: MissionReportData = {
+      mission: {
+        id: mission.id,
+        title: mission.title,
+        description: mission.description,
+        status: mission.status,
+        leader: mission.leader?.displayName || 'Unknown',
+        createdAt: mission.createdAt,
+        completedAt: mission.completedAt || undefined,
+        finalResult: mission.finalResult || undefined,
+      },
+      tasks: (mission.tasks || []).map((t) => ({
+        id: t.id,
+        title: t.title,
+        description: t.description,
+        status: t.status,
+        assignedTo: t.assignedTo?.displayName || 'Unassigned',
+        result: t.result || undefined,
+        leaderFeedback: t.leaderFeedback || undefined,
+        revisionCount: t.revisionCount || 0,
+        startedAt: t.startedAt || undefined,
+        completedAt: t.completedAt || undefined,
+      })),
+    };
+    downloadMissionReportHTML(reportData);
+  }, [mission]);
 
   // For Leader, show all tasks as the planning list
   const displayTasks = isLeader ? allTasks : tasks;
@@ -2215,14 +2300,15 @@ function AgentPopover({
 
   return (
     <>
-      {/* Report Modal */}
+      {/* Report Modal with Pagination */}
       {showReportModal && finalResult && (
         <>
           <div
             className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-sm"
             onClick={() => setShowReportModal(false)}
           />
-          <div className="fixed left-1/2 top-1/2 z-[301] max-h-[80vh] w-[800px] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <div className="fixed left-1/2 top-1/2 z-[301] flex max-h-[85vh] w-[900px] max-w-[95vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            {/* Header with title and actions */}
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-xl">
@@ -2230,35 +2316,185 @@ function AgentPopover({
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white">任务完成报告</h3>
-                  <p className="text-sm text-white/80">Team Leader 总结</p>
+                  <p className="text-sm text-white/80">
+                    {chapters.length > 1
+                      ? `${chapters[currentPage]?.title || ''} (${currentPage + 1}/${chapters.length})`
+                      : 'Team Leader 总结'}
+                  </p>
                 </div>
               </div>
-              <button
-                onClick={() => setShowReportModal(false)}
-                className="rounded-full p-2 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
-              >
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              <div className="flex items-center gap-2">
+                {/* Share Link Button */}
+                {topicId && mission?.id && (
+                  <button
+                    onClick={handleShareLink}
+                    className="flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/30"
+                    title="复制分享链接"
+                  >
+                    {copyStatus === 'copied' ? (
+                      <>
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                        <span>已复制</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                          />
+                        </svg>
+                        <span>分享</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                {/* Download Button */}
+                {mission && (
+                  <button
+                    onClick={handleDownload}
+                    className="flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/30"
+                    title="下载完整报告"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
+                    </svg>
+                    <span>下载</span>
+                  </button>
+                )}
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowReportModal(false)}
+                  className="rounded-full p-2 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    className="h-6 w-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
             </div>
-            <div className="max-h-[calc(80vh-80px)] overflow-y-auto p-6">
+
+            {/* Chapter Navigation Tabs (if multiple chapters) */}
+            {chapters.length > 1 && (
+              <div className="flex gap-1 overflow-x-auto border-b border-gray-200 bg-gray-50 px-4 py-2">
+                {chapters.map((chapter, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentPage(idx)}
+                    className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                      currentPage === idx
+                        ? 'bg-green-500 text-white'
+                        : 'bg-white text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {chapter.title.length > 20
+                      ? chapter.title.substring(0, 20) + '...'
+                      : chapter.title}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
               <div className="prose prose-sm prose-headings:text-gray-800 prose-p:text-gray-600 prose-li:text-gray-600 prose-strong:text-gray-800 prose-table:w-full prose-th:bg-gray-100 prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:font-semibold prose-th:text-gray-700 prose-td:px-3 prose-td:py-2 prose-td:text-gray-600 prose-tr:border-b prose-tr:border-gray-200 max-w-none">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {fixMarkdownTables(finalResult)}
+                  {fixMarkdownTables(
+                    chapters[currentPage]?.content || finalResult
+                  )}
                 </ReactMarkdown>
               </div>
             </div>
+
+            {/* Pagination Footer (if multiple chapters) */}
+            {chapters.length > 1 && (
+              <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-3">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="flex items-center gap-1 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                  上一章
+                </button>
+                <span className="text-sm text-gray-500">
+                  {currentPage + 1} / {chapters.length}
+                </span>
+                <button
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(chapters.length - 1, p + 1))
+                  }
+                  disabled={currentPage === chapters.length - 1}
+                  className="flex items-center gap-1 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  下一章
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}
