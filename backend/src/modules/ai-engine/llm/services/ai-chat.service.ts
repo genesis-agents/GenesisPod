@@ -705,7 +705,7 @@ export class AiChatService {
       temperature = undefined; // Set temperature to undefined if not supported
     }
 
-    this.logger.log(`Generating chat completion with model: ${model}`);
+    this.logger.debug(`Generating chat completion with model: ${model}`);
 
     // Build messages array with system prompt
     const fullMessages: ChatMessage[] = [];
@@ -2123,7 +2123,7 @@ Format the summary in a clear, structured manner using markdown.`;
       enableSearch = true, // Enable search by default for normal conversations
     } = options;
 
-    this.logger.log(
+    this.logger.debug(
       `Generating chat completion with key for provider: ${provider}, model: ${modelId}, apiKeyLength: ${apiKey?.length || 0}, endpoint: ${apiEndpoint}`,
     );
 
@@ -2150,7 +2150,7 @@ Format the summary in a clear, structured manner using markdown.`;
       };
     }
 
-    this.logger.log(
+    this.logger.debug(
       `API key confirmed for ${provider}: ${apiKey.substring(0, 8)}...${apiKey.slice(-4)}`,
     );
 
@@ -2212,7 +2212,7 @@ Format the summary in a clear, structured manner using markdown.`;
           // NOTE: Having IMAGE_GENERATION capability alone is NOT enough - user must request it
           const isImageRequest = this.isImageGenerationRequest(userText);
           if (isImageRequest && hasImageCapability) {
-            this.logger.log(
+            this.logger.debug(
               `Image generation request detected (byContent=${isImageRequest}, hasCapability=${hasImageCapability}), using DALL-E 3`,
             );
             // Build context-aware prompt for DALL-E 3
@@ -2247,7 +2247,7 @@ Format the summary in a clear, structured manner using markdown.`;
             };
 
             const dallePrompt = buildDallEPrompt();
-            this.logger.log(
+            this.logger.debug(
               `[DALL-E 3] Context-aware prompt length: ${dallePrompt.length}`,
             );
             return await this.callDallE3(apiKey, dallePrompt);
@@ -2276,7 +2276,7 @@ Format the summary in a clear, structured manner using markdown.`;
             ? { reasoning_effort: "none" } // 禁用推理，避免空响应问题
             : {};
 
-          this.logger.log(
+          this.logger.debug(
             `[OpenAI] Calling API with model=${effectiveModelId}, ` +
               `${isNewModel ? "max_completion_tokens" : "max_tokens"}=${maxTokens}` +
               `${isGPT5 ? ", reasoning_effort=none" : ""}`,
@@ -2440,7 +2440,7 @@ Format the summary in a clear, structured manner using markdown.`;
     this.logger.debug(
       `[${modelName}] Calling API: ${url.replace(/Bearer\s+\S+/, "Bearer ***")}`,
     );
-    this.logger.log(
+    this.logger.debug(
       `[${body.model}] Request: model=${body.model}, ` +
         `maxTokens=${body.max_completion_tokens || body.max_tokens || "?"}, ` +
         `estimatedPromptTokens=${totalEstimatedTokens} (system=${systemPromptTokens}, user=${userTokens})`,
@@ -2632,13 +2632,13 @@ Format the summary in a clear, structured manner using markdown.`;
     // NOTE: Having IMAGE_GENERATION capability alone is NOT enough - user must request it
     const isImageRequest = isImageRequestByContent && hasImageCapability;
 
-    this.logger.log(
+    this.logger.debug(
       `[Gemini] Image detection: modelId=${modelId}, displayName=${displayName}`,
     );
-    this.logger.log(
+    this.logger.debug(
       `[Gemini] Image detection details: hasImageCapability=${hasImageCapability}, capabilities=${JSON.stringify(capabilities)}, isImageRequestByContent=${isImageRequestByContent}, userContent="${userContent.substring(0, 100)}"`,
     );
-    this.logger.log(
+    this.logger.debug(
       `[Gemini] Image detection result: isImagenModel=${isImagenModel}, isGeminiImageModel=${isGeminiImageModel}, finalIsImageRequest=${isImageRequest}`,
     );
 
@@ -2682,7 +2682,7 @@ Format the summary in a clear, structured manner using markdown.`;
       let userRequest = lastUserMessage?.content || "";
       userRequest = userRequest.replace(/^@[\w\-()]+\s*/g, "").trim();
 
-      this.logger.log(
+      this.logger.debug(
         `[buildImagePrompt] Original: "${lastUserMessage?.content}", Cleaned: "${userRequest}"`,
       );
 
@@ -2704,7 +2704,7 @@ Generate an image that fulfills the current request while maintaining consistenc
 
     // Use Imagen API only if explicitly configured as Imagen model
     if (isImageRequest && isImagenModel) {
-      this.logger.log(`Using Imagen model for image generation: ${modelId}`);
+      this.logger.debug(`Using Imagen model for image generation: ${modelId}`);
       const imagePrompt = buildImagePrompt();
       return await this.callImagenApi(apiKey, modelId, imagePrompt);
     }
@@ -2721,24 +2721,24 @@ Generate an image that fulfills the current request while maintaining consistenc
     if (isImageOnlyModel && !isImageRequest) {
       // Image-only models can't do text conversations - fall back to text model
       effectiveModelId = "gemini-2.0-flash-exp";
-      this.logger.log(
+      this.logger.debug(
         `[Gemini] Image-only model ${modelId} used for non-image request, falling back to ${effectiveModelId}`,
       );
     } else if (isImageRequest && isGeminiImageModel) {
       // User requested image AND model is Gemini with image capability - use as configured
-      this.logger.log(
+      this.logger.debug(
         `[Gemini] Using configured Gemini image model: ${modelId}`,
       );
       // Keep the configured model (e.g., gemini-3-pro-image-preview)
     } else if (isImageRequest && !isGeminiImageModel && !isImagenModel) {
       // User requested image but model doesn't support it - switch to capable model
       const imageCapableModel = "gemini-2.0-flash-exp";
-      this.logger.log(
+      this.logger.debug(
         `[Gemini] Image request with non-image model ${modelId}, switching to ${imageCapableModel}`,
       );
       effectiveModelId = imageCapableModel;
     } else {
-      this.logger.log(
+      this.logger.debug(
         `[Gemini] Using configured model: ${effectiveModelId}, isImageRequest: ${isImageRequest}`,
       );
     }
@@ -2746,7 +2746,7 @@ Generate an image that fulfills the current request while maintaining consistenc
     // Build the correct Gemini API URL
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${effectiveModelId}:generateContent?key=${apiKey}`;
 
-    this.logger.log(
+    this.logger.debug(
       `Calling Gemini API: ${url.replace(apiKey, "***")}, imageRequest=${isImageRequest}`,
     );
 
@@ -2779,7 +2779,7 @@ Generate an image that fulfills the current request while maintaining consistenc
 
       // DO NOT add extra instructions - Gemini will render them as part of the image
       // Just pass the user's request directly, translated to English if needed
-      this.logger.log(
+      this.logger.debug(
         `[Gemini 3 Image] Using single-turn format, prompt: "${cleanPrompt.substring(0, 100)}..."`,
       );
 
@@ -2801,7 +2801,7 @@ Generate an image that fulfills the current request while maintaining consistenc
             /!\[Generated Image\]\(data:image\/[^)]+\)/g,
             "[An image was generated based on the previous request]",
           );
-          this.logger.log(
+          this.logger.debug(
             `[Gemini] Cleaned base64 image from message, role: ${m.role}`,
           );
         }
