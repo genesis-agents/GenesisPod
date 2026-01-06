@@ -2395,6 +2395,21 @@ Format the summary in a clear, structured manner using markdown.`;
     headers: Record<string, string>,
     modelName: string,
   ): Promise<ChatCompletionResult> {
+    // ★ 根据 maxTokens 动态计算超时时间
+    // 基础超时 120 秒，每 1000 tokens 增加 15 秒
+    // 例如：16000 tokens = 120 + 240 = 360 秒 (6 分钟)
+    const maxTokens = body.max_completion_tokens || body.max_tokens || 2048;
+    const dynamicTimeout = Math.max(
+      120000, // 最少 2 分钟
+      Math.min(
+        600000, // 最多 10 分钟
+        120000 + Math.ceil(maxTokens / 1000) * 15000,
+      ),
+    );
+    this.logger.debug(
+      `[${modelName}] Dynamic timeout: ${dynamicTimeout}ms (maxTokens=${maxTokens})`,
+    );
+
     // ★ 估算请求 token 数量（用于诊断）
     const estimateTokens = (text: string): number => {
       if (!text) return 0;
@@ -2440,7 +2455,7 @@ Format the summary in a clear, structured manner using markdown.`;
               "Content-Type": "application/json",
               ...headers,
             },
-            timeout: 120000,
+            timeout: dynamicTimeout,
           }),
         );
 
@@ -2538,6 +2553,12 @@ Format the summary in a clear, structured manner using markdown.`;
     maxTokens: number,
     temperature: number,
   ): Promise<ChatCompletionResult> {
+    // ★ 根据 maxTokens 动态计算超时时间
+    const dynamicTimeout = Math.max(
+      120000,
+      Math.min(600000, 120000 + Math.ceil(maxTokens / 1000) * 15000),
+    );
+
     return await this.withRetry(
       async () => {
         const response = await firstValueFrom(
@@ -2559,7 +2580,7 @@ Format the summary in a clear, structured manner using markdown.`;
                 "anthropic-version": "2023-06-01",
                 "Content-Type": "application/json",
               },
-              timeout: 120000,
+              timeout: dynamicTimeout,
             },
           ),
         );
@@ -2592,6 +2613,12 @@ Format the summary in a clear, structured manner using markdown.`;
     capabilities: string[] = [], // AI capabilities
     enableSearch: boolean = true, // Enable Google Search grounding (default: true)
   ): Promise<ChatCompletionResult> {
+    // ★ 根据 maxTokens 动态计算超时时间
+    const dynamicTimeout = Math.max(
+      120000,
+      Math.min(600000, 120000 + Math.ceil(maxTokens / 1000) * 15000),
+    );
+
     // Check if user is requesting image generation
     const lastUserMessage = messages.filter((m) => m.role === "user").pop();
     const userContent = lastUserMessage?.content?.toLowerCase() || "";
@@ -2840,7 +2867,7 @@ Generate an image that fulfills the current request while maintaining consistenc
             headers: {
               "Content-Type": "application/json",
             },
-            timeout: 120000, // Longer timeout for image generation
+            timeout: dynamicTimeout, // Dynamic timeout based on maxTokens
           }),
         ),
       "Gemini-API",
