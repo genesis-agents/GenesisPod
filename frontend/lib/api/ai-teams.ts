@@ -488,6 +488,42 @@ export async function getMissionLogs(
   );
 }
 
+/**
+ * 获取完整报告内容（直接从数据库任务构建，确保内容完整）
+ */
+export async function getFullReport(
+  topicId: string,
+  missionId: string
+): Promise<{
+  success: boolean;
+  message: string;
+  fullContent?: string;
+  taskCount?: number;
+  totalWords?: number;
+}> {
+  return fetchWithAuth(
+    `/api/v1/topics/${topicId}/missions/${missionId}/full-report`
+  );
+}
+
+/**
+ * 重新生成最终报告（修复内容缺失或排序问题）
+ */
+export async function regenerateFinalReport(
+  topicId: string,
+  missionId: string
+): Promise<{
+  success: boolean;
+  message: string;
+  finalResult?: string;
+  taskCount?: number;
+}> {
+  return fetchWithAuth(
+    `/api/v1/topics/${topicId}/missions/${missionId}/regenerate-report`,
+    { method: 'POST' }
+  );
+}
+
 // ==================== Team Role API ====================
 
 /**

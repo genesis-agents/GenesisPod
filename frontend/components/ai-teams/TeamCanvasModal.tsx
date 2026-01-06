@@ -2225,18 +2225,11 @@ function AgentPopover({
     if (!showReportModal || !topicId || !mission?.id) return;
     if (fullReport) return; // Already fetched
 
-    const fetchFullReport = async () => {
+    const fetchFullReportData = async () => {
       setFullReportLoading(true);
       setFullReportError(null);
       try {
-        const response = await fetch(
-          `/api/ai-teams/${topicId}/missions/${mission.id}/full-report`,
-          { credentials: 'include' }
-        );
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const result = await response.json();
+        const result = await api.getFullReport(topicId, mission.id);
         if (result.success && result.fullContent) {
           setFullReport(result.fullContent);
         } else {
@@ -2252,7 +2245,7 @@ function AgentPopover({
       }
     };
 
-    fetchFullReport();
+    fetchFullReportData();
   }, [showReportModal, topicId, mission?.id, fullReport]);
 
   // Handle regenerate report
@@ -2260,16 +2253,7 @@ function AgentPopover({
     if (!topicId || !mission?.id) return;
     setRegenerateStatus('loading');
     try {
-      const response = await fetch(
-        `/api/ai-teams/${topicId}/missions/${mission.id}/regenerate-report`,
-        { method: 'POST', credentials: 'include' }
-      );
-      if (!response.ok) {
-        setRegenerateStatus('error');
-        alert(`刷新失败: HTTP ${response.status} - ${response.statusText}`);
-        return;
-      }
-      const result = await response.json();
+      const result = await api.regenerateFinalReport(topicId, mission.id);
       if (result.success) {
         setRegenerateStatus('success');
         // Reload page to show new report
