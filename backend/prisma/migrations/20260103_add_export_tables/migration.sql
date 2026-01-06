@@ -1,3 +1,12 @@
+-- CreateEnum ExportSourceType (MUST be created before tables that reference it)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ExportSourceType') THEN
+        CREATE TYPE "ExportSourceType" AS ENUM ('DOCUMENT', 'RESEARCH', 'REPORT', 'RAW', 'MISSION');
+    END IF;
+END
+$$;
+
 -- CreateEnum ExportFormat
 DO $$
 BEGIN
