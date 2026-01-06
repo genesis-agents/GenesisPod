@@ -4279,8 +4279,21 @@ ${feedback}
     fullContent: string;
     summaryPrompt: string;
   } {
+    // 获取所有已完成且有结果的任务
     const completedTasks = (mission.tasks || []).filter(
       (t: AgentTaskWithAssignee) => t.status === "COMPLETED" && t.result,
+    );
+
+    // ★ 关键：按创建时间排序，确保任务按规划顺序输出
+    // 任务是按 Leader 规划顺序创建的，所以 createdAt 代表章节顺序
+    completedTasks.sort((a, b) => {
+      const timeA = new Date(a.createdAt).getTime();
+      const timeB = new Date(b.createdAt).getTime();
+      return timeA - timeB;
+    });
+
+    this.logger.log(
+      `[buildFinalReportWithFullContent] 共 ${completedTasks.length} 个已完成任务，按创建时间排序`,
     );
 
     // 构建完整的分章节内容
