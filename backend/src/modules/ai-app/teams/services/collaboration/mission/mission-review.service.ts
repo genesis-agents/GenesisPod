@@ -453,6 +453,8 @@ export class MissionReviewService {
         this.logger.warn(
           `[executeTaskRevision] Task ${task.id} not found, skipping revision`,
         );
+        // ★ 修复：早期返回前释放锁
+        this.stateManager.finishRevision(task.id);
         return;
       }
 
@@ -469,6 +471,8 @@ export class MissionReviewService {
         this.logger.warn(
           `[executeTaskRevision] Task "${task.title}" (${task.id}) is no longer REVISION_NEEDED, skipping`,
         );
+        // ★ 修复：早期返回前释放锁
+        this.stateManager.finishRevision(task.id);
         return;
       }
 
@@ -607,8 +611,18 @@ export class MissionReviewService {
         return;
       }
 
-      // 再次审核
+      // ★ 关键修复：在调用 leaderReviewTask 之前释放锁
+      // 避免 leaderReviewTask -> handleRejection -> executeTaskRevision 的重入死锁
+      this.stateManager.finishRevision(task.id);
+      this.logger.debug(
+        `[executeTaskRevision] Released revision lock BEFORE leader review for task "${task.title}" (${task.id})`,
+      );
+
+      // 再次审核（此时锁已释放，如果再次被拒绝可以正常触发新的修改）
       await this.leaderReviewTask(mission, updatedTask, aiResponse.content);
+
+      // 标记锁已在上面释放，finally 中不再重复释放
+      return;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Task revision failed: ${errorMsg}`);
@@ -639,10 +653,13 @@ export class MissionReviewService {
         content: `任务「${task.title}」修改失败（意外错误）: ${errorMsg}`,
       });
     } finally {
-      this.stateManager.finishRevision(task.id);
-      this.logger.debug(
-        `[executeTaskRevision] Released revision lock for task "${task.title}" (${task.id})`,
-      );
+      // 仅在锁还未被释放时才释放（正常流程在 return 前已释放）
+      if (this.stateManager.isRevisionInProgress(task.id)) {
+        this.stateManager.finishRevision(task.id);
+        this.logger.debug(
+          `[executeTaskRevision] Released revision lock for task "${task.title}" (${task.id}) in finally block`,
+        );
+      }
     }
   }
 

@@ -2578,6 +2578,8 @@ export class TeamMissionService implements OnModuleInit {
         this.logger.warn(
           `[executeTaskRevision] Task ${task.id} not found, skipping revision`,
         );
+        // ★ 修复：早期返回前释放锁
+        this.stateManager.finishRevision(task.id);
         return;
       }
 
@@ -2594,6 +2596,8 @@ export class TeamMissionService implements OnModuleInit {
         this.logger.warn(
           `[executeTaskRevision] Task "${task.title}" (${task.id}) is no longer REVISION_NEEDED, skipping`,
         );
+        // ★ 修复：早期返回前释放锁
+        this.stateManager.finishRevision(task.id);
         return;
       }
 
@@ -2734,11 +2738,23 @@ export class TeamMissionService implements OnModuleInit {
 
       if (!updatedTask) {
         this.logger.error(`Task ${task.id} not found after revision`);
+        // ★ 修复：早期返回前释放锁
+        this.stateManager.finishRevision(task.id);
         return;
       }
 
-      // 再次审核（使用最新的任务数据）
+      // ★ 关键修复：在调用 leaderReviewTask 之前释放锁
+      // 避免 leaderReviewTask -> handleRejection -> executeTaskRevision 的重入死锁
+      this.stateManager.finishRevision(task.id);
+      this.logger.debug(
+        `[executeTaskRevision] Released revision lock BEFORE leader review for task "${task.title}" (${task.id})`,
+      );
+
+      // 再次审核（此时锁已释放，如果再次被拒绝可以正常触发新的修改）
       await this.leaderReviewTask(mission, updatedTask, aiResponse.content);
+
+      // 标记锁已在上面释放，finally 中不再重复释放
+      return;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Task revision failed: ${errorMsg}`);
@@ -2778,11 +2794,13 @@ export class TeamMissionService implements OnModuleInit {
 
       // 不要调用 executeNextTasks，因为任务状态不是 COMPLETED
     } finally {
-      // 🔒 释放修订锁
-      this.stateManager.finishRevision(task.id);
-      this.logger.debug(
-        `[executeTaskRevision] Released revision lock for task "${task.title}" (${task.id})`,
-      );
+      // 🔒 仅在锁还未被释放时才释放（正常流程在 return 前已释放）
+      if (this.stateManager.isRevisionInProgress(task.id)) {
+        this.stateManager.finishRevision(task.id);
+        this.logger.debug(
+          `[executeTaskRevision] Released revision lock for task "${task.title}" (${task.id}) in finally block`,
+        );
+      }
     }
   }
 
