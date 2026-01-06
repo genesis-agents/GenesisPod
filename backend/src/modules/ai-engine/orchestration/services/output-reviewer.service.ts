@@ -14,6 +14,7 @@ import {
   RevisionRequest,
   ExecutionResult,
   ReviewCriteria,
+  AiCallerFn,
 } from "./interfaces";
 import { AiChatService } from "../../llm/services/ai-chat.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
@@ -41,8 +42,13 @@ export class OutputReviewerService implements IOutputReviewerService {
 
   /**
    * 审核任务输出
+   * @param request 审核请求
+   * @param aiCaller 可选的 AI 调用函数，注入后使用上层的执行上下文（心跳、token 追踪等）
    */
-  async reviewOutput(request: ReviewRequest): Promise<ReviewResult> {
+  async reviewOutput(
+    request: ReviewRequest,
+    aiCaller?: AiCallerFn,
+  ): Promise<ReviewResult> {
     const criteria = { ...DEFAULT_CRITERIA, ...request.criteria };
 
     try {
@@ -57,6 +63,7 @@ export class OutputReviewerService implements IOutputReviewerService {
           request.task.title,
           request.leader.aiModel,
           request.missionId,
+          aiCaller, // 传递 aiCaller
         );
         reviewContent = keyExcerpts
           ? `【AI 生成的内容摘要】\n${summary}\n\n【原文关键片段】\n${keyExcerpts}`
@@ -70,17 +77,34 @@ export class OutputReviewerService implements IOutputReviewerService {
         criteria,
       );
 
-      // 获取模型配置
-      const modelConfig = await this.getModelConfig(request.leader.aiModel);
+      // 构建消息
+      const systemPrompt = this.buildLeaderSystemPrompt(request.leader);
+      const messages: Array<{
+        role: "system" | "user" | "assistant";
+        content: string;
+      }> = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: reviewPrompt },
+      ];
 
-      // 调用 AI 审核
-      const result = await this.callAIWithConfig(
-        request.leader.aiModel,
-        [{ role: "user", content: reviewPrompt }],
-        this.buildLeaderSystemPrompt(request.leader),
-        { maxTokens: 2000, temperature: 0.3 },
-        modelConfig,
-      );
+      // 调用 AI 审核（优先使用注入的 aiCaller）
+      let result: { content: string; tokensUsed: number };
+      if (aiCaller) {
+        result = await aiCaller(request.leader.aiModel, messages, {
+          maxTokens: 2000,
+          temperature: 0.3,
+        });
+      } else {
+        // 回退到内部实现
+        const modelConfig = await this.getModelConfig(request.leader.aiModel);
+        result = await this.callAIWithConfig(
+          request.leader.aiModel,
+          [{ role: "user", content: reviewPrompt }],
+          systemPrompt,
+          { maxTokens: 2000, temperature: 0.3 },
+          modelConfig,
+        );
+      }
 
       // 解析审核结果
       const reviewResult = this.parseReviewResult(result.content, criteria);
@@ -112,6 +136,7 @@ export class OutputReviewerService implements IOutputReviewerService {
 
   /**
    * 为长内容生成摘要（用于审核）
+   * @param aiCaller 可选的 AI 调用函数，注入后使用上层的执行上下文
    */
   async summarizeForReview(
     content: string,
@@ -119,10 +144,10 @@ export class OutputReviewerService implements IOutputReviewerService {
     model: string,
     // missionId 预留用于日志记录
     _missionId: string,
+    aiCaller?: AiCallerFn,
   ): Promise<{ summary: string; keyExcerpts?: string }> {
     try {
-      const modelConfig = await this.getModelConfig(model);
-
+      const systemPrompt = "你是一个专业的内容摘要助手，善于提取关键信息。";
       const prompt = `请为以下任务产出生成一个简洁的摘要，用于质量审核。
 
 任务标题: ${taskTitle}
@@ -134,13 +159,28 @@ ${content.substring(0, 10000)}${content.length > 10000 ? "\n...(内容已截断)
 1. 【摘要】(300字以内，概括主要内容和结论)
 2. 【关键片段】(提取3-5个最重要的段落或要点)`;
 
-      const result = await this.callAIWithConfig(
-        model,
-        [{ role: "user", content: prompt }],
-        "你是一个专业的内容摘要助手，善于提取关键信息。",
-        { maxTokens: 1500, temperature: 0.3 },
-        modelConfig,
-      );
+      // 调用 AI（优先使用注入的 aiCaller）
+      let result: { content: string; tokensUsed: number };
+      if (aiCaller) {
+        result = await aiCaller(
+          model,
+          [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: prompt },
+          ],
+          { maxTokens: 1500, temperature: 0.3 },
+        );
+      } else {
+        // 回退到内部实现
+        const modelConfig = await this.getModelConfig(model);
+        result = await this.callAIWithConfig(
+          model,
+          [{ role: "user", content: prompt }],
+          systemPrompt,
+          { maxTokens: 1500, temperature: 0.3 },
+          modelConfig,
+        );
+      }
 
       // 解析摘要结果
       const summaryMatch = result.content.match(
@@ -166,25 +206,43 @@ ${content.substring(0, 10000)}${content.length > 10000 ? "\n...(内容已截断)
 
   /**
    * 执行任务修订
+   * @param request 修订请求
+   * @param aiCaller 可选的 AI 调用函数，注入后使用上层的执行上下文（心跳、token 追踪等）
    */
-  async executeRevision(request: RevisionRequest): Promise<ExecutionResult> {
+  async executeRevision(
+    request: RevisionRequest,
+    aiCaller?: AiCallerFn,
+  ): Promise<ExecutionResult> {
     const startTime = Date.now();
 
     try {
-      const modelConfig = await this.getModelConfig(
-        request.originalContext.executor.aiModel,
-      );
-
       // 构建修订提示词
       const revisionPrompt = this.buildRevisionPrompt(request);
+      const systemPrompt = request.originalContext.systemPrompt;
+      const model = request.originalContext.executor.aiModel;
 
-      const result = await this.callAIWithConfig(
-        request.originalContext.executor.aiModel,
-        [{ role: "user", content: revisionPrompt }],
-        request.originalContext.systemPrompt,
-        { maxTokens: 6000, temperature: 0.5 },
-        modelConfig,
-      );
+      // 调用 AI（优先使用注入的 aiCaller）
+      let result: { content: string; tokensUsed: number };
+      if (aiCaller) {
+        result = await aiCaller(
+          model,
+          [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: revisionPrompt },
+          ],
+          { maxTokens: 6000, temperature: 0.5 },
+        );
+      } else {
+        // 回退到内部实现
+        const modelConfig = await this.getModelConfig(model);
+        result = await this.callAIWithConfig(
+          model,
+          [{ role: "user", content: revisionPrompt }],
+          systemPrompt,
+          { maxTokens: 6000, temperature: 0.5 },
+          modelConfig,
+        );
+      }
 
       return {
         success: true,
@@ -201,6 +259,64 @@ ${content.substring(0, 10000)}${content.length > 10000 ? "\n...(内容已截断)
         error: (error as Error).message,
         retryable: true,
       };
+    }
+  }
+
+  // ==================== 核心能力方法（供上层服务调用） ====================
+
+  /**
+   * 执行 AI 调用（核心能力）
+   * 这是对外暴露的底层 AI 调用方法，上层服务可通过注入 aiCaller 保留执行上下文
+   *
+   * @param model AI 模型
+   * @param messages 消息列表（包含 system/user/assistant）
+   * @param options 调用选项
+   * @param aiCaller 可选的 AI 调用函数，注入后使用上层的执行上下文（心跳、token 追踪等）
+   */
+  async executeAICall(
+    model: string,
+    messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
+    options?: { maxTokens?: number; temperature?: number },
+    aiCaller?: AiCallerFn,
+  ): Promise<{ content: string; tokensUsed: number }> {
+    const startTime = Date.now();
+    const opts = {
+      maxTokens: options?.maxTokens || 4000,
+      temperature: options?.temperature ?? 0.7,
+    };
+
+    try {
+      let result: { content: string; tokensUsed: number };
+
+      if (aiCaller) {
+        // 使用注入的 aiCaller（保留上层执行上下文）
+        result = await aiCaller(model, messages, opts);
+      } else {
+        // 回退到内部实现
+        const systemMsg = messages.find((m) => m.role === "system");
+        const userMsgs = messages.filter((m) => m.role !== "system");
+        const modelConfig = await this.getModelConfig(model);
+
+        result = await this.callAIWithConfig(
+          model,
+          userMsgs,
+          systemMsg?.content || "",
+          opts,
+          modelConfig,
+        );
+      }
+
+      this.logger.debug(
+        `[executeAICall] AI call completed in ${Date.now() - startTime}ms, tokens: ${result.tokensUsed}`,
+      );
+
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `[executeAICall] AI call failed after ${Date.now() - startTime}ms: ${errorMsg}`,
+      );
+      throw error;
     }
   }
 

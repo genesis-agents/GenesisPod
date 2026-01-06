@@ -33,8 +33,11 @@ import {
   HardConstraint,
 } from "../../../interfaces/mission-context.interface";
 // ★ AI Engine 能力下沉：注入 OutputReviewerService
-// 提供审核和修订的核心能力，当前保持现有实现以确保兼容性
-import { OutputReviewerService } from "../../../../../ai-engine/orchestration/services";
+// 提供审核和修订的核心能力，通过 aiCaller 参数保留执行上下文
+import {
+  OutputReviewerService,
+  AiCallerFn,
+} from "../../../../../ai-engine/orchestration/services";
 
 /**
  * 审核服务回调接口
@@ -123,6 +126,33 @@ export class MissionReviewService {
     return this.callbacks;
   }
 
+  /**
+   * 创建 AI 调用函数包装器
+   * 将 callbacks.callAIWithConfig 适配为 AiCallerFn 接口
+   * 保留执行上下文（心跳、token 追踪、missionId 关联等）
+   */
+  private createAiCaller(
+    callbacks: ReviewCallbacks,
+    missionId: string,
+  ): AiCallerFn {
+    return async (model, messages, options) => {
+      // 从 messages 中提取 system prompt
+      const systemMsg = messages.find((m) => m.role === "system");
+      const otherMsgs = messages.filter((m) => m.role !== "system");
+
+      return callbacks.callAIWithConfig(
+        model,
+        otherMsgs as { role: string; content: string }[],
+        systemMsg?.content || "",
+        {
+          maxTokens: options?.maxTokens,
+          temperature: options?.temperature,
+          missionId,
+        },
+      );
+    };
+  }
+
   // ==================== Leader 审核任务 ====================
 
   /**
@@ -199,6 +229,7 @@ export class MissionReviewService {
       }
 
       // 调用 AI 审核（带心跳）
+      // ★ AI Engine 能力下沉：通过 aiCaller 注入执行上下文
       let aiResponse;
       let reviewHeartbeatTimer: NodeJS.Timeout | null = null;
       let reviewHeartbeatCount = 0;
@@ -221,11 +252,19 @@ export class MissionReviewService {
           );
         }, 3000);
 
-        aiResponse = await callbacks.callAIWithConfig(
+        // 创建 aiCaller 包装器，保留执行上下文
+        const aiCaller = this.createAiCaller(callbacks, mission.id);
+        const systemPrompt = callbacks.getLeaderSystemPrompt(leader);
+
+        // 委托给 AI Engine 执行
+        aiResponse = await this.outputReviewerService.executeAICall(
           leader.aiModel,
-          [{ role: "user", content: reviewPrompt }],
-          callbacks.getLeaderSystemPrompt(leader),
-          { maxTokens: 4000, temperature: 0.5, missionId: mission.id },
+          [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: reviewPrompt },
+          ],
+          { maxTokens: 4000, temperature: 0.5 },
+          aiCaller,
         );
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
@@ -511,13 +550,21 @@ export class MissionReviewService {
       );
 
       // 调用 AI 执行修订
+      // ★ AI Engine 能力下沉：通过 aiCaller 注入执行上下文
       let aiResponse: { content: string; tokensUsed: number };
       try {
-        aiResponse = await callbacks.callAIWithConfig(
+        // 创建 aiCaller 包装器，保留执行上下文
+        const aiCaller = this.createAiCaller(callbacks, mission.id);
+
+        // 委托给 AI Engine 执行
+        aiResponse = await this.outputReviewerService.executeAICall(
           assignedTo.aiModel,
-          [{ role: "user", content: revisionPrompt }],
-          systemPrompt,
-          { maxTokens: 8000, temperature: 0.7, missionId: mission.id },
+          [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: revisionPrompt },
+          ],
+          { maxTokens: 8000, temperature: 0.7 },
+          aiCaller,
         );
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
@@ -721,11 +768,20 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
 ## 潜在问题
 [如有发现，列出可能需要改进的地方]`;
 
-      const response = await callbacks.callAIWithConfig(
+      // ★ AI Engine 能力下沉：通过 aiCaller 注入执行上下文
+      const aiCaller = this.createAiCaller(callbacks, missionId || "");
+      const systemPrompt =
+        "你是一位专业的内容审核助手，擅长快速提炼长文精华。请客观、准确地生成摘要。";
+
+      // 委托给 AI Engine 执行
+      const response = await this.outputReviewerService.executeAICall(
         leaderModel,
-        [{ role: "user", content: prompt }],
-        "你是一位专业的内容审核助手，擅长快速提炼长文精华。请客观、准确地生成摘要。",
-        { maxTokens: 1500, temperature: 0.3, missionId },
+        [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt },
+        ],
+        { maxTokens: 1500, temperature: 0.3 },
+        aiCaller,
       );
 
       const headExcerpt = content.substring(0, 500);

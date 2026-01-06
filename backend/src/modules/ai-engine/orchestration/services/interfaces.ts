@@ -8,6 +8,16 @@
 // ==================== 通用类型 ====================
 
 /**
+ * AI 调用函数类型
+ * 用于依赖注入，允许上层传入带上下文的 AI 调用实现
+ */
+export type AiCallerFn = (
+  model: string,
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
+  options?: { maxTokens?: number; temperature?: number },
+) => Promise<{ content: string; tokensUsed: number }>;
+
+/**
  * 团队成员基础信息
  */
 export interface TeamMemberInfo {
@@ -280,23 +290,35 @@ export interface RevisionRequest {
 export interface IOutputReviewerService {
   /**
    * 审核任务输出
+   * @param request 审核请求
+   * @param aiCaller 可选的 AI 调用函数，用于注入上层执行上下文
    */
-  reviewOutput(request: ReviewRequest): Promise<ReviewResult>;
+  reviewOutput(
+    request: ReviewRequest,
+    aiCaller?: AiCallerFn,
+  ): Promise<ReviewResult>;
 
   /**
    * 为长内容生成摘要（用于审核）
+   * @param aiCaller 可选的 AI 调用函数，用于注入上层执行上下文
    */
   summarizeForReview(
     content: string,
     taskTitle: string,
     model: string,
     missionId: string,
+    aiCaller?: AiCallerFn,
   ): Promise<{ summary: string; keyExcerpts?: string }>;
 
   /**
    * 执行任务修订
+   * @param request 修订请求
+   * @param aiCaller 可选的 AI 调用函数，用于注入上层执行上下文
    */
-  executeRevision(request: RevisionRequest): Promise<ExecutionResult>;
+  executeRevision(
+    request: RevisionRequest,
+    aiCaller?: AiCallerFn,
+  ): Promise<ExecutionResult>;
 }
 
 // ==================== 迭代管理服务接口 ====================
