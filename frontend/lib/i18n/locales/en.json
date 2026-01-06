@@ -44,19 +44,28 @@
     "library": "Library",
     "knowledge": "Knowledge",
     "explore": "Explore",
+    "aiExplore": "AI Explore",
+    "myLibrary": "My Library",
     "aiStudio": "AI Studio",
     "aiTeams": "AI Teams",
-    "aiOffice": "AI Reports",
-    "aiAsk": "Ask AI",
+    "myTeams": "My Teams",
+    "aiOffice": "AI Office",
+    "aiAsk": "AI Ask",
     "aiCoding": "AI Coding",
     "aiStore": "AI Store",
     "aiSimulation": "AI Simulation",
     "labs": "Labs",
+    "aiLabs": "AI Labs",
     "admin": "Admin",
     "profile": "Profile",
     "notifications": "Notifications",
     "feedback": "Feedback",
-    "whatsNew": "What's New"
+    "whatsNew": "What's New",
+    "sections": {
+      "materialsKnowledge": "Materials & Knowledge",
+      "aiTeams": "AI Teams",
+      "aiTools": "AI Tools"
+    }
   },
   "home": {
     "welcome": "Welcome to DeepDive",

@@ -293,7 +293,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       </div>
 
       {/* Main Navigation */}
-      <nav className="flex-1 px-3 py-2">
+      <nav className="flex-1 overflow-y-auto px-3 py-2">
         <div className="space-y-1">
           {/* AI Ask - Primary AI Chat Entry */}
           <Link
@@ -309,7 +309,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 ? 'bg-violet-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title="AI Ask"
+            title={t('nav.aiAsk')}
           >
             {/* Ask AI Icon - Lightbulb/Inspiration (consistent line style) */}
             <svg
@@ -328,13 +328,19 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiAsk')}</span>}
           </Link>
 
-          {/* Divider */}
-          <div className="my-2 border-t border-gray-200/60" />
+          {/* Section: Materials & Knowledge */}
+          {showExpanded && (
+            <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              {t('nav.sections.materialsKnowledge')}
+            </div>
+          )}
+          {!showExpanded && (
+            <div className="my-2 border-t border-gray-200/60" />
+          )}
 
           <Link
             href="/explore"
             onClick={(e) => {
-              // Force navigation even if already on explore page
               if (pathname === '/explore') {
                 e.preventDefault();
                 window.location.href = '/explore';
@@ -345,7 +351,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 ? 'bg-pink-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title="Explore"
+            title={t('nav.aiExplore')}
           >
             <svg
               className="h-5 w-5 flex-shrink-0"
@@ -360,13 +366,12 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
-            {showExpanded && <span>{t('nav.explore')}</span>}
+            {showExpanded && <span>{t('nav.aiExplore')}</span>}
           </Link>
 
           <Link
             href="/library"
             onClick={(e) => {
-              // Force navigation even if already on library page
               if (pathname === '/library') {
                 e.preventDefault();
                 window.location.href = '/library';
@@ -377,9 +382,8 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 ? 'bg-indigo-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title={t('nav.knowledge')}
+            title={t('nav.myLibrary')}
           >
-            {/* Knowledge icon - open book (library) */}
             <svg
               className="h-5 w-5 flex-shrink-0"
               fill="none"
@@ -393,8 +397,18 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
               />
             </svg>
-            {showExpanded && <span>{t('nav.knowledge')}</span>}
+            {showExpanded && <span>{t('nav.myLibrary')}</span>}
           </Link>
+
+          {/* Section: AI Teams */}
+          {showExpanded && (
+            <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              {t('nav.sections.aiTeams')}
+            </div>
+          )}
+          {!showExpanded && (
+            <div className="my-2 border-t border-gray-200/60" />
+          )}
 
           <Link
             href="/ai-studio"
@@ -403,7 +417,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 ? 'bg-purple-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title="AI Studio"
+            title={t('nav.aiStudio')}
           >
             <svg
               className="h-5 w-5 flex-shrink-0"
@@ -424,7 +438,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           <Link
             href="/ai-office"
             onClick={(e) => {
-              // Force navigation even if already on ai-office page
               if (pathname === '/ai-office') {
                 e.preventDefault();
                 window.location.href = '/ai-office';
@@ -435,7 +448,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-gray-900 shadow-sm'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title="AI Reports"
+            title={t('nav.aiOffice')}
           >
             <svg
               className="h-5 w-5 flex-shrink-0"
@@ -460,13 +473,87 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           </Link>
 
           <Link
+            href="/ai-simulation"
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
+              pathname?.startsWith('/ai-simulation')
+                ? 'bg-indigo-50 text-gray-900'
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+            title={t('nav.aiSimulation')}
+          >
+            <svg
+              className="h-5 w-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <rect
+                x="3"
+                y="3"
+                width="7"
+                height="7"
+                rx="1"
+                strokeWidth={1.5}
+                fill={
+                  pathname?.startsWith('/ai-simulation')
+                    ? 'rgba(99, 102, 241, 0.15)'
+                    : 'none'
+                }
+              />
+              <rect
+                x="14"
+                y="3"
+                width="7"
+                height="7"
+                rx="1"
+                strokeWidth={1.5}
+              />
+              <rect
+                x="3"
+                y="14"
+                width="7"
+                height="7"
+                rx="1"
+                strokeWidth={1.5}
+              />
+              <rect
+                x="14"
+                y="14"
+                width="7"
+                height="7"
+                rx="1"
+                strokeWidth={1.5}
+                fill={
+                  pathname?.startsWith('/ai-simulation')
+                    ? 'rgba(99, 102, 241, 0.15)'
+                    : 'none'
+                }
+              />
+              <circle cx="6.5" cy="6.5" r="2" strokeWidth={1.5} />
+              <circle
+                cx="17.5"
+                cy="17.5"
+                r="2"
+                strokeWidth={1.5}
+                fill="currentColor"
+              />
+            </svg>
+            {showExpanded && <span>{t('nav.aiSimulation')}</span>}
+          </Link>
+
+          {/* Separator line before My Teams */}
+          {showExpanded && (
+            <div className="mx-3 my-1 border-t border-gray-200/60" />
+          )}
+
+          <Link
             href="/ai-teams"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
               pathname?.startsWith('/ai-teams')
                 ? 'bg-green-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title="AI Teams"
+            title={t('nav.myTeams')}
           >
             <svg
               className="h-5 w-5 flex-shrink-0"
@@ -481,107 +568,18 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
               />
             </svg>
-            {showExpanded && <span>{t('nav.aiTeams')}</span>}
+            {showExpanded && <span>{t('nav.myTeams')}</span>}
           </Link>
 
-          {/* AI Coding - 暂时隐藏，待功能完善后对外开放
-          <Link
-            href="/ai-coding"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
-              pathname?.startsWith('/ai-coding')
-                ? 'bg-emerald-50 text-gray-900'
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-            title="AI Coding"
-          >
-            <svg
-              className="h-5 w-5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-              />
-            </svg>
-            {showExpanded && <span>{t('nav.aiCoding')}</span>}
-          </Link>
-          */}
-
-          <Link
-            href="/ai-simulation"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
-              pathname?.startsWith('/ai-simulation')
-                ? 'bg-indigo-50 text-gray-900'
-                : 'text-gray-700 hover:bg-gray-50'
-            }`}
-            title="AI Simulation"
-          >
-            {/* 战略推演图标 - 棋盘/对弈风格 */}
-            <svg
-              className="h-5 w-5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              {/* 棋盘格子 */}
-              <rect
-                x="3"
-                y="3"
-                width="7"
-                height="7"
-                rx="1"
-                strokeWidth={1.5}
-                fill={
-                  pathname?.startsWith('/ai-simulation')
-                    ? 'rgba(99, 102, 241, 0.15)'
-                    : 'none'
-                }
-              />
-              <rect
-                x="14"
-                y="3"
-                width="7"
-                height="7"
-                rx="1"
-                strokeWidth={1.5}
-              />
-              <rect
-                x="3"
-                y="14"
-                width="7"
-                height="7"
-                rx="1"
-                strokeWidth={1.5}
-              />
-              <rect
-                x="14"
-                y="14"
-                width="7"
-                height="7"
-                rx="1"
-                strokeWidth={1.5}
-                fill={
-                  pathname?.startsWith('/ai-simulation')
-                    ? 'rgba(99, 102, 241, 0.15)'
-                    : 'none'
-                }
-              />
-              {/* 对弈棋子 */}
-              <circle cx="6.5" cy="6.5" r="2" strokeWidth={1.5} />
-              <circle
-                cx="17.5"
-                cy="17.5"
-                r="2"
-                strokeWidth={1.5}
-                fill="currentColor"
-              />
-            </svg>
-            {showExpanded && <span>{t('nav.aiSimulation')}</span>}
-          </Link>
+          {/* Section: AI Tools */}
+          {showExpanded && (
+            <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              {t('nav.sections.aiTools')}
+            </div>
+          )}
+          {!showExpanded && (
+            <div className="my-2 border-t border-gray-200/60" />
+          )}
 
           <Link
             href="/ai-store"
@@ -590,7 +588,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 ? 'bg-cyan-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title="AI Store"
+            title={t('nav.aiStore')}
           >
             <svg
               className="h-5 w-5 flex-shrink-0"
@@ -608,6 +606,37 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiStore')}</span>}
           </Link>
 
+          <Link
+            href="/labs"
+            onClick={(e) => {
+              if (pathname === '/labs') {
+                e.preventDefault();
+                window.location.href = '/labs';
+              }
+            }}
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
+              isActive('/labs')
+                ? 'bg-pink-50 text-gray-900'
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+            title={t('nav.aiLabs')}
+          >
+            <svg
+              className="h-5 w-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+              />
+            </svg>
+            {showExpanded && <span>{t('nav.aiLabs')}</span>}
+          </Link>
+
           {isAdmin && (
             <Link
               href="/admin/dashboard"
@@ -616,7 +645,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                   ? 'bg-purple-50 text-gray-900'
                   : 'text-gray-700 hover:bg-gray-50'
               }`}
-              title="Admin"
+              title={t('nav.admin')}
             >
               <svg
                 className="h-5 w-5 flex-shrink-0"
@@ -685,37 +714,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         {/* Language Switcher */}
         <LanguageSwitcher variant={showExpanded ? 'sidebar' : 'icon'} />
 
-        <Link
-          href="/labs"
-          onClick={(e) => {
-            // Force navigation even if already on labs page
-            if (pathname === '/labs') {
-              e.preventDefault();
-              window.location.href = '/labs';
-            }
-          }}
-          className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm ${
-            isActive('/labs')
-              ? 'bg-pink-50 text-gray-900'
-              : 'text-gray-700 hover:bg-gray-50'
-          }`}
-          title="Labs"
-        >
-          <svg
-            className="h-5 w-5 flex-shrink-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
-            />
-          </svg>
-          {showExpanded && <span>{t('nav.labs')}</span>}
-        </Link>
         <Link
           href="/feedback"
           onClick={(e) => {

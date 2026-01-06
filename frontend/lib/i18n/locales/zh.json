@@ -44,19 +44,28 @@
     "library": "资源库",
     "knowledge": "AI 知识库",
     "explore": "探索",
-    "aiStudio": "AI 工作室",
+    "aiExplore": "AI 探索",
+    "myLibrary": "我的知识库",
+    "aiStudio": "AI 研究室",
     "aiTeams": "AI 团队",
-    "aiOffice": "AI 报告",
+    "myTeams": "我的 Teams",
+    "aiOffice": "AI 办公",
     "aiAsk": "AI 问答",
     "aiCoding": "AI 编程",
     "aiStore": "AI 商店",
     "aiSimulation": "AI 推演",
     "labs": "实验室",
+    "aiLabs": "AI 实验室",
     "admin": "管理后台",
     "profile": "个人资料",
     "notifications": "通知",
     "feedback": "反馈",
-    "whatsNew": "最新动态"
+    "whatsNew": "最新动态",
+    "sections": {
+      "materialsKnowledge": "素材 & 知识",
+      "aiTeams": "AI Teams",
+      "aiTools": "AI 工具"
+    }
   },
   "home": {
     "welcome": "欢迎使用 DeepDive",

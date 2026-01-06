@@ -39,25 +39,32 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
   const isActive = (path: string) => pathname === path;
   const isActivePrefix = (prefix: string) => pathname?.startsWith(prefix);
 
-  const navItems = [
-    {
-      href: '/ai-ask',
-      label: t('nav.aiAsk'),
-      icon: 'lightbulb',
-      activeClass: 'bg-violet-50',
-    },
+  // Quick entry
+  const quickEntry = {
+    href: '/ai-ask',
+    label: t('nav.aiAsk'),
+    icon: 'lightbulb',
+    activeClass: 'bg-violet-50',
+  };
+
+  // Materials & Knowledge section
+  const materialsItems = [
     {
       href: '/explore',
-      label: t('nav.explore'),
+      label: t('nav.aiExplore'),
       icon: 'search',
       activeClass: 'bg-pink-50',
     },
     {
       href: '/library',
-      label: 'Knowledge',
-      icon: 'lightbulb',
+      label: t('nav.myLibrary'),
+      icon: 'book',
       activeClass: 'bg-indigo-50',
     },
+  ];
+
+  // AI Teams section
+  const aiTeamsItems = [
     {
       href: '/ai-studio',
       label: t('nav.aiStudio'),
@@ -73,20 +80,6 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
       prefix: true,
     },
     {
-      href: '/ai-teams',
-      label: t('nav.aiTeams'),
-      icon: 'users',
-      activeClass: 'bg-green-50',
-      prefix: true,
-    },
-    {
-      href: '/ai-coding',
-      label: t('nav.aiCoding'),
-      icon: 'code',
-      activeClass: 'bg-emerald-50',
-      prefix: true,
-    },
-    {
       href: '/ai-simulation',
       label: t('nav.aiSimulation'),
       icon: 'grid',
@@ -94,17 +87,34 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
       prefix: true,
     },
     {
+      href: '/ai-teams',
+      label: t('nav.myTeams'),
+      icon: 'users',
+      activeClass: 'bg-green-50',
+      prefix: true,
+      separator: true, // Has separator before this item
+    },
+  ];
+
+  // AI Tools section
+  const aiToolsItems = [
+    {
       href: '/ai-store',
       label: t('nav.aiStore'),
       icon: 'store',
       activeClass: 'bg-cyan-50',
       prefix: true,
     },
+    {
+      href: '/labs',
+      label: t('nav.aiLabs'),
+      icon: 'flask',
+      activeClass: 'bg-pink-50',
+    },
   ];
 
   const bottomNavItems = [
     { href: '/notifications', label: t('nav.notifications'), icon: 'bell' },
-    { href: '/labs', label: t('nav.labs'), icon: 'flask' },
     { href: '/feedback', label: t('nav.feedback'), icon: 'message' },
   ];
 
@@ -409,7 +419,74 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
           {/* Main Navigation */}
           <div className="flex-1 px-3 py-4">
             <div className="space-y-1">
-              {navItems.map((item) => {
+              {/* Quick Entry - AI Ask */}
+              <Link
+                href={quickEntry.href}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  isActive(quickEntry.href) || isActivePrefix(quickEntry.href)
+                    ? `${quickEntry.activeClass} text-gray-900`
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {getIcon(quickEntry.icon)}
+                <span>{quickEntry.label}</span>
+              </Link>
+
+              {/* Section: Materials & Knowledge */}
+              <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                {t('nav.sections.materialsKnowledge')}
+              </div>
+              {materialsItems.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      active
+                        ? `${item.activeClass} text-gray-900`
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {getIcon(item.icon)}
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+
+              {/* Section: AI Teams */}
+              <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                {t('nav.sections.aiTeams')}
+              </div>
+              {aiTeamsItems.map((item) => {
+                const active = item.prefix
+                  ? isActivePrefix(item.href)
+                  : isActive(item.href);
+                return (
+                  <div key={item.href}>
+                    {item.separator && (
+                      <div className="mx-3 my-1 border-t border-gray-200/60" />
+                    )}
+                    <Link
+                      href={item.href}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                        active
+                          ? `${item.activeClass} text-gray-900`
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {getIcon(item.icon)}
+                      <span>{item.label}</span>
+                    </Link>
+                  </div>
+                );
+              })}
+
+              {/* Section: AI Tools */}
+              <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                {t('nav.sections.aiTools')}
+              </div>
+              {aiToolsItems.map((item) => {
                 const active = item.prefix
                   ? isActivePrefix(item.href)
                   : isActive(item.href);
