@@ -848,6 +848,13 @@ export class MissionExecutionService {
               b.status === AgentTaskStatus.CANCELLED,
           );
 
+          // 调试日志：显示阻塞任务状态和判断结果
+          this.logger.debug(
+            `[Mission ${mission.id}] Dependency check for "${task.title}": ` +
+              `blockers=[${blockingTasks.map((b) => `${b.title}(${b.status})`).join(", ")}], ` +
+              `allBlockersStuck=${allBlockersStuck}`,
+          );
+
           if (allBlockersStuck && relaxedCount < 3) {
             await this.prisma.agentTask.update({
               where: { id: task.id },

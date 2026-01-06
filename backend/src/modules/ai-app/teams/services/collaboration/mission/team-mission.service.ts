@@ -1393,6 +1393,13 @@ export class TeamMissionService implements OnModuleInit {
                     b.status === AgentTaskStatus.CANCELLED,
                 );
 
+                // 调试日志：显示阻塞任务状态和判断结果
+                this.logger.debug(
+                  `[Mission ${missionId}] Dependency check for "${task.title}": ` +
+                    `blockers=[${blockingTasks.map((b) => `${b.title}(${b.status})`).join(", ")}], ` +
+                    `allBlockersStuck=${allBlockersStuck}`,
+                );
+
                 if (allBlockersStuck && relaxedCount < 3) {
                   // 每次最多松弛 3 个任务
                   // 清除依赖，允许任务开始
