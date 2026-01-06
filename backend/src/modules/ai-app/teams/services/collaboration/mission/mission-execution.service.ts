@@ -46,6 +46,9 @@ import {
   TaskAssignee,
 } from "../interfaces";
 import { MissionContextPackage } from "../../../interfaces/mission-context.interface";
+// ★ AI Engine 能力下沉：注入 AgentExecutorService
+// 提供 Agent 执行的核心能力（熔断器、重试等），当前保持现有实现以确保兼容性
+import { AgentExecutorService } from "../../../../../ai-engine/orchestration/services";
 
 /**
  * 执行服务回调接口
@@ -126,7 +129,15 @@ export class MissionExecutionService {
     private longContentService: TeamsLongContentService,
     private circuitBreaker: AgentCircuitBreakerService,
     private stateManager: MissionStateManager,
-  ) {}
+    // ★ AI Engine 能力下沉：注入执行服务
+    // 当前为预留接口，后续可逐步将执行逻辑委托给 AI Engine
+    private agentExecutorService: AgentExecutorService,
+  ) {
+    // 验证 AI Engine 服务可用
+    this.logger.debug(
+      `[MissionExecutionService] AI Engine AgentExecutorService injected: ${!!this.agentExecutorService}`,
+    );
+  }
 
   /**
    * 设置回调接口（由 TeamMissionService 调用）
@@ -1163,6 +1174,12 @@ export class MissionExecutionService {
 
         const responseTime = Date.now() - taskStartTime;
         this.circuitBreaker.recordSuccess(currentAgent.id, responseTime);
+        // ★ 同步到 AI Engine 的熔断器
+        this.agentExecutorService.recordExecution(
+          currentAgent.id,
+          true,
+          responseTime,
+        );
 
         this.logger.log(
           `[executeTask] Task "${task.title}" completed successfully by ${currentAgent.displayName} after ${result.attempts} attempt(s) in ${responseTime}ms`,
@@ -1176,6 +1193,12 @@ export class MissionExecutionService {
 
       const errorType = this.circuitBreaker.parseErrorType(errorMsg);
       this.circuitBreaker.recordFailure(currentAgent.id, errorType, errorMsg);
+      // ★ 同步到 AI Engine 的熔断器
+      this.agentExecutorService.recordExecution(
+        currentAgent.id,
+        false,
+        Date.now() - taskStartTime,
+      );
 
       this.logger.warn(
         `[executeTask] Agent ${currentAgent.displayName} failed after ${result.attempts} retries: ${errorMsg}`,

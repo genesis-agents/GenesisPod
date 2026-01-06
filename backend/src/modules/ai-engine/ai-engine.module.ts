@@ -33,6 +33,12 @@ import { ParallelExecutor } from "./orchestration/executors/parallel-executor";
 import { CheckpointManager } from "./orchestration/checkpoints/checkpoint-manager";
 import { FunctionCallingExecutor } from "./orchestration/executors/function-calling-executor";
 
+// Orchestration Services (能力下沉)
+import { TaskDecomposerService } from "./orchestration/services/task-decomposer.service";
+import { AgentExecutorService } from "./orchestration/services/agent-executor.service";
+import { OutputReviewerService } from "./orchestration/services/output-reviewer.service";
+import { IterationManagerService } from "./orchestration/services/iteration-manager.service";
+
 // Memory Services
 import { ShortTermMemoryService } from "./memory/stores/short-term-memory.service";
 import { LongTermMemoryService } from "./memory/stores/long-term-memory.service";
@@ -254,6 +260,12 @@ const conversationMemoryFactory = {
     checkpointManagerFactory,
     FunctionCallingExecutor,
 
+    // === Orchestration Services (能力下沉) ===
+    TaskDecomposerService,
+    AgentExecutorService,
+    OutputReviewerService,
+    IterationManagerService,
+
     // === Collaboration ===
     votingManagerFactory,
     handoffCoordinatorFactory,
@@ -307,6 +319,12 @@ const conversationMemoryFactory = {
     ParallelExecutor,
     CheckpointManager,
     FunctionCallingExecutor,
+
+    // === Orchestration Services (能力下沉) ===
+    TaskDecomposerService,
+    AgentExecutorService,
+    OutputReviewerService,
+    IterationManagerService,
 
     // === Collaboration ===
     VotingManager,

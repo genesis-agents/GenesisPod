@@ -6,212 +6,76 @@
  * - createTasksFromBreakdown: 根据分解结果创建任务
  * - rebalanceTaskAssignments: 任务分配再平衡
  * - validateChapterUniqueness: 章节唯一性验证
+ *
+ * ★ 能力下沉：核心解析逻辑委托给 AI Engine 的 TaskDecomposerService
  */
 
-import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { AgentTaskStatus, TaskPriority } from "@prisma/client";
-import {
-  findMemberByNameEnhanced,
-  createMatchStatistics,
-  isMatchFailureRateExceeded,
-  formatMatchFailureError,
-  extractChapterKey,
-  mapTaskType,
-  type MatchStatistics,
-  type UnmatchedItem,
-} from "../utils";
+import { extractChapterKey, mapTaskType } from "../utils";
 import {
   TeamMemberBase,
   TaskBreakdownItem,
   TaskBreakdownData,
 } from "../interfaces";
 
+// ★ AI Engine 服务
+import { TaskDecomposerService } from "../../../../../ai-engine/orchestration/services/task-decomposer.service";
+import { TeamMemberInfo } from "../../../../../ai-engine/orchestration/services/interfaces";
+
 @Injectable()
 export class TaskBreakdownService {
   private readonly logger = new Logger(TaskBreakdownService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    // ★ 注入 AI Engine 的任务分解服务
+    private taskDecomposer: TaskDecomposerService,
+  ) {}
 
   // ==================== 任务分解解析 ====================
 
   /**
    * 解析 AI 生成的任务分解内容
+   * ★ 委托给 AI Engine 的 TaskDecomposerService
    */
   parseTaskBreakdown(
     content: string,
     teamMembers: TeamMemberBase[],
   ): TaskBreakdownData {
-    const tasks: TaskBreakdownItem[] = [];
-
-    // 诊断日志：记录可用的成员名称列表
-    const availableMemberNames = teamMembers.map((m) => ({
+    // ★ 转换成员格式为 AI Engine 接口格式
+    const memberInfos: TeamMemberInfo[] = teamMembers.map((m) => ({
       id: m.id,
       agentName: m.agentName,
       displayName: m.displayName,
-      matchKey: (m.agentName || m.displayName)?.toLowerCase(),
+      aiModel: m.aiModel,
+      isLeader: m.isLeader,
     }));
-    this.logger.debug(
-      `[parseTaskBreakdown] Available members (${teamMembers.length}): ${JSON.stringify(availableMemberNames.map((m) => m.agentName || m.displayName))}`,
-    );
 
-    const matchStats: MatchStatistics = createMatchStatistics();
+    // ★ 委托给 AI Engine 解析
+    const result = this.taskDecomposer.parseTaskBreakdown({
+      content,
+      teamMembers: memberInfos,
+    });
 
-    // 尝试解析表格
-    const tableMatch = content.match(
-      /\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|/g,
-    );
-
-    if (tableMatch) {
-      for (const row of tableMatch) {
-        const cells = row.split("|").filter((c) => c.trim());
-        if (
-          cells.length >= 6 &&
-          !cells[0].includes("#") &&
-          !cells[0].includes("-")
-        ) {
-          matchStats.totalRows++;
-          const title = cells[1]?.trim() || "";
-          const assigneeName = cells[2]?.trim().replace("@", "") || "";
-          const reason = cells[3]?.trim() || "";
-          const priorityStr = cells[4]?.trim().toLowerCase() || "medium";
-          const dependsStr = cells[5]?.trim() || "";
-
-          // 使用增强版成员匹配（支持模糊匹配）
-          const matchResult = findMemberByNameEnhanced(
-            assigneeName,
-            teamMembers,
-          );
-          const assignee = matchResult.member;
-
-          // 诊断日志
-          if (matchResult.matchInfo.type === "none" && assigneeName) {
-            const unmatchedItem: UnmatchedItem = {
-              taskTitle: title,
-              inputName: assigneeName,
-              availableMembers: availableMemberNames.map(
-                (m) => m.agentName || m.displayName,
-              ),
-            };
-            matchStats.unmatched.push(unmatchedItem);
-            this.logger.warn(
-              `[parseTaskBreakdown] ❌ Member match FAILED: "${assigneeName}" | Available: [${availableMemberNames.map((m) => m.agentName || m.displayName).join(", ")}]`,
-            );
-          } else if (matchResult.matchInfo.type === "fuzzy") {
-            matchStats.fuzzyMatched++;
-            this.logger.warn(
-              `[parseTaskBreakdown] ⚠️ Fuzzy match: "${assigneeName}" → "${matchResult.matchInfo.suggestion}" (confidence: ${matchResult.matchInfo.confidence.toFixed(2)})`,
-            );
-          }
-
-          // 解析依赖
-          const dependsOn: number[] = [];
-          const depMatches = dependsStr.match(/\d+/g);
-          if (depMatches) {
-            for (const dep of depMatches) {
-              dependsOn.push(parseInt(dep, 10) - 1);
-            }
-          }
-
-          // 解析优先级
-          let priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" = "MEDIUM";
-          if (
-            priorityStr.includes("关键") ||
-            priorityStr.includes("critical")
-          ) {
-            priority = "CRITICAL";
-          } else if (
-            priorityStr.includes("高") ||
-            priorityStr.includes("high")
-          ) {
-            priority = "HIGH";
-          } else if (
-            priorityStr.includes("低") ||
-            priorityStr.includes("low")
-          ) {
-            priority = "LOW";
-          }
-
-          if (title && assignee) {
-            matchStats.matched++;
-            const memberKey = assignee.agentName || assignee.displayName;
-            matchStats.memberTaskCount.set(
-              memberKey,
-              (matchStats.memberTaskCount.get(memberKey) || 0) + 1,
-            );
-
-            tasks.push({
-              title,
-              description: title,
-              assigneeId: assignee.id,
-              assigneeName: assignee.agentName || assignee.displayName,
-              reason,
-              priority,
-              taskType: "implementation",
-              dependsOn,
-            });
-          }
-        }
-      }
-    }
-
-    // 诊断日志：输出匹配统计摘要
-    const taskDistribution = Object.fromEntries(matchStats.memberTaskCount);
-    const membersWithNoTasks = teamMembers.filter(
-      (m) => !matchStats.memberTaskCount.has(m.agentName || m.displayName),
-    );
-
-    this.logger.log(
-      `[parseTaskBreakdown] 📊 Match Summary: ${matchStats.matched}/${matchStats.totalRows} tasks matched (fuzzy: ${matchStats.fuzzyMatched})`,
-    );
-    this.logger.log(
-      `[parseTaskBreakdown] 📊 Task Distribution: ${JSON.stringify(taskDistribution)}`,
-    );
-
-    if (matchStats.unmatched.length > 0) {
-      this.logger.warn(
-        `[parseTaskBreakdown] ⚠️ Unmatched names (${matchStats.unmatched.length}): ${JSON.stringify(matchStats.unmatched.map((u) => u.inputName))}`,
-      );
-    }
-
-    if (membersWithNoTasks.length > 0) {
-      this.logger.warn(
-        `[parseTaskBreakdown] ⚠️ Members with NO tasks (${membersWithNoTasks.length}): ${JSON.stringify(membersWithNoTasks.map((m) => m.agentName || m.displayName))}`,
-      );
-    }
-
-    // 失败率检测：超过 10% 视为规划失败
-    if (isMatchFailureRateExceeded(matchStats, 0.1)) {
-      const errorMsg = formatMatchFailureError(
-        matchStats,
-        availableMemberNames.map((m) => m.agentName || m.displayName),
-      );
-      this.logger.error(`[parseTaskBreakdown] ❌ ${errorMsg}`);
-      throw new BadRequestException(errorMsg);
-    }
-
-    // 如果解析失败，创建一个默认任务
-    if (tasks.length === 0 && teamMembers.length > 0) {
-      this.logger.warn(
-        `[parseTaskBreakdown] ⚠️ No tasks parsed, creating default task for first member`,
-      );
-      tasks.push({
-        title: "执行任务",
-        description: "完成用户请求的任务",
-        assigneeId: teamMembers[0].id,
-        assigneeName: teamMembers[0].agentName || teamMembers[0].displayName,
-        reason: "作为团队成员执行任务",
-        priority: "MEDIUM",
-        taskType: "implementation",
-        dependsOn: [],
-      });
-    }
+    // ★ 转换结果为 AI Teams 格式
+    const tasks: TaskBreakdownItem[] = result.tasks.map((t) => ({
+      title: t.title,
+      description: t.description,
+      assigneeId: t.assigneeId,
+      assigneeName: t.assigneeName,
+      reason: t.reason,
+      priority: t.priority,
+      taskType: t.taskType,
+      dependsOn: t.dependsOn,
+    }));
 
     return {
-      understanding: content.match(/## 任务理解\n([^#]+)/)?.[1]?.trim() || "",
+      understanding: result.understanding,
       tasks,
-      executionPlan: content.match(/## 执行计划\n([^#]+)/)?.[1]?.trim() || "",
-      risks: content.match(/## 风险提示\n([^#]+)/)?.[1]?.trim() || "",
+      executionPlan: result.executionPlan,
+      risks: result.risks,
     };
   }
 
@@ -417,6 +281,7 @@ export class TaskBreakdownService {
 
   /**
    * 任务分配再平衡
+   * ★ 委托给 AI Engine 的 TaskDecomposerService
    */
   rebalanceTaskAssignments(
     breakdown: TaskBreakdownData,
@@ -426,119 +291,41 @@ export class TaskBreakdownService {
       return;
     }
 
-    const executors = teamMembers.filter((m) => !m.isLeader);
-    if (executors.length === 0) {
-      this.logger.warn(
-        `[rebalanceTaskAssignments] No non-leader members found, skipping rebalancing`,
-      );
-      return;
-    }
+    // ★ 转换成员格式为 AI Engine 接口格式
+    const memberInfos: TeamMemberInfo[] = teamMembers.map((m) => ({
+      id: m.id,
+      agentName: m.agentName,
+      displayName: m.displayName,
+      aiModel: m.aiModel,
+      isLeader: m.isLeader,
+    }));
 
-    // 统计当前分配情况
-    const assignmentCount = new Map<string, number>();
-    for (const member of executors) {
-      assignmentCount.set(member.id, 0);
-    }
+    // ★ 转换任务格式为 AI Engine 接口格式
+    const taskDefinitions = breakdown.tasks.map((t) => ({
+      title: t.title,
+      description: t.description,
+      assigneeId: t.assigneeId,
+      assigneeName: t.assigneeName,
+      reason: t.reason,
+      priority: t.priority as "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
+      taskType: t.taskType,
+      dependsOn: t.dependsOn,
+    }));
 
-    for (const task of breakdown.tasks) {
-      const assigneeId = task.assigneeId;
-      if (assignmentCount.has(assigneeId)) {
-        assignmentCount.set(
-          assigneeId,
-          (assignmentCount.get(assigneeId) || 0) + 1,
-        );
-      }
-    }
-
-    // 计算理想分配
-    const totalTasks = breakdown.tasks.length;
-    const idealTasksPerMember = Math.ceil(totalTasks / executors.length);
-    const minTasksPerMember = Math.floor(totalTasks / executors.length);
-
-    // 找出过载和闲置的成员
-    const overloadedMembers: string[] = [];
-    const idleMembers: string[] = [];
-
-    for (const [memberId, count] of assignmentCount) {
-      if (count > idealTasksPerMember * 1.5) {
-        overloadedMembers.push(memberId);
-      }
-      if (count === 0) {
-        idleMembers.push(memberId);
-      }
-    }
-
-    // 如果有闲置成员，需要从过载成员那里转移任务
-    if (idleMembers.length > 0 && overloadedMembers.length > 0) {
-      this.logger.warn(
-        `[rebalanceTaskAssignments] Detected imbalanced allocation: ${overloadedMembers.length} overloaded, ${idleMembers.length} idle members`,
-      );
-
-      const memberMap = new Map(executors.map((m) => [m.id, m]));
-      const idleMemberQueue = [...idleMembers];
-      let idleIndex = 0;
-
-      for (const task of breakdown.tasks) {
-        if (idleIndex >= idleMemberQueue.length) break;
-
-        const currentCount = assignmentCount.get(task.assigneeId) || 0;
-
-        if (
-          currentCount > idealTasksPerMember &&
-          idleMembers.includes(idleMemberQueue[idleIndex]) === false
-        ) {
-          const idleMemberId = idleMemberQueue[idleIndex];
-          const idleMemberCount = assignmentCount.get(idleMemberId) || 0;
-
-          if (idleMemberCount < minTasksPerMember) {
-            const idleMember = memberMap.get(idleMemberId);
-            if (idleMember) {
-              const oldAssignee = task.assigneeName;
-              task.assigneeId = idleMemberId;
-              task.assigneeName =
-                idleMember.agentName || idleMember.displayName;
-
-              assignmentCount.set(task.assigneeId, idleMemberCount + 1);
-              assignmentCount.set(
-                executors.find(
-                  (m) =>
-                    m.agentName === oldAssignee ||
-                    m.displayName === oldAssignee,
-                )?.id || "",
-                currentCount - 1,
-              );
-
-              this.logger.log(
-                `[rebalanceTaskAssignments] Reassigned task "${task.title}" from ${oldAssignee} to ${task.assigneeName}`,
-              );
-
-              if (
-                (assignmentCount.get(idleMemberId) || 0) >= minTasksPerMember
-              ) {
-                idleIndex++;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // 输出最终分配统计
-    const finalStats = executors.map((m) => {
-      const count = assignmentCount.get(m.id) || 0;
-      return `${m.agentName || m.displayName}: ${count}`;
-    });
-    this.logger.log(
-      `[rebalanceTaskAssignments] Final allocation: ${finalStats.join(", ")}`,
+    // ★ 委托给 AI Engine 执行再平衡
+    const rebalancedTasks = this.taskDecomposer.rebalanceTaskAssignments(
+      taskDefinitions,
+      memberInfos,
     );
 
-    const stillIdleCount = executors.filter(
-      (m) => (assignmentCount.get(m.id) || 0) === 0,
-    ).length;
-    if (stillIdleCount > 0) {
-      this.logger.warn(
-        `[rebalanceTaskAssignments] Warning: ${stillIdleCount} members still have no tasks assigned`,
-      );
+    // ★ 更新原数组中的任务分配
+    for (
+      let i = 0;
+      i < breakdown.tasks.length && i < rebalancedTasks.length;
+      i++
+    ) {
+      breakdown.tasks[i].assigneeId = rebalancedTasks[i].assigneeId;
+      breakdown.tasks[i].assigneeName = rebalancedTasks[i].assigneeName;
     }
   }
 
