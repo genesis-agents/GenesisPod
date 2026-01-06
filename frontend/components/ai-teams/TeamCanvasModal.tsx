@@ -2207,8 +2207,8 @@ function AgentPopover({
 }) {
   // State for report modal
   const [showReportModal, setShowReportModal] = useState(false);
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(0);
+  // Pagination state (-1 means "View All")
+  const [currentPage, setCurrentPage] = useState(-1);
   // Copy status for share link
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
 
@@ -2250,7 +2250,7 @@ function AgentPopover({
   // Handle share link
   const handleShareLink = useCallback(() => {
     if (!topicId || !mission?.id) return;
-    const shareUrl = `${window.location.origin}/topic/${topicId}?mission=${mission.id}`;
+    const shareUrl = `${window.location.origin}/ai-teams/${topicId}?mission=${mission.id}`;
     navigator.clipboard.writeText(shareUrl).then(() => {
       setCopyStatus('copied');
       setTimeout(() => setCopyStatus('idle'), 2000);
@@ -2318,7 +2318,9 @@ function AgentPopover({
                   <h3 className="text-lg font-bold text-white">任务完成报告</h3>
                   <p className="text-sm text-white/80">
                     {chapters.length > 1
-                      ? `${chapters[currentPage]?.title || ''} (${currentPage + 1}/${chapters.length})`
+                      ? currentPage === -1
+                        ? `共 ${chapters.length} 个章节 (查看全部)`
+                        : `共 ${chapters.length} 个章节，当前第 ${currentPage + 1} 章`
                       : 'Team Leader 总结'}
                   </p>
                 </div>
@@ -2415,22 +2417,36 @@ function AgentPopover({
 
             {/* Chapter Navigation Tabs (if multiple chapters) */}
             {chapters.length > 1 && (
-              <div className="flex gap-1 overflow-x-auto border-b border-gray-200 bg-gray-50 px-4 py-2">
-                {chapters.map((chapter, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCurrentPage(idx)}
-                    className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                      currentPage === idx
-                        ? 'bg-green-500 text-white'
-                        : 'bg-white text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {chapter.title.length > 20
-                      ? chapter.title.substring(0, 20) + '...'
-                      : chapter.title}
-                  </button>
-                ))}
+              <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2">
+                {/* View All Button */}
+                <button
+                  onClick={() => setCurrentPage(-1)}
+                  className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                    currentPage === -1
+                      ? 'bg-green-500 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  全部
+                </button>
+                <div className="h-4 w-px bg-gray-300" />
+                {/* Chapter Tabs */}
+                <div className="flex gap-1 overflow-x-auto">
+                  {chapters.map((chapter, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentPage(idx)}
+                      title={chapter.title}
+                      className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                        currentPage === idx
+                          ? 'bg-green-500 text-white'
+                          : 'bg-white text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      第{idx + 1}章
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -2439,14 +2455,16 @@ function AgentPopover({
               <div className="prose prose-sm prose-headings:text-gray-800 prose-p:text-gray-600 prose-li:text-gray-600 prose-strong:text-gray-800 prose-table:w-full prose-th:bg-gray-100 prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:font-semibold prose-th:text-gray-700 prose-td:px-3 prose-td:py-2 prose-td:text-gray-600 prose-tr:border-b prose-tr:border-gray-200 max-w-none">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {fixMarkdownTables(
-                    chapters[currentPage]?.content || finalResult
+                    currentPage === -1
+                      ? finalResult
+                      : chapters[currentPage]?.content || finalResult
                   )}
                 </ReactMarkdown>
               </div>
             </div>
 
-            {/* Pagination Footer (if multiple chapters) */}
-            {chapters.length > 1 && (
+            {/* Pagination Footer (only when viewing single chapter) */}
+            {chapters.length > 1 && currentPage !== -1 && (
               <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-3">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
