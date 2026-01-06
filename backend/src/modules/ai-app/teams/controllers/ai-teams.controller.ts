@@ -1450,3 +1450,21 @@ export class UsersController {
     return [];
   }
 }
+
+// Public controller for shared reports (no authentication required)
+@ApiTags("AI Teams - Public Reports")
+@Controller("public/reports")
+export class PublicReportsController {
+  constructor(private readonly teamMissionService: TeamMissionService) {}
+
+  @Get(":missionId")
+  @ApiOperation({
+    summary: "获取公开报告",
+    description: "获取已完成任务的公开报告，无需登录",
+  })
+  @ApiResponse({ status: 200, description: "获取成功" })
+  @ApiResponse({ status: 404, description: "报告不存在或未完成" })
+  async getPublicReport(@Param("missionId") missionId: string) {
+    return this.teamMissionService.getPublicReport(missionId);
+  }
+}

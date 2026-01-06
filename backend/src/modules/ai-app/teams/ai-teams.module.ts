@@ -22,6 +22,7 @@ import {
   UsersController,
   BookmarksController,
   CustomTeamsController,
+  PublicReportsController,
 } from "./controllers";
 import { AiTeamsService } from "./ai-teams.service";
 import { AiTeamsGateway } from "./ai-teams.gateway";
@@ -72,6 +73,7 @@ import { TeamMemberAgent } from "./agents";
     UsersController,
     BookmarksController,
     CustomTeamsController,
+    PublicReportsController,
   ],
   providers: [
     // 核心业务服务

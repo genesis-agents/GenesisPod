@@ -4897,6 +4897,86 @@ ${taskList}
     }
   }
 
+  /**
+   * 获取公开报告（无需认证）
+   * 用于分享链接的公开访问
+   */
+  async getPublicReport(missionId: string): Promise<{
+    success: boolean;
+    message: string;
+    report?: {
+      id: string;
+      title: string;
+      description: string;
+      status: string;
+      leader: string;
+      createdAt: Date;
+      completedAt: Date | null;
+      fullContent: string;
+      taskCount: number;
+      totalWords: number;
+    };
+  }> {
+    const mission = await this.prisma.teamMission.findUnique({
+      where: { id: missionId },
+      include: {
+        leader: true,
+        tasks: {
+          include: { assignedTo: true },
+        },
+      },
+    });
+
+    if (!mission) {
+      return { success: false, message: "报告不存在" };
+    }
+
+    if (mission.status !== MissionStatus.COMPLETED) {
+      return { success: false, message: "报告尚未完成，无法查看" };
+    }
+
+    try {
+      // Cast to MissionWithRelations for proper typing
+      const missionWithRelations = mission as unknown as MissionWithRelations;
+
+      // 构建完整报告内容
+      const { fullContent } =
+        this.buildFinalReportWithFullContent(missionWithRelations);
+      const completedTasks = (missionWithRelations.tasks || []).filter(
+        (t: AgentTaskWithAssignee) =>
+          t.status === AgentTaskStatus.COMPLETED && t.result,
+      );
+      const totalWords = completedTasks.reduce(
+        (sum: number, t: AgentTaskWithAssignee) =>
+          sum + (t.result || "").length,
+        0,
+      );
+
+      return {
+        success: true,
+        message: "获取成功",
+        report: {
+          id: mission.id,
+          title: mission.title,
+          description: mission.description || "",
+          status: mission.status,
+          leader:
+            missionWithRelations.leader?.agentName ||
+            missionWithRelations.leader?.displayName ||
+            "未知",
+          createdAt: mission.createdAt,
+          completedAt: mission.completedAt,
+          fullContent,
+          taskCount: completedTasks.length,
+          totalWords,
+        },
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      return { success: false, message: `获取失败: ${errorMsg}` };
+    }
+  }
+
   async cancelMission(missionId: string, userId: string) {
     return this.lifecycleService.cancelMission(
       missionId,

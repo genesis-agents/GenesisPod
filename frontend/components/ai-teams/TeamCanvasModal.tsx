@@ -2321,15 +2321,16 @@ function AgentPopover({
     });
   }, [reportContent]);
 
-  // Handle share link
+  // Handle share link - point to public report page
   const handleShareLink = useCallback(() => {
-    if (!topicId || !mission?.id) return;
-    const shareUrl = `${window.location.origin}/ai-teams/${topicId}?mission=${mission.id}`;
+    if (!mission?.id) return;
+    // Public report URL - accessible without login
+    const shareUrl = `${window.location.origin}/report/${mission.id}`;
     navigator.clipboard.writeText(shareUrl).then(() => {
       setCopyStatus('copied');
       setTimeout(() => setCopyStatus('idle'), 2000);
     });
-  }, [topicId, mission?.id]);
+  }, [mission?.id]);
 
   // Handle download - use fullReport from API if available
   const handleDownload = useCallback(() => {
