@@ -106,3 +106,4 @@ infra/oci/terraform/*.tfplan
 .tef_dist/*
   
 .aider*
+.claude/settings.local.json
