@@ -42,7 +42,6 @@ import {
   MissionReviewService,
   TaskBreakdownService,
   TeamCollaborationService,
-  AgentCircuitBreakerService,
   MissionPromptService,
   MissionQueryService,
   MissionContextService,
@@ -94,7 +93,6 @@ import { TeamMemberAgent } from "./agents";
     MissionReviewService,
     TaskBreakdownService,
     TeamCollaborationService,
-    AgentCircuitBreakerService,
     MissionPromptService,
     MissionQueryService,
     MissionContextService,
@@ -132,7 +130,6 @@ import { TeamMemberAgent } from "./agents";
     DebateService,
     TeamMissionService,
     TeamCollaborationService,
-    AgentCircuitBreakerService,
 
     // 长内容处理增强服务
     ConstraintEnforcementService,

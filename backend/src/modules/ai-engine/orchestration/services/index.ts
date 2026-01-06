@@ -13,3 +13,21 @@ export { TaskDecomposerService } from "./task-decomposer.service";
 export { AgentExecutorService } from "./agent-executor.service";
 export { OutputReviewerService } from "./output-reviewer.service";
 export { IterationManagerService } from "./iteration-manager.service";
+
+// 熔断器服务
+export {
+  CircuitBreakerService,
+  TaskCompletionType,
+  type CircuitBreakerConfig,
+  type CircuitState,
+  type HealthMetrics,
+} from "./circuit-breaker.service";
+
+// Token 预算服务
+export {
+  TokenBudgetService,
+  type ModelConfig,
+  type TokenBudget,
+  type ContentPriority,
+  type BudgetAllocation,
+} from "./token-budget.service";

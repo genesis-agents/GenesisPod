@@ -16,10 +16,11 @@ import {
 } from "@prisma/client";
 import { TopicEventEmitterService } from "../../events";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
+// ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务
 import {
-  AgentCircuitBreakerService,
+  CircuitBreakerService,
   TaskCompletionType,
-} from "../agent/agent-circuit-breaker.service";
+} from "../../../../../ai-engine/orchestration/services";
 import { MissionStateManager } from "./mission-state.manager";
 import { parseReviewResult } from "../utils";
 import {
@@ -100,7 +101,7 @@ export class MissionReviewService {
     private prisma: PrismaService,
     private topicEventEmitter: TopicEventEmitterService,
     private longContentService: TeamsLongContentService,
-    private circuitBreaker: AgentCircuitBreakerService,
+    private circuitBreaker: CircuitBreakerService,
     private stateManager: MissionStateManager,
     // ★ AI Engine 能力下沉：注入审核服务
     // 当前为预留接口，后续可逐步将审核逻辑委托给 AI Engine

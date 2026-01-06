@@ -36,7 +36,7 @@ import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { AiChatService } from "../../../../../ai-engine/llm/services/ai-chat.service";
 import { SearchService } from "../../../../../ai-engine/search/search.service";
 import { TopicEventEmitterService } from "../../events";
-import { AgentCircuitBreakerService } from "../agent/agent-circuit-breaker.service";
+import { CircuitBreakerService } from "../../../../../ai-engine/orchestration/services";
 import { MissionContextService } from "../mission/mission-context.service";
 import { ConstraintEnforcementService } from "../context/constraint-enforcement.service";
 import { EmailService } from "../../../../../core/email/email.service";
@@ -102,7 +102,7 @@ describe("TeamMissionService Long Content Integration", () => {
     emitToTopic: jest.fn(),
   };
 
-  const mockAgentCircuitBreakerService = {
+  const mockCircuitBreakerService = {
     canExecute: jest.fn().mockReturnValue(true),
     recordSuccess: jest.fn(),
     recordFailure: jest.fn(),
@@ -138,8 +138,8 @@ describe("TeamMissionService Long Content Integration", () => {
           useValue: mockTopicEventEmitterService,
         },
         {
-          provide: AgentCircuitBreakerService,
-          useValue: mockAgentCircuitBreakerService,
+          provide: CircuitBreakerService,
+          useValue: mockCircuitBreakerService,
         },
         {
           provide: EmailService,

@@ -6,13 +6,21 @@
  * - 工作流定义和接口
  * - 执行器（顺序/并行/DAG）
  * - 检查点管理
+ *
+ * 注意：
+ * - Services 通过 "./services" 单独导出，避免命名冲突
+ * - Utils 通过 "./utils" 单独导出
  */
 
-// Abstractions
+// Abstractions (工作流定义)
 export * from "./abstractions";
 
-// Executors
+// Executors (执行器)
 export * from "./executors";
 
-// Checkpoints
+// Checkpoints (检查点)
 export * from "./checkpoints";
+
+// 服务和工具需要通过独立路径导入:
+// import { ... } from "./orchestration/services"
+// import { ... } from "./orchestration/utils"

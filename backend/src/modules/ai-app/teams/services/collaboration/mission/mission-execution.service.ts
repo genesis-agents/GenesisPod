@@ -27,7 +27,7 @@ import {
   ConcurrencyLimits,
 } from "../../../../../../common/utils/concurrency.utils";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
-import { AgentCircuitBreakerService } from "../agent/agent-circuit-breaker.service";
+import { CircuitBreakerService } from "../../../../../ai-engine/orchestration/services";
 import { MissionStateManager } from "./mission-state.manager";
 import { RETRY_CONFIG, AGENT_SWITCH_CONFIG } from "../config";
 import {
@@ -127,7 +127,7 @@ export class MissionExecutionService {
     private searchService: SearchService,
     private topicEventEmitter: TopicEventEmitterService,
     private longContentService: TeamsLongContentService,
-    private circuitBreaker: AgentCircuitBreakerService,
+    private circuitBreaker: CircuitBreakerService,
     private stateManager: MissionStateManager,
     // ★ AI Engine 能力下沉：注入执行服务
     // 当前为预留接口，后续可逐步将执行逻辑委托给 AI Engine
@@ -521,7 +521,7 @@ export class MissionExecutionService {
       }
 
       // 使用 Circuit Breaker 的健康评分选择最佳 Agent
-      const bestAgentId = this.circuitBreaker.selectBestAgent(
+      const bestAgentId = this.circuitBreaker.selectBest(
         candidates.map((c: TeamMemberBase) => c.id),
       );
 

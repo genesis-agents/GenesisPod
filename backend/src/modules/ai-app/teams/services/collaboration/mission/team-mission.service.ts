@@ -24,10 +24,11 @@ import {
   ConcurrencyLimits,
 } from "../../../../../../common/utils/concurrency.utils";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
+// ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务
 import {
-  AgentCircuitBreakerService,
+  CircuitBreakerService,
   TaskCompletionType,
-} from "../agent/agent-circuit-breaker.service";
+} from "../../../../../ai-engine/orchestration/services";
 import { EmailService } from "../../../../../core/email/email.service";
 import { ConfigService } from "@nestjs/config";
 import {
@@ -106,7 +107,7 @@ export class TeamMissionService implements OnModuleInit {
     private searchService: SearchService,
     private topicEventEmitter: TopicEventEmitterService,
     private longContentService: TeamsLongContentService,
-    private circuitBreaker: AgentCircuitBreakerService,
+    private circuitBreaker: CircuitBreakerService,
     private emailService: EmailService,
     private configService: ConfigService,
     private missionContextService: MissionContextService,
@@ -2126,7 +2127,7 @@ export class TeamMissionService implements OnModuleInit {
 
       // 使用 Circuit Breaker 选择最佳 Agent
       const candidateIds = candidates.map((c: TeamMemberBase) => c.id);
-      const bestAgentId = this.circuitBreaker.selectBestAgent(candidateIds);
+      const bestAgentId = this.circuitBreaker.selectBest(candidateIds);
 
       if (bestAgentId) {
         const selected = candidates.find(

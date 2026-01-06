@@ -34,7 +34,8 @@ export {
 } from "./mission";
 
 // Agent 服务
-export * from "./agent";
+// 注意：AgentCircuitBreakerService 已下沉到 AI Engine
+// 请使用 import { CircuitBreakerService } from "../../ai-engine/orchestration/services"
 
 // Context 服务（排除冲突的类型）
 export {

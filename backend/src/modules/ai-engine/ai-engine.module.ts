@@ -38,6 +38,8 @@ import { TaskDecomposerService } from "./orchestration/services/task-decomposer.
 import { AgentExecutorService } from "./orchestration/services/agent-executor.service";
 import { OutputReviewerService } from "./orchestration/services/output-reviewer.service";
 import { IterationManagerService } from "./orchestration/services/iteration-manager.service";
+import { CircuitBreakerService } from "./orchestration/services/circuit-breaker.service";
+import { TokenBudgetService } from "./orchestration/services/token-budget.service";
 
 // Memory Services
 import { ShortTermMemoryService } from "./memory/stores/short-term-memory.service";
@@ -265,6 +267,8 @@ const conversationMemoryFactory = {
     AgentExecutorService,
     OutputReviewerService,
     IterationManagerService,
+    CircuitBreakerService,
+    TokenBudgetService,
 
     // === Collaboration ===
     votingManagerFactory,
@@ -325,6 +329,8 @@ const conversationMemoryFactory = {
     AgentExecutorService,
     OutputReviewerService,
     IterationManagerService,
+    CircuitBreakerService,
+    TokenBudgetService,
 
     // === Collaboration ===
     VotingManager,
