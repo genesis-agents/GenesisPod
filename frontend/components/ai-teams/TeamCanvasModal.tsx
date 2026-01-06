@@ -2276,13 +2276,27 @@ function AgentPopover({
   const chapters = useMemo(() => {
     if (!reportContent) return [];
 
-    // Split by chapter markers: "## 第X章", "# 第X章", "## Chapter", or any "## " heading
+    // Pattern to match actual chapter headings (卷X, 第X章, Chapter X)
+    // Excludes metadata sections like "执行总结", mission title, etc.
+    const chapterPattern =
+      /卷[一二三四五六七八九十百\d]+|第[一二三四五六七八九十百千\d]+[章节回]|Chapter\s*\d+/i;
+
+    // Split by chapter markers: only match actual chapter headings
     const chapterRegex =
-      /(?=^##?\s+(?:第[一二三四五六七八九十\d]+章|Chapter\s+\d+|[^#\n]+))/gm;
+      /(?=^##\s+(?:卷[一二三四五六七八九十百\d]+|第[一二三四五六七八九十百千\d]+[章节回]|Chapter\s*\d+))/gim;
     const parts = reportContent.split(chapterRegex).filter(Boolean);
 
-    // If no chapters found, return the whole content as one page
-    if (parts.length <= 1) {
+    // Filter out non-chapter parts (执行总结, mission title, etc.)
+    const chapterParts = parts.filter((part) => {
+      const firstLine = part
+        .split('\n')[0]
+        .replace(/^#+\s*/, '')
+        .trim();
+      return chapterPattern.test(firstLine);
+    });
+
+    // If no chapters found, fallback to splitting by "---" or return whole content
+    if (chapterParts.length === 0) {
       // Try splitting by "---" horizontal rules as fallback
       const hrParts = reportContent.split(/\n---\n/).filter(Boolean);
       if (hrParts.length > 1) {
@@ -2294,14 +2308,14 @@ function AgentPopover({
       return [{ title: '完整报告', content: reportContent }];
     }
 
-    return parts.map((content, idx) => {
+    return chapterParts.map((content, idx) => {
       // Extract chapter title from the first line
       const firstLine = content
         .split('\n')[0]
         .replace(/^#+\s*/, '')
         .trim();
       return {
-        title: firstLine || `第 ${idx + 1} 部分`,
+        title: firstLine || `第 ${idx + 1} 章`,
         content: content.trim(),
       };
     });
