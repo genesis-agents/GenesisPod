@@ -1803,6 +1803,17 @@ export class TeamMissionService implements OnModuleInit {
       // 检测是否需要续写（处理"未完待续"等中断情况）
       let finalContent = aiResponse.content;
       try {
+        // ★ 确保长内容服务已初始化（修复服务重启后 projectConfigs 丢失的问题）
+        await this.longContentService.ensureMissionInitialized({
+          missionId: mission.id,
+          missionTitle: mission.title,
+          missionDescription: mission.description || "",
+          objectives: mission.objectives || [],
+          constraints: mission.constraints || [],
+          expectedTaskCount: mission.totalTasks || undefined,
+          granularityLevel: "chapter",
+        });
+
         const completionResult =
           await this.longContentService.processTaskCompletion(
             mission.id,

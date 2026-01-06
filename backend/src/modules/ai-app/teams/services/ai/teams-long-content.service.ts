@@ -100,6 +100,33 @@ export class TeamsLongContentService {
   }
 
   /**
+   * 检查任务是否已初始化
+   */
+  isMissionInitialized(missionId: string): boolean {
+    try {
+      const config = this.longContentEngine.getProjectConfig(missionId);
+      return !!config;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 确保任务已初始化（服务重启后自动重新初始化）
+   * ★ 修复：解决服务重启后 projectConfigs 丢失导致的 "Project not found" 错误
+   */
+  async ensureMissionInitialized(config: TeamsMissionConfig): Promise<void> {
+    if (this.isMissionInitialized(config.missionId)) {
+      return; // 已初始化，无需重复操作
+    }
+
+    this.logger.log(
+      `[ensureMissionInitialized] Mission ${config.missionId} not initialized, auto-initializing...`,
+    );
+    await this.initMission(config);
+  }
+
+  /**
    * 清理任务
    */
   clearMission(missionId: string): void {

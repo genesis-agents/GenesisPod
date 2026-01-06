@@ -1243,6 +1243,17 @@ export class MissionExecutionService {
     const currentAgent = aiResult.agent;
 
     try {
+      // ★ 确保长内容服务已初始化（修复服务重启后 projectConfigs 丢失的问题）
+      await this.longContentService.ensureMissionInitialized({
+        missionId: mission.id,
+        missionTitle: mission.title,
+        missionDescription: mission.description || "",
+        objectives: mission.objectives || [],
+        constraints: mission.constraints || [],
+        expectedTaskCount: mission.totalTasks || undefined,
+        granularityLevel: "chapter",
+      });
+
       const completionResult =
         await this.longContentService.processTaskCompletion(
           mission.id,
