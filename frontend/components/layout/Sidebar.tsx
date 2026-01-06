@@ -668,7 +668,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       </nav>
 
       {/* Bottom Navigation */}
-      <div className="flex flex-1 flex-col justify-end space-y-1 border-t border-gray-200 p-3">
+      <div className="space-y-1 border-t border-gray-200 p-3">
         <Link
           href="/notifications"
           onClick={(e) => {
