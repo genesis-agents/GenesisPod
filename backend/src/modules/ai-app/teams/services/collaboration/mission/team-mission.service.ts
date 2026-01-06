@@ -1385,10 +1385,12 @@ export class TeamMissionService implements OnModuleInit {
               let relaxedCount = 0;
               for (const { task, blockingTasks } of blockedByUnfinished) {
                 // 检查阻塞任务是否都是"无法完成"状态
+                // ★ 修复：CANCELLED 状态的依赖也应该触发松弛
                 const allBlockersStuck = blockingTasks.every(
                   (b) =>
                     b.status === AgentTaskStatus.BLOCKED ||
-                    b.status === AgentTaskStatus.REVISION_NEEDED,
+                    b.status === AgentTaskStatus.REVISION_NEEDED ||
+                    b.status === AgentTaskStatus.CANCELLED,
                 );
 
                 if (allBlockersStuck && relaxedCount < 3) {
