@@ -92,7 +92,6 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
       icon: 'users',
       activeClass: 'bg-green-50',
       prefix: true,
-      separator: true, // Has separator before this item
     },
   ];
 
@@ -432,10 +431,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 <span>{quickEntry.label}</span>
               </Link>
 
-              {/* Section: Materials & Knowledge */}
-              <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                {t('nav.sections.materialsKnowledge')}
-              </div>
+              {/* Materials & Knowledge */}
               {materialsItems.map((item) => {
                 const active = isActive(item.href);
                 return (
@@ -454,38 +450,28 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 );
               })}
 
-              {/* Section: AI Teams */}
-              <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                {t('nav.sections.aiTeams')}
-              </div>
+              {/* AI Teams */}
               {aiTeamsItems.map((item) => {
                 const active = item.prefix
                   ? isActivePrefix(item.href)
                   : isActive(item.href);
                 return (
-                  <div key={item.href}>
-                    {item.separator && (
-                      <div className="mx-3 my-1 border-t border-gray-200/60" />
-                    )}
-                    <Link
-                      href={item.href}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                        active
-                          ? `${item.activeClass} text-gray-900`
-                          : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {getIcon(item.icon)}
-                      <span>{item.label}</span>
-                    </Link>
-                  </div>
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      active
+                        ? `${item.activeClass} text-gray-900`
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {getIcon(item.icon)}
+                    <span>{item.label}</span>
+                  </Link>
                 );
               })}
 
-              {/* Section: AI Tools */}
-              <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-                {t('nav.sections.aiTools')}
-              </div>
+              {/* AI Tools */}
               {aiToolsItems.map((item) => {
                 const active = item.prefix
                   ? isActivePrefix(item.href)
