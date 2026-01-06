@@ -11,10 +11,16 @@
       "Read(**/*secret*)",
       "Read(**/*.pem)",
       "Read(**/*.key)"
-    ]
+    ],
+    "additionalDirectories": ["../docs/"],
+    "defaultMode": "acceptEdits"
   },
   "env": {
     "PRISMA_HIDE_UPDATE_MESSAGE": "true"
+  },
+  "attribution": {
+    "commit": "\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+    "pr": "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
   },
   "hooks": {
     "PostToolUse": [
