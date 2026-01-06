@@ -2880,53 +2880,60 @@ export class TeamMissionService implements OnModuleInit {
         MessageContentType.TEXT,
       );
 
-      // 尝试使用长内容服务生成最终报告（包含质量仪表盘）
-      let finalReport = "";
-      let qualityDashboard = null;
+      // ★ 始终从数据库获取完整的任务结果（确保内容完整性）
+      // 长内容服务的内存存储在服务重启后会丢失，所以必须以数据库为准
+      const { fullContent, summaryPrompt } =
+        this.buildFinalReportWithFullContent(mission);
 
+      // 尝试获取长内容服务的质量仪表盘（仅用于统计）
+      let qualityDashboard = null;
       try {
-        const longContentReport =
-          await this.longContentService.buildFinalReport(missionId);
-        finalReport = longContentReport.fullContent;
-        qualityDashboard = longContentReport.dashboard;
+        qualityDashboard =
+          this.longContentService.getQualityDashboard(missionId);
         this.logger.log(
-          `[completeMission] 使用长内容服务生成报告，质量评分: ${qualityDashboard.quality.overallScore.toFixed(1)}/10`,
+          `[completeMission] 质量评分: ${qualityDashboard.quality.overallScore.toFixed(1)}/10`,
         );
       } catch (error) {
-        this.logger.warn(
-          `[completeMission] 长内容服务报告生成失败，使用默认方式: ${error}`,
+        this.logger.debug(
+          `[completeMission] 无法获取质量仪表盘（可能服务已重启）: ${error}`,
         );
-        // 回退到原有方式
-        const { fullContent, summaryPrompt } =
-          this.buildFinalReportWithFullContent(mission);
+      }
 
-        // 只让 AI 生成执行总结，不处理完整内容（避免截断）
-        let executiveSummary = "";
-        try {
-          const summaryResponse = await this.callAIWithConfig(
-            mission.leader.aiModel,
-            [{ role: "user", content: summaryPrompt }],
-            this.getLeaderSystemPrompt(mission.leader),
-            { maxTokens: 2000, temperature: 0.5, missionId },
-          );
-          executiveSummary = summaryResponse.content;
-        } catch (summaryError) {
-          const errorMsg =
-            summaryError instanceof Error
-              ? summaryError.message
-              : String(summaryError);
-          this.logger.warn(`[completeMission] 执行总结生成失败: ${errorMsg}`);
-          // 生成基础总结
-          const taskCount = (mission.tasks || []).filter(
+      // 生成执行总结（可选，失败不影响完整内容输出）
+      let executiveSummary = "";
+      try {
+        const summaryResponse = await this.callAIWithConfig(
+          mission.leader.aiModel,
+          [{ role: "user", content: summaryPrompt }],
+          this.getLeaderSystemPrompt(mission.leader),
+          { maxTokens: 2000, temperature: 0.5, missionId },
+        );
+        executiveSummary = summaryResponse.content;
+      } catch (summaryError) {
+        const errorMsg =
+          summaryError instanceof Error
+            ? summaryError.message
+            : String(summaryError);
+        this.logger.warn(`[completeMission] 执行总结生成失败: ${errorMsg}`);
+        // 生成基础总结
+        const taskCount = (mission.tasks || []).filter(
+          (t: AgentTaskWithAssignee) => t.status === AgentTaskStatus.COMPLETED,
+        ).length;
+        const totalWords = (mission.tasks || [])
+          .filter(
             (t: AgentTaskWithAssignee) =>
               t.status === AgentTaskStatus.COMPLETED,
-          ).length;
-          executiveSummary = `## 执行总结\n\n共完成 ${taskCount} 个子任务。`;
-        }
-
-        // 最终报告 = 完整内容 + 执行总结
-        finalReport = `${fullContent}\n\n---\n\n${executiveSummary}`;
+          )
+          .reduce(
+            (sum: number, t: AgentTaskWithAssignee) =>
+              sum + (t.result || "").length,
+            0,
+          );
+        executiveSummary = `## 执行总结\n\n| 指标 | 数据 |\n|------|------|\n| 总任务数 | ${taskCount}/${mission.tasks?.length || 0} |\n| 完成率 | ${mission.tasks?.length ? ((taskCount / mission.tasks.length) * 100).toFixed(1) : 0}% |\n| 总字数 | ${totalWords} 字 |${qualityDashboard ? `\n| 平均质量分 | ${qualityDashboard.quality.overallScore.toFixed(1)}/10 |\n| 质量趋势 | ${qualityDashboard.quality.trend.trend} |` : ""}`;
       }
+
+      // 最终报告 = 执行总结 + 完整内容（所有章节）
+      const finalReport = `${executiveSummary}\n\n---\n\n${fullContent}`;
 
       this.logger.log(
         `[completeMission] 最终报告生成完成，总长度: ${finalReport.length} 字符`,
