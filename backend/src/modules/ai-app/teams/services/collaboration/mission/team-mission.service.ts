@@ -4760,6 +4760,61 @@ ${taskList}
   }
 
   /**
+   * 获取完整报告内容（直接从任务数据构建，不依赖 finalResult 缓存）
+   * 用于前端显示完整报告，确保内容始终完整
+   */
+  async getFullReport(missionId: string): Promise<{
+    success: boolean;
+    message: string;
+    fullContent?: string;
+    taskCount?: number;
+    totalWords?: number;
+  }> {
+    const mission = await this.prisma.teamMission.findUnique({
+      where: { id: missionId },
+      include: {
+        leader: true,
+        tasks: {
+          include: { assignedTo: true },
+        },
+      },
+    });
+
+    if (!mission) {
+      return { success: false, message: "任务不存在" };
+    }
+
+    try {
+      const { fullContent } = this.buildFinalReportWithFullContent(mission);
+      const completedTasks = (mission.tasks || []).filter(
+        (t: AgentTaskWithAssignee) =>
+          t.status === AgentTaskStatus.COMPLETED && t.result,
+      );
+      const totalWords = completedTasks.reduce(
+        (sum: number, t: AgentTaskWithAssignee) =>
+          sum + (t.result || "").length,
+        0,
+      );
+
+      // 生成执行总结
+      const executiveSummary = `## 执行总结\n\n| 指标 | 数据 |\n|------|------|\n| 总任务数 | ${completedTasks.length}/${mission.tasks?.length || 0} |\n| 完成率 | ${mission.tasks?.length ? ((completedTasks.length / mission.tasks.length) * 100).toFixed(1) : 0}% |\n| 总字数 | ${totalWords} 字 |`;
+
+      const finalReport = `${executiveSummary}\n\n---\n\n${fullContent}`;
+
+      return {
+        success: true,
+        message: `获取成功，包含 ${completedTasks.length} 个章节`,
+        fullContent: finalReport,
+        taskCount: completedTasks.length,
+        totalWords,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      return { success: false, message: `获取失败: ${errorMsg}` };
+    }
+  }
+
+  /**
    * 重新生成最终报告
    * 用于修复已完成任务的报告内容（例如排序问题、内容缺失等）
    */

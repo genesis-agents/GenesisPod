@@ -2215,6 +2215,45 @@ function AgentPopover({
   const [regenerateStatus, setRegenerateStatus] = useState<
     'idle' | 'loading' | 'success' | 'error'
   >('idle');
+  // Full report fetched from API (fixes incomplete cached finalResult)
+  const [fullReport, setFullReport] = useState<string | null>(null);
+  const [fullReportLoading, setFullReportLoading] = useState(false);
+  const [fullReportError, setFullReportError] = useState<string | null>(null);
+
+  // Fetch full report when modal opens
+  useEffect(() => {
+    if (!showReportModal || !topicId || !mission?.id) return;
+    if (fullReport) return; // Already fetched
+
+    const fetchFullReport = async () => {
+      setFullReportLoading(true);
+      setFullReportError(null);
+      try {
+        const response = await fetch(
+          `/api/ai-teams/${topicId}/missions/${mission.id}/full-report`,
+          { credentials: 'include' }
+        );
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const result = await response.json();
+        if (result.success && result.fullContent) {
+          setFullReport(result.fullContent);
+        } else {
+          // Fallback to finalResult if API fails
+          setFullReportError(result.message || '获取完整报告失败');
+        }
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        setFullReportError(errMsg);
+        // Will use finalResult as fallback
+      } finally {
+        setFullReportLoading(false);
+      }
+    };
+
+    fetchFullReport();
+  }, [showReportModal, topicId, mission?.id, fullReport]);
 
   // Handle regenerate report
   const handleRegenerateReport = useCallback(async () => {
@@ -2246,26 +2285,29 @@ function AgentPopover({
     }
   }, [topicId, mission?.id]);
 
+  // Use full report from API, fallback to cached finalResult
+  const reportContent = fullReport || finalResult;
+
   // Split content into chapters for pagination
   const chapters = useMemo(() => {
-    if (!finalResult) return [];
+    if (!reportContent) return [];
 
     // Split by chapter markers: "## 第X章", "# 第X章", "## Chapter", or any "## " heading
     const chapterRegex =
       /(?=^##?\s+(?:第[一二三四五六七八九十\d]+章|Chapter\s+\d+|[^#\n]+))/gm;
-    const parts = finalResult.split(chapterRegex).filter(Boolean);
+    const parts = reportContent.split(chapterRegex).filter(Boolean);
 
     // If no chapters found, return the whole content as one page
     if (parts.length <= 1) {
       // Try splitting by "---" horizontal rules as fallback
-      const hrParts = finalResult.split(/\n---\n/).filter(Boolean);
+      const hrParts = reportContent.split(/\n---\n/).filter(Boolean);
       if (hrParts.length > 1) {
         return hrParts.map((content, idx) => ({
           title: `第 ${idx + 1} 部分`,
           content: content.trim(),
         }));
       }
-      return [{ title: '完整报告', content: finalResult }];
+      return [{ title: '完整报告', content: reportContent }];
     }
 
     return parts.map((content, idx) => {
@@ -2279,7 +2321,7 @@ function AgentPopover({
         content: content.trim(),
       };
     });
-  }, [finalResult]);
+  }, [reportContent]);
 
   // Handle share link
   const handleShareLink = useCallback(() => {
@@ -2291,7 +2333,7 @@ function AgentPopover({
     });
   }, [topicId, mission?.id]);
 
-  // Handle download
+  // Handle download - use fullReport from API if available
   const handleDownload = useCallback(() => {
     if (!mission) return;
     const reportData: MissionReportData = {
@@ -2303,7 +2345,8 @@ function AgentPopover({
         leader: mission.leader?.displayName || 'Unknown',
         createdAt: mission.createdAt,
         completedAt: mission.completedAt || undefined,
-        finalResult: mission.finalResult || undefined,
+        // Use full report from API if available, otherwise fallback to cached finalResult
+        finalResult: fullReport || mission.finalResult || undefined,
       },
       tasks: (mission.tasks || []).map((t) => ({
         id: t.id,
@@ -2319,7 +2362,7 @@ function AgentPopover({
       })),
     };
     downloadMissionReportHTML(reportData);
-  }, [mission]);
+  }, [mission, fullReport]);
 
   // For Leader, show all tasks as the planning list
   const displayTasks = isLeader ? allTasks : tasks;
@@ -2335,7 +2378,7 @@ function AgentPopover({
   return (
     <>
       {/* Report Modal with Pagination */}
-      {showReportModal && finalResult && (
+      {showReportModal && (
         <>
           <div
             className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-sm"
@@ -2351,11 +2394,13 @@ function AgentPopover({
                 <div>
                   <h3 className="text-lg font-bold text-white">任务完成报告</h3>
                   <p className="text-sm text-white/80">
-                    {chapters.length > 1
-                      ? currentPage === -1
-                        ? `共 ${chapters.length} 个章节 (查看全部)`
-                        : `共 ${chapters.length} 个章节，当前第 ${currentPage + 1} 章`
-                      : 'Team Leader 总结'}
+                    {fullReportLoading
+                      ? '正在加载完整报告...'
+                      : chapters.length > 1
+                        ? currentPage === -1
+                          ? `共 ${chapters.length} 个章节 (查看全部)`
+                          : `共 ${chapters.length} 个章节，当前第 ${currentPage + 1} 章`
+                        : 'Team Leader 总结'}
                   </p>
                 </div>
               </div>
@@ -2537,15 +2582,51 @@ function AgentPopover({
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
-              <div className="prose prose-sm prose-headings:text-gray-800 prose-p:text-gray-600 prose-li:text-gray-600 prose-strong:text-gray-800 prose-table:w-full prose-th:bg-gray-100 prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:font-semibold prose-th:text-gray-700 prose-td:px-3 prose-td:py-2 prose-td:text-gray-600 prose-tr:border-b prose-tr:border-gray-200 max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {fixMarkdownTables(
-                    currentPage === -1
-                      ? finalResult
-                      : chapters[currentPage]?.content || finalResult
+              {fullReportLoading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <svg
+                    className="h-8 w-8 animate-spin text-green-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  <p className="mt-3 text-gray-500">
+                    正在从数据库加载完整报告...
+                  </p>
+                </div>
+              ) : !reportContent ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <p className="text-gray-500">暂无报告内容</p>
+                  {fullReportError && (
+                    <p className="mt-2 text-sm text-red-500">
+                      {fullReportError}
+                    </p>
                   )}
-                </ReactMarkdown>
-              </div>
+                </div>
+              ) : (
+                <div className="prose prose-sm prose-headings:text-gray-800 prose-p:text-gray-600 prose-li:text-gray-600 prose-strong:text-gray-800 prose-table:w-full prose-th:bg-gray-100 prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:font-semibold prose-th:text-gray-700 prose-td:px-3 prose-td:py-2 prose-td:text-gray-600 prose-tr:border-b prose-tr:border-gray-200 max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {fixMarkdownTables(
+                      currentPage === -1
+                        ? reportContent
+                        : chapters[currentPage]?.content || reportContent
+                    )}
+                  </ReactMarkdown>
+                </div>
+              )}
             </div>
 
             {/* Pagination Footer (only when viewing single chapter) */}

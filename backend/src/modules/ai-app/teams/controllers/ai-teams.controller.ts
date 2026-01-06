@@ -1268,6 +1268,19 @@ export class AiTeamsController {
     });
   }
 
+  @Get(":topicId/missions/:missionId/full-report")
+  @ApiOperation({
+    summary: "获取完整报告",
+    description: "从数据库获取完整报告内容，确保所有章节都包含",
+  })
+  @ApiResponse({ status: 200, description: "获取成功" })
+  async getFullReport(
+    @Param("topicId") _topicId: string,
+    @Param("missionId") missionId: string,
+  ) {
+    return this.teamMissionService.getFullReport(missionId);
+  }
+
   @Post(":topicId/missions/:missionId/regenerate-report")
   @ApiOperation({
     summary: "重新生成最终报告",
