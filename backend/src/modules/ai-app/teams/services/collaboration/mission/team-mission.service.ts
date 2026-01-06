@@ -4284,11 +4284,22 @@ ${feedback}
     );
 
     // 构建完整的分章节内容
+    // 检测标题是否已包含章节信息（卷、第X章、Chapter等）
+    const hasChapterPattern = (title: string): boolean => {
+      return /卷[一二三四五六七八九十\d]+|第[一二三四五六七八九十百千\d]+[章节回]|Chapter\s*\d+/i.test(
+        title,
+      );
+    };
+
     const chapters = completedTasks.map(
       (t: AgentTaskWithAssignee, index: number) => {
         const agentName =
           t.assignedTo?.agentName || t.assignedTo?.displayName || "未知";
-        return `## 第${index + 1}章：${t.title}
+        // 如果标题已包含章节信息，直接使用标题；否则添加序号
+        const chapterTitle = hasChapterPattern(t.title)
+          ? t.title
+          : `第${index + 1}章：${t.title}`;
+        return `## ${chapterTitle}
 > 作者/负责人：${agentName}
 > 字数：${(t.result || "").length} 字
 
