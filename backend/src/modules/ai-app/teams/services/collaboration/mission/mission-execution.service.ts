@@ -1174,12 +1174,6 @@ export class MissionExecutionService {
 
         const responseTime = Date.now() - taskStartTime;
         this.circuitBreaker.recordSuccess(currentAgent.id, responseTime);
-        // ★ 同步到 AI Engine 的熔断器
-        this.agentExecutorService.recordExecution(
-          currentAgent.id,
-          true,
-          responseTime,
-        );
 
         this.logger.log(
           `[executeTask] Task "${task.title}" completed successfully by ${currentAgent.displayName} after ${result.attempts} attempt(s) in ${responseTime}ms`,
@@ -1193,12 +1187,6 @@ export class MissionExecutionService {
 
       const errorType = this.circuitBreaker.parseErrorType(errorMsg);
       this.circuitBreaker.recordFailure(currentAgent.id, errorType, errorMsg);
-      // ★ 同步到 AI Engine 的熔断器
-      this.agentExecutorService.recordExecution(
-        currentAgent.id,
-        false,
-        Date.now() - taskStartTime,
-      );
 
       this.logger.warn(
         `[executeTask] Agent ${currentAgent.displayName} failed after ${result.attempts} retries: ${errorMsg}`,

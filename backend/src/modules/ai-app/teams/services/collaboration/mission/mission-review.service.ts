@@ -494,12 +494,14 @@ export class MissionReviewService {
         MessageContentType.TEXT,
       );
 
-      // ★ 委托给 AI Engine 的 OutputReviewerService 执行修订
-      this.logger.debug(
-        `[executeTaskRevision] Delegating revision to AI Engine OutputReviewerService`,
+      // 构建修订提示词
+      const revisionPrompt = this.buildTaskRevisionPrompt(
+        mission,
+        latestTask,
+        feedback,
       );
 
-      // 构建 AI Engine 需要的 RevisionRequest
+      // 获取 Agent 系统提示词
       const systemPrompt = callbacks.getAgentSystemPrompt(
         assignedTo,
         latestTask,
@@ -508,44 +510,19 @@ export class MissionReviewService {
         (mission.mustConstraints as unknown[]) || undefined,
       );
 
-      const revisionResult = await this.outputReviewerService.executeRevision({
-        originalContext: {
-          missionId: mission.id,
-          topicId: mission.topicId,
-          task: {
-            id: task.id,
-            title: task.title,
-            description: task.description || undefined,
-            assigneeId: assignedTo.id,
-          },
-          executor: {
-            id: assignedTo.id,
-            agentName: assignedTo.agentName,
-            displayName: assignedTo.displayName,
-            aiModel: assignedTo.aiModel,
-            isLeader: false, // TaskAssignee 没有此字段，执行者通常不是 Leader
-            systemPrompt: null, // 使用上面构建的 systemPrompt
-            persona: null,
-          },
-          systemPrompt,
-          userPrompt: this.buildTaskRevisionPrompt(
-            mission,
-            latestTask,
-            feedback,
-          ),
-        },
-        originalContent: latestTask.result || "",
-        reviewFeedback: feedback,
-        issues: [], // 可以从 feedback 中解析
-        revisionCount: latestTask.revisionCount || 1,
-      });
-
-      // 处理 AI Engine 返回的结果
+      // 调用 AI 执行修订
       let aiResponse: { content: string; tokensUsed: number };
-      if (!revisionResult.success) {
-        const errorMsg = revisionResult.error || "Unknown error";
+      try {
+        aiResponse = await callbacks.callAIWithConfig(
+          assignedTo.aiModel,
+          [{ role: "user", content: revisionPrompt }],
+          systemPrompt,
+          { maxTokens: 8000, temperature: 0.7, missionId: mission.id },
+        );
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
         this.logger.error(
-          `[handleTaskRevision] AI Engine revision failed: ${errorMsg}`,
+          `[handleTaskRevision] Revision AI call failed: ${errorMsg}`,
         );
 
         const leaderName =
@@ -574,11 +551,6 @@ export class MissionReviewService {
 
         return;
       }
-
-      aiResponse = {
-        content: revisionResult.content,
-        tokensUsed: revisionResult.tokensUsed,
-      };
 
       // 检查 API 错误
       const isApiError =
@@ -711,14 +683,13 @@ export class MissionReviewService {
 
   /**
    * 为长内容生成摘要
-   * ★ 委托给 AI Engine 的 OutputReviewerService
    */
   private async summarizeForLeaderReview(
     content: string,
     taskTitle: string,
     leaderModel: string,
     missionId: string | undefined,
-    _callbacks: ReviewCallbacks,
+    callbacks: ReviewCallbacks,
   ): Promise<{ summary: string; keyExcerpts: string }> {
     const SUMMARY_THRESHOLD = 3000;
 
@@ -727,32 +698,47 @@ export class MissionReviewService {
     }
 
     try {
-      // ★ 委托给 AI Engine 的 OutputReviewerService
-      this.logger.debug(
-        `[summarizeForLeaderReview] Delegating to AI Engine OutputReviewerService`,
-      );
+      const prompt = `请为以下创作内容生成审核摘要，帮助 Leader 评估内容质量：
 
-      const result = await this.outputReviewerService.summarizeForReview(
-        content,
-        taskTitle,
+【任务】${taskTitle}
+
+【原文内容】（共${content.length}字符）
+${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略]" : ""}
+
+请输出以下结构化摘要：
+
+## 内容概要
+[用200-300字概括主要内容、情节发展、核心观点]
+
+## 关键要素
+- 主题/立意：[简述]
+- 结构/逻辑：[简述是否清晰完整]
+- 风格/语言：[简述文风特点]
+
+## 亮点摘录
+[摘录2-3段精彩片段，每段不超过100字]
+
+## 潜在问题
+[如有发现，列出可能需要改进的地方]`;
+
+      const response = await callbacks.callAIWithConfig(
         leaderModel,
-        missionId || "",
+        [{ role: "user", content: prompt }],
+        "你是一位专业的内容审核助手，擅长快速提炼长文精华。请客观、准确地生成摘要。",
+        { maxTokens: 1500, temperature: 0.3, missionId },
       );
 
-      // 补充首尾摘录（AI Engine 返回的 keyExcerpts 格式可能不同）
       const headExcerpt = content.substring(0, 500);
       const tailExcerpt = content.substring(content.length - 500);
-      const keyExcerpts =
-        result.keyExcerpts ||
-        `【开篇】\n${headExcerpt}\n\n【结尾】\n${tailExcerpt}`;
+      const keyExcerpts = `【开篇】\n${headExcerpt}\n\n【结尾】\n${tailExcerpt}`;
 
       return {
-        summary: result.summary,
+        summary: response.content,
         keyExcerpts,
       };
     } catch (error) {
       this.logger.warn(
-        `[summarizeForLeaderReview] AI Engine 摘要生成失败，使用截断模式: ${error}`,
+        `[summarizeForLeaderReview] 摘要生成失败，使用截断模式: ${error}`,
       );
       const head = content.substring(0, 1500);
       const tail = content.substring(content.length - 800);
