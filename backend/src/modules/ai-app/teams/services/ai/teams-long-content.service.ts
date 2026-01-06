@@ -109,6 +109,15 @@ export class TeamsLongContentService {
   }
 
   /**
+   * 更新任务总数
+   * 当实际任务数与初始预估不同时调用
+   */
+  updateTotalTasks(missionId: string, totalTasks: number): void {
+    this.longContentEngine.updateTotalTasks(missionId, totalTasks);
+    this.logger.log(`Mission ${missionId} totalTasks updated to ${totalTasks}`);
+  }
+
+  /**
    * 获取预期任务数量
    */
   getExpectedTaskCount(missionId: string): number | undefined {

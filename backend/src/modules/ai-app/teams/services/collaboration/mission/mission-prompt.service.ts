@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AgentTaskStatus } from "@prisma/client";
 import { MissionContextService } from "./mission-context.service";
-import { findMemberByName } from "./member-matching.utils";
+import { findMemberByName } from "../utils";
 
 /**
  * 任务分解结果项

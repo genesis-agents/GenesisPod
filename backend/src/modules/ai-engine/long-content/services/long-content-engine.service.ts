@@ -129,6 +129,21 @@ export class LongContentEngineService {
   }
 
   /**
+   * 更新项目总任务数
+   * 当实际任务数与初始预估不同时调用
+   */
+  updateTotalTasks(projectId: string, totalTasks: number): void {
+    const config = this.projectConfigs.get(projectId);
+    if (config) {
+      config.totalTasks = totalTasks;
+    }
+    this.qualityService.updateTotalTasks(projectId, totalTasks);
+    this.logger.log(
+      `Updated totalTasks for project ${projectId}: ${totalTasks}`,
+    );
+  }
+
+  /**
    * 获取项目配置
    */
   getProjectConfig(projectId: string): LongContentProjectConfig | undefined {

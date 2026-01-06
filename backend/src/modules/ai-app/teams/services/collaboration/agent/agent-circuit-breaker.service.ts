@@ -1,4 +1,9 @@
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from "@nestjs/common";
 
 /**
  * Task completion types to distinguish between different failure modes
@@ -36,6 +41,7 @@ interface AgentCircuitBreaker {
   cooldownUntil: Date | null;
   rateLimitCount: number;
   lastRateLimitTime: Date | null;
+  lastActivityTime: Date; // 新增：用于 TTL 清理
 }
 
 /**
@@ -61,7 +67,9 @@ export interface AgentHealthMetrics {
  * 4. Provide health metrics for intelligent load balancing
  */
 @Injectable()
-export class AgentCircuitBreakerService {
+export class AgentCircuitBreakerService
+  implements OnModuleInit, OnModuleDestroy
+{
   private readonly logger = new Logger(AgentCircuitBreakerService.name);
 
   // Circuit breaker state for each agent
@@ -73,6 +81,9 @@ export class AgentCircuitBreakerService {
 
   // Current task load per agent
   private readonly currentLoad = new Map<string, number>();
+
+  // Cleanup scheduler
+  private cleanupInterval: NodeJS.Timeout | null = null;
 
   // ==================== Configuration ====================
 
@@ -88,6 +99,27 @@ export class AgentCircuitBreakerService {
 
   // Half-open state: allow one test request after cooldown
   private readonly HALF_OPEN_SUCCESS_THRESHOLD = 2;
+
+  // TTL for inactive breakers (24 hours)
+  // Breakers without activity for this duration will be cleaned up
+  private readonly INACTIVE_TTL_MS = 24 * 60 * 60 * 1000;
+
+  // Cleanup interval (1 hour)
+  private readonly CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+
+  // ==================== Lifecycle Hooks ====================
+
+  onModuleInit(): void {
+    this.logger.log(
+      `[CircuitBreaker] Initializing with TTL=${this.INACTIVE_TTL_MS}ms, cleanup interval=${this.CLEANUP_INTERVAL_MS}ms`,
+    );
+    this.startCleanupScheduler();
+  }
+
+  onModuleDestroy(): void {
+    this.logger.log(`[CircuitBreaker] Shutting down`);
+    this.stopCleanupScheduler();
+  }
 
   // ==================== Public Methods ====================
 
@@ -418,9 +450,12 @@ export class AgentCircuitBreakerService {
         cooldownUntil: null,
         rateLimitCount: 0,
         lastRateLimitTime: null,
+        lastActivityTime: new Date(),
       };
       this.breakers.set(agentId, breaker);
     }
+    // Update lastActivityTime on every access
+    breaker.lastActivityTime = new Date();
     return breaker;
   }
 
@@ -437,5 +472,97 @@ export class AgentCircuitBreakerService {
     if (times.length > this.MAX_RESPONSE_SAMPLES) {
       times.shift();
     }
+  }
+
+  // ==================== Cleanup Methods ====================
+
+  /**
+   * Start the cleanup scheduler
+   */
+  private startCleanupScheduler(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupInactiveBreakers();
+    }, this.CLEANUP_INTERVAL_MS);
+
+    this.logger.log(
+      `[CircuitBreaker] Cleanup scheduler started (interval: ${this.CLEANUP_INTERVAL_MS}ms)`,
+    );
+  }
+
+  /**
+   * Stop the cleanup scheduler
+   */
+  private stopCleanupScheduler(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+      this.logger.log(`[CircuitBreaker] Cleanup scheduler stopped`);
+    }
+  }
+
+  /**
+   * Clean up breakers that have been inactive for too long
+   */
+  private cleanupInactiveBreakers(): void {
+    const now = Date.now();
+    let cleanedCount = 0;
+
+    for (const [agentId, breaker] of this.breakers) {
+      const inactiveTime = now - breaker.lastActivityTime.getTime();
+      if (inactiveTime > this.INACTIVE_TTL_MS) {
+        this.breakers.delete(agentId);
+        this.responseTimes.delete(agentId);
+        this.currentLoad.delete(agentId);
+        cleanedCount++;
+        this.logger.log(
+          `[CircuitBreaker] Cleaned inactive breaker: ${agentId} (inactive for ${Math.round(inactiveTime / 1000 / 60 / 60)}h)`,
+        );
+      }
+    }
+
+    if (cleanedCount > 0) {
+      this.logger.log(
+        `[CircuitBreaker] Cleanup completed: removed ${cleanedCount} inactive breakers. Remaining: ${this.breakers.size}`,
+      );
+    }
+  }
+
+  /**
+   * Get cleanup statistics (for admin/debugging)
+   */
+  getCleanupStats(): {
+    totalBreakers: number;
+    oldestBreakerAge: number | null;
+    nextCleanupIn: number;
+  } {
+    const now = Date.now();
+    let oldestAge: number | null = null;
+
+    for (const breaker of this.breakers.values()) {
+      const age = now - breaker.lastActivityTime.getTime();
+      if (oldestAge === null || age > oldestAge) {
+        oldestAge = age;
+      }
+    }
+
+    return {
+      totalBreakers: this.breakers.size,
+      oldestBreakerAge: oldestAge,
+      nextCleanupIn: this.CLEANUP_INTERVAL_MS, // Simplified, actual time would require tracking last cleanup
+    };
+  }
+
+  /**
+   * Force cleanup (admin action)
+   */
+  forceCleanup(): { before: number; after: number } {
+    const before = this.breakers.size;
+    this.cleanupInactiveBreakers();
+    const after = this.breakers.size;
+    return { before, after };
   }
 }

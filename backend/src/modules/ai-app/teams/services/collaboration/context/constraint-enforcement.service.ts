@@ -11,7 +11,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import {
   HardConstraint,
   MissionContextPackage,
-} from "../../interfaces/mission-context.interface";
+} from "../../../interfaces/mission-context.interface";
 
 /**
  * 约束类型

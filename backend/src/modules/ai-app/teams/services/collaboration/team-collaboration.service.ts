@@ -85,6 +85,18 @@ type ProposalWithVotes = VoteProposal & {
   initiator: { id: string; displayName: string };
 };
 
+/**
+ * 投票统计数据
+ */
+export interface VoteStatistics {
+  totalVoters: number;
+  votesReceived: number;
+  participationRate: number;
+  approves: number;
+  rejects: number;
+  abstains: number;
+}
+
 // ============================================================================
 // Service Implementation
 // ============================================================================
@@ -330,7 +342,7 @@ export class TeamCollaborationService {
     value: "APPROVE" | "REJECT" | "ABSTAIN",
     reason?: string,
     confidence?: number,
-  ): Promise<{ success: boolean; statistics: any }> {
+  ): Promise<{ success: boolean; statistics: VoteStatistics }> {
     this.logger.log(
       `[castMemberVote] Member ${memberId} voting ${value} on proposal ${proposalId}`,
     );
@@ -580,7 +592,7 @@ export class TeamCollaborationService {
   async getProposalStatus(proposalId: string): Promise<{
     exists: boolean;
     status?: string;
-    statistics?: any;
+    statistics?: VoteStatistics;
   }> {
     const proposal = await this.getProposalWithVotes(proposalId);
 

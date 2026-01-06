@@ -89,6 +89,28 @@ export class QualityMonitorService {
   }
 
   /**
+   * 更新项目总任务数
+   * 当实际任务数与初始预估不同时调用
+   */
+  updateTotalTasks(projectId: string, totalTasks: number): void {
+    const store = this.projectStores.get(projectId);
+    if (!store) {
+      this.logger.warn(
+        `Cannot update totalTasks: project not found: ${projectId}`,
+      );
+      return;
+    }
+
+    const oldTotal = store.totalTasks;
+    store.totalTasks = totalTasks;
+    store.lastUpdatedAt = new Date();
+
+    this.logger.log(
+      `Updated totalTasks for project ${projectId}: ${oldTotal} -> ${totalTasks}`,
+    );
+  }
+
+  /**
    * 评估任务质量
    */
   async evaluateTask(
@@ -174,11 +196,22 @@ export class QualityMonitorService {
       throw new Error(`Project not found: ${projectId}`);
     }
 
-    // 存储任务指标
+    // 检查是否是首次记录该任务（修订不重复计数）
+    const isNewTask = !store.taskMetrics.has(taskId);
+    const previousWordCount = store.wordStats.taskWords.get(taskId) || 0;
+
+    // 存储任务指标（更新或新增）
     store.taskMetrics.set(taskId, metrics);
     store.scoreHistory.push(metrics.overallScore);
-    store.completedTasks++;
-    store.wordStats.totalWords += metrics.wordCount;
+
+    // 只有新任务才增加完成计数
+    if (isNewTask) {
+      store.completedTasks++;
+    }
+
+    // 更新字数统计（替换而非累加）
+    store.wordStats.totalWords =
+      store.wordStats.totalWords - previousWordCount + metrics.wordCount;
     store.wordStats.taskWords.set(taskId, metrics.wordCount);
     store.lastUpdatedAt = new Date();
 

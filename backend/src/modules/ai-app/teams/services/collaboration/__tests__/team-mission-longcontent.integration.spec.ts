@@ -25,7 +25,7 @@ jest.mock(
 );
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { TeamMissionService } from "../team-mission.service";
+import { TeamMissionService } from "../mission/team-mission.service";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LongContentEngineService } from "../../../../../ai-engine/long-content/services/long-content-engine.service";
 import { ContinuationProtocolService } from "../../../../../ai-engine/long-content/services/continuation-protocol.service";
@@ -35,11 +35,15 @@ import { QualityMonitorService } from "../../../../../ai-engine/long-content/ser
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { AiChatService } from "../../../../../ai-engine/llm/services/ai-chat.service";
 import { SearchService } from "../../../../../ai-engine/search/search.service";
-import { AiTeamsGateway } from "../../../ai-teams.gateway";
-import { AgentCircuitBreakerService } from "../agent-circuit-breaker.service";
-import { MissionContextService } from "../mission-context.service";
-import { ConstraintEnforcementService } from "../constraint-enforcement.service";
+import { TopicEventEmitterService } from "../../events";
+import { AgentCircuitBreakerService } from "../agent/agent-circuit-breaker.service";
+import { MissionContextService } from "../mission/mission-context.service";
+import { ConstraintEnforcementService } from "../context/constraint-enforcement.service";
 import { EmailService } from "../../../../../core/email/email.service";
+import { MissionStateManager } from "../mission/mission-state.manager";
+import { MissionLifecycleService } from "../mission/mission-lifecycle.service";
+import { MissionRetryService } from "../mission/mission-retry.service";
+import { MissionHealthCheckService } from "../mission/mission-health-check.service";
 import { ConfigService } from "@nestjs/config";
 
 /**
@@ -93,7 +97,7 @@ describe("TeamMissionService Long Content Integration", () => {
     formatResultsForContext: jest.fn().mockReturnValue(""),
   };
 
-  const mockAiTeamsGateway = {
+  const mockTopicEventEmitterService = {
     emitToTopic: jest.fn(),
   };
 
@@ -128,7 +132,10 @@ describe("TeamMissionService Long Content Integration", () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AiChatService, useValue: mockAiChatService },
         { provide: SearchService, useValue: mockSearchService },
-        { provide: AiTeamsGateway, useValue: mockAiTeamsGateway },
+        {
+          provide: TopicEventEmitterService,
+          useValue: mockTopicEventEmitterService,
+        },
         {
           provide: AgentCircuitBreakerService,
           useValue: mockAgentCircuitBreakerService,
@@ -164,6 +171,41 @@ describe("TeamMissionService Long Content Integration", () => {
               .fn()
               .mockResolvedValue({ isValid: true, violations: [] }),
             formatConstraintsForPrompt: jest.fn().mockReturnValue(""),
+          },
+        },
+        {
+          provide: MissionStateManager,
+          useValue: {
+            startTask: jest.fn().mockReturnValue(true),
+            finishTask: jest.fn(),
+            startMissionExecution: jest.fn().mockReturnValue(true),
+            finishMissionExecution: jest.fn(),
+            startRevision: jest.fn().mockReturnValue(true),
+            finishRevision: jest.fn(),
+          },
+        },
+        {
+          provide: MissionLifecycleService,
+          useValue: {
+            cancelMission: jest.fn().mockResolvedValue({ success: true }),
+            deleteMission: jest.fn().mockResolvedValue({ success: true }),
+            pauseMission: jest.fn().mockResolvedValue({ success: true }),
+            resumeMission: jest.fn().mockResolvedValue({ success: true }),
+          },
+        },
+        {
+          provide: MissionRetryService,
+          useValue: {
+            retryMission: jest.fn().mockResolvedValue({ success: true }),
+            retryTask: jest.fn().mockResolvedValue({ success: true }),
+          },
+        },
+        {
+          provide: MissionHealthCheckService,
+          useValue: {
+            registerExecuteCallback: jest.fn(),
+            resetRecoveryAttempts: jest.fn(),
+            cleanupCompletedMission: jest.fn(),
           },
         },
       ],

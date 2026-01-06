@@ -3,7 +3,7 @@ import {
   MissionContextPackage,
   validateContextPackage,
   createEmptyContextPackage,
-} from "../../interfaces/mission-context.interface";
+} from "../../../interfaces/mission-context.interface";
 
 /**
  * Mission Context Service

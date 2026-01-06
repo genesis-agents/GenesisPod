@@ -37,11 +37,18 @@ import {
   // 协作服务
   DebateService,
   TeamMissionService,
+  MissionExecutionService,
+  MissionReviewService,
+  TaskBreakdownService,
   TeamCollaborationService,
   AgentCircuitBreakerService,
   MissionPromptService,
   MissionQueryService,
   MissionContextService,
+  MissionStateManager,
+  MissionLifecycleService,
+  MissionRetryService,
+  MissionHealthCheckService,
   // 长内容处理增强服务
   ConstraintEnforcementService,
   TokenBudgetService,
@@ -81,11 +88,18 @@ import { TeamMemberAgent } from "./agents";
     // 协作服务
     DebateService,
     TeamMissionService,
+    MissionExecutionService,
+    MissionReviewService,
+    TaskBreakdownService,
     TeamCollaborationService,
     AgentCircuitBreakerService,
     MissionPromptService,
     MissionQueryService,
     MissionContextService,
+    MissionStateManager,
+    MissionLifecycleService,
+    MissionRetryService,
+    MissionHealthCheckService,
 
     // 长内容处理增强服务
     ConstraintEnforcementService,

@@ -3,8 +3,10 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  OnModuleInit,
 } from "@nestjs/common";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
+import { Prisma } from "@prisma/client";
 import {
   MissionStatus,
   AgentTaskStatus,
@@ -13,20 +15,20 @@ import {
   MissionLogType,
   MessageContentType,
 } from "@prisma/client";
-import { CreateMissionDto } from "../../dto/create-mission.dto";
-import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
-import { SearchService } from "../../../../ai-engine/search/search.service";
-import { AiTeamsGateway } from "../../ai-teams.gateway";
+import { CreateMissionDto } from "../../../dto/create-mission.dto";
+import { AiChatService } from "../../../../../ai-engine/llm/services/ai-chat.service";
+import { SearchService } from "../../../../../ai-engine/search/search.service";
+import { TopicEventEmitterService } from "../../events";
 import {
   mapWithConcurrency,
   ConcurrencyLimits,
-} from "../../../../../common/utils/concurrency.utils";
-import { TeamsLongContentService } from "../ai/teams-long-content.service";
+} from "../../../../../../common/utils/concurrency.utils";
+import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import {
   AgentCircuitBreakerService,
   TaskCompletionType,
-} from "./agent-circuit-breaker.service";
-import { EmailService } from "../../../../core/email/email.service";
+} from "../agent/agent-circuit-breaker.service";
+import { EmailService } from "../../../../../core/email/email.service";
 import { ConfigService } from "@nestjs/config";
 import {
   findMemberByNameEnhanced,
@@ -35,139 +37,211 @@ import {
   formatMatchFailureError,
   type MatchStatistics,
   type UnmatchedItem,
-} from "./member-matching.utils";
+} from "../utils";
 import { MissionContextService } from "./mission-context.service";
-import { MissionContextPackage } from "../../interfaces/mission-context.interface";
-import { ConstraintEnforcementService } from "./constraint-enforcement.service";
+import {
+  MissionContextPackage,
+  HardConstraint,
+} from "../../../interfaces/mission-context.interface";
+import { ConstraintEnforcementService } from "../context/constraint-enforcement.service";
+import { MissionStateManager } from "./mission-state.manager";
+import { MissionLifecycleService } from "./mission-lifecycle.service";
+import { MissionRetryService } from "./mission-retry.service";
+import { MissionHealthCheckService } from "./mission-health-check.service";
+import { RETRY_CONFIG, AGENT_SWITCH_CONFIG } from "../config";
+import {
+  isRetryableError,
+  isRateLimitError,
+  isPermanentError,
+  isApiErrorContent,
+  sleep,
+  parseReviewResult,
+  extractChapterKey,
+  extractStructureHint,
+  detectLargeContentTask,
+  extractWordCount,
+  mapTaskType,
+  truncateDescription,
+  needsWebSearch,
+  buildSearchQuery,
+} from "../utils";
+import {
+  MissionWithRelations,
+  MissionWithTopic,
+  TeamMemberBase,
+  AgentTaskWithAssignee,
+  TaskBreakdownItem,
+  TaskBreakdownData,
+  TaskAssignee,
+} from "../interfaces";
 
-interface TaskBreakdownItem {
-  title: string;
-  description: string;
-  assigneeId: string;
-  assigneeName: string;
-  reason: string;
-  priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
-  taskType: string;
-  dependsOn: number[]; // 依赖的任务索引
-}
-
-interface TaskBreakdown {
-  understanding: string;
-  tasks: TaskBreakdownItem[];
-  executionPlan: string;
-  risks: string;
-}
-
-/**
- * 审核结果（增强版，带置信度）
- */
-interface ReviewResult {
-  isApproved: boolean;
-  confidence: number;
-  reason: string;
-  matchedPattern?: string;
-}
+// 注：ReviewResult 已迁移至 ./utils/parsing.utils.ts
 
 @Injectable()
-export class TeamMissionService {
+export class TeamMissionService implements OnModuleInit {
   private readonly logger = new Logger(TeamMissionService.name);
 
   // ==================== 并发控制锁 ====================
+  // 注：并发状态管理已迁移至 MissionStateManager 服务
+  // - executingTasks -> stateManager.isTaskExecuting/startTask/finishTask
+  // - executingMissions -> stateManager.isMissionExecuting/startMissionExecution/finishMissionExecution
+  // - revisingTasks -> stateManager.isRevisionInProgress/startRevision/finishRevision
 
-  /**
-   * 正在执行的任务 ID 集合（防止同一任务被重复执行）
-   */
-  private readonly executingTasks = new Set<string>();
-
-  /**
-   * 正在执行 executeNextTasks 的 Mission ID 集合（防止并发调用）
-   */
-  private readonly executingMissions = new Set<string>();
-
-  /**
-   * 正在执行修订的任务 ID 集合
-   */
-  private readonly revisingTasks = new Set<string>();
-
-  // ==================== 重试与 Agent 切换配置 ====================
-
-  /**
-   * 重试配置
-   * - maxRetries: 最大重试次数
-   * - initialDelayMs: 初始延迟（毫秒）
-   * - maxDelayMs: 最大延迟（毫秒）
-   * - backoffMultiplier: 退避系数（指数退避）
-   */
-  private readonly RETRY_CONFIG = {
-    maxRetries: 3,
-    initialDelayMs: 1000,
-    maxDelayMs: 10000,
-    backoffMultiplier: 2,
-    // 可重试的错误模式（临时性错误）
-    // ★ 注意：Rate Limit 错误已移至 nonRetryablePatterns
-    // 因为重试只会让限速情况更糟，应该直接走 CircuitBreaker 切换 Agent
-    retryablePatterns: [
-      /timeout/i,
-      /timed?\s*out/i,
-      /5\d{2}/, // 5xx 服务器错误（非 429）
-      /ECONNRESET/i,
-      /ETIMEDOUT/i,
-      /ENOTFOUND/i,
-      /network/i,
-      /socket hang up/i,
-      /connection.*refused/i,
-      /temporarily unavailable/i,
-      /service unavailable/i,
-      /overloaded/i,
-    ],
-    // 不可重试的错误模式（永久性错误 + 限速错误）
-    // ★ Rate Limit 错误不应重试，应该立即切换 Agent
-    nonRetryablePatterns: [
-      // Rate Limit - 需要立即停止并切换 Agent
-      /rate.?limit/i,
-      /too many requests/i,
-      /429/,
-      /quota/i,
-      // 永久性错误
-      /context.*(too large|overflow|exceed)/i,
-      /token.*(limit|exceed|max)/i,
-      /invalid.*(request|api.?key|model)/i,
-      /authentication/i,
-      /authorization/i,
-      /forbidden/i,
-      /not found/i,
-      /model.*not.*available/i,
-      /content.*policy/i,
-      /403/,
-      /401/,
-      /404/,
-    ],
-  };
-
-  /**
-   * Agent 切换配置
-   */
-  private readonly AGENT_SWITCH_CONFIG = {
-    // 允许切换的最大次数
-    maxSwitches: 2,
-    // 是否允许 Leader 作为最后备选
-    allowLeaderFallback: true,
-    // 任务负载权重（优先选择负载低的 Agent）
-    loadBalancingEnabled: true,
-  };
+  // ==================== 配置常量 ====================
+  // 注：配置已迁移至 ./config/mission.config.ts
+  // - RETRY_CONFIG: 重试配置
+  // - AGENT_SWITCH_CONFIG: Agent 切换配置
+  // - TASK_TIMEOUT_CONFIG: 任务超时配置
+  // - LEADER_REVIEW_CONFIG: Leader 审核配置
 
   constructor(
     private prisma: PrismaService,
     private aiChatService: AiChatService,
     private searchService: SearchService,
-    private aiTeamsGateway: AiTeamsGateway,
+    private topicEventEmitter: TopicEventEmitterService,
     private longContentService: TeamsLongContentService,
     private circuitBreaker: AgentCircuitBreakerService,
     private emailService: EmailService,
     private configService: ConfigService,
     private missionContextService: MissionContextService,
     private constraintEnforcementService: ConstraintEnforcementService,
+    private stateManager: MissionStateManager,
+    private lifecycleService: MissionLifecycleService,
+    private retryService: MissionRetryService,
+    private healthCheckService: MissionHealthCheckService,
   ) {}
+
+  // ==================== 生命周期钩子 ====================
+
+  /**
+   * 服务启动时恢复卡住的任务
+   * - 重置超过 30 分钟的 IN_PROGRESS 任务为 PENDING
+   * - 重置超过 30 分钟的 IN_PROGRESS Mission 为 BLOCKED（等待人工干预）
+   */
+  async onModuleInit(): Promise<void> {
+    this.logger.log(
+      `[TeamMissionService] Initializing - checking for stuck tasks...`,
+    );
+    await this.recoverStuckTasks();
+
+    // 注册健康检查回调
+    this.healthCheckService.registerExecuteCallback((missionId: string) =>
+      this.executeNextTasks(missionId),
+    );
+  }
+
+  /**
+   * 恢复卡住的任务和 Mission
+   */
+  private async recoverStuckTasks(): Promise<void> {
+    const stuckThreshold = new Date(Date.now() - 30 * 60 * 1000); // 30 分钟前
+
+    try {
+      // 恢复卡住的 AgentTask（IN_PROGRESS 且 startedAt 超过 30 分钟）
+      const stuckTasks = await this.prisma.agentTask.findMany({
+        where: {
+          status: AgentTaskStatus.IN_PROGRESS,
+          startedAt: { lt: stuckThreshold },
+        },
+        include: {
+          mission: true,
+        },
+      });
+
+      if (stuckTasks.length > 0) {
+        this.logger.warn(
+          `[Recovery] Found ${stuckTasks.length} stuck tasks (IN_PROGRESS > 30min)`,
+        );
+
+        for (const task of stuckTasks) {
+          await this.prisma.agentTask.update({
+            where: { id: task.id },
+            data: {
+              status: AgentTaskStatus.PENDING,
+              startedAt: null,
+            },
+          });
+          this.logger.log(
+            `[Recovery] Reset stuck task: ${task.id} (${task.title}) -> PENDING`,
+          );
+        }
+      }
+
+      // 恢复卡住的 Mission（IN_PROGRESS 超过 30 分钟但所有任务都不是 IN_PROGRESS）
+      // 使用原始 SQL 查询获取带有 tasks 的 Mission
+      const stuckMissions = await this.prisma.teamMission.findMany({
+        where: {
+          status: MissionStatus.IN_PROGRESS,
+          createdAt: { lt: stuckThreshold }, // 使用 createdAt 作为替代
+        },
+        include: {
+          tasks: true,
+        },
+      });
+
+      // 过滤出没有正在执行任务的 Mission
+      const filteredMissions = stuckMissions.filter(
+        (mission) =>
+          !mission.tasks.some(
+            (t: { status: AgentTaskStatus }) =>
+              t.status === AgentTaskStatus.IN_PROGRESS,
+          ),
+      );
+
+      if (filteredMissions.length > 0) {
+        this.logger.warn(
+          `[Recovery] Found ${filteredMissions.length} stuck missions (IN_PROGRESS > 30min with no active tasks)`,
+        );
+
+        for (const mission of filteredMissions) {
+          // 检查是否有 PENDING 任务可以继续执行
+          const hasPendingTasks = mission.tasks.some(
+            (t: { status: AgentTaskStatus }) =>
+              t.status === AgentTaskStatus.PENDING,
+          );
+
+          if (hasPendingTasks) {
+            // 有 PENDING 任务，尝试继续执行
+            this.logger.log(
+              `[Recovery] Mission ${mission.id} has pending tasks, triggering executeNextTasks`,
+            );
+            // 异步触发，不等待
+            this.executeNextTasks(mission.id).catch((e) =>
+              this.logger.error(
+                `[Recovery] Failed to resume mission ${mission.id}: ${e}`,
+              ),
+            );
+          } else {
+            // 没有 PENDING 任务但仍是 IN_PROGRESS，标记为 PAUSED（需要人工干预）
+            await this.prisma.teamMission.update({
+              where: { id: mission.id },
+              data: {
+                status: MissionStatus.PAUSED,
+              },
+            });
+            this.logger.warn(
+              `[Recovery] Mission ${mission.id} marked as PAUSED (no pending tasks, stuck state)`,
+            );
+          }
+        }
+      }
+
+      const totalRecovered = stuckTasks.length + filteredMissions.length;
+      if (totalRecovered === 0) {
+        this.logger.log(`[Recovery] No stuck tasks or missions found`);
+      } else {
+        this.logger.log(
+          `[Recovery] Completed: ${stuckTasks.length} tasks reset, ${filteredMissions.length} missions handled`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `[Recovery] Failed to recover stuck tasks: ${error instanceof Error ? error.message : error}`,
+      );
+    }
+  }
+
+  // ==================== AI 模型配置 ====================
 
   /**
    * Get AI model config from database by model identifier
@@ -286,123 +360,8 @@ export class TeamMissionService {
   }
 
   // ==================== 重试与 Agent 切换辅助方法 ====================
-
-  /**
-   * 判断错误是否可重试
-   * 可重试：超时、速率限制、服务器错误（5xx）、网络错误
-   * 不可重试：上下文过大、认证错误、无效请求（4xx）
-   */
-  private isRetryableError(errorMsg: string): boolean {
-    // 先检查不可重试的错误（优先级更高）
-    for (const pattern of this.RETRY_CONFIG.nonRetryablePatterns) {
-      if (pattern.test(errorMsg)) {
-        this.logger.debug(
-          `[isRetryableError] Non-retryable error detected: ${errorMsg}`,
-        );
-        return false;
-      }
-    }
-
-    // 检查可重试的错误
-    for (const pattern of this.RETRY_CONFIG.retryablePatterns) {
-      if (pattern.test(errorMsg)) {
-        this.logger.debug(
-          `[isRetryableError] Retryable error detected: ${errorMsg}`,
-        );
-        return true;
-      }
-    }
-
-    // 默认：重试（大多数未知错误是临时性的）
-    return true;
-  }
-
-  /**
-   * 检查是否是 Rate Limit 错误
-   * Rate Limit 错误需要特殊处理：不重试，但可以切换 Agent
-   */
-  private isRateLimitError(errorMsg: string): boolean {
-    const rateLimitPatterns = [
-      /rate.?limit/i,
-      /too many requests/i,
-      /429/,
-      /quota/i,
-    ];
-    return rateLimitPatterns.some((pattern) => pattern.test(errorMsg));
-  }
-
-  /**
-   * 检查是否是永久性错误（不能通过切换 Agent 解决）
-   * 如：上下文过大、认证错误、无效请求等
-   */
-  private isPermanentError(errorMsg: string): boolean {
-    const permanentPatterns = [
-      /context.*(too large|overflow|exceed)/i,
-      /token.*(limit|exceed|max)/i,
-      /invalid.*(request|api.?key|model)/i,
-      /authentication/i,
-      /authorization/i,
-      /forbidden/i,
-      /not found/i,
-      /model.*not.*available/i,
-      /content.*policy/i,
-      /403/,
-      /401/,
-      /404/,
-    ];
-    return permanentPatterns.some((pattern) => pattern.test(errorMsg));
-  }
-
-  /**
-   * 检查内容是否包含API错误信息
-   * 用于识别那些虽然请求成功但内容实际上是错误的情况
-   */
-  private isApiErrorContent(content: string): boolean {
-    if (!content) return false;
-
-    const errorPatterns = [
-      /API Error[:：]/i,
-      /Rate limit exceeded/i,
-      /Please check your API key/i,
-      /请检查.*API/,
-      /Provider[:：]\s*\w+\s*Model[:：]/i, // "Provider: xAI\nModel: grok-3" 这种格式
-      /\[修订失败\]/,
-      /\[任务执行失败\]/,
-      /ECONNREFUSED/,
-      /ETIMEDOUT/,
-      /500 Internal Server Error/i,
-      /503 Service Unavailable/i,
-      /quota exceeded/i,
-      /insufficient.*quota/i,
-    ];
-
-    for (const pattern of errorPatterns) {
-      if (pattern.test(content)) {
-        this.logger.debug(
-          `[isApiErrorContent] API error pattern detected: ${pattern}`,
-        );
-        return true;
-      }
-    }
-
-    // 检查内容是否过短且不像正常内容（API错误通常很短）
-    const trimmedContent = content.trim();
-    if (
-      trimmedContent.length < 100 &&
-      (trimmedContent.includes("Error") || trimmedContent.includes("错误"))
-    ) {
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * 睡眠指定毫秒数
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
+  // 注：工具函数已迁移至 ./utils/retry.utils.ts
+  // - isRetryableError, isRateLimitError, isPermanentError, isApiErrorContent, sleep
 
   /**
    * 查找替代 Agent
@@ -412,10 +371,10 @@ export class TeamMissionService {
    * 3. 未曾尝试过此任务的 Agent
    */
   private async findAlternativeAgent(
-    mission: any,
+    mission: MissionWithRelations,
     failedAgentIds: string[],
-    _task: any, // 保留用于未来扩展（如按任务类型选择 Agent）
-  ): Promise<any | null> {
+    _task: AgentTaskWithAssignee, // 保留用于未来扩展（如按任务类型选择 Agent）
+  ): Promise<TeamMemberBase | null> {
     try {
       // 获取所有团队成员
       const teamMemberResult = await this.getTeamMembers(mission.topicId);
@@ -430,7 +389,7 @@ export class TeamMissionService {
 
       // 过滤：排除已失败的 Agent 和 Leader（优先）
       let candidates = allMembers.filter(
-        (m: any) => !failedAgentIds.includes(m.id) && !m.isLeader,
+        (m: TeamMemberBase) => !failedAgentIds.includes(m.id) && !m.isLeader,
       );
 
       this.logger.log(
@@ -438,12 +397,9 @@ export class TeamMissionService {
       );
 
       // 如果没有非 Leader 候选，且配置允许，考虑 Leader 作为备选
-      if (
-        candidates.length === 0 &&
-        this.AGENT_SWITCH_CONFIG.allowLeaderFallback
-      ) {
+      if (candidates.length === 0 && AGENT_SWITCH_CONFIG.allowLeaderFallback) {
         const leader = allMembers.find(
-          (m: any) => m.isLeader && !failedAgentIds.includes(m.id),
+          (m: TeamMemberBase) => m.isLeader && !failedAgentIds.includes(m.id),
         );
         if (leader) {
           this.logger.log(
@@ -461,10 +417,7 @@ export class TeamMissionService {
       }
 
       // 如果启用负载均衡，按当前任务数排序
-      if (
-        this.AGENT_SWITCH_CONFIG.loadBalancingEnabled &&
-        candidates.length > 1
-      ) {
+      if (AGENT_SWITCH_CONFIG.loadBalancingEnabled && candidates.length > 1) {
         const agentTaskCounts = await this.prisma.agentTask.groupBy({
           by: ["assignedToId"],
           where: {
@@ -478,14 +431,14 @@ export class TeamMissionService {
           agentTaskCounts.map((a) => [a.assignedToId, a._count._all]),
         );
 
-        candidates.sort((a: any, b: any) => {
+        candidates.sort((a: TeamMemberBase, b: TeamMemberBase) => {
           const countA = taskCountMap.get(a.id) || 0;
           const countB = taskCountMap.get(b.id) || 0;
           return countA - countB;
         });
 
         this.logger.log(
-          `[findAlternativeAgent] Sorted by load: ${candidates.map((c: any) => `${c.displayName}(${taskCountMap.get(c.id) || 0})`).join(", ")}`,
+          `[findAlternativeAgent] Sorted by load: ${candidates.map((c: TeamMemberBase) => `${c.displayName}(${taskCountMap.get(c.id) || 0})`).join(", ")}`,
         );
       }
 
@@ -524,7 +477,7 @@ export class TeamMissionService {
     finalModel: string;
   }> {
     const { maxRetries, initialDelayMs, maxDelayMs, backoffMultiplier } =
-      this.RETRY_CONFIG;
+      RETRY_CONFIG;
     let lastError = "";
 
     // ★ 心跳机制：每 3 秒发送一次状态更新，让前端知道 Agent 还活着
@@ -537,7 +490,7 @@ export class TeamMissionService {
       heartbeatCount = 0;
       heartbeatTimer = setInterval(() => {
         heartbeatCount++;
-        this.aiTeamsGateway.emitToTopic(
+        this.topicEventEmitter.emitToTopic(
           heartbeatContext.topicId,
           "mission:agent_working",
           {
@@ -600,7 +553,7 @@ export class TeamMissionService {
         );
 
         // 检查是否应该重试
-        if (attempt < maxRetries && this.isRetryableError(lastError)) {
+        if (attempt < maxRetries && isRetryableError(lastError)) {
           const delay = Math.min(
             initialDelayMs * Math.pow(backoffMultiplier, attempt - 1),
             maxDelayMs,
@@ -608,7 +561,7 @@ export class TeamMissionService {
           this.logger.log(
             `[callAIWithRetry] Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})...`,
           );
-          await this.sleep(delay);
+          await sleep(delay);
           continue;
         }
 
@@ -681,7 +634,7 @@ export class TeamMissionService {
     );
 
     // 广播任务创建事件
-    this.aiTeamsGateway.emitToTopic(topicId, "mission:created", {
+    this.topicEventEmitter.emitToTopic(topicId, "mission:created", {
       mission,
       messageId: systemMessage?.id,
     });
@@ -737,20 +690,28 @@ export class TeamMissionService {
     });
 
     // 广播状态变更
-    this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:status_changed", {
-      missionId,
-      status: MissionStatus.PLANNING,
-      previousStatus: MissionStatus.PENDING,
-    });
+    this.topicEventEmitter.emitToTopic(
+      mission.topicId,
+      "mission:status_changed",
+      {
+        missionId,
+        status: MissionStatus.PLANNING,
+        previousStatus: MissionStatus.PENDING,
+      },
+    );
 
     // 广播 Leader 开始规划 (显示 thinking 状态)
-    this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:agent_working", {
-      missionId: mission.id,
-      taskId: null,
-      agentId: mission.leader.id,
-      agentName: mission.leader.agentName || mission.leader.displayName,
-      status: "planning",
-    });
+    this.topicEventEmitter.emitToTopic(
+      mission.topicId,
+      "mission:agent_working",
+      {
+        missionId: mission.id,
+        taskId: null,
+        agentId: mission.leader.id,
+        agentName: mission.leader.agentName || mission.leader.displayName,
+        status: "planning",
+      },
+    );
 
     // 发送 Leader 正在思考的消息
     await this.sendMessageToTopic(
@@ -826,14 +787,15 @@ export class TeamMissionService {
 
   // ==================== Leader 规划任务 ====================
 
-  private async executeLeaderPlanning(mission: any) {
+  private async executeLeaderPlanning(mission: MissionWithTopic) {
     const { leader, topic } = mission;
     const teamMembers = topic.aiMembers;
 
     try {
       // 构建 Leader 规划提示词
+      // 使用类型断言，因为 MissionWithTopic 包含所有必需字段
       let planningPrompt = this.buildLeaderPlanningPrompt(
-        mission,
+        mission as MissionWithRelations,
         leader,
         teamMembers,
       );
@@ -869,7 +831,7 @@ export class TeamMissionService {
             maxDescLen === 8000
               ? planningPrompt
               : this.buildLeaderPlanningPrompt(
-                  mission,
+                  mission as MissionWithRelations,
                   leader,
                   teamMembers,
                   maxDescLen,
@@ -1043,8 +1005,20 @@ export class TeamMissionService {
         },
       });
 
+      // ★ 更新长内容服务的任务总数（修复统计数据错误）
+      try {
+        this.longContentService.updateTotalTasks(
+          mission.id,
+          breakdown.tasks.length,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `[startMission] Failed to update long content totalTasks: ${error}`,
+        );
+      }
+
       // 广播状态变更
-      this.aiTeamsGateway.emitToTopic(
+      this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:status_changed",
         {
@@ -1056,11 +1030,15 @@ export class TeamMissionService {
       );
 
       // 清除 Leader 规划状态 (规划完成)
-      this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:agent_done", {
-        missionId: mission.id,
-        taskId: null,
-        agentId: leader.id,
-      });
+      this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:agent_done",
+        {
+          missionId: mission.id,
+          taskId: null,
+          agentId: leader.id,
+        },
+      );
 
       // 开始执行任务
       await this.executeNextTasks(mission.id);
@@ -1068,11 +1046,15 @@ export class TeamMissionService {
       this.logger.error(`Leader planning failed: ${error}`);
 
       // 清除 Leader 规划状态 (规划失败)
-      this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:agent_done", {
-        missionId: mission.id,
-        taskId: null,
-        agentId: leader.id,
-      });
+      this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:agent_done",
+        {
+          missionId: mission.id,
+          taskId: null,
+          agentId: leader.id,
+        },
+      );
 
       await this.prisma.teamMission.update({
         where: { id: mission.id },
@@ -1092,14 +1074,12 @@ export class TeamMissionService {
 
   private async executeNextTasks(missionId: string) {
     // 🔒 并发控制：防止同一 Mission 的 executeNextTasks 被并发调用
-    if (this.executingMissions.has(missionId)) {
+    if (!this.stateManager.startMissionExecution(missionId)) {
       this.logger.debug(
         `[executeNextTasks] Mission ${missionId} is already being processed, skipping`,
       );
       return;
     }
-
-    this.executingMissions.add(missionId);
     this.logger.debug(
       `[executeNextTasks] Acquired lock for mission ${missionId}`,
     );
@@ -1127,7 +1107,7 @@ export class TeamMissionService {
         .filter(
           (t) =>
             t.status === AgentTaskStatus.PENDING &&
-            !this.executingTasks.has(t.id), // 🔒 排除已在执行中的任务
+            !this.stateManager.isTaskExecuting(t.id), // 🔒 排除已在执行中的任务
         )
         .sort(
           (a, b) =>
@@ -1278,11 +1258,105 @@ export class TeamMissionService {
                   startedAt: null,
                 },
               });
-              this.executingTasks.delete(task.id);
+              this.stateManager.finishTask(task.id);
             }
             // 递归调用以重新执行
             await this.executeNextTasks(missionId);
             return;
+          }
+        }
+
+        // ★★★ 优先级 5: 检查依赖阻塞的 PENDING 任务 ★★★
+        const pendingWithDeps = mission.tasks.filter(
+          (t) =>
+            t.status === AgentTaskStatus.PENDING &&
+            (t.dependsOnIds || []).length > 0,
+        );
+
+        if (pendingWithDeps.length > 0) {
+          // 分析依赖阻塞情况
+          const blockedByUnfinished: Array<{
+            task: (typeof mission.tasks)[0];
+            blockingTasks: Array<{
+              id: string;
+              title: string;
+              status: AgentTaskStatus;
+            }>;
+          }> = [];
+
+          for (const task of pendingWithDeps) {
+            const dependsOnIds = task.dependsOnIds || [];
+            const blockingTasks = dependsOnIds
+              .map((depId) => mission.tasks.find((t) => t.id === depId))
+              .filter(
+                (t): t is NonNullable<typeof t> =>
+                  !!t && t.status !== AgentTaskStatus.COMPLETED,
+              )
+              .map((t) => ({ id: t.id, title: t.title, status: t.status }));
+
+            if (blockingTasks.length > 0) {
+              blockedByUnfinished.push({ task, blockingTasks });
+            }
+          }
+
+          if (blockedByUnfinished.length > 0) {
+            // 输出详细的依赖阻塞诊断
+            this.logger.warn(
+              `[Mission ${missionId}] 🔗 Dependency Analysis: ${blockedByUnfinished.length} PENDING tasks blocked by unfinished dependencies`,
+            );
+
+            // 只输出前 5 个阻塞任务的详情，避免日志过长
+            const sampleBlocked = blockedByUnfinished.slice(0, 5);
+            for (const { task, blockingTasks } of sampleBlocked) {
+              this.logger.warn(
+                `  - "${task.title}" blocked by: ${blockingTasks.map((b) => `"${b.title}"(${b.status})`).join(", ")}`,
+              );
+            }
+
+            // ★ 依赖松弛策略：如果 Mission 创建时间超过 30 分钟且没有任何进展，考虑松弛依赖
+            const DEPENDENCY_RELAX_TIMEOUT_MS = 30 * 60 * 1000; // 30 分钟
+            const missionAge = now - new Date(mission.createdAt).getTime();
+
+            if (
+              missionAge > DEPENDENCY_RELAX_TIMEOUT_MS &&
+              inProgressTasks.length === 0
+            ) {
+              this.logger.warn(
+                `[Mission ${missionId}] ⚠️ Mission stuck for ${Math.round(missionAge / 60000)}min with no active tasks. Attempting dependency relaxation...`,
+              );
+
+              // 找到可以松弛依赖的任务（依赖任务已经失败或被阻塞超过阈值）
+              let relaxedCount = 0;
+              for (const { task, blockingTasks } of blockedByUnfinished) {
+                // 检查阻塞任务是否都是"无法完成"状态
+                const allBlockersStuck = blockingTasks.every(
+                  (b) =>
+                    b.status === AgentTaskStatus.BLOCKED ||
+                    b.status === AgentTaskStatus.REVISION_NEEDED,
+                );
+
+                if (allBlockersStuck && relaxedCount < 3) {
+                  // 每次最多松弛 3 个任务
+                  // 清除依赖，允许任务开始
+                  await this.prisma.agentTask.update({
+                    where: { id: task.id },
+                    data: {
+                      dependsOnIds: [], // 清除依赖
+                    },
+                  });
+                  relaxedCount++;
+                  this.logger.log(
+                    `[Mission ${missionId}] ✅ Relaxed dependencies for task "${task.title}"`,
+                  );
+                }
+              }
+
+              if (relaxedCount > 0) {
+                // 递归调用以执行松弛后的任务
+                await this.executeNextTasks(missionId);
+                return;
+              }
+            }
           }
         }
 
@@ -1291,11 +1365,14 @@ export class TeamMissionService {
 
       // 🔒 在执行前先标记所有任务为"执行中"（防止并发重复执行）
       for (const task of finalTasksToStart) {
-        this.executingTasks.add(task.id);
+        this.stateManager.startTask(task.id, task.title);
         this.logger.debug(
           `[executeNextTasks] Marked task ${task.id} (${task.title}) as executing`,
         );
       }
+
+      // ★ 任务开始执行，重置健康检查的恢复计数
+      this.healthCheckService.resetRecoveryAttempts(missionId);
 
       // ★ 优化：批量发送任务分配消息（不阻塞任务执行）
       // 使用 Promise.all 并行发送所有消息，但不等待完成
@@ -1324,7 +1401,7 @@ export class TeamMissionService {
       ]);
     } finally {
       // 🔒 释放 Mission 锁
-      this.executingMissions.delete(missionId);
+      this.stateManager.finishMissionExecution(missionId);
       this.logger.debug(
         `[executeNextTasks] Released lock for mission ${missionId}`,
       );
@@ -1333,7 +1410,10 @@ export class TeamMissionService {
 
   // ==================== 执行单个任务 ====================
 
-  private async executeTask(mission: any, task: any) {
+  private async executeTask(
+    mission: MissionWithRelations,
+    task: AgentTaskWithAssignee,
+  ) {
     const { assignedTo } = task;
 
     try {
@@ -1386,7 +1466,7 @@ export class TeamMissionService {
       ]);
 
       // 广播 Agent 工作状态（WebSocket 本身是非阻塞的）
-      this.aiTeamsGateway.emitToTopic(
+      this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_working",
         {
@@ -1401,14 +1481,14 @@ export class TeamMissionService {
       // 检查是否需要联网搜索（检测任务描述中的关键词）
       let searchContext = "";
       if (
-        this.needsWebSearch(
+        needsWebSearch(
           mission.title,
           mission.description,
           task.title,
           task.description,
         )
       ) {
-        const searchQuery = this.buildSearchQuery(
+        const searchQuery = buildSearchQuery(
           mission.title,
           task.title,
           task.description,
@@ -1490,7 +1570,7 @@ export class TeamMissionService {
       const taskStartTime = Date.now();
 
       // 外层循环：Agent 切换
-      while (switchCount <= this.AGENT_SWITCH_CONFIG.maxSwitches) {
+      while (switchCount <= AGENT_SWITCH_CONFIG.maxSwitches) {
         this.logger.log(
           `[executeTask] Attempting task "${task.title}" with agent ${currentAgent.displayName} (${currentAgent.aiModel})`,
         );
@@ -1511,7 +1591,7 @@ export class TeamMissionService {
           });
 
           // 广播 Agent 切换
-          this.aiTeamsGateway.emitToTopic(
+          this.topicEventEmitter.emitToTopic(
             mission.topicId,
             "mission:agent_switched",
             {
@@ -1586,7 +1666,7 @@ export class TeamMissionService {
         // 检查错误类型决定是否切换 Agent
         // ★ 使用 isPermanentError 而不是 !isRetryableError
         // Rate Limit 错误虽然不应重试，但可以通过切换 Agent 解决
-        if (this.isPermanentError(errorMsg)) {
+        if (isPermanentError(errorMsg)) {
           // 真正的永久性错误（如上下文过大），直接走 Leader 重新规划
           this.logger.log(
             `[executeTask] Permanent error detected, skipping agent switch and going to Leader replan`,
@@ -1601,7 +1681,7 @@ export class TeamMissionService {
         }
 
         // Rate Limit 错误：记录日志，然后尝试切换 Agent
-        if (this.isRateLimitError(errorMsg)) {
+        if (isRateLimitError(errorMsg)) {
           this.logger.warn(
             `[executeTask] Rate limit detected for ${currentAgent.displayName}, switching to alternative agent immediately`,
           );
@@ -1774,7 +1854,7 @@ export class TeamMissionService {
       }
 
       // 检查最终内容是否包含API错误（防止错误内容被当作成功结果）
-      const isApiError = this.isApiErrorContent(finalContent);
+      const isApiError = isApiErrorContent(finalContent);
       if (isApiError) {
         this.logger.warn(
           `[executeTask] Task "${task.title}" result contains API error, treating as failure`,
@@ -1825,18 +1905,22 @@ export class TeamMissionService {
       });
 
       // 广播任务完成
-      this.aiTeamsGateway.emitToTopic(mission.topicId, "task:completed", {
+      this.topicEventEmitter.emitToTopic(mission.topicId, "task:completed", {
         missionId: mission.id,
         taskId: task.id,
         agentId: currentAgent.id,
       });
 
       // 清除Agent工作状态 (任务执行完成)
-      this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:agent_done", {
-        missionId: mission.id,
-        taskId: task.id,
-        agentId: currentAgent.id,
-      });
+      this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:agent_done",
+        {
+          missionId: mission.id,
+          taskId: task.id,
+          agentId: currentAgent.id,
+        },
+      );
 
       // Leader 审核
       await this.leaderReviewTask(mission, task, finalContent);
@@ -1856,7 +1940,7 @@ export class TeamMissionService {
       );
     } finally {
       // 🔒 释放任务锁
-      this.executingTasks.delete(task.id);
+      this.stateManager.finishTask(task.id);
 
       // 🔒 Circuit Breaker: 减少 Agent 负载计数
       this.circuitBreaker.decrementLoad(assignedTo.id);
@@ -1876,10 +1960,10 @@ export class TeamMissionService {
    * 3. 优先选择健康度高、负载低的 Agent
    */
   private async findAlternativeAgentWithCircuitBreaker(
-    mission: any,
+    mission: MissionWithRelations,
     failedAgentIds: string[],
-    _task: any, // Reserved for future task-type based selection
-  ): Promise<any | null> {
+    _task: AgentTaskWithAssignee, // Reserved for future task-type based selection
+  ): Promise<TeamMemberBase | null> {
     try {
       // 获取所有团队成员
       const teamMemberResult = await this.getTeamMembers(mission.topicId);
@@ -1893,7 +1977,7 @@ export class TeamMissionService {
       }
 
       // 过滤：排除已失败的 Agent、Leader、和正在冷却中的 Agent
-      let candidates = allMembers.filter((m: any) => {
+      let candidates = allMembers.filter((m: TeamMemberBase) => {
         // 排除已失败的
         if (failedAgentIds.includes(m.id)) return false;
 
@@ -1916,12 +2000,9 @@ export class TeamMissionService {
       );
 
       // 如果没有健康的非 Leader 候选，考虑 Leader 作为备选
-      if (
-        candidates.length === 0 &&
-        this.AGENT_SWITCH_CONFIG.allowLeaderFallback
-      ) {
+      if (candidates.length === 0 && AGENT_SWITCH_CONFIG.allowLeaderFallback) {
         const leader = allMembers.find(
-          (m: any) =>
+          (m: TeamMemberBase) =>
             m.isLeader &&
             !failedAgentIds.includes(m.id) &&
             this.circuitBreaker.canExecute(m.id),
@@ -1942,11 +2023,13 @@ export class TeamMissionService {
       }
 
       // 使用 Circuit Breaker 选择最佳 Agent
-      const candidateIds = candidates.map((c: any) => c.id);
+      const candidateIds = candidates.map((c: TeamMemberBase) => c.id);
       const bestAgentId = this.circuitBreaker.selectBestAgent(candidateIds);
 
       if (bestAgentId) {
-        const selected = candidates.find((c: any) => c.id === bestAgentId);
+        const selected = candidates.find(
+          (c: TeamMemberBase) => c.id === bestAgentId,
+        );
         if (selected) {
           const metrics = this.circuitBreaker.getHealthMetrics(bestAgentId);
           this.logger.log(
@@ -1978,9 +2061,9 @@ export class TeamMissionService {
    * 当 AI 调用失败（如上下文过大）时触发
    */
   private async handleTaskExecutionFailure(
-    mission: any,
-    task: any,
-    assignedTo: any,
+    mission: MissionWithRelations,
+    task: AgentTaskWithAssignee,
+    assignedTo: TaskAssignee,
     errorMsg: string,
   ) {
     const { leader } = mission;
@@ -2067,7 +2150,7 @@ export class TeamMissionService {
             for (const newTask of replanData.newTasks) {
               // 找到分配的成员
               const assignee = teamMembers.find(
-                (m: any) =>
+                (m: TeamMemberBase) =>
                   m.agentName === newTask.assignee ||
                   m.displayName === newTask.assignee,
               );
@@ -2127,12 +2210,16 @@ export class TeamMissionService {
 
   // ==================== Leader 审核任务 ====================
 
-  private async leaderReviewTask(mission: any, task: any, taskResult: string) {
+  private async leaderReviewTask(
+    mission: MissionWithRelations,
+    task: AgentTaskWithAssignee,
+    taskResult: string,
+  ) {
     const { leader } = mission;
 
     try {
       // 广播 Leader 开始审核 (显示 thinking 状态)
-      this.aiTeamsGateway.emitToTopic(
+      this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:agent_working",
         {
@@ -2203,7 +2290,7 @@ export class TeamMissionService {
         // 启动审核心跳
         reviewHeartbeatTimer = setInterval(() => {
           reviewHeartbeatCount++;
-          this.aiTeamsGateway.emitToTopic(
+          this.topicEventEmitter.emitToTopic(
             mission.topicId,
             "mission:agent_working",
             {
@@ -2242,7 +2329,7 @@ export class TeamMissionService {
       }
 
       // 解析审核结果（增强版，带置信度）
-      const reviewResult = this.parseReviewResult(aiResponse.content);
+      const reviewResult = parseReviewResult(aiResponse.content);
       const isApproved = reviewResult.isApproved;
 
       // 记录审核解析详情
@@ -2272,11 +2359,15 @@ export class TeamMissionService {
       });
 
       // 清除 Leader 审核状态 (审核完成)
-      this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:agent_done", {
-        missionId: mission.id,
-        taskId: task.id,
-        agentId: leader.id,
-      });
+      this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:agent_done",
+        {
+          missionId: mission.id,
+          taskId: task.id,
+          agentId: leader.id,
+        },
+      );
 
       if (isApproved) {
         // 审核通过
@@ -2311,7 +2402,7 @@ export class TeamMissionService {
           if (hasValidContent) {
             // 有有效内容，强制通过但记录警告
             this.logger.warn(
-              `[Leader Review] Task "${task.title}" force passed after ${currentRevisions} revisions (has content: ${task.result.length} chars)`,
+              `[Leader Review] Task "${task.title}" force passed after ${currentRevisions} revisions (has content: ${task.result?.length ?? 0} chars)`,
             );
 
             await this.prisma.agentTask.update({
@@ -2402,18 +2493,20 @@ export class TeamMissionService {
 
   // ==================== 执行任务修改 ====================
 
-  private async executeTaskRevision(mission: any, task: any, feedback: string) {
+  private async executeTaskRevision(
+    mission: MissionWithRelations,
+    task: AgentTaskWithAssignee,
+    feedback: string,
+  ) {
     const { assignedTo } = task;
 
     // 🔒 并发控制：防止同一任务的修订被并发执行
-    if (this.revisingTasks.has(task.id)) {
+    if (!this.stateManager.startRevision(task.id, task.title)) {
       this.logger.debug(
         `[executeTaskRevision] Task "${task.title}" (${task.id}) is already being revised, skipping`,
       );
       return;
     }
-
-    this.revisingTasks.add(task.id);
     this.logger.debug(
       `[executeTaskRevision] Acquired revision lock for task "${task.title}" (${task.id})`,
     );
@@ -2494,7 +2587,12 @@ export class TeamMissionService {
           MessageContentType.TEXT,
         );
 
-        // 保持任务在 REVISION_NEEDED 状态，不要标记为完成
+        // ★ 恢复任务状态为 REVISION_NEEDED，避免卡住
+        await this.prisma.agentTask.update({
+          where: { id: task.id },
+          data: { status: AgentTaskStatus.REVISION_NEEDED },
+        });
+
         await this.createLog(mission.id, {
           type: MissionLogType.TASK_FAILED,
           agentId: assignedTo.id,
@@ -2523,6 +2621,12 @@ export class TeamMissionService {
           `[任务修改失败]\n\n@${leaderName} 任务「${task.title}」修改过程中遇到技术问题：\n\n> ${aiResponse.content}\n\n请稍后重试。`,
           MessageContentType.TEXT,
         );
+
+        // ★ 恢复任务状态为 REVISION_NEEDED，避免卡住
+        await this.prisma.agentTask.update({
+          where: { id: task.id },
+          data: { status: AgentTaskStatus.REVISION_NEEDED },
+        });
 
         await this.createLog(mission.id, {
           type: MissionLogType.TASK_FAILED,
@@ -2619,7 +2723,7 @@ export class TeamMissionService {
       // 不要调用 executeNextTasks，因为任务状态不是 COMPLETED
     } finally {
       // 🔒 释放修订锁
-      this.revisingTasks.delete(task.id);
+      this.stateManager.finishRevision(task.id);
       this.logger.debug(
         `[executeTaskRevision] Released revision lock for task "${task.title}" (${task.id})`,
       );
@@ -2694,7 +2798,8 @@ export class TeamMissionService {
           this.logger.warn(`[completeMission] 执行总结生成失败: ${errorMsg}`);
           // 生成基础总结
           const taskCount = (mission.tasks || []).filter(
-            (t: any) => t.status === AgentTaskStatus.COMPLETED,
+            (t: AgentTaskWithAssignee) =>
+              t.status === AgentTaskStatus.COMPLETED,
           ).length;
           executiveSummary = `## 执行总结\n\n共完成 ${taskCount} 个子任务。`;
         }
@@ -2760,13 +2865,16 @@ export class TeamMissionService {
         messageId: finalMessage?.id,
       });
 
+      // ★ 清理健康检查的恢复计数
+      this.healthCheckService.cleanupCompletedMission(missionId);
+
       // 广播任务完成 - 包含参与者 AI ID 列表，用于前端清除 typing 状态
       const participantAIIds = [
         mission.leaderId,
         ...mission.tasks.map((t) => t.assignedToId),
       ].filter((id, index, arr) => arr.indexOf(id) === index); // 去重
 
-      this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:completed", {
+      this.topicEventEmitter.emitToTopic(mission.topicId, "mission:completed", {
         missionId,
         finalResult: finalReport, // 发送完整报告
         participantAIIds,
@@ -2842,7 +2950,7 @@ export class TeamMissionService {
     });
 
     // 广播进度更新
-    this.aiTeamsGateway.emitToTopic(
+    this.topicEventEmitter.emitToTopic(
       mission.topicId,
       "mission:progress_updated",
       {
@@ -2864,7 +2972,7 @@ export class TeamMissionService {
       taskTitle?: string;
       content: string;
       messageId?: string;
-      metadata?: any;
+      metadata?: Prisma.InputJsonValue;
     },
   ) {
     return this.prisma.missionLog.create({
@@ -2903,7 +3011,7 @@ export class TeamMissionService {
       });
 
       // 广播新消息
-      this.aiTeamsGateway.emitToTopic(topicId, "message:new", message);
+      this.topicEventEmitter.emitToTopic(topicId, "message:new", message);
 
       return message;
     } catch (error) {
@@ -3057,30 +3165,7 @@ export class TeamMissionService {
   }
 
   // ==================== 章节唯一性验证 ====================
-
-  /**
-   * 从任务标题中提取章节键值
-   * 支持格式：卷X·第Y章、卷X第Y章、第X卷第Y章 等
-   */
-  private extractChapterKey(title: string): string | null {
-    // 匹配多种格式的章节编号
-    const patterns = [
-      /卷[一二三四五六七八九十百千\d]+[·.\s]*第[\d一二三四五六七八九十百千]+章/,
-      /第[一二三四五六七八九十百千\d]+卷[·.\s]*第[\d一二三四五六七八九十百千]+章/,
-      /第[\d一二三四五六七八九十百千]+章/,
-      /Chapter\s*\d+/i,
-    ];
-
-    for (const pattern of patterns) {
-      const match = title.match(pattern);
-      if (match) {
-        // 标准化章节键：移除特殊字符，统一格式
-        return match[0].replace(/[\s·.]/g, "");
-      }
-    }
-
-    return null;
-  }
+  // 注：extractChapterKey 已迁移至 ./utils/text-extraction.utils.ts
 
   /**
    * 验证章节唯一性
@@ -3096,7 +3181,7 @@ export class TeamMissionService {
     // 1. 检查新任务列表中的重复
     const chapterKeys = new Map<string, string>(); // key -> title
     for (const title of newTitles) {
-      const key = this.extractChapterKey(title);
+      const key = extractChapterKey(title);
       if (key) {
         if (chapterKeys.has(key)) {
           duplicatesInNew.push(`${title} (与 ${chapterKeys.get(key)} 重复)`);
@@ -3119,7 +3204,7 @@ export class TeamMissionService {
       });
 
       for (const existing of existingTasks) {
-        const existingKey = this.extractChapterKey(existing.title);
+        const existingKey = extractChapterKey(existing.title);
         if (existingKey && chapterKeys.has(existingKey)) {
           duplicatesInDb.push(
             `${chapterKeys.get(existingKey)} (数据库中已存在: ${existing.title})`,
@@ -3136,8 +3221,8 @@ export class TeamMissionService {
    * 确保任务均匀分配给所有团队成员，避免某些成员过载而其他成员闲置
    */
   private rebalanceTaskAssignments(
-    breakdown: TaskBreakdown,
-    teamMembers: any[],
+    breakdown: TaskBreakdownData,
+    teamMembers: TeamMemberBase[],
   ): void {
     if (breakdown.tasks.length === 0 || teamMembers.length === 0) {
       return;
@@ -3271,8 +3356,8 @@ export class TeamMissionService {
 
   private async createTasksFromBreakdown(
     missionId: string,
-    breakdown: TaskBreakdown,
-    teamMembers: any[],
+    breakdown: TaskBreakdownData,
+    teamMembers: TeamMemberBase[],
   ) {
     const taskIdMap = new Map<number, string>(); // 任务索引 -> 任务ID
 
@@ -3291,7 +3376,7 @@ export class TeamMissionService {
       // 去重：只保留第一个出现的章节
       const seenKeys = new Set<string>();
       breakdown.tasks = breakdown.tasks.filter((t) => {
-        const key = this.extractChapterKey(t.title);
+        const key = extractChapterKey(t.title);
         if (key && seenKeys.has(key)) {
           this.logger.warn(
             `[createTasksFromBreakdown] Skipping duplicate chapter: ${t.title}`,
@@ -3317,12 +3402,12 @@ export class TeamMissionService {
         select: { title: true },
       });
       for (const t of existingTasks) {
-        const key = this.extractChapterKey(t.title);
+        const key = extractChapterKey(t.title);
         if (key) existingKeys.add(key);
       }
 
       breakdown.tasks = breakdown.tasks.filter((t) => {
-        const key = this.extractChapterKey(t.title);
+        const key = extractChapterKey(t.title);
         if (key && existingKeys.has(key)) {
           this.logger.warn(
             `[createTasksFromBreakdown] Skipping already existing chapter: ${t.title}`,
@@ -3333,94 +3418,128 @@ export class TeamMissionService {
       });
     }
 
+    // ★ 优化：分离独立任务和有依赖任务，批量创建独立任务
+    const independentTasks: Array<{
+      index: number;
+      taskItem: TaskBreakdownItem;
+      assignee: TeamMemberBase;
+    }> = [];
+    const dependentTasks: Array<{
+      index: number;
+      taskItem: TaskBreakdownItem;
+      assignee: TeamMemberBase;
+    }> = [];
+
     for (let i = 0; i < breakdown.tasks.length; i++) {
       const taskItem = breakdown.tasks[i];
-
-      // 找到分配的成员
       let assignee = teamMembers.find((m) => m.id === taskItem.assigneeId);
       if (!assignee) {
-        // 如果找不到，使用第一个成员
         assignee = teamMembers[0];
       }
 
-      // 将依赖的索引转换为任务ID
-      const dependsOnIds = taskItem.dependsOn
-        .map((idx) => taskIdMap.get(idx))
-        .filter((id): id is string => !!id);
+      if (!taskItem.dependsOn || taskItem.dependsOn.length === 0) {
+        independentTasks.push({ index: i, taskItem, assignee });
+      } else {
+        dependentTasks.push({ index: i, taskItem, assignee });
+      }
+    }
 
-      // 提取章节键用于记录
-      const chapterKey = this.extractChapterKey(taskItem.title);
+    this.logger.log(
+      `[createTasksFromBreakdown] Task distribution: ${independentTasks.length} independent, ${dependentTasks.length} dependent`,
+    );
 
-      const task = await this.prisma.agentTask.create({
-        data: {
-          missionId,
-          title: taskItem.title,
-          description: taskItem.description,
-          priority: taskItem.priority as TaskPriority,
-          taskType: this.mapTaskType(taskItem.taskType),
-          assignedToId: assignee.id,
-          assignedReason: taskItem.reason,
-          dependsOnIds,
-          status: AgentTaskStatus.PENDING,
-          revisionCount: 0, // ★ 初始化修改次数
-          maxRevisions: 3, // ★ 初始化最大修改次数
-        },
-      });
+    // 使用事务确保原子性
+    await this.prisma.$transaction(async (tx) => {
+      // Phase 1: 批量创建无依赖任务
+      if (independentTasks.length > 0) {
+        const independentTaskData = independentTasks.map(
+          ({ taskItem, assignee }) => ({
+            missionId,
+            title: taskItem.title,
+            description: taskItem.description,
+            priority: taskItem.priority as TaskPriority,
+            taskType: mapTaskType(taskItem.taskType),
+            assignedToId: assignee.id,
+            assignedReason: taskItem.reason,
+            dependsOnIds: [] as string[],
+            status: AgentTaskStatus.PENDING,
+            revisionCount: 0,
+            maxRevisions: 3,
+          }),
+        );
 
-      if (chapterKey) {
-        this.logger.debug(
-          `[createTasksFromBreakdown] Created task for chapter ${chapterKey}: ${task.id}`,
+        // 使用 createManyAndReturn 批量创建并获取 ID
+        const createdTasks = await tx.agentTask.createManyAndReturn({
+          data: independentTaskData,
+        });
+
+        // 映射创建的任务 ID
+        for (let i = 0; i < createdTasks.length; i++) {
+          const originalIndex = independentTasks[i].index;
+          taskIdMap.set(originalIndex, createdTasks[i].id);
+
+          const chapterKey = extractChapterKey(
+            independentTasks[i].taskItem.title,
+          );
+          if (chapterKey) {
+            this.logger.debug(
+              `[createTasksFromBreakdown] Created task for chapter ${chapterKey}: ${createdTasks[i].id}`,
+            );
+          }
+        }
+
+        this.logger.log(
+          `[createTasksFromBreakdown] Batch created ${createdTasks.length} independent tasks`,
         );
       }
 
-      taskIdMap.set(i, task.id);
-    }
+      // Phase 2: 顺序创建有依赖任务（需要依赖前面任务的 ID）
+      for (const { index, taskItem, assignee } of dependentTasks) {
+        const dependsOnIds = taskItem.dependsOn
+          .map((idx) => taskIdMap.get(idx))
+          .filter((id): id is string => !!id);
+
+        const chapterKey = extractChapterKey(taskItem.title);
+
+        const task = await tx.agentTask.create({
+          data: {
+            missionId,
+            title: taskItem.title,
+            description: taskItem.description,
+            priority: taskItem.priority as TaskPriority,
+            taskType: mapTaskType(taskItem.taskType),
+            assignedToId: assignee.id,
+            assignedReason: taskItem.reason,
+            dependsOnIds,
+            status: AgentTaskStatus.PENDING,
+            revisionCount: 0,
+            maxRevisions: 3,
+          },
+        });
+
+        if (chapterKey) {
+          this.logger.debug(
+            `[createTasksFromBreakdown] Created task for chapter ${chapterKey}: ${task.id}`,
+          );
+        }
+
+        taskIdMap.set(index, task.id);
+      }
+    });
+
+    this.logger.log(
+      `[createTasksFromBreakdown] Total created: ${taskIdMap.size} tasks`,
+    );
   }
 
-  private mapTaskType(type: string): TaskType {
-    const mapping: Record<string, TaskType> = {
-      research: TaskType.RESEARCH,
-      design: TaskType.DESIGN,
-      implementation: TaskType.IMPLEMENTATION,
-      review: TaskType.REVIEW,
-      documentation: TaskType.DOCUMENTATION,
-      coordination: TaskType.COORDINATION,
-      creative: TaskType.CREATIVE,
-      synthesis: TaskType.SYNTHESIS,
-    };
-    return mapping[type.toLowerCase()] || TaskType.IMPLEMENTATION;
-  }
+  // 注：mapTaskType, truncateDescription 已迁移至 ./utils/misc.utils.ts
 
   // ==================== 提示词构建 ====================
 
-  /**
-   * 智能截断长文本，保留开头和结尾的关键信息
-   */
-  private truncateDescription(
-    text: string,
-    maxLength: number,
-    preserveEnding = true,
-  ): string {
-    if (!text || text.length <= maxLength) {
-      return text;
-    }
-
-    if (preserveEnding) {
-      // 保留开头 70% 和结尾 30%
-      const headLength = Math.floor(maxLength * 0.7);
-      const tailLength = maxLength - headLength - 50; // 留 50 字符给省略提示
-      const head = text.substring(0, headLength);
-      const tail = text.substring(text.length - tailLength);
-      return `${head}\n\n...[内容过长，已省略中间 ${text.length - headLength - tailLength} 字]...\n\n${tail}`;
-    } else {
-      return text.substring(0, maxLength) + "\n\n...[内容过长，已截断]...";
-    }
-  }
-
   private buildLeaderPlanningPrompt(
-    mission: any,
-    leader: any,
-    teamMembers: any[],
+    mission: MissionWithRelations,
+    leader: TeamMemberBase,
+    teamMembers: TeamMemberBase[],
     maxDescriptionLength = 8000, // 默认限制描述长度为 8000 字符
   ): string {
     // ★ 构建精确的成员名称列表，用于强调必须使用这些名称
@@ -3444,7 +3563,7 @@ export class TeamMissionService {
     const scopeGuidance = this.buildScopeGuidance(mission);
 
     // ★ 智能截断过长的描述，防止上下文溢出
-    const truncatedDescription = this.truncateDescription(
+    const truncatedDescription = truncateDescription(
       mission.description || "",
       maxDescriptionLength,
     );
@@ -3458,7 +3577,7 @@ export class TeamMissionService {
     }
 
     // ★ 构建已提取的用户约束区块（如"钟叔是哑巴"）
-    const mustConstraints = (mission.mustConstraints as any[]) || [];
+    const mustConstraints = (mission.mustConstraints as HardConstraint[]) || [];
     const userConstraintsSection =
       mustConstraints.length > 0
         ? `
@@ -3546,18 +3665,18 @@ ${scopeGuidance}
    * 构建任务范围指导
    * 针对大型内容创作任务，明确要求一次性分解全部任务
    */
-  private buildScopeGuidance(mission: any): string {
+  private buildScopeGuidance(mission: MissionWithRelations): string {
     const text = `${mission.title || ""} ${mission.description || ""}`;
 
     // 检测大型内容创作任务的特征
-    const isLargeContentTask = this.detectLargeContentTask(text);
+    const isLargeContentTask = detectLargeContentTask(text);
 
     if (!isLargeContentTask) {
       return "";
     }
 
     // 尝试从描述中提取具体的卷章结构
-    const structureHint = this.extractStructureHint(text);
+    const structureHint = extractStructureHint(text);
 
     return `
 【⚠️ 极其重要：任务范围约束 - 必读】
@@ -3585,93 +3704,11 @@ ${structureHint}
 `;
   }
 
-  /**
-   * 从描述中提取结构提示
-   */
-  private extractStructureHint(text: string): string {
-    // 尝试匹配卷数
-    const volumeMatch = text.match(/(\d+)\s*卷/);
-    // 尝试匹配"八卷本"等
-    const volumeMatch2 = text.match(/([一二三四五六七八九十]+)\s*卷/);
-
-    if (volumeMatch) {
-      const volumes = parseInt(volumeMatch[1], 10);
-      return `4. **用户明确要求 ${volumes} 卷** - 你必须分解全部 ${volumes} 卷的所有章节\n`;
-    }
-
-    if (volumeMatch2) {
-      const chineseNum = volumeMatch2[1];
-      return `4. **用户明确要求 ${chineseNum} 卷** - 你必须分解全部卷的所有章节\n`;
-    }
-
-    return "";
-  }
-
-  /**
-   * 检测是否为大型内容创作任务
-   */
-  private detectLargeContentTask(text: string): boolean {
-    // 内容创作相关关键词
-    const contentKeywords = [
-      "小说",
-      "武侠",
-      "奇幻",
-      "玄幻",
-      "科幻",
-      "言情",
-      "悬疑",
-      "推理",
-      "历史",
-      "传记",
-      "剧本",
-      "故事",
-      "连载",
-      "长篇",
-      "系列",
-      "动漫",
-      "漫画",
-      "剧集",
-      "课程",
-      "教程",
-      "专栏",
-      "文章",
-    ];
-
-    // 结构化单位关键词（大单位）
-    const structureKeywords = [
-      "卷",
-      "部",
-      "篇",
-      "季",
-      "册",
-      "辑",
-      "编",
-      "章",
-      "回",
-      "集",
-      "话",
-      "期",
-      "幕",
-      "讲",
-      "课",
-    ];
-
-    // 数量模式
-    const quantityPattern = /(\d+)\s*(卷|部|篇|季|册|章|回|集|话|期|幕|讲|课)/;
-
-    const hasContentKeyword = contentKeywords.some((kw) => text.includes(kw));
-    const hasStructureKeyword = structureKeywords.some((kw) =>
-      text.includes(kw),
-    );
-    const hasQuantity = quantityPattern.test(text);
-
-    // 如果同时满足内容关键词和结构关键词，或者有明确数量
-    return (hasContentKeyword && hasStructureKeyword) || hasQuantity;
-  }
+  // 注：extractStructureHint, detectLargeContentTask 已迁移至 ./utils/text-extraction.utils.ts
 
   private buildTaskExecutionPrompt(
-    mission: any,
-    task: any,
+    mission: MissionWithRelations,
+    task: AgentTaskWithAssignee,
     searchContext: string = "",
   ): string {
     // 限制搜索上下文长度，防止上下文过大
@@ -3755,7 +3792,7 @@ ${extractedConstraints.map((c, i) => `${i + 1}. ${c}`).join("\n")}
     );
 
     // ★ 新增：明确输出格式要求
-    const wordCountHint = this.extractWordCount(
+    const wordCountHint = extractWordCount(
       task.description || mission.description || "",
     );
     const outputRequirements = `
@@ -3849,34 +3886,13 @@ ${outputRequirements}
     return constraints.slice(0, 10); // 最多10条约束
   }
 
-  /**
-   * 从文本中提取字数要求
-   */
-  private extractWordCount(text: string): string | null {
-    const patterns = [
-      /(\d+)\s*字[左右以上]?/,
-      /每[章节篇][约不少于]*\s*(\d+)\s*字/,
-      /字数[：:约]\s*(\d+)/,
-      /不少于\s*(\d+)\s*字/,
-      /至少\s*(\d+)\s*字/,
-    ];
-
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
-      if (match) {
-        const count = match[1];
-        return `${count}字左右`;
-      }
-    }
-
-    return null;
-  }
+  // 注：extractWordCount 已迁移至 ./utils/text-extraction.utils.ts
 
   /**
    * 构建已完成任务摘要（用于保持一致性）
    */
   private buildCompletedTasksSummary(
-    tasks: any[],
+    tasks: AgentTaskWithAssignee[],
     currentTaskId: string,
   ): string {
     const completedTasks = tasks.filter(
@@ -3892,8 +3908,9 @@ ${outputRequirements}
 
     // 最多展示前3个已完成任务的摘要
     const summaries = completedTasks.slice(0, 3).map((t) => {
+      const result = t.result || "";
       const resultPreview =
-        t.result.length > 300 ? t.result.substring(0, 300) + "..." : t.result;
+        result.length > 300 ? result.substring(0, 300) + "..." : result;
       const agentName =
         t.assignedTo?.agentName || t.assignedTo?.displayName || "未知";
       return `📖 **${t.title}**（${agentName}完成）\n${resultPreview}`;
@@ -3911,108 +3928,7 @@ ${summaries.join("\n\n---\n\n")}
 `;
   }
 
-  /**
-   * 检测任务是否需要联网搜索
-   */
-  private needsWebSearch(
-    missionTitle: string,
-    missionDescription: string,
-    taskTitle: string,
-    taskDescription: string,
-  ): boolean {
-    const combinedText =
-      `${missionTitle} ${missionDescription} ${taskTitle} ${taskDescription}`.toLowerCase();
-
-    // 需要最新数据的关键词
-    const realtimeKeywords = [
-      // 中文关键词
-      "最新",
-      "2025年",
-      "2024年",
-      "今年",
-      "近期",
-      "当前",
-      "目前",
-      "现在",
-      "实时",
-      "最近",
-      "新闻",
-      "动态",
-      "趋势",
-      "市场",
-      "调研",
-      "研究",
-      "分析",
-      "报告",
-      "数据",
-      "统计",
-      "行业",
-      "企业",
-      "公司",
-      "进展",
-      "案例",
-      // 英文关键词
-      "latest",
-      "recent",
-      "current",
-      "2025",
-      "2024",
-      "this year",
-      "market",
-      "research",
-      "analysis",
-      "report",
-      "trend",
-      "news",
-      "industry",
-      "company",
-      "enterprise",
-      "case study",
-    ];
-
-    return realtimeKeywords.some((keyword) => combinedText.includes(keyword));
-  }
-
-  /**
-   * 构建搜索查询词
-   */
-  private buildSearchQuery(
-    missionTitle: string,
-    taskTitle: string,
-    taskDescription: string,
-  ): string {
-    // 从任务标题和描述中提取关键信息
-    let query = taskTitle;
-
-    // 如果任务描述不太长，也加入
-    if (taskDescription && taskDescription.length < 100) {
-      query += " " + taskDescription;
-    }
-
-    // 添加任务标题中的关键词
-    if (!query.includes(missionTitle.substring(0, 20))) {
-      // 取任务标题前20字符作为上下文
-      const missionKeywords = missionTitle
-        .replace(/[，。、！？\s]+/g, " ")
-        .trim();
-      if (missionKeywords.length < 50) {
-        query = missionKeywords + " " + query;
-      }
-    }
-
-    // 清理和截断
-    query = query
-      .replace(/[，。、！？【】「」\[\]()（）]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    // 限制查询长度
-    if (query.length > 100) {
-      query = query.substring(0, 100);
-    }
-
-    return query;
-  }
+  // 注：needsWebSearch, buildSearchQuery 已迁移至 ./utils/misc.utils.ts
 
   /**
    * 为长内容生成 AI 摘要，用于 Leader 审核
@@ -4085,8 +4001,8 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
   }
 
   private buildLeaderReviewPrompt(
-    mission: any,
-    task: any,
+    mission: MissionWithRelations,
+    task: AgentTaskWithAssignee,
     taskResult: string,
   ): string {
     // 截断任务产出，防止上下文过大导致 Gemini 等模型报错
@@ -4166,8 +4082,8 @@ ${truncatedResult}
   }
 
   private buildTaskRevisionPrompt(
-    mission: any,
-    task: any,
+    mission: MissionWithRelations,
+    task: AgentTaskWithAssignee,
     feedback: string,
   ): string {
     // 截断之前的产出，防止上下文过大（使用首尾截取策略）
@@ -4186,13 +4102,13 @@ ${truncatedResult}
     }
 
     // ★ 合并约束：用户输入约束 + Leader 提取约束（去重）
-    const mustConstraints = (mission.mustConstraints as any[]) || [];
+    const mustConstraints = (mission.mustConstraints as HardConstraint[]) || [];
     const contextConstraints =
       (mission.contextPackage as MissionContextPackage | null)
         ?.hardConstraints || [];
 
     // 去重合并：以 id 为准，用户约束优先
-    const constraintMap = new Map<string, any>();
+    const constraintMap = new Map<string, HardConstraint>();
     mustConstraints.forEach((c) => constraintMap.set(c.id, c));
     contextConstraints.forEach((c) => {
       if (!constraintMap.has(c.id)) {
@@ -4232,24 +4148,26 @@ ${feedback}
    * 构建完整的最终报告（不截断任何内容）
    * 保证数据完整性：所有任务产出完整保留，按章节/卷结构展示
    */
-  private buildFinalReportWithFullContent(mission: any): {
+  private buildFinalReportWithFullContent(mission: MissionWithRelations): {
     fullContent: string;
     summaryPrompt: string;
   } {
     const completedTasks = (mission.tasks || []).filter(
-      (t: any) => t.status === "COMPLETED" && t.result,
+      (t: AgentTaskWithAssignee) => t.status === "COMPLETED" && t.result,
     );
 
     // 构建完整的分章节内容
-    const chapters = completedTasks.map((t: any, index: number) => {
-      const agentName =
-        t.assignedTo?.agentName || t.assignedTo?.displayName || "未知";
-      return `## 第${index + 1}章：${t.title}
+    const chapters = completedTasks.map(
+      (t: AgentTaskWithAssignee, index: number) => {
+        const agentName =
+          t.assignedTo?.agentName || t.assignedTo?.displayName || "未知";
+        return `## 第${index + 1}章：${t.title}
 > 作者/负责人：${agentName}
 > 字数：${(t.result || "").length} 字
 
 ${t.result || "（无内容）"}`;
-    });
+      },
+    );
 
     const fullContent = `# ${mission.title}
 
@@ -4266,14 +4184,16 @@ ${chapters.join("\n\n---\n\n")}`;
       wordCount: number;
       preview: string;
     }
-    const taskMeta: TaskMeta[] = completedTasks.map((t: any) => ({
-      title: t.title as string,
-      agent: (t.assignedTo?.agentName ||
-        t.assignedTo?.displayName ||
-        "未知") as string,
-      wordCount: ((t.result || "") as string).length,
-      preview: ((t.result || "") as string).substring(0, 200) + "...",
-    }));
+    const taskMeta: TaskMeta[] = completedTasks.map(
+      (t: AgentTaskWithAssignee) => ({
+        title: t.title as string,
+        agent: (t.assignedTo?.agentName ||
+          t.assignedTo?.displayName ||
+          "未知") as string,
+        wordCount: ((t.result || "") as string).length,
+        preview: ((t.result || "") as string).substring(0, 200) + "...",
+      }),
+    );
 
     const taskList = taskMeta
       .map(
@@ -4321,7 +4241,7 @@ ${taskList}
     return { fullContent, summaryPrompt };
   }
 
-  private getLeaderSystemPrompt(leader: any): string {
+  private getLeaderSystemPrompt(leader: TeamMemberBase): string {
     return `你是「${leader.agentName || leader.displayName}」，团队的 Leader。
 身份：${leader.agentIdentity || leader.roleDescription || "团队领导"}
 职责：负责任务分解、分配、协调和整合结果。
@@ -4329,11 +4249,11 @@ ${taskList}
   }
 
   private getAgentSystemPrompt(
-    agent: any,
-    task: any,
+    agent: TaskAssignee | TeamMemberBase,
+    task: AgentTaskWithAssignee,
     context?: MissionContextPackage | null,
     missionDescription?: string,
-    mustConstraints?: any[], // 从用户输入中提取的硬约束
+    mustConstraints?: HardConstraint[], // 从用户输入中提取的硬约束
   ): string {
     // ★ 合并从用户输入提取的约束到 context
     let effectiveContext = context;
@@ -4373,13 +4293,20 @@ ${taskList}
     // Use MissionContextService to build prompt with context and/or mission description
     // This ensures agents receive both structured context AND mission background
     if (effectiveContext || missionDescription) {
+      // 类型安全地访问可选属性（TaskAssignee 没有这些字段）
+      const agentIdentity =
+        "agentIdentity" in agent ? agent.agentIdentity : null;
+      const roleDesc =
+        "roleDescription" in agent ? agent.roleDescription : null;
+      const expertAreas = "expertiseAreas" in agent ? agent.expertiseAreas : [];
+
       return this.missionContextService.buildAgentSystemPromptWithContext(
         {
           displayName: agent.displayName,
-          agentName: agent.agentName,
-          agentIdentity: agent.agentIdentity,
-          roleDescription: agent.roleDescription,
-          expertiseAreas: agent.expertiseAreas,
+          agentName: agent.agentName ?? undefined,
+          agentIdentity: agentIdentity ?? undefined,
+          roleDescription: roleDesc ?? undefined,
+          expertiseAreas: expertAreas ?? undefined,
         },
         {
           title: task.title,
@@ -4391,16 +4318,23 @@ ${taskList}
     }
 
     // Fallback to simple prompt if no context and no description
+    // 类型安全地访问可选属性（TaskAssignee 没有这些字段）
+    const agentIdentity = "agentIdentity" in agent ? agent.agentIdentity : null;
+    const roleDescription =
+      "roleDescription" in agent ? agent.roleDescription : null;
+    const expertiseAreas =
+      "expertiseAreas" in agent ? agent.expertiseAreas : [];
+
     return `你是「${agent.agentName || agent.displayName}」，团队成员。
-身份：${agent.agentIdentity || agent.roleDescription || "专业人员"}
-擅长：${(agent.expertiseAreas || []).join("、") || "多个领域"}
+身份：${agentIdentity || roleDescription || "专业人员"}
+擅长：${(expertiseAreas || []).join("、") || "多个领域"}
 当前任务：${task.title}`;
   }
 
   private parseTaskBreakdown(
     content: string,
-    teamMembers: any[],
-  ): TaskBreakdown {
+    teamMembers: TeamMemberBase[],
+  ): TaskBreakdownData {
     // 简单解析，提取任务信息
     const tasks: TaskBreakdownItem[] = [];
 
@@ -4576,101 +4510,7 @@ ${taskList}
     };
   }
 
-  /**
-   * 解析审核结果（增强版，带置信度和原因）
-   *
-   * 策略优先级：
-   * 1. 否定词检测（最高优先级，权重 1.0）
-   * 2. 明确通过标记（权重 1.0）
-   * 3. 上下文感知的"通过"检测（权重 0.7-0.9）
-   * 4. 默认不通过（保守策略，权重 0.5）
-   */
-  private parseReviewResult(content: string): ReviewResult {
-    // ★★★ 最高优先级：检查标准格式 "## 审核结果：通过/需要修改" ★★★
-    // 这是 Prompt 要求的输出格式，应优先匹配
-    const formatMatch = content.match(/##\s*审核结果[：:]\s*(通过|需要修改)/);
-    if (formatMatch) {
-      const result = formatMatch[1];
-      if (result === "通过") {
-        return {
-          isApproved: true,
-          confidence: 1.0,
-          reason: `标准格式匹配: "审核结果：通过"`,
-          matchedPattern: "## 审核结果：通过",
-        };
-      } else {
-        return {
-          isApproved: false,
-          confidence: 1.0,
-          reason: `标准格式匹配: "审核结果：需要修改"`,
-          matchedPattern: "## 审核结果：需要修改",
-        };
-      }
-    }
-
-    const lowerContent = content.toLowerCase();
-
-    // ★ 明确通过标记检测（优先于否定词，因为我们希望更宽容）
-    const approvePatterns: Array<{ pattern: string; weight: number }> = [
-      { pattern: "审核通过", weight: 1.0 },
-      { pattern: "评审通过", weight: 1.0 },
-      { pattern: "审批通过", weight: 1.0 },
-      { pattern: "✅ 通过", weight: 1.0 },
-      { pattern: "✅通过", weight: 1.0 },
-      { pattern: "approved", weight: 0.95 },
-      { pattern: "passed", weight: 0.9 },
-      { pattern: "✅", weight: 0.85 },
-      { pattern: "符合要求", weight: 0.85 },
-      { pattern: "质量达标", weight: 0.85 },
-      { pattern: "可以接受", weight: 0.8 },
-    ];
-
-    for (const { pattern, weight } of approvePatterns) {
-      if (lowerContent.includes(pattern)) {
-        return {
-          isApproved: true,
-          confidence: weight,
-          reason: `检测到通过标记: "${pattern}"`,
-          matchedPattern: pattern,
-        };
-      }
-    }
-
-    // ★ 否定模式检测（只有在没有通过标记时才检查）
-    const rejectPatterns: Array<{ pattern: string; weight: number }> = [
-      { pattern: "不通过", weight: 1.0 },
-      { pattern: "暂不通过", weight: 1.0 },
-      { pattern: "未通过", weight: 1.0 },
-      { pattern: "未能通过", weight: 1.0 },
-      { pattern: "无法通过", weight: 1.0 },
-      { pattern: "没通过", weight: 1.0 },
-      { pattern: "不合格", weight: 0.95 },
-      { pattern: "rejected", weight: 1.0 },
-      { pattern: "not approved", weight: 1.0 },
-      { pattern: "failed", weight: 0.9 },
-      { pattern: "❌", weight: 1.0 },
-    ];
-
-    for (const { pattern, weight } of rejectPatterns) {
-      if (lowerContent.includes(pattern)) {
-        return {
-          isApproved: false,
-          confidence: weight,
-          reason: `检测到否定词: "${pattern}"`,
-          matchedPattern: pattern,
-        };
-      }
-    }
-
-    // ★ 默认通过（宽容策略，而非保守策略）
-    // 如果没有明确的通过或拒绝标记，倾向于通过
-    return {
-      isApproved: true,
-      confidence: 0.6,
-      reason: "未检测到明确的拒绝标记，默认通过",
-      matchedPattern: "default_approve",
-    };
-  }
+  // 注：parseReviewResult 已迁移至 ./utils/parsing.utils.ts
 
   // ==================== 查询方法 ====================
 
@@ -4768,96 +4608,19 @@ ${taskList}
     });
   }
 
-  async cancelMission(missionId: string, _userId: string) {
-    const mission = await this.prisma.teamMission.findUnique({
-      where: { id: missionId },
-    });
-
-    if (!mission) {
-      throw new NotFoundException("任务不存在");
-    }
-
-    if (
-      mission.status === MissionStatus.COMPLETED ||
-      mission.status === MissionStatus.CANCELLED
-    ) {
-      throw new BadRequestException("任务已完成或已取消");
-    }
-
-    await this.prisma.teamMission.update({
-      where: { id: missionId },
-      data: { status: MissionStatus.CANCELLED },
-    });
-
-    // 取消所有进行中的子任务
-    await this.prisma.agentTask.updateMany({
-      where: {
-        missionId,
-        status: { in: [AgentTaskStatus.PENDING, AgentTaskStatus.IN_PROGRESS] },
-      },
-      data: { status: AgentTaskStatus.CANCELLED },
-    });
-
-    await this.createLog(missionId, {
-      type: MissionLogType.MISSION_FAILED,
-      content: "任务已被用户取消",
-    });
-
-    this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:cancelled", {
+  async cancelMission(missionId: string, userId: string) {
+    return this.lifecycleService.cancelMission(
       missionId,
-    });
-
-    return { success: true, message: "任务已取消" };
+      userId,
+      this.createLog.bind(this),
+    );
   }
 
   /**
    * 删除任务（仅限历史任务：已完成、失败或取消的任务）
    */
-  async deleteMission(missionId: string, _userId: string) {
-    const mission = await this.prisma.teamMission.findUnique({
-      where: { id: missionId },
-    });
-
-    if (!mission) {
-      throw new NotFoundException("任务不存在");
-    }
-
-    // 只有已完成、失败或取消的任务可以删除
-    const deletableStatuses: MissionStatus[] = [
-      MissionStatus.COMPLETED,
-      MissionStatus.FAILED,
-      MissionStatus.CANCELLED,
-    ];
-
-    if (!deletableStatuses.includes(mission.status)) {
-      throw new BadRequestException(
-        `当前状态(${mission.status})的任务无法删除，只有已完成、失败或取消的任务可以删除`,
-      );
-    }
-
-    // 先删除关联的日志
-    await this.prisma.missionLog.deleteMany({
-      where: { missionId },
-    });
-
-    // 删除关联的子任务
-    await this.prisma.agentTask.deleteMany({
-      where: { missionId },
-    });
-
-    // 删除任务本身
-    await this.prisma.teamMission.delete({
-      where: { id: missionId },
-    });
-
-    this.logger.log(`[Mission ${missionId}] Deleted by user`);
-
-    // 通知前端任务已删除
-    this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:deleted", {
-      missionId,
-    });
-
-    return { success: true, message: "任务已删除" };
+  async deleteMission(missionId: string, userId: string) {
+    return this.lifecycleService.deleteMission(missionId, userId);
   }
 
   /**
@@ -4866,436 +4629,62 @@ ${taskList}
    */
   async updateMissionNotification(
     missionId: string,
-    _userId: string,
+    userId: string,
     dto: { notificationEmail?: string | null },
   ) {
-    const mission = await this.prisma.teamMission.findUnique({
-      where: { id: missionId },
-    });
-
-    if (!mission) {
-      throw new NotFoundException("任务不存在");
-    }
-
-    const updated = await this.prisma.teamMission.update({
-      where: { id: missionId },
-      data: {
-        notificationEmail: dto.notificationEmail ?? null,
-      },
-      select: {
-        id: true,
-        notificationEmail: true,
-      },
-    });
-
-    await this.createLog(missionId, {
-      type: MissionLogType.TASK_PROGRESS,
-      content: dto.notificationEmail
-        ? `通知邮箱已更新为: ${dto.notificationEmail}`
-        : "通知邮箱已清除",
-    });
-
-    this.logger.log(
-      `[Mission ${missionId}] Notification email updated: ${dto.notificationEmail || "(cleared)"}`,
+    return this.lifecycleService.updateMissionNotification(
+      missionId,
+      userId,
+      dto,
+      this.createLog.bind(this),
     );
-
-    return {
-      success: true,
-      message: dto.notificationEmail ? "通知配置已更新" : "通知配置已清除",
-      notificationEmail: updated.notificationEmail,
-    };
   }
 
   /**
    * 暂停任务（可恢复）
    */
-  async pauseMission(missionId: string, _userId: string) {
-    const mission = await this.prisma.teamMission.findUnique({
-      where: { id: missionId },
-      include: { leader: true },
-    });
-
-    if (!mission) {
-      throw new NotFoundException("任务不存在");
-    }
-
-    // 只有 IN_PROGRESS 或 PLANNING 状态的任务可以暂停
-    if (
-      mission.status !== MissionStatus.IN_PROGRESS &&
-      mission.status !== MissionStatus.PLANNING
-    ) {
-      throw new BadRequestException(
-        `当前状态(${mission.status})不支持暂停，只有进行中或规划中的任务可以暂停`,
-      );
-    }
-
-    // 记录暂停前的状态，以便恢复
-    const previousStatus = mission.status;
-
-    await this.prisma.teamMission.update({
-      where: { id: missionId },
-      data: {
-        status: MissionStatus.PAUSED,
-        // 将暂停前的状态保存到 metadata 中
-        taskBreakdown: {
-          ...((mission.taskBreakdown as object) || {}),
-          _pausedFromStatus: previousStatus,
-        },
-      },
-    });
-
-    await this.createLog(missionId, {
-      type: MissionLogType.MISSION_FAILED, // 使用现有类型，记录暂停
-      agentId: mission.leader.id,
-      agentName: mission.leader.agentName || mission.leader.displayName,
-      content: `任务已暂停（从状态: ${previousStatus}）`,
-    });
-
-    // 发送暂停消息
-    await this.sendMessageToTopic(
-      mission.topicId,
-      null,
-      `⏸️ **任务已暂停**\n\n任务「${mission.title}」已被用户暂停，可随时恢复继续执行。`,
-      MessageContentType.SYSTEM,
-    );
-
-    this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:paused", {
+  async pauseMission(missionId: string, userId: string) {
+    return this.lifecycleService.pauseMission(
       missionId,
-      previousStatus,
-    });
-
-    return { success: true, message: "任务已暂停", previousStatus };
+      userId,
+      this.sendMessageToTopic.bind(this),
+      this.createLog.bind(this),
+    );
   }
 
   /**
    * 恢复已暂停的任务
    */
   async resumeMission(missionId: string, userId: string) {
-    const mission = await this.prisma.teamMission.findUnique({
-      where: { id: missionId },
-      include: {
-        leader: true,
-        tasks: {
-          include: { assignedTo: true },
-        },
-      },
-    });
-
-    if (!mission) {
-      throw new NotFoundException("任务不存在");
-    }
-
-    if (mission.status !== MissionStatus.PAUSED) {
-      throw new BadRequestException("只有已暂停的任务可以恢复");
-    }
-
-    // 获取暂停前的状态
-    const taskBreakdown = (mission.taskBreakdown as any) || {};
-    const previousStatus =
-      taskBreakdown._pausedFromStatus || MissionStatus.IN_PROGRESS;
-
-    // 清除临时状态字段
-    delete taskBreakdown._pausedFromStatus;
-
-    await this.prisma.teamMission.update({
-      where: { id: missionId },
-      data: {
-        status: previousStatus,
-        taskBreakdown: taskBreakdown,
-      },
-    });
-
-    await this.createLog(missionId, {
-      type: MissionLogType.TASK_STARTED, // 使用现有类型，记录恢复
-      agentId: mission.leader.id,
-      agentName: mission.leader.agentName || mission.leader.displayName,
-      content: `任务已恢复（恢复到状态: ${previousStatus}）`,
-    });
-
-    // 发送恢复消息
-    await this.sendMessageToTopic(
-      mission.topicId,
-      null,
-      `▶️ **任务已恢复**\n\n任务「${mission.title}」继续执行...`,
-      MessageContentType.SYSTEM,
-    );
-
-    this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:resumed", {
+    return this.lifecycleService.resumeMission(
       missionId,
-      status: previousStatus,
-    });
-
-    // 如果是 IN_PROGRESS 状态，继续执行下一批任务
-    if (previousStatus === MissionStatus.IN_PROGRESS) {
-      // 异步继续执行，不阻塞返回
-      this.executeNextTasks(missionId).catch((err) => {
-        this.logger.error(`Failed to resume mission ${missionId}: ${err}`);
-      });
-    } else if (previousStatus === MissionStatus.PLANNING) {
-      // 如果是规划中状态暂停的，重新启动规划
-      this.startMission(missionId, userId).catch((err) => {
-        this.logger.error(`Failed to restart planning ${missionId}: ${err}`);
-      });
-    }
-
-    return { success: true, message: "任务已恢复", status: previousStatus };
-  }
-
-  /**
-   * ★ 辅助方法：检测任务是否卡住
-   * 如果任务超过指定时间未更新，则视为卡住
-   */
-  private isMissionStuck(
-    mission: {
-      tasks?: Array<{
-        status: string;
-        startedAt?: Date | null;
-        updatedAt?: Date;
-      }>;
-      updatedAt?: Date;
-    },
-    thresholdMs = 10 * 60 * 1000, // 默认 10 分钟
-  ): boolean {
-    const now = Date.now();
-
-    // 检查是否有任务卡在 IN_PROGRESS 状态
-    const hasStuckTasks = (mission.tasks || []).some((t) => {
-      if (t.status !== "IN_PROGRESS") return false;
-      const startTime = t.startedAt
-        ? new Date(t.startedAt).getTime()
-        : t.updatedAt
-          ? new Date(t.updatedAt).getTime()
-          : 0;
-      return startTime > 0 && now - startTime > thresholdMs;
-    });
-
-    return hasStuckTasks;
+      userId,
+      this.sendMessageToTopic.bind(this),
+      this.createLog.bind(this),
+      this.executeNextTasks.bind(this),
+      this.startMission.bind(this),
+    );
   }
 
   /**
    * 重试失败或已取消的任务
-   * 支持两种模式：
-   * 1. 完全重试：重新规划并执行所有任务
-   * 2. 继续执行：仅继续执行未完成的任务
-   *
-   * ★ 扩展支持：PAUSED 状态和卡住的 IN_PROGRESS 状态
+   * 委托给 MissionRetryService
    */
   async retryMission(
     missionId: string,
     userId: string,
     options?: { mode?: "full" | "continue"; reason?: string },
   ) {
-    const mode = options?.mode || "continue";
-
-    const mission = await this.prisma.teamMission.findUnique({
-      where: { id: missionId },
-      include: {
-        leader: true,
-        tasks: {
-          include: { assignedTo: true },
-        },
-        topic: true,
-      },
-    });
-
-    if (!mission) {
-      throw new NotFoundException("任务不存在");
-    }
-
-    // ★ 扩展支持的状态：FAILED, CANCELLED, PAUSED, 以及卡住的 IN_PROGRESS
-    const allowedStatuses: MissionStatus[] = [
-      MissionStatus.FAILED,
-      MissionStatus.CANCELLED,
-      MissionStatus.PAUSED,
-    ];
-
-    // ★ 检查是否是卡住的 IN_PROGRESS 任务
-    const isStuckInProgress =
-      mission.status === MissionStatus.IN_PROGRESS &&
-      this.isMissionStuck(mission);
-
-    if (!allowedStatuses.includes(mission.status) && !isStuckInProgress) {
-      throw new BadRequestException(
-        "只有失败、已取消、已暂停或卡住的任务可以重试",
-      );
-    }
-
-    // ★ 如果是卡住的任务，记录日志
-    if (isStuckInProgress) {
-      this.logger.warn(
-        `[retryMission] Mission ${missionId} detected as stuck, allowing retry`,
-      );
-    }
-
-    const previousStatus = mission.status;
-
-    if (mode === "full") {
-      // 完全重试：删除所有任务，重新规划
-      await this.prisma.agentTask.deleteMany({
-        where: { missionId },
-      });
-
-      // 重置任务状态
-      await this.prisma.teamMission.update({
-        where: { id: missionId },
-        data: {
-          status: MissionStatus.PENDING,
-          completedTasks: 0,
-          totalTasks: 0,
-          finalResult: null,
-          summary: null,
-          // taskBreakdown will be set during new planning
-        },
-      });
-
-      await this.createLog(missionId, {
-        type: MissionLogType.MISSION_CREATED, // 使用现有类型
-        agentId: mission.leader.id,
-        agentName: mission.leader.agentName || mission.leader.displayName,
-        content: `任务重试（完全重新规划）${options?.reason ? `，原因：${options.reason}` : ""}`,
-      });
-
-      await this.sendMessageToTopic(
-        mission.topicId,
-        null,
-        `🔄 **任务重试**\n\n任务「${mission.title}」将重新规划并执行...${options?.reason ? `\n\n> 重试原因：${options.reason}` : ""}`,
-        MessageContentType.SYSTEM,
-      );
-
-      this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:retried", {
-        missionId,
-        mode: "full",
-        previousStatus,
-      });
-
-      // 重新启动任务
-      this.startMission(missionId, userId).catch((err) => {
-        this.logger.error(`Failed to restart mission ${missionId}: ${err}`);
-      });
-    } else {
-      // 继续执行：将失败/取消/卡住的任务标记为 PENDING，继续执行
-      const stuckThreshold = 10 * 60 * 1000; // 10 分钟
-      const now = Date.now();
-
-      // ★ 扩展：同时检测失败、取消、阻塞和卡住的任务
-      const tasksToReset = mission.tasks.filter((t) => {
-        // 失败或取消的任务
-        if (
-          t.status === AgentTaskStatus.CANCELLED ||
-          t.status === AgentTaskStatus.BLOCKED
-        ) {
-          return true;
-        }
-        // ★ 卡住的 IN_PROGRESS 任务（超过 10 分钟未更新）
-        if (t.status === AgentTaskStatus.IN_PROGRESS && t.startedAt) {
-          const startTime = new Date(t.startedAt).getTime();
-          if (now - startTime > stuckThreshold) {
-            this.logger.warn(
-              `[retryMission] Task ${t.id} is stuck (started ${Math.round((now - startTime) / 60000)} min ago)`,
-            );
-            return true;
-          }
-        }
-        return false;
-      });
-
-      if (tasksToReset.length === 0) {
-        // 没有需要重置的任务，检查是否有等待执行的任务
-        const pendingTasks = mission.tasks.filter(
-          (t) => t.status === AgentTaskStatus.PENDING,
-        );
-
-        if (pendingTasks.length === 0) {
-          throw new BadRequestException("没有可以继续执行的任务");
-        }
-      }
-
-      // 将需要重置的任务设为 PENDING
-      for (const task of tasksToReset) {
-        await this.prisma.agentTask.update({
-          where: { id: task.id },
-          data: {
-            status: AgentTaskStatus.PENDING,
-            result: null,
-            startedAt: null,
-            completedAt: null,
-          },
-        });
-      }
-
-      // 更新任务状态为 IN_PROGRESS
-      await this.prisma.teamMission.update({
-        where: { id: missionId },
-        data: {
-          status: MissionStatus.IN_PROGRESS,
-          summary: null,
-        },
-      });
-
-      // ★ 生成更详细的日志消息
-      const stuckCount = tasksToReset.filter(
-        (t) => t.status === AgentTaskStatus.IN_PROGRESS,
-      ).length;
-      const failedCount = tasksToReset.length - stuckCount;
-      const logMsg =
-        stuckCount > 0 && failedCount > 0
-          ? `${failedCount} 个失败任务和 ${stuckCount} 个卡住任务将重新执行`
-          : stuckCount > 0
-            ? `${stuckCount} 个卡住的任务将重新执行`
-            : `${failedCount} 个任务将重新执行`;
-
-      await this.createLog(missionId, {
-        type: MissionLogType.TASK_STARTED,
-        agentId: mission.leader.id,
-        agentName: mission.leader.agentName || mission.leader.displayName,
-        content: `任务继续执行，${logMsg}${options?.reason ? `，原因：${options.reason}` : ""}`,
-      });
-
-      // ★ 关键修复：发送 @Leader 消息，触发 Leader 重新编排任务
-      const leaderName = mission.leader.agentName || mission.leader.displayName;
-      const mentionMessage = `@${leaderName} 继续当前任务`;
-
-      // 发送用户消息 @mention Leader
-      await this.sendMessageToTopic(
-        mission.topicId,
-        null, // 系统代发
-        mentionMessage,
-        MessageContentType.TEXT, // ★ 改为 TEXT，模拟用户消息
-      );
-
-      this.aiTeamsGateway.emitToTopic(mission.topicId, "mission:retried", {
-        missionId,
-        mode: "continue",
-        previousStatus,
-        retriedTaskCount: tasksToReset.length,
-        stuckTaskCount: stuckCount,
-      });
-
-      // ★ 调用 handleLeaderMentionCommand 触发 Leader 重新编排
-      // 这会让 Leader 检查任务状态并继续组织执行
-      this.handleLeaderMentionCommand(
-        mission.topicId,
-        userId,
-        mentionMessage,
-      ).catch((err) => {
-        this.logger.error(
-          `Failed to trigger leader command for mission ${missionId}: ${err}`,
-        );
-        // 如果 Leader 命令失败，回退到直接执行
-        this.executeNextTasks(missionId).catch((execErr) => {
-          this.logger.error(
-            `Fallback executeNextTasks also failed for ${missionId}: ${execErr}`,
-          );
-        });
-      });
-    }
-
-    return {
-      success: true,
-      message: mode === "full" ? "任务重新开始" : "任务继续执行",
-      mode,
-      previousStatus,
-    };
+    return this.retryService.retryMission(
+      missionId,
+      userId,
+      options,
+      this.sendMessageToTopic.bind(this),
+      this.createLog.bind(this),
+      this.startMission.bind(this),
+      this.handleLeaderMentionCommand.bind(this),
+      this.executeNextTasks.bind(this),
+    );
   }
 
   /**
@@ -5505,9 +4894,7 @@ ${taskList}
         const tasksCanStart = pendingTasks.filter((task) => {
           const dependsOnIds = task.dependsOnIds || [];
           return dependsOnIds.every((depId: string) => {
-            const depTask = updatedMission.tasks.find(
-              (t: any) => t.id === depId,
-            );
+            const depTask = updatedMission.tasks.find((t) => t.id === depId);
             return depTask?.status === AgentTaskStatus.COMPLETED;
           });
         });
@@ -5516,9 +4903,7 @@ ${taskList}
         const blockedTasks = pendingTasks.filter((task) => {
           const dependsOnIds = task.dependsOnIds || [];
           return dependsOnIds.some((depId: string) => {
-            const depTask = updatedMission.tasks.find(
-              (t: any) => t.id === depId,
-            );
+            const depTask = updatedMission.tasks.find((t) => t.id === depId);
             return depTask?.status !== AgentTaskStatus.COMPLETED;
           });
         });
@@ -5528,9 +4913,7 @@ ${taskList}
         for (const task of blockedTasks) {
           const dependsOnIds = task.dependsOnIds || [];
           for (const depId of dependsOnIds) {
-            const depTask = updatedMission.tasks.find(
-              (t: any) => t.id === depId,
-            );
+            const depTask = updatedMission.tasks.find((t) => t.id === depId);
             if (depTask && depTask.status !== AgentTaskStatus.COMPLETED) {
               blockingTaskIds.add(depId);
             }
@@ -5538,19 +4921,19 @@ ${taskList}
         }
 
         // 获取阻塞任务的详细信息
-        const blockingTasks = updatedMission.tasks.filter((t: any) =>
+        const blockingTasks = updatedMission.tasks.filter((t) =>
           blockingTaskIds.has(t.id),
         );
 
         // 处理阻塞任务（无论是否超时，用户明确要求继续时应尝试恢复）
         const awaitingReviewBlocking = blockingTasks.filter(
-          (t: any) => t.status === AgentTaskStatus.AWAITING_REVIEW,
+          (t) => t.status === AgentTaskStatus.AWAITING_REVIEW,
         );
         const revisionNeededBlocking = blockingTasks.filter(
-          (t: any) => t.status === AgentTaskStatus.REVISION_NEEDED,
+          (t) => t.status === AgentTaskStatus.REVISION_NEEDED,
         );
         const inProgressBlocking = blockingTasks.filter(
-          (t: any) => t.status === AgentTaskStatus.IN_PROGRESS,
+          (t) => t.status === AgentTaskStatus.IN_PROGRESS,
         );
 
         // 如果有可以开始的任务，执行它们
@@ -5651,7 +5034,7 @@ ${taskList}
         if (inProgressBlocking.length > 0) {
           // 检查是否真的卡住（超过阈值）
           const stuckBlocking = inProgressBlocking.filter(
-            (t: any) =>
+            (t) =>
               t.startedAt &&
               now - new Date(t.startedAt).getTime() > stuckThreshold,
           );
@@ -5706,7 +5089,7 @@ ${taskList}
 
         // 其他情况（可能是依赖任务被取消或阻塞等）
         const cancelledBlocking = blockingTasks.filter(
-          (t: any) =>
+          (t) =>
             t.status === AgentTaskStatus.CANCELLED ||
             t.status === AgentTaskStatus.BLOCKED,
         );
