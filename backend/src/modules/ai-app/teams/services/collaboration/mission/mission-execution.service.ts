@@ -112,6 +112,12 @@ export class MissionExecutionService {
   private readonly logger = new Logger(MissionExecutionService.name);
   private callbacks: ExecutionCallbacks | null = null;
 
+  /**
+   * ★ 待执行标记：当嵌套的 executeNextTasks 调用被跳过时，记录下来
+   * 在锁释放后自动重新执行，避免任务卡住
+   */
+  private pendingExecutions = new Set<string>();
+
   constructor(
     private prisma: PrismaService,
     private aiChatService: AiChatService,
@@ -543,8 +549,11 @@ export class MissionExecutionService {
     const callbacks = this.ensureCallbacks();
 
     if (!this.stateManager.startMissionExecution(missionId)) {
+      // ★ 修复：记录待执行标记，而不是直接跳过
+      // 当父级 executeNextTasks 释放锁后，会自动重新执行
+      this.pendingExecutions.add(missionId);
       this.logger.debug(
-        `[executeNextTasks] Mission ${missionId} is already being processed, skipping`,
+        `[executeNextTasks] Mission ${missionId} is already being processed, marked for re-execution`,
       );
       return;
     }
@@ -655,6 +664,23 @@ export class MissionExecutionService {
       this.logger.debug(
         `[executeNextTasks] Released lock for mission ${missionId}`,
       );
+
+      // ★ 修复：检查是否有待执行的请求
+      // 如果在执行期间有嵌套调用被跳过，现在重新执行
+      if (this.pendingExecutions.has(missionId)) {
+        this.pendingExecutions.delete(missionId);
+        this.logger.log(
+          `[executeNextTasks] Re-executing for mission ${missionId} due to pending request`,
+        );
+        // 使用 setImmediate 避免无限递归调用栈
+        setImmediate(() =>
+          this.executeNextTasks(missionId).catch((e) =>
+            this.logger.error(
+              `[executeNextTasks] Re-execution failed for ${missionId}: ${e}`,
+            ),
+          ),
+        );
+      }
     }
   }
 
