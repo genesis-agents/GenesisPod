@@ -87,7 +87,7 @@ export class AiTeamsGateway
       }
       this.userSockets.get(userId)?.add(client.id);
 
-      this.logger.log(`Client connected: ${client.id}, userId: ${userId}`);
+      this.logger.debug(`Client connected: ${client.id}, userId: ${userId}`);
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
@@ -105,7 +105,7 @@ export class AiTeamsGateway
       }
     }
     this.socketUsers.delete(client.id);
-    this.logger.log(`Client disconnected: ${client.id}`);
+    this.logger.debug(`Client disconnected: ${client.id}`);
   }
 
   // 加入Topic房间
@@ -139,27 +139,13 @@ export class AiTeamsGateway
       client.join(roomName);
       client.currentTopicId = topicId;
 
-      // 验证是否成功加入房间
-      const clientRooms = Array.from(client.rooms);
-      this.logger.log(
-        `Client ${client.id} (user ${userId}) rooms after join: ${clientRooms.join(", ")}`,
-      );
-
       // 获取当前房间内的在线用户列表
       const onlineUsers = await this.getOnlineUsersInTopic(topicId);
-
-      // 获取房间内的 socket 数量
-      const socketsInRoom = await this.server.in(roomName).fetchSockets();
-      this.logger.log(
-        `Room ${roomName} now has ${socketsInRoom.length} sockets: ${socketsInRoom.map((s) => s.id).join(", ")}`,
-      );
 
       // 通知其他成员有人加入（使用 server.to 而不是 client.to，确保广播）
       this.server.to(roomName).emit("member:online", { userId });
 
-      this.logger.log(
-        `User ${userId} joined topic ${topicId}, online users: ${onlineUsers.join(", ")}`,
-      );
+      this.logger.debug(`User ${userId} joined topic ${topicId}`);
 
       // 返回成功状态和在线用户列表
       return { success: true, onlineUsers };
@@ -187,7 +173,7 @@ export class AiTeamsGateway
       // 通知其他成员有人离开
       client.to(`topic:${topicId}`).emit("member:offline", { userId });
 
-      this.logger.log(`User ${userId} left topic ${topicId}`);
+      this.logger.debug(`User ${userId} left topic ${topicId}`);
     }
 
     return { success: true };
@@ -436,15 +422,17 @@ export class AiTeamsGateway
   // 广播消息给Topic内所有成员
   async emitToTopic(topicId: string, event: string, data: any) {
     const roomName = `topic:${topicId}`;
-    // 获取房间内的 socket 数量用于调试
-    const sockets = await this.server.in(roomName).fetchSockets();
-    const socketDetails = sockets.map((s) => {
-      const userId = this.socketUsers.get(s.id);
-      return `${s.id}(user:${userId})`;
-    });
-    this.logger.log(
-      `emitToTopic: room=${roomName}, event=${event}, sockets=${sockets.length}, details=[${socketDetails.join(", ")}]`,
-    );
+    // 心跳事件不输出日志（太频繁）
+    const isHeartbeat = event === "mission:agent_working";
+    if (!isHeartbeat) {
+      // 只在非心跳事件时获取 socket 详情（避免性能开销）
+      const sockets = await this.server.in(roomName).fetchSockets();
+      if (sockets.length > 0) {
+        this.logger.debug(
+          `emitToTopic: room=${roomName}, event=${event}, sockets=${sockets.length}`,
+        );
+      }
+    }
     this.server.to(roomName).emit(event, data);
   }
 

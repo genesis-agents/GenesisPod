@@ -2462,19 +2462,7 @@ Format the summary in a clear, structured manner using markdown.`;
         const data = response.data;
         const content = data.choices?.[0]?.message?.content;
 
-        // Log response details for debugging (debug level to avoid production log spam)
-        this.logger.debug(`[${modelName}] Response status: ${response.status}`);
-        this.logger.debug(
-          `[${modelName}] Response has choices: ${!!data.choices}, length: ${data.choices?.length || 0}`,
-        );
-        if (data.choices?.[0]) {
-          this.logger.debug(
-            `[${modelName}] Choice finish_reason: ${data.choices[0].finish_reason}`,
-          );
-          this.logger.debug(
-            `[${modelName}] Message content length: ${content?.length || 0}`,
-          );
-        }
+        // Log response details for debugging (verbose level to reduce production noise)
         if (data.error) {
           this.logger.error(
             `[${modelName}] API returned error: ${JSON.stringify(data.error)}`,
@@ -2876,20 +2864,11 @@ Generate an image that fulfills the current request while maintaining consistenc
 
     const data = response.data;
 
-    // Log response details for debugging
-    this.logger.log(`[Gemini] Response status: ${response.status}`);
-    this.logger.log(
-      `[Gemini] Has candidates: ${!!data.candidates}, length: ${data.candidates?.length || 0}`,
-    );
+    // Log response details for debugging (verbose level to reduce noise)
+    this.logger.verbose(`[Gemini] Response status: ${response.status}`);
 
     if (data.candidates?.[0]) {
       const candidate = data.candidates[0];
-      this.logger.log(
-        `[Gemini] Candidate finishReason: ${candidate.finishReason}`,
-      );
-      this.logger.log(
-        `[Gemini] Has content: ${!!candidate.content}, parts: ${candidate.content?.parts?.length || 0}`,
-      );
 
       // Check for safety ratings that might block response
       if (candidate.safetyRatings) {
@@ -2920,28 +2899,17 @@ Generate an image that fulfills the current request while maintaining consistenc
     let textContent = "";
     const images: string[] = [];
 
-    this.logger.log(
-      `[Gemini] Processing ${parts.length} part(s) from response`,
-    );
-
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
-      this.logger.log(
-        `[Gemini] Part ${i}: hasText=${!!part.text}, hasInlineData=${!!part.inlineData}`,
-      );
 
       if (part.text) {
         textContent += part.text;
-        this.logger.log(`[Gemini] Part ${i} text length: ${part.text.length}`);
       }
       if (part.inlineData) {
         // Image data is returned as base64
         const mimeType = part.inlineData.mimeType || "image/png";
         // CRITICAL: Remove all whitespace from base64 data (Gemini may include newlines)
         const base64Data = part.inlineData.data?.replace(/\s/g, "") || "";
-        this.logger.log(
-          `[Gemini] Part ${i} inlineData: mimeType=${mimeType}, dataLength=${base64Data?.length || 0}`,
-        );
 
         if (base64Data && base64Data.length > 0) {
           // Validate base64 format
@@ -2954,12 +2922,6 @@ Generate an image that fulfills the current request while maintaining consistenc
 
           const imageMarkdown = `![Generated Image](data:${mimeType};base64,${base64Data})`;
           images.push(imageMarkdown);
-          this.logger.log(
-            `[Gemini] Part ${i} image markdown created, length: ${imageMarkdown.length}`,
-          );
-          this.logger.log(
-            `[Gemini] Part ${i} base64 preview (first 50 chars): ${base64Data.substring(0, 50)}`,
-          );
         } else {
           this.logger.warn(`[Gemini] Part ${i} has inlineData but no data!`);
         }
