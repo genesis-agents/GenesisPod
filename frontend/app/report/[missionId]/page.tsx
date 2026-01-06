@@ -36,6 +36,7 @@ export default function PublicReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(-1); // -1 = View All
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     if (!missionId) return;
@@ -115,6 +116,16 @@ export default function PublicReportPage() {
     });
   }, [report?.fullContent]);
 
+  // Extract short chapter name (e.g., "夜雨破庙" from "卷一 第1章《夜雨破庙》")
+  const getShortChapterName = (title: string, idx: number): string => {
+    const match = title.match(/《([^》]+)》/);
+    if (match) return match[1];
+    // Try to get the last part after 章
+    const afterChapter = title.match(/[章节回]\s*[《]?([^》《]+)[》]?$/);
+    if (afterChapter) return afterChapter[1].trim();
+    return `第${idx + 1}章`;
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -189,16 +200,40 @@ export default function PublicReportPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm">
-        <div className="mx-auto max-w-5xl px-4 py-4">
+        <div className="mx-auto max-w-7xl px-4 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-gray-800">
-                {displayTitle}
-              </h1>
-              <p className="mt-1 text-sm text-gray-500">
-                {report.taskCount} 章节 | {report.totalWords.toLocaleString()}{' '}
-                字 | 负责人: {report.leader}
-              </p>
+            <div className="flex items-center gap-4">
+              {/* Sidebar Toggle */}
+              {chapters.length > 1 && (
+                <button
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100"
+                  title={sidebarOpen ? '收起目录' : '展开目录'}
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
+                  </svg>
+                </button>
+              )}
+              <div>
+                <h1 className="text-xl font-bold text-gray-800">
+                  {displayTitle}
+                </h1>
+                <p className="mt-1 text-sm text-gray-500">
+                  {report.taskCount} 章节 | {report.totalWords.toLocaleString()}{' '}
+                  字 | 负责人: {report.leader}
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
@@ -209,102 +244,115 @@ export default function PublicReportPage() {
         </div>
       </header>
 
-      {/* Chapter Navigation */}
-      {chapters.length > 1 && (
-        <div className="sticky top-[73px] z-40 border-b border-gray-200 bg-gray-50">
-          <div className="mx-auto max-w-5xl px-4">
-            <div className="flex items-center gap-2 overflow-x-auto py-3">
-              <button
-                onClick={() => setCurrentPage(-1)}
-                className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                  currentPage === -1
-                    ? 'bg-green-500 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                全部
-              </button>
-              <div className="h-6 w-px bg-gray-300" />
-              {chapters.map((chapter, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentPage(idx)}
-                  title={chapter.title}
-                  className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                    currentPage === idx
-                      ? 'bg-green-500 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  第{idx + 1}章
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Content */}
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        <article className="rounded-xl bg-white p-8 shadow-sm">
-          <div className="prose prose-lg prose-headings:text-gray-800 prose-p:text-gray-600 prose-li:text-gray-600 prose-strong:text-gray-800 prose-table:w-full prose-th:bg-gray-100 prose-th:px-4 prose-th:py-2 prose-th:text-left prose-th:font-semibold prose-th:text-gray-700 prose-td:px-4 prose-td:py-2 prose-td:text-gray-600 prose-tr:border-b prose-tr:border-gray-200 max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {fixMarkdownTables(displayContent)}
-            </ReactMarkdown>
-          </div>
-        </article>
-
-        {/* Pagination */}
-        {chapters.length > 1 && currentPage !== -1 && (
-          <div className="mt-6 flex items-center justify-between rounded-xl bg-white p-4 shadow-sm">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-              disabled={currentPage === 0}
-              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-              上一章
-            </button>
-            <span className="text-sm text-gray-500">
-              {currentPage + 1} / {chapters.length}
-            </span>
-            <button
-              onClick={() =>
-                setCurrentPage((p) => Math.min(chapters.length - 1, p + 1))
-              }
-              disabled={currentPage === chapters.length - 1}
-              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              下一章
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </button>
-          </div>
+      <div className="flex">
+        {/* Left Sidebar - Chapter Navigation */}
+        {chapters.length > 1 && sidebarOpen && (
+          <aside className="sticky top-[73px] h-[calc(100vh-73px)] w-64 flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-white">
+            <nav className="p-4">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
+                目录
+              </h2>
+              <ul className="space-y-1">
+                <li>
+                  <button
+                    onClick={() => setCurrentPage(-1)}
+                    className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                      currentPage === -1
+                        ? 'bg-green-100 font-medium text-green-700'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    全部内容
+                  </button>
+                </li>
+                <li className="my-2 border-t border-gray-100" />
+                {chapters.map((chapter, idx) => (
+                  <li key={idx}>
+                    <button
+                      onClick={() => setCurrentPage(idx)}
+                      title={chapter.title}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                        currentPage === idx
+                          ? 'bg-green-100 font-medium text-green-700'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      <span className="mr-2 text-gray-400">{idx + 1}.</span>
+                      <span className="line-clamp-1">
+                        {getShortChapterName(chapter.title, idx)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </aside>
         )}
-      </main>
+
+        {/* Main Content */}
+        <main className="flex-1 px-4 py-8 lg:px-8">
+          <div className="mx-auto max-w-4xl">
+            <article className="rounded-xl bg-white p-8 shadow-sm">
+              <div className="prose prose-lg prose-headings:text-gray-800 prose-p:text-gray-600 prose-li:text-gray-600 prose-strong:text-gray-800 prose-table:w-full prose-th:bg-gray-100 prose-th:px-4 prose-th:py-2 prose-th:text-left prose-th:font-semibold prose-th:text-gray-700 prose-td:px-4 prose-td:py-2 prose-td:text-gray-600 prose-tr:border-b prose-tr:border-gray-200 max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {fixMarkdownTables(displayContent)}
+                </ReactMarkdown>
+              </div>
+            </article>
+
+            {/* Pagination */}
+            {chapters.length > 1 && currentPage !== -1 && (
+              <div className="mt-6 flex items-center justify-between rounded-xl bg-white p-4 shadow-sm">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                  上一章
+                </button>
+                <span className="text-sm text-gray-500">
+                  {currentPage + 1} / {chapters.length}
+                </span>
+                <button
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(chapters.length - 1, p + 1))
+                  }
+                  disabled={currentPage === chapters.length - 1}
+                  className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  下一章
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
 
       {/* Footer */}
       <footer className="border-t border-gray-200 bg-white py-6">
