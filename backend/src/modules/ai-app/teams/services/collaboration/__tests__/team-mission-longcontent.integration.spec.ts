@@ -204,6 +204,7 @@ describe("TeamMissionService Long Content Integration", () => {
           provide: MissionHealthCheckService,
           useValue: {
             registerExecuteCallback: jest.fn(),
+            registerRevisionCallback: jest.fn(),
             resetRecoveryAttempts: jest.fn(),
             cleanupCompletedMission: jest.fn(),
           },

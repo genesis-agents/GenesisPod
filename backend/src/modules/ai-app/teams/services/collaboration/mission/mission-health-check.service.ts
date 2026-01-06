@@ -60,6 +60,11 @@ export class MissionHealthCheckService
   private executeNextTasksFn: ((missionId: string) => Promise<void>) | null =
     null;
 
+  /** 回调函数：恢复卡住的修订任务（由 TeamMissionService 注入） */
+  private recoverRevisionTasksFn:
+    | ((missionId: string) => Promise<void>)
+    | null = null;
+
   constructor(private readonly prisma: PrismaService) {}
 
   // ==================== 生命周期 ====================
@@ -83,6 +88,16 @@ export class MissionHealthCheckService
   ): void {
     this.executeNextTasksFn = callback;
     this.logger.log(`[MissionHealthCheck] Execute callback registered`);
+  }
+
+  /**
+   * 注册修订恢复回调（由 TeamMissionService 调用）
+   */
+  registerRevisionCallback(
+    callback: (missionId: string) => Promise<void>,
+  ): void {
+    this.recoverRevisionTasksFn = callback;
+    this.logger.log(`[MissionHealthCheck] Revision callback registered`);
   }
 
   // ==================== 健康检查调度 ====================
@@ -265,21 +280,38 @@ export class MissionHealthCheckService
         `pending=${pendingTasks}, revision_needed=${revisionNeededTasks}, attempt=${recoveryAttempts + 1}`,
     );
 
-    // 触发继续执行
-    if (this.executeNextTasksFn) {
+    // 优先处理需要修订的任务（因为它们已经有反馈，需要继续执行）
+    if (revisionNeededTasks > 0 && this.recoverRevisionTasksFn) {
+      try {
+        await this.recoverRevisionTasksFn(missionId);
+        this.logger.log(
+          `[MissionHealthCheck] Revision recovery triggered for mission "${title}" (${missionId}): ${revisionNeededTasks} tasks`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `[MissionHealthCheck] Revision recovery failed for mission "${title}" (${missionId}): ${error}`,
+        );
+      }
+    }
+
+    // 触发继续执行（处理 PENDING 任务）
+    if (pendingTasks > 0 && this.executeNextTasksFn) {
       try {
         await this.executeNextTasksFn(missionId);
         this.logger.log(
-          `[MissionHealthCheck] Recovery triggered for mission "${title}" (${missionId})`,
+          `[MissionHealthCheck] Recovery triggered for mission "${title}" (${missionId}): ${pendingTasks} tasks`,
         );
       } catch (error) {
         this.logger.error(
           `[MissionHealthCheck] Recovery failed for mission "${title}" (${missionId}): ${error}`,
         );
       }
-    } else {
+    }
+
+    // 如果两个回调都没有注册，记录警告
+    if (!this.executeNextTasksFn && !this.recoverRevisionTasksFn) {
       this.logger.warn(
-        `[MissionHealthCheck] Cannot recover mission "${title}" (${missionId}): executeNextTasks callback not registered`,
+        `[MissionHealthCheck] Cannot recover mission "${title}" (${missionId}): no callbacks registered`,
       );
     }
   }

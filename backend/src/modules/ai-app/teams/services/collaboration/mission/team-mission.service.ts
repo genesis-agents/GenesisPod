@@ -128,6 +128,62 @@ export class TeamMissionService implements OnModuleInit {
     this.healthCheckService.registerExecuteCallback((missionId: string) =>
       this.executeNextTasks(missionId),
     );
+
+    // 注册修订恢复回调
+    this.healthCheckService.registerRevisionCallback((missionId: string) =>
+      this.recoverRevisionTasks(missionId),
+    );
+  }
+
+  /**
+   * 恢复卡住的修订任务
+   * 查找 REVISION_NEEDED 状态的任务并重新触发修订
+   */
+  private async recoverRevisionTasks(missionId: string): Promise<void> {
+    const mission = await this.prisma.teamMission.findUnique({
+      where: { id: missionId },
+      include: {
+        tasks: {
+          where: { status: AgentTaskStatus.REVISION_NEEDED },
+          include: { assignedTo: true },
+        },
+        leader: true,
+      },
+    });
+
+    if (!mission || mission.status !== MissionStatus.IN_PROGRESS) {
+      return;
+    }
+
+    this.logger.log(
+      `[recoverRevisionTasks] Found ${mission.tasks.length} tasks needing revision for mission ${missionId}`,
+    );
+
+    // 依次触发修订（避免并发问题）
+    for (const task of mission.tasks) {
+      if (!task.leaderFeedback) {
+        this.logger.warn(
+          `[recoverRevisionTasks] Task ${task.id} has no leader feedback, skipping`,
+        );
+        continue;
+      }
+
+      this.logger.log(
+        `[recoverRevisionTasks] Triggering revision for task "${task.title}" (${task.id})`,
+      );
+
+      try {
+        await this.executeTaskRevision(
+          mission as any,
+          task as any,
+          task.leaderFeedback,
+        );
+      } catch (error) {
+        this.logger.error(
+          `[recoverRevisionTasks] Failed to trigger revision for task ${task.id}: ${error}`,
+        );
+      }
+    }
   }
 
   /**
