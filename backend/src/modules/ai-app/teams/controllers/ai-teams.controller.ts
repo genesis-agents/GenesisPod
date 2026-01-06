@@ -1268,6 +1268,19 @@ export class AiTeamsController {
     });
   }
 
+  @Post(":topicId/missions/:missionId/regenerate-report")
+  @ApiOperation({
+    summary: "重新生成最终报告",
+    description: "重新生成已完成任务的最终报告，修复排序或内容缺失问题",
+  })
+  @ApiResponse({ status: 200, description: "报告重新生成成功" })
+  async regenerateFinalReport(
+    @Param("topicId") _topicId: string,
+    @Param("missionId") missionId: string,
+  ) {
+    return this.teamMissionService.regenerateFinalReport(missionId);
+  }
+
   @Get(":topicId/missions/:missionId/logs")
   async getMissionLogs(
     @Param("topicId") _topicId: string,

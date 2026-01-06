@@ -4759,6 +4759,89 @@ ${taskList}
     });
   }
 
+  /**
+   * 重新生成最终报告
+   * 用于修复已完成任务的报告内容（例如排序问题、内容缺失等）
+   */
+  async regenerateFinalReport(missionId: string): Promise<{
+    success: boolean;
+    message: string;
+    finalResult?: string;
+    taskCount?: number;
+  }> {
+    const mission = await this.prisma.teamMission.findUnique({
+      where: { id: missionId },
+      include: {
+        leader: true,
+        tasks: {
+          include: { assignedTo: true },
+        },
+      },
+    });
+
+    if (!mission) {
+      return { success: false, message: "任务不存在" };
+    }
+
+    if (mission.status !== MissionStatus.COMPLETED) {
+      return { success: false, message: "只能重新生成已完成任务的报告" };
+    }
+
+    this.logger.log(
+      `[regenerateFinalReport] 开始重新生成报告: ${missionId}, 任务数: ${mission.tasks?.length || 0}`,
+    );
+
+    try {
+      // 重新构建完整报告（使用最新的排序逻辑）
+      const { fullContent } = this.buildFinalReportWithFullContent(mission);
+
+      // 生成新的执行总结
+      const completedTasks = (mission.tasks || []).filter(
+        (t: AgentTaskWithAssignee) =>
+          t.status === AgentTaskStatus.COMPLETED && t.result,
+      );
+      const totalWords = completedTasks.reduce(
+        (sum: number, t: AgentTaskWithAssignee) =>
+          sum + (t.result || "").length,
+        0,
+      );
+
+      const executiveSummary = `## 执行总结\n\n| 指标 | 数据 |\n|------|------|\n| 总任务数 | ${completedTasks.length}/${mission.tasks?.length || 0} |\n| 完成率 | ${mission.tasks?.length ? ((completedTasks.length / mission.tasks.length) * 100).toFixed(1) : 0}% |\n| 总字数 | ${totalWords} 字 |`;
+
+      // 最终报告 = 执行总结 + 完整内容
+      const finalReport = `${executiveSummary}\n\n---\n\n${fullContent}`;
+
+      this.logger.log(
+        `[regenerateFinalReport] 报告生成完成，包含 ${completedTasks.length} 个任务，总长度: ${finalReport.length} 字符`,
+      );
+
+      // 更新数据库
+      await this.prisma.teamMission.update({
+        where: { id: missionId },
+        data: { finalResult: finalReport },
+      });
+
+      // 广播更新事件
+      this.topicEventEmitter.emitToTopic(mission.topicId, "mission:updated", {
+        missionId,
+        finalResult: finalReport,
+      });
+
+      return {
+        success: true,
+        message: `报告已重新生成，包含 ${completedTasks.length} 个章节`,
+        finalResult: finalReport,
+        taskCount: completedTasks.length,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `[regenerateFinalReport] 重新生成报告失败: ${errorMsg}`,
+      );
+      return { success: false, message: `生成失败: ${errorMsg}` };
+    }
+  }
+
   async cancelMission(missionId: string, userId: string) {
     return this.lifecycleService.cancelMission(
       missionId,
