@@ -2225,6 +2225,11 @@ function AgentPopover({
         `/api/ai-teams/${topicId}/missions/${mission.id}/regenerate-report`,
         { method: 'POST', credentials: 'include' }
       );
+      if (!response.ok) {
+        setRegenerateStatus('error');
+        alert(`刷新失败: HTTP ${response.status} - ${response.statusText}`);
+        return;
+      }
       const result = await response.json();
       if (result.success) {
         setRegenerateStatus('success');
@@ -2236,7 +2241,8 @@ function AgentPopover({
       }
     } catch (error) {
       setRegenerateStatus('error');
-      alert('刷新报告失败，请重试');
+      const errMsg = error instanceof Error ? error.message : String(error);
+      alert(`刷新报告失败: ${errMsg}`);
     }
   }, [topicId, mission?.id]);
 
