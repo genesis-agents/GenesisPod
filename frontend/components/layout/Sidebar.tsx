@@ -328,8 +328,15 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiAsk')}</span>}
           </Link>
 
-          {/* Divider */}
-          <div className="my-2 border-t border-gray-200/60" />
+          {/* Section: Materials & Knowledge */}
+          {showExpanded && (
+            <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              {t('nav.sections.materialsKnowledge')}
+            </div>
+          )}
+          {!showExpanded && (
+            <div className="my-1 border-t border-gray-200/60" />
+          )}
 
           <Link
             href="/explore"
@@ -392,6 +399,16 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             </svg>
             {showExpanded && <span>{t('nav.myLibrary')}</span>}
           </Link>
+
+          {/* Section: AI Teams */}
+          {showExpanded && (
+            <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              {t('nav.sections.aiTeams')}
+            </div>
+          )}
+          {!showExpanded && (
+            <div className="my-1 border-t border-gray-200/60" />
+          )}
 
           <Link
             href="/ai-studio"
@@ -548,6 +565,16 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             </svg>
             {showExpanded && <span>{t('nav.myTeams')}</span>}
           </Link>
+
+          {/* Section: AI Tools */}
+          {showExpanded && (
+            <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              {t('nav.sections.aiTools')}
+            </div>
+          )}
+          {!showExpanded && (
+            <div className="my-1 border-t border-gray-200/60" />
+          )}
 
           <Link
             href="/ai-store"

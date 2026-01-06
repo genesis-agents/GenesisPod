@@ -431,7 +431,10 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 <span>{quickEntry.label}</span>
               </Link>
 
-              {/* Materials & Knowledge */}
+              {/* Section: Materials & Knowledge */}
+              <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                {t('nav.sections.materialsKnowledge')}
+              </div>
               {materialsItems.map((item) => {
                 const active = isActive(item.href);
                 return (
@@ -450,7 +453,10 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 );
               })}
 
-              {/* AI Teams */}
+              {/* Section: AI Teams */}
+              <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                {t('nav.sections.aiTeams')}
+              </div>
               {aiTeamsItems.map((item) => {
                 const active = item.prefix
                   ? isActivePrefix(item.href)
@@ -471,7 +477,10 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 );
               })}
 
-              {/* AI Tools */}
+              {/* Section: AI Tools */}
+              <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                {t('nav.sections.aiTools')}
+              </div>
               {aiToolsItems.map((item) => {
                 const active = item.prefix
                   ? isActivePrefix(item.href)
