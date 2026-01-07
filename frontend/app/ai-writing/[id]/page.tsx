@@ -6,6 +6,7 @@ import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import * as api from '@/lib/api/ai-writing';
+import type { WritingProject as BaseWritingProject } from '@/lib/api/ai-writing';
 
 interface Character {
   id: string;
@@ -38,20 +39,11 @@ interface StoryBible {
   factions: { id: string; name: string }[];
 }
 
-interface WritingProject {
-  id: string;
-  name: string;
-  description?: string;
-  genre: string;
-  targetWords: number;
-  currentWords: number;
-  status: string;
+interface WritingProject extends BaseWritingProject {
   writingStyle?: string;
   targetAudience?: string;
   pov?: string;
   tense?: string;
-  createdAt: string;
-  updatedAt: string;
   storyBible?: StoryBible;
   volumes: Volume[];
 }
@@ -83,7 +75,7 @@ export default function WritingProjectDetailPage() {
     setLoading(true);
     try {
       const data = await api.getProject(projectId);
-      setProject(data as unknown as WritingProject);
+      setProject(data as WritingProject);
     } catch (err: unknown) {
       console.error('Failed to fetch project:', err);
       if (err instanceof Error && err.message.includes('404')) {

@@ -1,32 +1,34 @@
-import { getAuthTokens } from '../utils/auth';
+/**
+ * AI Writing API Client
+ * 使用统一的 apiClient 直接调用后端 API (避免 Next.js rewrites 问题)
+ */
 
-// Use relative URLs to let Next.js rewrites proxy to backend (avoids CORS)
-async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  const tokens = getAuthTokens();
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
+import { apiClient } from './client';
 
-  if (tokens?.accessToken) {
-    (headers as Record<string, string>)['Authorization'] =
-      `Bearer ${tokens.accessToken}`;
+// Wrapper function to maintain backward compatibility
+// Converts old relative URLs to apiClient calls
+async function fetchWithAuth<T = any>(
+  url: string,
+  options: RequestInit = {}
+): Promise<T> {
+  // Extract path from /api/v1/ai-writing/xxx to /ai-writing/xxx
+  const path = url.replace(/^\/api\/v1/, '');
+
+  const method = options.method?.toUpperCase() || 'GET';
+  const body = options.body ? JSON.parse(options.body as string) : undefined;
+
+  switch (method) {
+    case 'POST':
+      return apiClient.post(path, body) as Promise<T>;
+    case 'PATCH':
+      return apiClient.patch(path, body) as Promise<T>;
+    case 'PUT':
+      return apiClient.put(path, body) as Promise<T>;
+    case 'DELETE':
+      return apiClient.delete(path) as Promise<T>;
+    default:
+      return apiClient.get(path) as Promise<T>;
   }
-
-  // Use relative URL - Next.js rewrites will proxy /api/v1/* to backend
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || `HTTP ${response.status}`);
-  }
-
-  return response.json();
 }
 
 // ==================== Project API ====================

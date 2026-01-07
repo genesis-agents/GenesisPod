@@ -6,18 +6,7 @@ import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import * as api from '@/lib/api/ai-writing';
-
-interface WritingProject {
-  id: string;
-  name: string;
-  description?: string;
-  genre: string;
-  targetWords: number;
-  currentWords: number;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { WritingProject } from '@/lib/api/ai-writing';
 
 export default function AIWritingPage() {
   const { t } = useTranslation();
@@ -31,7 +20,7 @@ export default function AIWritingPage() {
     setLoading(true);
     try {
       const data = await api.getProjects();
-      setProjects((data.items || []) as unknown as WritingProject[]);
+      setProjects(data.items || []);
     } catch (err: unknown) {
       console.error('Failed to fetch projects:', err);
       setMessage(t('aiWriting.errors.loadFailed'));
