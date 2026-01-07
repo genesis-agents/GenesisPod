@@ -14,6 +14,9 @@ export { AgentExecutorService } from "./agent-executor.service";
 export { OutputReviewerService } from "./output-reviewer.service";
 export { IterationManagerService } from "./iteration-manager.service";
 
+// 上下文演进服务
+export { ContextEvolutionService } from "./context-evolution.service";
+
 // 熔断器服务
 export {
   CircuitBreakerService,

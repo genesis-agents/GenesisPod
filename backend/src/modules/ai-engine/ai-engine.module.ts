@@ -40,6 +40,7 @@ import { OutputReviewerService } from "./orchestration/services/output-reviewer.
 import { IterationManagerService } from "./orchestration/services/iteration-manager.service";
 import { CircuitBreakerService } from "./orchestration/services/circuit-breaker.service";
 import { TokenBudgetService } from "./orchestration/services/token-budget.service";
+import { ContextEvolutionService } from "./orchestration/services/context-evolution.service";
 
 // Memory Services
 import { ShortTermMemoryService } from "./memory/stores/short-term-memory.service";
@@ -269,6 +270,7 @@ const conversationMemoryFactory = {
     IterationManagerService,
     CircuitBreakerService,
     TokenBudgetService,
+    ContextEvolutionService,
 
     // === Collaboration ===
     votingManagerFactory,
@@ -331,6 +333,7 @@ const conversationMemoryFactory = {
     IterationManagerService,
     CircuitBreakerService,
     TokenBudgetService,
+    ContextEvolutionService,
 
     // === Collaboration ===
     VotingManager,

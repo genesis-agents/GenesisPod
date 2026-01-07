@@ -440,6 +440,178 @@ export interface ResearchContext {
   updatedAt: Date;
 }
 
+// ==================== 上下文演进服务接口 ====================
+
+/**
+ * 上下文演进配置
+ */
+export interface ContextEvolutionConfig {
+  /** 最小输出长度（低于此值跳过提取） */
+  minOutputLength: number;
+  /** 提取时的最大输出长度（截断） */
+  maxOutputForExtraction: number;
+  /** 事实总数上限 */
+  maxFactsCount: number;
+  /** 中等重要性事实显示数量上限 */
+  maxMediumFactsDisplay: number;
+  /** 最小事实陈述长度 */
+  minFactStatementLength: number;
+  /** 是否启用异步提取 */
+  asyncExtraction: boolean;
+  /** 用于事实提取的模型 */
+  extractionModel: string;
+}
+
+/**
+ * 默认上下文演进配置
+ */
+export const DEFAULT_CONTEXT_EVOLUTION_CONFIG: ContextEvolutionConfig = {
+  minOutputLength: 200,
+  maxOutputForExtraction: 6000,
+  maxFactsCount: 100,
+  maxMediumFactsDisplay: 10,
+  minFactStatementLength: 5,
+  asyncExtraction: false,
+  extractionModel: "gpt-4o-mini",
+};
+
+/**
+ * 已确立的事实 - 在任务执行过程中被确定下来的信息
+ *
+ * 通用设计：适用于任何类型的任务
+ * - 小说：人物出场、情节发展、时间线推进
+ * - 技术文档：API定义、术语确定、架构决策
+ * - 研究报告：数据来源、结论推导、论点演进
+ */
+export interface EstablishedFact {
+  /** 唯一ID */
+  id: string;
+  /** 来源任务ID */
+  sourceTaskId: string;
+  /** 来源任务标题 */
+  sourceTaskTitle: string;
+  /** 确立时间 */
+  establishedAt: string;
+  /** 事实陈述 */
+  statement: string;
+  /**
+   * 事实类别（领域无关）
+   * - entity_state: 实体状态变化（人物状态、系统状态等）
+   * - sequence_point: 序列点（时间线、版本、阶段）
+   * - decision: 决策（架构选择、情节走向）
+   * - definition: 定义确定（术语、概念、规格）
+   * - relationship: 关系建立（人物关系、组件依赖）
+   * - constraint_added: 新增约束
+   */
+  category:
+    | "entity_state"
+    | "sequence_point"
+    | "decision"
+    | "definition"
+    | "relationship"
+    | "constraint_added";
+  /** 相关实体名称 */
+  relatedEntities?: string[];
+  /** 重要程度: high=必须遵守, medium=应该遵守, low=参考信息 */
+  importance: "high" | "medium" | "low";
+}
+
+/**
+ * 事实类别常量
+ */
+export const FACT_CATEGORIES = [
+  "entity_state",
+  "sequence_point",
+  "decision",
+  "definition",
+  "relationship",
+  "constraint_added",
+] as const;
+
+/**
+ * 事实重要程度常量
+ */
+export const FACT_IMPORTANCE_LEVELS = ["high", "medium", "low"] as const;
+
+/**
+ * 上下文状态（通用结构，适用于任何任务类型）
+ */
+export interface ContextState {
+  /** 版本号 */
+  version: string;
+  /** 生成时间 */
+  generatedAt: string;
+  /** 生成者（Leader ID） */
+  generatedBy: string;
+  /** 已确立的事实 */
+  establishedFacts: EstablishedFact[];
+}
+
+/**
+ * 事实提取请求
+ */
+export interface FactExtractionRequest {
+  /** 任务ID */
+  taskId: string;
+  /** 任务标题 */
+  taskTitle: string;
+  /** 任务输出内容 */
+  taskOutput: string;
+  /** 现有的已确立事实（避免重复） */
+  existingFacts?: EstablishedFact[];
+  /** 现有的实体名称（避免重复） */
+  existingEntities?: string[];
+}
+
+/**
+ * 事实提取结果
+ */
+export interface FactExtractionResult {
+  /** 提取出的新事实 */
+  facts: EstablishedFact[];
+  /** Token 使用量 */
+  tokensUsed: number;
+}
+
+/**
+ * 上下文演进服务接口
+ */
+export interface IContextEvolutionService {
+  /**
+   * 从任务输出中提取已确立的事实
+   * @param request 提取请求
+   * @param aiCaller AI 调用函数（注入上层执行上下文）
+   * @param config 可选配置
+   */
+  extractFacts(
+    request: FactExtractionRequest,
+    aiCaller: AiCallerFn,
+    config?: Partial<ContextEvolutionConfig>,
+  ): Promise<FactExtractionResult>;
+
+  /**
+   * 合并新事实到现有上下文
+   * @param existingFacts 现有事实
+   * @param newFacts 新事实
+   * @param config 可选配置（用于限制总数）
+   */
+  mergeFacts(
+    existingFacts: EstablishedFact[],
+    newFacts: EstablishedFact[],
+    config?: Partial<ContextEvolutionConfig>,
+  ): EstablishedFact[];
+
+  /**
+   * 构建已确立事实的提示词片段（用于审核）
+   * @param facts 事实列表
+   * @param config 可选配置
+   */
+  buildFactsPromptSection(
+    facts: EstablishedFact[],
+    config?: Partial<ContextEvolutionConfig>,
+  ): string;
+}
+
 /**
  * 迭代管理服务接口
  */

@@ -33,11 +33,13 @@ import {
   MissionContextPackage,
   HardConstraint,
 } from "../../../interfaces/mission-context.interface";
-// ★ AI Engine 能力下沉：注入 OutputReviewerService
+// ★ AI Engine 能力下沉：注入 OutputReviewerService 和 ContextEvolutionService
 // 提供审核和修订的核心能力，通过 aiCaller 参数保留执行上下文
 import {
   OutputReviewerService,
+  ContextEvolutionService,
   AiCallerFn,
+  EstablishedFact,
 } from "../../../../../ai-engine/orchestration/services";
 
 /**
@@ -106,10 +108,12 @@ export class MissionReviewService {
     // ★ AI Engine 能力下沉：注入审核服务
     // 当前为预留接口，后续可逐步将审核逻辑委托给 AI Engine
     private outputReviewerService: OutputReviewerService,
+    // ★ AI Engine 能力下沉：注入上下文演进服务
+    private contextEvolutionService: ContextEvolutionService,
   ) {
     // 验证 AI Engine 服务可用
     this.logger.debug(
-      `[MissionReviewService] AI Engine OutputReviewerService injected: ${!!this.outputReviewerService}`,
+      `[MissionReviewService] AI Engine services injected: OutputReviewer=${!!this.outputReviewerService}, ContextEvolution=${!!this.contextEvolutionService}`,
     );
   }
 
@@ -358,6 +362,8 @@ export class MissionReviewService {
 
   /**
    * 处理审核通过
+   *
+   * ★ 增强：任务通过后提取已确立事实，更新上下文
    */
   private async handleApproval(
     mission: MissionWithRelations,
@@ -376,8 +382,160 @@ export class MissionReviewService {
       },
     });
 
+    // ★ 上下文演进：从完成的任务中提取已确立事实
+    await this.evolveContextAfterTaskCompletion(mission, task, callbacks);
+
     await callbacks.updateMissionProgress(mission.id);
     await callbacks.executeNextTasks(mission.id);
+  }
+
+  /**
+   * 任务完成后演进上下文
+   *
+   * 从完成的任务输出中提取关键事实，更新 mission 的 contextPackage
+   *
+   * ★ AI Engine 能力下沉：使用 ContextEvolutionService
+   * ★ 修复数据竞争：使用事务确保原子性更新
+   * ★ 修复事务超时：AI 调用移到事务外，避免长时间持有锁
+   */
+  private async evolveContextAfterTaskCompletion(
+    mission: MissionWithRelations,
+    task: AgentTaskWithAssignee,
+    callbacks: ReviewCallbacks,
+  ): Promise<void> {
+    const taskOutput = task.result;
+    // 使用配置常量
+    const MIN_OUTPUT_LENGTH = 200;
+    if (!taskOutput || taskOutput.length < MIN_OUTPUT_LENGTH) {
+      this.logger.debug(
+        `[evolveContext] Task "${task.title}" output too short (${taskOutput?.length || 0} < ${MIN_OUTPUT_LENGTH}), skipping`,
+      );
+      return;
+    }
+
+    try {
+      // 创建符合 AiCallerFn 接口的 AI 调用函数
+      const aiCaller: AiCallerFn = async (model, messages, options) => {
+        const systemMsg = messages.find((m) => m.role === "system");
+        const otherMsgs = messages.filter((m) => m.role !== "system");
+        return callbacks.callAIWithConfig(
+          model,
+          otherMsgs as { role: string; content: string }[],
+          systemMsg?.content || "",
+          {
+            maxTokens: options?.maxTokens,
+            temperature: options?.temperature,
+            missionId: mission.id,
+          },
+        );
+      };
+
+      // ==================== 阶段1：读取当前上下文（事务外） ====================
+      const currentMission = await this.prisma.teamMission.findUnique({
+        where: { id: mission.id },
+        select: { contextPackage: true },
+      });
+
+      if (!currentMission) {
+        this.logger.warn(`[evolveContext] Mission ${mission.id} not found`);
+        return;
+      }
+
+      const currentContext =
+        currentMission.contextPackage as MissionContextPackage | null;
+      const currentFacts = currentContext?.establishedFacts || [];
+      const currentEntities =
+        currentContext?.entities?.map((e) => e.name) || [];
+
+      // ==================== 阶段2：AI 提取新事实（事务外，避免长时间持锁） ====================
+      const extractionResult = await this.contextEvolutionService.extractFacts(
+        {
+          taskId: task.id,
+          taskTitle: task.title,
+          taskOutput,
+          existingFacts: currentFacts as EstablishedFact[],
+          existingEntities: currentEntities,
+        },
+        aiCaller,
+      );
+
+      if (extractionResult.facts.length === 0) {
+        this.logger.debug(
+          `[evolveContext] No new facts extracted from task "${task.title}"`,
+        );
+        return;
+      }
+
+      // ==================== 阶段3：事务内合并并写入（短事务） ====================
+      const result = await this.prisma.$transaction(async (tx) => {
+        // 重新读取最新上下文（避免并发覆盖）
+        const latestMission = await tx.teamMission.findUnique({
+          where: { id: mission.id },
+          select: { contextPackage: true },
+        });
+
+        if (!latestMission) {
+          throw new Error(`Mission ${mission.id} not found in transaction`);
+        }
+
+        const latestContext =
+          latestMission.contextPackage as MissionContextPackage | null;
+        const latestFacts = (latestContext?.establishedFacts ||
+          []) as EstablishedFact[];
+
+        // 合并事实（带数量限制）
+        const mergedFacts = this.contextEvolutionService.mergeFacts(
+          latestFacts,
+          extractionResult.facts,
+        );
+
+        // 构建更新后的上下文
+        const updatedContext: MissionContextPackage = {
+          ...(latestContext || {
+            version: "1.0",
+            understanding: { summary: "", scope: "", expectedOutput: "" },
+            hardConstraints: [],
+            entities: [],
+            prohibitions: [],
+            qualityStandards: [],
+            generatedBy: "system",
+            generatedAt: new Date().toISOString(),
+          }),
+          establishedFacts: mergedFacts,
+        };
+
+        // 写入数据库
+        await tx.teamMission.update({
+          where: { id: mission.id },
+          data: { contextPackage: updatedContext as object },
+        });
+
+        return {
+          newFactsCount: extractionResult.facts.length,
+          totalFactsCount: mergedFacts.length,
+        };
+      });
+
+      this.logger.log(
+        `[evolveContext] Updated context with ${result.newFactsCount} new facts from task "${task.title}" (total: ${result.totalFactsCount})`,
+      );
+
+      // 通知前端上下文已更新
+      this.topicEventEmitter.emitToTopic(
+        mission.topicId,
+        "mission:context_updated",
+        {
+          missionId: mission.id,
+          newFactsCount: result.newFactsCount,
+          totalFactsCount: result.totalFactsCount,
+        },
+      );
+    } catch (error) {
+      // 上下文演进失败不阻塞任务流程
+      this.logger.warn(
+        `[evolveContext] Failed to evolve context: ${error instanceof Error ? error.message : error}`,
+      );
+    }
   }
 
   /**
@@ -808,6 +966,10 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
 
   /**
    * 构建 Leader 审核提示词
+   *
+   * ★ 增强：加入跨任务一致性校验
+   * - 从 contextPackage 中提取已确立的事实
+   * - 要求 Leader 审核时检查与已确立事实的一致性
    */
   private buildLeaderReviewPrompt(
     mission: MissionWithRelations,
@@ -832,12 +994,21 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
         ? `\n**强制约束条件：**\n${mission.constraints.map((c: string, i: number) => `${i + 1}. ${c}`).join("\n")}\n`
         : "";
 
+    // ★ AI Engine 能力下沉：使用 ContextEvolutionService 构建已确立事实的审核提示
+    const contextPackage =
+      mission.contextPackage as MissionContextPackage | null;
+    const establishedFacts = (contextPackage?.establishedFacts ||
+      []) as EstablishedFact[];
+    const establishedFactsSection =
+      this.contextEvolutionService.buildFactsPromptSection(establishedFacts);
+
     return `你是团队 Leader，请审核以下任务产出。
 
 【整体任务背景】
 任务主题：${mission.title || "未知"}
 ${mission.goals ? `任务目标：${mission.goals}` : ""}
 ${constraintsHint}
+${establishedFactsSection}
 【本次审核任务】
 任务名称：${task.title}
 任务描述：${task.description}
@@ -853,18 +1024,21 @@ ${truncatedResult}
 - 完成了任务的核心要求
 - 内容质量达到可接受水平
 - 无严重的设定冲突或事实错误
+- 与已确立的事实保持一致（无矛盾）
 
 ❌ **仅以下情况才需要修改（非常严格的标准）：**
 - 完全偏离任务主题（写的内容与任务无关）
 - 严重违反人物核心设定（如让哑巴说话、让死人复活）
 - 字数严重不足（低于要求的 30%）
 - 内容明显不完整（只有开头没有结尾）
+- **与已确立事实严重矛盾**（如时间线冲突、人物身份冲突）
 
 **重要提醒：**
 - 文笔风格、细节处理、情节安排等都属于"可接受的创作差异"，不是拒绝理由
 - 与你期望的不完全一致 ≠ 需要修改
 - 有改进空间 ≠ 需要修改
 - 能够串联进整体故事即可通过
+- 细节的微小差异可以接受，但核心事实必须一致
 
 请按以下格式输出：
 
@@ -872,6 +1046,8 @@ ${truncatedResult}
 
 **内容亮点：**
 - [列出1-2个内容亮点，如人物刻画生动、情节紧凑等]
+
+**一致性检查：** ✅ 与已确立事实无矛盾
 
 **改进建议（可选）：**
 - [如有轻微可改进之处，简要提及，但不影响通过]
@@ -883,7 +1059,10 @@ ${truncatedResult}
 ## 审核结果：需要修改
 
 **必须修复的问题：**
-- [仅列出上述❌中的严重问题]`;
+- [仅列出上述❌中的严重问题]
+
+**一致性冲突（如有）：**
+- [列出与哪个已确立事实矛盾，以及如何修正]`;
   }
 
   /**

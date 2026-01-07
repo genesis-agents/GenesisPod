@@ -61,6 +61,47 @@ export interface QualityStandard {
 }
 
 /**
+ * 已确立的事实 - 在任务执行过程中被确定下来的信息
+ *
+ * 通用设计：适用于任何类型的任务
+ * - 小说：人物出场、情节发展、时间线推进
+ * - 技术文档：API定义、术语确定、架构决策
+ * - 研究报告：数据来源、结论推导、论点演进
+ */
+export interface EstablishedFact {
+  /** 唯一ID */
+  id: string;
+  /** 来源任务ID */
+  sourceTaskId: string;
+  /** 来源任务标题 */
+  sourceTaskTitle: string;
+  /** 确立时间 */
+  establishedAt: string;
+  /** 事实陈述 */
+  statement: string;
+  /**
+   * 事实类别（领域无关）
+   * - entity_state: 实体状态变化（人物状态、系统状态等）
+   * - sequence_point: 序列点（时间线、版本、阶段）
+   * - decision: 决策（架构选择、情节走向）
+   * - definition: 定义确定（术语、概念、规格）
+   * - relationship: 关系建立（人物关系、组件依赖）
+   * - constraint_added: 新增约束
+   */
+  category:
+    | "entity_state"
+    | "sequence_point"
+    | "decision"
+    | "definition"
+    | "relationship"
+    | "constraint_added";
+  /** 相关实体名称 */
+  relatedEntities?: string[];
+  /** 重要程度: high=必须遵守, medium=应该遵守, low=参考信息 */
+  importance: "high" | "medium" | "low";
+}
+
+/**
  * 任务理解
  */
 export interface TaskUnderstanding {
@@ -74,6 +115,11 @@ export interface TaskUnderstanding {
 
 /**
  * Mission Context Package - 完整的任务上下文包
+ *
+ * 设计原则：领域无关，通用适配
+ * - 初始化：Leader 在规划阶段填充 entities, hardConstraints 等
+ * - 演进：任务完成后，系统提取 establishedFacts 追加到上下文
+ * - 校验：后续任务执行和审核时，参照 establishedFacts 确保一致性
  */
 export interface MissionContextPackage {
   /** 版本号 */
@@ -105,6 +151,16 @@ export interface MissionContextPackage {
 
   /** 场景特定扩展（灵活字段） */
   extensions?: Record<string, unknown>;
+
+  /**
+   * 已确立的事实（任务执行过程中演进）
+   *
+   * 这是跨任务一致性的核心机制：
+   * - 每个任务完成后，AI 提取关键事实追加到此列表
+   * - 后续任务执行时，这些事实作为上下文注入
+   * - Leader 审核时，校验新内容与已确立事实的一致性
+   */
+  establishedFacts?: EstablishedFact[];
 }
 
 /**
@@ -128,6 +184,7 @@ export function createEmptyContextPackage(
     qualityStandards: [],
     glossary: {},
     extensions: {},
+    establishedFacts: [],
   };
 }
 
@@ -264,6 +321,50 @@ export function validateContextPackage(
   // 解析 extensions
   if (obj.extensions && typeof obj.extensions === "object") {
     result.extensions = obj.extensions as Record<string, unknown>;
+  }
+
+  // 解析 establishedFacts
+  result.establishedFacts = [];
+  if (Array.isArray(obj.establishedFacts)) {
+    const validCategories = [
+      "entity_state",
+      "sequence_point",
+      "decision",
+      "definition",
+      "relationship",
+      "constraint_added",
+    ];
+    const validImportance = ["high", "medium", "low"];
+
+    result.establishedFacts = obj.establishedFacts
+      .filter(
+        (f): f is Record<string, unknown> =>
+          f !== null && typeof f === "object",
+      )
+      .map((f) => ({
+        id:
+          typeof f.id === "string"
+            ? f.id
+            : `EF-${Math.random().toString(36).slice(2, 8)}`,
+        sourceTaskId: typeof f.sourceTaskId === "string" ? f.sourceTaskId : "",
+        sourceTaskTitle:
+          typeof f.sourceTaskTitle === "string" ? f.sourceTaskTitle : "",
+        establishedAt:
+          typeof f.establishedAt === "string"
+            ? f.establishedAt
+            : new Date().toISOString(),
+        statement: typeof f.statement === "string" ? f.statement : "",
+        category: (validCategories.includes(f.category as string)
+          ? f.category
+          : "definition") as EstablishedFact["category"],
+        relatedEntities: Array.isArray(f.relatedEntities)
+          ? f.relatedEntities.filter((e): e is string => typeof e === "string")
+          : undefined,
+        importance: (validImportance.includes(f.importance as string)
+          ? f.importance
+          : "medium") as EstablishedFact["importance"],
+      }))
+      .filter((f) => f.statement.length > 0);
   }
 
   return result;

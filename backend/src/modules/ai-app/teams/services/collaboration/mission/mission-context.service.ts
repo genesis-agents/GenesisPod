@@ -3,6 +3,7 @@ import {
   MissionContextPackage,
   validateContextPackage,
   createEmptyContextPackage,
+  EstablishedFact,
 } from "../../../interfaces/mission-context.interface";
 
 /**
@@ -574,5 +575,270 @@ ${memberNames.map((name, i) => `${i + 1}. ${name}`).join("\n")}
     }
 
     return null;
+  }
+
+  // ==================== 上下文演进 ====================
+
+  /**
+   * 从完成的任务输出中提取已确立的事实
+   *
+   * 这是通用的上下文演进机制：
+   * - 不预设任何领域知识
+   * - 让 AI 根据任务内容自动识别关键事实
+   * - 支持任何类型的任务（小说、文档、研究等）
+   *
+   * @param taskId - 任务ID
+   * @param taskTitle - 任务标题
+   * @param taskOutput - 任务产出内容
+   * @param existingContext - 现有上下文（用于避免重复提取）
+   * @param aiCaller - AI 调用函数
+   */
+  async extractEstablishedFacts(
+    taskId: string,
+    taskTitle: string,
+    taskOutput: string,
+    existingContext: MissionContextPackage | null,
+    aiCaller: (
+      messages: { role: string; content: string }[],
+      options?: { maxTokens?: number; temperature?: number },
+    ) => Promise<{ content: string }>,
+  ): Promise<EstablishedFact[]> {
+    // 如果输出太短，跳过提取
+    if (taskOutput.length < 200) {
+      this.logger.debug(
+        `[extractEstablishedFacts] Task output too short (${taskOutput.length} chars), skipping extraction`,
+      );
+      return [];
+    }
+
+    // 构建已知实体列表（避免重复提取）
+    const existingEntities =
+      existingContext?.entities?.map((e) => e.name) || [];
+    const existingFacts =
+      existingContext?.establishedFacts?.map((f) => f.statement) || [];
+
+    // 截取任务输出（避免 token 过多）
+    const MAX_OUTPUT_LENGTH = 6000;
+    const truncatedOutput =
+      taskOutput.length > MAX_OUTPUT_LENGTH
+        ? taskOutput.substring(0, MAX_OUTPUT_LENGTH) + "\n...[内容已截断]"
+        : taskOutput;
+
+    const extractionPrompt = `请从以下任务产出中提取【新确立的关键事实】。
+
+【任务标题】
+${taskTitle}
+
+【任务产出】
+${truncatedOutput}
+
+${existingEntities.length > 0 ? `【已知实体】（无需重复提取）\n${existingEntities.join("、")}\n` : ""}
+${existingFacts.length > 0 ? `【已确立事实】（无需重复提取）\n${existingFacts.slice(-10).join("\n")}\n` : ""}
+
+请识别并输出本次任务中【新确立】的关键事实，格式如下（JSON数组）：
+
+\`\`\`json
+[
+  {
+    "statement": "事实陈述（简洁、具体）",
+    "category": "类别",
+    "relatedEntities": ["相关实体名"],
+    "importance": "重要程度"
+  }
+]
+\`\`\`
+
+【类别说明】
+- entity_state: 实体状态变化（如：人物处于某状态、系统配置了某功能）
+- sequence_point: 序列点（如：时间推进到某节点、版本号确定）
+- decision: 决策确定（如：采用某方案、情节走向）
+- definition: 定义确定（如：术语定义、接口规格）
+- relationship: 关系建立（如：A与B的关系、组件依赖）
+- constraint_added: 新增约束（如：必须遵守的新规则）
+
+【重要程度】
+- high: 后续任务必须遵守，违反会导致严重不一致
+- medium: 后续任务应该遵守
+- low: 参考信息
+
+【提取原则】
+1. 只提取【具体、可验证】的事实，不要提取模糊描述
+2. 只提取【本次新确立】的事实，不要重复已知信息
+3. 每个事实应该是【独立可理解】的
+4. 优先提取 high 重要程度的事实（如：时间线、人物身份、关键决策）
+5. 如果没有新事实，返回空数组 []
+
+请直接输出 JSON 数组，不要其他说明。`;
+
+    try {
+      const response = await aiCaller(
+        [
+          {
+            role: "system",
+            content:
+              "你是一个专业的信息提取助手。请准确识别文本中的关键事实，输出结构化的 JSON 数据。",
+          },
+          { role: "user", content: extractionPrompt },
+        ],
+        { maxTokens: 2000, temperature: 0.2 },
+      );
+
+      // 解析 JSON
+      const jsonMatch = response.content.match(/```json\s*([\s\S]*?)\s*```/);
+      const jsonContent = jsonMatch ? jsonMatch[1] : response.content;
+
+      let parsed: unknown[];
+      try {
+        parsed = JSON.parse(jsonContent);
+      } catch {
+        this.logger.warn(
+          `[extractEstablishedFacts] Failed to parse JSON response: ${response.content.substring(0, 200)}`,
+        );
+        return [];
+      }
+
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+
+      // 转换为 EstablishedFact
+      const validCategories = [
+        "entity_state",
+        "sequence_point",
+        "decision",
+        "definition",
+        "relationship",
+        "constraint_added",
+      ];
+      const validImportance = ["high", "medium", "low"];
+
+      const facts: EstablishedFact[] = parsed
+        .filter(
+          (item): item is Record<string, unknown> =>
+            item !== null && typeof item === "object",
+        )
+        .map((item, index) => ({
+          id: `EF-${taskId.substring(0, 8)}-${index + 1}`,
+          sourceTaskId: taskId,
+          sourceTaskTitle: taskTitle,
+          establishedAt: new Date().toISOString(),
+          statement: typeof item.statement === "string" ? item.statement : "",
+          category: (validCategories.includes(item.category as string)
+            ? item.category
+            : "definition") as EstablishedFact["category"],
+          relatedEntities: Array.isArray(item.relatedEntities)
+            ? item.relatedEntities.filter(
+                (e): e is string => typeof e === "string",
+              )
+            : undefined,
+          importance: (validImportance.includes(item.importance as string)
+            ? item.importance
+            : "medium") as EstablishedFact["importance"],
+        }))
+        .filter((f) => f.statement.length > 5);
+
+      this.logger.log(
+        `[extractEstablishedFacts] Extracted ${facts.length} facts from task "${taskTitle}"`,
+      );
+
+      return facts;
+    } catch (error) {
+      this.logger.warn(
+        `[extractEstablishedFacts] Failed to extract facts: ${error instanceof Error ? error.message : error}`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * 构建包含已确立事实的审核提示词片段
+   *
+   * 用于 Leader 审核时进行跨任务一致性校验
+   */
+  buildEstablishedFactsSection(context: MissionContextPackage | null): string {
+    const facts = context?.establishedFacts;
+    if (!facts || facts.length === 0) {
+      return "";
+    }
+
+    // 按重要程度分组
+    const highFacts = facts.filter((f) => f.importance === "high");
+    const mediumFacts = facts.filter((f) => f.importance === "medium");
+
+    const sections: string[] = [];
+
+    if (highFacts.length > 0) {
+      sections.push(
+        `【🔴 必须遵守的已确立事实】\n` +
+          highFacts
+            .map(
+              (f) =>
+                `• [${f.sourceTaskTitle}] ${f.statement}${f.relatedEntities?.length ? ` (相关：${f.relatedEntities.join("、")})` : ""}`,
+            )
+            .join("\n"),
+      );
+    }
+
+    if (mediumFacts.length > 0) {
+      // 限制中等重要性事实数量
+      const displayFacts = mediumFacts.slice(-10);
+      sections.push(
+        `【🟡 应该遵守的已确立事实】\n` +
+          displayFacts
+            .map((f) => `• [${f.sourceTaskTitle}] ${f.statement}`)
+            .join("\n") +
+          (mediumFacts.length > 10
+            ? `\n... 及其他 ${mediumFacts.length - 10} 条`
+            : ""),
+      );
+    }
+
+    if (sections.length === 0) {
+      return "";
+    }
+
+    return `
+═══════════════════════════════════════════
+        跨任务一致性检查（必读）
+═══════════════════════════════════════════
+
+${sections.join("\n\n")}
+
+⚠️ 审核时请特别注意：新内容是否与上述已确立事实矛盾？
+`;
+  }
+
+  /**
+   * 合并新的已确立事实到现有上下文
+   */
+  mergeEstablishedFacts(
+    existingContext: MissionContextPackage | null,
+    newFacts: EstablishedFact[],
+  ): MissionContextPackage {
+    if (!existingContext) {
+      return {
+        ...createEmptyContextPackage("system"),
+        establishedFacts: newFacts,
+      };
+    }
+
+    // 去重：基于 statement 相似性
+    const existingStatements = new Set(
+      existingContext.establishedFacts?.map((f) =>
+        f.statement.toLowerCase().trim(),
+      ) || [],
+    );
+
+    const uniqueNewFacts = newFacts.filter(
+      (f) => !existingStatements.has(f.statement.toLowerCase().trim()),
+    );
+
+    return {
+      ...existingContext,
+      establishedFacts: [
+        ...(existingContext.establishedFacts || []),
+        ...uniqueNewFacts,
+      ],
+    };
   }
 }
