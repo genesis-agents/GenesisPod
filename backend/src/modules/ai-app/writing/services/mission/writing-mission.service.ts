@@ -148,32 +148,22 @@ export class WritingMissionService {
     private readonly consistencyChecker: ConsistencyCheckerAgent,
     private readonly editor: EditorAgent,
   ) {
-    // 初始化时创建 Writing Team
-    this.initializeWritingTeam();
+    // 注册角色和团队配置（不需要 LLM）
+    this.registerWritingRoles();
+    this.registerWritingTeamConfig();
     void this.contextBuilder;
     void this.storyBibleService;
   }
 
   /**
-   * 初始化 Writing Team
+   * 获取或创建 Writing Team（延迟初始化）
    */
-  private async initializeWritingTeam(): Promise<void> {
-    try {
-      // 注册 Writing 角色
-      this.registerWritingRoles();
-
-      // 注册 Writing Team 配置
-      this.registerWritingTeamConfig();
-
-      // 创建 Team 实例
+  private getWritingTeam(): ITeam {
+    if (!this.writingTeam) {
       this.writingTeam = this.teamFactory.createFromId(this.WRITING_TEAM_ID);
-
-      this.logger.log("Writing Team initialized successfully");
-    } catch (error) {
-      this.logger.error(
-        `Failed to initialize Writing Team: ${(error as Error).message}`,
-      );
+      this.logger.log("Writing Team initialized on first use");
     }
+    return this.writingTeam;
   }
 
   /**
@@ -428,9 +418,8 @@ export class WritingMissionService {
       missionId,
     );
 
-    // 6. 获取或创建 Writing Team
-    const team =
-      this.writingTeam || this.teamFactory.createFromId(this.WRITING_TEAM_ID);
+    // 6. 获取或创建 Writing Team（延迟初始化）
+    const team = this.getWritingTeam();
 
     // 7. 配置约束
     const constraints = this.buildConstraints(input);
