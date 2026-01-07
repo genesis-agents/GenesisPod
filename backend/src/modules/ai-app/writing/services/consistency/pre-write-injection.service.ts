@@ -3,9 +3,11 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 @Injectable()
 export class PreWriteInjectionService {
-  private readonly _logger = new Logger(PreWriteInjectionService.name);
+  private readonly logger = new Logger(PreWriteInjectionService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    void this.logger;
+  }
 
   async injectContext(chapterId: string, bibleSnapshot: any) {
     // Extract entities from chapter outline
@@ -22,15 +24,15 @@ export class PreWriteInjectionService {
 
     // Filter relevant settings from bible
     const relevantCharacters = bibleSnapshot.characters.filter((c: any) =>
-      extractedEntities.characterNames.some((name: string) =>
-        c.name.includes(name) || c.aliases?.includes(name)
-      )
+      extractedEntities.characterNames.some(
+        (name: string) => c.name.includes(name) || c.aliases?.includes(name),
+      ),
     );
 
     const relevantSettings = bibleSnapshot.worldSettings.filter((s: any) =>
-      extractedEntities.locations.some((loc: string) =>
-        s.name.includes(loc) || s.description.includes(loc)
-      )
+      extractedEntities.locations.some(
+        (loc: string) => s.name.includes(loc) || s.description.includes(loc),
+      ),
     );
 
     return {

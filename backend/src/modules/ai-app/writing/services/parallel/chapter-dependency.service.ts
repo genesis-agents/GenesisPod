@@ -3,18 +3,21 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 @Injectable()
 export class ChapterDependencyService {
-  private readonly _logger = new Logger(ChapterDependencyService.name);
+  private readonly logger = new Logger(ChapterDependencyService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    void this.logger;
+  }
 
   async analyze(chapters: any[]): Promise<Map<string, string[]>> {
     const dependencyGraph = new Map<string, string[]>();
 
     for (const chapter of chapters) {
       // Use explicit dependencies if set, otherwise infer from chapter number
-      const dependencies = chapter.dependsOn?.length > 0
-        ? chapter.dependsOn
-        : this.inferDependencies(chapter, chapters);
+      const dependencies =
+        chapter.dependsOn?.length > 0
+          ? chapter.dependsOn
+          : this.inferDependencies(chapter, chapters);
 
       dependencyGraph.set(chapter.id, dependencies);
     }
@@ -61,7 +64,9 @@ export class ChapterDependencyService {
 
     for (const node of graph.keys()) {
       if (hasCycle(node)) {
-        throw new Error(`Circular dependency detected involving chapter ${node}`);
+        throw new Error(
+          `Circular dependency detected involving chapter ${node}`,
+        );
       }
     }
   }

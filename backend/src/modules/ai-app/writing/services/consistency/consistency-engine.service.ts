@@ -8,16 +8,21 @@ import { ContextBuilderService } from "../writing/context-builder.service";
 
 @Injectable()
 export class ConsistencyEngineService {
-  private readonly _logger = new Logger(ConsistencyEngineService.name);
+  private readonly logger = new Logger(ConsistencyEngineService.name);
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly _preWriteInjection: PreWriteInjectionService,
+    private readonly preWriteInjection: PreWriteInjectionService,
     private readonly postWriteValidation: PostWriteValidationService,
     private readonly conflictResolution: ConflictResolutionService,
-    private readonly _storyBibleService: StoryBibleService,
+    private readonly storyBibleService: StoryBibleService,
     private readonly contextBuilder: ContextBuilderService,
-  ) {}
+  ) {
+    // Services available for future use
+    void this.logger;
+    void this.preWriteInjection;
+    void this.storyBibleService;
+  }
 
   async buildWritingContext(chapterId: string, bibleSnapshot?: any) {
     return this.contextBuilder.buildWritingContext(chapterId, bibleSnapshot);
@@ -43,7 +48,10 @@ export class ConsistencyEngineService {
       return { status: "SKIPPED", reason: "No content to validate" };
     }
 
-    const report = await this.postWriteValidation.validate(chapterId, chapter.content);
+    const report = await this.postWriteValidation.validate(
+      chapterId,
+      chapter.content,
+    );
 
     // Save check result
     await this.prisma.consistencyCheck.create({
@@ -52,7 +60,7 @@ export class ConsistencyEngineService {
         checkType: "CHARACTER",
         status: report.issues.length > 0 ? "ISSUES_FOUND" : "PASSED",
         issues: report.issues as object[],
-        suggestions: report.suggestions as object[],
+        suggestions: report.suggestions as unknown as object[],
       },
     });
 

@@ -1,9 +1,12 @@
-import { Module } from "@nestjs/common";
+import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { AiWritingController } from "./ai-writing.controller";
 import { AiWritingService } from "./ai-writing.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine";
+
+// AI Engine Long Content (for long-form writing)
+import { LongContentModule } from "../../ai-engine/long-content";
 
 // Bible services
 import { StoryBibleService } from "./services/bible/story-bible.service";
@@ -18,6 +21,9 @@ import { ChapterWritingService } from "./services/writing/chapter-writing.servic
 import { ContextBuilderService } from "./services/writing/context-builder.service";
 import { OutlineService } from "./services/writing/outline.service";
 
+// Mission services
+import { WritingMissionService } from "./services/mission/writing-mission.service";
+
 // Consistency services
 import { ConsistencyEngineService } from "./services/consistency/consistency-engine.service";
 import { PreWriteInjectionService } from "./services/consistency/pre-write-injection.service";
@@ -30,8 +36,17 @@ import { ChapterDependencyService } from "./services/parallel/chapter-dependency
 import { WriterPoolService } from "./services/parallel/writer-pool.service";
 import { ParallelConflictDetectorService } from "./services/parallel/parallel-conflict-detector.service";
 
+// Writing Agents (extending AI Engine BaseAgent)
+import {
+  StoryArchitectAgent,
+  BibleKeeperAgent,
+  WriterAgent,
+  ConsistencyCheckerAgent,
+  EditorAgent,
+} from "./agents";
+
 @Module({
-  imports: [PrismaModule, AiEngineModule, ConfigModule],
+  imports: [PrismaModule, AiEngineModule, LongContentModule, ConfigModule],
   controllers: [AiWritingController],
   providers: [
     AiWritingService,
@@ -46,6 +61,8 @@ import { ParallelConflictDetectorService } from "./services/parallel/parallel-co
     ChapterWritingService,
     ContextBuilderService,
     OutlineService,
+    // Mission services (integrates AI Teams mechanism)
+    WritingMissionService,
     // Consistency services
     ConsistencyEngineService,
     PreWriteInjectionService,
@@ -56,6 +73,12 @@ import { ParallelConflictDetectorService } from "./services/parallel/parallel-co
     ChapterDependencyService,
     WriterPoolService,
     ParallelConflictDetectorService,
+    // Writing Agents (from BaseAgent)
+    StoryArchitectAgent,
+    BibleKeeperAgent,
+    WriterAgent,
+    ConsistencyCheckerAgent,
+    EditorAgent,
   ],
   exports: [
     AiWritingService,
@@ -64,6 +87,28 @@ import { ParallelConflictDetectorService } from "./services/parallel/parallel-co
     ProjectService,
     ConsistencyEngineService,
     ParallelOrchestratorService,
+    WritingMissionService,
+    // Export agents for external use
+    StoryArchitectAgent,
+    BibleKeeperAgent,
+    WriterAgent,
+    ConsistencyCheckerAgent,
+    EditorAgent,
   ],
 })
-export class AiWritingModule {}
+export class AiWritingModule implements OnModuleInit {
+  private readonly logger = new Logger(AiWritingModule.name);
+
+  onModuleInit() {
+    // Writing Agents are managed internally by WritingMissionService
+    // They don't need to be registered with the global AgentRegistry
+    // because they use a different interface (BaseAgent/IAgent vs IPlanBasedAgent)
+    this.logger.log("AI Writing Module initialized");
+    this.logger.log("  5 Writing Agents available:");
+    this.logger.log("    - Story Architect (Leader)");
+    this.logger.log("    - Bible Keeper");
+    this.logger.log("    - Writer");
+    this.logger.log("    - Consistency Checker");
+    this.logger.log("    - Editor");
+  }
+}

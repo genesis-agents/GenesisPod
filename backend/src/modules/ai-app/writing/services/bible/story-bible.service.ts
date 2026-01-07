@@ -1,11 +1,18 @@
-import { Injectable, Logger, NotFoundException, ForbiddenException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 @Injectable()
 export class StoryBibleService {
-  private readonly _logger = new Logger(StoryBibleService.name);
+  private readonly logger = new Logger(StoryBibleService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    void this.logger;
+  }
 
   async getByProject(projectId: string, userId: string) {
     const project = await this.prisma.writingProject.findFirst({

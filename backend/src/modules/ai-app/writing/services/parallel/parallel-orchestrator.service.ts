@@ -8,16 +8,22 @@ import { StoryBibleService } from "../bible/story-bible.service";
 
 @Injectable()
 export class ParallelOrchestratorService {
-  private readonly _logger = new Logger(ParallelOrchestratorService.name);
+  private readonly logger = new Logger(ParallelOrchestratorService.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly chapterDependency: ChapterDependencyService,
-    private readonly _writerPool: WriterPoolService,
-    private readonly _conflictDetector: ParallelConflictDetectorService,
-    private readonly _consistencyEngine: ConsistencyEngineService,
-    private readonly _storyBible: StoryBibleService,
-  ) {}
+    private readonly writerPool: WriterPoolService,
+    private readonly conflictDetector: ParallelConflictDetectorService,
+    private readonly consistencyEngine: ConsistencyEngineService,
+    private readonly storyBible: StoryBibleService,
+  ) {
+    void this.logger;
+    void this.writerPool;
+    void this.conflictDetector;
+    void this.consistencyEngine;
+    void this.storyBible;
+  }
 
   async orchestrateParallelWriting(
     volumeId: string,
@@ -28,7 +34,9 @@ export class ParallelOrchestratorService {
     const volume = await this.prisma.writingVolume.findUnique({
       where: { id: volumeId },
       include: {
-        project: { select: { id: true, ownerId: true, maxParallelWriters: true } },
+        project: {
+          select: { id: true, ownerId: true, maxParallelWriters: true },
+        },
         chapters: { orderBy: { chapterNumber: "asc" } },
       },
     });
@@ -37,13 +45,19 @@ export class ParallelOrchestratorService {
       throw new Error("Volume not found or access denied");
     }
 
-    const maxParallel = options.maxParallel || volume.project.maxParallelWriters;
+    const maxParallel =
+      options.maxParallel || volume.project.maxParallelWriters;
 
     // Analyze dependencies
-    const dependencyGraph = await this.chapterDependency.analyze(volume.chapters);
+    const dependencyGraph = await this.chapterDependency.analyze(
+      volume.chapters,
+    );
 
     // Generate execution plan
-    const executionPlan = this.generateExecutionPlan(dependencyGraph, maxParallel);
+    const executionPlan = this.generateExecutionPlan(
+      dependencyGraph,
+      maxParallel,
+    );
 
     // Create parallel group
     const parallelGroupId = `pg_${Date.now()}`;
@@ -60,8 +74,8 @@ export class ParallelOrchestratorService {
             parallelGroupId,
             writerInstance: (index % maxParallel) + 1,
           },
-        })
-      )
+        }),
+      ),
     );
 
     return {
@@ -90,7 +104,9 @@ export class ParallelOrchestratorService {
         if (completed.has(chapterId)) continue;
 
         // Check if all dependencies are completed
-        const allDepsCompleted = dependencies.every((dep) => completed.has(dep));
+        const allDepsCompleted = dependencies.every((dep) =>
+          completed.has(dep),
+        );
         if (allDepsCompleted) {
           availableChapters.push(chapterId);
         }
@@ -101,7 +117,9 @@ export class ParallelOrchestratorService {
 
       if (roundChapters.length === 0) {
         // No progress possible - circular dependency or error
-        this._logger.warn("No chapters available for execution - possible circular dependency");
+        this.logger.warn(
+          "No chapters available for execution - possible circular dependency",
+        );
         break;
       }
 

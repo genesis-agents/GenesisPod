@@ -33,23 +33,26 @@ import {
 @Controller("ai-writing")
 @UseGuards(JwtAuthGuard)
 export class AiWritingController {
-  private readonly _logger = new Logger(AiWritingController.name);
+  private readonly logger = new Logger(AiWritingController.name);
 
   constructor(
-    private readonly _aiWritingService: AiWritingService,
+    private readonly aiWritingService: AiWritingService,
     private readonly projectService: ProjectService,
     private readonly storyBibleService: StoryBibleService,
     private readonly characterService: CharacterService,
     private readonly chapterWritingService: ChapterWritingService,
     private readonly consistencyEngine: ConsistencyEngineService,
     private readonly parallelOrchestrator: ParallelOrchestratorService,
-  ) {}
+  ) {
+    void this.logger;
+    void this.aiWritingService;
+  }
 
   // ==================== Project CRUD ====================
 
   @Post("projects")
   async createProject(@Request() req: any, @Body() dto: CreateProjectDto) {
-    this._logger.log(`Creating writing project for user ${req.user.id}`);
+    this.logger.log(`Creating writing project for user ${req.user.id}`);
     return this.projectService.create(req.user.id, dto);
   }
 
@@ -164,10 +167,7 @@ export class AiWritingController {
   }
 
   @Get("projects/:projectId/volumes")
-  async getVolumes(
-    @Request() req: any,
-    @Param("projectId") projectId: string,
-  ) {
+  async getVolumes(@Request() req: any, @Param("projectId") projectId: string) {
     return this.projectService.getVolumes(projectId, req.user.id);
   }
 
@@ -183,10 +183,7 @@ export class AiWritingController {
   }
 
   @Get("volumes/:volumeId/chapters")
-  async getChapters(
-    @Request() req: any,
-    @Param("volumeId") volumeId: string,
-  ) {
+  async getChapters(@Request() req: any, @Param("volumeId") volumeId: string) {
     return this.chapterWritingService.getChapters(volumeId, req.user.id);
   }
 
@@ -212,7 +209,7 @@ export class AiWritingController {
     @Param("id") id: string,
     @Body() dto: StartWritingDto,
   ) {
-    this._logger.log(`Starting writing for chapter ${id}`);
+    this.logger.log(`Starting writing for chapter ${id}`);
     return this.chapterWritingService.startWriting(id, req.user.id, dto);
   }
 
@@ -222,7 +219,7 @@ export class AiWritingController {
     @Param("volumeId") volumeId: string,
     @Body() dto: { maxParallel?: number },
   ) {
-    this._logger.log(`Starting parallel writing for volume ${volumeId}`);
+    this.logger.log(`Starting parallel writing for volume ${volumeId}`);
     return this.parallelOrchestrator.orchestrateParallelWriting(
       volumeId,
       req.user.id,

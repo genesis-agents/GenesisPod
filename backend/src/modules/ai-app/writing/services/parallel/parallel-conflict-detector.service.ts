@@ -11,15 +11,19 @@ export interface ParallelConflict {
 
 @Injectable()
 export class ParallelConflictDetectorService {
-  private readonly _logger = new Logger(ParallelConflictDetectorService.name);
+  private readonly logger = new Logger(ParallelConflictDetectorService.name);
 
-  constructor(private readonly _prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    void this.logger;
+    void this.prisma;
+  }
 
   async detect(chapterResults: any[]): Promise<ParallelConflict[]> {
     const conflicts: ParallelConflict[] = [];
 
     // Detect character state conflicts
-    const characterConflicts = this.detectCharacterStateConflicts(chapterResults);
+    const characterConflicts =
+      this.detectCharacterStateConflicts(chapterResults);
     conflicts.push(...characterConflicts);
 
     // Detect new setting duplicates
@@ -111,14 +115,14 @@ export class ParallelConflictDetectorService {
     return [];
   }
 
-  private extractStateChanges(content: string): { characterName: string; change: string }[] {
+  private extractStateChanges(
+    content: string,
+  ): { characterName: string; change: string }[] {
     // Simplified extraction - would need NLP in production
     const changes: { characterName: string; change: string }[] = [];
 
     // Look for patterns like "X受伤了", "X死了", "X获得了"
-    const patterns = [
-      /([^\s，。,\.]+)(?:受伤|死|获得|失去|变成)/g,
-    ];
+    const patterns = [/([^\s，。,\.]+)(?:受伤|死|获得|失去|变成)/g];
 
     for (const pattern of patterns) {
       let match;

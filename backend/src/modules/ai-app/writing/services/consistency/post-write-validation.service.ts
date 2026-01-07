@@ -19,11 +19,16 @@ export interface ConsistencyReport {
 
 @Injectable()
 export class PostWriteValidationService {
-  private readonly _logger = new Logger(PostWriteValidationService.name);
+  private readonly logger = new Logger(PostWriteValidationService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    void this.logger;
+  }
 
-  async validate(chapterId: string, content: string): Promise<ConsistencyReport> {
+  async validate(
+    chapterId: string,
+    content: string,
+  ): Promise<ConsistencyReport> {
     const chapter = await this.prisma.writingChapter.findUnique({
       where: { id: chapterId },
       include: {
@@ -53,15 +58,24 @@ export class PostWriteValidationService {
     const issues: ConsistencyIssue[] = [];
 
     // Check character consistency
-    const characterIssues = this.checkCharacterConsistency(content, bible.characters);
+    const characterIssues = this.checkCharacterConsistency(
+      content,
+      bible.characters,
+    );
     issues.push(...characterIssues);
 
     // Check terminology consistency
-    const termIssues = this.checkTerminologyConsistency(content, bible.terminologies);
+    const termIssues = this.checkTerminologyConsistency(
+      content,
+      bible.terminologies,
+    );
     issues.push(...termIssues);
 
     // Check world setting consistency
-    const worldIssues = this.checkWorldConsistency(content, bible.worldSettings);
+    const worldIssues = this.checkWorldConsistency(
+      content,
+      bible.worldSettings,
+    );
     issues.push(...worldIssues);
 
     return {
@@ -71,7 +85,10 @@ export class PostWriteValidationService {
     };
   }
 
-  private checkCharacterConsistency(content: string, characters: any[]): ConsistencyIssue[] {
+  private checkCharacterConsistency(
+    content: string,
+    characters: any[],
+  ): ConsistencyIssue[] {
     const issues: ConsistencyIssue[] = [];
 
     for (const character of characters) {
@@ -95,13 +112,18 @@ export class PostWriteValidationService {
     return issues;
   }
 
-  private checkTerminologyConsistency(content: string, terminologies: any[]): ConsistencyIssue[] {
+  private checkTerminologyConsistency(
+    content: string,
+    terminologies: any[],
+  ): ConsistencyIssue[] {
     const issues: ConsistencyIssue[] = [];
 
     for (const term of terminologies) {
       // Check if term variants are used inconsistently
       if (term.variants?.length > 0) {
-        const usedVariants = term.variants.filter((v: string) => content.includes(v));
+        const usedVariants = term.variants.filter((v: string) =>
+          content.includes(v),
+        );
         if (usedVariants.length > 1) {
           issues.push({
             type: "TERMINOLOGY",
@@ -119,7 +141,10 @@ export class PostWriteValidationService {
     return issues;
   }
 
-  private checkWorldConsistency(_content: string, worldSettings: any[]): ConsistencyIssue[] {
+  private checkWorldConsistency(
+    _content: string,
+    worldSettings: any[],
+  ): ConsistencyIssue[] {
     const issues: ConsistencyIssue[] = [];
 
     for (const setting of worldSettings) {

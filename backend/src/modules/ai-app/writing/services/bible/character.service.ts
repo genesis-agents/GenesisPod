@@ -1,12 +1,22 @@
-import { Injectable, Logger, NotFoundException, ForbiddenException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { CreateCharacterDto, UpdateCharacterDto } from "../../dto/character.dto";
+import {
+  CreateCharacterDto,
+  UpdateCharacterDto,
+} from "../../dto/character.dto";
 
 @Injectable()
 export class CharacterService {
-  private readonly _logger = new Logger(CharacterService.name);
+  private readonly logger = new Logger(CharacterService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    void this.logger;
+  }
 
   async create(projectId: string, userId: string, dto: CreateCharacterDto) {
     const bible = await this.getBibleByProject(projectId, userId);
@@ -65,7 +75,12 @@ export class CharacterService {
     return character;
   }
 
-  async update(id: string, projectId: string, userId: string, dto: UpdateCharacterDto) {
+  async update(
+    id: string,
+    projectId: string,
+    userId: string,
+    dto: UpdateCharacterDto,
+  ) {
     const bible = await this.getBibleByProject(projectId, userId);
 
     const character = await this.prisma.writingCharacter.findFirst({

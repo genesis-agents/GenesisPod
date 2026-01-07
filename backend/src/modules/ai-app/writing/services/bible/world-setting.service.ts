@@ -3,9 +3,11 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 @Injectable()
 export class WorldSettingService {
-  private readonly _logger = new Logger(WorldSettingService.name);
+  private readonly logger = new Logger(WorldSettingService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    void this.logger;
+  }
 
   async create(bibleId: string, data: any) {
     return this.prisma.worldSetting.create({

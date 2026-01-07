@@ -3,9 +3,11 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 
 @Injectable()
 export class AiWritingService {
-  private readonly _logger = new Logger(AiWritingService.name);
+  private readonly logger = new Logger(AiWritingService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    void this.logger;
+  }
 
   async getProjectStats(projectId: string, userId: string) {
     const project = await this.prisma.writingProject.findFirst({
