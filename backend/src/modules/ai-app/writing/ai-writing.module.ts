@@ -5,6 +5,9 @@ import { AiWritingService } from "./ai-writing.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine";
 
+// AI Engine Teams (for mission orchestration)
+import { TeamsModule } from "../../ai-engine/teams/teams.module";
+
 // AI Engine Long Content (for long-form writing)
 import { LongContentModule } from "../../ai-engine/long-content";
 
@@ -46,7 +49,13 @@ import {
 } from "./agents";
 
 @Module({
-  imports: [PrismaModule, AiEngineModule, LongContentModule, ConfigModule],
+  imports: [
+    PrismaModule,
+    AiEngineModule,
+    TeamsModule,
+    LongContentModule,
+    ConfigModule,
+  ],
   controllers: [AiWritingController],
   providers: [
     AiWritingService,
