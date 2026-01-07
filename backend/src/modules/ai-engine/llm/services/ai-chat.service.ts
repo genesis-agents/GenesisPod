@@ -2474,26 +2474,45 @@ Format the summary in a clear, structured manner using markdown.`;
         if (!content) {
           // ★ 详细记录 token 使用情况，帮助诊断问题
           const usage = data.usage || {};
+          const completionDetails = usage.completion_tokens_details || {};
+          const reasoningTokens = completionDetails.reasoning_tokens || 0;
+          const completionTokens = usage.completion_tokens || 0;
+
           this.logger.warn(
             `[${modelName}] API returned empty content! ` +
               `finish_reason=${finishReason}, ` +
               `prompt_tokens=${usage.prompt_tokens || "?"}, ` +
-              `completion_tokens=${usage.completion_tokens || "?"}, ` +
+              `completion_tokens=${completionTokens || "?"}, ` +
+              `reasoning_tokens=${reasoningTokens || "?"}, ` +
               `total_tokens=${usage.total_tokens || "?"}, ` +
               `full response: ${JSON.stringify(data).substring(0, 800)}`,
           );
-          // 如果是因为max_tokens不足导致的空内容
-          // 这通常意味着上下文太大，没有空间给响应
+
+          // 检测是否是 reasoning 模型（如 o1/gpt-5.1）用完了推理 token
+          const isReasoningModelExhausted =
+            reasoningTokens > 0 && reasoningTokens >= completionTokens * 0.9;
+
           if (finishReason === "length") {
-            this.logger.error(
-              `[${modelName}] CRITICAL: Response completely truncated (no content generated). ` +
-                `This usually means the context is too large for the model. ` +
-                `prompt_tokens=${usage.prompt_tokens || "?"}, max_tokens requested in API call may be too low.`,
-            );
-            // 抛出错误，让调用方知道需要减少上下文或增加 max_tokens
-            throw new Error(
-              `AI 响应被完全截断（上下文可能过大）。请减少上下文消息或简化请求。`,
-            );
+            if (isReasoningModelExhausted) {
+              // Reasoning 模型特殊处理：推理 token 用完了，没有空间输出
+              this.logger.error(
+                `[${modelName}] CRITICAL: Reasoning model exhausted all tokens on reasoning (${reasoningTokens}/${completionTokens}). ` +
+                  `No tokens left for actual output. Increase max_tokens significantly (e.g., 8000+) for reasoning models.`,
+              );
+              throw new Error(
+                `AI 推理模型的 token 全部用于思考，没有空间输出结果。请增加 max_tokens 设置（建议 8000+）。`,
+              );
+            } else {
+              // 普通模型：上下文过大
+              this.logger.error(
+                `[${modelName}] CRITICAL: Response completely truncated (no content generated). ` +
+                  `This usually means the context is too large for the model. ` +
+                  `prompt_tokens=${usage.prompt_tokens || "?"}, max_tokens requested in API call may be too low.`,
+              );
+              throw new Error(
+                `AI 响应被完全截断（上下文可能过大）。请减少上下文消息或简化请求。`,
+              );
+            }
           }
           // 其他原因导致的空内容
           throw new Error(`AI 返回空响应 (原因: ${finishReason || "unknown"})`);

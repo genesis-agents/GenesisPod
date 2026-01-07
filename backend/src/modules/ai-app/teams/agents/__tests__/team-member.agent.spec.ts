@@ -694,9 +694,9 @@ describe("TeamMemberAgent", () => {
       const prompt = agent.buildToolsSystemPrompt(toolTypes);
 
       expect(prompt).toContain("可用工具");
-      expect(prompt).toContain("web_search");
+      expect(prompt).toContain("web-search");
       expect(prompt).toContain("Mock web search tool");
-      expect(prompt).toContain("code_generation");
+      expect(prompt).toContain("code-generation");
       expect(prompt).toContain("Mock code generation tool");
     });
 
@@ -714,8 +714,8 @@ describe("TeamMemberAgent", () => {
 
       const prompt = agent.buildToolsSystemPrompt(toolTypes);
 
-      expect(prompt).toContain("web_search");
-      expect(prompt).not.toContain("image_generation");
+      expect(prompt).toContain("web-search");
+      expect(prompt).not.toContain("image-generation");
     });
   });
 

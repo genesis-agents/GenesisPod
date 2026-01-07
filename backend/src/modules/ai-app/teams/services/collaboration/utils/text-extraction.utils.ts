@@ -180,3 +180,82 @@ export function findDuplicateChapters(titles: string[]): {
     .filter(([_, titles]) => titles.length > 1)
     .map(([key, titles]) => ({ key, titles }));
 }
+
+/**
+ * 章节序列验证结果
+ */
+export interface ChapterSequenceValidation {
+  isValid: boolean;
+  missingChapters: number[];
+  firstChapter: number | null;
+  lastChapter: number | null;
+  totalChapters: number;
+}
+
+/**
+ * 验证章节序列的连续性
+ *
+ * 检查：
+ * 1. 章节是否从第1章开始
+ * 2. 章节序号是否连续（无跳跃）
+ *
+ * @param titles 任务标题列表
+ * @returns 验证结果，包含缺失的章节号
+ */
+export function validateChapterSequence(
+  titles: string[],
+): ChapterSequenceValidation {
+  // 提取所有章节号
+  const chapterNums: number[] = [];
+  for (const title of titles) {
+    // 匹配 "第X章" 格式
+    const match = title.match(/第(\d+)章/);
+    if (match) {
+      chapterNums.push(parseInt(match[1], 10));
+    }
+  }
+
+  // 如果没有检测到章节格式的任务，返回有效（可能不是小说类任务）
+  if (chapterNums.length === 0) {
+    return {
+      isValid: true,
+      missingChapters: [],
+      firstChapter: null,
+      lastChapter: null,
+      totalChapters: 0,
+    };
+  }
+
+  // 排序并去重
+  const sortedChapters = [...new Set(chapterNums)].sort((a, b) => a - b);
+  const firstChapter = sortedChapters[0];
+  const lastChapter = sortedChapters[sortedChapters.length - 1];
+
+  const missingChapters: number[] = [];
+
+  // 检查是否从第1章开始
+  if (firstChapter !== 1) {
+    for (let i = 1; i < firstChapter; i++) {
+      missingChapters.push(i);
+    }
+  }
+
+  // 检查连续性（无跳跃）
+  for (let i = 1; i < sortedChapters.length; i++) {
+    const expected = sortedChapters[i - 1] + 1;
+    const actual = sortedChapters[i];
+    if (actual !== expected) {
+      for (let j = expected; j < actual; j++) {
+        missingChapters.push(j);
+      }
+    }
+  }
+
+  return {
+    isValid: missingChapters.length === 0,
+    missingChapters,
+    firstChapter,
+    lastChapter,
+    totalChapters: sortedChapters.length,
+  };
+}

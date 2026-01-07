@@ -143,6 +143,8 @@ export class ContextInitializationService
       contentType,
     );
 
+    // ★ 增加 maxTokens 到 8000，支持 Reasoning 模型（如 o1/gpt-5.1）
+    // 这些模型需要大量 token 用于内部思考，4000 远远不够
     const response = await aiCaller(
       aiModel,
       [
@@ -153,7 +155,7 @@ export class ContextInitializationService
         },
         { role: "user", content: prompt },
       ],
-      { maxTokens: 4000, temperature: 0.7 },
+      { maxTokens: 8000, temperature: 0.7 },
     );
 
     const settings = this.parseWorldSettings(response.content, contentType);

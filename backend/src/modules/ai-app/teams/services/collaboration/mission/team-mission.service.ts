@@ -67,6 +67,7 @@ import {
   truncateDescription,
   needsWebSearch,
   buildSearchQuery,
+  validateChapterSequence,
 } from "../utils";
 import {
   MissionWithRelations,
@@ -3626,6 +3627,34 @@ export class TeamMissionService implements OnModuleInit {
       });
     }
 
+    // 🔒 章节连续性验证：检查是否从第1章开始，且无跳跃
+    const updatedTitles = breakdown.tasks.map((t) => t.title);
+    const sequenceValidation = validateChapterSequence(updatedTitles);
+
+    if (
+      !sequenceValidation.isValid &&
+      sequenceValidation.missingChapters.length > 0
+    ) {
+      // 记录警告，但不阻塞任务创建（可能是后续补充任务）
+      this.logger.warn(
+        `[createTasksFromBreakdown] ⚠️ 章节序列不完整！缺失章节: ${sequenceValidation.missingChapters.join(", ")}`,
+      );
+      this.logger.warn(
+        `[createTasksFromBreakdown] 当前章节范围: 第${sequenceValidation.firstChapter}章 - 第${sequenceValidation.lastChapter}章，共 ${sequenceValidation.totalChapters} 章`,
+      );
+
+      // 如果缺失的是前几章（比如第1章），这是严重问题，需要通知
+      if (sequenceValidation.missingChapters.includes(1)) {
+        this.logger.error(
+          `[createTasksFromBreakdown] ❌ 严重：第1章缺失！小说开头将断裂。`,
+        );
+      }
+    } else if (sequenceValidation.totalChapters > 0) {
+      this.logger.log(
+        `[createTasksFromBreakdown] ✅ 章节序列验证通过: 第1章 - 第${sequenceValidation.lastChapter}章，共 ${sequenceValidation.totalChapters} 章`,
+      );
+    }
+
     // ★ 优化：分离独立任务和有依赖任务，批量创建独立任务
     const independentTasks: Array<{
       index: number;
@@ -3961,6 +3990,29 @@ ${taskBreakdown.executionPlan ? `\n执行计划：${taskBreakdown.executionPlan}
 `
       : "";
 
+    // ★ 新增：世界观设定（从 ContextInitializationService 生成，存储在 mustConstraints 中）
+    const worldConstraints =
+      (mission.mustConstraints as HardConstraint[]) || [];
+    if (worldConstraints.length > 0) {
+      this.logger.log(
+        `[buildTaskExecutionPrompt] 📖 Injecting ${worldConstraints.length} world settings into task "${task.title}"`,
+      );
+    }
+    const worldSettingsSection =
+      worldConstraints.length > 0
+        ? `
+
+【🌍 世界观设定 - 必须严格遵守】
+以下是本任务的世界观设定，所有创作内容必须与这些设定保持一致：
+${worldConstraints.map((c) => `• [${c.id}] ${c.rule}`).join("\n")}
+
+⚠️ 违反世界观设定将导致内容不一致，会被 Leader 打回修改。
+
+---
+
+`
+        : "";
+
     // ★ 新增：强制约束条件（从 mission.constraints 提取）
     const constraintsSection =
       mission.constraints?.length > 0
@@ -4017,7 +4069,7 @@ ${extractedConstraints.map((c, i) => `${i + 1}. ${c}`).join("\n")}
 标题：${mission.title}
 描述：${mission.description}
 ${mission.objectives?.length ? `\n目标：${mission.objectives.join("、")}` : ""}
-${constraintsSection}${extractedConstraintsSection}${outlineSection}${completedTasksSection}${searchSection}
+${worldSettingsSection}${constraintsSection}${extractedConstraintsSection}${outlineSection}${completedTasksSection}${searchSection}
 【你的子任务】
 任务名称：${task.title}
 任务描述：${task.description}
