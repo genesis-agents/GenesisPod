@@ -68,7 +68,7 @@
     }
   },
   "home": {
-    "welcome": "欢迎使用 DeepDive",
+    "welcome": "欢迎使用 AI Teams Engine",
     "tagline": "AI 驱动的知识发现平台",
     "getStarted": "开始使用",
     "quickActions": "快捷操作",
@@ -892,7 +892,7 @@
     "enabled": "已启用",
     "banner": {
       "title": "AI 功能控制",
-      "description": "开启或关闭 AI 功能来自定义你的 DeepDive 体验。更改会自动保存。"
+      "description": "开启或关闭 AI 功能来自定义你的 AI Teams Engine 体验。更改会自动保存。"
     },
     "core": {
       "title": "核心 AI 功能"
@@ -961,7 +961,7 @@
   "feedback": {
     "title": "反馈",
     "sendFeedback": "发送反馈",
-    "helpImprove": "帮助我们改进 DeepDive",
+    "helpImprove": "帮助我们改进 AI Teams Engine",
     "myFeedback": "我的反馈",
     "feedbackType": {
       "bug": "Bug 报告",
@@ -1008,7 +1008,7 @@
     "githubIssueDesc": "如需报告问题或请求功能，您也可以",
     "openGithubIssue": "在 GitHub 上提交 Issue",
     "privacy": "您的隐私很重要",
-    "privacyDesc": "我们认真对待您的反馈，并将用它来改进 DeepDive。您的信息绝不会与第三方共享。",
+    "privacyDesc": "我们认真对待您的反馈，并将用它来改进 AI Teams Engine。您的信息绝不会与第三方共享。",
     "status": {
       "pending": "待处理",
       "reviewed": "已审核",
@@ -1080,7 +1080,7 @@
     },
     "integrations": {
       "notionIntegration": "Notion 集成",
-      "notionDesc": "将您的 Notion 页面和数据库与 DeepDive 同步",
+      "notionDesc": "将您的 Notion 页面和数据库与 AI Teams Engine 同步",
       "connectedWorkspaces": "已连接的工作区",
       "disconnect": "断开连接",
       "addWorkspace": "添加其他工作区",
@@ -1091,12 +1091,12 @@
       "clickConnect": "点击下方「连接 Notion」",
       "redirectToNotion": "您将被重定向到 Notion 授权页面",
       "selectPages": "选择要共享的页面",
-      "selectPagesDesc": "选择 DeepDive 可以访问的页面和数据库",
+      "selectPagesDesc": "选择 AI Teams Engine 可以访问的页面和数据库",
       "startSyncing": "开始同步",
       "startSyncingDesc": "您的页面将被同步并在资源库中可用",
       "connectNotion": "连接 Notion",
       "connecting": "连接中...",
-      "privacyNote": "DeepDive 仅访问您明确共享的页面。您的数据将安全存储，绝不与第三方共享。",
+      "privacyNote": "AI Teams Engine 仅访问您明确共享的页面。您的数据将安全存储，绝不与第三方共享。",
       "moreIntegrations": "更多集成",
       "comingSoon": "即将推出",
       "wechat": {

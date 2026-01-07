@@ -3,8 +3,8 @@ import './globals.css';
 import Providers from './providers';
 
 export const metadata: Metadata = {
-  title: 'DeepDive Engine - AI驱动的知识发现引擎',
-  description: '从信息到洞察，AI重构你的知识探索之旅',
+  title: 'AI Teams Engine - AI驱动的多智能体协作平台',
+  description: '多Agent协作，智能完成复杂任务',
   icons: {
     icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
     apple: '/favicon.svg',

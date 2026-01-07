@@ -68,7 +68,7 @@
     }
   },
   "home": {
-    "welcome": "Welcome to DeepDive",
+    "welcome": "Welcome to AI Teams Engine",
     "tagline": "AI-Powered Knowledge Discovery Platform",
     "getStarted": "Get Started",
     "quickActions": "Quick Actions",
@@ -892,7 +892,7 @@
     "enabled": "Enabled",
     "banner": {
       "title": "AI Feature Controls",
-      "description": "Toggle AI features on or off to customize your DeepDive experience. Changes are saved automatically."
+      "description": "Toggle AI features on or off to customize your AI Teams Engine experience. Changes are saved automatically."
     },
     "core": {
       "title": "Core AI Features"
@@ -961,7 +961,7 @@
   "feedback": {
     "title": "Feedback",
     "sendFeedback": "Send Feedback",
-    "helpImprove": "Help us improve DeepDive",
+    "helpImprove": "Help us improve AI Teams Engine",
     "myFeedback": "My Feedback",
     "feedbackType": {
       "bug": "Bug Report",
@@ -1008,7 +1008,7 @@
     "githubIssueDesc": "For bug reports and feature requests, you can also",
     "openGithubIssue": "open an issue on GitHub",
     "privacy": "Your privacy matters",
-    "privacyDesc": "We take your feedback seriously and will use it to improve DeepDive. Your information will never be shared with third parties.",
+    "privacyDesc": "We take your feedback seriously and will use it to improve AI Teams Engine. Your information will never be shared with third parties.",
     "status": {
       "pending": "Pending",
       "reviewed": "Reviewed",
@@ -1080,7 +1080,7 @@
     },
     "integrations": {
       "notionIntegration": "Notion Integration",
-      "notionDesc": "Sync your Notion pages and databases with DeepDive",
+      "notionDesc": "Sync your Notion pages and databases with AI Teams Engine",
       "connectedWorkspaces": "Connected Workspaces",
       "disconnect": "Disconnect",
       "addWorkspace": "Add another workspace",
@@ -1091,12 +1091,12 @@
       "clickConnect": "Click \"Connect Notion\" below",
       "redirectToNotion": "You'll be redirected to Notion's authorization page",
       "selectPages": "Select pages to share",
-      "selectPagesDesc": "Choose which pages and databases DeepDive can access",
+      "selectPagesDesc": "Choose which pages and databases AI Teams Engine can access",
       "startSyncing": "Start syncing",
       "startSyncingDesc": "Your pages will be synced and available in the Library",
       "connectNotion": "Connect Notion",
       "connecting": "Connecting...",
-      "privacyNote": "DeepDive only accesses pages you explicitly share. Your data is stored securely and never shared with third parties.",
+      "privacyNote": "AI Teams Engine only accesses pages you explicitly share. Your data is stored securely and never shared with third parties.",
       "moreIntegrations": "More Integrations",
       "comingSoon": "Coming soon",
       "wechat": {

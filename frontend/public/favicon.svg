@@ -1,7 +1,18 @@
-<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Simple line art diving arrow -->
-  <path d="M12 3v14" stroke="#374151" stroke-width="2" stroke-linecap="round" />
-  <path d="M5 10l7 7 7-7" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-  <!-- Depth wave -->
-  <path d="M8 20h8" stroke="#374151" stroke-width="2" stroke-linecap="round" opacity="0.5" />
+<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- AI Teams Engine Logo: Three connected nodes forming collaboration -->
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0F2A46" />
+      <stop offset="50%" stop-color="#2BB7DA" />
+      <stop offset="100%" stop-color="#7C5BFE" />
+    </linearGradient>
+  </defs>
+  <!-- Connection lines - team collaboration triangle -->
+  <path d="M10 10 L16 22 L22 10 M10 10 L22 10" stroke="url(#grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  <!-- Three agent nodes -->
+  <circle cx="10" cy="10" r="3.5" fill="#0F2A46" />
+  <circle cx="22" cy="10" r="3.5" fill="#2BB7DA" />
+  <circle cx="16" cy="22" r="3.5" fill="#7C5BFE" />
+  <!-- Engine core -->
+  <circle cx="16" cy="14" r="2" fill="#2BB7DA" />
 </svg>

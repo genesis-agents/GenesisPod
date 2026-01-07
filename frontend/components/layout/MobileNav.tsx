@@ -382,7 +382,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
             <circle cx="24" cy="6" r="2" fill="#7C5BFE" />
           </svg>
           <span className="bg-gradient-to-r from-[#0F2A46] via-[#2BB7DA] to-[#7C5BFE] bg-clip-text text-lg font-bold text-transparent">
-            DeepDive
+            AI Teams
           </span>
         </Link>
 

@@ -1,6 +1,6 @@
-# DeepDive Engine
+# AI Teams Engine
 
-> AI驱动的知识发现平台 - 从信息到洞察，重构你的知识探索之旅
+> AI驱动的多智能体协作平台 - 从信息到洞察，重构你的知识探索之旅
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-完整文档-green.svg)](docs/readme.md)
@@ -8,7 +8,7 @@
 
 ## 📖 项目简介
 
-DeepDive Engine 是一个 **AI驱动的知识发现平台**，集成了内容聚合、AI分析、知识管理和智能办公功能。
+AI Teams Engine 是一个 **AI驱动的多智能体协作平台**，集成了内容聚合、AI分析、知识管理和智能办公功能。
 
 ### ⚡ 架构亮点
 
@@ -109,8 +109,8 @@ start-all.bat
 **1. 克隆项目**
 
 ```bash
-git clone https://github.com/JUNJIE-DUAN/deepdive-engine.git
-cd deepdive-engine
+git clone https://github.com/JUNJIE-DUAN/ai-teams-engine.git
+cd ai-teams-engine
 ```
 
 **2. 配置环境变量**
@@ -191,7 +191,7 @@ uvicorn main:app --reload --port 5000
 ## 📁 项目结构
 
 ```
-deepdive-engine/
+ai-teams-engine/
 ├── docs/                          # 📚 完整项目文档
 │   ├── readme.md                  # 文档导航
 │   ├── prd.md                     # 产品需求文档
@@ -569,8 +569,8 @@ npm run test:e2e
 1. **Fork项目**
 
    ```bash
-   git clone https://github.com/YOUR_USERNAME/deepdive-engine.git
-   cd deepdive-engine
+   git clone https://github.com/YOUR_USERNAME/ai-teams-engine.git
+   cd ai-teams-engine
    ```
 
 2. **创建特性分支**
@@ -629,9 +629,9 @@ DeepDive Team
 
 ### 联系方式
 
-- **GitHub**: https://github.com/JUNJIE-DUAN/deepdive-engine
-- **Issues**: https://github.com/JUNJIE-DUAN/deepdive-engine/issues
-- **Email**: team@deepdive-engine.com
+- **GitHub**: https://github.com/JUNJIE-DUAN/ai-teams-engine
+- **Issues**: https://github.com/JUNJIE-DUAN/ai-teams-engine/issues
+- **Email**: team@ai-teams-engine.com
 
 ### 参考设计
 

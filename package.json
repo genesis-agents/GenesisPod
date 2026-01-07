@@ -1,5 +1,5 @@
 {
-  "name": "deepdive-engine",
+  "name": "ai-teams-engine",
   "version": "1.0.0",
   "description": "AI驱动的知识发现引擎",
   "private": true,
@@ -80,7 +80,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/deepdive-engine.git"
+    "url": "https://github.com/your-org/ai-teams-engine.git"
   },
   "keywords": [
     "AI",

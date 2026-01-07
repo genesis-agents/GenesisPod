@@ -147,14 +147,13 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         className={`flex items-center p-4 ${!showExpanded ? 'justify-center' : ''}`}
       >
         {!showExpanded ? (
-          /* Collapsed Logo - S-curve dive & rise with gradient accent */
-          <Link href="/" className="group relative" title="DeepDive Engine">
+          /* Collapsed Logo - AI Teams: Three connected nodes */
+          <Link href="/" className="group relative" title="AI Teams Engine">
             <svg
               className="h-8 w-8 transition-transform duration-300 group-hover:scale-105"
               viewBox="0 0 32 32"
               fill="none"
             >
-              {/* Gradient definitions */}
               <defs>
                 <linearGradient
                   id="logoGradientCollapsed"
@@ -167,59 +166,66 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                   <stop offset="50%" stopColor="#2BB7DA" />
                   <stop offset="100%" stopColor="#7C5BFE" />
                 </linearGradient>
-                <radialGradient id="glowCollapsed" cx="75%" cy="25%" r="50%">
-                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.6" />
+                <radialGradient id="glowCollapsed" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.4" />
                   <stop offset="100%" stopColor="#7C5BFE" stopOpacity="0" />
                 </radialGradient>
               </defs>
-              {/* Glow effect at top right */}
+              {/* Central glow */}
               <circle
-                cx="24"
-                cy="8"
-                r="6"
+                cx="16"
+                cy="14"
+                r="10"
                 fill="url(#glowCollapsed)"
-                className="opacity-70 transition-opacity duration-300 group-hover:opacity-100"
+                className="opacity-60 group-hover:opacity-100"
               />
-              {/* S-curve: dive down then rise up - 深潜后上升 */}
+              {/* Connection lines - team collaboration */}
               <path
-                d="M8 6 C8 6, 12 8, 12 14 C12 20, 16 22, 16 22 C16 22, 20 20, 20 14 C20 10, 24 8, 24 6"
+                d="M10 10 L16 22 L22 10 M10 10 L22 10"
                 stroke="url(#logoGradientCollapsed)"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                fill="none"
-                className="transition-all duration-300"
-              />
-              {/* Anchor base - 稳固基底 */}
-              <path
-                d="M10 26 L22 26"
-                stroke="#0F2A46"
                 strokeWidth="2"
                 strokeLinecap="round"
-                opacity="0.4"
+                strokeLinejoin="round"
+                fill="none"
               />
-              {/* Rising light burst - 向上的光芒 */}
+              {/* Three agent nodes */}
               <circle
-                cx="24"
-                cy="6"
-                r="2"
-                fill="#7C5BFE"
-                className="group-hover:r-3 transition-all duration-300"
+                cx="10"
+                cy="10"
+                r="3"
+                fill="#0F2A46"
+                className="group-hover:fill-[#2BB7DA]"
               />
+              <circle
+                cx="22"
+                cy="10"
+                r="3"
+                fill="#2BB7DA"
+                className="group-hover:fill-[#7C5BFE]"
+              />
+              <circle
+                cx="16"
+                cy="22"
+                r="3"
+                fill="#7C5BFE"
+                className="group-hover:fill-[#0F2A46]"
+              />
+              {/* Engine core */}
+              <circle cx="16" cy="14" r="2" fill="#2BB7DA" opacity="0.9" />
             </svg>
           </Link>
         ) : (
-          /* Expanded Logo - S-curve + Text with gradient */
+          /* Expanded Logo - AI Teams + Text */
           <Link
             href="/"
             className="group relative flex items-center gap-2.5"
-            title="DeepDive Engine"
+            title="AI Teams Engine"
           >
             <svg
               className="h-8 w-8 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
               viewBox="0 0 32 32"
               fill="none"
             >
-              {/* Gradient definitions */}
               <defs>
                 <linearGradient
                   id="logoGradient"
@@ -232,44 +238,52 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                   <stop offset="50%" stopColor="#2BB7DA" />
                   <stop offset="100%" stopColor="#7C5BFE" />
                 </linearGradient>
-                <radialGradient id="glow" cx="75%" cy="25%" r="50%">
-                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.6" />
+                <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.4" />
                   <stop offset="100%" stopColor="#7C5BFE" stopOpacity="0" />
                 </radialGradient>
               </defs>
-              {/* Glow effect at top right */}
+              {/* Central glow */}
               <circle
-                cx="24"
-                cy="8"
-                r="6"
+                cx="16"
+                cy="14"
+                r="10"
                 fill="url(#glow)"
-                className="opacity-70 transition-opacity duration-300 group-hover:opacity-100"
+                className="opacity-60 group-hover:opacity-100"
               />
-              {/* S-curve: dive down then rise up - 深潜后上升 */}
+              {/* Connection lines - team collaboration */}
               <path
-                d="M8 6 C8 6, 12 8, 12 14 C12 20, 16 22, 16 22 C16 22, 20 20, 20 14 C20 10, 24 8, 24 6"
+                d="M10 10 L16 22 L22 10 M10 10 L22 10"
                 stroke="url(#logoGradient)"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                fill="none"
-                className="transition-all duration-300"
-              />
-              {/* Anchor base - 稳固基底 */}
-              <path
-                d="M10 26 L22 26"
-                stroke="#0F2A46"
                 strokeWidth="2"
                 strokeLinecap="round"
-                opacity="0.4"
+                strokeLinejoin="round"
+                fill="none"
               />
-              {/* Rising light burst - 向上的光芒 */}
+              {/* Three agent nodes */}
               <circle
-                cx="24"
-                cy="6"
-                r="2"
-                fill="#7C5BFE"
-                className="group-hover:r-3 transition-all duration-300"
+                cx="10"
+                cy="10"
+                r="3"
+                fill="#0F2A46"
+                className="group-hover:fill-[#2BB7DA]"
               />
+              <circle
+                cx="22"
+                cy="10"
+                r="3"
+                fill="#2BB7DA"
+                className="group-hover:fill-[#7C5BFE]"
+              />
+              <circle
+                cx="16"
+                cy="22"
+                r="3"
+                fill="#7C5BFE"
+                className="group-hover:fill-[#0F2A46]"
+              />
+              {/* Engine core */}
+              <circle cx="16" cy="14" r="2" fill="#2BB7DA" opacity="0.9" />
             </svg>
 
             <div className="flex flex-col leading-none">
@@ -278,7 +292,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                   className="bg-gradient-to-r from-[#0F2A46] via-[#2BB7DA] to-[#7C5BFE] bg-clip-text text-[15px] font-bold tracking-tight text-transparent"
                   style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
                 >
-                  DeepDive
+                  AI Teams
                 </span>
                 <span className="rounded bg-gradient-to-r from-amber-500 to-orange-500 px-1 py-0.5 text-[7px] font-bold text-white">
                   Beta
