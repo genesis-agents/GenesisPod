@@ -54,6 +54,7 @@
     "aiCoding": "AI Coding",
     "aiStore": "AI Store",
     "aiSimulation": "AI Simulation",
+    "aiWriting": "AI Writing",
     "labs": "Labs",
     "aiLabs": "AI Labs",
     "admin": "Admin",
@@ -814,6 +815,101 @@
     },
     "kanban": "Kanban",
     "newProject": "New Project"
+  },
+  "aiWriting": {
+    "title": "AI Writing",
+    "subtitle": "Professional Long-Form Novel Creation with Consistency Guarantee",
+    "signIn": {
+      "title": "Please Sign In",
+      "description": "Access to AI Writing requires login to manage your writing projects."
+    },
+    "newProject": "New Project",
+    "myProjects": "My Projects",
+    "storyBible": "Story Bible",
+    "characters": "Characters",
+    "worldSettings": "World Settings",
+    "timeline": "Timeline",
+    "terminology": "Terminology",
+    "volumes": "Volumes",
+    "chapters": "Chapters",
+    "consistency": "Consistency Check",
+    "loading": "Loading...",
+    "refresh": "Refresh",
+    "project": {
+      "createTitle": "Create New Writing Project",
+      "name": "Project Name",
+      "namePlaceholder": "e.g., Epic Fantasy Trilogy",
+      "description": "Description",
+      "descriptionPlaceholder": "Brief description of your story...",
+      "genre": "Genre",
+      "targetWords": "Target Word Count",
+      "create": "Create Project"
+    },
+    "genres": {
+      "fantasy": "Fantasy",
+      "scifi": "Sci-Fi",
+      "romance": "Romance",
+      "mystery": "Mystery",
+      "thriller": "Thriller",
+      "historical": "Historical",
+      "urban": "Urban",
+      "other": "Other"
+    },
+    "status": {
+      "planning": "Planning",
+      "outlining": "Outlining",
+      "writing": "Writing",
+      "revising": "Revising",
+      "completed": "Completed"
+    },
+    "empty": {
+      "noProjects": "No writing projects yet",
+      "noProjectsDesc": "Create your first writing project to start your novel",
+      "createFirst": "Create First Project"
+    },
+    "bible": {
+      "title": "Story Bible",
+      "subtitle": "The authoritative source for all story settings",
+      "premise": "Core Premise",
+      "theme": "Theme",
+      "tone": "Tone",
+      "worldType": "World Type"
+    },
+    "character": {
+      "name": "Name",
+      "role": "Role",
+      "aliases": "Aliases",
+      "appearance": "Appearance",
+      "personality": "Personality",
+      "background": "Background",
+      "abilities": "Abilities",
+      "currentState": "Current State",
+      "relationships": "Relationships"
+    },
+    "roles": {
+      "protagonist": "Protagonist",
+      "antagonist": "Antagonist",
+      "supporting": "Supporting",
+      "minor": "Minor"
+    },
+    "chapter": {
+      "outline": "Outline",
+      "content": "Content",
+      "wordCount": "Word Count",
+      "write": "Write Chapter",
+      "check": "Check Consistency"
+    },
+    "parallel": {
+      "title": "Parallel Writing",
+      "maxWriters": "Max Parallel Writers",
+      "startParallel": "Start Parallel Writing",
+      "analyzing": "Analyzing Dependencies..."
+    },
+    "errors": {
+      "loadFailed": "Failed to load projects",
+      "createFailed": "Failed to create project",
+      "deleteFailed": "Failed to delete project"
+    }
   },
   "aiSimulation": {
     "title": "AI Simulation",

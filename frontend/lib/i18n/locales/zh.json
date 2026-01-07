@@ -54,6 +54,7 @@
     "aiCoding": "AI 编程",
     "aiStore": "AI 商店",
     "aiSimulation": "AI 推演",
+    "aiWriting": "AI 写作",
     "labs": "实验室",
     "aiLabs": "AI 实验室",
     "admin": "管理后台",
@@ -814,6 +815,101 @@
     },
     "kanban": "看板",
     "newProject": "新建项目"
+  },
+  "aiWriting": {
+    "title": "AI 写作",
+    "subtitle": "专业长篇小说创作，保障内容一致性",
+    "signIn": {
+      "title": "请先登录",
+      "description": "进入 AI 写作需要登录来管理您的写作项目。"
+    },
+    "newProject": "新建项目",
+    "myProjects": "我的项目",
+    "storyBible": "设定圣经",
+    "characters": "角色档案",
+    "worldSettings": "世界设定",
+    "timeline": "时间线",
+    "terminology": "术语表",
+    "volumes": "卷",
+    "chapters": "章节",
+    "consistency": "一致性检查",
+    "loading": "加载中...",
+    "refresh": "刷新",
+    "project": {
+      "createTitle": "创建新写作项目",
+      "name": "项目名称",
+      "namePlaceholder": "例如：史诗奇幻三部曲",
+      "description": "描述",
+      "descriptionPlaceholder": "简要描述您的故事...",
+      "genre": "类型",
+      "targetWords": "目标字数",
+      "create": "创建项目"
+    },
+    "genres": {
+      "fantasy": "玄幻",
+      "scifi": "科幻",
+      "romance": "言情",
+      "mystery": "悬疑",
+      "thriller": "惊悚",
+      "historical": "历史",
+      "urban": "都市",
+      "other": "其他"
+    },
+    "status": {
+      "planning": "规划中",
+      "outlining": "大纲设计",
+      "writing": "写作中",
+      "revising": "修订中",
+      "completed": "已完成"
+    },
+    "empty": {
+      "noProjects": "暂无写作项目",
+      "noProjectsDesc": "创建您的第一个写作项目，开始您的小说创作",
+      "createFirst": "创建第一个项目"
+    },
+    "bible": {
+      "title": "设定圣经",
+      "subtitle": "所有故事设定的权威来源",
+      "premise": "核心前提",
+      "theme": "主题",
+      "tone": "基调",
+      "worldType": "世界类型"
+    },
+    "character": {
+      "name": "姓名",
+      "role": "角色类型",
+      "aliases": "别名",
+      "appearance": "外貌",
+      "personality": "性格",
+      "background": "背景",
+      "abilities": "能力",
+      "currentState": "当前状态",
+      "relationships": "关系"
+    },
+    "roles": {
+      "protagonist": "主角",
+      "antagonist": "反派",
+      "supporting": "配角",
+      "minor": "龙套"
+    },
+    "chapter": {
+      "outline": "大纲",
+      "content": "正文",
+      "wordCount": "字数",
+      "write": "写作章节",
+      "check": "检查一致性"
+    },
+    "parallel": {
+      "title": "并行写作",
+      "maxWriters": "最大并行写手数",
+      "startParallel": "开始并行写作",
+      "analyzing": "分析依赖关系中..."
+    },
+    "errors": {
+      "loadFailed": "加载项目失败",
+      "createFailed": "创建项目失败",
+      "deleteFailed": "删除项目失败"
+    }
   },
   "aiSimulation": {
     "title": "AI 推演",

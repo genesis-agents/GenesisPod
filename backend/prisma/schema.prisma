@@ -140,6 +140,9 @@ model User {
   slidesMissions          SlidesMission[]          @relation("SlidesMissionUser")
   slidesTeamMemberConfigs SlidesTeamMemberConfig[] @relation("SlidesTeamMemberConfigUser")
 
+  // AI Writing 长篇写作
+  writingProjects WritingProject[] @relation("WritingProjectOwner")
+
   @@map("users")
 }
 
@@ -1635,7 +1638,7 @@ model TopicMessage {
   attachments     TopicMessageAttachment[]
   reactions       TopicMessageReaction[]
   sourceResources TopicResource[]          @relation("TopicResourceSource")
-  embedding       TopicMessageEmbedding?   // 长文上下文检索用
+  embedding       TopicMessageEmbedding? // 长文上下文检索用
 
   // 解析的 URL 内容（用于 AI 上下文增强）
   parsedUrls Json? @map("parsed_urls") // ParsedUrl[] - 检测到的 URL 及其解析结果
@@ -5404,4 +5407,450 @@ model SlidesVote {
   @@unique([proposalId, voterRole])
   @@index([proposalId])
   @@map("slides_votes")
+}
+
+// ============ AI Writing 长篇写作模块 ============
+
+// 写作项目状态
+enum WritingProjectStatus {
+  PLANNING // 规划中
+  OUTLINING // 大纲设计
+  WRITING // 写作中
+  REVISING // 修订中
+  COMPLETED // 已完成
+  PAUSED // 暂停
+}
+
+// 写作项目
+model WritingProject {
+  id          String  @id @default(uuid())
+  name        String  @db.VarChar(200)
+  description String? @db.Text
+
+  // 项目配置
+  genre        String               @db.VarChar(50) // 类型：玄幻、都市、历史、科幻等
+  targetWords  Int                  @default(100000) @map("target_words") // 目标字数
+  currentWords Int                  @default(0) @map("current_words") // 当前字数
+  status       WritingProjectStatus @default(PLANNING)
+
+  // 写作配置
+  writingStyle   String? @map("writing_style") @db.VarChar(100) // 写作风格
+  targetAudience String? @map("target_audience") @db.VarChar(100) // 目标读者
+  pov            String? @db.VarChar(50) // 视角：第一人称、第三人称等
+  tense          String? @db.VarChar(50) // 时态
+
+  // 并行写作配置
+  maxParallelWriters Int @default(3) @map("max_parallel_writers")
+
+  // 所有者
+  ownerId String @map("owner_id")
+  owner   User   @relation("WritingProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  storyBible StoryBible?
+  volumes    WritingVolume[]
+  missions   WritingMission[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("writing_projects")
+}
+
+// Story Bible - 设定圣经
+model StoryBible {
+  id        String         @id @default(uuid())
+  projectId String         @unique @map("project_id")
+  project   WritingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // 核心设定
+  premise   String? @db.Text // 核心前提
+  theme     String? @db.VarChar(500) // 主题
+  tone      String? @db.VarChar(200) // 基调
+  worldType String? @map("world_type") @db.VarChar(100) // 世界类型
+
+  // 版本控制
+  version    Int      @default(1)
+  lastSyncAt DateTime @default(now()) @map("last_sync_at")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  characters     WritingCharacter[]
+  worldSettings  WorldSetting[]
+  terminologies  Terminology[]
+  timelineEvents TimelineEvent[]
+  factions       Faction[]
+
+  @@map("story_bibles")
+}
+
+// 角色类型
+enum CharacterRole {
+  PROTAGONIST // 主角
+  ANTAGONIST // 反派
+  SUPPORTING // 配角
+  MINOR // 龙套
+}
+
+// 角色档案 - 带状态追踪
+model WritingCharacter {
+  id      String     @id @default(uuid())
+  bibleId String     @map("bible_id")
+  bible   StoryBible @relation(fields: [bibleId], references: [id], onDelete: Cascade)
+
+  // 基本信息
+  name    String        @db.VarChar(100)
+  aliases String[]      @default([]) // 别名列表
+  role    CharacterRole @default(SUPPORTING)
+
+  // 静态属性
+  appearance  Json     @default("{}") // 外貌描述（结构化）
+  personality Json     @default("{}") // 性格特征（结构化）
+  background  String?  @db.Text // 背景故事
+  abilities   String[] @default([]) // 能力/技能
+
+  // 动态状态追踪
+  currentState  Json   @default("{}") @map("current_state") // 当前状态快照
+  stateTimeline Json[] @default([]) @map("state_timeline") // 状态变化时间线
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  relationships CharacterRelationship[] @relation("CharacterRelationships")
+  targetOf      CharacterRelationship[] @relation("TargetCharacter")
+  appearances   SceneAppearance[]
+
+  @@index([bibleId])
+  @@index([name])
+  @@map("writing_characters")
+}
+
+// 角色关系
+model CharacterRelationship {
+  id          String           @id @default(uuid())
+  characterId String           @map("character_id")
+  character   WritingCharacter @relation("CharacterRelationships", fields: [characterId], references: [id], onDelete: Cascade)
+
+  targetCharacterId String           @map("target_character_id")
+  targetCharacter   WritingCharacter @relation("TargetCharacter", fields: [targetCharacterId], references: [id], onDelete: Cascade)
+
+  relationshipType String  @map("relationship_type") @db.VarChar(50) // 父子、师徒、仇敌、恋人等
+  description      String? @db.Text
+
+  // 关系的起止章节
+  startChapterId String? @map("start_chapter_id")
+  endChapterId   String? @map("end_chapter_id")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([characterId])
+  @@index([targetCharacterId])
+  @@map("character_relationships")
+}
+
+// 世界设定
+model WorldSetting {
+  id      String     @id @default(uuid())
+  bibleId String     @map("bible_id")
+  bible   StoryBible @relation(fields: [bibleId], references: [id], onDelete: Cascade)
+
+  // 设定信息
+  category    String   @db.VarChar(50) // 地理、历史、魔法体系、科技等
+  name        String   @db.VarChar(200)
+  description String   @db.Text
+  rules       String[] @default([]) // 该设定的规则/限制
+  references  Json? // 相关引用
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([bibleId])
+  @@index([category])
+  @@map("world_settings")
+}
+
+// 势力/组织
+model Faction {
+  id      String     @id @default(uuid())
+  bibleId String     @map("bible_id")
+  bible   StoryBible @relation(fields: [bibleId], references: [id], onDelete: Cascade)
+
+  // 势力信息
+  name        String  @db.VarChar(100)
+  type        String  @db.VarChar(50) // 国家、门派、公司、家族等
+  description String? @db.Text
+  hierarchy   Json? // 层级结构
+  territory   String? @db.VarChar(200) // 势力范围
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([bibleId])
+  @@map("factions")
+}
+
+// 术语表
+model Terminology {
+  id      String     @id @default(uuid())
+  bibleId String     @map("bible_id")
+  bible   StoryBible @relation(fields: [bibleId], references: [id], onDelete: Cascade)
+
+  // 术语信息
+  term       String   @db.VarChar(100)
+  definition String   @db.Text
+  category   String   @db.VarChar(50) // 功法、地名、物品、称谓等
+  variants   String[] @default([]) // 同义词/变体
+  usage      String?  @db.Text // 使用说明
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([bibleId])
+  @@index([category])
+  @@map("terminologies")
+}
+
+// 时间线事件
+model TimelineEvent {
+  id      String     @id @default(uuid())
+  bibleId String     @map("bible_id")
+  bible   StoryBible @relation(fields: [bibleId], references: [id], onDelete: Cascade)
+
+  // 事件信息
+  eventName   String @map("event_name") @db.VarChar(200)
+  description String @db.Text
+  storyTime   String @map("story_time") @db.VarChar(100) // 故事内时间
+  importance  Int    @default(1) // 重要程度 1-5
+
+  // 关联
+  involvedCharacterIds String[] @default([]) @map("involved_character_ids")
+  relatedChapterId     String?  @map("related_chapter_id")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([bibleId])
+  @@index([storyTime])
+  @@map("timeline_events")
+}
+
+// 卷
+model WritingVolume {
+  id        String         @id @default(uuid())
+  projectId String         @map("project_id")
+  project   WritingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // 卷信息
+  volumeNumber Int     @map("volume_number")
+  title        String  @db.VarChar(200)
+  synopsis     String? @db.Text // 卷简介
+  targetWords  Int?    @map("target_words")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  chapters WritingChapter[]
+
+  @@unique([projectId, volumeNumber])
+  @@index([projectId])
+  @@map("writing_volumes")
+}
+
+// 章节状态
+enum ChapterStatus {
+  PLANNED // 已规划
+  OUTLINING // 大纲中
+  WRITING // 写作中
+  DRAFT // 初稿
+  CHECKING // 校验中
+  REVISING // 修订中
+  FINAL // 定稿
+}
+
+// 章节
+model WritingChapter {
+  id       String        @id @default(uuid())
+  volumeId String        @map("volume_id")
+  volume   WritingVolume @relation(fields: [volumeId], references: [id], onDelete: Cascade)
+
+  // 章节信息
+  chapterNumber Int           @map("chapter_number")
+  title         String        @db.VarChar(200)
+  outline       String?       @db.Text // 章节大纲
+  content       String?       @db.Text // 正文内容
+  wordCount     Int           @default(0) @map("word_count")
+  status        ChapterStatus @default(PLANNED)
+
+  // 章节依赖（用于并行写作调度）
+  dependsOn String[] @default([]) @map("depends_on") // 依赖的章节ID列表
+
+  // 写作元数据
+  writtenAt DateTime? @map("written_at")
+  revisedAt DateTime? @map("revised_at")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  scenes            WritingScene[]
+  consistencyChecks ConsistencyCheck[]
+
+  @@unique([volumeId, chapterNumber])
+  @@index([volumeId])
+  @@index([status])
+  @@map("writing_chapters")
+}
+
+// 场景
+model WritingScene {
+  id        String         @id @default(uuid())
+  chapterId String         @map("chapter_id")
+  chapter   WritingChapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  // 场景信息
+  sceneNumber Int     @map("scene_number")
+  summary     String? @db.Text
+  content     String? @db.Text
+  location    String? @db.VarChar(200)
+  storyTime   String? @map("story_time") @db.VarChar(100) // 故事内时间点
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  appearances SceneAppearance[]
+
+  @@unique([chapterId, sceneNumber])
+  @@index([chapterId])
+  @@map("writing_scenes")
+}
+
+// 场景出场记录
+model SceneAppearance {
+  id          String           @id @default(uuid())
+  sceneId     String           @map("scene_id")
+  scene       WritingScene     @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  characterId String           @map("character_id")
+  character   WritingCharacter @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  // 该场景中角色的状态快照
+  stateSnapshot Json? @map("state_snapshot")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([sceneId, characterId])
+  @@index([sceneId])
+  @@index([characterId])
+  @@map("scene_appearances")
+}
+
+// 一致性检查类型
+enum ConsistencyCheckType {
+  CHARACTER // 角色一致性
+  TIMELINE // 时间线一致性
+  WORLD // 世界观一致性
+  TERMINOLOGY // 术语一致性
+  PLOT // 剧情逻辑
+}
+
+// 一致性检查状态
+enum ConsistencyCheckStatus {
+  PENDING // 待检查
+  PASSED // 通过
+  ISSUES_FOUND // 发现问题
+  RESOLVED // 已解决
+}
+
+// 一致性检查记录
+model ConsistencyCheck {
+  id        String         @id @default(uuid())
+  chapterId String         @map("chapter_id")
+  chapter   WritingChapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  // 检查信息
+  checkType   ConsistencyCheckType   @map("check_type")
+  status      ConsistencyCheckStatus @default(PENDING)
+  issues      Json                   @default("[]") // 发现的问题列表
+  suggestions Json                   @default("[]") // 修改建议
+
+  // 时间戳
+  checkedAt  DateTime  @default(now()) @map("checked_at")
+  resolvedAt DateTime? @map("resolved_at")
+
+  @@index([chapterId])
+  @@index([checkType])
+  @@index([status])
+  @@map("consistency_checks")
+}
+
+// 写作任务类型
+enum WritingMissionType {
+  OUTLINE // 大纲创作
+  CHAPTER // 章节写作
+  REVISION // 修订
+  CONSISTENCY // 一致性检查
+}
+
+// 写作任务状态
+enum WritingMissionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// 写作任务（基于 AI Teams 的 Mission 机制）
+model WritingMission {
+  id        String         @id @default(uuid())
+  projectId String         @map("project_id")
+  project   WritingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // 任务信息
+  missionType WritingMissionType   @map("mission_type")
+  targetId    String               @map("target_id") @db.VarChar(100) // 目标章节/卷的ID
+  status      WritingMissionStatus @default(PENDING)
+
+  // AI Teams Mission 关联
+  aiMissionId String? @map("ai_mission_id")
+
+  // 上下文和结果
+  contextPackage Json? @map("context_package") // 写作上下文包
+  result         Json? // 写作结果
+
+  // 并行执行信息
+  parallelGroupId String? @map("parallel_group_id") // 并行组ID
+  writerInstance  Int?    @map("writer_instance") // Writer实例编号
+
+  // 时间戳
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@index([missionType])
+  @@index([status])
+  @@index([parallelGroupId])
+  @@map("writing_missions")
 }
