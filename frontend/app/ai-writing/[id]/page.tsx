@@ -4,9 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
-import { config } from '@/lib/utils/config';
-import { getAuthHeader } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
+import * as api from '@/lib/api/ai-writing';
 
 interface Character {
   id: string;
@@ -83,25 +82,15 @@ export default function WritingProjectDetailPage() {
   const fetchProject = async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `${config.apiUrl}/ai-writing/projects/${projectId}`,
-        {
-          headers: { ...getAuthHeader() },
-          credentials: 'include',
-        }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setProject(data);
-      } else if (res.status === 404) {
+      const data = await api.getProject(projectId);
+      setProject(data as unknown as WritingProject);
+    } catch (err: unknown) {
+      console.error('Failed to fetch project:', err);
+      if (err instanceof Error && err.message.includes('404')) {
         setError(t('aiWriting.errors.projectNotFound'));
       } else {
         setError(t('aiWriting.errors.loadFailed'));
       }
-    } catch (err: unknown) {
-      // Always show user-friendly message for network errors
-      console.error('Failed to fetch project:', err);
-      setError(t('aiWriting.errors.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -125,39 +114,20 @@ export default function WritingProjectDetailPage() {
     setMissionMessage(null);
 
     try {
-      const res = await fetch(
-        `${config.apiUrl}/ai-writing/projects/${projectId}/missions`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...getAuthHeader(),
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            prompt: writingPrompt,
-            missionType: 'full_story',
-            targetWordCount: targetWords,
-          }),
-        }
-      );
+      await api.startMission(projectId, {
+        prompt: writingPrompt,
+        missionType: 'full_story',
+        targetWordCount: targetWords,
+      });
 
-      if (res.ok) {
-        setMissionMessage({
-          type: 'success',
-          text: t('aiWriting.missionStarted'),
-        });
-        setShowWritingModal(false);
-        setWritingPrompt('');
-        // Refresh project to see new status
-        setTimeout(() => void fetchProject(), 2000);
-      } else {
-        const data = await res.json();
-        setMissionMessage({
-          type: 'error',
-          text: data.message || t('aiWriting.errors.missionFailed'),
-        });
-      }
+      setMissionMessage({
+        type: 'success',
+        text: t('aiWriting.missionStarted'),
+      });
+      setShowWritingModal(false);
+      setWritingPrompt('');
+      // Refresh project to see new status
+      setTimeout(() => void fetchProject(), 2000);
     } catch (err: unknown) {
       setMissionMessage({
         type: 'error',

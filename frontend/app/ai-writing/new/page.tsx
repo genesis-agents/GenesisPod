@@ -4,9 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
-import { config } from '@/lib/utils/config';
-import { getAuthHeader } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
+import * as api from '@/lib/api/ai-writing';
 
 interface CreateProjectForm {
   name: string;
@@ -72,23 +71,13 @@ export default function NewWritingProjectPage() {
     setError(null);
 
     try {
-      const res = await fetch(`${config.apiUrl}/ai-writing/projects`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeader(),
-        },
-        credentials: 'include',
-        body: JSON.stringify(form),
+      const project = await api.createProject({
+        title: form.name,
+        description: form.description,
+        genre: form.genre,
+        targetWordCount: form.targetWords,
       });
-
-      if (res.ok) {
-        const project = await res.json();
-        router.push(`/ai-writing/${project.id}`);
-      } else {
-        const data = await res.json();
-        setError(data.message || t('aiWriting.errors.createFailed'));
-      }
+      router.push(`/ai-writing/${project.id}`);
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : t('aiWriting.errors.createFailed');

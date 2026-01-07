@@ -4,9 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
-import { config } from '@/lib/utils/config';
-import { getAuthHeader } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
+import * as api from '@/lib/api/ai-writing';
 
 interface WritingProject {
   id: string;
@@ -31,20 +30,11 @@ export default function AIWritingPage() {
   const fetchProjects = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${config.apiUrl}/ai-writing/projects`, {
-        headers: { ...getAuthHeader() },
-        credentials: 'include',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setProjects(data.items || []);
-      } else {
-        setMessage(t('aiWriting.errors.loadFailed'));
-      }
+      const data = await api.getProjects();
+      setProjects((data.items || []) as unknown as WritingProject[]);
     } catch (err: unknown) {
-      const errorMessage =
-        err instanceof Error ? err.message : t('aiWriting.errors.loadFailed');
-      setMessage(errorMessage);
+      console.error('Failed to fetch projects:', err);
+      setMessage(t('aiWriting.errors.loadFailed'));
     } finally {
       setLoading(false);
     }
