@@ -99,9 +99,9 @@ export default function WritingProjectDetailPage() {
         setError(t('aiWriting.errors.loadFailed'));
       }
     } catch (err: unknown) {
-      const errorMessage =
-        err instanceof Error ? err.message : t('aiWriting.errors.loadFailed');
-      setError(errorMessage);
+      // Always show user-friendly message for network errors
+      console.error('Failed to fetch project:', err);
+      setError(t('aiWriting.errors.loadFailed'));
     } finally {
       setLoading(false);
     }
