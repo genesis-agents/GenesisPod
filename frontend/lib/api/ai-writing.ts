@@ -1,37 +1,13 @@
 /**
  * AI Writing API Client
- * 使用统一的 apiClient 直接调用后端 API (避免 Next.js rewrites 问题)
+ *
+ * Frontend API client for AI Writing backend endpoints
+ * 完全按照 ai-coding.ts 的模式实现
  */
 
 import { apiClient } from './client';
 
-// Wrapper function to maintain backward compatibility
-// Converts old relative URLs to apiClient calls
-async function fetchWithAuth<T = any>(
-  url: string,
-  options: RequestInit = {}
-): Promise<T> {
-  // Extract path from /api/v1/ai-writing/xxx to /ai-writing/xxx
-  const path = url.replace(/^\/api\/v1/, '');
-
-  const method = options.method?.toUpperCase() || 'GET';
-  const body = options.body ? JSON.parse(options.body as string) : undefined;
-
-  switch (method) {
-    case 'POST':
-      return apiClient.post(path, body) as Promise<T>;
-    case 'PATCH':
-      return apiClient.patch(path, body) as Promise<T>;
-    case 'PUT':
-      return apiClient.put(path, body) as Promise<T>;
-    case 'DELETE':
-      return apiClient.delete(path) as Promise<T>;
-    default:
-      return apiClient.get(path) as Promise<T>;
-  }
-}
-
-// ==================== Project API ====================
+// ==================== Types ====================
 
 export interface WritingProject {
   id: string;
@@ -60,52 +36,10 @@ export interface UpdateProjectDto {
   status?: string;
 }
 
-export async function getProjects(options?: {
-  status?: string;
-  limit?: number;
-  cursor?: string;
-}): Promise<{ items: WritingProject[]; nextCursor?: string }> {
-  const params = new URLSearchParams();
-  if (options?.status) params.set('status', options.status);
-  if (options?.limit) params.set('limit', options.limit.toString());
-  if (options?.cursor) params.set('cursor', options.cursor);
-
-  const query = params.toString();
-  return fetchWithAuth(
-    `/api/v1/ai-writing/projects${query ? `?${query}` : ''}`
-  );
+export interface ProjectListResponse {
+  items: WritingProject[];
+  nextCursor?: string;
 }
-
-export async function getProject(projectId: string): Promise<WritingProject> {
-  return fetchWithAuth(`/api/v1/ai-writing/projects/${projectId}`);
-}
-
-export async function createProject(
-  dto: CreateProjectDto
-): Promise<WritingProject> {
-  return fetchWithAuth('/api/v1/ai-writing/projects', {
-    method: 'POST',
-    body: JSON.stringify(dto),
-  });
-}
-
-export async function updateProject(
-  projectId: string,
-  dto: UpdateProjectDto
-): Promise<WritingProject> {
-  return fetchWithAuth(`/api/v1/ai-writing/projects/${projectId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(dto),
-  });
-}
-
-export async function deleteProject(projectId: string): Promise<void> {
-  return fetchWithAuth(`/api/v1/ai-writing/projects/${projectId}`, {
-    method: 'DELETE',
-  });
-}
-
-// ==================== Mission API ====================
 
 export interface StartMissionDto {
   prompt: string;
@@ -121,67 +55,208 @@ export interface MissionResponse {
   missionType: string;
 }
 
+export interface StoryBible {
+  id: string;
+  premise?: string;
+  theme?: string;
+  tone?: string;
+  setting?: string;
+}
+
+export interface Character {
+  id: string;
+  name: string;
+  role: string;
+  description?: string;
+  personality?: string;
+  background?: string;
+}
+
+export interface Volume {
+  id: string;
+  volumeNumber: number;
+  title: string;
+  synopsis?: string;
+  targetWords?: number;
+}
+
+// ==================== Project API ====================
+
+/**
+ * Get list of user's writing projects
+ */
+export async function getProjects(options?: {
+  status?: string;
+  limit?: number;
+  cursor?: string;
+}): Promise<ProjectListResponse> {
+  const params = new URLSearchParams();
+  if (options?.status) params.set('status', options.status);
+  if (options?.limit) params.set('limit', options.limit.toString());
+  if (options?.cursor) params.set('cursor', options.cursor);
+
+  const queryString = params.toString();
+  const path = `/ai-writing/projects${queryString ? `?${queryString}` : ''}`;
+
+  return apiClient.get<ProjectListResponse>(path);
+}
+
+/**
+ * Get single project by ID
+ */
+export async function getProject(projectId: string): Promise<WritingProject> {
+  return apiClient.get<WritingProject>(`/ai-writing/projects/${projectId}`);
+}
+
+/**
+ * Create a new writing project
+ */
+export async function createProject(
+  dto: CreateProjectDto
+): Promise<WritingProject> {
+  return apiClient.post<WritingProject>('/ai-writing/projects', dto);
+}
+
+/**
+ * Update a writing project
+ */
+export async function updateProject(
+  projectId: string,
+  dto: UpdateProjectDto
+): Promise<WritingProject> {
+  return apiClient.patch<WritingProject>(
+    `/ai-writing/projects/${projectId}`,
+    dto
+  );
+}
+
+/**
+ * Delete a writing project
+ */
+export async function deleteProject(
+  projectId: string
+): Promise<{ success: boolean }> {
+  return apiClient.delete<{ success: boolean }>(
+    `/ai-writing/projects/${projectId}`
+  );
+}
+
+// ==================== Mission API ====================
+
+/**
+ * Start AI writing mission
+ */
 export async function startMission(
   projectId: string,
   dto: StartMissionDto
 ): Promise<MissionResponse> {
-  return fetchWithAuth(`/api/v1/ai-writing/projects/${projectId}/missions`, {
-    method: 'POST',
-    body: JSON.stringify(dto),
-  });
+  return apiClient.post<MissionResponse>(
+    `/ai-writing/projects/${projectId}/missions`,
+    dto
+  );
 }
 
-export async function getMissionStatus(missionId: string): Promise<any> {
-  return fetchWithAuth(`/api/v1/ai-writing/missions/${missionId}`);
+/**
+ * Get mission status
+ */
+export async function getMissionStatus(
+  missionId: string
+): Promise<{ status: string; progress?: number }> {
+  return apiClient.get(`/ai-writing/missions/${missionId}`);
 }
 
-export async function cancelMission(missionId: string): Promise<any> {
-  return fetchWithAuth(`/api/v1/ai-writing/missions/${missionId}/cancel`, {
-    method: 'POST',
-  });
+/**
+ * Cancel a mission
+ */
+export async function cancelMission(
+  missionId: string
+): Promise<{ success: boolean }> {
+  return apiClient.post(`/ai-writing/missions/${missionId}/cancel`, {});
 }
 
 // ==================== Story Bible API ====================
 
-export async function getStoryBible(projectId: string): Promise<any> {
-  return fetchWithAuth(`/api/v1/ai-writing/projects/${projectId}/bible`);
+/**
+ * Get story bible for a project
+ */
+export async function getStoryBible(projectId: string): Promise<StoryBible> {
+  return apiClient.get<StoryBible>(`/ai-writing/projects/${projectId}/bible`);
 }
 
+/**
+ * Update story bible
+ */
 export async function updateStoryBible(
   projectId: string,
-  dto: any
-): Promise<any> {
-  return fetchWithAuth(`/api/v1/ai-writing/projects/${projectId}/bible`, {
-    method: 'PATCH',
-    body: JSON.stringify(dto),
-  });
+  dto: Partial<StoryBible>
+): Promise<StoryBible> {
+  return apiClient.patch<StoryBible>(
+    `/ai-writing/projects/${projectId}/bible`,
+    dto
+  );
 }
 
 // ==================== Characters API ====================
 
-export async function getCharacters(projectId: string): Promise<any[]> {
-  return fetchWithAuth(`/api/v1/ai-writing/projects/${projectId}/characters`);
+/**
+ * Get characters for a project
+ */
+export async function getCharacters(projectId: string): Promise<Character[]> {
+  return apiClient.get<Character[]>(
+    `/ai-writing/projects/${projectId}/characters`
+  );
 }
 
+/**
+ * Create a character
+ */
 export async function createCharacter(
   projectId: string,
-  dto: any
-): Promise<any> {
-  return fetchWithAuth(`/api/v1/ai-writing/projects/${projectId}/characters`, {
-    method: 'POST',
-    body: JSON.stringify(dto),
-  });
+  dto: Omit<Character, 'id'>
+): Promise<Character> {
+  return apiClient.post<Character>(
+    `/ai-writing/projects/${projectId}/characters`,
+    dto
+  );
 }
 
 // ==================== Volumes API ====================
 
-export async function getVolumes(projectId: string): Promise<any[]> {
-  return fetchWithAuth(`/api/v1/ai-writing/projects/${projectId}/volumes`);
+/**
+ * Get volumes for a project
+ */
+export async function getVolumes(projectId: string): Promise<Volume[]> {
+  return apiClient.get<Volume[]>(`/ai-writing/projects/${projectId}/volumes`);
 }
 
-export async function createVolume(projectId: string, dto: any): Promise<any> {
-  return fetchWithAuth(`/api/v1/ai-writing/projects/${projectId}/volumes`, {
-    method: 'POST',
-    body: JSON.stringify(dto),
-  });
+/**
+ * Create a volume
+ */
+export async function createVolume(
+  projectId: string,
+  dto: Omit<Volume, 'id'>
+): Promise<Volume> {
+  return apiClient.post<Volume>(
+    `/ai-writing/projects/${projectId}/volumes`,
+    dto
+  );
 }
+
+// ==================== Default Export ====================
+
+export default {
+  getProjects,
+  getProject,
+  createProject,
+  updateProject,
+  deleteProject,
+  startMission,
+  getMissionStatus,
+  cancelMission,
+  getStoryBible,
+  updateStoryBible,
+  getCharacters,
+  createCharacter,
+  getVolumes,
+  createVolume,
+};
