@@ -147,7 +147,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         className={`flex items-center p-4 ${!showExpanded ? 'justify-center' : ''}`}
       >
         {!showExpanded ? (
-          /* Collapsed Logo - AI Teams: Three connected nodes */
+          /* Collapsed Logo - AI Teams: Circular collaboration */
           <Link href="/" className="group relative" title="AI Teams Engine">
             <svg
               className="h-8 w-8 transition-transform duration-300 group-hover:scale-105"
@@ -158,60 +158,74 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 <linearGradient
                   id="logoGradientCollapsed"
                   x1="0%"
-                  y1="100%"
+                  y1="0%"
                   x2="100%"
-                  y2="0%"
+                  y2="100%"
                 >
                   <stop offset="0%" stopColor="#0F2A46" />
-                  <stop offset="50%" stopColor="#2BB7DA" />
+                  <stop offset="40%" stopColor="#2BB7DA" />
                   <stop offset="100%" stopColor="#7C5BFE" />
                 </linearGradient>
                 <radialGradient id="glowCollapsed" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.4" />
+                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.3" />
                   <stop offset="100%" stopColor="#7C5BFE" stopOpacity="0" />
                 </radialGradient>
               </defs>
               {/* Central glow */}
               <circle
                 cx="16"
-                cy="14"
-                r="10"
+                cy="16"
+                r="14"
                 fill="url(#glowCollapsed)"
-                className="opacity-60 group-hover:opacity-100"
+                className="opacity-50 group-hover:opacity-80"
               />
-              {/* Connection lines - team collaboration */}
-              <path
-                d="M10 10 L16 22 L22 10 M10 10 L22 10"
+              {/* Circular connection - holding hands ring */}
+              <circle
+                cx="16"
+                cy="16"
+                r="10"
                 stroke="url(#logoGradientCollapsed)"
                 strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
                 fill="none"
+                className="group-hover:stroke-[#2BB7DA]"
               />
-              {/* Three agent nodes */}
+              {/* Four agent nodes around the circle */}
               <circle
-                cx="10"
-                cy="10"
+                cx="16"
+                cy="6"
                 r="3"
                 fill="#0F2A46"
-                className="group-hover:fill-[#2BB7DA]"
+                className="transition-colors group-hover:fill-[#2BB7DA]"
               />
               <circle
-                cx="22"
-                cy="10"
+                cx="26"
+                cy="16"
                 r="3"
                 fill="#2BB7DA"
-                className="group-hover:fill-[#7C5BFE]"
+                className="transition-colors group-hover:fill-[#7C5BFE]"
               />
               <circle
                 cx="16"
-                cy="22"
+                cy="26"
                 r="3"
                 fill="#7C5BFE"
-                className="group-hover:fill-[#0F2A46]"
+                className="transition-colors group-hover:fill-[#0F2A46]"
               />
-              {/* Engine core */}
-              <circle cx="16" cy="14" r="2" fill="#2BB7DA" opacity="0.9" />
+              <circle
+                cx="6"
+                cy="16"
+                r="3"
+                fill="#2BB7DA"
+                className="transition-colors group-hover:fill-[#7C5BFE]"
+              />
+              {/* Engine core at center */}
+              <circle
+                cx="16"
+                cy="16"
+                r="3"
+                fill="url(#logoGradientCollapsed)"
+                className="transition-transform group-hover:scale-110"
+              />
             </svg>
           </Link>
         ) : (
@@ -230,60 +244,74 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 <linearGradient
                   id="logoGradient"
                   x1="0%"
-                  y1="100%"
+                  y1="0%"
                   x2="100%"
-                  y2="0%"
+                  y2="100%"
                 >
                   <stop offset="0%" stopColor="#0F2A46" />
-                  <stop offset="50%" stopColor="#2BB7DA" />
+                  <stop offset="40%" stopColor="#2BB7DA" />
                   <stop offset="100%" stopColor="#7C5BFE" />
                 </linearGradient>
                 <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.4" />
+                  <stop offset="0%" stopColor="#7C5BFE" stopOpacity="0.3" />
                   <stop offset="100%" stopColor="#7C5BFE" stopOpacity="0" />
                 </radialGradient>
               </defs>
               {/* Central glow */}
               <circle
                 cx="16"
-                cy="14"
-                r="10"
+                cy="16"
+                r="14"
                 fill="url(#glow)"
-                className="opacity-60 group-hover:opacity-100"
+                className="opacity-50 group-hover:opacity-80"
               />
-              {/* Connection lines - team collaboration */}
-              <path
-                d="M10 10 L16 22 L22 10 M10 10 L22 10"
+              {/* Circular connection - holding hands ring */}
+              <circle
+                cx="16"
+                cy="16"
+                r="10"
                 stroke="url(#logoGradient)"
                 strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
                 fill="none"
+                className="group-hover:stroke-[#2BB7DA]"
               />
-              {/* Three agent nodes */}
+              {/* Four agent nodes around the circle */}
               <circle
-                cx="10"
-                cy="10"
+                cx="16"
+                cy="6"
                 r="3"
                 fill="#0F2A46"
-                className="group-hover:fill-[#2BB7DA]"
+                className="transition-colors group-hover:fill-[#2BB7DA]"
               />
               <circle
-                cx="22"
-                cy="10"
+                cx="26"
+                cy="16"
                 r="3"
                 fill="#2BB7DA"
-                className="group-hover:fill-[#7C5BFE]"
+                className="transition-colors group-hover:fill-[#7C5BFE]"
               />
               <circle
                 cx="16"
-                cy="22"
+                cy="26"
                 r="3"
                 fill="#7C5BFE"
-                className="group-hover:fill-[#0F2A46]"
+                className="transition-colors group-hover:fill-[#0F2A46]"
               />
-              {/* Engine core */}
-              <circle cx="16" cy="14" r="2" fill="#2BB7DA" opacity="0.9" />
+              <circle
+                cx="6"
+                cy="16"
+                r="3"
+                fill="#2BB7DA"
+                className="transition-colors group-hover:fill-[#7C5BFE]"
+              />
+              {/* Engine core at center */}
+              <circle
+                cx="16"
+                cy="16"
+                r="3"
+                fill="url(#logoGradient)"
+                className="transition-transform group-hover:scale-110"
+              />
             </svg>
 
             <div className="flex flex-col leading-none">
