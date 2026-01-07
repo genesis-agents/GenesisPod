@@ -860,7 +860,9 @@
       "outlining": "Outlining",
       "writing": "Writing",
       "revising": "Revising",
-      "completed": "Completed"
+      "completed": "Completed",
+      "draft": "Draft",
+      "inProgress": "In Progress"
     },
     "empty": {
       "noProjects": "No writing projects yet",
@@ -908,7 +910,47 @@
     "errors": {
       "loadFailed": "Failed to load projects",
       "createFailed": "Failed to create project",
-      "deleteFailed": "Failed to delete project"
+      "deleteFailed": "Failed to delete project",
+      "projectNotFound": "Project not found",
+      "nameRequired": "Project name is required"
+    },
+    "backToProjects": "Back to Projects",
+    "progress": "Progress",
+    "words": "words",
+    "chaptersCompleted": "chapters completed",
+    "tabs": {
+      "overview": "Overview",
+      "bible": "Story Bible",
+      "volumes": "Volumes"
+    },
+    "projectDetails": "Project Details",
+    "quickStats": "Quick Stats",
+    "addCharacter": "Add Character",
+    "noCharacters": "No characters defined yet",
+    "noWorldSettings": "No world settings defined yet",
+    "volumesAndChapters": "Volumes & Chapters",
+    "addVolume": "Add Volume",
+    "volume": "Volume",
+    "addChapter": "Add Chapter",
+    "noChapters": "No chapters in this volume",
+    "noVolumes": "No volumes yet",
+    "createFirstVolume": "Create your first volume to organize your chapters",
+    "createProject": "Create New Project",
+    "createProjectDesc": "Set up your writing project with genre, style, and goals",
+    "form": {
+      "projectName": "Project Name",
+      "projectNamePlaceholder": "Enter your project name",
+      "description": "Description",
+      "descriptionPlaceholder": "Brief description of your story...",
+      "genre": "Genre",
+      "targetWords": "Target Words",
+      "pov": "Point of View",
+      "tense": "Tense",
+      "writingStyle": "Writing Style",
+      "writingStylePlaceholder": "e.g., Concise, lyrical, dialogue-heavy",
+      "targetAudience": "Target Audience",
+      "targetAudiencePlaceholder": "e.g., Young adults, general readers",
+      "create": "Create Project"
     }
   },
   "aiSimulation": {

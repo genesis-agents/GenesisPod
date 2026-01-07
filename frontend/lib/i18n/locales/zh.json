@@ -860,7 +860,9 @@
       "outlining": "大纲设计",
       "writing": "写作中",
       "revising": "修订中",
-      "completed": "已完成"
+      "completed": "已完成",
+      "draft": "草稿",
+      "inProgress": "进行中"
     },
     "empty": {
       "noProjects": "暂无写作项目",
@@ -908,7 +910,47 @@
     "errors": {
       "loadFailed": "加载项目失败",
       "createFailed": "创建项目失败",
-      "deleteFailed": "删除项目失败"
+      "deleteFailed": "删除项目失败",
+      "projectNotFound": "项目未找到",
+      "nameRequired": "项目名称不能为空"
+    },
+    "backToProjects": "返回项目列表",
+    "progress": "进度",
+    "words": "字",
+    "chaptersCompleted": "章节已完成",
+    "tabs": {
+      "overview": "概览",
+      "bible": "设定圣经",
+      "volumes": "卷"
+    },
+    "projectDetails": "项目详情",
+    "quickStats": "快速统计",
+    "addCharacter": "添加角色",
+    "noCharacters": "暂无角色",
+    "noWorldSettings": "暂无世界设定",
+    "volumesAndChapters": "卷与章节",
+    "addVolume": "添加卷",
+    "volume": "卷",
+    "addChapter": "添加章节",
+    "noChapters": "该卷暂无章节",
+    "noVolumes": "暂无卷",
+    "createFirstVolume": "创建您的第一卷来组织章节",
+    "createProject": "创建新项目",
+    "createProjectDesc": "设置您的写作项目类型、风格和目标",
+    "form": {
+      "projectName": "项目名称",
+      "projectNamePlaceholder": "输入您的项目名称",
+      "description": "描述",
+      "descriptionPlaceholder": "简要描述您的故事...",
+      "genre": "类型",
+      "targetWords": "目标字数",
+      "pov": "叙事视角",
+      "tense": "时态",
+      "writingStyle": "写作风格",
+      "writingStylePlaceholder": "例如：简洁、抒情、对话为主",
+      "targetAudience": "目标读者",
+      "targetAudiencePlaceholder": "例如：青少年、普通读者",
+      "create": "创建项目"
     }
   },
   "aiSimulation": {
