@@ -3,19 +3,29 @@
  * 统一管理环境变量和配置
  */
 
-// Railway 生产环境后端 URL
+// Railway 生产环境后端 URL (仅用于服务端调用)
 const RAILWAY_BACKEND_URL = 'https://deepdive-engine-backend.up.railway.app';
+
+// 检测是否在浏览器环境
+const isBrowser = () => typeof window !== 'undefined';
 
 // 检测是否在 Railway 生产环境（通过检查当前域名）
 const isRailwayProduction = () => {
-  if (typeof window !== 'undefined') {
+  if (isBrowser()) {
     return window.location.hostname.includes('railway.app');
   }
   return process.env.RAILWAY_ENVIRONMENT === 'production';
 };
 
 // 获取正确的 API 基础 URL
+// 浏览器环境使用相对路径，通过 Next.js rewrites 代理到后端，避免 CORS 问题
 const getApiBaseUrl = () => {
+  // 浏览器环境：使用相对路径，Next.js rewrites 会代理到后端
+  if (isBrowser()) {
+    return ''; // 相对路径，如 /api/v1/...
+  }
+
+  // 服务端环境：直接调用后端 URL
   // 1. 优先使用环境变量
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
