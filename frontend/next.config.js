@@ -51,11 +51,36 @@ const nextConfig = {
       return `https://${url}`;
     };
 
-    const apiUrl = ensureProtocol(
-      process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
-    );
+    // Railway 环境检测和后端 URL 配置
+    // 优先级: 环境变量 > Railway 内部网络 > Railway 公网 URL > localhost
+    const getBackendUrl = () => {
+      // 1. 优先使用显式配置的环境变量
+      if (process.env.NEXT_PUBLIC_API_URL) {
+        return ensureProtocol(process.env.NEXT_PUBLIC_API_URL);
+      }
+      // 2. Railway 内部网络 (服务间通信，更快更稳定)
+      if (process.env.RAILWAY_ENVIRONMENT) {
+        // Railway 内部网络使用 HTTP（内部通信无需 HTTPS）
+        return 'http://deepdive-engine-backend.railway.internal:8080';
+      }
+      // 3. Railway 公网 URL 作为备选
+      if (process.env.RAILWAY_STATIC_URL || process.env.RAILWAY_PUBLIC_DOMAIN) {
+        return 'https://deepdive-engine-backend.up.railway.app';
+      }
+      // 4. 本地开发环境
+      return 'http://localhost:4000';
+    };
+
+    const apiUrl = getBackendUrl();
     const aiUrl = ensureProtocol(
       process.env.NEXT_PUBLIC_AI_URL || 'http://localhost:5000'
+    );
+
+    console.log('📡 Next.js rewrites configured:');
+    console.log(`   - API URL: ${apiUrl}`);
+    console.log(`   - AI URL: ${aiUrl}`);
+    console.log(
+      `   - RAILWAY_ENVIRONMENT: ${process.env.RAILWAY_ENVIRONMENT || 'not set'}`
     );
 
     return [
