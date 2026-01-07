@@ -49,6 +49,8 @@ import { MissionStateManager } from "./mission-state.manager";
 import { MissionLifecycleService } from "./mission-lifecycle.service";
 import { MissionRetryService } from "./mission-retry.service";
 import { MissionHealthCheckService } from "./mission-health-check.service";
+// ★ AI Engine 能力下沉：使用 AI Engine 的上下文初始化服务
+import { ContextInitializationService } from "../../../../../ai-engine/orchestration/services";
 import { RETRY_CONFIG, AGENT_SWITCH_CONFIG } from "../config";
 import {
   isRetryableError,
@@ -116,6 +118,7 @@ export class TeamMissionService implements OnModuleInit {
     private lifecycleService: MissionLifecycleService,
     private retryService: MissionRetryService,
     private healthCheckService: MissionHealthCheckService,
+    private contextInitializationService: ContextInitializationService,
   ) {}
 
   // ==================== 生命周期钩子 ====================
@@ -842,6 +845,83 @@ export class TeamMissionService implements OnModuleInit {
         `[startMission] Failed to extract constraints: ${error}`,
       );
       // 不阻塞任务执行
+    }
+
+    // ★ 世界观设定前置：对于大型内容创作任务，先生成核心设定
+    // 解决问题：用户只写"写一部宫廷小说"，多个Agent各自发明设定导致不一致
+    try {
+      const worldBuildingResult =
+        await this.contextInitializationService.buildWorldContext(
+          mission.title,
+          mission.description || "",
+          async (model, messages, options) => {
+            const response = await this.callAIWithConfig(
+              model,
+              messages.map((m) => ({ role: m.role, content: m.content })),
+              messages.find((m) => m.role === "system")?.content || "",
+              {
+                maxTokens: options?.maxTokens,
+                temperature: options?.temperature,
+                missionId: mission.id,
+              },
+            );
+            return {
+              content: response.content || "",
+              tokensUsed: response.tokensUsed || 0,
+            };
+          },
+          mission.leader.aiModel,
+        );
+
+      if (worldBuildingResult.needed && worldBuildingResult.hardConstraints) {
+        this.logger.log(
+          `[startMission] World building completed: ${worldBuildingResult.hardConstraints.length} constraints, type: ${worldBuildingResult.contentType}`,
+        );
+
+        // 合并世界观约束到现有约束
+        const existingConstraints = (mission as any).mustConstraints || [];
+        const mergedConstraints = [
+          ...existingConstraints,
+          ...worldBuildingResult.hardConstraints,
+        ];
+
+        // 更新到数据库
+        await this.prisma.teamMission.update({
+          where: { id: mission.id },
+          data: {
+            mustConstraints: mergedConstraints as any,
+          },
+        });
+
+        // 更新内存中的 mission 对象
+        (mission as any).mustConstraints = mergedConstraints;
+
+        // 发送世界观设定消息到群聊
+        if (worldBuildingResult.settings) {
+          const settingsMessage =
+            this.contextInitializationService.formatWorldSettingsMessage(
+              worldBuildingResult.settings,
+            );
+          await this.sendMessageToTopic(
+            mission.topicId,
+            mission.leader.id,
+            settingsMessage,
+            MessageContentType.TEXT,
+          );
+        }
+
+        await this.createLog(mission.id, {
+          type: MissionLogType.PLANNING_STARTED,
+          agentId: mission.leader.id,
+          agentName: mission.leader.agentName || mission.leader.displayName,
+          content: `世界观设定完成，已确立 ${worldBuildingResult.hardConstraints.length} 条核心约束`,
+        });
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[startMission] Failed to build world context: ${error instanceof Error ? error.message : error}`,
+      );
+      // 不阻塞任务执行，世界观生成失败时继续用传统流程
     }
 
     // 执行 Leader 任务规划

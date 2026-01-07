@@ -7,43 +7,27 @@
  * - RAG: Relevance-based Context Retrieval
  *
  * 核心功能：
- * 1. 检测用户意图
+ * 1. 检测用户意图（使用 AI Engine 的 IntentDetectionService）
  * 2. 根据意图选择合适的上下文策略
- * 3. 构建最优的 AI 输入
+ * 3. 从数据库获取相关上下文构建最优的 AI 输入
+ *
+ * ⚠️ 意图检测核心逻辑已迁移到 AI Engine
+ * 此服务专注于 AI Teams 特定的上下文获取逻辑
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import {
+  IntentDetectionService,
+  UserIntent,
+  ContextStrategy,
+} from "../../../../ai-engine/orchestration/services";
 
-// 用户意图类型
-export enum UserIntent {
-  // 发起新辩论（需要隔离历史）
-  START_DEBATE = "START_DEBATE",
-
-  // 基于之前内容操作（需要引用历史）
-  SUMMARIZE = "SUMMARIZE", // 总结
-  GENERATE_IMAGE = "GENERATE_IMAGE", // 生成图片
-  ANALYZE = "ANALYZE", // 分析
-  CONTINUE = "CONTINUE", // 继续/追问
-
-  // 普通对话（最近上下文）
-  GENERAL_CHAT = "GENERAL_CHAT",
-}
-
-// 上下文策略
-export enum ContextStrategy {
-  // 完全隔离，不使用历史
-  ISOLATED = "ISOLATED",
-
-  // 引用最近的辩论/讨论结果
-  REFERENCE_RECENT = "REFERENCE_RECENT",
-
-  // 标准上下文（最近N条）
-  STANDARD = "STANDARD",
-
-  // 相关性检索（RAG式）
-  RELEVANCE_BASED = "RELEVANCE_BASED",
-}
+// 重导出 AI Engine 的类型（向后兼容）
+export {
+  UserIntent,
+  ContextStrategy,
+} from "../../../../ai-engine/orchestration/services";
 
 // 上下文路由结果
 export interface ContextRouteResult {
@@ -71,7 +55,10 @@ export interface ContextMessage {
 export class ContextRouterService {
   private readonly logger = new Logger(ContextRouterService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly intentDetectionService: IntentDetectionService,
+  ) {}
 
   /**
    * 主入口：分析用户意图并路由上下文
@@ -81,15 +68,21 @@ export class ContextRouterService {
     userMessage: string,
     mentionedAiIds: string[],
   ): Promise<ContextRouteResult> {
-    // 1. 检测用户意图
-    const intent = this.detectIntent(userMessage, mentionedAiIds);
-    this.logger.log(`[ContextRouter] Detected intent: ${intent}`);
+    // 1. 使用 AI Engine 的意图检测服务
+    const detectionResult = this.intentDetectionService.detectIntent(
+      userMessage,
+      { mentionedCount: mentionedAiIds.length },
+    );
 
-    // 2. 根据意图选择策略
-    const strategy = this.selectStrategy(intent);
-    this.logger.log(`[ContextRouter] Selected strategy: ${strategy}`);
+    // 映射意图（兼容旧的意图枚举）
+    const intent = this.mapIntent(detectionResult.intent);
+    const strategy = detectionResult.strategy;
 
-    // 3. 构建上下文
+    this.logger.log(
+      `[ContextRouter] Detected intent: ${intent}, strategy: ${strategy}`,
+    );
+
+    // 2. 构建上下文
     const context = await this.buildContext(
       topicId,
       userMessage,
@@ -97,7 +90,7 @@ export class ContextRouterService {
       strategy,
     );
 
-    // 4. 生成系统提示词补充
+    // 3. 生成系统提示词补充
     const systemPromptAddition = this.generateSystemPromptAddition(
       intent,
       userMessage,
@@ -112,148 +105,11 @@ export class ContextRouterService {
   }
 
   /**
-   * 检测用户意图
+   * 映射通用意图到 AI Teams 特定意图
    */
-  private detectIntent(content: string, mentionedAiIds: string[]): UserIntent {
-    const contentLower = content.toLowerCase();
-
-    // 辩论意图检测（需要@2个AI + 辩论关键词）
-    if (mentionedAiIds.length >= 2) {
-      const debateKeywords = [
-        "辩论",
-        "辩一下",
-        "辩一辩",
-        "辩题",
-        "思辨",
-        "红蓝",
-        "正方反方",
-        "PK",
-        "pk",
-        "debate",
-        "对决",
-      ];
-      if (
-        debateKeywords.some((kw) => contentLower.includes(kw.toLowerCase()))
-      ) {
-        return UserIntent.START_DEBATE;
-      }
-    }
-
-    // 总结意图
-    const summarizeKeywords = [
-      "总结",
-      "归纳",
-      "概括",
-      "summary",
-      "summarize",
-      "小结",
-    ];
-    if (summarizeKeywords.some((kw) => contentLower.includes(kw))) {
-      return UserIntent.SUMMARIZE;
-    }
-
-    // 生成图片意图
-    const imageKeywords = [
-      "生成图",
-      "输出图",
-      "画图",
-      "信息图",
-      "图表",
-      "可视化",
-      "image",
-      "picture",
-      "diagram",
-      "chart",
-      "infographic",
-    ];
-    if (imageKeywords.some((kw) => contentLower.includes(kw))) {
-      return UserIntent.GENERATE_IMAGE;
-    }
-
-    // 分析意图
-    const analyzeKeywords = [
-      "分析",
-      "评价",
-      "评估",
-      "对比",
-      "analyze",
-      "compare",
-    ];
-    if (analyzeKeywords.some((kw) => contentLower.includes(kw))) {
-      return UserIntent.ANALYZE;
-    }
-
-    // 继续/追问意图
-    const continueKeywords = [
-      "继续",
-      "接着",
-      "然后呢",
-      "还有呢",
-      "更多",
-      "详细",
-      "展开",
-      "深入",
-      "go on",
-      "continue",
-      "more",
-    ];
-    if (continueKeywords.some((kw) => contentLower.includes(kw))) {
-      return UserIntent.CONTINUE;
-    }
-
-    // 引用性关键词（表明需要基于之前内容）
-    const referenceKeywords = [
-      "上面",
-      "之前",
-      "刚才",
-      "这些",
-      "那些",
-      "他们的",
-      "你们的",
-      "观点",
-      "结论",
-      "论点",
-      "above",
-      "previous",
-      "these",
-    ];
-    if (referenceKeywords.some((kw) => contentLower.includes(kw))) {
-      // 有引用关键词，根据具体动作判断
-      if (imageKeywords.some((kw) => contentLower.includes(kw))) {
-        return UserIntent.GENERATE_IMAGE;
-      }
-      if (summarizeKeywords.some((kw) => contentLower.includes(kw))) {
-        return UserIntent.SUMMARIZE;
-      }
-      return UserIntent.ANALYZE;
-    }
-
-    return UserIntent.GENERAL_CHAT;
-  }
-
-  /**
-   * 根据意图选择上下文策略
-   */
-  private selectStrategy(intent: UserIntent): ContextStrategy {
-    switch (intent) {
-      case UserIntent.START_DEBATE:
-        // 辩论需要完全隔离
-        return ContextStrategy.ISOLATED;
-
-      case UserIntent.SUMMARIZE:
-      case UserIntent.GENERATE_IMAGE:
-      case UserIntent.ANALYZE:
-        // 总结/图片/分析需要引用最近内容
-        return ContextStrategy.REFERENCE_RECENT;
-
-      case UserIntent.CONTINUE:
-        // 继续追问需要标准上下文
-        return ContextStrategy.STANDARD;
-
-      case UserIntent.GENERAL_CHAT:
-      default:
-        return ContextStrategy.STANDARD;
-    }
+  private mapIntent(genericIntent: UserIntent): UserIntent {
+    // 直接返回，枚举值兼容
+    return genericIntent;
   }
 
   /**
@@ -459,7 +315,7 @@ export class ContextRouterService {
 3. 给出客观的总结
 不要重复辩论格式，用简洁的语言总结即可。`;
 
-      case UserIntent.GENERATE_IMAGE:
+      case UserIntent.GENERATE:
         return `
 用户希望你基于之前的讨论内容生成图片/信息图。请：
 1. 提取关键信息和数据

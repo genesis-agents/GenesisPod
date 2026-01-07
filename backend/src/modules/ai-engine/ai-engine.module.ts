@@ -41,6 +41,10 @@ import { IterationManagerService } from "./orchestration/services/iteration-mana
 import { CircuitBreakerService } from "./orchestration/services/circuit-breaker.service";
 import { TokenBudgetService } from "./orchestration/services/token-budget.service";
 import { ContextEvolutionService } from "./orchestration/services/context-evolution.service";
+import { ContextInitializationService } from "./orchestration/services/context-initialization.service";
+import { ConstraintEnforcementService } from "./orchestration/services/constraint-enforcement.service";
+import { ContextCompressionService } from "./orchestration/services/context-compression.service";
+import { IntentDetectionService } from "./orchestration/services/intent-detection.service";
 
 // Memory Services
 import { ShortTermMemoryService } from "./memory/stores/short-term-memory.service";
@@ -271,6 +275,10 @@ const conversationMemoryFactory = {
     CircuitBreakerService,
     TokenBudgetService,
     ContextEvolutionService,
+    ContextInitializationService,
+    ConstraintEnforcementService,
+    ContextCompressionService,
+    IntentDetectionService,
 
     // === Collaboration ===
     votingManagerFactory,
@@ -334,6 +342,10 @@ const conversationMemoryFactory = {
     CircuitBreakerService,
     TokenBudgetService,
     ContextEvolutionService,
+    ContextInitializationService,
+    ConstraintEnforcementService,
+    ContextCompressionService,
+    IntentDetectionService,
 
     // === Collaboration ===
     VotingManager,

@@ -17,6 +17,18 @@ export { IterationManagerService } from "./iteration-manager.service";
 // 上下文演进服务
 export { ContextEvolutionService } from "./context-evolution.service";
 
+// 上下文初始化服务（世界观设定）
+export { ContextInitializationService } from "./context-initialization.service";
+
+// 约束强制服务
+export { ConstraintEnforcementService } from "./constraint-enforcement.service";
+
+// 上下文压缩服务
+export { ContextCompressionService } from "./context-compression.service";
+
+// 意图检测服务
+export { IntentDetectionService } from "./intent-detection.service";
+
 // 熔断器服务
 export {
   CircuitBreakerService,

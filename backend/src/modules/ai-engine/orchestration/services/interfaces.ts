@@ -612,6 +612,408 @@ export interface IContextEvolutionService {
   ): string;
 }
 
+// ==================== 上下文初始化服务接口（世界观设定） ====================
+
+/**
+ * 世界观设定 - 时代背景
+ */
+export interface WorldSettingsEra {
+  /** 时期（如：明朝天启年间） */
+  period: string;
+  /** 具体年份（可选，如：天启六年） */
+  year?: string;
+  /** 时代特征描述 */
+  description: string;
+}
+
+/**
+ * 世界观设定 - 人物
+ */
+export interface WorldSettingsCharacter {
+  /** 人物名 */
+  name: string;
+  /** 角色定位（如：女主、男主、反派） */
+  role: string;
+  /** 身份（如：宫女、太子、大太监） */
+  identity: string;
+  /** 性格特征 */
+  traits: string[];
+  /** 特殊约束（如：不能说话、左手有胎记） */
+  constraints: string[];
+}
+
+/**
+ * 世界观设定 - 阵营
+ */
+export interface WorldSettingsFaction {
+  /** 阵营名 */
+  name: string;
+  /** 阵营描述 */
+  description: string;
+  /** 核心成员 */
+  keyMembers: string[];
+}
+
+/**
+ * 世界观设定（完整结构）
+ */
+export interface WorldSettings {
+  /** 时代背景 */
+  era: WorldSettingsEra;
+  /** 核心人物 */
+  characters: WorldSettingsCharacter[];
+  /** 阵营/组织 */
+  factions: WorldSettingsFaction[];
+  /** 核心规则/设定 */
+  coreRules: string[];
+  /** 禁止事项 */
+  prohibitions: string[];
+}
+
+/**
+ * 内容类型
+ */
+export type ContentType = "novel" | "document" | "research" | "other";
+
+/**
+ * 硬性约束（与 AI Teams 兼容）
+ */
+export interface HardConstraint {
+  /** 约束ID */
+  id: string;
+  /** 约束规则 */
+  rule: string;
+  /** 原因 */
+  reason?: string;
+  /** 严重程度 */
+  severity: "MUST" | "SHOULD";
+}
+
+/**
+ * 核心实体（与 AI Teams 兼容）
+ */
+export interface CoreEntity {
+  /** 实体名称 */
+  name: string;
+  /** 类型：人物/概念/术语/指标/组织/地点/... */
+  type: string;
+  /** 定义说明 */
+  definition: string;
+  /** 附加属性 */
+  attributes?: Record<string, string>;
+}
+
+/**
+ * 世界观构建结果
+ */
+export interface WorldBuildingResult {
+  /** 是否需要世界观设定 */
+  needed: boolean;
+  /** 检测到的内容类型 */
+  contentType: ContentType;
+  /** 生成的世界观设定 */
+  settings?: WorldSettings;
+  /** 转换后的硬性约束 */
+  hardConstraints?: HardConstraint[];
+  /** 转换后的核心实体 */
+  entities?: CoreEntity[];
+  /** 消耗的 tokens */
+  tokensUsed: number;
+}
+
+// ==================== 约束强制服务接口 ====================
+
+/**
+ * 约束类型
+ */
+export type ConstraintSeverity = "MUST" | "SHOULD" | "MAY";
+
+/**
+ * 提取的约束
+ */
+export interface ExtractedConstraint {
+  id: string;
+  type: ConstraintSeverity;
+  rule: string;
+  source: string;
+  confidence: number;
+}
+
+/**
+ * 约束违规
+ */
+export interface ConstraintViolation {
+  constraintId: string;
+  rule: string;
+  violatingText: string;
+  position: number;
+  severity: "critical" | "high" | "medium" | "low";
+}
+
+/**
+ * 输出校验结果
+ */
+export interface OutputValidationResult {
+  isValid: boolean;
+  violations: ConstraintViolation[];
+  checkedConstraints: number;
+  passedConstraints: number;
+}
+
+/**
+ * 约束强制服务接口
+ */
+export interface IConstraintEnforcementService {
+  /**
+   * 从文本中提取约束
+   */
+  extractConstraints(description: string): ExtractedConstraint[];
+
+  /**
+   * 校验输出是否违反约束
+   */
+  validateOutput(
+    output: string,
+    constraints: ExtractedConstraint[] | HardConstraint[],
+  ): Promise<OutputValidationResult>;
+
+  /**
+   * 生成违规报告
+   */
+  generateViolationReport(violations: ConstraintViolation[]): string;
+
+  /**
+   * 格式化约束列表（用于 Prompt 注入）
+   */
+  formatConstraintsForPrompt(
+    constraints: ExtractedConstraint[] | HardConstraint[],
+    type?: ConstraintSeverity,
+  ): string;
+
+  /**
+   * 将提取的约束转换为 HardConstraint
+   */
+  toHardConstraints(constraints: ExtractedConstraint[]): HardConstraint[];
+}
+
+/**
+ * 上下文初始化服务接口（世界观设定）
+ */
+export interface IContextInitializationService {
+  /**
+   * 检测任务内容类型
+   */
+  detectContentType(
+    title: string,
+    description: string,
+  ): { needed: boolean; contentType: ContentType };
+
+  /**
+   * 生成世界观设定
+   */
+  generateWorldSettings(
+    title: string,
+    description: string,
+    contentType: ContentType,
+    aiCaller: AiCallerFn,
+    aiModel: string,
+  ): Promise<{ settings: WorldSettings; tokensUsed: number }>;
+
+  /**
+   * 将世界观设定转换为硬性约束
+   */
+  settingsToConstraints(settings: WorldSettings): HardConstraint[];
+
+  /**
+   * 将世界观设定转换为核心实体
+   */
+  settingsToEntities(settings: WorldSettings): CoreEntity[];
+
+  /**
+   * 完整的世界观构建流程
+   */
+  buildWorldContext(
+    title: string,
+    description: string,
+    aiCaller: AiCallerFn,
+    aiModel: string,
+  ): Promise<WorldBuildingResult>;
+}
+
+// ==================== 上下文压缩服务接口 ====================
+
+/**
+ * 数据块
+ */
+export interface DataChunk {
+  id: string;
+  content: string;
+  index: number;
+  source: string;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * 摘要块
+ */
+export interface SummaryChunk {
+  chunkId: string;
+  summary: string;
+  keyPoints: string[];
+  sourceChunks: string[];
+  embedding?: number[];
+  wordCount: number;
+}
+
+/**
+ * 压缩结果
+ */
+export interface CompressionResult {
+  compressedContext: string;
+  globalSummary: string;
+  chunkSummaries: SummaryChunk[];
+  stats: {
+    originalLength: number;
+    compressedLength: number;
+    compressionRatio: number;
+    chunkCount: number;
+    processingTimeMs: number;
+  };
+  integrityCheck: {
+    allChunksProcessed: boolean;
+    coveragePercentage: number;
+    missingChunks: string[];
+  };
+}
+
+/**
+ * 压缩选项
+ */
+export interface CompressionOptions {
+  targetSize?: number;
+  chunkSize?: number;
+  generateEmbeddings?: boolean;
+  summaryStyle?: "brief" | "detailed" | "analytical";
+  model?: string;
+  concurrency?: number;
+}
+
+/**
+ * 上下文压缩服务接口
+ */
+export interface IContextCompressionService {
+  /**
+   * 压缩大上下文
+   */
+  compress(
+    content: string,
+    options?: CompressionOptions,
+  ): Promise<CompressionResult>;
+
+  /**
+   * 基于查询检索相关上下文
+   */
+  retrieveRelevantContext(
+    query: string,
+    summaries: SummaryChunk[],
+    topK?: number,
+  ): Promise<string[]>;
+}
+
+// ==================== 意图检测服务接口 ====================
+
+/**
+ * 用户意图类型
+ */
+export enum UserIntent {
+  /** 发起新会话（需要隔离历史） */
+  START_NEW_SESSION = "START_NEW_SESSION",
+  /** 总结 */
+  SUMMARIZE = "SUMMARIZE",
+  /** 生成内容 */
+  GENERATE = "GENERATE",
+  /** 分析 */
+  ANALYZE = "ANALYZE",
+  /** 继续/追问 */
+  CONTINUE = "CONTINUE",
+  /** 普通对话 */
+  GENERAL_CHAT = "GENERAL_CHAT",
+}
+
+/**
+ * 上下文策略
+ */
+export enum ContextStrategy {
+  /** 完全隔离，不使用历史 */
+  ISOLATED = "ISOLATED",
+  /** 引用最近内容 */
+  REFERENCE_RECENT = "REFERENCE_RECENT",
+  /** 标准上下文 */
+  STANDARD = "STANDARD",
+  /** 相关性检索 */
+  RELEVANCE_BASED = "RELEVANCE_BASED",
+}
+
+/**
+ * 意图检测配置
+ */
+export interface IntentDetectionConfig {
+  /** 新会话关键词 */
+  newSessionKeywords?: string[];
+  /** 总结关键词 */
+  summarizeKeywords?: string[];
+  /** 生成关键词 */
+  generateKeywords?: string[];
+  /** 分析关键词 */
+  analyzeKeywords?: string[];
+  /** 继续关键词 */
+  continueKeywords?: string[];
+  /** 引用关键词 */
+  referenceKeywords?: string[];
+  /** 自定义意图检测规则 */
+  customRules?: Array<{
+    intent: UserIntent;
+    condition: (content: string, metadata?: Record<string, unknown>) => boolean;
+  }>;
+}
+
+/**
+ * 意图检测结果
+ */
+export interface IntentDetectionResult {
+  /** 检测到的意图 */
+  intent: UserIntent;
+  /** 推荐的上下文策略 */
+  strategy: ContextStrategy;
+  /** 置信度 */
+  confidence: number;
+  /** 匹配的关键词 */
+  matchedKeywords?: string[];
+}
+
+/**
+ * 意图检测服务接口
+ */
+export interface IIntentDetectionService {
+  /**
+   * 检测用户意图
+   */
+  detectIntent(
+    content: string,
+    metadata?: Record<string, unknown>,
+  ): IntentDetectionResult;
+
+  /**
+   * 根据意图选择上下文策略
+   */
+  selectStrategy(intent: UserIntent): ContextStrategy;
+
+  /**
+   * 更新配置
+   */
+  updateConfig(config: Partial<IntentDetectionConfig>): void;
+}
+
 /**
  * 迭代管理服务接口
  */
