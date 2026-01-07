@@ -36,7 +36,10 @@ import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { AiChatService } from "../../../../../ai-engine/llm/services/ai-chat.service";
 import { SearchService } from "../../../../../ai-engine/search/search.service";
 import { TopicEventEmitterService } from "../../events";
-import { CircuitBreakerService } from "../../../../../ai-engine/orchestration/services";
+import {
+  CircuitBreakerService,
+  ContextInitializationService,
+} from "../../../../../ai-engine/orchestration/services";
 import { MissionContextService } from "../mission/mission-context.service";
 import { ConstraintEnforcementService } from "../context/constraint-enforcement.service";
 import { EmailService } from "../../../../../core/email/email.service";
@@ -208,6 +211,21 @@ describe("TeamMissionService Long Content Integration", () => {
             registerRevisionCallback: jest.fn(),
             resetRecoveryAttempts: jest.fn(),
             cleanupCompletedMission: jest.fn(),
+          },
+        },
+        {
+          provide: ContextInitializationService,
+          useValue: {
+            detectContentType: jest
+              .fn()
+              .mockReturnValue({ needed: false, contentType: "other" }),
+            buildWorldContext: jest
+              .fn()
+              .mockResolvedValue({
+                needed: false,
+                contentType: "other",
+                tokensUsed: 0,
+              }),
           },
         },
       ],
