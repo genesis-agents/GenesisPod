@@ -1,63 +1,79 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
-import * as api from '@/lib/api/ai-writing';
-import type { WritingProject } from '@/lib/api/ai-writing';
+import { useAIWritingStore } from '@/stores/aiWritingStore';
 
 export default function AIWritingPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [projects, setProjects] = useState<WritingProject[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
 
-  const fetchProjects = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getProjects();
-      setProjects(data.items || []);
-    } catch (err: unknown) {
-      console.error('Failed to fetch projects:', err);
-      setMessage(t('aiWriting.errors.loadFailed'));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    projects,
+    isLoadingProjects,
+    error,
+    fetchProjects,
+    deleteProject,
+    clearError,
+  } = useAIWritingStore();
 
   useEffect(() => {
-    if (user) void fetchProjects();
-  }, [user]);
+    if (user) {
+      void fetchProjects();
+    }
+  }, [user, fetchProjects]);
 
-  const handleViewDetail = (project: WritingProject) => {
-    router.push(`/ai-writing/${project.id}`);
+  const handleCreateProject = () => {
+    router.push('/ai-writing/new');
+  };
+
+  const handleOpenProject = (projectId: string) => {
+    router.push(`/ai-writing/${projectId}`);
+  };
+
+  const handleDeleteProject = async (
+    e: React.MouseEvent,
+    projectId: string
+  ) => {
+    e.stopPropagation();
+    if (confirm(t('aiWriting.confirmDelete'))) {
+      try {
+        await deleteProject(projectId);
+      } catch {
+        // Error handled by store
+      }
+    }
   };
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      PLANNING: 'bg-gray-100 text-gray-700',
-      OUTLINING: 'bg-blue-100 text-blue-700',
-      WRITING: 'bg-amber-100 text-amber-700',
-      REVISING: 'bg-purple-100 text-purple-700',
-      COMPLETED: 'bg-green-100 text-green-700',
+      PLANNING: 'bg-slate-100 text-slate-600',
+      OUTLINING: 'bg-blue-100 text-blue-600',
+      WRITING: 'bg-amber-100 text-amber-600',
+      REVISING: 'bg-purple-100 text-purple-600',
+      COMPLETED: 'bg-green-100 text-green-600',
     };
-    return colors[status] || 'bg-gray-100 text-gray-700';
+    return colors[status] || 'bg-slate-100 text-slate-600';
   };
 
-  const getStatusLabel = (status: string) => {
-    const key = status.toLowerCase() as keyof typeof statusKeys;
-    const statusKeys = {
-      planning: 'planning',
-      outlining: 'outlining',
-      writing: 'writing',
-      revising: 'revising',
-      completed: 'completed',
+  const getStatusText = (status: string) => {
+    const texts: Record<string, string> = {
+      PLANNING: t('aiWriting.status.planning'),
+      OUTLINING: t('aiWriting.status.outlining'),
+      WRITING: t('aiWriting.status.writing'),
+      REVISING: t('aiWriting.status.revising'),
+      COMPLETED: t('aiWriting.status.completed'),
     };
-    return t(`aiWriting.status.${statusKeys[key] || 'planning'}`);
+    return texts[status] || status;
+  };
+
+  const getProgressPercent = (current: number, target: number) => {
+    if (!target || target === 0) return 0;
+    return Math.min(100, Math.round((current / target) * 100));
   };
 
   if (authLoading) return null;
@@ -65,12 +81,27 @@ export default function AIWritingPage() {
   if (!user) {
     return (
       <AppShell>
-        <main className="flex-1 p-12">
-          <div className="mx-auto max-w-3xl rounded-2xl border border-gray-100 bg-white p-10 text-center shadow-sm">
-            <h2 className="text-2xl font-semibold text-gray-800">
+        <main className="flex flex-1 items-center justify-center p-8">
+          <div className="max-w-md text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100">
+              <svg
+                className="h-8 w-8 text-amber-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
+              </svg>
+            </div>
+            <h2 className="mb-2 text-xl font-semibold text-gray-800">
               {t('aiWriting.signIn.title')}
             </h2>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="text-sm text-gray-500">
               {t('aiWriting.signIn.description')}
             </p>
           </div>
@@ -81,39 +112,95 @@ export default function AIWritingPage() {
 
   return (
     <AppShell>
-      <main className="flex-1 overflow-auto">
-        <div className="px-8 py-6">
+      <main className="flex-1 overflow-auto bg-gray-50">
+        <div className="mx-auto max-w-6xl px-6 py-8">
           {/* Header */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25">
-                  <svg
-                    className="h-7 w-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    {t('aiWriting.title')}
-                  </h1>
-                  <p className="text-sm text-gray-500">
-                    {t('aiWriting.subtitle')}
-                  </p>
-                </div>
-              </div>
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {t('aiWriting.title')}
+              </h1>
+              <p className="mt-1 text-sm text-gray-500">
+                {t('aiWriting.subtitle')}
+              </p>
+            </div>
+            <button
+              onClick={handleCreateProject}
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              {t('aiWriting.newProject')}
+            </button>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 flex items-center justify-between rounded-lg border border-red-100 bg-red-50 p-4">
+              <span className="text-sm text-red-700">{error}</span>
               <button
-                onClick={() => router.push('/ai-writing/new')}
-                className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700"
+                onClick={clearError}
+                className="text-red-500 hover:text-red-700"
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          {/* Projects Grid */}
+          {isLoadingProjects ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-amber-600"></div>
+            </div>
+          ) : projects.length === 0 ? (
+            <div className="py-20 text-center">
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gray-100">
+                <svg
+                  className="h-10 w-10 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
+              </div>
+              <h3 className="mb-2 text-lg font-medium text-gray-900">
+                {t('aiWriting.empty.noProjects')}
+              </h3>
+              <p className="mx-auto mb-6 max-w-sm text-sm text-gray-500">
+                {t('aiWriting.empty.noProjectsDesc')}
+              </p>
+              <button
+                onClick={handleCreateProject}
+                className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-700"
               >
                 <svg
                   className="h-5 w-5"
@@ -128,160 +215,85 @@ export default function AIWritingPage() {
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
-                {t('aiWriting.newProject')}
+                {t('aiWriting.empty.createFirst')}
               </button>
             </div>
-          </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {projects.map((project) => (
+                <div
+                  key={project.id}
+                  onClick={() => handleOpenProject(project.id)}
+                  className="group cursor-pointer rounded-xl border border-gray-200 bg-white p-5 transition-all hover:border-amber-300 hover:shadow-md"
+                >
+                  <div className="mb-3 flex items-start justify-between">
+                    <h3 className="line-clamp-1 font-semibold text-gray-900 transition-colors group-hover:text-amber-700">
+                      {project.name}
+                    </h3>
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(project.status)}`}
+                    >
+                      {getStatusText(project.status)}
+                    </span>
+                  </div>
 
-          {/* Features Overview */}
-          <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100">
-                <svg
-                  className="h-5 w-5 text-amber-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                  />
-                </svg>
-              </div>
-              <h3 className="font-medium text-gray-900">
-                {t('aiWriting.storyBible')}
-              </h3>
-              <p className="mt-1 text-xs text-gray-500">
-                Centralized settings management
-              </p>
-            </div>
-            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                <svg
-                  className="h-5 w-5 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
-              </div>
-              <h3 className="font-medium text-gray-900">
-                {t('aiWriting.characters')}
-              </h3>
-              <p className="mt-1 text-xs text-gray-500">
-                Character state tracking
-              </p>
-            </div>
-            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
-                <svg
-                  className="h-5 w-5 text-purple-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-              <h3 className="font-medium text-gray-900">
-                {t('aiWriting.consistency')}
-              </h3>
-              <p className="mt-1 text-xs text-gray-500">
-                Automated consistency checks
-              </p>
-            </div>
-            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
-                <svg
-                  className="h-5 w-5 text-green-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-              </div>
-              <h3 className="font-medium text-gray-900">
-                {t('aiWriting.parallel.title')}
-              </h3>
-              <p className="mt-1 text-xs text-gray-500">
-                Multi-writer parallel execution
-              </p>
-            </div>
-          </div>
+                  {project.description && (
+                    <p className="mb-4 line-clamp-2 text-sm text-gray-500">
+                      {project.description}
+                    </p>
+                  )}
 
-          {/* Message */}
-          {message && (
-            <div className="mb-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">
-              {message}
-            </div>
-          )}
+                  <div className="mb-3 flex items-center justify-between text-xs text-gray-400">
+                    <span>{project.genre || t('aiWriting.noGenre')}</span>
+                    <span>
+                      {project.currentWords.toLocaleString()} /{' '}
+                      {project.targetWords.toLocaleString()}
+                    </span>
+                  </div>
 
-          {/* Projects */}
-          <div>
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold text-gray-900">
-                  {t('aiWriting.myProjects')}
-                </h2>
-              </div>
-              <button
-                onClick={() => void fetchProjects()}
-                className="text-xs text-gray-600 hover:text-gray-800"
+                  <div className="relative h-1.5 overflow-hidden rounded-full bg-gray-100">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full bg-amber-500 transition-all"
+                      style={{
+                        width: `${getProgressPercent(project.currentWords, project.targetWords)}%`,
+                      }}
+                    />
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
+                    <span className="text-xs text-gray-400">
+                      {new Date(project.updatedAt).toLocaleDateString()}
+                    </span>
+                    <button
+                      onClick={(e) => handleDeleteProject(e, project.id)}
+                      className="text-gray-400 opacity-0 transition-colors hover:text-red-500 group-hover:opacity-100"
+                    >
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Create New Card */}
+              <div
+                onClick={handleCreateProject}
+                className="flex min-h-[200px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-5 transition-all hover:border-amber-400 hover:bg-amber-50/30"
               >
-                {t('aiWriting.refresh')}
-              </button>
-            </div>
-            {loading ? (
-              <div className="py-10 text-center text-sm text-gray-500">
-                {t('aiWriting.loading')}
-              </div>
-            ) : projects.length === 0 ? (
-              <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-6 py-12 text-center">
-                <svg
-                  className="mx-auto h-12 w-12 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                  />
-                </svg>
-                <h3 className="mt-4 text-sm font-medium text-gray-900">
-                  {t('aiWriting.empty.noProjects')}
-                </h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  {t('aiWriting.empty.noProjectsDesc')}
-                </p>
-                <button
-                  onClick={() => router.push('/ai-writing/new')}
-                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
-                >
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
                   <svg
-                    className="h-4 w-4"
+                    className="h-6 w-6 text-gray-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -293,52 +305,13 @@ export default function AIWritingPage() {
                       d="M12 4v16m8-8H4"
                     />
                   </svg>
-                  {t('aiWriting.empty.createFirst')}
-                </button>
+                </div>
+                <span className="text-sm font-medium text-gray-600">
+                  {t('aiWriting.newProject')}
+                </span>
               </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {projects.map((project) => (
-                  <div
-                    key={project.id}
-                    onClick={() => handleViewDetail(project)}
-                    className="cursor-pointer rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
-                  >
-                    <div className="mb-3 flex items-start justify-between">
-                      <h3 className="font-medium text-gray-900">
-                        {project.name}
-                      </h3>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${getStatusColor(project.status)}`}
-                      >
-                        {getStatusLabel(project.status)}
-                      </span>
-                    </div>
-                    {project.description && (
-                      <p className="mb-3 line-clamp-2 text-sm text-gray-500">
-                        {project.description}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between text-xs text-gray-400">
-                      <span>{project.genre}</span>
-                      <span>
-                        {project.currentWords.toLocaleString()} /{' '}
-                        {project.targetWords.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100">
-                      <div
-                        className="h-1.5 rounded-full bg-amber-500"
-                        style={{
-                          width: `${Math.min(100, (project.currentWords / project.targetWords) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </main>
     </AppShell>
