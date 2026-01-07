@@ -912,8 +912,17 @@
       "createFailed": "Failed to create project",
       "deleteFailed": "Failed to delete project",
       "projectNotFound": "Project not found",
-      "nameRequired": "Project name is required"
+      "nameRequired": "Project name is required",
+      "promptRequired": "Writing prompt is required",
+      "missionFailed": "Failed to start AI writing mission"
     },
+    "startAIWriting": "Start AI Writing",
+    "startWriting": "Start Writing",
+    "starting": "Starting...",
+    "missionStarted": "AI writing mission started! The AI team is now working on your content.",
+    "writingPrompt": "Writing Instructions",
+    "writingPromptPlaceholder": "Describe what you want the AI to write...",
+    "writingPromptHint": "Be specific about the content, style, and any special requirements.",
     "backToProjects": "Back to Projects",
     "progress": "Progress",
     "words": "words",

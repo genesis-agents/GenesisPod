@@ -70,6 +70,16 @@ export default function WritingProjectDetailPage() {
     'overview'
   );
 
+  // AI Writing Mission states
+  const [showWritingModal, setShowWritingModal] = useState(false);
+  const [writingPrompt, setWritingPrompt] = useState('');
+  const [targetWords, setTargetWords] = useState(30000);
+  const [missionLoading, setMissionLoading] = useState(false);
+  const [missionMessage, setMissionMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
   const fetchProject = async () => {
     setLoading(true);
     try {
@@ -100,6 +110,66 @@ export default function WritingProjectDetailPage() {
   useEffect(() => {
     if (user && projectId) void fetchProject();
   }, [user, projectId]);
+
+  // Start AI Writing Mission
+  const startAIWriting = async () => {
+    if (!writingPrompt.trim()) {
+      setMissionMessage({
+        type: 'error',
+        text: t('aiWriting.errors.promptRequired'),
+      });
+      return;
+    }
+
+    setMissionLoading(true);
+    setMissionMessage(null);
+
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/ai-writing/projects/${projectId}/missions`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            prompt: writingPrompt,
+            missionType: 'full_story',
+            targetWordCount: targetWords,
+          }),
+        }
+      );
+
+      if (res.ok) {
+        setMissionMessage({
+          type: 'success',
+          text: t('aiWriting.missionStarted'),
+        });
+        setShowWritingModal(false);
+        setWritingPrompt('');
+        // Refresh project to see new status
+        setTimeout(() => void fetchProject(), 2000);
+      } else {
+        const data = await res.json();
+        setMissionMessage({
+          type: 'error',
+          text: data.message || t('aiWriting.errors.missionFailed'),
+        });
+      }
+    } catch (err: unknown) {
+      setMissionMessage({
+        type: 'error',
+        text:
+          err instanceof Error
+            ? err.message
+            : t('aiWriting.errors.missionFailed'),
+      });
+    } finally {
+      setMissionLoading(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -253,9 +323,33 @@ export default function WritingProjectDetailPage() {
                   {project.tense && <span>{project.tense}</span>}
                 </div>
               </div>
-              <button className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                {t('common.edit')}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setWritingPrompt(project.description || '');
+                    setShowWritingModal(true);
+                  }}
+                  className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-amber-700"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
+                  </svg>
+                  {t('aiWriting.startAIWriting')}
+                </button>
+                <button className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  {t('common.edit')}
+                </button>
+              </div>
             </div>
 
             {/* Progress */}
@@ -568,6 +662,154 @@ export default function WritingProjectDetailPage() {
           )}
         </div>
       </main>
+
+      {/* Mission Message Toast */}
+      {missionMessage && (
+        <div
+          className={`fixed bottom-4 right-4 z-50 rounded-lg px-4 py-3 shadow-lg ${
+            missionMessage.type === 'success'
+              ? 'bg-green-600 text-white'
+              : 'bg-red-600 text-white'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span>{missionMessage.text}</span>
+            <button
+              onClick={() => setMissionMessage(null)}
+              className="ml-2 text-white/80 hover:text-white"
+            >
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* AI Writing Modal */}
+      {showWritingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {t('aiWriting.startAIWriting')}
+              </h2>
+              <button
+                onClick={() => setShowWritingModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Prompt */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('aiWriting.writingPrompt')} *
+                </label>
+                <textarea
+                  value={writingPrompt}
+                  onChange={(e) => setWritingPrompt(e.target.value)}
+                  rows={4}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  placeholder={t('aiWriting.writingPromptPlaceholder')}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  {t('aiWriting.writingPromptHint')}
+                </p>
+              </div>
+
+              {/* Target Words */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('aiWriting.form.targetWords')}
+                </label>
+                <input
+                  type="number"
+                  value={targetWords}
+                  onChange={(e) =>
+                    setTargetWords(parseInt(e.target.value) || 0)
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  min={1000}
+                  step={1000}
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowWritingModal(false)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={startAIWriting}
+                disabled={missionLoading || !writingPrompt.trim()}
+                className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-amber-700 disabled:opacity-50"
+              >
+                {missionLoading ? (
+                  <>
+                    <svg
+                      className="h-4 w-4 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    {t('aiWriting.starting')}
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
+                    {t('aiWriting.startWriting')}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

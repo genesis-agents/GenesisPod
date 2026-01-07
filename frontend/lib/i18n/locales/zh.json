@@ -912,8 +912,17 @@
       "createFailed": "创建项目失败",
       "deleteFailed": "删除项目失败",
       "projectNotFound": "项目未找到",
-      "nameRequired": "项目名称不能为空"
+      "nameRequired": "项目名称不能为空",
+      "promptRequired": "请输入写作指令",
+      "missionFailed": "启动 AI 写作任务失败"
     },
+    "startAIWriting": "启动 AI 写作",
+    "startWriting": "开始写作",
+    "starting": "启动中...",
+    "missionStarted": "AI 写作任务已启动！AI 团队正在为您创作内容。",
+    "writingPrompt": "写作指令",
+    "writingPromptPlaceholder": "描述您希望 AI 写什么内容...",
+    "writingPromptHint": "详细描述内容要求、风格偏好和特殊需求。",
     "backToProjects": "返回项目列表",
     "progress": "进度",
     "words": "字",

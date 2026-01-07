@@ -19,6 +19,7 @@ import { CharacterService } from "./services/bible/character.service";
 import { ChapterWritingService } from "./services/writing/chapter-writing.service";
 import { ConsistencyEngineService } from "./services/consistency/consistency-engine.service";
 import { ParallelOrchestratorService } from "./services/parallel/parallel-orchestrator.service";
+import { WritingMissionService } from "./services/mission/writing-mission.service";
 import {
   CreateProjectDto,
   UpdateProjectDto,
@@ -43,6 +44,7 @@ export class AiWritingController {
     private readonly chapterWritingService: ChapterWritingService,
     private readonly consistencyEngine: ConsistencyEngineService,
     private readonly parallelOrchestrator: ParallelOrchestratorService,
+    private readonly writingMissionService: WritingMissionService,
   ) {
     void this.logger;
     void this.aiWritingService;
@@ -240,5 +242,109 @@ export class AiWritingController {
     @Param("projectId") projectId: string,
   ) {
     return this.consistencyEngine.getProjectReport(projectId, req.user.id);
+  }
+
+  // ==================== AI Writing Missions ====================
+
+  /**
+   * 启动 AI 写作任务
+   * 用户只需提供描述，AI 自动完成规划和写作
+   */
+  @Post("projects/:projectId/missions")
+  async startMission(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+    @Body()
+    dto: {
+      /** 写作指令/描述（必填） */
+      prompt: string;
+      /** 任务类型：outline(大纲) | chapter(章节) | full_story(完整故事) */
+      missionType?: "outline" | "chapter" | "full_story";
+      /** 目标字数 */
+      targetWordCount?: number;
+      /** 额外指令 */
+      additionalInstructions?: string;
+    },
+  ) {
+    this.logger.log(
+      `Starting AI writing mission for project ${projectId}: ${dto.missionType || "full_story"}`,
+    );
+
+    // 异步执行写作任务，立即返回任务 ID
+    const missionGenerator = this.writingMissionService.execute(
+      {
+        projectId,
+        missionType: dto.missionType || "full_story",
+        userPrompt: dto.prompt,
+        targetWordCount: dto.targetWordCount,
+        additionalInstructions: dto.additionalInstructions,
+      },
+      req.user.id,
+    );
+
+    // 启动异步执行（不等待完成）
+    const runMission = async () => {
+      try {
+        let lastEvent = null;
+        for await (const event of missionGenerator) {
+          lastEvent = event;
+          this.logger.debug(`Mission event: ${event.type}`);
+        }
+        return lastEvent;
+      } catch (error) {
+        this.logger.error(`Mission failed: ${(error as Error).message}`);
+        throw error;
+      }
+    };
+
+    // 开始执行但不等待
+    void runMission();
+
+    // 返回任务已启动的信息
+    return {
+      success: true,
+      message: "AI writing mission started",
+      projectId,
+      missionType: dto.missionType || "full_story",
+      // 可以通过 GET /missions/:id 查询状态
+    };
+  }
+
+  /**
+   * 获取任务状态
+   */
+  @Get("missions/:missionId")
+  async getMissionStatus(
+    @Request() req: any,
+    @Param("missionId") missionId: string,
+  ) {
+    return this.writingMissionService.getMissionStatus(missionId, req.user.id);
+  }
+
+  /**
+   * 取消任务
+   */
+  @Post("missions/:missionId/cancel")
+  async cancelMission(
+    @Request() req: any,
+    @Param("missionId") missionId: string,
+  ) {
+    return this.writingMissionService.cancelMission(missionId, req.user.id);
+  }
+
+  /**
+   * 获取项目的所有任务
+   */
+  @Get("projects/:projectId/missions")
+  async getProjectMissions(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+    @Query("status") _status?: string,
+  ) {
+    // 先验证项目权限
+    await this.projectService.findOne(projectId, req.user.id);
+
+    // TODO: 实现按状态过滤
+    return { items: [], total: 0 };
   }
 }
