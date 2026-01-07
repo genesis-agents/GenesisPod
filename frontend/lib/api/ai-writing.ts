@@ -97,7 +97,8 @@ export interface StartMissionDto {
 
 // ==================== API Base ====================
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+// Use relative URLs to leverage Next.js rewrites proxy (avoids CORS)
+// Next.js rewrites /api/v1/* to the backend URL
 
 async function fetchWithAuth<T>(
   url: string,
@@ -114,7 +115,8 @@ async function fetchWithAuth<T>(
       `Bearer ${tokens.accessToken}`;
   }
 
-  const response = await fetch(`${API_BASE}${url}`, {
+  // Use relative URL to leverage Next.js proxy
+  const response = await fetch(url, {
     ...options,
     headers,
   });
