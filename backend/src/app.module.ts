@@ -34,6 +34,7 @@ import { AiStudioModule } from "./modules/ai-app/studio/ai-studio.module";
 import { AiTeamsModule } from "./modules/ai-app/teams/ai-teams.module";
 import { AiCodingModule } from "./modules/ai-app/coding/ai-coding.module";
 import { RAGModule } from "./modules/ai-app/rag/rag.module";
+import { AiWritingModule } from "./modules/ai-app/writing/ai-writing.module";
 // Content modules
 import { CollectionsModule } from "./modules/content/collections/collections.module";
 import { CommentsModule } from "./modules/content/comments/comments.module";
@@ -124,6 +125,7 @@ import { WebhooksModule } from "./modules/webhooks";
     AiTeamsModule,
     AiCodingModule,
     RAGModule,
+    AiWritingModule,
 
     // Content modules
     ResourcesModule,
