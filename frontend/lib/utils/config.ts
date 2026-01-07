@@ -3,7 +3,8 @@
  * 统一管理环境变量和配置
  */
 
-// Railway 生产环境后端 URL (仅用于服务端调用)
+// Railway 生产环境后端 URL (仅用于服务端渲染时调用)
+// 浏览器端请求通过 Next.js rewrites 代理，使用相对 URL
 const RAILWAY_BACKEND_URL = 'https://deepdive-engine-backend.up.railway.app';
 
 // 检测是否在浏览器环境
@@ -18,13 +19,21 @@ const isRailwayProduction = () => {
 };
 
 // 获取正确的 API 基础 URL
-// 直接调用后端 URL，后端 CORS 已配置允许 Railway 域名
+// 浏览器端使用相对 URL（利用 Next.js rewrites 代理，避免 CORS 问题）
+// 服务端需要完整 URL
 const getApiBaseUrl = () => {
+  // 浏览器端：使用相对 URL，让 Next.js rewrites 代理请求到后端
+  // 这样可以避免 CORS 问题，因为请求是发送到同源的 Next.js 服务器
+  if (isBrowser()) {
+    return ''; // 空字符串 + /api/v1 = 相对 URL /api/v1
+  }
+
+  // 服务端渲染时需要完整 URL
   // 1. 优先使用环境变量
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
-  // 2. Railway 生产环境（浏览器或服务端）使用后端 URL
+  // 2. Railway 生产环境使用后端 URL
   if (isRailwayProduction()) {
     return RAILWAY_BACKEND_URL;
   }
@@ -34,15 +43,18 @@ const getApiBaseUrl = () => {
 
 export const config = {
   /**
-   * API基础URL
-   * 从环境变量读取，Railway 生产环境使用后端 URL，开发环境默认localhost:4000
-   */
-  apiBaseUrl: getApiBaseUrl(),
-
-  /**
    * API版本
    */
   apiVersion: process.env.NEXT_PUBLIC_API_VERSION || 'v1',
+
+  /**
+   * API基础URL (getter，每次访问重新计算)
+   * 浏览器端返回空字符串以使用相对URL，避免CORS问题
+   * 服务端返回完整URL用于SSR
+   */
+  get apiBaseUrl() {
+    return getApiBaseUrl();
+  },
 
   /**
    * 完整API URL前缀
