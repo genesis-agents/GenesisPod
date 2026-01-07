@@ -18,19 +18,13 @@ const isRailwayProduction = () => {
 };
 
 // 获取正确的 API 基础 URL
-// 浏览器环境使用相对路径，通过 Next.js rewrites 代理到后端，避免 CORS 问题
+// 直接调用后端 URL，后端 CORS 已配置允许 Railway 域名
 const getApiBaseUrl = () => {
-  // 浏览器环境：使用相对路径，Next.js rewrites 会代理到后端
-  if (isBrowser()) {
-    return ''; // 相对路径，如 /api/v1/...
-  }
-
-  // 服务端环境：直接调用后端 URL
   // 1. 优先使用环境变量
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
-  // 2. Railway 生产环境使用硬编码的后端 URL
+  // 2. Railway 生产环境（浏览器或服务端）使用后端 URL
   if (isRailwayProduction()) {
     return RAILWAY_BACKEND_URL;
   }
