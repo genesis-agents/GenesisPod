@@ -6,7 +6,7 @@
  */
 
 import { create } from 'zustand';
-import * as api from '@/lib/api/ai-writing-v2';
+import * as api from '@/lib/api/ai-writing';
 import type {
   WritingProject,
   Volume,
@@ -16,7 +16,7 @@ import type {
   CreateProjectDto,
   UpdateProjectDto,
   StartMissionDto,
-} from '@/lib/api/ai-writing-v2';
+} from '@/lib/api/ai-writing';
 
 interface AIWritingState {
   // Projects
