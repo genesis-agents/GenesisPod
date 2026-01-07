@@ -1,7 +1,6 @@
 import { getAuthTokens } from '../utils/auth';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
+// Use relative URLs to let Next.js rewrites proxy to backend (avoids CORS)
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const tokens = getAuthTokens();
   const headers: HeadersInit = {
@@ -14,7 +13,8 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
       `Bearer ${tokens.accessToken}`;
   }
 
-  const response = await fetch(`${API_BASE}${url}`, {
+  // Use relative URL - Next.js rewrites will proxy /api/v1/* to backend
+  const response = await fetch(url, {
     ...options,
     headers,
   });
