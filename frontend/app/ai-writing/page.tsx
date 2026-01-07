@@ -36,12 +36,14 @@ export default function AIWritingPage() {
         credentials: 'include',
       });
       if (res.ok) {
-        setProjects(await res.json());
+        const data = await res.json();
+        setProjects(data.items || []);
       } else {
         setMessage(t('aiWriting.errors.loadFailed'));
       }
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : t('aiWriting.errors.loadFailed');
+      const errorMessage =
+        err instanceof Error ? err.message : t('aiWriting.errors.loadFailed');
       setMessage(errorMessage);
     } finally {
       setLoading(false);
@@ -156,39 +158,95 @@ export default function AIWritingPage() {
           <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
               <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100">
-                <svg className="h-5 w-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                <svg
+                  className="h-5 w-5 text-amber-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                  />
                 </svg>
               </div>
-              <h3 className="font-medium text-gray-900">{t('aiWriting.storyBible')}</h3>
-              <p className="mt-1 text-xs text-gray-500">Centralized settings management</p>
+              <h3 className="font-medium text-gray-900">
+                {t('aiWriting.storyBible')}
+              </h3>
+              <p className="mt-1 text-xs text-gray-500">
+                Centralized settings management
+              </p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
               <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                <svg
+                  className="h-5 w-5 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                  />
                 </svg>
               </div>
-              <h3 className="font-medium text-gray-900">{t('aiWriting.characters')}</h3>
-              <p className="mt-1 text-xs text-gray-500">Character state tracking</p>
+              <h3 className="font-medium text-gray-900">
+                {t('aiWriting.characters')}
+              </h3>
+              <p className="mt-1 text-xs text-gray-500">
+                Character state tracking
+              </p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
               <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
-                <svg className="h-5 w-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="h-5 w-5 text-purple-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               </div>
-              <h3 className="font-medium text-gray-900">{t('aiWriting.consistency')}</h3>
-              <p className="mt-1 text-xs text-gray-500">Automated consistency checks</p>
+              <h3 className="font-medium text-gray-900">
+                {t('aiWriting.consistency')}
+              </h3>
+              <p className="mt-1 text-xs text-gray-500">
+                Automated consistency checks
+              </p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
               <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
-                <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                <svg
+                  className="h-5 w-5 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
                 </svg>
               </div>
-              <h3 className="font-medium text-gray-900">{t('aiWriting.parallel.title')}</h3>
-              <p className="mt-1 text-xs text-gray-500">Multi-writer parallel execution</p>
+              <h3 className="font-medium text-gray-900">
+                {t('aiWriting.parallel.title')}
+              </h3>
+              <p className="mt-1 text-xs text-gray-500">
+                Multi-writer parallel execution
+              </p>
             </div>
           </div>
 
@@ -243,8 +301,18 @@ export default function AIWritingPage() {
                   onClick={() => router.push('/ai-writing/new')}
                   className="mt-4 inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
                 >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
                   </svg>
                   {t('aiWriting.empty.createFirst')}
                 </button>
@@ -258,22 +326,33 @@ export default function AIWritingPage() {
                     className="cursor-pointer rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
                   >
                     <div className="mb-3 flex items-start justify-between">
-                      <h3 className="font-medium text-gray-900">{project.name}</h3>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getStatusColor(project.status)}`}>
+                      <h3 className="font-medium text-gray-900">
+                        {project.name}
+                      </h3>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${getStatusColor(project.status)}`}
+                      >
                         {getStatusLabel(project.status)}
                       </span>
                     </div>
                     {project.description && (
-                      <p className="mb-3 line-clamp-2 text-sm text-gray-500">{project.description}</p>
+                      <p className="mb-3 line-clamp-2 text-sm text-gray-500">
+                        {project.description}
+                      </p>
                     )}
                     <div className="flex items-center justify-between text-xs text-gray-400">
                       <span>{project.genre}</span>
-                      <span>{project.currentWords.toLocaleString()} / {project.targetWords.toLocaleString()}</span>
+                      <span>
+                        {project.currentWords.toLocaleString()} /{' '}
+                        {project.targetWords.toLocaleString()}
+                      </span>
                     </div>
                     <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100">
                       <div
                         className="h-1.5 rounded-full bg-amber-500"
-                        style={{ width: `${Math.min(100, (project.currentWords / project.targetWords) * 100)}%` }}
+                        style={{
+                          width: `${Math.min(100, (project.currentWords / project.targetWords) * 100)}%`,
+                        }}
                       />
                     </div>
                   </div>
