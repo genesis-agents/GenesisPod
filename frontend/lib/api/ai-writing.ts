@@ -33,27 +33,28 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
 
 export interface WritingProject {
   id: string;
-  title: string;
+  name: string;
   description?: string;
-  genre?: string;
-  targetWordCount?: number;
+  genre: string;
+  targetWords: number;
+  currentWords: number;
   status: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateProjectDto {
-  title: string;
+  name: string;
   description?: string;
   genre?: string;
-  targetWordCount?: number;
+  targetWords?: number;
 }
 
 export interface UpdateProjectDto {
-  title?: string;
+  name?: string;
   description?: string;
   genre?: string;
-  targetWordCount?: number;
+  targetWords?: number;
   status?: string;
 }
 

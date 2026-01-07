@@ -72,10 +72,10 @@ export default function NewWritingProjectPage() {
 
     try {
       const project = await api.createProject({
-        title: form.name,
+        name: form.name,
         description: form.description,
         genre: form.genre,
-        targetWordCount: form.targetWords,
+        targetWords: form.targetWords,
       });
       router.push(`/ai-writing/${project.id}`);
     } catch (err: unknown) {
