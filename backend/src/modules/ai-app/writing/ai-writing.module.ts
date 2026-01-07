@@ -112,7 +112,9 @@ export class AiWritingModule implements OnModuleInit {
     // Writing Agents are managed internally by WritingMissionService
     // They don't need to be registered with the global AgentRegistry
     // because they use a different interface (BaseAgent/IAgent vs IPlanBasedAgent)
-    this.logger.log("AI Writing Module initialized successfully");
+    this.logger.log(
+      "AI Writing Module initialized successfully (v2-teams-fix)",
+    );
     this.logger.log("  Available Writing Agents (5):");
     this.logger.log("    - Story Architect (Leader)");
     this.logger.log("    - Bible Keeper");

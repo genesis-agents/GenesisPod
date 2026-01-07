@@ -1,5 +1,5 @@
 # Multi-stage build for production
-# FORCE_REBUILD=2026-01-07-ai-writing-module
+# FORCE_REBUILD=2026-01-07-v2-ai-writing-teams-fix
 FROM node:20-slim AS builder
 
 # Install dependencies for native modules (canvas requires cairo, pango, etc.)
