@@ -865,6 +865,14 @@ export class WritingMissionService {
       "故事架构师正在规划整体结构...",
     );
 
+    // 更新 orchestrator 状态 - plan 阶段开始
+    this.missionOrchestrator.updateState(missionId, {
+      phase: "executing",
+      currentSteps: ["plan"],
+      completedSteps: [],
+      progress: 5,
+    });
+
     // 发送架构师工作事件
     await this.eventEmitter.emitAgentWorking(input.projectId, {
       agentId: "story-architect",
@@ -959,6 +967,14 @@ ${Array.from(
       agentRole: "architect",
       status: "completed",
       taskDescription: `已规划 ${outline.chapters.length} 章大纲`,
+    });
+
+    // 更新 orchestrator 状态 - plan 完成, context-injection 开始
+    this.missionOrchestrator.updateState(missionId, {
+      phase: "executing",
+      currentSteps: ["context-injection"],
+      completedSteps: ["plan"],
+      progress: 10,
     });
 
     // ==================== Phase 2: 设定守护者 - 世界观建设 ====================
@@ -1057,6 +1073,14 @@ ${JSON.stringify(outline.core, null, 2)}
       "completed",
       worldSettings,
     );
+
+    // 更新 orchestrator 状态 - context-injection 完成, write 开始
+    this.missionOrchestrator.updateState(missionId, {
+      phase: "executing",
+      currentSteps: ["write"],
+      completedSteps: ["plan", "context-injection"],
+      progress: 15,
+    });
 
     // ==================== Phase 3: 逐章生成（多 Agent 协作）====================
     this.logger.log(
@@ -1418,6 +1442,14 @@ ${chapterContent}
       // 避免 API 限流
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
+
+    // 更新 orchestrator 状态 - write/check/edit 完成, review 开始
+    this.missionOrchestrator.updateState(missionId, {
+      phase: "reviewing",
+      currentSteps: ["review"],
+      completedSteps: ["plan", "context-injection", "write", "check", "edit"],
+      progress: 95,
+    });
 
     // ==================== Phase 4: 最终整合 ====================
     await this.updateMissionProgress(
