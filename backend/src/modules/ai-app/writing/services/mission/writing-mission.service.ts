@@ -1867,15 +1867,27 @@ export class WritingMissionService {
     input: WritingMissionInput,
     _userId: string,
   ) {
+    // Convert mission type to uppercase and map to valid enum values
+    const missionTypeMap: Record<string, string> = {
+      outline: "OUTLINE",
+      chapter: "CHAPTER",
+      revision: "REVISION",
+      consistency: "CONSISTENCY",
+      full_story: "FULL_STORY",
+    };
+    const missionType =
+      missionTypeMap[input.missionType.toLowerCase()] || "FULL_STORY";
+
     return this.prisma.writingMission.create({
       data: {
         id: missionId,
         projectId: input.projectId,
-        missionType: input.missionType.toUpperCase() as
+        missionType: missionType as
           | "OUTLINE"
           | "CHAPTER"
           | "REVISION"
-          | "CONSISTENCY",
+          | "CONSISTENCY"
+          | "FULL_STORY",
         targetId: input.chapterId || input.volumeId || input.projectId,
         status: "IN_PROGRESS",
         startedAt: new Date(),

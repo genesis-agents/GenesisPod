@@ -5809,6 +5809,7 @@ enum WritingMissionType {
   CHAPTER // 章节写作
   REVISION // 修订
   CONSISTENCY // 一致性检查
+  FULL_STORY // 完整故事创作
 }
 
 // 写作任务状态
