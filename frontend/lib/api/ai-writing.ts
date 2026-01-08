@@ -402,11 +402,15 @@ export interface MissionLogItem {
 
 export async function getMissionLogs(
   missionId: string,
-  limit?: number
+  limit?: number,
+  offset?: number
 ): Promise<{ items: MissionLogItem[]; total: number }> {
-  const params = limit ? `?limit=${limit}` : '';
+  const params = new URLSearchParams();
+  if (limit) params.set('limit', limit.toString());
+  if (offset) params.set('offset', offset.toString());
+  const query = params.toString();
   return fetchWithAuth(
-    `/api/v1/ai-writing/missions/${missionId}/logs${params}`
+    `/api/v1/ai-writing/missions/${missionId}/logs${query ? `?${query}` : ''}`
   );
 }
 

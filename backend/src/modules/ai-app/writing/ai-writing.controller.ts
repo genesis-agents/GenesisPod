@@ -358,17 +358,21 @@ export class AiWritingController {
 
   /**
    * 获取任务日志（交互区消息）
+   * @param limit - 返回条数限制
+   * @param offset - 跳过前 N 条（用于分页加载历史）
    */
   @Get("missions/:missionId/logs")
   async getMissionLogs(
     @Request() req: any,
     @Param("missionId") missionId: string,
     @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
   ) {
     return this.writingMissionService.getMissionLogs(
       missionId,
       req.user.id,
       limit ? parseInt(limit, 10) : undefined,
+      offset ? parseInt(offset, 10) : undefined,
     );
   }
 }
