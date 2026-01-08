@@ -5849,11 +5849,36 @@ model WritingMission {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
+  // 任务日志
+  logs WritingMissionLog[]
+
   @@index([projectId])
   @@index([missionType])
   @@index([status])
   @@index([parallelGroupId])
   @@map("writing_missions")
+}
+
+// 写作任务日志（用于交互区消息同步）
+model WritingMissionLog {
+  id        String         @id @default(uuid())
+  missionId String         @map("mission_id")
+  mission   WritingMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  // 日志信息
+  eventType String  @map("event_type") @db.VarChar(100) // 事件类型
+  agentId   String? @map("agent_id") @db.VarChar(50) // Agent ID
+  agentName String? @map("agent_name") @db.VarChar(100) // Agent 名称
+  content   String  @db.Text // 日志内容
+
+  // 详细数据（展开信息）
+  detail Json? // 详细信息（如章节内容预览、一致性问题等）
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([missionId, createdAt(sort: Desc)])
+  @@index([eventType])
+  @@map("writing_mission_logs")
 }
 
 // ============ AI 团队模板（Admin 配置） ============

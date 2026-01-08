@@ -456,6 +456,118 @@ export default function WritingProjectPage() {
         break;
       }
 
+      // 守护者增强事件
+      case 'keeper:extracting_context': {
+        const ctxData = data as { chapterNumber: number };
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'agent',
+          content: `📖 正在提取第 ${ctxData.chapterNumber} 章相关上下文...`,
+          agent: '📚 守护者',
+          timestamp: new Date(),
+        };
+        break;
+      }
+
+      case 'keeper:context_ready': {
+        const ctxData = data as {
+          chapterNumber: number;
+          context?: {
+            relevantCharacters: string[];
+            relevantLocations: string[];
+            previousEvents: string[];
+            warnings: string[];
+          };
+        };
+        const ctx = ctxData.context;
+        const contextSummary = ctx
+          ? `角色: ${ctx.relevantCharacters?.length || 0}, 场景: ${ctx.relevantLocations?.length || 0}, 事件: ${ctx.previousEvents?.length || 0}${ctx.warnings?.length ? `, ⚠️ ${ctx.warnings.length} 条提醒` : ''}`
+          : '';
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'agent',
+          content: `✅ 第 ${ctxData.chapterNumber} 章上下文准备完成 (${contextSummary})`,
+          agent: '📚 守护者',
+          timestamp: new Date(),
+          detail: ctx
+            ? {
+                type: 'text',
+                data: [
+                  ctx.relevantCharacters?.length
+                    ? `👤 相关角色: ${ctx.relevantCharacters.join(', ')}`
+                    : '',
+                  ctx.relevantLocations?.length
+                    ? `📍 相关场景: ${ctx.relevantLocations.join(', ')}`
+                    : '',
+                  ctx.previousEvents?.length
+                    ? `📜 前文事件: ${ctx.previousEvents.slice(0, 3).join('; ')}${ctx.previousEvents.length > 3 ? '...' : ''}`
+                    : '',
+                  ctx.warnings?.length
+                    ? `⚠️ 注意事项: ${ctx.warnings.join('; ')}`
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join('\n'),
+              }
+            : undefined,
+        };
+        break;
+      }
+
+      case 'keeper:updating_bible': {
+        const bibleData = data as { chapterNumber: number };
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'agent',
+          content: `📝 正在根据第 ${bibleData.chapterNumber} 章更新故事圣经...`,
+          agent: '📚 守护者',
+          timestamp: new Date(),
+        };
+        break;
+      }
+
+      case 'keeper:bible_updated': {
+        const bibleData = data as {
+          chapterNumber: number;
+          updates?: {
+            newFacts: string[];
+            characterUpdates: string[];
+            timelineEvents: string[];
+          };
+        };
+        const updates = bibleData.updates;
+        const updateCount =
+          (updates?.newFacts?.length || 0) +
+          (updates?.characterUpdates?.length || 0) +
+          (updates?.timelineEvents?.length || 0);
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'agent',
+          content: `✅ 故事圣经已更新 (第 ${bibleData.chapterNumber} 章新增 ${updateCount} 条记录)`,
+          agent: '📚 守护者',
+          timestamp: new Date(),
+          detail: updates
+            ? {
+                type: 'text',
+                data: [
+                  updates.newFacts?.length
+                    ? `📌 新事实: ${updates.newFacts.join('; ')}`
+                    : '',
+                  updates.characterUpdates?.length
+                    ? `👤 角色更新: ${updates.characterUpdates.join('; ')}`
+                    : '',
+                  updates.timelineEvents?.length
+                    ? `📅 时间线: ${updates.timelineEvents.join('; ')}`
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join('\n'),
+              }
+            : undefined,
+        };
+        break;
+      }
+
       case 'mission:completed': {
         const completeData = data as {
           totalWords?: number;

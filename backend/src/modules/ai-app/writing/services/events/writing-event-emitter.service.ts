@@ -42,6 +42,12 @@ export enum WritingEventType {
   // 世界观设定事件
   WORLD_BUILDING_STARTED = "world:building_started",
   WORLD_BUILDING_COMPLETED = "world:building_completed",
+
+  // 守护者增强事件
+  KEEPER_EXTRACTING_CONTEXT = "keeper:extracting_context",
+  KEEPER_CONTEXT_READY = "keeper:context_ready",
+  KEEPER_UPDATING_BIBLE = "keeper:updating_bible",
+  KEEPER_BIBLE_UPDATED = "keeper:bible_updated",
 }
 
 /**
@@ -264,6 +270,71 @@ export class WritingEventEmitterService {
         ? WritingEventType.WORLD_BUILDING_STARTED
         : WritingEventType.WORLD_BUILDING_COMPLETED;
     await this.emitToProject(projectId, event, { settings });
+  }
+
+  /**
+   * 发送守护者提取上下文事件
+   */
+  async emitKeeperExtractingContext(
+    projectId: string,
+    chapterNumber: number,
+  ): Promise<void> {
+    await this.emitToProject(
+      projectId,
+      WritingEventType.KEEPER_EXTRACTING_CONTEXT,
+      { chapterNumber },
+    );
+  }
+
+  /**
+   * 发送守护者上下文就绪事件
+   */
+  async emitKeeperContextReady(
+    projectId: string,
+    chapterNumber: number,
+    context: {
+      relevantCharacters: string[];
+      relevantLocations: string[];
+      previousEvents: string[];
+      warnings: string[];
+    },
+  ): Promise<void> {
+    await this.emitToProject(projectId, WritingEventType.KEEPER_CONTEXT_READY, {
+      chapterNumber,
+      context,
+    });
+  }
+
+  /**
+   * 发送守护者更新圣经事件
+   */
+  async emitKeeperUpdatingBible(
+    projectId: string,
+    chapterNumber: number,
+  ): Promise<void> {
+    await this.emitToProject(
+      projectId,
+      WritingEventType.KEEPER_UPDATING_BIBLE,
+      { chapterNumber },
+    );
+  }
+
+  /**
+   * 发送守护者圣经更新完成事件
+   */
+  async emitKeeperBibleUpdated(
+    projectId: string,
+    chapterNumber: number,
+    updates: {
+      newFacts: string[];
+      characterUpdates: string[];
+      timelineEvents: string[];
+    },
+  ): Promise<void> {
+    await this.emitToProject(projectId, WritingEventType.KEEPER_BIBLE_UPDATED, {
+      chapterNumber,
+      updates,
+    });
   }
 
   /**

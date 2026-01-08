@@ -24,7 +24,12 @@ export type WritingEventType =
   | 'consistency:fix_started'
   | 'consistency:fix_completed'
   | 'world:building_started'
-  | 'world:building_completed';
+  | 'world:building_completed'
+  // 守护者增强事件
+  | 'keeper:extracting_context'
+  | 'keeper:context_ready'
+  | 'keeper:updating_bible'
+  | 'keeper:bible_updated';
 
 // Agent 工作状态
 export interface AgentWorkingData {
@@ -72,6 +77,29 @@ export interface ConsistencyCheckData {
 // 世界观设定数据
 export interface WorldBuildingData {
   settings?: Record<string, unknown>;
+  timestamp: string;
+}
+
+// 守护者上下文数据
+export interface KeeperContextData {
+  chapterNumber: number;
+  context?: {
+    relevantCharacters: string[];
+    relevantLocations: string[];
+    previousEvents: string[];
+    warnings: string[];
+  };
+  timestamp: string;
+}
+
+// 守护者圣经更新数据
+export interface KeeperBibleUpdateData {
+  chapterNumber: number;
+  updates?: {
+    newFacts: string[];
+    characterUpdates: string[];
+    timelineEvents: string[];
+  };
   timestamp: string;
 }
 
@@ -296,6 +324,35 @@ export function useWritingWebSocket(
         setWorldSettings(data.settings);
       }
       emitEvent('world:building_completed', data);
+    });
+
+    // 守护者增强事件
+    socket.on('keeper:extracting_context', (data: KeeperContextData) => {
+      console.log(
+        `[WritingWS] Keeper extracting context for chapter ${data.chapterNumber}`
+      );
+      emitEvent('keeper:extracting_context', data);
+    });
+
+    socket.on('keeper:context_ready', (data: KeeperContextData) => {
+      console.log(
+        `[WritingWS] Keeper context ready for chapter ${data.chapterNumber}`
+      );
+      emitEvent('keeper:context_ready', data);
+    });
+
+    socket.on('keeper:updating_bible', (data: KeeperContextData) => {
+      console.log(
+        `[WritingWS] Keeper updating bible after chapter ${data.chapterNumber}`
+      );
+      emitEvent('keeper:updating_bible', data);
+    });
+
+    socket.on('keeper:bible_updated', (data: KeeperBibleUpdateData) => {
+      console.log(
+        `[WritingWS] Keeper bible updated: ${data.updates?.newFacts?.length || 0} new facts`
+      );
+      emitEvent('keeper:bible_updated', data);
     });
 
     socketRef.current = socket;

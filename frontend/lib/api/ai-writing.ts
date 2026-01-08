@@ -378,6 +378,26 @@ export async function getProjectMissions(
   return fetchWithAuth(`/api/v1/ai-writing/projects/${projectId}/missions`);
 }
 
+export interface MissionLogItem {
+  id: string;
+  eventType: string;
+  agentId?: string;
+  agentName?: string;
+  content: string;
+  detail?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export async function getMissionLogs(
+  missionId: string,
+  limit?: number
+): Promise<{ items: MissionLogItem[]; total: number }> {
+  const params = limit ? `?limit=${limit}` : '';
+  return fetchWithAuth(
+    `/api/v1/ai-writing/missions/${missionId}/logs${params}`
+  );
+}
+
 // ==================== Writing Actions ====================
 
 export async function startChapterWriting(

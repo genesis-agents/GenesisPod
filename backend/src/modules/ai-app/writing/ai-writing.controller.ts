@@ -337,4 +337,20 @@ export class AiWritingController {
 
     return this.writingMissionService.getProjectMissions(projectId, status);
   }
+
+  /**
+   * 获取任务日志（交互区消息）
+   */
+  @Get("missions/:missionId/logs")
+  async getMissionLogs(
+    @Request() req: any,
+    @Param("missionId") missionId: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.writingMissionService.getMissionLogs(
+      missionId,
+      req.user.id,
+      limit ? parseInt(limit, 10) : undefined,
+    );
+  }
 }
