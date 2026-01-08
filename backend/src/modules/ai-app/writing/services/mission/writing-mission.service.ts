@@ -209,6 +209,10 @@ export class WritingMissionService {
         where: {
           isEnabled: true,
           modelType: "CHAT",
+          // 排除 xAI 模型（grok），优先使用 GPT 和 Gemini
+          NOT: {
+            provider: "xAI",
+          },
         },
         select: {
           modelId: true,
