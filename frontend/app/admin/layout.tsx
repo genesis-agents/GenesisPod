@@ -10,6 +10,7 @@ import {
   Shield,
   HardDrive,
   Settings,
+  UsersRound,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -39,6 +40,12 @@ export default function AdminLayout({
       href: '/admin/ai-models',
       icon: Bot,
       description: 'AI model configuration',
+    },
+    {
+      name: 'AI Teams',
+      href: '/admin/ai-teams',
+      icon: UsersRound,
+      description: 'AI team templates configuration',
     },
     {
       name: 'External API',
