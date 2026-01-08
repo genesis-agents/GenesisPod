@@ -57,6 +57,9 @@ import {
 import { ContextBuilderService } from "../writing/context-builder.service";
 import { StoryBibleService } from "../bible/story-bible.service";
 
+// Event Emitter for real-time updates
+import { WritingEventEmitterService } from "../events/writing-event-emitter.service";
+
 /**
  * 写作任务类型
  */
@@ -176,12 +179,15 @@ export class WritingMissionService {
     private readonly editor: EditorAgent,
     // AI Chat Service - 直接 LLM 调用
     private readonly aiChatService: AiChatService,
+    // Event Emitter - 实时事件推送
+    private readonly eventEmitter: WritingEventEmitterService,
   ) {
     // 注册角色和团队配置（不需要 LLM）
     this.registerWritingRoles();
     this.registerWritingTeamConfig();
     void this.contextBuilder;
     void this.storyBibleService;
+    void this.eventEmitter; // Used in generateFullStory
   }
 
   // ==================== 动态模型选择 ====================
@@ -683,21 +689,38 @@ export class WritingMissionService {
 
       this.logger.log(`Using model: ${modelToUse} for content generation`);
 
-      // 直接调用 LLM 生成内容
-      const generatedContent = await this.generateContentDirectly(
-        input,
-        modelToUse,
-        missionId,
-      );
+      let generatedContent: string | null = null;
+      let totalWordCount = 0;
+
+      // 根据任务类型决定生成策略
+      if (input.missionType === "full_story") {
+        // 完整故事：一次性生成多章节内容
+        generatedContent = await this.generateFullStory(
+          input,
+          modelToUse,
+          missionId,
+        );
+      } else {
+        // 单章节或大纲：直接调用 LLM 生成内容
+        generatedContent = await this.generateContentDirectly(
+          input,
+          modelToUse,
+          missionId,
+        );
+      }
 
       if (generatedContent) {
-        const wordCount = this.countWords(generatedContent);
+        totalWordCount = this.countWords(generatedContent);
         this.logger.log(
-          `Generated ${wordCount} words for mission ${missionId}`,
+          `Generated ${totalWordCount} words for mission ${missionId}`,
         );
 
         // 保存生成的内容
-        await this.saveGeneratedContent(input, generatedContent, wordCount);
+        await this.saveGeneratedContent(
+          input,
+          generatedContent,
+          totalWordCount,
+        );
 
         // 更新数据库为成功状态
         await this.updateMissionRecord(missionId, {
@@ -705,8 +728,8 @@ export class WritingMissionService {
           success: true,
           deliverables: [],
           content: generatedContent,
-          wordCount,
-          summary: `成功生成 ${wordCount} 字的内容`,
+          wordCount: totalWordCount,
+          summary: `成功生成 ${totalWordCount} 字的内容`,
           tokensUsed: 0,
           costUsed: 0,
           duration: 0,
@@ -761,6 +784,901 @@ export class WritingMissionService {
         },
       });
     }
+  }
+
+  /**
+   * 一键生成完整长篇小说
+   *
+   * 使用 AI Engine 架构：
+   * 1. MissionOrchestrator 编排任务
+   * 2. Writing Team 多 Agent 协作
+   * 3. LongContentEngine 管理长篇上下文
+   *
+   * 流程：
+   * Phase 1: 故事架构师生成整体大纲（卷 + 章节结构）
+   * Phase 2: 设定守护者建立世界观和角色设定
+   * Phase 3: 逐章生成（作家创作 → 检查员校验 → 编辑润色）
+   * Phase 4: 质量监控和一致性维护
+   */
+  private async generateFullStory(
+    input: WritingMissionInput,
+    modelId: string,
+    missionId: string,
+  ): Promise<string | null> {
+    const targetWordCount = input.targetWordCount || 50000; // 默认 5 万字
+    const wordsPerChapter = 3000;
+    const chaptersPerVolume = 10;
+
+    const totalChapters = Math.max(
+      3,
+      Math.ceil(targetWordCount / wordsPerChapter),
+    );
+    const totalVolumes = Math.max(
+      1,
+      Math.ceil(totalChapters / chaptersPerVolume),
+    );
+
+    this.logger.log(
+      `[${missionId}] Starting long novel generation: ${totalVolumes} volumes, ${totalChapters} chapters, target ${targetWordCount} words`,
+    );
+
+    // 发送任务开始事件
+    await this.eventEmitter.emitMissionStarted(
+      input.projectId,
+      missionId,
+      "full_story",
+      targetWordCount,
+    );
+
+    // ==================== Phase 1: 故事架构师 - 整体规划 ====================
+    this.logger.log(`[${missionId}] Phase 1: Story Architect planning...`);
+
+    await this.updateMissionProgress(
+      missionId,
+      5,
+      "故事架构师正在规划整体结构...",
+    );
+
+    // 发送架构师工作事件
+    await this.eventEmitter.emitAgentWorking(input.projectId, {
+      agentId: "story-architect",
+      agentName: "故事架构师",
+      agentRole: "architect",
+      status: "working",
+      taskDescription: "规划整体故事结构和章节大纲",
+    });
+
+    // 使用 LongContentEngine 初始化项目
+    await this.initializeLongContentProject(missionId, input);
+
+    // 架构师生成大纲
+    const outlinePrompt = `作为故事架构师，请为以下小说创作详细的结构规划：
+
+【故事主题】
+${input.userPrompt}
+
+【规模要求】
+- 总字数：约 ${targetWordCount.toLocaleString()} 字
+- 分卷数：${totalVolumes} 卷
+- 每卷章节数：约 ${chaptersPerVolume} 章
+- 总章节数：${totalChapters} 章
+
+【请输出以下内容】
+
+## 一、故事核心
+1. 一句话概括故事核心
+2. 故事类型和风格
+3. 主题思想
+
+## 二、卷结构
+${Array.from(
+  { length: totalVolumes },
+  (_, i) => `
+### 第${this.numberToChinese(i + 1)}卷
+- 卷名：
+- 核心冲突：
+- 主要情节：
+- 情感走向：`,
+).join("\n")}
+
+## 三、章节大纲
+请为每一章列出：
+- 章节标题
+- 主要情节（50字内）
+- 关键转折
+
+输出格式：JSON
+{
+  "core": { "summary": "", "genre": "", "theme": "" },
+  "volumes": [{ "title": "", "conflict": "", "plot": "", "emotion": "" }],
+  "chapters": [{ "volumeIndex": 0, "title": "", "plot": "", "keyPoint": "" }]
+}`;
+
+    const architectModel =
+      (await this.getModelForRole("story-architect")) || modelId;
+
+    const outlineResponse = await this.aiChatService.chat({
+      messages: [
+        {
+          role: "system",
+          content:
+            this.storyArchitect.description +
+            "\n\n你是专业的故事架构师，擅长规划长篇小说结构。请以 JSON 格式输出。",
+        },
+        { role: "user", content: outlinePrompt },
+      ],
+      model: architectModel,
+      temperature: 0.7,
+      maxTokens: 8000,
+    });
+
+    if (!outlineResponse.content) {
+      throw new Error("故事架构规划失败");
+    }
+
+    // 解析大纲
+    const outline = this.parseOutlineJSON(
+      outlineResponse.content,
+      totalVolumes,
+      totalChapters,
+    );
+    this.logger.log(
+      `[${missionId}] Outline generated: ${outline.chapters.length} chapters planned`,
+    );
+
+    // 架构师完成
+    await this.eventEmitter.emitAgentWorking(input.projectId, {
+      agentId: "story-architect",
+      agentName: "故事架构师",
+      agentRole: "architect",
+      status: "completed",
+      taskDescription: `已规划 ${outline.chapters.length} 章大纲`,
+    });
+
+    // ==================== Phase 2: 设定守护者 - 世界观建设 ====================
+    this.logger.log(`[${missionId}] Phase 2: Bible Keeper building world...`);
+
+    await this.updateMissionProgress(
+      missionId,
+      10,
+      "设定守护者正在建立世界观...",
+    );
+
+    // 发送设定守护者工作事件
+    await this.eventEmitter.emitAgentWorking(input.projectId, {
+      agentId: "bible-keeper",
+      agentName: "设定守护者",
+      agentRole: "keeper",
+      status: "working",
+      taskDescription: "建立世界观和角色设定",
+    });
+
+    await this.eventEmitter.emitWorldBuilding(input.projectId, "started");
+
+    const keeperModel = (await this.getModelForRole("bible-keeper")) || modelId;
+
+    const worldBuildingPrompt = `作为设定守护者，请基于以下故事大纲建立完整的世界观设定：
+
+【故事主题】
+${input.userPrompt}
+
+【故事核心】
+${JSON.stringify(outline.core, null, 2)}
+
+请建立以下设定（JSON 格式）：
+{
+  "world": {
+    "type": "世界类型",
+    "era": "时代背景",
+    "geography": "地理环境",
+    "society": "社会结构",
+    "rules": ["世界规则1", "规则2"]
+  },
+  "characters": [
+    {
+      "name": "角色名",
+      "role": "protagonist/antagonist/supporting",
+      "appearance": "外貌描述",
+      "personality": ["性格特点"],
+      "background": "背景故事",
+      "motivation": "行动动机",
+      "arc": "角色发展弧"
+    }
+  ],
+  "factions": [
+    { "name": "势力名", "description": "描述", "relations": "关系" }
+  ],
+  "terminology": [
+    { "term": "术语", "definition": "定义" }
+  ]
+}`;
+
+    const worldResponse = await this.aiChatService.chat({
+      messages: [
+        {
+          role: "system",
+          content:
+            this.bibleKeeper.description +
+            "\n\n你是专业的设定守护者，负责维护世界观一致性。请以 JSON 格式输出。",
+        },
+        { role: "user", content: worldBuildingPrompt },
+      ],
+      model: keeperModel,
+      temperature: 0.6,
+      maxTokens: 6000,
+    });
+
+    const worldSettings = this.parseWorldSettings(
+      worldResponse.content || "{}",
+    );
+    const charactersArray = worldSettings.characters as
+      | Array<unknown>
+      | undefined;
+    this.logger.log(
+      `[${missionId}] World settings built: ${charactersArray?.length || 0} characters`,
+    );
+
+    // 设定守护者完成
+    await this.eventEmitter.emitAgentWorking(input.projectId, {
+      agentId: "bible-keeper",
+      agentName: "设定守护者",
+      agentRole: "keeper",
+      status: "completed",
+      taskDescription: `已建立 ${charactersArray?.length || 0} 个角色设定`,
+    });
+    await this.eventEmitter.emitWorldBuilding(
+      input.projectId,
+      "completed",
+      worldSettings,
+    );
+
+    // ==================== Phase 3: 逐章生成（多 Agent 协作）====================
+    this.logger.log(
+      `[${missionId}] Phase 3: Chapter generation with team collaboration...`,
+    );
+
+    const allChapters: string[] = [];
+    let previousChapterSummary = "";
+
+    // 获取各角色的模型
+    const writerModel = (await this.getModelForRole("writer")) || modelId;
+    const checkerModel =
+      (await this.getModelForRole("consistency-checker")) || modelId;
+    const editorModel = (await this.getModelForRole("editor")) || modelId;
+
+    for (let i = 0; i < outline.chapters.length; i++) {
+      const chapterInfo = outline.chapters[i];
+      const chapterNumber = i + 1;
+      // volumeIndex used in final assembly
+
+      // 更新进度
+      const baseProgress = 15;
+      const chapterProgress = Math.round(
+        baseProgress + (80 * chapterNumber) / outline.chapters.length,
+      );
+      await this.updateMissionProgress(
+        missionId,
+        chapterProgress,
+        `作家团队正在创作第${this.numberToChinese(chapterNumber)}章...`,
+      );
+
+      this.logger.log(
+        `[${missionId}] Generating chapter ${chapterNumber}/${outline.chapters.length}...`,
+      );
+
+      // 发送章节开始事件
+      await this.eventEmitter.emitChapterStarted(
+        input.projectId,
+        chapterNumber,
+        chapterInfo.title,
+        chapterInfo.volumeIndex,
+      );
+
+      // 发送作家工作事件
+      await this.eventEmitter.emitAgentWorking(input.projectId, {
+        agentId: "writer",
+        agentName: "作家",
+        agentRole: "writer",
+        status: "working",
+        taskDescription: `创作第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}`,
+        progress: chapterProgress,
+      });
+
+      // 发送进度事件
+      await this.eventEmitter.emitMissionProgress(
+        input.projectId,
+        missionId,
+        chapterProgress,
+        `创作第${this.numberToChinese(chapterNumber)}章`,
+        ["writer"],
+      );
+
+      // 3.1 作家创作
+      const writerPrompt = this.buildChapterWriterPrompt(
+        chapterNumber,
+        chapterInfo,
+        outline,
+        worldSettings,
+        previousChapterSummary,
+        input.userPrompt,
+      );
+
+      const writerResponse = await this.aiChatService.chat({
+        messages: [
+          {
+            role: "system",
+            content:
+              this.writer.description +
+              `\n\n你正在创作第${chapterNumber}章。语言流畅，富有文学性。`,
+          },
+          { role: "user", content: writerPrompt },
+        ],
+        model: writerModel,
+        temperature: 0.8,
+        maxTokens: 6000,
+      });
+
+      let chapterContent = writerResponse.content || "";
+
+      if (!chapterContent || chapterContent.length < 500) {
+        this.logger.warn(
+          `[${missionId}] Chapter ${chapterNumber} content too short, retrying...`,
+        );
+        // 重试一次
+        const retryResponse = await this.aiChatService.chat({
+          messages: [
+            {
+              role: "system",
+              content: "你是专业的小说作家。请直接创作故事内容，约3000字。",
+            },
+            {
+              role: "user",
+              content: `请创作"第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}"的内容。\n\n情节要点：${chapterInfo.plot}\n\n${previousChapterSummary ? `前文摘要：${previousChapterSummary}` : "这是故事的开始。"}`,
+            },
+          ],
+          model: writerModel,
+          temperature: 0.85,
+          maxTokens: 6000,
+        });
+        chapterContent =
+          retryResponse.content ||
+          `第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}\n\n（内容生成中...）`;
+      }
+
+      // 3.2 检查员校验（每章都检查，确保一致性）
+      // 发送检查员工作事件
+      await this.eventEmitter.emitAgentWorking(input.projectId, {
+        agentId: "consistency-checker",
+        agentName: "一致性检查员",
+        agentRole: "checker",
+        status: "working",
+        taskDescription: `校验第${this.numberToChinese(chapterNumber)}章一致性`,
+      });
+
+      await this.updateMissionProgress(
+        missionId,
+        chapterProgress + 1,
+        `检查员正在校验第${this.numberToChinese(chapterNumber)}章...`,
+      );
+
+      const checkPrompt = `作为一致性检查员，请检查以下章节内容与世界观设定的一致性：
+
+【章节内容】
+${chapterContent.slice(0, 4000)}
+
+【世界观设定】
+${JSON.stringify(worldSettings, null, 2).slice(0, 2000)}
+
+【前文摘要】
+${previousChapterSummary || "这是第一章"}
+
+请严格检查：
+1. 角色名称是否一致（不能出现同一角色不同称呼混用）
+2. 角色性格行为是否符合设定
+3. 场景地点是否符合世界观
+4. 时间线是否合理（不能出现逻辑矛盾）
+5. 专有名词是否使用一致
+
+输出 JSON 格式：
+{
+  "passed": true/false,
+  "score": 0-100,
+  "issues": [
+    { "type": "character/setting/timeline/terminology", "severity": "error/warning", "description": "问题描述", "location": "问题位置", "fix": "修复建议" }
+  ]
+}`;
+
+      const checkResponse = await this.aiChatService.chat({
+        messages: [
+          {
+            role: "system",
+            content:
+              this.consistencyChecker.description +
+              "\n\n你是严格的一致性检查员，必须仔细检查每一个细节。以 JSON 格式输出检查结果。",
+          },
+          { role: "user", content: checkPrompt },
+        ],
+        model: checkerModel,
+        temperature: 0.2,
+        maxTokens: 2000,
+      });
+
+      // 解析检查结果
+      const checkResult = this.parseConsistencyCheckResult(
+        checkResponse.content || "{}",
+      );
+
+      // 发送一致性检查事件
+      await this.eventEmitter.emitConsistencyCheck(input.projectId, {
+        chapterNumber,
+        passed: checkResult.passed,
+        issues: checkResult.issues.map((issue) => ({
+          type: issue.type,
+          severity: issue.severity as "error" | "warning" | "info",
+          description: issue.description,
+          suggestion: issue.fix,
+        })),
+      });
+
+      // 如果有问题，自动修复
+      if (!checkResult.passed && checkResult.issues.length > 0) {
+        this.logger.warn(
+          `[${missionId}] Chapter ${chapterNumber} has ${checkResult.issues.length} consistency issues, auto-fixing...`,
+        );
+
+        // 发送修复开始事件
+        await this.eventEmitter.emitConsistencyFix(
+          input.projectId,
+          chapterNumber,
+          checkResult.issues.length,
+          "started",
+        );
+
+        // 自动修复
+        const fixPrompt = `请修复以下章节内容中的一致性问题：
+
+【原始内容】
+${chapterContent}
+
+【发现的问题】
+${checkResult.issues.map((issue, i) => `${i + 1}. [${issue.severity}] ${issue.description}\n   位置：${issue.location}\n   建议：${issue.fix}`).join("\n\n")}
+
+【世界观设定】
+${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
+
+请输出修复后的完整章节内容，确保：
+1. 修复所有指出的问题
+2. 保持故事的流畅性和可读性
+3. 不改变主要情节和人物关系
+4. 直接输出修复后的内容，不要加任何解释`;
+
+        const fixResponse = await this.aiChatService.chat({
+          messages: [
+            {
+              role: "system",
+              content:
+                "你是专业的小说编辑，擅长修复一致性问题同时保持故事质量。",
+            },
+            { role: "user", content: fixPrompt },
+          ],
+          model: writerModel,
+          temperature: 0.4,
+          maxTokens: 6000,
+        });
+
+        if (
+          fixResponse.content &&
+          fixResponse.content.length > chapterContent.length * 0.7
+        ) {
+          chapterContent = fixResponse.content;
+          this.logger.log(
+            `[${missionId}] Chapter ${chapterNumber} auto-fixed successfully`,
+          );
+        }
+
+        // 发送修复完成事件
+        await this.eventEmitter.emitConsistencyFix(
+          input.projectId,
+          chapterNumber,
+          checkResult.issues.length,
+          "completed",
+        );
+      }
+
+      // 检查员完成
+      await this.eventEmitter.emitAgentWorking(input.projectId, {
+        agentId: "consistency-checker",
+        agentName: "一致性检查员",
+        agentRole: "checker",
+        status: "completed",
+        taskDescription: checkResult.passed
+          ? "检查通过"
+          : `已修复 ${checkResult.issues.length} 个问题`,
+      });
+
+      // 3.3 编辑润色（每 5 章一次润色）
+      if (chapterNumber % 5 === 0) {
+        await this.updateMissionProgress(
+          missionId,
+          chapterProgress + 2,
+          `编辑正在润色第${this.numberToChinese(chapterNumber)}章...`,
+        );
+
+        const editPrompt = `作为编辑，请润色以下章节内容，改进文字表达：
+
+${chapterContent}
+
+要求：
+1. 保持原意不变
+2. 改进语句流畅度
+3. 增强画面感
+4. 润色对话
+5. 输出完整润色后的内容`;
+
+        const editResponse = await this.aiChatService.chat({
+          messages: [
+            { role: "system", content: this.editor.description },
+            { role: "user", content: editPrompt },
+          ],
+          model: editorModel,
+          temperature: 0.5,
+          maxTokens: 6000,
+        });
+
+        if (
+          editResponse.content &&
+          editResponse.content.length > chapterContent.length * 0.8
+        ) {
+          chapterContent = editResponse.content;
+        }
+      }
+
+      // 确保章节有标题
+      if (
+        !chapterContent.includes(`第${this.numberToChinese(chapterNumber)}章`)
+      ) {
+        chapterContent = `第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}\n\n${chapterContent}`;
+      }
+
+      allChapters.push(chapterContent);
+
+      // 更新上下文（使用 LongContentEngine）
+      try {
+        await this.longContentEngine.processTaskCompletion(
+          missionId,
+          `chapter-${chapterNumber}`,
+          `第${chapterNumber}章 ${chapterInfo.title}`,
+          chapterContent,
+          { minWords: 1000, requireStructuredEnd: false },
+        );
+      } catch (e) {
+        this.logger.warn(
+          `LongContentEngine update failed: ${(e as Error).message}`,
+        );
+      }
+
+      // 生成前文摘要
+      previousChapterSummary = this.generateChapterSummary(chapterContent);
+
+      const chapterWordCount = this.countWords(chapterContent);
+      this.logger.log(
+        `[${missionId}] Chapter ${chapterNumber} completed: ${chapterWordCount} words`,
+      );
+
+      // 发送章节内容和完成事件
+      await this.eventEmitter.emitChapterContent(input.projectId, {
+        chapterNumber,
+        title: chapterInfo.title,
+        content: chapterContent,
+        wordCount: chapterWordCount,
+        volumeIndex: chapterInfo.volumeIndex,
+      });
+
+      await this.eventEmitter.emitChapterCompleted(
+        input.projectId,
+        chapterNumber,
+        chapterWordCount,
+      );
+
+      // 作家完成此章
+      await this.eventEmitter.emitAgentWorking(input.projectId, {
+        agentId: "writer",
+        agentName: "作家",
+        agentRole: "writer",
+        status: "completed",
+        taskDescription: `完成第${this.numberToChinese(chapterNumber)}章 (${chapterWordCount}字)`,
+      });
+
+      // 避免 API 限流
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    // ==================== Phase 4: 最终整合 ====================
+    await this.updateMissionProgress(
+      missionId,
+      98,
+      "故事架构师正在最终审核...",
+    );
+
+    // 按卷组织内容
+    const volumeContents: string[] = [];
+    let currentVolumeChapters: string[] = [];
+    let currentVolumeIndex = 0;
+
+    for (let i = 0; i < allChapters.length; i++) {
+      const chapterVolumeIndex = outline.chapters[i]?.volumeIndex || 0;
+
+      if (
+        chapterVolumeIndex !== currentVolumeIndex &&
+        currentVolumeChapters.length > 0
+      ) {
+        // 新卷开始
+        const volumeTitle =
+          outline.volumes[currentVolumeIndex]?.title ||
+          `第${this.numberToChinese(currentVolumeIndex + 1)}卷`;
+        volumeContents.push(
+          `# ${volumeTitle}\n\n${currentVolumeChapters.join("\n\n---\n\n")}`,
+        );
+        currentVolumeChapters = [];
+        currentVolumeIndex = chapterVolumeIndex;
+      }
+
+      currentVolumeChapters.push(allChapters[i]);
+    }
+
+    // 最后一卷
+    if (currentVolumeChapters.length > 0) {
+      const volumeTitle =
+        outline.volumes[currentVolumeIndex]?.title ||
+        `第${this.numberToChinese(currentVolumeIndex + 1)}卷`;
+      volumeContents.push(
+        `# ${volumeTitle}\n\n${currentVolumeChapters.join("\n\n---\n\n")}`,
+      );
+    }
+
+    const fullContent = volumeContents.join(
+      "\n\n========================================\n\n",
+    );
+    const totalWords = this.countWords(fullContent);
+
+    // 清理 LongContentEngine
+    this.longContentEngine.clearProject(missionId);
+
+    this.logger.log(
+      `[${missionId}] Long novel completed: ${totalVolumes} volumes, ${allChapters.length} chapters, ${totalWords} words`,
+    );
+
+    // 发送任务完成事件
+    await this.eventEmitter.emitMissionCompleted(
+      input.projectId,
+      missionId,
+      totalWords,
+      allChapters.length,
+      totalVolumes,
+    );
+
+    return fullContent;
+  }
+
+  /**
+   * 更新任务进度
+   */
+  private async updateMissionProgress(
+    missionId: string,
+    progress: number,
+    currentStep: string,
+  ): Promise<void> {
+    try {
+      await this.prisma.writingMission.update({
+        where: { id: missionId },
+        data: {
+          result: { progress, currentStep },
+        },
+      });
+    } catch (e) {
+      this.logger.warn(`Failed to update progress: ${(e as Error).message}`);
+    }
+  }
+
+  /**
+   * 解析大纲 JSON
+   */
+  private parseOutlineJSON(
+    content: string,
+    totalVolumes: number,
+    totalChapters: number,
+  ): {
+    core: { summary: string; genre: string; theme: string };
+    volumes: Array<{
+      title: string;
+      conflict: string;
+      plot: string;
+      emotion: string;
+    }>;
+    chapters: Array<{
+      volumeIndex: number;
+      title: string;
+      plot: string;
+      keyPoint: string;
+    }>;
+  } {
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.chapters && parsed.chapters.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      this.logger.warn(`Failed to parse outline JSON: ${(e as Error).message}`);
+    }
+
+    // 降级：生成默认结构
+    const volumes = Array.from({ length: totalVolumes }, (_, i) => ({
+      title: `第${this.numberToChinese(i + 1)}卷`,
+      conflict: "待定",
+      plot: "待定",
+      emotion: "待定",
+    }));
+
+    const chaptersPerVolume = Math.ceil(totalChapters / totalVolumes);
+    const chapters = Array.from({ length: totalChapters }, (_, i) => ({
+      volumeIndex: Math.floor(i / chaptersPerVolume),
+      title: `第${this.numberToChinese(i + 1)}章`,
+      plot: "待创作",
+      keyPoint: "",
+    }));
+
+    return {
+      core: { summary: "待定", genre: "待定", theme: "待定" },
+      volumes,
+      chapters,
+    };
+  }
+
+  /**
+   * 解析世界观设定
+   */
+  private parseWorldSettings(content: string): Record<string, unknown> {
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+    } catch (e) {
+      this.logger.warn(
+        `Failed to parse world settings: ${(e as Error).message}`,
+      );
+    }
+    return { world: {}, characters: [], factions: [], terminology: [] };
+  }
+
+  /**
+   * 解析一致性检查结果
+   */
+  private parseConsistencyCheckResult(content: string): {
+    passed: boolean;
+    score: number;
+    issues: Array<{
+      type: string;
+      severity: string;
+      description: string;
+      location: string;
+      fix: string;
+    }>;
+  } {
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          passed: parsed.passed ?? true,
+          score: parsed.score ?? 100,
+          issues: (parsed.issues || []).map(
+            (issue: Record<string, string>) => ({
+              type: issue.type || "unknown",
+              severity: issue.severity || "warning",
+              description: issue.description || "",
+              location: issue.location || "",
+              fix: issue.fix || "",
+            }),
+          ),
+        };
+      }
+    } catch (e) {
+      this.logger.warn(
+        `Failed to parse consistency check result: ${(e as Error).message}`,
+      );
+    }
+    return { passed: true, score: 100, issues: [] };
+  }
+
+  /**
+   * 构建章节创作提示词
+   */
+  private buildChapterWriterPrompt(
+    chapterNumber: number,
+    chapterInfo: { title: string; plot: string; keyPoint: string },
+    outline: { core: { summary: string; genre: string; theme: string } },
+    worldSettings: Record<string, unknown>,
+    previousSummary: string,
+    userPrompt: string,
+  ): string {
+    const characters =
+      (worldSettings.characters as Array<{
+        name: string;
+        personality: string[];
+      }>) || [];
+    const characterInfo = characters
+      .slice(0, 5)
+      .map((c) => `${c.name}: ${(c.personality || []).join("、")}`)
+      .join("\n");
+
+    return `【创作任务】第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}
+
+【故事主题】${userPrompt}
+【故事类型】${outline.core.genre || "通用"}
+【主题思想】${outline.core.theme || "待定"}
+
+【本章情节要点】
+${chapterInfo.plot}
+${chapterInfo.keyPoint ? `关键转折：${chapterInfo.keyPoint}` : ""}
+
+【主要角色】
+${characterInfo || "待定"}
+
+${previousSummary ? `【前文摘要】\n${previousSummary}\n` : "【开篇说明】这是故事的开始，需要引人入胜，建立故事背景和主要人物。\n"}
+
+【创作要求】
+1. 字数约 3000 字
+2. 语言流畅自然，富有文学性
+3. 人物对话生动，符合角色性格
+4. 场景描写细腻，有画面感
+5. 情节紧凑，节奏把控好
+
+请直接输出章节内容，以"第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}"开头：`;
+  }
+
+  /**
+   * 生成章节摘要
+   */
+  private generateChapterSummary(content: string): string {
+    // 取章节的前 200 字和后 200 字作为上下文
+    const maxLength = 400;
+    if (content.length <= maxLength) {
+      return content;
+    }
+    const start = content.slice(0, 200);
+    const end = content.slice(-200);
+    return `${start}...\n...\n${end}`;
+  }
+
+  /**
+   * 数字转中文
+   */
+  private numberToChinese(num: number): string {
+    const chineseNums = [
+      "零",
+      "一",
+      "二",
+      "三",
+      "四",
+      "五",
+      "六",
+      "七",
+      "八",
+      "九",
+      "十",
+    ];
+    if (num <= 10) return chineseNums[num];
+    if (num < 20) return "十" + (num === 10 ? "" : chineseNums[num - 10]);
+    if (num < 100) {
+      const tens = Math.floor(num / 10);
+      const ones = num % 10;
+      return chineseNums[tens] + "十" + (ones === 0 ? "" : chineseNums[ones]);
+    }
+    return num.toString();
   }
 
   /**

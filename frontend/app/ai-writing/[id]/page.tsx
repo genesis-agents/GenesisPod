@@ -2,10 +2,18 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIWritingStore } from '@/stores/aiWritingStore';
+import { useWritingWebSocket } from '@/hooks/useWritingWebSocket';
 import type { Chapter } from '@/lib/api/ai-writing';
+
+// Dynamic import for Canvas component
+const WritingCanvas = dynamic(
+  () => import('@/components/ai-writing/WritingCanvas'),
+  { ssr: false }
+);
 
 // AI Writing Team - 8 Agents (max configuration)
 // Leader decides actual count at runtime
@@ -92,8 +100,12 @@ export default function WritingProjectPage() {
     clearError,
   } = useAIWritingStore();
 
-  const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'read'>('read'); // Default to reading mode
   const [userInput, setUserInput] = useState('');
+  const [showCanvas, setShowCanvas] = useState(false);
+
+  // WebSocket for real-time updates
+  const wsState = useWritingWebSocket(projectId, isMissionRunning);
 
   // Load project data
   useEffect(() => {
@@ -248,25 +260,41 @@ export default function WritingProjectPage() {
                 </div>
               </div>
             </div>
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="flex items-center gap-2">
+              {/* Canvas Toggle */}
+              <button
+                onClick={() => setShowCanvas(!showCanvas)}
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-all ${
+                  showCanvas
+                    ? 'border-amber-300 bg-amber-50 text-amber-700'
+                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                />
-              </svg>
-              导出
-            </button>
+                <span>🎨</span>
+                {showCanvas ? '关闭 Canvas' : '打开 Canvas'}
+              </button>
+
+              {/* Export */}
+              <button
+                onClick={handleExport}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+                导出
+              </button>
+            </div>
           </div>
         </div>
 
@@ -280,6 +308,43 @@ export default function WritingProjectPage() {
             >
               ✕
             </button>
+          </div>
+        )}
+
+        {/* Canvas Overlay */}
+        {showCanvas && (
+          <div className="absolute inset-0 z-50">
+            <WritingCanvas
+              projectId={projectId}
+              isRunning={isMissionRunning}
+              progress={wsState.progress || missionProgress}
+              currentStep={wsState.currentStep || missionMessage || '准备中...'}
+              activeAgentIds={
+                wsState.activeAgentIds.length > 0
+                  ? wsState.activeAgentIds
+                  : activeAgentIds
+              }
+              chapters={Array.from(wsState.chapters.values()).map((c) => ({
+                chapterNumber: c.chapterNumber,
+                title: c.title,
+                content: c.content,
+                wordCount: c.wordCount,
+                volumeIndex: c.volumeIndex,
+                status: 'completed' as const,
+              }))}
+              consistencyIssues={wsState.consistencyIssues.flatMap((issue) =>
+                issue.issues.map((i) => ({
+                  chapterNumber: issue.chapterNumber,
+                  type: i.type,
+                  severity: i.severity,
+                  description: i.description,
+                  suggestion: i.suggestion,
+                }))
+              )}
+              worldSettings={wsState.worldSettings || undefined}
+              onClose={() => setShowCanvas(false)}
+              embedded={false}
+            />
           </div>
         )}
 
@@ -559,66 +624,117 @@ export default function WritingProjectPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {allChapters.map((chapter) => (
+                  <div className="h-full">
+                    {/* View Mode Toggle */}
+                    <div className="mb-4 flex items-center gap-2">
                       <button
-                        key={chapter.id}
-                        onClick={() =>
-                          setSelectedChapter(
-                            selectedChapter?.id === chapter.id ? null : chapter
-                          )
-                        }
-                        className={`w-full rounded-xl border p-4 text-left transition-all ${
-                          selectedChapter?.id === chapter.id
-                            ? 'border-amber-300 bg-amber-50 ring-2 ring-amber-100'
-                            : 'border-gray-100 bg-white hover:border-gray-200'
+                        onClick={() => setViewMode('read')}
+                        className={`rounded-lg px-3 py-1.5 text-sm transition-all ${
+                          viewMode === 'read'
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                         }`}
                       >
-                        <div className="flex items-center gap-3">
-                          <span
-                            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
-                              chapter.content
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-gray-100 text-gray-500'
-                            }`}
-                          >
-                            {chapter.content ? '✓' : chapter.chapterNumber}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="font-medium text-gray-800">
+                        📖 阅读模式
+                      </button>
+                      <button
+                        onClick={() => setViewMode('list')}
+                        className={`rounded-lg px-3 py-1.5 text-sm transition-all ${
+                          viewMode === 'list'
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        📋 章节列表
+                      </button>
+                    </div>
+
+                    {viewMode === 'read' ? (
+                      /* Reading Mode - Show all content */
+                      <div className="prose prose-gray max-w-none space-y-8">
+                        {allChapters.map((chapter) => (
+                          <div key={chapter.id} id={`chapter-${chapter.id}`}>
+                            <h2 className="mb-4 border-b border-gray-200 pb-2 text-xl font-bold text-gray-800">
                               第{chapter.chapterNumber}章 {chapter.title}
-                            </div>
-                            {chapter.synopsis && (
-                              <div className="truncate text-xs text-gray-400">
-                                {chapter.synopsis}
+                              {chapter.wordCount > 0 && (
+                                <span className="ml-2 text-sm font-normal text-gray-400">
+                                  ({chapter.wordCount.toLocaleString()} 字)
+                                </span>
+                              )}
+                            </h2>
+                            {chapter.content ? (
+                              <div className="whitespace-pre-wrap text-base leading-relaxed text-gray-700">
+                                {chapter.content}
+                              </div>
+                            ) : (
+                              <div className="rounded-lg bg-gray-50 p-4 text-center text-gray-400">
+                                暂无内容
                               </div>
                             )}
                           </div>
-                          {chapter.wordCount > 0 && (
-                            <span className="shrink-0 text-xs text-gray-400">
-                              {chapter.wordCount.toLocaleString()} 字
-                            </span>
-                          )}
-                        </div>
-                        {selectedChapter?.id === chapter.id &&
-                          chapter.content && (
-                            <div className="mt-3 max-h-48 overflow-auto rounded-lg bg-gray-50 p-3">
-                              <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
-                                {chapter.content}
-                              </div>
-                            </div>
-                          )}
-                      </button>
-                    ))}
+                        ))}
 
-                    {/* Continue Writing Button */}
-                    {!isMissionRunning && (
-                      <button
-                        onClick={handleContinueWriting}
-                        className="w-full rounded-xl border-2 border-dashed border-gray-200 py-4 text-gray-500 transition-all hover:border-amber-300 hover:text-amber-600"
-                      >
-                        + 继续写作下一章
-                      </button>
+                        {/* Continue Writing Button */}
+                        {!isMissionRunning && (
+                          <div className="border-t border-gray-200 pt-6">
+                            <button
+                              onClick={handleContinueWriting}
+                              className="w-full rounded-xl border-2 border-dashed border-gray-200 py-4 text-gray-500 transition-all hover:border-amber-300 hover:text-amber-600"
+                            >
+                              + 继续写作下一章
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* List Mode - Chapter list */
+                      <div className="space-y-2">
+                        {allChapters.map((chapter) => (
+                          <a
+                            key={chapter.id}
+                            href={`#chapter-${chapter.id}`}
+                            onClick={() => setViewMode('read')}
+                            className="block w-full rounded-xl border border-gray-100 bg-white p-4 text-left transition-all hover:border-amber-200 hover:bg-amber-50"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span
+                                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+                                  chapter.content
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-gray-100 text-gray-500'
+                                }`}
+                              >
+                                {chapter.content ? '✓' : chapter.chapterNumber}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium text-gray-800">
+                                  第{chapter.chapterNumber}章 {chapter.title}
+                                </div>
+                                {chapter.synopsis && (
+                                  <div className="truncate text-xs text-gray-400">
+                                    {chapter.synopsis}
+                                  </div>
+                                )}
+                              </div>
+                              {chapter.wordCount > 0 && (
+                                <span className="shrink-0 text-xs text-gray-400">
+                                  {chapter.wordCount.toLocaleString()} 字
+                                </span>
+                              )}
+                            </div>
+                          </a>
+                        ))}
+
+                        {/* Continue Writing Button */}
+                        {!isMissionRunning && (
+                          <button
+                            onClick={handleContinueWriting}
+                            className="w-full rounded-xl border-2 border-dashed border-gray-200 py-4 text-gray-500 transition-all hover:border-amber-300 hover:text-amber-600"
+                          >
+                            + 继续写作下一章
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}

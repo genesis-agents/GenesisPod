@@ -8,6 +8,10 @@ import { AiEngineModule } from "../../ai-engine";
 // AI Engine Long Content (for long-form writing)
 import { LongContentModule } from "../../ai-engine/long-content";
 
+// WebSocket Gateway and Event Emitter
+import { AiWritingGateway } from "./ai-writing.gateway";
+import { WritingEventEmitterService } from "./services/events/writing-event-emitter.service";
+
 // Bible services
 import { StoryBibleService } from "./services/bible/story-bible.service";
 import { CharacterService } from "./services/bible/character.service";
@@ -50,6 +54,9 @@ import {
   controllers: [AiWritingController],
   providers: [
     AiWritingService,
+    // WebSocket Gateway and Event Emitter
+    AiWritingGateway,
+    WritingEventEmitterService,
     // Bible services
     StoryBibleService,
     CharacterService,
@@ -82,6 +89,7 @@ import {
   ],
   exports: [
     AiWritingService,
+    WritingEventEmitterService,
     StoryBibleService,
     CharacterService,
     ProjectService,
