@@ -465,7 +465,7 @@ export default function WritingProjectPage() {
               </div>
 
               {/* Agent Tree - Two Rows */}
-              <div className="relative mx-auto h-56">
+              <div className="relative mx-auto h-72">
                 {/* SVG Lines - use viewBox for proper scaling */}
                 <svg
                   className="pointer-events-none absolute inset-0 h-full w-full"
@@ -709,8 +709,8 @@ export default function WritingProjectPage() {
             </div>
 
             {/* Progress Steps - Fills remaining space */}
-            <div className="mx-3 mb-3 flex flex-1 flex-col rounded-lg bg-slate-50 p-3">
-              <div className="space-y-2">
+            <div className="mx-3 mb-3 flex flex-1 flex-col justify-between rounded-lg bg-slate-50 p-4">
+              <div className="space-y-3">
                 {[
                   {
                     id: 'architect',
@@ -781,10 +781,8 @@ export default function WritingProjectPage() {
                   );
                 })}
               </div>
-              {/* Spacer to push progress bar to bottom */}
-              <div className="flex-1" />
-              {/* Progress Bar - Fixed at bottom */}
-              <div className="mt-auto border-t border-slate-200 pt-3">
+              {/* Progress Bar */}
+              <div className="border-t border-slate-200 pt-3">
                 <div className="mb-1 flex justify-between text-xs text-slate-500">
                   <span>整体进度</span>
                   <span className="font-semibold text-amber-600">
