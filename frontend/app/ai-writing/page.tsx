@@ -6,37 +6,64 @@ import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIWritingStore } from '@/stores/aiWritingStore';
 
-// AI Writing Team - 5 Agents
+// AI Writing Team - 8 Agents (max configuration)
+// Leader decides actual count at runtime
 const WRITING_TEAM = [
   {
     id: 'architect',
     icon: '👑',
     name: '架构师',
     color: 'from-purple-500 to-violet-600',
+    count: 1,
   },
   {
     id: 'keeper',
     icon: '📚',
     name: '守护者',
     color: 'from-indigo-500 to-blue-600',
+    count: 1,
   },
   {
-    id: 'writer',
+    id: 'writer-1',
     icon: '✍️',
-    name: '作家',
+    name: '作家①',
     color: 'from-blue-500 to-cyan-600',
+    count: 1,
   },
   {
-    id: 'checker',
+    id: 'writer-2',
+    icon: '✍️',
+    name: '作家②',
+    color: 'from-sky-500 to-blue-600',
+    count: 1,
+  },
+  {
+    id: 'writer-3',
+    icon: '✍️',
+    name: '作家③',
+    color: 'from-cyan-500 to-teal-600',
+    count: 1,
+  },
+  {
+    id: 'checker-1',
     icon: '🔍',
-    name: '检查员',
+    name: '检查员①',
     color: 'from-amber-500 to-orange-600',
+    count: 1,
+  },
+  {
+    id: 'checker-2',
+    icon: '🔍',
+    name: '检查员②',
+    color: 'from-orange-500 to-red-600',
+    count: 1,
   },
   {
     id: 'editor',
     icon: '🎨',
     name: '编辑',
     color: 'from-green-500 to-emerald-600',
+    count: 1,
   },
 ];
 

@@ -39,7 +39,7 @@ interface AIWritingState {
   missionProgress: number;
   missionMessage: string;
   missionCompleted: boolean;
-  currentAgentIndex: number;
+  activeAgentIds: string[]; // IDs of currently active agents (supports parallel)
 
   // Error handling
   error: string | null;
@@ -103,7 +103,7 @@ const initialState = {
   missionProgress: 0,
   missionMessage: '',
   missionCompleted: false,
-  currentAgentIndex: 0,
+  activeAgentIds: [],
   error: null,
 };
 
@@ -343,47 +343,58 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
       missionProgress: 0,
       missionMessage: '启动写作任务...',
       missionCompleted: false,
-      currentAgentIndex: 0,
+      activeAgentIds: [],
       error: null,
     });
     try {
       await api.startMission(projectId, dto);
 
       // Mission runs async on backend
-      // Agent flow: 0=Architect, 1=Keeper, 2=Writer, 3=Checker, 4=Editor
-      const agentMessages = [
-        '故事架构师正在规划故事结构...',
-        '设定守护者正在建立世界观...',
-        '创作作家正在撰写内容...',
-        '一致性检查员正在校验逻辑...',
-        '润色编辑正在打磨文字...',
+      // 5 phases with different active agents (Leader decides at runtime)
+      // Phase 0: architect (alone) - planning
+      // Phase 1: keeper (alone) - world building
+      // Phase 2: writer-1, writer-2, writer-3 (parallel) - writing
+      // Phase 3: checker-1, checker-2 (parallel) - checking
+      // Phase 4: editor (alone) - polishing
+      const phases = [
+        { agents: ['architect'], message: '故事架构师正在规划故事结构...' },
+        { agents: ['keeper'], message: '设定守护者正在建立世界观...' },
+        {
+          agents: ['writer-1', 'writer-2', 'writer-3'],
+          message: '作家团队正在并行创作内容...',
+        },
+        {
+          agents: ['checker-1', 'checker-2'],
+          message: '检查员团队正在校验一致性...',
+        },
+        { agents: ['editor'], message: '润色编辑正在打磨文字...' },
       ];
 
-      // Poll for completion - each agent takes ~12 seconds (60s total / 5 agents)
-      let currentAgent = 0;
-      const agentDuration = 12000; // 12 seconds per agent
+      // Poll for completion - each phase takes ~12 seconds (60s total / 5 phases)
+      let currentPhase = 0;
+      const phaseDuration = 12000; // 12 seconds per phase
       const tickInterval = 1000; // Update every 1 second
       let elapsed = 0;
 
       const pollForCompletion = async () => {
-        while (currentAgent < 5) {
+        while (currentPhase < 5) {
           await new Promise((resolve) => setTimeout(resolve, tickInterval));
           elapsed += tickInterval;
 
-          // Calculate which agent is active based on elapsed time
-          currentAgent = Math.min(4, Math.floor(elapsed / agentDuration));
+          // Calculate which phase is active based on elapsed time
+          currentPhase = Math.min(4, Math.floor(elapsed / phaseDuration));
 
           // Calculate overall progress
-          const agentProgress = (elapsed % agentDuration) / agentDuration;
+          const phaseProgress = (elapsed % phaseDuration) / phaseDuration;
           const overallProgress = Math.min(
             95,
-            currentAgent * 20 + agentProgress * 20
+            currentPhase * 20 + phaseProgress * 20
           );
 
           set({
-            currentAgentIndex: currentAgent,
+            activeAgentIds: phases[currentPhase].agents,
             missionProgress: overallProgress,
-            missionMessage: agentMessages[currentAgent],
+            missionMessage: phases[currentPhase].message,
           });
 
           // Refresh volumes periodically (every 10 seconds)
@@ -396,13 +407,13 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
           }
         }
 
-        // Mark as completed
+        // Mark as completed - all agents done
         set({
           isMissionRunning: false,
           missionProgress: 100,
           missionMessage: '创作完成！',
           missionCompleted: true,
-          currentAgentIndex: 4,
+          activeAgentIds: [],
         });
 
         // Final refresh

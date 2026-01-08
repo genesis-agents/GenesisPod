@@ -7,7 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAIWritingStore } from '@/stores/aiWritingStore';
 import type { Chapter } from '@/lib/api/ai-writing';
 
-// AI Writing Team - 5 Agents with positions
+// AI Writing Team - 8 Agents (max configuration)
+// Leader decides actual count at runtime
 const WRITING_AGENTS = [
   {
     id: 'architect',
@@ -15,7 +16,6 @@ const WRITING_AGENTS = [
     icon: '👑',
     color: 'bg-purple-500',
     desc: '统筹规划',
-    row: 0,
   },
   {
     id: 'keeper',
@@ -23,23 +23,41 @@ const WRITING_AGENTS = [
     icon: '📚',
     color: 'bg-indigo-500',
     desc: '世界观',
-    row: 1,
   },
   {
-    id: 'writer',
-    name: '创作作家',
+    id: 'writer-1',
+    name: '作家①',
     icon: '✍️',
     color: 'bg-blue-500',
     desc: '内容创作',
-    row: 2,
   },
   {
-    id: 'checker',
-    name: '一致性检查',
+    id: 'writer-2',
+    name: '作家②',
+    icon: '✍️',
+    color: 'bg-sky-500',
+    desc: '内容创作',
+  },
+  {
+    id: 'writer-3',
+    name: '作家③',
+    icon: '✍️',
+    color: 'bg-cyan-500',
+    desc: '内容创作',
+  },
+  {
+    id: 'checker-1',
+    name: '检查员①',
     icon: '🔍',
     color: 'bg-amber-500',
     desc: '逻辑校验',
-    row: 3,
+  },
+  {
+    id: 'checker-2',
+    name: '检查员②',
+    icon: '🔍',
+    color: 'bg-orange-500',
+    desc: '逻辑校验',
   },
   {
     id: 'editor',
@@ -47,7 +65,6 @@ const WRITING_AGENTS = [
     icon: '🎨',
     color: 'bg-green-500',
     desc: '文字打磨',
-    row: 4,
   },
 ];
 
@@ -71,7 +88,7 @@ export default function WritingProjectPage() {
     missionProgress,
     missionMessage,
     missionCompleted,
-    currentAgentIndex,
+    activeAgentIds,
     clearError,
   } = useAIWritingStore();
 
@@ -283,8 +300,8 @@ export default function WritingProjectPage() {
             <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4">
               {WRITING_AGENTS.map((agent, index) => {
                 const isActive =
-                  isMissionRunning && index === currentAgentIndex;
-                const isPast = isMissionRunning && index < currentAgentIndex;
+                  isMissionRunning && activeAgentIds.includes(agent.id);
+                const isPast = missionCompleted; // All agents show as completed when mission done
 
                 return (
                   <div
