@@ -2004,9 +2004,15 @@ export default function WritingProjectPage() {
                                             color: string;
                                           }
                                         > = {
+                                          // 后端可能返回不同的 key，做兼容映射
                                           world: {
                                             icon: '🌍',
                                             label: '世界背景',
+                                            color: 'blue',
+                                          },
+                                          setting: {
+                                            icon: '🌍',
+                                            label: '世界设定',
                                             color: 'blue',
                                           },
                                           characters: {
@@ -2014,7 +2020,17 @@ export default function WritingProjectPage() {
                                             label: '主要角色',
                                             color: 'amber',
                                           },
+                                          character: {
+                                            icon: '👥',
+                                            label: '角色设定',
+                                            color: 'amber',
+                                          },
                                           factions: {
+                                            icon: '⚔️',
+                                            label: '势力阵营',
+                                            color: 'red',
+                                          },
+                                          faction: {
                                             icon: '⚔️',
                                             label: '势力阵营',
                                             color: 'red',
@@ -2025,6 +2041,11 @@ export default function WritingProjectPage() {
                                             color: 'purple',
                                           },
                                           locations: {
+                                            icon: '📍',
+                                            label: '重要地点',
+                                            color: 'green',
+                                          },
+                                          location: {
                                             icon: '📍',
                                             label: '重要地点',
                                             color: 'green',
