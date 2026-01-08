@@ -715,6 +715,26 @@ export class WritingMissionService {
           `Generated ${totalWordCount} words for mission ${missionId}`,
         );
 
+        // 验证生成的内容是否有效（不是错误消息）
+        const minWordCount = input.missionType === "outline" ? 50 : 200;
+        const isErrorContent =
+          generatedContent.includes("API Error") ||
+          generatedContent.includes("rate limit") ||
+          generatedContent.includes("429") ||
+          generatedContent.includes("quota") ||
+          generatedContent.includes("ECONNREFUSED") ||
+          generatedContent.includes("Request failed") ||
+          generatedContent.length < 100;
+
+        if (totalWordCount < minWordCount || isErrorContent) {
+          this.logger.error(
+            `Generated content is invalid or too short: ${totalWordCount} words, content length: ${generatedContent.length}`,
+          );
+          throw new Error(
+            `内容生成失败：生成的内容无效或字数不足 (${totalWordCount} 字)。可能是 API 限流或配额不足。`,
+          );
+        }
+
         // 保存生成的内容
         await this.saveGeneratedContent(
           input,
