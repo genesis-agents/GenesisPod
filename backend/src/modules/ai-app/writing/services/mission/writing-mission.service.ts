@@ -1077,6 +1077,50 @@ ${JSON.stringify(outline.core, null, 2)}
       worldSettings,
     );
 
+    // ★ 保存世界观到数据库 StoryBible
+    try {
+      const worldInfo = worldSettings.world as
+        | { type?: string; era?: string; geography?: string; society?: string }
+        | undefined;
+      // 构建世界观描述
+      const worldDescription = worldInfo
+        ? [
+            worldInfo.type && `类型: ${worldInfo.type}`,
+            worldInfo.era && `时代: ${worldInfo.era}`,
+            worldInfo.geography && `地理: ${worldInfo.geography}`,
+            worldInfo.society && `社会: ${worldInfo.society}`,
+          ]
+            .filter(Boolean)
+            .join("\n")
+        : "";
+
+      await this.prisma.storyBible.upsert({
+        where: { projectId: input.projectId },
+        create: {
+          projectId: input.projectId,
+          premise: `${input.userPrompt}\n\n${worldDescription}`,
+          theme: outline.core?.theme || "",
+          tone: worldInfo?.era || "",
+          worldType: worldInfo?.type || "现代",
+          version: 1,
+          lastSyncAt: new Date(),
+        },
+        update: {
+          premise: `${input.userPrompt}\n\n${worldDescription}`,
+          theme: outline.core?.theme || "",
+          tone: worldInfo?.era || "",
+          worldType: worldInfo?.type || "现代",
+          version: { increment: 1 },
+          lastSyncAt: new Date(),
+        },
+      });
+      this.logger.log(`[${missionId}] StoryBible saved to database`);
+    } catch (e) {
+      this.logger.warn(
+        `[${missionId}] Failed to save StoryBible: ${(e as Error).message}`,
+      );
+    }
+
     // 更新 orchestrator 状态 - context-injection 完成, write 开始
     this.missionOrchestrator.updateState(missionId, {
       phase: "executing",

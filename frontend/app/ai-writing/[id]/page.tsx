@@ -430,7 +430,7 @@ export default function WritingProjectPage() {
         {/* Main Content */}
         <div className="flex flex-1 gap-4 overflow-hidden p-4">
           {/* Left: Embedded Canvas */}
-          <div className="flex w-80 shrink-0 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-gradient-to-br from-slate-50 via-white to-violet-50 shadow-sm">
+          <div className="flex w-80 shrink-0 flex-col rounded-2xl border border-gray-100 bg-gradient-to-br from-slate-50 via-white to-violet-50 shadow-sm">
             {/* Canvas Header */}
             <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-3 py-2">
               <div className="flex items-center gap-2">
@@ -708,8 +708,8 @@ export default function WritingProjectPage() {
               </div>
             </div>
 
-            {/* Progress Steps - Scrollable area */}
-            <div className="mx-3 mb-3 min-h-0 flex-1 overflow-auto rounded-lg bg-slate-50 p-3">
+            {/* Progress Steps - Fills remaining space */}
+            <div className="mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-auto rounded-lg bg-slate-50 p-3">
               <div className="space-y-2">
                 {[
                   {
@@ -781,7 +781,9 @@ export default function WritingProjectPage() {
                   );
                 })}
               </div>
-              {/* Progress Bar */}
+              {/* Spacer to push progress bar to bottom */}
+              <div className="flex-1" />
+              {/* Progress Bar - Always at bottom */}
               <div className="mt-3">
                 <div className="mb-1 flex justify-between text-xs text-slate-500">
                   <span>整体进度</span>
@@ -986,7 +988,23 @@ export default function WritingProjectPage() {
                 {/* Worldview Tab */}
                 {activeTab === 'worldview' && (
                   <div className="space-y-4">
-                    {storyBible ? (
+                    {/* Mission Running Banner */}
+                    {isMissionRunning && (
+                      <div className="flex items-center gap-3 rounded-xl bg-indigo-50 p-3">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+                        <span className="text-sm font-medium text-indigo-700">
+                          AI 守护者正在构建世界观设定...
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Show content if storyBible exists with any content */}
+                    {storyBible &&
+                    (storyBible.premise ||
+                      storyBible.theme ||
+                      storyBible.setting ||
+                      storyBible.tone ||
+                      storyBible.writingStyle) ? (
                       <>
                         {/* Premise */}
                         {storyBible.premise && (
@@ -1047,25 +1065,25 @@ export default function WritingProjectPage() {
                             </p>
                           </div>
                         )}
-
-                        {/* Empty fields message */}
-                        {!storyBible.premise &&
-                          !storyBible.theme &&
-                          !storyBible.setting &&
-                          !storyBible.tone &&
-                          !storyBible.writingStyle && (
-                            <div className="flex flex-col items-center justify-center py-12 text-center">
-                              <span className="mb-4 text-4xl">🌍</span>
-                              <h3 className="mb-2 text-lg font-semibold text-gray-800">
-                                世界观正在构建中
-                              </h3>
-                              <p className="text-sm text-gray-500">
-                                AI 守护者正在建立故事的世界观设定...
-                              </p>
-                            </div>
-                          )}
                       </>
+                    ) : isMissionRunning ? (
+                      /* Show building state during mission */
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
+                          <span className="text-3xl">🌍</span>
+                        </div>
+                        <h3 className="mb-2 text-lg font-semibold text-gray-800">
+                          世界观构建中
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          AI 守护者正在分析并建立故事的世界观设定...
+                        </p>
+                        <div className="mt-4 h-2 w-48 overflow-hidden rounded-full bg-gray-200">
+                          <div className="h-full w-1/3 animate-pulse bg-indigo-500" />
+                        </div>
+                      </div>
                     ) : (
+                      /* Empty state - no mission running, no content */
                       <div className="flex flex-col items-center justify-center py-12 text-center">
                         <span className="mb-4 text-4xl">🌍</span>
                         <h3 className="mb-2 text-lg font-semibold text-gray-800">
