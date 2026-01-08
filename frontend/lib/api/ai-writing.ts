@@ -28,7 +28,7 @@ export interface Chapter {
   volumeId: string;
   title: string;
   content?: string;
-  synopsis?: string;
+  outline?: string; // 章节大纲
   wordCount: number;
   chapterNumber: number;
   status: string;

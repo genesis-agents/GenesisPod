@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException, ForbiddenException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { CreateProjectDto, UpdateProjectDto } from "../../dto/project.dto";
 import { CreateVolumeDto } from "../../dto/volume.dto";
@@ -155,8 +160,11 @@ export class ProjectService {
         chapters: {
           select: {
             id: true,
+            volumeId: true,
             chapterNumber: true,
             title: true,
+            outline: true,
+            content: true,
             status: true,
             wordCount: true,
           },

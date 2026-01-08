@@ -425,6 +425,24 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
                 }
               }
 
+              // 当 plan 步骤完成时，立即刷新章节列表（大纲已生成）
+              if (completedSteps.includes('plan')) {
+                try {
+                  await fetchVolumes(projectId, true);
+                } catch {
+                  // Ignore errors
+                }
+              }
+
+              // 当 context-injection 步骤完成时，刷新世界观（StoryBible）
+              if (completedSteps.includes('context-injection')) {
+                try {
+                  await get().fetchStoryBible(projectId);
+                } catch {
+                  // Ignore errors
+                }
+              }
+
               set({
                 activeAgentIds: activeAgents,
                 missionProgress: Math.min(
@@ -471,9 +489,9 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
               return;
             }
 
-            // 每 10 秒刷新一次内容（检查是否有新章节）
+            // 每 4 秒刷新一次章节列表（检查是否有新章节/内容更新）
             // 使用 silent=true 避免 UI 闪烁
-            if (pollCount % 5 === 0) {
+            if (pollCount % 2 === 0) {
               try {
                 await fetchVolumes(projectId, true);
               } catch {
