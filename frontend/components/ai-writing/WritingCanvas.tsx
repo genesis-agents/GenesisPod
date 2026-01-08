@@ -3,68 +3,58 @@
 /**
  * AI Writing Canvas - 写作任务可视化组件
  *
- * 参考 AI Teams Canvas 设计，展示：
- * - 任务整体进度
- * - 各 Agent 工作状态
- * - 章节生成进度
- * - 一致性检查结果
- * - 中间输出实时查看
+ * 参考 AI Teams Canvas 设计，使用树形结构展示：
+ * - Leader (故事架构师) 在顶部，带皇冠
+ * - Agent 团队成员以树形排列
+ * - 连接线展示工作流程
+ * - 进度徽章和状态指示
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { useMemo } from 'react';
 
-// Agent 角色配置
+// Agent 配置 - 匹配 AI Teams Canvas 风格
 const WRITING_AGENTS = [
   {
     id: 'story-architect',
     name: '故事架构师',
-    role: 'architect',
+    role: 'leader',
     icon: '📐',
-    color: 'bg-blue-500',
-    description: '规划整体故事结构和章节大纲',
+    bgColor: '#8B5CF6', // violet
+    model: 'Claude',
   },
   {
     id: 'bible-keeper',
     name: '设定守护者',
-    role: 'keeper',
+    role: 'member',
     icon: '📚',
-    color: 'bg-purple-500',
-    description: '建立和维护世界观设定',
+    bgColor: '#6366F1', // indigo
+    model: 'GPT-4o',
   },
   {
     id: 'writer',
     name: '作家',
-    role: 'writer',
+    role: 'member',
     icon: '✍️',
-    color: 'bg-amber-500',
-    description: '创作章节内容',
+    bgColor: '#F59E0B', // amber
+    model: 'Claude',
   },
   {
     id: 'consistency-checker',
-    name: '一致性检查员',
-    role: 'checker',
+    name: '检查员',
+    role: 'member',
     icon: '🔍',
-    color: 'bg-green-500',
-    description: '检查内容一致性',
+    bgColor: '#10B981', // green
+    model: 'GPT-4o',
   },
   {
     id: 'editor',
     name: '编辑',
-    role: 'editor',
+    role: 'member',
     icon: '📝',
-    color: 'bg-pink-500',
-    description: '润色和优化文字',
+    bgColor: '#EC4899', // pink
+    model: 'Claude',
   },
 ];
-
-interface AgentStatus {
-  agentId: string;
-  status: 'idle' | 'working' | 'completed' | 'failed';
-  taskDescription?: string;
-  progress?: number;
-}
 
 interface ChapterInfo {
   chapterNumber: number;
@@ -98,35 +88,25 @@ interface WritingCanvasProps {
 }
 
 export default function WritingCanvas({
-  projectId,
-  missionId,
   isRunning,
   progress,
   currentStep,
   activeAgentIds,
   chapters,
-  consistencyIssues = [],
-  worldSettings,
   onClose,
   embedded = false,
 }: WritingCanvasProps) {
-  const [selectedChapter, setSelectedChapter] = useState<ChapterInfo | null>(
-    null
-  );
-  const [viewMode, setViewMode] = useState<'agents' | 'chapters' | 'world'>(
-    'agents'
-  );
-
   // 计算各 Agent 状态
   const agentStatuses = useMemo(() => {
-    return WRITING_AGENTS.map((agent) => ({
-      ...agent,
-      status: activeAgentIds.includes(agent.id)
-        ? 'working'
-        : progress >= 100
-          ? 'completed'
-          : 'idle',
-    }));
+    return WRITING_AGENTS.map((agent) => {
+      const isActive = activeAgentIds.includes(agent.id);
+      const isCompleted = progress >= 100;
+      return {
+        ...agent,
+        isActive,
+        isCompleted,
+      };
+    });
   }, [activeAgentIds, progress]);
 
   // 统计信息
@@ -135,326 +115,336 @@ export default function WritingCanvas({
       (c) => c.status === 'completed'
     ).length;
     const totalWords = chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0);
-    const issueCount = consistencyIssues.length;
-    const errorCount = consistencyIssues.filter(
-      (i) => i.severity === 'error'
-    ).length;
+    return { completedChapters, totalChapters: chapters.length, totalWords };
+  }, [chapters]);
 
-    return {
-      completedChapters,
-      totalChapters: chapters.length,
-      totalWords,
-      issueCount,
-      errorCount,
-    };
-  }, [chapters, consistencyIssues]);
+  const leader = agentStatuses.find((a) => a.role === 'leader');
+  const members = agentStatuses.filter((a) => a.role === 'member');
 
   return (
     <div
-      className={`flex h-full flex-col ${embedded ? '' : 'fixed inset-0 z-50 bg-white'}`}
+      className={`flex h-full flex-col bg-gradient-to-br from-slate-50 via-white to-violet-50 ${
+        embedded ? '' : 'fixed inset-0 z-50'
+      }`}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 bg-gradient-to-r from-amber-50 to-orange-50 px-6 py-4">
-        <div className="flex items-center gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-white">
-            📖
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-gray-800">写作任务进度</h2>
-            <p className="text-sm text-gray-500">
-              {currentStep || '准备中...'}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          {/* Progress */}
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-32 overflow-hidden rounded-full bg-gray-200">
-              <div
-                className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <span className="text-sm font-medium text-gray-600">
-              {progress}%
-            </span>
-          </div>
-
-          {/* Status Badge */}
+      {/* Header - 参考 AI Teams Canvas */}
+      <div className="flex items-center justify-between border-b border-slate-200 bg-white/90 px-6 py-3 backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-bold text-slate-800">
+            AI Writing Canvas
+          </h2>
           <span
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
+            className={`rounded px-2 py-0.5 text-xs font-medium ${
               isRunning
-                ? 'animate-pulse bg-amber-100 text-amber-700'
+                ? 'bg-green-100 text-green-700'
                 : progress >= 100
                   ? 'bg-green-100 text-green-700'
-                  : 'bg-gray-100 text-gray-600'
+                  : 'bg-slate-100 text-slate-600'
             }`}
           >
-            {isRunning ? '创作中' : progress >= 100 ? '已完成' : '待开始'}
+            {isRunning ? '进行中' : progress >= 100 ? '已完成' : '待开始'}
           </span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Zoom controls */}
+          <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1">
+            <button className="px-1.5 text-slate-400 hover:text-slate-600">
+              −
+            </button>
+            <span className="w-10 text-center text-xs text-slate-500">
+              100%
+            </span>
+            <button className="px-1.5 text-slate-400 hover:text-slate-600">
+              +
+            </button>
+          </div>
+
+          <button className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </button>
+
+          {/* Download */}
+          <button className="flex items-center gap-1.5 rounded-lg bg-violet-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-600">
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+            下载PDF报告
+          </button>
 
           {!embedded && onClose && (
             <button
               onClick={onClose}
-              className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
             >
-              ✕
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
             </button>
           )}
         </div>
       </div>
 
-      {/* Stats Bar */}
-      <div className="flex items-center gap-6 border-b border-gray-100 bg-white px-6 py-3">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">📚</span>
-          <div>
-            <div className="text-xs text-gray-400">章节进度</div>
-            <div className="font-semibold text-gray-800">
-              {stats.completedChapters}/{stats.totalChapters}
-            </div>
-          </div>
+      {/* Canvas Area */}
+      <div className="relative flex-1 overflow-auto">
+        {/* Mission Title */}
+        <div className="mt-12 text-center">
+          <h3 className="text-xl font-semibold text-slate-700">
+            {currentStep || '写作任务'}
+          </h3>
+          <p className="mt-1 text-sm text-slate-400">
+            {stats.completedChapters}/{stats.totalChapters} 章完成 ·{' '}
+            {stats.totalWords.toLocaleString()} 字
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">📝</span>
-          <div>
-            <div className="text-xs text-gray-400">总字数</div>
-            <div className="font-semibold text-gray-800">
-              {stats.totalWords.toLocaleString()}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">{stats.errorCount > 0 ? '⚠️' : '✅'}</span>
-          <div>
-            <div className="text-xs text-gray-400">一致性问题</div>
-            <div
-              className={`font-semibold ${stats.errorCount > 0 ? 'text-red-600' : 'text-green-600'}`}
-            >
-              {stats.issueCount} 个
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* View Mode Tabs */}
-      <div className="flex border-b border-gray-100 bg-gray-50 px-6">
-        {[
-          { id: 'agents', label: 'Agent 状态', icon: '🤖' },
-          { id: 'chapters', label: '章节列表', icon: '📑' },
-          { id: 'world', label: '世界观设定', icon: '🌍' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setViewMode(tab.id as typeof viewMode)}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-all ${
-              viewMode === tab.id
-                ? 'border-amber-500 text-amber-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+        {/* Tree Visualization */}
+        <div className="relative mx-auto mt-8 w-full max-w-4xl px-8 pb-24">
+          {/* SVG Connection Lines */}
+          <svg
+            className="pointer-events-none absolute left-0 top-0 h-full w-full"
+            style={{ zIndex: 0 }}
+            preserveAspectRatio="none"
           >
-            <span>{tab.icon}</span>
-            {tab.label}
-          </button>
-        ))}
-      </div>
+            <defs>
+              <linearGradient
+                id="lineGradient"
+                x1="0%"
+                y1="0%"
+                x2="0%"
+                y2="100%"
+              >
+                <stop offset="0%" stopColor="#10B981" />
+                <stop offset="100%" stopColor="#10B981" stopOpacity="0.3" />
+              </linearGradient>
+            </defs>
+            {/* Leader to each member curved lines */}
+            {members.map((member, index) => {
+              const totalMembers = members.length;
+              const leaderCx = 50; // Leader at center (%)
+              const memberCx = ((index + 1) / (totalMembers + 1)) * 100;
+              const leaderY = 140;
+              const memberY = 320;
+              const midY = (leaderY + memberY) / 2;
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto p-6">
-        {viewMode === 'agents' && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {agentStatuses.map((agent) => (
+              return (
+                <path
+                  key={member.id}
+                  d={`M ${leaderCx}% ${leaderY}
+                      C ${leaderCx}% ${midY}, ${memberCx}% ${midY}, ${memberCx}% ${memberY}`}
+                  fill="none"
+                  stroke={
+                    member.isActive || member.isCompleted
+                      ? '#10B981'
+                      : '#E2E8F0'
+                  }
+                  strokeWidth={member.isActive ? 3 : 2}
+                  strokeDasharray={
+                    member.isActive || member.isCompleted ? '0' : '6,4'
+                  }
+                  className="transition-all duration-500"
+                />
+              );
+            })}
+          </svg>
+
+          {/* Leader Node */}
+          {leader && (
+            <div className="relative z-10 flex justify-center">
               <div
-                key={agent.id}
-                className={`rounded-xl border p-4 transition-all ${
-                  agent.status === 'working'
-                    ? 'border-amber-200 bg-amber-50 ring-2 ring-amber-100'
-                    : agent.status === 'completed'
-                      ? 'border-green-200 bg-green-50'
-                      : 'border-gray-200 bg-white'
+                className={`flex flex-col items-center transition-transform duration-300 ${
+                  leader.isActive ? 'scale-110' : ''
                 }`}
               >
-                <div className="flex items-start gap-3">
+                {/* Crown */}
+                <div className="mb-1 text-2xl">👑</div>
+
+                {/* Avatar Circle */}
+                <div className="relative">
                   <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-xl text-2xl ${
-                      agent.status === 'working'
-                        ? `${agent.color} text-white`
-                        : 'bg-gray-100'
+                    className={`flex h-20 w-20 items-center justify-center rounded-full text-3xl shadow-lg transition-all duration-300 ${
+                      leader.isActive
+                        ? 'ring-4 ring-green-400 ring-offset-2'
+                        : leader.isCompleted
+                          ? 'ring-4 ring-green-300 ring-offset-2'
+                          : ''
+                    }`}
+                    style={{ backgroundColor: leader.bgColor }}
+                  >
+                    <span className="drop-shadow">{leader.icon}</span>
+                  </div>
+
+                  {/* Task count badge */}
+                  <div
+                    className={`absolute -right-1 -top-1 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white shadow ${
+                      leader.isCompleted
+                        ? 'bg-green-500'
+                        : leader.isActive
+                          ? 'animate-pulse bg-green-500'
+                          : 'bg-slate-400'
                     }`}
                   >
-                    {agent.icon}
+                    {leader.isCompleted ? '✓' : leader.isActive ? '...' : '0'}
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-gray-800">
-                        {agent.name}
-                      </h3>
-                      {agent.status === 'working' && (
-                        <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-500">{agent.description}</p>
-                    {agent.status === 'working' && (
-                      <div className="mt-2 text-sm text-amber-600">
-                        正在工作中...
-                      </div>
-                    )}
-                    {agent.status === 'completed' && (
-                      <div className="mt-2 text-sm text-green-600">
-                        ✓ 已完成
-                      </div>
-                    )}
+                </div>
+
+                {/* Name & Model */}
+                <div className="mt-3 text-center">
+                  <div className="font-semibold text-slate-700">
+                    {leader.name}
                   </div>
+                  <div className="text-xs text-slate-400">{leader.model}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Member Nodes Row */}
+          <div className="relative z-10 mt-24 flex justify-around px-4">
+            {members.map((member) => (
+              <div
+                key={member.id}
+                className={`flex flex-col items-center transition-transform duration-300 ${
+                  member.isActive ? 'scale-110' : ''
+                }`}
+              >
+                {/* Avatar Circle */}
+                <div className="relative">
+                  <div
+                    className={`flex h-16 w-16 items-center justify-center rounded-full text-2xl shadow-md transition-all duration-300 ${
+                      member.isActive
+                        ? 'ring-4 ring-green-400 ring-offset-2'
+                        : member.isCompleted
+                          ? 'ring-2 ring-green-300'
+                          : ''
+                    }`}
+                    style={{ backgroundColor: member.bgColor }}
+                  >
+                    <span className="drop-shadow">{member.icon}</span>
+                  </div>
+
+                  {/* Task count badge */}
+                  <div
+                    className={`absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white shadow ${
+                      member.isCompleted
+                        ? 'bg-green-500'
+                        : member.isActive
+                          ? 'animate-pulse bg-green-500'
+                          : 'bg-slate-400'
+                    }`}
+                  >
+                    {member.isCompleted ? '✓' : member.isActive ? '1' : '0'}
+                  </div>
+                </div>
+
+                {/* Name & Model */}
+                <div className="mt-2 text-center">
+                  <div className="text-sm font-medium text-slate-700">
+                    {member.name}
+                  </div>
+                  <div className="text-xs text-slate-400">{member.model}</div>
                 </div>
               </div>
             ))}
           </div>
-        )}
+        </div>
+      </div>
 
-        {viewMode === 'chapters' && (
-          <div className="grid gap-4 lg:grid-cols-2">
-            {/* Chapter List */}
-            <div className="space-y-2">
-              <h3 className="mb-3 font-semibold text-gray-800">章节列表</h3>
-              {chapters.length === 0 ? (
-                <div className="rounded-lg bg-gray-50 p-8 text-center text-gray-400">
-                  暂无章节，开始创作后将显示
-                </div>
-              ) : (
-                chapters.map((chapter) => (
-                  <button
-                    key={chapter.chapterNumber}
-                    onClick={() => setSelectedChapter(chapter)}
-                    className={`w-full rounded-lg border p-3 text-left transition-all ${
-                      selectedChapter?.chapterNumber === chapter.chapterNumber
-                        ? 'border-amber-300 bg-amber-50'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${
-                            chapter.status === 'completed'
-                              ? 'bg-green-100 text-green-700'
-                              : chapter.status === 'writing'
-                                ? 'animate-pulse bg-amber-100 text-amber-700'
-                                : 'bg-gray-100 text-gray-500'
-                          }`}
-                        >
-                          {chapter.status === 'completed'
-                            ? '✓'
-                            : chapter.chapterNumber}
-                        </span>
-                        <span className="font-medium text-gray-800">
-                          第{chapter.chapterNumber}章 {chapter.title}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-400">
-                        {chapter.wordCount.toLocaleString()} 字
-                      </span>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-
-            {/* Chapter Content Preview */}
-            <div className="rounded-xl border border-gray-200 bg-white">
-              <div className="border-b border-gray-100 px-4 py-3">
-                <h3 className="font-semibold text-gray-800">
-                  {selectedChapter
-                    ? `第${selectedChapter.chapterNumber}章 ${selectedChapter.title}`
-                    : '选择章节查看内容'}
-                </h3>
-              </div>
-              <div className="max-h-96 overflow-auto p-4">
-                {selectedChapter?.content ? (
-                  <div className="prose prose-sm max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {selectedChapter.content}
-                    </ReactMarkdown>
-                  </div>
-                ) : (
-                  <div className="text-center text-gray-400">
-                    {selectedChapter ? '内容生成中...' : '点击左侧章节查看内容'}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {viewMode === 'world' && (
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* World Settings */}
-            <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <h3 className="mb-3 font-semibold text-gray-800">
-                🌍 世界观设定
-              </h3>
-              {worldSettings ? (
-                <pre className="max-h-64 overflow-auto rounded-lg bg-gray-50 p-3 text-xs">
-                  {JSON.stringify(worldSettings, null, 2)}
-                </pre>
-              ) : (
-                <div className="text-center text-gray-400">
-                  世界观设定将在创作开始后生成
-                </div>
-              )}
-            </div>
-
-            {/* Consistency Issues */}
-            <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <h3 className="mb-3 font-semibold text-gray-800">
-                🔍 一致性检查结果
-              </h3>
-              {consistencyIssues.length === 0 ? (
-                <div className="rounded-lg bg-green-50 p-4 text-center text-green-600">
-                  ✓ 暂无一致性问题
-                </div>
-              ) : (
-                <div className="max-h-64 space-y-2 overflow-auto">
-                  {consistencyIssues.map((issue, index) => (
-                    <div
-                      key={index}
-                      className={`rounded-lg border p-3 ${
-                        issue.severity === 'error'
-                          ? 'border-red-200 bg-red-50'
-                          : issue.severity === 'warning'
-                            ? 'border-yellow-200 bg-yellow-50'
-                            : 'border-blue-200 bg-blue-50'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <span>
-                          {issue.severity === 'error'
-                            ? '❌'
-                            : issue.severity === 'warning'
-                              ? '⚠️'
-                              : 'ℹ️'}
-                        </span>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium">
-                            第{issue.chapterNumber}章 - {issue.type}
-                          </div>
-                          <div className="text-xs text-gray-600">
-                            {issue.description}
-                          </div>
-                          {issue.suggestion && (
-                            <div className="mt-1 text-xs text-gray-500">
-                              建议：{issue.suggestion}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+      {/* Footer Actions - 参考 AI Teams Canvas */}
+      <div className="flex items-center justify-center gap-3 border-t border-slate-200 bg-white/90 px-6 py-4 backdrop-blur-sm">
+        <button
+          disabled={isRunning}
+          className="flex items-center gap-2 rounded-lg bg-violet-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <span>+</span>
+          创建任务
+        </button>
+        <button
+          disabled={!isRunning}
+          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+          继续任务
+        </button>
+        <button
+          disabled={!isRunning}
+          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+          取消任务
+        </button>
+        <button className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6h16M4 10h16M4 14h16M4 18h16"
+            />
+          </svg>
+          任务面板
+        </button>
       </div>
     </div>
   );

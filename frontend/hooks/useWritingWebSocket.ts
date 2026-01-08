@@ -96,6 +96,7 @@ export function useWritingWebSocket(
   enabled = true
 ): UseWritingWebSocketResult {
   const socketRef = useRef<Socket | null>(null);
+  const connectingRef = useRef(false);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -116,23 +117,36 @@ export function useWritingWebSocket(
 
   // 连接
   const connect = useCallback(() => {
-    if (!projectId || socketRef.current?.connected) return;
+    // 防止重复连接
+    if (!projectId || socketRef.current?.connected || connectingRef.current) {
+      return;
+    }
 
-    const wsUrl =
-      process.env.NEXT_PUBLIC_WS_URL ||
-      (typeof window !== 'undefined'
-        ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`
-        : 'ws://localhost:3001');
+    // 从 NEXT_PUBLIC_API_URL 获取后端 URL
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (!apiUrl) {
+      // 本地开发环境
+      console.log('[WritingWS] No API URL configured, using localhost');
+    }
 
-    const socket = io(`${wsUrl}/ai-writing`, {
+    // 移除 /api/v1 后缀获取基础 URL
+    const baseUrl = apiUrl?.replace('/api/v1', '') || 'http://localhost:3001';
+
+    connectingRef.current = true;
+    console.log('[WritingWS] Connecting to:', `${baseUrl}/ai-writing`);
+
+    const socket = io(`${baseUrl}/ai-writing`, {
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
+      reconnectionAttempts: 3,
+      reconnectionDelay: 2000,
+      timeout: 10000,
+      withCredentials: true,
     });
 
     socket.on('connect', () => {
       console.log('[WritingWS] Connected');
+      connectingRef.current = false;
       setIsConnected(true);
       setError(null);
 
@@ -140,14 +154,19 @@ export function useWritingWebSocket(
       socket.emit('join:project', { projectId });
     });
 
-    socket.on('disconnect', () => {
-      console.log('[WritingWS] Disconnected');
+    socket.on('disconnect', (reason) => {
+      console.log('[WritingWS] Disconnected:', reason);
+      connectingRef.current = false;
       setIsConnected(false);
     });
 
     socket.on('connect_error', (err) => {
       console.error('[WritingWS] Connection error:', err.message);
-      setError(`连接失败: ${err.message}`);
+      connectingRef.current = false;
+      // 只在首次失败时设置错误，避免频繁更新状态导致闪烁
+      if (!error) {
+        setError(`WebSocket 连接失败`);
+      }
     });
 
     // 任务事件
@@ -239,9 +258,17 @@ export function useWritingWebSocket(
     }
 
     return () => {
-      disconnect();
+      if (socketRef.current) {
+        if (projectId) {
+          socketRef.current.emit('leave:project', { projectId });
+        }
+        socketRef.current.disconnect();
+        socketRef.current = null;
+        connectingRef.current = false;
+      }
     };
-  }, [enabled, projectId, connect, disconnect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, projectId]);
 
   return {
     isConnected,
