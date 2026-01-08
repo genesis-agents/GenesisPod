@@ -2105,21 +2105,9 @@ export default function WritingProjectPage() {
                 </>
               ) : (
                 <>
-                  {/* Continue Task Button - Nudge Leader to continue */}
+                  {/* Continue Writing Button - Actually continue the story */}
                   <button
-                    onClick={async () => {
-                      try {
-                        await startMission(projectId, {
-                          prompt:
-                            '@Leader 请继续执行当前任务，检查进度并推进下一步工作',
-                          missionType: 'edit',
-                          additionalInstructions:
-                            '当前任务正在进行中，请检查各 Agent 的工作状态，确保任务顺利推进。',
-                        });
-                      } catch {
-                        // Error handled by store
-                      }
-                    }}
+                    onClick={handleContinueWriting}
                     className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-4 py-2 text-xs font-medium text-amber-600 hover:bg-amber-50"
                   >
                     <svg
@@ -2141,7 +2129,7 @@ export default function WritingProjectPage() {
                         d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                       />
                     </svg>
-                    继续任务
+                    继续创作
                   </button>
                   <button
                     onClick={handleCancelMission}
