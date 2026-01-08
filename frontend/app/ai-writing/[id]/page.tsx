@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import ReactMarkdown from 'react-markdown';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIWritingStore } from '@/stores/aiWritingStore';
@@ -108,6 +109,78 @@ export default function WritingProjectPage() {
   const [activeTab, setActiveTab] = useState<'chapters' | 'worldview'>(
     'chapters'
   );
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+
+  // Agent 详情数据
+  const agentDetails: Record<
+    string,
+    {
+      name: string;
+      role: string;
+      description: string;
+      skills: string[];
+      tools: string[];
+    }
+  > = {
+    architect: {
+      name: '故事架构师',
+      role: '团队领导',
+      description:
+        '负责统筹整体故事结构，规划章节大纲，确保叙事逻辑连贯。擅长把握故事节奏和情节转折。',
+      skills: ['故事结构设计', '章节规划', '情节编排', '节奏把控'],
+      tools: ['大纲生成器', '故事线追踪', '冲突设计器'],
+    },
+    keeper: {
+      name: '设定守护者',
+      role: '世界观管理',
+      description:
+        '维护故事世界观的一致性，管理角色设定、地点背景和时间线，确保细节不出错。',
+      skills: ['世界观构建', '角色档案管理', '时间线维护', '设定校验'],
+      tools: ['角色数据库', '世界观图谱', '时间线编辑器'],
+    },
+    'writer-1': {
+      name: '作家①',
+      role: '内容创作',
+      description: '专注于创作生动的故事内容，擅长细腻的情感描写和人物对话。',
+      skills: ['情感描写', '对话创作', '场景渲染', '人物刻画'],
+      tools: ['文本生成器', '风格模板', '词汇库'],
+    },
+    'writer-2': {
+      name: '作家②',
+      role: '内容创作',
+      description: '擅长动作场面和紧张情节的描写，为故事增添激动人心的元素。',
+      skills: ['动作描写', '悬念构建', '节奏控制', '冲突展现'],
+      tools: ['文本生成器', '风格模板', '词汇库'],
+    },
+    'writer-3': {
+      name: '作家③',
+      role: '内容创作',
+      description: '专注于环境描写和氛围营造，让读者身临其境。',
+      skills: ['环境描写', '氛围营造', '意象运用', '细节刻画'],
+      tools: ['文本生成器', '风格模板', '词汇库'],
+    },
+    'checker-1': {
+      name: '检查员①',
+      role: '一致性审核',
+      description: '负责检查内容的逻辑一致性和设定准确性，发现并标记问题。',
+      skills: ['逻辑校验', '设定比对', '时间线检查', '角色行为分析'],
+      tools: ['一致性检查器', '设定比对器', '问题标记器'],
+    },
+    'checker-2': {
+      name: '检查员②',
+      role: '质量审核',
+      description: '专注于内容质量审核，包括文笔流畅度和表达准确性。',
+      skills: ['文笔审核', '语法检查', '表达优化建议', '质量评分'],
+      tools: ['语法检查器', '质量评估器', '改进建议器'],
+    },
+    editor: {
+      name: '编辑',
+      role: '润色优化',
+      description: '对内容进行最终润色，优化文字表达，提升整体阅读体验。',
+      skills: ['文字润色', '表达优化', '风格统一', '细节打磨'],
+      tools: ['润色工具', '同义词库', '风格指南'],
+    },
+  };
 
   // 处理输入变化，检测 @Leader 提及
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -452,14 +525,17 @@ export default function WritingProjectPage() {
                     '大纲',
                   ].some((kw) => msg.includes(kw));
                   return (
-                    <div className="relative z-10 flex flex-col items-center">
+                    <div
+                      className="relative z-10 flex cursor-pointer flex-col items-center"
+                      onClick={() => setSelectedAgent('architect')}
+                    >
                       <div
-                        className={`text-base transition-transform duration-300 ${isArchitectActive ? 'scale-125' : ''}`}
+                        className={`text-lg transition-transform duration-300 ${isArchitectActive ? 'scale-125' : ''}`}
                       >
                         👑
                       </div>
                       <div
-                        className={`flex h-12 w-12 items-center justify-center rounded-full text-lg transition-all duration-300 ${
+                        className={`flex h-14 w-14 items-center justify-center rounded-full text-xl transition-all duration-300 hover:ring-2 hover:ring-violet-300 ${
                           isArchitectActive
                             ? 'agent-glow-violet scale-110 bg-gradient-to-br from-violet-400 to-violet-600'
                             : missionCompleted
@@ -469,14 +545,14 @@ export default function WritingProjectPage() {
                       >
                         <span className="text-white drop-shadow-md">📐</span>
                       </div>
-                      <div className="mt-0.5 text-center">
+                      <div className="mt-1 text-center">
                         <div
-                          className={`text-[10px] font-medium transition-colors ${isArchitectActive ? 'text-violet-600' : 'text-slate-700'}`}
+                          className={`text-xs font-medium transition-colors ${isArchitectActive ? 'text-violet-600' : 'text-slate-700'}`}
                         >
                           架构师
                         </div>
                         {isArchitectActive && (
-                          <div className="animate-pulse text-[8px] text-violet-500">
+                          <div className="animate-pulse text-[10px] text-violet-500">
                             工作中
                           </div>
                         )}
@@ -536,10 +612,11 @@ export default function WritingProjectPage() {
                     return (
                       <div
                         key={agent.id}
-                        className="flex flex-col items-center"
+                        className="flex cursor-pointer flex-col items-center"
+                        onClick={() => setSelectedAgent(agent.id)}
                       >
                         <div
-                          className={`flex h-9 w-9 items-center justify-center rounded-full text-sm transition-all duration-300 ${
+                          className={`flex h-11 w-11 items-center justify-center rounded-full text-base transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
                             isActive
                               ? `${agent.glowClass} scale-125 bg-gradient-to-br ${agent.gradient}`
                               : missionCompleted
@@ -553,13 +630,13 @@ export default function WritingProjectPage() {
                         </div>
                         <div className={`mt-1 text-center`}>
                           <div
-                            className={`text-[10px] ${isActive ? `font-semibold ${agent.textColor}` : 'text-slate-600'}`}
+                            className={`text-xs ${isActive ? `font-semibold ${agent.textColor}` : 'text-slate-600'}`}
                           >
                             {agent.name}
                           </div>
                           {isActive && (
                             <div
-                              className={`text-[8px] ${agent.textColor} animate-pulse`}
+                              className={`text-[10px] ${agent.textColor} animate-pulse`}
                             >
                               工作中
                             </div>
@@ -611,10 +688,11 @@ export default function WritingProjectPage() {
                     return (
                       <div
                         key={agent.id}
-                        className="flex flex-col items-center"
+                        className="flex cursor-pointer flex-col items-center"
+                        onClick={() => setSelectedAgent(agent.id)}
                       >
                         <div
-                          className={`flex h-9 w-9 items-center justify-center rounded-full text-sm transition-all duration-300 ${
+                          className={`flex h-11 w-11 items-center justify-center rounded-full text-base transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
                             isActive
                               ? `${agent.glowClass} scale-125 bg-gradient-to-br ${agent.gradient}`
                               : missionCompleted
@@ -628,13 +706,13 @@ export default function WritingProjectPage() {
                         </div>
                         <div className={`mt-1 text-center`}>
                           <div
-                            className={`text-[10px] ${isActive ? `font-semibold ${agent.textColor}` : 'text-slate-600'}`}
+                            className={`text-xs ${isActive ? `font-semibold ${agent.textColor}` : 'text-slate-600'}`}
                           >
                             {agent.name}
                           </div>
                           {isActive && (
                             <div
-                              className={`text-[8px] ${agent.textColor} animate-pulse`}
+                              className={`text-[10px] ${agent.textColor} animate-pulse`}
                             >
                               工作中
                             </div>
@@ -648,8 +726,8 @@ export default function WritingProjectPage() {
             </div>
 
             {/* Progress Steps - Below the agent diagram, always visible */}
-            <div className="mx-4 mb-3 rounded-xl bg-slate-50 p-3">
-              <div className="space-y-2">
+            <div className="mx-4 mb-4 flex-1 rounded-xl bg-slate-50 p-4">
+              <div className="space-y-3">
                 {[
                   {
                     id: 'architect',
@@ -690,9 +768,9 @@ export default function WritingProjectPage() {
                   const isDone =
                     missionProgress >= stepThreshold && !isStepActive;
                   return (
-                    <div key={step.id} className="flex items-center gap-2">
+                    <div key={step.id} className="flex items-center gap-3">
                       <div
-                        className={`flex h-6 w-6 items-center justify-center rounded-full text-xs transition-all ${
+                        className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-all ${
                           isStepActive
                             ? 'animate-pulse bg-amber-500 text-white ring-2 ring-amber-200'
                             : isDone
@@ -703,7 +781,7 @@ export default function WritingProjectPage() {
                         {isDone ? '✓' : step.icon}
                       </div>
                       <span
-                        className={`text-xs ${
+                        className={`text-sm ${
                           isStepActive
                             ? 'font-medium text-amber-700'
                             : isDone
@@ -721,14 +799,14 @@ export default function WritingProjectPage() {
                 })}
               </div>
               {/* Progress Bar */}
-              <div className="mt-3">
-                <div className="mb-1 flex justify-between text-xs text-slate-500">
+              <div className="mt-4">
+                <div className="mb-1.5 flex justify-between text-sm text-slate-500">
                   <span>整体进度</span>
-                  <span className="font-medium text-amber-600">
+                  <span className="font-semibold text-amber-600">
                     {Math.round(missionProgress)}%
                   </span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-3 overflow-hidden rounded-full bg-slate-200">
                   <div
                     className={`h-full transition-all duration-500 ${
                       missionCompleted
@@ -1160,10 +1238,8 @@ export default function WritingProjectPage() {
               {/* Modal Content */}
               <div className="flex-1 overflow-auto px-6 py-4">
                 {selectedChapter.content ? (
-                  <div className="prose prose-gray max-w-none">
-                    <div className="whitespace-pre-wrap leading-relaxed text-gray-700">
-                      {selectedChapter.content}
-                    </div>
+                  <div className="prose prose-gray prose-headings:text-gray-800 prose-p:text-gray-700 prose-p:leading-relaxed prose-strong:text-gray-800 max-w-none">
+                    <ReactMarkdown>{selectedChapter.content}</ReactMarkdown>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -1212,6 +1288,110 @@ export default function WritingProjectPage() {
                 <button
                   onClick={() => setSelectedChapter(null)}
                   className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Agent Details Modal */}
+        {selectedAgent && agentDetails[selectedAgent] && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={() => setSelectedAgent(null)}
+          >
+            <div
+              className="relative mx-4 w-full max-w-md rounded-2xl bg-white shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-xl text-white shadow-md">
+                    {selectedAgent === 'architect' && '📐'}
+                    {selectedAgent === 'keeper' && '📚'}
+                    {selectedAgent.startsWith('writer') && '✍️'}
+                    {selectedAgent.startsWith('checker') && '🔍'}
+                    {selectedAgent === 'editor' && '📝'}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">
+                      {agentDetails[selectedAgent].name}
+                    </h3>
+                    <span className="text-sm text-gray-500">
+                      {agentDetails[selectedAgent].role}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedAgent(null)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="px-6 py-4">
+                {/* Description */}
+                <p className="text-sm leading-relaxed text-gray-600">
+                  {agentDetails[selectedAgent].description}
+                </p>
+
+                {/* Skills */}
+                <div className="mt-4">
+                  <h4 className="mb-2 text-sm font-semibold text-gray-800">
+                    技能
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {agentDetails[selectedAgent].skills.map((skill) => (
+                      <span
+                        key={skill}
+                        className="rounded-full bg-violet-100 px-3 py-1 text-xs font-medium text-violet-700"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tools */}
+                <div className="mt-4">
+                  <h4 className="mb-2 text-sm font-semibold text-gray-800">
+                    工具
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {agentDetails[selectedAgent].tools.map((tool) => (
+                      <span
+                        key={tool}
+                        className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700"
+                      >
+                        {tool}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end border-t border-gray-100 px-6 py-4">
+                <button
+                  onClick={() => setSelectedAgent(null)}
+                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
                 >
                   关闭
                 </button>

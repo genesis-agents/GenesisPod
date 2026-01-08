@@ -5855,3 +5855,94 @@ model WritingMission {
   @@index([parallelGroupId])
   @@map("writing_missions")
 }
+
+// ============ AI 团队模板（Admin 配置） ============
+
+enum AITeamTemplateStatus {
+  DRAFT // 草稿
+  ACTIVE // 启用
+  ARCHIVED // 归档
+}
+
+// AI 团队模板（管理员配置的可复用团队）
+model AITeamTemplate {
+  id String @id @default(uuid())
+
+  // 基础信息
+  name        String  @db.VarChar(100) // 内部标识
+  displayName String  @map("display_name") @db.VarChar(100) // 显示名称
+  description String? @db.Text // 团队描述
+  icon        String? @db.VarChar(50) // 图标（emoji 或图标名）
+  color       String? @db.VarChar(20) // 主题色
+
+  // 分类
+  category String? @db.VarChar(50) // "writing" | "research" | "coding" | "design"
+
+  // 状态
+  status   AITeamTemplateStatus @default(ACTIVE)
+  isSystem Boolean              @default(false) @map("is_system") // 系统预设，不可删除
+  sortOrder Int                 @default(0) @map("sort_order")
+
+  // 配置
+  workflowConfig    Json? @map("workflow_config") // 工作流配置
+  constraintProfile Json? @map("constraint_profile") // 约束配置
+  metadata          Json? // 扩展配置
+
+  // 关系
+  members AITeamMemberTemplate[]
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([category])
+  @@index([sortOrder])
+  @@map("ai_team_templates")
+}
+
+// AI 团队成员模板
+model AITeamMemberTemplate {
+  id     String          @id @default(uuid())
+  teamId String          @map("team_id")
+  team   AITeamTemplate @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  // 角色身份（游戏角色风格）
+  name            String  @db.VarChar(100) // 内部标识
+  displayName     String  @map("display_name") @db.VarChar(100) // 显示名称（如：首席架构师）
+  avatar          String? @db.Text // 头像 URL 或 emoji
+  roleDescription String? @map("role_description") @db.VarChar(500) // 角色职责
+  personality     String? @db.Text // 性格特点
+
+  // 角色配置
+  roleId   String  @map("role_id") @db.VarChar(50) // 角色ID（research-lead, writer 等）
+  isLeader Boolean @default(false) @map("is_leader")
+
+  // AI 模型
+  defaultModel String? @map("default_model") @db.VarChar(100)
+
+  // 能力配置（复用现有枚举）
+  capabilities   AICapability[] // 内置工具能力
+  workStyle      AgentWorkStyle? @map("work_style") // 工作风格
+  expertiseAreas String[]        @default([]) @map("expertise_areas") // 专长领域
+
+  // MCP 工具（外部工具）
+  mcpTools Json? @map("mcp_tools") // MCPToolConfig[]
+
+  // 提示词
+  systemPrompt String? @map("system_prompt") @db.Text
+
+  // 排序和约束
+  sortOrder Int @default(0) @map("sort_order")
+  minCount  Int @default(1) @map("min_count") // 最少实例数
+  maxCount  Int @default(1) @map("max_count") // 最多实例数
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([teamId])
+  @@index([roleId])
+  @@index([isLeader])
+  @@map("ai_team_member_templates")
+}
