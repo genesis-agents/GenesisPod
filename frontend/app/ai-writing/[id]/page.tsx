@@ -1622,23 +1622,27 @@ export default function WritingProjectPage() {
 
                         {/* World Settings */}
                         {storyBible.worldSettings &&
-                          storyBible.worldSettings.length > 0 && (
+                          storyBible.worldSettings.filter(
+                            (s) => s.key && s.value
+                          ).length > 0 && (
                             <div className="rounded-xl bg-green-50 p-4">
                               <h3 className="mb-2 flex items-center gap-2 font-medium text-green-800">
                                 <span>🗺️</span> 世界设定
                               </h3>
                               <div className="space-y-2">
-                                {storyBible.worldSettings.map((setting) => (
-                                  <div
-                                    key={setting.id}
-                                    className="text-sm text-green-700"
-                                  >
-                                    <span className="font-medium">
-                                      {setting.key}:
-                                    </span>{' '}
-                                    {setting.value}
-                                  </div>
-                                ))}
+                                {storyBible.worldSettings
+                                  .filter((s) => s.key && s.value)
+                                  .map((setting) => (
+                                    <div
+                                      key={setting.id}
+                                      className="text-sm text-green-700"
+                                    >
+                                      <span className="font-medium">
+                                        {setting.key}:
+                                      </span>{' '}
+                                      {setting.value}
+                                    </div>
+                                  ))}
                               </div>
                             </div>
                           )}

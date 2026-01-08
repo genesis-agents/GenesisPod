@@ -1691,39 +1691,112 @@ ${chapterContent}
       keyPoint: string;
     }>;
   } {
+    let parsed: {
+      core?: { summary?: string; genre?: string; theme?: string };
+      volumes?: Array<{
+        title?: string;
+        conflict?: string;
+        plot?: string;
+        emotion?: string;
+      }>;
+      chapters?: Array<{
+        volumeIndex?: number;
+        title?: string;
+        plot?: string;
+        keyPoint?: string;
+      }>;
+    } | null = null;
+
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.chapters && parsed.chapters.length > 0) {
-          return parsed;
-        }
+        parsed = JSON.parse(jsonMatch[0]);
       }
     } catch (e) {
       this.logger.warn(`Failed to parse outline JSON: ${(e as Error).message}`);
     }
 
-    // 降级：生成默认结构
-    const volumes = Array.from({ length: totalVolumes }, (_, i) => ({
+    // 生成默认卷结构
+    const chaptersPerVolume = Math.ceil(totalChapters / totalVolumes);
+    const defaultVolumes = Array.from({ length: totalVolumes }, (_, i) => ({
       title: `第${this.numberToChinese(i + 1)}卷`,
       conflict: "待定",
       plot: "待定",
       emotion: "待定",
     }));
 
-    const chaptersPerVolume = Math.ceil(totalChapters / totalVolumes);
-    const chapters = Array.from({ length: totalChapters }, (_, i) => ({
+    // 生成默认章节结构
+    const defaultChapters = Array.from({ length: totalChapters }, (_, i) => ({
       volumeIndex: Math.floor(i / chaptersPerVolume),
       title: `第${this.numberToChinese(i + 1)}章`,
       plot: "待创作",
       keyPoint: "",
     }));
 
-    return {
-      core: { summary: "待定", genre: "待定", theme: "待定" },
-      volumes,
-      chapters,
+    // 如果没有解析到任何内容，返回默认结构
+    if (!parsed) {
+      return {
+        core: { summary: "待定", genre: "待定", theme: "待定" },
+        volumes: defaultVolumes,
+        chapters: defaultChapters,
+      };
+    }
+
+    // 合并解析结果和默认结构
+    const core = {
+      summary: parsed.core?.summary || "待定",
+      genre: parsed.core?.genre || "待定",
+      theme: parsed.core?.theme || "待定",
     };
+
+    // 使用解析的卷，如果不足则补充默认卷
+    const parsedVolumes = (parsed.volumes || []).map((v, i) => ({
+      title: v.title || `第${this.numberToChinese(i + 1)}卷`,
+      conflict: v.conflict || "待定",
+      plot: v.plot || "待定",
+      emotion: v.emotion || "待定",
+    }));
+    const volumes =
+      parsedVolumes.length >= totalVolumes
+        ? parsedVolumes.slice(0, totalVolumes)
+        : [...parsedVolumes, ...defaultVolumes.slice(parsedVolumes.length)];
+
+    // 使用解析的章节，如果不足则补充默认章节
+    const parsedChapters = (parsed.chapters || []).map((c, i) => ({
+      volumeIndex: c.volumeIndex ?? Math.floor(i / chaptersPerVolume),
+      title: c.title || `第${this.numberToChinese(i + 1)}章`,
+      plot: c.plot || "待创作",
+      keyPoint: c.keyPoint || "",
+    }));
+
+    // ★ 关键：确保章节数量至少达到 totalChapters
+    let chapters = parsedChapters;
+    if (parsedChapters.length < totalChapters) {
+      this.logger.warn(
+        `Parsed chapters (${parsedChapters.length}) < expected (${totalChapters}), supplementing...`,
+      );
+      // 补充缺少的章节
+      const supplementChapters = defaultChapters
+        .slice(parsedChapters.length)
+        .map((_, i) => {
+          const actualIndex = parsedChapters.length + i;
+          // 尝试基于已有章节推断后续情节
+          const lastParsedChapter = parsedChapters[parsedChapters.length - 1];
+          return {
+            volumeIndex: Math.floor(actualIndex / chaptersPerVolume),
+            title: `第${this.numberToChinese(actualIndex + 1)}章`,
+            plot: lastParsedChapter?.plot ? "延续上一章情节发展" : "待创作",
+            keyPoint: "",
+          };
+        });
+      chapters = [...parsedChapters, ...supplementChapters];
+    }
+
+    this.logger.log(
+      `Outline parsed: ${chapters.length} chapters (expected: ${totalChapters})`,
+    );
+
+    return { core, volumes, chapters };
   }
 
   /**

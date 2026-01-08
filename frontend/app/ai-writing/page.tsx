@@ -57,7 +57,9 @@ const WORD_COUNTS = [
   { value: 30000, label: '3万字' },
   { value: 50000, label: '5万字' },
   { value: 100000, label: '10万字' },
-  { value: 200000, label: '20万字+' },
+  { value: 200000, label: '20万字' },
+  { value: 500000, label: '50万字+' },
+  { value: 1000000, label: '100万字+' },
 ];
 
 // Vibrant gradient color schemes for project cards
