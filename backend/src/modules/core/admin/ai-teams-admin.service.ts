@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
 import {
   CreateTeamDto,
   UpdateTeamDto,
@@ -18,7 +19,10 @@ import { AITeamTemplateStatus, Prisma } from "@prisma/client";
 export class AITeamsAdminService {
   private readonly logger = new Logger(AITeamsAdminService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiChatService: AiChatService,
+  ) {}
 
   // ==================== Team CRUD ====================
 
@@ -405,5 +409,109 @@ export class AITeamsAdminService {
       { id: "ANALYTICAL", name: "分析型", description: "深度分析，谨慎输出" },
       { id: "CREATIVE", name: "创意型", description: "发散思维，提供创新方案" },
     ];
+  }
+
+  // ==================== AI 智能配置 ====================
+
+  /**
+   * 使用 AI 生成团队成员配置建议
+   * @param teamName 团队名称
+   * @param teamDescription 团队描述
+   * @param category 团队分类
+   */
+  async generateTeamConfig(params: {
+    teamName: string;
+    teamDescription?: string;
+    category?: string;
+  }) {
+    this.logger.log(`Generating AI team config for: ${params.teamName}`);
+
+    const systemPrompt = `你是一个 AI 团队配置专家。根据用户提供的团队名称、描述和分类，生成合适的团队成员配置。
+
+可用的角色类型：
+- Leader 角色：research-lead(研究主管), content-lead(内容主管), tech-lead(技术主管), moderator(协调员)
+- 成员角色：researcher(研究员), analyst(分析师), writer(作家), developer(开发者), designer(设计师), reviewer(审查员), advocate(倡导者)
+
+可用的工作风格：
+- AUTONOMOUS(自主型): 独立完成任务，主动汇报
+- COLLABORATIVE(协作型): 频繁与其他Agent交流
+- SUPPORTIVE(支持型): 主要协助其他Agent
+- ANALYTICAL(分析型): 深度分析，谨慎输出
+- CREATIVE(创意型): 发散思维，提供创新方案
+
+可用的能力/工具：
+- TEXT_GENERATION(文本生成), CODE_GENERATION(代码生成), CODE_REVIEW(代码审查)
+- IMAGE_GENERATION(图片生成), IMAGE_ANALYSIS(图片分析)
+- WEB_SEARCH(网络搜索), URL_FETCH(URL抓取), DOCUMENT_ANALYSIS(文档分析)
+- REASONING(深度推理), MATH(数学计算), TRANSLATION(翻译), SUMMARIZATION(摘要生成)
+
+可用的技能分类：
+- 研究类：research-planning, information-retrieval, source-validation, data-collection
+- 分析类：data-analysis, trend-insight, logical-reasoning, risk-identification
+- 内容类：content-creation, structure-organization, language-polish, style-control
+- 技术类：code-generation, architecture-design, debugging, code-review
+- 协作类：quality-review, content-integration, consensus-building, task-delegation
+
+请根据团队目标生成 3-5 个合适的团队成员配置，必须包含至少一个 Leader。
+
+返回 JSON 格式：
+{
+  "members": [
+    {
+      "name": "英文标识(如 architect)",
+      "displayName": "中文显示名称(如 架构师)",
+      "avatar": "适合的emoji",
+      "roleId": "角色ID",
+      "isLeader": true/false,
+      "roleDescription": "角色职责描述",
+      "personality": "性格特点",
+      "workStyle": "工作风格ID",
+      "capabilities": ["能力ID数组"],
+      "expertiseAreas": ["技能ID数组"],
+      "systemPrompt": "该角色的系统提示词"
+    }
+  ]
+}`;
+
+    const userPrompt = `请为以下团队生成成员配置：
+
+团队名称：${params.teamName}
+${params.teamDescription ? `团队描述：${params.teamDescription}` : ""}
+${params.category ? `团队分类：${params.category}` : ""}
+
+请返回纯 JSON 格式，不要包含 markdown 代码块。`;
+
+    try {
+      const result = await this.aiChatService.generateChatCompletion({
+        model: "gpt-4o",
+        systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+        temperature: 0.7,
+        maxTokens: 2000,
+      });
+
+      // 解析 AI 返回的 JSON
+      let config;
+      try {
+        // 尝试直接解析
+        config = JSON.parse(result.content);
+      } catch {
+        // 如果失败，尝试提取 JSON 部分
+        const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          config = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error("无法解析 AI 返回的配置");
+        }
+      }
+
+      this.logger.log(`Generated ${config.members?.length || 0} team members`);
+      return config;
+    } catch (error) {
+      this.logger.error(`Failed to generate team config: ${error}`);
+      throw new BadRequestException(
+        `AI 配置生成失败: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 }

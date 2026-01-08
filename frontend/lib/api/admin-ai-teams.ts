@@ -304,6 +304,37 @@ export async function getWorkStyles(): Promise<WorkStyleInfo[]> {
   return apiClient.get('/admin/ai-teams/work-styles');
 }
 
+// ==================== AI Configuration ====================
+
+export interface GeneratedMemberConfig {
+  name: string;
+  displayName: string;
+  avatar?: string;
+  roleId: string;
+  isLeader: boolean;
+  roleDescription?: string;
+  personality?: string;
+  workStyle?: AgentWorkStyle;
+  capabilities?: AICapability[];
+  expertiseAreas?: string[];
+  systemPrompt?: string;
+}
+
+export interface GeneratedTeamConfig {
+  members: GeneratedMemberConfig[];
+}
+
+/**
+ * Use AI to generate team member configuration
+ */
+export async function generateTeamConfig(params: {
+  teamName: string;
+  teamDescription?: string;
+  category?: string;
+}): Promise<GeneratedTeamConfig> {
+  return apiClient.post('/admin/ai-teams/generate-config', params);
+}
+
 // ==================== Public API (for apps) ====================
 
 /**

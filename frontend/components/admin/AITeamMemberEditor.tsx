@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Loader2, X } from 'lucide-react';
-import * as api from '@/lib/api/admin-ai-teams';
 import type {
   AITeamMemberTemplate,
   AICapability,
@@ -39,6 +38,63 @@ const CAPABILITIES: { id: AICapability; name: string }[] = [
   { id: 'MATH', name: '数学计算' },
   { id: 'TRANSLATION', name: '翻译' },
   { id: 'SUMMARIZATION', name: '摘要生成' },
+];
+
+const SKILL_CATEGORIES: {
+  category: string;
+  name: string;
+  skills: { id: string; name: string }[];
+}[] = [
+  {
+    category: 'research',
+    name: '研究类',
+    skills: [
+      { id: 'research-planning', name: '研究规划' },
+      { id: 'information-retrieval', name: '信息检索' },
+      { id: 'source-validation', name: '来源验证' },
+      { id: 'data-collection', name: '数据收集' },
+    ],
+  },
+  {
+    category: 'analysis',
+    name: '分析类',
+    skills: [
+      { id: 'data-analysis', name: '数据分析' },
+      { id: 'trend-insight', name: '趋势洞察' },
+      { id: 'logical-reasoning', name: '逻辑推理' },
+      { id: 'risk-identification', name: '风险识别' },
+    ],
+  },
+  {
+    category: 'content',
+    name: '内容类',
+    skills: [
+      { id: 'content-creation', name: '内容创作' },
+      { id: 'structure-organization', name: '结构组织' },
+      { id: 'language-polish', name: '语言润色' },
+      { id: 'style-control', name: '风格控制' },
+    ],
+  },
+  {
+    category: 'technical',
+    name: '技术类',
+    skills: [
+      { id: 'code-generation', name: '代码生成' },
+      { id: 'architecture-design', name: '架构设计' },
+      { id: 'debugging', name: '调试排错' },
+      { id: 'code-review', name: '代码审查' },
+    ],
+  },
+  {
+    category: 'collaboration',
+    name: '协作类',
+    skills: [
+      { id: 'quality-review', name: '质量审查' },
+      { id: 'content-integration', name: '内容整合' },
+      { id: 'consensus-building', name: '共识构建' },
+      { id: 'task-delegation', name: '任务分配' },
+    ],
+  },
 ];
 
 const BUILT_IN_ROLES = [
@@ -79,6 +135,9 @@ export default function AITeamMemberEditor({
   const [capabilities, setCapabilities] = useState<AICapability[]>(
     member?.capabilities || []
   );
+  const [expertiseAreas, setExpertiseAreas] = useState<string[]>(
+    member?.expertiseAreas || []
+  );
   const [systemPrompt, setSystemPrompt] = useState(member?.systemPrompt || '');
   const [minCount, setMinCount] = useState(member?.minCount || 1);
   const [maxCount, setMaxCount] = useState(member?.maxCount || 1);
@@ -97,6 +156,14 @@ export default function AITeamMemberEditor({
     );
   };
 
+  const handleSkillToggle = (skillId: string) => {
+    setExpertiseAreas((prev) =>
+      prev.includes(skillId)
+        ? prev.filter((s) => s !== skillId)
+        : [...prev, skillId]
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -112,6 +179,7 @@ export default function AITeamMemberEditor({
         defaultModel: defaultModel || undefined,
         workStyle,
         capabilities,
+        expertiseAreas,
         systemPrompt: systemPrompt || undefined,
         minCount,
         maxCount,
@@ -308,6 +376,42 @@ export default function AITeamMemberEditor({
                       {cap.name}
                     </span>
                   </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Skills (Expertise Areas) */}
+            <div>
+              <h3 className="mb-3 text-sm font-medium text-gray-900">
+                技能专长
+              </h3>
+              <div className="space-y-3">
+                {SKILL_CATEGORIES.map((category) => (
+                  <div key={category.category}>
+                    <div className="mb-1.5 text-xs font-medium text-gray-500">
+                      {category.name}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {category.skills.map((skill) => (
+                        <label
+                          key={skill.id}
+                          className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors ${
+                            expertiseAreas.includes(skill.id)
+                              ? 'border-green-500 bg-green-50 text-green-700'
+                              : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={expertiseAreas.includes(skill.id)}
+                            onChange={() => handleSkillToggle(skill.id)}
+                            className="sr-only"
+                          />
+                          {skill.name}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>

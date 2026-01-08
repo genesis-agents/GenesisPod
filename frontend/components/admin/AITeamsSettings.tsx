@@ -11,6 +11,7 @@ import {
   Loader2,
   AlertCircle,
   UserPlus,
+  Sparkles,
 } from 'lucide-react';
 import * as api from '@/lib/api/admin-ai-teams';
 import type {
@@ -183,6 +184,7 @@ export default function AITeamsSettings() {
   const [showMemberEditor, setShowMemberEditor] = useState(false);
   const [editingMember, setEditingMember] =
     useState<AITeamMemberTemplate | null>(null);
+  const [generatingConfig, setGeneratingConfig] = useState(false);
 
   // Load teams
   const loadTeams = useCallback(async () => {
@@ -285,6 +287,63 @@ export default function AITeamsSettings() {
       };
       setSelectedTeam(newTeam);
       setTeams((prev) => prev.map((t) => (t.id === newTeam.id ? newTeam : t)));
+    }
+  };
+
+  // AI Configuration Generation
+  const handleGenerateConfig = async () => {
+    if (!selectedTeam) return;
+
+    const existingCount = selectedTeam.members?.length || 0;
+    if (existingCount > 0) {
+      if (
+        !confirm(
+          `当前团队已有 ${existingCount} 名成员。AI 将生成新的成员配置并添加到团队中，是否继续？`
+        )
+      )
+        return;
+    }
+
+    setGeneratingConfig(true);
+    try {
+      const result = await api.generateTeamConfig({
+        teamName: selectedTeam.displayName,
+        teamDescription: selectedTeam.description,
+        category: selectedTeam.category,
+      });
+
+      // Add generated members to the team
+      const addedMembers: AITeamMemberTemplate[] = [];
+      for (const memberConfig of result.members) {
+        const newMember = await api.addMember(selectedTeam.id, {
+          name: memberConfig.name,
+          displayName: memberConfig.displayName,
+          avatar: memberConfig.avatar,
+          roleId: memberConfig.roleId,
+          isLeader: memberConfig.isLeader,
+          roleDescription: memberConfig.roleDescription,
+          personality: memberConfig.personality,
+          workStyle: memberConfig.workStyle,
+          capabilities: memberConfig.capabilities,
+          expertiseAreas: memberConfig.expertiseAreas,
+          systemPrompt: memberConfig.systemPrompt,
+        });
+        addedMembers.push(newMember);
+      }
+
+      // Update local state with new members
+      const newTeam = {
+        ...selectedTeam,
+        members: [...(selectedTeam.members || []), ...addedMembers],
+      };
+      setSelectedTeam(newTeam);
+      setTeams((prev) => prev.map((t) => (t.id === newTeam.id ? newTeam : t)));
+
+      alert(`成功添加 ${addedMembers.length} 名 AI 推荐成员！`);
+    } catch (err) {
+      alert(`AI 配置生成失败: ${(err as Error).message}`);
+    } finally {
+      setGeneratingConfig(false);
     }
   };
 
@@ -441,16 +500,30 @@ export default function AITeamsSettings() {
                     ({selectedTeam.members?.length || 0})
                   </span>
                 </div>
-                <button
-                  onClick={() => {
-                    setEditingMember(null);
-                    setShowMemberEditor(true);
-                  }}
-                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                  <UserPlus className="h-4 w-4" />
-                  添加成员
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleGenerateConfig}
+                    disabled={generatingConfig}
+                    className="flex items-center gap-1.5 rounded-lg border border-purple-300 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50"
+                  >
+                    {generatingConfig ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    {generatingConfig ? 'AI 配置中...' : 'AI 智能配置'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingMember(null);
+                      setShowMemberEditor(true);
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    添加成员
+                  </button>
+                </div>
               </div>
 
               <div className="divide-y divide-gray-100">
@@ -482,6 +555,7 @@ export default function AITeamsSettings() {
                         </span>
                       )}
                       <span>{member.capabilities?.length || 0} 工具</span>
+                      <span>{member.expertiseAreas?.length || 0} 技能</span>
                     </div>
                     <div className="flex gap-1">
                       <button

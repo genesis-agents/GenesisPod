@@ -112,6 +112,24 @@ export class AITeamsAdminController {
   }
 
   /**
+   * AI 智能生成团队配置
+   * POST /api/v1/admin/ai-teams/generate-config
+   * NOTE: This route MUST come before :id route
+   */
+  @Post("generate-config")
+  async generateTeamConfig(
+    @Body()
+    body: {
+      teamName: string;
+      teamDescription?: string;
+      category?: string;
+    },
+  ) {
+    this.logger.log(`Generating AI team config for: ${body.teamName}`);
+    return this.aiTeamsService.generateTeamConfig(body);
+  }
+
+  /**
    * 获取单个团队模板详情
    * GET /api/v1/admin/ai-teams/:id
    */

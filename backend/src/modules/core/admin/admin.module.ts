@@ -7,9 +7,10 @@ import {
 } from "./ai-teams-admin.controller";
 import { AITeamsAdminService } from "./ai-teams-admin.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
+import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, AiEngineModule],
   controllers: [
     AdminController,
     AITeamsAdminController,
