@@ -482,8 +482,27 @@ ${params.category ? `团队分类：${params.category}` : ""}
 请返回纯 JSON 格式，不要包含 markdown 代码块。`;
 
     try {
+      // 从数据库获取可用的 CHAT 模型
+      const modelConfig = await this.prisma.aIModel.findFirst({
+        where: {
+          isEnabled: true,
+          modelType: "CHAT",
+        },
+        orderBy: {
+          isDefault: "desc", // 优先使用默认模型
+        },
+      });
+
+      if (!modelConfig) {
+        throw new Error("没有可用的 AI 模型，请在管理后台配置");
+      }
+
+      this.logger.log(
+        `Using model for team config generation: ${modelConfig.name} (${modelConfig.modelId})`,
+      );
+
       const result = await this.aiChatService.generateChatCompletion({
-        model: "gpt-4o",
+        model: modelConfig.modelId,
         systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
         temperature: 0.7,
