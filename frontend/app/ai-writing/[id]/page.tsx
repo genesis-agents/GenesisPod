@@ -125,8 +125,25 @@ export default function WritingProjectPage() {
       content: string;
       agent?: string;
       timestamp: Date;
+      // 详细信息（可展开）
+      detail?: {
+        type: 'chapter_content' | 'issues' | 'world_settings' | 'text';
+        data:
+          | string
+          | Array<{
+              type: string;
+              severity: string;
+              description: string;
+              suggestion?: string;
+            }>
+          | Record<string, unknown>;
+      };
     }>
   >([]);
+  // Track expanded message IDs for showing details
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
+    new Set()
+  );
   const taskMessagesEndRef = useRef<HTMLDivElement>(null);
   const lastMissionMessageRef = useRef<string>('');
 
@@ -248,6 +265,18 @@ export default function WritingProjectPage() {
       content: string;
       agent?: string;
       timestamp: Date;
+      detail?: {
+        type: 'chapter_content' | 'issues' | 'world_settings' | 'text';
+        data:
+          | string
+          | Array<{
+              type: string;
+              severity: string;
+              description: string;
+              suggestion?: string;
+            }>
+          | Record<string, unknown>;
+      };
     } | null = null;
 
     switch (type) {
@@ -310,6 +339,30 @@ export default function WritingProjectPage() {
         break;
       }
 
+      case 'chapter:content': {
+        // 章节内容更新 - 显示内容预览
+        const contentData = data as {
+          chapterNumber: number;
+          title: string;
+          content: string;
+          wordCount: number;
+        };
+        // 提取前200字作为预览
+        const preview = contentData.content?.slice(0, 300) || '';
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'agent',
+          content: `📖 第 ${contentData.chapterNumber} 章「${contentData.title}」内容生成中 (${contentData.wordCount} 字)`,
+          agent: '✍️ 作家',
+          timestamp: new Date(),
+          detail: {
+            type: 'chapter_content',
+            data: preview + (contentData.content?.length > 300 ? '...' : ''),
+          },
+        };
+        break;
+      }
+
       case 'chapter:completed': {
         const chapterData = data as {
           chapterNumber: number;
@@ -318,7 +371,7 @@ export default function WritingProjectPage() {
         message = {
           id: `msg-${Date.now()}`,
           type: 'agent',
-          content: `第 ${chapterData.chapterNumber} 章创作完成${chapterData.wordCount ? ` (${chapterData.wordCount} 字)` : ''}`,
+          content: `✅ 第 ${chapterData.chapterNumber} 章创作完成${chapterData.wordCount ? ` (${chapterData.wordCount} 字)` : ''}`,
           agent: '✍️ 作家',
           timestamp: new Date(),
         };
@@ -342,14 +395,23 @@ export default function WritingProjectPage() {
       case 'consistency:issues_found': {
         const issuesData = data as {
           chapterNumber: number;
-          issues: Array<{ description: string }>;
+          issues: Array<{
+            type: string;
+            severity: string;
+            description: string;
+            suggestion?: string;
+          }>;
         };
         message = {
           id: `msg-${Date.now()}`,
           type: 'agent',
-          content: `第 ${issuesData.chapterNumber} 章发现 ${issuesData.issues?.length || 0} 个问题，准备修复...`,
-          agent: '🔍 检查员',
+          content: `⚠️ 第 ${issuesData.chapterNumber} 章发现 ${issuesData.issues?.length || 0} 个问题，点击展开查看详情`,
+          agent: '🔍 一致性检查员',
           timestamp: new Date(),
+          detail: {
+            type: 'issues',
+            data: issuesData.issues || [],
+          },
         };
         break;
       }
@@ -376,15 +438,23 @@ export default function WritingProjectPage() {
         };
         break;
 
-      case 'world:building_completed':
+      case 'world:building_completed': {
+        const worldData = data as { settings?: Record<string, unknown> };
         message = {
           id: `msg-${Date.now()}`,
           type: 'agent',
-          content: '世界观设定构建完成',
+          content: '✅ 世界观设定构建完成，点击展开查看',
           agent: '📚 守护者',
           timestamp: new Date(),
+          detail: worldData.settings
+            ? {
+                type: 'world_settings',
+                data: worldData.settings,
+              }
+            : undefined,
         };
         break;
+      }
 
       case 'mission:completed': {
         const completeData = data as {
@@ -1551,19 +1621,141 @@ export default function WritingProjectPage() {
                               </span>
                             </div>
                             {/* Message Content */}
-                            <p
-                              className={`whitespace-pre-wrap text-sm ${
-                                msg.type === 'user'
-                                  ? 'text-amber-800'
-                                  : msg.type === 'system'
-                                    ? 'text-gray-600'
-                                    : msg.type === 'progress'
-                                      ? 'text-violet-800'
-                                      : 'text-gray-700'
-                              }`}
+                            <div
+                              className={`cursor-pointer ${msg.detail ? '-mx-1 rounded-lg px-1 transition-colors hover:bg-gray-50' : ''}`}
+                              onClick={() => {
+                                if (msg.detail) {
+                                  setExpandedMessages((prev) => {
+                                    const newSet = new Set(prev);
+                                    if (newSet.has(msg.id)) {
+                                      newSet.delete(msg.id);
+                                    } else {
+                                      newSet.add(msg.id);
+                                    }
+                                    return newSet;
+                                  });
+                                }
+                              }}
                             >
-                              {msg.content}
-                            </p>
+                              <p
+                                className={`whitespace-pre-wrap text-sm ${
+                                  msg.type === 'user'
+                                    ? 'text-amber-800'
+                                    : msg.type === 'system'
+                                      ? 'text-gray-600'
+                                      : msg.type === 'progress'
+                                        ? 'text-violet-800'
+                                        : 'text-gray-700'
+                                }`}
+                              >
+                                {msg.content}
+                                {msg.detail && (
+                                  <span className="ml-2 text-xs text-violet-500">
+                                    {expandedMessages.has(msg.id)
+                                      ? '▼ 收起'
+                                      : '▶ 展开详情'}
+                                  </span>
+                                )}
+                              </p>
+
+                              {/* Expandable Detail Section */}
+                              {msg.detail && expandedMessages.has(msg.id) && (
+                                <div className="mt-2 rounded-lg bg-gray-50 p-3 text-xs">
+                                  {msg.detail.type === 'chapter_content' && (
+                                    <div className="space-y-1">
+                                      <div className="font-medium text-gray-600">
+                                        📖 内容预览：
+                                      </div>
+                                      <div className="whitespace-pre-wrap border-l-2 border-violet-300 pl-3 italic leading-relaxed text-gray-700">
+                                        {msg.detail.data as string}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {msg.detail.type === 'issues' && (
+                                    <div className="space-y-2">
+                                      <div className="font-medium text-gray-600">
+                                        🔍 发现的问题：
+                                      </div>
+                                      {(
+                                        msg.detail.data as Array<{
+                                          type: string;
+                                          severity: string;
+                                          description: string;
+                                          suggestion?: string;
+                                        }>
+                                      ).map((issue, idx) => (
+                                        <div
+                                          key={idx}
+                                          className={`rounded p-2 ${
+                                            issue.severity === 'error'
+                                              ? 'border-l-2 border-red-400 bg-red-50'
+                                              : issue.severity === 'warning'
+                                                ? 'border-l-2 border-yellow-400 bg-yellow-50'
+                                                : 'border-l-2 border-blue-400 bg-blue-50'
+                                          }`}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span
+                                              className={`rounded px-1.5 py-0.5 text-xs ${
+                                                issue.severity === 'error'
+                                                  ? 'bg-red-100 text-red-700'
+                                                  : issue.severity === 'warning'
+                                                    ? 'bg-yellow-100 text-yellow-700'
+                                                    : 'bg-blue-100 text-blue-700'
+                                              }`}
+                                            >
+                                              {issue.type}
+                                            </span>
+                                          </div>
+                                          <div className="mt-1 text-gray-700">
+                                            {issue.description}
+                                          </div>
+                                          {issue.suggestion && (
+                                            <div className="mt-1 text-gray-500">
+                                              💡 建议：{issue.suggestion}
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {msg.detail.type === 'world_settings' && (
+                                    <div className="space-y-1">
+                                      <div className="font-medium text-gray-600">
+                                        🌍 世界观设定：
+                                      </div>
+                                      <div className="grid gap-1">
+                                        {Object.entries(
+                                          msg.detail.data as Record<
+                                            string,
+                                            unknown
+                                          >
+                                        )
+                                          .slice(0, 10)
+                                          .map(([key, value]) => (
+                                            <div
+                                              key={key}
+                                              className="flex gap-2"
+                                            >
+                                              <span className="font-medium text-violet-600">
+                                                {key}:
+                                              </span>
+                                              <span className="truncate text-gray-700">
+                                                {String(value).slice(0, 100)}
+                                              </span>
+                                            </div>
+                                          ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {msg.detail.type === 'text' && (
+                                    <div className="whitespace-pre-wrap text-gray-700">
+                                      {msg.detail.data as string}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ))}
                         <div ref={taskMessagesEndRef} />
