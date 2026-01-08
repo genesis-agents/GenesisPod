@@ -3716,17 +3716,29 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
     let currentWordCount = existingContent.currentWords;
     const chaptersToWrite = existingContent.unwrittenChapters;
 
-    // 如果没有空白章节但字数未达标，需要添加新章节
-    if (chaptersToWrite.length === 0 && currentWordCount < targetWordCount) {
-      this.logger.log(
-        `[${missionId}] All chapters written but target not reached, need to add more chapters`,
-      );
-      // TODO: 添加新章节的逻辑
-      await this.saveMissionLog(
-        missionId,
-        "mission:info",
-        `📝 所有章节已写完，当前 ${currentWordCount.toLocaleString()} 字。如需继续扩展，请在大纲中添加更多章节。`,
-      );
+    // 如果没有空白章节，返回已完成状态
+    if (chaptersToWrite.length === 0) {
+      if (currentWordCount < targetWordCount) {
+        this.logger.log(
+          `[${missionId}] All chapters written but target not reached (${currentWordCount}/${targetWordCount})`,
+        );
+        await this.saveMissionLog(
+          missionId,
+          "mission:info",
+          `📝 所有章节已写完，当前 ${currentWordCount.toLocaleString()} 字。如需继续扩展，请在大纲中添加更多章节。`,
+        );
+      } else {
+        this.logger.log(
+          `[${missionId}] All chapters completed, target reached (${currentWordCount}/${targetWordCount})`,
+        );
+        await this.saveMissionLog(
+          missionId,
+          "mission:complete",
+          `✅ 所有章节已完成！共 ${currentWordCount.toLocaleString()} 字`,
+        );
+      }
+      // 返回一个标记表示所有章节已完成（不是空内容）
+      return `[ALL_CHAPTERS_COMPLETED] 所有 ${existingContent.totalChapters} 章节已完成，共 ${currentWordCount.toLocaleString()} 字。`;
     }
 
     // 逐章写作
