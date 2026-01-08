@@ -430,7 +430,7 @@ export default function WritingProjectPage() {
         {/* Main Content */}
         <div className="flex flex-1 gap-4 overflow-hidden p-4">
           {/* Left: Embedded Canvas */}
-          <div className="flex w-80 shrink-0 flex-col rounded-2xl border border-gray-100 bg-gradient-to-br from-slate-50 via-white to-violet-50 shadow-sm">
+          <div className="flex h-fit w-80 shrink-0 flex-col self-start rounded-2xl border border-gray-100 bg-gradient-to-br from-slate-50 via-white to-violet-50 shadow-sm">
             {/* Canvas Header */}
             <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-3 py-2">
               <div className="flex items-center gap-2">
