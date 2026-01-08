@@ -20,6 +20,7 @@ import { ChapterWritingService } from "./services/writing/chapter-writing.servic
 import { ConsistencyEngineService } from "./services/consistency/consistency-engine.service";
 import { ParallelOrchestratorService } from "./services/parallel/parallel-orchestrator.service";
 import { WritingMissionService } from "./services/mission/writing-mission.service";
+import { PrismaService } from "../../../common/prisma/prisma.service";
 import {
   CreateProjectDto,
   UpdateProjectDto,
@@ -45,6 +46,7 @@ export class AiWritingController {
     private readonly consistencyEngine: ConsistencyEngineService,
     private readonly parallelOrchestrator: ParallelOrchestratorService,
     private readonly writingMissionService: WritingMissionService,
+    private readonly prisma: PrismaService,
   ) {
     void this.logger;
     void this.aiWritingService;
@@ -279,6 +281,21 @@ export class AiWritingController {
       `Starting AI writing mission for project ${projectId}: ${dto.missionType || "full_story"}`,
     );
 
+    // 如果指定了章节号，查找对应的章节 ID
+    let chapterId: string | undefined;
+    if (dto.chapterNumber) {
+      const chapter = await this.prisma.writingChapter.findFirst({
+        where: {
+          volume: { projectId },
+          chapterNumber: dto.chapterNumber,
+        },
+        select: { id: true },
+      });
+      if (chapter) {
+        chapterId = chapter.id;
+      }
+    }
+
     // 启动写作任务并获取 missionId
     const missionInfo = await this.writingMissionService.startMissionAsync(
       {
@@ -287,6 +304,7 @@ export class AiWritingController {
         userPrompt: dto.prompt,
         targetWordCount: dto.targetWordCount,
         additionalInstructions: dto.additionalInstructions,
+        chapterId,
       },
       req.user.id,
     );

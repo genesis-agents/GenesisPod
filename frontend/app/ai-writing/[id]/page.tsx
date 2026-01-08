@@ -13,7 +13,8 @@ import {
   type AgentWorkingData,
   type MissionProgressData,
 } from '@/hooks/useWritingWebSocket';
-import type { Chapter } from '@/lib/api/ai-writing';
+import type { Chapter, MissionLogItem } from '@/lib/api/ai-writing';
+import { getMissionLogs, getProjectMissions } from '@/lib/api/ai-writing';
 
 // Dynamic import for Canvas component
 const WritingCanvas = dynamic(
@@ -629,6 +630,90 @@ export default function WritingProjectPage() {
     checkRunningMission,
   ]);
 
+  // Load mission logs from database when entering project
+  useEffect(() => {
+    const loadMissionLogs = async () => {
+      if (!user || !projectId) return;
+
+      try {
+        // 获取项目的任务列表
+        const { items: missions } = await getProjectMissions(projectId);
+        if (!missions || missions.length === 0) return;
+
+        // 找到最近的任务
+        const latestMission = missions.sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0).getTime();
+          const dateB = new Date(b.createdAt || 0).getTime();
+          return dateB - dateA;
+        })[0];
+
+        if (!latestMission?.id) return;
+
+        // 获取该任务的日志
+        const { items: logs } = await getMissionLogs(latestMission.id, 100);
+        if (!logs || logs.length === 0) return;
+
+        // 转换日志为 taskMessages 格式
+        type TaskMessage = {
+          id: string;
+          type: 'user' | 'system' | 'agent' | 'progress';
+          content: string;
+          agent?: string;
+          timestamp: Date;
+          detail?: {
+            type: 'chapter_content' | 'issues' | 'world_settings' | 'text';
+            data:
+              | string
+              | Array<{
+                  type: string;
+                  severity: string;
+                  description: string;
+                  suggestion?: string;
+                }>
+              | Record<string, unknown>;
+          };
+        };
+
+        const messages: TaskMessage[] = logs.map((log: MissionLogItem) => {
+          const msgType = log.eventType.includes('system')
+            ? 'system'
+            : log.eventType.includes('progress')
+              ? 'progress'
+              : 'agent';
+
+          return {
+            id: log.id,
+            type: msgType as 'user' | 'system' | 'agent' | 'progress',
+            content: log.content,
+            agent: log.agentName,
+            timestamp: new Date(log.createdAt),
+            detail: log.detail
+              ? {
+                  type: (log.detail as { type?: string }).type as
+                    | 'chapter_content'
+                    | 'issues'
+                    | 'world_settings'
+                    | 'text',
+                  data: (log.detail as { data?: unknown }).data as
+                    | string
+                    | Record<string, unknown>,
+                }
+              : undefined,
+          };
+        });
+
+        // 只有当 taskMessages 为空时才加载历史日志
+        if (messages.length > 0) {
+          setTaskMessages((prev) => (prev.length === 0 ? messages : prev));
+        }
+      } catch (error) {
+        console.error('Failed to load mission logs:', error);
+      }
+    };
+
+    void loadMissionLogs();
+  }, [user, projectId]);
+
   // Keep selectedChapter in sync with volumes data (for content updates during mission)
   useEffect(() => {
     if (selectedChapter) {
@@ -740,11 +825,37 @@ export default function WritingProjectPage() {
 
   const handleContinueWriting = async () => {
     if (!currentProject) return;
+
+    // 找到第一个未写内容的章节
+    const unwrittenChapter = allChapters.find(
+      (ch) => !ch.content || ch.wordCount === 0
+    );
+
     try {
-      await startMission(projectId, {
-        prompt: userInput || '继续写作下一章',
-        missionType: 'chapter',
-      });
+      if (unwrittenChapter) {
+        // 有未写章节，继续写这一章
+        await startMission(projectId, {
+          prompt:
+            userInput ||
+            `继续写作第${unwrittenChapter.chapterNumber}章「${unwrittenChapter.title}」`,
+          missionType: 'chapter',
+          chapterNumber: unwrittenChapter.chapterNumber,
+        });
+      } else if (allChapters.length > 0) {
+        // 所有章节都写完了，但可能还没达到目标字数，继续扩展
+        await startMission(projectId, {
+          prompt: userInput || '继续扩展故事内容',
+          missionType: 'full_story',
+          targetWordCount: currentProject.targetWords,
+        });
+      } else {
+        // 没有任何章节，开始全新创作
+        await startMission(projectId, {
+          prompt: userInput || '开始创作故事',
+          missionType: 'full_story',
+          targetWordCount: currentProject.targetWords,
+        });
+      }
       setUserInput('');
     } catch {
       // Error handled by store

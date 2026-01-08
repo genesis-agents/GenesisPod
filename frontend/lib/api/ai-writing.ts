@@ -82,6 +82,8 @@ export interface WritingMission {
   status: 'pending' | 'running' | 'completed' | 'failed';
   progress?: number;
   result?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreateProjectDto {
