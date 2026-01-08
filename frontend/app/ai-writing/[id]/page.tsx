@@ -430,13 +430,15 @@ export default function WritingProjectPage() {
         {/* Main Content */}
         <div className="flex flex-1 gap-4 overflow-hidden p-4">
           {/* Left: Embedded Canvas */}
-          <div className="flex w-96 shrink-0 flex-col rounded-2xl border border-gray-100 bg-gradient-to-br from-slate-50 via-white to-violet-50 shadow-sm">
+          <div className="flex w-80 shrink-0 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-gradient-to-br from-slate-50 via-white to-violet-50 shadow-sm">
             {/* Canvas Header */}
-            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-3 py-2">
               <div className="flex items-center gap-2">
-                <h2 className="font-semibold text-gray-800">AI 写作团队</h2>
+                <h2 className="text-sm font-semibold text-gray-800">
+                  AI 写作团队
+                </h2>
                 <span
-                  className={`rounded px-2 py-0.5 text-xs font-medium ${
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
                     isMissionRunning
                       ? 'bg-green-100 text-green-700'
                       : missionCompleted
@@ -454,16 +456,16 @@ export default function WritingProjectPage() {
             </div>
 
             {/* Tree Visualization */}
-            <div className="relative overflow-hidden">
+            <div className="relative shrink-0 overflow-hidden">
               {/* Current Step */}
-              <div className="mt-2 text-center">
+              <div className="py-1 text-center">
                 <p className="line-clamp-1 px-2 text-xs text-slate-500">
                   {missionMessage || '等待任务开始...'}
                 </p>
               </div>
 
               {/* Agent Tree - Two Rows */}
-              <div className="relative mx-auto mt-1 px-2 pb-3">
+              <div className="relative mx-auto px-2 pb-2">
                 {/* SVG Lines - use viewBox for proper scaling */}
                 <svg
                   className="pointer-events-none absolute inset-0 h-full w-full"
@@ -530,12 +532,12 @@ export default function WritingProjectPage() {
                       onClick={() => setSelectedAgent('architect')}
                     >
                       <div
-                        className={`text-lg transition-transform duration-300 ${isArchitectActive ? 'scale-125' : ''}`}
+                        className={`text-sm transition-transform duration-300 ${isArchitectActive ? 'scale-110' : ''}`}
                       >
                         👑
                       </div>
                       <div
-                        className={`flex h-14 w-14 items-center justify-center rounded-full text-xl transition-all duration-300 hover:ring-2 hover:ring-violet-300 ${
+                        className={`flex h-10 w-10 items-center justify-center rounded-full text-base transition-all duration-300 hover:ring-2 hover:ring-violet-300 ${
                           isArchitectActive
                             ? 'agent-glow-violet scale-110 bg-gradient-to-br from-violet-400 to-violet-600'
                             : missionCompleted
@@ -545,24 +547,19 @@ export default function WritingProjectPage() {
                       >
                         <span className="text-white drop-shadow-md">📐</span>
                       </div>
-                      <div className="mt-1 text-center">
+                      <div className="text-center">
                         <div
-                          className={`text-xs font-medium transition-colors ${isArchitectActive ? 'text-violet-600' : 'text-slate-700'}`}
+                          className={`text-[10px] font-medium transition-colors ${isArchitectActive ? 'text-violet-600' : 'text-slate-700'}`}
                         >
                           架构师
                         </div>
-                        {isArchitectActive && (
-                          <div className="animate-pulse text-[10px] text-violet-500">
-                            工作中
-                          </div>
-                        )}
                       </div>
                     </div>
                   );
                 })()}
 
                 {/* First Row: 守护者 + 3个作家 */}
-                <div className="relative z-10 mt-3 flex justify-around">
+                <div className="relative z-10 mt-2 flex justify-around">
                   {[
                     {
                       id: 'keeper',
@@ -616,9 +613,9 @@ export default function WritingProjectPage() {
                         onClick={() => setSelectedAgent(agent.id)}
                       >
                         <div
-                          className={`flex h-11 w-11 items-center justify-center rounded-full text-base transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
+                          className={`flex h-9 w-9 items-center justify-center rounded-full text-sm transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
                             isActive
-                              ? `${agent.glowClass} scale-125 bg-gradient-to-br ${agent.gradient}`
+                              ? `${agent.glowClass} scale-110 bg-gradient-to-br ${agent.gradient}`
                               : missionCompleted
                                 ? `${agent.bgColor} shadow-md ring-2 ring-green-300`
                                 : `${agent.bgColor} shadow-md`
@@ -628,19 +625,12 @@ export default function WritingProjectPage() {
                             {agent.icon}
                           </span>
                         </div>
-                        <div className={`mt-1 text-center`}>
+                        <div className="text-center">
                           <div
-                            className={`text-xs ${isActive ? `font-semibold ${agent.textColor}` : 'text-slate-600'}`}
+                            className={`text-[10px] ${isActive ? `font-semibold ${agent.textColor}` : 'text-slate-600'}`}
                           >
                             {agent.name}
                           </div>
-                          {isActive && (
-                            <div
-                              className={`text-[10px] ${agent.textColor} animate-pulse`}
-                            >
-                              工作中
-                            </div>
-                          )}
                         </div>
                       </div>
                     );
@@ -648,7 +638,7 @@ export default function WritingProjectPage() {
                 </div>
 
                 {/* Second Row: 2个检查员 + 编辑 */}
-                <div className="relative z-10 mt-4 flex justify-around px-4">
+                <div className="relative z-10 mt-2 flex justify-around px-4">
                   {[
                     {
                       id: 'checker-1',
@@ -692,9 +682,9 @@ export default function WritingProjectPage() {
                         onClick={() => setSelectedAgent(agent.id)}
                       >
                         <div
-                          className={`flex h-11 w-11 items-center justify-center rounded-full text-base transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
+                          className={`flex h-9 w-9 items-center justify-center rounded-full text-sm transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
                             isActive
-                              ? `${agent.glowClass} scale-125 bg-gradient-to-br ${agent.gradient}`
+                              ? `${agent.glowClass} scale-110 bg-gradient-to-br ${agent.gradient}`
                               : missionCompleted
                                 ? `${agent.bgColor} shadow-md ring-2 ring-green-300`
                                 : `${agent.bgColor} shadow-md`
@@ -704,19 +694,12 @@ export default function WritingProjectPage() {
                             {agent.icon}
                           </span>
                         </div>
-                        <div className={`mt-1 text-center`}>
+                        <div className="text-center">
                           <div
-                            className={`text-xs ${isActive ? `font-semibold ${agent.textColor}` : 'text-slate-600'}`}
+                            className={`text-[10px] ${isActive ? `font-semibold ${agent.textColor}` : 'text-slate-600'}`}
                           >
                             {agent.name}
                           </div>
-                          {isActive && (
-                            <div
-                              className={`text-[10px] ${agent.textColor} animate-pulse`}
-                            >
-                              工作中
-                            </div>
-                          )}
                         </div>
                       </div>
                     );
@@ -725,9 +708,9 @@ export default function WritingProjectPage() {
               </div>
             </div>
 
-            {/* Progress Steps - Below the agent diagram, always visible */}
-            <div className="mx-4 mb-4 flex-1 rounded-xl bg-slate-50 p-4">
-              <div className="space-y-3">
+            {/* Progress Steps - Scrollable area */}
+            <div className="mx-3 mb-3 min-h-0 flex-1 overflow-auto rounded-lg bg-slate-50 p-3">
+              <div className="space-y-2">
                 {[
                   {
                     id: 'architect',
@@ -768,9 +751,9 @@ export default function WritingProjectPage() {
                   const isDone =
                     missionProgress >= stepThreshold && !isStepActive;
                   return (
-                    <div key={step.id} className="flex items-center gap-3">
+                    <div key={step.id} className="flex items-center gap-2">
                       <div
-                        className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-all ${
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs transition-all ${
                           isStepActive
                             ? 'animate-pulse bg-amber-500 text-white ring-2 ring-amber-200'
                             : isDone
@@ -781,7 +764,7 @@ export default function WritingProjectPage() {
                         {isDone ? '✓' : step.icon}
                       </div>
                       <span
-                        className={`text-sm ${
+                        className={`text-xs ${
                           isStepActive
                             ? 'font-medium text-amber-700'
                             : isDone
@@ -791,7 +774,7 @@ export default function WritingProjectPage() {
                       >
                         {step.label}
                         {isStepActive && (
-                          <span className="ml-1 text-amber-500">进行中...</span>
+                          <span className="ml-1 text-amber-500">...</span>
                         )}
                       </span>
                     </div>
@@ -799,14 +782,14 @@ export default function WritingProjectPage() {
                 })}
               </div>
               {/* Progress Bar */}
-              <div className="mt-4">
-                <div className="mb-1.5 flex justify-between text-sm text-slate-500">
+              <div className="mt-3">
+                <div className="mb-1 flex justify-between text-xs text-slate-500">
                   <span>整体进度</span>
                   <span className="font-semibold text-amber-600">
                     {Math.round(missionProgress)}%
                   </span>
                 </div>
-                <div className="h-3 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-2 overflow-hidden rounded-full bg-slate-200">
                   <div
                     className={`h-full transition-all duration-500 ${
                       missionCompleted
@@ -819,12 +802,12 @@ export default function WritingProjectPage() {
               </div>
             </div>
 
-            {/* Action Buttons - Like AI Teams Canvas */}
-            <div className="flex items-center justify-center gap-2 border-t border-gray-100 bg-white/80 px-4 py-3">
+            {/* Action Buttons */}
+            <div className="flex shrink-0 items-center justify-center gap-2 border-t border-gray-100 bg-white/80 px-3 py-2">
               <button
                 onClick={handleStartWriting}
                 disabled={isMissionRunning}
-                className="flex items-center gap-1.5 rounded-lg bg-violet-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center gap-1 rounded-md bg-violet-500 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span>+</span>
                 创建任务
@@ -832,13 +815,13 @@ export default function WritingProjectPage() {
               <button
                 onClick={handleContinueWriting}
                 disabled={isMissionRunning || allChapters.length === 0}
-                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 继续任务
               </button>
               <button
                 disabled={!isMissionRunning}
-                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 取消任务
               </button>
