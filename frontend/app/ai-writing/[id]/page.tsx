@@ -245,6 +245,21 @@ export default function WritingProjectPage() {
     }
   }, [user, projectId, fetchProject, fetchVolumes, fetchStoryBible]);
 
+  // Keep selectedChapter in sync with volumes data (for content updates during mission)
+  useEffect(() => {
+    if (selectedChapter) {
+      const updatedChapter = volumes
+        .flatMap((v) => v.chapters || [])
+        .find((c) => c.id === selectedChapter.id);
+      if (
+        updatedChapter &&
+        updatedChapter.content !== selectedChapter.content
+      ) {
+        setSelectedChapter(updatedChapter);
+      }
+    }
+  }, [volumes, selectedChapter]);
+
   // Track mission messages and add to task details
   useEffect(() => {
     if (missionMessage && missionMessage !== lastMissionMessageRef.current) {
@@ -574,14 +589,15 @@ export default function WritingProjectPage() {
 
               {/* Agent Hierarchy - Professional Grid Layout */}
               <div className="relative">
-                {/* SVG Connection Lines - using viewBox for responsive scaling */}
+                {/* SVG Connection Lines - Star Topology (all agents connect to Leader) */}
                 <svg
                   className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
                   viewBox="0 0 272 200"
                   preserveAspectRatio="xMidYMid meet"
                   style={{ zIndex: 0 }}
                 >
-                  {/* Leader (center: 136) to Row 1 (4 agents at ~30, 100, 172, 242) */}
+                  {/* Leader (center: 136, y: 55) connects to ALL agents */}
+                  {/* Row 1 agents: keeper(30), writer-1(100), writer-2(172), writer-3(242) at y=95 */}
                   {[30, 100, 172, 242].map((x, i) => (
                     <path
                       key={`l2r1-${i}`}
@@ -598,16 +614,12 @@ export default function WritingProjectPage() {
                       }
                     />
                   ))}
-                  {/* Row 1 to Row 2: writers to checkers/editor */}
-                  {/* Writer1(100) -> Checker1(68), Writer2(172) -> Checker2(136), Writer3(242) -> Editor(204) */}
-                  {[
-                    [100, 68],
-                    [172, 136],
-                    [172, 204],
-                  ].map(([from, to], i) => (
+                  {/* Row 2 agents: checker-1(68), checker-2(136), editor(204) at y=175 */}
+                  {/* All connect directly to Leader (star topology) */}
+                  {[68, 136, 204].map((x, i) => (
                     <path
-                      key={`r1r2-${i}`}
-                      d={`M ${from} 135 Q ${(from + to) / 2} 155 ${to} 175`}
+                      key={`l2r2-${i}`}
+                      d={`M 136 55 Q ${136 + (x - 136) / 3} 115 ${x} 175`}
                       fill="none"
                       stroke={
                         missionCompleted || isMissionRunning
@@ -966,7 +978,7 @@ export default function WritingProjectPage() {
                         : 'text-gray-500 hover:bg-gray-100'
                     }`}
                   >
-                    💬 任务详情
+                    💬 Team交互区
                     {taskMessages.length > 0 && (
                       <span className="ml-1 text-xs">
                         ({taskMessages.length})
@@ -1228,10 +1240,10 @@ export default function WritingProjectPage() {
                       <div className="flex flex-1 flex-col items-center justify-center py-12 text-center">
                         <span className="mb-4 text-4xl">💬</span>
                         <h3 className="mb-2 text-lg font-semibold text-gray-800">
-                          暂无任务记录
+                          暂无交互记录
                         </h3>
                         <p className="text-sm text-gray-500">
-                          开始创作后，这里将显示 AI 团队的工作详情
+                          开始创作后，这里将显示 AI 团队的协作交互详情
                         </p>
                       </div>
                     ) : (
@@ -1288,10 +1300,13 @@ export default function WritingProjectPage() {
                                       : msg.agent || 'AI 团队'}
                               </span>
                               <span className="text-[10px] text-gray-400">
-                                {msg.timestamp.toLocaleTimeString('zh-CN', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
+                                {new Date(msg.timestamp).toLocaleTimeString(
+                                  'zh-CN',
+                                  {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  }
+                                )}
                               </span>
                             </div>
                             {/* Message Content */}
