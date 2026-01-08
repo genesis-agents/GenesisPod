@@ -433,4 +433,61 @@ export class AiWritingController {
 
     return project;
   }
+
+  // ==================== Admin: Reset Chapter Content ====================
+
+  /**
+   * 重置指定章节的内容（用于修复数据损坏）
+   * 将章节内容清空，使其变为"待写"状态，续写时会重新生成
+   */
+  @Post("projects/:projectId/reset-chapters")
+  async resetChapterContent(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+    @Body()
+    dto: {
+      /** 要重置的章节号列表 */
+      chapterNumbers: number[];
+    },
+  ) {
+    this.logger.log(
+      `Resetting chapters ${dto.chapterNumbers.join(", ")} for project ${projectId}`,
+    );
+
+    // 验证项目所有权
+    await this.projectService.findOne(projectId, req.user.id);
+
+    // 重置指定章节的内容
+    const result = await this.prisma.writingChapter.updateMany({
+      where: {
+        volume: { projectId },
+        chapterNumber: { in: dto.chapterNumbers },
+      },
+      data: {
+        content: "",
+        wordCount: 0,
+        status: "PLANNED",
+      },
+    });
+
+    // 更新项目字数统计
+    const totalWords = await this.prisma.writingChapter.aggregate({
+      where: { volume: { projectId } },
+      _sum: { wordCount: true },
+    });
+
+    await this.prisma.writingProject.update({
+      where: { id: projectId },
+      data: { currentWords: totalWords._sum.wordCount || 0 },
+    });
+
+    this.logger.log(`Reset ${result.count} chapters`);
+
+    return {
+      success: true,
+      resetCount: result.count,
+      chapterNumbers: dto.chapterNumbers,
+      message: `已重置 ${result.count} 个章节，使用"继续创作"可重新生成内容`,
+    };
+  }
 }
