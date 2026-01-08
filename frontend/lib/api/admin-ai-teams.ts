@@ -179,7 +179,7 @@ export interface WorkStyleInfo {
  * Create a new AI team template
  */
 export async function createTeam(dto: CreateTeamDto): Promise<AITeamTemplate> {
-  return apiClient.post('/api/v1/admin/ai-teams', dto);
+  return apiClient.post('/admin/ai-teams', dto);
 }
 
 /**
@@ -197,14 +197,14 @@ export async function getTeams(options?: {
     params.set('includeMembers', String(options.includeMembers));
   }
   const query = params.toString();
-  return apiClient.get(`/api/v1/admin/ai-teams${query ? `?${query}` : ''}`);
+  return apiClient.get(`/admin/ai-teams${query ? `?${query}` : ''}`);
 }
 
 /**
  * Get a single AI team template by ID
  */
 export async function getTeam(id: string): Promise<AITeamTemplate> {
-  return apiClient.get(`/api/v1/admin/ai-teams/${id}`);
+  return apiClient.get(`/admin/ai-teams/${id}`);
 }
 
 /**
@@ -214,7 +214,7 @@ export async function updateTeam(
   id: string,
   dto: UpdateTeamDto
 ): Promise<AITeamTemplate> {
-  return apiClient.patch(`/api/v1/admin/ai-teams/${id}`, dto);
+  return apiClient.patch(`/admin/ai-teams/${id}`, dto);
 }
 
 /**
@@ -223,7 +223,7 @@ export async function updateTeam(
 export async function deleteTeam(
   id: string
 ): Promise<{ success: boolean; message: string }> {
-  return apiClient.delete(`/api/v1/admin/ai-teams/${id}`);
+  return apiClient.delete(`/admin/ai-teams/${id}`);
 }
 
 // ==================== Member API ====================
@@ -235,7 +235,7 @@ export async function addMember(
   teamId: string,
   dto: CreateTeamMemberDto
 ): Promise<AITeamMemberTemplate> {
-  return apiClient.post(`/api/v1/admin/ai-teams/${teamId}/members`, dto);
+  return apiClient.post(`/admin/ai-teams/${teamId}/members`, dto);
 }
 
 /**
@@ -245,7 +245,7 @@ export async function updateMember(
   memberId: string,
   dto: UpdateTeamMemberDto
 ): Promise<AITeamMemberTemplate> {
-  return apiClient.patch(`/api/v1/admin/ai-teams/members/${memberId}`, dto);
+  return apiClient.patch(`/admin/ai-teams/members/${memberId}`, dto);
 }
 
 /**
@@ -254,7 +254,7 @@ export async function updateMember(
 export async function deleteMember(
   memberId: string
 ): Promise<{ success: boolean; message: string }> {
-  return apiClient.delete(`/api/v1/admin/ai-teams/members/${memberId}`);
+  return apiClient.delete(`/admin/ai-teams/members/${memberId}`);
 }
 
 /**
@@ -264,7 +264,7 @@ export async function reorderMembers(
   teamId: string,
   memberIds: string[]
 ): Promise<AITeamTemplate> {
-  return apiClient.post(`/api/v1/admin/ai-teams/${teamId}/reorder`, {
+  return apiClient.post(`/admin/ai-teams/${teamId}/reorder`, {
     memberIds,
   });
 }
@@ -275,7 +275,7 @@ export async function reorderMembers(
  * Get available built-in tools
  */
 export async function getAvailableTools(): Promise<{ builtIn: ToolInfo[] }> {
-  return apiClient.get('/api/v1/admin/ai-teams/tools');
+  return apiClient.get('/admin/ai-teams/tools');
 }
 
 /**
@@ -284,7 +284,7 @@ export async function getAvailableTools(): Promise<{ builtIn: ToolInfo[] }> {
 export async function getAvailableSkills(): Promise<
   Record<string, SkillInfo[]>
 > {
-  return apiClient.get('/api/v1/admin/ai-teams/skills');
+  return apiClient.get('/admin/ai-teams/skills');
 }
 
 /**
@@ -294,14 +294,14 @@ export async function getBuiltInRoles(): Promise<{
   leaders: RoleInfo[];
   members: RoleInfo[];
 }> {
-  return apiClient.get('/api/v1/admin/ai-teams/roles');
+  return apiClient.get('/admin/ai-teams/roles');
 }
 
 /**
  * Get available work styles
  */
 export async function getWorkStyles(): Promise<WorkStyleInfo[]> {
-  return apiClient.get('/api/v1/admin/ai-teams/work-styles');
+  return apiClient.get('/admin/ai-teams/work-styles');
 }
 
 // ==================== Public API (for apps) ====================
@@ -313,12 +313,12 @@ export async function getActiveTemplates(
   category?: string
 ): Promise<AITeamTemplate[]> {
   const params = category ? `?category=${category}` : '';
-  return apiClient.get(`/api/v1/ai-teams/templates${params}`);
+  return apiClient.get(`/ai-teams/templates${params}`);
 }
 
 /**
  * Get a team template by ID (public)
  */
 export async function getTemplateById(id: string): Promise<AITeamTemplate> {
-  return apiClient.get(`/api/v1/ai-teams/templates/${id}`);
+  return apiClient.get(`/ai-teams/templates/${id}`);
 }
