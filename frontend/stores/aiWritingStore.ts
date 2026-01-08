@@ -332,19 +332,71 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
   // ==================== AI Mission ====================
 
   startMission: async (projectId: string, dto: StartMissionDto) => {
+    const { fetchVolumes } = get();
+
     set({
       isMissionRunning: true,
       missionProgress: 0,
-      missionMessage: 'Starting...',
+      missionMessage: '启动写作任务...',
       error: null,
     });
     try {
-      const result = await api.startMission(projectId, dto);
-      set({
-        missionMessage: result.message,
-        // Mission runs async, so we're done here
-        isMissionRunning: false,
-      });
+      await api.startMission(projectId, dto);
+
+      // Mission runs async on backend - keep UI showing progress
+      // Simulate progress while waiting for backend to complete
+      set({ missionMessage: 'AI 团队正在协作中...' });
+
+      // Poll for completion by checking if volumes/chapters have been created
+      // Do this for up to 60 seconds (check every 3 seconds)
+      let attempts = 0;
+      const maxAttempts = 20;
+      const pollInterval = 3000;
+
+      const pollForCompletion = async () => {
+        while (attempts < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+          attempts++;
+
+          // Update progress message based on attempts
+          const progress = Math.min(95, (attempts / maxAttempts) * 100);
+          const messages = [
+            '分析故事结构...',
+            '规划章节大纲...',
+            '生成内容中...',
+            '检查一致性...',
+            '润色文字...',
+          ];
+          const messageIndex = Math.min(
+            Math.floor(progress / 20),
+            messages.length - 1
+          );
+          set({
+            missionProgress: progress,
+            missionMessage: messages[messageIndex],
+          });
+
+          // Refresh volumes to check if anything new was created
+          try {
+            await fetchVolumes(projectId);
+          } catch {
+            // Ignore errors during polling
+          }
+        }
+
+        // After max attempts, mark as done
+        set({
+          isMissionRunning: false,
+          missionProgress: 100,
+          missionMessage: '任务完成',
+        });
+
+        // Final refresh
+        await fetchVolumes(projectId);
+      };
+
+      // Start polling in background
+      void pollForCompletion();
     } catch (err) {
       set({
         error: (err as Error).message,
