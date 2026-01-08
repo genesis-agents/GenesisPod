@@ -343,92 +343,163 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
       missionProgress: 0,
       missionMessage: '启动写作任务...',
       missionCompleted: false,
-      activeAgentIds: [],
+      activeAgentIds: ['architect'],
       error: null,
     });
+
     try {
-      await api.startMission(projectId, dto);
+      // 调用 API 启动任务，获取 missionId
+      const response = await api.startMission(projectId, dto);
+      const missionId = response.missionId;
 
-      // Mission runs async on backend
-      // 5 phases with different active agents (Leader decides at runtime)
-      // Phase 0: architect (alone) - planning
-      // Phase 1: keeper (alone) - world building
-      // Phase 2: writer-1, writer-2, writer-3 (parallel) - writing
-      // Phase 3: checker-1, checker-2 (parallel) - checking
-      // Phase 4: editor (alone) - polishing
-      const phases = [
-        { agents: ['architect'], message: '故事架构师正在规划故事结构...' },
-        { agents: ['keeper'], message: '设定守护者正在建立世界观...' },
+      if (!missionId) {
+        throw new Error('未获取到任务ID');
+      }
+
+      // 阶段映射：根据后端步骤确定当前阶段
+      const stepToPhase: Record<string, { agents: string[]; message: string }> =
         {
-          agents: ['writer-1', 'writer-2', 'writer-3'],
-          message: '作家团队正在并行创作内容...',
-        },
-        {
-          agents: ['checker-1', 'checker-2'],
-          message: '检查员团队正在校验一致性...',
-        },
-        { agents: ['editor'], message: '润色编辑正在打磨文字...' },
-      ];
+          plan: {
+            agents: ['architect'],
+            message: '故事架构师正在规划故事结构...',
+          },
+          'context-injection': {
+            agents: ['keeper'],
+            message: '设定守护者正在建立世界观...',
+          },
+          write: {
+            agents: ['writer-1', 'writer-2', 'writer-3'],
+            message: '作家团队正在并行创作内容...',
+          },
+          check: {
+            agents: ['checker-1', 'checker-2'],
+            message: '检查员团队正在校验一致性...',
+          },
+          edit: { agents: ['editor'], message: '润色编辑正在打磨文字...' },
+          review: {
+            agents: ['architect'],
+            message: '故事架构师正在最终审核...',
+          },
+        };
 
-      // Poll for completion - each phase takes ~12 seconds (60s total / 5 phases)
-      let currentPhase = 0;
-      const phaseDuration = 12000; // 12 seconds per phase
-      const tickInterval = 1000; // Update every 1 second
-      let elapsed = 0;
+      // 轮询后端获取真实状态
+      const pollInterval = 2000; // 2秒轮询一次
+      const maxPolls = 180; // 最多轮询6分钟（180次 × 2秒）
+      let pollCount = 0;
 
-      const pollForCompletion = async () => {
-        while (currentPhase < 5) {
-          await new Promise((resolve) => setTimeout(resolve, tickInterval));
-          elapsed += tickInterval;
+      const pollForStatus = async () => {
+        while (pollCount < maxPolls) {
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+          pollCount++;
 
-          // Calculate which phase is active based on elapsed time
-          currentPhase = Math.min(4, Math.floor(elapsed / phaseDuration));
+          try {
+            const status = await api.getMissionStatus(missionId);
 
-          // Calculate overall progress
-          const phaseProgress = (elapsed % phaseDuration) / phaseDuration;
-          const overallProgress = Math.min(
-            95,
-            currentPhase * 20 + phaseProgress * 20
-          );
+            // 根据 orchestratorState 更新 UI
+            if (status.orchestratorState) {
+              const { phase, completedSteps, currentSteps, progress } =
+                status.orchestratorState;
 
-          set({
-            activeAgentIds: phases[currentPhase].agents,
-            missionProgress: overallProgress,
-            missionMessage: phases[currentPhase].message,
-          });
+              // 确定当前活跃的 agents
+              let activeAgents: string[] = [];
+              let message = '处理中...';
 
-          // Refresh volumes periodically (every 10 seconds)
-          if (elapsed % 10000 === 0) {
-            try {
-              await fetchVolumes(projectId);
-            } catch {
-              // Ignore errors during polling
+              if (currentSteps.length > 0) {
+                const currentStep = currentSteps[0];
+                const phaseInfo = stepToPhase[currentStep];
+                if (phaseInfo) {
+                  activeAgents = phaseInfo.agents;
+                  message = phaseInfo.message;
+                }
+              } else if (completedSteps.length > 0) {
+                // 所有步骤完成，显示最后一个
+                const lastStep = completedSteps[completedSteps.length - 1];
+                const phaseInfo = stepToPhase[lastStep];
+                if (phaseInfo) {
+                  message = `${phaseInfo.message.replace('正在', '已完成')}`;
+                }
+              }
+
+              set({
+                activeAgentIds: activeAgents,
+                missionProgress: Math.min(
+                  95,
+                  progress || (completedSteps.length / 6) * 100
+                ),
+                missionMessage: message,
+              });
+            } else if (status.result?.progress !== undefined) {
+              // 从 result 中获取进度
+              set({
+                missionProgress: Math.min(95, status.result.progress),
+                missionMessage: status.result.currentStep || '处理中...',
+              });
             }
+
+            // 检查是否完成
+            if (status.status === 'COMPLETED') {
+              set({
+                isMissionRunning: false,
+                missionProgress: 100,
+                missionMessage: '创作完成！',
+                missionCompleted: true,
+                activeAgentIds: [],
+              });
+
+              // 刷新数据
+              await fetchVolumes(projectId);
+              await fetchProject(projectId);
+              return;
+            }
+
+            // 检查是否失败
+            if (status.status === 'FAILED') {
+              const errorMsg = status.result?.error || '任务执行失败';
+              set({
+                isMissionRunning: false,
+                missionProgress: 0,
+                missionMessage: '',
+                missionCompleted: false,
+                activeAgentIds: [],
+                error: errorMsg,
+              });
+              return;
+            }
+
+            // 每 10 秒刷新一次内容（检查是否有新章节）
+            if (pollCount % 5 === 0) {
+              try {
+                await fetchVolumes(projectId);
+              } catch {
+                // Ignore errors during polling
+              }
+            }
+          } catch (err) {
+            console.warn('轮询状态失败:', err);
+            // 继续轮询，不中断
           }
         }
 
-        // Mark as completed - all agents done
+        // 超时处理
         set({
           isMissionRunning: false,
-          missionProgress: 100,
-          missionMessage: '创作完成！',
-          missionCompleted: true,
+          missionProgress: 0,
+          missionMessage: '',
+          missionCompleted: false,
           activeAgentIds: [],
+          error: '任务超时，请刷新页面查看结果',
         });
-
-        // Final refresh
-        await fetchVolumes(projectId);
-        await fetchProject(projectId);
       };
 
-      // Start polling in background
-      void pollForCompletion();
+      // 开始轮询
+      void pollForStatus();
     } catch (err) {
       set({
         error: (err as Error).message,
         isMissionRunning: false,
         missionMessage: '',
         missionCompleted: false,
+        activeAgentIds: [],
       });
       throw err;
     }

@@ -270,8 +270,8 @@ export class AiWritingController {
       `Starting AI writing mission for project ${projectId}: ${dto.missionType || "full_story"}`,
     );
 
-    // 异步执行写作任务，立即返回任务 ID
-    const missionGenerator = this.writingMissionService.execute(
+    // 启动写作任务并获取 missionId
+    const missionInfo = await this.writingMissionService.startMissionAsync(
       {
         projectId,
         missionType: dto.missionType || "full_story",
@@ -282,31 +282,13 @@ export class AiWritingController {
       req.user.id,
     );
 
-    // 启动异步执行（不等待完成）
-    const runMission = async () => {
-      try {
-        let lastEvent = null;
-        for await (const event of missionGenerator) {
-          lastEvent = event;
-          this.logger.debug(`Mission event: ${event.type}`);
-        }
-        return lastEvent;
-      } catch (error) {
-        this.logger.error(`Mission failed: ${(error as Error).message}`);
-        throw error;
-      }
-    };
-
-    // 开始执行但不等待
-    void runMission();
-
-    // 返回任务已启动的信息
+    // 返回任务已启动的信息（包含 missionId 用于轮询）
     return {
       success: true,
       message: "AI writing mission started",
       projectId,
+      missionId: missionInfo.missionId,
       missionType: dto.missionType || "full_story",
-      // 可以通过 GET /missions/:id 查询状态
     };
   }
 
@@ -339,12 +321,11 @@ export class AiWritingController {
   async getProjectMissions(
     @Request() req: any,
     @Param("projectId") projectId: string,
-    @Query("status") _status?: string,
+    @Query("status") status?: string,
   ) {
     // 先验证项目权限
     await this.projectService.findOne(projectId, req.user.id);
 
-    // TODO: 实现按状态过滤
-    return { items: [], total: 0 };
+    return this.writingMissionService.getProjectMissions(projectId, status);
   }
 }

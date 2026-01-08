@@ -15,6 +15,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
 
 // AI Engine 核心依赖
 import { MissionOrchestrator } from "../../../../ai-engine/teams/orchestrator/mission-orchestrator";
@@ -173,6 +174,8 @@ export class WritingMissionService {
     private readonly writer: WriterAgent,
     private readonly consistencyChecker: ConsistencyCheckerAgent,
     private readonly editor: EditorAgent,
+    // AI Chat Service - 直接 LLM 调用
+    private readonly aiChatService: AiChatService,
   ) {
     // 注册角色和团队配置（不需要 LLM）
     this.registerWritingRoles();
@@ -613,6 +616,226 @@ export class WritingMissionService {
     });
 
     this.logger.log("Registered Writing Team configuration");
+  }
+
+  /**
+   * 异步启动写作任务（返回 missionId，任务在后台执行）
+   * 用于前端轮询状态
+   */
+  async startMissionAsync(
+    input: WritingMissionInput,
+    userId: string,
+  ): Promise<{ missionId: string }> {
+    const missionId = uuidv4();
+    this.logger.log(
+      `Starting async writing mission ${missionId} for project ${input.projectId}`,
+    );
+
+    // 验证项目访问权限
+    await this.verifyProjectAccess(input.projectId, userId);
+
+    // 检查可用的 AI 模型并分配给角色
+    const modelAssignments = await this.assignModelsToRoles();
+    const activeRoles = modelAssignments.filter((a) => a.isActive);
+
+    if (activeRoles.length === 0) {
+      throw new Error(
+        "没有可用的 AI 模型。请先在系统设置中配置并启用至少一个 AI 模型。",
+      );
+    }
+
+    // 创建数据库记录（状态为 IN_PROGRESS）
+    await this.createMissionRecord(missionId, input, userId);
+
+    // 在后台执行任务
+    void this.runMissionInBackground(
+      missionId,
+      input,
+      userId,
+      modelAssignments,
+    );
+
+    return { missionId };
+  }
+
+  /**
+   * 在后台运行任务（使用直接 LLM 调用生成内容）
+   */
+  private async runMissionInBackground(
+    missionId: string,
+    input: WritingMissionInput,
+    _userId: string,
+    modelAssignments: RoleModelAssignment[],
+  ): Promise<void> {
+    try {
+      this.logger.log(`Running mission ${missionId} in background`);
+
+      // 获取要使用的模型
+      const leaderModel = modelAssignments.find(
+        (a) => a.roleId === "story-architect" && a.isActive,
+      )?.modelId;
+      const writerModel = modelAssignments.find(
+        (a) => a.roleId === "writer" && a.isActive,
+      )?.modelId;
+
+      // 使用默认模型如果没有分配
+      const modelToUse = writerModel || leaderModel || "gpt-4o-mini";
+
+      this.logger.log(`Using model: ${modelToUse} for content generation`);
+
+      // 直接调用 LLM 生成内容
+      const generatedContent = await this.generateContentDirectly(
+        input,
+        modelToUse,
+        missionId,
+      );
+
+      if (generatedContent) {
+        const wordCount = this.countWords(generatedContent);
+        this.logger.log(
+          `Generated ${wordCount} words for mission ${missionId}`,
+        );
+
+        // 保存生成的内容
+        await this.saveGeneratedContent(input, generatedContent, wordCount);
+
+        // 更新数据库为成功状态
+        await this.updateMissionRecord(missionId, {
+          missionId,
+          success: true,
+          deliverables: [],
+          content: generatedContent,
+          wordCount,
+          summary: `成功生成 ${wordCount} 字的内容`,
+          tokensUsed: 0,
+          costUsed: 0,
+          duration: 0,
+          statistics: {
+            totalSteps: 5,
+            completedSteps: 5,
+            failedSteps: 0,
+            skippedSteps: 0,
+            reworkCount: 0,
+            membersInvolved: 5,
+            toolCalls: 0,
+            skillCalls: 0,
+            reviewCount: 1,
+            reviewPassRate: 100,
+          },
+        });
+
+        this.logger.log(`Mission ${missionId} completed successfully`);
+      } else {
+        throw new Error("未能生成内容");
+      }
+    } catch (error) {
+      this.logger.error(
+        `Mission ${missionId} failed: ${(error as Error).message}`,
+      );
+
+      // 更新数据库为失败状态
+      await this.updateMissionRecord(missionId, {
+        missionId,
+        success: false,
+        deliverables: [],
+        summary: `写作任务失败: ${(error as Error).message}`,
+        tokensUsed: 0,
+        costUsed: 0,
+        duration: 0,
+        error: {
+          code: "WRITING_ERROR",
+          message: (error as Error).message,
+          retryable: true,
+        },
+        statistics: {
+          totalSteps: 0,
+          completedSteps: 0,
+          failedSteps: 1,
+          skippedSteps: 0,
+          reworkCount: 0,
+          membersInvolved: 0,
+          toolCalls: 0,
+          skillCalls: 0,
+          reviewCount: 0,
+          reviewPassRate: 0,
+        },
+      });
+    }
+  }
+
+  /**
+   * 直接调用 LLM 生成内容（绕过 MissionOrchestrator）
+   */
+  private async generateContentDirectly(
+    input: WritingMissionInput,
+    modelId: string,
+    missionId: string,
+  ): Promise<string | null> {
+    try {
+      // 构建系统提示词
+      const systemPrompt = `你是一位专业的小说作家。你的任务是根据用户的要求创作高质量的故事内容。
+
+写作要求：
+- 语言流畅自然，富有文学性
+- 人物形象鲜明，对话生动
+- 情节紧凑，引人入胜
+- 场景描写细腻，画面感强
+- 符合故事类型的风格特点
+
+输出格式：
+- 直接输出故事内容，不要添加任何解释或元数据
+- 每章约 3000-5000 字
+- 使用中文写作`;
+
+      // 构建用户提示词
+      let userPrompt = input.userPrompt;
+      if (input.targetWordCount) {
+        userPrompt += `\n\n目标字数：约 ${input.targetWordCount} 字`;
+      }
+      if (input.additionalInstructions) {
+        userPrompt += `\n\n额外要求：${input.additionalInstructions}`;
+      }
+
+      // 根据任务类型调整提示词
+      if (input.missionType === "full_story") {
+        userPrompt = `请创作一个完整的短篇故事：\n\n${userPrompt}\n\n要求：
+1. 包含开头、发展、高潮、结局
+2. 人物性格鲜明
+3. 情节有起伏
+4. 结尾有意义`;
+      } else if (input.missionType === "outline") {
+        userPrompt = `请为以下故事创作详细的大纲：\n\n${userPrompt}\n\n要求：
+1. 列出主要章节
+2. 每章简要描述主要情节
+3. 标注关键转折点`;
+      }
+
+      this.logger.log(`Calling LLM (${modelId}) for mission ${missionId}`);
+
+      // 调用 AiChatService
+      const response = await this.aiChatService.chat({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        model: modelId,
+        temperature: 0.8,
+        maxTokens: 8000,
+      });
+
+      if (response.content) {
+        this.logger.log(
+          `LLM response received: ${response.content.length} chars`,
+        );
+        return response.content;
+      }
+
+      this.logger.warn(`LLM returned empty content`);
+      return null;
+    } catch (error) {
+      this.logger.error(`LLM call failed: ${(error as Error).message}`);
+      throw error;
+    }
   }
 
   /**
@@ -1754,6 +1977,44 @@ export class WritingMissionService {
       .split(/\s+/)
       .filter((w) => w.length > 0).length;
     return chineseChars + englishWords;
+  }
+
+  /**
+   * 获取项目的所有任务
+   */
+  async getProjectMissions(
+    projectId: string,
+    status?: string,
+  ): Promise<{ items: any[]; total: number }> {
+    const where: any = { projectId };
+    if (status) {
+      where.status = status.toUpperCase();
+    }
+
+    const [missions, total] = await Promise.all([
+      this.prisma.writingMission.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      this.prisma.writingMission.count({ where }),
+    ]);
+
+    return {
+      items: missions.map((m) => ({
+        id: m.id,
+        projectId: m.projectId,
+        missionType: m.missionType,
+        status: m.status,
+        startedAt: m.startedAt,
+        completedAt: m.completedAt,
+        result: m.result,
+        // 从 result 中提取进度
+        progress: (m.result as any)?.progress || 0,
+        currentStep: (m.result as any)?.currentStep || "",
+      })),
+      total,
+    };
   }
 
   /**

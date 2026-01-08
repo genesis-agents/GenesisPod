@@ -307,6 +307,7 @@ export async function startMission(
   success: boolean;
   message: string;
   projectId: string;
+  missionId: string;
   missionType: string;
 }> {
   return fetchWithAuth(`/api/v1/ai-writing/projects/${projectId}/missions`, {
@@ -315,9 +316,33 @@ export async function startMission(
   });
 }
 
+export interface MissionStatusResponse {
+  id: string;
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+  missionType: string;
+  startedAt: string;
+  completedAt?: string;
+  result?: {
+    success?: boolean;
+    content?: string;
+    wordCount?: number;
+    progress?: number;
+    currentStep?: string;
+    error?: string;
+  };
+  orchestratorState?: {
+    phase: string;
+    completedSteps: string[];
+    currentSteps: string[];
+    progress: number;
+    tokensUsed: number;
+    costUsed: number;
+  };
+}
+
 export async function getMissionStatus(
   missionId: string
-): Promise<{ status: string; progress?: number; result?: string }> {
+): Promise<MissionStatusResponse> {
   return fetchWithAuth(`/api/v1/ai-writing/missions/${missionId}`);
 }
 
