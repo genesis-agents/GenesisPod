@@ -430,7 +430,7 @@ export default function WritingProjectPage() {
         {/* Main Content */}
         <div className="flex flex-1 gap-4 overflow-hidden p-4">
           {/* Left: Embedded Canvas */}
-          <div className="flex h-fit w-80 shrink-0 flex-col self-start rounded-2xl border border-gray-100 bg-gradient-to-br from-slate-50 via-white to-violet-50 shadow-sm">
+          <div className="flex w-80 shrink-0 flex-col rounded-2xl border border-gray-100 bg-gradient-to-br from-slate-50 via-white to-violet-50 shadow-sm">
             {/* Canvas Header */}
             <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-3 py-2">
               <div className="flex items-center gap-2">
@@ -708,8 +708,8 @@ export default function WritingProjectPage() {
               </div>
             </div>
 
-            {/* Progress Steps - Compact display */}
-            <div className="mx-3 mb-3 rounded-lg bg-slate-50 p-3">
+            {/* Progress Steps - Fills remaining space */}
+            <div className="mx-3 mb-3 flex flex-1 flex-col rounded-lg bg-slate-50 p-3">
               <div className="space-y-2">
                 {[
                   {
@@ -781,8 +781,10 @@ export default function WritingProjectPage() {
                   );
                 })}
               </div>
-              {/* Progress Bar */}
-              <div className="mt-4 border-t border-slate-200 pt-3">
+              {/* Spacer to push progress bar to bottom */}
+              <div className="flex-1" />
+              {/* Progress Bar - Fixed at bottom */}
+              <div className="mt-auto border-t border-slate-200 pt-3">
                 <div className="mb-1 flex justify-between text-xs text-slate-500">
                   <span>整体进度</span>
                   <span className="font-semibold text-amber-600">
