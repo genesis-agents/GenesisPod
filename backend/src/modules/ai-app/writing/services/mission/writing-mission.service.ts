@@ -3730,18 +3730,10 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
     let currentWordCount = existingContent.currentWords;
     const chaptersToWrite = existingContent.unwrittenChapters;
 
-    // 如果没有空白章节，返回已完成状态
+    // 如果没有空白章节
     if (chaptersToWrite.length === 0) {
-      if (currentWordCount < targetWordCount) {
-        this.logger.log(
-          `[${missionId}] All chapters written but target not reached (${currentWordCount}/${targetWordCount})`,
-        );
-        await this.saveMissionLog(
-          missionId,
-          "mission:info",
-          `📝 所有章节已写完，当前 ${currentWordCount.toLocaleString()} 字。如需继续扩展，请在大纲中添加更多章节。`,
-        );
-      } else {
+      // 检查是否已达到目标
+      if (currentWordCount >= targetWordCount) {
         this.logger.log(
           `[${missionId}] All chapters completed, target reached (${currentWordCount}/${targetWordCount})`,
         );
@@ -3750,9 +3742,80 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
           "mission:complete",
           `✅ 所有章节已完成！共 ${currentWordCount.toLocaleString()} 字`,
         );
+        return `[ALL_CHAPTERS_COMPLETED] 所有 ${existingContent.totalChapters} 章节已完成，共 ${currentWordCount.toLocaleString()} 字。`;
       }
-      // 返回一个标记表示所有章节已完成（不是空内容）
-      return `[ALL_CHAPTERS_COMPLETED] 所有 ${existingContent.totalChapters} 章节已完成，共 ${currentWordCount.toLocaleString()} 字。`;
+
+      // 目标未达成，需要创建新章节继续写作
+      this.logger.log(
+        `[${missionId}] All chapters written but target not reached (${currentWordCount}/${targetWordCount}), creating new chapters`,
+      );
+      await this.saveMissionLog(
+        missionId,
+        "mission:info",
+        `📝 已有章节写完（${currentWordCount.toLocaleString()} 字），创建新章节继续写作...`,
+      );
+
+      // 计算需要多少新章节
+      const wordsPerChapter = 3000;
+      const remainingWords = targetWordCount - currentWordCount;
+      const newChaptersNeeded = Math.min(
+        10, // 每次最多创建10章
+        Math.ceil(remainingWords / wordsPerChapter),
+      );
+
+      // 获取第一个卷（用于创建新章节）
+      const volume = await this.prisma.writingVolume.findFirst({
+        where: { projectId: input.projectId },
+        orderBy: { volumeNumber: "asc" },
+        select: { id: true },
+      });
+
+      if (!volume) {
+        this.logger.error(`[${missionId}] No volume found for project`);
+        return `[ALL_CHAPTERS_COMPLETED] 所有章节已完成，共 ${currentWordCount.toLocaleString()} 字。`;
+      }
+
+      // 创建新的空白章节
+      const startChapterNumber = existingContent.totalChapters + 1;
+      const newChapters: Array<{
+        id: string;
+        chapterNumber: number;
+        title: string;
+        volumeId: string;
+      }> = [];
+
+      for (let i = 0; i < newChaptersNeeded; i++) {
+        const chapterNumber = startChapterNumber + i;
+        const newChapter = await this.prisma.writingChapter.create({
+          data: {
+            volumeId: volume.id,
+            title: `第${chapterNumber}回`, // 使用回目格式
+            chapterNumber,
+            content: "",
+            wordCount: 0,
+            status: "PLANNED",
+          },
+          select: {
+            id: true,
+            chapterNumber: true,
+            title: true,
+            volumeId: true,
+          },
+        });
+        newChapters.push(newChapter);
+      }
+
+      this.logger.log(
+        `[${missionId}] Created ${newChapters.length} new chapters (${startChapterNumber}-${startChapterNumber + newChaptersNeeded - 1})`,
+      );
+      await this.saveMissionLog(
+        missionId,
+        "mission:info",
+        `📖 已创建第${startChapterNumber}章至第${startChapterNumber + newChaptersNeeded - 1}章，开始写作...`,
+      );
+
+      // 将新章节添加到待写列表
+      chaptersToWrite.push(...newChapters);
     }
 
     // 逐章写作
