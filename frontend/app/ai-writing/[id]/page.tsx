@@ -466,108 +466,56 @@ export default function WritingProjectPage() {
 
               {/* Agent Hierarchy - Professional Grid Layout */}
               <div className="relative">
-                {/* SVG Connection Lines */}
+                {/* SVG Connection Lines - using viewBox for responsive scaling */}
                 <svg
-                  className="pointer-events-none absolute inset-0 h-full w-full"
+                  className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+                  viewBox="0 0 272 200"
+                  preserveAspectRatio="xMidYMid meet"
                   style={{ zIndex: 0 }}
                 >
-                  {/* Leader to Row 1 - curved lines */}
-                  <path
-                    d="M 136 52 Q 136 75 40 95"
-                    fill="none"
-                    stroke={
-                      missionCompleted || isMissionRunning
-                        ? '#10B981'
-                        : '#E2E8F0'
-                    }
-                    strokeWidth="1.5"
-                    strokeDasharray={
-                      missionCompleted || isMissionRunning ? '0' : '4 2'
-                    }
-                  />
-                  <path
-                    d="M 136 52 Q 110 75 88 95"
-                    fill="none"
-                    stroke={
-                      missionCompleted || isMissionRunning
-                        ? '#10B981'
-                        : '#E2E8F0'
-                    }
-                    strokeWidth="1.5"
-                    strokeDasharray={
-                      missionCompleted || isMissionRunning ? '0' : '4 2'
-                    }
-                  />
-                  <path
-                    d="M 136 52 Q 162 75 184 95"
-                    fill="none"
-                    stroke={
-                      missionCompleted || isMissionRunning
-                        ? '#10B981'
-                        : '#E2E8F0'
-                    }
-                    strokeWidth="1.5"
-                    strokeDasharray={
-                      missionCompleted || isMissionRunning ? '0' : '4 2'
-                    }
-                  />
-                  <path
-                    d="M 136 52 Q 136 75 232 95"
-                    fill="none"
-                    stroke={
-                      missionCompleted || isMissionRunning
-                        ? '#10B981'
-                        : '#E2E8F0'
-                    }
-                    strokeWidth="1.5"
-                    strokeDasharray={
-                      missionCompleted || isMissionRunning ? '0' : '4 2'
-                    }
-                  />
-                  {/* Row 1 to Row 2 */}
-                  <path
-                    d="M 88 135 Q 88 155 68 175"
-                    fill="none"
-                    stroke={
-                      missionCompleted || isMissionRunning
-                        ? '#10B981'
-                        : '#E2E8F0'
-                    }
-                    strokeWidth="1.5"
-                    strokeDasharray={
-                      missionCompleted || isMissionRunning ? '0' : '4 2'
-                    }
-                  />
-                  <path
-                    d="M 136 135 Q 136 155 136 175"
-                    fill="none"
-                    stroke={
-                      missionCompleted || isMissionRunning
-                        ? '#10B981'
-                        : '#E2E8F0'
-                    }
-                    strokeWidth="1.5"
-                    strokeDasharray={
-                      missionCompleted || isMissionRunning ? '0' : '4 2'
-                    }
-                  />
-                  <path
-                    d="M 184 135 Q 184 155 204 175"
-                    fill="none"
-                    stroke={
-                      missionCompleted || isMissionRunning
-                        ? '#10B981'
-                        : '#E2E8F0'
-                    }
-                    strokeWidth="1.5"
-                    strokeDasharray={
-                      missionCompleted || isMissionRunning ? '0' : '4 2'
-                    }
-                  />
+                  {/* Leader (center: 136) to Row 1 (4 agents at ~30, 100, 172, 242) */}
+                  {[30, 100, 172, 242].map((x, i) => (
+                    <path
+                      key={`l2r1-${i}`}
+                      d={`M 136 55 Q ${136 + (x - 136) / 2} 75 ${x} 95`}
+                      fill="none"
+                      stroke={
+                        missionCompleted || isMissionRunning
+                          ? '#10B981'
+                          : '#CBD5E1'
+                      }
+                      strokeWidth="1.5"
+                      strokeDasharray={
+                        missionCompleted || isMissionRunning ? '0' : '4 3'
+                      }
+                    />
+                  ))}
+                  {/* Row 1 to Row 2: writers to checkers/editor */}
+                  {/* Writer1(100) -> Checker1(68), Writer2(172) -> Checker2(136), Writer3(242) -> Editor(204) */}
+                  {[
+                    [100, 68],
+                    [172, 136],
+                    [172, 204],
+                  ].map(([from, to], i) => (
+                    <path
+                      key={`r1r2-${i}`}
+                      d={`M ${from} 135 Q ${(from + to) / 2} 155 ${to} 175`}
+                      fill="none"
+                      stroke={
+                        missionCompleted || isMissionRunning
+                          ? '#10B981'
+                          : '#CBD5E1'
+                      }
+                      strokeWidth="1.5"
+                      strokeDasharray={
+                        missionCompleted || isMissionRunning ? '0' : '4 3'
+                      }
+                    />
+                  ))}
                 </svg>
 
                 {/* Row 0: Leader */}
-                <div className="relative z-10 mb-6 flex justify-center">
+                <div className="relative z-10 mb-5 flex justify-center">
                   {(() => {
                     const msg = missionMessage || '';
                     const isActive = ['架构', '规划', '结构', '大纲'].some(
@@ -605,7 +553,7 @@ export default function WritingProjectPage() {
                 </div>
 
                 {/* Row 1: 4 Agents */}
-                <div className="relative z-10 mb-6 flex justify-between px-2">
+                <div className="relative z-10 mb-5 flex justify-between">
                   {[
                     {
                       id: 'keeper',
@@ -682,7 +630,7 @@ export default function WritingProjectPage() {
                 </div>
 
                 {/* Row 2: 3 Agents */}
-                <div className="relative z-10 flex justify-around px-6">
+                <div className="relative z-10 flex justify-between px-8">
                   {[
                     {
                       id: 'checker-1',
