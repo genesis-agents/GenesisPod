@@ -83,6 +83,7 @@ interface AIWritingState {
 
   // Actions - AI Mission
   startMission: (projectId: string, dto: StartMissionDto) => Promise<void>;
+  checkRunningMission: (projectId: string) => Promise<void>;
 
   // Actions - Utility
   clearError: () => void;
@@ -526,6 +527,103 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
         activeAgentIds: [],
       });
       throw err;
+    }
+  },
+
+  // 检查是否有正在运行的任务（页面加载时调用，同步多标签页状态）
+  checkRunningMission: async (projectId: string) => {
+    try {
+      const { items } = await api.getProjectMissions(projectId);
+      // 查找正在运行的任务
+      const runningMission = items.find(
+        (m) => m.status === 'running' || m.status === 'pending'
+      );
+
+      if (runningMission) {
+        // 有正在运行的任务，同步状态
+        set({
+          isMissionRunning: true,
+          missionProgress: runningMission.progress || 0,
+          missionMessage: '任务进行中...',
+          missionCompleted: false,
+        });
+
+        // 开始轮询状态
+        const { fetchVolumes, fetchProject } = get();
+        const pollInterval = 2000;
+        const maxPolls = 180;
+        let pollCount = 0;
+
+        const pollForStatus = async () => {
+          while (pollCount < maxPolls) {
+            await new Promise((resolve) => setTimeout(resolve, pollInterval));
+            pollCount++;
+
+            try {
+              const status = await api.getMissionStatus(runningMission.id);
+
+              if (status.status === 'COMPLETED') {
+                set({
+                  isMissionRunning: false,
+                  missionProgress: 100,
+                  missionMessage: '写作任务完成！',
+                  missionCompleted: true,
+                  activeAgentIds: [],
+                });
+                await fetchVolumes(projectId, true);
+                await fetchProject(projectId);
+                return;
+              }
+
+              if (status.status === 'FAILED') {
+                set({
+                  isMissionRunning: false,
+                  missionMessage: status.result?.error || '任务失败',
+                  missionCompleted: false,
+                  activeAgentIds: [],
+                  error: status.result?.error || '写作任务失败',
+                });
+                return;
+              }
+
+              // 更新进度
+              if (status.orchestratorState) {
+                const { progress, currentSteps } = status.orchestratorState;
+                set({
+                  missionProgress: progress || 0,
+                  missionMessage:
+                    status.result?.currentStep ||
+                    currentSteps?.[0] ||
+                    '处理中...',
+                });
+              }
+
+              // 定期刷新章节
+              if (pollCount % 5 === 0) {
+                await fetchVolumes(projectId, true);
+              }
+            } catch {
+              // 忽略轮询错误
+            }
+          }
+        };
+
+        void pollForStatus();
+      } else {
+        // 检查是否有已完成的任务
+        const completedMission = items.find((m) => m.status === 'completed');
+        if (completedMission) {
+          set({
+            isMissionRunning: false,
+            missionCompleted: true,
+            missionProgress: 100,
+            missionMessage: '写作任务已完成',
+          });
+        }
+      }
+    } catch (err) {
+      // 忽略检查错误，不影响页面加载
+      console.warn('Failed to check running mission:', err);
     }
   },
 

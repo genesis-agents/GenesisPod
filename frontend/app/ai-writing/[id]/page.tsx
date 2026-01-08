@@ -100,6 +100,7 @@ export default function WritingProjectPage() {
     fetchVolumes,
     fetchStoryBible,
     startMission,
+    checkRunningMission,
     isMissionRunning,
     missionProgress,
     missionMessage,
@@ -433,8 +434,17 @@ export default function WritingProjectPage() {
       void fetchProject(projectId);
       void fetchVolumes(projectId);
       void fetchStoryBible(projectId);
+      // 检查是否有正在运行的任务（同步多标签页状态）
+      void checkRunningMission(projectId);
     }
-  }, [user, projectId, fetchProject, fetchVolumes, fetchStoryBible]);
+  }, [
+    user,
+    projectId,
+    fetchProject,
+    fetchVolumes,
+    fetchStoryBible,
+    checkRunningMission,
+  ]);
 
   // Keep selectedChapter in sync with volumes data (for content updates during mission)
   useEffect(() => {
