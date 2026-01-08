@@ -12,6 +12,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { Public } from "../../../common/decorators/public.decorator";
 import { AiWritingService } from "./ai-writing.service";
 import { ProjectService } from "./services/writing/project.service";
 import { StoryBibleService } from "./services/bible/story-bible.service";
@@ -374,5 +375,62 @@ export class AiWritingController {
       limit ? parseInt(limit, 10) : undefined,
       offset ? parseInt(offset, 10) : undefined,
     );
+  }
+
+  // ==================== Public API (无需登录) ====================
+
+  /**
+   * 公开阅读接口 - 获取项目内容（无需登录）
+   */
+  @Public()
+  @Get("public/:projectId")
+  async getPublicProject(@Param("projectId") projectId: string) {
+    this.logger.log(`Public access to project ${projectId}`);
+
+    // 查询项目（暂时不检查公开状态，后续可以添加 isPublic 字段）
+    const project = await this.prisma.writingProject.findUnique({
+      where: { id: projectId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        genre: true,
+        targetWords: true,
+        currentWords: true,
+        status: true,
+        storyBible: {
+          select: {
+            premise: true,
+            theme: true,
+            tone: true,
+            worldType: true,
+          },
+        },
+        volumes: {
+          select: {
+            id: true,
+            title: true,
+            volumeNumber: true,
+            chapters: {
+              select: {
+                id: true,
+                title: true,
+                content: true,
+                chapterNumber: true,
+                wordCount: true,
+              },
+              orderBy: { chapterNumber: "asc" },
+            },
+          },
+          orderBy: { volumeNumber: "asc" },
+        },
+      },
+    });
+
+    if (!project) {
+      return { error: "Project not found", statusCode: 404 };
+    }
+
+    return project;
   }
 }

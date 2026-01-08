@@ -1,0 +1,317 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import Link from 'next/link';
+
+interface Chapter {
+  id: string;
+  title: string;
+  content: string;
+  chapterNumber: number;
+  wordCount: number;
+}
+
+interface Volume {
+  id: string;
+  title: string;
+  volumeNumber: number;
+  chapters: Chapter[];
+}
+
+interface PublicProject {
+  id: string;
+  name: string;
+  description?: string;
+  genre?: string;
+  currentWords: number;
+  targetWords: number;
+  volumes: Volume[];
+  storyBible?: {
+    premise?: string;
+    theme?: string;
+    tone?: string;
+    worldType?: string;
+  };
+}
+
+export default function PublicReadPage() {
+  const params = useParams();
+  const projectId = params.id as string;
+
+  const [project, setProject] = useState<PublicProject | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  const [showToc, setShowToc] = useState(true);
+
+  useEffect(() => {
+    const fetchProject = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/v1/ai-writing/public/${projectId}`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            setError('作品不存在或未公开分享');
+          } else {
+            setError('加载失败，请稍后重试');
+          }
+          return;
+        }
+        const data = await response.json();
+        setProject(data);
+
+        // 默认选中第一章
+        const allChapters = data.volumes
+          ?.flatMap((v: Volume) => v.chapters || [])
+          .sort((a: Chapter, b: Chapter) => a.chapterNumber - b.chapterNumber);
+        if (allChapters?.length > 0) {
+          setSelectedChapter(allChapters[0]);
+        }
+      } catch {
+        setError('网络错误，请检查连接');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (projectId) {
+      void fetchProject();
+    }
+  }, [projectId]);
+
+  const allChapters =
+    project?.volumes
+      ?.flatMap((v) => v.chapters || [])
+      .sort((a, b) => a.chapterNumber - b.chapterNumber) || [];
+
+  const currentIndex = selectedChapter
+    ? allChapters.findIndex((c) => c.id === selectedChapter.id)
+    : -1;
+  const prevChapter = currentIndex > 0 ? allChapters[currentIndex - 1] : null;
+  const nextChapter =
+    currentIndex < allChapters.length - 1
+      ? allChapters[currentIndex + 1]
+      : null;
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
+          <p className="text-gray-500">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !project) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50">
+        <span className="mb-4 text-6xl">📖</span>
+        <h1 className="mb-2 text-xl font-semibold text-gray-800">
+          {error || '作品不存在'}
+        </h1>
+        <p className="mb-6 text-gray-500">该作品可能未公开或已被删除</p>
+        <Link
+          href="/"
+          className="rounded-lg bg-amber-500 px-6 py-2 text-white hover:bg-amber-600"
+        >
+          返回首页
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white">
+      {/* Header */}
+      <header className="sticky top-0 z-10 border-b border-amber-100 bg-white/80 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowToc(!showToc)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 md:hidden"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">
+                {project.name}
+              </h1>
+              <p className="text-xs text-gray-500">
+                {project.currentWords.toLocaleString()} 字 ·{' '}
+                {allChapters.length} 章
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/ai-writing"
+            className="flex items-center gap-1 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
+          >
+            <span>✨</span>
+            开始创作
+          </Link>
+        </div>
+      </header>
+
+      <div className="mx-auto flex max-w-6xl">
+        {/* Sidebar - Table of Contents */}
+        <aside
+          className={`fixed inset-y-0 left-0 z-20 w-72 transform border-r border-gray-100 bg-white pt-16 shadow-lg transition-transform md:static md:z-0 md:translate-x-0 md:pt-0 md:shadow-none ${
+            showToc ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <div className="sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto p-4">
+            <h2 className="mb-4 text-sm font-semibold text-gray-700">目录</h2>
+            <nav className="space-y-1">
+              {allChapters.map((chapter) => (
+                <button
+                  key={chapter.id}
+                  onClick={() => {
+                    setSelectedChapter(chapter);
+                    setShowToc(false);
+                  }}
+                  className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                    selectedChapter?.id === chapter.id
+                      ? 'bg-amber-100 font-medium text-amber-700'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="text-gray-400">
+                    第{chapter.chapterNumber}章
+                  </span>{' '}
+                  {chapter.title}
+                </button>
+              ))}
+            </nav>
+          </div>
+        </aside>
+
+        {/* Overlay for mobile */}
+        {showToc && (
+          <div
+            className="fixed inset-0 z-10 bg-black/30 md:hidden"
+            onClick={() => setShowToc(false)}
+          />
+        )}
+
+        {/* Main Content */}
+        <main className="min-h-screen flex-1 px-4 py-8 md:px-8">
+          {selectedChapter ? (
+            <article className="mx-auto max-w-2xl">
+              {/* Chapter Title */}
+              <header className="mb-8 border-b border-gray-100 pb-6">
+                <p className="mb-1 text-sm text-amber-600">
+                  第 {selectedChapter.chapterNumber} 章
+                </p>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {selectedChapter.title}
+                </h2>
+                <p className="mt-2 text-sm text-gray-400">
+                  {selectedChapter.wordCount?.toLocaleString() || 0} 字
+                </p>
+              </header>
+
+              {/* Chapter Content */}
+              <div className="prose prose-gray max-w-none">
+                {selectedChapter.content ? (
+                  <div
+                    className="whitespace-pre-wrap text-justify leading-8 text-gray-700"
+                    style={{ textIndent: '2em' }}
+                  >
+                    {selectedChapter.content}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-400">暂无内容</p>
+                )}
+              </div>
+
+              {/* Navigation */}
+              <nav className="mt-12 flex items-center justify-between border-t border-gray-100 pt-6">
+                {prevChapter ? (
+                  <button
+                    onClick={() => setSelectedChapter(prevChapter)}
+                    className="flex items-center gap-2 rounded-lg px-4 py-2 text-gray-600 hover:bg-gray-100"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 19l-7-7 7-7"
+                      />
+                    </svg>
+                    上一章
+                  </button>
+                ) : (
+                  <div />
+                )}
+                {nextChapter ? (
+                  <button
+                    onClick={() => setSelectedChapter(nextChapter)}
+                    className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-white hover:bg-amber-600"
+                  >
+                    下一章
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </button>
+                ) : (
+                  <div className="rounded-lg bg-green-100 px-4 py-2 text-sm text-green-700">
+                    已读完全部章节
+                  </div>
+                )}
+              </nav>
+            </article>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20">
+              <span className="mb-4 text-5xl">📖</span>
+              <p className="text-gray-500">请从左侧目录选择章节开始阅读</p>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-100 bg-white py-6">
+        <div className="mx-auto max-w-6xl px-4 text-center text-sm text-gray-400">
+          <p>
+            由{' '}
+            <Link href="/" className="text-amber-600 hover:underline">
+              DeepDive AI Writing
+            </Link>{' '}
+            生成
+          </p>
+        </div>
+      </footer>
+    </div>
+  );
+}

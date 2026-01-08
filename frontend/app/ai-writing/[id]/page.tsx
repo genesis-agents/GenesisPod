@@ -1021,44 +1021,74 @@ export default function WritingProjectPage() {
   };
 
   // 生成世界观内容
-  const generateWorldviewContent = (format: 'md' | 'txt') => {
+  const generateWorldviewContent = (format: 'md' | 'txt' | 'html') => {
     if (!storyBible) return '';
     const sections: string[] = [];
 
     // 故事设定
     if (storyBible.premise || storyBible.theme || storyBible.tone) {
-      const title = format === 'md' ? '## 故事设定\n' : '【故事设定】\n';
-      let content = title;
-      if (storyBible.premise)
-        content += `${format === 'md' ? '**' : ''}故事前提${format === 'md' ? '**' : ''}：${storyBible.premise}\n`;
-      if (storyBible.theme)
-        content += `${format === 'md' ? '**' : ''}主题${format === 'md' ? '**' : ''}：${storyBible.theme}\n`;
-      if (storyBible.tone)
-        content += `${format === 'md' ? '**' : ''}基调${format === 'md' ? '**' : ''}：${storyBible.tone}\n`;
-      if (storyBible.worldType)
-        content += `${format === 'md' ? '**' : ''}世界类型${format === 'md' ? '**' : ''}：${storyBible.worldType}\n`;
-      sections.push(content);
+      if (format === 'html') {
+        let content = '<div class="worldview-section"><h3>故事设定</h3><dl>';
+        if (storyBible.premise)
+          content += `<dt>故事前提</dt><dd>${storyBible.premise}</dd>`;
+        if (storyBible.theme)
+          content += `<dt>主题</dt><dd>${storyBible.theme}</dd>`;
+        if (storyBible.tone)
+          content += `<dt>基调</dt><dd>${storyBible.tone}</dd>`;
+        if (storyBible.worldType)
+          content += `<dt>世界类型</dt><dd>${storyBible.worldType}</dd>`;
+        content += '</dl></div>';
+        sections.push(content);
+      } else {
+        const title = format === 'md' ? '## 故事设定\n' : '【故事设定】\n';
+        let content = title;
+        if (storyBible.premise)
+          content += `${format === 'md' ? '**' : ''}故事前提${format === 'md' ? '**' : ''}：${storyBible.premise}\n`;
+        if (storyBible.theme)
+          content += `${format === 'md' ? '**' : ''}主题${format === 'md' ? '**' : ''}：${storyBible.theme}\n`;
+        if (storyBible.tone)
+          content += `${format === 'md' ? '**' : ''}基调${format === 'md' ? '**' : ''}：${storyBible.tone}\n`;
+        if (storyBible.worldType)
+          content += `${format === 'md' ? '**' : ''}世界类型${format === 'md' ? '**' : ''}：${storyBible.worldType}\n`;
+        sections.push(content);
+      }
     }
 
     // 角色列表
     if (storyBible.characters && storyBible.characters.length > 0) {
-      const title = format === 'md' ? '## 角色设定\n' : '【角色设定】\n';
-      let content = title;
-      storyBible.characters.forEach((char) => {
-        content +=
-          format === 'md' ? `### ${char.name}\n` : `\n${char.name}：\n`;
-        if (char.role) content += `角色：${char.role}\n`;
-        if (char.description) content += `描述：${char.description}\n`;
-        if (char.personality) content += `性格：${char.personality}\n`;
-        if (char.background) content += `背景：${char.background}\n`;
-      });
-      sections.push(content);
+      if (format === 'html') {
+        let content =
+          '<div class="worldview-section"><h3>角色设定</h3><div class="characters">';
+        storyBible.characters.forEach((char) => {
+          content += `<div class="character"><h4>${char.name}</h4><dl>`;
+          if (char.role) content += `<dt>角色</dt><dd>${char.role}</dd>`;
+          if (char.description)
+            content += `<dt>描述</dt><dd>${char.description}</dd>`;
+          if (char.personality)
+            content += `<dt>性格</dt><dd>${char.personality}</dd>`;
+          if (char.background)
+            content += `<dt>背景</dt><dd>${char.background}</dd>`;
+          content += '</dl></div>';
+        });
+        content += '</div></div>';
+        sections.push(content);
+      } else {
+        const title = format === 'md' ? '## 角色设定\n' : '【角色设定】\n';
+        let content = title;
+        storyBible.characters.forEach((char) => {
+          content +=
+            format === 'md' ? `### ${char.name}\n` : `\n${char.name}：\n`;
+          if (char.role) content += `角色：${char.role}\n`;
+          if (char.description) content += `描述：${char.description}\n`;
+          if (char.personality) content += `性格：${char.personality}\n`;
+          if (char.background) content += `背景：${char.background}\n`;
+        });
+        sections.push(content);
+      }
     }
 
     // 世界设定
     if (storyBible.worldSettings && storyBible.worldSettings.length > 0) {
-      const title = format === 'md' ? '## 世界观设定\n' : '【世界观设定】\n';
-      let content = title;
       // 按分类分组
       const grouped: Record<string, typeof storyBible.worldSettings> = {};
       storyBible.worldSettings.forEach((setting) => {
@@ -1066,17 +1096,33 @@ export default function WritingProjectPage() {
         if (!grouped[category]) grouped[category] = [];
         grouped[category].push(setting);
       });
-      Object.entries(grouped).forEach(([category, settings]) => {
-        content +=
-          format === 'md' ? `### ${category}\n` : `\n【${category}】\n`;
-        settings.forEach((s) => {
-          content += `- ${s.key}：${s.value}${s.description ? ` (${s.description})` : ''}\n`;
+
+      if (format === 'html') {
+        let content = '<div class="worldview-section"><h3>世界观设定</h3>';
+        Object.entries(grouped).forEach(([category, settings]) => {
+          content += `<div class="setting-category"><h4>${category}</h4><ul>`;
+          settings.forEach((s) => {
+            content += `<li><strong>${s.key}</strong>：${s.value}${s.description ? ` <span class="desc">(${s.description})</span>` : ''}</li>`;
+          });
+          content += '</ul></div>';
         });
-      });
-      sections.push(content);
+        content += '</div>';
+        sections.push(content);
+      } else {
+        const title = format === 'md' ? '## 世界观设定\n' : '【世界观设定】\n';
+        let content = title;
+        Object.entries(grouped).forEach(([category, settings]) => {
+          content +=
+            format === 'md' ? `### ${category}\n` : `\n【${category}】\n`;
+          settings.forEach((s) => {
+            content += `- ${s.key}：${s.value}${s.description ? ` (${s.description})` : ''}\n`;
+          });
+        });
+        sections.push(content);
+      }
     }
 
-    return sections.join('\n');
+    return sections.join(format === 'html' ? '' : '\n');
   };
 
   // 导出为 Markdown
@@ -1159,8 +1205,8 @@ export default function WritingProjectPage() {
   const handleExportHtml = () => {
     if (!currentProject) return;
 
-    // 世界观内容放在章节前面
-    const worldviewContent = generateWorldviewContent('md');
+    // 世界观内容放在章节前面（使用 HTML 格式）
+    const worldviewHtml = generateWorldviewContent('html');
 
     const allChapterContent = volumes
       .flatMap((v) => v.chapters || [])
@@ -1171,8 +1217,8 @@ export default function WritingProjectPage() {
       )
       .join('\n');
 
-    const worldviewHtml = worldviewContent
-      ? `<section class="worldview"><h2>世界观设定</h2><pre>${worldviewContent}</pre></section><hr/>`
+    const worldviewSection = worldviewHtml
+      ? `<section class="worldview"><h2>世界观设定</h2>${worldviewHtml}</section><hr/>`
       : '';
 
     const html = `<!DOCTYPE html>
@@ -1196,8 +1242,16 @@ export default function WritingProjectPage() {
     h1 { font-size: 2rem; margin-bottom: 0.5rem; color: #111827; }
     .meta { color: #6b7280; font-size: 0.9rem; }
     .worldview { background: #f9fafb; padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; }
-    .worldview h2 { font-size: 1.2rem; color: #374151; margin-bottom: 1rem; }
-    .worldview pre { white-space: pre-wrap; font-family: inherit; margin: 0; }
+    .worldview > h2 { font-size: 1.2rem; color: #374151; margin-bottom: 1rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+    .worldview-section { margin-bottom: 1.5rem; }
+    .worldview-section h3 { font-size: 1rem; color: #4b5563; margin-bottom: 0.75rem; }
+    .worldview-section h4 { font-size: 0.95rem; color: #6b7280; margin: 0.5rem 0; }
+    .worldview-section dl { margin: 0; padding-left: 1rem; }
+    .worldview-section dt { font-weight: 600; color: #374151; margin-top: 0.5rem; }
+    .worldview-section dd { margin-left: 0; color: #4b5563; }
+    .worldview-section ul { list-style: disc; margin: 0.5rem 0; padding-left: 1.5rem; }
+    .worldview-section .desc { color: #9ca3af; font-size: 0.9rem; }
+    .character { background: #fff; padding: 0.75rem; border-radius: 8px; margin-bottom: 0.5rem; }
     hr { border: none; border-top: 1px solid #e5e7eb; margin: 2rem 0; }
     .chapter { margin-bottom: 3rem; }
     .chapter h2 { font-size: 1.5rem; color: #1f2937; border-left: 4px solid #f59e0b; padding-left: 1rem; margin-bottom: 1.5rem; }
@@ -1217,7 +1271,7 @@ export default function WritingProjectPage() {
     <p class="meta">${currentProject.description || ''}</p>
     <p class="meta">字数：${currentProject.currentWords?.toLocaleString() || 0} / ${currentProject.targetWords?.toLocaleString() || '-'}</p>
   </header>
-  ${worldviewHtml}
+  ${worldviewSection}
   <nav class="toc">
     <h3>目录</h3>
     <ul>
@@ -1254,8 +1308,8 @@ export default function WritingProjectPage() {
       return;
     }
 
-    // 世界观内容放在章节前面
-    const worldviewContent = generateWorldviewContent('md');
+    // 世界观内容放在章节前面（使用 HTML 格式）
+    const worldviewHtml = generateWorldviewContent('html');
 
     const allChapterContent = volumes
       .flatMap((v) => v.chapters || [])
@@ -1266,8 +1320,8 @@ export default function WritingProjectPage() {
       )
       .join('');
 
-    const worldviewHtml = worldviewContent
-      ? `<div style="margin-bottom: 2rem; padding: 1rem; background: #f9fafb; border-radius: 8px;"><pre style="white-space: pre-wrap; font-family: inherit;">${worldviewContent}</pre></div><hr style="margin: 2rem 0;" />`
+    const worldviewSection = worldviewHtml
+      ? `<div class="worldview"><h2>世界观设定</h2>${worldviewHtml}</div><hr style="margin: 2rem 0;" />`
       : '';
 
     const html = `<!DOCTYPE html>
@@ -1280,6 +1334,7 @@ export default function WritingProjectPage() {
       body { margin: 2cm; }
       h1 { page-break-after: avoid; }
       h2 { page-break-after: avoid; }
+      .worldview { page-break-inside: avoid; }
     }
     body {
       font-family: "Noto Serif SC", "Source Han Serif CN", "Songti SC", serif;
@@ -1291,6 +1346,19 @@ export default function WritingProjectPage() {
     h1 { text-align: center; margin-bottom: 1rem; }
     .meta { text-align: center; color: #666; margin-bottom: 2rem; }
     h2 { margin-top: 2rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
+    .worldview { margin-bottom: 2rem; padding: 1.5rem; background: #f9fafb; border-radius: 8px; }
+    .worldview > h2 { margin-top: 0; font-size: 1.2rem; color: #374151; border-bottom: 1px solid #e5e7eb; }
+    .worldview-section { margin-bottom: 1.5rem; }
+    .worldview-section h3 { font-size: 1rem; color: #4b5563; margin-bottom: 0.5rem; border: none; }
+    .worldview-section h4 { font-size: 0.95rem; color: #6b7280; margin: 0.5rem 0; font-weight: 500; }
+    .worldview-section dl { margin: 0; padding-left: 1rem; }
+    .worldview-section dt { font-weight: 600; color: #374151; margin-top: 0.5rem; display: inline; }
+    .worldview-section dt::after { content: "："; }
+    .worldview-section dd { display: inline; margin-left: 0; color: #4b5563; }
+    .worldview-section dd::after { content: ""; display: block; }
+    .worldview-section ul { list-style: disc; margin: 0.5rem 0; padding-left: 1.5rem; }
+    .worldview-section .desc { color: #9ca3af; font-size: 0.9rem; }
+    .character { background: #fff; padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem; border: 1px solid #e5e7eb; }
     .print-btn {
       position: fixed;
       top: 1rem;
@@ -1315,7 +1383,7 @@ export default function WritingProjectPage() {
     <p>字数：${currentProject.currentWords?.toLocaleString() || 0} / ${currentProject.targetWords?.toLocaleString() || '-'}</p>
   </div>
   <hr />
-  ${worldviewHtml}
+  ${worldviewSection}
   ${allChapterContent}
 </body>
 </html>`;
@@ -1965,13 +2033,55 @@ export default function WritingProjectPage() {
                       开始创作
                     </button>
                   ) : (
-                    <button
-                      onClick={handleContinueWriting}
-                      className="flex items-center gap-1.5 rounded-lg bg-violet-500 px-4 py-2 text-xs font-medium text-white hover:bg-violet-600"
-                    >
-                      <span>📝</span>
-                      继续创作
-                    </button>
+                    <>
+                      <button
+                        onClick={handleContinueWriting}
+                        className="flex items-center gap-1.5 rounded-lg bg-violet-500 px-4 py-2 text-xs font-medium text-white hover:bg-violet-600"
+                      >
+                        <span>📝</span>
+                        继续创作
+                      </button>
+                      {/* Continue Task Button - Let Leader continue organizing tasks */}
+                      {missionCompleted && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await startMission(projectId, {
+                                prompt:
+                                  '@Leader 请继续执行任务，检查当前进度并安排下一步工作',
+                                missionType: 'edit',
+                                additionalInstructions:
+                                  '请分析当前创作进度，检查已完成的章节质量，并决定是否需要继续创作或进行修改。',
+                              });
+                            } catch {
+                              // Error handled by store
+                            }
+                          }}
+                          className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-4 py-2 text-xs font-medium text-amber-600 hover:bg-amber-50"
+                        >
+                          <svg
+                            className="h-3.5 w-3.5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          继续任务
+                        </button>
+                      )}
+                    </>
                   )}
                 </>
               ) : (
