@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -44,6 +44,25 @@ export default function PublicReadPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [showToc, setShowToc] = useState(true);
+  const [showFloatingMenu, setShowFloatingMenu] = useState(false);
+  const [readProgress, setReadProgress] = useState(0);
+
+  // Track scroll position for floating menu and reading progress
+  const handleScroll = useCallback(() => {
+    const scrollTop = window.scrollY;
+    const docHeight =
+      document.documentElement.scrollHeight - window.innerHeight;
+    const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+    setReadProgress(Math.min(100, Math.round(progress)));
+
+    // Show floating menu after scrolling down 200px
+    setShowFloatingMenu(scrollTop > 200);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -183,6 +202,7 @@ export default function PublicReadPage() {
                   onClick={() => {
                     setSelectedChapter(chapter);
                     setShowToc(false);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                     selectedChapter?.id === chapter.id
@@ -243,7 +263,10 @@ export default function PublicReadPage() {
               <nav className="mt-12 flex items-center justify-between border-t border-gray-100 pt-6">
                 {prevChapter ? (
                   <button
-                    onClick={() => setSelectedChapter(prevChapter)}
+                    onClick={() => {
+                      setSelectedChapter(prevChapter);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
                     className="flex items-center gap-2 rounded-lg px-4 py-2 text-gray-600 hover:bg-gray-100"
                   >
                     <svg
@@ -266,7 +289,10 @@ export default function PublicReadPage() {
                 )}
                 {nextChapter ? (
                   <button
-                    onClick={() => setSelectedChapter(nextChapter)}
+                    onClick={() => {
+                      setSelectedChapter(nextChapter);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
                     className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-white hover:bg-amber-600"
                   >
                     下一章
@@ -298,6 +324,137 @@ export default function PublicReadPage() {
             </div>
           )}
         </main>
+      </div>
+
+      {/* Floating Menu */}
+      <div
+        className={`fixed bottom-6 left-1/2 z-30 -translate-x-1/2 transform transition-all duration-300 ${
+          showFloatingMenu
+            ? 'translate-y-0 opacity-100'
+            : 'pointer-events-none translate-y-10 opacity-0'
+        }`}
+      >
+        <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white/95 px-4 py-2 shadow-lg backdrop-blur-sm">
+          {/* Toggle TOC */}
+          <button
+            onClick={() => setShowToc(!showToc)}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100"
+            title="目录"
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 10h16M4 14h16M4 18h16"
+              />
+            </svg>
+          </button>
+
+          {/* Divider */}
+          <div className="h-6 w-px bg-gray-200" />
+
+          {/* Previous Chapter */}
+          <button
+            onClick={() => {
+              if (prevChapter) {
+                setSelectedChapter(prevChapter);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
+            disabled={!prevChapter}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30"
+            title="上一章"
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+
+          {/* Progress Indicator */}
+          <div className="flex min-w-[100px] flex-col items-center px-2">
+            <span className="text-xs font-medium text-gray-700">
+              {selectedChapter
+                ? `第${selectedChapter.chapterNumber}章`
+                : '选择章节'}
+            </span>
+            <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-gray-200">
+              <div
+                className="h-full rounded-full bg-amber-500 transition-all duration-300"
+                style={{ width: `${readProgress}%` }}
+              />
+            </div>
+            <span className="mt-0.5 text-[10px] text-gray-400">
+              {currentIndex + 1}/{allChapters.length} · {readProgress}%
+            </span>
+          </div>
+
+          {/* Next Chapter */}
+          <button
+            onClick={() => {
+              if (nextChapter) {
+                setSelectedChapter(nextChapter);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
+            disabled={!nextChapter}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30"
+            title="下一章"
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </button>
+
+          {/* Divider */}
+          <div className="h-6 w-px bg-gray-200" />
+
+          {/* Scroll to Top */}
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100"
+            title="回到顶部"
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 10l7-7m0 0l7 7m-7-7v18"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Footer */}

@@ -723,18 +723,24 @@ export class WritingMissionService {
 
         // 验证生成的内容是否有效（不是错误消息）
         // edit 和 consistency_check 类型不强制最小字数（用于继续任务、状态检查等）
+        // [ALL_CHAPTERS_COMPLETED] 标记表示所有章节已完成，也跳过验证
+        const isCompletionMarker = generatedContent.startsWith(
+          "[ALL_CHAPTERS_COMPLETED]",
+        );
         const skipWordCountCheck =
           input.missionType === "edit" ||
-          input.missionType === "consistency_check";
+          input.missionType === "consistency_check" ||
+          isCompletionMarker;
         const minWordCount = input.missionType === "outline" ? 50 : 200;
         const isErrorContent =
-          generatedContent.includes("API Error") ||
-          generatedContent.includes("rate limit") ||
-          generatedContent.includes("429") ||
-          generatedContent.includes("quota") ||
-          generatedContent.includes("ECONNREFUSED") ||
-          generatedContent.includes("Request failed") ||
-          generatedContent.length < 100;
+          !isCompletionMarker &&
+          (generatedContent.includes("API Error") ||
+            generatedContent.includes("rate limit") ||
+            generatedContent.includes("429") ||
+            generatedContent.includes("quota") ||
+            generatedContent.includes("ECONNREFUSED") ||
+            generatedContent.includes("Request failed") ||
+            generatedContent.length < 100);
 
         if (
           !skipWordCountCheck &&
@@ -3148,6 +3154,14 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
     wordCount: number,
   ): Promise<void> {
     try {
+      // 跳过完成标记，不需要保存
+      if (content.startsWith("[ALL_CHAPTERS_COMPLETED]")) {
+        this.logger.log(
+          `Skipping save for completion marker: ${content.substring(0, 50)}...`,
+        );
+        return;
+      }
+
       if (
         input.missionType === "full_story" ||
         input.missionType === "outline"
