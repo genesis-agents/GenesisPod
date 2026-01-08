@@ -490,22 +490,52 @@ ${params.category ? `团队分类：${params.category}` : ""}
         maxTokens: 2000,
       });
 
+      this.logger.debug(
+        `AI raw response: ${result.content?.substring(0, 500)}`,
+      );
+
       // 解析 AI 返回的 JSON
       let config;
+      let content = result.content || "";
+
+      // 清理 markdown 代码块
+      content = content
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "")
+        .trim();
+
       try {
         // 尝试直接解析
-        config = JSON.parse(result.content);
+        config = JSON.parse(content);
       } catch {
-        // 如果失败，尝试提取 JSON 部分
-        const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+        // 如果失败，尝试提取 JSON 部分（查找最外层的 {} ）
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          config = JSON.parse(jsonMatch[0]);
+          try {
+            config = JSON.parse(jsonMatch[0]);
+          } catch (innerError) {
+            this.logger.error(
+              `JSON parse failed. Extracted: ${jsonMatch[0].substring(0, 200)}`,
+            );
+            throw new Error("无法解析 AI 返回的配置格式");
+          }
         } else {
-          throw new Error("无法解析 AI 返回的配置");
+          this.logger.error(
+            `No JSON found in response: ${content.substring(0, 200)}`,
+          );
+          throw new Error("AI 返回的内容中未找到有效的 JSON");
         }
       }
 
-      this.logger.log(`Generated ${config.members?.length || 0} team members`);
+      // 验证配置结构
+      if (!config.members || !Array.isArray(config.members)) {
+        this.logger.error(
+          `Invalid config structure: ${JSON.stringify(config).substring(0, 200)}`,
+        );
+        throw new Error("AI 返回的配置缺少 members 数组");
+      }
+
+      this.logger.log(`Generated ${config.members.length} team members`);
       return config;
     } catch (error) {
       this.logger.error(`Failed to generate team config: ${error}`);
