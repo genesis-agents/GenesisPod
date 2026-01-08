@@ -123,6 +123,27 @@ export interface WritingMissionResult extends MissionResult {
 /**
  * Writing Mission Service
  */
+/**
+ * AI 模型配置信息
+ */
+interface ModelConfig {
+  modelId: string;
+  displayName: string;
+  provider: string;
+  apiKey?: string;
+  apiEndpoint?: string;
+  isReasoning: boolean; // 是否具备推理能力 (o1, o3, gpt-5, etc.)
+}
+
+/**
+ * 角色模型分配结果
+ */
+interface RoleModelAssignment {
+  roleId: string;
+  modelId: string;
+  isActive: boolean;
+}
+
 @Injectable()
 export class WritingMissionService {
   private readonly logger = new Logger(WritingMissionService.name);
@@ -130,6 +151,11 @@ export class WritingMissionService {
   // Writing Team 配置
   private writingTeam: ITeam | null = null;
   private readonly WRITING_TEAM_ID = "ai-writing-team";
+
+  // 模型配置缓存
+  private cachedModels: ModelConfig[] | null = null;
+  private modelCacheTime: number = 0;
+  private readonly MODEL_CACHE_TTL = 5 * 60 * 1000; // 5 分钟
 
   constructor(
     private readonly prisma: PrismaService,
@@ -153,6 +179,208 @@ export class WritingMissionService {
     this.registerWritingTeamConfig();
     void this.contextBuilder;
     void this.storyBibleService;
+  }
+
+  // ==================== 动态模型选择 ====================
+
+  /**
+   * 获取可用的 AI 模型列表
+   * 从数据库查询已启用的模型
+   */
+  private async getAvailableModels(): Promise<ModelConfig[]> {
+    const now = Date.now();
+
+    // 检查缓存
+    if (this.cachedModels && now - this.modelCacheTime < this.MODEL_CACHE_TTL) {
+      return this.cachedModels;
+    }
+
+    try {
+      const models = await this.prisma.aIModel.findMany({
+        where: {
+          isEnabled: true,
+          modelType: "CHAT",
+        },
+        select: {
+          modelId: true,
+          displayName: true,
+          provider: true,
+          apiKey: true,
+          apiEndpoint: true,
+        },
+      });
+
+      // 转换为 ModelConfig 并标记推理能力
+      this.cachedModels = models.map((m) => ({
+        modelId: m.modelId,
+        displayName: m.displayName || m.modelId,
+        provider: m.provider,
+        apiKey: m.apiKey || undefined,
+        apiEndpoint: m.apiEndpoint || undefined,
+        isReasoning: this.isReasoningModel(m.modelId),
+      }));
+
+      this.modelCacheTime = now;
+
+      this.logger.log(
+        `Loaded ${this.cachedModels.length} AI models, ` +
+          `${this.cachedModels.filter((m) => m.isReasoning).length} with reasoning capability`,
+      );
+
+      return this.cachedModels;
+    } catch (error) {
+      this.logger.error(
+        `Failed to load AI models: ${(error as Error).message}`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * 判断模型是否具备推理能力
+   * 推理模型：o1, o3, gpt-5, gpt5, claude-3.5-opus 等
+   */
+  private isReasoningModel(modelId: string): boolean {
+    const lower = modelId.toLowerCase();
+    return (
+      lower.startsWith("o1") ||
+      lower.startsWith("o3") ||
+      lower.includes("gpt-5") ||
+      lower.includes("gpt5") ||
+      lower.includes("opus") ||
+      lower.includes("reasoning") ||
+      lower.includes("thinking")
+    );
+  }
+
+  /**
+   * 为各角色分配 AI 模型
+   * 策略：模型多元化，减少盲区
+   * - Leader (story-architect): 优先使用推理模型
+   * - Keeper (bible-keeper): 使用擅长知识管理的模型
+   * - Writer: 使用擅长创意的模型
+   * - Checker: 使用擅长分析的模型
+   * - Editor: 使用擅长润色的模型
+   *
+   * 当模型数量有限时，尽量轮换使用不同模型
+   */
+  private async assignModelsToRoles(): Promise<RoleModelAssignment[]> {
+    const models = await this.getAvailableModels();
+
+    if (models.length === 0) {
+      this.logger.warn("No AI models available, all roles will be inactive");
+      return [
+        { roleId: "story-architect", modelId: "", isActive: false },
+        { roleId: "bible-keeper", modelId: "", isActive: false },
+        { roleId: "writer", modelId: "", isActive: false },
+        { roleId: "consistency-checker", modelId: "", isActive: false },
+        { roleId: "editor", modelId: "", isActive: false },
+      ];
+    }
+
+    // 分离推理模型和聊天模型
+    const reasoningModels = models.filter((m) => m.isReasoning);
+    // chatModels 用于日志记录
+    const chatModelCount = models.filter((m) => !m.isReasoning).length;
+    this.logger.debug(
+      `Available models: ${reasoningModels.length} reasoning, ${chatModelCount} chat`,
+    );
+
+    // 模型多元化分配
+    // 5 个角色，尽量使用不同的模型
+    const roleModelMap: Record<string, ModelConfig> = {};
+
+    // 1. Leader (story-architect): 必须用推理模型（如果有）
+    roleModelMap["story-architect"] =
+      reasoningModels.length > 0 ? reasoningModels[0] : models[0];
+
+    // 2. 其他角色：从剩余模型中轮换选择，尽量多元化
+    const memberRoles = [
+      "bible-keeper",
+      "writer",
+      "consistency-checker",
+      "editor",
+    ];
+    const availableForMembers = models.filter(
+      (m) => m.modelId !== roleModelMap["story-architect"].modelId,
+    );
+
+    // 如果过滤后没有剩余模型，就用全部模型
+    const poolForMembers =
+      availableForMembers.length > 0 ? availableForMembers : models;
+
+    // 按照提供商分组，优先跨提供商分配（更多元化）
+    const byProvider = new Map<string, ModelConfig[]>();
+    for (const m of poolForMembers) {
+      if (!byProvider.has(m.provider)) {
+        byProvider.set(m.provider, []);
+      }
+      byProvider.get(m.provider)!.push(m);
+    }
+
+    // 轮换分配模型给成员角色
+    const providers = Array.from(byProvider.keys());
+    let providerIndex = 0;
+    let modelIndexInProvider = 0;
+
+    for (const roleId of memberRoles) {
+      if (providers.length === 0) {
+        // 没有模型可用
+        roleModelMap[roleId] = poolForMembers[0] || models[0];
+      } else if (providers.length === 1) {
+        // 只有一个提供商，轮换该提供商的模型
+        const providerModels = byProvider.get(providers[0])!;
+        roleModelMap[roleId] =
+          providerModels[modelIndexInProvider % providerModels.length];
+        modelIndexInProvider++;
+      } else {
+        // 多个提供商，跨提供商轮换
+        const currentProvider = providers[providerIndex % providers.length];
+        const providerModels = byProvider.get(currentProvider)!;
+        roleModelMap[roleId] = providerModels[0]; // 每个提供商取第一个模型
+        providerIndex++;
+      }
+    }
+
+    // 记录分配结果
+    this.logger.log("Model assignment (diversified):");
+    for (const [roleId, model] of Object.entries(roleModelMap)) {
+      this.logger.log(
+        `  - ${roleId}: ${model.displayName} (${model.provider}, reasoning=${model.isReasoning})`,
+      );
+    }
+
+    // 统计使用的不同模型数量
+    const uniqueModels = new Set(
+      Object.values(roleModelMap).map((m) => m.modelId),
+    );
+    this.logger.log(
+      `Using ${uniqueModels.size} different models for ${Object.keys(roleModelMap).length} roles`,
+    );
+
+    return Object.entries(roleModelMap).map(([roleId, model]) => ({
+      roleId,
+      modelId: model.modelId,
+      isActive: true,
+    }));
+  }
+
+  /**
+   * 获取活跃的角色列表
+   * 只返回有可用模型的角色
+   */
+  async getActiveRoles(): Promise<string[]> {
+    const assignments = await this.assignModelsToRoles();
+    return assignments.filter((a) => a.isActive).map((a) => a.roleId);
+  }
+
+  /**
+   * 获取角色对应的模型 ID
+   */
+  async getModelForRole(roleId: string): Promise<string | null> {
+    const assignments = await this.assignModelsToRoles();
+    const assignment = assignments.find((a) => a.roleId === roleId);
+    return assignment?.isActive ? assignment.modelId : null;
   }
 
   /**
@@ -399,6 +627,22 @@ export class WritingMissionService {
       `Starting writing mission ${missionId} for project ${input.projectId}`,
     );
 
+    // 0. 检查可用的 AI 模型并分配给角色
+    const modelAssignments = await this.assignModelsToRoles();
+    const activeRoles = modelAssignments.filter((a) => a.isActive);
+
+    if (activeRoles.length === 0) {
+      throw new Error(
+        "没有可用的 AI 模型。请先在系统设置中配置并启用至少一个 AI 模型。",
+      );
+    }
+
+    // 记录模型分配
+    this.logger.log(`Active roles for mission ${missionId}:`);
+    for (const assignment of activeRoles) {
+      this.logger.log(`  - ${assignment.roleId}: ${assignment.modelId}`);
+    }
+
     // 1. 验证项目访问权限
     await this.verifyProjectAccess(input.projectId, userId);
 
@@ -411,11 +655,12 @@ export class WritingMissionService {
     // 4. 创建数据库记录
     const dbMission = await this.createMissionRecord(missionId, input, userId);
 
-    // 5. 转换为 MissionInput（注入 LongContentEngine 上下文）
+    // 5. 转换为 MissionInput（注入 LongContentEngine 上下文和模型分配）
     const missionInput = await this.convertToMissionInput(
       input,
       contextPackage,
       missionId,
+      modelAssignments,
     );
 
     // 6. 获取或创建 Writing Team（延迟初始化）
@@ -768,12 +1013,13 @@ export class WritingMissionService {
   }
 
   /**
-   * 转换为 MissionInput（包含 LongContentEngine 上下文）
+   * 转换为 MissionInput（包含 LongContentEngine 上下文和模型分配）
    */
   private async convertToMissionInput(
     input: WritingMissionInput,
     contextPackage: WritingContextPackage,
     missionId: string,
+    modelAssignments: RoleModelAssignment[],
   ): Promise<MissionInput> {
     // 使用 LongContentEngine 构建任务执行上下文
     let longContentContext: TaskExecutionContext | null = null;
@@ -819,6 +1065,14 @@ export class WritingMissionService {
       }
     }
 
+    // 构建模型分配映射（roleId -> modelId）
+    const roleModelMap: Record<string, string> = {};
+    for (const assignment of modelAssignments) {
+      if (assignment.isActive) {
+        roleModelMap[assignment.roleId] = assignment.modelId;
+      }
+    }
+
     return {
       prompt: enhancedPrompt,
       requirements: input.additionalInstructions
@@ -838,6 +1092,8 @@ export class WritingMissionService {
         workingMemory: longContentContext?.workingMemory
           ? JSON.stringify(longContentContext.workingMemory)
           : undefined,
+        // 模型分配（roleId -> modelId）
+        roleModelMap: JSON.stringify(roleModelMap),
       },
     };
   }
@@ -874,6 +1130,7 @@ export class WritingMissionService {
 
   /**
    * 处理执行结果（使用 LongContentEngine）
+   * 关键: 必须将生成的内容保存到 Volume/Chapter 中，否则 UI 无法显示
    */
   private async processResult(
     result: MissionResult,
@@ -987,10 +1244,396 @@ export class WritingMissionService {
       }
     }
 
+    // 关键: 将生成的内容保存到 Volume/Chapter 中
+    if (writingResult.content && writingResult.wordCount) {
+      await this.saveGeneratedContent(
+        input,
+        writingResult.content,
+        writingResult.wordCount,
+      );
+    } else {
+      // 没有内容时，尝试从其他地方提取或生成占位内容
+      this.logger.warn(
+        `No content extracted from deliverables, attempting fallback extraction`,
+      );
+      const fallbackContent = this.extractFallbackContent(result, input);
+      if (fallbackContent) {
+        writingResult.content = fallbackContent;
+        writingResult.wordCount = this.countWords(fallbackContent);
+        await this.saveGeneratedContent(
+          input,
+          fallbackContent,
+          writingResult.wordCount,
+        );
+      } else {
+        // 最后的兜底：创建占位章节
+        this.logger.warn(`No content available, creating placeholder chapter`);
+        await this.createPlaceholderChapter(input);
+      }
+    }
+
     // 提取一致性检查结果
     // TODO: 从 result 中提取 consistency checker 的输出
 
     return writingResult;
+  }
+
+  /**
+   * 从 MissionResult 中提取备用内容
+   */
+  private extractFallbackContent(
+    result: MissionResult,
+    input: WritingMissionInput,
+  ): string | undefined {
+    // 尝试从任何 deliverable 中提取内容
+    if (result.deliverables && result.deliverables.length > 0) {
+      for (const deliverable of result.deliverables) {
+        // 尝试从各种格式提取内容
+        if (deliverable.content) {
+          // JSON 格式的 deliverable
+          if (typeof deliverable.content === "object") {
+            const content = deliverable.content as Record<string, unknown>;
+
+            // 尝试提取 outputs 数组中的任何输出
+            if (Array.isArray(content.outputs)) {
+              for (const output of content.outputs) {
+                if (typeof output === "object" && output !== null) {
+                  const obj = output as Record<string, unknown>;
+                  // 从 output 字段提取
+                  if (
+                    typeof obj.output === "string" &&
+                    obj.output.length > 100
+                  ) {
+                    // 过滤掉模拟的输出
+                    if (!obj.output.includes("(simulated)")) {
+                      return obj.output;
+                    }
+                  }
+                }
+                // 直接是字符串
+                if (typeof output === "string" && output.length > 100) {
+                  if (!output.includes("(simulated)")) {
+                    return output;
+                  }
+                }
+              }
+            }
+          }
+
+          // 直接是字符串内容
+          if (
+            typeof deliverable.content === "string" &&
+            deliverable.content.length > 100
+          ) {
+            return deliverable.content;
+          }
+        }
+      }
+    }
+
+    // 从 summary 构建基础内容（最后的尝试）
+    if (result.summary && !result.summary.includes("失败")) {
+      return `# ${input.userPrompt}\n\n${result.summary}\n\n（AI 团队正在努力创作中，请稍后刷新查看完整内容...）`;
+    }
+
+    return undefined;
+  }
+
+  /**
+   * 创建占位章节（当没有任何内容时）
+   */
+  private async createPlaceholderChapter(
+    input: WritingMissionInput,
+  ): Promise<void> {
+    try {
+      // 获取或创建卷
+      let volume = await this.prisma.writingVolume.findFirst({
+        where: { projectId: input.projectId },
+        orderBy: { volumeNumber: "asc" },
+      });
+
+      if (!volume) {
+        volume = await this.prisma.writingVolume.create({
+          data: {
+            projectId: input.projectId,
+            title: "第一卷",
+            volumeNumber: 1,
+            synopsis: "AI 正在创作中...",
+            targetWords: input.targetWordCount || 50000,
+          },
+        });
+      }
+
+      // 检查是否已有章节
+      const existingChapters = await this.prisma.writingChapter.count({
+        where: { volumeId: volume.id },
+      });
+
+      if (existingChapters === 0) {
+        // 创建占位章节
+        const placeholderContent = `# ${input.userPrompt}
+
+## AI 写作团队正在创作中...
+
+您的写作任务已提交，AI 团队正在努力创作。
+
+任务详情：
+- 任务类型: ${input.missionType}
+- 目标字数: ${input.targetWordCount || "自动确定"}
+- 用户指令: ${input.userPrompt}
+
+请稍后刷新页面查看创作进度。
+
+---
+*本内容为系统自动生成的占位内容*
+`;
+
+        await this.prisma.writingChapter.create({
+          data: {
+            volumeId: volume.id,
+            title: "创作中...",
+            chapterNumber: 1,
+            content: placeholderContent,
+            wordCount: this.countWords(placeholderContent),
+            status: "DRAFT",
+          },
+        });
+
+        // 更新项目字数
+        await this.updateProjectWordCount(input.projectId);
+
+        this.logger.log(
+          `Created placeholder chapter for project ${input.projectId}`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to create placeholder chapter: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  /**
+   * 保存生成的内容到 Volume/Chapter
+   * 这是关键步骤，确保 UI 能够显示生成的内容
+   */
+  private async saveGeneratedContent(
+    input: WritingMissionInput,
+    content: string,
+    wordCount: number,
+  ): Promise<void> {
+    try {
+      if (
+        input.missionType === "full_story" ||
+        input.missionType === "outline"
+      ) {
+        // 完整故事或大纲: 需要创建卷和章节
+        await this.createVolumeAndChapters(input.projectId, content, wordCount);
+      } else if (input.missionType === "chapter" && input.chapterId) {
+        // 单章节: 更新指定章节
+        await this.updateChapterContent(input.chapterId, content, wordCount);
+      } else if (input.missionType === "chapter" && input.volumeId) {
+        // 新章节: 在卷中创建新章节
+        await this.createNewChapter(input.volumeId, content, wordCount);
+      }
+
+      // 更新项目字数统计
+      await this.updateProjectWordCount(input.projectId);
+
+      this.logger.log(
+        `Saved generated content: ${wordCount} words for project ${input.projectId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to save generated content: ${(error as Error).message}`,
+      );
+      // 不抛出错误，内容已经在 mission result 中保存
+    }
+  }
+
+  /**
+   * 创建卷和章节（用于完整故事生成）
+   */
+  private async createVolumeAndChapters(
+    projectId: string,
+    content: string,
+    wordCount: number,
+  ): Promise<void> {
+    // 获取或创建第一卷
+    let volume = await this.prisma.writingVolume.findFirst({
+      where: { projectId },
+      orderBy: { volumeNumber: "asc" },
+    });
+
+    if (!volume) {
+      volume = await this.prisma.writingVolume.create({
+        data: {
+          projectId,
+          title: "第一卷",
+          volumeNumber: 1,
+          synopsis: "AI 生成的故事内容",
+          targetWords: wordCount,
+        },
+      });
+      this.logger.log(`Created volume ${volume.id} for project ${projectId}`);
+    }
+
+    // 分割内容为章节（按 "第X章" 或 "Chapter" 分割）
+    const chapters = this.splitIntoChapters(content);
+
+    // 获取现有章节数量
+    const existingChapterCount = await this.prisma.writingChapter.count({
+      where: { volumeId: volume.id },
+    });
+
+    // 创建章节
+    for (let i = 0; i < chapters.length; i++) {
+      const chapterContent = chapters[i];
+      const chapterWordCount = this.countWords(chapterContent);
+      const chapterNumber = existingChapterCount + i + 1;
+
+      // 提取章节标题
+      const titleMatch = chapterContent.match(
+        /^(第[一二三四五六七八九十百千]+章|Chapter\s*\d+)[：:\s]*(.+?)[\n\r]/i,
+      );
+      const chapterTitle = titleMatch
+        ? titleMatch[2].trim() || `第${chapterNumber}章`
+        : `第${chapterNumber}章`;
+
+      await this.prisma.writingChapter.create({
+        data: {
+          volumeId: volume.id,
+          title: chapterTitle,
+          chapterNumber,
+          content: chapterContent,
+          wordCount: chapterWordCount,
+          status: "DRAFT",
+        },
+      });
+
+      this.logger.log(
+        `Created chapter ${chapterNumber}: ${chapterTitle} (${chapterWordCount} words)`,
+      );
+    }
+  }
+
+  /**
+   * 分割内容为章节
+   */
+  private splitIntoChapters(content: string): string[] {
+    // 尝试按章节标记分割
+    const chapterPattern =
+      /(?=第[一二三四五六七八九十百千]+章|Chapter\s*\d+)/gi;
+    const parts = content.split(chapterPattern).filter((p) => p.trim());
+
+    if (parts.length > 1) {
+      return parts;
+    }
+
+    // 如果没有明显的章节分隔，按段落分割（约3000字一章）
+    const paragraphs = content.split(/\n\n+/);
+    const chapters: string[] = [];
+    let currentChapter = "";
+    let currentWordCount = 0;
+    const targetWordsPerChapter = 3000;
+
+    for (const paragraph of paragraphs) {
+      const paragraphWordCount = this.countWords(paragraph);
+      if (
+        currentWordCount + paragraphWordCount > targetWordsPerChapter &&
+        currentChapter
+      ) {
+        chapters.push(currentChapter.trim());
+        currentChapter = paragraph;
+        currentWordCount = paragraphWordCount;
+      } else {
+        currentChapter += (currentChapter ? "\n\n" : "") + paragraph;
+        currentWordCount += paragraphWordCount;
+      }
+    }
+
+    if (currentChapter.trim()) {
+      chapters.push(currentChapter.trim());
+    }
+
+    // 如果还是只有一章，就返回整个内容作为一章
+    return chapters.length > 0 ? chapters : [content];
+  }
+
+  /**
+   * 更新章节内容
+   */
+  private async updateChapterContent(
+    chapterId: string,
+    content: string,
+    wordCount: number,
+  ): Promise<void> {
+    await this.prisma.writingChapter.update({
+      where: { id: chapterId },
+      data: {
+        content,
+        wordCount,
+        status: "DRAFT",
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * 在卷中创建新章节
+   */
+  private async createNewChapter(
+    volumeId: string,
+    content: string,
+    wordCount: number,
+  ): Promise<void> {
+    // 获取现有章节数量
+    const existingChapterCount = await this.prisma.writingChapter.count({
+      where: { volumeId },
+    });
+
+    const chapterNumber = existingChapterCount + 1;
+
+    await this.prisma.writingChapter.create({
+      data: {
+        volumeId,
+        title: `第${chapterNumber}章`,
+        chapterNumber,
+        content,
+        wordCount,
+        status: "DRAFT",
+      },
+    });
+  }
+
+  /**
+   * 更新项目字数统计
+   */
+  private async updateProjectWordCount(projectId: string): Promise<void> {
+    // 计算所有章节的总字数
+    const result = await this.prisma.writingChapter.aggregate({
+      where: {
+        volume: { projectId },
+      },
+      _sum: {
+        wordCount: true,
+      },
+    });
+
+    const totalWords = result._sum.wordCount || 0;
+
+    // 更新项目
+    await this.prisma.writingProject.update({
+      where: { id: projectId },
+      data: {
+        currentWords: totalWords,
+        status: totalWords > 0 ? "WRITING" : "PLANNING",
+      },
+    });
+
+    this.logger.log(
+      `Updated project ${projectId} word count: ${totalWords} words`,
+    );
   }
 
   /**

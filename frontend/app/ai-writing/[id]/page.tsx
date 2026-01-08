@@ -399,15 +399,128 @@ export default function WritingProjectPage() {
                 ) : allChapters.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center text-center">
                     {isMissionRunning ? (
-                      <>
-                        <div className="border-3 mb-4 h-12 w-12 animate-spin rounded-full border-amber-500 border-t-transparent" />
-                        <h3 className="mb-2 text-lg font-semibold text-gray-800">
-                          AI 团队正在创作中
-                        </h3>
-                        <p className="max-w-xs text-sm text-gray-500">
-                          {missionMessage || '请稍候，故事即将生成...'}
+                      <div className="w-full max-w-md space-y-6">
+                        {/* Header */}
+                        <div className="text-center">
+                          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+                            <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
+                          </div>
+                          <h3 className="text-xl font-bold text-gray-800">
+                            AI 团队正在创作中
+                          </h3>
+                          <p className="mt-1 text-sm font-medium text-amber-600">
+                            {missionMessage}
+                          </p>
+                        </div>
+
+                        {/* Progress Steps */}
+                        <div className="rounded-xl bg-gray-50 p-4">
+                          <div className="space-y-3">
+                            {[
+                              {
+                                id: 'architect',
+                                label: '规划故事结构',
+                                icon: '👑',
+                              },
+                              {
+                                id: 'keeper',
+                                label: '建立世界观设定',
+                                icon: '📚',
+                              },
+                              {
+                                id: 'writer-1',
+                                label: '创作故事内容',
+                                icon: '✍️',
+                                group: ['writer-1', 'writer-2', 'writer-3'],
+                              },
+                              {
+                                id: 'checker-1',
+                                label: '校验内容一致性',
+                                icon: '🔍',
+                                group: ['checker-1', 'checker-2'],
+                              },
+                              {
+                                id: 'editor',
+                                label: '润色文字表达',
+                                icon: '🎨',
+                              },
+                            ].map((step, idx) => {
+                              const isStepActive = step.group
+                                ? step.group.some((id) =>
+                                    activeAgentIds.includes(id)
+                                  )
+                                : activeAgentIds.includes(step.id);
+                              const isStepDone =
+                                !isMissionRunning ||
+                                (step.group
+                                  ? !step.group.some((id) =>
+                                      activeAgentIds.includes(id)
+                                    ) && activeAgentIds.length > 0
+                                  : !activeAgentIds.includes(step.id) &&
+                                    activeAgentIds.length > 0);
+                              // Calculate if step is done based on progress
+                              const stepThreshold = (idx + 1) * 20;
+                              const isDone = missionProgress >= stepThreshold;
+
+                              return (
+                                <div
+                                  key={step.id}
+                                  className="flex items-center gap-3"
+                                >
+                                  <div
+                                    className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-all ${
+                                      isStepActive
+                                        ? 'animate-pulse bg-amber-500 text-white ring-4 ring-amber-200'
+                                        : isDone
+                                          ? 'bg-green-500 text-white'
+                                          : 'bg-gray-200 text-gray-400'
+                                    }`}
+                                  >
+                                    {isDone && !isStepActive ? '✓' : step.icon}
+                                  </div>
+                                  <span
+                                    className={`text-sm ${
+                                      isStepActive
+                                        ? 'font-medium text-amber-700'
+                                        : isDone
+                                          ? 'text-green-700'
+                                          : 'text-gray-400'
+                                    }`}
+                                  >
+                                    {step.label}
+                                    {isStepActive && (
+                                      <span className="ml-2 text-amber-500">
+                                        进行中...
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div>
+                          <div className="mb-2 flex justify-between text-xs text-gray-500">
+                            <span>整体进度</span>
+                            <span className="font-medium text-amber-600">
+                              {Math.round(missionProgress)}%
+                            </span>
+                          </div>
+                          <div className="h-3 overflow-hidden rounded-full bg-gray-200">
+                            <div
+                              className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500"
+                              style={{ width: `${missionProgress}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Tip */}
+                        <p className="text-center text-xs text-gray-400">
+                          创作过程约需 1-2 分钟，请耐心等待
                         </p>
-                      </>
+                      </div>
                     ) : missionCompleted ? (
                       <>
                         <span className="mb-4 text-5xl">✅</span>
