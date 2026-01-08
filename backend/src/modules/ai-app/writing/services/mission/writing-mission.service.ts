@@ -722,6 +722,10 @@ export class WritingMissionService {
         );
 
         // 验证生成的内容是否有效（不是错误消息）
+        // edit 和 consistency_check 类型不强制最小字数（用于继续任务、状态检查等）
+        const skipWordCountCheck =
+          input.missionType === "edit" ||
+          input.missionType === "consistency_check";
         const minWordCount = input.missionType === "outline" ? 50 : 200;
         const isErrorContent =
           generatedContent.includes("API Error") ||
@@ -732,7 +736,10 @@ export class WritingMissionService {
           generatedContent.includes("Request failed") ||
           generatedContent.length < 100;
 
-        if (totalWordCount < minWordCount || isErrorContent) {
+        if (
+          !skipWordCountCheck &&
+          (totalWordCount < minWordCount || isErrorContent)
+        ) {
           this.logger.error(
             `Generated content is invalid or too short: ${totalWordCount} words, content length: ${generatedContent.length}`,
           );
