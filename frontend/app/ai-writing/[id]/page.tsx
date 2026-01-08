@@ -386,25 +386,47 @@ export default function WritingProjectPage() {
                 </svg>
 
                 {/* Leader Node */}
-                <div className="relative z-10 flex flex-col items-center">
-                  <div className="text-base">👑</div>
-                  <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-full text-lg shadow-md ${
-                      activeAgentIds.includes('architect')
-                        ? 'animate-pulse bg-violet-500 ring-4 ring-green-300'
-                        : missionCompleted
-                          ? 'bg-violet-500 ring-2 ring-green-300'
-                          : 'bg-violet-500'
-                    }`}
-                  >
-                    <span className="text-white">📐</span>
-                  </div>
-                  <div className="mt-0.5 text-center">
-                    <div className="text-[10px] font-medium text-slate-700">
-                      架构师
+                {(() => {
+                  const msg = missionMessage || '';
+                  const isArchitectActive = [
+                    '架构',
+                    '规划',
+                    '结构',
+                    '大纲',
+                  ].some((kw) => msg.includes(kw));
+                  return (
+                    <div className="relative z-10 flex flex-col items-center">
+                      <div
+                        className={`text-base transition-transform duration-300 ${isArchitectActive ? 'scale-125' : ''}`}
+                      >
+                        👑
+                      </div>
+                      <div
+                        className={`flex h-12 w-12 items-center justify-center rounded-full text-lg transition-all duration-300 ${
+                          isArchitectActive
+                            ? 'agent-glow-violet scale-110 bg-gradient-to-br from-violet-400 to-violet-600'
+                            : missionCompleted
+                              ? 'bg-violet-500 shadow-md ring-2 ring-green-300'
+                              : 'bg-violet-500 shadow-md'
+                        }`}
+                      >
+                        <span className="text-white drop-shadow-md">📐</span>
+                      </div>
+                      <div className="mt-0.5 text-center">
+                        <div
+                          className={`text-[10px] font-medium transition-colors ${isArchitectActive ? 'text-violet-600' : 'text-slate-700'}`}
+                        >
+                          架构师
+                        </div>
+                        {isArchitectActive && (
+                          <div className="animate-pulse text-[8px] text-violet-500">
+                            工作中
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })()}
 
                 {/* First Row: 守护者 + 3个作家 */}
                 <div className="relative z-10 mt-6 flex justify-around">
@@ -413,46 +435,78 @@ export default function WritingProjectPage() {
                       id: 'keeper',
                       icon: '📚',
                       name: '守护者',
-                      color: 'bg-indigo-500',
+                      gradient: 'from-indigo-400 to-indigo-600',
+                      bgColor: 'bg-indigo-500',
+                      glowClass: 'agent-glow-indigo',
+                      textColor: 'text-indigo-600',
+                      keywords: ['世界观', '设定', '守护'],
                     },
                     {
                       id: 'writer-1',
                       icon: '✍️',
                       name: '作家①',
-                      color: 'bg-amber-500',
+                      gradient: 'from-amber-400 to-amber-600',
+                      bgColor: 'bg-amber-500',
+                      glowClass: 'agent-glow-amber',
+                      textColor: 'text-amber-600',
+                      keywords: ['作家', '写作', '创作', '章节', '撰写'],
                     },
                     {
                       id: 'writer-2',
                       icon: '✍️',
                       name: '作家②',
-                      color: 'bg-orange-500',
+                      gradient: 'from-orange-400 to-orange-600',
+                      bgColor: 'bg-orange-500',
+                      glowClass: 'agent-glow-amber',
+                      textColor: 'text-orange-600',
+                      keywords: ['作家', '写作', '创作', '章节', '撰写'],
                     },
                     {
                       id: 'writer-3',
                       icon: '✍️',
                       name: '作家③',
-                      color: 'bg-yellow-500',
+                      gradient: 'from-yellow-400 to-yellow-600',
+                      bgColor: 'bg-yellow-500',
+                      glowClass: 'agent-glow-amber',
+                      textColor: 'text-yellow-600',
+                      keywords: ['作家', '写作', '创作', '章节', '撰写'],
                     },
                   ].map((agent) => {
-                    const isActive = activeAgentIds.includes(agent.id);
+                    const msg = missionMessage || '';
+                    const isActive = agent.keywords.some((kw) =>
+                      msg.includes(kw)
+                    );
                     return (
                       <div
                         key={agent.id}
                         className="flex flex-col items-center"
                       >
                         <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs shadow ${agent.color} ${
+                          className={`flex h-9 w-9 items-center justify-center rounded-full text-sm transition-all duration-300 ${
                             isActive
-                              ? 'animate-pulse ring-2 ring-green-300'
+                              ? `${agent.glowClass} scale-125 bg-gradient-to-br ${agent.gradient}`
                               : missionCompleted
-                                ? 'ring-1 ring-green-300'
-                                : ''
+                                ? `${agent.bgColor} shadow-md ring-2 ring-green-300`
+                                : `${agent.bgColor} shadow-md`
                           }`}
                         >
-                          <span className="text-white">{agent.icon}</span>
+                          <span className="text-white drop-shadow">
+                            {agent.icon}
+                          </span>
                         </div>
-                        <div className="mt-0.5 text-[10px] text-slate-600">
-                          {agent.name}
+                        <div className={`mt-1 text-center`}>
+                          <div
+                            className={`text-[10px] ${isActive ? `font-semibold ${agent.textColor}` : 'text-slate-600'}`}
+                          >
+                            {agent.name}
+                          </div>
+                          {isActive && (
+                            <div
+                              className={`text-[8px] ${agent.textColor} animate-pulse`}
+                            >
+                              工作中
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -466,40 +520,68 @@ export default function WritingProjectPage() {
                       id: 'checker-1',
                       icon: '🔍',
                       name: '检查①',
-                      color: 'bg-green-500',
+                      gradient: 'from-green-400 to-green-600',
+                      bgColor: 'bg-green-500',
+                      glowClass: 'agent-glow-green',
+                      textColor: 'text-green-600',
+                      keywords: ['检查', '校验', '一致性', '审核', '检查员'],
                     },
                     {
                       id: 'checker-2',
                       icon: '🔍',
                       name: '检查②',
-                      color: 'bg-emerald-500',
+                      gradient: 'from-emerald-400 to-emerald-600',
+                      bgColor: 'bg-emerald-500',
+                      glowClass: 'agent-glow-green',
+                      textColor: 'text-emerald-600',
+                      keywords: ['检查', '校验', '一致性', '审核', '检查员'],
                     },
                     {
                       id: 'editor',
                       icon: '📝',
                       name: '编辑',
-                      color: 'bg-pink-500',
+                      gradient: 'from-pink-400 to-pink-600',
+                      bgColor: 'bg-pink-500',
+                      glowClass: 'agent-glow-pink',
+                      textColor: 'text-pink-600',
+                      keywords: ['编辑', '润色', '打磨', '优化'],
                     },
                   ].map((agent) => {
-                    const isActive = activeAgentIds.includes(agent.id);
+                    const msg = missionMessage || '';
+                    const isActive = agent.keywords.some((kw) =>
+                      msg.includes(kw)
+                    );
                     return (
                       <div
                         key={agent.id}
                         className="flex flex-col items-center"
                       >
                         <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs shadow ${agent.color} ${
+                          className={`flex h-9 w-9 items-center justify-center rounded-full text-sm transition-all duration-300 ${
                             isActive
-                              ? 'animate-pulse ring-2 ring-green-300'
+                              ? `${agent.glowClass} scale-125 bg-gradient-to-br ${agent.gradient}`
                               : missionCompleted
-                                ? 'ring-1 ring-green-300'
-                                : ''
+                                ? `${agent.bgColor} shadow-md ring-2 ring-green-300`
+                                : `${agent.bgColor} shadow-md`
                           }`}
                         >
-                          <span className="text-white">{agent.icon}</span>
+                          <span className="text-white drop-shadow">
+                            {agent.icon}
+                          </span>
                         </div>
-                        <div className="mt-0.5 text-[10px] text-slate-600">
-                          {agent.name}
+                        <div className={`mt-1 text-center`}>
+                          <div
+                            className={`text-[10px] ${isActive ? `font-semibold ${agent.textColor}` : 'text-slate-600'}`}
+                          >
+                            {agent.name}
+                          </div>
+                          {isActive && (
+                            <div
+                              className={`text-[8px] ${agent.textColor} animate-pulse`}
+                            >
+                              工作中
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -597,46 +679,56 @@ export default function WritingProjectPage() {
                                 id: 'architect',
                                 label: '规划故事结构',
                                 icon: '👑',
+                                keywords: ['架构', '规划', '结构', '大纲'],
                               },
                               {
                                 id: 'keeper',
                                 label: '建立世界观设定',
                                 icon: '📚',
+                                keywords: ['世界观', '设定', '守护'],
                               },
                               {
-                                id: 'writer-1',
+                                id: 'writer',
                                 label: '创作故事内容',
                                 icon: '✍️',
-                                group: ['writer-1', 'writer-2', 'writer-3'],
+                                keywords: [
+                                  '作家',
+                                  '写作',
+                                  '创作',
+                                  '章节',
+                                  '撰写',
+                                ],
                               },
                               {
-                                id: 'checker-1',
+                                id: 'checker',
                                 label: '校验内容一致性',
                                 icon: '🔍',
-                                group: ['checker-1', 'checker-2'],
+                                keywords: [
+                                  '检查',
+                                  '校验',
+                                  '一致性',
+                                  '审核',
+                                  '检查员',
+                                ],
                               },
                               {
                                 id: 'editor',
                                 label: '润色文字表达',
                                 icon: '🎨',
+                                keywords: ['编辑', '润色', '打磨', '优化'],
                               },
                             ].map((step, idx) => {
-                              const isStepActive = step.group
-                                ? step.group.some((id) =>
-                                    activeAgentIds.includes(id)
-                                  )
-                                : activeAgentIds.includes(step.id);
-                              const isStepDone =
-                                !isMissionRunning ||
-                                (step.group
-                                  ? !step.group.some((id) =>
-                                      activeAgentIds.includes(id)
-                                    ) && activeAgentIds.length > 0
-                                  : !activeAgentIds.includes(step.id) &&
-                                    activeAgentIds.length > 0);
-                              // Calculate if step is done based on progress
+                              // 基于消息内容判断当前活跃步骤
+                              const msg = missionMessage || '';
+                              const isStepActive = step.keywords.some((kw) =>
+                                msg.includes(kw)
+                              );
+
+                              // 基于进度计算是否完成
                               const stepThreshold = (idx + 1) * 20;
-                              const isDone = missionProgress >= stepThreshold;
+                              const isDone =
+                                missionProgress >= stepThreshold &&
+                                !isStepActive;
 
                               return (
                                 <div
@@ -652,7 +744,7 @@ export default function WritingProjectPage() {
                                           : 'bg-gray-200 text-gray-400'
                                     }`}
                                   >
-                                    {isDone && !isStepActive ? '✓' : step.icon}
+                                    {isDone ? '✓' : step.icon}
                                   </div>
                                   <span
                                     className={`text-sm ${
