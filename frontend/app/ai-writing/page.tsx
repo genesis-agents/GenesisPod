@@ -8,11 +8,36 @@ import { useAIWritingStore } from '@/stores/aiWritingStore';
 
 // AI Writing Team - 5 Agents
 const WRITING_TEAM = [
-  { id: 'architect', icon: '👑', name: '架构师' },
-  { id: 'writer', icon: '✍️', name: '作家' },
-  { id: 'keeper', icon: '📚', name: '守护者' },
-  { id: 'checker', icon: '🔍', name: '检查员' },
-  { id: 'editor', icon: '🎨', name: '编辑' },
+  {
+    id: 'architect',
+    icon: '👑',
+    name: '架构师',
+    color: 'from-purple-500 to-violet-600',
+  },
+  {
+    id: 'keeper',
+    icon: '📚',
+    name: '守护者',
+    color: 'from-indigo-500 to-blue-600',
+  },
+  {
+    id: 'writer',
+    icon: '✍️',
+    name: '作家',
+    color: 'from-blue-500 to-cyan-600',
+  },
+  {
+    id: 'checker',
+    icon: '🔍',
+    name: '检查员',
+    color: 'from-amber-500 to-orange-600',
+  },
+  {
+    id: 'editor',
+    icon: '🎨',
+    name: '编辑',
+    color: 'from-green-500 to-emerald-600',
+  },
 ];
 
 // Genre options
@@ -35,6 +60,48 @@ const WORD_COUNTS = [
   { value: 200000, label: '20万字+' },
 ];
 
+// Vibrant gradient color schemes for project cards
+const PROJECT_GRADIENTS = [
+  {
+    from: 'from-amber-500',
+    to: 'to-orange-600',
+    shadow: 'shadow-amber-500/30',
+  },
+  {
+    from: 'from-violet-500',
+    to: 'to-purple-600',
+    shadow: 'shadow-violet-500/30',
+  },
+  { from: 'from-blue-500', to: 'to-cyan-500', shadow: 'shadow-blue-500/30' },
+  {
+    from: 'from-emerald-500',
+    to: 'to-teal-500',
+    shadow: 'shadow-emerald-500/30',
+  },
+  { from: 'from-pink-500', to: 'to-rose-500', shadow: 'shadow-pink-500/30' },
+  {
+    from: 'from-indigo-500',
+    to: 'to-blue-600',
+    shadow: 'shadow-indigo-500/30',
+  },
+  {
+    from: 'from-fuchsia-500',
+    to: 'to-pink-500',
+    shadow: 'shadow-fuchsia-500/30',
+  },
+  { from: 'from-cyan-500', to: 'to-blue-500', shadow: 'shadow-cyan-500/30' },
+];
+
+function getProjectGradient(projectId: string) {
+  let hash = 0;
+  for (let i = 0; i < projectId.length; i++) {
+    hash = (hash << 5) - hash + projectId.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % PROJECT_GRADIENTS.length;
+  return PROJECT_GRADIENTS[index];
+}
+
 export default function AIWritingPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
@@ -54,6 +121,7 @@ export default function AIWritingPage() {
   });
   const [isCreating, setIsCreating] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -107,102 +175,202 @@ export default function AIWritingPage() {
     );
   };
 
-  if (authLoading) return null;
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return '刚刚';
+    if (minutes < 60) return `${minutes}分钟前`;
+    if (hours < 24) return `${hours}小时前`;
+    if (days < 7) return `${days}天前`;
+    return date.toLocaleDateString();
+  };
+
+  // Filter projects by search query
+  const filteredProjects = projects.filter((project) => {
+    if (!searchQuery) return true;
+    return (
+      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
+
+  if (authLoading) {
+    return (
+      <AppShell>
+        <div className="flex flex-1 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
+        </div>
+      </AppShell>
+    );
+  }
 
   if (!user) {
     return (
       <AppShell>
-        <main className="flex flex-1 items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50 p-8">
-          <div className="max-w-md text-center">
-            <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg">
-              <span className="text-5xl">✍️</span>
-            </div>
-            <h2 className="mb-3 text-2xl font-bold text-gray-800">AI 写作</h2>
-            <p className="mb-4 text-gray-500">5 位 AI 专家协作，帮你完成创作</p>
-            <div className="flex justify-center gap-2">
-              {WRITING_TEAM.map((agent) => (
-                <span
-                  key={agent.id}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg shadow"
-                  title={agent.name}
-                >
-                  {agent.icon}
-                </span>
-              ))}
-            </div>
-          </div>
-        </main>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
+          <svg
+            className="h-16 w-16 text-gray-300"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+            />
+          </svg>
+          <h2 className="text-xl font-semibold text-gray-700">请先登录</h2>
+          <p className="text-gray-500">登录后即可开始 AI 写作</p>
+        </div>
       </AppShell>
     );
   }
 
   return (
     <AppShell>
-      <main className="flex-1 overflow-auto bg-gradient-to-br from-slate-50 to-amber-50/30">
-        <div className="mx-auto max-w-6xl px-6 py-8">
-          {/* Header */}
-          <div className="mb-8 flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">AI 写作</h1>
-              <p className="mt-1 text-gray-500">
-                5 位 AI 专家协作，帮你完成创作
-              </p>
-            </div>
-            <button
-              onClick={() => setShowCreateDialog(true)}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 font-medium text-white shadow transition-all hover:from-amber-600 hover:to-orange-600 hover:shadow-md"
-            >
-              <span>+</span>
-              开始创作
-            </button>
-          </div>
-
-          {/* Projects Grid */}
-          {isLoadingProjects ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="h-10 w-10 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
-            </div>
-          ) : projects.length === 0 ? (
-            /* Empty State */
-            <div
-              onClick={() => setShowCreateDialog(true)}
-              className="cursor-pointer rounded-2xl border-2 border-dashed border-gray-200 bg-white/50 py-20 text-center transition-all hover:border-amber-300 hover:bg-amber-50/30"
-            >
-              <div className="mx-auto mb-4 flex justify-center gap-2">
-                {WRITING_TEAM.map((agent) => (
-                  <span
-                    key={agent.id}
-                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl shadow"
+      <main className="flex-1 overflow-auto">
+        {/* Header - Sticky */}
+        <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
+          <div className="px-8 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25">
+                  <svg
+                    className="h-7 w-7 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    {agent.icon}
-                  </span>
-                ))}
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">AI 写作</h1>
+                  <p className="text-sm text-gray-500">
+                    5 位 AI 专家协作，帮你完成创作
+                  </p>
+                </div>
               </div>
-              <h3 className="mb-2 text-lg font-medium text-gray-700">
-                开始你的第一个创作
-              </h3>
-              <p className="text-sm text-gray-500">
-                描述你的想法，AI 写作团队将协作完成
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {/* New Project Card */}
               <button
                 onClick={() => setShowCreateDialog(true)}
-                className="group flex min-h-[200px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-white/50 p-6 transition-all hover:border-amber-300 hover:bg-amber-50/30"
+                className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-amber-700"
               >
-                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-gray-100 text-2xl transition-colors group-hover:bg-amber-100">
-                  +
-                </div>
-                <span className="font-medium text-gray-600 group-hover:text-amber-700">
-                  开始创作
-                </span>
-                <span className="mt-1 text-sm text-gray-400">描述你的想法</span>
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                开始创作
               </button>
+            </div>
 
-              {/* Project Cards */}
-              {projects.map((project) => {
+            {/* Search Bar */}
+            <div className="mt-4">
+              <div className="relative">
+                <svg
+                  className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="搜索作品..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="px-8 py-6">
+          {isLoadingProjects ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
+            </div>
+          ) : filteredProjects.length === 0 && !searchQuery ? (
+            /* Empty State */
+            <div className="flex flex-col items-center justify-center py-12">
+              <svg
+                className="h-16 w-16 text-gray-300"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                />
+              </svg>
+              <h3 className="mt-4 text-lg font-medium text-gray-700">
+                还没有作品
+              </h3>
+              <p className="mt-2 text-sm text-gray-500">
+                描述你的想法，AI 写作团队将协作完成
+              </p>
+              <button
+                onClick={() => setShowCreateDialog(true)}
+                className="mt-4 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+              >
+                开始创作
+              </button>
+            </div>
+          ) : filteredProjects.length === 0 && searchQuery ? (
+            /* No Search Results */
+            <div className="flex flex-col items-center justify-center py-12">
+              <svg
+                className="h-16 w-16 text-gray-300"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+              <h3 className="mt-4 text-lg font-medium text-gray-700">
+                没有找到匹配的作品
+              </h3>
+              <p className="mt-2 text-sm text-gray-500">尝试其他关键词搜索</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredProjects.map((project) => {
                 const status = getStatusBadge(project.status);
                 const progress =
                   project.targetWords > 0
@@ -210,61 +378,64 @@ export default function AIWritingPage() {
                         (project.currentWords / project.targetWords) * 100
                       )
                     : 0;
+                const gradient = getProjectGradient(project.id);
 
                 return (
                   <div
                     key={project.id}
                     onClick={() => router.push(`/ai-writing/${project.id}`)}
-                    className="group relative cursor-pointer rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-amber-200 hover:shadow-lg"
+                    className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-amber-300 hover:shadow-md"
                   >
                     {/* Delete Button */}
-                    <button
-                      onClick={(e) => handleDelete(e, project.id)}
-                      className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-400 opacity-0 transition-all hover:bg-red-100 hover:text-red-500 group-hover:opacity-100"
-                    >
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                    <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        onClick={(e) => handleDelete(e, project.id)}
+                        className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-red-50 hover:text-red-600"
+                        title="删除作品"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-
-                    {/* Header */}
-                    <div className="mb-3">
-                      <div className="flex items-start justify-between">
-                        <h3 className="line-clamp-1 pr-8 text-lg font-semibold text-gray-900 group-hover:text-amber-700">
-                          {project.name}
-                        </h3>
-                      </div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <span className="text-xs text-gray-400">
-                          {project.genre || '未分类'}
-                        </span>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
                         >
-                          {status.label}
-                        </span>
-                      </div>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
                     </div>
 
-                    {/* Description */}
+                    {/* Avatar with gradient */}
+                    <div className="flex items-start justify-between">
+                      <div
+                        className={`relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient.from} ${gradient.to} shadow-lg ${gradient.shadow} transition-transform group-hover:scale-105`}
+                      >
+                        <span className="text-2xl drop-shadow-sm">✍️</span>
+                        <div className="absolute inset-0 rounded-2xl ring-2 ring-white/20 transition-all group-hover:ring-4 group-hover:ring-white/30" />
+                      </div>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}
+                      >
+                        {status.label}
+                      </span>
+                    </div>
+
+                    {/* Title & Description */}
+                    <h3 className="mt-3 truncate text-base font-semibold text-gray-900 group-hover:text-amber-600">
+                      {project.name}
+                    </h3>
                     {project.description && (
-                      <p className="mb-4 line-clamp-2 text-sm text-gray-500">
+                      <p className="mt-1 line-clamp-2 text-sm text-gray-500">
                         {project.description}
                       </p>
                     )}
 
                     {/* Progress */}
-                    <div className="mb-3">
+                    <div className="mt-4">
                       <div className="mb-1.5 flex items-center justify-between text-xs">
                         <span className="text-gray-500">
                           {project.currentWords.toLocaleString()} /{' '}
@@ -282,13 +453,13 @@ export default function AIWritingPage() {
                       </div>
                     </div>
 
-                    {/* Footer */}
-                    <div className="flex items-center justify-between border-t border-gray-50 pt-3">
+                    {/* Footer: AI Team + Time */}
+                    <div className="mt-4 flex items-center justify-between">
                       <div className="flex -space-x-1.5">
                         {WRITING_TEAM.map((agent) => (
                           <span
                             key={agent.id}
-                            className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-xs ring-2 ring-white"
+                            className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br ${agent.color} text-xs ring-2 ring-white`}
                             title={agent.name}
                           >
                             {agent.icon}
@@ -296,12 +467,35 @@ export default function AIWritingPage() {
                         ))}
                       </div>
                       <span className="text-xs text-gray-400">
-                        {new Date(project.updatedAt).toLocaleDateString()}
+                        {formatTime(project.updatedAt)}
                       </span>
                     </div>
                   </div>
                 );
               })}
+
+              {/* Create New Card */}
+              <button
+                onClick={() => setShowCreateDialog(true)}
+                className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-amber-400 hover:bg-amber-50"
+              >
+                <svg
+                  className="h-10 w-10 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                <span className="mt-2 text-sm font-medium text-gray-600">
+                  开始创作
+                </span>
+              </button>
             </div>
           )}
         </div>
@@ -310,16 +504,16 @@ export default function AIWritingPage() {
       {/* Create Dialog */}
       {showCreateDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+          <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
               <h2 className="text-lg font-semibold text-gray-900">开始创作</h2>
               <button
                 onClick={() => setShowCreateDialog(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100"
+                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
               >
                 <svg
-                  className="h-5 w-5 text-gray-400"
+                  className="h-6 w-6"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -334,26 +528,33 @@ export default function AIWritingPage() {
               </button>
             </div>
 
-            {/* Body */}
-            <div className="p-6">
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                你想写什么？
-              </label>
-              <textarea
-                value={createForm.description}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, description: e.target.value })
-                }
-                placeholder="描述你的故事想法...&#10;&#10;例如：一个程序员穿越到三国时代，用现代知识改变历史的故事"
-                rows={5}
-                className="w-full rounded-xl border border-gray-200 p-4 text-gray-900 placeholder-gray-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-                autoFocus
-              />
+            {/* Content - Scrollable */}
+            <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  你想写什么？ *
+                </label>
+                <textarea
+                  value={createForm.description}
+                  onChange={(e) =>
+                    setCreateForm({
+                      ...createForm,
+                      description: e.target.value,
+                    })
+                  }
+                  placeholder="描述你的故事想法...&#10;&#10;例如：一个程序员穿越到三国时代，用现代知识改变历史的故事"
+                  rows={5}
+                  className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  autoFocus
+                />
+              </div>
 
               {/* Options Toggle */}
               <button
+                type="button"
                 onClick={() => setShowOptions(!showOptions)}
-                className="mt-4 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+                className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
               >
                 <svg
                   className={`h-4 w-4 transition-transform ${showOptions ? 'rotate-180' : ''}`}
@@ -373,7 +574,7 @@ export default function AIWritingPage() {
 
               {/* Options */}
               {showOptions && (
-                <div className="mt-4 grid gap-4 rounded-xl bg-gray-50 p-4 sm:grid-cols-2">
+                <div className="grid gap-4 rounded-xl bg-gray-50 p-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-gray-500">
                       类型
@@ -383,7 +584,7 @@ export default function AIWritingPage() {
                       onChange={(e) =>
                         setCreateForm({ ...createForm, genre: e.target.value })
                       }
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-amber-400 focus:outline-none"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                     >
                       {GENRES.map((g) => (
                         <option key={g.value} value={g.value}>
@@ -404,7 +605,7 @@ export default function AIWritingPage() {
                           targetWords: Number(e.target.value),
                         })
                       }
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-amber-400 focus:outline-none"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                     >
                       {WORD_COUNTS.map((w) => (
                         <option key={w.value} value={w.value}>
@@ -415,47 +616,43 @@ export default function AIWritingPage() {
                   </div>
                 </div>
               )}
+
+              {/* AI Team Preview */}
+              <div className="rounded-xl bg-amber-50 p-4">
+                <p className="mb-3 text-xs font-medium text-amber-700">
+                  AI 写作团队
+                </p>
+                <div className="flex items-center gap-3">
+                  {WRITING_TEAM.map((agent) => (
+                    <div key={agent.id} className="flex flex-col items-center">
+                      <span
+                        className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${agent.color} text-lg shadow-sm`}
+                      >
+                        {agent.icon}
+                      </span>
+                      <span className="mt-1 text-xs text-gray-500">
+                        {agent.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {/* Footer */}
-            <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-4">
+            {/* Footer - Fixed at bottom */}
+            <div className="flex flex-shrink-0 justify-end gap-3 border-t border-gray-200 px-6 py-4">
               <button
                 onClick={() => setShowCreateDialog(false)}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 取消
               </button>
               <button
                 onClick={handleCreate}
                 disabled={!createForm.description.trim() || isCreating}
-                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2 text-sm font-medium text-white transition-all hover:from-amber-600 hover:to-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isCreating ? (
-                  <>
-                    <svg
-                      className="h-4 w-4 animate-spin"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                      />
-                    </svg>
-                    创建中...
-                  </>
-                ) : (
-                  '开始创作'
-                )}
+                {isCreating ? '创建中...' : '开始创作'}
               </button>
             </div>
           </div>

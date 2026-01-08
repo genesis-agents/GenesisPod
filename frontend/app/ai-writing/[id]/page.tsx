@@ -70,12 +70,13 @@ export default function WritingProjectPage() {
     isMissionRunning,
     missionProgress,
     missionMessage,
+    missionCompleted,
+    currentAgentIndex,
     clearError,
   } = useAIWritingStore();
 
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [userInput, setUserInput] = useState('');
-  const [activeAgentIndex, setActiveAgentIndex] = useState(0);
 
   // Load project data
   useEffect(() => {
@@ -85,22 +86,12 @@ export default function WritingProjectPage() {
     }
   }, [user, projectId, fetchProject, fetchVolumes]);
 
-  // Animate agent activity when mission is running
-  useEffect(() => {
-    if (isMissionRunning) {
-      const interval = setInterval(() => {
-        setActiveAgentIndex((prev) => (prev + 1) % WRITING_AGENTS.length);
-      }, 2000);
-      return () => clearInterval(interval);
-    }
-  }, [isMissionRunning]);
-
   const handleStartWriting = async () => {
     if (!currentProject) return;
     try {
       await startMission(projectId, {
         prompt: userInput || currentProject.description || '开始写作',
-        missionType: 'outline',
+        missionType: 'full_story',
       });
       setUserInput('');
     } catch {
@@ -202,7 +193,7 @@ export default function WritingProjectPage() {
 
   return (
     <AppShell>
-      <main className="flex h-full flex-col overflow-hidden bg-gray-50">
+      <main className="flex h-full flex-1 flex-col overflow-hidden bg-gray-50">
         {/* Compact Header */}
         <div className="shrink-0 border-b border-gray-200 bg-white px-6 py-3">
           <div className="flex items-center justify-between">
@@ -211,15 +202,32 @@ export default function WritingProjectPage() {
                 onClick={() => router.push('/ai-writing')}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
               >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
                 </svg>
               </button>
               <div>
-                <h1 className="text-lg font-bold text-gray-900">{currentProject.name}</h1>
+                <h1 className="text-lg font-bold text-gray-900">
+                  {currentProject.name}
+                </h1>
                 <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <span>{currentProject.currentWords.toLocaleString()} / {currentProject.targetWords.toLocaleString()} 字</span>
-                  <span className="text-amber-600 font-medium">({getProgress()}%)</span>
+                  <span>
+                    {currentProject.currentWords.toLocaleString()} /{' '}
+                    {currentProject.targetWords.toLocaleString()} 字
+                  </span>
+                  <span className="font-medium text-amber-600">
+                    ({getProgress()}%)
+                  </span>
                 </div>
               </div>
             </div>
@@ -227,8 +235,18 @@ export default function WritingProjectPage() {
               onClick={handleExport}
               className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
             >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                />
               </svg>
               导出
             </button>
@@ -239,39 +257,50 @@ export default function WritingProjectPage() {
         {error && (
           <div className="mx-4 mt-3 flex items-center justify-between rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">
             <span>{error}</span>
-            <button onClick={clearError} className="text-red-500 hover:text-red-700">✕</button>
+            <button
+              onClick={clearError}
+              className="text-red-500 hover:text-red-700"
+            >
+              ✕
+            </button>
           </div>
         )}
 
         {/* Main Content */}
-        <div className="flex flex-1 overflow-hidden p-4 gap-4">
+        <div className="flex flex-1 gap-4 overflow-hidden p-4">
           {/* Left: AI Team Canvas */}
-          <div className="w-80 shrink-0 rounded-2xl bg-white shadow-sm border border-gray-100 flex flex-col">
-            <div className="px-4 py-3 border-b border-gray-100">
+          <div className="flex w-80 shrink-0 flex-col rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <div className="border-b border-gray-100 px-4 py-3">
               <h2 className="font-semibold text-gray-800">AI 写作团队</h2>
               {isMissionRunning && (
-                <p className="text-xs text-amber-600 mt-1">{missionMessage || '协作中...'}</p>
+                <p className="mt-1 text-xs text-amber-600">
+                  {missionMessage || '协作中...'}
+                </p>
               )}
             </div>
 
             {/* Agent Flow Visualization */}
-            <div className="flex-1 p-4 flex flex-col items-center justify-center gap-3">
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4">
               {WRITING_AGENTS.map((agent, index) => {
-                const isActive = isMissionRunning && index === activeAgentIndex;
-                const isPast = isMissionRunning && index < activeAgentIndex;
+                const isActive =
+                  isMissionRunning && index === currentAgentIndex;
+                const isPast = isMissionRunning && index < currentAgentIndex;
 
                 return (
-                  <div key={agent.id} className="flex items-center gap-3 w-full">
+                  <div
+                    key={agent.id}
+                    className="flex w-full items-center gap-3"
+                  >
                     {/* Connection Line */}
                     {index > 0 && (
-                      <div className="absolute left-[2.35rem] -mt-8 w-0.5 h-6 bg-gray-200" />
+                      <div className="absolute left-[2.35rem] -mt-8 h-6 w-0.5 bg-gray-200" />
                     )}
 
                     {/* Agent Node */}
                     <div
                       className={`
-                        relative flex items-center gap-3 w-full p-3 rounded-xl transition-all duration-300
-                        ${isActive ? 'bg-amber-50 ring-2 ring-amber-400 shadow-md' : ''}
+                        relative flex w-full items-center gap-3 rounded-xl p-3 transition-all duration-300
+                        ${isActive ? 'bg-amber-50 shadow-md ring-2 ring-amber-400' : ''}
                         ${isPast ? 'bg-green-50' : ''}
                         ${!isActive && !isPast ? 'bg-gray-50' : ''}
                       `}
@@ -279,8 +308,8 @@ export default function WritingProjectPage() {
                       {/* Icon */}
                       <div
                         className={`
-                          flex h-10 w-10 items-center justify-center rounded-full text-lg shrink-0
-                          ${isActive ? 'bg-amber-500 text-white animate-pulse' : ''}
+                          flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg
+                          ${isActive ? 'animate-pulse bg-amber-500 text-white' : ''}
                           ${isPast ? 'bg-green-500 text-white' : ''}
                           ${!isActive && !isPast ? agent.color + ' text-white' : ''}
                         `}
@@ -289,17 +318,21 @@ export default function WritingProjectPage() {
                       </div>
 
                       {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-800 text-sm">{agent.name}</div>
-                        <div className="text-xs text-gray-500">{agent.desc}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-gray-800">
+                          {agent.name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {agent.desc}
+                        </div>
                       </div>
 
                       {/* Status Indicator */}
                       {isActive && (
                         <div className="flex items-center gap-1">
                           <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500"></span>
                           </span>
                         </div>
                       )}
@@ -310,15 +343,19 @@ export default function WritingProjectPage() {
             </div>
 
             {/* Progress Bar */}
-            {isMissionRunning && (
-              <div className="px-4 py-3 border-t border-gray-100">
-                <div className="flex justify-between text-xs text-gray-500 mb-1">
-                  <span>整体进度</span>
+            {(isMissionRunning || missionCompleted) && (
+              <div className="border-t border-gray-100 px-4 py-3">
+                <div className="mb-1 flex justify-between text-xs text-gray-500">
+                  <span>{missionCompleted ? '创作完成' : '整体进度'}</span>
                   <span>{Math.round(missionProgress)}%</span>
                 </div>
-                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-2 overflow-hidden rounded-full bg-gray-100">
                   <div
-                    className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500"
+                    className={`h-full transition-all duration-500 ${
+                      missionCompleted
+                        ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                        : 'bg-gradient-to-r from-amber-400 to-orange-500'
+                    }`}
                     style={{ width: `${missionProgress}%` }}
                   />
                 </div>
@@ -327,40 +364,66 @@ export default function WritingProjectPage() {
           </div>
 
           {/* Right: Content Area */}
-          <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex min-w-0 flex-1 flex-col">
             {/* Chapter List or Empty State */}
-            <div className="flex-1 rounded-2xl bg-white shadow-sm border border-gray-100 flex flex-col overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                 <h2 className="font-semibold text-gray-800">章节列表</h2>
-                <span className="text-sm text-gray-400">{allChapters.length} 章</span>
+                <span className="text-sm text-gray-400">
+                  {allChapters.length} 章
+                </span>
               </div>
 
               <div className="flex-1 overflow-auto p-4">
                 {isLoadingVolumes ? (
-                  <div className="flex items-center justify-center h-full">
+                  <div className="flex h-full items-center justify-center">
                     <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
                   </div>
                 ) : allChapters.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
+                  <div className="flex h-full flex-col items-center justify-center text-center">
                     {isMissionRunning ? (
                       <>
-                        <div className="h-12 w-12 animate-spin rounded-full border-3 border-amber-500 border-t-transparent mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-800 mb-2">AI 团队正在创作中</h3>
-                        <p className="text-gray-500 text-sm max-w-xs">{missionMessage || '请稍候，章节大纲即将生成...'}</p>
+                        <div className="border-3 mb-4 h-12 w-12 animate-spin rounded-full border-amber-500 border-t-transparent" />
+                        <h3 className="mb-2 text-lg font-semibold text-gray-800">
+                          AI 团队正在创作中
+                        </h3>
+                        <p className="max-w-xs text-sm text-gray-500">
+                          {missionMessage || '请稍候，故事即将生成...'}
+                        </p>
+                      </>
+                    ) : missionCompleted ? (
+                      <>
+                        <span className="mb-4 text-5xl">✅</span>
+                        <h3 className="mb-2 text-lg font-semibold text-gray-800">
+                          创作任务已完成
+                        </h3>
+                        <p className="mb-6 max-w-xs text-sm text-gray-500">
+                          AI 团队已完成创作，请刷新页面查看结果
+                        </p>
+                        <button
+                          onClick={() => fetchVolumes(projectId)}
+                          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 px-6 py-3 font-medium text-white shadow-lg shadow-green-200 transition-all hover:from-green-600 hover:to-emerald-600"
+                        >
+                          <span>🔄</span>
+                          刷新内容
+                        </button>
                       </>
                     ) : (
                       <>
-                        <span className="text-5xl mb-4">📝</span>
-                        <h3 className="text-lg font-semibold text-gray-800 mb-2">开始你的创作</h3>
-                        <p className="text-gray-500 text-sm mb-6 max-w-xs">
-                          {currentProject.description || '点击下方按钮，AI 团队将自动规划故事结构'}
+                        <span className="mb-4 text-5xl">📝</span>
+                        <h3 className="mb-2 text-lg font-semibold text-gray-800">
+                          开始你的创作
+                        </h3>
+                        <p className="mb-6 max-w-xs text-sm text-gray-500">
+                          {currentProject.description ||
+                            '点击下方按钮，AI 团队将自动完成故事创作'}
                         </p>
                         <button
                           onClick={handleStartWriting}
-                          className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-xl font-medium hover:from-amber-600 hover:to-orange-600 shadow-lg shadow-amber-200 transition-all"
+                          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3 font-medium text-white shadow-lg shadow-amber-200 transition-all hover:from-amber-600 hover:to-orange-600"
                         >
                           <span>✨</span>
-                          开始生成大纲
+                          一键生成故事
                         </button>
                       </>
                     )}
@@ -370,7 +433,11 @@ export default function WritingProjectPage() {
                     {allChapters.map((chapter) => (
                       <button
                         key={chapter.id}
-                        onClick={() => setSelectedChapter(selectedChapter?.id === chapter.id ? null : chapter)}
+                        onClick={() =>
+                          setSelectedChapter(
+                            selectedChapter?.id === chapter.id ? null : chapter
+                          )
+                        }
                         className={`w-full rounded-xl border p-4 text-left transition-all ${
                           selectedChapter?.id === chapter.id
                             ? 'border-amber-300 bg-amber-50 ring-2 ring-amber-100'
@@ -378,32 +445,39 @@ export default function WritingProjectPage() {
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
-                            chapter.content ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                          }`}>
+                          <span
+                            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+                              chapter.content
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-gray-100 text-gray-500'
+                            }`}
+                          >
                             {chapter.content ? '✓' : chapter.chapterNumber}
                           </span>
-                          <div className="flex-1 min-w-0">
+                          <div className="min-w-0 flex-1">
                             <div className="font-medium text-gray-800">
                               第{chapter.chapterNumber}章 {chapter.title}
                             </div>
                             {chapter.synopsis && (
-                              <div className="text-xs text-gray-400 truncate">{chapter.synopsis}</div>
+                              <div className="truncate text-xs text-gray-400">
+                                {chapter.synopsis}
+                              </div>
                             )}
                           </div>
                           {chapter.wordCount > 0 && (
-                            <span className="text-xs text-gray-400 shrink-0">
+                            <span className="shrink-0 text-xs text-gray-400">
                               {chapter.wordCount.toLocaleString()} 字
                             </span>
                           )}
                         </div>
-                        {selectedChapter?.id === chapter.id && chapter.content && (
-                          <div className="mt-3 p-3 bg-gray-50 rounded-lg max-h-48 overflow-auto">
-                            <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                              {chapter.content}
+                        {selectedChapter?.id === chapter.id &&
+                          chapter.content && (
+                            <div className="mt-3 max-h-48 overflow-auto rounded-lg bg-gray-50 p-3">
+                              <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                                {chapter.content}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
                       </button>
                     ))}
 
@@ -411,7 +485,7 @@ export default function WritingProjectPage() {
                     {!isMissionRunning && (
                       <button
                         onClick={handleContinueWriting}
-                        className="w-full py-4 rounded-xl border-2 border-dashed border-gray-200 text-gray-500 hover:border-amber-300 hover:text-amber-600 transition-all"
+                        className="w-full rounded-xl border-2 border-dashed border-gray-200 py-4 text-gray-500 transition-all hover:border-amber-300 hover:text-amber-600"
                       >
                         + 继续写作下一章
                       </button>
@@ -422,7 +496,7 @@ export default function WritingProjectPage() {
             </div>
 
             {/* Input Area */}
-            <div className="mt-4 rounded-2xl bg-white shadow-sm border border-gray-100 p-4">
+            <div className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <div className="flex gap-3">
                 <textarea
                   ref={inputRef}
@@ -442,10 +516,20 @@ export default function WritingProjectPage() {
                 <button
                   onClick={handleSendMessage}
                   disabled={!userInput.trim() || isMissionRunning}
-                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white transition-all hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                    />
                   </svg>
                 </button>
               </div>

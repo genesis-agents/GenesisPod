@@ -38,6 +38,8 @@ interface AIWritingState {
   isMissionRunning: boolean;
   missionProgress: number;
   missionMessage: string;
+  missionCompleted: boolean;
+  currentAgentIndex: number;
 
   // Error handling
   error: string | null;
@@ -100,6 +102,8 @@ const initialState = {
   isMissionRunning: false,
   missionProgress: 0,
   missionMessage: '',
+  missionCompleted: false,
+  currentAgentIndex: 0,
   error: null,
 };
 
@@ -332,67 +336,78 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
   // ==================== AI Mission ====================
 
   startMission: async (projectId: string, dto: StartMissionDto) => {
-    const { fetchVolumes } = get();
+    const { fetchVolumes, fetchProject } = get();
 
     set({
       isMissionRunning: true,
       missionProgress: 0,
       missionMessage: '启动写作任务...',
+      missionCompleted: false,
+      currentAgentIndex: 0,
       error: null,
     });
     try {
       await api.startMission(projectId, dto);
 
-      // Mission runs async on backend - keep UI showing progress
-      // Simulate progress while waiting for backend to complete
-      set({ missionMessage: 'AI 团队正在协作中...' });
+      // Mission runs async on backend
+      // Agent flow: 0=Architect, 1=Keeper, 2=Writer, 3=Checker, 4=Editor
+      const agentMessages = [
+        '故事架构师正在规划故事结构...',
+        '设定守护者正在建立世界观...',
+        '创作作家正在撰写内容...',
+        '一致性检查员正在校验逻辑...',
+        '润色编辑正在打磨文字...',
+      ];
 
-      // Poll for completion by checking if volumes/chapters have been created
-      // Do this for up to 60 seconds (check every 3 seconds)
-      let attempts = 0;
-      const maxAttempts = 20;
-      const pollInterval = 3000;
+      // Poll for completion - each agent takes ~12 seconds (60s total / 5 agents)
+      let currentAgent = 0;
+      const agentDuration = 12000; // 12 seconds per agent
+      const tickInterval = 1000; // Update every 1 second
+      let elapsed = 0;
 
       const pollForCompletion = async () => {
-        while (attempts < maxAttempts) {
-          await new Promise((resolve) => setTimeout(resolve, pollInterval));
-          attempts++;
+        while (currentAgent < 5) {
+          await new Promise((resolve) => setTimeout(resolve, tickInterval));
+          elapsed += tickInterval;
 
-          // Update progress message based on attempts
-          const progress = Math.min(95, (attempts / maxAttempts) * 100);
-          const messages = [
-            '分析故事结构...',
-            '规划章节大纲...',
-            '生成内容中...',
-            '检查一致性...',
-            '润色文字...',
-          ];
-          const messageIndex = Math.min(
-            Math.floor(progress / 20),
-            messages.length - 1
+          // Calculate which agent is active based on elapsed time
+          currentAgent = Math.min(4, Math.floor(elapsed / agentDuration));
+
+          // Calculate overall progress
+          const agentProgress = (elapsed % agentDuration) / agentDuration;
+          const overallProgress = Math.min(
+            95,
+            currentAgent * 20 + agentProgress * 20
           );
+
           set({
-            missionProgress: progress,
-            missionMessage: messages[messageIndex],
+            currentAgentIndex: currentAgent,
+            missionProgress: overallProgress,
+            missionMessage: agentMessages[currentAgent],
           });
 
-          // Refresh volumes to check if anything new was created
-          try {
-            await fetchVolumes(projectId);
-          } catch {
-            // Ignore errors during polling
+          // Refresh volumes periodically (every 10 seconds)
+          if (elapsed % 10000 === 0) {
+            try {
+              await fetchVolumes(projectId);
+            } catch {
+              // Ignore errors during polling
+            }
           }
         }
 
-        // After max attempts, mark as done
+        // Mark as completed
         set({
           isMissionRunning: false,
           missionProgress: 100,
-          missionMessage: '任务完成',
+          missionMessage: '创作完成！',
+          missionCompleted: true,
+          currentAgentIndex: 4,
         });
 
         // Final refresh
         await fetchVolumes(projectId);
+        await fetchProject(projectId);
       };
 
       // Start polling in background
@@ -402,6 +417,7 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
         error: (err as Error).message,
         isMissionRunning: false,
         missionMessage: '',
+        missionCompleted: false,
       });
       throw err;
     }
