@@ -332,23 +332,44 @@ export default function WritingProjectPage() {
                 </p>
               </div>
 
-              {/* Agent Tree */}
-              <div className="relative mx-auto mt-4 px-4">
+              {/* Agent Tree - Two Rows */}
+              <div className="relative mx-auto mt-4 px-2">
                 {/* SVG Lines - use viewBox for proper scaling */}
                 <svg
                   className="pointer-events-none absolute inset-0 h-full w-full"
                   style={{ zIndex: 0 }}
-                  viewBox="0 0 400 200"
+                  viewBox="0 0 400 280"
                   preserveAspectRatio="xMidYMid meet"
                 >
-                  {/* Leader to members */}
+                  {/* Leader to first row (4 agents) */}
                   {[0, 1, 2, 3].map((i) => {
-                    const leaderX = 200; // center
-                    const memberX = 50 + i * 100; // 50, 150, 250, 350
+                    const leaderX = 200;
+                    const memberX = 50 + i * 100;
                     return (
                       <path
-                        key={i}
-                        d={`M ${leaderX} 70 C ${leaderX} 110 ${memberX} 110 ${memberX} 150`}
+                        key={`row1-${i}`}
+                        d={`M ${leaderX} 60 C ${leaderX} 100 ${memberX} 100 ${memberX} 140`}
+                        fill="none"
+                        stroke={
+                          missionCompleted || isMissionRunning
+                            ? '#10B981'
+                            : '#E2E8F0'
+                        }
+                        strokeWidth="2"
+                        strokeDasharray={
+                          missionCompleted || isMissionRunning ? '0' : '4'
+                        }
+                      />
+                    );
+                  })}
+                  {/* First row to second row (3 agents) */}
+                  {[0, 1, 2].map((i) => {
+                    const fromX = 150 + i * 100; // From writers
+                    const toX = 80 + i * 120;
+                    return (
+                      <path
+                        key={`row2-${i}`}
+                        d={`M ${fromX} 170 C ${fromX} 200 ${toX} 200 ${toX} 230`}
                         fill="none"
                         stroke={
                           missionCompleted || isMissionRunning
@@ -366,9 +387,9 @@ export default function WritingProjectPage() {
 
                 {/* Leader Node */}
                 <div className="relative z-10 flex flex-col items-center">
-                  <div className="text-lg">👑</div>
+                  <div className="text-base">👑</div>
                   <div
-                    className={`flex h-14 w-14 items-center justify-center rounded-full text-xl shadow-md ${
+                    className={`flex h-12 w-12 items-center justify-center rounded-full text-lg shadow-md ${
                       activeAgentIds.includes('architect')
                         ? 'animate-pulse bg-violet-500 ring-4 ring-green-300'
                         : missionCompleted
@@ -378,33 +399,80 @@ export default function WritingProjectPage() {
                   >
                     <span className="text-white">📐</span>
                   </div>
-                  <div className="mt-1 text-center">
-                    <div className="text-xs font-medium text-slate-700">
-                      故事架构师
+                  <div className="mt-0.5 text-center">
+                    <div className="text-[10px] font-medium text-slate-700">
+                      架构师
                     </div>
                   </div>
                 </div>
 
-                {/* Member Nodes */}
-                <div className="relative z-10 mt-8 flex justify-around">
+                {/* First Row: 守护者 + 3个作家 */}
+                <div className="relative z-10 mt-6 flex justify-around">
                   {[
                     {
                       id: 'keeper',
                       icon: '📚',
-                      name: '设定守护者',
+                      name: '守护者',
                       color: 'bg-indigo-500',
                     },
                     {
                       id: 'writer-1',
                       icon: '✍️',
-                      name: '作家',
+                      name: '作家①',
                       color: 'bg-amber-500',
                     },
                     {
+                      id: 'writer-2',
+                      icon: '✍️',
+                      name: '作家②',
+                      color: 'bg-orange-500',
+                    },
+                    {
+                      id: 'writer-3',
+                      icon: '✍️',
+                      name: '作家③',
+                      color: 'bg-yellow-500',
+                    },
+                  ].map((agent) => {
+                    const isActive = activeAgentIds.includes(agent.id);
+                    return (
+                      <div
+                        key={agent.id}
+                        className="flex flex-col items-center"
+                      >
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs shadow ${agent.color} ${
+                            isActive
+                              ? 'animate-pulse ring-2 ring-green-300'
+                              : missionCompleted
+                                ? 'ring-1 ring-green-300'
+                                : ''
+                          }`}
+                        >
+                          <span className="text-white">{agent.icon}</span>
+                        </div>
+                        <div className="mt-0.5 text-[10px] text-slate-600">
+                          {agent.name}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Second Row: 2个检查员 + 编辑 */}
+                <div className="relative z-10 mt-6 flex justify-around px-8">
+                  {[
+                    {
                       id: 'checker-1',
                       icon: '🔍',
-                      name: '检查员',
+                      name: '检查①',
                       color: 'bg-green-500',
+                    },
+                    {
+                      id: 'checker-2',
+                      icon: '🔍',
+                      name: '检查②',
+                      color: 'bg-emerald-500',
                     },
                     {
                       id: 'editor',
@@ -420,20 +488,18 @@ export default function WritingProjectPage() {
                         className="flex flex-col items-center"
                       >
                         <div
-                          className={`flex h-10 w-10 items-center justify-center rounded-full text-sm shadow ${agent.color} ${
+                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs shadow ${agent.color} ${
                             isActive
-                              ? 'animate-pulse ring-4 ring-green-300'
+                              ? 'animate-pulse ring-2 ring-green-300'
                               : missionCompleted
-                                ? 'ring-2 ring-green-300'
+                                ? 'ring-1 ring-green-300'
                                 : ''
                           }`}
                         >
                           <span className="text-white">{agent.icon}</span>
                         </div>
-                        <div className="mt-1 text-center">
-                          <div className="text-xs text-slate-600">
-                            {agent.name}
-                          </div>
+                        <div className="mt-0.5 text-[10px] text-slate-600">
+                          {agent.name}
                         </div>
                       </div>
                     );
