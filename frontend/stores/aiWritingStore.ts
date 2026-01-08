@@ -53,7 +53,7 @@ interface AIWritingState {
   setCurrentProject: (project: WritingProject | null) => void;
 
   // Actions - Volumes & Chapters
-  fetchVolumes: (projectId: string) => Promise<void>;
+  fetchVolumes: (projectId: string, silent?: boolean) => Promise<void>;
   createVolume: (
     projectId: string,
     dto: { title: string; volumeNumber: number }
@@ -189,16 +189,21 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
 
   // ==================== Volumes & Chapters ====================
 
-  fetchVolumes: async (projectId: string) => {
-    set({ isLoadingVolumes: true, error: null });
+  fetchVolumes: async (projectId: string, silent = false) => {
+    // When silent=true (during polling), don't show loading state to avoid UI flicker
+    if (!silent) {
+      set({ isLoadingVolumes: true, error: null });
+    }
     try {
       const volumes = await api.getVolumes(projectId);
       set({ volumes, isLoadingVolumes: false });
     } catch (err) {
-      set({
-        error: (err as Error).message,
-        isLoadingVolumes: false,
-      });
+      if (!silent) {
+        set({
+          error: (err as Error).message,
+          isLoadingVolumes: false,
+        });
+      }
     }
   },
 
@@ -467,9 +472,10 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
             }
 
             // 每 10 秒刷新一次内容（检查是否有新章节）
+            // 使用 silent=true 避免 UI 闪烁
             if (pollCount % 5 === 0) {
               try {
-                await fetchVolumes(projectId);
+                await fetchVolumes(projectId, true);
               } catch {
                 // Ignore errors during polling
               }

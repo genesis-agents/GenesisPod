@@ -42,6 +42,7 @@ import {
   ExecutionStep,
   StepReviewResult,
   OrchestratorConfig,
+  OrchestratorPhase,
   DEFAULT_ORCHESTRATOR_CONFIG,
 } from "./orchestrator.interface";
 
@@ -1520,6 +1521,43 @@ export class MissionOrchestrator implements IMissionOrchestrator {
    */
   getState(missionId: string): MissionExecutionState | undefined {
     return this.states.get(missionId);
+  }
+
+  /**
+   * 更新执行状态（供外部流程使用）
+   * 用于非标准流程（如 generateFullStory）同步状态到 orchestrator
+   */
+  updateState(
+    missionId: string,
+    updates: {
+      phase?: OrchestratorPhase;
+      currentSteps?: string[];
+      completedSteps?: string[];
+      progress?: number;
+    },
+  ): void {
+    let state = this.states.get(missionId);
+    if (!state) {
+      state = this.initializeState(missionId);
+      this.states.set(missionId, state);
+    }
+
+    if (updates.phase !== undefined) {
+      state.phase = updates.phase;
+    }
+    if (updates.currentSteps !== undefined) {
+      state.currentSteps = updates.currentSteps;
+    }
+    if (updates.completedSteps !== undefined) {
+      state.completedSteps = updates.completedSteps;
+    }
+    if (updates.progress !== undefined) {
+      state.resourceUsage.progress = updates.progress;
+    }
+
+    this.logger.debug(
+      `[${missionId}] State updated: phase=${state.phase}, current=${state.currentSteps.join(",")}, completed=${state.completedSteps.join(",")}`,
+    );
   }
 
   /**

@@ -639,10 +639,86 @@ export default function WritingProjectPage() {
                   })}
                 </div>
               </div>
+            </div>
 
-              {/* Progress Bar */}
-              {(isMissionRunning || missionCompleted) && (
-                <div className="absolute bottom-16 left-4 right-4">
+            {/* Progress Steps - Below the agent diagram */}
+            {(isMissionRunning || missionCompleted) && (
+              <div className="mx-4 mb-3 rounded-xl bg-slate-50 p-3">
+                <div className="space-y-2">
+                  {[
+                    {
+                      id: 'architect',
+                      label: '规划故事结构',
+                      icon: '👑',
+                      keywords: ['架构', '规划', '结构', '大纲'],
+                    },
+                    {
+                      id: 'keeper',
+                      label: '建立世界观设定',
+                      icon: '📚',
+                      keywords: ['世界观', '设定', '守护'],
+                    },
+                    {
+                      id: 'writer',
+                      label: '创作故事内容',
+                      icon: '✍️',
+                      keywords: ['作家', '写作', '创作', '章节', '撰写'],
+                    },
+                    {
+                      id: 'checker',
+                      label: '校验内容一致性',
+                      icon: '🔍',
+                      keywords: ['检查', '校验', '一致性', '审核', '检查员'],
+                    },
+                    {
+                      id: 'editor',
+                      label: '润色文字表达',
+                      icon: '🎨',
+                      keywords: ['编辑', '润色', '打磨', '优化'],
+                    },
+                  ].map((step, idx) => {
+                    const msg = missionMessage || '';
+                    const isStepActive = step.keywords.some((kw) =>
+                      msg.includes(kw)
+                    );
+                    const stepThreshold = (idx + 1) * 20;
+                    const isDone =
+                      missionProgress >= stepThreshold && !isStepActive;
+                    return (
+                      <div key={step.id} className="flex items-center gap-2">
+                        <div
+                          className={`flex h-6 w-6 items-center justify-center rounded-full text-xs transition-all ${
+                            isStepActive
+                              ? 'animate-pulse bg-amber-500 text-white ring-2 ring-amber-200'
+                              : isDone
+                                ? 'bg-green-500 text-white'
+                                : 'bg-gray-200 text-gray-400'
+                          }`}
+                        >
+                          {isDone ? '✓' : step.icon}
+                        </div>
+                        <span
+                          className={`text-xs ${
+                            isStepActive
+                              ? 'font-medium text-amber-700'
+                              : isDone
+                                ? 'text-green-700'
+                                : 'text-gray-400'
+                          }`}
+                        >
+                          {step.label}
+                          {isStepActive && (
+                            <span className="ml-1 text-amber-500">
+                              进行中...
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Progress Bar */}
+                <div className="mt-3">
                   <div className="mb-1 flex justify-between text-xs text-slate-500">
                     <span>整体进度</span>
                     <span className="font-medium text-amber-600">
@@ -660,8 +736,8 @@ export default function WritingProjectPage() {
                     />
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Action Buttons - Like AI Teams Canvas */}
             <div className="flex items-center justify-center gap-2 border-t border-gray-100 bg-white/80 px-4 py-3">
@@ -705,224 +781,110 @@ export default function WritingProjectPage() {
                   <div className="flex h-full items-center justify-center">
                     <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
                   </div>
-                ) : allChapters.length === 0 ? (
-                  <div className="flex h-full flex-col items-center justify-center text-center">
-                    {isMissionRunning ? (
-                      <div className="w-full max-w-md space-y-6">
-                        {/* Header */}
-                        <div className="text-center">
-                          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
-                            <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
-                          </div>
-                          <h3 className="text-xl font-bold text-gray-800">
-                            AI 团队正在创作中
-                          </h3>
-                          <p className="mt-1 text-sm font-medium text-amber-600">
-                            {missionMessage}
-                          </p>
-                        </div>
-
-                        {/* Progress Steps */}
-                        <div className="rounded-xl bg-gray-50 p-4">
-                          <div className="space-y-3">
-                            {[
-                              {
-                                id: 'architect',
-                                label: '规划故事结构',
-                                icon: '👑',
-                                keywords: ['架构', '规划', '结构', '大纲'],
-                              },
-                              {
-                                id: 'keeper',
-                                label: '建立世界观设定',
-                                icon: '📚',
-                                keywords: ['世界观', '设定', '守护'],
-                              },
-                              {
-                                id: 'writer',
-                                label: '创作故事内容',
-                                icon: '✍️',
-                                keywords: [
-                                  '作家',
-                                  '写作',
-                                  '创作',
-                                  '章节',
-                                  '撰写',
-                                ],
-                              },
-                              {
-                                id: 'checker',
-                                label: '校验内容一致性',
-                                icon: '🔍',
-                                keywords: [
-                                  '检查',
-                                  '校验',
-                                  '一致性',
-                                  '审核',
-                                  '检查员',
-                                ],
-                              },
-                              {
-                                id: 'editor',
-                                label: '润色文字表达',
-                                icon: '🎨',
-                                keywords: ['编辑', '润色', '打磨', '优化'],
-                              },
-                            ].map((step, idx) => {
-                              // 基于消息内容判断当前活跃步骤
-                              const msg = missionMessage || '';
-                              const isStepActive = step.keywords.some((kw) =>
-                                msg.includes(kw)
-                              );
-
-                              // 基于进度计算是否完成
-                              const stepThreshold = (idx + 1) * 20;
-                              const isDone =
-                                missionProgress >= stepThreshold &&
-                                !isStepActive;
-
-                              return (
-                                <div
-                                  key={step.id}
-                                  className="flex items-center gap-3"
-                                >
-                                  <div
-                                    className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-all ${
-                                      isStepActive
-                                        ? 'animate-pulse bg-amber-500 text-white ring-4 ring-amber-200'
-                                        : isDone
-                                          ? 'bg-green-500 text-white'
-                                          : 'bg-gray-200 text-gray-400'
-                                    }`}
-                                  >
-                                    {isDone ? '✓' : step.icon}
-                                  </div>
-                                  <span
-                                    className={`text-sm ${
-                                      isStepActive
-                                        ? 'font-medium text-amber-700'
-                                        : isDone
-                                          ? 'text-green-700'
-                                          : 'text-gray-400'
-                                    }`}
-                                  >
-                                    {step.label}
-                                    {isStepActive && (
-                                      <span className="ml-2 text-amber-500">
-                                        进行中...
-                                      </span>
-                                    )}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div>
-                          <div className="mb-2 flex justify-between text-xs text-gray-500">
-                            <span>整体进度</span>
-                            <span className="font-medium text-amber-600">
-                              {Math.round(missionProgress)}%
-                            </span>
-                          </div>
-                          <div className="h-3 overflow-hidden rounded-full bg-gray-200">
-                            <div
-                              className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500"
-                              style={{ width: `${missionProgress}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Tip */}
-                        <p className="text-center text-xs text-gray-400">
-                          创作过程约需 1-2 分钟，请耐心等待
-                        </p>
+                ) : (
+                  <div className="space-y-2">
+                    {/* Mission Running Status Banner */}
+                    {isMissionRunning && (
+                      <div className="mb-4 flex items-center gap-3 rounded-xl bg-amber-50 p-3">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+                        <span className="text-sm font-medium text-amber-700">
+                          {missionMessage || 'AI 团队正在创作中...'}
+                        </span>
                       </div>
-                    ) : missionCompleted ? (
+                    )}
+
+                    {/* Chapter List */}
+                    {allChapters.length > 0 ? (
                       <>
-                        <span className="mb-4 text-5xl">✅</span>
-                        <h3 className="mb-2 text-lg font-semibold text-gray-800">
-                          创作任务已完成
-                        </h3>
-                        <p className="mb-6 max-w-xs text-sm text-gray-500">
-                          AI 团队已完成创作，请刷新页面查看结果
-                        </p>
-                        <button
-                          onClick={() => fetchVolumes(projectId)}
-                          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 px-6 py-3 font-medium text-white shadow-lg shadow-green-200 transition-all hover:from-green-600 hover:to-emerald-600"
-                        >
-                          <span>🔄</span>
-                          刷新内容
-                        </button>
+                        {allChapters.map((chapter) => (
+                          <button
+                            key={chapter.id}
+                            onClick={() => setSelectedChapter(chapter)}
+                            className="block w-full rounded-xl border border-gray-100 bg-white p-4 text-left transition-all hover:border-amber-200 hover:bg-amber-50"
+                          >
+                            <div className="flex items-start gap-3">
+                              <span
+                                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium ${
+                                  chapter.content
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-gray-100 text-gray-500'
+                                }`}
+                              >
+                                {chapter.content ? '✓' : chapter.chapterNumber}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium text-gray-800">
+                                  第{chapter.chapterNumber}章 {chapter.title}
+                                </div>
+                                {chapter.synopsis && (
+                                  <div className="mt-1 line-clamp-2 text-xs text-gray-400">
+                                    {chapter.synopsis}
+                                  </div>
+                                )}
+                                {/* Show content preview if available */}
+                                {chapter.content && (
+                                  <div className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs text-gray-500">
+                                    {chapter.content.slice(0, 200)}...
+                                  </div>
+                                )}
+                              </div>
+                              {chapter.wordCount > 0 && (
+                                <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                                  {chapter.wordCount.toLocaleString()} 字
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+
+                        {/* Continue Writing Button */}
+                        {!isMissionRunning && (
+                          <button
+                            onClick={handleContinueWriting}
+                            className="w-full rounded-xl border-2 border-dashed border-gray-200 py-4 text-gray-500 transition-all hover:border-amber-300 hover:text-amber-600"
+                          >
+                            + 继续写作下一章
+                          </button>
+                        )}
                       </>
                     ) : (
-                      <>
-                        <span className="mb-4 text-5xl">📝</span>
-                        <h3 className="mb-2 text-lg font-semibold text-gray-800">
-                          开始你的创作
-                        </h3>
-                        <p className="mb-6 max-w-xs text-sm text-gray-500">
-                          {currentProject.description ||
-                            '点击下方按钮，AI 团队将自动完成故事创作'}
-                        </p>
-                        <button
-                          onClick={handleStartWriting}
-                          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3 font-medium text-white shadow-lg shadow-amber-200 transition-all hover:from-amber-600 hover:to-orange-600"
-                        >
-                          <span>✨</span>
-                          一键生成故事
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  /* Chapter List - Click to open modal */
-                  <div className="space-y-2">
-                    {allChapters.map((chapter) => (
-                      <button
-                        key={chapter.id}
-                        onClick={() => setSelectedChapter(chapter)}
-                        className="block w-full rounded-xl border border-gray-100 bg-white p-4 text-left transition-all hover:border-amber-200 hover:bg-amber-50"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span
-                            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
-                              chapter.content
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-gray-100 text-gray-500'
-                            }`}
-                          >
-                            {chapter.content ? '✓' : chapter.chapterNumber}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="font-medium text-gray-800">
-                              第{chapter.chapterNumber}章 {chapter.title}
+                      /* Empty State */
+                      <div className="flex h-full flex-col items-center justify-center py-12 text-center">
+                        {isMissionRunning ? (
+                          <>
+                            <div className="mx-auto mb-4 flex h-12 w-12 animate-pulse items-center justify-center rounded-full bg-amber-100">
+                              <span className="text-2xl">✍️</span>
                             </div>
-                            {chapter.synopsis && (
-                              <div className="truncate text-xs text-gray-400">
-                                {chapter.synopsis}
-                              </div>
-                            )}
-                          </div>
-                          {chapter.wordCount > 0 && (
-                            <span className="shrink-0 text-xs text-gray-400">
-                              {chapter.wordCount.toLocaleString()} 字
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-
-                    {/* Continue Writing Button */}
-                    {!isMissionRunning && (
-                      <button
-                        onClick={handleContinueWriting}
-                        className="w-full rounded-xl border-2 border-dashed border-gray-200 py-4 text-gray-500 transition-all hover:border-amber-300 hover:text-amber-600"
-                      >
-                        + 继续写作下一章
-                      </button>
+                            <p className="text-sm text-gray-500">
+                              AI 团队正在创作，章节内容将实时显示在这里...
+                            </p>
+                          </>
+                        ) : missionCompleted ? (
+                          <>
+                            <span className="mb-4 text-4xl">✅</span>
+                            <h3 className="mb-2 text-lg font-semibold text-gray-800">
+                              创作任务已完成
+                            </h3>
+                            <button
+                              onClick={() => fetchVolumes(projectId)}
+                              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-green-500 px-4 py-2 text-sm font-medium text-white hover:bg-green-600"
+                            >
+                              🔄 刷新内容
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="mb-4 text-4xl">📝</span>
+                            <h3 className="mb-2 text-lg font-semibold text-gray-800">
+                              开始你的创作
+                            </h3>
+                            <p className="mb-4 max-w-xs text-sm text-gray-500">
+                              {currentProject.description ||
+                                '点击左侧创建任务按钮，AI 团队将自动完成故事创作'}
+                            </p>
+                          </>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
