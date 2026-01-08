@@ -4220,7 +4220,7 @@ ${previousSummary ? `【前文摘要】\n${previousSummary}\n` : "【开篇提�
     const logs = await this.prisma.writingMissionLog.findMany({
       where: { missionId },
       orderBy: { createdAt: "asc" },
-      take: limit || 100,
+      take: limit || 500, // 增加默认限制以支持长任务
     });
 
     return {

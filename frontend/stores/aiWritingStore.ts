@@ -575,15 +575,19 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
   checkRunningMission: async (projectId: string) => {
     try {
       const { items } = await api.getProjectMissions(projectId);
-      // 查找正在运行的任务
+      // 查找正在运行的任务（兼容不同状态格式）
       const runningMission = items.find(
-        (m) => m.status === 'running' || m.status === 'pending'
+        (m) =>
+          m.status === 'running' ||
+          m.status === 'pending' ||
+          m.status === 'IN_PROGRESS'
       );
 
       if (runningMission) {
         // 有正在运行的任务，同步状态
         set({
           isMissionRunning: true,
+          currentMissionId: runningMission.id,
           missionProgress: runningMission.progress || 0,
           missionMessage: '任务进行中...',
           missionCompleted: false,
@@ -639,9 +643,10 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
                 });
               }
 
-              // 定期刷新章节
+              // 定期刷新章节和项目（更新字数）
               if (pollCount % 5 === 0) {
                 await fetchVolumes(projectId, true);
+                await fetchProject(projectId); // 更新字数显示
               }
             } catch {
               // 忽略轮询错误
@@ -651,8 +656,10 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
 
         void pollForStatus();
       } else {
-        // 检查是否有已完成的任务
-        const completedMission = items.find((m) => m.status === 'completed');
+        // 检查是否有已完成的任务（兼容不同状态格式）
+        const completedMission = items.find(
+          (m) => m.status === 'completed' || m.status === 'COMPLETED'
+        );
         if (completedMission) {
           set({
             isMissionRunning: false,

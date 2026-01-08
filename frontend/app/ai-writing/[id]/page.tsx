@@ -30,58 +30,112 @@ const WRITING_AGENTS = [
     name: '故事架构师',
     icon: '👑',
     color: 'bg-purple-500',
+    gradient: 'from-purple-400 to-purple-600',
     desc: '统筹规划',
   },
   {
     id: 'keeper',
     name: '设定守护者',
     icon: '📚',
-    color: 'bg-indigo-500',
+    color: 'bg-emerald-500',
+    gradient: 'from-emerald-400 to-emerald-600',
     desc: '世界观',
   },
   {
     id: 'writer-1',
     name: '作家①',
     icon: '✍️',
-    color: 'bg-blue-500',
+    color: 'bg-orange-500',
+    gradient: 'from-orange-400 to-orange-600',
     desc: '内容创作',
   },
   {
     id: 'writer-2',
     name: '作家②',
     icon: '✍️',
-    color: 'bg-sky-500',
+    color: 'bg-amber-500',
+    gradient: 'from-amber-400 to-amber-600',
     desc: '内容创作',
   },
   {
     id: 'writer-3',
     name: '作家③',
     icon: '✍️',
-    color: 'bg-cyan-500',
+    color: 'bg-yellow-500',
+    gradient: 'from-yellow-400 to-yellow-600',
     desc: '内容创作',
   },
   {
     id: 'checker-1',
     name: '检查员①',
     icon: '🔍',
-    color: 'bg-amber-500',
+    color: 'bg-teal-500',
+    gradient: 'from-teal-400 to-teal-600',
     desc: '逻辑校验',
   },
   {
     id: 'checker-2',
     name: '检查员②',
     icon: '🔍',
-    color: 'bg-orange-500',
+    color: 'bg-cyan-500',
+    gradient: 'from-cyan-400 to-cyan-600',
     desc: '逻辑校验',
   },
   {
     id: 'editor',
     name: '润色编辑',
     icon: '🎨',
-    color: 'bg-green-500',
+    color: 'bg-pink-500',
+    gradient: 'from-pink-400 to-pink-600',
     desc: '文字打磨',
   },
 ];
+
+// 根据后端返回的 agentName 匹配到前端配置
+function getAgentConfig(agentName: string | undefined) {
+  if (!agentName)
+    return {
+      icon: '🤖',
+      color: 'bg-gray-500',
+      gradient: 'from-gray-400 to-gray-600',
+      name: 'AI 团队',
+    };
+
+  // 移除 emoji 前缀
+  const cleanName = agentName.replace(/^[^\u4e00-\u9fa5a-zA-Z]+/, '').trim();
+
+  // 精确匹配
+  const exactMatch = WRITING_AGENTS.find((a) => a.name === cleanName);
+  if (exactMatch) return exactMatch;
+
+  // 模糊匹配
+  if (cleanName.includes('架构') || cleanName.includes('Leader')) {
+    return WRITING_AGENTS.find((a) => a.id === 'architect')!;
+  }
+  if (cleanName.includes('守护') || cleanName.includes('设定')) {
+    return WRITING_AGENTS.find((a) => a.id === 'keeper')!;
+  }
+  if (cleanName.includes('作家') || cleanName.includes('写作')) {
+    return WRITING_AGENTS.find((a) => a.id === 'writer-1')!;
+  }
+  if (
+    cleanName.includes('检查') ||
+    cleanName.includes('一致性') ||
+    cleanName.includes('校验')
+  ) {
+    return WRITING_AGENTS.find((a) => a.id === 'checker-1')!;
+  }
+  if (cleanName.includes('编辑') || cleanName.includes('润色')) {
+    return WRITING_AGENTS.find((a) => a.id === 'editor')!;
+  }
+
+  return {
+    icon: '🤖',
+    color: 'bg-violet-500',
+    gradient: 'from-violet-400 to-violet-600',
+    name: agentName,
+  };
+}
 
 export default function WritingProjectPage() {
   const params = useParams();
@@ -650,8 +704,8 @@ export default function WritingProjectPage() {
 
         if (!latestMission?.id) return;
 
-        // 获取该任务的日志
-        const { items: logs } = await getMissionLogs(latestMission.id, 100);
+        // 获取该任务的日志（增加到 500 条以支持更长的任务）
+        const { items: logs } = await getMissionLogs(latestMission.id, 500);
         if (!logs || logs.length === 0) return;
 
         // 转换日志为 taskMessages 格式
@@ -1841,23 +1895,38 @@ export default function WritingProjectPage() {
                           >
                             {/* Message Header */}
                             <div className="mb-1.5 flex items-center gap-2">
-                              {msg.type === 'user' ? (
-                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-xs text-white">
-                                  👤
-                                </span>
-                              ) : msg.type === 'system' ? (
-                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-400 text-xs text-white">
-                                  ⚙️
-                                </span>
-                              ) : msg.type === 'progress' ? (
-                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-xs text-white">
-                                  📊
-                                </span>
-                              ) : (
-                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-xs text-white">
-                                  🤖
-                                </span>
-                              )}
+                              {(() => {
+                                if (msg.type === 'user') {
+                                  return (
+                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-xs text-white">
+                                      👤
+                                    </span>
+                                  );
+                                }
+                                if (msg.type === 'system') {
+                                  return (
+                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-400 text-xs text-white">
+                                      ⚙️
+                                    </span>
+                                  );
+                                }
+                                if (msg.type === 'progress') {
+                                  return (
+                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-xs text-white">
+                                      📊
+                                    </span>
+                                  );
+                                }
+                                // Agent type - use config
+                                const agentCfg = getAgentConfig(msg.agent);
+                                return (
+                                  <span
+                                    className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br ${agentCfg.gradient} text-xs text-white`}
+                                  >
+                                    {agentCfg.icon}
+                                  </span>
+                                );
+                              })()}
                               <span
                                 className={`text-xs font-medium ${
                                   msg.type === 'user'
@@ -1866,16 +1935,17 @@ export default function WritingProjectPage() {
                                       ? 'text-gray-600'
                                       : msg.type === 'progress'
                                         ? 'text-violet-700'
-                                        : 'text-violet-700'
+                                        : 'text-gray-700'
                                 }`}
                               >
-                                {msg.type === 'user'
-                                  ? '你'
-                                  : msg.type === 'system'
-                                    ? '系统'
-                                    : msg.type === 'progress'
-                                      ? '任务进度'
-                                      : msg.agent || 'AI 团队'}
+                                {(() => {
+                                  if (msg.type === 'user') return '你';
+                                  if (msg.type === 'system') return '系统';
+                                  if (msg.type === 'progress')
+                                    return '任务进度';
+                                  const agentCfg = getAgentConfig(msg.agent);
+                                  return agentCfg.name;
+                                })()}
                               </span>
                               <span className="text-[10px] text-gray-400">
                                 {new Date(msg.timestamp).toLocaleTimeString(
