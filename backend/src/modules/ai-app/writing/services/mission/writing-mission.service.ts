@@ -3789,7 +3789,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
         const newChapter = await this.prisma.writingChapter.create({
           data: {
             volumeId: volume.id,
-            title: `第${chapterNumber}回`, // 使用回目格式
+            title: "待续写", // 占位标题，写作时会生成正式标题
             chapterNumber,
             content: "",
             wordCount: 0,

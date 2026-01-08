@@ -2237,7 +2237,7 @@ export default function WritingProjectPage() {
                                     <div className="font-medium text-gray-800">
                                       第{chapter.chapterNumber}章{' '}
                                       {(chapter.title || '').replace(
-                                        /^第[一二三四五六七八九十百千\d]+章[：:\s]*/i,
+                                        /^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i,
                                         ''
                                       )}
                                     </div>
@@ -2946,7 +2946,7 @@ export default function WritingProjectPage() {
                   <h3 className="text-lg font-bold text-gray-900">
                     第{selectedChapter.chapterNumber}章{' '}
                     {(selectedChapter.title || '').replace(
-                      /^第[一二三四五六七八九十百千\d]+章[：:\s]*/i,
+                      /^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i,
                       ''
                     )}
                   </h3>

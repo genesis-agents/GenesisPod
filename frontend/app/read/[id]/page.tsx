@@ -189,11 +189,11 @@ export default function PublicReadPage() {
       <div className="mx-auto flex max-w-6xl">
         {/* Sidebar - Table of Contents */}
         <aside
-          className={`fixed inset-y-0 left-0 z-20 w-72 transform border-r border-gray-100 bg-white pt-16 shadow-lg transition-transform md:static md:z-0 md:translate-x-0 md:pt-0 md:shadow-none ${
+          className={`fixed inset-y-0 left-0 z-20 w-72 transform border-r border-gray-100 bg-white pt-16 shadow-lg transition-transform md:sticky md:top-16 md:z-0 md:h-[calc(100vh-4rem)] md:translate-x-0 md:pt-0 md:shadow-none ${
             showToc ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
-          <div className="sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto p-4">
+          <div className="h-full overflow-y-auto p-4">
             <h2 className="mb-4 text-sm font-semibold text-gray-700">目录</h2>
             <nav className="space-y-1">
               {allChapters.map((chapter) => (
@@ -213,7 +213,10 @@ export default function PublicReadPage() {
                   <span className="text-gray-400">
                     第{chapter.chapterNumber}章
                   </span>{' '}
-                  {chapter.title}
+                  {(chapter.title || '').replace(
+                    /^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i,
+                    ''
+                  )}
                 </button>
               ))}
             </nav>
@@ -238,7 +241,10 @@ export default function PublicReadPage() {
                   第 {selectedChapter.chapterNumber} 章
                 </p>
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {selectedChapter.title}
+                  {(selectedChapter.title || '').replace(
+                    /^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i,
+                    ''
+                  )}
                 </h2>
                 <p className="mt-2 text-sm text-gray-400">
                   {selectedChapter.wordCount?.toLocaleString() || 0} 字
