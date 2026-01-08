@@ -170,8 +170,8 @@ export class WritingMissionService {
    * 注册 Writing 角色
    */
   private registerWritingRoles(): void {
-    // Story Architect (Leader)
-    this.roleRegistry.register({
+    // Story Architect (Leader) - use registerFromConfig to create proper IRole with generateSystemPrompt
+    this.roleRegistry.registerFromConfig({
       id: "story-architect",
       name: "Story Architect",
       description: "故事架构师，负责整体规划和协调",
@@ -192,7 +192,7 @@ export class WritingMissionService {
     });
 
     // Bible Keeper
-    this.roleRegistry.register({
+    this.roleRegistry.registerFromConfig({
       id: "bible-keeper",
       name: "Bible Keeper",
       description: "Story Bible 守护者，维护设定一致性",
@@ -213,7 +213,7 @@ export class WritingMissionService {
     });
 
     // Writer
-    this.roleRegistry.register({
+    this.roleRegistry.registerFromConfig({
       id: "writer",
       name: "Writer",
       description: "专业写作 Agent，执行章节创作",
@@ -234,7 +234,7 @@ export class WritingMissionService {
     });
 
     // Consistency Checker
-    this.roleRegistry.register({
+    this.roleRegistry.registerFromConfig({
       id: "consistency-checker",
       name: "Consistency Checker",
       description: "一致性检查专家，确保内容与 Story Bible 一致",
@@ -255,7 +255,7 @@ export class WritingMissionService {
     });
 
     // Editor
-    this.roleRegistry.register({
+    this.roleRegistry.registerFromConfig({
       id: "editor",
       name: "Editor",
       description: "专业编辑，负责修订和润色",
