@@ -708,8 +708,8 @@ export default function WritingProjectPage() {
               </div>
             </div>
 
-            {/* Progress Steps - Fills remaining space */}
-            <div className="mx-3 mb-3 flex flex-1 flex-col justify-between rounded-lg bg-slate-50 p-4">
+            {/* Progress Steps */}
+            <div className="mx-3 mb-3 rounded-lg bg-slate-50 p-4">
               <div className="space-y-3">
                 {[
                   {
@@ -801,6 +801,9 @@ export default function WritingProjectPage() {
                 </div>
               </div>
             </div>
+
+            {/* Spacer - pushes buttons to bottom */}
+            <div className="flex-1" />
 
             {/* Action Buttons */}
             <div className="flex shrink-0 items-center justify-center gap-2 border-t border-gray-100 bg-white/80 px-3 py-2">
