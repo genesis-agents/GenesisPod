@@ -100,9 +100,8 @@ export default function WritingProjectPage() {
     clearError,
   } = useAIWritingStore();
 
-  const [viewMode, setViewMode] = useState<'list' | 'read'>('read'); // Default to reading mode
   const [userInput, setUserInput] = useState('');
-  const [showCanvas, setShowCanvas] = useState(false);
+  const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
 
   // WebSocket for real-time updates
   const wsState = useWritingWebSocket(projectId, isMissionRunning);
@@ -261,19 +260,6 @@ export default function WritingProjectPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {/* Canvas Toggle */}
-              <button
-                onClick={() => setShowCanvas(!showCanvas)}
-                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-all ${
-                  showCanvas
-                    ? 'border-amber-300 bg-amber-50 text-amber-700'
-                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <span>🎨</span>
-                {showCanvas ? '关闭 Canvas' : '打开 Canvas'}
-              </button>
-
               {/* Export */}
               <button
                 onClick={handleExport}
@@ -311,138 +297,195 @@ export default function WritingProjectPage() {
           </div>
         )}
 
-        {/* Canvas Overlay */}
-        {showCanvas && (
-          <div className="absolute inset-0 z-50">
-            <WritingCanvas
-              projectId={projectId}
-              isRunning={isMissionRunning}
-              progress={wsState.progress || missionProgress}
-              currentStep={wsState.currentStep || missionMessage || '准备中...'}
-              activeAgentIds={
-                wsState.activeAgentIds.length > 0
-                  ? wsState.activeAgentIds
-                  : activeAgentIds
-              }
-              chapters={Array.from(wsState.chapters.values()).map((c) => ({
-                chapterNumber: c.chapterNumber,
-                title: c.title,
-                content: c.content,
-                wordCount: c.wordCount,
-                volumeIndex: c.volumeIndex,
-                status: 'completed' as const,
-              }))}
-              consistencyIssues={wsState.consistencyIssues.flatMap((issue) =>
-                issue.issues.map((i) => ({
-                  chapterNumber: issue.chapterNumber,
-                  type: i.type,
-                  severity: i.severity,
-                  description: i.description,
-                  suggestion: i.suggestion,
-                }))
-              )}
-              worldSettings={wsState.worldSettings || undefined}
-              onClose={() => setShowCanvas(false)}
-              embedded={false}
-            />
-          </div>
-        )}
-
         {/* Main Content */}
         <div className="flex flex-1 gap-4 overflow-hidden p-4">
-          {/* Left: AI Team Canvas */}
-          <div className="flex w-80 shrink-0 flex-col rounded-2xl border border-gray-100 bg-white shadow-sm">
-            <div className="border-b border-gray-100 px-4 py-3">
-              <h2 className="font-semibold text-gray-800">AI 写作团队</h2>
-              {isMissionRunning && (
-                <p className="mt-1 text-xs text-amber-600">
-                  {missionMessage || '协作中...'}
+          {/* Left: Embedded Canvas */}
+          <div className="flex w-96 shrink-0 flex-col rounded-2xl border border-gray-100 bg-gradient-to-br from-slate-50 via-white to-violet-50 shadow-sm">
+            {/* Canvas Header */}
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <h2 className="font-semibold text-gray-800">AI 写作团队</h2>
+                <span
+                  className={`rounded px-2 py-0.5 text-xs font-medium ${
+                    isMissionRunning
+                      ? 'bg-green-100 text-green-700'
+                      : missionCompleted
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {isMissionRunning
+                    ? '进行中'
+                    : missionCompleted
+                      ? '已完成'
+                      : '待开始'}
+                </span>
+              </div>
+            </div>
+
+            {/* Tree Visualization */}
+            <div className="relative flex-1 overflow-hidden">
+              {/* Current Step */}
+              <div className="mt-4 text-center">
+                <p className="text-sm text-slate-500">
+                  {missionMessage || '等待任务开始...'}
                 </p>
+              </div>
+
+              {/* Agent Tree */}
+              <div className="relative mx-auto mt-4 px-4">
+                {/* SVG Lines */}
+                <svg
+                  className="pointer-events-none absolute inset-0 h-full w-full"
+                  style={{ zIndex: 0 }}
+                >
+                  {/* Leader to members */}
+                  {[0, 1, 2, 3].map((i) => {
+                    const leaderX = 50;
+                    const memberX = 12.5 + i * 25;
+                    return (
+                      <path
+                        key={i}
+                        d={`M ${leaderX}% 70 C ${leaderX}% 110 ${memberX}% 110 ${memberX}% 150`}
+                        fill="none"
+                        stroke={
+                          missionCompleted || isMissionRunning
+                            ? '#10B981'
+                            : '#E2E8F0'
+                        }
+                        strokeWidth="2"
+                        strokeDasharray={
+                          missionCompleted || isMissionRunning ? '0' : '4'
+                        }
+                      />
+                    );
+                  })}
+                </svg>
+
+                {/* Leader Node */}
+                <div className="relative z-10 flex flex-col items-center">
+                  <div className="text-lg">👑</div>
+                  <div
+                    className={`flex h-14 w-14 items-center justify-center rounded-full text-xl shadow-md ${
+                      activeAgentIds.includes('architect')
+                        ? 'animate-pulse bg-violet-500 ring-4 ring-green-300'
+                        : missionCompleted
+                          ? 'bg-violet-500 ring-2 ring-green-300'
+                          : 'bg-violet-500'
+                    }`}
+                  >
+                    <span className="text-white">📐</span>
+                  </div>
+                  <div className="mt-1 text-center">
+                    <div className="text-xs font-medium text-slate-700">
+                      故事架构师
+                    </div>
+                  </div>
+                </div>
+
+                {/* Member Nodes */}
+                <div className="relative z-10 mt-8 flex justify-around">
+                  {[
+                    {
+                      id: 'keeper',
+                      icon: '📚',
+                      name: '设定守护者',
+                      color: 'bg-indigo-500',
+                    },
+                    {
+                      id: 'writer-1',
+                      icon: '✍️',
+                      name: '作家',
+                      color: 'bg-amber-500',
+                    },
+                    {
+                      id: 'checker-1',
+                      icon: '🔍',
+                      name: '检查员',
+                      color: 'bg-green-500',
+                    },
+                    {
+                      id: 'editor',
+                      icon: '📝',
+                      name: '编辑',
+                      color: 'bg-pink-500',
+                    },
+                  ].map((agent) => {
+                    const isActive = activeAgentIds.includes(agent.id);
+                    return (
+                      <div
+                        key={agent.id}
+                        className="flex flex-col items-center"
+                      >
+                        <div
+                          className={`flex h-10 w-10 items-center justify-center rounded-full text-sm shadow ${agent.color} ${
+                            isActive
+                              ? 'animate-pulse ring-4 ring-green-300'
+                              : missionCompleted
+                                ? 'ring-2 ring-green-300'
+                                : ''
+                          }`}
+                        >
+                          <span className="text-white">{agent.icon}</span>
+                        </div>
+                        <div className="mt-1 text-center">
+                          <div className="text-xs text-slate-600">
+                            {agent.name}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              {(isMissionRunning || missionCompleted) && (
+                <div className="absolute bottom-16 left-4 right-4">
+                  <div className="mb-1 flex justify-between text-xs text-slate-500">
+                    <span>整体进度</span>
+                    <span className="font-medium text-amber-600">
+                      {Math.round(missionProgress)}%
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className={`h-full transition-all duration-500 ${
+                        missionCompleted
+                          ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                          : 'bg-gradient-to-r from-amber-400 to-orange-500'
+                      }`}
+                      style={{ width: `${missionProgress}%` }}
+                    />
+                  </div>
+                </div>
               )}
             </div>
 
-            {/* Agent Flow Visualization */}
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4">
-              {WRITING_AGENTS.map((agent, index) => {
-                const isActive =
-                  isMissionRunning && activeAgentIds.includes(agent.id);
-                const isPast = missionCompleted; // All agents show as completed when mission done
-
-                return (
-                  <div
-                    key={agent.id}
-                    className="flex w-full items-center gap-3"
-                  >
-                    {/* Connection Line */}
-                    {index > 0 && (
-                      <div className="absolute left-[2.35rem] -mt-8 h-6 w-0.5 bg-gray-200" />
-                    )}
-
-                    {/* Agent Node */}
-                    <div
-                      className={`
-                        relative flex w-full items-center gap-3 rounded-xl p-3 transition-all duration-300
-                        ${isActive ? 'bg-amber-50 shadow-md ring-2 ring-amber-400' : ''}
-                        ${isPast ? 'bg-green-50' : ''}
-                        ${!isActive && !isPast ? 'bg-gray-50' : ''}
-                      `}
-                    >
-                      {/* Icon */}
-                      <div
-                        className={`
-                          flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg
-                          ${isActive ? 'animate-pulse bg-amber-500 text-white' : ''}
-                          ${isPast ? 'bg-green-500 text-white' : ''}
-                          ${!isActive && !isPast ? agent.color + ' text-white' : ''}
-                        `}
-                      >
-                        {isPast ? '✓' : agent.icon}
-                      </div>
-
-                      {/* Info */}
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-gray-800">
-                          {agent.name}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {agent.desc}
-                        </div>
-                      </div>
-
-                      {/* Status Indicator */}
-                      {isActive && (
-                        <div className="flex items-center gap-1">
-                          <span className="relative flex h-2 w-2">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
-                            <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500"></span>
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+            {/* Action Buttons - Like AI Teams Canvas */}
+            <div className="flex items-center justify-center gap-2 border-t border-gray-100 bg-white/80 px-4 py-3">
+              <button
+                onClick={handleStartWriting}
+                disabled={isMissionRunning}
+                className="flex items-center gap-1.5 rounded-lg bg-violet-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span>+</span>
+                创建任务
+              </button>
+              <button
+                onClick={handleContinueWriting}
+                disabled={isMissionRunning || allChapters.length === 0}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                继续任务
+              </button>
+              <button
+                disabled={!isMissionRunning}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                取消任务
+              </button>
             </div>
-
-            {/* Progress Bar */}
-            {(isMissionRunning || missionCompleted) && (
-              <div className="border-t border-gray-100 px-4 py-3">
-                <div className="mb-1 flex justify-between text-xs text-gray-500">
-                  <span>{missionCompleted ? '创作完成' : '整体进度'}</span>
-                  <span>{Math.round(missionProgress)}%</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-                  <div
-                    className={`h-full transition-all duration-500 ${
-                      missionCompleted
-                        ? 'bg-gradient-to-r from-green-400 to-emerald-500'
-                        : 'bg-gradient-to-r from-amber-400 to-orange-500'
-                    }`}
-                    style={{ width: `${missionProgress}%` }}
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Right: Content Area */}
@@ -624,117 +667,51 @@ export default function WritingProjectPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="h-full">
-                    {/* View Mode Toggle */}
-                    <div className="mb-4 flex items-center gap-2">
+                  /* Chapter List - Click to open modal */
+                  <div className="space-y-2">
+                    {allChapters.map((chapter) => (
                       <button
-                        onClick={() => setViewMode('read')}
-                        className={`rounded-lg px-3 py-1.5 text-sm transition-all ${
-                          viewMode === 'read'
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
+                        key={chapter.id}
+                        onClick={() => setSelectedChapter(chapter)}
+                        className="block w-full rounded-xl border border-gray-100 bg-white p-4 text-left transition-all hover:border-amber-200 hover:bg-amber-50"
                       >
-                        📖 阅读模式
-                      </button>
-                      <button
-                        onClick={() => setViewMode('list')}
-                        className={`rounded-lg px-3 py-1.5 text-sm transition-all ${
-                          viewMode === 'list'
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        📋 章节列表
-                      </button>
-                    </div>
-
-                    {viewMode === 'read' ? (
-                      /* Reading Mode - Show all content */
-                      <div className="prose prose-gray max-w-none space-y-8">
-                        {allChapters.map((chapter) => (
-                          <div key={chapter.id} id={`chapter-${chapter.id}`}>
-                            <h2 className="mb-4 border-b border-gray-200 pb-2 text-xl font-bold text-gray-800">
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+                              chapter.content
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-gray-100 text-gray-500'
+                            }`}
+                          >
+                            {chapter.content ? '✓' : chapter.chapterNumber}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-gray-800">
                               第{chapter.chapterNumber}章 {chapter.title}
-                              {chapter.wordCount > 0 && (
-                                <span className="ml-2 text-sm font-normal text-gray-400">
-                                  ({chapter.wordCount.toLocaleString()} 字)
-                                </span>
-                              )}
-                            </h2>
-                            {chapter.content ? (
-                              <div className="whitespace-pre-wrap text-base leading-relaxed text-gray-700">
-                                {chapter.content}
-                              </div>
-                            ) : (
-                              <div className="rounded-lg bg-gray-50 p-4 text-center text-gray-400">
-                                暂无内容
+                            </div>
+                            {chapter.synopsis && (
+                              <div className="truncate text-xs text-gray-400">
+                                {chapter.synopsis}
                               </div>
                             )}
                           </div>
-                        ))}
+                          {chapter.wordCount > 0 && (
+                            <span className="shrink-0 text-xs text-gray-400">
+                              {chapter.wordCount.toLocaleString()} 字
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
 
-                        {/* Continue Writing Button */}
-                        {!isMissionRunning && (
-                          <div className="border-t border-gray-200 pt-6">
-                            <button
-                              onClick={handleContinueWriting}
-                              className="w-full rounded-xl border-2 border-dashed border-gray-200 py-4 text-gray-500 transition-all hover:border-amber-300 hover:text-amber-600"
-                            >
-                              + 继续写作下一章
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      /* List Mode - Chapter list */
-                      <div className="space-y-2">
-                        {allChapters.map((chapter) => (
-                          <a
-                            key={chapter.id}
-                            href={`#chapter-${chapter.id}`}
-                            onClick={() => setViewMode('read')}
-                            className="block w-full rounded-xl border border-gray-100 bg-white p-4 text-left transition-all hover:border-amber-200 hover:bg-amber-50"
-                          >
-                            <div className="flex items-center gap-3">
-                              <span
-                                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
-                                  chapter.content
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-gray-100 text-gray-500'
-                                }`}
-                              >
-                                {chapter.content ? '✓' : chapter.chapterNumber}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <div className="font-medium text-gray-800">
-                                  第{chapter.chapterNumber}章 {chapter.title}
-                                </div>
-                                {chapter.synopsis && (
-                                  <div className="truncate text-xs text-gray-400">
-                                    {chapter.synopsis}
-                                  </div>
-                                )}
-                              </div>
-                              {chapter.wordCount > 0 && (
-                                <span className="shrink-0 text-xs text-gray-400">
-                                  {chapter.wordCount.toLocaleString()} 字
-                                </span>
-                              )}
-                            </div>
-                          </a>
-                        ))}
-
-                        {/* Continue Writing Button */}
-                        {!isMissionRunning && (
-                          <button
-                            onClick={handleContinueWriting}
-                            className="w-full rounded-xl border-2 border-dashed border-gray-200 py-4 text-gray-500 transition-all hover:border-amber-300 hover:text-amber-600"
-                          >
-                            + 继续写作下一章
-                          </button>
-                        )}
-                      </div>
+                    {/* Continue Writing Button */}
+                    {!isMissionRunning && (
+                      <button
+                        onClick={handleContinueWriting}
+                        className="w-full rounded-xl border-2 border-dashed border-gray-200 py-4 text-gray-500 transition-all hover:border-amber-300 hover:text-amber-600"
+                      >
+                        + 继续写作下一章
+                      </button>
                     )}
                   </div>
                 )}
@@ -782,6 +759,112 @@ export default function WritingProjectPage() {
             </div>
           </div>
         </div>
+
+        {/* Chapter Content Modal */}
+        {selectedChapter && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="relative mx-4 flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl">
+              {/* Modal Header */}
+              <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    第{selectedChapter.chapterNumber}章 {selectedChapter.title}
+                  </h3>
+                  <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
+                    {selectedChapter.wordCount > 0 && (
+                      <span>
+                        {selectedChapter.wordCount.toLocaleString()} 字
+                      </span>
+                    )}
+                    {selectedChapter.synopsis && (
+                      <span className="text-gray-400">
+                        {selectedChapter.synopsis}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedChapter(null)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="flex-1 overflow-auto px-6 py-4">
+                {selectedChapter.content ? (
+                  <div className="prose prose-gray max-w-none">
+                    <div className="whitespace-pre-wrap leading-relaxed text-gray-700">
+                      {selectedChapter.content}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <span className="mb-4 text-4xl">📝</span>
+                    <p className="text-gray-500">暂无内容</p>
+                    <p className="mt-1 text-sm text-gray-400">
+                      该章节尚未生成内容
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 px-6 py-4">
+                <button
+                  onClick={() => {
+                    if (!selectedChapter.content) return;
+                    const blob = new Blob([selectedChapter.content], {
+                      type: 'text/plain;charset=utf-8',
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `第${selectedChapter.chapterNumber}章-${selectedChapter.title}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  disabled={!selectedChapter.content}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    />
+                  </svg>
+                  下载
+                </button>
+                <button
+                  onClick={() => setSelectedChapter(null)}
+                  className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </AppShell>
   );

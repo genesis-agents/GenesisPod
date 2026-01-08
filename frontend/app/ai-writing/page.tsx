@@ -6,64 +6,37 @@ import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIWritingStore } from '@/stores/aiWritingStore';
 
-// AI Writing Team - 8 Agents (max configuration)
-// Leader decides actual count at runtime
-const WRITING_TEAM = [
+// AI Writing Team - Preview (5 core agents)
+const AI_TEAM_PREVIEW = [
   {
     id: 'architect',
-    icon: '👑',
+    icon: '📐',
     name: '架构师',
     color: 'from-purple-500 to-violet-600',
-    count: 1,
   },
   {
     id: 'keeper',
     icon: '📚',
     name: '守护者',
     color: 'from-indigo-500 to-blue-600',
-    count: 1,
   },
   {
-    id: 'writer-1',
+    id: 'writer',
     icon: '✍️',
-    name: '作家①',
-    color: 'from-blue-500 to-cyan-600',
-    count: 1,
-  },
-  {
-    id: 'writer-2',
-    icon: '✍️',
-    name: '作家②',
-    color: 'from-sky-500 to-blue-600',
-    count: 1,
-  },
-  {
-    id: 'writer-3',
-    icon: '✍️',
-    name: '作家③',
-    color: 'from-cyan-500 to-teal-600',
-    count: 1,
-  },
-  {
-    id: 'checker-1',
-    icon: '🔍',
-    name: '检查员①',
+    name: '作家',
     color: 'from-amber-500 to-orange-600',
-    count: 1,
   },
   {
-    id: 'checker-2',
+    id: 'checker',
     icon: '🔍',
-    name: '检查员②',
-    color: 'from-orange-500 to-red-600',
-    count: 1,
+    name: '检查员',
+    color: 'from-green-500 to-emerald-600',
   },
   {
     id: 'editor',
-    icon: '🎨',
+    icon: '📝',
     name: '编辑',
-    color: 'from-green-500 to-emerald-600',
-    count: 1,
+    color: 'from-pink-500 to-rose-600',
   },
 ];
 
@@ -137,6 +110,7 @@ export default function AIWritingPage() {
     isLoadingProjects,
     fetchProjects,
     createProject,
+    updateProject,
     deleteProject,
   } = useAIWritingStore();
 
@@ -149,6 +123,18 @@ export default function AIWritingPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Edit modal state
+  const [editingProject, setEditingProject] = useState<
+    (typeof projects)[0] | null
+  >(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    genre: '',
+    targetWords: 50000,
+  });
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -187,6 +173,34 @@ export default function AIWritingPage() {
     if (confirm('确定要删除这个作品吗？')) {
       await deleteProject(projectId);
     }
+  };
+
+  const handleEdit = (e: React.MouseEvent, project: (typeof projects)[0]) => {
+    e.stopPropagation();
+    setEditingProject(project);
+    setEditForm({
+      name: project.name,
+      description: project.description || '',
+      genre: project.genre || 'NOVEL',
+      targetWords: project.targetWords || 50000,
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingProject) return;
+    setIsEditing(true);
+    try {
+      await updateProject(editingProject.id, editForm);
+      setEditingProject(null);
+    } catch {
+      // Error handled by store
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const getGenreLabel = (genre: string) => {
+    return GENRES.find((g) => g.value === genre)?.label || genre;
   };
 
   const getStatusBadge = (status: string) => {
@@ -413,8 +427,27 @@ export default function AIWritingPage() {
                     onClick={() => router.push(`/ai-writing/${project.id}`)}
                     className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-amber-300 hover:shadow-md"
                   >
-                    {/* Delete Button */}
-                    <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
+                    {/* Edit & Delete Buttons */}
+                    <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        onClick={(e) => handleEdit(e, project)}
+                        className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-blue-50 hover:text-blue-600"
+                        title="编辑作品"
+                      >
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
+                      </button>
                       <button
                         onClick={(e) => handleDelete(e, project.id)}
                         className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-red-50 hover:text-red-600"
@@ -480,19 +513,11 @@ export default function AIWritingPage() {
                       </div>
                     </div>
 
-                    {/* Footer: AI Team + Time */}
+                    {/* Footer: Genre + Time */}
                     <div className="mt-4 flex items-center justify-between">
-                      <div className="flex -space-x-1.5">
-                        {WRITING_TEAM.map((agent) => (
-                          <span
-                            key={agent.id}
-                            className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br ${agent.color} text-xs ring-2 ring-white`}
-                            title={agent.name}
-                          >
-                            {agent.icon}
-                          </span>
-                        ))}
-                      </div>
+                      <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                        {getGenreLabel(project.genre || 'NOVEL')}
+                      </span>
                       <span className="text-xs text-gray-400">
                         {formatTime(project.updatedAt)}
                       </span>
@@ -650,7 +675,7 @@ export default function AIWritingPage() {
                   AI 写作团队
                 </p>
                 <div className="flex items-center gap-3">
-                  {WRITING_TEAM.map((agent) => (
+                  {AI_TEAM_PREVIEW.map((agent) => (
                     <div key={agent.id} className="flex flex-col items-center">
                       <span
                         className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${agent.color} text-lg shadow-sm`}
@@ -680,6 +705,129 @@ export default function AIWritingPage() {
                 className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isCreating ? '创建中...' : '开始创作'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Dialog */}
+      {editingProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
+            {/* Header */}
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-semibold text-gray-900">编辑作品</h2>
+              <button
+                onClick={() => setEditingProject(null)}
+                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <svg
+                  className="h-6 w-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  作品名称 *
+                </label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, name: e.target.value })
+                  }
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  作品简介
+                </label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, description: e.target.value })
+                  }
+                  rows={4}
+                  className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+
+              {/* Options */}
+              <div className="grid gap-4 rounded-xl bg-gray-50 p-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                    类型
+                  </label>
+                  <select
+                    value={editForm.genre}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, genre: e.target.value })
+                    }
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                  >
+                    {GENRES.map((g) => (
+                      <option key={g.value} value={g.value}>
+                        {g.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                    目标字数
+                  </label>
+                  <select
+                    value={editForm.targetWords}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        targetWords: Number(e.target.value),
+                      })
+                    }
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                  >
+                    {WORD_COUNTS.map((w) => (
+                      <option key={w.value} value={w.value}>
+                        {w.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex flex-shrink-0 justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                onClick={() => setEditingProject(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={!editForm.name.trim() || isEditing}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isEditing ? '保存中...' : '保存'}
               </button>
             </div>
           </div>
