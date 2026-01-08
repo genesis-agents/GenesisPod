@@ -1720,11 +1720,11 @@ export default function WritingProjectPage() {
                                     </div>
                                   )}
                                   {msg.detail.type === 'world_settings' && (
-                                    <div className="space-y-1">
+                                    <div className="space-y-2">
                                       <div className="font-medium text-gray-600">
                                         🌍 世界观设定：
                                       </div>
-                                      <div className="grid gap-1">
+                                      <div className="space-y-2">
                                         {Object.entries(
                                           msg.detail.data as Record<
                                             string,
@@ -1735,14 +1735,30 @@ export default function WritingProjectPage() {
                                           .map(([key, value]) => (
                                             <div
                                               key={key}
-                                              className="flex gap-2"
+                                              className="rounded border-l-2 border-violet-300 bg-white p-2"
                                             >
-                                              <span className="font-medium text-violet-600">
+                                              <div className="mb-1 font-medium text-violet-600">
                                                 {key}:
-                                              </span>
-                                              <span className="truncate text-gray-700">
-                                                {String(value).slice(0, 100)}
-                                              </span>
+                                              </div>
+                                              <div className="whitespace-pre-wrap text-xs text-gray-700">
+                                                {typeof value === 'object' &&
+                                                value !== null
+                                                  ? Array.isArray(value)
+                                                    ? value
+                                                        .map((item, i) =>
+                                                          typeof item ===
+                                                          'object'
+                                                            ? `${i + 1}. ${item.name || item.title || JSON.stringify(item).slice(0, 80)}`
+                                                            : String(item)
+                                                        )
+                                                        .join('\n')
+                                                    : JSON.stringify(
+                                                        value,
+                                                        null,
+                                                        2
+                                                      ).slice(0, 200)
+                                                  : String(value).slice(0, 200)}
+                                              </div>
                                             </div>
                                           ))}
                                       </div>
