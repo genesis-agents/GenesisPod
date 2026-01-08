@@ -388,227 +388,296 @@ export default function WritingProjectPage() {
           </div>
         )}
 
-        {/* Main Content: Left Canvas + Right Panel */}
+        {/* Main Content */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left: Canvas */}
-          <div className="flex w-1/2 flex-col border-r border-gray-200 bg-white">
-            <div className="border-b border-gray-100 px-4 py-3">
-              <h2 className="font-semibold text-gray-800">AI 写作团队</h2>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <WritingCanvasView
-                agents={WRITING_TEAM.map((agent) => ({
-                  id: agent.id,
-                  name: agent.name,
-                  role:
-                    agent.role === 'leader'
-                      ? 'story-architect'
-                      : agent.id === 'keeper'
-                        ? 'bible-keeper'
-                        : agent.id === 'checker'
-                          ? 'consistency-checker'
-                          : (agent.id as 'writer' | 'editor'),
-                  status: activeAgents.has(agent.id) ? 'working' : 'idle',
-                  completedTasks: 0,
-                  totalTasks: 0,
-                }))}
-                workingAgentIds={activeAgents}
-                mission={
-                  currentTask
-                    ? {
-                        id: 'current-mission',
-                        title: currentProject?.name || '写作任务',
-                        status: 'IN_PROGRESS',
-                        phase:
-                          currentTask.progress < 30
-                            ? 'planning'
-                            : currentTask.progress < 70
-                              ? 'executing'
-                              : 'reviewing',
-                        tasks: [],
-                        progress: currentTask.progress,
-                        wordCount: currentProject?.currentWords || 0,
-                        targetWordCount: currentProject?.targetWords || 50000,
-                      }
-                    : null
-                }
-                onAgentClick={(agent) => {
-                  // Could show agent details
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Right: Creation Panel */}
-          <div className="flex w-1/2 flex-col bg-gray-50">
-            {/* Current Task Status */}
-            {(isMissionRunning || currentTask) && (
-              <div className="shrink-0 border-b border-gray-200 bg-white p-4">
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
-                    <span className="font-medium text-amber-800">
-                      {currentTask?.message || '处理中...'}
+          {/* Show different layouts based on content */}
+          {allChapters.length === 0 && !isMissionRunning ? (
+            /* Empty State: Full-width onboarding */
+            <div className="flex flex-1 flex-col items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50 p-8">
+              <div className="w-full max-w-2xl">
+                {/* Project Info Card */}
+                <div className="mb-8 rounded-2xl border border-amber-100 bg-white p-6 shadow-sm">
+                  <h2 className="mb-2 text-xl font-bold text-gray-900">
+                    {currentProject.name}
+                  </h2>
+                  {currentProject.description && (
+                    <p className="mb-4 text-gray-600">
+                      {currentProject.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <span className="text-amber-500">📚</span>
+                      {currentProject.genre || '未分类'}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="text-amber-500">📝</span>
+                      目标 {currentProject.targetWords.toLocaleString()} 字
                     </span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-amber-100">
-                    <div
-                      className="h-full rounded-full bg-amber-400 transition-all duration-500"
-                      style={{ width: `${currentTask?.progress || 0}%` }}
-                    />
-                  </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    {Array.from(activeAgents).map((agentId) => {
-                      const agent = WRITING_TEAM.find((a) => a.id === agentId);
-                      return agent ? (
-                        <span
-                          key={agentId}
-                          className="flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-xs font-medium text-gray-700"
-                        >
-                          {agent.icon} {agent.name}
+                </div>
+
+                {/* AI Team Introduction */}
+                <div className="mb-8 text-center">
+                  <h3 className="mb-4 text-lg font-semibold text-gray-800">
+                    5 位 AI 专家将协作完成你的创作
+                  </h3>
+                  <div className="flex justify-center gap-4">
+                    {WRITING_TEAM.map((agent) => (
+                      <div
+                        key={agent.id}
+                        className="flex flex-col items-center rounded-xl bg-white p-4 shadow-sm"
+                      >
+                        <span className="mb-2 text-3xl">{agent.icon}</span>
+                        <span className="text-sm font-medium text-gray-800">
+                          {agent.name}
                         </span>
-                      ) : null;
-                    })}
+                        <span className="text-xs text-gray-400">
+                          {agent.desc}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* Chapter List */}
-            <div className="flex-1 overflow-auto p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-semibold text-gray-800">章节列表</h3>
-                <span className="text-sm text-gray-400">
-                  {allChapters.length} 章
-                </span>
-              </div>
-
-              {isLoadingVolumes ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
-                </div>
-              ) : allChapters.length === 0 ? (
-                <div className="rounded-xl border-2 border-dashed border-gray-200 bg-white py-12 text-center">
-                  <span className="mb-2 block text-3xl">📝</span>
-                  <p className="mb-4 text-gray-500">还没有章节</p>
+                {/* Start Button */}
+                <div className="text-center">
                   <button
                     onClick={handleStartWriting}
                     disabled={isMissionRunning}
-                    className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all hover:from-amber-600 hover:to-orange-600 hover:shadow-xl disabled:opacity-50"
                   >
+                    <span>✨</span>
                     开始生成大纲
                   </button>
+                  <p className="mt-3 text-sm text-gray-500">
+                    AI 团队将根据你的描述自动规划章节结构
+                  </p>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {allChapters.map((chapter) => (
-                    <button
-                      key={chapter.id}
-                      onClick={() =>
-                        setSelectedChapter(
-                          selectedChapter?.id === chapter.id ? null : chapter
-                        )
-                      }
-                      className={`w-full rounded-xl border bg-white p-4 text-left transition-all ${
-                        selectedChapter?.id === chapter.id
-                          ? 'border-amber-300 ring-2 ring-amber-100'
-                          : 'border-gray-100 hover:border-gray-200'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span
-                            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
-                              chapter.content
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-gray-100 text-gray-500'
-                            }`}
-                          >
-                            {chapter.content ? '✓' : chapter.chapterNumber}
-                          </span>
-                          <div>
-                            <div className="font-medium text-gray-800">
-                              第{chapter.chapterNumber}章 {chapter.title}
-                            </div>
-                            {chapter.synopsis && (
-                              <div className="mt-0.5 line-clamp-1 text-xs text-gray-400">
-                                {chapter.synopsis}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        {chapter.wordCount > 0 && (
-                          <span className="text-xs text-gray-400">
-                            {chapter.wordCount.toLocaleString()} 字
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Expanded Content */}
-                      {selectedChapter?.id === chapter.id &&
-                        chapter.content && (
-                          <div className="mt-4 max-h-60 overflow-auto rounded-lg bg-gray-50 p-4">
-                            <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
-                              {chapter.content}
-                            </div>
-                          </div>
-                        )}
-                    </button>
-                  ))}
-
-                  {/* Continue Button */}
-                  {allChapters.length > 0 && !isMissionRunning && (
-                    <button
-                      onClick={handleContinueWriting}
-                      className="w-full rounded-xl border-2 border-dashed border-gray-200 bg-white py-4 text-center text-sm font-medium text-gray-500 transition-all hover:border-amber-300 hover:text-amber-600"
-                    >
-                      + 继续写作下一章
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Input Area */}
-            <div className="shrink-0 border-t border-gray-200 bg-white p-4">
-              <div className="flex gap-3">
-                <textarea
-                  ref={inputRef}
-                  value={userInput}
-                  onChange={(e) => setUserInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  placeholder="给团队发消息...（如：调整第3章的节奏，让对话更自然）"
-                  rows={2}
-                  className="flex-1 resize-none rounded-xl border border-gray-200 p-3 text-sm placeholder-gray-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-                  disabled={isMissionRunning}
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!userInput.trim() || isMissionRunning}
-                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500 text-white transition-all hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                    />
-                  </svg>
-                </button>
               </div>
             </div>
-          </div>
+          ) : (
+            /* Has Content or Running: Split layout */
+            <>
+              {/* Left: Canvas */}
+              <div className="flex w-1/2 flex-col border-r border-gray-200 bg-white">
+                <div className="border-b border-gray-100 px-4 py-3">
+                  <h2 className="font-semibold text-gray-800">AI 写作团队</h2>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <WritingCanvasView
+                    agents={WRITING_TEAM.map((agent) => ({
+                      id: agent.id,
+                      name: agent.name,
+                      role:
+                        agent.role === 'leader'
+                          ? 'story-architect'
+                          : agent.id === 'keeper'
+                            ? 'bible-keeper'
+                            : agent.id === 'checker'
+                              ? 'consistency-checker'
+                              : (agent.id as 'writer' | 'editor'),
+                      status: activeAgents.has(agent.id) ? 'working' : 'idle',
+                      completedTasks: 0,
+                      totalTasks: 0,
+                    }))}
+                    workingAgentIds={activeAgents}
+                    mission={
+                      currentTask
+                        ? {
+                            id: 'current-mission',
+                            title: currentProject?.name || '写作任务',
+                            status: 'IN_PROGRESS',
+                            phase:
+                              currentTask.progress < 30
+                                ? 'planning'
+                                : currentTask.progress < 70
+                                  ? 'executing'
+                                  : 'reviewing',
+                            tasks: [],
+                            progress: currentTask.progress,
+                            wordCount: currentProject?.currentWords || 0,
+                            targetWordCount:
+                              currentProject?.targetWords || 50000,
+                          }
+                        : null
+                    }
+                    onAgentClick={() => {
+                      // Could show agent details
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Right: Creation Panel */}
+              <div className="flex w-1/2 flex-col bg-gray-50">
+                {/* Current Task Status */}
+                {(isMissionRunning || currentTask) && (
+                  <div className="shrink-0 border-b border-gray-200 bg-white p-4">
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                      <div className="mb-2 flex items-center gap-2">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+                        <span className="font-medium text-amber-800">
+                          {currentTask?.message || '处理中...'}
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-amber-100">
+                        <div
+                          className="h-full rounded-full bg-amber-400 transition-all duration-500"
+                          style={{ width: `${currentTask?.progress || 0}%` }}
+                        />
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        {Array.from(activeAgents).map((agentId) => {
+                          const agent = WRITING_TEAM.find(
+                            (a) => a.id === agentId
+                          );
+                          return agent ? (
+                            <span
+                              key={agentId}
+                              className="flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-xs font-medium text-gray-700"
+                            >
+                              {agent.icon} {agent.name}
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Chapter List */}
+                <div className="flex-1 overflow-auto p-4">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="font-semibold text-gray-800">章节列表</h3>
+                    <span className="text-sm text-gray-400">
+                      {allChapters.length} 章
+                    </span>
+                  </div>
+
+                  {isLoadingVolumes ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+                    </div>
+                  ) : allChapters.length === 0 ? (
+                    <div className="rounded-xl border-2 border-dashed border-gray-200 bg-white py-12 text-center">
+                      <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+                      <p className="text-gray-500">AI 团队正在工作...</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {allChapters.map((chapter) => (
+                        <button
+                          key={chapter.id}
+                          onClick={() =>
+                            setSelectedChapter(
+                              selectedChapter?.id === chapter.id
+                                ? null
+                                : chapter
+                            )
+                          }
+                          className={`w-full rounded-xl border bg-white p-4 text-left transition-all ${
+                            selectedChapter?.id === chapter.id
+                              ? 'border-amber-300 ring-2 ring-amber-100'
+                              : 'border-gray-100 hover:border-gray-200'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span
+                                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+                                  chapter.content
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-gray-100 text-gray-500'
+                                }`}
+                              >
+                                {chapter.content ? '✓' : chapter.chapterNumber}
+                              </span>
+                              <div>
+                                <div className="font-medium text-gray-800">
+                                  第{chapter.chapterNumber}章 {chapter.title}
+                                </div>
+                                {chapter.synopsis && (
+                                  <div className="mt-0.5 line-clamp-1 text-xs text-gray-400">
+                                    {chapter.synopsis}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            {chapter.wordCount > 0 && (
+                              <span className="text-xs text-gray-400">
+                                {chapter.wordCount.toLocaleString()} 字
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Expanded Content */}
+                          {selectedChapter?.id === chapter.id &&
+                            chapter.content && (
+                              <div className="mt-4 max-h-60 overflow-auto rounded-lg bg-gray-50 p-4">
+                                <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                                  {chapter.content}
+                                </div>
+                              </div>
+                            )}
+                        </button>
+                      ))}
+
+                      {/* Continue Button */}
+                      {allChapters.length > 0 && !isMissionRunning && (
+                        <button
+                          onClick={handleContinueWriting}
+                          className="w-full rounded-xl border-2 border-dashed border-gray-200 bg-white py-4 text-center text-sm font-medium text-gray-500 transition-all hover:border-amber-300 hover:text-amber-600"
+                        >
+                          + 继续写作下一章
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Input Area */}
+                <div className="shrink-0 border-t border-gray-200 bg-white p-4">
+                  <div className="flex gap-3">
+                    <textarea
+                      ref={inputRef}
+                      value={userInput}
+                      onChange={(e) => setUserInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      placeholder="给团队发消息...（如：调整第3章的节奏，让对话更自然）"
+                      rows={2}
+                      className="flex-1 resize-none rounded-xl border border-gray-200 p-3 text-sm placeholder-gray-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                      disabled={isMissionRunning}
+                    />
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={!userInput.trim() || isMissionRunning}
+                      className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500 text-white transition-all hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </main>
     </AppShell>
