@@ -2085,13 +2085,53 @@ export default function WritingProjectPage() {
                   )}
                 </>
               ) : (
-                <button
-                  onClick={handleCancelMission}
-                  className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-4 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
-                >
-                  <span>⏹</span>
-                  取消任务
-                </button>
+                <>
+                  {/* Continue Task Button - Nudge Leader to continue */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        await startMission(projectId, {
+                          prompt:
+                            '@Leader 请继续执行当前任务，检查进度并推进下一步工作',
+                          missionType: 'edit',
+                          additionalInstructions:
+                            '当前任务正在进行中，请检查各 Agent 的工作状态，确保任务顺利推进。',
+                        });
+                      } catch {
+                        // Error handled by store
+                      }
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-4 py-2 text-xs font-medium text-amber-600 hover:bg-amber-50"
+                  >
+                    <svg
+                      className="h-3.5 w-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    继续任务
+                  </button>
+                  <button
+                    onClick={handleCancelMission}
+                    className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-4 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
+                  >
+                    <span>⏹</span>
+                    取消任务
+                  </button>
+                </>
               )}
             </div>
           </div>
