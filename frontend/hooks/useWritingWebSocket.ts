@@ -75,6 +75,19 @@ export interface WorldBuildingData {
   timestamp: string;
 }
 
+// 事件回调类型
+export interface WritingEvent {
+  type: WritingEventType;
+  data: unknown;
+  timestamp: string;
+}
+
+// Hook 配置选项
+interface UseWritingWebSocketOptions {
+  enabled?: boolean;
+  onEvent?: (event: WritingEvent) => void;
+}
+
 // Hook 返回类型
 interface UseWritingWebSocketResult {
   isConnected: boolean;
@@ -93,8 +106,16 @@ interface UseWritingWebSocketResult {
 
 export function useWritingWebSocket(
   projectId: string | null,
-  enabled = true
+  enabledOrOptions: boolean | UseWritingWebSocketOptions = true
 ): UseWritingWebSocketResult {
+  // 支持旧的 boolean 参数和新的 options 对象
+  const options: UseWritingWebSocketOptions =
+    typeof enabledOrOptions === 'boolean'
+      ? { enabled: enabledOrOptions }
+      : enabledOrOptions;
+  const { enabled = true, onEvent } = options;
+  const onEventRef = useRef(onEvent);
+  onEventRef.current = onEvent;
   const socketRef = useRef<Socket | null>(null);
   const connectingRef = useRef(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -169,17 +190,30 @@ export function useWritingWebSocket(
       }
     });
 
+    // Helper to emit event to callback
+    const emitEvent = (type: WritingEventType, data: unknown) => {
+      if (onEventRef.current) {
+        onEventRef.current({
+          type,
+          data,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    };
+
     // 任务事件
     socket.on('mission:started', (data) => {
       console.log('[WritingWS] Mission started:', data);
       setProgress(0);
       setCurrentStep('任务已启动');
+      emitEvent('mission:started', data);
     });
 
     socket.on('mission:progress', (data: MissionProgressData) => {
       setProgress(data.progress);
       setCurrentStep(data.currentStep);
       setActiveAgentIds(data.activeAgents);
+      emitEvent('mission:progress', data);
     });
 
     socket.on('mission:completed', (data) => {
@@ -187,11 +221,13 @@ export function useWritingWebSocket(
       setProgress(100);
       setCurrentStep('创作完成');
       setActiveAgentIds([]);
+      emitEvent('mission:completed', data);
     });
 
     socket.on('mission:failed', (data) => {
       console.error('[WritingWS] Mission failed:', data);
       setError(data.error || '任务失败');
+      emitEvent('mission:failed', data);
     });
 
     // Agent 事件
@@ -203,37 +239,63 @@ export function useWritingWebSocket(
       } else {
         setActiveAgentIds((prev) => prev.filter((id) => id !== data.agentId));
       }
+      emitEvent('agent:working', data);
     });
 
     // 章节事件
+    socket.on('chapter:started', (data) => {
+      console.log('[WritingWS] Chapter started:', data);
+      emitEvent('chapter:started', data);
+    });
+
     socket.on('chapter:content', (data: ChapterContentData) => {
       setChapters((prev) => {
         const newMap = new Map(prev);
         newMap.set(data.chapterNumber, data);
         return newMap;
       });
+      emitEvent('chapter:content', data);
     });
 
     socket.on('chapter:completed', (data: { chapterNumber: number }) => {
       console.log(`[WritingWS] Chapter ${data.chapterNumber} completed`);
+      emitEvent('chapter:completed', data);
     });
 
     // 一致性检查事件
+    socket.on('consistency:check_started', (data) => {
+      console.log('[WritingWS] Consistency check started:', data);
+      emitEvent('consistency:check_started', data);
+    });
+
     socket.on('consistency:issues_found', (data: ConsistencyCheckData) => {
       setConsistencyIssues((prev) => [...prev, data]);
+      emitEvent('consistency:issues_found', data);
+    });
+
+    socket.on('consistency:fix_started', (data) => {
+      console.log('[WritingWS] Consistency fix started:', data);
+      emitEvent('consistency:fix_started', data);
     });
 
     socket.on('consistency:fix_completed', (data) => {
       console.log(
         `[WritingWS] Chapter ${data.chapterNumber} fixed ${data.fixedIssues} issues`
       );
+      emitEvent('consistency:fix_completed', data);
     });
 
     // 世界观设定事件
+    socket.on('world:building_started', (data) => {
+      console.log('[WritingWS] World building started');
+      emitEvent('world:building_started', data);
+    });
+
     socket.on('world:building_completed', (data: WorldBuildingData) => {
       if (data.settings) {
         setWorldSettings(data.settings);
       }
+      emitEvent('world:building_completed', data);
     });
 
     socketRef.current = socket;

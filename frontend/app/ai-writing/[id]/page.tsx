@@ -1,13 +1,18 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import ReactMarkdown from 'react-markdown';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIWritingStore } from '@/stores/aiWritingStore';
-import { useWritingWebSocket } from '@/hooks/useWritingWebSocket';
+import {
+  useWritingWebSocket,
+  type WritingEvent,
+  type AgentWorkingData,
+  type MissionProgressData,
+} from '@/hooks/useWritingWebSocket';
 import type { Chapter } from '@/lib/api/ai-writing';
 
 // Dynamic import for Canvas component
@@ -233,8 +238,194 @@ export default function WritingProjectPage() {
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
-  // WebSocket for real-time updates
-  const wsState = useWritingWebSocket(projectId, isMissionRunning);
+  // Convert WebSocket events to task messages
+  const handleWritingEvent = useCallback((event: WritingEvent) => {
+    const { type, data } = event;
+    let message: {
+      id: string;
+      type: 'user' | 'system' | 'agent' | 'progress';
+      content: string;
+      agent?: string;
+      timestamp: Date;
+    } | null = null;
+
+    switch (type) {
+      case 'mission:started':
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'system',
+          content: '🚀 任务开始执行，AI 团队正在协作...',
+          timestamp: new Date(),
+        };
+        break;
+
+      case 'mission:progress': {
+        const progressData = data as MissionProgressData;
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'progress',
+          content: `进度 ${progressData.progress}%：${progressData.currentStep}`,
+          agent: progressData.activeAgents?.join(', ') || 'AI 团队',
+          timestamp: new Date(),
+        };
+        break;
+      }
+
+      case 'agent:working': {
+        const agentData = data as AgentWorkingData;
+        const agentIcons: Record<string, string> = {
+          architect: '📐',
+          keeper: '📚',
+          writer: '✍️',
+          checker: '🔍',
+          editor: '📝',
+        };
+        const icon = agentIcons[agentData.agentRole] || '🤖';
+        const statusText =
+          agentData.status === 'working'
+            ? '开始工作'
+            : agentData.status === 'completed'
+              ? '完成工作'
+              : '工作失败';
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'agent',
+          content: `${agentData.taskDescription || statusText}`,
+          agent: `${icon} ${agentData.agentName}`,
+          timestamp: new Date(),
+        };
+        break;
+      }
+
+      case 'chapter:started': {
+        const chapterData = data as { chapterNumber: number; title: string };
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'agent',
+          content: `开始创作第 ${chapterData.chapterNumber} 章：${chapterData.title || ''}`,
+          agent: '✍️ 作家',
+          timestamp: new Date(),
+        };
+        break;
+      }
+
+      case 'chapter:completed': {
+        const chapterData = data as {
+          chapterNumber: number;
+          wordCount?: number;
+        };
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'agent',
+          content: `第 ${chapterData.chapterNumber} 章创作完成${chapterData.wordCount ? ` (${chapterData.wordCount} 字)` : ''}`,
+          agent: '✍️ 作家',
+          timestamp: new Date(),
+        };
+        break;
+      }
+
+      case 'consistency:check_started': {
+        const checkData = data as { chapterNumber?: number };
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'agent',
+          content: checkData.chapterNumber
+            ? `开始检查第 ${checkData.chapterNumber} 章的一致性...`
+            : '开始进行一致性检查...',
+          agent: '🔍 检查员',
+          timestamp: new Date(),
+        };
+        break;
+      }
+
+      case 'consistency:issues_found': {
+        const issuesData = data as {
+          chapterNumber: number;
+          issues: Array<{ description: string }>;
+        };
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'agent',
+          content: `第 ${issuesData.chapterNumber} 章发现 ${issuesData.issues?.length || 0} 个问题，准备修复...`,
+          agent: '🔍 检查员',
+          timestamp: new Date(),
+        };
+        break;
+      }
+
+      case 'consistency:fix_completed': {
+        const fixData = data as { chapterNumber: number; fixedIssues: number };
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'agent',
+          content: `第 ${fixData.chapterNumber} 章修复完成，已解决 ${fixData.fixedIssues} 个问题`,
+          agent: '📝 编辑',
+          timestamp: new Date(),
+        };
+        break;
+      }
+
+      case 'world:building_started':
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'agent',
+          content: '开始构建世界观设定...',
+          agent: '📚 守护者',
+          timestamp: new Date(),
+        };
+        break;
+
+      case 'world:building_completed':
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'agent',
+          content: '世界观设定构建完成',
+          agent: '📚 守护者',
+          timestamp: new Date(),
+        };
+        break;
+
+      case 'mission:completed': {
+        const completeData = data as {
+          totalWords?: number;
+          totalChapters?: number;
+        };
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'system',
+          content: `✅ 任务完成！${completeData.totalChapters ? `共 ${completeData.totalChapters} 章` : ''}${completeData.totalWords ? `，${completeData.totalWords} 字` : ''}`,
+          timestamp: new Date(),
+        };
+        break;
+      }
+
+      case 'mission:failed': {
+        const errorData = data as { error?: string };
+        message = {
+          id: `msg-${Date.now()}`,
+          type: 'system',
+          content: `❌ 任务失败：${errorData.error || '未知错误'}`,
+          timestamp: new Date(),
+        };
+        break;
+      }
+    }
+
+    if (message) {
+      setTaskMessages((prev) => [...prev, message!]);
+      // Auto scroll to bottom
+      setTimeout(() => {
+        taskMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, []);
+
+  // WebSocket for real-time updates - always connected when on project page
+  // to receive events from the start of mission
+  const wsState = useWritingWebSocket(projectId, {
+    enabled: !!projectId && !!user,
+    onEvent: handleWritingEvent,
+  });
 
   // Load project data
   useEffect(() => {
