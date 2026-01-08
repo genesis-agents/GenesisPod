@@ -429,16 +429,16 @@ export default function WritingProjectPage() {
 
         {/* Main Content */}
         <div className="flex flex-1 gap-4 overflow-hidden p-4">
-          {/* Left: Embedded Canvas */}
-          <div className="flex h-fit w-80 shrink-0 flex-col self-start rounded-2xl border border-gray-100 bg-gradient-to-br from-slate-50 via-white to-violet-50 shadow-sm">
-            {/* Canvas Header */}
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-3 py-2">
+          {/* Left: AI Team Panel - Compact and Professional */}
+          <div className="w-80 shrink-0 self-start overflow-hidden rounded-2xl border border-gray-100 bg-gradient-to-br from-slate-50 via-white to-violet-50/50 shadow-sm">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-gray-100/80 bg-white/60 px-4 py-3">
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-semibold text-gray-800">
                   AI 写作团队
                 </h2>
                 <span
-                  className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                     isMissionRunning
                       ? 'bg-green-100 text-green-700'
                       : missionCompleted
@@ -455,150 +455,196 @@ export default function WritingProjectPage() {
               </div>
             </div>
 
-            {/* Tree Visualization - Fixed height for proper display */}
-            <div className="relative shrink-0 px-3 py-4">
-              {/* Current Step */}
-              <div className="mb-3 text-center">
+            {/* Agent Tree Section */}
+            <div className="px-4 py-5">
+              {/* Status Message */}
+              <div className="mb-4 text-center">
                 <p className="line-clamp-1 text-xs text-slate-500">
                   {missionMessage || '等待任务开始...'}
                 </p>
               </div>
 
-              {/* Agent Tree - Two Rows */}
-              <div className="relative mx-auto h-72">
-                {/* SVG Lines - use viewBox for proper scaling */}
+              {/* Agent Hierarchy - Professional Grid Layout */}
+              <div className="relative">
+                {/* SVG Connection Lines */}
                 <svg
                   className="pointer-events-none absolute inset-0 h-full w-full"
                   style={{ zIndex: 0 }}
-                  viewBox="0 0 400 200"
-                  preserveAspectRatio="xMidYMid meet"
                 >
-                  {/* Leader to first row (4 agents) */}
-                  {[0, 1, 2, 3].map((i) => {
-                    const leaderX = 200;
-                    const memberX = 50 + i * 100;
-                    return (
-                      <path
-                        key={`row1-${i}`}
-                        d={`M ${leaderX} 45 C ${leaderX} 75 ${memberX} 75 ${memberX} 105`}
-                        fill="none"
-                        stroke={
-                          missionCompleted || isMissionRunning
-                            ? '#10B981'
-                            : '#E2E8F0'
-                        }
-                        strokeWidth="2"
-                        strokeDasharray={
-                          missionCompleted || isMissionRunning ? '0' : '4'
-                        }
-                      />
-                    );
-                  })}
-                  {/* First row to second row (3 agents) */}
-                  {[0, 1, 2].map((i) => {
-                    const fromX = 150 + i * 100; // From writers
-                    const toX = 80 + i * 120;
-                    return (
-                      <path
-                        key={`row2-${i}`}
-                        d={`M ${fromX} 130 C ${fromX} 155 ${toX} 155 ${toX} 180`}
-                        fill="none"
-                        stroke={
-                          missionCompleted || isMissionRunning
-                            ? '#10B981'
-                            : '#E2E8F0'
-                        }
-                        strokeWidth="2"
-                        strokeDasharray={
-                          missionCompleted || isMissionRunning ? '0' : '4'
-                        }
-                      />
-                    );
-                  })}
+                  {/* Leader to Row 1 - curved lines */}
+                  <path
+                    d="M 136 52 Q 136 75 40 95"
+                    fill="none"
+                    stroke={
+                      missionCompleted || isMissionRunning
+                        ? '#10B981'
+                        : '#E2E8F0'
+                    }
+                    strokeWidth="1.5"
+                    strokeDasharray={
+                      missionCompleted || isMissionRunning ? '0' : '4 2'
+                    }
+                  />
+                  <path
+                    d="M 136 52 Q 110 75 88 95"
+                    fill="none"
+                    stroke={
+                      missionCompleted || isMissionRunning
+                        ? '#10B981'
+                        : '#E2E8F0'
+                    }
+                    strokeWidth="1.5"
+                    strokeDasharray={
+                      missionCompleted || isMissionRunning ? '0' : '4 2'
+                    }
+                  />
+                  <path
+                    d="M 136 52 Q 162 75 184 95"
+                    fill="none"
+                    stroke={
+                      missionCompleted || isMissionRunning
+                        ? '#10B981'
+                        : '#E2E8F0'
+                    }
+                    strokeWidth="1.5"
+                    strokeDasharray={
+                      missionCompleted || isMissionRunning ? '0' : '4 2'
+                    }
+                  />
+                  <path
+                    d="M 136 52 Q 136 75 232 95"
+                    fill="none"
+                    stroke={
+                      missionCompleted || isMissionRunning
+                        ? '#10B981'
+                        : '#E2E8F0'
+                    }
+                    strokeWidth="1.5"
+                    strokeDasharray={
+                      missionCompleted || isMissionRunning ? '0' : '4 2'
+                    }
+                  />
+                  {/* Row 1 to Row 2 */}
+                  <path
+                    d="M 88 135 Q 88 155 68 175"
+                    fill="none"
+                    stroke={
+                      missionCompleted || isMissionRunning
+                        ? '#10B981'
+                        : '#E2E8F0'
+                    }
+                    strokeWidth="1.5"
+                    strokeDasharray={
+                      missionCompleted || isMissionRunning ? '0' : '4 2'
+                    }
+                  />
+                  <path
+                    d="M 136 135 Q 136 155 136 175"
+                    fill="none"
+                    stroke={
+                      missionCompleted || isMissionRunning
+                        ? '#10B981'
+                        : '#E2E8F0'
+                    }
+                    strokeWidth="1.5"
+                    strokeDasharray={
+                      missionCompleted || isMissionRunning ? '0' : '4 2'
+                    }
+                  />
+                  <path
+                    d="M 184 135 Q 184 155 204 175"
+                    fill="none"
+                    stroke={
+                      missionCompleted || isMissionRunning
+                        ? '#10B981'
+                        : '#E2E8F0'
+                    }
+                    strokeWidth="1.5"
+                    strokeDasharray={
+                      missionCompleted || isMissionRunning ? '0' : '4 2'
+                    }
+                  />
                 </svg>
 
-                {/* Leader Node */}
-                {(() => {
-                  const msg = missionMessage || '';
-                  const isArchitectActive = [
-                    '架构',
-                    '规划',
-                    '结构',
-                    '大纲',
-                  ].some((kw) => msg.includes(kw));
-                  return (
-                    <div
-                      className="relative z-10 flex cursor-pointer flex-col items-center"
-                      onClick={() => setSelectedAgent('architect')}
-                    >
+                {/* Row 0: Leader */}
+                <div className="relative z-10 mb-6 flex justify-center">
+                  {(() => {
+                    const msg = missionMessage || '';
+                    const isActive = ['架构', '规划', '结构', '大纲'].some(
+                      (kw) => msg.includes(kw)
+                    );
+                    return (
                       <div
-                        className={`text-sm transition-transform duration-300 ${isArchitectActive ? 'scale-110' : ''}`}
+                        className="flex cursor-pointer flex-col items-center"
+                        onClick={() => setSelectedAgent('architect')}
                       >
-                        👑
-                      </div>
-                      <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-full text-base transition-all duration-300 hover:ring-2 hover:ring-violet-300 ${
-                          isArchitectActive
-                            ? 'agent-glow-violet scale-110 bg-gradient-to-br from-violet-400 to-violet-600'
-                            : missionCompleted
-                              ? 'bg-violet-500 shadow-md ring-2 ring-green-300'
-                              : 'bg-violet-500 shadow-md'
-                        }`}
-                      >
-                        <span className="text-white drop-shadow-md">📐</span>
-                      </div>
-                      <div className="text-center">
                         <div
-                          className={`text-[10px] font-medium transition-colors ${isArchitectActive ? 'text-violet-600' : 'text-slate-700'}`}
+                          className={`mb-1 text-base transition-transform duration-300 ${isActive ? 'scale-110' : ''}`}
+                        >
+                          👑
+                        </div>
+                        <div
+                          className={`flex h-12 w-12 items-center justify-center rounded-full text-lg transition-all duration-300 hover:ring-2 hover:ring-violet-300 ${
+                            isActive
+                              ? 'scale-110 bg-gradient-to-br from-violet-400 to-violet-600 shadow-lg shadow-violet-200'
+                              : missionCompleted
+                                ? 'bg-violet-500 shadow-md ring-2 ring-green-300'
+                                : 'bg-violet-500 shadow-md'
+                          }`}
+                        >
+                          <span className="text-white drop-shadow-md">📐</span>
+                        </div>
+                        <div
+                          className={`mt-1 text-xs font-medium ${isActive ? 'text-violet-600' : 'text-slate-700'}`}
                         >
                           架构师
                         </div>
                       </div>
-                    </div>
-                  );
-                })()}
+                    );
+                  })()}
+                </div>
 
-                {/* First Row: 守护者 + 3个作家 */}
-                <div className="relative z-10 mt-2 flex justify-around">
+                {/* Row 1: 4 Agents */}
+                <div className="relative z-10 mb-6 flex justify-between px-2">
                   {[
                     {
                       id: 'keeper',
                       icon: '📚',
                       name: '守护者',
+                      bg: 'bg-indigo-500',
                       gradient: 'from-indigo-400 to-indigo-600',
-                      bgColor: 'bg-indigo-500',
-                      glowClass: 'agent-glow-indigo',
-                      textColor: 'text-indigo-600',
+                      text: 'text-indigo-600',
+                      glow: 'shadow-indigo-200',
                       keywords: ['世界观', '设定', '守护'],
                     },
                     {
                       id: 'writer-1',
                       icon: '✍️',
                       name: '作家①',
+                      bg: 'bg-amber-500',
                       gradient: 'from-amber-400 to-amber-600',
-                      bgColor: 'bg-amber-500',
-                      glowClass: 'agent-glow-amber',
-                      textColor: 'text-amber-600',
+                      text: 'text-amber-600',
+                      glow: 'shadow-amber-200',
                       keywords: ['作家', '写作', '创作', '章节', '撰写'],
                     },
                     {
                       id: 'writer-2',
                       icon: '✍️',
                       name: '作家②',
+                      bg: 'bg-orange-500',
                       gradient: 'from-orange-400 to-orange-600',
-                      bgColor: 'bg-orange-500',
-                      glowClass: 'agent-glow-amber',
-                      textColor: 'text-orange-600',
+                      text: 'text-orange-600',
+                      glow: 'shadow-orange-200',
                       keywords: ['作家', '写作', '创作', '章节', '撰写'],
                     },
                     {
                       id: 'writer-3',
                       icon: '✍️',
                       name: '作家③',
+                      bg: 'bg-yellow-500',
                       gradient: 'from-yellow-400 to-yellow-600',
-                      bgColor: 'bg-yellow-500',
-                      glowClass: 'agent-glow-amber',
-                      textColor: 'text-yellow-600',
+                      text: 'text-yellow-600',
+                      glow: 'shadow-yellow-200',
                       keywords: ['作家', '写作', '创作', '章节', '撰写'],
                     },
                   ].map((agent) => {
@@ -613,61 +659,59 @@ export default function WritingProjectPage() {
                         onClick={() => setSelectedAgent(agent.id)}
                       >
                         <div
-                          className={`flex h-9 w-9 items-center justify-center rounded-full text-sm transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
+                          className={`flex h-10 w-10 items-center justify-center rounded-full text-sm transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
                             isActive
-                              ? `${agent.glowClass} scale-110 bg-gradient-to-br ${agent.gradient}`
+                              ? `scale-110 bg-gradient-to-br ${agent.gradient} shadow-lg ${agent.glow}`
                               : missionCompleted
-                                ? `${agent.bgColor} shadow-md ring-2 ring-green-300`
-                                : `${agent.bgColor} shadow-md`
+                                ? `${agent.bg} shadow-md ring-2 ring-green-300`
+                                : `${agent.bg} shadow-md`
                           }`}
                         >
                           <span className="text-white drop-shadow">
                             {agent.icon}
                           </span>
                         </div>
-                        <div className="text-center">
-                          <div
-                            className={`text-[10px] ${isActive ? `font-semibold ${agent.textColor}` : 'text-slate-600'}`}
-                          >
-                            {agent.name}
-                          </div>
+                        <div
+                          className={`mt-1 text-[10px] ${isActive ? `font-semibold ${agent.text}` : 'text-slate-600'}`}
+                        >
+                          {agent.name}
                         </div>
                       </div>
                     );
                   })}
                 </div>
 
-                {/* Second Row: 2个检查员 + 编辑 */}
-                <div className="relative z-10 mt-2 flex justify-around px-4">
+                {/* Row 2: 3 Agents */}
+                <div className="relative z-10 flex justify-around px-6">
                   {[
                     {
                       id: 'checker-1',
                       icon: '🔍',
                       name: '检查①',
+                      bg: 'bg-green-500',
                       gradient: 'from-green-400 to-green-600',
-                      bgColor: 'bg-green-500',
-                      glowClass: 'agent-glow-green',
-                      textColor: 'text-green-600',
+                      text: 'text-green-600',
+                      glow: 'shadow-green-200',
                       keywords: ['检查', '校验', '一致性', '审核', '检查员'],
                     },
                     {
                       id: 'checker-2',
                       icon: '🔍',
                       name: '检查②',
+                      bg: 'bg-emerald-500',
                       gradient: 'from-emerald-400 to-emerald-600',
-                      bgColor: 'bg-emerald-500',
-                      glowClass: 'agent-glow-green',
-                      textColor: 'text-emerald-600',
+                      text: 'text-emerald-600',
+                      glow: 'shadow-emerald-200',
                       keywords: ['检查', '校验', '一致性', '审核', '检查员'],
                     },
                     {
                       id: 'editor',
                       icon: '📝',
                       name: '编辑',
+                      bg: 'bg-pink-500',
                       gradient: 'from-pink-400 to-pink-600',
-                      bgColor: 'bg-pink-500',
-                      glowClass: 'agent-glow-pink',
-                      textColor: 'text-pink-600',
+                      text: 'text-pink-600',
+                      glow: 'shadow-pink-200',
                       keywords: ['编辑', '润色', '打磨', '优化'],
                     },
                   ].map((agent) => {
@@ -682,24 +726,22 @@ export default function WritingProjectPage() {
                         onClick={() => setSelectedAgent(agent.id)}
                       >
                         <div
-                          className={`flex h-9 w-9 items-center justify-center rounded-full text-sm transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
+                          className={`flex h-10 w-10 items-center justify-center rounded-full text-sm transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
                             isActive
-                              ? `${agent.glowClass} scale-110 bg-gradient-to-br ${agent.gradient}`
+                              ? `scale-110 bg-gradient-to-br ${agent.gradient} shadow-lg ${agent.glow}`
                               : missionCompleted
-                                ? `${agent.bgColor} shadow-md ring-2 ring-green-300`
-                                : `${agent.bgColor} shadow-md`
+                                ? `${agent.bg} shadow-md ring-2 ring-green-300`
+                                : `${agent.bg} shadow-md`
                           }`}
                         >
                           <span className="text-white drop-shadow">
                             {agent.icon}
                           </span>
                         </div>
-                        <div className="text-center">
-                          <div
-                            className={`text-[10px] ${isActive ? `font-semibold ${agent.textColor}` : 'text-slate-600'}`}
-                          >
-                            {agent.name}
-                          </div>
+                        <div
+                          className={`mt-1 text-[10px] ${isActive ? `font-semibold ${agent.text}` : 'text-slate-600'}`}
+                        >
+                          {agent.name}
                         </div>
                       </div>
                     );
@@ -708,9 +750,9 @@ export default function WritingProjectPage() {
               </div>
             </div>
 
-            {/* Progress Steps */}
-            <div className="mx-3 mb-3 rounded-lg bg-slate-50 p-4">
-              <div className="space-y-3">
+            {/* Progress Steps Section */}
+            <div className="mx-4 mb-4 rounded-xl bg-slate-50/80 p-4">
+              <div className="space-y-2.5">
                 {[
                   {
                     id: 'architect',
@@ -751,9 +793,9 @@ export default function WritingProjectPage() {
                   const isDone =
                     missionProgress >= stepThreshold && !isStepActive;
                   return (
-                    <div key={step.id} className="flex items-center gap-2">
+                    <div key={step.id} className="flex items-center gap-3">
                       <div
-                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs transition-all ${
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs transition-all ${
                           isStepActive
                             ? 'animate-pulse bg-amber-500 text-white ring-2 ring-amber-200'
                             : isDone
@@ -764,7 +806,7 @@ export default function WritingProjectPage() {
                         {isDone ? '✓' : step.icon}
                       </div>
                       <span
-                        className={`text-xs ${
+                        className={`text-sm ${
                           isStepActive
                             ? 'font-medium text-amber-700'
                             : isDone
@@ -781,15 +823,16 @@ export default function WritingProjectPage() {
                   );
                 })}
               </div>
+
               {/* Progress Bar */}
-              <div className="border-t border-slate-200 pt-3">
-                <div className="mb-1 flex justify-between text-xs text-slate-500">
-                  <span>整体进度</span>
+              <div className="mt-4 border-t border-slate-200/80 pt-3">
+                <div className="mb-1.5 flex justify-between text-xs">
+                  <span className="text-slate-500">整体进度</span>
                   <span className="font-semibold text-amber-600">
                     {Math.round(missionProgress)}%
                   </span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
                   <div
                     className={`h-full transition-all duration-500 ${
                       missionCompleted
@@ -803,11 +846,11 @@ export default function WritingProjectPage() {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex shrink-0 items-center justify-center gap-2 border-t border-gray-100 bg-white/80 px-3 py-2">
+            <div className="flex items-center justify-center gap-2 border-t border-gray-100/80 bg-white/60 px-4 py-3">
               <button
                 onClick={handleStartWriting}
                 disabled={isMissionRunning}
-                className="flex items-center gap-1 rounded-md bg-violet-500 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg bg-violet-500 px-4 py-2 text-xs font-medium text-white hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span>+</span>
                 创建任务
@@ -815,13 +858,13 @@ export default function WritingProjectPage() {
               <button
                 onClick={handleContinueWriting}
                 disabled={isMissionRunning || allChapters.length === 0}
-                className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 继续任务
               </button>
               <button
                 disabled={!isMissionRunning}
-                className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 取消任务
               </button>
