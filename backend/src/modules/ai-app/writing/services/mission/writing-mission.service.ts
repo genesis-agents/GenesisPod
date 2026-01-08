@@ -1462,6 +1462,41 @@ ${chapterContent}
         `[${missionId}] Chapter ${chapterNumber} completed: ${chapterWordCount} words`,
       );
 
+      // ★ 关键：立即将章节内容保存到数据库
+      try {
+        const existingChapter = await this.prisma.writingChapter.findFirst({
+          where: {
+            volume: { projectId: input.projectId },
+            chapterNumber: chapterNumber,
+          },
+        });
+        if (existingChapter) {
+          await this.prisma.writingChapter.update({
+            where: { id: existingChapter.id },
+            data: {
+              content: chapterContent,
+              wordCount: chapterWordCount,
+              status: "DRAFT",
+              updatedAt: new Date(),
+            },
+          });
+          this.logger.log(
+            `[${missionId}] ✅ Saved chapter ${chapterNumber} to database (${chapterWordCount} words)`,
+          );
+        } else {
+          this.logger.warn(
+            `[${missionId}] ⚠️ Chapter ${chapterNumber} not found in database, cannot save`,
+          );
+        }
+      } catch (dbError) {
+        this.logger.error(
+          `[${missionId}] ❌ Failed to save chapter ${chapterNumber}: ${(dbError as Error).message}`,
+        );
+      }
+
+      // 更新项目总字数
+      await this.updateProjectWordCount(input.projectId);
+
       // 发送章节内容和完成事件
       await this.eventEmitter.emitChapterContent(input.projectId, {
         chapterNumber,

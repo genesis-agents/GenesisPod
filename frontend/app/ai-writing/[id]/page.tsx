@@ -842,16 +842,27 @@ export default function WritingProjectPage() {
                         >
                           👑
                         </div>
-                        <div
-                          className={`flex h-12 w-12 items-center justify-center rounded-full text-lg transition-all duration-300 hover:ring-2 hover:ring-violet-300 ${
-                            isActive
-                              ? 'scale-110 bg-gradient-to-br from-violet-400 to-violet-600 shadow-lg shadow-violet-200'
-                              : missionCompleted
-                                ? 'bg-violet-500 shadow-md ring-2 ring-green-300'
-                                : 'bg-violet-500 shadow-md'
-                          }`}
-                        >
-                          <span className="text-white drop-shadow-md">📐</span>
+                        <div className="relative">
+                          {/* Pulsing glow ring for active agent */}
+                          {isActive && (
+                            <div className="absolute -inset-1 animate-ping rounded-full bg-violet-400 opacity-75" />
+                          )}
+                          {isActive && (
+                            <div className="absolute -inset-0.5 animate-pulse rounded-full bg-gradient-to-r from-violet-400 to-violet-600 opacity-75 blur-sm" />
+                          )}
+                          <div
+                            className={`relative flex h-12 w-12 items-center justify-center rounded-full text-lg transition-all duration-300 hover:ring-2 hover:ring-violet-300 ${
+                              isActive
+                                ? 'scale-110 bg-gradient-to-br from-violet-400 to-violet-600 shadow-lg shadow-violet-200'
+                                : missionCompleted
+                                  ? 'bg-violet-500 shadow-md ring-2 ring-green-300'
+                                  : 'bg-violet-500 shadow-md'
+                            }`}
+                          >
+                            <span className="text-white drop-shadow-md">
+                              📐
+                            </span>
+                          </div>
                         </div>
                         <div
                           className={`mt-1 text-xs font-medium ${isActive ? 'text-violet-600' : 'text-slate-700'}`}
@@ -917,18 +928,31 @@ export default function WritingProjectPage() {
                         className="flex cursor-pointer flex-col items-center"
                         onClick={() => setSelectedAgent(agent.id)}
                       >
-                        <div
-                          className={`flex h-10 w-10 items-center justify-center rounded-full text-sm transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
-                            isActive
-                              ? `scale-110 bg-gradient-to-br ${agent.gradient} shadow-lg ${agent.glow}`
-                              : missionCompleted
-                                ? `${agent.bg} shadow-md ring-2 ring-green-300`
-                                : `${agent.bg} shadow-md`
-                          }`}
-                        >
-                          <span className="text-white drop-shadow">
-                            {agent.icon}
-                          </span>
+                        <div className="relative">
+                          {/* Pulsing glow for active agent */}
+                          {isActive && (
+                            <div
+                              className={`absolute -inset-1 animate-ping rounded-full ${agent.bg} opacity-75`}
+                            />
+                          )}
+                          {isActive && (
+                            <div
+                              className={`absolute -inset-0.5 animate-pulse rounded-full bg-gradient-to-r ${agent.gradient} opacity-75 blur-sm`}
+                            />
+                          )}
+                          <div
+                            className={`relative flex h-10 w-10 items-center justify-center rounded-full text-sm transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
+                              isActive
+                                ? `scale-110 bg-gradient-to-br ${agent.gradient} shadow-lg ${agent.glow}`
+                                : missionCompleted
+                                  ? `${agent.bg} shadow-md ring-2 ring-green-300`
+                                  : `${agent.bg} shadow-md`
+                            }`}
+                          >
+                            <span className="text-white drop-shadow">
+                              {agent.icon}
+                            </span>
+                          </div>
                         </div>
                         <div
                           className={`mt-1 text-[10px] ${isActive ? `font-semibold ${agent.text}` : 'text-slate-600'}`}
@@ -984,18 +1008,31 @@ export default function WritingProjectPage() {
                         className="flex cursor-pointer flex-col items-center"
                         onClick={() => setSelectedAgent(agent.id)}
                       >
-                        <div
-                          className={`flex h-10 w-10 items-center justify-center rounded-full text-sm transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
-                            isActive
-                              ? `scale-110 bg-gradient-to-br ${agent.gradient} shadow-lg ${agent.glow}`
-                              : missionCompleted
-                                ? `${agent.bg} shadow-md ring-2 ring-green-300`
-                                : `${agent.bg} shadow-md`
-                          }`}
-                        >
-                          <span className="text-white drop-shadow">
-                            {agent.icon}
-                          </span>
+                        <div className="relative">
+                          {/* Pulsing glow for active agent */}
+                          {isActive && (
+                            <div
+                              className={`absolute -inset-1 animate-ping rounded-full ${agent.bg} opacity-75`}
+                            />
+                          )}
+                          {isActive && (
+                            <div
+                              className={`absolute -inset-0.5 animate-pulse rounded-full bg-gradient-to-r ${agent.gradient} opacity-75 blur-sm`}
+                            />
+                          )}
+                          <div
+                            className={`relative flex h-10 w-10 items-center justify-center rounded-full text-sm transition-all duration-300 hover:ring-2 hover:ring-slate-300 ${
+                              isActive
+                                ? `scale-110 bg-gradient-to-br ${agent.gradient} shadow-lg ${agent.glow}`
+                                : missionCompleted
+                                  ? `${agent.bg} shadow-md ring-2 ring-green-300`
+                                  : `${agent.bg} shadow-md`
+                            }`}
+                          >
+                            <span className="text-white drop-shadow">
+                              {agent.icon}
+                            </span>
+                          </div>
                         </div>
                         <div
                           className={`mt-1 text-[10px] ${isActive ? `font-semibold ${agent.text}` : 'text-slate-600'}`}
@@ -1223,7 +1260,10 @@ export default function WritingProjectPage() {
                                   <div className="min-w-0 flex-1">
                                     <div className="font-medium text-gray-800">
                                       第{chapter.chapterNumber}章{' '}
-                                      {chapter.title}
+                                      {(chapter.title || '').replace(
+                                        /^第[一二三四五六七八九十百千\d]+章[：:\s]*/i,
+                                        ''
+                                      )}
                                     </div>
                                     {chapter.outline && (
                                       <div className="mt-1 line-clamp-2 text-xs text-gray-400">
@@ -1626,7 +1666,11 @@ export default function WritingProjectPage() {
               <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4">
                 <div>
                   <h3 className="text-lg font-bold text-gray-900">
-                    第{selectedChapter.chapterNumber}章 {selectedChapter.title}
+                    第{selectedChapter.chapterNumber}章{' '}
+                    {(selectedChapter.title || '').replace(
+                      /^第[一二三四五六七八九十百千\d]+章[：:\s]*/i,
+                      ''
+                    )}
                   </h3>
                   <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
                     {selectedChapter.wordCount > 0 && (
