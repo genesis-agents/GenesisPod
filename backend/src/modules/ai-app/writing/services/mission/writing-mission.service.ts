@@ -3753,6 +3753,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
         projectId: m.projectId,
         missionType: m.missionType,
         status: m.status,
+        createdAt: m.createdAt, // 前端需要这个字段来排序
         startedAt: m.startedAt,
         completedAt: m.completedAt,
         result: m.result,

@@ -78,12 +78,22 @@ export interface Character {
 export interface WritingMission {
   id: string;
   projectId: string;
-  type: 'outline' | 'chapter' | 'full_story';
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  type?: 'outline' | 'chapter' | 'full_story';
+  missionType?: 'outline' | 'chapter' | 'full_story'; // 后端返回的字段名
+  status:
+    | 'pending'
+    | 'running'
+    | 'completed'
+    | 'failed'
+    | 'IN_PROGRESS'
+    | 'COMPLETED'
+    | 'FAILED';
   progress?: number;
   result?: string;
   createdAt?: string;
+  startedAt?: string; // 后端也返回这个字段
   updatedAt?: string;
+  completedAt?: string;
 }
 
 export interface CreateProjectDto {

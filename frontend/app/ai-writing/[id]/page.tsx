@@ -640,10 +640,10 @@ export default function WritingProjectPage() {
         const { items: missions } = await getProjectMissions(projectId);
         if (!missions || missions.length === 0) return;
 
-        // 找到最近的任务
+        // 找到最近的任务（使用 createdAt 或 startedAt 排序）
         const latestMission = missions.sort((a, b) => {
-          const dateA = new Date(a.createdAt || 0).getTime();
-          const dateB = new Date(b.createdAt || 0).getTime();
+          const dateA = new Date(a.createdAt || a.startedAt || 0).getTime();
+          const dateB = new Date(b.createdAt || b.startedAt || 0).getTime();
           return dateB - dateA;
         })[0];
 
