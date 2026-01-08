@@ -465,7 +465,7 @@ export default function WritingProjectPage() {
               </div>
 
               {/* Agent Tree - Two Rows */}
-              <div className="relative mx-auto h-44">
+              <div className="relative mx-auto h-56">
                 {/* SVG Lines - use viewBox for proper scaling */}
                 <svg
                   className="pointer-events-none absolute inset-0 h-full w-full"
@@ -801,9 +801,6 @@ export default function WritingProjectPage() {
                 </div>
               </div>
             </div>
-
-            {/* Spacer to push buttons to bottom */}
-            <div className="flex-1" />
 
             {/* Action Buttons */}
             <div className="flex shrink-0 items-center justify-center gap-2 border-t border-gray-100 bg-white/80 px-3 py-2">
