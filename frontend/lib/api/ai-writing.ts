@@ -44,14 +44,25 @@ export interface Volume {
   chapters?: Chapter[];
 }
 
+export interface WorldSetting {
+  id: string;
+  bibleId: string;
+  category: string;
+  key: string;
+  value: string;
+  description?: string;
+}
+
 export interface StoryBible {
   id: string;
   projectId: string;
   premise?: string;
   theme?: string;
   tone?: string;
-  setting?: string;
-  writingStyle?: string;
+  worldType?: string;
+  // Relations (arrays, not rendered directly)
+  worldSettings?: WorldSetting[];
+  characters?: Character[];
 }
 
 export interface Character {

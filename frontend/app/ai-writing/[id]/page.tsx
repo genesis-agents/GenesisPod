@@ -1000,9 +1000,10 @@ export default function WritingProjectPage() {
                     {storyBible &&
                     (storyBible.premise ||
                       storyBible.theme ||
-                      storyBible.setting ||
+                      storyBible.worldType ||
                       storyBible.tone ||
-                      storyBible.writingStyle) ? (
+                      (storyBible.worldSettings &&
+                        storyBible.worldSettings.length > 0)) ? (
                       <>
                         {/* Premise */}
                         {storyBible.premise && (
@@ -1028,14 +1029,14 @@ export default function WritingProjectPage() {
                           </div>
                         )}
 
-                        {/* Setting */}
-                        {storyBible.setting && (
+                        {/* World Type */}
+                        {storyBible.worldType && (
                           <div className="rounded-xl bg-blue-50 p-4">
                             <h3 className="mb-2 flex items-center gap-2 font-medium text-blue-800">
-                              <span>🌍</span> 世界设定
+                              <span>🌍</span> 世界类型
                             </h3>
                             <p className="whitespace-pre-wrap text-sm text-blue-700">
-                              {storyBible.setting}
+                              {storyBible.worldType}
                             </p>
                           </div>
                         )}
@@ -1052,17 +1053,28 @@ export default function WritingProjectPage() {
                           </div>
                         )}
 
-                        {/* Writing Style */}
-                        {storyBible.writingStyle && (
-                          <div className="rounded-xl bg-green-50 p-4">
-                            <h3 className="mb-2 flex items-center gap-2 font-medium text-green-800">
-                              <span>✍️</span> 写作风格
-                            </h3>
-                            <p className="whitespace-pre-wrap text-sm text-green-700">
-                              {storyBible.writingStyle}
-                            </p>
-                          </div>
-                        )}
+                        {/* World Settings */}
+                        {storyBible.worldSettings &&
+                          storyBible.worldSettings.length > 0 && (
+                            <div className="rounded-xl bg-green-50 p-4">
+                              <h3 className="mb-2 flex items-center gap-2 font-medium text-green-800">
+                                <span>🗺️</span> 世界设定
+                              </h3>
+                              <div className="space-y-2">
+                                {storyBible.worldSettings.map((setting) => (
+                                  <div
+                                    key={setting.id}
+                                    className="text-sm text-green-700"
+                                  >
+                                    <span className="font-medium">
+                                      {setting.key}:
+                                    </span>{' '}
+                                    {setting.value}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                       </>
                     ) : isMissionRunning ? (
                       /* Show building state during mission */
