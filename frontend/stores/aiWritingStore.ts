@@ -47,7 +47,7 @@ interface AIWritingState {
 
   // Actions - Projects
   fetchProjects: () => Promise<void>;
-  fetchProject: (id: string) => Promise<void>;
+  fetchProject: (id: string, silent?: boolean) => Promise<void>;
   createProject: (dto: CreateProjectDto) => Promise<WritingProject>;
   updateProject: (id: string, dto: UpdateProjectDto) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
@@ -129,17 +129,22 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
     }
   },
 
-  fetchProject: async (id: string) => {
-    set({ isLoadingProjects: true, error: null });
+  fetchProject: async (id: string, silent = false) => {
+    // When silent=true (during polling), don't show loading state to avoid UI flicker
+    if (!silent) {
+      set({ isLoadingProjects: true, error: null });
+    }
     try {
       const project = await api.getProject(id);
       set({ currentProject: project, isLoadingProjects: false });
     } catch (err) {
-      set({
-        error: (err as Error).message,
-        isLoadingProjects: false,
-        currentProject: null,
-      });
+      if (!silent) {
+        set({
+          error: (err as Error).message,
+          isLoadingProjects: false,
+          currentProject: null,
+        });
+      }
     }
   },
 
@@ -643,10 +648,10 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
                 });
               }
 
-              // 定期刷新章节和项目（更新字数）
+              // 定期刷新章节和项目（更新字数）- 使用 silent 模式避免 UI 闪烁
               if (pollCount % 5 === 0) {
                 await fetchVolumes(projectId, true);
-                await fetchProject(projectId); // 更新字数显示
+                await fetchProject(projectId, true); // 更新字数显示
               }
             } catch {
               // 忽略轮询错误

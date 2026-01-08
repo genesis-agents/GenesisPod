@@ -200,6 +200,12 @@ export default function WritingProjectPage() {
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
     new Set()
   );
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error';
+  } | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
   const taskMessagesEndRef = useRef<HTMLDivElement>(null);
   const lastMissionMessageRef = useRef<string>('');
   const hasLoadedLogsRef = useRef<boolean>(false);
@@ -890,6 +896,33 @@ export default function WritingProjectPage() {
     }
   }, [missionCompleted, taskMessages]);
 
+  // Click outside handler for export menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        exportMenuRef.current &&
+        !exportMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowExportMenu(false);
+      }
+    };
+
+    if (showExportMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showExportMenu]);
+
+  // Auto-clear toast after 3 seconds
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const handleStartWriting = async () => {
     if (!currentProject) return;
     try {
@@ -915,7 +948,10 @@ export default function WritingProjectPage() {
 
     // 如果已经达到目标字数，提示用户
     if (remainingWords <= 0) {
-      alert('已达到目标字数！如需继续创作，请增加目标字数。');
+      setToast({
+        message: '已达到目标字数！如需继续创作，请增加目标字数。',
+        type: 'error',
+      });
       return;
     }
 
@@ -984,14 +1020,91 @@ export default function WritingProjectPage() {
     }
   };
 
-  const handleExport = () => {
+  // 生成世界观内容
+  const generateWorldviewContent = (format: 'md' | 'txt') => {
+    if (!storyBible) return '';
+    const sections: string[] = [];
+
+    // 故事设定
+    if (storyBible.premise || storyBible.theme || storyBible.tone) {
+      const title = format === 'md' ? '## 故事设定\n' : '【故事设定】\n';
+      let content = title;
+      if (storyBible.premise)
+        content += `${format === 'md' ? '**' : ''}故事前提${format === 'md' ? '**' : ''}：${storyBible.premise}\n`;
+      if (storyBible.theme)
+        content += `${format === 'md' ? '**' : ''}主题${format === 'md' ? '**' : ''}：${storyBible.theme}\n`;
+      if (storyBible.tone)
+        content += `${format === 'md' ? '**' : ''}基调${format === 'md' ? '**' : ''}：${storyBible.tone}\n`;
+      if (storyBible.worldType)
+        content += `${format === 'md' ? '**' : ''}世界类型${format === 'md' ? '**' : ''}：${storyBible.worldType}\n`;
+      sections.push(content);
+    }
+
+    // 角色列表
+    if (storyBible.characters && storyBible.characters.length > 0) {
+      const title = format === 'md' ? '## 角色设定\n' : '【角色设定】\n';
+      let content = title;
+      storyBible.characters.forEach((char) => {
+        content +=
+          format === 'md' ? `### ${char.name}\n` : `\n${char.name}：\n`;
+        if (char.role) content += `角色：${char.role}\n`;
+        if (char.description) content += `描述：${char.description}\n`;
+        if (char.personality) content += `性格：${char.personality}\n`;
+        if (char.background) content += `背景：${char.background}\n`;
+      });
+      sections.push(content);
+    }
+
+    // 世界设定
+    if (storyBible.worldSettings && storyBible.worldSettings.length > 0) {
+      const title = format === 'md' ? '## 世界观设定\n' : '【世界观设定】\n';
+      let content = title;
+      // 按分类分组
+      const grouped: Record<string, typeof storyBible.worldSettings> = {};
+      storyBible.worldSettings.forEach((setting) => {
+        const category = setting.category || '其他';
+        if (!grouped[category]) grouped[category] = [];
+        grouped[category].push(setting);
+      });
+      Object.entries(grouped).forEach(([category, settings]) => {
+        content +=
+          format === 'md' ? `### ${category}\n` : `\n【${category}】\n`;
+        settings.forEach((s) => {
+          content += `- ${s.key}：${s.value}${s.description ? ` (${s.description})` : ''}\n`;
+        });
+      });
+      sections.push(content);
+    }
+
+    return sections.join('\n');
+  };
+
+  // 导出为 Markdown
+  const handleExportMarkdown = () => {
     if (!currentProject) return;
-    const allContent = volumes
+
+    // 世界观内容放在章节前面
+    const worldviewContent = generateWorldviewContent('md');
+
+    const allChapterContent = volumes
       .flatMap((v) => v.chapters || [])
       .sort((a, b) => a.chapterNumber - b.chapterNumber)
-      .map((c) => `# ${c.title}\n\n${c.content || ''}`)
+      .map((c) => `## ${c.title}\n\n${c.content || ''}`)
       .join('\n\n---\n\n');
-    const content = `# ${currentProject.name}\n\n${currentProject.description || ''}\n\n---\n\n${allContent}`;
+
+    const parts = [`# ${currentProject.name}\n`];
+    if (currentProject.description) parts.push(currentProject.description);
+    parts.push(
+      `\n**目标字数**: ${currentProject.targetWords?.toLocaleString() || '-'}`
+    );
+    parts.push(
+      `**当前字数**: ${currentProject.currentWords?.toLocaleString() || 0}`
+    );
+    parts.push('\n---\n');
+    if (worldviewContent) parts.push(worldviewContent, '\n---\n');
+    parts.push('# 正文\n\n', allChapterContent);
+
+    const content = parts.join('\n');
     const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -999,6 +1112,238 @@ export default function WritingProjectPage() {
     a.download = `${currentProject.name}.md`;
     a.click();
     URL.revokeObjectURL(url);
+    setShowExportMenu(false);
+  };
+
+  // 导出为纯文本
+  const handleExportTxt = () => {
+    if (!currentProject) return;
+
+    // 世界观内容放在章节前面
+    const worldviewContent = generateWorldviewContent('txt');
+
+    const allChapterContent = volumes
+      .flatMap((v) => v.chapters || [])
+      .sort((a, b) => a.chapterNumber - b.chapterNumber)
+      .map((c) => `【${c.title}】\n\n${c.content || ''}`)
+      .join('\n\n════════════════════════════════════════\n\n');
+
+    const parts = [`《${currentProject.name}》\n`];
+    if (currentProject.description) parts.push(currentProject.description);
+    parts.push(
+      `\n目标字数: ${currentProject.targetWords?.toLocaleString() || '-'}`
+    );
+    parts.push(
+      `当前字数: ${currentProject.currentWords?.toLocaleString() || 0}`
+    );
+    parts.push('\n════════════════════════════════════════\n');
+    if (worldviewContent)
+      parts.push(
+        worldviewContent,
+        '\n════════════════════════════════════════\n'
+      );
+    parts.push(allChapterContent);
+
+    const content = parts.join('\n');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${currentProject.name}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowExportMenu(false);
+  };
+
+  // 导出为 HTML
+  const handleExportHtml = () => {
+    if (!currentProject) return;
+
+    // 世界观内容放在章节前面
+    const worldviewContent = generateWorldviewContent('md');
+
+    const allChapterContent = volumes
+      .flatMap((v) => v.chapters || [])
+      .sort((a, b) => a.chapterNumber - b.chapterNumber)
+      .map(
+        (c) =>
+          `<section class="chapter"><h2>${c.title}</h2><div class="content">${(c.content || '').replace(/\n/g, '<br/>')}</div></section>`
+      )
+      .join('\n');
+
+    const worldviewHtml = worldviewContent
+      ? `<section class="worldview"><h2>世界观设定</h2><pre>${worldviewContent}</pre></section><hr/>`
+      : '';
+
+    const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${currentProject.name}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      line-height: 1.8;
+      color: #1f2937;
+      background: #fafafa;
+    }
+    .header { text-align: center; margin-bottom: 3rem; padding-bottom: 2rem; border-bottom: 2px solid #e5e7eb; }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: #111827; }
+    .meta { color: #6b7280; font-size: 0.9rem; }
+    .worldview { background: #f9fafb; padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; }
+    .worldview h2 { font-size: 1.2rem; color: #374151; margin-bottom: 1rem; }
+    .worldview pre { white-space: pre-wrap; font-family: inherit; margin: 0; }
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 2rem 0; }
+    .chapter { margin-bottom: 3rem; }
+    .chapter h2 { font-size: 1.5rem; color: #1f2937; border-left: 4px solid #f59e0b; padding-left: 1rem; margin-bottom: 1.5rem; }
+    .chapter .content { text-indent: 2em; text-align: justify; }
+    .toc { background: #fff; padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; border: 1px solid #e5e7eb; }
+    .toc h3 { margin-bottom: 1rem; color: #374151; }
+    .toc ul { list-style: none; padding: 0; margin: 0; }
+    .toc li { padding: 0.5rem 0; border-bottom: 1px dashed #e5e7eb; }
+    .toc li:last-child { border-bottom: none; }
+    .toc a { color: #2563eb; text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1>${currentProject.name}</h1>
+    <p class="meta">${currentProject.description || ''}</p>
+    <p class="meta">字数：${currentProject.currentWords?.toLocaleString() || 0} / ${currentProject.targetWords?.toLocaleString() || '-'}</p>
+  </header>
+  ${worldviewHtml}
+  <nav class="toc">
+    <h3>目录</h3>
+    <ul>
+      ${volumes
+        .flatMap((v) => v.chapters || [])
+        .sort((a, b) => a.chapterNumber - b.chapterNumber)
+        .map((c, i) => `<li><a href="#chapter-${i + 1}">${c.title}</a></li>`)
+        .join('\n')}
+    </ul>
+  </nav>
+  <main>
+    ${allChapterContent.replace(/<section class="chapter">/g, (_, i) => `<section class="chapter" id="chapter-${i + 1}">`)}
+  </main>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${currentProject.name}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowExportMenu(false);
+  };
+
+  // 打开打印预览（用于导出 PDF）
+  const handleExportPdf = () => {
+    if (!currentProject) return;
+    // 在新窗口打开打印友好版本
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      setToast({ message: '请允许弹出窗口以导出 PDF', type: 'error' });
+      return;
+    }
+
+    // 世界观内容放在章节前面
+    const worldviewContent = generateWorldviewContent('md');
+
+    const allChapterContent = volumes
+      .flatMap((v) => v.chapters || [])
+      .sort((a, b) => a.chapterNumber - b.chapterNumber)
+      .map(
+        (c) =>
+          `<h2 style="page-break-before: always; margin-top: 2rem;">${c.title}</h2><div style="white-space: pre-wrap; line-height: 1.8;">${c.content || ''}</div>`
+      )
+      .join('');
+
+    const worldviewHtml = worldviewContent
+      ? `<div style="margin-bottom: 2rem; padding: 1rem; background: #f9fafb; border-radius: 8px;"><pre style="white-space: pre-wrap; font-family: inherit;">${worldviewContent}</pre></div><hr style="margin: 2rem 0;" />`
+      : '';
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${currentProject.name}</title>
+  <style>
+    @media print {
+      body { margin: 2cm; }
+      h1 { page-break-after: avoid; }
+      h2 { page-break-after: avoid; }
+    }
+    body {
+      font-family: "Noto Serif SC", "Source Han Serif CN", "Songti SC", serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      line-height: 1.8;
+    }
+    h1 { text-align: center; margin-bottom: 1rem; }
+    .meta { text-align: center; color: #666; margin-bottom: 2rem; }
+    h2 { margin-top: 2rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
+    .print-btn {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      padding: 0.75rem 1.5rem;
+      background: #f59e0b;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .print-btn:hover { background: #d97706; }
+    @media print { .print-btn { display: none; } }
+  </style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">🖨️ 打印 / 导出 PDF</button>
+  <h1>${currentProject.name}</h1>
+  <div class="meta">
+    ${currentProject.description ? `<p>${currentProject.description}</p>` : ''}
+    <p>字数：${currentProject.currentWords?.toLocaleString() || 0} / ${currentProject.targetWords?.toLocaleString() || '-'}</p>
+  </div>
+  <hr />
+  ${worldviewHtml}
+  ${allChapterContent}
+</body>
+</html>`;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    setShowExportMenu(false);
+  };
+
+  // 复制分享链接（公开阅读）
+  const handleShareLink = async () => {
+    if (!currentProject) return;
+    // 生成公开分享链接
+    const shareUrl = `${window.location.origin}/read/${projectId}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setToast({ message: '分享链接已复制到剪贴板', type: 'success' });
+    } catch {
+      // 降级方案
+      const input = document.createElement('input');
+      input.value = shareUrl;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      setToast({ message: '分享链接已复制到剪贴板', type: 'success' });
+    }
+    setShowExportMenu(false);
   };
 
   // Get all chapters sorted
@@ -1091,26 +1436,81 @@ export default function WritingProjectPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {/* Export */}
-              <button
-                onClick={handleExport}
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              {/* Export Dropdown */}
+              <div className="relative" ref={exportMenuRef}>
+                <button
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                  />
-                </svg>
-                导出
-              </button>
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    />
+                  </svg>
+                  导出
+                  <svg
+                    className="h-3 w-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+                {showExportMenu && (
+                  <div className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                    <button
+                      onClick={handleExportMarkdown}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <span className="text-base">📝</span>
+                      Markdown (.md)
+                    </button>
+                    <button
+                      onClick={handleExportTxt}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <span className="text-base">📄</span>
+                      纯文本 (.txt)
+                    </button>
+                    <button
+                      onClick={handleExportHtml}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <span className="text-base">🌐</span>
+                      网页 (.html)
+                    </button>
+                    <button
+                      onClick={handleExportPdf}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <span className="text-base">📑</span>
+                      打印 / PDF
+                    </button>
+                    <div className="border-t border-gray-100" />
+                    <button
+                      onClick={handleShareLink}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <span className="text-base">🔗</span>
+                      复制分享链接
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1122,6 +1522,28 @@ export default function WritingProjectPage() {
             <button
               onClick={clearError}
               className="text-red-500 hover:text-red-700"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Toast Notification */}
+        {toast && (
+          <div
+            className={`fixed right-4 top-20 z-50 flex items-center gap-2 rounded-lg px-4 py-3 shadow-lg transition-all ${
+              toast.type === 'success'
+                ? 'bg-green-50 text-green-800'
+                : 'bg-red-50 text-red-800'
+            }`}
+          >
+            <span className="text-lg">
+              {toast.type === 'success' ? '✅' : '❌'}
+            </span>
+            <span className="text-sm font-medium">{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              className="ml-2 text-gray-400 hover:text-gray-600"
             >
               ✕
             </button>
