@@ -455,17 +455,17 @@ export default function WritingProjectPage() {
               </div>
             </div>
 
-            {/* Tree Visualization */}
-            <div className="relative shrink-0 overflow-hidden">
+            {/* Tree Visualization - Fixed height for proper display */}
+            <div className="relative shrink-0 px-3 py-4">
               {/* Current Step */}
-              <div className="py-1 text-center">
-                <p className="line-clamp-1 px-2 text-xs text-slate-500">
+              <div className="mb-3 text-center">
+                <p className="line-clamp-1 text-xs text-slate-500">
                   {missionMessage || '等待任务开始...'}
                 </p>
               </div>
 
               {/* Agent Tree - Two Rows */}
-              <div className="relative mx-auto px-2 pb-2">
+              <div className="relative mx-auto h-44">
                 {/* SVG Lines - use viewBox for proper scaling */}
                 <svg
                   className="pointer-events-none absolute inset-0 h-full w-full"
@@ -708,8 +708,8 @@ export default function WritingProjectPage() {
               </div>
             </div>
 
-            {/* Progress Steps - Fills remaining space */}
-            <div className="mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-auto rounded-lg bg-slate-50 p-3">
+            {/* Progress Steps - Compact display */}
+            <div className="mx-3 mb-3 rounded-lg bg-slate-50 p-3">
               <div className="space-y-2">
                 {[
                   {
@@ -781,10 +781,8 @@ export default function WritingProjectPage() {
                   );
                 })}
               </div>
-              {/* Spacer to push progress bar to bottom */}
-              <div className="flex-1" />
-              {/* Progress Bar - Always at bottom */}
-              <div className="mt-3">
+              {/* Progress Bar */}
+              <div className="mt-4 border-t border-slate-200 pt-3">
                 <div className="mb-1 flex justify-between text-xs text-slate-500">
                   <span>整体进度</span>
                   <span className="font-semibold text-amber-600">
@@ -803,6 +801,9 @@ export default function WritingProjectPage() {
                 </div>
               </div>
             </div>
+
+            {/* Spacer to push buttons to bottom */}
+            <div className="flex-1" />
 
             {/* Action Buttons */}
             <div className="flex shrink-0 items-center justify-center gap-2 border-t border-gray-100 bg-white/80 px-3 py-2">
