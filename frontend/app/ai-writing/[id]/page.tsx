@@ -148,6 +148,7 @@ export default function WritingProjectPage() {
   );
   const taskMessagesEndRef = useRef<HTMLDivElement>(null);
   const lastMissionMessageRef = useRef<string>('');
+  const hasLoadedLogsRef = useRef<boolean>(false);
 
   // Agent 详情数据
   const agentDetails: Record<
@@ -681,10 +682,16 @@ export default function WritingProjectPage() {
               ? 'progress'
               : 'agent';
 
+          // Ensure content is always a string
+          const content =
+            typeof log.content === 'string'
+              ? log.content
+              : JSON.stringify(log.content);
+
           return {
             id: log.id,
             type: msgType as 'user' | 'system' | 'agent' | 'progress',
-            content: log.content,
+            content,
             agent: log.agentName,
             timestamp: new Date(log.createdAt),
             detail: log.detail
@@ -702,12 +709,31 @@ export default function WritingProjectPage() {
           };
         });
 
-        // 只有当 taskMessages 为空时才加载历史日志
+        // 加载历史日志 - 始终加载以确保日志不丢失
         if (messages.length > 0) {
-          setTaskMessages((prev) => (prev.length === 0 ? messages : prev));
+          hasLoadedLogsRef.current = true;
+          setTaskMessages((prev) => {
+            // 如果当前没有消息，直接使用历史日志
+            if (prev.length === 0) {
+              return messages;
+            }
+            // 如果当前只有一条系统消息（任务开始），用历史日志替换
+            if (
+              prev.length === 1 &&
+              prev[0].type === 'system' &&
+              prev[0].content.includes('任务开始')
+            ) {
+              return messages;
+            }
+            // 否则保留当前消息（正在进行的任务）
+            return prev;
+          });
+        } else {
+          hasLoadedLogsRef.current = true;
         }
       } catch (error) {
         console.error('Failed to load mission logs:', error);
+        hasLoadedLogsRef.current = true;
       }
     };
 
@@ -1135,9 +1161,11 @@ export default function WritingProjectPage() {
                 <div className="relative z-10 mb-5 flex justify-center">
                   {(() => {
                     const msg = missionMessage || '';
-                    const isActive = ['架构', '规划', '结构', '大纲'].some(
-                      (kw) => msg.includes(kw)
-                    );
+                    const isActive =
+                      isMissionRunning &&
+                      ['架构', '规划', '结构', '大纲'].some((kw) =>
+                        msg.includes(kw)
+                      );
                     return (
                       <div
                         className="flex cursor-pointer flex-col items-center"
@@ -1225,9 +1253,9 @@ export default function WritingProjectPage() {
                     },
                   ].map((agent) => {
                     const msg = missionMessage || '';
-                    const isActive = agent.keywords.some((kw) =>
-                      msg.includes(kw)
-                    );
+                    const isActive =
+                      isMissionRunning &&
+                      agent.keywords.some((kw) => msg.includes(kw));
                     return (
                       <div
                         key={agent.id}
@@ -1305,9 +1333,9 @@ export default function WritingProjectPage() {
                     },
                   ].map((agent) => {
                     const msg = missionMessage || '';
-                    const isActive = agent.keywords.some((kw) =>
-                      msg.includes(kw)
-                    );
+                    const isActive =
+                      isMissionRunning &&
+                      agent.keywords.some((kw) => msg.includes(kw));
                     return (
                       <div
                         key={agent.id}
@@ -1388,9 +1416,9 @@ export default function WritingProjectPage() {
                   },
                 ].map((step, idx) => {
                   const msg = missionMessage || '';
-                  const isStepActive = step.keywords.some((kw) =>
-                    msg.includes(kw)
-                  );
+                  const isStepActive =
+                    isMissionRunning &&
+                    step.keywords.some((kw) => msg.includes(kw));
                   const stepThreshold = (idx + 1) * 20;
                   const isDone =
                     missionProgress >= stepThreshold && !isStepActive;
@@ -1886,7 +1914,9 @@ export default function WritingProjectPage() {
                                         : 'text-gray-700'
                                 }`}
                               >
-                                {msg.content}
+                                {typeof msg.content === 'string'
+                                  ? msg.content
+                                  : JSON.stringify(msg.content)}
                                 {msg.detail && (
                                   <span className="ml-2 text-xs text-violet-500">
                                     {expandedMessages.has(msg.id)
@@ -1905,7 +1935,9 @@ export default function WritingProjectPage() {
                                         📖 内容预览：
                                       </div>
                                       <div className="whitespace-pre-wrap border-l-2 border-violet-300 pl-3 italic leading-relaxed text-gray-700">
-                                        {msg.detail.data as string}
+                                        {typeof msg.detail.data === 'string'
+                                          ? msg.detail.data
+                                          : JSON.stringify(msg.detail.data)}
                                       </div>
                                     </div>
                                   )}
@@ -2121,7 +2153,9 @@ export default function WritingProjectPage() {
                                   )}
                                   {msg.detail.type === 'text' && (
                                     <div className="whitespace-pre-wrap text-gray-700">
-                                      {msg.detail.data as string}
+                                      {typeof msg.detail.data === 'string'
+                                        ? msg.detail.data
+                                        : JSON.stringify(msg.detail.data)}
                                     </div>
                                   )}
                                 </div>
