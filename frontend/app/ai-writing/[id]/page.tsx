@@ -102,6 +102,45 @@ export default function WritingProjectPage() {
 
   const [userInput, setUserInput] = useState('');
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  const [showLeaderMenu, setShowLeaderMenu] = useState(false);
+
+  // 处理输入变化，检测 @Leader 提及
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setUserInput(value);
+
+    // 检测 @ 触发，只显示 Leader 选项
+    const cursorPos = e.target.selectionStart;
+    const textBeforeCursor = value.slice(0, cursorPos);
+    const atMatch = textBeforeCursor.match(/@(\w*)$/);
+
+    if (atMatch) {
+      const query = atMatch[1].toLowerCase();
+      // 只有输入 @ 或 @l/@le/@lea/@lead/@leade/@leader 时显示
+      if (query === '' || 'leader'.startsWith(query)) {
+        setShowLeaderMenu(true);
+      } else {
+        setShowLeaderMenu(false);
+      }
+    } else {
+      setShowLeaderMenu(false);
+    }
+  };
+
+  // 选择 @Leader
+  const handleSelectLeader = () => {
+    const cursorPos = inputRef.current?.selectionStart || userInput.length;
+    const textBeforeCursor = userInput.slice(0, cursorPos);
+    const textAfterCursor = userInput.slice(cursorPos);
+
+    // 替换 @query 为 @Leader
+    const newTextBefore = textBeforeCursor.replace(/@\w*$/, '@Leader ');
+    setUserInput(newTextBefore + textAfterCursor);
+    setShowLeaderMenu(false);
+
+    // 聚焦输入框
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
 
   // WebSocket for real-time updates
   const wsState = useWritingWebSocket(projectId, isMissionRunning);
@@ -142,12 +181,24 @@ export default function WritingProjectPage() {
 
   const handleSendMessage = async () => {
     if (!userInput.trim() || !currentProject || isMissionRunning) return;
+
+    // 检测是否 @Leader
+    const hasLeaderMention = /@Leader\b/i.test(userInput);
+
+    // @Leader 时使用 edit 类型，否则使用 chapter
+    const missionType = hasLeaderMention ? 'edit' : 'chapter';
+
+    // 清理提示词中的 @Leader 标记
+    const cleanPrompt = userInput.replace(/@Leader\s*/gi, '').trim();
+
     try {
       await startMission(projectId, {
-        prompt: userInput,
-        missionType: 'chapter',
+        prompt: cleanPrompt || userInput,
+        missionType,
+        targetAgent: hasLeaderMention ? 'leader' : undefined,
       });
       setUserInput('');
+      setShowLeaderMenu(false);
     } catch {
       // Error handled by store
     }
@@ -879,23 +930,75 @@ export default function WritingProjectPage() {
             </div>
 
             {/* Input Area */}
-            <div className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <div className="relative mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+              {/* @Leader Dropdown - 只支持 Leader */}
+              {showLeaderMenu && (
+                <div className="absolute bottom-full left-4 mb-2 w-64 rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
+                  <div className="px-3 py-1.5 text-xs font-medium text-gray-400">
+                    提及 Leader
+                  </div>
+                  <button
+                    onClick={handleSelectLeader}
+                    className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-amber-50"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-sm">
+                      👑
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium text-gray-800">
+                        @Leader
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        故事架构师 · 编辑调整内容
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              )}
+
               <div className="flex gap-3">
-                <textarea
-                  ref={inputRef}
-                  value={userInput}
-                  onChange={(e) => setUserInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  placeholder="给 AI 团队发指令...（如：调整第3章的节奏，让对话更自然）"
-                  rows={2}
-                  className="flex-1 resize-none rounded-xl border border-gray-200 p-3 text-sm placeholder-gray-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-                  disabled={isMissionRunning}
-                />
+                <div className="relative flex-1">
+                  <textarea
+                    ref={inputRef}
+                    value={userInput}
+                    onChange={handleInputChange}
+                    onKeyDown={(e) => {
+                      // Handle Leader menu
+                      if (showLeaderMenu) {
+                        if (e.key === 'Escape') {
+                          e.preventDefault();
+                          setShowLeaderMenu(false);
+                        } else if (
+                          e.key === 'Tab' ||
+                          (e.key === 'Enter' && !e.shiftKey)
+                        ) {
+                          e.preventDefault();
+                          handleSelectLeader();
+                        }
+                        return;
+                      }
+                      // Normal submit
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    onBlur={() => {
+                      // Delay to allow click on menu
+                      setTimeout(() => setShowLeaderMenu(false), 200);
+                    }}
+                    placeholder="输入 @Leader 让架构师编辑调整内容..."
+                    rows={2}
+                    className="w-full resize-none rounded-xl border border-gray-200 p-3 text-sm placeholder-gray-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                    disabled={isMissionRunning}
+                  />
+                  {/* Hint for @ */}
+                  {!userInput && !isMissionRunning && (
+                    <div className="pointer-events-none absolute bottom-2 right-3 text-xs text-gray-300">
+                      @ 提及 Leader
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={handleSendMessage}
                   disabled={!userInput.trim() || isMissionRunning}

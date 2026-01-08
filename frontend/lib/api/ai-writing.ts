@@ -90,9 +90,16 @@ export interface UpdateProjectDto {
 
 export interface StartMissionDto {
   prompt: string;
-  missionType?: 'outline' | 'chapter' | 'full_story';
+  missionType?:
+    | 'outline'
+    | 'chapter'
+    | 'full_story'
+    | 'edit'
+    | 'consistency_check';
   targetWordCount?: number;
   additionalInstructions?: string;
+  targetAgent?: string; // @mention 的目标 Agent (leader, keeper, writer, checker, editor)
+  chapterNumber?: number; // 针对特定章节的操作
 }
 
 // ==================== API Base ====================

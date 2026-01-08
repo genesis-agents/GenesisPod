@@ -258,12 +258,21 @@ export class AiWritingController {
     dto: {
       /** 写作指令/描述（必填） */
       prompt: string;
-      /** 任务类型：outline(大纲) | chapter(章节) | full_story(完整故事) */
-      missionType?: "outline" | "chapter" | "full_story";
+      /** 任务类型：outline(大纲) | chapter(章节) | full_story(完整故事) | edit(编辑调整) | consistency_check(一致性检查) */
+      missionType?:
+        | "outline"
+        | "chapter"
+        | "full_story"
+        | "edit"
+        | "consistency_check";
       /** 目标字数 */
       targetWordCount?: number;
       /** 额外指令 */
       additionalInstructions?: string;
+      /** 目标 Agent（@mention 指定） */
+      targetAgent?: string;
+      /** 目标章节号（编辑特定章节时使用） */
+      chapterNumber?: number;
     },
   ) {
     this.logger.log(
