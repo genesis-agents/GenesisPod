@@ -100,6 +100,7 @@ export default function WritingProjectPage() {
     fetchVolumes,
     fetchStoryBible,
     startMission,
+    cancelMission,
     checkRunningMission,
     isMissionRunning,
     missionProgress,
@@ -750,6 +751,15 @@ export default function WritingProjectPage() {
     }
   };
 
+  const handleCancelMission = async () => {
+    if (!currentProject) return;
+    try {
+      await cancelMission(projectId);
+    } catch {
+      // Error handled by store
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!userInput.trim() || !currentProject || isMissionRunning) return;
 
@@ -1335,27 +1345,35 @@ export default function WritingProjectPage() {
 
             {/* Action Buttons */}
             <div className="flex items-center justify-center gap-2 border-t border-gray-100/80 bg-white/60 px-4 py-3">
-              <button
-                onClick={handleStartWriting}
-                disabled={isMissionRunning}
-                className="flex items-center gap-1.5 rounded-lg bg-violet-500 px-4 py-2 text-xs font-medium text-white hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <span>+</span>
-                创建任务
-              </button>
-              <button
-                onClick={handleContinueWriting}
-                disabled={isMissionRunning || allChapters.length === 0}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                继续任务
-              </button>
-              <button
-                disabled={!isMissionRunning}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                取消任务
-              </button>
+              {!isMissionRunning ? (
+                <>
+                  {allChapters.length === 0 ? (
+                    <button
+                      onClick={handleStartWriting}
+                      className="flex items-center gap-1.5 rounded-lg bg-violet-500 px-4 py-2 text-xs font-medium text-white hover:bg-violet-600"
+                    >
+                      <span>✨</span>
+                      开始创作
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleContinueWriting}
+                      className="flex items-center gap-1.5 rounded-lg bg-violet-500 px-4 py-2 text-xs font-medium text-white hover:bg-violet-600"
+                    >
+                      <span>📝</span>
+                      继续创作
+                    </button>
+                  )}
+                </>
+              ) : (
+                <button
+                  onClick={handleCancelMission}
+                  className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-4 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
+                >
+                  <span>⏹</span>
+                  取消任务
+                </button>
+              )}
             </div>
           </div>
 
@@ -1521,7 +1539,7 @@ export default function WritingProjectPage() {
                                 </h3>
                                 <p className="mb-4 max-w-xs text-sm text-gray-500">
                                   {currentProject.description ||
-                                    '点击左侧创建任务按钮，AI 团队将自动完成故事创作'}
+                                    '点击左侧「开始创作」按钮，AI 团队将自动完成故事创作'}
                                 </p>
                               </>
                             )}
@@ -1832,48 +1850,165 @@ export default function WritingProjectPage() {
                                     </div>
                                   )}
                                   {msg.detail.type === 'world_settings' && (
-                                    <div className="space-y-2">
-                                      <div className="font-medium text-gray-600">
-                                        🌍 世界观设定：
-                                      </div>
-                                      <div className="space-y-2">
-                                        {Object.entries(
-                                          msg.detail.data as Record<
-                                            string,
-                                            unknown
-                                          >
-                                        )
-                                          .slice(0, 10)
-                                          .map(([key, value]) => (
-                                            <div
-                                              key={key}
-                                              className="rounded border-l-2 border-violet-300 bg-white p-2"
-                                            >
-                                              <div className="mb-1 font-medium text-violet-600">
-                                                {key}:
+                                    <div className="space-y-3">
+                                      {(() => {
+                                        const data = msg.detail.data as Record<
+                                          string,
+                                          unknown
+                                        >;
+                                        const sectionConfig: Record<
+                                          string,
+                                          {
+                                            icon: string;
+                                            label: string;
+                                            color: string;
+                                          }
+                                        > = {
+                                          world: {
+                                            icon: '🌍',
+                                            label: '世界背景',
+                                            color: 'blue',
+                                          },
+                                          characters: {
+                                            icon: '👥',
+                                            label: '主要角色',
+                                            color: 'amber',
+                                          },
+                                          factions: {
+                                            icon: '⚔️',
+                                            label: '势力阵营',
+                                            color: 'red',
+                                          },
+                                          terminology: {
+                                            icon: '📖',
+                                            label: '专有名词',
+                                            color: 'purple',
+                                          },
+                                          locations: {
+                                            icon: '📍',
+                                            label: '重要地点',
+                                            color: 'green',
+                                          },
+                                          timeline: {
+                                            icon: '📅',
+                                            label: '时间线',
+                                            color: 'indigo',
+                                          },
+                                        };
+                                        return Object.entries(data).map(
+                                          ([key, value]) => {
+                                            const config = sectionConfig[
+                                              key
+                                            ] || {
+                                              icon: '📌',
+                                              label: key,
+                                              color: 'gray',
+                                            };
+                                            const colorClasses: Record<
+                                              string,
+                                              string
+                                            > = {
+                                              blue: 'bg-blue-50 border-blue-200 text-blue-800',
+                                              amber:
+                                                'bg-amber-50 border-amber-200 text-amber-800',
+                                              red: 'bg-red-50 border-red-200 text-red-800',
+                                              purple:
+                                                'bg-purple-50 border-purple-200 text-purple-800',
+                                              green:
+                                                'bg-green-50 border-green-200 text-green-800',
+                                              indigo:
+                                                'bg-indigo-50 border-indigo-200 text-indigo-800',
+                                              gray: 'bg-gray-50 border-gray-200 text-gray-800',
+                                            };
+                                            const cls =
+                                              colorClasses[config.color];
+
+                                            // 渲染值
+                                            const renderValue = (
+                                              val: unknown
+                                            ): React.ReactNode => {
+                                              if (typeof val === 'string') {
+                                                return (
+                                                  <p className="whitespace-pre-wrap text-sm text-gray-700">
+                                                    {val}
+                                                  </p>
+                                                );
+                                              }
+                                              if (Array.isArray(val)) {
+                                                return (
+                                                  <ul className="space-y-1">
+                                                    {val
+                                                      .slice(0, 8)
+                                                      .map((item, i) => (
+                                                        <li
+                                                          key={i}
+                                                          className="text-sm text-gray-700"
+                                                        >
+                                                          {typeof item ===
+                                                            'object' &&
+                                                          item !== null
+                                                            ? `• ${(item as Record<string, unknown>).name || (item as Record<string, unknown>).title || (item as Record<string, unknown>).term || JSON.stringify(item).slice(0, 60)}`
+                                                            : `• ${String(item)}`}
+                                                        </li>
+                                                      ))}
+                                                    {val.length > 8 && (
+                                                      <li className="text-xs text-gray-400">
+                                                        ...还有 {val.length - 8}{' '}
+                                                        项
+                                                      </li>
+                                                    )}
+                                                  </ul>
+                                                );
+                                              }
+                                              if (
+                                                typeof val === 'object' &&
+                                                val !== null
+                                              ) {
+                                                const obj = val as Record<
+                                                  string,
+                                                  unknown
+                                                >;
+                                                return (
+                                                  <div className="space-y-1 text-sm text-gray-700">
+                                                    {Object.entries(obj)
+                                                      .slice(0, 5)
+                                                      .map(([k, v]) => (
+                                                        <div key={k}>
+                                                          <span className="font-medium">
+                                                            {k}:
+                                                          </span>{' '}
+                                                          {typeof v === 'string'
+                                                            ? v.slice(0, 100)
+                                                            : JSON.stringify(
+                                                                v
+                                                              ).slice(0, 60)}
+                                                        </div>
+                                                      ))}
+                                                  </div>
+                                                );
+                                              }
+                                              return (
+                                                <span className="text-sm text-gray-700">
+                                                  {String(val)}
+                                                </span>
+                                              );
+                                            };
+
+                                            return (
+                                              <div
+                                                key={key}
+                                                className={`rounded-lg border p-3 ${cls}`}
+                                              >
+                                                <div className="mb-2 flex items-center gap-2 font-medium">
+                                                  <span>{config.icon}</span>
+                                                  <span>{config.label}</span>
+                                                </div>
+                                                {renderValue(value)}
                                               </div>
-                                              <div className="whitespace-pre-wrap text-xs text-gray-700">
-                                                {typeof value === 'object' &&
-                                                value !== null
-                                                  ? Array.isArray(value)
-                                                    ? value
-                                                        .map((item, i) =>
-                                                          typeof item ===
-                                                          'object'
-                                                            ? `${i + 1}. ${item.name || item.title || JSON.stringify(item).slice(0, 80)}`
-                                                            : String(item)
-                                                        )
-                                                        .join('\n')
-                                                    : JSON.stringify(
-                                                        value,
-                                                        null,
-                                                        2
-                                                      ).slice(0, 200)
-                                                  : String(value).slice(0, 200)}
-                                              </div>
-                                            </div>
-                                          ))}
-                                      </div>
+                                            );
+                                          }
+                                        );
+                                      })()}
                                     </div>
                                   )}
                                   {msg.detail.type === 'text' && (

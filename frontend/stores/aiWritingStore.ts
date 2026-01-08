@@ -36,6 +36,7 @@ interface AIWritingState {
 
   // AI Mission
   isMissionRunning: boolean;
+  currentMissionId: string | null;
   missionProgress: number;
   missionMessage: string;
   missionCompleted: boolean;
@@ -83,6 +84,7 @@ interface AIWritingState {
 
   // Actions - AI Mission
   startMission: (projectId: string, dto: StartMissionDto) => Promise<void>;
+  cancelMission: (projectId: string) => Promise<void>;
   checkRunningMission: (projectId: string) => Promise<void>;
 
   // Actions - Utility
@@ -101,6 +103,7 @@ const initialState = {
   characters: [],
   isLoadingBible: false,
   isMissionRunning: false,
+  currentMissionId: null as string | null,
   missionProgress: 0,
   missionMessage: '',
   missionCompleted: false,
@@ -528,6 +531,44 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
       });
       throw err;
     }
+  },
+
+  // 取消当前任务
+  cancelMission: async (projectId: string) => {
+    const { currentMissionId } = get();
+
+    // 如果没有记录 missionId，尝试从 API 获取
+    let missionId = currentMissionId;
+    if (!missionId) {
+      try {
+        const { items } = await api.getProjectMissions(projectId);
+        const runningMission = items.find(
+          (m) => m.status === 'running' || m.status === 'pending'
+        );
+        if (runningMission) {
+          missionId = runningMission.id;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (missionId) {
+      try {
+        await api.cancelMission(missionId);
+      } catch {
+        // ignore cancel errors
+      }
+    }
+
+    // 重置状态
+    set({
+      isMissionRunning: false,
+      currentMissionId: null,
+      missionProgress: 0,
+      missionMessage: '',
+      activeAgentIds: [],
+    });
   },
 
   // 检查是否有正在运行的任务（页面加载时调用，同步多标签页状态）
