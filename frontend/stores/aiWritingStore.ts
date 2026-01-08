@@ -486,7 +486,17 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
 
             // 检查是否失败
             if (status.status === 'FAILED') {
-              const errorMsg = status.result?.error || '任务执行失败';
+              // 确保 error 总是字符串
+              const rawError = status.result?.error as
+                | string
+                | { message?: string }
+                | undefined;
+              const errorMsg =
+                typeof rawError === 'string'
+                  ? rawError
+                  : typeof rawError === 'object' && rawError?.message
+                    ? rawError.message
+                    : '任务执行失败';
               set({
                 isMissionRunning: false,
                 missionProgress: 0,
@@ -626,12 +636,23 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
               }
 
               if (status.status === 'FAILED') {
+                // 确保 error 总是字符串
+                const rawError = status.result?.error as
+                  | string
+                  | { message?: string }
+                  | undefined;
+                const errorMsg =
+                  typeof rawError === 'string'
+                    ? rawError
+                    : typeof rawError === 'object' && rawError?.message
+                      ? rawError.message
+                      : '写作任务失败';
                 set({
                   isMissionRunning: false,
-                  missionMessage: status.result?.error || '任务失败',
+                  missionMessage: errorMsg,
                   missionCompleted: false,
                   activeAgentIds: [],
-                  error: status.result?.error || '写作任务失败',
+                  error: errorMsg,
                 });
                 return;
               }

@@ -1089,36 +1089,50 @@ export default function WritingProjectPage() {
 
     // 世界设定
     if (storyBible.worldSettings && storyBible.worldSettings.length > 0) {
-      // 按分类分组
-      const grouped: Record<string, typeof storyBible.worldSettings> = {};
-      storyBible.worldSettings.forEach((setting) => {
-        const category = setting.category || '其他';
-        if (!grouped[category]) grouped[category] = [];
-        grouped[category].push(setting);
-      });
+      // 过滤出有效的设定（必须有 key 和 value，且 key 不是内部字段）
+      const validSettings = storyBible.worldSettings.filter(
+        (s) =>
+          s &&
+          typeof s.key === 'string' &&
+          s.key &&
+          !s.key.startsWith('_') &&
+          typeof s.value === 'string' &&
+          s.value
+      );
 
-      if (format === 'html') {
-        let content = '<div class="worldview-section"><h3>世界观设定</h3>';
-        Object.entries(grouped).forEach(([category, settings]) => {
-          content += `<div class="setting-category"><h4>${category}</h4><ul>`;
-          settings.forEach((s) => {
-            content += `<li><strong>${s.key}</strong>：${s.value}${s.description ? ` <span class="desc">(${s.description})</span>` : ''}</li>`;
-          });
-          content += '</ul></div>';
+      if (validSettings.length > 0) {
+        // 按分类分组
+        const grouped: Record<string, typeof validSettings> = {};
+        validSettings.forEach((setting) => {
+          const category = setting.category || '其他';
+          if (!grouped[category]) grouped[category] = [];
+          grouped[category].push(setting);
         });
-        content += '</div>';
-        sections.push(content);
-      } else {
-        const title = format === 'md' ? '## 世界观设定\n' : '【世界观设定】\n';
-        let content = title;
-        Object.entries(grouped).forEach(([category, settings]) => {
-          content +=
-            format === 'md' ? `### ${category}\n` : `\n【${category}】\n`;
-          settings.forEach((s) => {
-            content += `- ${s.key}：${s.value}${s.description ? ` (${s.description})` : ''}\n`;
+
+        if (format === 'html') {
+          let content = '<div class="worldview-section"><h3>世界观设定</h3>';
+          Object.entries(grouped).forEach(([category, settings]) => {
+            content += `<div class="setting-category"><h4>${category}</h4><ul>`;
+            settings.forEach((s) => {
+              content += `<li><strong>${s.key}</strong>：${s.value}${s.description ? ` <span class="desc">(${s.description})</span>` : ''}</li>`;
+            });
+            content += '</ul></div>';
           });
-        });
-        sections.push(content);
+          content += '</div>';
+          sections.push(content);
+        } else {
+          const title =
+            format === 'md' ? '## 世界观设定\n' : '【世界观设定】\n';
+          let content = title;
+          Object.entries(grouped).forEach(([category, settings]) => {
+            content +=
+              format === 'md' ? `### ${category}\n` : `\n【${category}】\n`;
+            settings.forEach((s) => {
+              content += `- ${s.key}：${s.value}${s.description ? ` (${s.description})` : ''}\n`;
+            });
+          });
+          sections.push(content);
+        }
       }
     }
 
@@ -1586,7 +1600,12 @@ export default function WritingProjectPage() {
         {/* Error */}
         {error && (
           <div className="mx-4 mt-3 flex items-center justify-between rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">
-            <span>{error}</span>
+            <span>
+              {typeof error === 'string'
+                ? error
+                : (error as { message?: string })?.message ||
+                  JSON.stringify(error)}
+            </span>
             <button
               onClick={clearError}
               className="text-red-500 hover:text-red-700"
