@@ -831,7 +831,13 @@ export class WritingMissionService {
     modelId: string,
     missionId: string,
   ): Promise<string | null> {
-    const targetWordCount = input.targetWordCount || 50000; // 默认 5 万字
+    // 从项目获取目标字数作为默认值
+    const project = await this.prisma.writingProject.findUnique({
+      where: { id: input.projectId },
+      select: { targetWords: true },
+    });
+    const targetWordCount =
+      input.targetWordCount || project?.targetWords || 50000;
     const wordsPerChapter = 3000;
     const chaptersPerVolume = 10;
 

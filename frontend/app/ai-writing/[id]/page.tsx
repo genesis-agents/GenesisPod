@@ -842,6 +842,7 @@ export default function WritingProjectPage() {
       await startMission(projectId, {
         prompt: userInput || currentProject.description || '开始写作',
         missionType: 'full_story',
+        targetWordCount: currentProject.targetWords, // 传入目标字数
       });
       setUserInput('');
     } catch {
