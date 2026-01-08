@@ -106,10 +106,23 @@ export default function WritingProjectPage() {
   const [userInput, setUserInput] = useState('');
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [showLeaderMenu, setShowLeaderMenu] = useState(false);
-  const [activeTab, setActiveTab] = useState<'chapters' | 'worldview'>(
-    'chapters'
-  );
+  const [activeTab, setActiveTab] = useState<
+    'chapters' | 'worldview' | 'taskDetails'
+  >('chapters');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+
+  // Task details messages for showing generation process
+  const [taskMessages, setTaskMessages] = useState<
+    Array<{
+      id: string;
+      type: 'user' | 'system' | 'agent' | 'progress';
+      content: string;
+      agent?: string;
+      timestamp: Date;
+    }>
+  >([]);
+  const taskMessagesEndRef = useRef<HTMLDivElement>(null);
+  const lastMissionMessageRef = useRef<string>('');
 
   // Agent 详情数据
   const agentDetails: Record<
@@ -232,6 +245,87 @@ export default function WritingProjectPage() {
     }
   }, [user, projectId, fetchProject, fetchVolumes, fetchStoryBible]);
 
+  // Track mission messages and add to task details
+  useEffect(() => {
+    if (missionMessage && missionMessage !== lastMissionMessageRef.current) {
+      lastMissionMessageRef.current = missionMessage;
+
+      // Determine agent from message content
+      let agent = 'AI 团队';
+      if (missionMessage.includes('架构') || missionMessage.includes('规划')) {
+        agent = '📐 架构师';
+      } else if (
+        missionMessage.includes('世界观') ||
+        missionMessage.includes('设定')
+      ) {
+        agent = '📚 守护者';
+      } else if (
+        missionMessage.includes('作家') ||
+        missionMessage.includes('创作') ||
+        missionMessage.includes('章节')
+      ) {
+        agent = '✍️ 作家';
+      } else if (
+        missionMessage.includes('检查') ||
+        missionMessage.includes('校验')
+      ) {
+        agent = '🔍 检查员';
+      } else if (
+        missionMessage.includes('编辑') ||
+        missionMessage.includes('润色')
+      ) {
+        agent = '📝 编辑';
+      }
+
+      setTaskMessages((prev) => [
+        ...prev,
+        {
+          id: `msg-${Date.now()}`,
+          type: 'progress',
+          content: missionMessage,
+          agent,
+          timestamp: new Date(),
+        },
+      ]);
+
+      // Auto scroll to bottom
+      setTimeout(() => {
+        taskMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [missionMessage]);
+
+  // Add system message when mission starts/completes
+  useEffect(() => {
+    if (isMissionRunning && taskMessages.length === 0) {
+      setTaskMessages([
+        {
+          id: `msg-${Date.now()}`,
+          type: 'system',
+          content: '任务开始执行，AI 团队正在协作...',
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  }, [isMissionRunning, taskMessages.length]);
+
+  useEffect(() => {
+    if (missionCompleted && taskMessages.length > 0) {
+      const lastMsg = taskMessages[taskMessages.length - 1];
+      if (lastMsg.type !== 'system' || !lastMsg.content.includes('完成')) {
+        setTaskMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}`,
+            type: 'system',
+            content: '✅ 任务已完成！',
+            timestamp: new Date(),
+          },
+        ]);
+      }
+    }
+  }, [missionCompleted, taskMessages]);
+
   const handleStartWriting = async () => {
     if (!currentProject) return;
     try {
@@ -269,6 +363,20 @@ export default function WritingProjectPage() {
 
     // 清理提示词中的 @Leader 标记
     const cleanPrompt = userInput.replace(/@Leader\s*/gi, '').trim();
+
+    // Add user message to task details
+    setTaskMessages((prev) => [
+      ...prev,
+      {
+        id: `msg-${Date.now()}`,
+        type: 'user',
+        content: userInput,
+        timestamp: new Date(),
+      },
+    ]);
+
+    // Switch to task details tab to show the conversation
+    setActiveTab('taskDetails');
 
     try {
       await startMission(projectId, {
@@ -850,6 +958,21 @@ export default function WritingProjectPage() {
                       <span className="ml-1 text-xs text-green-500">✓</span>
                     )}
                   </button>
+                  <button
+                    onClick={() => setActiveTab('taskDetails')}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                      activeTab === 'taskDetails'
+                        ? 'bg-violet-100 text-violet-700'
+                        : 'text-gray-500 hover:bg-gray-100'
+                    }`}
+                  >
+                    💬 任务详情
+                    {taskMessages.length > 0 && (
+                      <span className="ml-1 text-xs">
+                        ({taskMessages.length})
+                      </span>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -1093,6 +1216,101 @@ export default function WritingProjectPage() {
                         <p className="text-sm text-gray-500">
                           开始创作后，AI 守护者将自动建立故事的世界观
                         </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Task Details Tab */}
+                {activeTab === 'taskDetails' && (
+                  <div className="flex h-full flex-col">
+                    {taskMessages.length === 0 ? (
+                      <div className="flex flex-1 flex-col items-center justify-center py-12 text-center">
+                        <span className="mb-4 text-4xl">💬</span>
+                        <h3 className="mb-2 text-lg font-semibold text-gray-800">
+                          暂无任务记录
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          开始创作后，这里将显示 AI 团队的工作详情
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {taskMessages.map((msg) => (
+                          <div
+                            key={msg.id}
+                            className={`rounded-xl p-3 ${
+                              msg.type === 'user'
+                                ? 'ml-8 bg-amber-50'
+                                : msg.type === 'system'
+                                  ? 'bg-gray-50'
+                                  : msg.type === 'progress'
+                                    ? 'bg-violet-50'
+                                    : 'border border-gray-100 bg-white'
+                            }`}
+                          >
+                            {/* Message Header */}
+                            <div className="mb-1.5 flex items-center gap-2">
+                              {msg.type === 'user' ? (
+                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-xs text-white">
+                                  👤
+                                </span>
+                              ) : msg.type === 'system' ? (
+                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-400 text-xs text-white">
+                                  ⚙️
+                                </span>
+                              ) : msg.type === 'progress' ? (
+                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-xs text-white">
+                                  📊
+                                </span>
+                              ) : (
+                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-xs text-white">
+                                  🤖
+                                </span>
+                              )}
+                              <span
+                                className={`text-xs font-medium ${
+                                  msg.type === 'user'
+                                    ? 'text-amber-700'
+                                    : msg.type === 'system'
+                                      ? 'text-gray-600'
+                                      : msg.type === 'progress'
+                                        ? 'text-violet-700'
+                                        : 'text-violet-700'
+                                }`}
+                              >
+                                {msg.type === 'user'
+                                  ? '你'
+                                  : msg.type === 'system'
+                                    ? '系统'
+                                    : msg.type === 'progress'
+                                      ? '任务进度'
+                                      : msg.agent || 'AI 团队'}
+                              </span>
+                              <span className="text-[10px] text-gray-400">
+                                {msg.timestamp.toLocaleTimeString('zh-CN', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                            {/* Message Content */}
+                            <p
+                              className={`whitespace-pre-wrap text-sm ${
+                                msg.type === 'user'
+                                  ? 'text-amber-800'
+                                  : msg.type === 'system'
+                                    ? 'text-gray-600'
+                                    : msg.type === 'progress'
+                                      ? 'text-violet-800'
+                                      : 'text-gray-700'
+                              }`}
+                            >
+                              {msg.content}
+                            </p>
+                          </div>
+                        ))}
+                        <div ref={taskMessagesEndRef} />
                       </div>
                     )}
                   </div>
