@@ -826,36 +826,29 @@ export default function WritingProjectPage() {
   const handleContinueWriting = async () => {
     if (!currentProject) return;
 
-    // 找到第一个未写内容的章节
-    const unwrittenChapter = allChapters.find(
-      (ch) => !ch.content || ch.wordCount === 0
+    // 计算剩余需要写的字数
+    const remainingWords = Math.max(
+      0,
+      currentProject.targetWords - currentProject.currentWords
     );
 
+    // 如果已经达到目标字数，提示用户
+    if (remainingWords <= 0) {
+      alert('已达到目标字数！如需继续创作，请增加目标字数。');
+      return;
+    }
+
     try {
-      if (unwrittenChapter) {
-        // 有未写章节，继续写这一章
-        await startMission(projectId, {
-          prompt:
-            userInput ||
-            `继续写作第${unwrittenChapter.chapterNumber}章「${unwrittenChapter.title}」`,
-          missionType: 'chapter',
-          chapterNumber: unwrittenChapter.chapterNumber,
-        });
-      } else if (allChapters.length > 0) {
-        // 所有章节都写完了，但可能还没达到目标字数，继续扩展
-        await startMission(projectId, {
-          prompt: userInput || '继续扩展故事内容',
-          missionType: 'full_story',
-          targetWordCount: currentProject.targetWords,
-        });
-      } else {
-        // 没有任何章节，开始全新创作
-        await startMission(projectId, {
-          prompt: userInput || '开始创作故事',
-          missionType: 'full_story',
-          targetWordCount: currentProject.targetWords,
-        });
-      }
+      // 始终使用 full_story 类型，让后端持续创作直到达到目标字数
+      // 后端会自动根据当前进度继续写作
+      await startMission(projectId, {
+        prompt:
+          userInput ||
+          `继续创作故事，目标完成 ${currentProject.targetWords.toLocaleString()} 字`,
+        missionType: 'full_story',
+        targetWordCount: currentProject.targetWords, // 传入总目标字数
+        additionalInstructions: `当前已有 ${currentProject.currentWords.toLocaleString()} 字，请继续创作直到达到目标。`,
+      });
       setUserInput('');
     } catch {
       // Error handled by store

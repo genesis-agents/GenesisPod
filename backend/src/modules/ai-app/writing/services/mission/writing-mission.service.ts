@@ -835,6 +835,22 @@ export class WritingMissionService {
     const wordsPerChapter = 3000;
     const chaptersPerVolume = 10;
 
+    // ★★★ 检查项目是否已有内容（继续创作场景）★★★
+    const existingContent = await this.checkExistingContent(input.projectId);
+    if (existingContent.hasContent && existingContent.currentWords > 0) {
+      this.logger.log(
+        `[${missionId}] Project has existing content (${existingContent.currentWords} words), using continuation mode`,
+      );
+      // 使用继续创作模式：只写空白章节
+      return this.continueExistingStory(
+        input,
+        modelId,
+        missionId,
+        existingContent,
+        targetWordCount,
+      );
+    }
+
     const totalChapters = Math.max(
       3,
       Math.ceil(targetWordCount / wordsPerChapter),
@@ -3560,6 +3576,334 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
         `Created new volume and chapter in project ${projectId} for edit content`,
       );
     }
+  }
+
+  // ==================== 继续创作相关函数 ====================
+
+  /**
+   * 检查项目是否已有内容
+   */
+  private async checkExistingContent(projectId: string): Promise<{
+    hasContent: boolean;
+    currentWords: number;
+    totalChapters: number;
+    writtenChapters: number;
+    unwrittenChapters: Array<{
+      id: string;
+      chapterNumber: number;
+      title: string;
+      volumeId: string;
+    }>;
+    storyBible: any;
+  }> {
+    // 获取项目当前字数
+    const project = await this.prisma.writingProject.findUnique({
+      where: { id: projectId },
+      select: { currentWords: true, targetWords: true },
+    });
+
+    // 获取所有章节
+    const chapters = await this.prisma.writingChapter.findMany({
+      where: { volume: { projectId } },
+      select: {
+        id: true,
+        chapterNumber: true,
+        title: true,
+        volumeId: true,
+        wordCount: true,
+        content: true,
+      },
+      orderBy: { chapterNumber: "asc" },
+    });
+
+    // 找出未写内容的章节（wordCount = 0 或 content 为空/占位内容）
+    const unwrittenChapters = chapters.filter(
+      (ch) =>
+        ch.wordCount === 0 ||
+        !ch.content ||
+        ch.content.includes("AI 写作团队正在创作中") ||
+        ch.content.includes("内容生成中"),
+    );
+
+    // 获取故事圣经
+    const storyBible = await this.prisma.storyBible.findUnique({
+      where: { projectId },
+    });
+
+    return {
+      hasContent: chapters.length > 0 && (project?.currentWords || 0) > 0,
+      currentWords: project?.currentWords || 0,
+      totalChapters: chapters.length,
+      writtenChapters: chapters.length - unwrittenChapters.length,
+      unwrittenChapters: unwrittenChapters.map((ch) => ({
+        id: ch.id,
+        chapterNumber: ch.chapterNumber,
+        title: ch.title,
+        volumeId: ch.volumeId,
+      })),
+      storyBible,
+    };
+  }
+
+  /**
+   * 继续创作已有故事（不重建大纲，只写空白章节）
+   */
+  private async continueExistingStory(
+    input: WritingMissionInput,
+    modelId: string,
+    missionId: string,
+    existingContent: {
+      hasContent: boolean;
+      currentWords: number;
+      totalChapters: number;
+      writtenChapters: number;
+      unwrittenChapters: Array<{
+        id: string;
+        chapterNumber: number;
+        title: string;
+        volumeId: string;
+      }>;
+      storyBible: any;
+    },
+    targetWordCount: number,
+  ): Promise<string | null> {
+    this.logger.log(
+      `[${missionId}] Continuing story: ${existingContent.writtenChapters}/${existingContent.totalChapters} chapters written, ${existingContent.currentWords}/${targetWordCount} words`,
+    );
+
+    // 发送任务开始事件
+    await this.eventEmitter.emitMissionStarted(
+      input.projectId,
+      missionId,
+      "full_story",
+      targetWordCount,
+    );
+    await this.saveMissionLog(
+      missionId,
+      "mission:started",
+      `🚀 继续创作任务开始，已有 ${existingContent.currentWords.toLocaleString()} 字，目标 ${targetWordCount.toLocaleString()} 字`,
+    );
+
+    // 获取世界观设定
+    let worldSettings: any = null;
+    if (existingContent.storyBible) {
+      worldSettings = {
+        world: {
+          type: existingContent.storyBible.worldType,
+          theme: existingContent.storyBible.theme,
+          premise: existingContent.storyBible.premise,
+        },
+      };
+    }
+
+    // 获取作家模型
+    const writerModel = (await this.getModelForRole("writer")) || modelId;
+
+    const allContent: string[] = [];
+    let currentWordCount = existingContent.currentWords;
+    const chaptersToWrite = existingContent.unwrittenChapters;
+
+    // 如果没有空白章节但字数未达标，需要添加新章节
+    if (chaptersToWrite.length === 0 && currentWordCount < targetWordCount) {
+      this.logger.log(
+        `[${missionId}] All chapters written but target not reached, need to add more chapters`,
+      );
+      // TODO: 添加新章节的逻辑
+      await this.saveMissionLog(
+        missionId,
+        "mission:info",
+        `📝 所有章节已写完，当前 ${currentWordCount.toLocaleString()} 字。如需继续扩展，请在大纲中添加更多章节。`,
+      );
+    }
+
+    // 逐章写作
+    for (let i = 0; i < chaptersToWrite.length; i++) {
+      const chapter = chaptersToWrite[i];
+
+      // 检查是否已达到目标字数
+      if (currentWordCount >= targetWordCount) {
+        this.logger.log(
+          `[${missionId}] Target word count reached (${currentWordCount}/${targetWordCount}), stopping`,
+        );
+        await this.saveMissionLog(
+          missionId,
+          "mission:info",
+          `✅ 已达到目标字数 ${targetWordCount.toLocaleString()} 字`,
+        );
+        break;
+      }
+
+      const progress = Math.round(15 + (80 * (i + 1)) / chaptersToWrite.length);
+      await this.updateMissionProgress(
+        missionId,
+        progress,
+        `作家正在创作第${chapter.chapterNumber}章「${chapter.title}」...`,
+      );
+
+      this.logger.log(
+        `[${missionId}] Writing chapter ${chapter.chapterNumber}: ${chapter.title}`,
+      );
+
+      // 发送章节开始事件
+      await this.eventEmitter.emitChapterStarted(
+        input.projectId,
+        chapter.chapterNumber,
+        chapter.title,
+        0,
+      );
+
+      // 获取前文摘要
+      const previousChapters = await this.prisma.writingChapter.findMany({
+        where: {
+          volume: { projectId: input.projectId },
+          chapterNumber: { lt: chapter.chapterNumber },
+          wordCount: { gt: 0 },
+        },
+        orderBy: { chapterNumber: "desc" },
+        take: 2,
+        select: { chapterNumber: true, title: true, content: true },
+      });
+
+      const previousSummary = previousChapters
+        .reverse()
+        .map(
+          (ch) =>
+            `第${ch.chapterNumber}章「${ch.title}」: ${ch.content?.slice(0, 300)}...`,
+        )
+        .join("\n\n");
+
+      // 发送作家工作事件
+      await this.eventEmitter.emitAgentWorking(input.projectId, {
+        agentId: "writer",
+        agentName: "作家",
+        agentRole: "writer",
+        status: "working",
+        taskDescription: `创作第${chapter.chapterNumber}章「${chapter.title}」`,
+        progress,
+      });
+
+      // 作家创作
+      const writerPrompt = `你正在继续创作一部小说，请创作第${chapter.chapterNumber}章「${chapter.title}」。
+
+【故事背景】
+${input.userPrompt}
+
+${worldSettings ? `【世界观设定】\n${JSON.stringify(worldSettings, null, 2)}\n` : ""}
+
+${previousSummary ? `【前文摘要】\n${previousSummary}\n` : "【开篇提示】\n这是故事的一个新章节。"}
+
+【创作要求】
+1. 字数约 3000 字
+2. 语言流畅，富有文学性
+3. 情节连贯，承接前文
+4. 角色性格一致
+
+请直接输出章节内容，以"第${this.numberToChinese(chapter.chapterNumber)}章 ${chapter.title}"开头。`;
+
+      const writerResponse = await this.aiChatService.chat({
+        messages: [
+          {
+            role: "system",
+            content:
+              "你是专业的小说作家，擅长创作引人入胜的故事。请直接输出章节内容。",
+          },
+          { role: "user", content: writerPrompt },
+        ],
+        model: writerModel,
+        temperature: 0.8,
+        maxTokens: 6000,
+      });
+
+      let chapterContent = writerResponse.content || "";
+
+      if (chapterContent.length < 500) {
+        this.logger.warn(
+          `[${missionId}] Chapter content too short, retrying...`,
+        );
+        // 简化重试
+        const retryResponse = await this.aiChatService.chat({
+          messages: [
+            {
+              role: "system",
+              content: "你是小说作家。请创作约3000字的章节内容。",
+            },
+            {
+              role: "user",
+              content: `请创作"第${chapter.chapterNumber}章 ${chapter.title}"。${previousSummary ? `前文：${previousSummary.slice(0, 500)}` : ""}`,
+            },
+          ],
+          model: writerModel,
+          temperature: 0.85,
+          maxTokens: 6000,
+        });
+        chapterContent =
+          retryResponse.content ||
+          `第${this.numberToChinese(chapter.chapterNumber)}章 ${chapter.title}\n\n（创作中...）`;
+      }
+
+      const chapterWordCount = this.countWords(chapterContent);
+
+      // 保存章节内容
+      await this.prisma.writingChapter.update({
+        where: { id: chapter.id },
+        data: {
+          content: chapterContent,
+          wordCount: chapterWordCount,
+          status: "FINAL",
+        },
+      });
+
+      // 保存日志
+      await this.saveMissionLog(
+        missionId,
+        "chapter:content",
+        `📖 第${chapter.chapterNumber}章「${chapter.title}」完成 (${chapterWordCount} 字)`,
+        {
+          agentId: "writer",
+          agentName: "✍️ 作家",
+          detail: {
+            type: "chapter_content",
+            data: chapterContent.slice(0, 300) + "...",
+          },
+        },
+      );
+
+      // 发送章节完成事件
+      await this.eventEmitter.emitChapterCompleted(
+        input.projectId,
+        chapter.chapterNumber,
+        chapterWordCount,
+      );
+
+      // 作家完成此章
+      await this.eventEmitter.emitAgentWorking(input.projectId, {
+        agentId: "writer",
+        agentName: "作家",
+        agentRole: "writer",
+        status: "completed",
+        taskDescription: `第${chapter.chapterNumber}章完成 (${chapterWordCount} 字)`,
+      });
+
+      allContent.push(chapterContent);
+      currentWordCount += chapterWordCount;
+
+      // 更新项目字数
+      await this.updateProjectWordCount(input.projectId);
+
+      this.logger.log(
+        `[${missionId}] Chapter ${chapter.chapterNumber} done: ${chapterWordCount} words, total: ${currentWordCount}`,
+      );
+    }
+
+    // 完成
+    await this.updateMissionProgress(missionId, 100, "创作完成！");
+    await this.saveMissionLog(
+      missionId,
+      "mission:completed",
+      `🎉 创作完成！共完成 ${chaptersToWrite.length} 章，当前总字数 ${currentWordCount.toLocaleString()} 字`,
+    );
+
+    return allContent.join("\n\n---\n\n");
   }
 
   /**
