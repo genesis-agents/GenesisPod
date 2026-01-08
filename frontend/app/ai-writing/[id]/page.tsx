@@ -334,19 +334,21 @@ export default function WritingProjectPage() {
 
               {/* Agent Tree */}
               <div className="relative mx-auto mt-4 px-4">
-                {/* SVG Lines */}
+                {/* SVG Lines - use viewBox for proper scaling */}
                 <svg
                   className="pointer-events-none absolute inset-0 h-full w-full"
                   style={{ zIndex: 0 }}
+                  viewBox="0 0 400 200"
+                  preserveAspectRatio="xMidYMid meet"
                 >
                   {/* Leader to members */}
                   {[0, 1, 2, 3].map((i) => {
-                    const leaderX = 50;
-                    const memberX = 12.5 + i * 25;
+                    const leaderX = 200; // center
+                    const memberX = 50 + i * 100; // 50, 150, 250, 350
                     return (
                       <path
                         key={i}
-                        d={`M ${leaderX}% 70 C ${leaderX}% 110 ${memberX}% 110 ${memberX}% 150`}
+                        d={`M ${leaderX} 70 C ${leaderX} 110 ${memberX} 110 ${memberX} 150`}
                         fill="none"
                         stroke={
                           missionCompleted || isMissionRunning

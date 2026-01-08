@@ -232,11 +232,12 @@ export default function WritingCanvas({
 
         {/* Tree Visualization */}
         <div className="relative mx-auto mt-8 w-full max-w-4xl px-8 pb-24">
-          {/* SVG Connection Lines */}
+          {/* SVG Connection Lines - use viewBox for proper scaling */}
           <svg
             className="pointer-events-none absolute left-0 top-0 h-full w-full"
             style={{ zIndex: 0 }}
-            preserveAspectRatio="none"
+            viewBox="0 0 800 400"
+            preserveAspectRatio="xMidYMid meet"
           >
             <defs>
               <linearGradient
@@ -253,8 +254,8 @@ export default function WritingCanvas({
             {/* Leader to each member curved lines */}
             {members.map((member, index) => {
               const totalMembers = members.length;
-              const leaderCx = 50; // Leader at center (%)
-              const memberCx = ((index + 1) / (totalMembers + 1)) * 100;
+              const leaderCx = 400; // Leader at center (800/2)
+              const memberCx = ((index + 1) / (totalMembers + 1)) * 800;
               const leaderY = 140;
               const memberY = 320;
               const midY = (leaderY + memberY) / 2;
@@ -262,8 +263,7 @@ export default function WritingCanvas({
               return (
                 <path
                   key={member.id}
-                  d={`M ${leaderCx}% ${leaderY}
-                      C ${leaderCx}% ${midY}, ${memberCx}% ${midY}, ${memberCx}% ${memberY}`}
+                  d={`M ${leaderCx} ${leaderY} C ${leaderCx} ${midY}, ${memberCx} ${midY}, ${memberCx} ${memberY}`}
                   fill="none"
                   stroke={
                     member.isActive || member.isCompleted
