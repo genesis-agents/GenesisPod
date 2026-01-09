@@ -1230,8 +1230,12 @@ ${Array.from(
 
     const architectModel =
       (await this.getModelForRole("story-architect")) || modelId;
-    // ★ 备用模型（非推理模型，更稳定）
-    const fallbackModel = "gpt-4o";
+    // ★ 备用模型：使用 writer 或 keeper 的模型（确保在数据库中存在）
+    const outlineFallbackWriterModel = await this.getModelForRole("writer");
+    const outlineFallbackKeeperModel =
+      await this.getModelForRole("bible-keeper");
+    const fallbackModel =
+      outlineFallbackWriterModel || outlineFallbackKeeperModel || modelId;
 
     // ★ 大纲生成带重试机制
     let outline: {
