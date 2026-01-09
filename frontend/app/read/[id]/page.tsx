@@ -172,7 +172,7 @@ export default function PublicReadPage() {
                 {project.name}
               </h1>
               <p className="text-xs text-gray-500">
-                {project.currentWords.toLocaleString()} 字 ·{' '}
+                {(project.currentWords ?? 0).toLocaleString()} 字 ·{' '}
                 {allChapters.length} 章
               </p>
             </div>
