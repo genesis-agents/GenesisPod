@@ -12,7 +12,7 @@
  * 5. 收集结果并更新 Story Bible
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, ConflictException } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
@@ -658,7 +658,9 @@ export class WritingMissionService {
       this.logger.warn(
         `Project ${input.projectId} already has a running mission ${runningMission.id}, rejecting new mission`,
       );
-      throw new Error("当前项目已有正在执行的任务，请等待完成或取消后再试。");
+      throw new ConflictException(
+        "当前项目已有正在执行的任务，请等待完成或取消后再试。",
+      );
     }
 
     // 检查可用的 AI 模型并分配给角色

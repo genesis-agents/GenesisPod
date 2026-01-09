@@ -29,36 +29,6 @@ const AI_TEAM_PREVIEW = [
   },
 ];
 
-// Vibrant gradient color schemes for image cards
-const IMAGE_GRADIENTS = [
-  {
-    from: 'from-pink-500',
-    to: 'to-rose-600',
-    shadow: 'shadow-pink-500/30',
-  },
-  {
-    from: 'from-violet-500',
-    to: 'to-purple-600',
-    shadow: 'shadow-violet-500/30',
-  },
-  { from: 'from-blue-500', to: 'to-cyan-500', shadow: 'shadow-blue-500/30' },
-  {
-    from: 'from-emerald-500',
-    to: 'to-teal-500',
-    shadow: 'shadow-emerald-500/30',
-  },
-  {
-    from: 'from-amber-500',
-    to: 'to-orange-600',
-    shadow: 'shadow-amber-500/30',
-  },
-  {
-    from: 'from-indigo-500',
-    to: 'to-blue-600',
-    shadow: 'shadow-indigo-500/30',
-  },
-];
-
 interface GeneratedImage {
   id: string;
   prompt: string;
@@ -68,16 +38,6 @@ interface GeneratedImage {
   width: number;
   height: number;
   isBookmarked?: boolean;
-}
-
-function getImageGradient(imageId: string) {
-  let hash = 0;
-  for (let i = 0; i < imageId.length; i++) {
-    hash = (hash << 5) - hash + imageId.charCodeAt(i);
-    hash |= 0;
-  }
-  const index = Math.abs(hash) % IMAGE_GRADIENTS.length;
-  return IMAGE_GRADIENTS[index];
 }
 
 export default function AIImagePage() {
@@ -384,8 +344,6 @@ export default function AIImagePage() {
           ) : (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {filteredImages.map((image) => {
-                const gradient = getImageGradient(image.id);
-
                 return (
                   <div
                     key={image.id}
@@ -394,74 +352,74 @@ export default function AIImagePage() {
                     }
                     className="group relative cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all hover:border-pink-300 hover:shadow-md"
                   >
-                    {/* Image */}
-                    <div className="aspect-square overflow-hidden bg-gray-100">
+                    {/* Image - Fixed aspect ratio */}
+                    <div className="relative aspect-square overflow-hidden bg-gray-100">
                       <img
                         src={image.imageUrl}
                         alt={image.prompt}
-                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-105"
                         loading="lazy"
                       />
-                    </div>
 
-                    {/* Overlay with actions */}
-                    <div className="absolute inset-0 flex items-start justify-end gap-1 bg-gradient-to-b from-black/40 via-transparent to-black/40 p-2 opacity-0 transition-opacity group-hover:opacity-100">
-                      <button
-                        onClick={(e) => handleToggleBookmark(e, image)}
-                        className={`rounded-lg p-1.5 shadow-sm transition-colors ${
-                          image.isBookmarked
-                            ? 'bg-pink-500 text-white'
-                            : 'bg-white/90 text-gray-600 hover:bg-white hover:text-pink-600'
-                        }`}
-                        title={image.isBookmarked ? '取消收藏' : '收藏'}
-                      >
-                        <svg
-                          className="h-4 w-4"
-                          fill={image.isBookmarked ? 'currentColor' : 'none'}
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                      {/* Overlay with actions */}
+                      <div className="absolute inset-0 flex items-start justify-end gap-1 bg-gradient-to-b from-black/40 via-transparent to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button
+                          onClick={(e) => handleToggleBookmark(e, image)}
+                          className={`rounded-lg p-1.5 shadow-sm transition-colors ${
+                            image.isBookmarked
+                              ? 'bg-pink-500 text-white'
+                              : 'bg-white/90 text-gray-600 hover:bg-white hover:text-pink-600'
+                          }`}
+                          title={image.isBookmarked ? '取消收藏' : '收藏'}
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                          />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={(e) => handleDelete(e, image.id)}
-                        className="rounded-lg bg-white/90 p-1.5 text-gray-600 shadow-sm hover:bg-white hover:text-red-600"
-                        title="删除"
-                      >
-                        <svg
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                          <svg
+                            className="h-4 w-4"
+                            fill={image.isBookmarked ? 'currentColor' : 'none'}
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                            />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={(e) => handleDelete(e, image.id)}
+                          className="rounded-lg bg-white/90 p-1.5 text-gray-600 shadow-sm hover:bg-white hover:text-red-600"
+                          title="删除"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                      </button>
-                    </div>
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
+                      </div>
 
-                    {/* Info */}
-                    <div className="p-3">
-                      <p className="line-clamp-2 text-xs text-gray-600">
-                        {image.prompt}
-                      </p>
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="text-[10px] text-gray-400">
-                          {image.width} × {image.height}
-                        </span>
-                        <span className="text-[10px] text-gray-400">
-                          {formatTime(image.createdAt)}
-                        </span>
+                      {/* Bottom info overlay - inside the image */}
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-3 pt-8">
+                        <p className="line-clamp-1 text-xs font-medium text-white/90">
+                          {image.prompt}
+                        </p>
+                        <div className="mt-1 flex items-center justify-between">
+                          <span className="text-[10px] text-white/60">
+                            {image.width} × {image.height}
+                          </span>
+                          <span className="text-[10px] text-white/60">
+                            {formatTime(image.createdAt)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>

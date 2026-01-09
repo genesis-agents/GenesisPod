@@ -34,9 +34,62 @@ function AIImageCreateContent() {
 
   return (
     <AppShell>
-      <div className="h-full">
-        <ImageGenerator initialImageId={initialImageId} />
-      </div>
+      <main className="flex h-full flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex-shrink-0 border-b border-gray-100 bg-white">
+          <div className="px-6 py-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/ai-image')}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                title="返回"
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+              </button>
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 shadow-md shadow-pink-500/20">
+                <svg
+                  className="h-5 w-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900">
+                  {initialImageId ? '编辑图片' : '创作新图'}
+                </h1>
+                <p className="text-xs text-gray-500">
+                  描述你的想法，AI 团队将协作生成
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="min-h-0 flex-1 overflow-auto">
+          <ImageGenerator initialImageId={initialImageId} />
+        </div>
+      </main>
     </AppShell>
   );
 }
