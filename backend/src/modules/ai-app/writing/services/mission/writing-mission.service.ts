@@ -1001,24 +1001,77 @@ ${input.userPrompt}
 3. 规则设定要明确，便于后续故事遵守
 4. 至少创建 3 个主要角色和 2 个势力`;
 
-    const worldResponse = await this.aiChatService.chat({
-      messages: [
-        {
-          role: "system",
-          content:
-            this.bibleKeeper.description +
-            "\n\n你是专业的设定守护者，负责建立和维护世界观一致性。你建立的世界观将成为整个故事的基础框架，后续所有创作都必须遵守。请以 JSON 格式输出。",
-        },
-        { role: "user", content: worldBuildingPrompt },
-      ],
-      model: keeperModel,
-      temperature: 0.7,
-      maxTokens: 8000,
-    });
+    // ★ 世界观生成带重试机制
+    let worldSettings: Record<string, unknown> = {};
+    let worldRetryCount = 0;
+    const worldMaxRetries = 2;
+    const worldFallbackModel = "gpt-4o";
 
-    const worldSettings = this.parseWorldSettings(
-      worldResponse.content || "{}",
-    );
+    while (worldRetryCount <= worldMaxRetries) {
+      const currentModel =
+        worldRetryCount === 0 ? keeperModel : worldFallbackModel;
+      worldRetryCount++;
+
+      this.logger.log(
+        `[${missionId}] Building world settings (attempt ${worldRetryCount}/${worldMaxRetries + 1}) with model: ${currentModel}`,
+      );
+
+      try {
+        const worldResponse = await this.aiChatService.chat({
+          messages: [
+            {
+              role: "system",
+              content:
+                this.bibleKeeper.description +
+                "\n\n你是专业的设定守护者，负责建立和维护世界观一致性。你建立的世界观将成为整个故事的基础框架，后续所有创作都必须遵守。请以 JSON 格式输出。",
+            },
+            { role: "user", content: worldBuildingPrompt },
+          ],
+          model: currentModel,
+          temperature: 0.7,
+          maxTokens: 8000,
+        });
+
+        const parsedSettings = this.parseWorldSettings(
+          worldResponse.content || "{}",
+        );
+
+        // ★ 验证世界观有效性：必须有 core 和至少一个角色
+        const characters = parsedSettings.characters as
+          | Array<unknown>
+          | undefined;
+        const core = parsedSettings.core as Record<string, unknown> | undefined;
+
+        if (!core || !characters || characters.length === 0) {
+          this.logger.warn(
+            `[${missionId}] World settings validation failed: core=${!!core}, characters=${characters?.length || 0}. Retrying...`,
+          );
+          if (worldRetryCount > worldMaxRetries) {
+            this.logger.warn(
+              `[${missionId}] Max retries reached, using incomplete world settings`,
+            );
+            worldSettings = parsedSettings;
+            break;
+          }
+          continue;
+        }
+
+        worldSettings = parsedSettings;
+        this.logger.log(
+          `[${missionId}] World settings validated: ${characters.length} characters, core theme: ${(core as Record<string, string>).theme || "unknown"}`,
+        );
+        break;
+      } catch (error) {
+        this.logger.warn(
+          `[${missionId}] World building error (attempt ${worldRetryCount}): ${(error as Error).message}`,
+        );
+        if (worldRetryCount > worldMaxRetries) {
+          this.logger.warn(
+            `[${missionId}] All world building retries failed, continuing with empty settings`,
+          );
+        }
+      }
+    }
     const charactersArray = worldSettings.characters as
       | Array<unknown>
       | undefined;
@@ -1177,32 +1230,107 @@ ${Array.from(
 
     const architectModel =
       (await this.getModelForRole("story-architect")) || modelId;
+    // ★ 备用模型（非推理模型，更稳定）
+    const fallbackModel = "gpt-4o";
 
-    const outlineResponse = await this.aiChatService.chat({
-      messages: [
-        {
-          role: "system",
-          content:
-            this.storyArchitect.description +
-            "\n\n你是专业的故事架构师，擅长在既定世界观框架内规划长篇小说结构。你的规划必须严格遵守世界观设定。请以 JSON 格式输出。",
-        },
-        { role: "user", content: outlinePrompt },
-      ],
-      model: architectModel,
-      temperature: 0.7,
-      maxTokens: 8000,
-    });
+    // ★ 大纲生成带重试机制
+    let outline: {
+      bookTitle: string;
+      core: { summary: string; genre: string; theme: string };
+      volumes: Array<{
+        title: string;
+        conflict: string;
+        plot: string;
+        emotion: string;
+      }>;
+      chapters: Array<{
+        volumeIndex: number;
+        title: string;
+        plot: string;
+        keyPoint: string;
+      }>;
+    } | null = null;
+    let retryCount = 0;
+    const maxRetries = 2;
 
-    if (!outlineResponse.content) {
-      throw new Error("故事架构规划失败");
+    while (!outline && retryCount <= maxRetries) {
+      const currentModel = retryCount === 0 ? architectModel : fallbackModel;
+      retryCount++;
+
+      this.logger.log(
+        `[${missionId}] Generating outline (attempt ${retryCount}/${maxRetries + 1}) with model: ${currentModel}`,
+      );
+
+      try {
+        const outlineResponse = await this.aiChatService.chat({
+          messages: [
+            {
+              role: "system",
+              content:
+                this.storyArchitect.description +
+                "\n\n你是专业的故事架构师，擅长在既定世界观框架内规划长篇小说结构。你的规划必须严格遵守世界观设定。请以 JSON 格式输出。",
+            },
+            { role: "user", content: outlinePrompt },
+          ],
+          model: currentModel,
+          temperature: 0.7,
+          maxTokens: 8000,
+        });
+
+        if (!outlineResponse.content) {
+          this.logger.warn(
+            `[${missionId}] Outline generation returned empty content (attempt ${retryCount})`,
+          );
+          continue;
+        }
+
+        // 解析大纲
+        const parsedOutline = this.parseOutlineJSON(
+          outlineResponse.content,
+          totalVolumes,
+          totalChapters,
+        );
+
+        // ★ 验证大纲有效性：至少10%的章节有实际标题
+        const titledChapters = parsedOutline.chapters.filter(
+          (c) => c.title && c.title.length > 0,
+        );
+        const titleRatio =
+          titledChapters.length / parsedOutline.chapters.length;
+
+        if (titleRatio < 0.1) {
+          this.logger.warn(
+            `[${missionId}] Outline validation failed: only ${titledChapters.length}/${parsedOutline.chapters.length} chapters have titles (${(titleRatio * 100).toFixed(1)}%). Retrying...`,
+          );
+          // 如果是最后一次重试，仍然使用这个结果
+          if (retryCount > maxRetries) {
+            this.logger.warn(
+              `[${missionId}] Max retries reached, using incomplete outline`,
+            );
+            outline = parsedOutline;
+          }
+          continue;
+        }
+
+        outline = parsedOutline;
+        this.logger.log(
+          `[${missionId}] Outline validated: ${titledChapters.length}/${parsedOutline.chapters.length} chapters have titles`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `[${missionId}] Outline generation error (attempt ${retryCount}): ${(error as Error).message}`,
+        );
+        if (retryCount > maxRetries) {
+          throw new Error(
+            `故事架构规划失败 (已重试${maxRetries}次): ${(error as Error).message}`,
+          );
+        }
+      }
     }
 
-    // 解析大纲，使用世界观中的 core 信息作为补充
-    const outline = this.parseOutlineJSON(
-      outlineResponse.content,
-      totalVolumes,
-      totalChapters,
-    );
+    if (!outline) {
+      throw new Error("故事架构规划失败：无法生成有效的章节大纲");
+    }
     // ★ 如果大纲没有 core，使用世界观的 core
     if (!outline.core || !outline.core.theme) {
       outline.core = {
@@ -1847,6 +1975,10 @@ ${chapterContent}
         this.logger.warn(
           `[parseOutlineJSON] No valid JSON structure found in response (length: ${content.length})`,
         );
+        // ★ 也打印内容预览帮助诊断
+        this.logger.warn(
+          `[parseOutlineJSON] Content preview (no JSON): ${content.slice(0, 500)}`,
+        );
       }
     } catch (e) {
       this.logger.warn(
@@ -1854,7 +1986,7 @@ ${chapterContent}
       );
       // 打印前500字符帮助诊断
       this.logger.warn(
-        `[parseOutlineJSON] Content preview: ${content.slice(0, 500)}`,
+        `[parseOutlineJSON] Content preview (parse error): ${content.slice(0, 500)}`,
       );
     }
 
