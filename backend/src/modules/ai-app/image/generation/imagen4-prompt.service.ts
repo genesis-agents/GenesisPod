@@ -728,6 +728,9 @@ export class Imagen4PromptService {
   ): PromptEngineeringInsights {
     const insights = createDefaultInsights(input.prompt || "");
 
+    // 重要：4-Agent 协作用于纯 AI 图像生成，必须设置为 ai_image 模式
+    insights.renderingMode = "ai_image";
+
     // 更新 designJournal
     const journal: PromptDesignJournalEntry[] = [];
 
