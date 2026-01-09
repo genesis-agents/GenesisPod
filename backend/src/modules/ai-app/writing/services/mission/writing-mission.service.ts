@@ -852,8 +852,8 @@ export class WritingMissionService {
    * 3. LongContentEngine 管理长篇上下文
    *
    * 流程：
-   * Phase 1: 故事架构师生成整体大纲（卷 + 章节结构）
-   * Phase 2: 设定守护者建立世界观和角色设定
+   * Phase 1: 设定守护者建立世界观和角色设定（先定义"游戏规则"）
+   * Phase 2: 故事架构师基于世界观生成整体大纲（卷 + 章节结构）
    * Phase 3: 逐章生成（作家创作 → 检查员校验 → 编辑润色）
    * Phase 4: 质量监控和一致性维护
    */
@@ -915,22 +915,201 @@ export class WritingMissionService {
       "🚀 任务开始执行，AI 团队正在协作...",
     );
 
-    // ==================== Phase 1: 故事架构师 - 整体规划 ====================
-    this.logger.log(`[${missionId}] Phase 1: Story Architect planning...`);
+    // ==================== Phase 1: 设定守护者 - 世界观建设（先定义"游戏规则"）====================
+    this.logger.log(`[${missionId}] Phase 1: Bible Keeper building world...`);
 
     await this.updateMissionProgress(
       missionId,
       5,
-      "故事架构师正在规划整体结构...",
+      "设定守护者正在建立世界观...",
     );
 
-    // 更新 orchestrator 状态 - plan 阶段开始
+    // 更新 orchestrator 状态 - world-building 阶段开始
     this.missionOrchestrator.updateState(missionId, {
       phase: "executing",
-      currentSteps: ["plan"],
+      currentSteps: ["world-building"],
       completedSteps: [],
       progress: 5,
     });
+
+    // 发送设定守护者工作事件
+    await this.eventEmitter.emitAgentWorking(input.projectId, {
+      agentId: "bible-keeper",
+      agentName: "设定守护者",
+      agentRole: "keeper",
+      status: "working",
+      taskDescription: "建立世界观和角色设定",
+    });
+
+    await this.eventEmitter.emitWorldBuilding(input.projectId, "started");
+
+    // 使用 LongContentEngine 初始化项目
+    await this.initializeLongContentProject(missionId, input);
+
+    const keeperModel = (await this.getModelForRole("bible-keeper")) || modelId;
+
+    // ★ 设定守护者独立建立世界观（不依赖大纲，让世界观成为"游戏规则"）
+    const worldBuildingPrompt = `作为设定守护者，请根据以下故事创意独立建立完整的世界观设定。
+
+【重要】世界观是故事的"游戏规则"，后续的章节大纲和内容创作都必须遵守这些规则。
+
+【故事创意】
+${input.userPrompt}
+
+【规模信息】
+- 目标字数：约 ${targetWordCount.toLocaleString()} 字
+- 预计分卷：${totalVolumes} 卷
+- 预计章节：${totalChapters} 章
+
+请建立以下设定（JSON 格式）：
+{
+  "core": {
+    "summary": "一句话概括故事核心",
+    "genre": "故事类型（如：架空历史/玄幻/都市/科幻）",
+    "theme": "主题思想（故事要传达的核心理念）",
+    "tone": "基调风格（如：轻松幽默/严肃深沉/热血励志）"
+  },
+  "world": {
+    "type": "世界类型",
+    "era": "时代背景（具体到朝代/年代/时期）",
+    "geography": "地理环境（主要场景和地点）",
+    "society": "社会结构（阶层、制度、文化特点）",
+    "rules": ["世界规则1（如：魔法/科技/政治规则）", "规则2", "规则3"]
+  },
+  "characters": [
+    {
+      "name": "角色名（含字号等）",
+      "role": "protagonist/antagonist/supporting",
+      "appearance": "外貌描述",
+      "personality": ["性格特点1", "性格特点2"],
+      "background": "背景故事",
+      "motivation": "行动动机",
+      "arc": "角色发展弧（从开始到结束的变化）"
+    }
+  ],
+  "factions": [
+    { "name": "势力/组织名", "description": "描述", "relations": "与其他势力的关系" }
+  ],
+  "terminology": [
+    { "term": "专有名词/术语", "definition": "定义和解释" }
+  ]
+}
+
+【要求】
+1. 世界观设定要自洽、有内在逻辑
+2. 角色设定要立体、有成长空间
+3. 规则设定要明确，便于后续故事遵守
+4. 至少创建 3 个主要角色和 2 个势力`;
+
+    const worldResponse = await this.aiChatService.chat({
+      messages: [
+        {
+          role: "system",
+          content:
+            this.bibleKeeper.description +
+            "\n\n你是专业的设定守护者，负责建立和维护世界观一致性。你建立的世界观将成为整个故事的基础框架，后续所有创作都必须遵守。请以 JSON 格式输出。",
+        },
+        { role: "user", content: worldBuildingPrompt },
+      ],
+      model: keeperModel,
+      temperature: 0.7,
+      maxTokens: 8000,
+    });
+
+    const worldSettings = this.parseWorldSettings(
+      worldResponse.content || "{}",
+    );
+    const charactersArray = worldSettings.characters as
+      | Array<unknown>
+      | undefined;
+    const worldCore = worldSettings.core as
+      | { summary?: string; genre?: string; theme?: string; tone?: string }
+      | undefined;
+    this.logger.log(
+      `[${missionId}] World settings built: ${charactersArray?.length || 0} characters`,
+    );
+
+    // 设定守护者完成
+    await this.eventEmitter.emitAgentWorking(input.projectId, {
+      agentId: "bible-keeper",
+      agentName: "设定守护者",
+      agentRole: "keeper",
+      status: "completed",
+      taskDescription: `已建立 ${charactersArray?.length || 0} 个角色设定`,
+    });
+    await this.eventEmitter.emitWorldBuilding(
+      input.projectId,
+      "completed",
+      worldSettings,
+    );
+
+    // ★ 保存世界观到数据库 StoryBible（在 Phase 1 就保存，确保世界观优先）
+    const worldInfo = worldSettings.world as
+      | {
+          type?: string;
+          era?: string;
+          geography?: string;
+          society?: string;
+          rules?: string[];
+        }
+      | undefined;
+    const worldDescription = worldInfo
+      ? [
+          worldInfo.type && `类型: ${worldInfo.type}`,
+          worldInfo.era && `时代: ${worldInfo.era}`,
+          worldInfo.geography && `地理: ${worldInfo.geography}`,
+          worldInfo.society && `社会: ${worldInfo.society}`,
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : "";
+
+    try {
+      await this.prisma.storyBible.upsert({
+        where: { projectId: input.projectId },
+        create: {
+          projectId: input.projectId,
+          premise: `${input.userPrompt}\n\n${worldDescription}`,
+          theme: worldCore?.theme || "",
+          tone: worldCore?.tone || worldInfo?.era || "",
+          worldType: worldInfo?.type || "现代",
+          version: 1,
+          lastSyncAt: new Date(),
+        },
+        update: {
+          premise: `${input.userPrompt}\n\n${worldDescription}`,
+          theme: worldCore?.theme || "",
+          tone: worldCore?.tone || worldInfo?.era || "",
+          worldType: worldInfo?.type || "现代",
+          version: { increment: 1 },
+          lastSyncAt: new Date(),
+        },
+      });
+      this.logger.log(`[${missionId}] StoryBible saved to database`);
+    } catch (e) {
+      this.logger.warn(
+        `[${missionId}] Failed to save StoryBible: ${(e as Error).message}`,
+      );
+    }
+
+    // 更新 orchestrator 状态 - world-building 完成, plan 开始
+    this.missionOrchestrator.updateState(missionId, {
+      phase: "executing",
+      currentSteps: ["plan"],
+      completedSteps: ["world-building"],
+      progress: 10,
+    });
+
+    // ==================== Phase 2: 故事架构师 - 基于世界观规划章节 ====================
+    this.logger.log(
+      `[${missionId}] Phase 2: Story Architect planning based on world settings...`,
+    );
+
+    await this.updateMissionProgress(
+      missionId,
+      10,
+      "故事架构师正在基于世界观规划章节...",
+    );
 
     // 发送架构师工作事件
     await this.eventEmitter.emitAgentWorking(input.projectId, {
@@ -938,17 +1117,19 @@ export class WritingMissionService {
       agentName: "故事架构师",
       agentRole: "architect",
       status: "working",
-      taskDescription: "规划整体故事结构和章节大纲",
+      taskDescription: "基于世界观规划故事结构和章节大纲",
     });
 
-    // 使用 LongContentEngine 初始化项目
-    await this.initializeLongContentProject(missionId, input);
+    // ★ 架构师基于世界观生成大纲（确保章节符合世界规则）
+    const outlinePrompt = `作为故事架构师，请基于以下【已建立的世界观】规划详细的章节结构。
 
-    // 架构师生成大纲
-    const outlinePrompt = `作为故事架构师，请为以下小说创作详细的结构规划：
+【重要】你的章节规划必须严格遵守世界观设定，不能违反已建立的规则！
 
-【故事主题】
+【故事创意】
 ${input.userPrompt}
+
+【已建立的世界观】
+${JSON.stringify(worldSettings, null, 2)}
 
 【规模要求】
 - 总字数：约 ${targetWordCount.toLocaleString()} 字
@@ -959,14 +1140,9 @@ ${input.userPrompt}
 【请输出以下内容】
 
 ## 零、书名
-请根据故事主题创作一个精炼、有吸引力的书名（2-8个字），如：《琅琊榜》《甄嬛传》《庆余年》《三体》
+请根据故事主题和世界观创作一个精炼、有吸引力的书名（2-8个字），如：《琅琊榜》《甄嬛传》《庆余年》《三体》
 
-## 一、故事核心
-1. 一句话概括故事核心
-2. 故事类型和风格
-3. 主题思想
-
-## 二、卷结构
+## 一、卷结构
 ${Array.from(
   { length: totalVolumes },
   (_, i) => `
@@ -977,22 +1153,25 @@ ${Array.from(
 - 情感走向：`,
 ).join("\n")}
 
-## 三、章节大纲
-请为全部 ${totalChapters} 章列出以下内容：
+## 二、章节大纲
+请为全部 ${totalChapters} 章列出以下内容（必须符合世界观设定）：
 - 章节标题：必须是有意义的标题（如"暗流涌动"、"命运交汇"），不是"第X章"这样的序号
 - 主要情节：50字内概括本章核心剧情
 - 关键转折：本章的关键情节点
+- 涉及角色：本章出场的主要角色（必须是世界观中已定义的角色）
 
-【重要】每个章节的 title 字段必须是具体的章节名（不含"第X章"前缀），不能为空！
+【重要】
+1. 每个章节的 title 字段必须是具体的章节名（不含"第X章"前缀），不能为空！
+2. 情节发展必须符合世界观中的规则设定
+3. 角色行为必须符合其性格和动机设定
 
 输出格式：JSON
 {
   "bookTitle": "书名（2-8字，不含书名号）",
-  "core": { "summary": "一句话故事概括", "genre": "故事类型", "theme": "主题思想" },
   "volumes": [{ "title": "卷名（如：风云际会）", "conflict": "核心冲突", "plot": "主要情节", "emotion": "情感走向" }],
   "chapters": [
-    { "volumeIndex": 0, "title": "暗流涌动", "plot": "主角初入江湖，遭遇神秘势力", "keyPoint": "发现隐藏身世" },
-    { "volumeIndex": 0, "title": "命运交汇", "plot": "与未来盟友相遇", "keyPoint": "获得关键线索" }
+    { "volumeIndex": 0, "title": "暗流涌动", "plot": "主角初入江湖，遭遇神秘势力", "keyPoint": "发现隐藏身世", "characters": ["主角名", "配角名"] },
+    { "volumeIndex": 0, "title": "命运交汇", "plot": "与未来盟友相遇", "keyPoint": "获得关键线索", "characters": ["主角名", "新角色"] }
   ]
 }`;
 
@@ -1005,7 +1184,7 @@ ${Array.from(
           role: "system",
           content:
             this.storyArchitect.description +
-            "\n\n你是专业的故事架构师，擅长规划长篇小说结构。请以 JSON 格式输出。",
+            "\n\n你是专业的故事架构师，擅长在既定世界观框架内规划长篇小说结构。你的规划必须严格遵守世界观设定。请以 JSON 格式输出。",
         },
         { role: "user", content: outlinePrompt },
       ],
@@ -1018,12 +1197,20 @@ ${Array.from(
       throw new Error("故事架构规划失败");
     }
 
-    // 解析大纲
+    // 解析大纲，使用世界观中的 core 信息作为补充
     const outline = this.parseOutlineJSON(
       outlineResponse.content,
       totalVolumes,
       totalChapters,
     );
+    // ★ 如果大纲没有 core，使用世界观的 core
+    if (!outline.core || !outline.core.theme) {
+      outline.core = {
+        summary: worldCore?.summary || input.userPrompt.slice(0, 100),
+        genre: worldCore?.genre || "通用",
+        theme: worldCore?.theme || "待定",
+      };
+    }
     this.logger.log(
       `[${missionId}] Outline generated: ${outline.chapters.length} chapters planned`,
     );
@@ -1057,160 +1244,11 @@ ${Array.from(
     // ★ 立即创建卷和章节结构（空内容，让前端能看到大纲）
     await this.createOutlineStructure(input.projectId, outline);
 
-    // 更新 orchestrator 状态 - plan 完成, context-injection 开始
-    this.missionOrchestrator.updateState(missionId, {
-      phase: "executing",
-      currentSteps: ["context-injection"],
-      completedSteps: ["plan"],
-      progress: 10,
-    });
-
-    // ==================== Phase 2: 设定守护者 - 世界观建设 ====================
-    this.logger.log(`[${missionId}] Phase 2: Bible Keeper building world...`);
-
-    await this.updateMissionProgress(
-      missionId,
-      10,
-      "设定守护者正在建立世界观...",
-    );
-
-    // 发送设定守护者工作事件
-    await this.eventEmitter.emitAgentWorking(input.projectId, {
-      agentId: "bible-keeper",
-      agentName: "设定守护者",
-      agentRole: "keeper",
-      status: "working",
-      taskDescription: "建立世界观和角色设定",
-    });
-
-    await this.eventEmitter.emitWorldBuilding(input.projectId, "started");
-
-    const keeperModel = (await this.getModelForRole("bible-keeper")) || modelId;
-
-    const worldBuildingPrompt = `作为设定守护者，请基于以下故事大纲建立完整的世界观设定：
-
-【故事主题】
-${input.userPrompt}
-
-【故事核心】
-${JSON.stringify(outline.core, null, 2)}
-
-请建立以下设定（JSON 格式）：
-{
-  "world": {
-    "type": "世界类型",
-    "era": "时代背景",
-    "geography": "地理环境",
-    "society": "社会结构",
-    "rules": ["世界规则1", "规则2"]
-  },
-  "characters": [
-    {
-      "name": "角色名",
-      "role": "protagonist/antagonist/supporting",
-      "appearance": "外貌描述",
-      "personality": ["性格特点"],
-      "background": "背景故事",
-      "motivation": "行动动机",
-      "arc": "角色发展弧"
-    }
-  ],
-  "factions": [
-    { "name": "势力名", "description": "描述", "relations": "关系" }
-  ],
-  "terminology": [
-    { "term": "术语", "definition": "定义" }
-  ]
-}`;
-
-    const worldResponse = await this.aiChatService.chat({
-      messages: [
-        {
-          role: "system",
-          content:
-            this.bibleKeeper.description +
-            "\n\n你是专业的设定守护者，负责维护世界观一致性。请以 JSON 格式输出。",
-        },
-        { role: "user", content: worldBuildingPrompt },
-      ],
-      model: keeperModel,
-      temperature: 0.6,
-      maxTokens: 6000,
-    });
-
-    const worldSettings = this.parseWorldSettings(
-      worldResponse.content || "{}",
-    );
-    const charactersArray = worldSettings.characters as
-      | Array<unknown>
-      | undefined;
-    this.logger.log(
-      `[${missionId}] World settings built: ${charactersArray?.length || 0} characters`,
-    );
-
-    // 设定守护者完成
-    await this.eventEmitter.emitAgentWorking(input.projectId, {
-      agentId: "bible-keeper",
-      agentName: "设定守护者",
-      agentRole: "keeper",
-      status: "completed",
-      taskDescription: `已建立 ${charactersArray?.length || 0} 个角色设定`,
-    });
-    await this.eventEmitter.emitWorldBuilding(
-      input.projectId,
-      "completed",
-      worldSettings,
-    );
-
-    // ★ 保存世界观到数据库 StoryBible
-    try {
-      const worldInfo = worldSettings.world as
-        | { type?: string; era?: string; geography?: string; society?: string }
-        | undefined;
-      // 构建世界观描述
-      const worldDescription = worldInfo
-        ? [
-            worldInfo.type && `类型: ${worldInfo.type}`,
-            worldInfo.era && `时代: ${worldInfo.era}`,
-            worldInfo.geography && `地理: ${worldInfo.geography}`,
-            worldInfo.society && `社会: ${worldInfo.society}`,
-          ]
-            .filter(Boolean)
-            .join("\n")
-        : "";
-
-      await this.prisma.storyBible.upsert({
-        where: { projectId: input.projectId },
-        create: {
-          projectId: input.projectId,
-          premise: `${input.userPrompt}\n\n${worldDescription}`,
-          theme: outline.core?.theme || "",
-          tone: worldInfo?.era || "",
-          worldType: worldInfo?.type || "现代",
-          version: 1,
-          lastSyncAt: new Date(),
-        },
-        update: {
-          premise: `${input.userPrompt}\n\n${worldDescription}`,
-          theme: outline.core?.theme || "",
-          tone: worldInfo?.era || "",
-          worldType: worldInfo?.type || "现代",
-          version: { increment: 1 },
-          lastSyncAt: new Date(),
-        },
-      });
-      this.logger.log(`[${missionId}] StoryBible saved to database`);
-    } catch (e) {
-      this.logger.warn(
-        `[${missionId}] Failed to save StoryBible: ${(e as Error).message}`,
-      );
-    }
-
-    // 更新 orchestrator 状态 - context-injection 完成, write 开始
+    // 更新 orchestrator 状态 - plan 完成, write 开始
     this.missionOrchestrator.updateState(missionId, {
       phase: "executing",
       currentSteps: ["write"],
-      completedSteps: ["plan", "context-injection"],
+      completedSteps: ["world-building", "plan"],
       progress: 15,
     });
 

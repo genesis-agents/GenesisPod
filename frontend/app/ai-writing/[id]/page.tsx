@@ -2017,16 +2017,16 @@ export default function WritingProjectPage() {
               <div className="space-y-2.5">
                 {[
                   {
-                    id: 'architect',
-                    label: '规划故事结构',
-                    icon: '👑',
-                    keywords: ['架构', '规划', '结构', '大纲'],
-                  },
-                  {
                     id: 'keeper',
                     label: '建立世界观设定',
                     icon: '📚',
                     keywords: ['世界观', '设定', '守护'],
+                  },
+                  {
+                    id: 'architect',
+                    label: '规划故事结构',
+                    icon: '👑',
+                    keywords: ['架构', '规划', '结构', '大纲'],
                   },
                   {
                     id: 'writer',

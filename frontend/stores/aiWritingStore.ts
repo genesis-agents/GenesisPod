@@ -372,15 +372,20 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
       }
 
       // 阶段映射：根据后端步骤确定当前阶段
+      // 注意：Phase 1 是世界观建设，Phase 2 是章节规划（世界观优先，确保章节符合规则）
       const stepToPhase: Record<string, { agents: string[]; message: string }> =
         {
+          'world-building': {
+            agents: ['keeper'],
+            message: '设定守护者正在建立世界观...',
+          },
           plan: {
             agents: ['architect'],
-            message: '故事架构师正在规划故事结构...',
+            message: '故事架构师正在基于世界观规划章节...',
           },
           'context-injection': {
             agents: ['keeper'],
-            message: '设定守护者正在建立世界观...',
+            message: '设定守护者正在准备上下文...',
           },
           write: {
             agents: ['writer-1', 'writer-2', 'writer-3'],
