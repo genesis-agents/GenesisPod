@@ -2409,16 +2409,24 @@ Format the summary in a clear, structured manner using markdown.`;
     // ★ 根据 maxTokens 动态计算超时时间
     // 基础超时 120 秒，每 1000 tokens 增加 15 秒
     // 例如：16000 tokens = 120 + 240 = 360 秒 (6 分钟)
+    // 推理模型（o1, o3, gpt-5）额外增加 3 分钟思考时间
     const maxTokens = body.max_completion_tokens || body.max_tokens || 2048;
+    const modelLower = modelName.toLowerCase();
+    const isReasoningModel =
+      modelLower.includes("o1") ||
+      modelLower.includes("o3") ||
+      modelLower.includes("gpt-5") ||
+      modelLower.includes("gpt5") ||
+      modelLower.includes("deepseek-r1") ||
+      modelLower.includes("reasoning");
+    const baseTimeout = isReasoningModel ? 300000 : 120000; // 推理模型 5 分钟起，普通模型 2 分钟起
+    const maxTimeout = isReasoningModel ? 900000 : 600000; // 推理模型最多 15 分钟，普通模型最多 10 分钟
     const dynamicTimeout = Math.max(
-      120000, // 最少 2 分钟
-      Math.min(
-        600000, // 最多 10 分钟
-        120000 + Math.ceil(maxTokens / 1000) * 15000,
-      ),
+      baseTimeout,
+      Math.min(maxTimeout, baseTimeout + Math.ceil(maxTokens / 1000) * 15000),
     );
     this.logger.debug(
-      `[${modelName}] Dynamic timeout: ${dynamicTimeout}ms (maxTokens=${maxTokens})`,
+      `[${modelName}] Dynamic timeout: ${dynamicTimeout}ms (maxTokens=${maxTokens}, reasoning=${isReasoningModel})`,
     );
 
     // ★ 估算请求 token 数量（用于诊断）
