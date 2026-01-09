@@ -391,6 +391,7 @@ export class AdminService {
     maxTokens?: number;
     temperature?: number;
     description?: string;
+    isReasoning?: boolean;
   }) {
     // Trim apiKey to remove any whitespace from copy-paste
     const apiKey = data.apiKey?.trim() || null;
@@ -426,6 +427,7 @@ export class AdminService {
         maxTokens: data.maxTokens ?? existingByModelId.maxTokens,
         temperature: data.temperature ?? existingByModelId.temperature,
         description: data.description,
+        isReasoning: data.isReasoning ?? existingByModelId.isReasoning,
       };
 
       // 只有当提供了有效的 API Key（非空、非掩码格式）才更新
@@ -474,6 +476,7 @@ export class AdminService {
         description: data.description,
         isEnabled: true,
         isDefault: false,
+        isReasoning: data.isReasoning ?? false,
       },
     });
 
@@ -507,6 +510,7 @@ export class AdminService {
       temperature?: number;
       description?: string;
       isEnabled?: boolean;
+      isReasoning?: boolean;
     },
   ) {
     const model = await this.prisma.aIModel.findUnique({
@@ -555,6 +559,7 @@ export class AdminService {
         temperature: data.temperature,
         description: data.description,
         isEnabled: data.isEnabled,
+        isReasoning: data.isReasoning,
       },
     });
 

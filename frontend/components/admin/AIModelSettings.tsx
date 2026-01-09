@@ -79,6 +79,7 @@ interface AIModel {
   hasApiKey: boolean;
   isEnabled: boolean;
   isDefault: boolean;
+  isReasoning: boolean; // 是否为推理模型 (o1, o3, gpt-5, deepseek-r1)
   maxTokens: number;
   temperature: number;
   description: string | null;
@@ -523,6 +524,7 @@ export default function AIModelSettings() {
         maxTokens: model.maxTokens,
         temperature: model.temperature,
         description: model.description,
+        isReasoning: model.isReasoning,
       };
 
       // Only send apiKey if it was changed
@@ -946,6 +948,18 @@ export default function AIModelSettings() {
               <div className="flex justify-between">
                 <span className="text-gray-500">Temperature:</span>
                 <span className="text-gray-700">{model.temperature}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">推理模型:</span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    model.isReasoning
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {model.isReasoning ? '是' : '否'}
+                </span>
               </div>
             </div>
 
@@ -1567,6 +1581,36 @@ function EditModelModal({
                   />
                 </div>
               </div>
+              {/* Reasoning Model Toggle */}
+              <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <div>
+                  <label className="block text-sm font-medium text-amber-800">
+                    推理模型
+                  </label>
+                  <p className="text-xs text-amber-600">
+                    启用后将使用 reasoning_effort 参数（适用于
+                    o1、o3、gpt-5、deepseek-r1 等）
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      isReasoning: !formData.isReasoning,
+                    })
+                  }
+                  className={`relative h-6 w-11 rounded-full transition-colors ${
+                    formData.isReasoning ? 'bg-amber-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <div
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                      formData.isReasoning ? 'left-[22px]' : 'left-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Description
@@ -1631,6 +1675,7 @@ function AddModelModal({
     apiKey: null as string | null,
     isEnabled: true,
     isDefault: false,
+    isReasoning: false,
     maxTokens: 4096,
     temperature: 0.7,
     description: '',
@@ -1929,6 +1974,36 @@ function AddModelModal({
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
+              </div>
+              {/* Reasoning Model Toggle */}
+              <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <div>
+                  <label className="block text-sm font-medium text-amber-800">
+                    推理模型
+                  </label>
+                  <p className="text-xs text-amber-600">
+                    启用后将使用 reasoning_effort 参数（适用于
+                    o1、o3、gpt-5、deepseek-r1 等）
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      isReasoning: !formData.isReasoning,
+                    })
+                  }
+                  className={`relative h-6 w-11 rounded-full transition-colors ${
+                    formData.isReasoning ? 'bg-amber-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <div
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                      formData.isReasoning ? 'left-[22px]' : 'left-0.5'
+                    }`}
+                  />
+                </button>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">

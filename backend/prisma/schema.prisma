@@ -2381,6 +2381,10 @@ model AIModel {
   embeddingDimensions Int? @map("embedding_dimensions") // 向量维度 (1536, 3072 等)
   maxInputTokens      Int? @map("max_input_tokens") // 最大输入 token 数
 
+  // 模型能力标记
+  isReasoning Boolean @default(false) @map("is_reasoning") // 是否为推理模型 (o1, o3, gpt-5, deepseek-r1)
+  // 推理模型需要特殊处理：设置 reasoning_effort 参数，避免推理 token 消耗全部输出预算
+
   // 状态
   isEnabled Boolean @default(true) @map("is_enabled")
   isDefault Boolean @default(false) @map("is_default") // 是否为该类型的默认模型

@@ -44,6 +44,7 @@ export interface AIModelConfig {
   temperature: number;
   isEnabled: boolean;
   isDefault: boolean;
+  isReasoning?: boolean; // 是否为推理模型 (o1, o3, gpt-5, deepseek-r1) - 可选，兼容旧数据库
 }
 
 @Injectable()
@@ -96,28 +97,32 @@ export class AiChatService {
           modelType: "CHAT",
           isEnabled: true,
         },
-        select: {
-          id: true,
-          name: true,
-          displayName: true,
-          provider: true,
-          modelId: true,
-          apiEndpoint: true,
-          apiKey: true,
-          maxTokens: true,
-          temperature: true,
-          isEnabled: true,
-          isDefault: true,
-        },
       });
 
       this.modelConfigCache.clear();
       for (const model of models) {
+        // 构建配置对象，兼容数据库字段可能不存在的情况
+        const config: AIModelConfig = {
+          id: model.id,
+          name: model.name,
+          displayName: model.displayName,
+          provider: model.provider,
+          modelId: model.modelId,
+          apiEndpoint: model.apiEndpoint,
+          apiKey: model.apiKey,
+          maxTokens: model.maxTokens,
+          temperature: model.temperature,
+          isEnabled: model.isEnabled,
+          isDefault: model.isDefault,
+          // isReasoning: 优先用数据库字段，否则根据模型名称推断
+          isReasoning:
+            (model as any).isReasoning ?? this.inferIsReasoning(model.modelId),
+        };
         // 使用 modelId 作为主键（如 "gpt-4o", "gemini-2.0-flash"）
-        this.modelConfigCache.set(model.modelId, model as AIModelConfig);
+        this.modelConfigCache.set(model.modelId, config);
         // 同时使用 name 作为别名（如 "grok", "claude"）
         if (model.name !== model.modelId) {
-          this.modelConfigCache.set(model.name, model as AIModelConfig);
+          this.modelConfigCache.set(model.name, config);
         }
       }
 
@@ -128,6 +133,23 @@ export class AiChatService {
     } catch (error) {
       this.logger.error(`[refreshModelConfigCache] Failed: ${error}`);
     }
+  }
+
+  /**
+   * 根据模型名称推断是否为推理模型
+   * 当数据库中没有 isReasoning 字段时使用
+   */
+  private inferIsReasoning(modelId: string): boolean {
+    const modelLower = modelId.toLowerCase();
+    return (
+      modelLower.includes("o1") ||
+      modelLower.includes("o3") ||
+      modelLower.includes("gpt-5") ||
+      modelLower.includes("gpt5") ||
+      modelLower.includes("deepseek-r1") ||
+      modelLower.includes("deepseek-reasoner") ||
+      modelLower.includes("reasoning")
+    );
   }
 
   /**
@@ -164,7 +186,21 @@ export class AiChatService {
       });
 
       if (model) {
-        const config = model as AIModelConfig;
+        const config: AIModelConfig = {
+          id: model.id,
+          name: model.name,
+          displayName: model.displayName,
+          provider: model.provider,
+          modelId: model.modelId,
+          apiEndpoint: model.apiEndpoint,
+          apiKey: model.apiKey,
+          maxTokens: model.maxTokens,
+          temperature: model.temperature,
+          isEnabled: model.isEnabled,
+          isDefault: model.isDefault,
+          isReasoning:
+            (model as any).isReasoning ?? this.inferIsReasoning(model.modelId),
+        };
         this.modelConfigCache.set(modelId, config);
         return config;
       }
@@ -933,6 +969,20 @@ export class AiChatService {
       ? { max_completion_tokens: maxTokens }
       : { max_tokens: maxTokens };
 
+    // ★ GPT-5 系列是推理模型，需要设置 reasoning_effort
+    // 问题：推理 tokens 会消耗 max_completion_tokens 预算，可能导致实际输出为空
+    // 解决：设置 reasoning_effort: "low" 限制推理消耗，保留输出空间
+    // 注意：数据库中模型名可能是 "gpt5.1" 或 "gpt-5.1"，需要同时匹配
+    const modelLower = modelId.toLowerCase();
+    const isGPT5 = modelLower.includes("gpt-5") || modelLower.includes("gpt5");
+    const reasoningParam = isGPT5 ? { reasoning_effort: "low" } : {};
+
+    if (isGPT5) {
+      this.logger.debug(
+        `[callOpenAICompatibleAPI] GPT-5 model detected, adding reasoning_effort=low`,
+      );
+    }
+
     const response = await firstValueFrom(
       this.httpService.post(
         apiEndpoint,
@@ -943,6 +993,7 @@ export class AiChatService {
             content: m.content,
           })),
           ...tokenParam,
+          ...reasoningParam,
           temperature,
         },
         {

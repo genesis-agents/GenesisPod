@@ -175,6 +175,7 @@ export class AdminController {
       maxTokens?: number;
       temperature?: number;
       description?: string;
+      isReasoning?: boolean;
     },
   ) {
     this.logger.log(
@@ -230,6 +231,7 @@ export class AdminController {
       temperature?: number;
       description?: string;
       isEnabled?: boolean;
+      isReasoning?: boolean;
     },
   ) {
     this.logger.log(`Admin: Updating AI model ${id}, type=${body.modelType}`);
