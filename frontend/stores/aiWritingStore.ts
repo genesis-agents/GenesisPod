@@ -559,8 +559,12 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
     if (!missionId) {
       try {
         const { items } = await api.getProjectMissions(projectId);
+        // 兼容不同状态格式
         const runningMission = items.find(
-          (m) => m.status === 'running' || m.status === 'pending'
+          (m) =>
+            m.status === 'running' ||
+            m.status === 'pending' ||
+            m.status === 'IN_PROGRESS'
         );
         if (runningMission) {
           missionId = runningMission.id;
