@@ -1174,6 +1174,20 @@ ${input.userPrompt}
     });
 
     // ★ 架构师基于世界观生成大纲（确保章节符合世界规则）
+    // 简化世界观信息，避免提示词过长导致超时
+    const worldSummary = {
+      core: worldCore,
+      world: worldInfo,
+      characters: (charactersArray || []).slice(0, 5).map((c) => {
+        const char = c as Record<string, unknown>;
+        return {
+          name: char.name,
+          role: char.role,
+          motivation: char.motivation,
+        };
+      }),
+    };
+
     const outlinePrompt = `作为故事架构师，请基于以下【已建立的世界观】规划详细的章节结构。
 
 【重要】你的章节规划必须严格遵守世界观设定，不能违反已建立的规则！
@@ -1181,8 +1195,8 @@ ${input.userPrompt}
 【故事创意】
 ${input.userPrompt}
 
-【已建立的世界观】
-${JSON.stringify(worldSettings, null, 2)}
+【已建立的世界观（摘要）】
+${JSON.stringify(worldSummary, null, 2)}
 
 【规模要求】
 - 总字数：约 ${targetWordCount.toLocaleString()} 字
