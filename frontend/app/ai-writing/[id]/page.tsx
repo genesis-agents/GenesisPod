@@ -2236,16 +2236,22 @@ export default function WritingProjectPage() {
                                   <div className="min-w-0 flex-1">
                                     <div className="font-medium text-gray-800">
                                       第{chapter.chapterNumber}章{' '}
-                                      {(chapter.title || '').replace(
-                                        /^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i,
-                                        ''
-                                      )}
+                                      {(chapter.title || '')
+                                        .replace(
+                                          /^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i,
+                                          ''
+                                        )
+                                        .replace(/^待创作$/, '')}
                                     </div>
-                                    {chapter.outline && (
-                                      <div className="mt-1 line-clamp-2 text-xs text-gray-400">
-                                        {chapter.outline}
-                                      </div>
-                                    )}
+                                    {chapter.outline &&
+                                      chapter.outline !== '待创作' && (
+                                        <div className="mt-1 line-clamp-2 text-xs text-gray-400">
+                                          {chapter.outline.replace(
+                                            /^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i,
+                                            ''
+                                          )}
+                                        </div>
+                                      )}
                                     {/* Show content preview if available */}
                                     {chapter.content && (
                                       <div className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs text-gray-500">

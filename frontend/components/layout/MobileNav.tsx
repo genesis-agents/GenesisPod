@@ -66,6 +66,13 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
   // AI Teams section
   const aiTeamsItems = [
     {
+      href: '/ai-writing',
+      label: t('nav.aiWriting'),
+      icon: 'pen',
+      activeClass: 'bg-amber-50',
+      prefix: true,
+    },
+    {
       href: '/ai-studio',
       label: t('nav.aiStudio'),
       icon: 'chart',
@@ -84,13 +91,6 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
       label: t('nav.aiSimulation'),
       icon: 'grid',
       activeClass: 'bg-indigo-50',
-      prefix: true,
-    },
-    {
-      href: '/ai-writing',
-      label: t('nav.aiWriting'),
-      icon: 'pen',
-      activeClass: 'bg-amber-50',
       prefix: true,
     },
     {
