@@ -227,6 +227,23 @@ export class WritingMissionHealthCheckService
         },
       });
 
+      // 更新项目状态
+      const project = await this.prisma.writingProject.findUnique({
+        where: { id: projectId },
+        select: { currentWords: true },
+      });
+
+      if (project) {
+        const newStatus = project.currentWords > 0 ? "REVISING" : "PLANNING";
+        await this.prisma.writingProject.update({
+          where: { id: projectId },
+          data: { status: newStatus },
+        });
+        this.logger.log(
+          `[WritingHealthCheck] Updated project ${projectId} status to ${newStatus}`,
+        );
+      }
+
       this.logger.log(
         `[WritingHealthCheck] Mission ${missionId} marked as FAILED successfully`,
       );
