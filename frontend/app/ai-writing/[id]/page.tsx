@@ -1092,7 +1092,20 @@ export default function WritingProjectPage() {
             format === 'md' ? `### ${char.name}\n` : `\n${char.name}：\n`;
           if (char.role) content += `角色：${char.role}\n`;
           if (char.description) content += `描述：${char.description}\n`;
-          if (char.personality) content += `性格：${char.personality}\n`;
+          // 处理 personality - 可能是字符串或对象
+          if (char.personality) {
+            let personalityStr: string;
+            if (typeof char.personality === 'object') {
+              if (Array.isArray(char.personality)) {
+                personalityStr = (char.personality as string[]).join('、');
+              } else {
+                personalityStr = JSON.stringify(char.personality, null, 2);
+              }
+            } else {
+              personalityStr = String(char.personality);
+            }
+            content += `性格：${personalityStr}\n`;
+          }
           if (char.background) content += `背景：${char.background}\n`;
         });
         sections.push(content);
