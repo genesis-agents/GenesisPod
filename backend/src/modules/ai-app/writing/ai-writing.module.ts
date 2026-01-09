@@ -27,6 +27,7 @@ import { OutlineService } from "./services/writing/outline.service";
 
 // Mission services
 import { WritingMissionService } from "./services/mission/writing-mission.service";
+import { WritingMissionHealthCheckService } from "./services/mission/writing-mission-health-check.service";
 
 // Consistency services
 import { ConsistencyEngineService } from "./services/consistency/consistency-engine.service";
@@ -70,6 +71,7 @@ import {
     OutlineService,
     // Mission services (integrates AI Teams mechanism)
     WritingMissionService,
+    WritingMissionHealthCheckService,
     // Consistency services
     ConsistencyEngineService,
     PreWriteInjectionService,
