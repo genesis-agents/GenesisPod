@@ -7,23 +7,9 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import { getAuthTokens } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
 import { KnowledgeBaseSelector } from '@/components/shared/selectors';
-
-// 懒加载重型组件 (3182 行)
-const ImageGenerator = dynamic(
-  () => import('@/components/ai-image/ImageGenerator'),
-  {
-    loading: () => (
-      <div className="flex h-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
-      </div>
-    ),
-    ssr: false,
-  }
-);
 
 // ==================== 自定义图标组件 ====================
 const PlusIcon = ({ className }: { className?: string }) => (
@@ -186,6 +172,7 @@ interface ResearchProject {
   icon: string | null;
   color: string | null;
   status: 'ACTIVE' | 'ARCHIVED' | 'DELETED';
+  researchType: 'FAST' | 'DEEP';
   sourceCount: number;
   noteCount: number;
   chatCount: number;
@@ -217,10 +204,12 @@ function getAuthHeaders(): HeadersInit {
 async function fetchProjects(options?: {
   status?: string;
   search?: string;
+  researchType?: 'FAST' | 'DEEP';
 }): Promise<{ data: ResearchProject[]; pagination: any }> {
   const params = new URLSearchParams();
   if (options?.status) params.set('status', options.status);
   if (options?.search) params.set('search', options.search);
+  if (options?.researchType) params.set('researchType', options.researchType);
 
   const res = await fetch(`${API_BASE}/api/v1/ai-studio/projects?${params}`, {
     headers: getAuthHeaders(),
@@ -241,6 +230,7 @@ async function createProject(data: {
   description?: string;
   icon?: string;
   color?: string;
+  researchType?: 'FAST' | 'DEEP';
 }): Promise<ResearchProject> {
   const res = await fetch(`${API_BASE}/api/v1/ai-studio/projects`, {
     method: 'POST',
@@ -291,19 +281,29 @@ function CreateProjectDialog({
   isOpen,
   onClose,
   onCreated,
+  defaultResearchType = 'FAST',
 }: {
   isOpen: boolean;
   onClose: () => void;
   onCreated: (project: ResearchProject) => void;
+  defaultResearchType?: 'FAST' | 'DEEP';
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [researchType, setResearchType] = useState<'FAST' | 'DEEP'>(
+    defaultResearchType
+  );
   const [selectedKnowledgeBases, setSelectedKnowledgeBases] = useState<
     string[]
   >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 当 defaultResearchType 变化时更新
+  useEffect(() => {
+    setResearchType(defaultResearchType);
+  }, [defaultResearchType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -316,8 +316,7 @@ function CreateProjectDialog({
       const project = await createProject({
         name: name.trim(),
         description: description.trim() || undefined,
-        // TODO: Pass knowledgeBaseIds to backend when API supports it
-        // knowledgeBaseIds: selectedKnowledgeBases.length > 0 ? selectedKnowledgeBases : undefined,
+        researchType,
       });
       onCreated(project);
       setName('');
@@ -344,6 +343,77 @@ function CreateProjectDialog({
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          {/* Research Type Selector */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              {t('aiStudio.researchType.label')}
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setResearchType('FAST')}
+                className={`flex flex-col items-center rounded-lg border-2 p-4 transition-all ${
+                  researchType === 'FAST'
+                    ? 'border-violet-500 bg-violet-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <svg
+                  className={`mb-2 h-6 w-6 ${researchType === 'FAST' ? 'text-violet-600' : 'text-gray-400'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+                <span
+                  className={`text-sm font-medium ${researchType === 'FAST' ? 'text-violet-700' : 'text-gray-700'}`}
+                >
+                  {t('aiStudio.researchType.fast')}
+                </span>
+                <span className="mt-1 text-center text-xs text-gray-500">
+                  {t('aiStudio.researchType.fastDesc')}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setResearchType('DEEP')}
+                className={`flex flex-col items-center rounded-lg border-2 p-4 transition-all ${
+                  researchType === 'DEEP'
+                    ? 'border-purple-500 bg-purple-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <svg
+                  className={`mb-2 h-6 w-6 ${researchType === 'DEEP' ? 'text-purple-600' : 'text-gray-400'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+                  />
+                </svg>
+                <span
+                  className={`text-sm font-medium ${researchType === 'DEEP' ? 'text-purple-700' : 'text-gray-700'}`}
+                >
+                  {t('aiStudio.researchType.deep')}
+                </span>
+                <span className="mt-1 text-center text-xs text-gray-500">
+                  {t('aiStudio.researchType.deepDesc')}
+                </span>
+              </button>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700">
               {t('aiStudio.project.name')}
@@ -555,11 +625,11 @@ function StudioPageContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get('tab');
 
-  const [activeTab, setActiveTab] = useState<'projects' | 'create'>(() => {
-    if (tabParam === 'create') {
-      return tabParam;
+  const [activeTab, setActiveTab] = useState<'fast' | 'deep'>(() => {
+    if (tabParam === 'deep') {
+      return 'deep';
     }
-    return 'projects';
+    return 'fast';
   });
   const [projects, setProjects] = useState<ResearchProject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -569,7 +639,7 @@ function StudioPageContent() {
 
   // Update activeTab when URL parameter changes
   useEffect(() => {
-    if (tabParam === 'create' || tabParam === 'projects') {
+    if (tabParam === 'fast' || tabParam === 'deep') {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
@@ -582,6 +652,7 @@ function StudioPageContent() {
     try {
       const result = await fetchProjects({
         search: searchQuery || undefined,
+        researchType: activeTab === 'fast' ? 'FAST' : 'DEEP',
       });
       setProjects(result.data);
     } catch (err) {
@@ -589,7 +660,7 @@ function StudioPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, activeTab]);
 
   useEffect(() => {
     loadProjects();
@@ -655,23 +726,21 @@ function StudioPageContent() {
                 </p>
               </div>
             </div>
-            {activeTab === 'projects' && (
-              <button
-                onClick={() => setShowCreateDialog(true)}
-                className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-violet-700"
-              >
-                <PlusIcon className="h-5 w-5" />
-                {t('aiStudio.project.newProject')}
-              </button>
-            )}
+            <button
+              onClick={() => setShowCreateDialog(true)}
+              className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-violet-700"
+            >
+              <PlusIcon className="h-5 w-5" />
+              {t('aiStudio.project.newProject')}
+            </button>
           </div>
 
           {/* Tabs */}
           <div className="mt-6 flex items-center gap-6 border-b border-gray-200">
             <button
-              onClick={() => setActiveTab('projects')}
+              onClick={() => setActiveTab('fast')}
               className={`relative pb-3 text-sm font-medium transition-colors ${
-                activeTab === 'projects'
+                activeTab === 'fast'
                   ? 'text-violet-600'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
@@ -687,19 +756,19 @@ function StudioPageContent() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
                   />
                 </svg>
-                {t('aiStudio.tabs.specialResearch')}
+                {t('aiStudio.tabs.fastResearch')}
               </div>
-              {activeTab === 'projects' && (
+              {activeTab === 'fast' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-600" />
               )}
             </button>
             <button
-              onClick={() => setActiveTab('create')}
+              onClick={() => setActiveTab('deep')}
               className={`relative pb-3 text-sm font-medium transition-colors ${
-                activeTab === 'create'
+                activeTab === 'deep'
                   ? 'text-purple-600'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
@@ -715,106 +784,90 @@ function StudioPageContent() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
                   />
                 </svg>
-                {t('aiStudio.tabs.createImage')}
+                {t('aiStudio.tabs.deepResearch')}
               </div>
-              {activeTab === 'create' && (
+              {activeTab === 'deep' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600" />
               )}
             </button>
           </div>
 
-          {/* Search Bar - Only for Projects */}
-          {activeTab === 'projects' && (
-            <div className="mt-6">
-              <div className="relative">
-                <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t('aiStudio.search.placeholder')}
-                  className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
-                />
-              </div>
+          {/* Search Bar */}
+          <div className="mt-6">
+            <div className="relative">
+              <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t('aiStudio.search.placeholder')}
+                className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+              />
             </div>
-          )}
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div
-        className={
-          activeTab === 'create'
-            ? 'h-[calc(100vh-200px)] py-4 pl-6 pr-4'
-            : 'px-8 py-6'
-        }
-      >
-        {activeTab === 'create' ? (
-          <div className="h-full">
-            <ImageGenerator />
+      <div className="px-8 py-6">
+        {/* Projects Grid */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <LoaderIcon className="h-8 w-8 animate-spin text-violet-600" />
+          </div>
+        ) : error ? (
+          <div className="rounded-xl bg-red-50 p-6 text-center">
+            <p className="text-red-600">{error}</p>
+            <button
+              onClick={loadProjects}
+              className="mt-4 text-sm text-purple-600 hover:underline"
+            >
+              {t('aiStudio.tryAgain')}
+            </button>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
+            <FolderOpenIcon className="h-16 w-16 text-gray-300" />
+            <h3 className="mt-4 text-lg font-medium text-gray-900">
+              {t('aiStudio.empty.noProjects')}
+            </h3>
+            <p className="mt-1 text-gray-500">
+              {t('aiStudio.empty.noProjectsDesc')}
+            </p>
+            <button
+              onClick={() => setShowCreateDialog(true)}
+              className="mt-6 flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700"
+            >
+              <PlusIcon className="h-5 w-5" />
+              {t('aiStudio.empty.createFirst')}
+            </button>
           </div>
         ) : (
-          /* Projects Grid */
-          <>
-            {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <LoaderIcon className="h-8 w-8 animate-spin text-violet-600" />
-              </div>
-            ) : error ? (
-              <div className="rounded-xl bg-red-50 p-6 text-center">
-                <p className="text-red-600">{error}</p>
-                <button
-                  onClick={loadProjects}
-                  className="mt-4 text-sm text-purple-600 hover:underline"
-                >
-                  {t('aiStudio.tryAgain')}
-                </button>
-              </div>
-            ) : projects.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
-                <FolderOpenIcon className="h-16 w-16 text-gray-300" />
-                <h3 className="mt-4 text-lg font-medium text-gray-900">
-                  {t('aiStudio.empty.noProjects')}
-                </h3>
-                <p className="mt-1 text-gray-500">
-                  {t('aiStudio.empty.noProjectsDesc')}
-                </p>
-                <button
-                  onClick={() => setShowCreateDialog(true)}
-                  className="mt-6 flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700"
-                >
-                  <PlusIcon className="h-5 w-5" />
-                  {t('aiStudio.empty.createFirst')}
-                </button>
-              </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {projects.map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    onClick={() => router.push(`/studio/${project.id}`)}
-                    onArchive={() => handleArchive(project.id)}
-                    onDelete={() => handleDelete(project.id)}
-                  />
-                ))}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {projects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onClick={() => router.push(`/studio/${project.id}`)}
+                onArchive={() => handleArchive(project.id)}
+                onDelete={() => handleDelete(project.id)}
+              />
+            ))}
 
-                {/* Create New Card */}
-                <button
-                  onClick={() => setShowCreateDialog(true)}
-                  className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-violet-400 hover:bg-violet-50"
-                >
-                  <PlusIcon className="h-10 w-10 text-gray-400" />
-                  <span className="mt-2 text-sm font-medium text-gray-600">
-                    {t('aiStudio.empty.createNew')}
-                  </span>
-                </button>
-              </div>
-            )}
-          </>
+            {/* Create New Card */}
+            <button
+              onClick={() => setShowCreateDialog(true)}
+              className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-violet-400 hover:bg-violet-50"
+            >
+              <PlusIcon className="h-10 w-10 text-gray-400" />
+              <span className="mt-2 text-sm font-medium text-gray-600">
+                {t('aiStudio.empty.createNew')}
+              </span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -823,6 +876,7 @@ function StudioPageContent() {
         isOpen={showCreateDialog}
         onClose={() => setShowCreateDialog(false)}
         onCreated={handleProjectCreated}
+        defaultResearchType={activeTab === 'fast' ? 'FAST' : 'DEEP'}
       />
     </div>
   );

@@ -89,6 +89,12 @@ export class AiStudioController {
     enum: ["ACTIVE", "ARCHIVED"],
     description: "项目状态",
   })
+  @ApiQuery({
+    name: "researchType",
+    required: false,
+    enum: ["FAST", "DEEP"],
+    description: "研究类型",
+  })
   @ApiQuery({ name: "search", required: false, description: "搜索关键词" })
   @ApiQuery({ name: "take", required: false, description: "每页数量" })
   @ApiQuery({ name: "skip", required: false, description: "跳过数量" })
@@ -96,6 +102,7 @@ export class AiStudioController {
   async getProjects(
     @Request() req: any,
     @Query("status") status?: "ACTIVE" | "ARCHIVED",
+    @Query("researchType") researchType?: "FAST" | "DEEP",
     @Query("search") search?: string,
     @Query("take") take?: string,
     @Query("skip") skip?: string,
@@ -107,6 +114,7 @@ export class AiStudioController {
     const pagination = parsePagination(skip, take);
     return this.studioService.getProjects(userId, {
       status,
+      researchType,
       search,
       ...pagination,
     });

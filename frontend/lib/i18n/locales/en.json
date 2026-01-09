@@ -304,7 +304,16 @@
     "citations": "Citations",
     "tabs": {
       "specialResearch": "Special Research",
-      "createImage": "Create Image"
+      "createImage": "Create Image",
+      "fastResearch": "Fast Research",
+      "deepResearch": "Deep Research"
+    },
+    "researchType": {
+      "label": "Research Type",
+      "fast": "Fast Research",
+      "fastDesc": "Quick Q&A with sources",
+      "deep": "Deep Research",
+      "deepDesc": "Multi-round iterative"
     },
     "project": {
       "createTitle": "Create New Research Project",

@@ -2125,6 +2125,12 @@ enum ResearchProjectStatus {
   DELETED
 }
 
+// 研究类型
+enum ResearchType {
+  FAST // 快速研究 - 源管理 + 聊天
+  DEEP // 深度研究 - 多轮迭代研究
+}
+
 model ResearchProject {
   id          String                @id @default(uuid())
   userId      String                @map("user_id")
@@ -2133,6 +2139,7 @@ model ResearchProject {
   icon        String?               @db.VarChar(10) // Emoji icon
   color       String?               @db.VarChar(20) // Hex color code
   status      ResearchProjectStatus @default(ACTIVE)
+  researchType ResearchType         @default(FAST) @map("research_type")
 
   // 项目统计
   sourceCount Int @default(0) @map("source_count")
@@ -2155,6 +2162,7 @@ model ResearchProject {
 
   @@index([userId])
   @@index([status])
+  @@index([researchType])
   @@index([createdAt(sort: Desc)])
   @@index([lastAccessAt(sort: Desc)])
   @@map("research_projects")

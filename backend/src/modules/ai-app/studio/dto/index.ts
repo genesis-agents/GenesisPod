@@ -49,6 +49,16 @@ export class CreateProjectDto {
   @IsString()
   @MaxLength(20)
   color?: string;
+
+  @ApiPropertyOptional({
+    description: "研究类型",
+    enum: ["FAST", "DEEP"],
+    default: "FAST",
+    example: "FAST",
+  })
+  @IsOptional()
+  @IsEnum(["FAST", "DEEP"])
+  researchType?: "FAST" | "DEEP";
 }
 
 export class UpdateProjectDto {

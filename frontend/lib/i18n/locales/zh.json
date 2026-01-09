@@ -304,7 +304,16 @@
     "citations": "引用",
     "tabs": {
       "specialResearch": "专题研究",
-      "createImage": "AI 绘图"
+      "createImage": "AI 绘图",
+      "fastResearch": "快速研究",
+      "deepResearch": "深度研究"
+    },
+    "researchType": {
+      "label": "研究类型",
+      "fast": "快速研究",
+      "fastDesc": "基于资料快速问答",
+      "deep": "深度研究",
+      "deepDesc": "多轮迭代自动分析"
     },
     "project": {
       "createTitle": "创建新研究项目",

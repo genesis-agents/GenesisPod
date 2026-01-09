@@ -21,6 +21,7 @@ export class AiStudioService {
         description: dto.description,
         icon: dto.icon || "📚",
         color: dto.color || "#6366f1",
+        researchType: dto.researchType || "FAST",
         lastAccessAt: new Date(),
       },
       include: {
@@ -44,6 +45,7 @@ export class AiStudioService {
     options?: {
       status?: "ACTIVE" | "ARCHIVED";
       search?: string;
+      researchType?: "FAST" | "DEEP";
       take?: number;
       skip?: number;
     },
@@ -52,6 +54,10 @@ export class AiStudioService {
       userId,
       status: options?.status || "ACTIVE",
     };
+
+    if (options?.researchType) {
+      where.researchType = options.researchType;
+    }
 
     if (options?.search) {
       where.OR = [
