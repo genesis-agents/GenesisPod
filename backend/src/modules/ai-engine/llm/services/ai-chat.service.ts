@@ -17,12 +17,16 @@ export interface ChatCompletionOptions {
   messages: ChatMessage[];
   maxTokens?: number;
   temperature?: number;
+  /** 严格模式：API失败时抛出异常而不是返回错误内容 */
+  strictMode?: boolean;
 }
 
 export interface ChatCompletionResult {
   content: string;
   model: string;
   tokensUsed: number;
+  /** 标识此响应是否为错误消息（仅在非严格模式下有值） */
+  isError?: boolean;
 }
 
 /**
@@ -694,6 +698,7 @@ export class AiChatService {
       messages,
       maxTokens = 2048,
       temperature: inputTemperature,
+      strictMode: optionStrictMode,
     } = options;
 
     // Check if the model supports the temperature parameter
@@ -727,6 +732,7 @@ export class AiChatService {
         fullMessages,
         maxTokens,
         temperature,
+        optionStrictMode,
       );
     }
 
@@ -770,19 +776,23 @@ export class AiChatService {
     messages: ChatMessage[],
     maxTokens: number,
     temperature?: number,
+    optionStrictMode?: boolean,
   ): Promise<ChatCompletionResult> {
     const { provider, modelId, apiEndpoint, apiKey } = config;
+    // 优先使用参数级别的 strictMode，否则使用实例级别的设置
+    const useStrictMode = optionStrictMode ?? this.strictMode;
 
     if (!apiKey) {
       const errorMsg = `模型 ${modelId} 的 API Key 未在数据库中配置`;
       this.logger.error(`[callAPIWithConfig] ${errorMsg}`);
-      if (this.strictMode) {
+      if (useStrictMode) {
         throw new AiServiceUnavailableError(errorMsg, modelId);
       }
       return {
         content: `**API Key 未配置**\n\n${errorMsg}\n\n请在管理后台配置该模型的 API Key。`,
         model: modelId,
         tokensUsed: 0,
+        isError: true,
       };
     }
 
@@ -850,7 +860,7 @@ export class AiChatService {
         `[callAPIWithConfig] ${provider} API error for ${modelId}: ${errorMsg}`,
       );
 
-      if (this.strictMode) {
+      if (useStrictMode) {
         throw error;
       }
 
@@ -858,6 +868,7 @@ export class AiChatService {
         content: `**${provider} API 调用失败**\n\n模型：${modelId}\n错误信息：${errorMsg}\n\n请稍后重试或检查 API 配置。`,
         model: modelId,
         tokensUsed: 0,
+        isError: true,
       };
     }
   }
@@ -3856,10 +3867,14 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
     maxTokens?: number;
     temperature?: number;
     model?: string;
+    /** 严格模式：API失败时抛出异常而不是返回错误内容 */
+    strictMode?: boolean;
   }): Promise<{
     content: string;
     usage?: { totalTokens: number };
     model: string;
+    /** 标识此响应是否为错误消息 */
+    isError?: boolean;
   }> {
     const {
       messages,
@@ -3867,6 +3882,7 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
       maxTokens = 4096,
       temperature = 0.7,
       model = process.env.DEFAULT_AI_MODEL || "gemini",
+      strictMode,
     } = options;
 
     const result = await this.generateChatCompletion({
@@ -3875,12 +3891,14 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
       messages,
       maxTokens,
       temperature,
+      strictMode,
     });
 
     return {
       content: result.content,
       usage: { totalTokens: result.tokensUsed },
       model: result.model,
+      isError: result.isError,
     };
   }
 }

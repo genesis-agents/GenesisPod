@@ -1019,18 +1019,10 @@ ${input.userPrompt}
         model: keeperModel,
         temperature: 0.7,
         maxTokens: 8000,
+        strictMode: true, // ★ 严格模式：API失败直接抛异常，进入 catch 降级逻辑
       });
 
-      // ★ 检测 API 错误响应
-      const worldContent = worldResponse.content || "{}";
-      if (this.isApiErrorResponse(worldContent)) {
-        this.logger.warn(
-          `[${missionId}] World building received API error: ${worldContent.slice(0, 200)}`,
-        );
-        throw new Error("World building API call failed");
-      }
-
-      worldSettings = this.parseWorldSettings(worldContent);
+      worldSettings = this.parseWorldSettings(worldResponse.content || "{}");
 
       // ★ 验证世界观有效性：必须有 core 和至少一个角色
       const characters = worldSettings.characters as Array<unknown> | undefined;
@@ -1320,10 +1312,12 @@ ${Array.from(
 - 关键转折：本章的关键情节点
 - 涉及角色：本章出场的主要角色（必须是世界观中已定义的角色）
 
-【重要】
-1. 每个章节的 title 字段必须是具体的章节名（不含"第X章"前缀），不能为空！
-2. 情节发展必须符合世界观中的规则设定
-3. 角色行为必须符合其性格和动机设定
+【重要 - 必须遵守】
+1. 必须输出完整的 ${totalChapters} 个章节，一个都不能少！
+2. 每个章节的 title 字段必须是具体的章节名（不含"第X章"前缀），不能为空！
+3. 情节发展必须符合世界观中的规则设定
+4. 角色行为必须符合其性格和动机设定
+5. 章节数量不足将被拒绝，请确保输出完整的 ${totalChapters} 章
 
 输出格式：JSON
 {
@@ -1386,19 +1380,12 @@ ${Array.from(
           model: currentModel,
           temperature: 0.7,
           maxTokens: 8000,
+          strictMode: true, // ★ 严格模式：API失败直接抛异常进入 catch 重试
         });
 
         if (!outlineResponse.content) {
           this.logger.warn(
             `[${missionId}] Outline generation returned empty content (attempt ${retryCount})`,
-          );
-          continue;
-        }
-
-        // ★ 检测 API 错误响应（AiChatService 在 strictMode=false 时会返回错误消息作为 content）
-        if (this.isApiErrorResponse(outlineResponse.content)) {
-          this.logger.warn(
-            `[${missionId}] Outline generation received API error response (attempt ${retryCount}): ${outlineResponse.content.slice(0, 200)}`,
           );
           continue;
         }
@@ -1461,6 +1448,79 @@ ${Array.from(
     this.logger.log(
       `[${missionId}] Outline generated: ${outline.chapters.length} chapters planned`,
     );
+
+    // ★ 第二轮：填充缺失的章节标题
+    const missingTitleChapters = outline.chapters
+      .map((c, i) => ({ index: i, chapter: c }))
+      .filter((item) => !item.chapter.title || item.chapter.title.length === 0);
+
+    if (missingTitleChapters.length > 0) {
+      this.logger.log(
+        `[${missionId}] Filling ${missingTitleChapters.length} missing chapter titles...`,
+      );
+
+      try {
+        const fillPrompt = `请为以下章节生成具体的章节标题（不含"第X章"前缀，如"暗流涌动"、"命运交汇"）：
+
+【故事主题】
+${input.userPrompt.slice(0, 200)}
+
+【需要标题的章节】
+${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.chapter.plot || "待定"}`).join("\n")}
+
+请以JSON数组格式输出，每个元素是章节标题字符串：
+["标题1", "标题2", ...]`;
+
+        const fillResponse = await this.aiChatService.chat({
+          messages: [
+            {
+              role: "system",
+              content:
+                "你是专业的小说创作者。请为章节生成有意境、有吸引力的标题。",
+            },
+            { role: "user", content: fillPrompt },
+          ],
+          model: architectModel,
+          temperature: 0.8,
+          maxTokens: 4000,
+          strictMode: true,
+        });
+
+        // 解析填充的标题
+        const fillContent = fillResponse.content || "[]";
+        const firstBracket = fillContent.indexOf("[");
+        const lastBracket = fillContent.lastIndexOf("]");
+        if (firstBracket !== -1 && lastBracket !== -1) {
+          const titlesJson = fillContent.substring(
+            firstBracket,
+            lastBracket + 1,
+          );
+          const titles = JSON.parse(titlesJson) as string[];
+
+          // 填充标题
+          missingTitleChapters.forEach((item, i) => {
+            if (titles[i]) {
+              outline.chapters[item.index].title = titles[i]
+                .replace(/^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i, "")
+                .trim();
+            }
+          });
+
+          this.logger.log(
+            `[${missionId}] Filled ${titles.length} chapter titles`,
+          );
+        }
+      } catch (fillError) {
+        this.logger.warn(
+          `[${missionId}] Failed to fill missing titles: ${(fillError as Error).message}`,
+        );
+        // 使用默认标题作为降级
+        missingTitleChapters.forEach((item) => {
+          const chapterNum = item.index + 1;
+          outline.chapters[item.index].title = `第${chapterNum}章节`;
+        });
+      }
+    }
 
     // ★ 如果生成了书名，更新项目名称
     if (outline.bookTitle) {
@@ -1581,62 +1641,62 @@ ${Array.from(
         keeperContext,
       );
 
-      const writerResponse = await this.aiChatService.chat({
-        messages: [
-          {
-            role: "system",
-            content:
-              this.writer.description +
-              `\n\n你正在创作第${chapterNumber}章。语言流畅，富有文学性。`,
-          },
-          { role: "user", content: writerPrompt },
-        ],
-        model: writerModel,
-        temperature: 0.8,
-        maxTokens: 6000,
-      });
+      let chapterContent = "";
 
-      let chapterContent = writerResponse.content || "";
-
-      // ★ 检测 API 错误响应
-      if (this.isApiErrorResponse(chapterContent)) {
+      try {
+        const writerResponse = await this.aiChatService.chat({
+          messages: [
+            {
+              role: "system",
+              content:
+                this.writer.description +
+                `\n\n你正在创作第${chapterNumber}章。语言流畅，富有文学性。`,
+            },
+            { role: "user", content: writerPrompt },
+          ],
+          model: writerModel,
+          temperature: 0.8,
+          maxTokens: 6000,
+          strictMode: true, // ★ 严格模式：API失败抛异常进入 catch 重试
+        });
+        chapterContent = writerResponse.content || "";
+      } catch (error) {
         this.logger.warn(
-          `[${missionId}] Chapter ${chapterNumber} received API error, retrying...`,
+          `[${missionId}] Chapter ${chapterNumber} API error: ${(error as Error).message}, retrying...`,
         );
-        chapterContent = ""; // 清空，触发重试逻辑
+        chapterContent = ""; // 触发重试逻辑
       }
 
       if (!chapterContent || chapterContent.length < 500) {
         this.logger.warn(
-          `[${missionId}] Chapter ${chapterNumber} content too short, retrying...`,
+          `[${missionId}] Chapter ${chapterNumber} content too short or empty, retrying...`,
         );
-        // 重试一次
-        const retryResponse = await this.aiChatService.chat({
-          messages: [
-            {
-              role: "system",
-              content: "你是专业的小说作家。请直接创作故事内容，约3000字。",
-            },
-            {
-              role: "user",
-              content: `请创作"第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}"的内容。\n\n情节要点：${chapterInfo.plot}\n\n${previousChapterSummary ? `前文摘要：${previousChapterSummary}` : "这是故事的开始。"}`,
-            },
-          ],
-          model: writerModel,
-          temperature: 0.85,
-          maxTokens: 6000,
-        });
-        // ★ 检测重试响应的 API 错误
-        const retryContent = retryResponse.content || "";
-        if (this.isApiErrorResponse(retryContent)) {
+        try {
+          // 重试一次
+          const retryResponse = await this.aiChatService.chat({
+            messages: [
+              {
+                role: "system",
+                content: "你是专业的小说作家。请直接创作故事内容，约3000字。",
+              },
+              {
+                role: "user",
+                content: `请创作"第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}"的内容。\n\n情节要点：${chapterInfo.plot}\n\n${previousChapterSummary ? `前文摘要：${previousChapterSummary}` : "这是故事的开始。"}`,
+              },
+            ],
+            model: writerModel,
+            temperature: 0.85,
+            maxTokens: 6000,
+            strictMode: true,
+          });
+          chapterContent =
+            retryResponse.content ||
+            `第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}\n\n（内容生成中...）`;
+        } catch (retryError) {
           this.logger.warn(
-            `[${missionId}] Chapter ${chapterNumber} retry also received API error`,
+            `[${missionId}] Chapter ${chapterNumber} retry also failed: ${(retryError as Error).message}`,
           );
           chapterContent = `第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}\n\n（内容生成中...）`;
-        } else {
-          chapterContent =
-            retryContent ||
-            `第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}\n\n（内容生成中...）`;
         }
       }
 
@@ -2048,25 +2108,6 @@ ${chapterContent}
     } catch (e) {
       this.logger.warn(`Failed to update progress: ${(e as Error).message}`);
     }
-  }
-
-  /**
-   * 检测 API 响应是否为错误消息
-   * AiChatService 在 strictMode=false 时会将错误以特定格式返回
-   */
-  private isApiErrorResponse(content: string): boolean {
-    if (!content) return false;
-    // 检测常见的 API 错误格式
-    const errorPatterns = [
-      /\*\*.*API 调用失败\*\*/i,
-      /timeout of \d+ms exceeded/i,
-      /API error/i,
-      /请稍后重试或检查 API 配置/,
-      /ECONNRESET/i,
-      /ETIMEDOUT/i,
-      /Network Error/i,
-    ];
-    return errorPatterns.some((pattern) => pattern.test(content));
   }
 
   /**
