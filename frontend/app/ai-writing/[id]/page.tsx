@@ -2729,6 +2729,16 @@ export default function WritingProjectPage() {
                                           }
                                         > = {
                                           // 后端可能返回不同的 key，做兼容映射
+                                          story_core: {
+                                            icon: '💡',
+                                            label: '故事核心',
+                                            color: 'purple',
+                                          },
+                                          core: {
+                                            icon: '💡',
+                                            label: '故事核心',
+                                            color: 'purple',
+                                          },
                                           world: {
                                             icon: '🌍',
                                             label: '世界背景',
@@ -2779,6 +2789,31 @@ export default function WritingProjectPage() {
                                             label: '时间线',
                                             color: 'indigo',
                                           },
+                                        };
+                                        // 嵌套字段名翻译映射
+                                        const fieldLabelMap: Record<
+                                          string,
+                                          string
+                                        > = {
+                                          summary: '概要',
+                                          genre: '类型',
+                                          theme: '主题',
+                                          type: '类型',
+                                          era: '时代',
+                                          geography: '地理',
+                                          society: '社会',
+                                          rules: '规则',
+                                          name: '名称',
+                                          role: '角色',
+                                          appearance: '外貌',
+                                          personality: '性格',
+                                          background: '背景',
+                                          motivation: '动机',
+                                          arc: '成长线',
+                                          description: '描述',
+                                          relations: '关系',
+                                          term: '术语',
+                                          definition: '定义',
                                         };
                                         return Object.entries(data).map(
                                           ([key, value]) => {
@@ -2860,7 +2895,9 @@ export default function WritingProjectPage() {
                                                       .map(([k, v]) => (
                                                         <div key={k}>
                                                           <span className="font-medium">
-                                                            {k}:
+                                                            {fieldLabelMap[k] ||
+                                                              k}
+                                                            :
                                                           </span>{' '}
                                                           {typeof v === 'string'
                                                             ? v.slice(0, 100)

@@ -1789,12 +1789,35 @@ ${chapterContent}
     } | null = null;
 
     try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0]);
+      // 1. 先移除 markdown 代码块包装 (```json ... ``` 或 ``` ... ```)
+      let cleanContent = content
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "")
+        .trim();
+
+      // 2. 尝试找到 JSON 对象（从第一个 { 到最后一个 }）
+      const firstBrace = cleanContent.indexOf("{");
+      const lastBrace = cleanContent.lastIndexOf("}");
+
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        const jsonStr = cleanContent.substring(firstBrace, lastBrace + 1);
+        parsed = JSON.parse(jsonStr);
+        this.logger.log(
+          `[parseOutlineJSON] Successfully parsed JSON, bookTitle: ${parsed?.bookTitle || "(none)"}, chapters: ${parsed?.chapters?.length || 0}`,
+        );
+      } else {
+        this.logger.warn(
+          `[parseOutlineJSON] No valid JSON structure found in response (length: ${content.length})`,
+        );
       }
     } catch (e) {
-      this.logger.warn(`Failed to parse outline JSON: ${(e as Error).message}`);
+      this.logger.warn(
+        `[parseOutlineJSON] Failed to parse outline JSON: ${(e as Error).message}`,
+      );
+      // 打印前500字符帮助诊断
+      this.logger.warn(
+        `[parseOutlineJSON] Content preview: ${content.slice(0, 500)}`,
+      );
     }
 
     // 生成默认卷结构
@@ -1838,6 +1861,11 @@ ${chapterContent}
       theme: parsed.core?.theme || "待定",
     };
 
+    // 日志：记录核心字段解析结果
+    this.logger.log(
+      `[parseOutlineJSON] Core parsed - theme: "${core.theme}", genre: "${core.genre}", summary: "${core.summary?.slice(0, 50)}..."`,
+    );
+
     // 使用解析的卷，如果不足则补充默认卷
     const parsedVolumes = (parsed.volumes || []).map((v, i) => ({
       title: v.title || `第${this.numberToChinese(i + 1)}卷`,
@@ -1854,6 +1882,8 @@ ${chapterContent}
     const parsedChapters = (parsed.chapters || []).map((c, i) => {
       // 清理标题 - 如果标题只是"第X章"格式，视为无效
       let title = c.title || "";
+      const originalTitle = title; // 保存原始标题用于调试
+
       if (title.match(/^第[一二三四五六七八九十百千\d]+[章回]$/)) {
         title = ""; // 纯章节号视为空标题
       }
@@ -1862,6 +1892,13 @@ ${chapterContent}
         .replace(/^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i, "")
         .trim();
 
+      // 调试：如果原始标题非空但清理后为空，记录日志
+      if (originalTitle && !title && i < 5) {
+        this.logger.warn(
+          `[parseOutlineJSON] Chapter ${i + 1} title cleaned to empty: "${originalTitle}"`,
+        );
+      }
+
       return {
         volumeIndex: c.volumeIndex ?? Math.floor(i / chaptersPerVolume),
         title: title, // 可能为空，前端会只显示"第X章"
@@ -1869,6 +1906,18 @@ ${chapterContent}
         keyPoint: c.keyPoint || "",
       };
     });
+
+    // 检查是否所有章节标题都为空（可能是解析问题）
+    const titledChapters = parsedChapters.filter((c) => c.title);
+    if (parsedChapters.length > 0 && titledChapters.length === 0) {
+      this.logger.warn(
+        `[parseOutlineJSON] WARNING: All ${parsedChapters.length} chapter titles are empty! Raw chapters: ${JSON.stringify(parsed.chapters?.slice(0, 3))}`,
+      );
+    } else {
+      this.logger.log(
+        `[parseOutlineJSON] ${titledChapters.length}/${parsedChapters.length} chapters have titles`,
+      );
+    }
 
     // ★ 关键：确保章节数量至少达到 totalChapters
     let chapters = parsedChapters;
@@ -1903,13 +1952,33 @@ ${chapterContent}
    */
   private parseWorldSettings(content: string): Record<string, unknown> {
     try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+      // 1. 先移除 markdown 代码块包装
+      let cleanContent = content
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "")
+        .trim();
+
+      // 2. 尝试找到 JSON 对象
+      const firstBrace = cleanContent.indexOf("{");
+      const lastBrace = cleanContent.lastIndexOf("}");
+
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        const jsonStr = cleanContent.substring(firstBrace, lastBrace + 1);
+        const parsed = JSON.parse(jsonStr);
+        this.logger.log(
+          `[parseWorldSettings] Successfully parsed, characters: ${(parsed.characters as unknown[])?.length || 0}`,
+        );
+        return parsed;
       }
+      this.logger.warn(
+        `[parseWorldSettings] No valid JSON structure found (length: ${content.length})`,
+      );
     } catch (e) {
       this.logger.warn(
-        `Failed to parse world settings: ${(e as Error).message}`,
+        `[parseWorldSettings] Failed to parse: ${(e as Error).message}`,
+      );
+      this.logger.warn(
+        `[parseWorldSettings] Content preview: ${content.slice(0, 300)}`,
       );
     }
     return { world: {}, characters: [], factions: [], terminology: [] };
