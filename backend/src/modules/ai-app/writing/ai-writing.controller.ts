@@ -373,6 +373,23 @@ export class AiWritingController {
   }
 
   /**
+   * 强制清理项目的卡住任务
+   * 当任务状态不一致（显示有任务在运行但实际已卡死）时使用
+   */
+  @Post("projects/:projectId/force-cleanup")
+  async forceCleanupStuckMissions(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+  ) {
+    // 先验证项目权限
+    await this.projectService.findOne(projectId, req.user.id);
+    return this.writingMissionService.forceCleanupStuckMissions(
+      projectId,
+      req.user.id,
+    );
+  }
+
+  /**
    * 获取项目的所有任务
    */
   @Get("projects/:projectId/missions")
