@@ -1248,22 +1248,34 @@ export default function WritingProjectPage() {
       return cleaned.trim() || `第${chapterNumber}章`;
     };
 
-    // 清理章节内容：移除占位符文本
+    // 清理章节内容：移除占位符文本和章节标题行
     const cleanChapterContent = (content: string): string => {
       if (!content) return '';
-      // 移除各种占位符标记
-      let cleaned = content
-        .replace(/【修复后的内容】/g, '')
-        .replace(/【正文开始】/g, '')
-        .replace(/【正文结束】/g, '')
-        .replace(/【待创作】/g, '')
-        .replace(/【内容待补充】/g, '')
-        .replace(
-          /^\s*第[一二三四五六七八九十百千\d]+[章回][：:\s]*[^\n]*\n?/gm,
-          ''
-        ) // 移除内容开头的章节标题行
-        .trim();
-      return cleaned;
+      return (
+        content
+          // 移除占位符文本
+          .replace(/【修复后的内容】/g, '')
+          .replace(/【正文开始】/g, '')
+          .replace(/【正文结束】/g, '')
+          .replace(/【待创作】/g, '')
+          .replace(/【内容待补充】/g, '')
+          // 移除 markdown 章节标题行 (### 第X章 标题)
+          .replace(
+            /^#{1,6}\s*第[一二三四五六七八九十百千零〇\d]+[章回节][：:\s]*[^\n]*\n*/gm,
+            ''
+          )
+          // 移除纯文本章节标题行 (第X章 标题)
+          .replace(
+            /^第[一二三四五六七八九十百千零〇\d]+[章回节][：:\s]*[^\n]*\n*/gm,
+            ''
+          )
+          // 移除可能带有空格前缀的 markdown 标题
+          .replace(
+            /^\s+#{1,6}\s*第[一二三四五六七八九十百千零〇\d]+[章回节][^\n]*\n*/gm,
+            ''
+          )
+          .trim()
+      );
     };
 
     // 世界观内容放在章节前面（使用 HTML 格式）
