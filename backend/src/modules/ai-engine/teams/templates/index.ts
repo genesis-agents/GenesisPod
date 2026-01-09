@@ -36,6 +36,11 @@ export {
   VISUAL_DESIGN_WORKFLOW,
   VISUAL_DESIGN_TEAM_CONFIG,
   createVisualDesignTeamConfig,
+  // Agent Prompts for Imagen 4
+  CONTENT_AGENT_PROMPT,
+  LAYOUT_AGENT_PROMPT,
+  VISUAL_AGENT_PROMPT,
+  STYLE_AGENT_PROMPT,
 } from "./visual-design-team";
 
 // All team configs

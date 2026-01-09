@@ -12,6 +12,7 @@ import {
   GenerationService,
   ImageGenerationService,
   PromptEnhancementService,
+  Imagen4PromptService,
 } from "./generation";
 
 // Storage
@@ -46,6 +47,7 @@ import { AnalyticsService, AgentExecutorService } from "./analytics";
     GenerationService,
     ImageGenerationService,
     PromptEnhancementService,
+    Imagen4PromptService,
     // Storage
     StorageService,
     // Export

@@ -21,5 +21,8 @@ export * from "./orchestrator";
 // Templates
 export * from "./templates";
 
+// Services (exclude MissionStatus to avoid conflict with abstractions)
+export { TeamsService, CreateMissionDto, TeamInfo } from "./services";
+
 // Module
 export { TeamsModule } from "./teams.module";

@@ -37,6 +37,7 @@ import {
 import { PromptEnhancementService } from "./prompt-enhancement.service";
 import { ImageGenerationService } from "./image-generation.service";
 import { ImageStorageService } from "../storage/storage.service";
+import { Imagen4PromptService } from "./imagen4-prompt.service";
 import {
   parseUrlInput,
   getUrlStepTitle,
@@ -64,6 +65,7 @@ export class AiImageService {
     private readonly promptEnhancementService: PromptEnhancementService,
     private readonly imageGenerationService: ImageGenerationService,
     private readonly imageStorageService: ImageStorageService,
+    private readonly imagen4PromptService: Imagen4PromptService,
   ) {}
 
   /**
@@ -417,7 +419,7 @@ export class AiImageService {
         this.logger.error(`[STREAM 1.5] Data fetching error: ${error}`);
       }
 
-      // Step 2: AI Prompt Generation
+      // Step 2: AI Prompt Generation (with 4-Agent Visual Design Team)
       this.logger.log(
         "========== STREAM STEP 2: AI Prompt Generation ==========",
       );
@@ -431,63 +433,148 @@ export class AiImageService {
         promptInsights.imagePrompt = inputContent;
         emitStep("prompt_generate", "Using Direct Input", "completed");
       } else {
-        emitStep(
-          "prompt_generate",
-          "Generating Image Prompt with AI",
-          "processing",
-        );
+        // Try 4-Agent Visual Design Team first
+        let use4AgentTeam = true;
 
-        const textModel =
-          await this.imageGenerationService.getDefaultTextModel();
-        if (!textModel?.apiKey) {
+        try {
+          emitStep(
+            "team_collaboration",
+            "Visual Design Team 协作中",
+            "processing",
+            "4-Agent 协作：Content → Layout → Visual → Style",
+          );
+
+          // Use Imagen4PromptService for 4-agent collaboration
+          const imagen4Result =
+            await this.imagen4PromptService.generateImagen4Prompt(
+              {
+                prompt: inputContent,
+                content,
+                urls,
+                style,
+                aspectRatio: aspectRatio as "1:1" | "16:9" | "9:16" | "4:3",
+                templateLayout: userTemplateLayout,
+              },
+              (event) => {
+                // Progress callback for each agent phase
+                const phaseNames: Record<string, string> = {
+                  content: "Content Agent 内容分析",
+                  layout: "Layout Agent 构图规划",
+                  visual: "Visual Agent 视觉设计",
+                  style: "Style Agent Prompt 生成",
+                  complete: "团队协作完成",
+                };
+                const statusText =
+                  event.status === "started"
+                    ? "开始"
+                    : event.status === "completed"
+                      ? "完成"
+                      : "进行中";
+                emitStep(
+                  `agent_${event.phase}`,
+                  `${phaseNames[event.phase] || event.phase} ${statusText}`,
+                  event.status === "failed"
+                    ? "error"
+                    : event.status === "completed"
+                      ? "completed"
+                      : "processing",
+                  event.message,
+                );
+              },
+            );
+
+          // Use the 4-agent result
+          promptInsights = imagen4Result.insights;
+          promptInsights.imagePrompt = imagen4Result.finalPrompt;
+          mergedNegativePrompt = mergeNegativePrompts(mergedNegativePrompt, [
+            imagen4Result.negativePrompt,
+          ]);
+          textModelUsed = "Visual Design Team (4-Agent)";
+
+          emitStep(
+            "team_collaboration",
+            "Visual Design Team 协作完成",
+            "completed",
+            `生成 Imagen 4 优化 Prompt: ${imagen4Result.finalPrompt.slice(0, 150)}...`,
+          );
+
+          this.logger.log(
+            `[STREAM 2] 4-Agent collaboration completed in ${imagen4Result.statistics.totalDuration}ms`,
+          );
+        } catch (teamError) {
+          // Fallback to original single LLM approach
+          use4AgentTeam = false;
+          this.logger.warn(
+            `[STREAM 2] Team collaboration failed, falling back to single LLM: ${teamError instanceof Error ? teamError.message : teamError}`,
+          );
+          emitStep(
+            "team_collaboration",
+            "团队协作失败，使用快速模式",
+            "completed",
+            "回退到单次 LLM 调用",
+          );
+        }
+
+        // Fallback: Original single LLM approach
+        if (!use4AgentTeam) {
           emitStep(
             "prompt_generate",
-            "No Text Model Available",
-            "error",
-            "Please configure a text model",
+            "Generating Image Prompt with AI",
+            "processing",
           );
-          throw new Error("No text model configured");
-        }
 
-        textModelUsed = textModel.displayName || textModel.name;
-        emitStep("prompt_generate", `Using ${textModelUsed}`, "processing");
+          const textModel =
+            await this.imageGenerationService.getDefaultTextModel();
+          if (!textModel?.apiKey) {
+            emitStep(
+              "prompt_generate",
+              "No Text Model Available",
+              "error",
+              "Please configure a text model",
+            );
+            throw new Error("No text model configured");
+          }
 
-        const provider = textModel.provider.toLowerCase();
-        const modelId = textModel.modelId.toLowerCase();
-        let rawEnhancedPrompt: string;
+          textModelUsed = textModel.displayName || textModel.name;
+          emitStep("prompt_generate", `Using ${textModelUsed}`, "processing");
 
-        if (
-          provider.includes("google") ||
-          provider.includes("gemini") ||
-          modelId.includes("gemini")
-        ) {
-          rawEnhancedPrompt =
-            await this.promptEnhancementService.callGeminiTextAPI(
-              textModel.apiKey,
-              textModel.modelId,
+          const provider = textModel.provider.toLowerCase();
+          const modelId = textModel.modelId.toLowerCase();
+          let rawEnhancedPrompt: string;
+
+          if (
+            provider.includes("google") ||
+            provider.includes("gemini") ||
+            modelId.includes("gemini")
+          ) {
+            rawEnhancedPrompt =
+              await this.promptEnhancementService.callGeminiTextAPI(
+                textModel.apiKey,
+                textModel.modelId,
+                inputContent,
+              );
+          } else {
+            rawEnhancedPrompt =
+              await this.promptEnhancementService.callOpenAITextAPI(
+                textModel.apiKey,
+                textModel.apiEndpoint,
+                textModel.modelId,
+                inputContent,
+              );
+          }
+
+          promptInsights =
+            this.promptEnhancementService.parsePromptEnhancementResponse(
+              rawEnhancedPrompt,
               inputContent,
             );
-        } else {
-          rawEnhancedPrompt =
-            await this.promptEnhancementService.callOpenAITextAPI(
-              textModel.apiKey,
-              textModel.apiEndpoint,
-              textModel.modelId,
-              inputContent,
-            );
-        }
-
-        promptInsights =
-          this.promptEnhancementService.parsePromptEnhancementResponse(
-            rawEnhancedPrompt,
-            inputContent,
+          emitStep(
+            "prompt_generate",
+            "AI Prompt Generated",
+            "completed",
+            promptInsights.imagePrompt?.slice(0, 200) + "...",
           );
-        emitStep(
-          "prompt_generate",
-          "AI Prompt Generated",
-          "completed",
-          promptInsights.imagePrompt?.slice(0, 200) + "...",
-        );
+        }
       }
 
       const composedPrompt =
