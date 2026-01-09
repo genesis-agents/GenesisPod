@@ -768,6 +768,37 @@ export class AiChatService {
   // ==================== 使用数据库配置调用 API ====================
 
   /**
+   * 计算模型的超时时间
+   * 推理模型（o1, o3, gpt-5）需要更长的超时时间
+   */
+  private getTimeoutForModel(modelId: string, maxTokens: number): number {
+    const modelLower = modelId.toLowerCase();
+    const isReasoningModel =
+      modelLower.includes("o1") ||
+      modelLower.includes("o3") ||
+      modelLower.includes("gpt-5") ||
+      modelLower.includes("gpt5") ||
+      modelLower.includes("deepseek-r1") ||
+      modelLower.includes("reasoning");
+
+    // 推理模型：5分钟起，最多15分钟
+    // 普通模型：2分钟起，最多10分钟
+    const baseTimeout = isReasoningModel ? 300000 : 120000;
+    const maxTimeout = isReasoningModel ? 900000 : 600000;
+
+    const dynamicTimeout = Math.max(
+      baseTimeout,
+      Math.min(maxTimeout, baseTimeout + Math.ceil(maxTokens / 1000) * 15000),
+    );
+
+    this.logger.debug(
+      `[getTimeoutForModel] ${modelId}: ${dynamicTimeout}ms (maxTokens=${maxTokens}, reasoning=${isReasoningModel})`,
+    );
+
+    return dynamicTimeout;
+  }
+
+  /**
    * 使用数据库配置调用 AI API
    * 根据 provider 自动选择正确的 API 格式
    */
@@ -797,8 +828,9 @@ export class AiChatService {
     }
 
     const apiFormat = this.getApiFormatForProvider(provider);
+    const timeout = this.getTimeoutForModel(modelId, maxTokens);
     this.logger.debug(
-      `[callAPIWithConfig] Calling ${provider} API (format: ${apiFormat}) with model: ${modelId}`,
+      `[callAPIWithConfig] Calling ${provider} API (format: ${apiFormat}) with model: ${modelId}, timeout: ${timeout}ms`,
     );
 
     try {
@@ -811,6 +843,7 @@ export class AiChatService {
             messages,
             maxTokens,
             temperature,
+            timeout,
           );
 
         case "anthropic":
@@ -821,6 +854,7 @@ export class AiChatService {
             messages,
             maxTokens,
             temperature,
+            timeout,
           );
 
         case "google":
@@ -831,6 +865,7 @@ export class AiChatService {
             messages,
             maxTokens,
             temperature,
+            timeout,
           );
 
         case "xai":
@@ -841,6 +876,7 @@ export class AiChatService {
             messages,
             maxTokens,
             temperature,
+            timeout,
           );
 
         default:
@@ -852,6 +888,7 @@ export class AiChatService {
             messages,
             maxTokens,
             temperature,
+            timeout,
           );
       }
     } catch (error) {
@@ -883,6 +920,7 @@ export class AiChatService {
     messages: ChatMessage[],
     maxTokens: number,
     temperature?: number,
+    timeout: number = 120000,
   ): Promise<ChatCompletionResult> {
     // 使用 max_completion_tokens 用于新模型
     const isNewerModel =
@@ -912,7 +950,7 @@ export class AiChatService {
             Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
-          timeout: 120000,
+          timeout,
         },
       ),
     );
@@ -935,6 +973,7 @@ export class AiChatService {
     messages: ChatMessage[],
     maxTokens: number,
     temperature?: number,
+    timeout: number = 120000,
   ): Promise<ChatCompletionResult> {
     // Extract system message
     const systemMessage = messages.find((m) => m.role === "system");
@@ -959,7 +998,7 @@ export class AiChatService {
             "anthropic-version": "2023-06-01",
             "Content-Type": "application/json",
           },
-          timeout: 120000,
+          timeout,
         },
       ),
     );
@@ -983,6 +1022,7 @@ export class AiChatService {
     messages: ChatMessage[],
     maxTokens: number,
     temperature?: number,
+    timeout: number = 120000,
   ): Promise<ChatCompletionResult> {
     // 直接使用数据库配置的模型 ID，不做额外验证
     // 如果模型无效，Google API 会返回明确错误，不应静默替换
@@ -1043,7 +1083,7 @@ export class AiChatService {
         headers: {
           "Content-Type": "application/json",
         },
-        timeout: 120000,
+        timeout,
       }),
     );
 
@@ -1078,6 +1118,7 @@ export class AiChatService {
     messages: ChatMessage[],
     maxTokens: number,
     temperature?: number,
+    timeout: number = 120000,
   ): Promise<ChatCompletionResult> {
     const response = await firstValueFrom(
       this.httpService.post(
@@ -1096,7 +1137,7 @@ export class AiChatService {
             Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
-          timeout: 120000,
+          timeout,
         },
       ),
     );
