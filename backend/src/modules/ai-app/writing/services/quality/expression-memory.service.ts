@@ -20,7 +20,10 @@ export type ExpressionType =
   | "ACTION"
   | "DIALOGUE"
   | "TRANSITION"
-  | "PLOT_PATTERN";
+  | "PLOT_PATTERN"
+  | "CHAPTER_OPENING" // 章节开场模式
+  | "SCENE_STRUCTURE" // 场景结构模式
+  | "NARRATIVE_PACING"; // 叙事节奏模式
 
 // ==================== 常量配置 ====================
 
@@ -38,6 +41,12 @@ const EXPRESSION_COOLDOWN_CONFIG = {
   emotionCooldownChapters: 8,
   /** 过渡语冷却章节数 */
   transitionCooldownChapters: 5,
+  /** 章节开场模式冷却章节数（★新增：防止每章开场雷同） */
+  chapterOpeningCooldownChapters: 25,
+  /** 场景结构模式冷却章节数（★新增：防止场景安排重复） */
+  sceneStructureCooldownChapters: 20,
+  /** 叙事节奏模式冷却章节数（★新增：防止节奏单一） */
+  narrativePacingCooldownChapters: 15,
   /** 每章目标字数（用于估算冷却时间） */
   chapterWordCount: 3000,
 } as const;
@@ -187,6 +196,135 @@ const COMMON_EXPRESSION_PATTERNS: Array<{
   { pattern: /明争暗斗/g, type: "IDIOM", category: "斗争" },
   { pattern: /尔虞我诈/g, type: "IDIOM", category: "斗争" },
   { pattern: /勾心斗角/g, type: "IDIOM", category: "斗争" },
+
+  // ==================== 章节开场模式类（★新增） ====================
+  // 场景固定型开场
+  {
+    pattern: /站在[^，。]{2,8}中/g,
+    type: "CHAPTER_OPENING",
+    category: "场景固定",
+  },
+  {
+    pattern: /坐在[^，。]{2,8}中/g,
+    type: "CHAPTER_OPENING",
+    category: "场景固定",
+  },
+  { pattern: /晨光[^，。]{2,6}洒/g, type: "CHAPTER_OPENING", category: "晨景" },
+  { pattern: /月光[^，。]{2,6}洒/g, type: "CHAPTER_OPENING", category: "月景" },
+  {
+    pattern: /阳光透过[^，。]{2,8}/g,
+    type: "CHAPTER_OPENING",
+    category: "光线",
+  },
+  // 配角打断型开场
+  {
+    pattern: /打断了[^，。]{1,4}的思绪/g,
+    type: "CHAPTER_OPENING",
+    category: "打断思绪",
+  },
+  {
+    pattern: /声音打破了[^，。]{2,6}/g,
+    type: "CHAPTER_OPENING",
+    category: "打破宁静",
+  },
+  // 心理独白型开场
+  {
+    pattern: /心中[^，。]{2,6}复杂/g,
+    type: "CHAPTER_OPENING",
+    category: "心理开场",
+  },
+  {
+    pattern: /思绪[^，。]{2,6}飘/g,
+    type: "CHAPTER_OPENING",
+    category: "心理开场",
+  },
+
+  // ==================== 场景结构模式类（★新增） ====================
+  // 偷听模式
+  {
+    pattern: /躲在[^，。]{2,6}偷听/g,
+    type: "SCENE_STRUCTURE",
+    category: "偷听",
+  },
+  { pattern: /藏身[^，。]{2,6}听/g, type: "SCENE_STRUCTURE", category: "偷听" },
+  {
+    pattern: /透过门缝[^，。]{2,8}/g,
+    type: "SCENE_STRUCTURE",
+    category: "偷窥",
+  },
+  // 巧遇模式
+  {
+    pattern: /正巧遇[到见上]/g,
+    type: "SCENE_STRUCTURE",
+    category: "巧遇",
+  },
+  {
+    pattern: /恰好[^，。]{2,6}经过/g,
+    type: "SCENE_STRUCTURE",
+    category: "巧遇",
+  },
+  // 被打断模式
+  {
+    pattern: /话未说完[^，。]{2,8}打断/g,
+    type: "SCENE_STRUCTURE",
+    category: "被打断",
+  },
+  {
+    pattern: /正要[^，。]{2,6}却被/g,
+    type: "SCENE_STRUCTURE",
+    category: "被打断",
+  },
+  // 深夜密会
+  {
+    pattern: /夜深人静[^，。]{2,8}来到/g,
+    type: "SCENE_STRUCTURE",
+    category: "深夜密会",
+  },
+  {
+    pattern: /悄悄来到[^，。]{2,8}/g,
+    type: "SCENE_STRUCTURE",
+    category: "密会",
+  },
+
+  // ==================== 叙事节奏模式类（★新增） ====================
+  // 被动观察型（主角无作为）
+  {
+    pattern: /只能[^，。]{2,6}看着/g,
+    type: "NARRATIVE_PACING",
+    category: "被动观察",
+  },
+  {
+    pattern: /默默[^，。]{2,6}注视/g,
+    type: "NARRATIVE_PACING",
+    category: "被动观察",
+  },
+  {
+    pattern: /静静地站在[^，。]{2,8}/g,
+    type: "NARRATIVE_PACING",
+    category: "被动等待",
+  },
+  // 重复询问型
+  {
+    pattern: /这究竟是怎么回事/g,
+    type: "NARRATIVE_PACING",
+    category: "重复疑问",
+  },
+  {
+    pattern: /到底发生了什么/g,
+    type: "NARRATIVE_PACING",
+    category: "重复疑问",
+  },
+  // 拖延型叙事
+  {
+    pattern: /不知过了多久/g,
+    type: "NARRATIVE_PACING",
+    category: "时间拖延",
+  },
+  {
+    pattern: /时间一点一点过去/g,
+    type: "NARRATIVE_PACING",
+    category: "时间拖延",
+  },
 ];
 
 // ==================== 类型定义 ====================
@@ -591,6 +729,18 @@ export class ExpressionMemoryService {
       case "TRANSITION":
         base = EXPRESSION_COOLDOWN_CONFIG.transitionCooldownChapters;
         break;
+      // ★新增：章节开场模式冷却期最长，防止每章开场雷同
+      case "CHAPTER_OPENING":
+        base = EXPRESSION_COOLDOWN_CONFIG.chapterOpeningCooldownChapters;
+        break;
+      // ★新增：场景结构模式冷却
+      case "SCENE_STRUCTURE":
+        base = EXPRESSION_COOLDOWN_CONFIG.sceneStructureCooldownChapters;
+        break;
+      // ★新增：叙事节奏模式冷却
+      case "NARRATIVE_PACING":
+        base = EXPRESSION_COOLDOWN_CONFIG.narrativePacingCooldownChapters;
+        break;
       default:
         base = EXPRESSION_COOLDOWN_CONFIG.defaultCooldownChapters;
     }
@@ -682,6 +832,9 @@ export class ExpressionMemoryService {
       DIALOGUE: "对话模式",
       TRANSITION: "过渡语",
       PLOT_PATTERN: "情节模式",
+      CHAPTER_OPENING: "章节开场",
+      SCENE_STRUCTURE: "场景结构",
+      NARRATIVE_PACING: "叙事节奏",
     };
 
     return labels[type] || type;

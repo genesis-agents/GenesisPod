@@ -49,7 +49,11 @@ import {
   CharacterPersonalityService,
   QualityGateService,
   HistoricalKnowledgeService,
+  NarrativePacingService,
 } from "./services/quality";
+
+// Style services (Three-layer style configuration system)
+import { StyleTemplateService } from "./services/style/style-template.service";
 
 // Writing Agents (extending AI Engine BaseAgent)
 import {
@@ -99,6 +103,9 @@ import {
     CharacterPersonalityService,
     QualityGateService,
     HistoricalKnowledgeService,
+    NarrativePacingService,
+    // Style services (Three-layer style configuration)
+    StyleTemplateService,
     // Writing Agents (from BaseAgent)
     StoryArchitectAgent,
     BibleKeeperAgent,
@@ -121,6 +128,9 @@ import {
     CharacterPersonalityService,
     QualityGateService,
     HistoricalKnowledgeService,
+    NarrativePacingService,
+    // Style services
+    StyleTemplateService,
     // Export agents for external use
     StoryArchitectAgent,
     BibleKeeperAgent,
@@ -132,7 +142,9 @@ import {
 export class AiWritingModule implements OnModuleInit {
   private readonly logger = new Logger(AiWritingModule.name);
 
-  onModuleInit() {
+  constructor(private readonly styleTemplateService: StyleTemplateService) {}
+
+  async onModuleInit() {
     // Writing Agents are managed internally by WritingMissionService
     // They don't need to be registered with the global AgentRegistry
     // because they use a different interface (BaseAgent/IAgent vs IPlanBasedAgent)
@@ -145,5 +157,15 @@ export class AiWritingModule implements OnModuleInit {
     this.logger.log("    - Writer");
     this.logger.log("    - Consistency Checker");
     this.logger.log("    - Editor");
+
+    // 初始化系统风格模板
+    try {
+      await this.styleTemplateService.initializeSystemTemplates();
+      this.logger.log("  System style templates initialized");
+    } catch (e) {
+      this.logger.warn(
+        `Failed to initialize system style templates: ${(e as Error).message}`,
+      );
+    }
   }
 }

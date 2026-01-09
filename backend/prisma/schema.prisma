@@ -141,7 +141,8 @@ model User {
   slidesTeamMemberConfigs SlidesTeamMemberConfig[] @relation("SlidesTeamMemberConfigUser")
 
   // AI Writing 长篇写作
-  writingProjects WritingProject[] @relation("WritingProjectOwner")
+  writingProjects       WritingProject[]       @relation("WritingProjectOwner")
+  writingStyleTemplates WritingStyleTemplate[] @relation("WritingStyleTemplateOwner")
 
   @@map("users")
 }
@@ -5473,10 +5474,91 @@ model WritingProject {
   qualityScores      WritingQualityScore[]
   issuePatterns      WritingQualityIssuePattern[]
 
+  // 风格模板关联（新增）
+  styleTemplateId String?              @map("style_template_id")
+  styleTemplate   WritingStyleTemplate? @relation(fields: [styleTemplateId], references: [id])
+  styleOverrides  Json?                @map("style_overrides") // 项目级风格覆盖
+
   @@index([ownerId])
   @@index([status])
   @@index([createdAt(sort: Desc)])
   @@map("writing_projects")
+}
+
+// ============ 写作风格模板系统 ============
+
+// 写作风格模板 - 详细的写作规则配置
+model WritingStyleTemplate {
+  id   String @id @default(uuid())
+  name String @db.VarChar(100) // 模板名称：如"甄嬛传式宫斗"
+
+  // 基础信息
+  baseStyle   String  @map("base_style") @db.VarChar(50) // 基础风格ID：web_gongdou, jin_yong 等
+  description String? @db.Text // 模板描述
+  category    String  @db.VarChar(50) // 分类：宫斗、武侠、玄幻等
+
+  // 来源
+  isSystem Boolean @default(false) @map("is_system") // 是否系统预设
+  ownerId  String? @map("owner_id") // 用户自定义模板的所有者
+  owner    User?   @relation("WritingStyleTemplateOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // ==================== 详细写作规则 ====================
+
+  // 对话规则
+  dialogueRules Json @default("{}") @map("dialogue_rules")
+  // {
+  //   "techniques": ["一语双关", "暗语试探"],
+  //   "voiceByRole": { "皇后": "端庄持重，话少而威严", "嫔妃": "各有特色" },
+  //   "examples": [{ "context": "...", "good": "...", "bad": "..." }],
+  //   "avoidPatterns": ["过于直白的表态"]
+  // }
+
+  // 描写规则
+  descriptionRules Json @default("{}") @map("description_rules")
+  // {
+  //   "microExpressions": ["眼神变化", "嘴角细节", "手部动作"],
+  //   "atmosphereElements": ["环境暗示心境", "物件暗示权力"],
+  //   "examples": [...],
+  //   "avoidPatterns": ["只用心理独白代替"]
+  // }
+
+  // 情节节奏规则
+  pacingRules Json @default("{}") @map("pacing_rules")
+  // {
+  //   "protagonistAction": { "required": true, "minPerChapter": 1 },
+  //   "maxConsecutivePassive": 2,
+  //   "foreshadowing": { "required": true },
+  //   "chapterOpeningVariety": { "cooldownChapters": 5 }
+  // }
+
+  // 避免模式
+  avoidPatterns Json @default("[]") @map("avoid_patterns")
+  // ["情节靠巧合推进", "反派智商下线", ...]
+
+  // 示例和参考
+  referenceWorks Json @default("[]") @map("reference_works")
+  // ["甄嬛传", "如懿传", ...]
+
+  // 完整的系统提示词片段
+  systemPromptFragment String? @map("system_prompt_fragment") @db.Text
+
+  // ==================== 元数据 ====================
+
+  // 使用统计
+  useCount Int @default(0) @map("use_count")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  projects WritingProject[]
+
+  @@index([baseStyle])
+  @@index([category])
+  @@index([isSystem])
+  @@index([ownerId])
+  @@map("writing_style_templates")
 }
 
 // Story Bible - 设定圣经
@@ -5963,6 +6045,9 @@ enum ExpressionType {
   DIALOGUE // 对话模式
   TRANSITION // 过渡语
   PLOT_PATTERN // 情节模式
+  CHAPTER_OPENING // 章节开场模式（防止每章开场雷同）
+  SCENE_STRUCTURE // 场景结构模式（防止场景安排重复）
+  NARRATIVE_PACING // 叙事节奏模式（防止节奏单一）
 }
 
 // 表达记忆库 - 追踪已使用的表达，防止重复

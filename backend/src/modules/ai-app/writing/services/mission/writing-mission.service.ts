@@ -67,6 +67,9 @@ import {
   recommendStyleByGenre,
 } from "../../constants/writing-style-presets";
 
+// Style Template Service (Three-layer style configuration)
+import { StyleTemplateService } from "../style/style-template.service";
+
 /**
  * 写作任务类型
  */
@@ -191,6 +194,8 @@ export class WritingMissionService {
     private readonly eventEmitter: WritingEventEmitterService,
     // Expression Memory - 表达冷却服务
     private readonly expressionMemory: ExpressionMemoryService,
+    // Style Template - 三层风格配置服务
+    private readonly styleTemplateService: StyleTemplateService,
   ) {
     // 注册角色和团队配置（不需要 LLM）
     this.registerWritingRoles();
@@ -1717,6 +1722,16 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
         );
       }
 
+      // ★ 获取模板风格提示词（如果项目配置了风格模板）
+      const templateStylePrompt = await this.getTemplateStylePrompt(
+        input.projectId,
+      );
+      if (templateStylePrompt) {
+        this.logger.log(
+          `[${missionId}] Using template-based style for chapter ${chapterNumber}`,
+        );
+      }
+
       const writerPrompt = this.buildChapterWriterPrompt(
         chapterNumber,
         chapterInfo,
@@ -1725,8 +1740,9 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
         previousChapterSummary,
         input.userPrompt,
         keeperContext,
-        undefined, // styleId
+        undefined, // styleId (ignored when templateStylePrompt is provided)
         avoidancePrompt,
+        templateStylePrompt, // ★ 传递模板风格提示词
       );
 
       let chapterContent = "";
@@ -2523,6 +2539,7 @@ ${chapterContent}
     },
     styleId?: string,
     avoidancePrompt?: string,
+    templateStylePrompt?: string, // 来自数据库模板的风格提示词（优先级高于 styleId）
   ): string {
     const characters =
       (worldSettings.characters as Array<{
@@ -2578,12 +2595,19 @@ ${characters
   .join("\n")}`
         : "";
 
-    // 根据故事类型获取写作风格指南
-    const effectiveStyleId =
-      styleId ||
-      recommendStyleByGenre(outline.core.genre || "")[0] ||
-      "modern_realistic";
-    const stylePrompt = generateStylePrompt(effectiveStyleId);
+    // 获取写作风格指南（优先使用模板风格，否则使用预设风格）
+    let stylePrompt: string;
+    if (templateStylePrompt) {
+      // 使用数据库模板生成的风格提示词
+      stylePrompt = templateStylePrompt;
+    } else {
+      // 根据故事类型获取预设风格
+      const effectiveStyleId =
+        styleId ||
+        recommendStyleByGenre(outline.core.genre || "")[0] ||
+        "modern_realistic";
+      stylePrompt = generateStylePrompt(effectiveStyleId);
+    }
 
     return `【创作任务】第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}
 
@@ -2612,6 +2636,41 @@ ${avoidancePrompt ? `【表达约束 - 禁止使用以下表达】\n${avoidanceP
 8. 🚫 表达多样性：严禁使用上述【表达约束】中列出的冷却期表达
 
 请直接输出章节内容，以"第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}"开头：`;
+  }
+
+  /**
+   * 获取项目的模板风格提示词
+   *
+   * 如果项目配置了风格模板，返回合并后的风格提示词；
+   * 否则返回 undefined，使用预设风格
+   */
+  async getTemplateStylePrompt(projectId: string): Promise<string | undefined> {
+    try {
+      // 检查项目是否配置了风格模板
+      const project = await this.prisma.writingProject.findUnique({
+        where: { id: projectId },
+        select: { styleTemplateId: true },
+      });
+
+      if (!project?.styleTemplateId) {
+        return undefined;
+      }
+
+      // 使用模板服务获取合并后的风格配置
+      const mergedConfig =
+        await this.styleTemplateService.getMergedStyleConfig(projectId);
+
+      if (!mergedConfig) {
+        return undefined;
+      }
+
+      return mergedConfig.fullPrompt;
+    } catch (e) {
+      this.logger.warn(
+        `[StyleTemplate] Failed to get template prompt for project ${projectId}: ${(e as Error).message}`,
+      );
+      return undefined;
+    }
   }
 
   /**
