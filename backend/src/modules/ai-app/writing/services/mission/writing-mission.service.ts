@@ -1498,17 +1498,35 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
           const titles = JSON.parse(titlesJson) as string[];
 
           // 填充标题
+          let filledCount = 0;
           missingTitleChapters.forEach((item, i) => {
             if (titles[i]) {
               outline.chapters[item.index].title = titles[i]
                 .replace(/^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i, "")
                 .trim();
+              filledCount++;
             }
           });
 
           this.logger.log(
-            `[${missionId}] Filled ${titles.length} chapter titles`,
+            `[${missionId}] Filled ${filledCount}/${missingTitleChapters.length} chapter titles`,
           );
+
+          // ★ 处理仍然缺失标题的章节（AI返回的标题数量不足时）
+          const stillMissing = missingTitleChapters.filter(
+            (item) =>
+              !outline.chapters[item.index].title ||
+              outline.chapters[item.index].title.length === 0,
+          );
+          if (stillMissing.length > 0) {
+            this.logger.warn(
+              `[${missionId}] ${stillMissing.length} chapters still missing titles, using fallback`,
+            );
+            stillMissing.forEach((item) => {
+              const chapterNum = item.index + 1;
+              outline.chapters[item.index].title = `篇章${chapterNum}`;
+            });
+          }
         }
       } catch (fillError) {
         this.logger.warn(
@@ -1517,7 +1535,7 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
         // 使用默认标题作为降级
         missingTitleChapters.forEach((item) => {
           const chapterNum = item.index + 1;
-          outline.chapters[item.index].title = `第${chapterNum}章节`;
+          outline.chapters[item.index].title = `篇章${chapterNum}`;
         });
       }
     }
