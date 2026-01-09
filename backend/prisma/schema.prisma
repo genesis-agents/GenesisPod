@@ -5463,6 +5463,12 @@ model WritingProject {
   volumes    WritingVolume[]
   missions   WritingMission[]
 
+  // 质量提升系统关系
+  expressionMemories WritingExpressionMemory[]
+  plotPatterns       WritingPlotPattern[]
+  qualityScores      WritingQualityScore[]
+  issuePatterns      WritingQualityIssuePattern[]
+
   @@index([ownerId])
   @@index([status])
   @@index([createdAt(sort: Desc)])
@@ -5536,6 +5542,9 @@ model WritingCharacter {
   relationships CharacterRelationship[] @relation("CharacterRelationships")
   targetOf      CharacterRelationship[] @relation("TargetCharacter")
   appearances   SceneAppearance[]
+
+  // 人格档案（深化语言和行为特征）
+  personalityProfile WritingCharacterPersonality?
 
   @@index([bibleId])
   @@index([name])
@@ -5887,6 +5896,228 @@ model WritingMissionLog {
   @@index([missionId, createdAt(sort: Desc)])
   @@index([eventType])
   @@map("writing_mission_logs")
+}
+
+// ============ AI Writing 质量提升系统 ============
+
+// 表达类型
+enum ExpressionType {
+  IDIOM // 成语
+  METAPHOR // 比喻
+  DESCRIPTION // 描写手法
+  EMOTION // 情感表达
+  ACTION // 动作描写
+  DIALOGUE // 对话模式
+  TRANSITION // 过渡语
+  PLOT_PATTERN // 情节模式
+}
+
+// 表达记忆库 - 追踪已使用的表达，防止重复
+model WritingExpressionMemory {
+  id        String         @id @default(uuid())
+  projectId String         @map("project_id")
+  project   WritingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // 表达信息
+  expression     String         @db.VarChar(200) // 表达内容（如"心中一震"）
+  expressionType ExpressionType @map("expression_type")
+  category       String?        @db.VarChar(50) // 细分类别
+
+  // 使用统计
+  useCount      Int      @default(1) @map("use_count") // 使用次数
+  lastUsedAt    DateTime @default(now()) @map("last_used_at") // 最后使用时间
+  lastChapterId String?  @map("last_chapter_id") // 最后使用的章节ID
+
+  // 冷却控制
+  cooldownUntil DateTime? @map("cooldown_until") // 冷却截止时间
+  isCoolingDown Boolean   @default(false) @map("is_cooling_down")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([projectId, expression])
+  @@index([projectId, expressionType])
+  @@index([projectId, isCoolingDown])
+  @@index([projectId, useCount(sort: Desc)])
+  @@map("writing_expression_memories")
+}
+
+// 角色人格档案 - 深化角色语言和行为特征
+model WritingCharacterPersonality {
+  id          String           @id @default(uuid())
+  characterId String           @unique @map("character_id")
+  character   WritingCharacter @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  // 语言风格
+  speechStyle     String   @default("") @map("speech_style") @db.VarChar(200) // 说话风格描述
+  commonPhrases   String[] @default([]) @map("common_phrases") // 常用词汇/口头禅
+  forbiddenPhrases String[] @default([]) @map("forbidden_phrases") // 禁用词汇
+  sentencePattern String?  @map("sentence_pattern") @db.VarChar(200) // 句式特点
+
+  // 行为模式
+  thinkingStyle    String? @map("thinking_style") @db.VarChar(200) // 思维模式
+  emotionPattern   String? @map("emotion_pattern") @db.VarChar(200) // 情绪反应模式
+  decisionStyle    String? @map("decision_style") @db.VarChar(200) // 决策风格
+  conflictBehavior String? @map("conflict_behavior") @db.VarChar(200) // 冲突时行为
+
+  // 社交特征
+  interactionStyle String? @map("interaction_style") @db.VarChar(200) // 社交互动风格
+  trustLevel       Int     @default(5) @map("trust_level") // 信任倾向 1-10
+  assertiveness    Int     @default(5) // 主张性 1-10
+
+  // 特殊标记
+  uniqueMannerisms String[] @default([]) @map("unique_mannerisms") // 独特小动作/习惯
+  voiceTone        String?  @map("voice_tone") @db.VarChar(100) // 语气特点
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("writing_character_personalities")
+}
+
+// 情节模式库 - 追踪已使用的情节模式
+model WritingPlotPattern {
+  id        String         @id @default(uuid())
+  projectId String         @map("project_id")
+  project   WritingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // 模式信息
+  patternName   String   @map("pattern_name") @db.VarChar(100) // 模式名称（如"偷听秘密"）
+  patternType   String   @map("pattern_type") @db.VarChar(50) // 类型：encounter, revelation, conflict
+  description   String   @db.Text // 模式描述
+  keywords      String[] @default([]) // 关键词
+
+  // 使用统计
+  useCount      Int       @default(1) @map("use_count")
+  lastUsedAt    DateTime  @default(now()) @map("last_used_at")
+  usedChapterIds String[] @default([]) @map("used_chapter_ids")
+
+  // 冷却控制（情节模式冷却期更长）
+  cooldownChapters Int     @default(20) @map("cooldown_chapters") // 需间隔章节数
+  isCoolingDown    Boolean @default(false) @map("is_cooling_down")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([projectId, patternName])
+  @@index([projectId, patternType])
+  @@index([projectId, isCoolingDown])
+  @@map("writing_plot_patterns")
+}
+
+// 质量评分记录
+model WritingQualityScore {
+  id        String         @id @default(uuid())
+  projectId String         @map("project_id")
+  project   WritingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  chapterId String         @map("chapter_id")
+
+  // 多样性评分
+  diversityScore      Decimal @map("diversity_score") @db.Decimal(3, 2) // 总体多样性 0-1
+  vocabularyRichness  Decimal @map("vocabulary_richness") @db.Decimal(3, 2) // 词汇丰富度
+  sentenceVariety     Decimal @map("sentence_variety") @db.Decimal(3, 2) // 句式变化度
+  expressionNovelty   Decimal @map("expression_novelty") @db.Decimal(3, 2) // 表达新颖度
+
+  // 角色一致性评分
+  characterConsistency Decimal @map("character_consistency") @db.Decimal(3, 2)
+  dialogueAuthenticity Decimal @map("dialogue_authenticity") @db.Decimal(3, 2) // 对话真实度
+
+  // 情节评分
+  plotNovelty      Decimal @map("plot_novelty") @db.Decimal(3, 2) // 情节新颖度
+  narrativeFlow    Decimal @map("narrative_flow") @db.Decimal(3, 2) // 叙事流畅度
+
+  // 史实/设定准确性
+  settingAccuracy Decimal @map("setting_accuracy") @db.Decimal(3, 2)
+
+  // 综合评分
+  overallScore Decimal @map("overall_score") @db.Decimal(3, 2)
+
+  // 问题列表
+  issues Json @default("[]") // QualityIssue[]
+
+  // 是否通过质量门禁
+  passedGate   Boolean @default(false) @map("passed_gate")
+  rewriteCount Int     @default(0) @map("rewrite_count") // 重写次数
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([projectId, chapterId])
+  @@index([projectId, passedGate])
+  @@index([overallScore])
+  @@map("writing_quality_scores")
+}
+
+// 历史知识条目
+model WritingHistoricalKnowledge {
+  id String @id @default(uuid())
+
+  // 朝代信息
+  dynasty     String @db.VarChar(50) // 朝代名称
+  period      String? @db.VarChar(100) // 具体时期
+  startYear   Int?   @map("start_year")
+  endYear     Int?   @map("end_year")
+
+  // 知识分类
+  category    String @db.VarChar(50) // 称谓、服饰、礼仪、建筑、官制、货币等
+  subcategory String? @db.VarChar(50)
+
+  // 知识内容
+  term        String @db.VarChar(100) // 术语
+  definition  String @db.Text // 定义/解释
+  correctUsage String? @map("correct_usage") @db.Text // 正确用法
+  wrongUsage  String? @map("wrong_usage") @db.Text // 常见错误用法
+  examples    String[] @default([]) // 使用示例
+
+  // 相关联的其他条目
+  relatedTerms String[] @default([]) @map("related_terms")
+
+  // 来源
+  source      String? @db.VarChar(200)
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([dynasty, category, term])
+  @@index([dynasty])
+  @@index([category])
+  @@index([term])
+  @@map("writing_historical_knowledge")
+}
+
+// 质量问题模式记录 - 用于学习和改进
+model WritingQualityIssuePattern {
+  id        String         @id @default(uuid())
+  projectId String?        @map("project_id") // null 表示全局模式
+  project   WritingProject? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // 问题模式
+  issueType   String @map("issue_type") @db.VarChar(50) // repetition, inconsistency, anachronism
+  patternDesc String @map("pattern_desc") @db.Text // 问题描述
+  examples    String[] @default([]) // 示例
+
+  // 检测规则
+  detectionRule String? @map("detection_rule") @db.Text // 正则或其他检测规则
+  keywords      String[] @default([])
+
+  // 修复建议
+  fixSuggestion String? @map("fix_suggestion") @db.Text
+
+  // 统计
+  occurrenceCount Int @default(1) @map("occurrence_count")
+  fixedCount      Int @default(0) @map("fixed_count")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([projectId, issueType])
+  @@index([issueType])
+  @@map("writing_quality_issue_patterns")
 }
 
 // ============ AI 团队模板（Admin 配置） ============

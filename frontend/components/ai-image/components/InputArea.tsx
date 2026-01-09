@@ -24,6 +24,8 @@ export interface InputAreaProps {
   onModelChange: (modelId: string) => void;
   templateLayout: TemplateLayout;
   onLayoutChange: (layout: TemplateLayout) => void;
+  imageStyle: string;
+  onStyleChange: (style: string) => void;
   aspectRatio: AspectRatio;
   onAspectRatioChange: (ratio: AspectRatio) => void;
   skipEnhancement: boolean;
@@ -93,6 +95,8 @@ export function InputArea({
   onModelChange,
   templateLayout,
   onLayoutChange,
+  imageStyle,
+  onStyleChange,
   aspectRatio,
   onAspectRatioChange,
   skipEnhancement,
@@ -166,6 +170,8 @@ export function InputArea({
         onModelChange={onModelChange}
         templateLayout={templateLayout}
         onLayoutChange={onLayoutChange}
+        imageStyle={imageStyle}
+        onStyleChange={onStyleChange}
         aspectRatio={aspectRatio}
         onAspectRatioChange={onAspectRatioChange}
         skipEnhancement={skipEnhancement}

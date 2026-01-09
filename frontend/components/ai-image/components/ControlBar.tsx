@@ -1,5 +1,5 @@
 import type { AIModel, AspectRatio, TemplateLayout } from '../types';
-import { ASPECT_RATIOS } from '../constants';
+import { ASPECT_RATIOS, IMAGE_STYLES } from '../constants';
 
 interface ControlBarProps {
   models: AIModel[];
@@ -7,6 +7,8 @@ interface ControlBarProps {
   onModelChange: (modelId: string) => void;
   templateLayout: TemplateLayout;
   onLayoutChange: (layout: TemplateLayout) => void;
+  imageStyle: string;
+  onStyleChange: (style: string) => void;
   aspectRatio: AspectRatio;
   onAspectRatioChange: (ratio: AspectRatio) => void;
   skipEnhancement: boolean;
@@ -22,6 +24,8 @@ export function ControlBar({
   onModelChange,
   templateLayout,
   onLayoutChange,
+  imageStyle,
+  onStyleChange,
   aspectRatio,
   onAspectRatioChange,
   skipEnhancement,
@@ -80,6 +84,27 @@ export function ControlBar({
           <option value="funnel">Funnel</option>
           <option value="matrix">Matrix</option>
           <option value="ranking">Ranking</option>
+        </select>
+      </div>
+
+      {/* Divider */}
+      <div className="h-4 w-px bg-gray-200" />
+
+      {/* Image Style */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium text-gray-600">Style</span>
+        <select
+          value={imageStyle}
+          onChange={(e) => onStyleChange(e.target.value)}
+          className="h-7 max-w-[140px] rounded-md border border-gray-200 bg-gray-50 px-2 text-xs text-gray-700 transition-colors hover:border-gray-300 focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-100"
+          disabled={isGenerating}
+          title="Image style"
+        >
+          {IMAGE_STYLES.map((style) => (
+            <option key={style.value} value={style.value}>
+              {style.label}
+            </option>
+          ))}
         </select>
       </div>
 

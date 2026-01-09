@@ -8,13 +8,72 @@
  * Style enhancements for different artistic styles
  */
 export const STYLE_ENHANCEMENTS: Record<string, string> = {
+  // 写实类
   realistic: "photorealistic, 8k uhd, high quality, detailed",
+  cinematic:
+    "cinematic, film still, dramatic lighting, movie scene, anamorphic",
+  portrait:
+    "professional portrait photography, studio lighting, shallow depth of field",
+
+  // 艺术类
   artistic: "artistic, painterly, vibrant colors, expressive",
-  anime: "anime style, detailed, vibrant, studio quality",
+  watercolor:
+    "watercolor painting, soft colors, artistic, delicate brushstrokes",
+  "oil-painting":
+    "oil painting, rich colors, textured brushstrokes, classical art",
+  impressionist:
+    "impressionist style, soft light, visible brushstrokes, dreamy atmosphere",
+
+  // 数字艺术
+  anime: "anime style, detailed, vibrant, studio quality, cel shading",
   "3d": "3D render, octane render, unreal engine, highly detailed",
+  "digital-art":
+    "digital art, concept art, detailed illustration, artstation quality",
+  "pixel-art": "pixel art, retro game style, 16-bit aesthetic",
+
+  // 素描类
   sketch: "pencil sketch, detailed line art, artistic",
-  watercolor: "watercolor painting, soft colors, artistic",
+  "ink-wash":
+    "ink wash painting, traditional chinese art, elegant brushwork, zen aesthetic",
+  lineart: "clean line art, minimal, black and white, vector style",
+
+  // 特殊风格
+  minimalist: "minimalist design, clean, simple shapes, elegant composition",
+  vintage:
+    "vintage style, retro aesthetic, nostalgic, film grain, faded colors",
+  fantasy: "fantasy art, magical, ethereal, detailed world-building",
+  "sci-fi": "sci-fi concept art, futuristic, cyberpunk, high-tech aesthetic",
 };
+
+/**
+ * Style options for UI display (with labels)
+ */
+export const STYLE_OPTIONS = [
+  { value: "", label: "Auto (自动)" },
+  // 写实类
+  { value: "realistic", label: "📷 Realistic (照片写实)" },
+  { value: "cinematic", label: "🎬 Cinematic (电影风格)" },
+  { value: "portrait", label: "👤 Portrait (人像摄影)" },
+  // 艺术类
+  { value: "artistic", label: "🎨 Artistic (艺术绘画)" },
+  { value: "watercolor", label: "💧 Watercolor (水彩)" },
+  { value: "oil-painting", label: "🖼️ Oil Painting (油画)" },
+  { value: "impressionist", label: "🌸 Impressionist (印象派)" },
+  // 数字艺术
+  { value: "anime", label: "✨ Anime (动漫)" },
+  { value: "3d", label: "🎮 3D Render (3D渲染)" },
+  { value: "digital-art", label: "💻 Digital Art (数字艺术)" },
+  { value: "pixel-art", label: "👾 Pixel Art (像素风)" },
+  // 素描类
+  { value: "sketch", label: "✏️ Sketch (素描)" },
+  { value: "ink-wash", label: "🖌️ Ink Wash (水墨)" },
+  { value: "lineart", label: "📐 Line Art (线稿)" },
+  // 特殊风格
+  { value: "minimalist", label: "⬜ Minimalist (极简)" },
+  { value: "vintage", label: "📻 Vintage (复古)" },
+  { value: "fantasy", label: "🧙 Fantasy (奇幻)" },
+  { value: "sci-fi", label: "🚀 Sci-Fi (科幻)" },
+];
 
 /**
  * Aspect ratio to dimensions mapping

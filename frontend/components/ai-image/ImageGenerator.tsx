@@ -1215,6 +1215,7 @@ export default function ImageGenerator({
     | 'matrix'
     | 'ranking'; // 新增：排行榜/横向比较
   const [templateLayout, setTemplateLayout] = useState<TemplateLayout>('auto');
+  const [imageStyle, setImageStyle] = useState<string>('');
 
   // UI state
   const [insightsTab, setInsightsTab] = useState<InsightsTab>('insights');
@@ -1494,6 +1495,7 @@ export default function ImageGenerator({
           formData.append('imageModelId', selectedImageModelId);
         formData.append('skipEnhancement', String(skipEnhancement));
         formData.append('aspectRatio', aspectRatio);
+        if (imageStyle) formData.append('style', imageStyle);
         if (filesPrompt.trim()) formData.append('prompt', filesPrompt.trim());
 
         const response = await fetch(
@@ -1530,6 +1532,8 @@ export default function ImageGenerator({
       // Only pass template if user explicitly selected (not auto)
       if (templateLayout !== 'auto')
         params.set('templateLayout', templateLayout);
+      // Pass image style if selected
+      if (imageStyle) params.set('style', imageStyle);
 
       switch (inputMode) {
         case 'prompt':
@@ -2179,6 +2183,8 @@ export default function ImageGenerator({
             onModelChange={setSelectedImageModelId}
             templateLayout={templateLayout}
             onLayoutChange={setTemplateLayout}
+            imageStyle={imageStyle}
+            onStyleChange={setImageStyle}
             aspectRatio={aspectRatio}
             onAspectRatioChange={setAspectRatio}
             skipEnhancement={skipEnhancement}

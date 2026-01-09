@@ -1,15 +1,18 @@
 /**
- * Writer Agent - 写作 Agent
+ * Writer Agent - 写作 Agent (Enhanced with Quality System)
  *
  * 核心写作角色，负责：
  * - 基于大纲和 Story Bible 设定完成章节创作
  * - 保持与项目整体风格一致
  * - 严格遵循 Story Bible 中的设定
+ * - 【新增】遵循表达冷却约束，避免重复表达
+ * - 【新增】遵循角色人格约束，保持角色一致性
+ * - 【新增】遵循历史知识约束，避免历史错误
  *
  * 支持多实例并行，每个实例负责一个章节的写作。
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { BaseAgent } from "../../../ai-engine/agents/base/base-agent";
 import {
   AgentContext,
@@ -20,6 +23,9 @@ import {
   WritingContextPackage,
   ChapterWritingContext,
 } from "../interfaces/writing-context.interface";
+import { ExpressionMemoryService } from "../services/quality/expression-memory.service";
+import { CharacterPersonalityService } from "../services/quality/character-personality.service";
+import { HistoricalKnowledgeService } from "../services/quality/historical-knowledge.service";
 
 // ==================== 输入输出类型 ====================
 
@@ -69,7 +75,8 @@ export interface WriterOutput {
 export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
   readonly id = "writer-agent";
   readonly name = "Writer Agent";
-  readonly description = "专业写作 Agent - 基于大纲和 Story Bible 完成章节创作";
+  readonly description =
+    "专业写作 Agent - 基于大纲和 Story Bible 完成章节创作（含质量控制）";
 
   readonly supportedModes: ExecutionMode[] = ["reactive", "hybrid"];
 
@@ -92,6 +99,12 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       description: "严格遵循 Story Bible 中的设定进行创作",
       category: "validation",
     },
+    {
+      id: "quality-control",
+      name: "Quality Control",
+      description: "遵循表达冷却、人格约束和历史知识约束",
+      category: "validation",
+    },
   ];
 
   readonly requiredTools = [
@@ -99,6 +112,16 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     BUILTIN_TOOLS.RAG_SEARCH,
     BUILTIN_TOOLS.SHORT_TERM_MEMORY,
   ];
+
+  constructor(
+    @Optional() private readonly expressionMemory?: ExpressionMemoryService,
+    @Optional()
+    private readonly characterPersonality?: CharacterPersonalityService,
+    @Optional()
+    private readonly historicalKnowledge?: HistoricalKnowledgeService,
+  ) {
+    super();
+  }
 
   /**
    * 核心执行逻辑
@@ -113,13 +136,22 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       `[Writer] Starting chapter ${chapterContext.chapter.chapterNumber}: ${chapterContext.chapter.title}`,
     );
 
-    // 1. 构建系统提示词
-    const systemPrompt = this.buildWriterSystemPrompt(contextPackage);
+    // 1. 获取质量约束（表达冷却、人格约束、历史知识）
+    const qualityConstraints = await this.buildQualityConstraints(
+      contextPackage,
+      chapterContext,
+    );
 
-    // 2. 构建用户提示词（包含章节上下文）
+    // 2. 构建系统提示词（含质量约束）
+    const systemPrompt = this.buildWriterSystemPrompt(
+      contextPackage,
+      qualityConstraints,
+    );
+
+    // 3. 构建用户提示词（包含章节上下文）
     const userPrompt = this.buildChapterPrompt(chapterContext, contextPackage);
 
-    // 3. 调用 LLM 生成内容
+    // 4. 调用 LLM 生成内容
     const response = await this.callLLM(
       [
         { role: "system", content: systemPrompt },
@@ -133,13 +165,13 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
 
     const content = response.content || "";
 
-    // 4. 解析生成的内容
+    // 5. 解析生成的内容
     const wordCount = this.countWords(content);
 
-    // 5. 提取元数据
+    // 6. 提取元数据
     const metadata = this.extractMetadata(content, chapterContext);
 
-    // 6. 识别需要检查的点
+    // 7. 识别需要检查的点
     const checkpoints = this.identifyCheckpoints(content, contextPackage);
 
     this.logger.log(
@@ -156,20 +188,105 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
   }
 
   /**
+   * 构建质量约束提示词
+   */
+  private async buildQualityConstraints(
+    contextPackage: WritingContextPackage,
+    chapterContext: ChapterWritingContext,
+  ): Promise<string> {
+    const parts: string[] = [];
+    const projectId = contextPackage.extensions.storyBible.bibleId;
+    const chapterNumber = chapterContext.chapter.chapterNumber;
+
+    // 1. 表达冷却约束
+    if (this.expressionMemory) {
+      try {
+        const avoidancePrompt =
+          await this.expressionMemory.generateAvoidancePrompt(
+            projectId,
+            chapterNumber,
+          );
+        if (avoidancePrompt) {
+          parts.push(avoidancePrompt);
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[Writer] Failed to get expression constraints: ${error}`,
+        );
+      }
+    }
+
+    // 2. 角色人格约束
+    if (this.characterPersonality) {
+      try {
+        const characterIds = chapterContext.involvedCharacters.map(
+          (c) => c.name, // 这里使用名称，实际应使用 ID
+        );
+        // 由于我们没有 characterId，暂时跳过
+        // TODO: 通过 characterName 查询 characterId
+        if (characterIds.length > 0) {
+          // 简化实现：直接从 chapterContext 构建人格提示
+          const personalityHints = chapterContext.involvedCharacters
+            .filter((c) => c.personality?.speechPattern)
+            .map(
+              (c) =>
+                `**${c.name}**: ${c.personality?.traits?.join("、") || ""}, 说话方式: ${c.personality?.speechPattern || ""}`,
+            );
+
+          if (personalityHints.length > 0) {
+            parts.push("## 角色人格约束");
+            parts.push(personalityHints.join("\n"));
+            parts.push("");
+          }
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[Writer] Failed to get personality constraints: ${error}`,
+        );
+      }
+    }
+
+    // 3. 历史知识约束
+    if (this.historicalKnowledge) {
+      try {
+        // 从项目设置中获取朝代（假设存储在 worldType 中）
+        const dynasty = contextPackage.extensions.storyBible.worldType;
+        if (dynasty && (dynasty.includes("明") || dynasty.includes("清"))) {
+          const historicalPrompt =
+            await this.historicalKnowledge.generateHistoricalConstraintPrompt(
+              dynasty.includes("明") ? "明朝" : "清朝",
+            );
+          if (historicalPrompt) {
+            parts.push(historicalPrompt);
+          }
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[Writer] Failed to get historical constraints: ${error}`,
+        );
+      }
+    }
+
+    return parts.join("\n\n");
+  }
+
+  /**
    * 构建写作系统提示词
    */
   private buildWriterSystemPrompt(
     contextPackage: WritingContextPackage,
+    qualityConstraints: string = "",
   ): string {
     const storyBible = contextPackage.extensions.storyBible;
     const writingStyle = storyBible.writingStyle;
 
-    return `你是一位专业的创意写作 Agent，负责执行具体的章节写作任务。
+    let prompt = `你是一位专业的创意写作 Agent，负责执行具体的章节写作任务。
 
 ## 核心职责
 1. 章节写作：基于大纲和设定完成章节创作
 2. 风格一致：保持与项目整体风格一致
 3. 设定遵循：严格遵循 Story Bible 中的设定
+4. 多样性：避免重复使用相同的表达和情节模式
 
 ## 写作风格
 - 视角：${writingStyle?.pov || "第三人称限定"}
@@ -198,7 +315,15 @@ ${(contextPackage.establishedFacts || [])
 - 直接输出章节正文，无需额外标记
 - 保持叙事流畅，情节连贯
 - 对话要符合角色性格
-- 描写要符合世界观设定`;
+- 描写要符合世界观设定
+- 避免使用禁用表达列表中的词汇`;
+
+    // 添加质量约束
+    if (qualityConstraints) {
+      prompt += `\n\n${qualityConstraints}`;
+    }
+
+    return prompt;
   }
 
   /**

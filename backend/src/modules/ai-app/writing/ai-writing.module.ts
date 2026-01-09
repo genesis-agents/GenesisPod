@@ -41,6 +41,14 @@ import { ChapterDependencyService } from "./services/parallel/chapter-dependency
 import { WriterPoolService } from "./services/parallel/writer-pool.service";
 import { ParallelConflictDetectorService } from "./services/parallel/parallel-conflict-detector.service";
 
+// Quality services (AI Writing Quality Enhancement System)
+import {
+  ExpressionMemoryService,
+  CharacterPersonalityService,
+  QualityGateService,
+  HistoricalKnowledgeService,
+} from "./services/quality";
+
 // Writing Agents (extending AI Engine BaseAgent)
 import {
   StoryArchitectAgent,
@@ -82,6 +90,11 @@ import {
     ChapterDependencyService,
     WriterPoolService,
     ParallelConflictDetectorService,
+    // Quality services (AI Writing Quality Enhancement System)
+    ExpressionMemoryService,
+    CharacterPersonalityService,
+    QualityGateService,
+    HistoricalKnowledgeService,
     // Writing Agents (from BaseAgent)
     StoryArchitectAgent,
     BibleKeeperAgent,
@@ -98,6 +111,11 @@ import {
     ConsistencyEngineService,
     ParallelOrchestratorService,
     WritingMissionService,
+    // Quality services
+    ExpressionMemoryService,
+    CharacterPersonalityService,
+    QualityGateService,
+    HistoricalKnowledgeService,
     // Export agents for external use
     StoryArchitectAgent,
     BibleKeeperAgent,
