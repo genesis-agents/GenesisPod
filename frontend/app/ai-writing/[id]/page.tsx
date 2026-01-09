@@ -163,6 +163,7 @@ export default function WritingProjectPage() {
     missionCompleted,
     activeAgentIds,
     clearError,
+    clearCurrentProjectData,
   } = useAIWritingStore();
 
   const [userInput, setUserInput] = useState('');
@@ -672,6 +673,17 @@ export default function WritingProjectPage() {
     enabled: !!projectId && !!user,
     onEvent: handleWritingEvent,
   });
+
+  // Clear old project data when projectId changes to prevent data mixing
+  useEffect(() => {
+    // Clear old data immediately when projectId changes
+    clearCurrentProjectData();
+    // Also reset local states
+    setSelectedChapter(null);
+    setTaskMessages([]);
+    hasLoadedLogsRef.current = false;
+    lastMissionMessageRef.current = '';
+  }, [projectId, clearCurrentProjectData]);
 
   // Load project data
   useEffect(() => {
@@ -1481,7 +1493,13 @@ export default function WritingProjectPage() {
     );
   };
 
-  if (authLoading || isLoadingProjects) {
+  // Show loading when auth is loading, projects are loading, or when project ID doesn't match
+  // This prevents "串台" (data mixing) when switching between projects
+  if (
+    authLoading ||
+    isLoadingProjects ||
+    (currentProject && currentProject.id !== projectId)
+  ) {
     return (
       <AppShell>
         <main className="flex flex-1 items-center justify-center">

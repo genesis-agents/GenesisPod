@@ -90,6 +90,7 @@ interface AIWritingState {
   // Actions - Utility
   clearError: () => void;
   reset: () => void;
+  clearCurrentProjectData: () => void;
 }
 
 const initialState = {
@@ -710,5 +711,21 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
 
   reset: () => {
     set(initialState);
+  },
+
+  clearCurrentProjectData: () => {
+    set({
+      currentProject: null,
+      volumes: [],
+      currentChapter: null,
+      storyBible: null,
+      characters: [],
+      isMissionRunning: false,
+      currentMissionId: null,
+      missionProgress: 0,
+      missionMessage: '',
+      missionCompleted: false,
+      activeAgentIds: [],
+    });
   },
 }));
