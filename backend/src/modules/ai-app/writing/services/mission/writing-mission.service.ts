@@ -1118,7 +1118,8 @@ ${input.userPrompt}
       : "";
 
     try {
-      await this.prisma.storyBible.upsert({
+      // 1. 保存/更新 StoryBible
+      const bible = await this.prisma.storyBible.upsert({
         where: { projectId: input.projectId },
         create: {
           projectId: input.projectId,
@@ -1139,9 +1140,95 @@ ${input.userPrompt}
         },
       });
       this.logger.log(`[${missionId}] StoryBible saved to database`);
+
+      // 2. 保存角色到 WritingCharacter 表
+      if (charactersArray && charactersArray.length > 0) {
+        // 先删除旧角色
+        await this.prisma.writingCharacter.deleteMany({
+          where: { bibleId: bible.id },
+        });
+        // 创建新角色
+        for (const char of charactersArray) {
+          const c = char as Record<string, unknown>;
+          // 映射角色类型到枚举
+          const roleStr = String(c.role || "supporting").toLowerCase();
+          const roleEnum =
+            roleStr === "protagonist"
+              ? "PROTAGONIST"
+              : roleStr === "antagonist"
+                ? "ANTAGONIST"
+                : "SUPPORTING";
+
+          await this.prisma.writingCharacter.create({
+            data: {
+              bibleId: bible.id,
+              name: String(c.name || "未命名"),
+              role: roleEnum,
+              appearance: { description: String(c.appearance || "") },
+              personality: {
+                traits: Array.isArray(c.personality) ? c.personality : [],
+                motivation: String(c.motivation || ""),
+                arc: String(c.arc || ""),
+              },
+              background: String(c.background || ""),
+            },
+          });
+        }
+        this.logger.log(
+          `[${missionId}] Saved ${charactersArray.length} characters to database`,
+        );
+      }
+
+      // 3. 保存世界设定到 WorldSetting 表
+      if (worldInfo) {
+        // 先删除旧设定
+        await this.prisma.worldSetting.deleteMany({
+          where: { bibleId: bible.id },
+        });
+        // 创建新设定
+        const settingsToSave = [
+          {
+            category: "时代",
+            name: "时代背景",
+            description: worldInfo.era || "",
+          },
+          {
+            category: "地理",
+            name: "地理环境",
+            description: worldInfo.geography || "",
+          },
+          {
+            category: "社会",
+            name: "社会结构",
+            description: worldInfo.society || "",
+          },
+          {
+            category: "类型",
+            name: "世界类型",
+            description: worldInfo.type || "",
+          },
+        ].filter((s) => s.description);
+
+        for (const setting of settingsToSave) {
+          await this.prisma.worldSetting.create({
+            data: {
+              bibleId: bible.id,
+              category: setting.category,
+              name: setting.name,
+              description: setting.description,
+              rules: Array.isArray(worldInfo.rules)
+                ? worldInfo.rules.map(String)
+                : [],
+            },
+          });
+        }
+        this.logger.log(
+          `[${missionId}] Saved ${settingsToSave.length} world settings to database`,
+        );
+      }
     } catch (e) {
       this.logger.warn(
-        `[${missionId}] Failed to save StoryBible: ${(e as Error).message}`,
+        `[${missionId}] Failed to save StoryBible/Characters/Settings: ${(e as Error).message}`,
       );
     }
 
