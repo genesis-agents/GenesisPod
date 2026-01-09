@@ -44,13 +44,14 @@ const EXPRESSION_COOLDOWN_CONFIG = {
 
 /**
  * 常见重复表达模式 - 用于检测
+ * 扩展版本：覆盖更多常见 AI 写作重复模式
  */
 const COMMON_EXPRESSION_PATTERNS: Array<{
   pattern: RegExp;
   type: ExpressionType;
   category?: string;
 }> = [
-  // 情感震惊类
+  // ==================== 情感震惊类 ====================
   { pattern: /心中一震/g, type: "EMOTION", category: "震惊" },
   { pattern: /心头一紧/g, type: "EMOTION", category: "紧张" },
   { pattern: /心中一动/g, type: "EMOTION", category: "触动" },
@@ -61,20 +62,48 @@ const COMMON_EXPRESSION_PATTERNS: Array<{
   { pattern: /暗自思忖/g, type: "EMOTION", category: "思考" },
   { pattern: /不由得/g, type: "EMOTION", category: "自然反应" },
   { pattern: /不禁/g, type: "EMOTION", category: "自然反应" },
+  { pattern: /心如刀绞/g, type: "EMOTION", category: "痛苦" },
+  { pattern: /心乱如麻/g, type: "EMOTION", category: "困惑" },
+  { pattern: /百感交集/g, type: "EMOTION", category: "复杂" },
+  { pattern: /五味杂陈/g, type: "EMOTION", category: "复杂" },
+  { pattern: /心头一热/g, type: "EMOTION", category: "感动" },
+  { pattern: /心中一喜/g, type: "EMOTION", category: "喜悦" },
+  { pattern: /暗自庆幸/g, type: "EMOTION", category: "庆幸" },
+  { pattern: /心中一寒/g, type: "EMOTION", category: "恐惧" },
+  { pattern: /心中一惊/g, type: "EMOTION", category: "惊讶" },
+  { pattern: /若有所思/g, type: "EMOTION", category: "思考" },
 
-  // 动作描写类
+  // ==================== 动作描写类 ====================
   { pattern: /微微一笑/g, type: "ACTION", category: "微笑" },
   { pattern: /嘴角微扬/g, type: "ACTION", category: "微笑" },
+  { pattern: /嘴角上扬/g, type: "ACTION", category: "微笑" },
+  { pattern: /淡然一笑/g, type: "ACTION", category: "微笑" },
+  { pattern: /莞尔一笑/g, type: "ACTION", category: "微笑" },
   { pattern: /轻声道/g, type: "ACTION", category: "说话" },
   { pattern: /淡淡道/g, type: "ACTION", category: "说话" },
   { pattern: /缓缓道/g, type: "ACTION", category: "说话" },
   { pattern: /冷冷道/g, type: "ACTION", category: "说话" },
+  { pattern: /沉声道/g, type: "ACTION", category: "说话" },
+  { pattern: /低声道/g, type: "ACTION", category: "说话" },
+  { pattern: /喃喃道/g, type: "ACTION", category: "说话" },
+  { pattern: /厉声道/g, type: "ACTION", category: "说话" },
   { pattern: /眉头微皱/g, type: "ACTION", category: "表情" },
   { pattern: /眉头一蹙/g, type: "ACTION", category: "表情" },
+  { pattern: /眉头紧锁/g, type: "ACTION", category: "表情" },
+  { pattern: /眉头舒展/g, type: "ACTION", category: "表情" },
   { pattern: /目光一闪/g, type: "ACTION", category: "眼神" },
   { pattern: /眼中闪过/g, type: "ACTION", category: "眼神" },
+  { pattern: /目光如炬/g, type: "ACTION", category: "眼神" },
+  { pattern: /目光深邃/g, type: "ACTION", category: "眼神" },
+  { pattern: /眼神一凝/g, type: "ACTION", category: "眼神" },
+  { pattern: /微微颔首/g, type: "ACTION", category: "点头" },
+  { pattern: /轻轻点头/g, type: "ACTION", category: "点头" },
+  { pattern: /缓缓摇头/g, type: "ACTION", category: "摇头" },
+  { pattern: /轻叹一声/g, type: "ACTION", category: "叹息" },
+  { pattern: /长叹一声/g, type: "ACTION", category: "叹息" },
+  { pattern: /轻轻叹息/g, type: "ACTION", category: "叹息" },
 
-  // 过渡语类
+  // ==================== 过渡语类 ====================
   { pattern: /话说/g, type: "TRANSITION", category: "开场" },
   { pattern: /却说/g, type: "TRANSITION", category: "转场" },
   { pattern: /且说/g, type: "TRANSITION", category: "转场" },
@@ -83,13 +112,81 @@ const COMMON_EXPRESSION_PATTERNS: Array<{
   { pattern: /与此同时/g, type: "TRANSITION", category: "时间" },
   { pattern: /不多时/g, type: "TRANSITION", category: "时间" },
   { pattern: /片刻之后/g, type: "TRANSITION", category: "时间" },
+  { pattern: /时光荏苒/g, type: "TRANSITION", category: "时间跨度" },
+  { pattern: /岁月如梭/g, type: "TRANSITION", category: "时间跨度" },
+  { pattern: /转眼之间/g, type: "TRANSITION", category: "时间" },
+  { pattern: /不知不觉/g, type: "TRANSITION", category: "时间" },
+  { pattern: /良久之后/g, type: "TRANSITION", category: "时间" },
+  { pattern: /须臾之间/g, type: "TRANSITION", category: "时间" },
 
-  // 描写类
+  // ==================== 环境描写类 ====================
+  { pattern: /月光透过[^，。]{2,8}/g, type: "DESCRIPTION", category: "月光" },
+  { pattern: /月色如水/g, type: "DESCRIPTION", category: "月光" },
+  { pattern: /月华如练/g, type: "DESCRIPTION", category: "月光" },
+  { pattern: /晨曦初露/g, type: "DESCRIPTION", category: "晨景" },
+  { pattern: /晨光熹微/g, type: "DESCRIPTION", category: "晨景" },
+  { pattern: /夕阳西下/g, type: "DESCRIPTION", category: "夕景" },
+  { pattern: /夜色深沉/g, type: "DESCRIPTION", category: "夜景" },
+  { pattern: /夜幕降临/g, type: "DESCRIPTION", category: "夜景" },
+  { pattern: /烛光摇曳/g, type: "DESCRIPTION", category: "光线" },
+  { pattern: /灯火阑珊/g, type: "DESCRIPTION", category: "光线" },
+  { pattern: /金碧辉煌/g, type: "DESCRIPTION", category: "建筑" },
+  { pattern: /雕梁画栋/g, type: "DESCRIPTION", category: "建筑" },
+  { pattern: /亭台楼阁/g, type: "DESCRIPTION", category: "建筑" },
+  { pattern: /气势恢宏/g, type: "DESCRIPTION", category: "气势" },
+  { pattern: /庄严肃穆/g, type: "DESCRIPTION", category: "气氛" },
+
+  // ==================== 人物外貌类 ====================
   { pattern: /一袭[^，。,\.]{2,6}/g, type: "DESCRIPTION", category: "服饰" },
   { pattern: /身着[^，。,\.]{2,8}/g, type: "DESCRIPTION", category: "服饰" },
   { pattern: /面如[^，。,\.]{2,4}/g, type: "DESCRIPTION", category: "外貌" },
   { pattern: /眉如[^，。,\.]{2,4}/g, type: "DESCRIPTION", category: "外貌" },
   { pattern: /肤若[^，。,\.]{2,4}/g, type: "DESCRIPTION", category: "外貌" },
+  { pattern: /倾国倾城/g, type: "DESCRIPTION", category: "美貌" },
+  { pattern: /国色天香/g, type: "DESCRIPTION", category: "美貌" },
+  { pattern: /沉鱼落雁/g, type: "DESCRIPTION", category: "美貌" },
+  { pattern: /闭月羞花/g, type: "DESCRIPTION", category: "美貌" },
+  { pattern: /仪表堂堂/g, type: "DESCRIPTION", category: "外貌" },
+  { pattern: /气宇轩昂/g, type: "DESCRIPTION", category: "气质" },
+  { pattern: /风度翩翩/g, type: "DESCRIPTION", category: "气质" },
+
+  // ==================== 情节模式类 ====================
+  { pattern: /权力的游戏/g, type: "PLOT_PATTERN", category: "政治" },
+  { pattern: /暗流涌动/g, type: "PLOT_PATTERN", category: "氛围" },
+  { pattern: /波谲云诡/g, type: "PLOT_PATTERN", category: "氛围" },
+  { pattern: /风起云涌/g, type: "PLOT_PATTERN", category: "氛围" },
+  { pattern: /山雨欲来/g, type: "PLOT_PATTERN", category: "氛围" },
+  { pattern: /一触即发/g, type: "PLOT_PATTERN", category: "紧张" },
+  { pattern: /剑拔弩张/g, type: "PLOT_PATTERN", category: "紧张" },
+  { pattern: /势如破竹/g, type: "PLOT_PATTERN", category: "进展" },
+  { pattern: /峰回路转/g, type: "PLOT_PATTERN", category: "转折" },
+  { pattern: /柳暗花明/g, type: "PLOT_PATTERN", category: "转折" },
+  { pattern: /绝处逢生/g, type: "PLOT_PATTERN", category: "转折" },
+  { pattern: /出人意料/g, type: "PLOT_PATTERN", category: "转折" },
+
+  // ==================== 对话模式类 ====================
+  { pattern: /你可知道/g, type: "DIALOGUE", category: "提问" },
+  { pattern: /你可曾想过/g, type: "DIALOGUE", category: "提问" },
+  { pattern: /难道你不知道/g, type: "DIALOGUE", category: "反问" },
+  { pattern: /这是为何/g, type: "DIALOGUE", category: "疑问" },
+  { pattern: /此话怎讲/g, type: "DIALOGUE", category: "疑问" },
+  { pattern: /莫非是/g, type: "DIALOGUE", category: "猜测" },
+  { pattern: /想必是/g, type: "DIALOGUE", category: "猜测" },
+  { pattern: /原来如此/g, type: "DIALOGUE", category: "恍然" },
+  { pattern: /恍然大悟/g, type: "DIALOGUE", category: "恍然" },
+  { pattern: /不可思议/g, type: "DIALOGUE", category: "惊讶" },
+
+  // ==================== 成语高频类 ====================
+  { pattern: /深不可测/g, type: "IDIOM", category: "描述" },
+  { pattern: /高深莫测/g, type: "IDIOM", category: "描述" },
+  { pattern: /不可一世/g, type: "IDIOM", category: "态度" },
+  { pattern: /胸有成竹/g, type: "IDIOM", category: "态度" },
+  { pattern: /步步为营/g, type: "IDIOM", category: "策略" },
+  { pattern: /运筹帷幄/g, type: "IDIOM", category: "策略" },
+  { pattern: /深谋远虑/g, type: "IDIOM", category: "策略" },
+  { pattern: /明争暗斗/g, type: "IDIOM", category: "斗争" },
+  { pattern: /尔虞我诈/g, type: "IDIOM", category: "斗争" },
+  { pattern: /勾心斗角/g, type: "IDIOM", category: "斗争" },
 ];
 
 // ==================== 类型定义 ====================
@@ -331,9 +428,7 @@ export class ExpressionMemoryService {
   /**
    * 检测内容中的表达
    */
-  private detectExpressions(
-    content: string,
-  ): Array<{
+  private detectExpressions(content: string): Array<{
     expression: string;
     type: ExpressionType;
     category?: string;
@@ -629,5 +724,164 @@ export class ExpressionMemoryService {
       highFrequencyCount: highFrequency,
       byType: typeStats,
     };
+  }
+
+  // ==================== 动态表达学习 ====================
+
+  /**
+   * 从项目历史内容中学习新的重复模式
+   *
+   * 策略：
+   * 1. 扫描所有章节内容
+   * 2. 提取 3-6 字的短语
+   * 3. 统计出现频率
+   * 4. 识别高频短语（超过阈值）
+   * 5. 过滤常见词汇和已有模式
+   * 6. 添加到表达记忆
+   */
+  async learnFromProjectContent(
+    projectId: string,
+    minFrequency: number = 5,
+  ): Promise<{
+    newPatterns: Array<{ expression: string; frequency: number }>;
+    totalAnalyzed: number;
+  }> {
+    this.logger.log(
+      `[ExpressionMemory] Starting dynamic learning for project ${projectId}`,
+    );
+
+    // 1. 获取项目所有章节内容
+    const chapters = await this.prisma.writingChapter.findMany({
+      where: {
+        volume: { projectId },
+        content: { not: null },
+      },
+      select: { content: true, chapterNumber: true },
+      orderBy: { chapterNumber: "asc" },
+    });
+
+    if (chapters.length === 0) {
+      return { newPatterns: [], totalAnalyzed: 0 };
+    }
+
+    // 2. 合并所有内容
+    const allContent = chapters.map((ch) => ch.content || "").join("\n");
+
+    // 3. 提取 n-gram 短语并统计频率
+    const phraseFrequency = new Map<string, number>();
+    const ngramLengths = [3, 4, 5, 6]; // 3-6 字短语
+
+    for (const n of ngramLengths) {
+      for (let i = 0; i <= allContent.length - n; i++) {
+        const phrase = allContent.slice(i, i + n);
+
+        // 过滤：必须全是中文字符
+        if (!/^[\u4e00-\u9fa5]+$/.test(phrase)) continue;
+
+        // 过滤：不能包含常见虚词开头/结尾
+        if (this.isCommonWord(phrase)) continue;
+
+        const count = phraseFrequency.get(phrase) || 0;
+        phraseFrequency.set(phrase, count + 1);
+      }
+    }
+
+    // 4. 筛选高频短语
+    const highFrequencyPhrases: Array<{
+      expression: string;
+      frequency: number;
+    }> = [];
+
+    for (const [phrase, count] of phraseFrequency) {
+      if (count >= minFrequency) {
+        // 检查是否已在静态模式中
+        const isStaticPattern = COMMON_EXPRESSION_PATTERNS.some((p) =>
+          p.pattern.test(phrase),
+        );
+
+        // 检查是否已在数据库中
+        const existsInDb = await this.prisma.writingExpressionMemory.findFirst({
+          where: { projectId, expression: phrase },
+        });
+
+        if (!isStaticPattern && !existsInDb) {
+          highFrequencyPhrases.push({ expression: phrase, frequency: count });
+        }
+      }
+    }
+
+    // 5. 按频率排序，取前 50 个
+    highFrequencyPhrases.sort((a, b) => b.frequency - a.frequency);
+    const topPhrases = highFrequencyPhrases.slice(0, 50);
+
+    // 6. 添加到表达记忆（标记为动态学习）
+    for (const { expression, frequency } of topPhrases) {
+      const type = this.inferExpressionType(expression);
+
+      await this.prisma.writingExpressionMemory.create({
+        data: {
+          projectId,
+          expression,
+          expressionType: type,
+          category: "动态学习",
+          useCount: frequency,
+          lastUsedAt: new Date(),
+          isCoolingDown: frequency >= 10, // 高频直接进入冷却
+          cooldownUntil:
+            frequency >= 10 ? this.calculateCooldownEnd(0, 15) : null,
+        },
+      });
+    }
+
+    this.logger.log(
+      `[ExpressionMemory] Learned ${topPhrases.length} new patterns from ${chapters.length} chapters`,
+    );
+
+    return {
+      newPatterns: topPhrases,
+      totalAnalyzed: chapters.length,
+    };
+  }
+
+  /**
+   * 检查是否为常见虚词/无意义短语
+   */
+  private isCommonWord(phrase: string): boolean {
+    const commonPatterns = [
+      /^[的地得了着过]/,
+      /[的地得了着过]$/,
+      /^[是在有为]/,
+      /^[这那其]/,
+      /^[我你他她它们]/,
+      /[也就都还]/,
+      /^[一二三四五六七八九十]/,
+      /[个只条件]$/,
+    ];
+
+    return commonPatterns.some((p) => p.test(phrase));
+  }
+
+  /**
+   * 推断表达类型
+   */
+  private inferExpressionType(expression: string): ExpressionType {
+    // 基于关键词推断类型
+    if (/心|情|感|怒|喜|悲|惧|惊/.test(expression)) {
+      return "EMOTION";
+    }
+    if (/道|说|言|语|喊|叫|问/.test(expression)) {
+      return "DIALOGUE";
+    }
+    if (/时|刻|间|后|前|之/.test(expression)) {
+      return "TRANSITION";
+    }
+    if (/眼|眉|目|脸|面|唇|嘴/.test(expression)) {
+      return "ACTION";
+    }
+    if (/月|日|风|云|雨|雪|光/.test(expression)) {
+      return "DESCRIPTION";
+    }
+
+    return "DESCRIPTION"; // 默认
   }
 }

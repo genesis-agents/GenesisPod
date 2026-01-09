@@ -56,6 +56,7 @@ import {
 // Services
 import { ContextBuilderService } from "../writing/context-builder.service";
 import { StoryBibleService } from "../bible/story-bible.service";
+import { ExpressionMemoryService } from "../quality/expression-memory.service";
 
 // Event Emitter for real-time updates
 import { WritingEventEmitterService } from "../events/writing-event-emitter.service";
@@ -188,6 +189,8 @@ export class WritingMissionService {
     private readonly aiChatService: AiChatService,
     // Event Emitter - 实时事件推送
     private readonly eventEmitter: WritingEventEmitterService,
+    // Expression Memory - 表达冷却服务
+    private readonly expressionMemory: ExpressionMemoryService,
   ) {
     // 注册角色和团队配置（不需要 LLM）
     this.registerWritingRoles();
@@ -1702,6 +1705,18 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
       );
 
       // 3.1 作家创作（使用守护者提供的上下文）
+      // ★ 获取表达冷却约束
+      const avoidancePrompt =
+        await this.expressionMemory.generateAvoidancePrompt(
+          input.projectId,
+          chapterNumber,
+        );
+      if (avoidancePrompt) {
+        this.logger.log(
+          `[${missionId}] Expression avoidance prompt generated for chapter ${chapterNumber}`,
+        );
+      }
+
       const writerPrompt = this.buildChapterWriterPrompt(
         chapterNumber,
         chapterInfo,
@@ -1710,6 +1725,8 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
         previousChapterSummary,
         input.userPrompt,
         keeperContext,
+        undefined, // styleId
+        avoidancePrompt,
       );
 
       let chapterContent = "";
@@ -1968,6 +1985,27 @@ ${chapterContent}
 
       allChapters.push(chapterContent);
 
+      // ★ 分析并记录本章使用的表达（更新冷却状态）
+      try {
+        const chapterId = `${input.projectId}-chapter-${chapterNumber}`;
+        const analysisResult =
+          await this.expressionMemory.analyzeAndRecordExpressions(
+            input.projectId,
+            chapterId,
+            chapterNumber,
+            chapterContent,
+          );
+        if (analysisResult.violatedExpressions.length > 0) {
+          this.logger.warn(
+            `[${missionId}] Chapter ${chapterNumber} used ${analysisResult.violatedExpressions.length} cooling expressions`,
+          );
+        }
+      } catch (e) {
+        this.logger.warn(
+          `[${missionId}] Expression analysis failed: ${(e as Error).message}`,
+        );
+      }
+
       // 更新上下文（使用 LongContentEngine）
       try {
         await this.longContentEngine.processTaskCompletion(
@@ -1983,8 +2021,13 @@ ${chapterContent}
         );
       }
 
-      // 生成前文摘要
-      previousChapterSummary = this.generateChapterSummary(chapterContent);
+      // 生成前文摘要（使用 AI 增强版本）
+      previousChapterSummary = await this.generateChapterSummaryWithAI(
+        chapterContent,
+        chapterNumber,
+        chapterInfo.title,
+        writerModel,
+      );
 
       const chapterWordCount = this.countWords(chapterContent);
       this.logger.log(
@@ -2479,16 +2522,61 @@ ${chapterContent}
       contextPrompt: string;
     },
     styleId?: string,
+    avoidancePrompt?: string,
   ): string {
     const characters =
       (worldSettings.characters as Array<{
         name: string;
-        personality: string[];
+        role?: string;
+        personality?: string[];
+        appearance?: string;
+        background?: string;
+        motivation?: string;
+        arc?: string;
+        speechPattern?: string;
       }>) || [];
+
+    // 生成详细的角色约束信息
     const characterInfo = characters
       .slice(0, 5)
-      .map((c) => `${c.name}: ${(c.personality || []).join("、")}`)
+      .map((c) => {
+        const parts = [`**${c.name}**`];
+        if (c.role)
+          parts.push(
+            `[${c.role === "protagonist" ? "主角" : c.role === "antagonist" ? "反派" : "配角"}]`,
+          );
+        if (c.personality?.length)
+          parts.push(`性格：${c.personality.join("、")}`);
+        if (c.motivation) parts.push(`动机：${c.motivation}`);
+        if (c.speechPattern) parts.push(`说话风格：${c.speechPattern}`);
+        return parts.join(" | ");
+      })
       .join("\n");
+
+    // 生成角色一致性约束
+    const characterConstraints =
+      characters.length > 0
+        ? `\n【角色一致性约束 - 必须严格遵守】
+${characters
+  .slice(0, 5)
+  .map((c) => {
+    const constraints: string[] = [];
+    if (c.personality?.length) {
+      constraints.push(
+        `- ${c.name} 必须表现出 ${c.personality.slice(0, 3).join("、")} 的性格特点`,
+      );
+    }
+    if (c.role === "protagonist") {
+      constraints.push(`- ${c.name} 作为主角，需要有成长和变化`);
+    }
+    if (c.motivation) {
+      constraints.push(`- ${c.name} 的行动应符合其动机：${c.motivation}`);
+    }
+    return constraints.join("\n");
+  })
+  .filter(Boolean)
+  .join("\n")}`
+        : "";
 
     // 根据故事类型获取写作风格指南
     const effectiveStyleId =
@@ -2509,9 +2597,10 @@ ${chapterInfo.keyPoint ? `关键转折：${chapterInfo.keyPoint}` : ""}
 
 【主要角色】
 ${characterInfo || "待定"}
-
+${characterConstraints}
 ${previousSummary ? `【前文摘要】\n${previousSummary}\n` : "【开篇说明】这是故事的开始，需要引人入胜，建立故事背景和主要人物。\n"}
 ${keeperContext?.contextPrompt ? `【守护者提醒】\n${keeperContext.contextPrompt}\n` : ""}${keeperContext?.warnings?.length ? `\n⚠️ 注意事项：\n${keeperContext.warnings.map((w: string) => `- ${w}`).join("\n")}\n` : ""}
+${avoidancePrompt ? `【表达约束 - 禁止使用以下表达】\n${avoidancePrompt}\n` : ""}
 【创作要求 - 必须遵守】
 1. ⚠️ 字数要求：本章必须达到 1500 字以上，建议 2000-3000 字
 2. 📖 语言质量：语言流畅自然，富有文学性，句式多样化
@@ -2520,22 +2609,88 @@ ${keeperContext?.contextPrompt ? `【守护者提醒】\n${keeperContext.context
 5. ⚡ 节奏把控：情节紧凑，避免冗余的心理描写和重复的场景
 6. 🎭 叙事技巧：善用伏笔、悬念、反转等技巧增加可读性
 7. 🔄 避免重复：不要与前文使用相同的开场方式、对话模式或场景设置
+8. 🚫 表达多样性：严禁使用上述【表达约束】中列出的冷却期表达
 
 请直接输出章节内容，以"第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}"开头：`;
   }
 
   /**
-   * 生成章节摘要
+   * 生成章节摘要（简单版本 - 快速降级）
    */
-  private generateChapterSummary(content: string): string {
-    // 取章节的前 200 字和后 200 字作为上下文
-    const maxLength = 400;
+  private generateChapterSummarySimple(content: string): string {
+    const maxLength = 800;
     if (content.length <= maxLength) {
       return content;
     }
-    const start = content.slice(0, 200);
-    const end = content.slice(-200);
+    // 取前 400 字和后 400 字
+    const start = content.slice(0, 400);
+    const end = content.slice(-400);
     return `${start}...\n...\n${end}`;
+  }
+
+  /**
+   * 生成章节摘要（AI 增强版本）
+   *
+   * 使用 AI 生成结构化摘要，保留关键信息：
+   * - 主要事件和情节转折
+   * - 角色状态变化
+   * - 重要对话和决定
+   * - 场景和时间线信息
+   */
+  private async generateChapterSummaryWithAI(
+    content: string,
+    chapterNumber: number,
+    chapterTitle: string,
+    modelId: string,
+  ): Promise<string> {
+    // 如果内容较短，直接返回
+    if (content.length <= 1000) {
+      return content;
+    }
+
+    try {
+      const summaryPrompt = `请为以下章节内容生成一个结构化摘要，用于后续章节创作的上下文参考。
+
+【章节】第${chapterNumber}章 ${chapterTitle}
+
+【内容】
+${content.slice(0, 6000)}${content.length > 6000 ? "...(内容截断)" : ""}
+
+【摘要要求】
+请生成 400-600 字的摘要，包含：
+1. **情节概要**：本章发生了什么（2-3 句话）
+2. **关键事件**：重要转折点、冲突、决定
+3. **角色状态**：主要角色的情绪、关系变化
+4. **悬念/伏笔**：需要后续呼应的内容
+5. **场景信息**：主要场景和时间
+
+直接输出摘要内容，不要添加额外格式标记。`;
+
+      const response = await this.aiChatService.chat({
+        messages: [
+          {
+            role: "system",
+            content:
+              "你是专业的小说编辑，擅长提取和总结关键信息。请生成简洁但信息完整的摘要。",
+          },
+          { role: "user", content: summaryPrompt },
+        ],
+        model: modelId,
+        temperature: 0.3,
+        maxTokens: 1000,
+      });
+
+      if (response.content && response.content.length > 100) {
+        return response.content;
+      }
+    } catch (e) {
+      this.logger.warn(
+        `AI summary generation failed for chapter ${chapterNumber}: ${(e as Error).message}`,
+      );
+    }
+
+    // 降级到简单摘要
+    return this.generateChapterSummarySimple(content);
   }
 
   // ==================== 守护者增强功能 ====================

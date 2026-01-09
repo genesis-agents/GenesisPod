@@ -35,6 +35,7 @@ import { PreWriteInjectionService } from "./services/consistency/pre-write-injec
 import { PostWriteValidationService } from "./services/consistency/post-write-validation.service";
 import { ConflictResolutionService } from "./services/consistency/conflict-resolution.service";
 import { FactExtractorService } from "./services/consistency/fact-extractor.service";
+import { ChapterCoherenceService } from "./services/consistency/chapter-coherence.service";
 
 // Parallel services
 import { ParallelOrchestratorService } from "./services/parallel/parallel-orchestrator.service";
@@ -87,6 +88,7 @@ import {
     PostWriteValidationService,
     ConflictResolutionService,
     FactExtractorService,
+    ChapterCoherenceService,
     // Parallel services
     ParallelOrchestratorService,
     ChapterDependencyService,

@@ -3,6 +3,7 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { PreWriteInjectionService } from "./pre-write-injection.service";
 import { PostWriteValidationService } from "./post-write-validation.service";
 import { ConflictResolutionService } from "./conflict-resolution.service";
+import { ChapterCoherenceService } from "./chapter-coherence.service";
 import { StoryBibleService } from "../bible/story-bible.service";
 import { ContextBuilderService } from "../writing/context-builder.service";
 
@@ -15,6 +16,7 @@ export class ConsistencyEngineService {
     private readonly preWriteInjection: PreWriteInjectionService,
     private readonly postWriteValidation: PostWriteValidationService,
     private readonly conflictResolution: ConflictResolutionService,
+    private readonly chapterCoherence: ChapterCoherenceService,
     private readonly storyBibleService: StoryBibleService,
     private readonly contextBuilder: ContextBuilderService,
   ) {
@@ -107,5 +109,58 @@ export class ConsistencyEngineService {
 
   async resolveConflicts(chapterId: string, issues: any[]) {
     return this.conflictResolution.resolve(chapterId, issues);
+  }
+
+  /**
+   * 检查章节与前一章节的连贯性
+   */
+  async checkChapterCoherence(chapterId: string, userId: string) {
+    const chapter = await this.prisma.writingChapter.findUnique({
+      where: { id: chapterId },
+      include: {
+        volume: {
+          include: {
+            project: { select: { ownerId: true } },
+          },
+        },
+      },
+    });
+
+    if (!chapter || chapter.volume.project.ownerId !== userId) {
+      throw new Error("Chapter not found or access denied");
+    }
+
+    const result =
+      await this.chapterCoherence.checkChapterTransition(chapterId);
+
+    // 保存检查结果
+    await this.chapterCoherence.saveCoherenceCheck(chapterId, result);
+
+    return result;
+  }
+
+  /**
+   * 检查整卷的章节连贯性
+   */
+  async checkVolumeCoherence(volumeId: string, userId: string) {
+    const volume = await this.prisma.writingVolume.findUnique({
+      where: { id: volumeId },
+      include: {
+        project: { select: { ownerId: true } },
+      },
+    });
+
+    if (!volume || volume.project.ownerId !== userId) {
+      throw new Error("Volume not found or access denied");
+    }
+
+    return this.chapterCoherence.checkVolumeCoherence(volumeId);
+  }
+
+  /**
+   * 快速连贯性检查（用于写作流程中实时调用）
+   */
+  async quickCoherenceCheck(chapterId: string) {
+    return this.chapterCoherence.quickCoherenceCheck(chapterId);
   }
 }
