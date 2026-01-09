@@ -162,9 +162,9 @@ export default function PublicReadPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white">
-      {/* Header */}
-      <header className="sticky top-0 z-10 border-b border-amber-100 bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+      {/* Header - offset by sidebar width on desktop */}
+      <header className="sticky top-0 z-10 border-b border-amber-100 bg-white/80 backdrop-blur-sm md:ml-72">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowToc(!showToc)}
@@ -186,7 +186,7 @@ export default function PublicReadPage() {
             </button>
             <div>
               <h1 className="text-lg font-bold text-gray-900">
-                {project.name}
+                {project.name || '未命名作品'}
               </h1>
               <p className="text-xs text-gray-500">
                 {(project.currentWords ?? 0).toLocaleString()} 字 ·{' '}
