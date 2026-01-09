@@ -540,7 +540,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-gray-900 shadow-sm'
                 : 'text-gray-700 hover:bg-gray-50'
             }`}
-            title={t('nav.aiOffice')}
+            title={t('nav.aiReports')}
           >
             <svg
               className="h-5 w-5 flex-shrink-0"
@@ -561,7 +561,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
               />
             </svg>
-            {showExpanded && <span>{t('nav.aiOffice')}</span>}
+            {showExpanded && <span>{t('nav.aiReports')}</span>}
           </Link>
 
           <Link
