@@ -36,6 +36,23 @@ interface PublicProject {
   };
 }
 
+// 清理章节内容：移除占位符文本和章节标题行
+const cleanChapterContent = (content: string): string => {
+  if (!content) return '';
+  return content
+    .replace(/【修复后的内容】/g, '')
+    .replace(/【正文开始】/g, '')
+    .replace(/【正文结束】/g, '')
+    .replace(/【待创作】/g, '')
+    .replace(/【内容待补充】/g, '')
+    .replace(
+      /^\s*#{1,6}\s*第[一二三四五六七八九十百千\d]+[章回][^\n]*\n?/gm,
+      ''
+    ) // 移除 markdown 章节标题行
+    .replace(/^\s*第[一二三四五六七八九十百千\d]+[章回][：:\s]*[^\n]*\n?/gm, '') // 移除纯文本章节标题行
+    .trim();
+};
+
 export default function PublicReadPage() {
   const params = useParams();
   const projectId = params.id as string;
@@ -271,7 +288,7 @@ export default function PublicReadPage() {
                     ),
                   }}
                 >
-                  {selectedChapter.content}
+                  {cleanChapterContent(selectedChapter.content)}
                 </ReactMarkdown>
               ) : (
                 <p className="text-center text-gray-400">暂无内容</p>

@@ -1219,6 +1219,41 @@ export default function WritingProjectPage() {
   const handleExportHtml = () => {
     if (!currentProject) return;
 
+    // 清理章节标题：移除 markdown 前缀和章节号前缀
+    const cleanChapterTitle = (
+      title: string,
+      chapterNumber: number
+    ): string => {
+      if (!title) return `第${chapterNumber}章`;
+      // 移除 markdown 标题前缀 (###, ##, #)
+      let cleaned = title.replace(/^#{1,6}\s*/, '');
+      // 移除章节号前缀 (第X章：, 第X章, Chapter X:)
+      cleaned = cleaned.replace(
+        /^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i,
+        ''
+      );
+      cleaned = cleaned.replace(/^Chapter\s*\d+[：:\s]*/i, '');
+      return cleaned.trim() || `第${chapterNumber}章`;
+    };
+
+    // 清理章节内容：移除占位符文本
+    const cleanChapterContent = (content: string): string => {
+      if (!content) return '';
+      // 移除各种占位符标记
+      let cleaned = content
+        .replace(/【修复后的内容】/g, '')
+        .replace(/【正文开始】/g, '')
+        .replace(/【正文结束】/g, '')
+        .replace(/【待创作】/g, '')
+        .replace(/【内容待补充】/g, '')
+        .replace(
+          /^\s*第[一二三四五六七八九十百千\d]+[章回][：:\s]*[^\n]*\n?/gm,
+          ''
+        ) // 移除内容开头的章节标题行
+        .trim();
+      return cleaned;
+    };
+
     // 世界观内容放在章节前面（使用 HTML 格式）
     const worldviewHtml = generateWorldviewContent('html');
 
@@ -1227,7 +1262,7 @@ export default function WritingProjectPage() {
       .sort((a, b) => a.chapterNumber - b.chapterNumber)
       .map(
         (c) =>
-          `<section class="chapter"><h2>${c.title}</h2><div class="content">${(c.content || '').replace(/\n/g, '<br/>')}</div></section>`
+          `<section class="chapter"><h2>第${c.chapterNumber}章 ${cleanChapterTitle(c.title, c.chapterNumber)}</h2><div class="content">${cleanChapterContent(c.content || '').replace(/\n/g, '<br/>')}</div></section>`
       )
       .join('\n');
 
@@ -1292,7 +1327,10 @@ export default function WritingProjectPage() {
       ${volumes
         .flatMap((v) => v.chapters || [])
         .sort((a, b) => a.chapterNumber - b.chapterNumber)
-        .map((c, i) => `<li><a href="#chapter-${i + 1}">${c.title}</a></li>`)
+        .map(
+          (c, i) =>
+            `<li><a href="#chapter-${i + 1}">第${c.chapterNumber}章 ${cleanChapterTitle(c.title, c.chapterNumber)}</a></li>`
+        )
         .join('\n')}
     </ul>
   </nav>
