@@ -969,17 +969,17 @@ export class AiChatService {
       ? { max_completion_tokens: maxTokens }
       : { max_tokens: maxTokens };
 
-    // ★ GPT-5 系列是推理模型，需要设置 reasoning_effort
-    // 问题：推理 tokens 会消耗 max_completion_tokens 预算，可能导致实际输出为空
-    // 解决：设置 reasoning_effort: "low" 限制推理消耗，保留输出空间
-    // 注意：数据库中模型名可能是 "gpt5.1" 或 "gpt-5.1"，需要同时匹配
+    // ★ 推理模型 (o1, o3) 需要设置 reasoning_effort 参数
+    // 注意：GPT-5 不支持 reasoning_effort 参数（返回 400 错误）
+    // 只对明确的 o1/o3 系列模型使用此参数
     const modelLower = modelId.toLowerCase();
-    const isGPT5 = modelLower.includes("gpt-5") || modelLower.includes("gpt5");
-    const reasoningParam = isGPT5 ? { reasoning_effort: "low" } : {};
+    const isO1O3Model =
+      modelLower.startsWith("o1") || modelLower.startsWith("o3");
+    const reasoningParam = isO1O3Model ? { reasoning_effort: "low" } : {};
 
-    if (isGPT5) {
+    if (isO1O3Model) {
       this.logger.debug(
-        `[callOpenAICompatibleAPI] GPT-5 model detected, adding reasoning_effort=low`,
+        `[callOpenAICompatibleAPI] o1/o3 model detected, adding reasoning_effort=low`,
       );
     }
 
@@ -2365,24 +2365,23 @@ Format the summary in a clear, structured manner using markdown.`;
             effectiveModelId.startsWith("o1") ||
             effectiveModelId.startsWith("o3");
 
-          // ★ GPT-5 系列是推理模型，需要特殊处理
-          // 问题：推理 tokens 会消耗 max_completion_tokens 预算，可能导致实际输出为空
-          // 解决：设置 reasoning_effort: "none" 禁用推理，避免推理 tokens 占用输出预算
-          const isGPT5 = effectiveModelId.includes("gpt-5");
+          // ★ 推理模型 (o1, o3) 需要设置 reasoning_effort 参数
+          // 注意：GPT-5 不支持 reasoning_effort 参数（返回 400 错误）
+          const isO1O3Model =
+            effectiveModelId.startsWith("o1") ||
+            effectiveModelId.startsWith("o3");
 
           const tokenParam = isNewModel
             ? { max_completion_tokens: maxTokens }
             : { max_tokens: maxTokens };
 
-          // GPT-5 系列添加 reasoning_effort 参数
-          const reasoningParam = isGPT5
-            ? { reasoning_effort: "none" } // 禁用推理，避免空响应问题
-            : {};
+          // 只对 o1/o3 系列模型添加 reasoning_effort 参数
+          const reasoningParam = isO1O3Model ? { reasoning_effort: "low" } : {};
 
           this.logger.debug(
             `[OpenAI] Calling API with model=${effectiveModelId}, ` +
               `${isNewModel ? "max_completion_tokens" : "max_tokens"}=${maxTokens}` +
-              `${isGPT5 ? ", reasoning_effort=none" : ""}`,
+              `${isO1O3Model ? ", reasoning_effort=low" : ""}`,
           );
 
           return await this.callApiWithKey(
