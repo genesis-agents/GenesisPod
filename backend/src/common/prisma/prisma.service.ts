@@ -25,6 +25,9 @@ export class PrismaService
 
     // Ensure system_settings columns exist
     await this.ensureSystemSettingsColumns();
+
+    // Ensure AI Writing columns exist (critical fix for chapter saving)
+    await this.ensureAiWritingColumns();
   }
 
   async onModuleDestroy() {
@@ -183,6 +186,40 @@ export class PrismaService
         error instanceof Error ? error.message : String(error);
       this.logger.warn(
         `Could not ensure system_settings columns: ${errorMessage}`,
+      );
+    }
+  }
+
+  /**
+   * Ensure AI Writing columns exist (critical for chapter saving)
+   */
+  private async ensureAiWritingColumns(): Promise<void> {
+    try {
+      // Check and add metadata column to writing_chapters
+      const metadataResult = await this.$queryRaw<Array<{ exists: boolean }>>`
+        SELECT EXISTS (
+          SELECT FROM information_schema.columns
+          WHERE table_schema = 'public'
+          AND table_name = 'writing_chapters'
+          AND column_name = 'metadata'
+        )
+      `;
+
+      if (!metadataResult[0]?.exists) {
+        this.logger.log("Adding metadata column to writing_chapters...");
+        await this.$executeRawUnsafe(`
+          ALTER TABLE "writing_chapters"
+          ADD COLUMN "metadata" JSONB DEFAULT '{}'
+        `);
+        this.logger.log("✅ writing_chapters.metadata column added");
+      } else {
+        this.logger.debug("writing_chapters.metadata column already exists");
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `❌ Failed to ensure AI Writing columns: ${errorMessage}`,
       );
     }
   }
