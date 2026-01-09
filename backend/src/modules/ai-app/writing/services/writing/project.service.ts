@@ -76,11 +76,71 @@ export class ProjectService {
       projects.pop();
     }
 
+    // 自动修复状态不一致：WRITING 状态但无运行中任务 → REVISING
+    await this.syncProjectStatuses(
+      projects.filter((p) => p.status === "WRITING").map((p) => p.id),
+    );
+
+    // 重新获取可能已更新的项目
+    const refreshedProjects = await this.prisma.writingProject.findMany({
+      where: { id: { in: projects.map((p) => p.id) } },
+      orderBy: { createdAt: "desc" },
+      include: {
+        volumes: {
+          select: { id: true },
+        },
+        _count: {
+          select: {
+            volumes: true,
+            missions: true,
+          },
+        },
+      },
+    });
+
     return {
-      items: projects,
+      items: refreshedProjects,
       hasMore,
-      nextCursor: hasMore ? projects[projects.length - 1]?.id : null,
+      nextCursor: hasMore
+        ? refreshedProjects[refreshedProjects.length - 1]?.id
+        : null,
     };
+  }
+
+  /**
+   * 同步项目状态：检查 WRITING 状态的项目是否有运行中任务
+   */
+  private async syncProjectStatuses(projectIds: string[]) {
+    if (projectIds.length === 0) return;
+
+    for (const projectId of projectIds) {
+      // 检查是否有运行中的任务
+      const runningMission = await this.prisma.writingMission.findFirst({
+        where: {
+          projectId,
+          status: "IN_PROGRESS",
+        },
+      });
+
+      // 如果没有运行中任务，更新状态
+      if (!runningMission) {
+        const project = await this.prisma.writingProject.findUnique({
+          where: { id: projectId },
+          select: { currentWords: true, status: true },
+        });
+
+        if (project && project.status === "WRITING") {
+          const newStatus = project.currentWords > 0 ? "REVISING" : "PLANNING";
+          await this.prisma.writingProject.update({
+            where: { id: projectId },
+            data: { status: newStatus },
+          });
+          this._logger.log(
+            `Auto-fixed project ${projectId} status: WRITING → ${newStatus}`,
+          );
+        }
+      }
+    }
   }
 
   async findOne(id: string, userId: string) {
