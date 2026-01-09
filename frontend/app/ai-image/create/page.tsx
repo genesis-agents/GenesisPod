@@ -21,7 +21,7 @@ function AIImageCreateContent() {
   if (isLoading) {
     return (
       <AppShell>
-        <div className="flex h-full items-center justify-center">
+        <div className="flex h-full flex-1 items-center justify-center">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-pink-500 border-t-transparent" />
         </div>
       </AppShell>
@@ -34,7 +34,7 @@ function AIImageCreateContent() {
 
   return (
     <AppShell>
-      <main className="flex h-full flex-col overflow-hidden">
+      <main className="flex h-full flex-1 flex-col overflow-hidden">
         {/* Header */}
         <div className="flex-shrink-0 border-b border-gray-100 bg-white">
           <div className="px-6 py-4">
@@ -99,7 +99,7 @@ export default function AIImageCreatePage() {
     <Suspense
       fallback={
         <AppShell>
-          <div className="flex h-full items-center justify-center">
+          <div className="flex h-full flex-1 items-center justify-center">
             <div className="h-10 w-10 animate-spin rounded-full border-2 border-pink-500 border-t-transparent" />
           </div>
         </AppShell>
