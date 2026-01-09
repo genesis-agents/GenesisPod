@@ -32,6 +32,7 @@ import {
   UpdateChapterDto,
   StartWritingDto,
 } from "./dto";
+import { getAllStylePresets, recommendStyleByGenre } from "./constants";
 
 @Controller("ai-writing")
 @UseGuards(JwtAuthGuard)
@@ -51,6 +52,35 @@ export class AiWritingController {
   ) {
     void this.logger;
     void this.aiWritingService;
+  }
+
+  // ==================== Writing Style Presets ====================
+
+  /**
+   * 获取所有写作风格预设（公开接口）
+   */
+  @Public()
+  @Get("style-presets")
+  getStylePresets() {
+    return {
+      presets: getAllStylePresets(),
+    };
+  }
+
+  /**
+   * 根据类型推荐写作风格
+   */
+  @Public()
+  @Get("style-presets/recommend")
+  getRecommendedStyles(@Query("genre") genre: string) {
+    const recommendedIds = recommendStyleByGenre(genre || "");
+    const allPresets = getAllStylePresets();
+    const recommended = allPresets.filter((p) => recommendedIds.includes(p.id));
+    return {
+      genre,
+      recommended,
+      all: allPresets,
+    };
   }
 
   // ==================== Project CRUD ====================

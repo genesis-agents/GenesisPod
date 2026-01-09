@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIWritingStore } from '@/stores/aiWritingStore';
+import { getStylePresets, type WritingStylePreset } from '@/lib/api/ai-writing';
 
 // AI Writing Team - Preview (5 core agents)
 const AI_TEAM_PREVIEW = [
@@ -61,6 +62,14 @@ const WORD_COUNTS = [
   { value: 500000, label: '50万字+' },
   { value: 1000000, label: '100万字+' },
 ];
+
+// Style category labels
+const STYLE_CATEGORY_LABELS: Record<string, string> = {
+  chinese_martial_arts: '中国武侠名家',
+  chinese_web_novel: '中国网文流派',
+  foreign: '外国经典风格',
+  custom: '其他风格',
+};
 
 // Vibrant gradient color schemes for project cards
 const PROJECT_GRADIENTS = [
@@ -121,10 +130,15 @@ export default function AIWritingPage() {
     description: '',
     genre: 'NOVEL',
     targetWords: 50000,
+    writingStyle: '', // 写作风格预设ID
   });
   const [isCreating, setIsCreating] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Style presets
+  const [stylePresets, setStylePresets] = useState<WritingStylePreset[]>([]);
+  const [isLoadingStyles, setIsLoadingStyles] = useState(false);
 
   // Edit modal state
   const [editingProject, setEditingProject] = useState<
@@ -135,6 +149,7 @@ export default function AIWritingPage() {
     description: '',
     genre: '',
     targetWords: 50000,
+    writingStyle: '',
   });
   const [isEditing, setIsEditing] = useState(false);
 
@@ -143,6 +158,24 @@ export default function AIWritingPage() {
       void fetchProjects();
     }
   }, [user, fetchProjects]);
+
+  // Fetch style presets when dialog opens (create or edit)
+  useEffect(() => {
+    const dialogOpen = showCreateDialog || editingProject !== null;
+    if (dialogOpen && stylePresets.length === 0 && !isLoadingStyles) {
+      setIsLoadingStyles(true);
+      getStylePresets()
+        .then((res) => {
+          setStylePresets(res.presets || []);
+        })
+        .catch(() => {
+          // Ignore errors
+        })
+        .finally(() => {
+          setIsLoadingStyles(false);
+        });
+    }
+  }, [showCreateDialog, editingProject, stylePresets.length, isLoadingStyles]);
 
   const handleCreate = async () => {
     if (!createForm.description.trim()) return;
@@ -159,9 +192,15 @@ export default function AIWritingPage() {
         description: createForm.description,
         genre: createForm.genre,
         targetWords: createForm.targetWords,
+        writingStyle: createForm.writingStyle || undefined,
       });
       setShowCreateDialog(false);
-      setCreateForm({ description: '', genre: 'NOVEL', targetWords: 50000 });
+      setCreateForm({
+        description: '',
+        genre: 'NOVEL',
+        targetWords: 50000,
+        writingStyle: '',
+      });
       router.push(`/ai-writing/${project.id}`);
     } catch {
       // Error handled by store
@@ -185,6 +224,7 @@ export default function AIWritingPage() {
       description: project.description || '',
       genre: project.genre || 'NOVEL',
       targetWords: project.targetWords || 50000,
+      writingStyle: project.writingStyle || '',
     });
   };
 
@@ -628,45 +668,98 @@ export default function AIWritingPage() {
 
               {/* Options */}
               {showOptions && (
-                <div className="grid gap-4 rounded-xl bg-gray-50 p-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                      类型
-                    </label>
-                    <select
-                      value={createForm.genre}
-                      onChange={(e) =>
-                        setCreateForm({ ...createForm, genre: e.target.value })
-                      }
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-                    >
-                      {GENRES.map((g) => (
-                        <option key={g.value} value={g.value}>
-                          {g.label}
-                        </option>
-                      ))}
-                    </select>
+                <div className="space-y-4 rounded-xl bg-gray-50 p-4">
+                  {/* Row 1: Genre and Word Count */}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                        类型
+                      </label>
+                      <select
+                        value={createForm.genre}
+                        onChange={(e) =>
+                          setCreateForm({
+                            ...createForm,
+                            genre: e.target.value,
+                          })
+                        }
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                      >
+                        {GENRES.map((g) => (
+                          <option key={g.value} value={g.value}>
+                            {g.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                        预计字数
+                      </label>
+                      <select
+                        value={createForm.targetWords}
+                        onChange={(e) =>
+                          setCreateForm({
+                            ...createForm,
+                            targetWords: Number(e.target.value),
+                          })
+                        }
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                      >
+                        {WORD_COUNTS.map((w) => (
+                          <option key={w.value} value={w.value}>
+                            {w.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
+
+                  {/* Row 2: Writing Style (full width) */}
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                      预计字数
+                      写作风格
                     </label>
                     <select
-                      value={createForm.targetWords}
+                      value={createForm.writingStyle}
                       onChange={(e) =>
                         setCreateForm({
                           ...createForm,
-                          targetWords: Number(e.target.value),
+                          writingStyle: e.target.value,
                         })
                       }
                       className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                      disabled={isLoadingStyles}
                     >
-                      {WORD_COUNTS.map((w) => (
-                        <option key={w.value} value={w.value}>
-                          {w.label}
-                        </option>
-                      ))}
+                      <option value="">自动推荐（根据类型）</option>
+                      {/* Group by category */}
+                      {Object.entries(STYLE_CATEGORY_LABELS).map(
+                        ([category, label]) => {
+                          const presetsInCategory = stylePresets.filter(
+                            (p) => p.category === category
+                          );
+                          if (presetsInCategory.length === 0) return null;
+                          return (
+                            <optgroup key={category} label={label}>
+                              {presetsInCategory.map((preset) => (
+                                <option key={preset.id} value={preset.id}>
+                                  {preset.name} - {preset.description}
+                                </option>
+                              ))}
+                            </optgroup>
+                          );
+                        }
+                      )}
                     </select>
+                    {createForm.writingStyle && (
+                      <p className="mt-1.5 text-xs text-gray-500">
+                        {
+                          stylePresets.find(
+                            (p) => p.id === createForm.writingStyle
+                          )?.representative
+                        }
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -773,45 +866,89 @@ export default function AIWritingPage() {
               </div>
 
               {/* Options */}
-              <div className="grid gap-4 rounded-xl bg-gray-50 p-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                    类型
-                  </label>
-                  <select
-                    value={editForm.genre}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, genre: e.target.value })
-                    }
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-                  >
-                    {GENRES.map((g) => (
-                      <option key={g.value} value={g.value}>
-                        {g.label}
-                      </option>
-                    ))}
-                  </select>
+              <div className="space-y-4 rounded-xl bg-gray-50 p-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                      类型
+                    </label>
+                    <select
+                      value={editForm.genre}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, genre: e.target.value })
+                      }
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                    >
+                      {GENRES.map((g) => (
+                        <option key={g.value} value={g.value}>
+                          {g.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                      目标字数
+                    </label>
+                    <select
+                      value={editForm.targetWords}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          targetWords: Number(e.target.value),
+                        })
+                      }
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                    >
+                      {WORD_COUNTS.map((w) => (
+                        <option key={w.value} value={w.value}>
+                          {w.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
+
+                {/* Writing Style */}
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                    目标字数
+                    写作风格
                   </label>
                   <select
-                    value={editForm.targetWords}
+                    value={editForm.writingStyle}
                     onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        targetWords: Number(e.target.value),
-                      })
+                      setEditForm({ ...editForm, writingStyle: e.target.value })
                     }
                     className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                    disabled={isLoadingStyles}
                   >
-                    {WORD_COUNTS.map((w) => (
-                      <option key={w.value} value={w.value}>
-                        {w.label}
-                      </option>
-                    ))}
+                    <option value="">自动推荐（根据类型）</option>
+                    {Object.entries(STYLE_CATEGORY_LABELS).map(
+                      ([category, label]) => {
+                        const presetsInCategory = stylePresets.filter(
+                          (p) => p.category === category
+                        );
+                        if (presetsInCategory.length === 0) return null;
+                        return (
+                          <optgroup key={category} label={label}>
+                            {presetsInCategory.map((preset) => (
+                              <option key={preset.id} value={preset.id}>
+                                {preset.name} - {preset.description}
+                              </option>
+                            ))}
+                          </optgroup>
+                        );
+                      }
+                    )}
                   </select>
+                  {editForm.writingStyle && (
+                    <p className="mt-1.5 text-xs text-gray-500">
+                      {
+                        stylePresets.find((p) => p.id === editForm.writingStyle)
+                          ?.representative
+                      }
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

@@ -19,6 +19,7 @@ export interface WritingProject {
   targetWords: number;
   currentWords: number;
   status: 'PLANNING' | 'OUTLINING' | 'WRITING' | 'REVISING' | 'COMPLETED';
+  writingStyle?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -101,6 +102,17 @@ export interface CreateProjectDto {
   description?: string;
   genre?: string;
   targetWords?: number;
+  writingStyle?: string;
+}
+
+// ==================== Writing Style Presets ====================
+
+export interface WritingStylePreset {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  representative?: string;
 }
 
 export interface UpdateProjectDto {
@@ -109,6 +121,7 @@ export interface UpdateProjectDto {
   genre?: string;
   targetWords?: number;
   status?: string;
+  writingStyle?: string;
 }
 
 export interface StartMissionDto {
@@ -172,6 +185,30 @@ async function fetchWithAuth<T>(
   }
 
   return data as T;
+}
+
+// ==================== Writing Style Presets API ====================
+
+/**
+ * 获取所有写作风格预设
+ */
+export async function getStylePresets(): Promise<{
+  presets: WritingStylePreset[];
+}> {
+  return fetchWithAuth('/api/v1/ai-writing/style-presets');
+}
+
+/**
+ * 根据类型获取推荐的写作风格
+ */
+export async function getRecommendedStyles(genre: string): Promise<{
+  genre: string;
+  recommended: WritingStylePreset[];
+  all: WritingStylePreset[];
+}> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/style-presets/recommend?genre=${encodeURIComponent(genre)}`
+  );
 }
 
 // ==================== Project API ====================
