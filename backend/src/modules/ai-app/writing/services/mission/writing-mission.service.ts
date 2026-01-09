@@ -1021,7 +1021,16 @@ ${input.userPrompt}
         maxTokens: 8000,
       });
 
-      worldSettings = this.parseWorldSettings(worldResponse.content || "{}");
+      // ★ 检测 API 错误响应
+      const worldContent = worldResponse.content || "{}";
+      if (this.isApiErrorResponse(worldContent)) {
+        this.logger.warn(
+          `[${missionId}] World building received API error: ${worldContent.slice(0, 200)}`,
+        );
+        throw new Error("World building API call failed");
+      }
+
+      worldSettings = this.parseWorldSettings(worldContent);
 
       // ★ 验证世界观有效性：必须有 core 和至少一个角色
       const characters = worldSettings.characters as Array<unknown> | undefined;
@@ -1386,6 +1395,14 @@ ${Array.from(
           continue;
         }
 
+        // ★ 检测 API 错误响应（AiChatService 在 strictMode=false 时会返回错误消息作为 content）
+        if (this.isApiErrorResponse(outlineResponse.content)) {
+          this.logger.warn(
+            `[${missionId}] Outline generation received API error response (attempt ${retryCount}): ${outlineResponse.content.slice(0, 200)}`,
+          );
+          continue;
+        }
+
         // 解析大纲
         const parsedOutline = this.parseOutlineJSON(
           outlineResponse.content,
@@ -1581,6 +1598,14 @@ ${Array.from(
 
       let chapterContent = writerResponse.content || "";
 
+      // ★ 检测 API 错误响应
+      if (this.isApiErrorResponse(chapterContent)) {
+        this.logger.warn(
+          `[${missionId}] Chapter ${chapterNumber} received API error, retrying...`,
+        );
+        chapterContent = ""; // 清空，触发重试逻辑
+      }
+
       if (!chapterContent || chapterContent.length < 500) {
         this.logger.warn(
           `[${missionId}] Chapter ${chapterNumber} content too short, retrying...`,
@@ -1601,9 +1626,18 @@ ${Array.from(
           temperature: 0.85,
           maxTokens: 6000,
         });
-        chapterContent =
-          retryResponse.content ||
-          `第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}\n\n（内容生成中...）`;
+        // ★ 检测重试响应的 API 错误
+        const retryContent = retryResponse.content || "";
+        if (this.isApiErrorResponse(retryContent)) {
+          this.logger.warn(
+            `[${missionId}] Chapter ${chapterNumber} retry also received API error`,
+          );
+          chapterContent = `第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}\n\n（内容生成中...）`;
+        } else {
+          chapterContent =
+            retryContent ||
+            `第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}\n\n（内容生成中...）`;
+        }
       }
 
       // 3.2 检查员校验（每章都检查，确保一致性）
@@ -2014,6 +2048,25 @@ ${chapterContent}
     } catch (e) {
       this.logger.warn(`Failed to update progress: ${(e as Error).message}`);
     }
+  }
+
+  /**
+   * 检测 API 响应是否为错误消息
+   * AiChatService 在 strictMode=false 时会将错误以特定格式返回
+   */
+  private isApiErrorResponse(content: string): boolean {
+    if (!content) return false;
+    // 检测常见的 API 错误格式
+    const errorPatterns = [
+      /\*\*.*API 调用失败\*\*/i,
+      /timeout of \d+ms exceeded/i,
+      /API error/i,
+      /请稍后重试或检查 API 配置/,
+      /ECONNRESET/i,
+      /ETIMEDOUT/i,
+      /Network Error/i,
+    ];
+    return errorPatterns.some((pattern) => pattern.test(content));
   }
 
   /**
