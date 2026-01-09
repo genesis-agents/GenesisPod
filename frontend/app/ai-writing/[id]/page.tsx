@@ -2881,27 +2881,60 @@ export default function WritingProjectPage() {
                                               }
                                               if (Array.isArray(val)) {
                                                 return (
-                                                  <ul className="space-y-1">
-                                                    {val
-                                                      .slice(0, 8)
-                                                      .map((item, i) => (
-                                                        <li
-                                                          key={i}
-                                                          className="text-sm text-gray-700"
-                                                        >
-                                                          {typeof item ===
-                                                            'object' &&
-                                                          item !== null
-                                                            ? `• ${(item as Record<string, unknown>).name || (item as Record<string, unknown>).title || (item as Record<string, unknown>).term || JSON.stringify(item).slice(0, 60)}`
-                                                            : `• ${String(item)}`}
-                                                        </li>
-                                                      ))}
-                                                    {val.length > 8 && (
-                                                      <li className="text-xs text-gray-400">
-                                                        ...还有 {val.length - 8}{' '}
-                                                        项
+                                                  <ul className="space-y-2">
+                                                    {val.map((item, i) => (
+                                                      <li
+                                                        key={i}
+                                                        className="text-sm text-gray-700"
+                                                      >
+                                                        {typeof item ===
+                                                          'object' &&
+                                                        item !== null ? (
+                                                          <div className="rounded bg-white/50 p-2">
+                                                            {Object.entries(
+                                                              item as Record<
+                                                                string,
+                                                                unknown
+                                                              >
+                                                            )
+                                                              .filter(
+                                                                ([, v]) => v
+                                                              )
+                                                              .map(([k, v]) => (
+                                                                <div
+                                                                  key={k}
+                                                                  className="mb-1"
+                                                                >
+                                                                  <span className="font-medium">
+                                                                    {fieldLabelMap[
+                                                                      k
+                                                                    ] || k}
+                                                                    :
+                                                                  </span>{' '}
+                                                                  <span className="whitespace-pre-wrap">
+                                                                    {typeof v ===
+                                                                    'string'
+                                                                      ? v
+                                                                      : Array.isArray(
+                                                                            v
+                                                                          )
+                                                                        ? (
+                                                                            v as string[]
+                                                                          ).join(
+                                                                            '、'
+                                                                          )
+                                                                        : JSON.stringify(
+                                                                            v
+                                                                          )}
+                                                                  </span>
+                                                                </div>
+                                                              ))}
+                                                          </div>
+                                                        ) : (
+                                                          `• ${String(item)}`
+                                                        )}
                                                       </li>
-                                                    )}
+                                                    ))}
                                                   </ul>
                                                 );
                                               }
@@ -2916,7 +2949,7 @@ export default function WritingProjectPage() {
                                                 return (
                                                   <div className="space-y-1 text-sm text-gray-700">
                                                     {Object.entries(obj)
-                                                      .slice(0, 5)
+                                                      .filter(([, v]) => v)
                                                       .map(([k, v]) => (
                                                         <div key={k}>
                                                           <span className="font-medium">
@@ -2924,11 +2957,18 @@ export default function WritingProjectPage() {
                                                               k}
                                                             :
                                                           </span>{' '}
-                                                          {typeof v === 'string'
-                                                            ? v.slice(0, 100)
-                                                            : JSON.stringify(
-                                                                v
-                                                              ).slice(0, 60)}
+                                                          <span className="whitespace-pre-wrap">
+                                                            {typeof v ===
+                                                            'string'
+                                                              ? v
+                                                              : Array.isArray(v)
+                                                                ? (
+                                                                    v as string[]
+                                                                  ).join('、')
+                                                                : JSON.stringify(
+                                                                    v
+                                                                  )}
+                                                          </span>
                                                         </div>
                                                       ))}
                                                   </div>
