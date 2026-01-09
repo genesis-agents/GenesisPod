@@ -2022,8 +2022,8 @@ export default function ImageGenerator({
         <div
           className={`flex flex-col border-l border-gray-200 bg-white ${isMobile ? 'w-full' : 'w-96'}`}
         >
-          {/* Insights Panel (when image selected) */}
-          {selectedImage && (
+          {/* Insights Panel (when image selected and NOT generating) */}
+          {selectedImage && !isGenerating && (
             <div className="flex-1 overflow-hidden border-b border-gray-200">
               <InsightsPanel
                 image={selectedImage}
@@ -2034,8 +2034,8 @@ export default function ImageGenerator({
             </div>
           )}
 
-          {/* Streaming Progress Panel (when generating) */}
-          {isGenerating && !selectedImage && (
+          {/* Streaming Progress Panel (when generating - always show regardless of selectedImage) */}
+          {isGenerating && (
             <div className="flex-1 overflow-auto border-b border-gray-200 p-4">
               <div className="space-y-3">
                 {/* Header */}
