@@ -300,10 +300,16 @@ export const VISUAL_DESIGN_TEAM_CONFIG: TeamConfig = {
   type: "predefined",
   icon: "🎨",
   color: "#EC4899", // Pink
-  leaderRoleId: BUILTIN_ROLES.ANALYST,
+  leaderRoleId: BUILTIN_ROLES.CONTENT_LEAD, // 使用 CONTENT_LEAD 作为团队领导（leader 角色）
   memberRoles: [
     {
-      roleId: BUILTIN_ROLES.DESIGNER,
+      roleId: BUILTIN_ROLES.ANALYST, // 内容分析师
+      minCount: 1,
+      maxCount: 1,
+      required: true,
+    },
+    {
+      roleId: BUILTIN_ROLES.DESIGNER, // 视觉设计师
       minCount: 1,
       maxCount: 3,
       required: true,
