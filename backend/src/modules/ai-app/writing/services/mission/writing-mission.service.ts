@@ -941,6 +941,9 @@ ${input.userPrompt}
 
 【请输出以下内容】
 
+## 零、书名
+请根据故事主题创作一个精炼、有吸引力的书名（2-8个字），如：《琅琊榜》《甄嬛传》《庆余年》《三体》
+
 ## 一、故事核心
 1. 一句话概括故事核心
 2. 故事类型和风格
@@ -967,6 +970,7 @@ ${Array.from(
 
 输出格式：JSON
 {
+  "bookTitle": "书名（2-8字，不含书名号）",
   "core": { "summary": "一句话故事概括", "genre": "故事类型", "theme": "主题思想" },
   "volumes": [{ "title": "卷名（如：风云际会）", "conflict": "核心冲突", "plot": "主要情节", "emotion": "情感走向" }],
   "chapters": [
@@ -1006,6 +1010,23 @@ ${Array.from(
     this.logger.log(
       `[${missionId}] Outline generated: ${outline.chapters.length} chapters planned`,
     );
+
+    // ★ 如果生成了书名，更新项目名称
+    if (outline.bookTitle) {
+      try {
+        await this.prisma.writingProject.update({
+          where: { id: input.projectId },
+          data: { name: outline.bookTitle },
+        });
+        this.logger.log(
+          `[${missionId}] Project name updated to: ${outline.bookTitle}`,
+        );
+      } catch (e) {
+        this.logger.warn(
+          `Failed to update project name: ${(e as Error).message}`,
+        );
+      }
+    }
 
     // 架构师完成
     await this.eventEmitter.emitAgentWorking(input.projectId, {
@@ -1718,6 +1739,7 @@ ${chapterContent}
     totalVolumes: number,
     totalChapters: number,
   ): {
+    bookTitle: string;
     core: { summary: string; genre: string; theme: string };
     volumes: Array<{
       title: string;
@@ -1733,6 +1755,7 @@ ${chapterContent}
     }>;
   } {
     let parsed: {
+      bookTitle?: string;
       core?: { summary?: string; genre?: string; theme?: string };
       volumes?: Array<{
         title?: string;
@@ -1777,11 +1800,19 @@ ${chapterContent}
     // 如果没有解析到任何内容，返回默认结构
     if (!parsed) {
       return {
+        bookTitle: "",
         core: { summary: "待定", genre: "待定", theme: "待定" },
         volumes: defaultVolumes,
         chapters: defaultChapters,
       };
     }
+
+    // 提取书名（清理书名号）
+    let bookTitle = parsed.bookTitle || "";
+    bookTitle = bookTitle
+      .replace(/^[《【「『]/, "")
+      .replace(/[》】」』]$/, "")
+      .trim();
 
     // 合并解析结果和默认结构
     const core = {
@@ -1844,10 +1875,10 @@ ${chapterContent}
     }
 
     this.logger.log(
-      `Outline parsed: ${chapters.length} chapters (expected: ${totalChapters})`,
+      `Outline parsed: ${chapters.length} chapters (expected: ${totalChapters}), bookTitle: ${bookTitle || "(none)"}`,
     );
 
-    return { core, volumes, chapters };
+    return { bookTitle, core, volumes, chapters };
   }
 
   /**
