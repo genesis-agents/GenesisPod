@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { CreateProjectDto, UpdateProjectDto } from "./dto";
+import { CreateStudioProjectDto, UpdateProjectDto } from "./dto";
 
 @Injectable()
 export class AiStudioService {
@@ -13,7 +13,7 @@ export class AiStudioService {
   /**
    * Create a new research project
    */
-  async createProject(userId: string, dto: CreateProjectDto) {
+  async createProject(userId: string, dto: CreateStudioProjectDto) {
     return this.prisma.researchProject.create({
       data: {
         userId,

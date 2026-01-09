@@ -12,7 +12,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 // ==================== Research Project DTOs ====================
 
-export class CreateProjectDto {
+export class CreateStudioProjectDto {
   @ApiProperty({
     description: "项目名称",
     example: "LLM 推理优化研究",

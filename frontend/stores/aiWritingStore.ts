@@ -449,8 +449,11 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
                 }
               }
 
-              // 当 context-injection 步骤完成时，刷新世界观（StoryBible）
-              if (completedSteps.includes('context-injection')) {
+              // 当 world-building 或 context-injection 步骤完成时，刷新世界观（StoryBible）
+              if (
+                completedSteps.includes('world-building') ||
+                completedSteps.includes('context-injection')
+              ) {
                 try {
                   await get().fetchStoryBible(projectId);
                 } catch {

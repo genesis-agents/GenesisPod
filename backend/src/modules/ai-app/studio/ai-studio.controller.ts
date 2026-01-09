@@ -29,7 +29,7 @@ import { AiStudioChatService } from "./ai-studio-chat.service";
 import { AiStudioOutputService } from "./ai-studio-output.service";
 import { AiStudioTTSService } from "./ai-studio-tts.service";
 import {
-  CreateProjectDto,
+  CreateStudioProjectDto,
   UpdateProjectDto,
   AddSourceDto,
   AddSourcesDto,
@@ -67,7 +67,10 @@ export class AiStudioController {
   })
   @ApiResponse({ status: 201, description: "项目创建成功" })
   @ApiResponse({ status: 401, description: "未认证" })
-  async createProject(@Request() req: any, @Body() dto: CreateProjectDto) {
+  async createProject(
+    @Request() req: any,
+    @Body() dto: CreateStudioProjectDto,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
