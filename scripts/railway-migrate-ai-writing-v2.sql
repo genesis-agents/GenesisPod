@@ -81,7 +81,7 @@ CREATE INDEX IF NOT EXISTS "idx_audit_bible_entity"
 CREATE INDEX IF NOT EXISTS "idx_audit_bible_created"
     ON "story_bible_audit_logs"("bible_id", "created_at" DESC);
 
-RAISE NOTICE 'Created table story_bible_audit_logs with indexes';
+DO $$ BEGIN RAISE NOTICE 'Created table story_bible_audit_logs with indexes'; END $$;
 
 -- ============================================================
 -- 3. 添加 WritingChapter.metadata 字段
