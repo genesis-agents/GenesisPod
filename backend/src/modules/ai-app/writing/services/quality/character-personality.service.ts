@@ -10,8 +10,52 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import type {
+  WritingCharacter,
+  WritingCharacterPersonality,
+} from "@prisma/client";
 
 // ==================== 类型定义 ====================
+
+/**
+ * 角色人格约束（用于 Writer Agent）
+ */
+export interface PersonalityConstraint {
+  characterId: string;
+  characterName: string;
+  speechPatterns: string[];
+  vocabularyLevel: "formal" | "casual" | "mixed";
+  emotionalTendency: string[];
+  tabooWords: string[];
+  catchphrases: string[];
+  dialogueExamples: DialogueExample[];
+}
+
+/**
+ * 对话样本
+ */
+export interface DialogueExample {
+  id: string;
+  characterId: string;
+  dialogue: string;
+  context: string;
+  chapterId?: string;
+}
+
+/**
+ * 对话验证结果
+ */
+export interface DialogueValidationResult {
+  isValid: boolean;
+  issues: Array<{
+    characterName: string;
+    dialogue: string;
+    issue: string;
+    suggestion: string;
+  }>;
+}
+
+// ==================== 原有类型定义 ====================
 
 /**
  * 角色人格向量 - 完整的角色人格描述
@@ -363,6 +407,381 @@ export class CharacterPersonalityService {
     }
 
     return parts.join("\n");
+  }
+
+  /**
+   * 通过角色名查询角色信息（支持别名匹配）
+   */
+  async getCharacterByName(
+    projectId: string,
+    characterName: string,
+  ): Promise<WritingCharacter | null> {
+    const project = await this.prisma.writingProject.findUnique({
+      where: { id: projectId },
+      include: {
+        storyBible: {
+          include: {
+            characters: {
+              include: {
+                personalityProfile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!project?.storyBible) {
+      return null;
+    }
+
+    // 查找匹配的角色（支持主名和别名）
+    const character = project.storyBible.characters.find(
+      (char) =>
+        char.name === characterName ||
+        char.aliases?.includes(characterName) ||
+        false,
+    );
+
+    return character || null;
+  }
+
+  /**
+   * 获取多个角色的人格约束
+   */
+  async getPersonalityConstraints(
+    projectId: string,
+    characterNames: string[],
+  ): Promise<PersonalityConstraint[]> {
+    if (characterNames.length === 0) {
+      return [];
+    }
+
+    const project = await this.prisma.writingProject.findUnique({
+      where: { id: projectId },
+      include: {
+        storyBible: {
+          include: {
+            characters: {
+              include: {
+                personalityProfile: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!project?.storyBible) {
+      return [];
+    }
+
+    const constraints: PersonalityConstraint[] = [];
+
+    for (const name of characterNames) {
+      const character = project.storyBible.characters.find(
+        (char) => char.name === name || char.aliases?.includes(name) || false,
+      );
+
+      if (!character) {
+        this.logger.warn(
+          `[CharacterPersonality] Character "${name}" not found in project ${projectId}`,
+        );
+        continue;
+      }
+
+      const profile = character.personalityProfile;
+
+      constraints.push({
+        characterId: character.id,
+        characterName: character.name,
+        speechPatterns: profile?.commonPhrases || [],
+        vocabularyLevel: this.inferVocabularyLevel(profile),
+        emotionalTendency: profile?.emotionPattern
+          ? [profile.emotionPattern]
+          : [],
+        tabooWords: profile?.forbiddenPhrases || [],
+        catchphrases: profile?.commonPhrases?.slice(0, 5) || [],
+        dialogueExamples: [], // 暂时返回空数组，未来可以从历史章节中提取
+      });
+    }
+
+    return constraints;
+  }
+
+  /**
+   * 生成角色约束提示词（基于 PersonalityConstraint）
+   */
+  generateConstraintPrompt(constraints: PersonalityConstraint[]): string {
+    if (constraints.length === 0) {
+      return "";
+    }
+
+    const parts: string[] = ["## 角色人格约束\n"];
+
+    for (const constraint of constraints) {
+      parts.push(`### ${constraint.characterName}`);
+
+      if (constraint.speechPatterns.length > 0) {
+        parts.push(
+          `**常用表达**: ${constraint.speechPatterns.slice(0, 10).join("、")}`,
+        );
+      }
+
+      if (constraint.vocabularyLevel) {
+        const levelDesc =
+          constraint.vocabularyLevel === "formal"
+            ? "正式、文雅"
+            : constraint.vocabularyLevel === "casual"
+              ? "口语化、随意"
+              : "混合风格";
+        parts.push(`**用词风格**: ${levelDesc}`);
+      }
+
+      if (constraint.emotionalTendency.length > 0) {
+        parts.push(`**情绪倾向**: ${constraint.emotionalTendency.join("、")}`);
+      }
+
+      if (constraint.tabooWords.length > 0) {
+        parts.push(
+          `**禁用词汇**: ❌ ${constraint.tabooWords.slice(0, 10).join("、")}`,
+        );
+      }
+
+      if (constraint.catchphrases.length > 0) {
+        parts.push(`**口头禅**: ${constraint.catchphrases.join("、")}`);
+      }
+
+      parts.push("");
+    }
+
+    return parts.join("\n");
+  }
+
+  /**
+   * 验证对话是否符合角色性格
+   */
+  async validateDialogue(
+    projectId: string,
+    dialogues: Array<{ characterName: string; dialogue: string }>,
+  ): Promise<DialogueValidationResult> {
+    const issues: DialogueValidationResult["issues"] = [];
+
+    // 获取所有相关角色的人格约束
+    const characterNames = [...new Set(dialogues.map((d) => d.characterName))];
+    const constraints = await this.getPersonalityConstraints(
+      projectId,
+      characterNames,
+    );
+
+    const constraintMap = new Map(constraints.map((c) => [c.characterName, c]));
+
+    for (const { characterName, dialogue } of dialogues) {
+      const constraint = constraintMap.get(characterName);
+      if (!constraint) {
+        // 角色未找到，跳过验证
+        continue;
+      }
+
+      // 1. 检查禁用词汇
+      for (const taboo of constraint.tabooWords) {
+        if (dialogue.includes(taboo)) {
+          issues.push({
+            characterName,
+            dialogue: dialogue.substring(0, 50) + "...",
+            issue: `使用了禁用词汇 "${taboo}"`,
+            suggestion: `${characterName} 不会使用 "${taboo}"，请替换为更符合其性格的表达`,
+          });
+        }
+      }
+
+      // 2. 检查是否使用了常用表达（正向指标）
+      const hasCommonPhrase = constraint.speechPatterns.some((phrase) =>
+        dialogue.includes(phrase),
+      );
+
+      // 3. 简单的风格匹配检查
+      const isFormalDialogue = this.isFormalSpeech(dialogue);
+      const expectedFormal = constraint.vocabularyLevel === "formal";
+
+      if (isFormalDialogue !== expectedFormal && dialogue.length > 20) {
+        const styleDesc = expectedFormal ? "正式" : "口语化";
+        issues.push({
+          characterName,
+          dialogue: dialogue.substring(0, 50) + "...",
+          issue: `语言风格不符合角色设定`,
+          suggestion: `${characterName} 的说话风格应该是${styleDesc}的`,
+        });
+      }
+
+      // 4. 如果对话较长但没有使用任何常用表达，给出提示
+      if (
+        dialogue.length > 30 &&
+        !hasCommonPhrase &&
+        constraint.speechPatterns.length > 0
+      ) {
+        issues.push({
+          characterName,
+          dialogue: dialogue.substring(0, 50) + "...",
+          issue: `未体现角色特色表达`,
+          suggestion: `建议融入 ${characterName} 的常用表达，如: ${constraint.speechPatterns.slice(0, 3).join("、")}`,
+        });
+      }
+    }
+
+    return {
+      isValid: issues.length === 0,
+      issues,
+    };
+  }
+
+  /**
+   * 添加对话样本（暂时记录到 commonPhrases 中）
+   */
+  async addDialogueSample(
+    projectId: string,
+    characterName: string,
+    dialogue: string,
+    context?: string,
+  ): Promise<void> {
+    const character = await this.getCharacterByName(projectId, characterName);
+    if (!character) {
+      this.logger.warn(
+        `[CharacterPersonality] Character "${characterName}" not found, cannot add dialogue sample`,
+      );
+      return;
+    }
+
+    // 提取对话中的短语（2-4个字的词组）
+    const phrases = dialogue.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
+    const phraseFreq = new Map<string, number>();
+
+    for (const phrase of phrases) {
+      phraseFreq.set(phrase, (phraseFreq.get(phrase) || 0) + 1);
+    }
+
+    // 找出高频短语
+    const significantPhrases = Array.from(phraseFreq.entries())
+      .filter(([_, count]) => count >= 2)
+      .map(([phrase]) => phrase);
+
+    if (significantPhrases.length === 0) {
+      return;
+    }
+
+    // 更新人格档案
+    const existing = await this.prisma.writingCharacterPersonality.findUnique({
+      where: { characterId: character.id },
+    });
+
+    if (existing) {
+      // 合并新短语到 commonPhrases
+      const updatedPhrases = [
+        ...new Set([...existing.commonPhrases, ...significantPhrases]),
+      ];
+
+      await this.prisma.writingCharacterPersonality.update({
+        where: { characterId: character.id },
+        data: {
+          commonPhrases: updatedPhrases.slice(0, 50), // 最多保留50个
+        },
+      });
+
+      this.logger.log(
+        `[CharacterPersonality] Added dialogue sample for ${characterName}, context: ${context || "N/A"}`,
+      );
+    }
+  }
+
+  /**
+   * 获取对话样本（从 commonPhrases 中返回）
+   */
+  async getDialogueExamples(
+    characterId: string,
+    limit = 10,
+  ): Promise<DialogueExample[]> {
+    const personality =
+      await this.prisma.writingCharacterPersonality.findUnique({
+        where: { characterId },
+      });
+
+    if (!personality || personality.commonPhrases.length === 0) {
+      return [];
+    }
+
+    // 将 commonPhrases 转换为 DialogueExample 格式
+    return personality.commonPhrases.slice(0, limit).map((phrase, index) => ({
+      id: `${characterId}-${index}`,
+      characterId,
+      dialogue: phrase,
+      context: "历史对话样本",
+      chapterId: undefined,
+    }));
+  }
+
+  // ==================== 辅助方法 ====================
+
+  /**
+   * 推断词汇水平
+   */
+  private inferVocabularyLevel(
+    profile: WritingCharacterPersonality | null,
+  ): "formal" | "casual" | "mixed" {
+    if (!profile) return "mixed";
+
+    const style = profile.speechStyle.toLowerCase();
+
+    if (
+      style.includes("正式") ||
+      style.includes("书卷") ||
+      style.includes("文雅")
+    ) {
+      return "formal";
+    }
+
+    if (
+      style.includes("口语") ||
+      style.includes("随意") ||
+      style.includes("活泼")
+    ) {
+      return "casual";
+    }
+
+    return "mixed";
+  }
+
+  /**
+   * 判断对话是否为正式风格
+   */
+  private isFormalSpeech(dialogue: string): boolean {
+    // 正式风格特征
+    const formalIndicators = [
+      "确实",
+      "想来",
+      "倒也",
+      "不妨",
+      "自然",
+      "岂能",
+      "何必",
+    ];
+    const casualIndicators = [
+      "哎呀",
+      "真的假的",
+      "人家",
+      "嘛",
+      "啦",
+      "呀",
+      "喔",
+    ];
+
+    const formalCount = formalIndicators.filter((ind) =>
+      dialogue.includes(ind),
+    ).length;
+    const casualCount = casualIndicators.filter((ind) =>
+      dialogue.includes(ind),
+    ).length;
+
+    return formalCount > casualCount;
   }
 
   // ==================== 人格一致性检测 ====================

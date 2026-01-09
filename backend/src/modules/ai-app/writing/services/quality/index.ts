@@ -6,9 +6,11 @@
  * - CharacterPersonalityService: 角色人格服务
  * - QualityGateService: 质量门禁服务
  * - HistoricalKnowledgeService: 历史知识服务
+ * - OutputValidatorService: 输出验证服务
  */
 
 export * from "./expression-memory.service";
 export * from "./character-personality.service";
 export * from "./quality-gate.service";
 export * from "./historical-knowledge.service";
+export * from "./output-validator.service";

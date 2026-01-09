@@ -5501,6 +5501,7 @@ model StoryBible {
   terminologies  Terminology[]
   timelineEvents TimelineEvent[]
   factions       Faction[]
+  auditLogs      StoryBibleAuditLog[]
 
   @@map("story_bibles")
 }
@@ -5666,6 +5667,53 @@ model TimelineEvent {
   @@map("timeline_events")
 }
 
+// Story Bible 审计日志
+enum StoryBibleChangeType {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum StoryBibleEntityType {
+  BIBLE
+  CHARACTER
+  WORLD_SETTING
+  TIMELINE
+  TERMINOLOGY
+  FACTION
+}
+
+model StoryBibleAuditLog {
+  id      String     @id @default(uuid())
+  bibleId String     @map("bible_id")
+  bible   StoryBible @relation(fields: [bibleId], references: [id], onDelete: Cascade)
+
+  // 版本信息
+  version Int @default(1)
+
+  // 变更信息
+  changeType StoryBibleChangeType @map("change_type")
+  entityType StoryBibleEntityType @map("entity_type")
+  entityId   String?               @map("entity_id") // 具体实体ID（如角色ID、设定ID）
+  field      String                @db.VarChar(100) // 变更的字段名
+
+  // 变更内容
+  oldValue Json? @map("old_value") // 旧值
+  newValue Json? @map("new_value") // 新值
+
+  // 变更元信息
+  changedBy String  @map("changed_by") @db.VarChar(100) // 变更者：'user', 'story-architect', 'bible-keeper' 等
+  reason    String? @db.Text // 变更原因
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([bibleId, version])
+  @@index([bibleId, entityType, entityId])
+  @@index([bibleId, createdAt(sort: Desc)])
+  @@map("story_bible_audit_logs")
+}
+
 // 卷
 model WritingVolume {
   id        String         @id @default(uuid())
@@ -5721,6 +5769,7 @@ model WritingChapter {
   // 写作元数据
   writtenAt DateTime? @map("written_at")
   revisedAt DateTime? @map("revised_at")
+  metadata  Json?     @default("{}") // 章节元数据（包含提取的事实等）
 
   // 时间戳
   createdAt DateTime @default(now()) @map("created_at")

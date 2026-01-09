@@ -12,7 +12,7 @@
  * 支持多实例并行，每个实例负责一个章节的写作。
  */
 
-import { Injectable, Optional } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { BaseAgent } from "../../../ai-engine/agents/base/base-agent";
 import {
   AgentContext,
@@ -114,13 +114,30 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
   ];
 
   constructor(
-    @Optional() private readonly expressionMemory?: ExpressionMemoryService,
-    @Optional()
-    private readonly characterPersonality?: CharacterPersonalityService,
-    @Optional()
-    private readonly historicalKnowledge?: HistoricalKnowledgeService,
+    private readonly expressionMemory: ExpressionMemoryService,
+    private readonly characterPersonality: CharacterPersonalityService,
+    private readonly historicalKnowledge: HistoricalKnowledgeService,
   ) {
     super();
+  }
+
+  /**
+   * 验证质量服务是否正确注入
+   */
+  private async validateQualityServices(): Promise<void> {
+    const services = [
+      { name: "expressionMemory", service: this.expressionMemory },
+      { name: "characterPersonality", service: this.characterPersonality },
+      { name: "historicalKnowledge", service: this.historicalKnowledge },
+    ];
+
+    for (const { name, service } of services) {
+      if (!service) {
+        throw new Error(`质量服务 ${name} 未正确注入，写作任务无法执行`);
+      }
+    }
+
+    this.logger.log("[Writer] Quality services validated successfully");
   }
 
   /**
@@ -131,6 +148,9 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     _context: AgentContext,
   ): Promise<WriterOutput> {
     const { chapterId, contextPackage, chapterContext } = input;
+
+    // 0. 验证质量服务
+    await this.validateQualityServices();
 
     this.logger.log(
       `[Writer] Starting chapter ${chapterContext.chapter.chapterNumber}: ${chapterContext.chapter.title}`,
@@ -199,72 +219,67 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     const chapterNumber = chapterContext.chapter.chapterNumber;
 
     // 1. 表达冷却约束
-    if (this.expressionMemory) {
-      try {
-        const avoidancePrompt =
-          await this.expressionMemory.generateAvoidancePrompt(
-            projectId,
-            chapterNumber,
-          );
-        if (avoidancePrompt) {
-          parts.push(avoidancePrompt);
-        }
-      } catch (error) {
-        this.logger.warn(
-          `[Writer] Failed to get expression constraints: ${error}`,
+    try {
+      const avoidancePrompt =
+        await this.expressionMemory.generateAvoidancePrompt(
+          projectId,
+          chapterNumber,
         );
+      if (avoidancePrompt) {
+        parts.push(avoidancePrompt);
       }
+    } catch (error) {
+      this.logger.error(
+        `[Writer] Failed to get expression constraints: ${error}`,
+      );
+      throw error;
     }
 
     // 2. 角色人格约束
-    if (this.characterPersonality) {
-      try {
-        const characterIds = chapterContext.involvedCharacters.map(
-          (c) => c.name, // 这里使用名称，实际应使用 ID
-        );
-        // 由于我们没有 characterId，暂时跳过
-        // TODO: 通过 characterName 查询 characterId
-        if (characterIds.length > 0) {
-          // 简化实现：直接从 chapterContext 构建人格提示
-          const personalityHints = chapterContext.involvedCharacters
-            .filter((c) => c.personality?.speechPattern)
-            .map(
-              (c) =>
-                `**${c.name}**: ${c.personality?.traits?.join("、") || ""}, 说话方式: ${c.personality?.speechPattern || ""}`,
-            );
+    try {
+      const characterNames = chapterContext.involvedCharacters.map(
+        (c) => c.name,
+      );
+      if (characterNames.length > 0) {
+        const constraints =
+          await this.characterPersonality.getPersonalityConstraints(
+            projectId,
+            characterNames,
+          );
 
-          if (personalityHints.length > 0) {
-            parts.push("## 角色人格约束");
-            parts.push(personalityHints.join("\n"));
-            parts.push("");
+        if (constraints.length > 0) {
+          const constraintPrompt =
+            this.characterPersonality.generateConstraintPrompt(constraints);
+          if (constraintPrompt) {
+            parts.push(constraintPrompt);
           }
         }
-      } catch (error) {
-        this.logger.warn(
-          `[Writer] Failed to get personality constraints: ${error}`,
-        );
       }
+    } catch (error) {
+      this.logger.error(
+        `[Writer] Failed to get personality constraints: ${error}`,
+      );
+      throw error;
     }
 
     // 3. 历史知识约束
-    if (this.historicalKnowledge) {
-      try {
-        // 从项目设置中获取朝代（假设存储在 worldType 中）
-        const dynasty = contextPackage.extensions.storyBible.worldType;
-        if (dynasty && (dynasty.includes("明") || dynasty.includes("清"))) {
-          const historicalPrompt =
-            await this.historicalKnowledge.generateHistoricalConstraintPrompt(
-              dynasty.includes("明") ? "明朝" : "清朝",
-            );
-          if (historicalPrompt) {
-            parts.push(historicalPrompt);
-          }
+    try {
+      // 从项目设置中获取朝代（假设存储在 worldType 中）
+      const dynasty = contextPackage.extensions.storyBible.worldType;
+      if (dynasty && (dynasty.includes("明") || dynasty.includes("清"))) {
+        const historicalPrompt =
+          await this.historicalKnowledge.generateHistoricalConstraintPrompt(
+            dynasty.includes("明") ? "明朝" : "清朝",
+          );
+        if (historicalPrompt) {
+          parts.push(historicalPrompt);
         }
-      } catch (error) {
-        this.logger.warn(
-          `[Writer] Failed to get historical constraints: ${error}`,
-        );
       }
+    } catch (error) {
+      this.logger.error(
+        `[Writer] Failed to get historical constraints: ${error}`,
+      );
+      throw error;
     }
 
     return parts.join("\n\n");
