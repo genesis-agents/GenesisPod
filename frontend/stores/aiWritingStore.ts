@@ -398,7 +398,7 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
 
       // 轮询后端获取真实状态
       const pollInterval = 2000; // 2秒轮询一次
-      const maxPolls = 180; // 最多轮询6分钟（180次 × 2秒）
+      const maxPolls = 450; // 最多轮询15分钟（450次 × 2秒）
       let pollCount = 0;
 
       const pollForStatus = async () => {
@@ -523,14 +523,15 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
           }
         }
 
-        // 超时处理
+        // 超时处理 - 任务可能仍在后台运行
         set({
           isMissionRunning: false,
           missionProgress: 0,
           missionMessage: '',
           missionCompleted: false,
           activeAgentIds: [],
-          error: '任务超时，请刷新页面查看结果',
+          error:
+            '前端轮询超时（15分钟），任务可能仍在后台运行。请稍后刷新页面查看结果。',
         });
       };
 
@@ -611,7 +612,7 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
         // 开始轮询状态
         const { fetchVolumes, fetchProject } = get();
         const pollInterval = 2000;
-        const maxPolls = 180;
+        const maxPolls = 450; // 15分钟
         let pollCount = 0;
 
         const pollForStatus = async () => {
