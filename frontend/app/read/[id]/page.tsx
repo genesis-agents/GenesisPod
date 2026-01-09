@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import ReactMarkdown from 'react-markdown';
 
 interface Chapter {
   id: string;
@@ -186,151 +187,162 @@ export default function PublicReadPage() {
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-6xl">
-        {/* Sidebar - Table of Contents */}
-        <aside
-          className={`fixed inset-y-0 left-0 z-20 w-72 transform border-r border-gray-100 bg-white pt-16 shadow-lg transition-transform md:sticky md:top-16 md:z-0 md:h-[calc(100vh-4rem)] md:translate-x-0 md:pt-0 md:shadow-none ${
-            showToc ? 'translate-x-0' : '-translate-x-full'
-          }`}
-        >
-          <div className="h-full overflow-y-auto p-4">
-            <h2 className="mb-4 text-sm font-semibold text-gray-700">目录</h2>
-            <nav className="space-y-1">
-              {allChapters.map((chapter) => (
+      {/* Sidebar - Table of Contents (fixed on desktop) */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-20 w-72 transform border-r border-gray-100 bg-white pt-16 shadow-lg transition-transform ${
+          showToc ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
+        <div className="h-full overflow-y-auto p-4">
+          <h2 className="mb-4 text-sm font-semibold text-gray-700">目录</h2>
+          <nav className="space-y-1">
+            {allChapters.map((chapter) => (
+              <button
+                key={chapter.id}
+                onClick={() => {
+                  setSelectedChapter(chapter);
+                  setShowToc(false);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                  selectedChapter?.id === chapter.id
+                    ? 'bg-amber-100 font-medium text-amber-700'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <span className="text-gray-400">
+                  第{chapter.chapterNumber}章
+                </span>{' '}
+                {(chapter.title || '').replace(
+                  /^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i,
+                  ''
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </aside>
+
+      {/* Overlay for mobile */}
+      {showToc && (
+        <div
+          className="fixed inset-0 z-10 bg-black/30 md:hidden"
+          onClick={() => setShowToc(false)}
+        />
+      )}
+
+      {/* Main Content - offset by sidebar width on desktop */}
+      <main className="min-h-screen px-4 py-8 md:ml-72 md:px-8">
+        {selectedChapter ? (
+          <article className="mx-auto max-w-2xl">
+            {/* Chapter Title */}
+            <header className="mb-8 border-b border-gray-100 pb-6">
+              <p className="mb-1 text-sm text-amber-600">
+                第 {selectedChapter.chapterNumber} 章
+              </p>
+              <h2 className="text-2xl font-bold text-gray-900">
+                {(selectedChapter.title || '').replace(
+                  /^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i,
+                  ''
+                )}
+              </h2>
+              <p className="mt-2 text-sm text-gray-400">
+                {selectedChapter.wordCount?.toLocaleString() || 0} 字
+              </p>
+            </header>
+
+            {/* Chapter Content */}
+            <div className="prose prose-gray prose-p:text-justify prose-p:leading-8 prose-p:text-gray-700 prose-p:indent-8 prose-headings:hidden max-w-none">
+              {selectedChapter.content ? (
+                <ReactMarkdown
+                  components={{
+                    // 隐藏章节标题（因为已经在 header 显示了）
+                    h1: () => null,
+                    h2: () => null,
+                    h3: () => null,
+                    // 段落样式
+                    p: ({ children }) => (
+                      <p
+                        className="mb-4 text-justify leading-8 text-gray-700"
+                        style={{ textIndent: '2em' }}
+                      >
+                        {children}
+                      </p>
+                    ),
+                  }}
+                >
+                  {selectedChapter.content}
+                </ReactMarkdown>
+              ) : (
+                <p className="text-center text-gray-400">暂无内容</p>
+              )}
+            </div>
+
+            {/* Navigation */}
+            <nav className="mt-12 flex items-center justify-between border-t border-gray-100 pt-6">
+              {prevChapter ? (
                 <button
-                  key={chapter.id}
                   onClick={() => {
-                    setSelectedChapter(chapter);
-                    setShowToc(false);
+                    setSelectedChapter(prevChapter);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                    selectedChapter?.id === chapter.id
-                      ? 'bg-amber-100 font-medium text-amber-700'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
+                  className="flex items-center gap-2 rounded-lg px-4 py-2 text-gray-600 hover:bg-gray-100"
                 >
-                  <span className="text-gray-400">
-                    第{chapter.chapterNumber}章
-                  </span>{' '}
-                  {(chapter.title || '').replace(
-                    /^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i,
-                    ''
-                  )}
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                  上一章
                 </button>
-              ))}
+              ) : (
+                <div />
+              )}
+              {nextChapter ? (
+                <button
+                  onClick={() => {
+                    setSelectedChapter(nextChapter);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-white hover:bg-amber-600"
+                >
+                  下一章
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </button>
+              ) : (
+                <div className="rounded-lg bg-green-100 px-4 py-2 text-sm text-green-700">
+                  已读完全部章节
+                </div>
+              )}
             </nav>
+          </article>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20">
+            <span className="mb-4 text-5xl">📖</span>
+            <p className="text-gray-500">请从左侧目录选择章节开始阅读</p>
           </div>
-        </aside>
-
-        {/* Overlay for mobile */}
-        {showToc && (
-          <div
-            className="fixed inset-0 z-10 bg-black/30 md:hidden"
-            onClick={() => setShowToc(false)}
-          />
         )}
-
-        {/* Main Content */}
-        <main className="min-h-screen flex-1 px-4 py-8 md:px-8">
-          {selectedChapter ? (
-            <article className="mx-auto max-w-2xl">
-              {/* Chapter Title */}
-              <header className="mb-8 border-b border-gray-100 pb-6">
-                <p className="mb-1 text-sm text-amber-600">
-                  第 {selectedChapter.chapterNumber} 章
-                </p>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {(selectedChapter.title || '').replace(
-                    /^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i,
-                    ''
-                  )}
-                </h2>
-                <p className="mt-2 text-sm text-gray-400">
-                  {selectedChapter.wordCount?.toLocaleString() || 0} 字
-                </p>
-              </header>
-
-              {/* Chapter Content */}
-              <div className="prose prose-gray max-w-none">
-                {selectedChapter.content ? (
-                  <div
-                    className="whitespace-pre-wrap text-justify leading-8 text-gray-700"
-                    style={{ textIndent: '2em' }}
-                  >
-                    {selectedChapter.content}
-                  </div>
-                ) : (
-                  <p className="text-center text-gray-400">暂无内容</p>
-                )}
-              </div>
-
-              {/* Navigation */}
-              <nav className="mt-12 flex items-center justify-between border-t border-gray-100 pt-6">
-                {prevChapter ? (
-                  <button
-                    onClick={() => {
-                      setSelectedChapter(prevChapter);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="flex items-center gap-2 rounded-lg px-4 py-2 text-gray-600 hover:bg-gray-100"
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 19l-7-7 7-7"
-                      />
-                    </svg>
-                    上一章
-                  </button>
-                ) : (
-                  <div />
-                )}
-                {nextChapter ? (
-                  <button
-                    onClick={() => {
-                      setSelectedChapter(nextChapter);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-white hover:bg-amber-600"
-                  >
-                    下一章
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </button>
-                ) : (
-                  <div className="rounded-lg bg-green-100 px-4 py-2 text-sm text-green-700">
-                    已读完全部章节
-                  </div>
-                )}
-              </nav>
-            </article>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-20">
-              <span className="mb-4 text-5xl">📖</span>
-              <p className="text-gray-500">请从左侧目录选择章节开始阅读</p>
-            </div>
-          )}
-        </main>
-      </div>
+      </main>
 
       {/* Floating Menu */}
       <div
