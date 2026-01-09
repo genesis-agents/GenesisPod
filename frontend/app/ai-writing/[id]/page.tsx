@@ -1076,8 +1076,20 @@ export default function WritingProjectPage() {
           if (char.role) content += `<dt>角色</dt><dd>${char.role}</dd>`;
           if (char.description)
             content += `<dt>描述</dt><dd>${char.description}</dd>`;
-          if (char.personality)
-            content += `<dt>性格</dt><dd>${char.personality}</dd>`;
+          if (char.personality) {
+            // 处理 personality - 可能是字符串或对象
+            let personalityStr: string;
+            if (typeof char.personality === 'object') {
+              if (Array.isArray(char.personality)) {
+                personalityStr = (char.personality as string[]).join('、');
+              } else {
+                personalityStr = JSON.stringify(char.personality, null, 2);
+              }
+            } else {
+              personalityStr = String(char.personality);
+            }
+            content += `<dt>性格</dt><dd>${personalityStr}</dd>`;
+          }
           if (char.background)
             content += `<dt>背景</dt><dd>${char.background}</dd>`;
           content += '</dl></div>';

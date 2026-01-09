@@ -60,6 +60,12 @@ import { StoryBibleService } from "../bible/story-bible.service";
 // Event Emitter for real-time updates
 import { WritingEventEmitterService } from "../events/writing-event-emitter.service";
 
+// Writing Style Presets
+import {
+  generateStylePrompt,
+  recommendStyleByGenre,
+} from "../../constants/writing-style-presets";
+
 /**
  * 写作任务类型
  */
@@ -1097,6 +1103,35 @@ ${input.userPrompt}
           .join("\n")
       : "";
 
+    // ★ 清理字段值中可能存在的标签前缀（AI 有时会返回带标签的值）
+    const cleanFieldValue = (
+      value: string | undefined,
+      prefixes: string[],
+    ): string => {
+      if (!value) return "";
+      let cleaned = value.trim();
+      for (const prefix of prefixes) {
+        if (cleaned.toLowerCase().startsWith(prefix.toLowerCase())) {
+          cleaned = cleaned.substring(prefix.length).trim();
+          // 移除可能的冒号和空格
+          if (cleaned.startsWith(":") || cleaned.startsWith("：")) {
+            cleaned = cleaned.substring(1).trim();
+          }
+        }
+      }
+      return cleaned;
+    };
+
+    const cleanedTone = cleanFieldValue(
+      worldCore?.tone || worldInfo?.era || "",
+      ["tone", "基调", "基调风格", "风格"],
+    );
+    const cleanedTheme = cleanFieldValue(worldCore?.theme || "", [
+      "theme",
+      "主题",
+      "主题思想",
+    ]);
+
     try {
       // 使用事务确保数据一致性
       await this.prisma.$transaction(async (tx) => {
@@ -1106,16 +1141,16 @@ ${input.userPrompt}
           create: {
             projectId: input.projectId,
             premise: `${input.userPrompt}\n\n${worldDescription}`,
-            theme: worldCore?.theme || "",
-            tone: worldCore?.tone || worldInfo?.era || "",
+            theme: cleanedTheme,
+            tone: cleanedTone,
             worldType: worldInfo?.type || "现代",
             version: 1,
             lastSyncAt: new Date(),
           },
           update: {
             premise: `${input.userPrompt}\n\n${worldDescription}`,
-            theme: worldCore?.theme || "",
-            tone: worldCore?.tone || worldInfo?.era || "",
+            theme: cleanedTheme,
+            tone: cleanedTone,
             worldType: worldInfo?.type || "现代",
             version: { increment: 1 },
             lastSyncAt: new Date(),
@@ -1273,6 +1308,15 @@ ${input.userPrompt}
       }),
     };
 
+    // ★ 根据故事类型推荐写作风格（用于后续章节写作）
+    const genre = worldCore?.genre || "";
+    const recommendedStyles = recommendStyleByGenre(genre);
+    const primaryStyleId = recommendedStyles[0] || "modern_realistic";
+
+    this.logger.log(
+      `[${missionId}] Detected genre: ${genre}, recommended style: ${primaryStyleId}`,
+    );
+
     const outlinePrompt = `作为故事架构师，请基于以下【已建立的世界观】规划详细的章节结构。
 
 【重要】你的章节规划必须严格遵守世界观设定，不能违反已建立的规则！
@@ -1288,6 +1332,13 @@ ${JSON.stringify(worldSummary, null, 2)}
 - 分卷数：${totalVolumes} 卷
 - 每卷章节数：约 ${chaptersPerVolume} 章
 - 总章节数：${totalChapters} 章
+
+【节奏与质量要求 - 极其重要】
+1. ⚡ 快速进入核心冲突：第1-3章必须建立核心矛盾，不要过度铺垫
+2. 🎭 场景多样性：连续2章不能在同一场景发生相同类型事件
+3. 📈 节奏起伏：每5章左右需要有一个小高潮，每卷末尾需要有大高潮
+4. 🔄 避免重复：不同章节的情节类型要多样化（对话、行动、冲突、发现、转折等）
+5. 👥 角色轮换：避免连续多章只有相同角色组合出场
 
 【请输出以下内容】
 
@@ -1311,6 +1362,7 @@ ${Array.from(
 - 主要情节：50字内概括本章核心剧情
 - 关键转折：本章的关键情节点
 - 涉及角色：本章出场的主要角色（必须是世界观中已定义的角色）
+- 场景类型：本章主要场景（如：宫殿、街市、战场、密室等）
 
 【重要 - 必须遵守】
 1. 必须输出完整的 ${totalChapters} 个章节，一个都不能少！
@@ -1318,14 +1370,15 @@ ${Array.from(
 3. 情节发展必须符合世界观中的规则设定
 4. 角色行为必须符合其性格和动机设定
 5. 章节数量不足将被拒绝，请确保输出完整的 ${totalChapters} 章
+6. 连续章节不能使用相同场景发生相似事件（如连续两章都是"被召见"）
 
 输出格式：JSON
 {
   "bookTitle": "书名（2-8字，不含书名号）",
   "volumes": [{ "title": "卷名（如：风云际会）", "conflict": "核心冲突", "plot": "主要情节", "emotion": "情感走向" }],
   "chapters": [
-    { "volumeIndex": 0, "title": "暗流涌动", "plot": "主角初入江湖，遭遇神秘势力", "keyPoint": "发现隐藏身世", "characters": ["主角名", "配角名"] },
-    { "volumeIndex": 0, "title": "命运交汇", "plot": "与未来盟友相遇", "keyPoint": "获得关键线索", "characters": ["主角名", "新角色"] }
+    { "volumeIndex": 0, "title": "暗流涌动", "plot": "主角初入江湖，遭遇神秘势力", "keyPoint": "发现隐藏身世", "characters": ["主角名", "配角名"], "sceneType": "江湖客栈" },
+    { "volumeIndex": 0, "title": "命运交汇", "plot": "与未来盟友相遇", "keyPoint": "获得关键线索", "characters": ["主角名", "新角色"], "sceneType": "山间小路" }
   ]
 }`;
 
@@ -2425,6 +2478,7 @@ ${chapterContent}
       warnings: string[];
       contextPrompt: string;
     },
+    styleId?: string,
   ): string {
     const characters =
       (worldSettings.characters as Array<{
@@ -2436,12 +2490,19 @@ ${chapterContent}
       .map((c) => `${c.name}: ${(c.personality || []).join("、")}`)
       .join("\n");
 
+    // 根据故事类型获取写作风格指南
+    const effectiveStyleId =
+      styleId ||
+      recommendStyleByGenre(outline.core.genre || "")[0] ||
+      "modern_realistic";
+    const stylePrompt = generateStylePrompt(effectiveStyleId);
+
     return `【创作任务】第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}
 
 【故事主题】${userPrompt}
 【故事类型】${outline.core.genre || "通用"}
 【主题思想】${outline.core.theme || "待定"}
-
+${stylePrompt}
 【本章情节要点】
 ${chapterInfo.plot}
 ${chapterInfo.keyPoint ? `关键转折：${chapterInfo.keyPoint}` : ""}
@@ -2451,12 +2512,14 @@ ${characterInfo || "待定"}
 
 ${previousSummary ? `【前文摘要】\n${previousSummary}\n` : "【开篇说明】这是故事的开始，需要引人入胜，建立故事背景和主要人物。\n"}
 ${keeperContext?.contextPrompt ? `【守护者提醒】\n${keeperContext.contextPrompt}\n` : ""}${keeperContext?.warnings?.length ? `\n⚠️ 注意事项：\n${keeperContext.warnings.map((w: string) => `- ${w}`).join("\n")}\n` : ""}
-【创作要求】
-1. 字数约 3000 字
-2. 语言流畅自然，富有文学性
-3. 人物对话生动，符合角色性格
-4. 场景描写细腻，有画面感
-5. 情节紧凑，节奏把控好
+【创作要求 - 必须遵守】
+1. ⚠️ 字数要求：本章必须达到 1500 字以上，建议 2000-3000 字
+2. 📖 语言质量：语言流畅自然，富有文学性，句式多样化
+3. 💬 对话要求：人物对话生动，符合角色性格和身份，避免千人一面
+4. 🎨 场景描写：细腻有画面感，运用多种感官描写（视觉、听觉、嗅觉等）
+5. ⚡ 节奏把控：情节紧凑，避免冗余的心理描写和重复的场景
+6. 🎭 叙事技巧：善用伏笔、悬念、反转等技巧增加可读性
+7. 🔄 避免重复：不要与前文使用相同的开场方式、对话模式或场景设置
 
 请直接输出章节内容，以"第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}"开头：`;
   }
