@@ -646,6 +646,21 @@ export class WritingMissionService {
     // 验证项目访问权限
     await this.verifyProjectAccess(input.projectId, userId);
 
+    // 检查是否有正在运行的任务（防止并发任务）
+    const runningMission = await this.prisma.writingMission.findFirst({
+      where: {
+        projectId: input.projectId,
+        status: "IN_PROGRESS",
+      },
+    });
+
+    if (runningMission) {
+      this.logger.warn(
+        `Project ${input.projectId} already has a running mission ${runningMission.id}, rejecting new mission`,
+      );
+      throw new Error("当前项目已有正在执行的任务，请等待完成或取消后再试。");
+    }
+
     // 检查可用的 AI 模型并分配给角色
     const modelAssignments = await this.assignModelsToRoles();
     const activeRoles = modelAssignments.filter((a) => a.isActive);

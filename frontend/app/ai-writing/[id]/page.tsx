@@ -950,7 +950,7 @@ export default function WritingProjectPage() {
   };
 
   const handleContinueWriting = async () => {
-    if (!currentProject) return;
+    if (!currentProject || isMissionRunning) return;
 
     // 计算剩余需要写的字数
     const remainingWords = Math.max(
