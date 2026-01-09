@@ -490,4 +490,28 @@ export class AiWritingController {
       message: `已重置 ${result.count} 个章节，使用"继续创作"可重新生成内容`,
     };
   }
+
+  /**
+   * 重新提取并更新项目所有章节的标题
+   * 用于修复已有章节缺失标题的情况
+   */
+  @Post("projects/:projectId/fix-titles")
+  async fixChapterTitles(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+  ) {
+    this.logger.log(`Re-extracting chapter titles for project ${projectId}`);
+
+    const result = await this.writingMissionService.reExtractChapterTitles(
+      projectId,
+      req.user.id,
+    );
+
+    return {
+      success: true,
+      updated: result.updated,
+      chapters: result.chapters,
+      message: `已更新 ${result.updated} 个章节的标题`,
+    };
+  }
 }
