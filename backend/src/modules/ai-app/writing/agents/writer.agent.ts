@@ -30,6 +30,8 @@ import { ProfessionalVoiceService } from "../services/quality/professional-voice
 import { SensoryImmersionService } from "../services/quality/sensory-immersion.service";
 import { OpeningHookService } from "../services/quality/opening-hook.service";
 import { NarrativeCraftService } from "../services/quality/narrative-craft.service";
+import { ForeshadowingService } from "../services/quality/foreshadowing.service";
+import { PacingControlService } from "../services/quality/pacing-control.service";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { TaskProfile } from "../../../ai-engine/llm/types";
 import {
@@ -185,6 +187,8 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     private readonly sensoryImmersion: SensoryImmersionService,
     private readonly openingHook: OpeningHookService,
     private readonly narrativeCraft: NarrativeCraftService,
+    private readonly foreshadowing: ForeshadowingService,
+    private readonly pacingControl: PacingControlService,
     private readonly aiChatService: AiChatService,
   ) {
     super();
@@ -202,6 +206,8 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       { name: "sensoryImmersion", service: this.sensoryImmersion },
       { name: "openingHook", service: this.openingHook },
       { name: "narrativeCraft", service: this.narrativeCraft },
+      { name: "foreshadowing", service: this.foreshadowing },
+      { name: "pacingControl", service: this.pacingControl },
     ];
 
     for (const { name, service } of services) {
@@ -442,7 +448,39 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       // 非关键约束，失败不阻塞
     }
 
-    // 注：叙事工艺约束已移至第1位，优先处理
+    // 8. 伏笔管理约束（v3 新增）
+    try {
+      const foreshadowGuidance =
+        this.foreshadowing.generateForeshadowingGuidance(
+          projectId,
+          chapterNumber,
+          chapterContext.chapter.outline,
+        );
+      if (foreshadowGuidance.constraintPrompt) {
+        parts.push(foreshadowGuidance.constraintPrompt);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[Writer] Failed to get foreshadowing constraints: ${error}`,
+      );
+      // 非关键约束，失败不阻塞
+    }
+
+    // 9. 节奏控制约束（v3 新增）
+    try {
+      const pacingConstraints = this.pacingControl.generatePacingConstraints(
+        projectId,
+        chapterNumber,
+        chapterContext.chapter.outline,
+        chapterContext.chapter.outline,
+      );
+      if (pacingConstraints) {
+        parts.push(pacingConstraints);
+      }
+    } catch (error) {
+      this.logger.warn(`[Writer] Failed to get pacing constraints: ${error}`);
+      // 非关键约束，失败不阻塞
+    }
 
     return parts.join("\n\n");
   }
