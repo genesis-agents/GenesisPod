@@ -140,6 +140,18 @@ const COMMON_EXPRESSION_PATTERNS: Array<{
   { pattern: /轻叹一声/g, type: "ACTION", category: "叹息" },
   { pattern: /长叹一声/g, type: "ACTION", category: "叹息" },
   { pattern: /轻轻叹息/g, type: "ACTION", category: "叹息" },
+  // ★ 新增：呼吸/点头/缓慢动作类
+  { pattern: /深吸一口气/g, type: "ACTION", category: "呼吸" },
+  { pattern: /深呼一口气/g, type: "ACTION", category: "呼吸" },
+  { pattern: /长出一口气/g, type: "ACTION", category: "呼吸" },
+  { pattern: /微微点头/g, type: "ACTION", category: "点头" },
+  { pattern: /缓缓点头/g, type: "ACTION", category: "点头" },
+  { pattern: /微微摇头/g, type: "ACTION", category: "摇头" },
+  { pattern: /缓缓道/g, type: "ACTION", category: "说话" },
+  { pattern: /缓缓说道/g, type: "ACTION", category: "说话" },
+  { pattern: /缓缓开口/g, type: "ACTION", category: "说话" },
+  { pattern: /嘴角微微上扬/g, type: "ACTION", category: "微笑" },
+  { pattern: /嘴角轻轻上扬/g, type: "ACTION", category: "微笑" },
 
   // ==================== 过渡语类 ====================
   { pattern: /话说/g, type: "TRANSITION", category: "开场" },
@@ -214,6 +226,47 @@ const COMMON_EXPRESSION_PATTERNS: Array<{
   { pattern: /柳暗花明/g, type: "PLOT_PATTERN", category: "转折" },
   { pattern: /绝处逢生/g, type: "PLOT_PATTERN", category: "转折" },
   { pattern: /出人意料/g, type: "PLOT_PATTERN", category: "转折" },
+  // ★ 新增："这场X"高频模式
+  { pattern: /这场斗争/g, type: "PLOT_PATTERN", category: "斗争描述" },
+  { pattern: /这场博弈/g, type: "PLOT_PATTERN", category: "斗争描述" },
+  { pattern: /这场游戏/g, type: "PLOT_PATTERN", category: "斗争描述" },
+  { pattern: /这场较量/g, type: "PLOT_PATTERN", category: "斗争描述" },
+  {
+    pattern: /这场权力[的之]?博弈/g,
+    type: "PLOT_PATTERN",
+    category: "政治描述",
+  },
+  {
+    pattern: /这场权力[的之]?游戏/g,
+    type: "PLOT_PATTERN",
+    category: "政治描述",
+  },
+  {
+    pattern: /这场权力[的之]?斗争/g,
+    type: "PLOT_PATTERN",
+    category: "政治描述",
+  },
+  {
+    pattern: /这场宫廷[的之]?斗争/g,
+    type: "PLOT_PATTERN",
+    category: "宫斗描述",
+  },
+  {
+    pattern: /这场无形[的之]?斗争/g,
+    type: "PLOT_PATTERN",
+    category: "斗争描述",
+  },
+  // ★ 新增：量词+情感高频模式
+  { pattern: /一丝不安/g, type: "EMOTION", category: "不安" },
+  { pattern: /一丝期待/g, type: "EMOTION", category: "期待" },
+  { pattern: /一丝希望/g, type: "EMOTION", category: "希望" },
+  { pattern: /一丝担忧/g, type: "EMOTION", category: "担忧" },
+  { pattern: /一丝惊讶/g, type: "EMOTION", category: "惊讶" },
+  { pattern: /一丝寒意/g, type: "EMOTION", category: "恐惧" },
+  { pattern: /一阵寒意/g, type: "EMOTION", category: "恐惧" },
+  { pattern: /一股寒意/g, type: "EMOTION", category: "恐惧" },
+  { pattern: /一阵不安/g, type: "EMOTION", category: "不安" },
+  { pattern: /一抹冷笑/g, type: "EMOTION", category: "冷笑" },
 
   // ==================== 对话模式类 ====================
   { pattern: /你可知道/g, type: "DIALOGUE", category: "提问" },
