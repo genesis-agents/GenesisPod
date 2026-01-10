@@ -357,6 +357,17 @@ export class QualityGateService {
     // 违反冷却期的表达严重降分
     const penaltyRatio = analysisResult.violatedExpressions.length * 0.1;
 
+    // ★ 详细日志：追踪违规表达
+    if (analysisResult.violatedExpressions.length > 0) {
+      const violatedList = analysisResult.violatedExpressions
+        .slice(0, 10)
+        .map((v) => `"${v.expression}"(${v.useCount}次)`)
+        .join(", ");
+      this.logger.warn(
+        `[QualityGate] Found ${analysisResult.violatedExpressions.length} cooling violations: ${violatedList}`,
+      );
+    }
+
     return Math.max(0, noveltyRatio - penaltyRatio);
   }
 

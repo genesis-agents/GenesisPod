@@ -2007,56 +2007,59 @@ ${chapterContent}
       let rewriteAttempts = 0;
       const maxRewriteAttempts = 2;
 
-      while (rewriteAttempts < maxRewriteAttempts) {
-        const qualityResult = await this.qualityGate.checkQualityGate(
-          input.projectId,
-          chapterId,
-          chapterNumber,
-          chapterContent,
-          rewriteAttempts,
-        );
-
-        if (qualityResult.passed) {
-          // 质量达标，跳出循环
-          break;
-        }
-
-        // 质量不达标，需要重写
-        rewriteAttempts++;
-        this.logger.warn(
-          `[${missionId}] Chapter ${chapterNumber} failed quality gate (attempt ${rewriteAttempts}/${maxRewriteAttempts}): diversity=${qualityResult.scores.diversityScore.toFixed(2)}`,
-        );
-
-        if (!qualityResult.requiresRewrite) {
-          // 已达到最大重写次数，强制通过
-          break;
-        }
-
-        // 构建重写提示，包含需要避免的表达
-        const rewriteHints = qualityResult.rewriteSuggestions?.join("\n") || "";
-
-        // ★ 直接分析当前内容获取违规表达（不依赖 issues，issues 只有章内重复）
-        const currentAnalysis =
-          await this.expressionMemory.analyzeExpressionsOnly(
+      // ★ 用 try-catch 包裹质量检查，防止异常导致整个任务失败
+      try {
+        while (rewriteAttempts < maxRewriteAttempts) {
+          const qualityResult = await this.qualityGate.checkQualityGate(
             input.projectId,
+            chapterId,
+            chapterNumber,
             chapterContent,
+            rewriteAttempts,
           );
-        const violatedExprs = currentAnalysis.violatedExpressions
-          .map((v) => `"${v.expression}"(已用${v.useCount}次)`)
-          .join("、");
 
-        // 同时获取章内高频重复
-        const repetitionIssues = qualityResult.issues
-          .filter((issue) => issue.type === "repetition")
-          .map((issue) => issue.description)
-          .join("、");
+          if (qualityResult.passed) {
+            // 质量达标，跳出循环
+            break;
+          }
 
-        // 合并所有需要避免的表达
-        const allAvoidExprs = [violatedExprs, repetitionIssues]
-          .filter(Boolean)
-          .join("；");
+          // 质量不达标，需要重写
+          rewriteAttempts++;
+          this.logger.warn(
+            `[${missionId}] Chapter ${chapterNumber} failed quality gate (attempt ${rewriteAttempts}/${maxRewriteAttempts}): diversity=${qualityResult.scores.diversityScore.toFixed(2)}`,
+          );
 
-        const rewritePrompt = `请重写以下章节内容，**必须避免**使用这些重复表达：${allAvoidExprs || "无具体列表，请增加表达多样性"}
+          if (!qualityResult.requiresRewrite) {
+            // 已达到最大重写次数，强制通过
+            break;
+          }
+
+          // 构建重写提示，包含需要避免的表达
+          const rewriteHints =
+            qualityResult.rewriteSuggestions?.join("\n") || "";
+
+          // ★ 直接分析当前内容获取违规表达（不依赖 issues，issues 只有章内重复）
+          const currentAnalysis =
+            await this.expressionMemory.analyzeExpressionsOnly(
+              input.projectId,
+              chapterContent,
+            );
+          const violatedExprs = currentAnalysis.violatedExpressions
+            .map((v) => `"${v.expression}"(已用${v.useCount}次)`)
+            .join("、");
+
+          // 同时获取章内高频重复
+          const repetitionIssues = qualityResult.issues
+            .filter((issue) => issue.type === "repetition")
+            .map((issue) => issue.description)
+            .join("、");
+
+          // 合并所有需要避免的表达
+          const allAvoidExprs = [violatedExprs, repetitionIssues]
+            .filter(Boolean)
+            .join("；");
+
+          const rewritePrompt = `请重写以下章节内容，**必须避免**使用这些重复表达：${allAvoidExprs || "无具体列表，请增加表达多样性"}
 
 ${rewriteHints ? `改进建议：\n${rewriteHints}\n` : ""}
 原文内容：
@@ -2068,36 +2071,42 @@ ${chapterContent}
 3. 避免任何形式的重复表达
 4. 保持文字流畅自然`;
 
-        try {
-          const rewriteResponse = await this.aiChatService.chat({
-            messages: [
-              {
-                role: "system",
-                content:
-                  "你是专业的小说编辑，擅长用丰富多样的表达方式重写内容。严禁使用重复的表达。",
-              },
-              { role: "user", content: rewritePrompt },
-            ],
-            model: writerModel,
-            temperature: 0.9, // 高温度增加多样性
-            maxTokens: 6000,
-          });
+          try {
+            const rewriteResponse = await this.aiChatService.chat({
+              messages: [
+                {
+                  role: "system",
+                  content:
+                    "你是专业的小说编辑，擅长用丰富多样的表达方式重写内容。严禁使用重复的表达。",
+                },
+                { role: "user", content: rewritePrompt },
+              ],
+              model: writerModel,
+              temperature: 0.9, // 高温度增加多样性
+              maxTokens: 6000,
+            });
 
-          if (
-            rewriteResponse.content &&
-            rewriteResponse.content.length > chapterContent.length * 0.7
-          ) {
-            chapterContent = rewriteResponse.content;
-            this.logger.log(
-              `[${missionId}] Chapter ${chapterNumber} rewritten (attempt ${rewriteAttempts})`,
+            if (
+              rewriteResponse.content &&
+              rewriteResponse.content.length > chapterContent.length * 0.7
+            ) {
+              chapterContent = rewriteResponse.content;
+              this.logger.log(
+                `[${missionId}] Chapter ${chapterNumber} rewritten (attempt ${rewriteAttempts})`,
+              );
+            }
+          } catch (e) {
+            this.logger.warn(
+              `[${missionId}] Chapter ${chapterNumber} rewrite failed: ${(e as Error).message}`,
             );
+            break;
           }
-        } catch (e) {
-          this.logger.warn(
-            `[${missionId}] Chapter ${chapterNumber} rewrite failed: ${(e as Error).message}`,
-          );
-          break;
         }
+      } catch (qualityError) {
+        // 质量检查失败不应阻止章节生成，记录警告并继续
+        this.logger.warn(
+          `[${missionId}] Chapter ${chapterNumber} quality gate error: ${(qualityError as Error).message}`,
+        );
       }
 
       allChapters.push(chapterContent);

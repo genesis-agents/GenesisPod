@@ -777,13 +777,31 @@ export class ExpressionMemoryService {
   ): Promise<void> {
     const cooldownChapters = this.getCooldownChapters(type, 1);
 
-    await this.prisma.writingExpressionMemory.create({
-      data: {
+    // ★ 使用 upsert 防止并发场景下的唯一索引冲突
+    await this.prisma.writingExpressionMemory.upsert({
+      where: {
+        projectId_expression: {
+          projectId,
+          expression,
+        },
+      },
+      create: {
         projectId,
         expression,
         expressionType: type,
         category,
         useCount: 1,
+        lastUsedAt: new Date(),
+        lastChapterId: chapterId,
+        isCoolingDown: true,
+        cooldownUntil: this.calculateCooldownEnd(
+          chapterNumber,
+          cooldownChapters,
+        ),
+      },
+      update: {
+        // 如果已存在（并发创建），增加计数
+        useCount: { increment: 1 },
         lastUsedAt: new Date(),
         lastChapterId: chapterId,
         isCoolingDown: true,
