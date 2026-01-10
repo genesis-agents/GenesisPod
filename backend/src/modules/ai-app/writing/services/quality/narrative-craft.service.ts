@@ -1,0 +1,458 @@
+/**
+ * NarrativeCraftService - 叙事工艺服务
+ *
+ * 核心职责：
+ * - 禁止"说教式写法"（Tell not Show）
+ * - 禁止总结式结尾
+ * - 确保对话自然（非NPC式）
+ * - 确保动机逻辑链条完整
+ *
+ * 设计理念：
+ * 网文常见的"AI味"问题：
+ * 1. "她知道，XXX是XXX的象征" - 直接告诉读者主题
+ * 2. "她意识到，这意味着..." - 用意识代替行动
+ * 3. "只要能掌控这份力量，就能..." - 总结式结尾
+ * 4. "奴婢名唤XX，小姐您是XX的女儿" - NPC读设定集
+ *
+ * 解决方案：
+ * - 用动作/反应代替心理解读
+ * - 用具体场景代替抽象议论
+ * - 用对话冲突代替信息灌输
+ * - 用悬念代替总结
+ */
+
+import { Injectable, Logger } from "@nestjs/common";
+
+// ==================== 禁止模式库 ====================
+
+/**
+ * 说教式写法禁止模式
+ * 这些句式会让读者感觉被"教导"，破坏沉浸感
+ */
+const PREACH_PATTERNS = {
+  // "她知道"类 - 直接告诉读者角色的认知
+  awareness: {
+    patterns: [
+      "她知道，",
+      "他知道，",
+      "她明白，",
+      "他明白，",
+      "她意识到，",
+      "他意识到，",
+      "她清楚，",
+      "他清楚，",
+      "她深知，",
+      "他深知，",
+    ],
+    problem: "直接告诉读者角色知道什么，而非通过行动展示",
+    fix: "用角色的具体行动或生理反应来暗示其认知",
+    examples: [
+      {
+        bad: "她知道，作为后宫女子，美丽是生存的基础。",
+        good: "她的手指不自觉地摸上了脸颊——这张脸，是她在这深宫中唯一的筹码。",
+      },
+      {
+        bad: "他知道，这场战斗将决定他的命运。",
+        good: "他握紧刀柄，指节发白。",
+      },
+    ],
+  },
+
+  // "是...的象征"类 - 直接点明主题
+  symbolism: {
+    patterns: [
+      "是权力的象征",
+      "是生存的基础",
+      "是地位的体现",
+      "意味着死亡",
+      "意味着失败",
+      "代表着希望",
+      "象征着自由",
+    ],
+    problem: "直接解释象征意义，剥夺读者的解读空间",
+    fix: "让象征物通过情节自然展现其意义",
+    examples: [
+      {
+        bad: "在这个时代，妆容是权力的象征。",
+        good: "太后扫了一眼她素净的面容，嘴角微微下撇。殿内的宫女们立刻低下了头。",
+      },
+    ],
+  },
+
+  // "她/他+情绪形容词"类 - 直接描述情绪
+  emotion_telling: {
+    patterns: [
+      "她很紧张",
+      "他很愤怒",
+      "她感到恐惧",
+      "他感到兴奋",
+      "她内心充满",
+      "他心中涌起",
+      "她的心情",
+      "他的情绪",
+    ],
+    problem: "直接告诉读者角色的情绪，而非通过表现展示",
+    fix: "用生理反应、微表情、下意识动作来展示情绪",
+    examples: [
+      {
+        bad: "她很紧张，心跳加速。",
+        good: "她的手指不自觉地揪紧了袖口，指甲陷进掌心。",
+      },
+      {
+        bad: "他很愤怒。",
+        good: "他的太阳穴突突直跳，握着酒杯的手青筋暴起。",
+      },
+    ],
+  },
+
+  // 总结式句式 - 在叙事中间插入总结
+  mid_summary: {
+    patterns: [
+      "总之，",
+      "总而言之，",
+      "换句话说，",
+      "也就是说，",
+      "这说明，",
+      "由此可见，",
+      "不难看出，",
+    ],
+    problem: "在叙事中插入议论式总结，打断故事流",
+    fix: "删除这些总结，让情节自己说话",
+    examples: [
+      {
+        bad: "总之，她必须尽快适应这个环境。",
+        good: "（直接删除，或转为具体行动）她推开窗，深吸一口陌生的空气。",
+      },
+    ],
+  },
+};
+
+/**
+ * 结尾禁止模式
+ * 这些句式会让结尾显得"总结式"，缺乏余韵
+ */
+const ENDING_PATTERNS = {
+  // 预告式结尾
+  foreshadowing_cliche: {
+    patterns: [
+      "而这一切，只是开始",
+      "风暴即将来临",
+      "命运的齿轮开始转动",
+      "历史的洪流",
+      "新的篇章",
+      "故事才刚刚开始",
+      "序幕就此拉开",
+    ],
+    problem: "空洞的预告，没有具体内容",
+    fix: "用具体的悬念或未解决的冲突结尾",
+  },
+
+  // 感悟式结尾
+  epiphany_cliche: {
+    patterns: [
+      "她终于明白",
+      "他终于懂得",
+      "此刻她才意识到",
+      "这一刻他才知道",
+      "她第一次感受到",
+      "从此以后",
+    ],
+    problem: "把领悟直接告诉读者，而非让读者自己体会",
+    fix: "用角色的沉默、动作或未完成的对话结尾",
+  },
+
+  // 决心式结尾
+  resolution_cliche: {
+    patterns: [
+      "她暗暗发誓",
+      "他在心中立下誓言",
+      "她决定",
+      "他下定决心",
+      "无论如何，她都要",
+      "不管怎样，他都会",
+      "她不会放弃",
+      "他绝不认输",
+    ],
+    problem: "用空洞的决心代替具体的行动计划",
+    fix: "让角色做出一个具体的小行动，暗示其决心",
+  },
+
+  // 抒情式结尾
+  lyrical_cliche: {
+    patterns: [
+      "夜色渐深，",
+      "月光如水，",
+      "繁星点点，",
+      "长夜漫漫，",
+      "岁月静好，",
+    ],
+    problem: "用空洞的景色描写收尾，没有情节张力",
+    fix: "景色描写要服务于情绪，且要有具体细节",
+  },
+};
+
+/**
+ * NPC式对话禁止模式
+ * 这些对话模式让角色像在读"设定集"
+ */
+const NPC_DIALOGUE_PATTERNS = {
+  // 自我介绍式
+  self_intro: {
+    patterns: ["奴婢名唤", "在下姓", "我是XXX的", "小人乃是"],
+    problem: "现实中人不会这样自我介绍背景设定",
+    fix: "通过他人称呼、回忆、或自然流露来展示身份",
+    examples: [
+      {
+        bad: '"奴婢名唤阿梅，小姐您是织染署染人的女儿，因得卫大人照拂才入宫供职。"',
+        good: '"小姐！您可算醒了！"丫鬟扑到床边，"卫大人的人昨晚又来问过，奴婢都不知道怎么回了..."',
+      },
+    ],
+  },
+
+  // 背景灌输式
+  info_dump: {
+    patterns: ["您可知道", "您要知道", "我得告诉您", "有件事您必须知道"],
+    problem: "为了灌输设定而强行安排对话",
+    fix: "设定信息通过冲突、问题、误解来自然引出",
+  },
+
+  // 解释太多
+  over_explain: {
+    patterns: ["也就是说，", "换言之，", "简单来说，", "具体而言，"],
+    problem: "角色在对话中像在做讲解",
+    fix: "对话应该有潜台词、有省略、有误解",
+  },
+};
+
+// ==================== 服务实现 ====================
+
+export interface NarrativeCraftReport {
+  /** 检测到的问题 */
+  issues: Array<{
+    type: "preach" | "ending" | "npc_dialogue";
+    category: string;
+    match: string;
+    line: number;
+    problem: string;
+    suggestion: string;
+  }>;
+  /** 总体评分 0-100 */
+  score: number;
+  /** 是否通过 */
+  passed: boolean;
+}
+
+@Injectable()
+export class NarrativeCraftService {
+  private readonly logger = new Logger(NarrativeCraftService.name);
+
+  /**
+   * 生成叙事工艺约束提示词
+   * 用于在写作前注入，防止产生问题
+   */
+  generateNarrativeCraftConstraints(): string {
+    const parts: string[] = [];
+
+    parts.push(`## 叙事工艺禁忌（必须严格遵守）\n`);
+
+    // 说教禁止
+    parts.push(`### 1. 禁止"说教式写法"（Tell not Show）`);
+    parts.push(`以下句式会破坏沉浸感，严禁使用：\n`);
+
+    parts.push(`**禁止"她/他知道"类：**`);
+    parts.push(`- ❌ "她知道，作为后宫女子，美丽是生存的基础。"`);
+    parts.push(
+      `- ✅ 改为动作：她的手指不自觉地摸上脸颊——这张脸，是她唯一的筹码。\n`,
+    );
+
+    parts.push(`**禁止"是...的象征"类：**`);
+    parts.push(`- ❌ "在这个时代，妆容是权力的象征。"`);
+    parts.push(`- ✅ 改为场景：太后扫了一眼她素净的面容，嘴角微微下撇。\n`);
+
+    parts.push(`**禁止直接描述情绪：**`);
+    parts.push(`- ❌ "她很紧张" / "他感到愤怒"`);
+    parts.push(`- ✅ 用生理反应：她的手指揪紧袖口，指甲陷进掌心。\n`);
+
+    // 结尾禁止
+    parts.push(`### 2. 章节结尾禁忌`);
+    parts.push(`章节必须在【具体场景】中结束，严禁以下结尾：\n`);
+    parts.push(`**绝对禁止：**`);
+    parts.push(`- ❌ "只要她能掌控这份力量，就能..." （决心总结）`);
+    parts.push(`- ❌ "既然命运已将她抛入...她就不打算放弃..." （使命宣言）`);
+    parts.push(`- ❌ "而这一切，只是开始" / "风暴即将来临" （空洞预告）`);
+    parts.push(`- ❌ "她终于明白..." / "此刻她才意识到..." （顿悟总结）\n`);
+    parts.push(`**正确的结尾方式：**`);
+    parts.push(`- ✅ 对话戛然而止，留下悬念`);
+    parts.push(`- ✅ 一个动作定格（门被关上、脚步声远去、烛火熄灭）`);
+    parts.push(`- ✅ 一个未解决的问题或冲突`);
+    parts.push(`- ✅ 感官细节（而非抽象感悟）\n`);
+
+    // 对话禁止
+    parts.push(`### 3. 对话自然度要求`);
+    parts.push(`对话不能像NPC在"读设定集"：\n`);
+    parts.push(`**禁止设定灌输式对话：**`);
+    parts.push(
+      `- ❌ "奴婢名唤阿梅，小姐您是织染署染人的女儿，因得卫大人照拂才入宫供职。"`,
+    );
+    parts.push(
+      `- ✅ "小姐！您可算醒了！卫大人的人昨晚又来问过，奴婢都不知道怎么回了..."\n`,
+    );
+    parts.push(`**对话要有：**`);
+    parts.push(`- 潜台词（说的和想的不一样）`);
+    parts.push(`- 省略（熟人间不会解释已知信息）`);
+    parts.push(`- 情绪（紧张、害怕、讨好、试探）`);
+    parts.push(`- 冲突（意见不合、误解、隐瞒）\n`);
+
+    // 动机逻辑
+    parts.push(`### 4. 动机逻辑链条`);
+    parts.push(`角色行动必须有合理的动机触发：\n`);
+    parts.push(`**错误示例：**`);
+    parts.push(`- 主角刚穿越醒来 → 立刻开始做胭脂`);
+    parts.push(`- 问题：缺乏紧迫性触发，为什么非要现在做？\n`);
+    parts.push(`**正确示例：**`);
+    parts.push(
+      `- 主角刚穿越醒来 → 丫鬟说"半个时辰后尚宫要来验人" → 照镜发现面色惨白 → 必须立刻补妆`,
+    );
+    parts.push(`- 动机链完整：外部压力 + 发现问题 + 必须行动\n`);
+
+    return parts.join("\n");
+  }
+
+  /**
+   * 分析内容中的叙事问题
+   * 用于后置检查
+   */
+  analyzeContent(content: string): NarrativeCraftReport {
+    const lines = content.split("\n");
+    const issues: NarrativeCraftReport["issues"] = [];
+
+    // 检查说教模式
+    for (const [category, config] of Object.entries(PREACH_PATTERNS)) {
+      for (const pattern of config.patterns) {
+        lines.forEach((line, index) => {
+          if (line.includes(pattern)) {
+            issues.push({
+              type: "preach",
+              category,
+              match: pattern,
+              line: index + 1,
+              problem: config.problem,
+              suggestion: config.fix,
+            });
+          }
+        });
+      }
+    }
+
+    // 检查结尾模式（只检查最后5行）
+    const lastLines = lines.slice(-5);
+    for (const [category, config] of Object.entries(ENDING_PATTERNS)) {
+      for (const pattern of config.patterns) {
+        lastLines.forEach((line, index) => {
+          if (line.includes(pattern)) {
+            issues.push({
+              type: "ending",
+              category,
+              match: pattern,
+              line: lines.length - 5 + index + 1,
+              problem: config.problem,
+              suggestion: config.fix,
+            });
+          }
+        });
+      }
+    }
+
+    // 检查NPC对话模式
+    for (const [category, config] of Object.entries(NPC_DIALOGUE_PATTERNS)) {
+      for (const pattern of config.patterns) {
+        lines.forEach((line, index) => {
+          if (line.includes(pattern)) {
+            issues.push({
+              type: "npc_dialogue",
+              category,
+              match: pattern,
+              line: index + 1,
+              problem: config.problem,
+              suggestion: config.fix,
+            });
+          }
+        });
+      }
+    }
+
+    // 计算分数
+    const preachCount = issues.filter((i) => i.type === "preach").length;
+    const endingCount = issues.filter((i) => i.type === "ending").length;
+    const dialogueCount = issues.filter(
+      (i) => i.type === "npc_dialogue",
+    ).length;
+
+    // 每个问题扣分
+    const score = Math.max(
+      0,
+      100 - preachCount * 10 - endingCount * 20 - dialogueCount * 15,
+    );
+
+    if (issues.length > 0) {
+      this.logger.warn(
+        `[NarrativeCraft] Found ${issues.length} issues: ${preachCount} preach, ${endingCount} ending, ${dialogueCount} dialogue`,
+      );
+    }
+
+    return {
+      issues,
+      score,
+      passed: score >= 60,
+    };
+  }
+
+  /**
+   * 生成修复建议
+   */
+  generateFixSuggestions(report: NarrativeCraftReport): string {
+    if (report.issues.length === 0) {
+      return "叙事工艺检查通过，无需修改。";
+    }
+
+    const parts: string[] = [];
+    parts.push(`## 叙事工艺问题修复建议\n`);
+    parts.push(`检测到 ${report.issues.length} 个问题，需要修改：\n`);
+
+    // 按类型分组
+    const preachIssues = report.issues.filter((i) => i.type === "preach");
+    const endingIssues = report.issues.filter((i) => i.type === "ending");
+    const dialogueIssues = report.issues.filter(
+      (i) => i.type === "npc_dialogue",
+    );
+
+    if (preachIssues.length > 0) {
+      parts.push(`### 说教式写法问题（${preachIssues.length}处）`);
+      for (const issue of preachIssues.slice(0, 3)) {
+        parts.push(`- 第${issue.line}行: "${issue.match}"`);
+        parts.push(`  问题: ${issue.problem}`);
+        parts.push(`  建议: ${issue.suggestion}\n`);
+      }
+    }
+
+    if (endingIssues.length > 0) {
+      parts.push(`### 结尾问题（${endingIssues.length}处）`);
+      for (const issue of endingIssues) {
+        parts.push(`- 第${issue.line}行: "${issue.match}"`);
+        parts.push(`  问题: ${issue.problem}`);
+        parts.push(`  建议: ${issue.suggestion}\n`);
+      }
+    }
+
+    if (dialogueIssues.length > 0) {
+      parts.push(`### 对话问题（${dialogueIssues.length}处）`);
+      for (const issue of dialogueIssues.slice(0, 3)) {
+        parts.push(`- 第${issue.line}行: "${issue.match}"`);
+        parts.push(`  问题: ${issue.problem}`);
+        parts.push(`  建议: ${issue.suggestion}\n`);
+      }
+    }
+
+    return parts.join("\n");
+  }
+}

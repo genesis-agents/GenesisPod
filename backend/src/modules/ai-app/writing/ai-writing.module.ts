@@ -58,6 +58,7 @@ import {
   ForeshadowingService,
   PacingControlService,
   ChapterQualityEvaluatorService,
+  NarrativeCraftService,
 } from "./services/quality";
 
 // Style services (Three-layer style configuration system)
@@ -120,6 +121,7 @@ import {
     ForeshadowingService,
     PacingControlService,
     ChapterQualityEvaluatorService,
+    NarrativeCraftService,
     // Style services (Three-layer style configuration)
     StyleTemplateService,
     // Writing Agents (from BaseAgent)
@@ -153,6 +155,7 @@ import {
     ForeshadowingService,
     PacingControlService,
     ChapterQualityEvaluatorService,
+    NarrativeCraftService,
     // Style services
     StyleTemplateService,
     // Export agents for external use

@@ -29,6 +29,7 @@ import { HistoricalKnowledgeService } from "../services/quality/historical-knowl
 import { ProfessionalVoiceService } from "../services/quality/professional-voice.service";
 import { SensoryImmersionService } from "../services/quality/sensory-immersion.service";
 import { OpeningHookService } from "../services/quality/opening-hook.service";
+import { NarrativeCraftService } from "../services/quality/narrative-craft.service";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { TaskProfile } from "../../../ai-engine/llm/types";
 import {
@@ -183,6 +184,7 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     private readonly professionalVoice: ProfessionalVoiceService,
     private readonly sensoryImmersion: SensoryImmersionService,
     private readonly openingHook: OpeningHookService,
+    private readonly narrativeCraft: NarrativeCraftService,
     private readonly aiChatService: AiChatService,
   ) {
     super();
@@ -199,6 +201,7 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       { name: "professionalVoice", service: this.professionalVoice },
       { name: "sensoryImmersion", service: this.sensoryImmersion },
       { name: "openingHook", service: this.openingHook },
+      { name: "narrativeCraft", service: this.narrativeCraft },
     ];
 
     for (const { name, service } of services) {
@@ -420,6 +423,20 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     } catch (error) {
       this.logger.warn(
         `[Writer] Failed to get opening hook constraints: ${error}`,
+      );
+      // 非关键约束，失败不阻塞
+    }
+
+    // 7. 叙事工艺约束（v3 新增）- 禁止说教/总结式结尾/NPC对话
+    try {
+      const narrativeCraftConstraints =
+        this.narrativeCraft.generateNarrativeCraftConstraints();
+      if (narrativeCraftConstraints) {
+        parts.push(narrativeCraftConstraints);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[Writer] Failed to get narrative craft constraints: ${error}`,
       );
       // 非关键约束，失败不阻塞
     }
