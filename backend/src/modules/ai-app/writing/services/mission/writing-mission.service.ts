@@ -1888,20 +1888,20 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
 
       let chapterContent = "";
 
-      try {
-        // ★ v3 新增：生成质量约束（开篇钩子、五感沉浸、专业声音）
-        const characters =
-          (worldSettings?.characters as Array<{
-            name: string;
-            role?: string;
-            background?: string;
-          }>) || [];
-        const qualityConstraints = this.generateQualityConstraints(
-          chapterNumber,
-          chapterInfo.plot,
-          characters,
-        );
+      // ★★★ 质量约束必须在 try 块外定义，以便重试时也能使用
+      const characters =
+        (worldSettings?.characters as Array<{
+          name: string;
+          role?: string;
+          background?: string;
+        }>) || [];
+      const qualityConstraints = this.generateQualityConstraints(
+        chapterNumber,
+        chapterInfo.plot,
+        characters,
+      );
 
+      try {
         // ★ 使用完整的写作原则系统提示词（v3 增强）
         const writerSystemPrompt = `你是一位专业的创意写作专家，负责创作第${chapterNumber}章。
 
@@ -1948,10 +1948,12 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
 ${previousChapterSummary ? `前文摘要：${previousChapterSummary}` : "这是故事的开始。"}
 ${avoidancePrompt ? `\n【表达约束 - 禁止使用以下表达】\n${avoidancePrompt}` : ""}`;
 
-          // ★ 重试时也使用完整写作原则
+          // ★★★ 重试时也必须包含完整质量约束（修复：之前遗漏了 qualityConstraints）
           const retrySystemPrompt = `你是专业的小说作家。请直接创作故事内容，约3000字。
 
-${WriterAgent.CORE_WRITING_PRINCIPLES}`;
+${WriterAgent.CORE_WRITING_PRINCIPLES}
+
+${qualityConstraints ? `${qualityConstraints}\n` : ""}`;
 
           const retryResponse = await this.aiChatService.chat({
             messages: [
@@ -2288,9 +2290,16 @@ ${chapterContent}
 4. 润色对话
 5. 输出完整润色后的内容`;
 
+        // ★★★ 编辑润色时也需要叙事约束，防止润色时引入总结式结尾
+        const editNarrativeConstraints =
+          this.narrativeCraft.generateNarrativeCraftConstraints();
+        const editSystemPrompt = `${this.editor.description}
+
+${editNarrativeConstraints}`;
+
         const editResponse = await this.aiChatService.chat({
           messages: [
-            { role: "system", content: this.editor.description },
+            { role: "system", content: editSystemPrompt },
             { role: "user", content: editPrompt },
           ],
           model: editorModel,
@@ -2413,12 +2422,18 @@ ${chapterContent}
 4. 保持文字流畅自然`;
 
           try {
+            // ★★★ 重写时也必须包含叙事工艺约束（修复：之前遗漏了）
+            const narrativeConstraints =
+              this.narrativeCraft.generateNarrativeCraftConstraints();
+            const rewriteSystemPrompt = `你是专业的小说编辑，擅长用丰富多样的表达方式重写内容。严禁使用重复的表达。
+
+${narrativeConstraints}`;
+
             const rewriteResponse = await this.aiChatService.chat({
               messages: [
                 {
                   role: "system",
-                  content:
-                    "你是专业的小说编辑，擅长用丰富多样的表达方式重写内容。严禁使用重复的表达。",
+                  content: rewriteSystemPrompt,
                 },
                 { role: "user", content: rewritePrompt },
               ],
@@ -5376,12 +5391,12 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
         this.logger.warn(
           `[${missionId}] Chapter content too short, retrying...`,
         );
-        // 简化重试（仍使用写作原则）
+        // ★★★ 重试时也必须包含完整质量约束（修复：之前遗漏了 qualityConstraints）
         const retryResponse = await this.aiChatService.chat({
           messages: [
             {
               role: "system",
-              content: `你是小说作家。请创作约3000字的章节内容。\n\n${WriterAgent.CORE_WRITING_PRINCIPLES}`,
+              content: `你是小说作家。请创作约3000字的章节内容。\n\n${WriterAgent.CORE_WRITING_PRINCIPLES}\n\n${qualityConstraints || ""}`,
             },
             {
               role: "user",
