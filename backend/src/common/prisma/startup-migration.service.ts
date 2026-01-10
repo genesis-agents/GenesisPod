@@ -89,14 +89,16 @@ export class StartupMigrationService implements OnModuleInit {
       `;
 
       if (Number(tableExists[0].count) === 0) {
+        // Note: Prisma String @id @default(uuid()) creates TEXT columns, not UUID
+        // So we must use TEXT type here to match the story_bibles.id column
         await this.prisma.$executeRawUnsafe(`
           CREATE TABLE "story_bible_audit_logs" (
-            "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            "bible_id" UUID NOT NULL,
+            "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+            "bible_id" TEXT NOT NULL,
             "version" INTEGER NOT NULL DEFAULT 1,
             "change_type" "StoryBibleChangeType" NOT NULL,
             "entity_type" "StoryBibleEntityType" NOT NULL,
-            "entity_id" UUID,
+            "entity_id" TEXT,
             "field" VARCHAR(100) NOT NULL,
             "old_value" JSONB,
             "new_value" JSONB,
