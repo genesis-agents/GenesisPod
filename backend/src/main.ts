@@ -173,12 +173,22 @@ async function bootstrap() {
   const port = process.env.PORT || process.env.BACKEND_PORT || 4000;
   await app.listen(port);
 
-  console.log(`🚀 DeepDive Backend running on http://localhost:${port}`);
-  console.log(`📚 API Docs: http://localhost:${port}/api/v1`);
-  console.log(`🧩 Workspace AI v2 enabled: ${isWorkspaceAiV2Enabled()}`);
-  console.log(
-    `📋 Log level: ${isProduction ? "error,warn (production)" : "all (development)"}`,
-  );
+  // 根据环境显示正确的 URL
+  const baseUrl = isProduction
+    ? process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : process.env.FRONTEND_URL || `http://0.0.0.0:${port}`
+    : `http://localhost:${port}`;
+
+  // 生产环境精简启动日志，开发环境详细输出
+  if (isProduction) {
+    console.log(`🚀 DeepDive Backend started | ${baseUrl} | Port: ${port}`);
+  } else {
+    console.log(`🚀 DeepDive Backend running on ${baseUrl}`);
+    console.log(`📚 API Docs: ${baseUrl}/api/docs`);
+    console.log(`🧩 Workspace AI v2 enabled: ${isWorkspaceAiV2Enabled()}`);
+    console.log(`📋 Log level: all (development)`);
+  }
 }
 
 void bootstrap();

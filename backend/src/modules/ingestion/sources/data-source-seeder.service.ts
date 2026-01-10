@@ -3,7 +3,10 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 
 /**
  * 数据源预置服务 - 应用启动时自动添加预置数据源
- * 启动时验证RSS源有效性，只添加有效的数据源
+ *
+ * 行为：
+ * - 验证 RSS 源有效性，只添加有效的数据源
+ * - 无效源汇总输出（单条警告日志），避免日志刷屏
  */
 @Injectable()
 export class DataSourceSeederService implements OnModuleInit {
@@ -39,9 +42,7 @@ export class DataSourceSeederService implements OnModuleInit {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        this.logger.warn(
-          `RSS validation failed for ${url}: HTTP ${response.status}`,
-        );
+        // 静默返回 false，由调用方汇总输出
         return false;
       }
 
@@ -62,21 +63,13 @@ export class DataSourceSeederService implements OnModuleInit {
           !trimmedText.startsWith("<feed") &&
           !trimmedText.startsWith("<html") === false
         ) {
-          this.logger.warn(
-            `RSS validation failed for ${url}: Not valid XML content`,
-          );
           return false;
         }
       }
 
-      this.logger.debug(`RSS validation passed for ${url}`);
       return true;
-    } catch (error: any) {
-      if (error.name === "AbortError") {
-        this.logger.warn(`RSS validation timeout for ${url}`);
-      } else {
-        this.logger.warn(`RSS validation error for ${url}: ${error.message}`);
-      }
+    } catch {
+      // 静默返回 false，由调用方汇总输出
       return false;
     }
   }
@@ -436,18 +429,14 @@ export class DataSourceSeederService implements OnModuleInit {
   async seedAllSources() {
     let created = 0;
     let skipped = 0;
-    let invalid = 0;
-
-    this.logger.log(
-      "Validating and seeding data sources (this may take a moment)...",
-    );
+    const invalidSources: string[] = [];
 
     // Seed YouTube (YouTube feeds are always valid if channel ID is correct)
     for (const channel of this.YOUTUBE_CHANNELS) {
       const result = await this.seedYouTubeChannel(channel);
       if (result === "created") created++;
       else if (result === "skipped") skipped++;
-      else invalid++;
+      else invalidSources.push(channel.name);
     }
 
     // Seed Blogs with validation
@@ -455,7 +444,7 @@ export class DataSourceSeederService implements OnModuleInit {
       const result = await this.seedBlog(blog);
       if (result === "created") created++;
       else if (result === "skipped") skipped++;
-      else invalid++;
+      else invalidSources.push(blog.name);
     }
 
     // Seed Reports with validation
@@ -463,7 +452,7 @@ export class DataSourceSeederService implements OnModuleInit {
       const result = await this.seedReport(report);
       if (result === "created") created++;
       else if (result === "skipped") skipped++;
-      else invalid++;
+      else invalidSources.push(report.name);
     }
 
     // Seed Papers with validation
@@ -471,7 +460,7 @@ export class DataSourceSeederService implements OnModuleInit {
       const result = await this.seedPaper(paper);
       if (result === "created") created++;
       else if (result === "skipped") skipped++;
-      else invalid++;
+      else invalidSources.push(paper.name);
     }
 
     // Seed News with validation
@@ -479,7 +468,7 @@ export class DataSourceSeederService implements OnModuleInit {
       const result = await this.seedNews(news);
       if (result === "created") created++;
       else if (result === "skipped") skipped++;
-      else invalid++;
+      else invalidSources.push(news.name);
     }
 
     // Seed Policy with validation
@@ -487,12 +476,20 @@ export class DataSourceSeederService implements OnModuleInit {
       const result = await this.seedPolicy(policy);
       if (result === "created") created++;
       else if (result === "skipped") skipped++;
-      else invalid++;
+      else invalidSources.push(policy.name);
     }
 
+    // 汇总输出结果
     this.logger.log(
-      `Data source seeding completed: ${created} created, ${skipped} already exist, ${invalid} invalid/skipped`,
+      `Data source seeding: ${created} created, ${skipped} exist, ${invalidSources.length} invalid`,
     );
+
+    // 无效源汇总警告（单条日志）
+    if (invalidSources.length > 0) {
+      this.logger.warn(
+        `Invalid RSS sources skipped: ${invalidSources.join(", ")}`,
+      );
+    }
   }
 
   private async seedYouTubeChannel(
@@ -509,7 +506,6 @@ export class DataSourceSeederService implements OnModuleInit {
     // Validate YouTube RSS feed
     const isValid = await this.validateRssFeed(rssUrl);
     if (!isValid) {
-      this.logger.warn(`Skipping invalid YouTube source: ${channel.name}`);
       return "invalid";
     }
 
@@ -553,7 +549,6 @@ export class DataSourceSeederService implements OnModuleInit {
     // Validate RSS feed
     const isValid = await this.validateRssFeed(blog.baseUrl);
     if (!isValid) {
-      this.logger.warn(`Skipping invalid Blog source: ${blog.name}`);
       return "invalid";
     }
 
@@ -595,7 +590,6 @@ export class DataSourceSeederService implements OnModuleInit {
     // Validate RSS feed
     const isValid = await this.validateRssFeed(report.baseUrl);
     if (!isValid) {
-      this.logger.warn(`Skipping invalid Report source: ${report.name}`);
       return "invalid";
     }
 
@@ -637,7 +631,6 @@ export class DataSourceSeederService implements OnModuleInit {
     // Validate RSS feed
     const isValid = await this.validateRssFeed(paper.baseUrl);
     if (!isValid) {
-      this.logger.warn(`Skipping invalid Paper source: ${paper.name}`);
       return "invalid";
     }
 
@@ -679,7 +672,6 @@ export class DataSourceSeederService implements OnModuleInit {
     // Validate RSS feed
     const isValid = await this.validateRssFeed(news.baseUrl);
     if (!isValid) {
-      this.logger.warn(`Skipping invalid News source: ${news.name}`);
       return "invalid";
     }
 
@@ -721,7 +713,6 @@ export class DataSourceSeederService implements OnModuleInit {
     // Validate RSS feed
     const isValid = await this.validateRssFeed(policy.baseUrl);
     if (!isValid) {
-      this.logger.warn(`Skipping invalid Policy source: ${policy.name}`);
       return "invalid";
     }
 

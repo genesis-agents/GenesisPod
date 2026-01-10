@@ -84,6 +84,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set Puppeteer to use system Chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# 生产环境标识 - 控制日志级别为 error/warn
+ENV NODE_ENV=production
 
 # Copy built application
 COPY --from=builder /app/dist ./dist
