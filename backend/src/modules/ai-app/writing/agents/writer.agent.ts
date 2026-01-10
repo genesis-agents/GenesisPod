@@ -28,6 +28,10 @@ import { CharacterPersonalityService } from "../services/quality/character-perso
 import { HistoricalKnowledgeService } from "../services/quality/historical-knowledge.service";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { TaskProfile } from "../../../ai-engine/llm/types";
+import {
+  generateStylePrompt,
+  getRandomTechniques,
+} from "../constants/writing-style-presets";
 
 // ==================== 输入输出类型 ====================
 
@@ -312,6 +316,41 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
 3. 设定遵循：严格遵循 Story Bible 中的设定
 4. 多样性：避免重复使用相同的表达和情节模式
 
+## 创作原则（正向引导）
+
+### 1. 具象化原则
+用具体细节代替抽象描述，让读者"看到"而非"被告知"：
+- ❌ 她很紧张 → ✅ 她不自觉地绞着帕子的流苏，指节泛白
+- ❌ 他很愤怒 → ✅ 他手中的茶杯应声碎裂，碎瓷片划过掌心
+- ❌ 气氛很压抑 → ✅ 厅中只有铜漏滴水的声音，谁都不敢先开口
+
+### 2. 动作化原则
+用动作展现情绪，而非直接陈述内心：
+- ❌ 她心中暗喜 → ✅ 她垂下眼帘，嘴角却不由自主地微微上扬
+- ❌ 他心中一震 → ✅ 他执笔的手顿了一顿，墨迹在宣纸上洇开一团
+- ❌ 她很惊讶 → ✅ 她手中的团扇滑落，在地上骨碌碌转了几圈
+
+### 3. 感官化原则
+调动五感描写场景，创造沉浸体验：
+- 视觉：光线、色彩、空间、人物神态
+- 听觉：环境声、语气、语调、沉默
+- 嗅觉：香料、烟火、花草、腐朽
+- 触觉：温度、质地、触感
+- 味觉：食物、饮品、情绪（苦涩、甜蜜）
+
+### 4. 对话即性格
+对话是塑造人物的最佳工具，每个人物应有独特的：
+- 用词习惯：文雅/粗犷、含蓄/直白
+- 句式节奏：长句/短句、流畅/顿挫
+- 口头禅或标志性表达
+- 语气态度：傲慢/谦逊、冷淡/热情
+
+### 5. 场景即情绪
+环境描写要服务于情绪基调：
+- 紧张时：描写逼仄空间、刺眼光线、压抑声响
+- 悲伤时：描写阴冷色调、萧瑟景象、沉默氛围
+- 欢喜时：描写明亮色彩、舒展空间、轻快节奏
+
 ## 写作风格
 - 视角：${writingStyle?.pov || "第三人称限定"}
 - 时态：${writingStyle?.tense || "过去时"}
@@ -349,6 +388,25 @@ ${(contextPackage.establishedFacts || [])
 - 禁止使用人生感悟式结尾，如"她明白了..."、"此刻她终于懂得..."
 - 章节应在具体的动作、对话或场景描写中自然结束，而非抽象的议论或预言
 - 好的结尾示例：对话戛然而止、门被关上、脚步声远去、烛火熄灭`;
+
+    // ★ 新增：添加风格预设的标志性技法
+    const styleId = storyBible.stylePresetId;
+    if (styleId) {
+      // 生成完整的风格指导
+      const stylePrompt = generateStylePrompt(styleId);
+      if (stylePrompt) {
+        prompt += `\n\n${stylePrompt}`;
+      }
+
+      // 获取本章推荐使用的技法（随机选择 3 种增加多样性）
+      const recommendedTechniques = getRandomTechniques(styleId, 3);
+      if (recommendedTechniques.length > 0) {
+        prompt += `\n\n## 本章推荐技法\n本章请重点使用以下技法：\n`;
+        for (const tech of recommendedTechniques) {
+          prompt += `- **${tech.name}**：${tech.description}\n`;
+        }
+      }
+    }
 
     // 添加质量约束
     if (qualityConstraints) {
@@ -422,7 +480,7 @@ ${writingInstructions.additionalInstructions || ""}
   }
 
   /**
-   * 格式化角色信息
+   * 格式化角色信息（增强版：含前置约束）
    */
   private formatCharacterForPrompt(
     character: ChapterWritingContext["involvedCharacters"][0],
@@ -463,7 +521,95 @@ ${writingInstructions.additionalInstructions || ""}
       }
     }
 
+    // ★ 前置约束注入：生成该角色的硬性约束
+    const constraints = this.buildCharacterConstraints(character);
+    if (constraints.length > 0) {
+      parts.push(`⚠️ 硬性约束：`);
+      parts.push(...constraints.map((c) => `  - ${c}`));
+    }
+
     return parts.join("\n");
+  }
+
+  /**
+   * 构建角色的前置硬性约束
+   * 这些约束在写作前注入，而非写作后检查
+   */
+  private buildCharacterConstraints(
+    character: ChapterWritingContext["involvedCharacters"][0],
+  ): string[] {
+    const constraints: string[] = [];
+
+    // 1. 外貌一致性约束
+    if (character.appearance) {
+      const app = character.appearance;
+      if (app.hair) {
+        constraints.push(
+          `${character.name}的发色必须是"${app.hair}"，不可变更`,
+        );
+      }
+      if (app.eyes) {
+        constraints.push(
+          `${character.name}的眼睛必须是"${app.eyes}"，不可变更`,
+        );
+      }
+      if (app.distinguishingFeatures?.length) {
+        constraints.push(
+          `${character.name}的标志性特征：${app.distinguishingFeatures.join("、")}`,
+        );
+      }
+    }
+
+    // 2. 性格约束 → 行为禁止
+    if (character.personality?.traits?.length) {
+      const traits = character.personality.traits;
+      // 根据性格推断禁止行为
+      if (traits.includes("高傲") || traits.includes("骄傲")) {
+        constraints.push(`${character.name}不会卑躬屈膝或主动示好于地位低者`);
+      }
+      if (traits.includes("冷静") || traits.includes("沉着")) {
+        constraints.push(`${character.name}不会轻易失态或情绪失控`);
+      }
+      if (traits.includes("谨慎") || traits.includes("多疑")) {
+        constraints.push(`${character.name}不会轻信他人或冲动行事`);
+      }
+      if (traits.includes("善良") || traits.includes("仁慈")) {
+        constraints.push(`${character.name}不会做出残忍或冷血的行为`);
+      }
+      if (traits.includes("狠辣") || traits.includes("心狠手辣")) {
+        constraints.push(`${character.name}不会心软或轻易放过敌人`);
+      }
+    }
+
+    // 3. 说话方式约束
+    if (character.personality?.speechPattern) {
+      constraints.push(
+        `${character.name}的说话方式必须是：${character.personality.speechPattern}`,
+      );
+    }
+
+    // 4. 当前状态约束
+    if (character.currentState?.state) {
+      const state = character.currentState.state;
+      if (
+        state.condition?.includes("受伤") ||
+        state.condition?.includes("伤势")
+      ) {
+        constraints.push(`${character.name}目前处于受伤状态，行动应受限制`);
+      }
+      if (state.condition?.includes("中毒")) {
+        constraints.push(`${character.name}目前中毒，应有相应症状表现`);
+      }
+    }
+
+    // 5. 能力约束
+    if (character.abilities?.length) {
+      constraints.push(
+        `${character.name}只能使用以下能力：${character.abilities.join("、")}`,
+      );
+    }
+
+    return constraints;
   }
 
   /**

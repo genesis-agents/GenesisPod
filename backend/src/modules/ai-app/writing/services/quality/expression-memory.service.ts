@@ -52,6 +52,108 @@ const EXPRESSION_COOLDOWN_CONFIG = {
 } as const;
 
 /**
+ * 表达替代建议库 - 用于主动引导创作
+ *
+ * 当某个表达被禁用时，提供具体的替代方案，
+ * 从"被动禁止"转变为"主动引导"
+ */
+const EXPRESSION_ALTERNATIVES: Record<string, string[]> = {
+  // ==================== 情感表达替代 ====================
+  // "心中X" 系列
+  心中一震: ["胸口一窒", "呼吸微滞", "手指不自觉攥紧", "瞳孔微缩"],
+  心中一惊: ["脚步一顿", "手中物件险些滑落", "眼睫微颤", "后背一凉"],
+  心中一喜: [
+    "嘴角不由自主微翘",
+    "眼底泛起笑意",
+    "脚步轻快几分",
+    "指尖微微发热",
+  ],
+  心中暗喜: ["垂眸掩去眼底光芒", "低头遮住唇边弧度", "手指在袖中轻叩"],
+  心中一凛: ["后颈汗毛乍起", "脊背微僵", "不由自主后退半步", "手心沁出薄汗"],
+  心中一寒: ["指尖发凉", "血液仿佛凝固", "冷意从脚底直窜头顶", "牙关微紧"],
+  心中一动: ["目光微闪", "耳畔一热", "思绪忽然一转", "唇角微勾"],
+  心头一紧: ["呼吸急促起来", "手不自觉握紧衣袖", "太阳穴突突直跳"],
+  心头涌起: ["喉间发紧", "眼眶微热", "胸口闷闷的", "鼻尖微酸"],
+  暗自思忖: ["眉头微蹙", "手指轻叩桌面", "目光变得幽深", "负手踱步"],
+
+  // ==================== 动作表达替代 ====================
+  // 微笑系列
+  微微一笑: ["唇角微扬", "眼尾弯出细纹", "嘴角轻轻一勾", "眼底漾开笑意"],
+  嘴角微扬: ["唇边浮现笑意", "眼中含笑", "面上带了三分笑意", "嘴角噙着淡笑"],
+  淡然一笑: ["神色不变，只唇角微弯", "眼底笑意不达眼底", "漫不经心地勾了勾唇"],
+
+  // 说话系列
+  缓缓道: ["沉吟片刻后开口", "声音不疾不徐", "一字一顿地说", "语调平缓"],
+  轻声道: ["压低声音说", "附耳低语", "声若蚊蚋", "唇畔微动"],
+  冷冷道: ["语带寒意", "声线冰凉", "一字一句如刀锋", "话音里不带丝毫温度"],
+  沉声道: ["声音低沉", "嗓音压得极低", "喉间发出低哑的声音"],
+
+  // 表情系列
+  眉头微皱: ["眉心拧起", "秀眉轻蹙", "双眉略聚", "眉峰微动"],
+  眉头紧锁: ["眉间川字深刻", "双眉几乎拧在一处", "面带忧色"],
+  目光一闪: ["眼中精光一现", "瞳孔微缩", "眼底暗光流转", "视线陡然锋利"],
+  眼中闪过: ["目光微动", "眼底掠过一丝", "瞳仁微颤"],
+
+  // 动作修饰替代
+  微微: ["略", "稍", "轻", "浅浅"],
+  缓缓: ["徐徐", "慢慢", "从容地", "不紧不慢地"],
+  轻轻: ["小心翼翼地", "柔柔地", "悄然", "悄悄"],
+  深吸一口气: ["调整呼吸", "胸膛起伏", "用力呼出一口浊气", "闭目凝神片刻"],
+
+  // ==================== 环境描写替代 ====================
+  月光如水: ["月华清冷", "银辉洒落", "冷月高悬", "月色朦胧"],
+  烛光摇曳: ["灯花微颤", "火苗轻晃", "橘黄光影明灭不定", "烛火跳动"],
+  夜色深沉: ["夜幕如墨", "暮色四合", "天际漆黑如铁", "万籁俱寂"],
+  金碧辉煌: ["殿宇巍峨", "琉璃映日", "朱漆红柱鲜亮夺目", "雕梁画栋"],
+
+  // ==================== 过渡语替代 ====================
+  就在这时: ["恰在此刻", "话音未落", "正说着", "忽然"],
+  与此同时: ["同一时刻", "这边厢...那边厢", "正当此际", "而另一边"],
+  片刻之后: ["须臾", "一盏茶功夫", "不多时", "转瞬之间"],
+  不知不觉: ["浑然不觉间", "恍惚间", "不经意间", "悄然间"],
+
+  // ==================== 情节模式替代 ====================
+  暗流涌动: [
+    "局势微妙",
+    "表面平静下暗藏波澜",
+    "平静只是假象",
+    "各方势力蠢蠢欲动",
+  ],
+  剑拔弩张: ["气氛紧绷", "空气仿佛凝固", "对峙之势", "火药味浓重"],
+  峰回路转: ["柳暗花明", "局势陡变", "事态急转", "出乎意料"],
+
+  // ==================== 比喻词替代 ====================
+  仿佛: ["好似", "恰如", "有如", "一如"],
+  宛如: ["恍若", "俨然", "好比", "无异于"],
+  似乎: ["像是", "仿似", "隐约", "约莫"],
+
+  // ==================== 基础情态词替代 ====================
+  不禁: ["忍不住", "情不自禁", "不由自主", "不觉"],
+  不由得: ["禁不住", "没来由地", "自然而然地", "无端地"],
+  暗自: ["心下", "默默", "私下里", "在心中"],
+};
+
+/**
+ * 获取表达的替代建议
+ */
+function getAlternatives(expression: string): string[] {
+  // 精确匹配
+  if (EXPRESSION_ALTERNATIVES[expression]) {
+    return EXPRESSION_ALTERNATIVES[expression];
+  }
+
+  // 部分匹配：尝试找到包含该表达的键
+  for (const [key, alternatives] of Object.entries(EXPRESSION_ALTERNATIVES)) {
+    if (expression.includes(key) || key.includes(expression)) {
+      return alternatives;
+    }
+  }
+
+  // 基于类别的通用建议
+  return [];
+}
+
+/**
  * 常见重复表达模式 - 用于检测
  * 扩展版本：覆盖更多常见 AI 写作重复模式
  */
@@ -507,10 +609,15 @@ export class ExpressionMemoryService {
    * 获取当前处于冷却期的表达列表
    *
    * Writer Agent 在写作前调用此方法获取禁用列表
+   *
+   * @param projectId 项目ID
+   * @param currentChapterNumber 当前章节号
+   * @param limit 最大返回数量（默认200，防止 prompt 过长）
    */
   async getCoolingExpressions(
     projectId: string,
     currentChapterNumber: number,
+    limit: number = 200,
   ): Promise<CoolingExpression[]> {
     const expressions = await this.prisma.writingExpressionMemory.findMany({
       where: {
@@ -518,6 +625,7 @@ export class ExpressionMemoryService {
         isCoolingDown: true,
       },
       orderBy: { useCount: "desc" },
+      take: limit, // ★ 性能优化：限制返回数量
     });
 
     return expressions.map((expr) => ({
@@ -584,17 +692,31 @@ export class ExpressionMemoryService {
       // ★ 限制每种类型最多显示 15 个，防止 prompt 过长
       const maxPerType = 15;
       const grouped = this.groupByType(coolingExpressions);
-      parts.push("## 禁用表达（冷却期中，请使用替代表达）\n");
+      parts.push("## 禁用表达与替代建议\n");
+      parts.push(
+        "以下表达处于冷却期，请使用右侧的替代方案或自行创造新表达：\n",
+      );
 
       for (const [type, exprs] of Object.entries(grouped)) {
         const typeLabel = this.getTypeLabel(type as ExpressionType);
         const limitedExprs = exprs.slice(0, maxPerType);
         parts.push(`### ${typeLabel}`);
-        parts.push(
-          limitedExprs
-            .map((e) => `- ❌ "${e.expression}" (已用${e.useCount}次)`)
-            .join("\n"),
-        );
+
+        for (const expr of limitedExprs) {
+          const alternatives = getAlternatives(expr.expression);
+          if (alternatives.length > 0) {
+            // 有替代建议：显示 ❌ 原表达 → ✅ 替代方案
+            parts.push(
+              `- ❌ "${expr.expression}" → ✅ ${alternatives.slice(0, 3).join(" / ")}`,
+            );
+          } else {
+            // 无替代建议：只显示禁用
+            parts.push(
+              `- ❌ "${expr.expression}" (已用${expr.useCount}次，请创造新表达)`,
+            );
+          }
+        }
+
         if (exprs.length > maxPerType) {
           parts.push(`  ...及其他 ${exprs.length - maxPerType} 个`);
         }
@@ -603,13 +725,19 @@ export class ExpressionMemoryService {
     }
 
     if (highFrequency.length > 0) {
-      parts.push("## 高频警告（尽量避免使用）");
-      parts.push(
-        highFrequency
-          .slice(0, 20)
-          .map((e) => `- ⚠️ "${e.expression}" (已用${e.useCount}次)`)
-          .join("\n"),
-      );
+      parts.push("## 高频警告（建议使用替代表达）");
+      const warnings: string[] = [];
+      for (const expr of highFrequency.slice(0, 20)) {
+        const alternatives = getAlternatives(expr.expression);
+        if (alternatives.length > 0) {
+          warnings.push(
+            `- ⚠️ "${expr.expression}" (${expr.useCount}次) → 建议: ${alternatives.slice(0, 2).join(" / ")}`,
+          );
+        } else {
+          warnings.push(`- ⚠️ "${expr.expression}" (已用${expr.useCount}次)`);
+        }
+      }
+      parts.push(warnings.join("\n"));
     }
 
     return parts.join("\n");

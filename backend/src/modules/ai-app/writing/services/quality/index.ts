@@ -8,6 +8,8 @@
  * - HistoricalKnowledgeService: 历史知识服务
  * - OutputValidatorService: 输出验证服务
  * - NarrativePacingService: 叙事节奏服务
+ * - SemanticConsistencyService: 语义一致性检查服务 (v2)
+ * - ExpressionAlternativesService: 表达替代生成服务 (v2)
  */
 
 export * from "./expression-memory.service";
@@ -16,3 +18,5 @@ export * from "./quality-gate.service";
 export * from "./historical-knowledge.service";
 export * from "./output-validator.service";
 export * from "./narrative-pacing.service";
+export * from "./semantic-consistency.service";
+export * from "./expression-alternatives.service";

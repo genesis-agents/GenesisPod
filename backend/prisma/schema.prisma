@@ -2133,14 +2133,14 @@ enum ResearchType {
 }
 
 model ResearchProject {
-  id          String                @id @default(uuid())
-  userId      String                @map("user_id")
-  name        String                @db.VarChar(500)
-  description String?               @db.Text
-  icon        String?               @db.VarChar(10) // Emoji icon
-  color       String?               @db.VarChar(20) // Hex color code
-  status      ResearchProjectStatus @default(ACTIVE)
-  researchType ResearchType         @default(FAST) @map("research_type")
+  id           String                @id @default(uuid())
+  userId       String                @map("user_id")
+  name         String                @db.VarChar(500)
+  description  String?               @db.Text
+  icon         String?               @db.VarChar(10) // Emoji icon
+  color        String?               @db.VarChar(20) // Hex color code
+  status       ResearchProjectStatus @default(ACTIVE)
+  researchType ResearchType          @default(FAST) @map("research_type")
 
   // 项目统计
   sourceCount Int @default(0) @map("source_count")
@@ -5475,9 +5475,9 @@ model WritingProject {
   issuePatterns      WritingQualityIssuePattern[]
 
   // 风格模板关联（新增）
-  styleTemplateId String?              @map("style_template_id")
+  styleTemplateId String?               @map("style_template_id")
   styleTemplate   WritingStyleTemplate? @relation(fields: [styleTemplateId], references: [id])
-  styleOverrides  Json?                @map("style_overrides") // 项目级风格覆盖
+  styleOverrides  Json?                 @map("style_overrides") // 项目级风格覆盖
 
   @@index([ownerId])
   @@index([status])
@@ -5780,8 +5780,8 @@ model StoryBibleAuditLog {
   // 变更信息
   changeType StoryBibleChangeType @map("change_type")
   entityType StoryBibleEntityType @map("entity_type")
-  entityId   String?               @map("entity_id") // 具体实体ID（如角色ID、设定ID）
-  field      String                @db.VarChar(100) // 变更的字段名
+  entityId   String?              @map("entity_id") // 具体实体ID（如角色ID、设定ID）
+  field      String               @db.VarChar(100) // 变更的字段名
 
   // 变更内容
   oldValue Json? @map("old_value") // 旧值
@@ -6088,10 +6088,10 @@ model WritingCharacterPersonality {
   character   WritingCharacter @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   // 语言风格
-  speechStyle     String   @default("") @map("speech_style") @db.VarChar(200) // 说话风格描述
-  commonPhrases   String[] @default([]) @map("common_phrases") // 常用词汇/口头禅
+  speechStyle      String   @default("") @map("speech_style") @db.VarChar(200) // 说话风格描述
+  commonPhrases    String[] @default([]) @map("common_phrases") // 常用词汇/口头禅
   forbiddenPhrases String[] @default([]) @map("forbidden_phrases") // 禁用词汇
-  sentencePattern String?  @map("sentence_pattern") @db.VarChar(200) // 句式特点
+  sentencePattern  String?  @map("sentence_pattern") @db.VarChar(200) // 句式特点
 
   // 行为模式
   thinkingStyle    String? @map("thinking_style") @db.VarChar(200) // 思维模式
@@ -6122,14 +6122,14 @@ model WritingPlotPattern {
   project   WritingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   // 模式信息
-  patternName   String   @map("pattern_name") @db.VarChar(100) // 模式名称（如"偷听秘密"）
-  patternType   String   @map("pattern_type") @db.VarChar(50) // 类型：encounter, revelation, conflict
-  description   String   @db.Text // 模式描述
-  keywords      String[] @default([]) // 关键词
+  patternName String   @map("pattern_name") @db.VarChar(100) // 模式名称（如"偷听秘密"）
+  patternType String   @map("pattern_type") @db.VarChar(50) // 类型：encounter, revelation, conflict
+  description String   @db.Text // 模式描述
+  keywords    String[] @default([]) // 关键词
 
   // 使用统计
-  useCount      Int       @default(1) @map("use_count")
-  lastUsedAt    DateTime  @default(now()) @map("last_used_at")
+  useCount       Int      @default(1) @map("use_count")
+  lastUsedAt     DateTime @default(now()) @map("last_used_at")
   usedChapterIds String[] @default([]) @map("used_chapter_ids")
 
   // 冷却控制（情节模式冷却期更长）
@@ -6154,18 +6154,18 @@ model WritingQualityScore {
   chapterId String         @map("chapter_id")
 
   // 多样性评分
-  diversityScore      Decimal @map("diversity_score") @db.Decimal(3, 2) // 总体多样性 0-1
-  vocabularyRichness  Decimal @map("vocabulary_richness") @db.Decimal(3, 2) // 词汇丰富度
-  sentenceVariety     Decimal @map("sentence_variety") @db.Decimal(3, 2) // 句式变化度
-  expressionNovelty   Decimal @map("expression_novelty") @db.Decimal(3, 2) // 表达新颖度
+  diversityScore     Decimal @map("diversity_score") @db.Decimal(3, 2) // 总体多样性 0-1
+  vocabularyRichness Decimal @map("vocabulary_richness") @db.Decimal(3, 2) // 词汇丰富度
+  sentenceVariety    Decimal @map("sentence_variety") @db.Decimal(3, 2) // 句式变化度
+  expressionNovelty  Decimal @map("expression_novelty") @db.Decimal(3, 2) // 表达新颖度
 
   // 角色一致性评分
   characterConsistency Decimal @map("character_consistency") @db.Decimal(3, 2)
   dialogueAuthenticity Decimal @map("dialogue_authenticity") @db.Decimal(3, 2) // 对话真实度
 
   // 情节评分
-  plotNovelty      Decimal @map("plot_novelty") @db.Decimal(3, 2) // 情节新颖度
-  narrativeFlow    Decimal @map("narrative_flow") @db.Decimal(3, 2) // 叙事流畅度
+  plotNovelty   Decimal @map("plot_novelty") @db.Decimal(3, 2) // 情节新颖度
+  narrativeFlow Decimal @map("narrative_flow") @db.Decimal(3, 2) // 叙事流畅度
 
   // 史实/设定准确性
   settingAccuracy Decimal @map("setting_accuracy") @db.Decimal(3, 2)
@@ -6194,27 +6194,27 @@ model WritingHistoricalKnowledge {
   id String @id @default(uuid())
 
   // 朝代信息
-  dynasty     String @db.VarChar(50) // 朝代名称
-  period      String? @db.VarChar(100) // 具体时期
-  startYear   Int?   @map("start_year")
-  endYear     Int?   @map("end_year")
+  dynasty   String  @db.VarChar(50) // 朝代名称
+  period    String? @db.VarChar(100) // 具体时期
+  startYear Int?    @map("start_year")
+  endYear   Int?    @map("end_year")
 
   // 知识分类
-  category    String @db.VarChar(50) // 称谓、服饰、礼仪、建筑、官制、货币等
+  category    String  @db.VarChar(50) // 称谓、服饰、礼仪、建筑、官制、货币等
   subcategory String? @db.VarChar(50)
 
   // 知识内容
-  term        String @db.VarChar(100) // 术语
-  definition  String @db.Text // 定义/解释
-  correctUsage String? @map("correct_usage") @db.Text // 正确用法
-  wrongUsage  String? @map("wrong_usage") @db.Text // 常见错误用法
-  examples    String[] @default([]) // 使用示例
+  term         String   @db.VarChar(100) // 术语
+  definition   String   @db.Text // 定义/解释
+  correctUsage String?  @map("correct_usage") @db.Text // 正确用法
+  wrongUsage   String?  @map("wrong_usage") @db.Text // 常见错误用法
+  examples     String[] @default([]) // 使用示例
 
   // 相关联的其他条目
   relatedTerms String[] @default([]) @map("related_terms")
 
   // 来源
-  source      String? @db.VarChar(200)
+  source String? @db.VarChar(200)
 
   // 时间戳
   createdAt DateTime @default(now()) @map("created_at")
@@ -6229,17 +6229,17 @@ model WritingHistoricalKnowledge {
 
 // 质量问题模式记录 - 用于学习和改进
 model WritingQualityIssuePattern {
-  id        String         @id @default(uuid())
-  projectId String?        @map("project_id") // null 表示全局模式
+  id        String          @id @default(uuid())
+  projectId String?         @map("project_id") // null 表示全局模式
   project   WritingProject? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   // 问题模式
-  issueType   String @map("issue_type") @db.VarChar(50) // repetition, inconsistency, anachronism
-  patternDesc String @map("pattern_desc") @db.Text // 问题描述
+  issueType   String   @map("issue_type") @db.VarChar(50) // repetition, inconsistency, anachronism
+  patternDesc String   @map("pattern_desc") @db.Text // 问题描述
   examples    String[] @default([]) // 示例
 
   // 检测规则
-  detectionRule String? @map("detection_rule") @db.Text // 正则或其他检测规则
+  detectionRule String?  @map("detection_rule") @db.Text // 正则或其他检测规则
   keywords      String[] @default([])
 
   // 修复建议
@@ -6281,9 +6281,9 @@ model AITeamTemplate {
   category String? @db.VarChar(50) // "writing" | "research" | "coding" | "design"
 
   // 状态
-  status   AITeamTemplateStatus @default(ACTIVE)
-  isSystem Boolean              @default(false) @map("is_system") // 系统预设，不可删除
-  sortOrder Int                 @default(0) @map("sort_order")
+  status    AITeamTemplateStatus @default(ACTIVE)
+  isSystem  Boolean              @default(false) @map("is_system") // 系统预设，不可删除
+  sortOrder Int                  @default(0) @map("sort_order")
 
   // 配置
   workflowConfig    Json? @map("workflow_config") // 工作流配置
@@ -6305,8 +6305,8 @@ model AITeamTemplate {
 
 // AI 团队成员模板
 model AITeamMemberTemplate {
-  id     String          @id @default(uuid())
-  teamId String          @map("team_id")
+  id     String         @id @default(uuid())
+  teamId String         @map("team_id")
   team   AITeamTemplate @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   // 角色身份（游戏角色风格）

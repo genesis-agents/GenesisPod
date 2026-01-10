@@ -50,6 +50,8 @@ import {
   QualityGateService,
   HistoricalKnowledgeService,
   NarrativePacingService,
+  SemanticConsistencyService,
+  ExpressionAlternativesService,
 } from "./services/quality";
 
 // Style services (Three-layer style configuration system)
@@ -104,6 +106,8 @@ import {
     QualityGateService,
     HistoricalKnowledgeService,
     NarrativePacingService,
+    SemanticConsistencyService,
+    ExpressionAlternativesService,
     // Style services (Three-layer style configuration)
     StyleTemplateService,
     // Writing Agents (from BaseAgent)
@@ -129,6 +133,8 @@ import {
     QualityGateService,
     HistoricalKnowledgeService,
     NarrativePacingService,
+    SemanticConsistencyService,
+    ExpressionAlternativesService,
     // Style services
     StyleTemplateService,
     // Export agents for external use

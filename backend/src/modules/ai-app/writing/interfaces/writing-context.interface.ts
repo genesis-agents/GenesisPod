@@ -201,6 +201,9 @@ export interface StoryBibleExtensions {
     descriptionStyle?: string;
   };
 
+  /** 风格预设 ID（对应 writing-style-presets.ts 中的预设） */
+  stylePresetId?: string;
+
   /** 目标受众 */
   targetAudience?: string;
 }

@@ -15,6 +15,10 @@ import {
   CharacterPersonalityService,
   PersonalityConsistencyResult,
 } from "./character-personality.service";
+import {
+  SemanticConsistencyService,
+  SemanticFact,
+} from "./semantic-consistency.service";
 
 // ==================== 类型定义 ====================
 
@@ -125,7 +129,26 @@ export class QualityGateService {
     private readonly prisma: PrismaService,
     private readonly expressionMemory: ExpressionMemoryService,
     private readonly characterPersonality: CharacterPersonalityService,
+    private readonly semanticConsistency: SemanticConsistencyService,
   ) {}
+
+  /**
+   * 执行语义一致性检查（可选增强）
+   * @param content 章节内容
+   * @param establishedFacts 已确立的事实
+   * @param characterFacts 角色相关事实
+   */
+  async checkSemanticConsistency(
+    content: string,
+    establishedFacts: SemanticFact[] = [],
+    characterFacts: SemanticFact[] = [],
+  ) {
+    return this.semanticConsistency.checkSemanticConsistency(
+      content,
+      establishedFacts,
+      characterFacts,
+    );
+  }
 
   // ==================== 质量门禁检查 ====================
 

@@ -39,6 +39,15 @@ export interface WritingStylePreset {
   writingRequirements: string[];
   /** 应避免的模式 */
   avoidPatterns: string[];
+  /** ★新增：标志性技法（每章应使用2-3种） */
+  signatureTechniques?: {
+    /** 技法名称 */
+    name: string;
+    /** 技法说明 */
+    description: string;
+    /** 使用示例 */
+    example?: string;
+  }[];
 }
 
 /**
@@ -203,6 +212,48 @@ export const WRITING_STYLE_PRESETS: Record<string, WritingStylePreset> = {
       "脸谱化的善恶划分",
       "情节靠巧合推进",
       "所有角色说话方式雷同",
+    ],
+    signatureTechniques: [
+      {
+        name: "话中藏刀",
+        description: "表面恭维实则讽刺，或者表面关心实则威胁，对话有双层含义",
+        example: "「姐姐这身打扮倒是素净，想必是不想抢了今日寿宴的风头。」",
+      },
+      {
+        name: "物件隐喻",
+        description: "用茶、棋、花等物件暗示人物关系或局势变化",
+        example: "她将那盏已凉透的茶轻轻推到一旁——这是最后的警告。",
+      },
+      {
+        name: "微表情叙事",
+        description: "通过细微的神态变化暗示内心活动，而非直接描写心理",
+        example: "她接过那道圣旨时，睫毛微不可察地颤了颤，旋即恢复如常。",
+      },
+      {
+        name: "环境映衬",
+        description: "用环境细节映衬人物处境或情绪变化",
+        example: "殿中的炭火已尽，铜盆里只剩一层灰白的冷灰。",
+      },
+      {
+        name: "留白结尾",
+        description: "对话或场景在关键处戛然而止，留给读者想象空间",
+        example: "她欲言又止，最终只是福了福身，转身离去。",
+      },
+      {
+        name: "伏笔前置",
+        description: "在看似不经意的描写中埋下后续剧情的伏笔",
+        example: "她随手将那枚玉佩收入袖中——这东西，日后或许用得上。",
+      },
+      {
+        name: "势力博弈",
+        description: "通过多方势力的角力展现权谋的复杂性",
+        example: "太后一派按兵不动，皇后一系蠢蠢欲动，而她，只需静待鹬蚌相争。",
+      },
+      {
+        name: "身份反差",
+        description: "利用人物的表面身份与真实身份的反差制造张力",
+        example: "谁能想到，这个在御前战战兢兢的小太监，竟是......",
+      },
     ],
   },
 
@@ -391,9 +442,14 @@ export function generateStylePrompt(styleId: string): string {
   const preset = WRITING_STYLE_PRESETS[styleId];
   if (!preset) return "";
 
-  const { characteristics, writingRequirements, avoidPatterns } = preset;
+  const {
+    characteristics,
+    writingRequirements,
+    avoidPatterns,
+    signatureTechniques,
+  } = preset;
 
-  return `
+  let prompt = `
 【写作风格：${preset.name}】
 ${preset.systemPromptFragment}
 
@@ -410,4 +466,38 @@ ${writingRequirements.map((req, i) => `${i + 1}. ${req}`).join("\n")}
 【避免模式】
 ${avoidPatterns.map((p) => `- 避免：${p}`).join("\n")}
 `;
+
+  // ★ 新增：标志性技法
+  if (signatureTechniques && signatureTechniques.length > 0) {
+    prompt += `\n【标志性技法】（每章至少使用 2-3 种以保持风格独特性）\n`;
+    for (const technique of signatureTechniques) {
+      prompt += `★ ${technique.name}：${technique.description}\n`;
+      if (technique.example) {
+        prompt += `  示例：${technique.example}\n`;
+      }
+    }
+  }
+
+  return prompt;
+}
+
+/**
+ * 获取随机选择的标志性技法建议
+ * 每章推荐 3 种技法，增加多样性
+ */
+export function getRandomTechniques(
+  styleId: string,
+  count: number = 3,
+): Array<{ name: string; description: string; example?: string }> {
+  const preset = WRITING_STYLE_PRESETS[styleId];
+  if (!preset || !preset.signatureTechniques) return [];
+
+  const techniques = [...preset.signatureTechniques];
+  // Fisher-Yates shuffle
+  for (let i = techniques.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [techniques[i], techniques[j]] = [techniques[j], techniques[i]];
+  }
+
+  return techniques.slice(0, Math.min(count, techniques.length));
 }
