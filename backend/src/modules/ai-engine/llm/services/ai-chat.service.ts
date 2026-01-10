@@ -1007,8 +1007,59 @@ export class AiChatService {
     );
 
     const data = response.data;
+    const messageObj = data.choices?.[0]?.message;
+    const content =
+      messageObj?.content ||
+      messageObj?.text ||
+      messageObj?.output ||
+      (typeof messageObj === "string" ? messageObj : null);
+
+    // ★ 检查 OpenAI 拒绝响应
+    if (messageObj?.refusal) {
+      this.logger.error(
+        `[${modelId}] API refused to respond: ${messageObj.refusal}`,
+      );
+      throw new Error(`AI 拒绝响应: ${messageObj.refusal}`);
+    }
+
+    // ★ 空内容检查 - 与 callApiWithKey 保持一致
+    if (!content) {
+      const usage = data.usage || {};
+      const completionDetails = usage.completion_tokens_details || {};
+      const reasoningTokens = completionDetails.reasoning_tokens || 0;
+      const completionTokens = usage.completion_tokens || 0;
+      const finishReason = data.choices?.[0]?.finish_reason;
+
+      this.logger.warn(
+        `[${modelId}] API returned empty content! ` +
+          `finish_reason=${finishReason}, ` +
+          `prompt_tokens=${usage.prompt_tokens || "?"}, ` +
+          `completion_tokens=${completionTokens || "?"}, ` +
+          `reasoning_tokens=${reasoningTokens || "?"}, ` +
+          `message structure: ${JSON.stringify(messageObj || {}).substring(0, 500)}`,
+      );
+
+      // 检测 reasoning 模型用完了推理 token
+      const isReasoningModelExhausted =
+        reasoningTokens > 0 && reasoningTokens >= completionTokens * 0.9;
+
+      if (finishReason === "length") {
+        if (isReasoningModelExhausted) {
+          throw new Error(
+            `AI 推理模型的 token 全部用于思考，没有空间输出结果。请增加 max_tokens 设置（当前=${maxTokens}，建议 12000+）。`,
+          );
+        } else {
+          throw new Error(
+            `AI 响应被完全截断（上下文可能过大）。prompt_tokens=${usage.prompt_tokens || "?"}`,
+          );
+        }
+      }
+
+      throw new Error(`AI 返回空响应 (原因: ${finishReason || "unknown"})`);
+    }
+
     return {
-      content: data.choices?.[0]?.message?.content || "",
+      content,
       model: modelId,
       tokensUsed: data.usage?.total_tokens || 0,
     };
@@ -2570,7 +2621,13 @@ Format the summary in a clear, structured manner using markdown.`;
         );
 
         const data = response.data;
-        const content = data.choices?.[0]?.message?.content;
+        const messageObj = data.choices?.[0]?.message;
+        // ★ 支持 reasoning 模型可能返回的不同字段结构
+        const content =
+          messageObj?.content ||
+          messageObj?.text ||
+          messageObj?.output ||
+          (typeof messageObj === "string" ? messageObj : null);
 
         // Log response details for debugging (verbose level to reduce production noise)
         if (data.error) {
@@ -2580,6 +2637,21 @@ Format the summary in a clear, structured manner using markdown.`;
         }
 
         const finishReason = data.choices?.[0]?.finish_reason;
+
+        // ★ 检查 OpenAI 拒绝响应
+        if (messageObj?.refusal) {
+          this.logger.error(
+            `[${modelName}] API refused to respond: ${messageObj.refusal}`,
+          );
+          throw new Error(`AI 拒绝响应: ${messageObj.refusal}`);
+        }
+
+        // ★ 调试日志：记录消息对象结构（仅当内容为空时）
+        if (!content) {
+          this.logger.warn(
+            `[${modelName}] Message object structure: ${JSON.stringify(messageObj || {}).substring(0, 500)}`,
+          );
+        }
 
         if (!content) {
           // ★ 详细记录 token 使用情况，帮助诊断问题
