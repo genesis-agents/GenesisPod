@@ -170,7 +170,7 @@ export default function WritingProjectPage() {
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [showLeaderMenu, setShowLeaderMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    'chapters' | 'worldview' | 'taskDetails'
+    'chapters' | 'worldview' | 'storyBible' | 'taskDetails'
   >('chapters');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
@@ -2268,6 +2268,22 @@ export default function WritingProjectPage() {
                     )}
                   </button>
                   <button
+                    onClick={() => setActiveTab('storyBible')}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                      activeTab === 'storyBible'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'text-gray-500 hover:bg-gray-100'
+                    }`}
+                  >
+                    📚 故事圣经
+                    {storyBible?.characters &&
+                      storyBible.characters.length > 0 && (
+                        <span className="ml-1 text-xs text-emerald-500">
+                          ({storyBible.characters.length})
+                        </span>
+                      )}
+                  </button>
+                  <button
                     onClick={() => setActiveTab('taskDetails')}
                     className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                       activeTab === 'taskDetails'
@@ -2537,6 +2553,196 @@ export default function WritingProjectPage() {
                         </h3>
                         <p className="text-sm text-gray-500">
                           开始创作后，AI 守护者将自动建立故事的世界观
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Story Bible Tab - 完整故事圣经展示 */}
+                {activeTab === 'storyBible' && (
+                  <div className="space-y-4">
+                    {/* Mission Running Banner */}
+                    {isMissionRunning && (
+                      <div className="flex items-center gap-3 rounded-xl bg-emerald-50 p-3">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+                        <span className="text-sm font-medium text-emerald-700">
+                          AI 团队正在更新故事圣经...
+                        </span>
+                      </div>
+                    )}
+
+                    {storyBible ? (
+                      <>
+                        {/* 角色设定 - 核心内容 */}
+                        <div className="rounded-xl border border-emerald-200 bg-white p-4">
+                          <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-emerald-800">
+                            <span>👥</span> 角色设定
+                            {storyBible.characters && (
+                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs">
+                                {storyBible.characters.length} 位角色
+                              </span>
+                            )}
+                          </h3>
+                          {storyBible.characters &&
+                          storyBible.characters.length > 0 ? (
+                            <div className="space-y-3">
+                              {storyBible.characters.map((char) => (
+                                <div
+                                  key={char.id}
+                                  className="rounded-lg bg-gradient-to-r from-emerald-50 to-teal-50 p-3"
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-lg text-white">
+                                      {char.name.charAt(0)}
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-gray-800">
+                                          {char.name}
+                                        </span>
+                                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
+                                          {char.role}
+                                        </span>
+                                      </div>
+                                      {char.description && (
+                                        <p className="mt-1 text-sm text-gray-600">
+                                          {char.description}
+                                        </p>
+                                      )}
+                                      {char.personality && (
+                                        <div className="mt-2">
+                                          <span className="text-xs font-medium text-emerald-600">
+                                            性格：
+                                          </span>
+                                          <span className="text-xs text-gray-600">
+                                            {typeof char.personality ===
+                                            'string'
+                                              ? char.personality
+                                              : JSON.stringify(
+                                                  char.personality
+                                                )}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {char.background && (
+                                        <div className="mt-1">
+                                          <span className="text-xs font-medium text-emerald-600">
+                                            背景：
+                                          </span>
+                                          <span className="text-xs text-gray-600">
+                                            {char.background}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-400">
+                              暂无角色设定
+                            </p>
+                          )}
+                        </div>
+
+                        {/* 世界设定摘要 */}
+                        <div className="rounded-xl border border-blue-200 bg-white p-4">
+                          <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-blue-800">
+                            <span>🌐</span> 世界设定摘要
+                          </h3>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {storyBible.premise && (
+                              <div className="rounded-lg bg-blue-50 p-3">
+                                <div className="text-xs font-medium text-blue-600">
+                                  核心概念
+                                </div>
+                                <div className="mt-1 text-sm text-gray-700">
+                                  {storyBible.premise}
+                                </div>
+                              </div>
+                            )}
+                            {storyBible.theme && (
+                              <div className="rounded-lg bg-purple-50 p-3">
+                                <div className="text-xs font-medium text-purple-600">
+                                  主题
+                                </div>
+                                <div className="mt-1 text-sm text-gray-700">
+                                  {storyBible.theme}
+                                </div>
+                              </div>
+                            )}
+                            {storyBible.worldType && (
+                              <div className="rounded-lg bg-indigo-50 p-3">
+                                <div className="text-xs font-medium text-indigo-600">
+                                  世界类型
+                                </div>
+                                <div className="mt-1 text-sm text-gray-700">
+                                  {storyBible.worldType}
+                                </div>
+                              </div>
+                            )}
+                            {storyBible.tone && (
+                              <div className="rounded-lg bg-amber-50 p-3">
+                                <div className="text-xs font-medium text-amber-600">
+                                  基调风格
+                                </div>
+                                <div className="mt-1 text-sm text-gray-700">
+                                  {storyBible.tone}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 详细世界设定 */}
+                        {storyBible.worldSettings &&
+                          storyBible.worldSettings.length > 0 && (
+                            <div className="rounded-xl border border-green-200 bg-white p-4">
+                              <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-green-800">
+                                <span>🗺️</span> 详细设定
+                              </h3>
+                              <div className="space-y-2">
+                                {storyBible.worldSettings
+                                  .filter((s) => s.key && s.value)
+                                  .map((setting) => (
+                                    <div
+                                      key={setting.id}
+                                      className="flex items-start gap-2 rounded-lg bg-green-50 p-2 text-sm"
+                                    >
+                                      <span className="shrink-0 font-medium text-green-700">
+                                        {setting.category || setting.key}:
+                                      </span>
+                                      <span className="text-gray-600">
+                                        {setting.value}
+                                      </span>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                      </>
+                    ) : isMissionRunning ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+                          <span className="text-3xl">📚</span>
+                        </div>
+                        <h3 className="mb-2 text-lg font-semibold text-gray-800">
+                          故事圣经构建中
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          AI 团队正在建立角色和世界观设定...
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <span className="mb-4 text-4xl">📚</span>
+                        <h3 className="mb-2 text-lg font-semibold text-gray-800">
+                          暂无故事圣经
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          开始创作后，AI 团队将自动建立完整的故事圣经
                         </p>
                       </div>
                     )}

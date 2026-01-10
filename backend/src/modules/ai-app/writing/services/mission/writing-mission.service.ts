@@ -242,6 +242,21 @@ export class WritingMissionService {
       `[QualityConstraints] Generating for chapter ${chapterNumber}, outline: ${chapterOutline?.slice(0, 50) || "none"}, characters: ${characters?.length || 0}`,
     );
 
+    // ★★★ 0. 叙事工艺约束（最高优先级，必须首先注入）★★★
+    // 这是修复"AI味"问题的核心：禁止说教式写法、总结式结尾等
+    try {
+      const narrativeConstraints =
+        this.narrativeCraft.generateNarrativeCraftConstraints();
+      if (narrativeConstraints) {
+        constraints.push(narrativeConstraints);
+        this.logger.debug(
+          `[QualityConstraints] Added narrative craft constraints (${narrativeConstraints.length} chars)`,
+        );
+      }
+    } catch (e) {
+      this.logger.warn(`[QualityConstraints] Narrative craft failed: ${e}`);
+    }
+
     try {
       // 1. 开篇钩子约束（第一章特别强调）
       const openingConstraints = this.openingHook.generateOpeningConstraints(
@@ -293,6 +308,24 @@ export class WritingMissionService {
         `[QualityConstraints] Generated ${constraints.length} constraint sections for chapter ${chapterNumber}`,
       );
     }
+
+    // ★★★ 尾部强化检查清单（LLM注意力机制：尾部权重高）★★★
+    const FINAL_CHECK_FOOTER = `
+## ⚠️ 【写作完成前必须检查】最终核验清单
+
+在输出章节内容前，必须逐项确认：
+
+1. □ 章节最后一段是【具体场景/动作/对话】，而非抽象感慨
+2. □ 结尾没有出现"这只是开始"、"风暴即将来临"等预告式语句
+3. □ 结尾没有出现"她决定"、"他下定决心"、"心中燃起"等决心式语句
+4. □ 结尾没有出现"她明白了"、"他终于懂得"等感悟式语句
+5. □ 全文没有"她知道，XXX是XXX的象征"等说教式句子
+6. □ 情绪通过动作/生理反应展示，而非直接描述
+
+【如果任何一项未通过，必须修改后再输出】
+`;
+
+    constraints.push(FINAL_CHECK_FOOTER);
 
     return constraints.join("\n\n");
   }
