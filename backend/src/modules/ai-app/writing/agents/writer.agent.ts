@@ -297,7 +297,22 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     const projectId = contextPackage.extensions.storyBible.bibleId;
     const chapterNumber = chapterContext.chapter.chapterNumber;
 
-    // 1. 表达冷却约束
+    // ★★★ 1. 叙事工艺约束（最高优先级）- 禁止说教/总结式结尾/NPC对话
+    // 放在最前面确保模型优先看到这些关键约束
+    try {
+      const narrativeCraftConstraints =
+        this.narrativeCraft.generateNarrativeCraftConstraints();
+      if (narrativeCraftConstraints) {
+        parts.push(narrativeCraftConstraints);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[Writer] Failed to get narrative craft constraints: ${error}`,
+      );
+      // 非关键约束，失败不阻塞
+    }
+
+    // 2. 表达冷却约束
     try {
       const avoidancePrompt =
         await this.expressionMemory.generateAvoidancePrompt(
@@ -314,7 +329,7 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       throw error;
     }
 
-    // 2. 角色人格约束
+    // 3. 角色人格约束
     try {
       const characterNames = chapterContext.involvedCharacters.map(
         (c) => c.name,
@@ -341,7 +356,7 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       throw error;
     }
 
-    // 3. 历史知识约束
+    // 4. 历史知识约束
     try {
       // 从项目设置中获取朝代（假设存储在 worldType 中）
       const dynasty = contextPackage.extensions.storyBible.worldType;
@@ -361,7 +376,7 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       throw error;
     }
 
-    // 4. 专业声音约束（v3 新增）
+    // 5. 专业声音约束（v3 新增）
     try {
       const charactersWithProfession = chapterContext.involvedCharacters
         .filter((c) => c.background || c.role)
@@ -387,7 +402,7 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       // 非关键约束，失败不阻塞
     }
 
-    // 5. 五感沉浸约束（v3 新增）
+    // 6. 五感沉浸约束（v3 新增）
     try {
       const sceneDescription =
         chapterContext.chapter.outline ||
@@ -410,7 +425,7 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       // 非关键约束，失败不阻塞
     }
 
-    // 6. 开篇钩子约束（v3 新增）
+    // 7. 开篇钩子约束（v3 新增）
     try {
       const chapterType = chapterContext.chapter.outline || "";
       const openingConstraints = this.openingHook.generateOpeningConstraints(
@@ -427,19 +442,7 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       // 非关键约束，失败不阻塞
     }
 
-    // 7. 叙事工艺约束（v3 新增）- 禁止说教/总结式结尾/NPC对话
-    try {
-      const narrativeCraftConstraints =
-        this.narrativeCraft.generateNarrativeCraftConstraints();
-      if (narrativeCraftConstraints) {
-        parts.push(narrativeCraftConstraints);
-      }
-    } catch (error) {
-      this.logger.warn(
-        `[Writer] Failed to get narrative craft constraints: ${error}`,
-      );
-      // 非关键约束，失败不阻塞
-    }
+    // 注：叙事工艺约束已移至第1位，优先处理
 
     return parts.join("\n\n");
   }

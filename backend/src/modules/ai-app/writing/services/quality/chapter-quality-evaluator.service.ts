@@ -54,6 +54,8 @@ export interface ContentQualityMetrics {
   characterDepiction: QualityDimension;
   /** 情感共鸣 */
   emotionalResonance: QualityDimension;
+  /** 结尾质量（新增） */
+  endingQuality: QualityDimension;
 }
 
 export interface ConsistencyMetrics {
@@ -126,10 +128,11 @@ const QUALITY_STANDARDS = {
   },
 
   contentWeights: {
-    openingHook: 0.3,
-    plotProgression: 0.25,
-    characterDepiction: 0.25,
-    emotionalResonance: 0.2,
+    openingHook: 0.25,
+    plotProgression: 0.2,
+    characterDepiction: 0.2,
+    emotionalResonance: 0.15,
+    endingQuality: 0.2, // 结尾质量权重提升
   },
 
   consistencyWeights: {
@@ -444,6 +447,9 @@ export class ChapterQualityEvaluatorService {
 
     const emotionScore = Math.max(0, 100 - emotionIssues.length * 25);
 
+    // 5. 结尾质量（新增）
+    const endingResult = this.evaluateEndingQuality(content);
+
     return {
       openingHook: {
         name: "开篇吸引力",
@@ -473,6 +479,112 @@ export class ChapterQualityEvaluatorService {
         issues: emotionIssues,
         suggestions: emotionSuggestions,
       },
+      endingQuality: endingResult,
+    };
+  }
+
+  /**
+   * 评估结尾质量
+   * 检测"总结式结尾"等常见问题
+   */
+  private evaluateEndingQuality(content: string): QualityDimension {
+    const endingIssues: string[] = [];
+    const endingSuggestions: string[] = [];
+
+    // 获取最后500字符用于结尾分析
+    const ending = content.slice(-500);
+    // 获取最后3行
+    const lastLines = content
+      .split("\n")
+      .filter((l) => l.trim())
+      .slice(-3);
+    const lastLine = lastLines[lastLines.length - 1] || "";
+
+    // 禁止模式检测库
+    const ENDING_BAD_PATTERNS = [
+      // 决心式
+      { pattern: /心中燃起/, type: "心理总结", penalty: 25 },
+      { pattern: /心中升起/, type: "心理总结", penalty: 25 },
+      { pattern: /心底涌起/, type: "心理总结", penalty: 25 },
+      { pattern: /一丝斗志/, type: "心理总结", penalty: 20 },
+      { pattern: /一丝希望/, type: "心理总结", penalty: 20 },
+      { pattern: /一丝决心/, type: "心理总结", penalty: 20 },
+      { pattern: /暗暗发誓/, type: "决心宣言", penalty: 25 },
+      { pattern: /下定决心/, type: "决心宣言", penalty: 25 },
+      { pattern: /绝不放弃/, type: "决心宣言", penalty: 20 },
+      { pattern: /绝不认输/, type: "决心宣言", penalty: 20 },
+      { pattern: /绝不随波逐流/, type: "鸡汤宣言", penalty: 30 },
+      { pattern: /牢牢握住.*命运/, type: "鸡汤宣言", penalty: 30 },
+      { pattern: /找到.*一席之地/, type: "空洞目标", penalty: 25 },
+      { pattern: /找到.*力量/, type: "空洞目标", penalty: 20 },
+      { pattern: /掌控这一切/, type: "空洞目标", penalty: 25 },
+      // 顿悟式
+      { pattern: /她终于明白/, type: "顿悟总结", penalty: 25 },
+      { pattern: /他终于明白/, type: "顿悟总结", penalty: 25 },
+      { pattern: /此刻.*意识到/, type: "顿悟总结", penalty: 25 },
+      { pattern: /这一刻.*知道/, type: "顿悟总结", penalty: 25 },
+      // 预告式
+      { pattern: /这一切.*只是开始/, type: "空洞预告", penalty: 30 },
+      { pattern: /风暴即将来临/, type: "空洞预告", penalty: 25 },
+      { pattern: /命运的齿轮/, type: "空洞预告", penalty: 25 },
+      { pattern: /新的篇章/, type: "空洞预告", penalty: 20 },
+      { pattern: /未来.*方向.*明朗/, type: "空洞预告", penalty: 25 },
+      // 旁白总结式
+      { pattern: /距离.*逐渐拉近/, type: "旁白总结", penalty: 25 },
+      { pattern: /关系.*更进一步/, type: "旁白总结", penalty: 20 },
+      { pattern: /就这样/, type: "陈述总结", penalty: 15 },
+      { pattern: /至此/, type: "陈述总结", penalty: 15 },
+      // 使命宣言式
+      { pattern: /只要她能/, type: "使命宣言", penalty: 20 },
+      { pattern: /只要他能/, type: "使命宣言", penalty: 20 },
+      { pattern: /既然命运/, type: "使命宣言", penalty: 25 },
+      { pattern: /她要在这.*中/, type: "使命宣言", penalty: 20 },
+      { pattern: /书写.*篇章/, type: "使命宣言", penalty: 25 },
+    ];
+
+    let totalPenalty = 0;
+
+    // 检测结尾禁止模式
+    for (const { pattern, type, penalty } of ENDING_BAD_PATTERNS) {
+      if (pattern.test(ending)) {
+        endingIssues.push(`结尾使用了"${type}"模式`);
+        totalPenalty += penalty;
+      }
+    }
+
+    // 检测结尾是否为对话或动作（好的结尾）
+    const goodEndingPatterns = {
+      dialogue: /[「『""].*[」』""]$/, // 以对话结尾
+      action: /[了着过]。$/, // 以动作结尾
+      sensory: /[声音色味气].*[了着]。$/, // 以感官结尾
+      question: /[？?]$/, // 以问题结尾
+    };
+
+    const hasGoodEnding = Object.values(goodEndingPatterns).some((p) =>
+      p.test(lastLine),
+    );
+
+    if (!hasGoodEnding && endingIssues.length === 0) {
+      // 没有明确的好结尾也没有检测到坏模式，给予中等评价
+      endingIssues.push("结尾缺乏悬念或具体动作");
+      totalPenalty += 15;
+    }
+
+    // 生成建议
+    if (endingIssues.length > 0) {
+      endingSuggestions.push("用对话悬念、动作定格或感官细节结尾");
+      endingSuggestions.push("避免心理总结和决心宣言");
+      endingSuggestions.push("参考示例：'门被轻轻带上，脚步声渐行渐远。'");
+    }
+
+    const endingScore = Math.max(0, 100 - totalPenalty);
+
+    return {
+      name: "结尾质量",
+      score: endingScore,
+      weight: QUALITY_STANDARDS.contentWeights.endingQuality,
+      issues: endingIssues,
+      suggestions: endingSuggestions,
     };
   }
 
