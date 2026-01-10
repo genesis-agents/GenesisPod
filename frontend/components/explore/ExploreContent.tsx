@@ -6,7 +6,6 @@ import { config } from '@/lib/utils/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
 import AppShell from '@/components/layout/AppShell';
-import VersionUpdateBanner from '@/components/layout/VersionUpdateBanner';
 import PDFThumbnail from '@/components/ui/PDFThumbnail';
 import PDFViewer from '@/components/ui/PDFViewer';
 import HTMLViewer from '@/components/ui/HTMLViewer';
@@ -1468,7 +1467,6 @@ function HomeContent() {
 
   return (
     <AppShell className="relative w-screen overflow-hidden">
-      <VersionUpdateBanner />
       <ReportWorkspace />
 
       {/* Center Content Area */}

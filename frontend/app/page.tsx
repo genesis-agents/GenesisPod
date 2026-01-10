@@ -7,7 +7,6 @@ import { config } from '@/lib/utils/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
 import AppShell from '@/components/layout/AppShell';
-import VersionUpdateBanner from '@/components/layout/VersionUpdateBanner';
 import PDFThumbnail from '@/components/ui/PDFThumbnail';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -1882,7 +1881,6 @@ function HomeContent() {
 
   return (
     <AppShell>
-      <VersionUpdateBanner />
       <ReportWorkspace />
 
       {/* Center Content Area */}
