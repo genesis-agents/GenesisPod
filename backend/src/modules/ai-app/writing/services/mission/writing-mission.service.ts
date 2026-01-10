@@ -62,6 +62,9 @@ import { ProfessionalVoiceService } from "../quality/professional-voice.service"
 import { SensoryImmersionService } from "../quality/sensory-immersion.service";
 import { OpeningHookService } from "../quality/opening-hook.service";
 
+// World Building Enhancement - 世界观知识库增强
+import { WorldBuildingEnhancerService } from "../bible/world-building-enhancer.service";
+
 // Event Emitter for real-time updates
 import { WritingEventEmitterService } from "../events/writing-event-emitter.service";
 
@@ -206,6 +209,8 @@ export class WritingMissionService {
     private readonly professionalVoice: ProfessionalVoiceService,
     private readonly sensoryImmersion: SensoryImmersionService,
     private readonly openingHook: OpeningHookService,
+    // 世界观知识库增强服务
+    private readonly worldBuildingEnhancer: WorldBuildingEnhancerService,
   ) {
     // 注册角色和团队配置（不需要 LLM）
     this.registerWritingRoles();
@@ -1047,13 +1052,27 @@ export class WritingMissionService {
 
     const keeperModel = (await this.getModelForRole("bible-keeper")) || modelId;
 
+    // ★ 使用知识库增强世界观构建
+    const worldEnhancement =
+      this.worldBuildingEnhancer.enhanceWorldBuildingPrompt(input.userPrompt);
+    const hasHistoricalContext = worldEnhancement.detectedEra !== null;
+    if (hasHistoricalContext) {
+      this.logger.log(
+        `[${missionId}] Historical knowledge detected (${worldEnhancement.detectedEra}), enhancing world building with domain knowledge`,
+      );
+    }
+
     // ★ 设定守护者独立建立世界观（不依赖大纲，让世界观成为"游戏规则"）
+    // 如果检测到历史背景，使用增强的提示词（包含朝代知识库信息）
+    const storyCreativitySection = hasHistoricalContext
+      ? worldEnhancement.enhancedPrompt
+      : `【故事创意】\n${input.userPrompt}`;
+
     const worldBuildingPrompt = `作为设定守护者，请根据以下故事创意独立建立完整的世界观设定。
 
 【重要】世界观是故事的"游戏规则"，后续的章节大纲和内容创作都必须遵守这些规则。
 
-【故事创意】
-${input.userPrompt}
+${storyCreativitySection}
 
 【规模信息】
 - 目标字数：约 ${targetWordCount.toLocaleString()} 字

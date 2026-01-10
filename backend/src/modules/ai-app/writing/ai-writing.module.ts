@@ -18,6 +18,7 @@ import { CharacterService } from "./services/bible/character.service";
 import { WorldSettingService } from "./services/bible/world-setting.service";
 import { TimelineService } from "./services/bible/timeline.service";
 import { TerminologyService } from "./services/bible/terminology.service";
+import { WorldBuildingEnhancerService } from "./services/bible/world-building-enhancer.service";
 
 // Writing services
 import { ProjectService } from "./services/writing/project.service";
@@ -87,6 +88,7 @@ import {
     WorldSettingService,
     TimelineService,
     TerminologyService,
+    WorldBuildingEnhancerService,
     // Writing services
     ProjectService,
     ChapterWritingService,
@@ -141,6 +143,7 @@ import {
     FactExtractorService,
     ParallelOrchestratorService,
     WritingMissionService,
+    WorldBuildingEnhancerService,
     // Quality services
     ExpressionMemoryService,
     CharacterPersonalityService,
