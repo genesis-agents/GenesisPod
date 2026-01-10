@@ -7,7 +7,6 @@ import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { isWorkspaceAiV2Enabled } from "./common/utils/feature-flags";
 import { setupSwagger } from "./common/config/swagger.config";
-import { RequestLoggerInterceptor } from "./common/interceptors/request-logger.interceptor";
 
 /**
  * 验证必需的环境变量
@@ -145,10 +144,11 @@ async function bootstrap() {
   // 启用全局异常过滤器（统一处理所有异常，包括Prisma错误）
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  // 启用请求日志拦截器（生产环境使用结构化日志）
-  if (isProduction) {
-    app.useGlobalInterceptors(new RequestLoggerInterceptor());
-  }
+  // 注意：请求日志由 Railway 自动记录，无需启用 RequestLoggerInterceptor
+  // 如需启用，取消下面的注释（会导致大量日志输出）
+  // if (isProduction) {
+  //   app.useGlobalInterceptors(new RequestLoggerInterceptor());
+  // }
 
   // 添加根路径健康检查（供Railway healthcheck使用，不受全局前缀影响）
   const httpAdapter = app.getHttpAdapter();
