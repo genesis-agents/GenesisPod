@@ -153,6 +153,31 @@ export class AiChatService {
   }
 
   /**
+   * 检查模型是否为推理模型
+   * ★ 统一入口：优先使用数据库配置的 isReasoning 字段，否则推断
+   * @param modelId 模型 ID
+   * @returns 是否为推理模型
+   */
+  isReasoningModel(modelId: string): boolean {
+    // 1. 从缓存获取配置（同步方法，缓存应该已经加载）
+    const config = this.modelConfigCache.get(modelId);
+    if (config?.isReasoning !== undefined) {
+      return config.isReasoning;
+    }
+
+    // 2. 尝试不区分大小写匹配
+    const modelLower = modelId.toLowerCase();
+    for (const [key, cfg] of this.modelConfigCache.entries()) {
+      if (key.toLowerCase() === modelLower && cfg.isReasoning !== undefined) {
+        return cfg.isReasoning;
+      }
+    }
+
+    // 3. 缓存未命中，使用名称推断（兼容旧数据）
+    return this.inferIsReasoning(modelId);
+  }
+
+  /**
    * 获取模型配置（优先从数据库，缓存 5 分钟）
    * @param modelId 模型 ID（如 "gpt-4o", "gemini-2.0-flash", "claude-3-opus"）
    */
@@ -805,22 +830,16 @@ export class AiChatService {
 
   /**
    * 计算模型的超时时间
-   * 推理模型（o1, o3, gpt-5）需要更长的超时时间
+   * 推理模型需要更长的超时时间
    */
   private getTimeoutForModel(modelId: string, maxTokens: number): number {
-    const modelLower = modelId.toLowerCase();
-    const isReasoningModel =
-      modelLower.includes("o1") ||
-      modelLower.includes("o3") ||
-      modelLower.includes("gpt-5") ||
-      modelLower.includes("gpt5") ||
-      modelLower.includes("deepseek-r1") ||
-      modelLower.includes("reasoning");
+    // ★ 使用统一的 isReasoningModel() 方法，优先使用数据库配置
+    const isReasoning = this.isReasoningModel(modelId);
 
     // 推理模型：5分钟起，最多15分钟
     // 普通模型：2分钟起，最多10分钟
-    const baseTimeout = isReasoningModel ? 300000 : 120000;
-    const maxTimeout = isReasoningModel ? 900000 : 600000;
+    const baseTimeout = isReasoning ? 300000 : 120000;
+    const maxTimeout = isReasoning ? 900000 : 600000;
 
     const dynamicTimeout = Math.max(
       baseTimeout,
@@ -828,7 +847,7 @@ export class AiChatService {
     );
 
     this.logger.debug(
-      `[getTimeoutForModel] ${modelId}: ${dynamicTimeout}ms (maxTokens=${maxTokens}, reasoning=${isReasoningModel})`,
+      `[getTimeoutForModel] ${modelId}: ${dynamicTimeout}ms (maxTokens=${maxTokens}, reasoning=${isReasoning})`,
     );
 
     return dynamicTimeout;
@@ -2551,24 +2570,18 @@ Format the summary in a clear, structured manner using markdown.`;
     // ★ 根据 maxTokens 动态计算超时时间
     // 基础超时 120 秒，每 1000 tokens 增加 15 秒
     // 例如：16000 tokens = 120 + 240 = 360 秒 (6 分钟)
-    // 推理模型（o1, o3, gpt-5）额外增加 3 分钟思考时间
+    // 推理模型额外增加 3 分钟思考时间
     const maxTokens = body.max_completion_tokens || body.max_tokens || 2048;
-    const modelLower = modelName.toLowerCase();
-    const isReasoningModel =
-      modelLower.includes("o1") ||
-      modelLower.includes("o3") ||
-      modelLower.includes("gpt-5") ||
-      modelLower.includes("gpt5") ||
-      modelLower.includes("deepseek-r1") ||
-      modelLower.includes("reasoning");
-    const baseTimeout = isReasoningModel ? 300000 : 120000; // 推理模型 5 分钟起，普通模型 2 分钟起
-    const maxTimeout = isReasoningModel ? 900000 : 600000; // 推理模型最多 15 分钟，普通模型最多 10 分钟
+    // ★ 使用统一的 isReasoningModel() 方法，优先使用数据库配置
+    const isReasoning = this.isReasoningModel(modelName);
+    const baseTimeout = isReasoning ? 300000 : 120000; // 推理模型 5 分钟起，普通模型 2 分钟起
+    const maxTimeout = isReasoning ? 900000 : 600000; // 推理模型最多 15 分钟，普通模型最多 10 分钟
     const dynamicTimeout = Math.max(
       baseTimeout,
       Math.min(maxTimeout, baseTimeout + Math.ceil(maxTokens / 1000) * 15000),
     );
     this.logger.debug(
-      `[${modelName}] Dynamic timeout: ${dynamicTimeout}ms (maxTokens=${maxTokens}, reasoning=${isReasoningModel})`,
+      `[${modelName}] Dynamic timeout: ${dynamicTimeout}ms (maxTokens=${maxTokens}, reasoning=${isReasoning})`,
     );
 
     // ★ 估算请求 token 数量（用于诊断）
