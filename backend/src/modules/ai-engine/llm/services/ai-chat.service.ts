@@ -4,6 +4,9 @@ import { firstValueFrom } from "rxjs";
 import { AIErrorClassifier } from "../../../../common/ai-orchestration/error-classifier";
 import { AiServiceUnavailableError } from "../../core/exceptions";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { AIModelType } from "@prisma/client";
+import { TaskProfile } from "../types";
+import { TaskProfileMapperService } from "./task-profile-mapper.service";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -28,6 +31,9 @@ export interface ChatCompletionResult {
   /** 标识此响应是否为错误消息（仅在非严格模式下有值） */
   isError?: boolean;
 }
+
+// TaskProfile 已迁移到 ../types/task-profile.ts
+// 使用 import { TaskProfile } from "../types";
 
 /**
  * 数据库中的 AI 模型配置
@@ -67,6 +73,7 @@ export class AiChatService {
   constructor(
     private readonly httpService: HttpService,
     private readonly prisma: PrismaService,
+    private readonly taskProfileMapper: TaskProfileMapperService,
   ) {
     // 初始化时异步加载模型配置
     this.refreshModelConfigCache().catch((err) =>
@@ -259,6 +266,79 @@ export class AiChatService {
     // 返回任意可用模型
     const firstConfig = this.modelConfigCache.values().next().value;
     return firstConfig || null;
+  }
+
+  /**
+   * ★ 按模型类型获取默认模型配置
+   * AI App 告诉 AI Engine 需要哪一类模型，由 Engine 选择具体模型
+   *
+   * @param modelType 模型类型（CHAT, CHAT_FAST, IMAGE_GENERATION 等）
+   * @returns 该类型的默认模型配置，如果找不到则回退
+   */
+  async getDefaultModelByType(
+    modelType: AIModelType,
+  ): Promise<AIModelConfig | null> {
+    try {
+      // 1. 查找该类型的默认模型（isDefault=true）
+      let model = await this.prisma.aIModel.findFirst({
+        where: {
+          modelType,
+          isEnabled: true,
+          isDefault: true,
+        },
+      });
+
+      // 2. 如果没有默认模型，找任意启用的该类型模型
+      if (!model) {
+        model = await this.prisma.aIModel.findFirst({
+          where: {
+            modelType,
+            isEnabled: true,
+          },
+          orderBy: { createdAt: "desc" },
+        });
+      }
+
+      // 3. 如果还是找不到，且请求的是 CHAT_FAST，回退到 CHAT
+      if (!model && modelType === AIModelType.CHAT_FAST) {
+        this.logger.warn(
+          `[getDefaultModelByType] No ${modelType} model found, falling back to CHAT`,
+        );
+        return this.getDefaultModelByType(AIModelType.CHAT);
+      }
+
+      // 4. 如果找到了，返回配置
+      if (model) {
+        this.logger.debug(
+          `[getDefaultModelByType] Found ${modelType} model: ${model.modelId}`,
+        );
+        return {
+          id: model.id,
+          name: model.name,
+          displayName: model.displayName,
+          provider: model.provider,
+          modelId: model.modelId,
+          apiEndpoint: model.apiEndpoint,
+          apiKey: model.apiKey,
+          maxTokens: model.maxTokens,
+          temperature: model.temperature,
+          isEnabled: model.isEnabled,
+          isDefault: model.isDefault,
+          isReasoning:
+            (model as any).isReasoning ?? this.inferIsReasoning(model.modelId),
+        };
+      }
+
+      this.logger.warn(
+        `[getDefaultModelByType] No model found for type ${modelType}`,
+      );
+      return null;
+    } catch (error) {
+      this.logger.error(
+        `[getDefaultModelByType] Failed to get model: ${error}`,
+      );
+      return null;
+    }
   }
 
   /**
@@ -4042,15 +4122,26 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
    * Simple chat interface for tools
    * Wraps generateChatCompletion with sensible defaults
    *
+   * ★ AI App 可以通过两种方式指定模型：
+   * 1. model: 直接指定模型 ID（如 "gpt-4o"）
+   * 2. modelType: 指定模型类型，由 AI Engine 选择具体模型（推荐）
+   *
    * @param options Chat options
    * @returns Chat result
    */
   async chat(options: {
     messages: ChatMessage[];
     systemPrompt?: string;
+    /** ★ 推荐：使用 TaskProfile 描述任务需求，AI Engine 自动映射参数 */
+    taskProfile?: TaskProfile;
+    /** 直接指定 maxTokens（优先级高于 taskProfile） */
     maxTokens?: number;
+    /** 直接指定 temperature（优先级高于 taskProfile） */
     temperature?: number;
+    /** 直接指定模型 ID（如 "gpt-4o"） */
     model?: string;
+    /** ★ 推荐：指定模型类型，由 AI Engine 从数据库选择具体模型 */
+    modelType?: AIModelType;
     /** 严格模式：API失败时抛出异常而不是返回错误内容 */
     strictMode?: boolean;
   }): Promise<{
@@ -4063,18 +4154,100 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
     const {
       messages,
       systemPrompt,
-      maxTokens = 4096,
-      temperature = 0.7,
-      model = process.env.DEFAULT_AI_MODEL || "gemini",
+      taskProfile,
+      maxTokens: providedMaxTokens,
+      temperature: providedTemperature,
+      model: providedModel,
+      modelType,
       strictMode,
     } = options;
+
+    // ★ 关键改进：所有参数统一由 AI Engine 管理
+    // 优先级：providedModel > modelType 查找 > 环境变量默认
+    let model: string;
+    let modelConfig: AIModelConfig | null = null;
+
+    if (providedModel) {
+      // 1. 调用方直接指定了模型
+      model = providedModel;
+      modelConfig = await this.getModelConfig(model);
+    } else if (modelType) {
+      // 2. ★ 推荐方式：调用方指定模型类型，由 Engine 选择具体模型
+      modelConfig = await this.getDefaultModelByType(modelType);
+      if (modelConfig) {
+        model = modelConfig.modelId;
+        this.logger.debug(
+          `[chat] Using ${modelType} model from database: ${model}`,
+        );
+      } else {
+        // 找不到该类型模型，使用环境变量默认
+        model = process.env.DEFAULT_AI_MODEL || "gemini";
+        this.logger.warn(
+          `[chat] No ${modelType} model found, falling back to ${model}`,
+        );
+      }
+    } else {
+      // 3. 都没指定，使用环境变量默认
+      model = process.env.DEFAULT_AI_MODEL || "gemini";
+      modelConfig = await this.getModelConfig(model);
+    }
+
+    // ★ 参数解析优先级链：
+    // 1. 直接参数（maxTokens, temperature）← 最高优先级，向后兼容
+    // 2. TaskProfile 映射                  ← 推荐方式
+    // 3. 数据库模型配置                    ← 模型默认值
+    // 4. 硬编码默认值（4096, 0.7）         ← 最后兜底
+
+    let effectiveMaxTokens: number;
+    let effectiveTemperature: number;
+
+    if (providedMaxTokens !== undefined || providedTemperature !== undefined) {
+      // 直接参数优先（向后兼容）
+      effectiveMaxTokens = providedMaxTokens ?? modelConfig?.maxTokens ?? 4096;
+      effectiveTemperature =
+        providedTemperature ?? modelConfig?.temperature ?? 0.7;
+
+      this.logger.debug(
+        `[chat] Using direct parameters: temp=${effectiveTemperature}, maxTokens=${effectiveMaxTokens}`,
+      );
+    } else if (taskProfile) {
+      // ★ 使用 TaskProfile 映射参数（推荐方式）
+      const mappedParams = this.taskProfileMapper.mapToParameters(
+        taskProfile,
+        modelConfig,
+      );
+      effectiveMaxTokens = mappedParams.maxTokens;
+      effectiveTemperature = mappedParams.temperature;
+
+      this.logger.debug(
+        `[chat] TaskProfile mapped: ${JSON.stringify(taskProfile)} → ` +
+          `temp=${effectiveTemperature}, maxTokens=${effectiveMaxTokens}`,
+      );
+    } else {
+      // 使用数据库配置或默认值
+      const defaultParams = this.taskProfileMapper.mapToParameters(
+        undefined,
+        modelConfig,
+      );
+      effectiveMaxTokens = defaultParams.maxTokens;
+      effectiveTemperature = defaultParams.temperature;
+
+      this.logger.debug(
+        `[chat] Using model defaults: temp=${effectiveTemperature}, maxTokens=${effectiveMaxTokens}`,
+      );
+    }
+
+    this.logger.debug(
+      `[chat] Final: model=${model}, maxTokens=${effectiveMaxTokens}, ` +
+        `temperature=${effectiveTemperature}, isReasoning=${modelConfig?.isReasoning ?? false}`,
+    );
 
     const result = await this.generateChatCompletion({
       model,
       systemPrompt,
       messages,
-      maxTokens,
-      temperature,
+      maxTokens: effectiveMaxTokens,
+      temperature: effectiveTemperature,
       strictMode,
     });
 

@@ -1,0 +1,147 @@
+/**
+ * TaskProfile - AI App 使用语义化任务描述，AI Engine 处理参数映射
+ *
+ * 设计原则：
+ * - AI App 层描述任务需求（WHAT）
+ * - AI Engine 层处理模型细节（HOW）
+ *
+ * 使用示例：
+ * ```typescript
+ * // 推荐方式：使用 TaskProfile
+ * await aiChatService.chat({
+ *   messages,
+ *   modelType: AIModelType.CHAT,
+ *   taskProfile: {
+ *     creativity: "low",        // 分析任务需要低创意
+ *     outputLength: "medium",   // 中等长度输出
+ *   },
+ * });
+ *
+ * // 兼容方式：直接参数（优先级最高）
+ * await aiChatService.chat({
+ *   messages,
+ *   temperature: 0.3,
+ *   maxTokens: 4000,
+ * });
+ * ```
+ */
+
+/**
+ * 创意度等级 - AI Engine 映射到 temperature 等参数
+ *
+ * | 等级 | temperature | 适用场景 |
+ * |------|-------------|----------|
+ * | deterministic | 0.1 | 分类、提取、JSON 解析 |
+ * | low | 0.3 | 分析、总结、评估 |
+ * | medium | 0.7 | 对话、研究、规划 |
+ * | high | 0.9 | 创意写作、头脑风暴 |
+ */
+export type CreativityLevel = "deterministic" | "low" | "medium" | "high";
+
+/**
+ * 输出长度等级 - AI Engine 映射到 maxTokens
+ *
+ * | 等级 | maxTokens | 适用场景 |
+ * |------|-----------|----------|
+ * | minimal | 500 | 是/否判断、分类标签 |
+ * | short | 1500 | 摘要、简短回复 |
+ * | medium | 4000 | 详细分析、标准对话 |
+ * | standard | 6000 | 中长内容、编辑任务 |
+ * | long | 8000 | 报告、章节、全面分析 |
+ * | extended | 16000 | 超长内容、推理模型 |
+ */
+export type OutputLengthLevel =
+  | "minimal"
+  | "short"
+  | "medium"
+  | "standard"
+  | "long"
+  | "extended";
+
+/**
+ * 任务类型 - 辅助参数优化（Phase 2 实现）
+ */
+export type TaskType =
+  | "extraction" // 实体提取、解析
+  | "analysis" // 深度分析、评估
+  | "conversation" // 对话、问答
+  | "writing" // 内容创作
+  | "reflection"; // 自我评估、元认知
+
+/**
+ * 输出格式 - 影响 temperature 调整（Phase 2 实现）
+ */
+export type OutputFormat =
+  | "json" // 结构化 JSON（需要更低 temperature）
+  | "markdown" // 格式化 Markdown
+  | "plaintext"; // 纯文本
+
+/**
+ * 任务配置 - AI App 用语义化方式描述任务需求
+ *
+ * AI Engine 根据 TaskProfile 和选定模型的特性，
+ * 自动映射为具体的模型参数（temperature, maxTokens 等）
+ */
+export interface TaskProfile {
+  /**
+   * 创意度等级
+   * AI Engine 映射到 temperature 等参数
+   * 不同模型的映射可能不同（某些模型不支持 temperature）
+   */
+  creativity?: CreativityLevel;
+
+  /**
+   * 输出长度等级
+   * AI Engine 映射到 maxTokens
+   * 推理模型会自动调整为更高值（至少 8000）
+   */
+  outputLength?: OutputLengthLevel;
+
+  /**
+   * 任务类型（Phase 2 实现）
+   * 辅助 AI Engine 优化参数选择
+   */
+  taskType?: TaskType;
+
+  /**
+   * 输出格式（Phase 2 实现）
+   * JSON 格式会自动降低 temperature 以确保结构稳定
+   */
+  outputFormat?: OutputFormat;
+}
+
+/**
+ * 创意度到 temperature 的映射常量
+ * AI Engine 内部使用，AI App 不应直接使用
+ */
+export const CREATIVITY_TO_TEMPERATURE: Record<CreativityLevel, number> = {
+  deterministic: 0.1,
+  low: 0.3,
+  medium: 0.7,
+  high: 0.9,
+};
+
+/**
+ * 输出长度到 maxTokens 的映射常量
+ * AI Engine 内部使用，AI App 不应直接使用
+ */
+export const OUTPUT_LENGTH_TO_TOKENS: Record<OutputLengthLevel, number> = {
+  minimal: 500,
+  short: 1500,
+  medium: 4000,
+  standard: 6000,
+  long: 8000,
+  extended: 16000,
+};
+
+/**
+ * 推理模型的最小 token 数
+ * 推理模型需要额外空间进行内部推理
+ */
+export const REASONING_MODEL_MIN_TOKENS = 8000;
+
+/**
+ * JSON 输出格式的最大 temperature
+ * 确保输出结构稳定
+ */
+export const JSON_OUTPUT_MAX_TEMPERATURE = 0.3;

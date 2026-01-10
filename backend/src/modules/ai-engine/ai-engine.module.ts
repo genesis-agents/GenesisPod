@@ -70,6 +70,7 @@ import { LLMFactory } from "./llm/factory/llm-factory";
 import { FunctionCallingLLMAdapter } from "./llm/adapters/function-calling-llm-adapter";
 import { AiChatLLMAdapter } from "./llm/adapters/ai-chat-llm-adapter";
 import { UniversalLLMAdapter } from "./llm/adapters/universal-llm-adapter";
+import { TaskProfileMapperService } from "./llm/services/task-profile-mapper.service";
 
 // Memory
 import {
@@ -295,6 +296,7 @@ const conversationMemoryFactory = {
     FunctionCallingLLMAdapter,
     AiChatLLMAdapter,
     UniversalLLMAdapter,
+    TaskProfileMapperService,
 
     // === Core Services (from ai-core) ===
     AiChatService,
@@ -362,6 +364,7 @@ const conversationMemoryFactory = {
     FunctionCallingLLMAdapter,
     AiChatLLMAdapter,
     UniversalLLMAdapter,
+    TaskProfileMapperService,
 
     // === Core Services (from ai-core) ===
     AiChatService,
