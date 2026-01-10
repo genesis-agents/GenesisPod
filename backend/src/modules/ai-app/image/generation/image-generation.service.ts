@@ -374,38 +374,80 @@ export class ImageGenerationService {
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    const response = await firstValueFrom(
-      this.httpService.post(
-        url,
-        {
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseModalities: ["TEXT", "IMAGE"],
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          url,
+          {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseModalities: ["TEXT", "IMAGE"],
+            },
           },
-        },
-        {
-          headers: { "Content-Type": "application/json" },
-          timeout: 120000,
-        },
-      ),
-    );
+          {
+            headers: { "Content-Type": "application/json" },
+            timeout: 120000,
+          },
+        ),
+      );
 
-    const candidates = response.data.candidates;
-    if (!candidates || candidates.length === 0) {
-      throw new Error("No candidates in Gemini response");
-    }
+      const candidates = response.data.candidates;
+      if (!candidates || candidates.length === 0) {
+        // Check if there's a block reason
+        const blockReason = response.data.promptFeedback?.blockReason;
+        if (blockReason) {
+          throw new Error(
+            `Image generation blocked due to ${blockReason}. Try rephrasing your prompt.`,
+          );
+        }
+        throw new Error("No candidates in Gemini response");
+      }
 
-    const parts = candidates[0].content?.parts;
-    if (parts) {
-      for (const part of parts) {
-        if (part.inlineData?.data) {
-          const mimeType = part.inlineData.mimeType || "image/png";
-          return `data:${mimeType};base64,${part.inlineData.data}`;
+      // Check for safety ratings that blocked the response
+      const finishReason = candidates[0].finishReason;
+      if (finishReason === "SAFETY" || finishReason === "BLOCKED") {
+        throw new Error(
+          "Image generation blocked by safety filters. Try rephrasing your prompt.",
+        );
+      }
+
+      const parts = candidates[0].content?.parts;
+      if (parts) {
+        for (const part of parts) {
+          if (part.inlineData?.data) {
+            const mimeType = part.inlineData.mimeType || "image/png";
+            return `data:${mimeType};base64,${part.inlineData.data}`;
+          }
         }
       }
-    }
 
-    throw new Error("No image data in Gemini response");
+      throw new Error("No image data in Gemini response");
+    } catch (error: any) {
+      // Extract error message from API response
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        let errorMessage = "Gemini image generation failed";
+
+        if (errorData.error?.message) {
+          errorMessage = errorData.error.message;
+        } else if (errorData.promptFeedback?.blockReason) {
+          errorMessage = `Content blocked: ${errorData.promptFeedback.blockReason}`;
+        }
+
+        if (
+          errorMessage.toLowerCase().includes("safety") ||
+          errorMessage.toLowerCase().includes("blocked") ||
+          errorMessage.toLowerCase().includes("policy")
+        ) {
+          throw new Error(
+            `Image generation blocked: ${errorMessage}. Try rephrasing your prompt.`,
+          );
+        }
+
+        throw new Error(`Gemini error: ${errorMessage}`);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -480,7 +522,33 @@ export class ImageGenerationService {
       this.logger.error(
         `Imagen generateImages error: status=${errorStatus}, data=${JSON.stringify(errorData).slice(0, 500)}`,
       );
-      throw error;
+
+      // Extract meaningful error message from Google API response
+      let errorMessage = "Image generation failed";
+      if (errorData?.error?.message) {
+        errorMessage = errorData.error.message;
+      } else if (errorData?.message) {
+        errorMessage = errorData.message;
+      } else if (typeof errorData === "string") {
+        errorMessage = errorData;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      // Check for content moderation errors
+      if (
+        errorMessage.toLowerCase().includes("safety") ||
+        errorMessage.toLowerCase().includes("policy") ||
+        errorMessage.toLowerCase().includes("blocked") ||
+        errorMessage.toLowerCase().includes("prohibited") ||
+        errorStatus === 400
+      ) {
+        throw new Error(
+          `Image generation blocked: ${errorMessage}. Try rephrasing your prompt.`,
+        );
+      }
+
+      throw new Error(`Image generation failed: ${errorMessage}`);
     }
   }
 

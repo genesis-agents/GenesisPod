@@ -1618,7 +1618,26 @@ export default function ImageGenerator({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to connect to stream');
+        // Try to extract error message from response
+        let errorMessage = 'Failed to connect to stream';
+        try {
+          const errorData = await response.json();
+          errorMessage =
+            errorData.message ||
+            errorData.error ||
+            `Server error: ${response.status}`;
+        } catch {
+          // If response is not JSON, try to get text
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = errorText.slice(0, 200); // Limit error message length
+            }
+          } catch {
+            errorMessage = `Server error: ${response.status} ${response.statusText}`;
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const reader = response.body?.getReader();
