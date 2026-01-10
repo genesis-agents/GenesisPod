@@ -58,6 +58,9 @@ import { ContextBuilderService } from "../writing/context-builder.service";
 import { StoryBibleService } from "../bible/story-bible.service";
 import { ExpressionMemoryService } from "../quality/expression-memory.service";
 import { QualityGateService } from "../quality/quality-gate.service";
+import { ProfessionalVoiceService } from "../quality/professional-voice.service";
+import { SensoryImmersionService } from "../quality/sensory-immersion.service";
+import { OpeningHookService } from "../quality/opening-hook.service";
 
 // Event Emitter for real-time updates
 import { WritingEventEmitterService } from "../events/writing-event-emitter.service";
@@ -199,6 +202,10 @@ export class WritingMissionService {
     private readonly styleTemplateService: StyleTemplateService,
     // Quality Gate - 质量门禁服务（强制执行表达冷却）
     private readonly qualityGate: QualityGateService,
+    // v3 新增：专业声音、五感沉浸、开篇钩子服务
+    private readonly professionalVoice: ProfessionalVoiceService,
+    private readonly sensoryImmersion: SensoryImmersionService,
+    private readonly openingHook: OpeningHookService,
   ) {
     // 注册角色和团队配置（不需要 LLM）
     this.registerWritingRoles();
@@ -206,6 +213,70 @@ export class WritingMissionService {
     void this.contextBuilder;
     void this.storyBibleService;
     void this.eventEmitter; // Used in generateFullStory
+    // v3 质量服务 - 用于 generateQualityConstraints
+    void this.professionalVoice;
+    void this.sensoryImmersion;
+    void this.openingHook;
+  }
+
+  /**
+   * 生成章节质量约束提示词（v3 新增）
+   * 整合专业声音、五感沉浸、开篇钩子等服务
+   */
+  private generateQualityConstraints(
+    chapterNumber: number,
+    chapterOutline?: string,
+    characters?: Array<{ name: string; role?: string; background?: string }>,
+  ): string {
+    const constraints: string[] = [];
+
+    try {
+      // 1. 开篇钩子约束（第一章特别强调）
+      const openingConstraints = this.openingHook.generateOpeningConstraints(
+        chapterNumber,
+        chapterOutline,
+      );
+      if (openingConstraints) {
+        constraints.push(openingConstraints);
+      }
+    } catch (e) {
+      this.logger.warn(`[QualityConstraints] Opening hook failed: ${e}`);
+    }
+
+    try {
+      // 2. 五感沉浸约束
+      const immersionConstraints =
+        this.sensoryImmersion.generateImmersionConstraints(
+          chapterNumber,
+          chapterOutline,
+        );
+      if (immersionConstraints) {
+        constraints.push(immersionConstraints);
+      }
+    } catch (e) {
+      this.logger.warn(`[QualityConstraints] Sensory immersion failed: ${e}`);
+    }
+
+    try {
+      // 3. 专业声音约束（如果有角色职业信息）
+      if (characters && characters.length > 0) {
+        const voiceConstraints =
+          this.professionalVoice.generateChapterVoiceConstraints(
+            characters.map((c) => ({
+              name: c.name,
+              profession: c.background || c.role,
+              background: c.background,
+            })),
+          );
+        if (voiceConstraints) {
+          constraints.push(voiceConstraints);
+        }
+      }
+    } catch (e) {
+      this.logger.warn(`[QualityConstraints] Professional voice failed: ${e}`);
+    }
+
+    return constraints.join("\n\n");
   }
 
   // ==================== 动态模型选择 ====================
@@ -1753,13 +1824,36 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
       let chapterContent = "";
 
       try {
+        // ★ v3 新增：生成质量约束（开篇钩子、五感沉浸、专业声音）
+        const characters =
+          (worldSettings?.characters as Array<{
+            name: string;
+            role?: string;
+            background?: string;
+          }>) || [];
+        const qualityConstraints = this.generateQualityConstraints(
+          chapterNumber,
+          chapterInfo.plot,
+          characters,
+        );
+
+        // ★ 使用完整的写作原则系统提示词（v3 增强）
+        const writerSystemPrompt = `你是一位专业的创意写作专家，负责创作第${chapterNumber}章。
+
+${WriterAgent.CORE_WRITING_PRINCIPLES}
+
+${qualityConstraints ? `${qualityConstraints}\n` : ""}
+## 输出要求
+- 直接输出章节正文，无需额外标记
+- 保持叙事流畅，情节连贯
+- 对话要符合角色性格
+- 描写要符合世界观设定`;
+
         const writerResponse = await this.aiChatService.chat({
           messages: [
             {
               role: "system",
-              content:
-                this.writer.description +
-                `\n\n你正在创作第${chapterNumber}章。语言流畅，富有文学性。`,
+              content: writerSystemPrompt,
             },
             { role: "user", content: writerPrompt },
           ],
@@ -1789,12 +1883,16 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
 ${previousChapterSummary ? `前文摘要：${previousChapterSummary}` : "这是故事的开始。"}
 ${avoidancePrompt ? `\n【表达约束 - 禁止使用以下表达】\n${avoidancePrompt}` : ""}`;
 
+          // ★ 重试时也使用完整写作原则
+          const retrySystemPrompt = `你是专业的小说作家。请直接创作故事内容，约3000字。
+
+${WriterAgent.CORE_WRITING_PRINCIPLES}`;
+
           const retryResponse = await this.aiChatService.chat({
             messages: [
               {
                 role: "system",
-                content:
-                  "你是专业的小说作家。请直接创作故事内容，约3000字。严禁使用重复的表达方式。",
+                content: retrySystemPrompt,
               },
               {
                 role: "user",
@@ -2616,29 +2714,114 @@ ${chapterContent}
     }>;
   } {
     try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          passed: parsed.passed ?? true,
-          score: parsed.score ?? 100,
-          issues: (parsed.issues || []).map(
-            (issue: Record<string, string>) => ({
-              type: issue.type || "unknown",
-              severity: issue.severity || "warning",
-              description: issue.description || "",
-              location: issue.location || "",
-              fix: issue.fix || "",
-            }),
-          ),
-        };
+      // 1. 清理 markdown 代码块
+      let cleaned = content.trim();
+      if (cleaned.startsWith("```json")) {
+        cleaned = cleaned.slice(7);
+      } else if (cleaned.startsWith("```")) {
+        cleaned = cleaned.slice(3);
+      }
+      if (cleaned.endsWith("```")) {
+        cleaned = cleaned.slice(0, -3);
+      }
+      cleaned = cleaned.trim();
+
+      // 2. 尝试直接解析（如果整体是有效 JSON）
+      try {
+        const directParsed = JSON.parse(cleaned);
+        if (typeof directParsed === "object" && directParsed !== null) {
+          return this.normalizeConsistencyResult(directParsed);
+        }
+      } catch {
+        // 继续尝试其他方法
+      }
+
+      // 3. 提取第一个完整的 JSON 对象（使用括号匹配）
+      const jsonStr = this.extractFirstJsonObject(cleaned);
+      if (jsonStr) {
+        const parsed = JSON.parse(jsonStr);
+        return this.normalizeConsistencyResult(parsed);
       }
     } catch (e) {
       this.logger.warn(
         `Failed to parse consistency check result: ${(e as Error).message}`,
       );
+      // 输出内容预览以便调试
+      this.logger.debug(`Content preview: ${content.slice(0, 500)}...`);
     }
     return { passed: true, score: 100, issues: [] };
+  }
+
+  /**
+   * 提取第一个完整的 JSON 对象
+   */
+  private extractFirstJsonObject(content: string): string | null {
+    const firstBrace = content.indexOf("{");
+    if (firstBrace === -1) return null;
+
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+
+    for (let i = firstBrace; i < content.length; i++) {
+      const char = content[i];
+
+      if (escape) {
+        escape = false;
+        continue;
+      }
+
+      if (char === "\\") {
+        escape = true;
+        continue;
+      }
+
+      if (char === '"' && !escape) {
+        inString = !inString;
+        continue;
+      }
+
+      if (!inString) {
+        if (char === "{") {
+          depth++;
+        } else if (char === "}") {
+          depth--;
+          if (depth === 0) {
+            return content.substring(firstBrace, i + 1);
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * 标准化一致性检查结果
+   */
+  private normalizeConsistencyResult(parsed: Record<string, unknown>): {
+    passed: boolean;
+    score: number;
+    issues: Array<{
+      type: string;
+      severity: string;
+      description: string;
+      location: string;
+      fix: string;
+    }>;
+  } {
+    const issues = Array.isArray(parsed.issues) ? parsed.issues : [];
+    return {
+      passed: typeof parsed.passed === "boolean" ? parsed.passed : true,
+      score: typeof parsed.score === "number" ? parsed.score : 100,
+      issues: issues.map((issue: Record<string, unknown>) => ({
+        type: String(issue.type || "unknown"),
+        severity: String(issue.severity || "warning"),
+        description: String(issue.description || ""),
+        location: String(issue.location || ""),
+        fix: String(issue.fix || ""),
+      })),
+    };
   }
 
   /**
@@ -4849,12 +5032,18 @@ ${previousSummary ? `【前文摘要】\n${previousSummary}\n` : "【开篇提�
 
 请直接输出章节内容，以"第${this.numberToChinese(chapter.chapterNumber)}章 ${chapter.title}"开头。`;
 
+      // ★ 使用完整的写作原则系统提示词（v3 增强）
+      const writerSystemPrompt = `你是专业的小说作家，擅长创作引人入胜的故事。
+
+${WriterAgent.CORE_WRITING_PRINCIPLES}
+
+请直接输出章节内容。`;
+
       const writerResponse = await this.aiChatService.chat({
         messages: [
           {
             role: "system",
-            content:
-              "你是专业的小说作家，擅长创作引人入胜的故事。请直接输出章节内容。",
+            content: writerSystemPrompt,
           },
           { role: "user", content: writerPrompt },
         ],
@@ -4869,12 +5058,12 @@ ${previousSummary ? `【前文摘要】\n${previousSummary}\n` : "【开篇提�
         this.logger.warn(
           `[${missionId}] Chapter content too short, retrying...`,
         );
-        // 简化重试
+        // 简化重试（仍使用写作原则）
         const retryResponse = await this.aiChatService.chat({
           messages: [
             {
               role: "system",
-              content: "你是小说作家。请创作约3000字的章节内容。",
+              content: `你是小说作家。请创作约3000字的章节内容。\n\n${WriterAgent.CORE_WRITING_PRINCIPLES}`,
             },
             {
               role: "user",

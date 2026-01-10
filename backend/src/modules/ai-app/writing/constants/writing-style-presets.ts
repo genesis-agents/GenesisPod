@@ -257,6 +257,180 @@ export const WRITING_STYLE_PRESETS: Record<string, WritingStylePreset> = {
     ],
   },
 
+  // ==================== 晋江女频风格 ====================
+
+  jinjiang_yanqing: {
+    id: "jinjiang_yanqing",
+    name: "晋江言情",
+    category: "chinese_web_novel",
+    description: "细腻情感，双向奔赴，成长弧线清晰，甜虐平衡",
+    representative: "《知否知否应是绿肥红瘦》《何以笙箫默》《步步惊心》",
+    characteristics: {
+      pacing: "varied",
+      dialogueStyle: "自然灵动，暗藏情愫，台词有记忆点",
+      descriptionStyle: "细腻入微，情绪流动，注重心理描写",
+      sentenceLength: "varied",
+      vocabulary: "intermediate",
+      emotionalTone: "细腻温婉，情感层次丰富",
+      sceneTransition: "情绪驱动，自然流畅",
+    },
+    systemPromptFragment: `【晋江言情风格指南】
+- 情感核心：感情线是主轴，但角色要有独立人格，不是恋爱脑
+- 对话要点：台词要有记忆点，能让读者截图分享；暧昧期的试探和拉扯尤为重要
+- 内心戏：女主内心戏细腻但不啰嗦，要有洞察力和小聪明
+- 男主塑造：冷面热心或外冷内热，对女主的特殊要有细节体现
+- 节奏把控：甜虐交替，高甜后有小虐，虐后有糖，情绪起伏有节奏
+- 配角作用：配角推动剧情，不是工具人，要有自己的故事线`,
+    writingRequirements: [
+      "每章至少一个情感推进点（心动、误会、和解、升温）",
+      "男女主互动要有化学反应，对话有来有往",
+      "女主要有成长弧线，从被动到主动的转变",
+      "暧昧期要足够长，给读者期待感",
+      "甜宠场景要具体，不能只写「他对她很好」",
+      "高甜场景注重五感细节：心跳、脸红、触感、气息",
+    ],
+    avoidPatterns: [
+      "女主无脑傻白甜或恋爱脑",
+      "男主无缘无故爱上女主",
+      "配角脸谱化（恶毒女配、炮灰男配）",
+      "强行制造误会推动剧情",
+      "感情转折太突兀",
+      "大量旁白代替情感描写",
+    ],
+    signatureTechniques: [
+      {
+        name: "欲言又止",
+        description: "情感关键时刻话说一半，留下悬念和想象空间",
+        example: "「我……」她顿了顿，终究没有说出那句话，只是移开了视线。",
+      },
+      {
+        name: "细节心动",
+        description: "用极其细微的动作描写心动瞬间",
+        example:
+          "他替她挡住了人群，手臂微微抬起却没有触碰到她——那恰到好处的距离，让她的心跳漏了一拍。",
+      },
+      {
+        name: "反差萌",
+        description: "展现角色表面性格与真实一面的反差",
+        example:
+          "在外人面前冷若冰霜的他，此刻却小心翼翼地用手背试了试粥的温度。",
+      },
+      {
+        name: "糖中带刀",
+        description: "看似甜蜜的场景埋下后续虐心的伏笔",
+        example: "她笑着接过那枚玉佩，却不知道这是他留给她的最后一件东西。",
+      },
+      {
+        name: "旁观者视角",
+        description: "通过第三人视角侧写男女主的感情",
+        example:
+          "丫鬟红袖偷偷看了一眼自家小姐——每次那位萧公子来访，小姐嘴上说着「不见」，簪子却换了三根。",
+      },
+      {
+        name: "触感描写",
+        description: "用触觉描写传达情感温度",
+        example:
+          "他的指尖扫过她的发梢，像是羽毛掠过水面，轻得几乎不存在，却让她整个人都僵住了。",
+      },
+      {
+        name: "记忆闪回",
+        description: "在关键时刻闪回过去的甜蜜或创伤",
+        example:
+          "看着他转身离去的背影，她忽然想起初见时——他也是这样，头也不回地走进了风雪里。",
+      },
+    ],
+  },
+
+  jinjiang_gongdou: {
+    id: "jinjiang_gongdou",
+    name: "晋江宫斗",
+    category: "chinese_web_novel",
+    description: "女性视角权谋，话中藏刀，微表情博弈，情感与生存交织",
+    representative: "《甄嬛传》《延禧攻略》《如懿传》",
+    characteristics: {
+      pacing: "medium",
+      dialogueStyle: "绵里藏针，一语双关，身份决定语气",
+      descriptionStyle: "微表情叙事，环境隐喻，细节暗示",
+      sentenceLength: "medium",
+      vocabulary: "advanced",
+      emotionalTone: "隐忍克制，暗流汹涌，偶有真情流露",
+      sceneTransition: "伏笔呼应，势力轮转",
+    },
+    systemPromptFragment: `【晋江宫斗风格指南】
+- 核心逻辑：生存是第一需求，感情服务于生存，但也要有真情流露的时刻
+- 对话分层：对上（恭敬中有自保）、对平（试探中有交锋）、对下（恩威并施）
+- 女性视角：不是权力的附庸，而是权力游戏的参与者和博弈者
+- 势力格局：后宫势力要清晰，每个人的靠山和弱点要明确
+- 情感处理：爱情不是全部，但真情时刻要动人；被辜负时要有恨意的层次
+- 成长弧线：从天真到黑化有过程，每次转变都要有触发事件`,
+    writingRequirements: [
+      "每次对话都要考虑双方身份地位差异",
+      "重大场景用微表情代替心理描写",
+      "势力博弈要有清晰的利益链条",
+      "女主的每次行动都要有动机和代价",
+      "配角后妃要有各自的立场和苦衷",
+      "圣宠不是万能的，要写出其危险性",
+    ],
+    avoidPatterns: [
+      "女主一路开挂无人能敌",
+      "后妃全是蠢货只有女主聪明",
+      "皇上圣明一切公正",
+      "对话像现代人吵架",
+      "动不动就跪地求饶",
+      "所有人都围着女主转",
+    ],
+    signatureTechniques: [
+      {
+        name: "请安暗战",
+        description: "在请安礼仪中进行势力宣示和言语交锋",
+        example:
+          "「给皇后娘娘请安。」她福身时故意慢了半拍，那半拍里，足够在座所有人都看清她腕上的镯子——那是昨夜皇上新赐的。",
+      },
+      {
+        name: "赏赐博弈",
+        description: "通过赏赐物品暗示恩宠变化和派系立场",
+        example:
+          "皇后赐下的燕窝羹还冒着热气，她却看向那只素白的瓷盅——皇后宫里从来只用青花。这是试探。",
+      },
+      {
+        name: "太监传话",
+        description: "通过太监宫女的传话方式暗示主子真意",
+        example:
+          "「皇上说让娘娘好好休息。」小太监垂着眼，声音里听不出喜怒——可那「好好」二字，咬得格外清晰。",
+      },
+      {
+        name: "病中角力",
+        description: "利用生病或假病进行宫中博弈",
+        example:
+          "她已经「病」了三日，三日里，那些平日不登门的人，全都来了——有人是探病，有人是探虚实。",
+      },
+      {
+        name: "衣饰密语",
+        description: "通过服饰首饰的选择暗示立场和态度",
+        example:
+          "众妃皆着盛装，唯独她换了素服——这是在提醒皇上，今日是她孩儿的忌辰。",
+      },
+      {
+        name: "茶道试探",
+        description: "通过上茶、品茶、换茶等细节进行心理博弈",
+        example:
+          "贵妃亲手斟的茶，她接过，却只是捧在手里——茶凉了，便有借口不喝。",
+      },
+      {
+        name: "借刀杀人",
+        description: "不直接出手，借他人之力达成目的",
+        example:
+          "她什么都没做，只是在淑妃面前，「不小心」提了一句那件事——剩下的，淑妃会替她做。",
+      },
+      {
+        name: "真情裂痕",
+        description: "在算计中偶露真情，让人物更立体",
+        example:
+          "「你以为我愿意吗？」她声音忽然颤了，那一瞬的失态，让他第一次看清她眼底的血丝。",
+      },
+    ],
+  },
+
   // ==================== 外国经典风格 ====================
 
   western_fantasy: {
@@ -401,10 +575,22 @@ export function recommendStyleByGenre(genre: string): string[] {
   if (
     genreLower.includes("宫斗") ||
     genreLower.includes("权谋") ||
-    genreLower.includes("古代") ||
     genreLower.includes("宫廷")
   ) {
-    return ["web_gongdou", "jin_yong"];
+    return ["jinjiang_gongdou", "web_gongdou", "jin_yong"];
+  }
+
+  if (
+    genreLower.includes("言情") ||
+    genreLower.includes("爱情") ||
+    genreLower.includes("甜宠") ||
+    genreLower.includes("纯爱")
+  ) {
+    return ["jinjiang_yanqing", "modern_realistic"];
+  }
+
+  if (genreLower.includes("古代") || genreLower.includes("古风")) {
+    return ["jinjiang_gongdou", "jinjiang_yanqing", "jin_yong"];
   }
 
   if (

@@ -26,6 +26,9 @@ import {
 import { ExpressionMemoryService } from "../services/quality/expression-memory.service";
 import { CharacterPersonalityService } from "../services/quality/character-personality.service";
 import { HistoricalKnowledgeService } from "../services/quality/historical-knowledge.service";
+import { ProfessionalVoiceService } from "../services/quality/professional-voice.service";
+import { SensoryImmersionService } from "../services/quality/sensory-immersion.service";
+import { OpeningHookService } from "../services/quality/opening-hook.service";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { TaskProfile } from "../../../ai-engine/llm/types";
 import {
@@ -119,10 +122,67 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     BUILTIN_TOOLS.SHORT_TERM_MEMORY,
   ];
 
+  /**
+   * 核心写作原则（可被外部服务调用）
+   * 这是从头部网文和优秀作品中提炼的写作技巧
+   */
+  static readonly CORE_WRITING_PRINCIPLES = `## 创作原则（正向引导）
+
+### 1. 具象化原则
+用具体细节代替抽象描述，让读者"看到"而非"被告知"：
+- ❌ 她很紧张 → ✅ 她不自觉地绞着帕子的流苏，指节泛白
+- ❌ 他很愤怒 → ✅ 他手中的茶杯应声碎裂，碎瓷片划过掌心
+- ❌ 气氛很压抑 → ✅ 厅中只有铜漏滴水的声音，谁都不敢先开口
+
+### 2. 动作化原则
+用动作展现情绪，而非直接陈述内心：
+- ❌ 她心中暗喜 → ✅ 她垂下眼帘，嘴角却不由自主地微微上扬
+- ❌ 他心中一震 → ✅ 他执笔的手顿了一顿，墨迹在宣纸上洇开一团
+- ❌ 她很惊讶 → ✅ 她手中的团扇滑落，在地上骨碌碌转了几圈
+
+### 3. 感官化原则
+调动五感描写场景，创造沉浸体验：
+- 视觉：光线、色彩、空间、人物神态
+- 听觉：环境声、语气、语调、沉默
+- 嗅觉：香料、烟火、花草、腐朽
+- 触觉：温度、质地、触感
+- 味觉：食物、饮品、情绪（苦涩、甜蜜）
+
+### 4. 对话即性格
+对话是塑造人物的最佳工具，每个人物应有独特的：
+- 用词习惯：文雅/粗犷、含蓄/直白
+- 句式节奏：长句/短句、流畅/顿挫
+- 口头禅或标志性表达
+- 语气态度：傲慢/谦逊、冷淡/热情
+
+### 5. 场景即情绪
+环境描写要服务于情绪基调：
+- 紧张时：描写逼仄空间、刺眼光线、压抑声响
+- 悲伤时：描写阴冷色调、萧瑟景象、沉默氛围
+- 欢喜时：描写明亮色彩、舒展空间、轻快节奏
+
+## 章节结尾禁忌（严格禁止）
+- 禁止在章节结尾使用总结性旁白，如"她知道，未来的斗争才刚刚开始"
+- 禁止使用预告式结尾，如"而这一切，只是开始"、"风暴即将来临"
+- 禁止使用抒情点题，如"命运的齿轮开始转动"、"历史的洪流..."
+- 禁止使用人生感悟式结尾，如"她明白了..."、"此刻她终于懂得..."
+- 章节应在具体的动作、对话或场景描写中自然结束，而非抽象的议论或预言
+- 好的结尾示例：对话戛然而止、门被关上、脚步声远去、烛火熄灭
+
+## 开篇钩子法则（前三句必须遵守）
+- 第一句必须有钩子：冲突、危机、或强烈感官体验
+- 禁止用"一阵XX袭来"、"突然"、"忽然"开头
+- 优先使用触觉、嗅觉、听觉（非视觉）引入场景
+- 用对比增强感受（"不是XX，而是XX"）
+- 让读者"进入"场景，而非"了解"场景`;
+
   constructor(
     private readonly expressionMemory: ExpressionMemoryService,
     private readonly characterPersonality: CharacterPersonalityService,
     private readonly historicalKnowledge: HistoricalKnowledgeService,
+    private readonly professionalVoice: ProfessionalVoiceService,
+    private readonly sensoryImmersion: SensoryImmersionService,
+    private readonly openingHook: OpeningHookService,
     private readonly aiChatService: AiChatService,
   ) {
     super();
@@ -136,6 +196,9 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       { name: "expressionMemory", service: this.expressionMemory },
       { name: "characterPersonality", service: this.characterPersonality },
       { name: "historicalKnowledge", service: this.historicalKnowledge },
+      { name: "professionalVoice", service: this.professionalVoice },
+      { name: "sensoryImmersion", service: this.sensoryImmersion },
+      { name: "openingHook", service: this.openingHook },
     ];
 
     for (const { name, service } of services) {
@@ -293,6 +356,72 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
         `[Writer] Failed to get historical constraints: ${error}`,
       );
       throw error;
+    }
+
+    // 4. 专业声音约束（v3 新增）
+    try {
+      const charactersWithProfession = chapterContext.involvedCharacters
+        .filter((c) => c.background || c.role)
+        .map((c) => ({
+          name: c.name,
+          profession: c.background || c.role,
+          background: c.background,
+        }));
+
+      if (charactersWithProfession.length > 0) {
+        const voiceConstraints =
+          this.professionalVoice.generateChapterVoiceConstraints(
+            charactersWithProfession,
+          );
+        if (voiceConstraints) {
+          parts.push(voiceConstraints);
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[Writer] Failed to get professional voice constraints: ${error}`,
+      );
+      // 非关键约束，失败不阻塞
+    }
+
+    // 5. 五感沉浸约束（v3 新增）
+    try {
+      const sceneDescription =
+        chapterContext.chapter.outline ||
+        chapterContext.relevantWorldSettings
+          .map((s) => s.description)
+          .join(" ");
+
+      const immersionConstraints =
+        this.sensoryImmersion.generateImmersionConstraints(
+          chapterNumber,
+          sceneDescription,
+        );
+      if (immersionConstraints) {
+        parts.push(immersionConstraints);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[Writer] Failed to get sensory immersion constraints: ${error}`,
+      );
+      // 非关键约束，失败不阻塞
+    }
+
+    // 6. 开篇钩子约束（v3 新增）
+    try {
+      const chapterType = chapterContext.chapter.outline || "";
+      const openingConstraints = this.openingHook.generateOpeningConstraints(
+        chapterNumber,
+        chapterType,
+      );
+      if (openingConstraints) {
+        parts.push(openingConstraints);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[Writer] Failed to get opening hook constraints: ${error}`,
+      );
+      // 非关键约束，失败不阻塞
     }
 
     return parts.join("\n\n");

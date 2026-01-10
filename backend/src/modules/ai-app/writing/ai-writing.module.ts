@@ -52,6 +52,11 @@ import {
   NarrativePacingService,
   SemanticConsistencyService,
   ExpressionAlternativesService,
+  ProfessionalVoiceService,
+  SensoryImmersionService,
+  OpeningHookService,
+  ForeshadowingService,
+  PacingControlService,
 } from "./services/quality";
 
 // Style services (Three-layer style configuration system)
@@ -108,6 +113,11 @@ import {
     NarrativePacingService,
     SemanticConsistencyService,
     ExpressionAlternativesService,
+    ProfessionalVoiceService,
+    SensoryImmersionService,
+    OpeningHookService,
+    ForeshadowingService,
+    PacingControlService,
     // Style services (Three-layer style configuration)
     StyleTemplateService,
     // Writing Agents (from BaseAgent)
@@ -135,6 +145,11 @@ import {
     NarrativePacingService,
     SemanticConsistencyService,
     ExpressionAlternativesService,
+    ProfessionalVoiceService,
+    SensoryImmersionService,
+    OpeningHookService,
+    ForeshadowingService,
+    PacingControlService,
     // Style services
     StyleTemplateService,
     // Export agents for external use
