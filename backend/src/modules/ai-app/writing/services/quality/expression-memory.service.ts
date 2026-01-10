@@ -526,6 +526,9 @@ export class ExpressionMemoryService {
     projectId: string,
     currentChapterNumber: number,
   ): Promise<string> {
+    // ★ 关键：先刷新冷却状态，解除已过期的表达
+    await this.refreshCooldownStatus(projectId, currentChapterNumber);
+
     const coolingExpressions = await this.getCoolingExpressions(
       projectId,
       currentChapterNumber,
@@ -570,9 +573,69 @@ export class ExpressionMemoryService {
   // ==================== 内容分析方法 ====================
 
   /**
+   * 只分析表达，不记录到数据库（用于质量评估）
+   *
+   * ★ 重要：QualityGate 评估时使用此方法，避免重复记录
+   */
+  async analyzeExpressionsOnly(
+    projectId: string,
+    content: string,
+  ): Promise<ExpressionAnalysisResult> {
+    const result: ExpressionAnalysisResult = {
+      newExpressions: [],
+      violatedExpressions: [],
+      highFrequencyWarnings: [],
+    };
+
+    // 1. 使用模式匹配检测表达
+    const detectedExpressions = this.detectExpressions(content);
+
+    // 2. 批量查询已有记录
+    const existingRecords = await this.prisma.writingExpressionMemory.findMany({
+      where: {
+        projectId,
+        expression: { in: detectedExpressions.map((e) => e.expression) },
+      },
+    });
+    const existingMap = new Map(existingRecords.map((r) => [r.expression, r]));
+
+    // 3. 只分析，不记录
+    for (const detected of detectedExpressions) {
+      const existing = existingMap.get(detected.expression);
+
+      if (existing) {
+        // 已存在的表达：检查是否违反冷却期
+        if (existing.isCoolingDown) {
+          result.violatedExpressions.push({
+            expression: detected.expression,
+            useCount: existing.useCount + detected.count,
+          });
+        }
+
+        // 高频警告
+        if (existing.useCount + detected.count >= 5) {
+          result.highFrequencyWarnings.push({
+            expression: detected.expression,
+            useCount: existing.useCount + detected.count,
+          });
+        }
+      } else {
+        // 新表达
+        result.newExpressions.push({
+          expression: detected.expression,
+          type: detected.type,
+          category: detected.category,
+        });
+      }
+    }
+
+    return result;
+  }
+
+  /**
    * 分析章节内容，提取并记录表达
    *
-   * 在章节写作完成后调用
+   * ★ 只在章节最终保存时调用，避免重复记录
    */
   async analyzeAndRecordExpressions(
     projectId: string,

@@ -2034,12 +2034,29 @@ ${chapterContent}
 
         // 构建重写提示，包含需要避免的表达
         const rewriteHints = qualityResult.rewriteSuggestions?.join("\n") || "";
-        const violatedExprs = qualityResult.issues
+
+        // ★ 直接分析当前内容获取违规表达（不依赖 issues，issues 只有章内重复）
+        const currentAnalysis =
+          await this.expressionMemory.analyzeExpressionsOnly(
+            input.projectId,
+            chapterContent,
+          );
+        const violatedExprs = currentAnalysis.violatedExpressions
+          .map((v) => `"${v.expression}"(已用${v.useCount}次)`)
+          .join("、");
+
+        // 同时获取章内高频重复
+        const repetitionIssues = qualityResult.issues
           .filter((issue) => issue.type === "repetition")
           .map((issue) => issue.description)
           .join("、");
 
-        const rewritePrompt = `请重写以下章节内容，**必须避免**使用这些重复表达：${violatedExprs}
+        // 合并所有需要避免的表达
+        const allAvoidExprs = [violatedExprs, repetitionIssues]
+          .filter(Boolean)
+          .join("；");
+
+        const rewritePrompt = `请重写以下章节内容，**必须避免**使用这些重复表达：${allAvoidExprs || "无具体列表，请增加表达多样性"}
 
 ${rewriteHints ? `改进建议：\n${rewriteHints}\n` : ""}
 原文内容：

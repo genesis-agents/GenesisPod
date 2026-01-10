@@ -335,17 +335,14 @@ export class QualityGateService {
    */
   private async calculateExpressionNovelty(
     projectId: string,
-    chapterNumber: number,
+    _chapterNumber: number,
     content: string,
   ): Promise<number> {
-    // 分析内容中的表达
-    const analysisResult =
-      await this.expressionMemory.analyzeAndRecordExpressions(
-        projectId,
-        `temp-${Date.now()}`, // 临时ID，实际保存时会更新
-        chapterNumber,
-        content,
-      );
+    // ★ 只分析不记录，避免在质量评估时重复记录表达
+    const analysisResult = await this.expressionMemory.analyzeExpressionsOnly(
+      projectId,
+      content,
+    );
 
     // 计算新颖度：新表达占比
     const totalExpressions =
