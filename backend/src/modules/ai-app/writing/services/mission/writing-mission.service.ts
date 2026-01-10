@@ -57,6 +57,7 @@ import {
 import { ContextBuilderService } from "../writing/context-builder.service";
 import { StoryBibleService } from "../bible/story-bible.service";
 import { ExpressionMemoryService } from "../quality/expression-memory.service";
+import { QualityGateService } from "../quality/quality-gate.service";
 
 // Event Emitter for real-time updates
 import { WritingEventEmitterService } from "../events/writing-event-emitter.service";
@@ -196,6 +197,8 @@ export class WritingMissionService {
     private readonly expressionMemory: ExpressionMemoryService,
     // Style Template - 三层风格配置服务
     private readonly styleTemplateService: StyleTemplateService,
+    // Quality Gate - 质量门禁服务（强制执行表达冷却）
+    private readonly qualityGate: QualityGateService,
   ) {
     // 注册角色和团队配置（不需要 LLM）
     this.registerWritingRoles();
@@ -1997,6 +2000,87 @@ ${chapterContent}
         !chapterContent.includes(`第${this.numberToChinese(chapterNumber)}章`)
       ) {
         chapterContent = `第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}\n\n${chapterContent}`;
+      }
+
+      // ★★★ 质量门禁：强制执行表达冷却，违规过多则重写 ★★★
+      const chapterId = `${input.projectId}-chapter-${chapterNumber}`;
+      let rewriteAttempts = 0;
+      const maxRewriteAttempts = 2;
+
+      while (rewriteAttempts < maxRewriteAttempts) {
+        const qualityResult = await this.qualityGate.checkQualityGate(
+          input.projectId,
+          chapterId,
+          chapterNumber,
+          chapterContent,
+          rewriteAttempts,
+        );
+
+        if (qualityResult.passed) {
+          // 质量达标，跳出循环
+          break;
+        }
+
+        // 质量不达标，需要重写
+        rewriteAttempts++;
+        this.logger.warn(
+          `[${missionId}] Chapter ${chapterNumber} failed quality gate (attempt ${rewriteAttempts}/${maxRewriteAttempts}): diversity=${qualityResult.scores.diversityScore.toFixed(2)}`,
+        );
+
+        if (!qualityResult.requiresRewrite) {
+          // 已达到最大重写次数，强制通过
+          break;
+        }
+
+        // 构建重写提示，包含需要避免的表达
+        const rewriteHints = qualityResult.rewriteSuggestions?.join("\n") || "";
+        const violatedExprs = qualityResult.issues
+          .filter((issue) => issue.type === "repetition")
+          .map((issue) => issue.description)
+          .join("、");
+
+        const rewritePrompt = `请重写以下章节内容，**必须避免**使用这些重复表达：${violatedExprs}
+
+${rewriteHints ? `改进建议：\n${rewriteHints}\n` : ""}
+原文内容：
+${chapterContent}
+
+要求：
+1. 保持故事情节不变
+2. 用完全不同的表达方式重写
+3. 避免任何形式的重复表达
+4. 保持文字流畅自然`;
+
+        try {
+          const rewriteResponse = await this.aiChatService.chat({
+            messages: [
+              {
+                role: "system",
+                content:
+                  "你是专业的小说编辑，擅长用丰富多样的表达方式重写内容。严禁使用重复的表达。",
+              },
+              { role: "user", content: rewritePrompt },
+            ],
+            model: writerModel,
+            temperature: 0.9, // 高温度增加多样性
+            maxTokens: 6000,
+          });
+
+          if (
+            rewriteResponse.content &&
+            rewriteResponse.content.length > chapterContent.length * 0.7
+          ) {
+            chapterContent = rewriteResponse.content;
+            this.logger.log(
+              `[${missionId}] Chapter ${chapterNumber} rewritten (attempt ${rewriteAttempts})`,
+            );
+          }
+        } catch (e) {
+          this.logger.warn(
+            `[${missionId}] Chapter ${chapterNumber} rewrite failed: ${(e as Error).message}`,
+          );
+          break;
+        }
       }
 
       allChapters.push(chapterContent);
