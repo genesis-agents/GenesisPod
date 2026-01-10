@@ -61,6 +61,7 @@ import { QualityGateService } from "../quality/quality-gate.service";
 import { ProfessionalVoiceService } from "../quality/professional-voice.service";
 import { SensoryImmersionService } from "../quality/sensory-immersion.service";
 import { OpeningHookService } from "../quality/opening-hook.service";
+import { NarrativeCraftService } from "../quality/narrative-craft.service";
 
 // World Building Enhancement - 世界观知识库增强
 import { WorldBuildingEnhancerService } from "../bible/world-building-enhancer.service";
@@ -209,6 +210,8 @@ export class WritingMissionService {
     private readonly professionalVoice: ProfessionalVoiceService,
     private readonly sensoryImmersion: SensoryImmersionService,
     private readonly openingHook: OpeningHookService,
+    // 叙事工艺服务 - 用于结尾检测和自动重写
+    private readonly narrativeCraft: NarrativeCraftService,
     // 世界观知识库增强服务
     private readonly worldBuildingEnhancer: WorldBuildingEnhancerService,
   ) {
@@ -2308,6 +2311,35 @@ ${chapterContent}
           if (!qualityResult.requiresRewrite) {
             // 已达到最大重写次数，强制通过
             break;
+          }
+
+          // ★★★ 优先尝试结尾自动重写（比完整重写更高效）
+          const endingIssues = qualityResult.issues.filter(
+            (issue) =>
+              issue.type === "style_issue" &&
+              issue.description.includes("[ending]"),
+          );
+
+          if (endingIssues.length > 0) {
+            this.logger.log(
+              `[${missionId}] Chapter ${chapterNumber} has ending issues, attempting targeted rewrite`,
+            );
+
+            // 使用 NarrativeCraftService 进行结尾重写
+            const report = this.narrativeCraft.analyzeContent(chapterContent);
+            const rewrittenContent = await this.narrativeCraft.rewriteEnding(
+              chapterContent,
+              report.issues,
+            );
+
+            if (rewrittenContent !== chapterContent) {
+              chapterContent = rewrittenContent;
+              this.logger.log(
+                `[${missionId}] Chapter ${chapterNumber} ending rewritten successfully`,
+              );
+              // 重新进入循环检查，不增加重写计数（因为这是轻量修复）
+              continue;
+            }
           }
 
           // 构建重写提示，包含需要避免的表达

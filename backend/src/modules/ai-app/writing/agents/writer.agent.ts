@@ -486,6 +486,52 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
   }
 
   /**
+   * 【超级约束】放在 prompt 最开始，确保模型优先看到
+   * 根据 LLM 注意力机制，首尾位置权重最高
+   */
+  private static readonly SUPER_CONSTRAINTS_HEADER = `
+## ⛔ 绝对禁止（违反将导致输出作废）
+
+### 章节结尾必须是具体场景/动作/对话
+- ❌ 禁止："她知道，这只是开始"
+- ❌ 禁止："命运的齿轮开始转动"
+- ❌ 禁止："风暴即将来临"
+- ❌ 禁止："未来的路还很长"
+- ✅ 正确：门被关上、脚步声远去、烛火熄灭、对话戛然而止
+
+### 禁止说教和人生感悟
+- ❌ 禁止：大段讲述人生道理
+- ❌ 禁止："她终于明白了..."式的顿悟
+- ❌ 禁止：角色突然变成哲学家
+
+### NPC对话禁止千篇一律
+- ❌ 禁止：路人甲乙丙都说"是啊是啊"、"可不是嘛"
+- ✅ 正确：通过口音、用词、语气区分不同角色
+
+---
+
+`;
+
+  /**
+   * 【最终提醒】放在 prompt 最末尾，强化关键约束
+   */
+  private static readonly SUPER_CONSTRAINTS_FOOTER = `
+
+---
+
+## ⚠️ 最终检查清单（写作完成前必须确认）
+
+在输出章节内容前，请逐项确认：
+
+1. □ 章节最后一段是【具体场景/动作/对话】，而非抽象感慨
+2. □ 没有出现"这只是开始"、"风暴即将来临"等预告式结尾
+3. □ 没有角色突然开始讲人生道理或哲学感悟
+4. □ 如果有路人/NPC对话，每个人的说话方式有区别
+5. □ 开篇第一句有钩子（冲突/危机/感官冲击），不是"一阵XX袭来"
+
+如果任何一项不符合，请修改后再输出。`;
+
+  /**
    * 构建写作系统提示词
    */
   private buildWriterSystemPrompt(
@@ -495,7 +541,10 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     const storyBible = contextPackage.extensions.storyBible;
     const writingStyle = storyBible.writingStyle;
 
-    let prompt = `你是一位专业的创意写作 Agent，负责执行具体的章节写作任务。
+    // ★ 首部约束：放在最开始
+    let prompt = WriterAgent.SUPER_CONSTRAINTS_HEADER;
+
+    prompt += `你是一位专业的创意写作 Agent，负责执行具体的章节写作任务。
 
 ## 核心职责
 1. 章节写作：基于大纲和设定完成章节创作
@@ -599,6 +648,9 @@ ${(contextPackage.establishedFacts || [])
     if (qualityConstraints) {
       prompt += `\n\n${qualityConstraints}`;
     }
+
+    // ★ 尾部约束：放在最末尾，利用 LLM 注意力机制的尾部偏好
+    prompt += WriterAgent.SUPER_CONSTRAINTS_FOOTER;
 
     return prompt;
   }

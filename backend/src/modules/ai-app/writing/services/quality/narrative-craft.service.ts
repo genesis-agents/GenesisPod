@@ -22,6 +22,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
+import { TaskProfile } from "../../../../ai-engine/llm/types";
 
 // ==================== 禁止模式库 ====================
 
@@ -427,6 +429,8 @@ export interface NarrativeCraftReport {
 export class NarrativeCraftService {
   private readonly logger = new Logger(NarrativeCraftService.name);
 
+  constructor(private readonly aiChatService: AiChatService) {}
+
   /**
    * 生成叙事工艺约束提示词
    * 用于在写作前注入，防止产生问题
@@ -673,5 +677,140 @@ export class NarrativeCraftService {
     }
 
     return parts.join("\n");
+  }
+
+  /**
+   * ★★★ 自动重写章节结尾
+   * 当检测到结尾问题时，自动调用 LLM 重写最后几段
+   *
+   * @param content 完整章节内容
+   * @param issues 检测到的结尾问题
+   * @returns 重写后的完整章节内容
+   */
+  async rewriteEnding(
+    content: string,
+    issues: NarrativeCraftReport["issues"],
+  ): Promise<string> {
+    // 只处理结尾问题
+    const endingIssues = issues.filter((i) => i.type === "ending");
+    if (endingIssues.length === 0) {
+      return content;
+    }
+
+    this.logger.log(
+      `[NarrativeCraft] Rewriting ending due to ${endingIssues.length} issues`,
+    );
+
+    // 提取最后 3 段作为需要重写的部分
+    const paragraphs = content.split(/\n\s*\n/).filter((p) => p.trim());
+    if (paragraphs.length < 2) {
+      return content; // 内容太短，不处理
+    }
+
+    const lastParagraphsCount = Math.min(3, paragraphs.length);
+    const beforePart = paragraphs.slice(0, -lastParagraphsCount).join("\n\n");
+    const endingPart = paragraphs.slice(-lastParagraphsCount).join("\n\n");
+
+    // 构建重写提示词
+    const systemPrompt = `你是一位专业的小说编辑，负责修复章节结尾问题。
+
+## 核心任务
+重写以下章节结尾，将抽象的总结/感悟改为具体的场景/动作/对话。
+
+## 禁止的结尾模式
+- ❌ "她知道，这只是开始" 类预告
+- ❌ "命运的齿轮开始转动" 类抒情
+- ❌ "她终于明白了..." 类顿悟
+- ❌ "心中燃起斗志/决心" 类心理描写
+- ❌ "未来的路还很长" 类空洞总结
+
+## 正确的结尾方式
+章节应在以下任一方式中自然结束：
+- ✅ 一个具体的动作（门被关上、脚步声远去）
+- ✅ 一句意味深长的对话
+- ✅ 一个感官细节（烛火熄灭、风声呼啸）
+- ✅ 一个悬念（留下未解决的问题）
+
+## Few-shot 示例
+
+### 示例1
+❌ 原文：
+苏薇的心中燃起一丝怒火与决心，不仅要活下去，更要找到掌控这一切的力量。
+
+✅ 改为：
+她走到窗前，指尖轻轻触上冰冷的窗棂。外面的夜色浓得像墨。
+"阿翠，"她头也不回地问，"明天，是谁当值验粉？"
+
+### 示例2
+❌ 原文：
+她知道，这一切才刚刚开始，未来的挑战还有很多，但她已经做好了准备。
+
+✅ 改为：
+铜盆里的水已经凉透，她却仍盯着水面出神。
+远处传来更鼓声，一下，两下，三下。
+她终于动了，将袖口挽起，露出腕上那道已经结痂的伤痕。
+
+## 输出要求
+- 只输出重写后的结尾段落
+- 保持与前文风格一致
+- 不要添加任何解释或说明`;
+
+    const userPrompt = `## 问题诊断
+${endingIssues.map((i) => `- 第${i.line}行: ${i.problem}`).join("\n")}
+
+## 前文内容（保持一致性）
+${beforePart.slice(-500)}
+
+## 需要重写的结尾
+${endingPart}
+
+请重写以上结尾，使其在具体的动作/对话/场景中自然结束：`;
+
+    const taskProfile: TaskProfile = {
+      creativity: "high", // 创意写作需要高创造性
+      outputLength: "short", // 只重写结尾，不需要太长
+    };
+
+    try {
+      const response = await this.aiChatService.chat({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        taskProfile,
+        temperature: 0.8,
+        maxTokens: 1000,
+      });
+
+      const newEnding = response.content?.trim();
+      if (!newEnding) {
+        this.logger.warn("[NarrativeCraft] Rewrite failed: empty response");
+        return content;
+      }
+
+      // 验证重写后的结尾是否仍有问题
+      const rewriteReport = this.analyzeContent(newEnding);
+      const stillHasEndingIssues = rewriteReport.issues.some(
+        (i) => i.type === "ending",
+      );
+
+      if (stillHasEndingIssues) {
+        this.logger.warn(
+          "[NarrativeCraft] Rewritten ending still has issues, keeping original",
+        );
+        return content;
+      }
+
+      // 拼接新内容
+      const newContent = beforePart
+        ? `${beforePart}\n\n${newEnding}`
+        : newEnding;
+
+      this.logger.log("[NarrativeCraft] Ending rewritten successfully");
+      return newContent;
+    } catch (error) {
+      this.logger.error(`[NarrativeCraft] Rewrite failed: ${error}`);
+      return content;
+    }
   }
 }

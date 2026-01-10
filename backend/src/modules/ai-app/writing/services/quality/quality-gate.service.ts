@@ -19,6 +19,7 @@ import {
   SemanticConsistencyService,
   SemanticFact,
 } from "./semantic-consistency.service";
+import { NarrativeCraftService } from "./narrative-craft.service";
 
 // ==================== 类型定义 ====================
 
@@ -130,6 +131,7 @@ export class QualityGateService {
     private readonly expressionMemory: ExpressionMemoryService,
     private readonly characterPersonality: CharacterPersonalityService,
     private readonly semanticConsistency: SemanticConsistencyService,
+    private readonly narrativeCraft: NarrativeCraftService,
   ) {}
 
   /**
@@ -533,7 +535,62 @@ export class QualityGateService {
     const styleIssues = this.detectStyleIssues(content);
     issues.push(...styleIssues);
 
+    // ★★★ 4. 叙事工艺检测（结尾问题、说教模式、NPC对话）- 核心质量检测
+    const narrativeIssues = this.detectNarrativeCraftIssues(content);
+    issues.push(...narrativeIssues);
+
     return issues;
+  }
+
+  /**
+   * ★★★ 检测叙事工艺问题（后置检测 - 最关键的质量门禁）
+   * 这是约束执行的第二道防线：即使 prompt 约束被忽略，这里也能检测出问题
+   */
+  private detectNarrativeCraftIssues(content: string): QualityIssue[] {
+    const qualityIssues: QualityIssue[] = [];
+
+    // 使用 NarrativeCraftService 进行深度分析
+    const report = this.narrativeCraft.analyzeContent(content);
+
+    // 统计各类问题数量
+    let endingCount = 0;
+    let preachCount = 0;
+    let npcCount = 0;
+
+    // 遍历所有检测到的问题
+    for (const issue of report.issues) {
+      // 根据问题类型确定严重程度
+      let severity: "error" | "warning" | "info";
+      if (issue.type === "ending") {
+        severity = "error"; // 结尾问题 - 严重错误，必须重写
+        endingCount++;
+      } else if (issue.type === "preach") {
+        severity = "error"; // 说教模式 - 严重错误
+        preachCount++;
+      } else {
+        severity = "warning"; // NPC对话 - 警告级别
+        npcCount++;
+      }
+
+      qualityIssues.push({
+        type: "style_issue",
+        severity,
+        description: `[${issue.type}] ${issue.problem}`,
+        location: `第${issue.line}行: "${issue.match.substring(0, 50)}..."`,
+        suggestion: issue.suggestion,
+      });
+    }
+
+    // 记录日志
+    if (qualityIssues.length > 0) {
+      this.logger.warn(
+        `[QualityGate] NarrativeCraft detected ${qualityIssues.length} issues: ` +
+          `endings=${endingCount}, preach=${preachCount}, npc=${npcCount}, ` +
+          `score=${report.score}, passed=${report.passed}`,
+      );
+    }
+
+    return qualityIssues;
   }
 
   /**
