@@ -69,8 +69,9 @@ const COMMON_EXPRESSION_PATTERNS: Array<{
   { pattern: /心中暗喜/g, type: "EMOTION", category: "喜悦" },
   { pattern: /心中暗道/g, type: "EMOTION", category: "思考" },
   { pattern: /暗自思忖/g, type: "EMOTION", category: "思考" },
-  { pattern: /不由得/g, type: "EMOTION", category: "自然反应" },
-  { pattern: /不禁/g, type: "EMOTION", category: "自然反应" },
+  // ★ 移到 BASE: 基础词汇部分统一管理
+  // { pattern: /不由得/g, type: "EMOTION", category: "自然反应" },
+  // { pattern: /不禁/g, type: "EMOTION", category: "自然反应" },
   { pattern: /心如刀绞/g, type: "EMOTION", category: "痛苦" },
   { pattern: /心乱如麻/g, type: "EMOTION", category: "困惑" },
   { pattern: /百感交集/g, type: "EMOTION", category: "复杂" },
@@ -291,6 +292,44 @@ const COMMON_EXPRESSION_PATTERNS: Array<{
   { pattern: /明争暗斗/g, type: "IDIOM", category: "斗争" },
   { pattern: /尔虞我诈/g, type: "IDIOM", category: "斗争" },
   { pattern: /勾心斗角/g, type: "IDIOM", category: "斗争" },
+
+  // ==================== 基础词汇归一化（★最佳实践） ====================
+  // 设计原理：
+  // 1. 基础词（如"心中"）匹配所有包含该词的文本
+  // 2. 当文本为"心中一震"时，会同时匹配具体模式和基础词模式
+  // 3. 基础词共享冷却计数，有效防止变体滥用
+  // 4. 使用 BASE_WORD 类型，冷却期更长，更严格限制复用
+
+  // ★ 核心高频基础词 - 直接匹配，无 negative lookahead
+  { pattern: /心中/g, type: "EMOTION", category: "BASE:心中" },
+  { pattern: /心头/g, type: "EMOTION", category: "BASE:心头" },
+  { pattern: /心下/g, type: "EMOTION", category: "BASE:心下" },
+  { pattern: /心里/g, type: "EMOTION", category: "BASE:心里" },
+
+  // ★ 比喻类基础词 - 之前完全缺失！
+  { pattern: /仿佛/g, type: "DESCRIPTION", category: "BASE:比喻" },
+  { pattern: /好像/g, type: "DESCRIPTION", category: "BASE:比喻" },
+  { pattern: /似乎/g, type: "DESCRIPTION", category: "BASE:比喻" },
+  { pattern: /宛如/g, type: "DESCRIPTION", category: "BASE:比喻" },
+  { pattern: /犹如/g, type: "DESCRIPTION", category: "BASE:比喻" },
+  { pattern: /恍若/g, type: "DESCRIPTION", category: "BASE:比喻" },
+
+  // ★ 动作修饰基础词
+  { pattern: /微微/g, type: "ACTION", category: "BASE:微微" },
+  { pattern: /缓缓/g, type: "ACTION", category: "BASE:缓缓" },
+  { pattern: /轻轻/g, type: "ACTION", category: "BASE:轻轻" },
+  { pattern: /静静/g, type: "ACTION", category: "BASE:静静" },
+  { pattern: /默默/g, type: "ACTION", category: "BASE:默默" },
+
+  // ★ 情态基础词
+  { pattern: /暗自/g, type: "EMOTION", category: "BASE:暗自" },
+  { pattern: /不由得/g, type: "EMOTION", category: "BASE:不由" }, // 不由得 归入 不由 类
+  { pattern: /不由自主/g, type: "EMOTION", category: "BASE:不由" },
+  { pattern: /不禁/g, type: "EMOTION", category: "BASE:不禁" },
+
+  // ★ 程度基础词
+  { pattern: /深深/g, type: "DESCRIPTION", category: "BASE:深深" },
+  { pattern: /淡淡/g, type: "DESCRIPTION", category: "BASE:淡淡" },
 
   // ==================== 章节开场模式类（★新增） ====================
   // 场景固定型开场
@@ -750,12 +789,23 @@ export class ExpressionMemoryService {
       const matches = content.match(pattern.pattern);
       if (matches) {
         for (const match of matches) {
-          const existing = detected.get(match);
+          // ★ 关键：BASE: 类别归一化 - 提取基础词作为 key
+          // 例如：category="BASE:心中" → 无论匹配"心中一震"还是"心中想着"，都归一化为"心中"
+          let normalizedKey = match;
+          let normalizedExpr = match;
+
+          if (pattern.category?.startsWith("BASE:")) {
+            // 从 "BASE:心中" 提取 "心中"
+            normalizedExpr = pattern.category.substring(5);
+            normalizedKey = `BASE:${normalizedExpr}`;
+          }
+
+          const existing = detected.get(normalizedKey);
           if (existing) {
             existing.count++;
           } else {
-            detected.set(match, {
-              expression: match,
+            detected.set(normalizedKey, {
+              expression: normalizedExpr,
               type: pattern.type,
               category: pattern.category,
               count: 1,
