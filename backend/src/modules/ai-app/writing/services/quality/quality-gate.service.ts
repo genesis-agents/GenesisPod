@@ -617,9 +617,10 @@ export class QualityGateService {
 
     // 检测过度使用的句式
     const exclamations = (content.match(/！/g) || []).length;
-    const sentences = content.split(/[。！？]/).length;
+    const sentences = content.split(/[。！？]/).filter((s) => s.trim()).length;
 
-    if (exclamations / sentences > 0.3) {
+    // ★ 防止除零：至少有 1 个句子时才检查
+    if (sentences > 0 && exclamations / sentences > 0.3) {
       issues.push({
         type: "style_issue",
         severity: "info",

@@ -542,17 +542,23 @@ export class ExpressionMemoryService {
     const parts: string[] = [];
 
     if (coolingExpressions.length > 0) {
+      // ★ 限制每种类型最多显示 15 个，防止 prompt 过长
+      const maxPerType = 15;
       const grouped = this.groupByType(coolingExpressions);
       parts.push("## 禁用表达（冷却期中，请使用替代表达）\n");
 
       for (const [type, exprs] of Object.entries(grouped)) {
         const typeLabel = this.getTypeLabel(type as ExpressionType);
+        const limitedExprs = exprs.slice(0, maxPerType);
         parts.push(`### ${typeLabel}`);
         parts.push(
-          exprs
+          limitedExprs
             .map((e) => `- ❌ "${e.expression}" (已用${e.useCount}次)`)
             .join("\n"),
         );
+        if (exprs.length > maxPerType) {
+          parts.push(`  ...及其他 ${exprs.length - maxPerType} 个`);
+        }
         parts.push("");
       }
     }

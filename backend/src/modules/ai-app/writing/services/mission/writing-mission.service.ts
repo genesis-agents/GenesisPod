@@ -1779,16 +1779,24 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
           `[${missionId}] Chapter ${chapterNumber} content too short or empty, retrying...`,
         );
         try {
-          // 重试一次
+          // 重试一次 - ★ 包含表达约束防止重复
+          const retryPrompt = `请创作"第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}"的内容。
+
+情节要点：${chapterInfo.plot}
+
+${previousChapterSummary ? `前文摘要：${previousChapterSummary}` : "这是故事的开始。"}
+${avoidancePrompt ? `\n【表达约束 - 禁止使用以下表达】\n${avoidancePrompt}` : ""}`;
+
           const retryResponse = await this.aiChatService.chat({
             messages: [
               {
                 role: "system",
-                content: "你是专业的小说作家。请直接创作故事内容，约3000字。",
+                content:
+                  "你是专业的小说作家。请直接创作故事内容，约3000字。严禁使用重复的表达方式。",
               },
               {
                 role: "user",
-                content: `请创作"第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}"的内容。\n\n情节要点：${chapterInfo.plot}\n\n${previousChapterSummary ? `前文摘要：${previousChapterSummary}` : "这是故事的开始。"}`,
+                content: retryPrompt,
               },
             ],
             model: writerModel,
@@ -2005,11 +2013,12 @@ ${chapterContent}
       // ★★★ 质量门禁：强制执行表达冷却，违规过多则重写 ★★★
       const chapterId = `${input.projectId}-chapter-${chapterNumber}`;
       let rewriteAttempts = 0;
-      const maxRewriteAttempts = 2;
+      // ★ 最大重写次数由 QualityGate 配置控制，这里只做备用保护
+      const safetyMaxRewriteAttempts = 5;
 
       // ★ 用 try-catch 包裹质量检查，防止异常导致整个任务失败
       try {
-        while (rewriteAttempts < maxRewriteAttempts) {
+        while (rewriteAttempts < safetyMaxRewriteAttempts) {
           const qualityResult = await this.qualityGate.checkQualityGate(
             input.projectId,
             chapterId,
@@ -2026,7 +2035,7 @@ ${chapterContent}
           // 质量不达标，需要重写
           rewriteAttempts++;
           this.logger.warn(
-            `[${missionId}] Chapter ${chapterNumber} failed quality gate (attempt ${rewriteAttempts}/${maxRewriteAttempts}): diversity=${qualityResult.scores.diversityScore.toFixed(2)}`,
+            `[${missionId}] Chapter ${chapterNumber} failed quality gate (attempt ${rewriteAttempts}): diversity=${qualityResult.scores.diversityScore.toFixed(2)}`,
           );
 
           if (!qualityResult.requiresRewrite) {
