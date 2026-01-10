@@ -57,6 +57,7 @@ import {
   OpeningHookService,
   ForeshadowingService,
   PacingControlService,
+  ChapterQualityEvaluatorService,
 } from "./services/quality";
 
 // Style services (Three-layer style configuration system)
@@ -118,6 +119,7 @@ import {
     OpeningHookService,
     ForeshadowingService,
     PacingControlService,
+    ChapterQualityEvaluatorService,
     // Style services (Three-layer style configuration)
     StyleTemplateService,
     // Writing Agents (from BaseAgent)
@@ -150,6 +152,7 @@ import {
     OpeningHookService,
     ForeshadowingService,
     PacingControlService,
+    ChapterQualityEvaluatorService,
     // Style services
     StyleTemplateService,
     // Export agents for external use

@@ -2000,153 +2000,210 @@ ${previousChapterSummary || "这是第一章"}
         })),
       });
 
-      // 如果有问题，自动修复
-      if (!checkResult.passed && checkResult.issues.length > 0) {
+      // ★ v3 增强：Agent多轮交互闭环修复
+      // 如果有问题，进入 修复→验证→再修复 循环，直到问题解决或达到上限
+      const MAX_FIX_ATTEMPTS = 3;
+      let currentIssues = checkResult.issues;
+      let fixAttempt = 0;
+      let totalFixedCount = 0;
+
+      while (currentIssues.length > 0 && fixAttempt < MAX_FIX_ATTEMPTS) {
+        fixAttempt++;
         this.logger.warn(
-          `[${missionId}] Chapter ${chapterNumber} has ${checkResult.issues.length} consistency issues, auto-fixing...`,
+          `[${missionId}] Chapter ${chapterNumber}: Fix attempt ${fixAttempt}/${MAX_FIX_ATTEMPTS}, ${currentIssues.length} issues remaining`,
         );
 
         // 发送修复开始事件
         await this.eventEmitter.emitConsistencyFix(
           input.projectId,
           chapterNumber,
-          checkResult.issues.length,
+          currentIssues.length,
           "started",
         );
 
-        // 自动修复
+        // 发送编辑工作事件
+        await this.eventEmitter.emitAgentWorking(input.projectId, {
+          agentId: "editor",
+          agentName: "润色编辑",
+          agentRole: "editor",
+          status: "working",
+          taskDescription: `第${fixAttempt}轮修复：处理${currentIssues.length}个问题`,
+        });
+
+        // 编辑修复
         const fixPrompt = `请修复以下章节内容中的一致性问题：
 
 【原始内容】
 ${chapterContent}
 
-【发现的问题】
-${checkResult.issues.map((issue, i) => `${i + 1}. [${issue.severity}] ${issue.description}\n   位置：${issue.location}\n   建议：${issue.fix}`).join("\n\n")}
+【需要修复的问题】（共${currentIssues.length}个）
+${currentIssues.map((issue, i) => `${i + 1}. [${issue.severity}] ${issue.description}\n   位置：${issue.location}\n   建议修复方式：${issue.fix}`).join("\n\n")}
 
-【世界观设定】
+【世界观设定参考】
 ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
 
-请输出修复后的完整章节内容，确保：
-1. 修复所有指出的问题
+【修复要求】
+1. 必须修复上述所有问题，每个问题都要处理
 2. 保持故事的流畅性和可读性
 3. 不改变主要情节和人物关系
-4. 直接输出修复后的内容，不要加任何解释`;
+4. 直接输出修复后的完整内容，不要加任何解释`;
 
         const fixResponse = await this.aiChatService.chat({
           messages: [
             {
               role: "system",
               content:
-                "你是专业的小说编辑，擅长修复一致性问题同时保持故事质量。",
+                "你是专业的小说编辑，擅长修复一致性问题同时保持故事质量。请务必处理每一个指出的问题。",
             },
             { role: "user", content: fixPrompt },
           ],
           model: writerModel,
-          temperature: 0.4,
+          temperature: 0.3, // 降低温度以提高修复准确性
           maxTokens: 6000,
         });
 
         if (
-          fixResponse.content &&
-          fixResponse.content.length > chapterContent.length * 0.7
+          !fixResponse.content ||
+          fixResponse.content.length < chapterContent.length * 0.7
         ) {
-          chapterContent = fixResponse.content;
-          this.logger.log(
-            `[${missionId}] Chapter ${chapterNumber} auto-fixed successfully`,
+          this.logger.warn(
+            `[${missionId}] Fix attempt ${fixAttempt} failed: response too short or empty`,
           );
+          break;
+        }
 
-          // ★ v3 修复：编辑修复后针对每个问题逐一验证
-          this.logger.log(
-            `[${missionId}] Re-validating ${checkResult.issues.length} specific issues for chapter ${chapterNumber}...`,
-          );
+        chapterContent = fixResponse.content;
+        this.logger.log(
+          `[${missionId}] Chapter ${chapterNumber} fix attempt ${fixAttempt} completed`,
+        );
 
-          // 构建针对性验证提示词：逐条检查原问题是否已修复
-          const issueVerificationList = checkResult.issues
-            .map(
-              (issue, i) =>
-                `问题${i + 1}: ${issue.description}\n位置: ${issue.location}\n修复建议: ${issue.fix}`,
-            )
-            .join("\n\n");
+        // 检查员验证修复结果
+        await this.eventEmitter.emitAgentWorking(input.projectId, {
+          agentId: "consistency-checker",
+          agentName: "一致性检查员",
+          agentRole: "checker",
+          status: "working",
+          taskDescription: `验证第${fixAttempt}轮修复结果`,
+        });
 
-          const reCheckResponse = await this.aiChatService.chat({
-            messages: [
-              {
-                role: "system",
-                content: `你是严格的一致性校验员。请逐条检查以下问题在修复后的内容中是否已被正确解决。
+        // 构建针对性验证提示词
+        const issueVerificationList = currentIssues
+          .map(
+            (issue, i) =>
+              `问题${i + 1}: ${issue.description}\n位置: ${issue.location}\n修复建议: ${issue.fix}`,
+          )
+          .join("\n\n");
 
-对每个问题，输出：
-- fixed: true/false（是否已修复）
-- evidence: 修复证据或未修复原因
+        const reCheckResponse = await this.aiChatService.chat({
+          messages: [
+            {
+              role: "system",
+              content: `你是严格的一致性校验员。请逐条检查以下问题在修复后的内容中是否已被正确解决。
 
-最终输出JSON格式：
+对每个问题，仔细检查内容并输出：
+- fixed: true（已修复）或 false（未修复）
+- evidence: 具体说明修复证据或指出仍然存在的问题
+
+输出JSON格式：
 {
   "allFixed": true/false,
   "verifications": [
-    {"issueIndex": 1, "fixed": true, "evidence": "..."},
-    {"issueIndex": 2, "fixed": false, "evidence": "问题仍存在：..."}
+    {"issueIndex": 1, "fixed": true, "evidence": "已将'你'改为'汝'"},
+    {"issueIndex": 2, "fixed": false, "evidence": "时间线仍然矛盾：第三段提到'三年前'但上下文显示应为'五年前'"}
   ]
 }`,
-              },
-              {
-                role: "user",
-                content: `【原始问题列表】
+            },
+            {
+              role: "user",
+              content: `【待验证的问题列表】
 ${issueVerificationList}
 
 【修复后的章节内容】
 ${chapterContent.slice(0, 4000)}
 
-请逐条验证每个问题是否已被正确修复。`,
-              },
-            ],
-            model: checkerModel,
-            temperature: 0.1,
-            maxTokens: 1500,
+请严格逐条验证每个问题是否已被正确修复，不要放过任何细节。`,
+            },
+          ],
+          model: checkerModel,
+          temperature: 0.1,
+          maxTokens: 1500,
+        });
+
+        // 解析验证结果
+        const verificationResult = this.parseVerificationResult(
+          reCheckResponse.content || '{"allFixed": true, "verifications": []}',
+        );
+
+        // 统计本轮修复结果
+        const fixedThisRound = verificationResult.verifications.filter(
+          (v) => v.fixed,
+        ).length;
+        totalFixedCount += fixedThisRound;
+
+        // 找出未修复的问题，用于下一轮
+        const unfixedVerifications = verificationResult.verifications.filter(
+          (v) => !v.fixed,
+        );
+
+        if (unfixedVerifications.length === 0) {
+          // 所有问题都已修复，退出循环
+          this.logger.log(
+            `[${missionId}] Chapter ${chapterNumber}: All issues fixed after ${fixAttempt} attempt(s) ✓`,
+          );
+
+          await this.eventEmitter.emitAgentWorking(input.projectId, {
+            agentId: "consistency-checker",
+            agentName: "一致性检查员",
+            agentRole: "checker",
+            status: "completed",
+            taskDescription: `✓ 全部${currentIssues.length}个问题已修复`,
           });
 
-          // 解析验证结果
-          const verificationResult = this.parseVerificationResult(
-            reCheckResponse.content ||
-              '{"allFixed": true, "verifications": []}',
-          );
-
-          const unfixedIssues = verificationResult.verifications.filter(
-            (v) => !v.fixed,
-          );
-
-          if (unfixedIssues.length > 0) {
-            this.logger.warn(
-              `[${missionId}] Chapter ${chapterNumber}: ${unfixedIssues.length}/${checkResult.issues.length} issues NOT fixed`,
-            );
-
-            // 发送未修复问题的事件
-            await this.eventEmitter.emitConsistencyCheck(input.projectId, {
-              chapterNumber,
-              passed: false,
-              issues: unfixedIssues.map((v) => {
-                const originalIssue = checkResult.issues[v.issueIndex - 1];
-                return {
-                  type: originalIssue?.type || "unfixed",
-                  severity: "warning" as "error" | "warning" | "info",
-                  description: `[未修复] ${originalIssue?.description || "未知问题"}: ${v.evidence}`,
-                  suggestion: originalIssue?.fix || "",
-                };
-              }),
-            });
-          } else {
-            this.logger.log(
-              `[${missionId}] Chapter ${chapterNumber}: All ${checkResult.issues.length} issues verified as fixed ✓`,
-            );
-          }
+          currentIssues = [];
+          break;
         }
 
-        // 发送修复完成事件
-        await this.eventEmitter.emitConsistencyFix(
-          input.projectId,
-          chapterNumber,
-          checkResult.issues.length,
-          "completed",
+        // 构建下一轮需要修复的问题列表
+        const remainingIssues = unfixedVerifications.map((v) => {
+          const originalIssue = currentIssues[v.issueIndex - 1];
+          return {
+            ...originalIssue,
+            description: `${originalIssue?.description || "未知问题"} [上轮未修复: ${v.evidence}]`,
+          };
+        });
+
+        this.logger.log(
+          `[${missionId}] Chapter ${chapterNumber}: ${fixedThisRound}/${currentIssues.length} fixed, ${remainingIssues.length} remaining`,
         );
+
+        // 发送本轮验证结果事件
+        await this.eventEmitter.emitConsistencyCheck(input.projectId, {
+          chapterNumber,
+          passed: false,
+          issues: remainingIssues.map((issue) => ({
+            type: issue.type || "unfixed",
+            severity: "warning" as "error" | "warning" | "info",
+            description: `[第${fixAttempt}轮后仍存在] ${issue.description}`,
+            suggestion: issue.fix || "",
+          })),
+        });
+
+        currentIssues = remainingIssues;
       }
+
+      // 发送修复完成事件
+      await this.eventEmitter.emitConsistencyFix(
+        input.projectId,
+        chapterNumber,
+        checkResult.issues.length,
+        "completed",
+      );
+
+      // 最终状态报告
+      const finalStatus =
+        currentIssues.length === 0
+          ? `检查通过（${totalFixedCount > 0 ? `修复了${totalFixedCount}个问题` : "无问题"}）`
+          : `已修复${totalFixedCount}个问题，${currentIssues.length}个无法自动修复`;
 
       // 检查员完成
       await this.eventEmitter.emitAgentWorking(input.projectId, {
@@ -2154,9 +2211,7 @@ ${chapterContent.slice(0, 4000)}
         agentName: "一致性检查员",
         agentRole: "checker",
         status: "completed",
-        taskDescription: checkResult.passed
-          ? "检查通过"
-          : `已修复 ${checkResult.issues.length} 个问题`,
+        taskDescription: finalStatus,
       });
 
       // 3.3 编辑润色（每 5 章一次润色）

@@ -15,6 +15,7 @@
  * - OpeningHookService: 开篇钩子服务 - 网文开篇技巧 (v3)
  * - ForeshadowingService: 伏笔追踪服务 - 长中短线伏笔管理 (v3)
  * - PacingControlService: 节奏控制服务 - 叙事节奏张弛有度 (v3)
+ * - ChapterQualityEvaluatorService: 章节质量评估服务 - 多维度评估 (v3)
  */
 
 export * from "./expression-memory.service";
@@ -30,3 +31,4 @@ export * from "./sensory-immersion.service";
 export * from "./opening-hook.service";
 export * from "./foreshadowing.service";
 export * from "./pacing-control.service";
+export * from "./chapter-quality-evaluator.service";
