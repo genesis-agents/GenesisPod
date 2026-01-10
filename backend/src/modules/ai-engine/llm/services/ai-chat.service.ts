@@ -4173,6 +4173,20 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
     modelType?: AIModelType;
     /** 严格模式：API失败时抛出异常而不是返回错误内容 */
     strictMode?: boolean;
+
+    // ========== 以下参数用于指定 API Key 场景（替代 generateChatCompletionWithKey）==========
+    /** 指定 AI 提供商（如 "openai", "anthropic", "google", "xai"） */
+    provider?: string;
+    /** 直接指定 API Key（优先于数据库配置） */
+    apiKey?: string;
+    /** 直接指定 API 端点（优先于默认端点） */
+    apiEndpoint?: string;
+    /** AI 成员显示名称（如 "AI-Gemini (Image)"） */
+    displayName?: string;
+    /** AI 能力列表（如 ["IMAGE_GENERATION", "TEXT_GENERATION"]） */
+    capabilities?: string[];
+    /** 是否启用 Google Search grounding（默认 true） */
+    enableSearch?: boolean;
   }): Promise<{
     content: string;
     usage?: { totalTokens: number };
@@ -4189,7 +4203,41 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
       model: providedModel,
       modelType,
       strictMode,
+      // 新增：API Key 场景参数
+      provider,
+      apiKey,
+      apiEndpoint,
+      displayName,
+      capabilities,
+      enableSearch,
     } = options;
+
+    // ★ 路径分叉：如果提供了 apiKey，使用直接 API 调用路径
+    if (apiKey && provider) {
+      this.logger.debug(
+        `[chat] Using direct API key path for provider: ${provider}`,
+      );
+      const result = await this.generateChatCompletionWithKey({
+        provider,
+        modelId: providedModel || "default",
+        apiKey,
+        apiEndpoint,
+        systemPrompt,
+        messages,
+        taskProfile,
+        maxTokens: providedMaxTokens,
+        temperature: providedTemperature,
+        displayName,
+        capabilities,
+        enableSearch,
+      });
+      return {
+        content: result.content,
+        usage: { totalTokens: result.tokensUsed },
+        model: result.model,
+        isError: result.isError,
+      };
+    }
 
     // ★ 关键改进：所有参数统一由 AI Engine 管理
     // 优先级：providedModel > modelType 查找 > 环境变量默认

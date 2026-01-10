@@ -352,9 +352,9 @@ export class AgentExecutorService implements IAgentExecutorService {
 
     let result;
     if (modelConfig?.apiKey) {
-      result = await this.aiChatService.generateChatCompletionWithKey({
+      result = await this.aiChatService.chat({
         provider: modelConfig.provider || "openai",
-        modelId: modelConfig.modelId || aiModel,
+        model: modelConfig.modelId || aiModel,
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,
@@ -376,9 +376,14 @@ export class AgentExecutorService implements IAgentExecutorService {
       });
     }
 
+    // Handle both chat() return type (usage.totalTokens) and generateChatCompletion() (tokensUsed)
+    const tokensUsed =
+      "tokensUsed" in result
+        ? result.tokensUsed
+        : result.usage?.totalTokens || 0;
     return {
       content: result.content,
-      tokensUsed: result.tokensUsed || 0,
+      tokensUsed,
     };
   }
 

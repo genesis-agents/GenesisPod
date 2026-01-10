@@ -54,9 +54,9 @@ export class AiImageAnalyticsService {
         )
         .join("\n");
 
-      const response = await this.aiChatService.generateChatCompletionWithKey({
+      const response = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey || "",
         apiEndpoint: model.apiEndpoint || undefined,
         messages: [
@@ -128,9 +128,9 @@ export class AiImageAnalyticsService {
         )
         .join("\n");
 
-      const response = await this.aiChatService.generateChatCompletionWithKey({
+      const response = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey || "",
         apiEndpoint: model.apiEndpoint || undefined,
         messages: [
@@ -205,9 +205,9 @@ export class AiImageAnalyticsService {
         )
         .join("\n");
 
-      const response = await this.aiChatService.generateChatCompletionWithKey({
+      const response = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey || "",
         apiEndpoint: model.apiEndpoint || undefined,
         messages: [

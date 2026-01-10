@@ -431,9 +431,9 @@ export class ContentCompressionSkill
 
       const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
 
-      const response = await this.aiChatService.generateChatCompletionWithKey({
+      const response = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey || "",
         apiEndpoint: model.apiEndpoint || undefined,
         systemPrompt: CONTENT_COMPRESSION_SYSTEM_PROMPT,
@@ -497,7 +497,7 @@ export class ContentCompressionSkill
           startTime,
           endTime,
           duration: endTime.getTime() - startTime.getTime(),
-          tokensUsed: response.tokensUsed || 0,
+          tokensUsed: response.usage?.totalTokens || 0,
         },
       };
     } catch (error) {

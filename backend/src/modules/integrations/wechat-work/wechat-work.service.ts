@@ -498,9 +498,9 @@ export class WechatWorkService {
     };
 
     // 调用 AI 服务
-    const result = await this.aiChatService.generateChatCompletionWithKey({
+    const result = await this.aiChatService.chat({
       provider: defaultModel.provider,
-      modelId: defaultModel.modelId,
+      model: defaultModel.modelId,
       apiKey: defaultModel.apiKey ?? "",
       apiEndpoint: defaultModel.apiEndpoint ?? undefined,
       systemPrompt,

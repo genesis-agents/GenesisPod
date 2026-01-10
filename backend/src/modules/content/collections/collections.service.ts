@@ -314,9 +314,9 @@ export class CollectionsService {
         outputLength: "minimal", // maxTokens: 500 (原 200)
       };
 
-      const response = await this.aiChatService.generateChatCompletionWithKey({
+      const response = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey || "",
         apiEndpoint: model.apiEndpoint || undefined,
         messages: [
@@ -822,27 +822,26 @@ export class CollectionsService {
           };
 
           try {
-            const response =
-              await this.aiChatService.generateChatCompletionWithKey({
-                provider: model.provider,
-                modelId: model.modelId,
-                apiKey: model.apiKey || "",
-                apiEndpoint: model.apiEndpoint || undefined,
-                messages: [
-                  {
-                    role: "system",
-                    content:
-                      'You are a tagging assistant. Generate 3-5 relevant tags for the given content. Return ONLY a JSON array of strings, no other text. Example: ["machine learning", "NLP"]',
-                  },
-                  {
-                    role: "user",
-                    content: `Generate tags for:\n${content}`,
-                  },
-                ],
-                taskProfile, // 使用任务配置
-                temperature: 0.3, // 保持向后兼容
-                maxTokens: 200, // 保持向后兼容
-              });
+            const response = await this.aiChatService.chat({
+              provider: model.provider,
+              model: model.modelId,
+              apiKey: model.apiKey || "",
+              apiEndpoint: model.apiEndpoint || undefined,
+              messages: [
+                {
+                  role: "system",
+                  content:
+                    'You are a tagging assistant. Generate 3-5 relevant tags for the given content. Return ONLY a JSON array of strings, no other text. Example: ["machine learning", "NLP"]',
+                },
+                {
+                  role: "user",
+                  content: `Generate tags for:\n${content}`,
+                },
+              ],
+              taskProfile, // 使用任务配置
+              temperature: 0.3, // 保持向后兼容
+              maxTokens: 200, // 保持向后兼容
+            });
 
             let tags: string[] = [];
             try {
@@ -1056,9 +1055,9 @@ export class CollectionsService {
     };
 
     try {
-      const response = await this.aiChatService.generateChatCompletionWithKey({
+      const response = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey || "",
         apiEndpoint: model.apiEndpoint || undefined,
         messages: [

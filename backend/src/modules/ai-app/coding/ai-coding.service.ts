@@ -1018,9 +1018,9 @@ Create a task list for this project.`;
 
     // Use admin-configured model if provided
     const result = aiModel
-      ? await this.aiChatService.generateChatCompletionWithKey({
+      ? await this.aiChatService.chat({
           provider: aiModel.provider,
-          modelId: aiModel.modelId,
+          model: aiModel.modelId,
           apiKey: aiModel.apiKey || "",
           apiEndpoint: aiModel.apiEndpoint || undefined,
           systemPrompt,
@@ -1088,9 +1088,9 @@ Generate the project code files.`;
 
     // Use admin-configured model if provided
     const result = aiModel
-      ? await this.aiChatService.generateChatCompletionWithKey({
+      ? await this.aiChatService.chat({
           provider: aiModel.provider,
-          modelId: aiModel.modelId,
+          model: aiModel.modelId,
           apiKey: aiModel.apiKey || "",
           apiEndpoint: aiModel.apiEndpoint || undefined,
           systemPrompt,
@@ -1191,9 +1191,9 @@ Generate test files for this project.`;
 
     // Use admin-configured model if provided
     const result = aiModel
-      ? await this.aiChatService.generateChatCompletionWithKey({
+      ? await this.aiChatService.chat({
           provider: aiModel.provider,
-          modelId: aiModel.modelId,
+          model: aiModel.modelId,
           apiKey: aiModel.apiKey || "",
           apiEndpoint: aiModel.apiEndpoint || undefined,
           systemPrompt,

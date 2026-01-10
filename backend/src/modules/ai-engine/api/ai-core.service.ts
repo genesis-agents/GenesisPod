@@ -156,9 +156,9 @@ export class AiCoreService {
         `[Translation] Text length: ${text.length}, estimated tokens: ${estimatedTokens}, using maxTokens: ${dynamicMaxTokens}`,
       );
 
-      const result = await this.aiChatService.generateChatCompletionWithKey({
+      const result = await this.aiChatService.chat({
         provider: defaultModel.provider,
-        modelId: defaultModel.modelId,
+        model: defaultModel.modelId,
         apiKey: defaultModel.apiKey ?? "",
         apiEndpoint: defaultModel.apiEndpoint ?? undefined,
         messages: [{ role: "user", content: prompt }],

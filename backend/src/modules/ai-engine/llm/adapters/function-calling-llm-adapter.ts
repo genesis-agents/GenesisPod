@@ -146,18 +146,21 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
 
   /**
    * 执行 Chat Completion
+   *
+   * ★ 支持 TaskProfile 语义化参数映射
    */
   async chat(options: LLMRequestOptions): Promise<LLMResponse> {
     const {
       messages,
       functions,
-      temperature = 0.7,
-      maxTokens = 4096,
+      temperature,
+      maxTokens,
       model,
+      taskProfile, // ★ 提取 TaskProfile
     } = options;
 
     this.logger.debug(
-      `[chat] Calling with ${messages.length} messages, ${functions?.length || 0} functions`,
+      `[chat] Calling with ${messages.length} messages, ${functions?.length || 0} functions, taskProfile: ${JSON.stringify(taskProfile)}`,
     );
 
     // 获取 LLM 配置
@@ -175,6 +178,9 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       apiKey: this.config?.apiKey || llmConfig.apiKey,
       apiEndpoint: this.config?.apiEndpoint || llmConfig.apiEndpoint,
       messages: chatMessages,
+      // ★ 传递 TaskProfile，让 AI Engine 处理参数映射
+      taskProfile,
+      // 直接参数（优先级高于 TaskProfile）
       maxTokens,
       temperature,
     };
@@ -205,6 +211,8 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
 
   /**
    * 调用 AiChatService (支持工具调用)
+   *
+   * ★ 统一通过 aiChatService.chat() 调用，支持 TaskProfile
    */
   private async callAiChatServiceWithTools(params: any): Promise<any> {
     const {
@@ -216,18 +224,22 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       messages,
       maxTokens,
       temperature,
+      taskProfile, // ★ 提取 TaskProfile
       tools,
       tool_choice,
     } = params;
 
-    // 调用 AiChatService
-    return this.aiChatService.generateChatCompletionWithKey({
+    // ★ 调用 AiChatService.chat() - 统一入口
+    return this.aiChatService.chat({
       provider,
-      modelId,
+      model: modelId,
       apiKey,
       apiEndpoint,
       systemPrompt,
       messages,
+      // ★ 传递 TaskProfile
+      taskProfile,
+      // 直接参数（优先级高于 TaskProfile）
       maxTokens,
       temperature,
       ...(tools ? { tools, tool_choice } : {}),
@@ -527,17 +539,27 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
 
   /**
    * 解析 OpenAI 响应
+   *
+   * ★ 支持 aiChatService.chat() 的新响应格式 (usage.totalTokens)
    */
   private parseOpenAIResponse(result: any): LLMResponse {
-    // AiChatService 返回的是简化格式
+    // AiChatService.chat() 返回的简化格式
     if (result.content !== undefined) {
+      // ★ 处理两种响应格式：
+      // - 旧格式: tokensUsed (from generateChatCompletion)
+      // - 新格式: usage.totalTokens (from chat())
+      const totalTokens =
+        "tokensUsed" in result
+          ? result.tokensUsed
+          : result.usage?.totalTokens || 0;
+
       return {
         content: result.content,
-        usage: result.tokensUsed
+        usage: totalTokens
           ? {
               promptTokens: 0,
               completionTokens: 0,
-              totalTokens: result.tokensUsed,
+              totalTokens,
             }
           : undefined,
         model: result.model,

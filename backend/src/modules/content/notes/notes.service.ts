@@ -617,9 +617,9 @@ export class NotesService {
         outputLength: "short", // maxTokens: 1500 (原 1000)
       };
 
-      const response = await this.aiChatService.generateChatCompletionWithKey({
+      const response = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey || "",
         apiEndpoint: model.apiEndpoint || undefined,
         messages: [
@@ -705,9 +705,9 @@ export class NotesService {
         outputLength: "short", // maxTokens: 1500 (原 1000)
       };
 
-      const response = await this.aiChatService.generateChatCompletionWithKey({
+      const response = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey || "",
         apiEndpoint: model.apiEndpoint || undefined,
         messages: [
@@ -835,9 +835,9 @@ export class NotesService {
         outputLength: "short", // maxTokens: 1500
       };
 
-      const response = await this.aiChatService.generateChatCompletionWithKey({
+      const response = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey || "",
         apiEndpoint: model.apiEndpoint || undefined,
         messages: [

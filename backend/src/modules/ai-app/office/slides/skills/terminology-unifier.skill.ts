@@ -384,9 +384,9 @@ ${ruleBasedVariations.map((v) => `- ${v.preferred}: ${v.alternatives.join(", ")}
 
     const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
 
-    const response = await this.aiChatService.generateChatCompletionWithKey({
+    const response = await this.aiChatService.chat({
       provider: model.provider,
-      modelId: model.modelId,
+      model: model.modelId,
       apiKey: model.apiKey || "",
       apiEndpoint: model.apiEndpoint || undefined,
       systemPrompt: TERMINOLOGY_SYSTEM_PROMPT,

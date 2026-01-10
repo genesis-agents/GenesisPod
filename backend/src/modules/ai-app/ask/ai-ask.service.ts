@@ -421,22 +421,21 @@ export class AiAskService {
           ...contextMessages,
         ];
 
-        const aiResponse =
-          await this.aiChatService.generateChatCompletionWithKey({
-            provider: modelConfig.provider,
-            modelId: modelConfig.modelId,
-            apiKey: modelConfig.apiKey ?? "",
-            apiEndpoint: modelConfig.apiEndpoint ?? undefined,
-            messages: messagesWithSystem,
-            taskProfile: {
-              creativity: "medium",
-              outputLength: "standard",
-            } as TaskProfile,
-            maxTokens: 4000, // Kept for backward compatibility
-            temperature: 0.7, // Kept for backward compatibility
-          });
+        const aiResponse = await this.aiChatService.chat({
+          provider: modelConfig.provider,
+          model: modelConfig.modelId,
+          apiKey: modelConfig.apiKey ?? "",
+          apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+          messages: messagesWithSystem,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "standard",
+          } as TaskProfile,
+          maxTokens: 4000, // Kept for backward compatibility
+          temperature: 0.7, // Kept for backward compatibility
+        });
         aiResponseContent = aiResponse.content;
-        tokensUsed = aiResponse.tokensUsed;
+        tokensUsed = aiResponse.usage?.totalTokens || 0;
       }
 
       // 保存 AI 响应（如果使用了工具，在内容末尾添加工具使用信息）
@@ -721,28 +720,26 @@ export class AiAskService {
 
     try {
       // 调用 AI
-      const aiResponse = await this.aiChatService.generateChatCompletionWithKey(
-        {
-          provider: modelConfig.provider,
-          modelId: modelConfig.modelId,
-          apiKey: modelConfig.apiKey ?? "",
-          apiEndpoint: modelConfig.apiEndpoint ?? undefined,
-          messages: contextMessages,
-          taskProfile: {
-            creativity: "medium",
-            outputLength: "standard",
-          } as TaskProfile,
-          maxTokens: 4000, // Kept for backward compatibility
-          temperature: 0.7, // Kept for backward compatibility
-        },
-      );
+      const aiResponse = await this.aiChatService.chat({
+        provider: modelConfig.provider,
+        model: modelConfig.modelId,
+        apiKey: modelConfig.apiKey ?? "",
+        apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+        messages: contextMessages,
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "standard",
+        } as TaskProfile,
+        maxTokens: 4000, // Kept for backward compatibility
+        temperature: 0.7, // Kept for backward compatibility
+      });
 
       // 更新消息内容
       const updatedMessage = await this.prisma.askMessage.update({
         where: { id: messageId },
         data: {
           content: aiResponse.content,
-          tokens: aiResponse.tokensUsed,
+          tokens: aiResponse.usage?.totalTokens || 0,
         },
       });
 

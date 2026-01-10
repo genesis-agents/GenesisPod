@@ -365,9 +365,9 @@ export class TeamMissionService implements OnModuleInit {
     let result;
     if (modelConfig && modelConfig.apiKey) {
       // Use database API key
-      result = await this.aiChatService.generateChatCompletionWithKey({
+      result = await this.aiChatService.chat({
         provider: modelConfig.provider,
-        modelId: modelConfig.modelId,
+        model: modelConfig.modelId,
         apiKey: modelConfig.apiKey,
         apiEndpoint: modelConfig.apiEndpoint ?? undefined,
         systemPrompt,
@@ -388,14 +388,17 @@ export class TeamMissionService implements OnModuleInit {
     }
 
     // ★ Track token consumption for mission
-    if (options?.missionId && result.tokensUsed > 0) {
-      this.trackMissionTokens(options.missionId, result.tokensUsed).catch(
-        (err) => {
-          this.logger.warn(
-            `[callAIWithConfig] Failed to track tokens for mission ${options.missionId}: ${err}`,
-          );
-        },
-      );
+    // Handle both chat() return type (usage.totalTokens) and generateChatCompletion() (tokensUsed)
+    const tokensUsed =
+      "tokensUsed" in result
+        ? result.tokensUsed
+        : result.usage?.totalTokens || 0;
+    if (options?.missionId && tokensUsed > 0) {
+      this.trackMissionTokens(options.missionId, tokensUsed).catch((err) => {
+        this.logger.warn(
+          `[callAIWithConfig] Failed to track tokens for mission ${options.missionId}: ${err}`,
+        );
+      });
     }
 
     return result;
@@ -868,7 +871,10 @@ export class TeamMissionService implements OnModuleInit {
             );
             return {
               content: response.content || "",
-              tokensUsed: response.tokensUsed || 0,
+              tokensUsed:
+                "tokensUsed" in response
+                  ? response.tokensUsed
+                  : response.usage?.totalTokens || 0,
             };
           },
           mission.leader.aiModel,

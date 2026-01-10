@@ -245,9 +245,9 @@ export class ReportSynthesizerService {
     );
 
     try {
-      const result = await this.aiChatService.generateChatCompletionWithKey({
+      const result = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey ?? "",
         apiEndpoint: model.apiEndpoint ?? undefined,
         messages: [
@@ -281,9 +281,9 @@ export class ReportSynthesizerService {
     const prompt = this.buildSectionPrompt(sectionType, query, sources);
 
     try {
-      const result = await this.aiChatService.generateChatCompletionWithKey({
+      const result = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey ?? "",
         apiEndpoint: model.apiEndpoint ?? undefined,
         messages: [{ role: "user", content: prompt }],

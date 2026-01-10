@@ -229,9 +229,9 @@ export class DeveloperAgent extends PlanBasedAgent {
 
       // 调用 AI 服务
       const messages: ChatMessage[] = [{ role: "user", content: userPrompt }];
-      const result = await this.aiChatService.generateChatCompletionWithKey({
+      const result = await this.aiChatService.chat({
         provider: textModel.provider,
-        modelId: textModel.modelId,
+        model: textModel.modelId,
         apiKey: textModel.apiKey || "",
         apiEndpoint: textModel.apiEndpoint || undefined,
         systemPrompt,
@@ -268,7 +268,7 @@ export class DeveloperAgent extends PlanBasedAgent {
             content: code,
           })),
           summary: `成功生成 ${codeBlocks.length} 个代码块`,
-          tokensUsed: result.tokensUsed || 0,
+          tokensUsed: result.usage?.totalTokens || 0,
           duration,
         },
       };

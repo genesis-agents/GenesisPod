@@ -68,9 +68,9 @@ export class ResearchPlannerService {
 请分析这个主题，确定研究目标，并规划具体的搜索步骤。`;
 
     try {
-      const result = await this.aiChatService.generateChatCompletionWithKey({
+      const result = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey ?? "",
         apiEndpoint: model.apiEndpoint ?? undefined,
         messages: [

@@ -382,9 +382,9 @@ export class OutlinePlanningSkill
       // 默认 16384 以避免响应被截断
       const outlineMaxTokens = Math.max(model.maxTokens || 16384, 16384);
 
-      const response = await this.aiChatService.generateChatCompletionWithKey({
+      const response = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey || "",
         apiEndpoint: model.apiEndpoint || undefined,
         systemPrompt: OUTLINE_PLANNING_SYSTEM_PROMPT,

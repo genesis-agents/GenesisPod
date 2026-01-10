@@ -843,9 +843,9 @@ export class FourStepDesignSkill
 
     const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
 
-    const llmResponse = await this.aiChatService.generateChatCompletionWithKey({
+    const llmResponse = await this.aiChatService.chat({
       provider: model.provider,
-      modelId: model.modelId,
+      model: model.modelId,
       apiKey: model.apiKey || "",
       apiEndpoint: model.apiEndpoint || undefined,
       systemPrompt: FOUR_STEP_DESIGN_SYSTEM_PROMPT,
@@ -919,7 +919,7 @@ export class FourStepDesignSkill
         startTime,
         endTime,
         duration: durationMs,
-        tokensUsed: llmResponse.tokensUsed,
+        tokensUsed: llmResponse.usage?.totalTokens || 0,
       },
     };
   }

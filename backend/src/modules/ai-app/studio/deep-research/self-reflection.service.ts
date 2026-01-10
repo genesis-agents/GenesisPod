@@ -54,9 +54,9 @@ export class SelfReflectionService {
     );
 
     try {
-      const result = await this.aiChatService.generateChatCompletionWithKey({
+      const result = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey ?? "",
         apiEndpoint: model.apiEndpoint ?? undefined,
         messages: [

@@ -360,9 +360,9 @@ export class ContentAnalysisService {
       );
 
       // 调用 AI 服务
-      const response = await this.aiChatService.generateChatCompletionWithKey({
+      const response = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey || "",
         systemPrompt: CONTENT_ANALYSIS_SYSTEM_PROMPT,
         messages: [{ role: "user", content: userPrompt }],

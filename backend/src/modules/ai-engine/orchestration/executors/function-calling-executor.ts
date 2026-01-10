@@ -58,6 +58,8 @@ export interface LLMRequestOptions {
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  /** ★ TaskProfile for semantic parameter mapping */
+  taskProfile?: import("../../llm/types").TaskProfile;
 }
 
 /**

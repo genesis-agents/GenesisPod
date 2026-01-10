@@ -142,12 +142,17 @@ export class UniversalLLMAdapter implements ILLMAdapter {
 
   /**
    * 执行 Chat Completion
+   *
+   * ★ 统一通过 aiChatService.chat() 调用，支持：
+   * - TaskProfile 语义化参数映射
+   * - modelType 动态模型选择
+   * - 完整的参数解析优先级链
    */
   async chat(options: LLMRequestOptions): Promise<LLMResponse> {
     const model = options.model || (await this.getDefaultModelFromDb());
 
     this.logger.debug(
-      `[chat] Calling with model: ${model}, messages: ${options.messages.length}`,
+      `[chat] Calling with model: ${model}, messages: ${options.messages.length}, taskProfile: ${JSON.stringify(options.taskProfile)}`,
     );
 
     try {
@@ -157,12 +162,14 @@ export class UniversalLLMAdapter implements ILLMAdapter {
         content: m.content,
       }));
 
-      // 调用 AiChatService
-      // 注意: ChatCompletionOptions 目前不支持 responseFormat，
-      // 如果需要 JSON 输出，应在 system prompt 中明确要求
-      const result = await this.aiChatService.generateChatCompletion({
+      // ★ 统一调用 aiChatService.chat()
+      // 这是 AI Engine 的统一入口，支持 TaskProfile 语义化参数映射
+      const result = await this.aiChatService.chat({
         model,
         messages,
+        // ★ 传递 TaskProfile，让 AI Engine 处理参数映射
+        taskProfile: options.taskProfile,
+        // 直接参数（优先级高于 TaskProfile）
         maxTokens: options.maxTokens,
         temperature: options.temperature,
       });
@@ -175,9 +182,9 @@ export class UniversalLLMAdapter implements ILLMAdapter {
         usage: {
           promptTokens: 0,
           completionTokens: 0,
-          totalTokens: result.tokensUsed || 0,
+          totalTokens: result.usage?.totalTokens || 0,
         },
-        model,
+        model: result.model,
         createdAt: new Date(),
       };
     } catch (error) {

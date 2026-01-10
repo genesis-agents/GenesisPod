@@ -567,9 +567,9 @@ ${JSON.stringify(output, null, 2)}
 
     const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
 
-    const result = await this.aiChatService.generateChatCompletionWithKey({
+    const result = await this.aiChatService.chat({
       provider: model.provider,
-      modelId: model.modelId,
+      model: model.modelId,
       apiKey: model.apiKey,
       apiEndpoint: model.apiEndpoint ?? undefined,
       systemPrompt,
@@ -584,7 +584,7 @@ ${JSON.stringify(output, null, 2)}
 
     return {
       content: result.content,
-      tokensUsed: result.tokensUsed,
+      tokensUsed: result.usage?.totalTokens || 0,
     };
   }
 

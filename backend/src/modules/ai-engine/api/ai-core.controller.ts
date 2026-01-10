@@ -583,17 +583,15 @@ ${ragContext}
         // For streaming, we need to use the chat service and simulate SSE
         // Since ai-chat.service doesn't have native streaming, we'll return the full response as a single chunk
         try {
-          const result = await this.aiChatService.generateChatCompletionWithKey(
-            {
-              provider: modelConfig.provider,
-              modelId: modelConfig.modelId,
-              apiKey: modelConfig.apiKey ?? "",
-              apiEndpoint: modelConfig.apiEndpoint ?? undefined,
-              messages: chatMessages,
-              maxTokens: 4000,
-              temperature: 0.7,
-            },
-          );
+          const result = await this.aiChatService.chat({
+            provider: modelConfig.provider,
+            model: modelConfig.modelId,
+            apiKey: modelConfig.apiKey ?? "",
+            apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+            messages: chatMessages,
+            maxTokens: 4000,
+            temperature: 0.7,
+          });
 
           // Send as SSE chunks
           const chunkSize = 50;
@@ -619,9 +617,9 @@ ${ragContext}
         }
       } else {
         // Non-streaming response
-        const result = await this.aiChatService.generateChatCompletionWithKey({
+        const result = await this.aiChatService.chat({
           provider: modelConfig.provider,
-          modelId: modelConfig.modelId,
+          model: modelConfig.modelId,
           apiKey: modelConfig.apiKey ?? "",
           apiEndpoint: modelConfig.apiEndpoint ?? undefined,
           messages: chatMessages,
@@ -714,9 +712,9 @@ Output format:
 JSON output:`;
       }
 
-      const result = await this.aiChatService.generateChatCompletionWithKey({
+      const result = await this.aiChatService.chat({
         provider: modelConfig.provider,
-        modelId: modelConfig.modelId,
+        model: modelConfig.modelId,
         apiKey: modelConfig.apiKey ?? "",
         apiEndpoint: modelConfig.apiEndpoint ?? undefined,
         messages: [{ role: "user", content: prompt }],
@@ -771,9 +769,9 @@ JSON output:`;
           ? `请为以下内容生成简洁的摘要：\n\n${content}\n\n要求：简明扼要，突出重点。`
           : `Please generate a concise summary of the following content:\n\n${content}`;
 
-      const result = await this.aiChatService.generateChatCompletionWithKey({
+      const result = await this.aiChatService.chat({
         provider: modelConfig.provider,
-        modelId: modelConfig.modelId,
+        model: modelConfig.modelId,
         apiKey: modelConfig.apiKey ?? "",
         apiEndpoint: modelConfig.apiEndpoint ?? undefined,
         messages: [{ role: "user", content: prompt }],
@@ -937,9 +935,9 @@ Translation:`;
         `[Translate] Text length: ${body.text.length}, using maxTokens: ${dynamicMaxTokens}`,
       );
 
-      const result = await this.aiChatService.generateChatCompletionWithKey({
+      const result = await this.aiChatService.chat({
         provider: modelConfig.provider,
-        modelId: modelConfig.modelId,
+        model: modelConfig.modelId,
         apiKey: modelConfig.apiKey ?? "",
         apiEndpoint: modelConfig.apiEndpoint ?? undefined,
         messages: [{ role: "user", content: prompt }],

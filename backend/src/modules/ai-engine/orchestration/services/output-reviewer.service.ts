@@ -513,9 +513,9 @@ ${request.issues.map((issue, i) => `${i + 1}. ${issue}`).join("\n")}
   ): Promise<{ content: string; tokensUsed: number }> {
     let result;
     if (modelConfig?.apiKey) {
-      result = await this.aiChatService.generateChatCompletionWithKey({
+      result = await this.aiChatService.chat({
         provider: modelConfig.provider || "openai",
-        modelId: modelConfig.modelId || aiModel,
+        model: modelConfig.modelId || aiModel,
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,
@@ -537,9 +537,14 @@ ${request.issues.map((issue, i) => `${i + 1}. ${issue}`).join("\n")}
       });
     }
 
+    // Handle both chat() return type (usage.totalTokens) and generateChatCompletion() (tokensUsed)
+    const tokensUsed =
+      "tokensUsed" in result
+        ? result.tokensUsed
+        : result.usage?.totalTokens || 0;
     return {
       content: result.content,
-      tokensUsed: result.tokensUsed || 0,
+      tokensUsed,
     };
   }
 }

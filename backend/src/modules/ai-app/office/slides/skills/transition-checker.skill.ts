@@ -546,9 +546,9 @@ ${ruleBasedTransitions.map((t) => `- 第${t.fromPage}→${t.toPage}页: ${t.qual
 
       const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
 
-      const response = await this.aiChatService.generateChatCompletionWithKey({
+      const response = await this.aiChatService.chat({
         provider: model.provider,
-        modelId: model.modelId,
+        model: model.modelId,
         apiKey: model.apiKey || "",
         apiEndpoint: model.apiEndpoint || undefined,
         systemPrompt: TRANSITION_CHECK_SYSTEM_PROMPT,

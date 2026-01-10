@@ -156,9 +156,9 @@ export class AiStudioChatService {
       );
 
       // Call AI service with database configuration
-      const aiResult = await this.aiChatService.generateChatCompletionWithKey({
+      const aiResult = await this.aiChatService.chat({
         provider: modelConfig.provider,
-        modelId: modelConfig.modelId,
+        model: modelConfig.modelId,
         apiKey: modelConfig.apiKey || "",
         apiEndpoint: modelConfig.apiEndpoint || undefined,
         systemPrompt,
@@ -181,11 +181,12 @@ export class AiStudioChatService {
       messages.push(aiMessage);
 
       // Update chat with AI response
+      const responseTokens = aiResult.usage?.totalTokens || 0;
       await this.prisma.researchProjectChat.update({
         where: { id: chat.id },
         data: {
           messages: messages as unknown as InputJsonValue,
-          tokensUsed: (chat.tokensUsed || 0) + aiResult.tokensUsed,
+          tokensUsed: (chat.tokensUsed || 0) + responseTokens,
         },
       });
 
@@ -194,7 +195,7 @@ export class AiStudioChatService {
         userMessage,
         aiMessage,
         sourceContext,
-        tokensUsed: aiResult.tokensUsed,
+        tokensUsed: responseTokens,
       };
     } catch (error: any) {
       this.logger.error(`AI chat failed: ${error.message}`);
