@@ -230,6 +230,10 @@ export class WritingMissionService {
   ): string {
     const constraints: string[] = [];
 
+    this.logger.debug(
+      `[QualityConstraints] Generating for chapter ${chapterNumber}, outline: ${chapterOutline?.slice(0, 50) || "none"}, characters: ${characters?.length || 0}`,
+    );
+
     try {
       // 1. 开篇钩子约束（第一章特别强调）
       const openingConstraints = this.openingHook.generateOpeningConstraints(
@@ -274,6 +278,12 @@ export class WritingMissionService {
       }
     } catch (e) {
       this.logger.warn(`[QualityConstraints] Professional voice failed: ${e}`);
+    }
+
+    if (constraints.length > 0) {
+      this.logger.log(
+        `[QualityConstraints] Generated ${constraints.length} constraint sections for chapter ${chapterNumber}`,
+      );
     }
 
     return constraints.join("\n\n");
@@ -2044,6 +2054,89 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
           this.logger.log(
             `[${missionId}] Chapter ${chapterNumber} auto-fixed successfully`,
           );
+
+          // ★ v3 修复：编辑修复后针对每个问题逐一验证
+          this.logger.log(
+            `[${missionId}] Re-validating ${checkResult.issues.length} specific issues for chapter ${chapterNumber}...`,
+          );
+
+          // 构建针对性验证提示词：逐条检查原问题是否已修复
+          const issueVerificationList = checkResult.issues
+            .map(
+              (issue, i) =>
+                `问题${i + 1}: ${issue.description}\n位置: ${issue.location}\n修复建议: ${issue.fix}`,
+            )
+            .join("\n\n");
+
+          const reCheckResponse = await this.aiChatService.chat({
+            messages: [
+              {
+                role: "system",
+                content: `你是严格的一致性校验员。请逐条检查以下问题在修复后的内容中是否已被正确解决。
+
+对每个问题，输出：
+- fixed: true/false（是否已修复）
+- evidence: 修复证据或未修复原因
+
+最终输出JSON格式：
+{
+  "allFixed": true/false,
+  "verifications": [
+    {"issueIndex": 1, "fixed": true, "evidence": "..."},
+    {"issueIndex": 2, "fixed": false, "evidence": "问题仍存在：..."}
+  ]
+}`,
+              },
+              {
+                role: "user",
+                content: `【原始问题列表】
+${issueVerificationList}
+
+【修复后的章节内容】
+${chapterContent.slice(0, 4000)}
+
+请逐条验证每个问题是否已被正确修复。`,
+              },
+            ],
+            model: checkerModel,
+            temperature: 0.1,
+            maxTokens: 1500,
+          });
+
+          // 解析验证结果
+          const verificationResult = this.parseVerificationResult(
+            reCheckResponse.content ||
+              '{"allFixed": true, "verifications": []}',
+          );
+
+          const unfixedIssues = verificationResult.verifications.filter(
+            (v) => !v.fixed,
+          );
+
+          if (unfixedIssues.length > 0) {
+            this.logger.warn(
+              `[${missionId}] Chapter ${chapterNumber}: ${unfixedIssues.length}/${checkResult.issues.length} issues NOT fixed`,
+            );
+
+            // 发送未修复问题的事件
+            await this.eventEmitter.emitConsistencyCheck(input.projectId, {
+              chapterNumber,
+              passed: false,
+              issues: unfixedIssues.map((v) => {
+                const originalIssue = checkResult.issues[v.issueIndex - 1];
+                return {
+                  type: originalIssue?.type || "unfixed",
+                  severity: "warning" as "error" | "warning" | "info",
+                  description: `[未修复] ${originalIssue?.description || "未知问题"}: ${v.evidence}`,
+                  suggestion: originalIssue?.fix || "",
+                };
+              }),
+            });
+          } else {
+            this.logger.log(
+              `[${missionId}] Chapter ${chapterNumber}: All ${checkResult.issues.length} issues verified as fixed ✓`,
+            );
+          }
         }
 
         // 发送修复完成事件
@@ -2820,6 +2913,78 @@ ${chapterContent}
         description: String(issue.description || ""),
         location: String(issue.location || ""),
         fix: String(issue.fix || ""),
+      })),
+    };
+  }
+
+  /**
+   * 解析修复验证结果
+   */
+  private parseVerificationResult(content: string): {
+    allFixed: boolean;
+    verifications: Array<{
+      issueIndex: number;
+      fixed: boolean;
+      evidence: string;
+    }>;
+  } {
+    try {
+      // 清理 markdown 代码块
+      let cleaned = content.trim();
+      if (cleaned.startsWith("```json")) {
+        cleaned = cleaned.slice(7);
+      } else if (cleaned.startsWith("```")) {
+        cleaned = cleaned.slice(3);
+      }
+      if (cleaned.endsWith("```")) {
+        cleaned = cleaned.slice(0, -3);
+      }
+      cleaned = cleaned.trim();
+
+      // 尝试直接解析
+      try {
+        const directParsed = JSON.parse(cleaned);
+        if (typeof directParsed === "object" && directParsed !== null) {
+          return this.normalizeVerificationResult(directParsed);
+        }
+      } catch {
+        // 继续尝试其他方法
+      }
+
+      // 提取第一个完整的 JSON 对象
+      const jsonStr = this.extractFirstJsonObject(cleaned);
+      if (jsonStr) {
+        const parsed = JSON.parse(jsonStr);
+        return this.normalizeVerificationResult(parsed);
+      }
+    } catch (e) {
+      this.logger.warn(
+        `Failed to parse verification result: ${(e as Error).message}`,
+      );
+    }
+    return { allFixed: true, verifications: [] };
+  }
+
+  /**
+   * 标准化验证结果
+   */
+  private normalizeVerificationResult(parsed: Record<string, unknown>): {
+    allFixed: boolean;
+    verifications: Array<{
+      issueIndex: number;
+      fixed: boolean;
+      evidence: string;
+    }>;
+  } {
+    const verifications = Array.isArray(parsed.verifications)
+      ? parsed.verifications
+      : [];
+    return {
+      allFixed: typeof parsed.allFixed === "boolean" ? parsed.allFixed : true,
+      verifications: verifications.map((v: Record<string, unknown>) => ({
+        issueIndex: typeof v.issueIndex === "number" ? v.issueIndex : 0,
+        fixed: typeof v.fixed === "boolean" ? v.fixed : true,
+        evidence: String(v.evidence || ""),
       })),
     };
   }
@@ -5032,11 +5197,25 @@ ${previousSummary ? `【前文摘要】\n${previousSummary}\n` : "【开篇提�
 
 请直接输出章节内容，以"第${this.numberToChinese(chapter.chapterNumber)}章 ${chapter.title}"开头。`;
 
+      // ★ v3 增强：生成质量约束（开篇钩子、五感沉浸、专业声音）
+      const characters =
+        (worldSettings?.characters as Array<{
+          name: string;
+          role?: string;
+          background?: string;
+        }>) || [];
+      const qualityConstraints = this.generateQualityConstraints(
+        chapter.chapterNumber,
+        chapter.title, // 使用章节标题作为剧情提示
+        characters,
+      );
+
       // ★ 使用完整的写作原则系统提示词（v3 增强）
       const writerSystemPrompt = `你是专业的小说作家，擅长创作引人入胜的故事。
 
 ${WriterAgent.CORE_WRITING_PRINCIPLES}
 
+${qualityConstraints ? `${qualityConstraints}\n` : ""}
 请直接输出章节内容。`;
 
       const writerResponse = await this.aiChatService.chat({
