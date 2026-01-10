@@ -93,6 +93,10 @@ export class OutputReviewerService implements IOutputReviewerService {
         result = await aiCaller(request.leader.aiModel, messages, {
           maxTokens: 2000,
           temperature: 0.3,
+          taskProfile: {
+            creativity: "low",
+            outputLength: "medium",
+          },
         });
       } else {
         // 回退到内部实现

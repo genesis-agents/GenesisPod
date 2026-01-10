@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { TaskProfile } from "../../ai-engine/llm/types/task-profile";
 import {
   CreateTeamDto,
   UpdateTeamDto,
@@ -501,12 +502,19 @@ ${params.category ? `团队分类：${params.category}` : ""}
         `Using model for team config generation: ${modelConfig.name} (${modelConfig.modelId})`,
       );
 
+      // 定义任务配置：团队配置生成任务，需要中等创意度和短输出
+      const taskProfile: TaskProfile = {
+        creativity: "medium", // temperature: 0.7 - 需要一定创意性
+        outputLength: "short", // maxTokens: 1500 (原 2000，调整为 short)
+      };
+
       const result = await this.aiChatService.generateChatCompletion({
         model: modelConfig.modelId,
         systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
-        temperature: 0.7,
-        maxTokens: 2000,
+        taskProfile, // 使用任务配置
+        temperature: 0.7, // 保持向后兼容
+        maxTokens: 2000, // 保持向后兼容
       });
 
       this.logger.debug(

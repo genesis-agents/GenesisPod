@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
 import { StoryBibleService } from "../bible/story-bible.service";
+import { TaskProfile } from "../../../../ai-engine/llm/types";
 
 export interface ChapterOutline {
   chapterNumber: number;
@@ -137,6 +138,12 @@ ${previousOutlineContext ? `【前几卷大纲】\n${previousOutlineContext}\n` 
 }`;
 
     try {
+      // 使用 TaskProfile 语义化描述任务特征
+      const taskProfile: TaskProfile = {
+        creativity: "medium", // 大纲创作需要平衡创造性和结构性 (原 temperature: 0.7)
+        outputLength: "long", // 大纲需要详细输出 (原 maxTokens: 8000)
+      };
+
       const response = await this.aiChatService.chat({
         messages: [
           {
@@ -147,6 +154,8 @@ ${previousOutlineContext ? `【前几卷大纲】\n${previousOutlineContext}\n` 
           { role: "user", content: outlinePrompt },
         ],
         model: modelId,
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
         temperature: 0.7,
         maxTokens: 8000,
       });

@@ -356,20 +356,62 @@ grep -r "ReactMarkdown" --include="*.tsx"
 
 ## AI 开发指南
 
+> **完整规范**: [docs/guides/ai-calling-standards.md](../docs/guides/ai-calling-standards.md)
+
 ### LLM 调用规范
 
+**必须使用 `AiChatService.chat()` + `TaskProfile` + `modelType`**
+
 ```typescript
-// 使用 AIOrchestrationService 统一调用
-const response = await this.aiService.chat({
-  model: "gpt-4o", // 或 claude-3-5-sonnet
+import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { TaskProfile } from "@/modules/ai-engine/llm/types";
+import { AIModelType } from "@prisma/client";
+
+// ★ 推荐方式：语义化任务描述
+const response = await this.aiChatService.chat({
   messages: [
     { role: "system", content: systemPrompt },
     { role: "user", content: userMessage },
   ],
-  temperature: 0.7,
-  max_tokens: 4096,
+  modelType: AIModelType.CHAT, // 让 AI Engine 选择具体模型
+  taskProfile: {
+    creativity: "medium", // 映射到 temperature
+    outputLength: "medium", // 映射到 maxTokens
+  },
 });
 ```
+
+**禁止的做法：**
+
+```typescript
+// ❌ 禁止：硬编码模型名
+model: "gpt-4o"
+
+// ❌ 禁止：硬编码参数
+temperature: 0.7, maxTokens: 4096
+
+// ✅ 正确：使用 modelType 和 TaskProfile
+modelType: AIModelType.CHAT
+taskProfile: { creativity: "medium", outputLength: "medium" }
+```
+
+**TaskProfile 快速参考：**
+
+| creativity    | temperature | 场景             |
+| ------------- | ----------- | ---------------- |
+| deterministic | 0.1         | 分类、提取、JSON |
+| low           | 0.3         | 分析、总结       |
+| medium        | 0.7         | 对话、研究       |
+| high          | 0.9         | 创意写作         |
+
+| outputLength | maxTokens | 场景       |
+| ------------ | --------- | ---------- |
+| minimal      | 500       | 分类标签   |
+| short        | 1500      | 摘要       |
+| medium       | 4000      | 标准分析   |
+| standard     | 6000      | 编辑任务   |
+| long         | 8000      | 报告、章节 |
+| extended     | 16000     | 超长内容   |
 
 ### Agent 开发模式
 

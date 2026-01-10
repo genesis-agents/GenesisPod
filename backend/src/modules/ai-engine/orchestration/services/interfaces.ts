@@ -7,6 +7,8 @@
 
 // ==================== 通用类型 ====================
 
+import { TaskProfile } from "../../llm/types";
+
 /**
  * AI 调用函数类型
  * 用于依赖注入，允许上层传入带上下文的 AI 调用实现
@@ -14,7 +16,11 @@
 export type AiCallerFn = (
   model: string,
   messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
-  options?: { maxTokens?: number; temperature?: number },
+  options?: {
+    maxTokens?: number;
+    temperature?: number;
+    taskProfile?: TaskProfile;
+  },
 ) => Promise<{ content: string; tokensUsed: number }>;
 
 /**
@@ -895,6 +901,7 @@ export interface CompressionOptions {
   generateEmbeddings?: boolean;
   summaryStyle?: "brief" | "detailed" | "analytical";
   model?: string;
+  modelType?: import("@prisma/client").AIModelType;
   concurrency?: number;
 }
 

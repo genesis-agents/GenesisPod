@@ -268,7 +268,10 @@ export class MissionReviewService {
             { role: "system", content: systemPrompt },
             { role: "user", content: reviewPrompt },
           ],
-          { maxTokens: 4000, temperature: 0.5 },
+          {
+            maxTokens: 4000,
+            temperature: 0.5,
+          },
           aiCaller,
         );
       } catch (error) {
@@ -722,7 +725,10 @@ export class MissionReviewService {
             { role: "system", content: systemPrompt },
             { role: "user", content: revisionPrompt },
           ],
-          { maxTokens: 8000, temperature: 0.7 },
+          {
+            maxTokens: 8000,
+            temperature: 0.7,
+          },
           aiCaller,
         );
       } catch (error) {
@@ -939,7 +945,10 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
         ],
-        { maxTokens: 1500, temperature: 0.3 },
+        {
+          maxTokens: 1500,
+          temperature: 0.3,
+        },
         aiCaller,
       );
 

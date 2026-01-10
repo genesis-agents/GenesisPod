@@ -38,6 +38,7 @@ import { PageGeneratedEvent } from "../skills/page-pipeline.skill";
 import { ContentCompressionSkill } from "../skills/content-compression.skill";
 import { TemplateRenderingSkill } from "../skills/template-rendering.skill";
 import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AIModelType } from "@prisma/client";
 
 /**
  * PPT 生成输入参数
@@ -834,8 +835,8 @@ ${feedback}
 3. 关键内容应该与新标题相关
 4. 只输出 JSON，不要其他内容`;
 
-      const response = await this.aiChatService.generateChatCompletion({
-        model: "gpt-4o-mini",
+      const response = await this.aiChatService.chat({
+        modelType: AIModelType.CHAT_FAST,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
         maxTokens: 500,

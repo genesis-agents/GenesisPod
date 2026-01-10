@@ -27,6 +27,7 @@ import {
   CompressionOptions,
   IContextCompressionService,
 } from "./interfaces";
+import { AIModelType } from "@prisma/client";
 
 @Injectable()
 export class ContextCompressionService implements IContextCompressionService {
@@ -55,9 +56,12 @@ export class ContextCompressionService implements IContextCompressionService {
       chunkSize = this.DEFAULT_CHUNK_SIZE,
       generateEmbeddings = false,
       summaryStyle = "detailed",
-      model = "gpt-4o-mini",
+      modelType,
       concurrency = this.DEFAULT_CONCURRENCY,
     } = options;
+
+    // Use modelType if provided, otherwise use default
+    const effectiveModelType = modelType || AIModelType.CHAT_FAST;
 
     this.logger.log(
       `[compress] 开始压缩，原始长度: ${content.length}，目标: ${targetSize}`,
@@ -76,7 +80,7 @@ export class ContextCompressionService implements IContextCompressionService {
     const chunkSummaries = await this.summarizeChunksParallel(
       chunks,
       summaryStyle,
-      model,
+      effectiveModelType,
       concurrency,
     );
 
@@ -89,7 +93,7 @@ export class ContextCompressionService implements IContextCompressionService {
     const { compressedContext, globalSummary } = await this.hierarchicalMerge(
       chunkSummaries,
       targetSize,
-      model,
+      effectiveModelType,
     );
 
     // 第五步：完整性校验
@@ -201,7 +205,7 @@ export class ContextCompressionService implements IContextCompressionService {
   private async summarizeChunksParallel(
     chunks: DataChunk[],
     style: "brief" | "detailed" | "analytical",
-    model: string,
+    modelType: AIModelType,
     concurrency: number,
   ): Promise<SummaryChunk[]> {
     const results: SummaryChunk[] = [];
@@ -210,7 +214,7 @@ export class ContextCompressionService implements IContextCompressionService {
     for (let i = 0; i < chunks.length; i += concurrency) {
       const batch = chunks.slice(i, i + concurrency);
       const batchResults = await Promise.all(
-        batch.map((chunk) => this.summarizeChunk(chunk, style, model)),
+        batch.map((chunk) => this.summarizeChunk(chunk, style, modelType)),
       );
       results.push(...batchResults);
 
@@ -228,7 +232,7 @@ export class ContextCompressionService implements IContextCompressionService {
   private async summarizeChunk(
     chunk: DataChunk,
     style: "brief" | "detailed" | "analytical",
-    model: string,
+    modelType: AIModelType,
   ): Promise<SummaryChunk> {
     const stylePrompts = {
       brief: "用50-100字简洁概括核心内容",
@@ -254,10 +258,14 @@ ${chunk.content}
 
     try {
       const response = await this.aiChatService.chat({
-        model,
+        modelType,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
         maxTokens: 800,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "short",
+        },
       });
 
       const { summary, keyPoints } = this.parseSummaryResponse(
@@ -330,7 +338,7 @@ ${chunk.content}
   private async hierarchicalMerge(
     summaries: SummaryChunk[],
     targetSize: number,
-    model: string,
+    modelType: AIModelType,
   ): Promise<{ compressedContext: string; globalSummary: string }> {
     // 合并所有摘要
     let currentSummaries = summaries;
@@ -345,7 +353,7 @@ ${chunk.content}
       const mergedSummaries: SummaryChunk[] = [];
       for (let i = 0; i < currentSummaries.length; i += 5) {
         const batch = currentSummaries.slice(i, i + 5);
-        const merged = await this.mergeSummaryBatch(batch, model);
+        const merged = await this.mergeSummaryBatch(batch, modelType);
         mergedSummaries.push(merged);
       }
 
@@ -357,7 +365,7 @@ ${chunk.content}
     const allSummaryText = currentSummaries.map((s) => s.summary).join("\n\n");
     const globalSummary = await this.generateGlobalSummary(
       allSummaryText,
-      model,
+      modelType,
     );
 
     // 构建最终上下文：全局摘要 + 关键点
@@ -379,7 +387,7 @@ ${chunk.content}
    */
   private async mergeSummaryBatch(
     batch: SummaryChunk[],
-    model: string,
+    modelType: AIModelType,
   ): Promise<SummaryChunk> {
     const combinedText = batch.map((s) => s.summary).join("\n\n---\n\n");
     const combinedKeyPoints = batch.flatMap((s) => s.keyPoints);
@@ -395,7 +403,7 @@ ${combinedText}
 
     try {
       const response = await this.aiChatService.chat({
-        model,
+        modelType,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
         maxTokens: 600,
@@ -425,7 +433,7 @@ ${combinedText}
    */
   private async generateGlobalSummary(
     summaryText: string,
-    model: string,
+    modelType: AIModelType,
   ): Promise<string> {
     const prompt = `请为以下内容生成一个全面的总结（300-500字），确保涵盖所有关键信息：
 
@@ -438,10 +446,14 @@ ${summaryText}
 
     try {
       const response = await this.aiChatService.chat({
-        model,
+        modelType,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
         maxTokens: 800,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "short",
+        },
       });
 
       return response.content;

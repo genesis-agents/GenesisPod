@@ -3,6 +3,7 @@ import { ExternalDataService } from "./external-data.service";
 import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AIModelType } from "@prisma/client";
+import { TaskProfile } from "../../ai-engine/llm/types";
 
 interface IndustryAnalysis {
   companies: Array<{
@@ -319,8 +320,12 @@ ${existingCompanies.length > 0 ? `用户已选择的公司（请不要重复推�
           apiEndpoint: model.apiEndpoint ?? undefined,
           systemPrompt,
           messages: [{ role: "user", content: userPrompt }],
-          maxTokens: 2048,
-          temperature: 0.7,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "medium",
+          } as TaskProfile,
+          maxTokens: 2048, // Kept for backward compatibility
+          temperature: 0.7, // Kept for backward compatibility
         });
 
         // 检查是否是 API 错误消息
@@ -778,8 +783,12 @@ ${externalDataStr.slice(0, 3000)}${externalDataStr.length > 3000 ? "\n...(数据
         apiEndpoint: model.apiEndpoint ?? undefined,
         systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
-        maxTokens: 1024,
-        temperature: 0.7,
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "short",
+        } as TaskProfile,
+        maxTokens: 1024, // Kept for backward compatibility
+        temperature: 0.7, // Kept for backward compatibility
       });
 
       if (!result.content) {

@@ -155,7 +155,14 @@ export class ContextInitializationService
         },
         { role: "user", content: prompt },
       ],
-      { maxTokens: 8000, temperature: 0.7 },
+      {
+        maxTokens: 8000,
+        temperature: 0.7,
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "long",
+        },
+      },
     );
 
     const settings = this.parseWorldSettings(response.content, contentType);

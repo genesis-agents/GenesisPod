@@ -7,6 +7,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { TaskProfile } from "../../ai-engine/llm/types/task-profile";
 import { AIModelService } from "../../ai-app/office/core";
 import {
   CreateCollectionDto,
@@ -307,6 +308,12 @@ export class CollectionsService {
       const model = await this.aiModelService.getDefaultTextModel();
       const content = `Title: ${resource.title}\n${resource.abstract ? `Abstract: ${resource.abstract}` : ""}`;
 
+      // 定义任务配置：标签生成任务，需要低创意度和最小输出
+      const taskProfile: TaskProfile = {
+        creativity: "low", // temperature: 0.3 - 标签生成需要准确性
+        outputLength: "minimal", // maxTokens: 500 (原 200)
+      };
+
       const response = await this.aiChatService.generateChatCompletionWithKey({
         provider: model.provider,
         modelId: model.modelId,
@@ -323,8 +330,9 @@ export class CollectionsService {
             content: `Generate tags for:\n${content}`,
           },
         ],
-        temperature: 0.3,
-        maxTokens: 200,
+        taskProfile, // 使用任务配置
+        temperature: 0.3, // 保持向后兼容
+        maxTokens: 200, // 保持向后兼容
       });
 
       // Parse the response to extract tags
@@ -807,6 +815,12 @@ export class CollectionsService {
 
           const content = `Title: ${item.resource.title}\n${item.resource.abstract ? `Abstract: ${item.resource.abstract}` : ""}`;
 
+          // 定义任务配置：标签生成任务
+          const taskProfile: TaskProfile = {
+            creativity: "low", // temperature: 0.3
+            outputLength: "minimal", // maxTokens: 500 (原 200)
+          };
+
           try {
             const response =
               await this.aiChatService.generateChatCompletionWithKey({
@@ -825,8 +839,9 @@ export class CollectionsService {
                     content: `Generate tags for:\n${content}`,
                   },
                 ],
-                temperature: 0.3,
-                maxTokens: 200,
+                taskProfile, // 使用任务配置
+                temperature: 0.3, // 保持向后兼容
+                maxTokens: 200, // 保持向后兼容
               });
 
             let tags: string[] = [];
@@ -942,6 +957,12 @@ export class CollectionsService {
     for (const item of defaultItems.slice(0, 10)) {
       if (!item.resource) continue;
 
+      // 定义任务配置：分类任务
+      const taskProfile: TaskProfile = {
+        creativity: "low", // temperature: 0.3
+        outputLength: "minimal", // maxTokens: 500 (原 200)
+      };
+
       try {
         const response = await this.aiChatService.generateChatCompletionWithKey(
           {
@@ -959,8 +980,9 @@ export class CollectionsService {
                 content: `Resource: ${item.resource.title}\n${item.resource.abstract || ""}\n\nAvailable collections:\n${collectionDescriptions}\n\nWhich collection fits best?`,
               },
             ],
-            temperature: 0.3,
-            maxTokens: 200,
+            taskProfile, // 使用任务配置
+            temperature: 0.3, // 保持向后兼容
+            maxTokens: 200, // 保持向后兼容
           },
         );
 
@@ -1027,6 +1049,12 @@ export class CollectionsService {
       .map((item, idx) => `${idx + 1}. ${item.resource.title}`)
       .join("\n");
 
+    // 定义任务配置：主题聚类任务，需要中等创意度
+    const taskProfile: TaskProfile = {
+      creativity: "medium", // temperature: 0.7 (原 0.5，调整为 medium)
+      outputLength: "short", // maxTokens: 1500 (原 1000)
+    };
+
     try {
       const response = await this.aiChatService.generateChatCompletionWithKey({
         provider: model.provider,
@@ -1043,8 +1071,9 @@ export class CollectionsService {
             content: `Analyze these resources and identify main themes:\n\n${contentSummary}`,
           },
         ],
-        temperature: 0.5,
-        maxTokens: 1000,
+        taskProfile, // 使用任务配置
+        temperature: 0.5, // 保持向后兼容
+        maxTokens: 1000, // 保持向后兼容
       });
 
       let clusters: Array<{

@@ -21,6 +21,7 @@ import {
   AiTaskType,
 } from "../../../../common/ai-orchestration";
 import { EmbeddingService, VectorService } from "../../../ai-engine/rag";
+import { TaskProfile } from "../../../ai-engine/llm/types";
 import {
   RAGQuery,
   RAGResponse,
@@ -29,6 +30,7 @@ import {
   ContextSource,
   HybridSearchParams,
 } from "../interfaces/rag.interfaces";
+import { AIModelType } from "@prisma/client";
 
 const DEFAULT_TOP_K = 10;
 const DEFAULT_HYBRID_ALPHA = 0.5; // Balance between vector and keyword
@@ -156,15 +158,30 @@ Generate a detailed, factual-sounding passage (2-3 paragraphs) that would contai
 Do not mention that this is hypothetical. Write as if this is actual content from a document.
 Focus on being specific and informative.`;
 
+    // Get the actual model ID for CHAT_FAST type
+    const modelConfig = await this.prisma.aIModel.findFirst({
+      where: {
+        modelType: AIModelType.CHAT_FAST,
+        isEnabled: true,
+      },
+      orderBy: {
+        isDefault: "desc",
+      },
+    });
+
     const response = await this.aiService.call({
       taskType: AiTaskType.CHAT,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Query: ${query}` },
       ],
-      temperature: 0.3,
-      maxTokens: 500,
-      modelId: "gpt-4o-mini",
+      taskProfile: {
+        creativity: "low",
+        outputLength: "minimal",
+      } as TaskProfile,
+      temperature: 0.3, // Kept for backward compatibility
+      maxTokens: 500, // Kept for backward compatibility
+      modelId: modelConfig?.modelId || "gpt-4o-mini", // Fallback to default
     });
 
     return response.content || query;

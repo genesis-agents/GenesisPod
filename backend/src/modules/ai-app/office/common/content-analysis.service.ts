@@ -5,6 +5,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { TaskProfile } from "../../../ai-engine/llm/types";
 import { AIModelService } from "../core/ai-model.service";
 import {
   CONTENT_ANALYSIS_SYSTEM_PROMPT,
@@ -365,6 +366,12 @@ export class ContentAnalysisService {
         apiKey: model.apiKey || "",
         systemPrompt: CONTENT_ANALYSIS_SYSTEM_PROMPT,
         messages: [{ role: "user", content: userPrompt }],
+        taskProfile: {
+          creativity: "low",
+          outputLength: "short",
+          outputFormat: "json",
+        } as TaskProfile,
+        // 向后兼容：保留原始参数
         temperature: 0.3,
         maxTokens: 2000,
       });

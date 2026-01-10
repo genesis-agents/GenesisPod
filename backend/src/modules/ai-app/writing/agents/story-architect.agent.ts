@@ -16,6 +16,7 @@ import {
 } from "../../../ai-engine/agents/abstractions/agent.interface";
 import { ExecutionMode, BUILTIN_TOOLS } from "../../../ai-engine/core";
 import { WritingContextPackage } from "../interfaces/writing-context.interface";
+import { TaskProfile } from "../../../ai-engine/llm/types";
 
 // ==================== 输入输出类型 ====================
 
@@ -206,9 +207,17 @@ export class StoryArchitectAgent extends BaseAgent<
       storyBible,
     );
 
+    // 使用 TaskProfile 语义化描述任务特征
+    const taskProfile: TaskProfile = {
+      creativity: "medium", // 故事规划需要平衡创造性和结构性 (原 temperature: 0.7)
+      outputLength: "standard", // 规划结果需要标准长度 (原 maxTokens: 4096)
+    };
+
     const response = await this.callLLM(
       this.buildMessages(userPrompt, { ..._context, memory: undefined }),
       {
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
         temperature: 0.7,
         maxTokens: 4096,
       },

@@ -7,6 +7,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { TaskProfile } from "../../../ai-engine/llm/types";
 import {
   PromptEngineeringInsights,
   PromptDesignJournalEntry,
@@ -53,8 +54,12 @@ export class PromptEnhancementService {
     const result = await this.aiChatService.chat({
       messages: [{ role: "user", content }],
       systemPrompt: PROMPT_ENHANCEMENT_SYSTEM,
-      temperature: 0.3,
-      maxTokens: 4096,
+      taskProfile: {
+        creativity: "low",
+        outputLength: "standard",
+      } as TaskProfile,
+      temperature: 0.3, // Kept for backward compatibility
+      maxTokens: 4096, // Kept for backward compatibility
       model: modelId,
     });
 

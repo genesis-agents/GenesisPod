@@ -12,6 +12,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
+import { TaskProfile } from "../../../../ai-engine/llm/types";
 
 export interface CoherenceIssue {
   /** 问题类型 */
@@ -362,12 +363,20 @@ ${pair.toChapter.openingContent}
 请分析这两章之间的连贯性，输出 JSON 格式的分析结果。`;
 
     try {
+      // 使用 TaskProfile 语义化描述任务特征
+      const taskProfile: TaskProfile = {
+        creativity: "low", // 连贯性分析需要客观准确 (原 temperature: 0.3)
+        outputLength: "medium", // 分析结果需要中等长度 (原 maxTokens: 3000)
+      };
+
       const response = await this.aiChatService.chat({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
         model: modelId,
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
         temperature: 0.3,
         maxTokens: 3000,
       });
@@ -458,6 +467,12 @@ ${pair.toChapter.openingContent}
 如果没有问题，返回 []`;
 
     try {
+      // 使用 TaskProfile 语义化描述任务特征
+      const taskProfile: TaskProfile = {
+        creativity: "low", // 整体情节分析需要客观准确 (原 temperature: 0.3)
+        outputLength: "short", // 整体问题输出较短 (原 maxTokens: 2000)
+      };
+
       const response = await this.aiChatService.chat({
         messages: [
           { role: "system", content: systemPrompt },
@@ -467,6 +482,8 @@ ${pair.toChapter.openingContent}
           },
         ],
         model: modelId,
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
         temperature: 0.3,
         maxTokens: 2000,
       });

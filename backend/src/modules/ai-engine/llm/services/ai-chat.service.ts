@@ -20,6 +20,8 @@ export interface ChatCompletionOptions {
   messages: ChatMessage[];
   maxTokens?: number;
   temperature?: number;
+  /** 任务配置：语义化方式描述任务需求，AI Engine 自动映射参数 */
+  taskProfile?: TaskProfile;
   /** 严格模式：API失败时抛出异常而不是返回错误内容 */
   strictMode?: boolean;
 }
@@ -2356,7 +2358,11 @@ Format the summary in a clear, structured manner using markdown.`;
     apiEndpoint?: string;
     systemPrompt?: string;
     messages: ChatMessage[];
+    /** ★ 推荐：使用 TaskProfile 描述任务需求，AI Engine 自动映射参数 */
+    taskProfile?: TaskProfile;
+    /** 直接指定 maxTokens（优先级高于 taskProfile） */
     maxTokens?: number;
+    /** 直接指定 temperature（优先级高于 taskProfile） */
     temperature?: number;
     displayName?: string; // AI member display name (e.g., "AI-Gemini (Image)")
     capabilities?: string[]; // AI capabilities (e.g., ["IMAGE_GENERATION", "TEXT_GENERATION"])
@@ -2369,12 +2375,35 @@ Format the summary in a clear, structured manner using markdown.`;
       apiEndpoint,
       systemPrompt,
       messages,
-      maxTokens = 2048,
-      temperature = 0.7,
+      taskProfile,
+      maxTokens: explicitMaxTokens,
+      temperature: explicitTemperature,
       displayName,
       capabilities = [], // AI capabilities for image generation decision
       enableSearch = true, // Enable search by default for normal conversations
     } = options;
+
+    // Map taskProfile to parameters if provided
+    let maxTokens: number;
+    let temperature: number;
+
+    if (explicitMaxTokens !== undefined || explicitTemperature !== undefined) {
+      // Explicit parameters have highest priority
+      maxTokens = explicitMaxTokens ?? 2048;
+      temperature = explicitTemperature ?? 0.7;
+    } else if (taskProfile) {
+      // Use taskProfile mapping
+      const profileParams = this.taskProfileMapper.mapToParameters(
+        taskProfile,
+        null, // No modelConfig for generateChatCompletionWithKey
+      );
+      maxTokens = profileParams.maxTokens;
+      temperature = profileParams.temperature;
+    } else {
+      // Default values
+      maxTokens = 2048;
+      temperature = 0.7;
+    }
 
     this.logger.debug(
       `Generating chat completion with key for provider: ${provider}, model: ${modelId}, apiKeyLength: ${apiKey?.length || 0}, endpoint: ${apiEndpoint}`,

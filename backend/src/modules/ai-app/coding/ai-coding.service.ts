@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { TaskProfile } from "../../ai-engine/llm/types";
 import {
   AiCodingProjectStatus,
   AiCodingAgentStatus,
@@ -883,15 +884,23 @@ Generate a PRD for this project.`;
           apiEndpoint: aiModel.apiEndpoint || undefined,
           systemPrompt,
           messages: [{ role: "user", content: userMessage }],
-          maxTokens: 4096,
-          temperature: 0.7,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "standard",
+          } as TaskProfile,
+          maxTokens: 4096, // Kept for backward compatibility
+          temperature: 0.7, // Kept for backward compatibility
           displayName: aiModel.displayName,
         })
       : await this.aiChatService.chat({
           messages: [{ role: "user", content: userMessage }],
           systemPrompt,
-          maxTokens: 4096,
-          temperature: 0.7,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "standard",
+          } as TaskProfile,
+          maxTokens: 4096, // Kept for backward compatibility
+          temperature: 0.7, // Kept for backward compatibility
         });
 
     try {
@@ -949,15 +958,23 @@ Design the technical architecture.`;
           apiEndpoint: aiModel.apiEndpoint || undefined,
           systemPrompt,
           messages: [{ role: "user", content: userMessage }],
-          maxTokens: 4096,
-          temperature: 0.7,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "standard",
+          } as TaskProfile,
+          maxTokens: 4096, // Kept for backward compatibility
+          temperature: 0.7, // Kept for backward compatibility
           displayName: aiModel.displayName,
         })
       : await this.aiChatService.chat({
           messages: [{ role: "user", content: userMessage }],
           systemPrompt,
-          maxTokens: 4096,
-          temperature: 0.7,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "standard",
+          } as TaskProfile,
+          maxTokens: 4096, // Kept for backward compatibility
+          temperature: 0.7, // Kept for backward compatibility
         });
 
     try {

@@ -283,10 +283,14 @@ Return valid JSON with: overview, category, subcategories, keyPoints, keywords, 
 export const PromptBestPractices = {
   /**
    * 调用 AI 服务时的建议参数
+   *
+   * TaskProfile 映射:
+   * - temperature: 0.7 → creativity: "medium"
+   * - maxTokens: 2000 → outputLength: "short"
    */
   requestDefaults: {
-    temperature: 0.7, // 平衡创意和准确性
-    maxTokens: 2000, // 足以容纳结构化输出
+    temperature: 0.7, // 平衡创意和准确性 (TaskProfile: creativity="medium")
+    maxTokens: 2000, // 足以容纳结构化输出 (TaskProfile: outputLength="short")
     topP: 0.9, // 多样性采样
     frequencyPenalty: 0.0,
     presencePenalty: 0.0,

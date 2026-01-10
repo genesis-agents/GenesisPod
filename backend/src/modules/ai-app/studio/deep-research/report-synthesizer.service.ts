@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { AIModelType } from "@prisma/client";
+import { TaskProfile } from "../../../ai-engine/llm/types";
 import {
   SearchRound,
   SearchSource,
@@ -253,8 +254,12 @@ export class ReportSynthesizerService {
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        maxTokens: 4000,
-        temperature: 0.7,
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "standard",
+        } as TaskProfile,
+        maxTokens: 4000, // Kept for backward compatibility
+        temperature: 0.7, // Kept for backward compatibility
       });
 
       return this.parseReportResponse(result.content);
@@ -282,8 +287,12 @@ export class ReportSynthesizerService {
         apiKey: model.apiKey ?? "",
         apiEndpoint: model.apiEndpoint ?? undefined,
         messages: [{ role: "user", content: prompt }],
-        maxTokens: 1500,
-        temperature: 0.7,
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "short",
+        } as TaskProfile,
+        maxTokens: 1500, // Kept for backward compatibility
+        temperature: 0.7, // Kept for backward compatibility
       });
 
       return result.content;

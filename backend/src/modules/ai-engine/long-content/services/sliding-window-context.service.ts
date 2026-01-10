@@ -22,6 +22,7 @@ import {
   DEFAULT_SLIDING_WINDOW_CONFIG,
 } from "../interfaces";
 import { AiChatService } from "../../llm/services/ai-chat.service";
+import { AIModelType } from "@prisma/client";
 
 @Injectable()
 export class SlidingWindowContextService {
@@ -307,7 +308,7 @@ ${recentSummariesText}
 
     try {
       const response = await this.aiChatService.chat({
-        model: "gpt-4o-mini",
+        modelType: AIModelType.CHAT_FAST,
         messages: [
           { role: "system", content: "你是一个专业的内容摘要助手。" },
           { role: "user", content: prompt },
@@ -419,7 +420,7 @@ ${projectInfo.description}
 
     try {
       const response = await this.aiChatService.chat({
-        model: "gpt-4o-mini",
+        modelType: AIModelType.CHAT_FAST,
         messages: [
           {
             role: "system",

@@ -19,6 +19,7 @@ import {
 } from "../../../ai-engine/agents/abstractions/agent.interface";
 import { ExecutionMode, BUILTIN_TOOLS } from "../../../ai-engine/core";
 import { WritingContextPackage } from "../interfaces/writing-context.interface";
+import { TaskProfile } from "../../../ai-engine/llm/types";
 
 // ==================== 输入输出类型 ====================
 
@@ -266,12 +267,22 @@ ${content.slice(0, 6000)}
 
 请检查内容中的角色描述是否与设定一致。`;
 
+    // 使用 TaskProfile 语义化描述任务特征
+    const taskProfile: TaskProfile = {
+      creativity: "deterministic", // 一致性检查需要严格准确 (原 temperature: 0.2)
+      outputLength: "short", // 检查结果相对简短
+    };
+
     const response = await this.callLLM(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      { temperature: 0.2 },
+      {
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
+        temperature: 0.2,
+      },
     );
 
     const parsedIssues = this.parseJsonResponse<ConsistencyIssue[]>(
@@ -318,12 +329,22 @@ ${content.slice(0, 5000)}
 
 请检查时间线一致性。`;
 
+    // 使用 TaskProfile 语义化描述任务特征
+    const taskProfile: TaskProfile = {
+      creativity: "deterministic", // 时间线检查需要严格准确 (原 temperature: 0.2)
+      outputLength: "short", // 检查结果相对简短
+    };
+
     const response = await this.callLLM(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      { temperature: 0.2 },
+      {
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
+        temperature: 0.2,
+      },
     );
 
     return this.parseJsonResponse<ConsistencyIssue[]>(
@@ -366,12 +387,22 @@ ${content.slice(0, 5000)}
 
 请检查是否有违反世界观规则的内容。`;
 
+    // 使用 TaskProfile 语义化描述任务特征
+    const taskProfile: TaskProfile = {
+      creativity: "deterministic", // 世界观检查需要严格准确 (原 temperature: 0.2)
+      outputLength: "short", // 检查结果相对简短
+    };
+
     const response = await this.callLLM(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      { temperature: 0.2 },
+      {
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
+        temperature: 0.2,
+      },
     );
 
     return this.parseJsonResponse<ConsistencyIssue[]>(
@@ -461,12 +492,22 @@ ${content.slice(0, 5000)}
 
 请检查剧情逻辑一致性。`;
 
+    // 使用 TaskProfile 语义化描述任务特征
+    const taskProfile: TaskProfile = {
+      creativity: "deterministic", // 剧情逻辑检查需要严格准确 (原 temperature: 0.2)
+      outputLength: "short", // 检查结果相对简短
+    };
+
     const response = await this.callLLM(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      { temperature: 0.2 },
+      {
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
+        temperature: 0.2,
+      },
     );
 
     return this.parseJsonResponse<ConsistencyIssue[]>(
@@ -514,12 +555,22 @@ ${content.slice(0, 6000)}
 
 请提取本章确立的重要事实。`;
 
+    // 使用 TaskProfile 语义化描述任务特征
+    const taskProfile: TaskProfile = {
+      creativity: "low", // 事实提取需要准确性 (原 temperature: 0.3)
+      outputLength: "short", // 提取结果相对简短
+    };
+
     const response = await this.callLLM(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      { temperature: 0.3 },
+      {
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
+        temperature: 0.3,
+      },
     );
 
     return this.parseJsonResponse<ConsistencyCheckerOutput["extractedFacts"]>(

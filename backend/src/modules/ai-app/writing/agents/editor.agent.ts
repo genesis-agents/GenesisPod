@@ -17,6 +17,7 @@ import {
 import { ExecutionMode, BUILTIN_TOOLS } from "../../../ai-engine/core";
 import { WritingContextPackage } from "../interfaces/writing-context.interface";
 import { ConsistencyIssue } from "./consistency-checker.agent";
+import { TaskProfile } from "../../../ai-engine/llm/types";
 
 // ==================== 输入输出类型 ====================
 
@@ -205,12 +206,20 @@ ${params.leaderFeedback ? `## Leader 反馈\n${params.leaderFeedback}` : ""}
 
 请修复以上问题，保持内容流畅。直接输出修复后的完整章节内容。`;
 
+    // 使用 TaskProfile 语义化描述任务特征
+    const taskProfile: TaskProfile = {
+      creativity: "medium", // 问题修复需要适度创造性 (原 temperature: 0.5)
+      outputLength: "long", // 章节内容较长 (原 maxTokens: 8192)
+    };
+
     const response = await this.callLLM(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       {
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
         temperature: 0.5,
         maxTokens: 8192,
       },
@@ -272,12 +281,20 @@ ${content}
 
 直接输出润色后的完整内容。`;
 
+    // 使用 TaskProfile 语义化描述任务特征
+    const taskProfile: TaskProfile = {
+      creativity: "medium", // 润色需要适度创造性 (原 temperature: 0.6)
+      outputLength: "long", // 章节内容较长 (原 maxTokens: 8192)
+    };
+
     const response = await this.callLLM(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       {
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
         temperature: 0.6,
         maxTokens: 8192,
       },
@@ -334,12 +351,20 @@ ${content}
 
 直接输出调整后的完整内容。`;
 
+    // 使用 TaskProfile 语义化描述任务特征
+    const taskProfile: TaskProfile = {
+      creativity: "medium", // 风格统一需要适度创造性 (原 temperature: 0.5)
+      outputLength: "long", // 章节内容较长 (原 maxTokens: 8192)
+    };
+
     const response = await this.callLLM(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       {
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
         temperature: 0.5,
         maxTokens: 8192,
       },
@@ -395,12 +420,20 @@ ${content}
 
 直接输出审核/修正后的完整内容。`;
 
+    // 使用 TaskProfile 语义化描述任务特征
+    const taskProfile: TaskProfile = {
+      creativity: "low", // 最终审核需要严格准确 (原 temperature: 0.3)
+      outputLength: "long", // 章节内容较长 (原 maxTokens: 8192)
+    };
+
     const response = await this.callLLM(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       {
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
         temperature: 0.3,
         maxTokens: 8192,
       },

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { TaskProfile } from "../../ai-engine/llm/types/task-profile";
 
 export interface FileInfo {
   id: string;
@@ -68,12 +69,19 @@ export class AiFileOrganizerService {
     const prompt = this.buildAnalysisPrompt(file);
 
     try {
+      // 定义任务配置：文件分类任务，需要低创意度和短输出
+      const taskProfile: TaskProfile = {
+        creativity: "low", // temperature: 0.3 - 分析任务
+        outputLength: "short", // maxTokens: 1500 (原 1000)
+      };
+
       const result = await this.aiChatService.generateChatCompletion({
         model: process.env.DEFAULT_AI_MODEL || "gemini",
         systemPrompt: this.getSystemPrompt(),
         messages: [{ role: "user", content: prompt }],
-        maxTokens: 1000,
-        temperature: 0.3,
+        taskProfile, // 使用任务配置
+        maxTokens: 1000, // 保持向后兼容
+        temperature: 0.3, // 保持向后兼容
       });
 
       const suggestion = this.parseAIResponse(result.content, file);

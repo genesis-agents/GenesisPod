@@ -14,6 +14,7 @@ import {
   AiChatService,
   ChatMessage,
 } from "../../../ai-engine/llm/services/ai-chat.service";
+import { TaskProfile } from "../../../ai-engine/llm/types";
 import { CodingTeamService, DefaultAIModel } from "./coding-team.service";
 import {
   CodingMissionService,
@@ -573,8 +574,12 @@ ${JSON.stringify(output, null, 2)}
       apiEndpoint: model.apiEndpoint ?? undefined,
       systemPrompt,
       messages,
-      maxTokens: 8192,
-      temperature: 0.7,
+      taskProfile: {
+        creativity: "medium",
+        outputLength: "long",
+      } as TaskProfile,
+      maxTokens: 8192, // Kept for backward compatibility
+      temperature: 0.7, // Kept for backward compatibility
     });
 
     return {

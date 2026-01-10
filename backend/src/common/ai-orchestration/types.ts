@@ -86,6 +86,18 @@ export interface AiCallInput {
   maxTokens?: number;
   temperature?: number;
 
+  // 任务配置：语义化方式描述任务需求，AI Engine 自动映射参数
+  taskProfile?: {
+    creativity?: "deterministic" | "low" | "medium" | "high";
+    outputLength?:
+      | "minimal"
+      | "short"
+      | "medium"
+      | "standard"
+      | "long"
+      | "extended";
+  };
+
   // 图像生成参数
   imageOptions?: {
     aspectRatio?: "16:9" | "4:3" | "1:1" | "9:16";

@@ -7,6 +7,7 @@ import {
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
 import { AIModelType } from "@prisma/client";
+import { TaskProfile } from "../../ai-engine/llm/types";
 import {
   FunctionCallingExecutor,
   ExecutionConfig,
@@ -427,8 +428,12 @@ export class AiAskService {
             apiKey: modelConfig.apiKey ?? "",
             apiEndpoint: modelConfig.apiEndpoint ?? undefined,
             messages: messagesWithSystem,
-            maxTokens: 4000,
-            temperature: 0.7,
+            taskProfile: {
+              creativity: "medium",
+              outputLength: "standard",
+            } as TaskProfile,
+            maxTokens: 4000, // Kept for backward compatibility
+            temperature: 0.7, // Kept for backward compatibility
           });
         aiResponseContent = aiResponse.content;
         tokensUsed = aiResponse.tokensUsed;
@@ -723,8 +728,12 @@ export class AiAskService {
           apiKey: modelConfig.apiKey ?? "",
           apiEndpoint: modelConfig.apiEndpoint ?? undefined,
           messages: contextMessages,
-          maxTokens: 4000,
-          temperature: 0.7,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "standard",
+          } as TaskProfile,
+          maxTokens: 4000, // Kept for backward compatibility
+          temperature: 0.7, // Kept for backward compatibility
         },
       );
 

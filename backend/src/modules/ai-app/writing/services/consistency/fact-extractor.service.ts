@@ -16,7 +16,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
+import { AIModelType } from "@prisma/client";
 import { ChapterWritingContext } from "../../interfaces/writing-context.interface";
+import { TaskProfile } from "../../../../ai-engine/llm/types";
 
 // ==================== 事实类型定义 ====================
 
@@ -264,10 +266,18 @@ export class FactExtractorService {
         .replace("{{content}}", chapterContent);
 
       // 调用 LLM 提取事实
+      // 使用 TaskProfile 语义化描述任务特征
+      const taskProfile: TaskProfile = {
+        creativity: "low", // 事实提取需要准确性而非创造性 (原 temperature: 0.3)
+        outputLength: "short", // 事实提取输出较短 (原 maxTokens: 2000)
+      };
+
       const response = await this.aiChatService.chat({
-        model: "gpt-4o", // 使用高能力模型进行准确提取
+        modelType: AIModelType.CHAT, // 需要高能力模型进行准确提取
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.3, // 低温度，保证稳定性
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
+        temperature: 0.3,
         maxTokens: 2000,
       });
 
@@ -474,10 +484,18 @@ export class FactExtractorService {
       ).replace("{{newFacts}}", JSON.stringify(newFacts, null, 2));
 
       // 调用 LLM 检测冲突
+      // 使用 TaskProfile 语义化描述任务特征
+      const taskProfile: TaskProfile = {
+        creativity: "deterministic", // 冲突检测需要严格判断 (原 temperature: 0.2)
+        outputLength: "short", // 冲突检测输出较短 (原 maxTokens: 1500)
+      };
+
       const response = await this.aiChatService.chat({
-        model: "gpt-4o",
+        modelType: AIModelType.CHAT, // 需要高能力模型进行准确判断
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.2, // 低温度，保证稳定判断
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
+        temperature: 0.2,
         maxTokens: 1500,
       });
 

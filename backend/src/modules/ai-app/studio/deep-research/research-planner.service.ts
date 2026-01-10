@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { AIModelType } from "@prisma/client";
+import { TaskProfile } from "../../../ai-engine/llm/types";
 import {
   ResearchPlan,
   ResearchPlanStep,
@@ -76,8 +77,10 @@ export class ResearchPlannerService {
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        maxTokens: 2000,
-        temperature: 0.7,
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "short",
+        } as TaskProfile,
       });
 
       const plan = this.parsePlanResponse(result.content, query);

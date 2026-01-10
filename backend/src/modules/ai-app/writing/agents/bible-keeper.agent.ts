@@ -21,6 +21,7 @@ import {
   CharacterStateSnapshot,
   TimelineEventEntry,
 } from "../interfaces/writing-context.interface";
+import { TaskProfile } from "../../../ai-engine/llm/types";
 
 // ==================== 输入输出类型 ====================
 
@@ -445,9 +446,19 @@ ${JSON.stringify(storyBible, null, 2).slice(0, 5000)}`;
   "suggestions": ["建议"]
 }`;
 
+    // 使用 TaskProfile 语义化描述任务特征
+    const taskProfile: TaskProfile = {
+      creativity: "low", // 设定验证需要准确性 (原 temperature: 0.3)
+      outputLength: "short", // 验证结果相对简短
+    };
+
     const response = await this.callLLM(
       this.buildMessages(userPrompt, { ...context, memory: undefined }),
-      { temperature: 0.3 },
+      {
+        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
+        // 保持向后兼容
+        temperature: 0.3,
+      },
     );
 
     const validation = this.parseJsonResponse<

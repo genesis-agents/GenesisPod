@@ -364,6 +364,7 @@ export abstract class BaseAgent<TInput = AgentInput, TOutput = AgentOutput>
       temperature?: number;
       maxTokens?: number;
       tools?: LLMToolDefinition[];
+      taskProfile?: import("../../llm/types").TaskProfile;
     },
   ): Promise<LLMResponse> {
     if (!this.llmAdapter) {

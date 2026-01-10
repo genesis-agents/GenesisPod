@@ -1023,6 +1023,7 @@ ${input.userPrompt}
     let worldSettings: Record<string, unknown> = {};
 
     try {
+      // ★ 不传 maxTokens，让 AI Engine 自动使用数据库配置
       const worldResponse = await this.aiChatService.chat({
         messages: [
           {
@@ -1035,7 +1036,7 @@ ${input.userPrompt}
         ],
         model: keeperModel,
         temperature: 0.7,
-        maxTokens: 8000,
+        // maxTokens: 由 AI Engine 自动从数据库获取
         strictMode: true, // ★ 严格模式：API失败直接抛异常，进入 catch 降级逻辑
       });
 
@@ -1431,6 +1432,7 @@ ${Array.from(
       );
 
       try {
+        // ★ 不传 maxTokens，让 AI Engine 自动使用数据库配置
         const outlineResponse = await this.aiChatService.chat({
           messages: [
             {
@@ -1443,7 +1445,7 @@ ${Array.from(
           ],
           model: currentModel,
           temperature: 0.7,
-          maxTokens: 8000,
+          // maxTokens: 由 AI Engine 自动从数据库获取
           strictMode: true, // ★ 严格模式：API失败直接抛异常进入 catch 重试
         });
 

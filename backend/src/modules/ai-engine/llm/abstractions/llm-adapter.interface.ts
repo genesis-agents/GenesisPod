@@ -96,6 +96,11 @@ export interface LLMRequestOptions {
   stream?: boolean;
 
   /**
+   * 任务配置（推荐使用，AI Engine 自动映射参数）
+   */
+  taskProfile?: import("../types").TaskProfile;
+
+  /**
    * 用户 ID (用于追踪)
    */
   userId?: string;

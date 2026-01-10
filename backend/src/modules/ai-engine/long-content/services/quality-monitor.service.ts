@@ -24,6 +24,7 @@ import {
 } from "../interfaces";
 import { hasStructuredEnding } from "../constants";
 import { AiChatService } from "../../llm/services/ai-chat.service";
+import { AIModelType } from "@prisma/client";
 
 /**
  * 项目质量存储
@@ -465,7 +466,7 @@ ${content.slice(0, 2000)}
 
     try {
       const response = await this.aiChatService.chat({
-        model: "gpt-4o-mini",
+        modelType: AIModelType.CHAT_FAST,
         messages: [
           {
             role: "system",

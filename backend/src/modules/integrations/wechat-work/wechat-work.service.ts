@@ -7,6 +7,7 @@ import {
   AiChatService,
   ChatMessage,
 } from "../../ai-engine/llm/services/ai-chat.service";
+import { TaskProfile } from "../../ai-engine/llm/types/task-profile";
 import { WechatDataSourceService } from "./wechat-data-source.service";
 import { UrlFetchService } from "../../ai-app/rag/services/url-fetch.service";
 
@@ -490,6 +491,12 @@ export class WechatWorkService {
 
     const messages: ChatMessage[] = [{ role: "user", content: userContent }];
 
+    // 定义任务配置：对话任务，需要中等创意和中等长度输出
+    const taskProfile: TaskProfile = {
+      creativity: "medium", // temperature: 0.7
+      outputLength: "short", // maxTokens: 1500 (原 2000，调整为短输出)
+    };
+
     // 调用 AI 服务
     const result = await this.aiChatService.generateChatCompletionWithKey({
       provider: defaultModel.provider,
@@ -498,8 +505,9 @@ export class WechatWorkService {
       apiEndpoint: defaultModel.apiEndpoint ?? undefined,
       systemPrompt,
       messages,
-      maxTokens: 2000,
-      temperature: 0.7,
+      taskProfile, // 使用任务配置
+      maxTokens: 2000, // 保持向后兼容
+      temperature: 0.7, // 保持向后兼容
     });
 
     return result.content;

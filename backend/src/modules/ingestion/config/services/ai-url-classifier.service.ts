@@ -503,6 +503,10 @@ Only include alternatives if there are other plausible classifications with conf
 
   /**
    * 调用 LLM 进行分类
+   *
+   * 任务配置映射 (TaskProfile equivalent):
+   * - creativity: "low" (temperature: 0.3) - URL分类需要确定性
+   * - outputLength: "minimal" (max_tokens: 500) - 简短的分类结果
    */
   private async callLLM(prompt: string): Promise<string> {
     const response = await firstValueFrom(
@@ -521,8 +525,8 @@ Only include alternatives if there are other plausible classifications with conf
               content: prompt,
             },
           ],
-          max_tokens: 500,
-          temperature: 0.3,
+          max_tokens: 500, // TaskProfile: outputLength="minimal"
+          temperature: 0.3, // TaskProfile: creativity="low"
         },
         {
           timeout: 30000,

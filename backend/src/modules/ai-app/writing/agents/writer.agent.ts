@@ -26,6 +26,8 @@ import {
 import { ExpressionMemoryService } from "../services/quality/expression-memory.service";
 import { CharacterPersonalityService } from "../services/quality/character-personality.service";
 import { HistoricalKnowledgeService } from "../services/quality/historical-knowledge.service";
+import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { TaskProfile } from "../../../ai-engine/llm/types";
 
 // ==================== 输入输出类型 ====================
 
@@ -117,6 +119,7 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     private readonly expressionMemory: ExpressionMemoryService,
     private readonly characterPersonality: CharacterPersonalityService,
     private readonly historicalKnowledge: HistoricalKnowledgeService,
+    private readonly aiChatService: AiChatService,
   ) {
     super();
   }
@@ -172,16 +175,22 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     const userPrompt = this.buildChapterPrompt(chapterContext, contextPackage);
 
     // 4. 调用 LLM 生成内容
-    const response = await this.callLLM(
-      [
+    // 使用 TaskProfile 语义化描述任务需求
+    const taskProfile: TaskProfile = {
+      creativity: "high", // 创作需要更高的创造性 (原 temperature: 0.8)
+      outputLength: "long", // 章节内容需要更多 tokens (原 maxTokens: 8192)
+    };
+
+    const response = await this.aiChatService.chat({
+      messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      {
-        temperature: 0.8, // 创作需要更高的创造性
-        maxTokens: 8192, // 章节内容需要更多 tokens
-      },
-    );
+      taskProfile,
+      // 保持向后兼容：如果 TaskProfile 映射失败，使用原始参数
+      temperature: 0.8,
+      maxTokens: 8192,
+    });
 
     const content = response.content || "";
 

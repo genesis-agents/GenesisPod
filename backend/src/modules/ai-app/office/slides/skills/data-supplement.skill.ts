@@ -572,6 +572,10 @@ ${resultsSummary}
         // model 留空，由 UniversalLLMAdapter 从数据库获取默认模型
         maxTokens: 1024,
         temperature: 0.2,
+        taskProfile: {
+          creativity: "deterministic",
+          outputLength: "short",
+        },
       });
 
       if (!response.content) {

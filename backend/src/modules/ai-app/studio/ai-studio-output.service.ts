@@ -8,6 +8,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { GenerateOutputDto, OutputTypeValue } from "./dto";
 import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { TaskProfile } from "../../ai-engine/llm/types";
 
 // Detailed prompt templates for each output type
 const PROMPT_TEMPLATES: Record<OutputTypeValue, string> = {
@@ -615,8 +616,12 @@ export class AiStudioOutputService {
         model,
         systemPrompt,
         messages: [{ role: "user", content: userPrompt }],
-        maxTokens: 4096, // Large token limit for comprehensive outputs
-        temperature: 0.3, // Lower temperature for more consistent JSON output
+        taskProfile: {
+          creativity: "low",
+          outputLength: "standard",
+        } as TaskProfile,
+        maxTokens: 4096, // Kept for backward compatibility
+        temperature: 0.3, // Kept for backward compatibility
       });
 
       this.logger.log(

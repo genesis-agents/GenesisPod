@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { AIModelType } from "@prisma/client";
+import { TaskProfile } from "../../../ai-engine/llm/types";
 import {
   SearchRound,
   SearchSource,
@@ -62,6 +63,11 @@ export class SelfReflectionService {
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "minimal",
+        } as TaskProfile,
+        // 保持向后兼容
         maxTokens: 1000,
         temperature: 0.5,
       });

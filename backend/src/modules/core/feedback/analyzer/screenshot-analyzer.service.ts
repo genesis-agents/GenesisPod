@@ -139,6 +139,10 @@ export class ScreenshotAnalyzerService {
 
   /**
    * 调用 Gemini Vision API
+   *
+   * 任务配置映射 (TaskProfile equivalent):
+   * - creativity: "low" (temperature: 0.3) - 截图分析需要准确提取信息
+   * - outputLength: "short" (maxOutputTokens: 1000) - 结构化分析结果
    */
   private async callGeminiVisionApi(
     modelName: string,
@@ -172,8 +176,8 @@ export class ScreenshotAnalyzerService {
           },
         ],
         generationConfig: {
-          maxOutputTokens: 1000,
-          temperature: 0.3,
+          maxOutputTokens: 1000, // TaskProfile: outputLength="short"
+          temperature: 0.3, // TaskProfile: creativity="low"
         },
       }),
     });
@@ -189,6 +193,10 @@ export class ScreenshotAnalyzerService {
 
   /**
    * 调用 OpenAI Vision API
+   *
+   * 任务配置映射 (TaskProfile equivalent):
+   * - creativity: "low" (temperature: 0.3) - 截图分析需要准确提取信息
+   * - outputLength: "short" (max_tokens: 1000) - 结构化分析结果
    */
   private async callOpenAIVisionApi(
     modelName: string,
@@ -220,8 +228,8 @@ export class ScreenshotAnalyzerService {
             ],
           },
         ],
-        max_tokens: 1000,
-        temperature: 0.3,
+        max_tokens: 1000, // TaskProfile: outputLength="short"
+        temperature: 0.3, // TaskProfile: creativity="low"
       }),
     });
 
