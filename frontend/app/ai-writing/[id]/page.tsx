@@ -99,6 +99,64 @@ function parseChapterContent(content: string): {
   return result;
 }
 
+// 安全地将 description 转换为字符串（处理可能是对象的情况）
+function safeStringifyDescription(
+  description: string | Record<string, unknown> | unknown
+): string {
+  if (!description) return '';
+  if (typeof description === 'string') return description;
+
+  // 如果是对象，尝试提取有意义的内容
+  if (typeof description === 'object' && description !== null) {
+    const obj = description as Record<string, unknown>;
+
+    // 尝试提取结构化内容
+    const parts: string[] = [];
+
+    // 处理常见的结构化字段
+    if (obj.settings && Array.isArray(obj.settings)) {
+      parts.push(
+        ...obj.settings.map((s: unknown) =>
+          typeof s === 'string' ? `[设定] ${s}` : ''
+        )
+      );
+    }
+    if (obj.events && Array.isArray(obj.events)) {
+      parts.push(
+        ...obj.events.map((e: unknown) =>
+          typeof e === 'string' ? `[事件] ${e}` : ''
+        )
+      );
+    }
+    if (obj.relations && Array.isArray(obj.relations)) {
+      parts.push(
+        ...obj.relations.map((r: unknown) =>
+          typeof r === 'string' ? `[关系] ${r}` : ''
+        )
+      );
+    }
+
+    // 如果提取到内容，返回格式化的字符串
+    if (parts.filter((p) => p).length > 0) {
+      return parts.filter((p) => p).join('\n');
+    }
+
+    // 如果有 content 或 text 字段，直接使用
+    if (typeof obj.content === 'string') return obj.content;
+    if (typeof obj.text === 'string') return obj.text;
+    if (typeof obj.description === 'string') return obj.description;
+
+    // 最后尝试 JSON 字符串化
+    try {
+      return JSON.stringify(description, null, 2);
+    } catch {
+      return String(description);
+    }
+  }
+
+  return String(description);
+}
+
 // 章节内容结构化显示组件
 function ChapterContentStructured({
   content,
@@ -3247,8 +3305,9 @@ export default function WritingProjectPage() {
                                               :
                                             </span>
                                             <span className="text-gray-600">
-                                              {setting.description ||
-                                                setting.name}
+                                              {safeStringifyDescription(
+                                                setting.description
+                                              ) || setting.name}
                                             </span>
                                           </div>
                                         ))}
@@ -3271,7 +3330,9 @@ export default function WritingProjectPage() {
                                                 '章节'
                                               }
                                               content={
-                                                setting.description ||
+                                                safeStringifyDescription(
+                                                  setting.description
+                                                ) ||
                                                 setting.name ||
                                                 ''
                                               }
