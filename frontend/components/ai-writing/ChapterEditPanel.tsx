@@ -345,9 +345,46 @@ export default function ChapterEditPanel({
                           type="text"
                           value={aiPrompt}
                           onChange={(e) => setAiPrompt(e.target.value)}
-                          placeholder="输入修改要求（可选）"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && aiPrompt.trim()) {
+                              e.preventDefault();
+                              // 智能检测操作类型
+                              const prompt = aiPrompt.toLowerCase();
+                              let operation: AiEditOperation = 'rewrite';
+                              if (
+                                prompt.includes('扩写') ||
+                                prompt.includes('expand') ||
+                                prompt.includes('扩展')
+                              ) {
+                                operation = 'expand';
+                              } else if (
+                                prompt.includes('缩写') ||
+                                prompt.includes('精简') ||
+                                prompt.includes('condense')
+                              ) {
+                                operation = 'condense';
+                              } else if (
+                                prompt.includes('润色') ||
+                                prompt.includes('polish') ||
+                                prompt.includes('优化')
+                              ) {
+                                operation = 'polish';
+                              } else if (
+                                prompt.includes('风格') ||
+                                prompt.includes('style')
+                              ) {
+                                operation = 'style_fix';
+                              }
+                              handleAiEdit(operation);
+                            }
+                          }}
+                          placeholder="输入要求后按回车执行（如：扩写到3000字）"
                           className="mb-2 w-full rounded border border-gray-200 px-2 py-1 text-sm"
+                          autoFocus
                         />
+                        <p className="mb-2 text-xs text-gray-400">
+                          按回车自动识别操作，或点击下方按钮选择
+                        </p>
                         <div className="grid grid-cols-2 gap-1">
                           {Object.entries(AI_OPERATIONS).map(
                             ([key, config]) => (

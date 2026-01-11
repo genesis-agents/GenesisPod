@@ -521,13 +521,18 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
                   : typeof rawError === 'object' && rawError?.message
                     ? rawError.message
                     : '任务执行失败';
+
+              // 如果是用户取消的，不显示为错误（这是预期行为）
+              const isCancelled =
+                errorMsg.toLowerCase().includes('cancelled') ||
+                errorMsg.includes('取消');
               set({
                 isMissionRunning: false,
                 missionProgress: 0,
                 missionMessage: '',
                 missionCompleted: false,
                 activeAgentIds: [],
-                error: errorMsg,
+                error: isCancelled ? null : errorMsg, // 取消时不设置 error
               });
               return;
             }
@@ -774,12 +779,17 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
                     : typeof rawError === 'object' && rawError?.message
                       ? rawError.message
                       : '写作任务失败';
+
+                // 如果是用户取消的，不显示为错误（这是预期行为）
+                const isCancelled =
+                  errorMsg.toLowerCase().includes('cancelled') ||
+                  errorMsg.includes('取消');
                 set({
                   isMissionRunning: false,
-                  missionMessage: errorMsg,
+                  missionMessage: isCancelled ? '' : errorMsg,
                   missionCompleted: false,
                   activeAgentIds: [],
-                  error: errorMsg,
+                  error: isCancelled ? null : errorMsg, // 取消时不设置 error
                 });
                 return;
               }
