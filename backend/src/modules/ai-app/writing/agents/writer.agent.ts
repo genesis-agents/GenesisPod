@@ -268,7 +268,13 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       maxTokens: 8192,
     });
 
-    const content = response.content || "";
+    let content = response.content || "";
+
+    // 4.5 后处理：清理可能的章节标题（兜底措施）
+    content = this.cleanChapterTitle(
+      content,
+      chapterContext.chapter.chapterNumber,
+    );
 
     // 5. 解析生成的内容
     const wordCount = this.countWords(content);
@@ -482,7 +488,59 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       // 非关键约束，失败不阻塞
     }
 
+    // 10. 时间线约束（确保时间连贯性）
+    try {
+      const timelineConstraints = this.buildTimelineConstraints(
+        chapterContext,
+        contextPackage,
+      );
+      if (timelineConstraints) {
+        parts.push(timelineConstraints);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[Writer] Failed to build timeline constraints: ${error}`,
+      );
+      // 非关键约束，失败不阻塞
+    }
+
     return parts.join("\n\n");
+  }
+
+  /**
+   * 构建时间线约束，确保章节与已发生事件保持一致
+   */
+  private buildTimelineConstraints(
+    chapterContext: ChapterWritingContext,
+    _contextPackage: WritingContextPackage,
+  ): string | null {
+    const timelineEvents = chapterContext.timelineContext || [];
+    if (timelineEvents.length === 0) {
+      return null;
+    }
+
+    // 获取最近的关键事件（按重要程度排序）
+    const recentEvents = timelineEvents
+      .filter((e) => e.importance >= 3) // 只取重要程度 3 以上的事件
+      .slice(-10); // 最多10个
+
+    if (recentEvents.length === 0) {
+      return null;
+    }
+
+    let prompt = `## 时间线约束（必须遵守）\n\n`;
+    prompt += `以下是到目前为止发生的重要事件，本章内容不得与之矛盾：\n\n`;
+
+    for (const event of recentEvents) {
+      prompt += `- 【${event.storyTime}】${event.eventName}：${event.description}\n`;
+    }
+
+    prompt += `\n⚠️ 注意：\n`;
+    prompt += `- 不要让已死亡的角色复活（除非有特殊剧情）\n`;
+    prompt += `- 角色状态（如受伤、中毒等）应延续之前的设定\n`;
+    prompt += `- 时间推进应合理，不能出现时间错乱\n`;
+
+    return prompt;
   }
 
   /**
@@ -610,12 +668,22 @@ ${(contextPackage.establishedFacts || [])
   .map((f) => `- ${f.statement}`)
   .join("\n")}
 
-## 输出要求
-- 直接输出章节正文，无需额外标记
-- 保持叙事流畅，情节连贯
-- 对话要符合角色性格
-- 描写要符合世界观设定
-- 避免使用禁用表达列表中的词汇
+## 输出格式要求（严格执行）
+- ⛔ 禁止在正文开头添加章节标题（如"第X章 XXX"、"## 第X章"等）
+- ⛔ 禁止使用 Markdown 标题标记（#、##、###）
+- ✅ 直接从第一段正文开始，以场景或动作切入
+- ✅ 保持叙事流畅，情节连贯
+- ✅ 对话要符合角色性格
+- ✅ 描写要符合世界观设定
+- ✅ 避免使用禁用表达列表中的词汇
+
+示例正确开头：
+✅ "那种冷，不是空调房里的恒温凉意..."
+✅ "苏清婉站在殿前，目光落在..."
+
+示例错误开头：
+❌ "第一章 暴室惊魂\n那种冷..."
+❌ "## 第二章 血色铅粉\n刺鼻的铅粉气息..."
 
 ## 章节结尾禁忌（严格禁止）
 - 禁止在章节结尾使用总结性旁白，如"她知道，未来的斗争才刚刚开始"
@@ -849,6 +917,65 @@ ${writingInstructions.additionalInstructions || ""}
     }
 
     return constraints;
+  }
+
+  /**
+   * 清理章节标题（后处理兜底）
+   * LLM 有时会在正文开头加上章节标题，需要移除以保持格式一致
+   */
+  private cleanChapterTitle(content: string, chapterNumber: number): string {
+    // 匹配各种章节标题格式：
+    // - "第一章 XXX"
+    // - "## 第二章 XXX"
+    // - "### 第三章 XXX"
+    // - "第X章：XXX"
+    // - 纯数字章节 "Chapter 1: XXX"
+    const patterns = [
+      // Markdown 标题 + 中文章节
+      /^#{1,6}\s*第[一二三四五六七八九十百千\d]+章[：:\s][^\n]*\n+/,
+      // 纯中文章节标题
+      /^第[一二三四五六七八九十百千\d]+章[：:\s][^\n]*\n+/,
+      // 章节号匹配当前章节
+      new RegExp(
+        `^#{0,6}\\s*第${this.numberToChinese(chapterNumber)}章[：:\\s][^\\n]*\\n+`,
+      ),
+      // 英文章节格式
+      /^#{1,6}\s*Chapter\s+\d+[：:\s][^\n]*\n+/i,
+    ];
+
+    let cleaned = content.trim();
+    for (const pattern of patterns) {
+      cleaned = cleaned.replace(pattern, "");
+    }
+
+    return cleaned.trim();
+  }
+
+  /**
+   * 数字转中文（用于章节标题匹配）
+   */
+  private numberToChinese(num: number): string {
+    const chars = [
+      "零",
+      "一",
+      "二",
+      "三",
+      "四",
+      "五",
+      "六",
+      "七",
+      "八",
+      "九",
+      "十",
+    ];
+    if (num <= 10) return chars[num];
+    if (num < 20) return `十${chars[num - 10]}`;
+    if (num < 100) {
+      const tens = Math.floor(num / 10);
+      const ones = num % 10;
+      return `${chars[tens]}十${ones > 0 ? chars[ones] : ""}`;
+    }
+    return num.toString();
   }
 
   /**

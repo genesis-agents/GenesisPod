@@ -3815,45 +3815,85 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
         } catch (parseError) {
           // 如果解析失败，记录详细错误信息
           this.logger.warn(
-            `[${missionId}] JSON parse failed: ${(parseError as Error).message}`,
+            `[${missionId}] JSON parse failed (attempt 1): ${(parseError as Error).message}`,
           );
           this.logger.warn(
             `[${missionId}] Failed JSON string (first 300 chars): ${jsonStr.slice(0, 300)}`,
           );
 
-          // 【改进】尝试从文本中提取角色名（即使JSON解析失败）
-          const characterNameMatches = content.match(/"name"\s*:\s*"([^"]+)"/g);
-          const extractedNames = characterNameMatches
-            ? characterNameMatches
-                .map((m) => {
-                  const nameMatch = m.match(/"name"\s*:\s*"([^"]+)"/);
-                  return nameMatch ? nameMatch[1] : null;
-                })
-                .filter((n): n is string => n !== null)
-            : [];
+          // 【重试机制】尝试让 LLM 修复 JSON
+          try {
+            this.logger.log(`[${missionId}] Attempting JSON repair via LLM...`);
+            const repairResponse = await this.aiChatService.chat({
+              messages: [
+                {
+                  role: "system",
+                  content:
+                    "你是 JSON 修复专家。修复以下 JSON 使其可被解析，只输出有效的 JSON，不要添加任何解释。",
+                },
+                {
+                  role: "user",
+                  content: `修复以下 JSON（保持原有数据结构）：\n\n${jsonStr.slice(0, 2000)}`,
+                },
+              ],
+              model: keeperModel,
+              temperature: 0.1,
+              maxTokens: 1500,
+            });
 
-          if (extractedNames.length > 0) {
-            this.logger.log(
-              `[${missionId}] Partial extraction found ${extractedNames.length} character names: ${extractedNames.join(", ")}`,
+            const repairedJson =
+              repairResponse.content?.match(/\{[\s\S]*\}/)?.[0];
+            if (repairedJson) {
+              parsed = JSON.parse(repairedJson) as BibleUpdateParsed;
+              this.logger.log(
+                `[${missionId}] JSON repair successful: ` +
+                  `newCharacters=${parsed.newCharacters?.length || 0}`,
+              );
+            } else {
+              throw new Error("Repair response did not contain valid JSON");
+            }
+          } catch (repairError) {
+            // 重试也失败，使用部分提取作为最后手段
+            this.logger.warn(
+              `[${missionId}] JSON repair failed: ${(repairError as Error).message}`,
             );
-          }
 
-          // 返回空更新而不是抛出错误
-          parsed = {
-            newCharacters:
-              extractedNames.length > 0
-                ? extractedNames.map((name) => ({
-                    name,
-                    role: "MINOR",
-                    description: `在第${chapterNumber}章出现`,
-                    firstAppearance: chapterNumber,
-                  }))
-                : [],
-            characterUpdates: [],
-            timelineEvents: [],
-            newSettings: [],
-            newRelationships: [],
-          };
+            // 【改进】尝试从文本中提取角色名（即使JSON解析失败）
+            const characterNameMatches = content.match(
+              /"name"\s*:\s*"([^"]+)"/g,
+            );
+            const extractedNames = characterNameMatches
+              ? characterNameMatches
+                  .map((m) => {
+                    const nameMatch = m.match(/"name"\s*:\s*"([^"]+)"/);
+                    return nameMatch ? nameMatch[1] : null;
+                  })
+                  .filter((n): n is string => n !== null)
+              : [];
+
+            if (extractedNames.length > 0) {
+              this.logger.log(
+                `[${missionId}] Partial extraction found ${extractedNames.length} character names: ${extractedNames.join(", ")}`,
+              );
+            }
+
+            // 返回部分提取结果
+            parsed = {
+              newCharacters:
+                extractedNames.length > 0
+                  ? extractedNames.map((name) => ({
+                      name,
+                      role: "MINOR",
+                      description: `在第${chapterNumber}章出现`,
+                      firstAppearance: chapterNumber,
+                    }))
+                  : [],
+              characterUpdates: [],
+              timelineEvents: [],
+              newSettings: [],
+              newRelationships: [],
+            };
+          }
         }
 
         // 将 characterUpdates 统一转换为 string[]
@@ -4591,6 +4631,31 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
                 (c) => c.role === "protagonist" || c.role === "antagonist",
               );
 
+        // 【关键修复】获取前文上下文，确保 Writer Agent 知道之前发生了什么
+        const previousChapters = await this.prisma.writingChapter.findMany({
+          where: {
+            volumeId: chapter.volumeId,
+            chapterNumber: { lt: chapter.chapterNumber },
+            content: { not: null },
+          },
+          orderBy: { chapterNumber: "desc" },
+          take: 5, // 最近5章
+          select: {
+            chapterNumber: true,
+            title: true,
+            content: true,
+          },
+        });
+
+        // 构建前情提要（从正文提取摘要）
+        const previousContext = previousChapters.reverse().map((prevChap) => ({
+          chapterNumber: prevChap.chapterNumber,
+          title: prevChap.title,
+          summary: prevChap.content
+            ? this.extractSummaryFromContent(prevChap.content)
+            : "（无内容）",
+        }));
+
         contextPackage.extensions.chapterContext = {
           chapter: {
             id: chapter.id,
@@ -4600,7 +4665,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
             volumeId: chapter.volumeId,
             volumeTitle: chapter.volume?.title,
           },
-          previousContext: [],
+          previousContext,
           involvedCharacters: finalInvolvedCharacters,
           relevantWorldSettings: storyBibleExtensions.worldSettings,
           relevantTerminology: storyBibleExtensions.terminologies,
@@ -4610,6 +4675,36 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
     }
 
     return contextPackage;
+  }
+
+  /**
+   * 从章节内容中提取摘要（简单截取关键段落）
+   * 用于当章节没有手动摘要时的兜底方案
+   */
+  private extractSummaryFromContent(content: string): string {
+    // 截取前500字作为简单摘要
+    const maxLength = 500;
+    const cleaned = content
+      .replace(/\n{2,}/g, "\n") // 合并多余换行
+      .trim();
+
+    if (cleaned.length <= maxLength) {
+      return cleaned;
+    }
+
+    // 尝试在句号、问号、感叹号处截断
+    const truncated = cleaned.slice(0, maxLength);
+    const lastSentenceEnd = Math.max(
+      truncated.lastIndexOf("。"),
+      truncated.lastIndexOf("？"),
+      truncated.lastIndexOf("！"),
+    );
+
+    if (lastSentenceEnd > maxLength * 0.6) {
+      return truncated.slice(0, lastSentenceEnd + 1) + "...";
+    }
+
+    return truncated + "...";
   }
 
   /**
