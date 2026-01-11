@@ -2324,6 +2324,148 @@ ${editNarrativeConstraints}`;
         chapterContent = `第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}\n\n${chapterContent}`;
       }
 
+      // ★★★ 第一章开篇质量强化：必须有强钩子 ★★★
+      if (chapterNumber === 1) {
+        // 提取开篇（跳过章节标题，取正文前300字）
+        const contentWithoutTitle = chapterContent
+          .replace(/^第[一二三四五六七八九十百千万]+章.*?\n+/, "")
+          .trim();
+        const opening = contentWithoutTitle.slice(0, 300);
+
+        const openingQuality = this.openingHook.analyzeOpeningQuality(opening);
+        this.logger.log(
+          `[${missionId}] Chapter 1 opening quality: score=${openingQuality.score}, hasHook=${openingQuality.hasHook}, type=${openingQuality.hookType || "none"}`,
+        );
+
+        // 开篇评分低于70，需要重写开篇
+        const OPENING_QUALITY_THRESHOLD = 70;
+        if (openingQuality.score < OPENING_QUALITY_THRESHOLD) {
+          this.logger.warn(
+            `[${missionId}] Chapter 1 opening below threshold (${openingQuality.score}/${OPENING_QUALITY_THRESHOLD}), rewriting opening...`,
+          );
+
+          await this.eventEmitter.emitAgentWorking(input.projectId, {
+            agentId: "opening-enhancer",
+            agentName: "开篇强化师",
+            agentRole: "writer",
+            status: "working",
+            taskDescription: `开篇钩子评分${openingQuality.score}分，正在重写以增强吸引力`,
+          });
+
+          // 获取第一章专属的强化开篇约束
+          const firstChapterGuidance =
+            this.openingHook.generateOpeningConstraints(1, undefined);
+
+          const openingRewritePrompt = `请重写以下第一章的开篇部分（前3-5段），使其具有更强的吸引力。
+
+【当前开篇】
+${opening}
+
+【问题诊断】
+${openingQuality.issues.map((i) => `- ${i}`).join("\n")}
+
+【强化要求】
+${firstChapterGuidance}
+
+【示例开篇】
+- "斗之力，三段！" —— 冲突对话，直接揭示困境
+- 那种冷，不是空调房里的凉意，而是一种湿冷，像无数条冰冷的小蛇顺着骨缝往里钻 —— 感官沉浸
+- 他睁开眼，看到的是一把架在脖子上的刀 —— 极端困境
+
+【输出要求】
+1. 只输出重写后的开篇（前3-5段），不要输出完整章节
+2. 第一句必须有钩子：冲突对话、危机情境、或强烈感官体验
+3. 不要以世界观介绍或环境描写开头
+4. 让读者立刻关心主角的处境`;
+
+          try {
+            const openingRewriteResponse = await this.aiChatService.chat({
+              messages: [
+                {
+                  role: "system",
+                  content: `你是专业的网文开篇优化专家。你的任务是将平淡的开篇重写为有强烈吸引力的版本。
+
+参考经典开篇技巧：
+1. 冲突对话式：以揭示主角困境的对话开始（如《斗破苍穹》）
+2. 感官沉浸式：用强烈的触觉/嗅觉/听觉体验开场
+3. 极端困境式：开篇即是生死危机
+
+绝对禁止：
+- 用"在一个XX的世界里"开头
+- 用"故事要从XX说起"开头
+- 用大段世界观介绍开头
+- 用"突然"、"忽然"等词汇`,
+                },
+                { role: "user", content: openingRewritePrompt },
+              ],
+              model: writerModel,
+              temperature: 0.85,
+              maxTokens: 2000,
+            });
+
+            if (
+              openingRewriteResponse.content &&
+              openingRewriteResponse.content.length > 100
+            ) {
+              // 替换原开篇
+              const newOpening = openingRewriteResponse.content.trim();
+              // 找到原开篇结束位置（大约300字后的句号）
+              const openingEndMatch = contentWithoutTitle
+                .slice(0, 500)
+                .match(/[。！？\n]{1,2}/g);
+              let openingEndIndex = 300;
+              if (openingEndMatch && openingEndMatch.length >= 3) {
+                // 找第3个句子结束的位置
+                let count = 0;
+                for (
+                  let i = 0;
+                  i < contentWithoutTitle.length && count < 3;
+                  i++
+                ) {
+                  if (
+                    contentWithoutTitle[i] === "。" ||
+                    contentWithoutTitle[i] === "！" ||
+                    contentWithoutTitle[i] === "？"
+                  ) {
+                    count++;
+                    if (count === 3) {
+                      openingEndIndex = i + 1;
+                      break;
+                    }
+                  }
+                }
+              }
+
+              const restOfContent = contentWithoutTitle.slice(openingEndIndex);
+              chapterContent = `第${this.numberToChinese(chapterNumber)}章 ${chapterInfo.title}\n\n${newOpening}\n\n${restOfContent}`;
+
+              // 验证重写后的开篇质量
+              const newOpeningQuality =
+                this.openingHook.analyzeOpeningQuality(newOpening);
+              this.logger.log(
+                `[${missionId}] Chapter 1 opening rewritten: ${openingQuality.score} → ${newOpeningQuality.score}`,
+              );
+
+              await this.eventEmitter.emitAgentWorking(input.projectId, {
+                agentId: "opening-enhancer",
+                agentName: "开篇强化师",
+                agentRole: "writer",
+                status: "completed",
+                taskDescription: `开篇强化完成：${openingQuality.score}→${newOpeningQuality.score}分`,
+              });
+            }
+          } catch (openingError) {
+            this.logger.warn(
+              `[${missionId}] Opening rewrite failed: ${(openingError as Error).message}`,
+            );
+          }
+        } else {
+          this.logger.log(
+            `[${missionId}] Chapter 1 opening quality passed (${openingQuality.score})`,
+          );
+        }
+      }
+
       // ★★★ 质量门禁：强制执行表达冷却，违规过多则重写 ★★★
       const chapterId = `${input.projectId}-chapter-${chapterNumber}`;
       let rewriteAttempts = 0;
@@ -5679,6 +5821,90 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
         chapterContent =
           retryResponse.content ||
           `第${this.numberToChinese(chapter.chapterNumber)}章 ${chapter.title}\n\n（创作中...）`;
+      }
+
+      // ★★★ 第一章开篇质量强化（续写模式也需要）★★★
+      if (chapter.chapterNumber === 1) {
+        const contentWithoutTitle = chapterContent
+          .replace(/^第[一二三四五六七八九十百千万]+章.*?\n+/, "")
+          .trim();
+        const opening = contentWithoutTitle.slice(0, 300);
+        const openingQuality = this.openingHook.analyzeOpeningQuality(opening);
+
+        this.logger.log(
+          `[${missionId}] Chapter 1 opening quality: score=${openingQuality.score}`,
+        );
+
+        const OPENING_QUALITY_THRESHOLD = 70;
+        if (openingQuality.score < OPENING_QUALITY_THRESHOLD) {
+          this.logger.warn(
+            `[${missionId}] Chapter 1 opening below threshold, rewriting...`,
+          );
+
+          const firstChapterGuidance =
+            this.openingHook.generateOpeningConstraints(1, undefined);
+
+          try {
+            const openingRewriteResponse = await this.aiChatService.chat({
+              messages: [
+                {
+                  role: "system",
+                  content: `你是专业的网文开篇优化专家。重写开篇使其具有强烈吸引力。
+
+参考技巧：冲突对话式、感官沉浸式、极端困境式
+
+禁止：用"在一个XX的世界里"开头、世界观介绍开头`,
+                },
+                {
+                  role: "user",
+                  content: `请重写以下开篇（前3-5段）：
+
+【当前开篇】${opening}
+
+【问题】${openingQuality.issues.join("、")}
+
+【要求】${firstChapterGuidance}
+
+只输出重写后的开篇。`,
+                },
+              ],
+              model: writerModel,
+              temperature: 0.85,
+              maxTokens: 2000,
+            });
+
+            if (
+              openingRewriteResponse.content &&
+              openingRewriteResponse.content.length > 100
+            ) {
+              const newOpening = openingRewriteResponse.content.trim();
+              let openingEndIndex = 300;
+              let count = 0;
+              for (
+                let i = 0;
+                i < contentWithoutTitle.length && count < 3;
+                i++
+              ) {
+                if (/[。！？]/.test(contentWithoutTitle[i])) {
+                  count++;
+                  if (count === 3) {
+                    openingEndIndex = i + 1;
+                    break;
+                  }
+                }
+              }
+              const restOfContent = contentWithoutTitle.slice(openingEndIndex);
+              chapterContent = `第${this.numberToChinese(chapter.chapterNumber)}章 ${chapter.title}\n\n${newOpening}\n\n${restOfContent}`;
+              this.logger.log(
+                `[${missionId}] Chapter 1 opening rewritten successfully`,
+              );
+            }
+          } catch (e) {
+            this.logger.warn(
+              `[${missionId}] Opening rewrite failed: ${(e as Error).message}`,
+            );
+          }
+        }
       }
 
       const chapterWordCount = this.countWords(chapterContent);
