@@ -917,6 +917,8 @@ export class WritingMissionService {
           input,
           generatedContent,
           totalWordCount,
+          missionId,
+          modelToUse,
         );
 
         // 更新数据库为成功状态
@@ -4766,11 +4768,16 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
   /**
    * 保存生成的内容到 Volume/Chapter
    * 这是关键步骤，确保 UI 能够显示生成的内容
+   *
+   * @param missionId - 任务ID，用于日志和 Story Bible 更新
+   * @param modelId - 模型ID，用于 Story Bible 更新的 LLM 调用
    */
   private async saveGeneratedContent(
     input: WritingMissionInput,
     content: string,
     wordCount: number,
+    missionId?: string,
+    modelId?: string,
   ): Promise<void> {
     try {
       // 跳过完成标记，不需要保存
@@ -4798,13 +4805,61 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
       } else if (input.missionType === "chapter" && input.chapterId) {
         // 单章节: 更新指定章节
         await this.updateChapterContent(input.chapterId, content, wordCount);
+        // ★ 单章模式也需要更新 Story Bible
+        if (missionId && modelId) {
+          const chapter = await this.prisma.writingChapter.findUnique({
+            where: { id: input.chapterId },
+            select: { chapterNumber: true },
+          });
+          if (chapter) {
+            await this.updateStoryBibleAfterChapter(
+              input.projectId,
+              missionId,
+              chapter.chapterNumber,
+              content,
+              {},
+              modelId,
+            );
+          }
+        }
       } else if (input.missionType === "chapter" && input.volumeId) {
         // 新章节: 在卷中创建新章节
         await this.createNewChapter(input.volumeId, content, wordCount);
+        // ★ 新章节也需要更新 Story Bible
+        if (missionId && modelId) {
+          const chapterCount = await this.prisma.writingChapter.count({
+            where: { volumeId: input.volumeId },
+          });
+          await this.updateStoryBibleAfterChapter(
+            input.projectId,
+            missionId,
+            chapterCount, // 刚创建的章节号
+            content,
+            {},
+            modelId,
+          );
+        }
       } else if (input.missionType === "edit") {
         // @Leader 编辑调整：更新指定章节或创建新的修订版本
         if (input.chapterId) {
           await this.updateChapterContent(input.chapterId, content, wordCount);
+          // ★ 编辑模式也需要更新 Story Bible
+          if (missionId && modelId) {
+            const chapter = await this.prisma.writingChapter.findUnique({
+              where: { id: input.chapterId },
+              select: { chapterNumber: true },
+            });
+            if (chapter) {
+              await this.updateStoryBibleAfterChapter(
+                input.projectId,
+                missionId,
+                chapter.chapterNumber,
+                content,
+                {},
+                modelId,
+              );
+            }
+          }
         } else {
           // 没有指定章节时，将编辑结果保存到项目的最新卷/章节
           await this.saveEditToLatestContent(
@@ -5632,6 +5687,16 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
           status: "FINAL",
         },
       });
+
+      // ★★★ 守护者更新故事圣经（续写模式也需要！）★★★
+      await this.updateStoryBibleAfterChapter(
+        input.projectId,
+        missionId,
+        chapter.chapterNumber,
+        chapterContent,
+        worldSettings || {},
+        writerModel,
+      );
 
       // 保存日志
       await this.saveMissionLog(
