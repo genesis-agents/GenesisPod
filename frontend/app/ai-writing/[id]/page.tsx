@@ -2701,27 +2701,41 @@ export default function WritingProjectPage() {
                           </div>
                         )}
 
-                        {/* World Settings */}
+                        {/* World Settings - 结构化显示 */}
                         {storyBible.worldSettings &&
                           storyBible.worldSettings.filter(
                             (s) => s.name && s.description
                           ).length > 0 && (
                             <div className="rounded-xl bg-green-50 p-4">
-                              <h3 className="mb-2 flex items-center gap-2 font-medium text-green-800">
+                              <h3 className="mb-3 flex items-center gap-2 font-medium text-green-800">
                                 <span>🗺️</span> 世界设定
                               </h3>
-                              <div className="space-y-2">
+                              <div className="space-y-3">
                                 {storyBible.worldSettings
                                   .filter((s) => s.name && s.description)
                                   .map((setting) => (
                                     <div
                                       key={setting.id}
-                                      className="text-sm text-green-700"
+                                      className="rounded-lg border border-green-200 bg-white/70 p-3"
                                     >
-                                      <span className="font-medium">
-                                        {setting.category || setting.name}:
-                                      </span>{' '}
-                                      {setting.description}
+                                      <div className="mb-1.5 flex items-center gap-2">
+                                        <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                                          {setting.category || setting.name}
+                                        </span>
+                                      </div>
+                                      <div className="whitespace-pre-wrap text-sm leading-relaxed text-green-800">
+                                        {setting.description
+                                          .split(/[。！？\n]/)
+                                          .filter((s) => s.trim())
+                                          .map((sentence, idx) => (
+                                            <p key={idx} className="mb-1.5">
+                                              {sentence.trim()}
+                                              {!/[。！？]$/.test(
+                                                sentence.trim()
+                                              ) && '。'}
+                                            </p>
+                                          ))}
+                                      </div>
                                     </div>
                                   ))}
                               </div>
