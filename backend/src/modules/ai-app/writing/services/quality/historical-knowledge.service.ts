@@ -2320,4 +2320,127 @@ export class HistoricalKnowledgeService implements OnModuleInit {
       byCategory: categoryStats,
     };
   }
+
+  // ==================== 朝代识别 ====================
+
+  /**
+   * 支持的朝代列表及其关键词映射
+   * 键：知识库中存储的朝代名称
+   * 值：用于匹配的关键词列表
+   */
+  private static readonly DYNASTY_KEYWORDS: Record<string, string[]> = {
+    秦朝: ["秦", "秦朝", "秦代", "大秦", "秦始皇", "嬴政"],
+    汉朝: [
+      "汉",
+      "汉朝",
+      "汉代",
+      "西汉",
+      "东汉",
+      "两汉",
+      "大汉",
+      "汉武帝",
+      "汉高祖",
+      "刘邦",
+      "刘彻",
+    ],
+    三国: ["三国", "曹魏", "蜀汉", "东吴", "魏蜀吴", "曹操", "刘备", "孙权"],
+    晋朝: ["晋", "晋朝", "晋代", "西晋", "东晋", "两晋", "司马"],
+    南北朝: [
+      "南北朝",
+      "南朝",
+      "北朝",
+      "刘宋",
+      "南齐",
+      "南梁",
+      "南陈",
+      "北魏",
+      "北周",
+      "北齐",
+    ],
+    隋朝: ["隋", "隋朝", "隋代", "大隋", "杨坚", "杨广", "隋炀帝"],
+    唐朝: [
+      "唐",
+      "唐朝",
+      "唐代",
+      "大唐",
+      "盛唐",
+      "晚唐",
+      "李世民",
+      "武则天",
+      "唐太宗",
+    ],
+    五代十国: [
+      "五代",
+      "十国",
+      "五代十国",
+      "后梁",
+      "后唐",
+      "后晋",
+      "后汉",
+      "后周",
+    ],
+    宋朝: ["宋", "宋朝", "宋代", "北宋", "南宋", "两宋", "大宋", "赵匡胤"],
+    元朝: ["元", "元朝", "元代", "大元", "蒙元", "忽必烈", "成吉思汗"],
+    明朝: [
+      "明",
+      "明朝",
+      "明代",
+      "大明",
+      "朱元璋",
+      "永乐",
+      "嘉靖",
+      "万历",
+      "崇祯",
+    ],
+    清朝: [
+      "清",
+      "清朝",
+      "清代",
+      "大清",
+      "满清",
+      "康熙",
+      "雍正",
+      "乾隆",
+      "慈禧",
+    ],
+  };
+
+  /**
+   * 从世界类型描述中智能识别朝代
+   * @param worldType 项目的世界类型描述，如 "半架空历史（基于西汉实录）"
+   * @returns 知识库中对应的朝代名称，如 "汉朝"；未匹配则返回 null
+   */
+  detectDynastyFromWorldType(
+    worldType: string | undefined | null,
+  ): string | null {
+    if (!worldType) {
+      return null;
+    }
+
+    // 遍历所有朝代关键词，找到匹配的朝代
+    for (const [dynasty, keywords] of Object.entries(
+      HistoricalKnowledgeService.DYNASTY_KEYWORDS,
+    )) {
+      for (const keyword of keywords) {
+        if (worldType.includes(keyword)) {
+          this.logger.debug(
+            `[HistoricalKnowledge] Detected dynasty "${dynasty}" from worldType "${worldType}" (matched: "${keyword}")`,
+          );
+          return dynasty;
+        }
+      }
+    }
+
+    this.logger.warn(
+      `[HistoricalKnowledge] Could not detect dynasty from worldType: "${worldType}"`,
+    );
+    return null;
+  }
+
+  /**
+   * 获取所有支持的朝代列表
+   */
+  getSupportedDynasties(): string[] {
+    return Object.keys(HistoricalKnowledgeService.DYNASTY_KEYWORDS);
+  }
 }

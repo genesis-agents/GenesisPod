@@ -448,18 +448,29 @@ ${content.slice(-500)}
       throw error;
     }
 
-    // 4. 历史知识约束
+    // 4. 历史知识约束（支持完整中国历史）
     try {
-      // 从项目设置中获取朝代（假设存储在 worldType 中）
-      const dynasty = contextPackage.extensions.storyBible.worldType;
-      if (dynasty && (dynasty.includes("明") || dynasty.includes("清"))) {
+      // 使用知识库的智能朝代识别，支持所有朝代
+      const worldType = contextPackage.extensions.storyBible.worldType;
+      const detectedDynasty =
+        this.historicalKnowledge.detectDynastyFromWorldType(worldType);
+
+      if (detectedDynasty) {
+        this.logger.log(
+          `[Writer] Detected dynasty "${detectedDynasty}" from worldType "${worldType}"`,
+        );
         const historicalPrompt =
           await this.historicalKnowledge.generateHistoricalConstraintPrompt(
-            dynasty.includes("明") ? "明朝" : "清朝",
+            detectedDynasty,
           );
         if (historicalPrompt) {
           parts.push(historicalPrompt);
         }
+      } else if (worldType) {
+        this.logger.warn(
+          `[Writer] Could not detect dynasty from worldType: "${worldType}". ` +
+            `Supported dynasties: ${this.historicalKnowledge.getSupportedDynasties().join(", ")}`,
+        );
       }
     } catch (error) {
       this.logger.error(
