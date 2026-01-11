@@ -23,6 +23,9 @@ export enum WritingEventType {
   MISSION_COMPLETED = "mission:completed",
   MISSION_FAILED = "mission:failed",
 
+  // Leader 多轮对话响应事件
+  LEADER_RESPONSE = "leader:response",
+
   // Agent 工作事件
   AGENT_WORKING = "agent:working",
   AGENT_COMPLETED = "agent:completed",
@@ -270,6 +273,20 @@ export class WritingEventEmitterService {
         ? WritingEventType.WORLD_BUILDING_STARTED
         : WritingEventType.WORLD_BUILDING_COMPLETED;
     await this.emitToProject(projectId, event, { settings });
+  }
+
+  /**
+   * 发送 Leader 响应事件（多轮对话）
+   */
+  async emitLeaderResponse(
+    projectId: string,
+    missionId: string,
+    response: string,
+  ): Promise<void> {
+    await this.emitToProject(projectId, WritingEventType.LEADER_RESPONSE, {
+      missionId,
+      response,
+    });
   }
 
   /**

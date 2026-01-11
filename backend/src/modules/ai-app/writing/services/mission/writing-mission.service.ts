@@ -96,6 +96,15 @@ export type WritingMissionType =
   | "edit"; // 编辑调整（@Leader 触发）
 
 /**
+ * 对话消息（多轮对话）
+ */
+export interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+  timestamp?: string;
+}
+
+/**
  * 写作任务输入
  */
 export interface WritingMissionInput {
@@ -115,6 +124,10 @@ export interface WritingMissionInput {
   additionalInstructions?: string;
   /** 并行写作数量 */
   parallelWriters?: number;
+  /** 目标 Agent（@mention 指定） */
+  targetAgent?: string;
+  /** 多轮对话历史 */
+  conversationHistory?: ConversationMessage[];
 }
 
 /**
@@ -4196,7 +4209,23 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
       } else if (input.missionType === "edit") {
         // @Leader 编辑调整：智能分析用户指令并执行相应操作
         // 使用两阶段处理：先分析意图，再执行操作
-        return this.executeLeaderCommand(input, userPrompt, modelId, missionId);
+        const leaderResponse = await this.executeLeaderCommand(
+          input,
+          userPrompt,
+          modelId,
+          missionId,
+        );
+
+        // 发送 Leader 响应事件（支持多轮对话）
+        if (leaderResponse) {
+          await this.eventEmitter.emitLeaderResponse(
+            input.projectId,
+            missionId,
+            leaderResponse,
+          );
+        }
+
+        return leaderResponse;
       }
 
       this.logger.log(`Calling LLM (${modelId}) for mission ${missionId}`);
@@ -4767,8 +4796,33 @@ ${userPrompt}
 
     this.logger.log(`[${missionId}] Analyzing user intent for @Leader command`);
 
+    // 构建消息数组，包含对话历史
+    const messages: Array<{
+      role: "user" | "assistant" | "system";
+      content: string;
+    }> = [];
+
+    // 添加系统提示（分析提示作为系统消息）
+    messages.push({ role: "system", content: analysisPrompt });
+
+    // 添加对话历史（如果有）
+    if (input.conversationHistory && input.conversationHistory.length > 0) {
+      this.logger.log(
+        `[${missionId}] Including ${input.conversationHistory.length} conversation history messages`,
+      );
+      for (const msg of input.conversationHistory) {
+        messages.push({
+          role: msg.role,
+          content: msg.content,
+        });
+      }
+    }
+
+    // 添加当前用户消息
+    messages.push({ role: "user", content: userPrompt });
+
     const analysisResponse = await this.aiChatService.chat({
-      messages: [{ role: "user", content: analysisPrompt }],
+      messages,
       model: modelId,
       temperature: 0.3, // 低温度确保输出稳定
       maxTokens: 2000,

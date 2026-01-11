@@ -168,6 +168,12 @@ export interface UpdateProjectDto {
   writingStyle?: string;
 }
 
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp?: string;
+}
+
 export interface StartMissionDto {
   prompt: string;
   missionType?:
@@ -179,6 +185,7 @@ export interface StartMissionDto {
   targetWordCount?: number;
   additionalInstructions?: string;
   targetAgent?: string; // @mention 的目标 Agent (leader, keeper, writer, checker, editor)
+  conversationHistory?: ConversationMessage[]; // 多轮对话历史
   chapterNumber?: number; // 针对特定章节的操作
 }
 
@@ -417,6 +424,68 @@ export async function deleteCharacter(
 ): Promise<void> {
   return fetchWithAuth(
     `/api/v1/ai-writing/projects/${projectId}/characters/${characterId}`,
+    {
+      method: 'DELETE',
+    }
+  );
+}
+
+// ==================== Character Relationships API ====================
+
+export interface RelationshipNode {
+  id: string;
+  name: string;
+  role: string;
+  aliases: string[];
+  traits: string[];
+}
+
+export interface RelationshipEdge {
+  id: string;
+  source: string;
+  target: string;
+  type: string;
+  label: string;
+  description?: string;
+}
+
+export interface RelationshipGraph {
+  nodes: RelationshipNode[];
+  edges: RelationshipEdge[];
+}
+
+export async function getRelationshipGraph(
+  projectId: string
+): Promise<RelationshipGraph> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/projects/${projectId}/relationships/graph`
+  );
+}
+
+export async function addCharacterRelationship(
+  projectId: string,
+  characterId: string,
+  dto: {
+    targetCharacterId: string;
+    relationshipType: string;
+    description?: string;
+  }
+): Promise<{ id: string; targetCharacter: { id: string; name: string } }> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/projects/${projectId}/characters/${characterId}/relationships`,
+    {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    }
+  );
+}
+
+export async function deleteCharacterRelationship(
+  projectId: string,
+  relationshipId: string
+): Promise<void> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/projects/${projectId}/relationships/${relationshipId}`,
     {
       method: 'DELETE',
     }

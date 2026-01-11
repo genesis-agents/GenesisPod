@@ -17,6 +17,7 @@ import type {
   CreateProjectDto,
   UpdateProjectDto,
   StartMissionDto,
+  ConversationMessage,
 } from '@/lib/api/ai-writing';
 
 interface AIWritingState {
@@ -42,6 +43,9 @@ interface AIWritingState {
   missionMessage: string;
   missionCompleted: boolean;
   activeAgentIds: string[]; // IDs of currently active agents (supports parallel)
+
+  // Multi-turn Conversation (Agent 多轮对话)
+  conversationHistory: ConversationMessage[];
 
   // Error handling
   error: string | null;
@@ -88,6 +92,10 @@ interface AIWritingState {
   cancelMission: (projectId: string) => Promise<void>;
   checkRunningMission: (projectId: string) => Promise<void>;
 
+  // Actions - Conversation History (多轮对话)
+  addToConversationHistory: (message: ConversationMessage) => void;
+  clearConversationHistory: () => void;
+
   // Actions - Utility
   clearError: () => void;
   reset: () => void;
@@ -110,6 +118,7 @@ const initialState = {
   missionMessage: '',
   missionCompleted: false,
   activeAgentIds: [],
+  conversationHistory: [] as ConversationMessage[],
   error: null,
 };
 
@@ -738,6 +747,24 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
     }
   },
 
+  // ==================== Conversation History (多轮对话) ====================
+
+  addToConversationHistory: (message: ConversationMessage) => {
+    set((state) => ({
+      conversationHistory: [
+        ...state.conversationHistory,
+        {
+          ...message,
+          timestamp: message.timestamp || new Date().toISOString(),
+        },
+      ],
+    }));
+  },
+
+  clearConversationHistory: () => {
+    set({ conversationHistory: [] });
+  },
+
   // ==================== Utility ====================
 
   clearError: () => {
@@ -761,6 +788,7 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
       missionMessage: '',
       missionCompleted: false,
       activeAgentIds: [],
+      conversationHistory: [],
     });
   },
 }));

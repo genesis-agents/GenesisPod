@@ -21,6 +21,7 @@ import {
   getAgentDetails,
   type WritingAgentConfig,
 } from '@/lib/ai-writing/agent-config';
+import CharacterRelationshipGraph from '@/components/ai-writing/CharacterRelationshipGraph';
 
 // Dynamic import for Canvas component
 const WritingCanvas = dynamic(
@@ -77,13 +78,17 @@ export default function WritingProjectPage() {
     activeAgentIds,
     clearError,
     clearCurrentProjectData,
+    // Multi-turn conversation
+    conversationHistory,
+    addToConversationHistory,
+    clearConversationHistory,
   } = useAIWritingStore();
 
   const [userInput, setUserInput] = useState('');
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [showLeaderMenu, setShowLeaderMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    'chapters' | 'worldview' | 'storyBible' | 'taskDetails'
+    'chapters' | 'worldview' | 'storyBible' | 'relationships' | 'taskDetails'
   >('chapters');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
@@ -208,351 +213,382 @@ export default function WritingProjectPage() {
   };
 
   // Convert WebSocket events to task messages
-  const handleWritingEvent = useCallback((event: WritingEvent) => {
-    const { type, data } = event;
-    let message: {
-      id: string;
-      type: 'user' | 'system' | 'agent' | 'progress';
-      content: string;
-      agent?: string;
-      timestamp: Date;
-      detail?: {
-        type: 'chapter_content' | 'issues' | 'world_settings' | 'text';
-        data:
-          | string
-          | Array<{
+  const handleWritingEvent = useCallback(
+    (event: WritingEvent) => {
+      const { type, data } = event;
+      let message: {
+        id: string;
+        type: 'user' | 'system' | 'agent' | 'progress';
+        content: string;
+        agent?: string;
+        timestamp: Date;
+        detail?: {
+          type: 'chapter_content' | 'issues' | 'world_settings' | 'text';
+          data:
+            | string
+            | Array<{
+                type: string;
+                severity: string;
+                description: string;
+                suggestion?: string;
+              }>
+            | Record<string, unknown>;
+        };
+      } | null = null;
+
+      switch (type) {
+        case 'mission:started':
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'system',
+            content: '🚀 任务开始执行，AI 团队正在协作...',
+            timestamp: new Date(),
+          };
+          break;
+
+        case 'mission:progress': {
+          const progressData = data as MissionProgressData;
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'progress',
+            content: `进度 ${progressData.progress}%：${progressData.currentStep}`,
+            agent: progressData.activeAgents?.join(', ') || 'AI 团队',
+            timestamp: new Date(),
+          };
+          break;
+        }
+
+        case 'agent:working': {
+          const agentData = data as AgentWorkingData;
+          const agentIcons: Record<string, string> = {
+            architect: '📐',
+            keeper: '📚',
+            writer: '✍️',
+            checker: '🔍',
+            editor: '📝',
+          };
+          const icon = agentIcons[agentData.agentRole] || '🤖';
+          const statusText =
+            agentData.status === 'working'
+              ? '开始工作'
+              : agentData.status === 'completed'
+                ? '完成工作'
+                : '工作失败';
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'agent',
+            content: `${agentData.taskDescription || statusText}`,
+            agent: `${icon} ${agentData.agentName}`,
+            timestamp: new Date(),
+          };
+          break;
+        }
+
+        case 'chapter:started': {
+          const chapterData = data as { chapterNumber: number; title: string };
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'agent',
+            content: `开始创作第 ${chapterData.chapterNumber} 章：${chapterData.title || ''}`,
+            agent: '✍️ 作家',
+            timestamp: new Date(),
+          };
+          break;
+        }
+
+        case 'chapter:content': {
+          // 章节内容更新 - 显示内容预览
+          const contentData = data as {
+            chapterNumber: number;
+            title: string;
+            content: string;
+            wordCount: number;
+          };
+          // 提取前200字作为预览
+          const preview = contentData.content?.slice(0, 300) || '';
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'agent',
+            content: `📖 第 ${contentData.chapterNumber} 章「${contentData.title}」内容生成中 (${contentData.wordCount} 字)`,
+            agent: '✍️ 作家',
+            timestamp: new Date(),
+            detail: {
+              type: 'chapter_content',
+              data: preview + (contentData.content?.length > 300 ? '...' : ''),
+            },
+          };
+          break;
+        }
+
+        case 'chapter:completed': {
+          const chapterData = data as {
+            chapterNumber: number;
+            wordCount?: number;
+          };
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'agent',
+            content: `✅ 第 ${chapterData.chapterNumber} 章创作完成${chapterData.wordCount ? ` (${chapterData.wordCount} 字)` : ''}`,
+            agent: '✍️ 作家',
+            timestamp: new Date(),
+          };
+          break;
+        }
+
+        case 'consistency:check_started': {
+          const checkData = data as { chapterNumber?: number };
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'agent',
+            content: checkData.chapterNumber
+              ? `开始检查第 ${checkData.chapterNumber} 章的一致性...`
+              : '开始进行一致性检查...',
+            agent: '🔍 检查员',
+            timestamp: new Date(),
+          };
+          break;
+        }
+
+        case 'consistency:issues_found': {
+          const issuesData = data as {
+            chapterNumber: number;
+            issues: Array<{
               type: string;
               severity: string;
               description: string;
               suggestion?: string;
-            }>
-          | Record<string, unknown>;
-      };
-    } | null = null;
-
-    switch (type) {
-      case 'mission:started':
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'system',
-          content: '🚀 任务开始执行，AI 团队正在协作...',
-          timestamp: new Date(),
-        };
-        break;
-
-      case 'mission:progress': {
-        const progressData = data as MissionProgressData;
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'progress',
-          content: `进度 ${progressData.progress}%：${progressData.currentStep}`,
-          agent: progressData.activeAgents?.join(', ') || 'AI 团队',
-          timestamp: new Date(),
-        };
-        break;
-      }
-
-      case 'agent:working': {
-        const agentData = data as AgentWorkingData;
-        const agentIcons: Record<string, string> = {
-          architect: '📐',
-          keeper: '📚',
-          writer: '✍️',
-          checker: '🔍',
-          editor: '📝',
-        };
-        const icon = agentIcons[agentData.agentRole] || '🤖';
-        const statusText =
-          agentData.status === 'working'
-            ? '开始工作'
-            : agentData.status === 'completed'
-              ? '完成工作'
-              : '工作失败';
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'agent',
-          content: `${agentData.taskDescription || statusText}`,
-          agent: `${icon} ${agentData.agentName}`,
-          timestamp: new Date(),
-        };
-        break;
-      }
-
-      case 'chapter:started': {
-        const chapterData = data as { chapterNumber: number; title: string };
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'agent',
-          content: `开始创作第 ${chapterData.chapterNumber} 章：${chapterData.title || ''}`,
-          agent: '✍️ 作家',
-          timestamp: new Date(),
-        };
-        break;
-      }
-
-      case 'chapter:content': {
-        // 章节内容更新 - 显示内容预览
-        const contentData = data as {
-          chapterNumber: number;
-          title: string;
-          content: string;
-          wordCount: number;
-        };
-        // 提取前200字作为预览
-        const preview = contentData.content?.slice(0, 300) || '';
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'agent',
-          content: `📖 第 ${contentData.chapterNumber} 章「${contentData.title}」内容生成中 (${contentData.wordCount} 字)`,
-          agent: '✍️ 作家',
-          timestamp: new Date(),
-          detail: {
-            type: 'chapter_content',
-            data: preview + (contentData.content?.length > 300 ? '...' : ''),
-          },
-        };
-        break;
-      }
-
-      case 'chapter:completed': {
-        const chapterData = data as {
-          chapterNumber: number;
-          wordCount?: number;
-        };
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'agent',
-          content: `✅ 第 ${chapterData.chapterNumber} 章创作完成${chapterData.wordCount ? ` (${chapterData.wordCount} 字)` : ''}`,
-          agent: '✍️ 作家',
-          timestamp: new Date(),
-        };
-        break;
-      }
-
-      case 'consistency:check_started': {
-        const checkData = data as { chapterNumber?: number };
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'agent',
-          content: checkData.chapterNumber
-            ? `开始检查第 ${checkData.chapterNumber} 章的一致性...`
-            : '开始进行一致性检查...',
-          agent: '🔍 检查员',
-          timestamp: new Date(),
-        };
-        break;
-      }
-
-      case 'consistency:issues_found': {
-        const issuesData = data as {
-          chapterNumber: number;
-          issues: Array<{
-            type: string;
-            severity: string;
-            description: string;
-            suggestion?: string;
-          }>;
-        };
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'agent',
-          content: `⚠️ 第 ${issuesData.chapterNumber} 章发现 ${issuesData.issues?.length || 0} 个问题，点击展开查看详情`,
-          agent: '🔍 一致性检查员',
-          timestamp: new Date(),
-          detail: {
-            type: 'issues',
-            data: issuesData.issues || [],
-          },
-        };
-        break;
-      }
-
-      case 'consistency:fix_completed': {
-        const fixData = data as { chapterNumber: number; fixedIssues: number };
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'agent',
-          content: `第 ${fixData.chapterNumber} 章修复完成，已解决 ${fixData.fixedIssues} 个问题`,
-          agent: '📝 编辑',
-          timestamp: new Date(),
-        };
-        break;
-      }
-
-      case 'world:building_started':
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'agent',
-          content: '开始构建世界观设定...',
-          agent: '📚 守护者',
-          timestamp: new Date(),
-        };
-        break;
-
-      case 'world:building_completed': {
-        const worldData = data as { settings?: Record<string, unknown> };
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'agent',
-          content: '✅ 世界观设定构建完成，点击展开查看',
-          agent: '📚 守护者',
-          timestamp: new Date(),
-          detail: worldData.settings
-            ? {
-                type: 'world_settings',
-                data: worldData.settings,
-              }
-            : undefined,
-        };
-        break;
-      }
-
-      // 守护者增强事件
-      case 'keeper:extracting_context': {
-        const ctxData = data as { chapterNumber: number };
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'agent',
-          content: `📖 正在提取第 ${ctxData.chapterNumber} 章相关上下文...`,
-          agent: '📚 守护者',
-          timestamp: new Date(),
-        };
-        break;
-      }
-
-      case 'keeper:context_ready': {
-        const ctxData = data as {
-          chapterNumber: number;
-          context?: {
-            relevantCharacters: string[];
-            relevantLocations: string[];
-            previousEvents: string[];
-            warnings: string[];
+            }>;
           };
-        };
-        const ctx = ctxData.context;
-        const contextSummary = ctx
-          ? `角色: ${ctx.relevantCharacters?.length || 0}, 场景: ${ctx.relevantLocations?.length || 0}, 事件: ${ctx.previousEvents?.length || 0}${ctx.warnings?.length ? `, ⚠️ ${ctx.warnings.length} 条提醒` : ''}`
-          : '';
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'agent',
-          content: `✅ 第 ${ctxData.chapterNumber} 章上下文准备完成 (${contextSummary})`,
-          agent: '📚 守护者',
-          timestamp: new Date(),
-          detail: ctx
-            ? {
-                type: 'text',
-                data: [
-                  ctx.relevantCharacters?.length
-                    ? `👤 相关角色: ${ctx.relevantCharacters.join(', ')}`
-                    : '',
-                  ctx.relevantLocations?.length
-                    ? `📍 相关场景: ${ctx.relevantLocations.join(', ')}`
-                    : '',
-                  ctx.previousEvents?.length
-                    ? `📜 前文事件: ${ctx.previousEvents.slice(0, 3).join('; ')}${ctx.previousEvents.length > 3 ? '...' : ''}`
-                    : '',
-                  ctx.warnings?.length
-                    ? `⚠️ 注意事项: ${ctx.warnings.join('; ')}`
-                    : '',
-                ]
-                  .filter(Boolean)
-                  .join('\n'),
-              }
-            : undefined,
-        };
-        break;
-      }
-
-      case 'keeper:updating_bible': {
-        const bibleData = data as { chapterNumber: number };
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'agent',
-          content: `📝 正在根据第 ${bibleData.chapterNumber} 章更新故事圣经...`,
-          agent: '📚 守护者',
-          timestamp: new Date(),
-        };
-        break;
-      }
-
-      case 'keeper:bible_updated': {
-        const bibleData = data as {
-          chapterNumber: number;
-          updates?: {
-            newFacts: string[];
-            characterUpdates: string[];
-            timelineEvents: string[];
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'agent',
+            content: `⚠️ 第 ${issuesData.chapterNumber} 章发现 ${issuesData.issues?.length || 0} 个问题，点击展开查看详情`,
+            agent: '🔍 一致性检查员',
+            timestamp: new Date(),
+            detail: {
+              type: 'issues',
+              data: issuesData.issues || [],
+            },
           };
-        };
-        const updates = bibleData.updates;
-        const updateCount =
-          (updates?.newFacts?.length || 0) +
-          (updates?.characterUpdates?.length || 0) +
-          (updates?.timelineEvents?.length || 0);
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'agent',
-          content: `✅ 故事圣经已更新 (第 ${bibleData.chapterNumber} 章新增 ${updateCount} 条记录)`,
-          agent: '📚 守护者',
-          timestamp: new Date(),
-          detail: updates
-            ? {
-                type: 'text',
-                data: [
-                  updates.newFacts?.length
-                    ? `📌 新事实: ${updates.newFacts.join('; ')}`
-                    : '',
-                  updates.characterUpdates?.length
-                    ? `👤 角色更新: ${updates.characterUpdates.join('; ')}`
-                    : '',
-                  updates.timelineEvents?.length
-                    ? `📅 时间线: ${updates.timelineEvents.join('; ')}`
-                    : '',
-                ]
-                  .filter(Boolean)
-                  .join('\n'),
-              }
-            : undefined,
-        };
-        break;
+          break;
+        }
+
+        case 'consistency:fix_completed': {
+          const fixData = data as {
+            chapterNumber: number;
+            fixedIssues: number;
+          };
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'agent',
+            content: `第 ${fixData.chapterNumber} 章修复完成，已解决 ${fixData.fixedIssues} 个问题`,
+            agent: '📝 编辑',
+            timestamp: new Date(),
+          };
+          break;
+        }
+
+        case 'world:building_started':
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'agent',
+            content: '开始构建世界观设定...',
+            agent: '📚 守护者',
+            timestamp: new Date(),
+          };
+          break;
+
+        case 'world:building_completed': {
+          const worldData = data as { settings?: Record<string, unknown> };
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'agent',
+            content: '✅ 世界观设定构建完成，点击展开查看',
+            agent: '📚 守护者',
+            timestamp: new Date(),
+            detail: worldData.settings
+              ? {
+                  type: 'world_settings',
+                  data: worldData.settings,
+                }
+              : undefined,
+          };
+          break;
+        }
+
+        // 守护者增强事件
+        case 'keeper:extracting_context': {
+          const ctxData = data as { chapterNumber: number };
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'agent',
+            content: `📖 正在提取第 ${ctxData.chapterNumber} 章相关上下文...`,
+            agent: '📚 守护者',
+            timestamp: new Date(),
+          };
+          break;
+        }
+
+        case 'keeper:context_ready': {
+          const ctxData = data as {
+            chapterNumber: number;
+            context?: {
+              relevantCharacters: string[];
+              relevantLocations: string[];
+              previousEvents: string[];
+              warnings: string[];
+            };
+          };
+          const ctx = ctxData.context;
+          const contextSummary = ctx
+            ? `角色: ${ctx.relevantCharacters?.length || 0}, 场景: ${ctx.relevantLocations?.length || 0}, 事件: ${ctx.previousEvents?.length || 0}${ctx.warnings?.length ? `, ⚠️ ${ctx.warnings.length} 条提醒` : ''}`
+            : '';
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'agent',
+            content: `✅ 第 ${ctxData.chapterNumber} 章上下文准备完成 (${contextSummary})`,
+            agent: '📚 守护者',
+            timestamp: new Date(),
+            detail: ctx
+              ? {
+                  type: 'text',
+                  data: [
+                    ctx.relevantCharacters?.length
+                      ? `👤 相关角色: ${ctx.relevantCharacters.join(', ')}`
+                      : '',
+                    ctx.relevantLocations?.length
+                      ? `📍 相关场景: ${ctx.relevantLocations.join(', ')}`
+                      : '',
+                    ctx.previousEvents?.length
+                      ? `📜 前文事件: ${ctx.previousEvents.slice(0, 3).join('; ')}${ctx.previousEvents.length > 3 ? '...' : ''}`
+                      : '',
+                    ctx.warnings?.length
+                      ? `⚠️ 注意事项: ${ctx.warnings.join('; ')}`
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join('\n'),
+                }
+              : undefined,
+          };
+          break;
+        }
+
+        case 'keeper:updating_bible': {
+          const bibleData = data as { chapterNumber: number };
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'agent',
+            content: `📝 正在根据第 ${bibleData.chapterNumber} 章更新故事圣经...`,
+            agent: '📚 守护者',
+            timestamp: new Date(),
+          };
+          break;
+        }
+
+        case 'keeper:bible_updated': {
+          const bibleData = data as {
+            chapterNumber: number;
+            updates?: {
+              newFacts: string[];
+              characterUpdates: string[];
+              timelineEvents: string[];
+            };
+          };
+          const updates = bibleData.updates;
+          const updateCount =
+            (updates?.newFacts?.length || 0) +
+            (updates?.characterUpdates?.length || 0) +
+            (updates?.timelineEvents?.length || 0);
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'agent',
+            content: `✅ 故事圣经已更新 (第 ${bibleData.chapterNumber} 章新增 ${updateCount} 条记录)`,
+            agent: '📚 守护者',
+            timestamp: new Date(),
+            detail: updates
+              ? {
+                  type: 'text',
+                  data: [
+                    updates.newFacts?.length
+                      ? `📌 新事实: ${updates.newFacts.join('; ')}`
+                      : '',
+                    updates.characterUpdates?.length
+                      ? `👤 角色更新: ${updates.characterUpdates.join('; ')}`
+                      : '',
+                    updates.timelineEvents?.length
+                      ? `📅 时间线: ${updates.timelineEvents.join('; ')}`
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join('\n'),
+                }
+              : undefined,
+          };
+          break;
+        }
+
+        case 'mission:completed': {
+          const completeData = data as {
+            totalWords?: number;
+            totalChapters?: number;
+          };
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'system',
+            content: `✅ 任务完成！${completeData.totalChapters ? `共 ${completeData.totalChapters} 章` : ''}${completeData.totalWords ? `，${completeData.totalWords} 字` : ''}`,
+            timestamp: new Date(),
+          };
+          break;
+        }
+
+        case 'mission:failed': {
+          const errorData = data as { error?: string };
+          message = {
+            id: `msg-${Date.now()}`,
+            type: 'system',
+            content: `❌ 任务失败：${errorData.error || '未知错误'}`,
+            timestamp: new Date(),
+          };
+          break;
+        }
+
+        case 'leader:response': {
+          // Leader 多轮对话响应
+          const responseData = data as {
+            missionId?: string;
+            response?: string;
+          };
+          if (responseData.response) {
+            // 添加到对话历史（多轮对话上下文）
+            addToConversationHistory({
+              role: 'assistant',
+              content: responseData.response,
+            });
+
+            // 显示在任务详情中
+            message = {
+              id: `msg-${Date.now()}`,
+              type: 'agent',
+              content: responseData.response,
+              agent: '📐 故事架构师 (Leader)',
+              timestamp: new Date(),
+            };
+          }
+          break;
+        }
       }
 
-      case 'mission:completed': {
-        const completeData = data as {
-          totalWords?: number;
-          totalChapters?: number;
-        };
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'system',
-          content: `✅ 任务完成！${completeData.totalChapters ? `共 ${completeData.totalChapters} 章` : ''}${completeData.totalWords ? `，${completeData.totalWords} 字` : ''}`,
-          timestamp: new Date(),
-        };
-        break;
+      if (message) {
+        setTaskMessages((prev) => [...prev, message!]);
+        // Auto scroll to bottom
+        setTimeout(() => {
+          taskMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
       }
-
-      case 'mission:failed': {
-        const errorData = data as { error?: string };
-        message = {
-          id: `msg-${Date.now()}`,
-          type: 'system',
-          content: `❌ 任务失败：${errorData.error || '未知错误'}`,
-          timestamp: new Date(),
-        };
-        break;
-      }
-    }
-
-    if (message) {
-      setTaskMessages((prev) => [...prev, message!]);
-      // Auto scroll to bottom
-      setTimeout(() => {
-        taskMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    }
-  }, []);
+    },
+    [addToConversationHistory]
+  );
 
   // WebSocket for real-time updates - always connected when on project page
   // to receive events from the start of mission
@@ -560,6 +596,9 @@ export default function WritingProjectPage() {
     enabled: !!projectId && !!user,
     onEvent: handleWritingEvent,
   });
+
+  // 解构一致性检查问题
+  const { consistencyIssues } = wsState;
 
   // Clear old project data when projectId changes to prevent data mixing
   useEffect(() => {
@@ -903,6 +942,12 @@ export default function WritingProjectPage() {
       },
     ]);
 
+    // Add to conversation history for multi-turn dialogue (多轮对话)
+    addToConversationHistory({
+      role: 'user',
+      content: userInput,
+    });
+
     // Switch to task details tab to show the conversation
     setActiveTab('taskDetails');
 
@@ -911,6 +956,8 @@ export default function WritingProjectPage() {
         prompt: cleanPrompt || userInput,
         missionType,
         targetAgent: hasLeaderMention ? 'leader' : undefined,
+        // Pass conversation history for multi-turn dialogue context
+        conversationHistory: conversationHistory,
       });
       setUserInput('');
       setShowLeaderMenu(false);
@@ -2171,6 +2218,16 @@ export default function WritingProjectPage() {
                       )}
                   </button>
                   <button
+                    onClick={() => setActiveTab('relationships')}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                      activeTab === 'relationships'
+                        ? 'bg-pink-100 text-pink-700'
+                        : 'text-gray-500 hover:bg-gray-100'
+                    }`}
+                  >
+                    🔗 角色关系
+                  </button>
+                  <button
                     onClick={() => setActiveTab('taskDetails')}
                     className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                       activeTab === 'taskDetails'
@@ -2818,6 +2875,13 @@ export default function WritingProjectPage() {
                         </p>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Character Relationships Tab */}
+                {activeTab === 'relationships' && (
+                  <div className="h-full">
+                    <CharacterRelationshipGraph projectId={projectId} />
                   </div>
                 )}
 
@@ -3601,6 +3665,84 @@ export default function WritingProjectPage() {
                   关闭
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 实时一致性检查浮动面板 */}
+        {isMissionRunning && consistencyIssues.length > 0 && (
+          <div className="fixed bottom-4 right-4 z-50 max-h-96 w-80 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🔍</span>
+                <span className="text-sm font-semibold text-white">
+                  一致性检查
+                </span>
+              </div>
+              <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs text-white">
+                {consistencyIssues.reduce(
+                  (acc, ci) => acc + ci.issues.length,
+                  0
+                )}{' '}
+                个问题
+              </span>
+            </div>
+            <div className="max-h-72 space-y-2 overflow-y-auto p-3">
+              {consistencyIssues.slice(-5).map((check, idx) => (
+                <div key={idx} className="rounded-lg bg-gray-50 p-2">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span
+                      className={`text-xs font-medium ${check.passed ? 'text-green-600' : 'text-amber-600'}`}
+                    >
+                      第 {check.chapterNumber} 章
+                    </span>
+                    {check.passed ? (
+                      <span className="text-xs text-green-500">✓ 通过</span>
+                    ) : (
+                      <span className="text-xs text-amber-500">
+                        {check.issues.length} 个问题
+                      </span>
+                    )}
+                  </div>
+                  {!check.passed &&
+                    check.issues.slice(0, 3).map((issue, iIdx) => (
+                      <div
+                        key={iIdx}
+                        className={`mb-1 rounded p-1.5 text-xs ${
+                          issue.severity === 'error'
+                            ? 'bg-red-50 text-red-700'
+                            : issue.severity === 'warning'
+                              ? 'bg-amber-50 text-amber-700'
+                              : 'bg-blue-50 text-blue-700'
+                        }`}
+                      >
+                        <div className="flex items-start gap-1">
+                          <span>
+                            {issue.severity === 'error'
+                              ? '❌'
+                              : issue.severity === 'warning'
+                                ? '⚠️'
+                                : 'ℹ️'}
+                          </span>
+                          <div>
+                            <span className="font-medium">[{issue.type}]</span>{' '}
+                            {issue.description}
+                            {issue.suggestion && (
+                              <div className="mt-0.5 text-gray-500">
+                                💡 {issue.suggestion}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  {!check.passed && check.issues.length > 3 && (
+                    <div className="text-center text-xs text-gray-400">
+                      还有 {check.issues.length - 3} 个问题...
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}

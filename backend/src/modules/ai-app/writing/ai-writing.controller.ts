@@ -190,6 +190,49 @@ export class AiWritingController {
     return this.characterService.delete(id, projectId, req.user.id);
   }
 
+  // ==================== Character Relationships ====================
+
+  @Get("projects/:projectId/relationships/graph")
+  async getRelationshipGraph(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+  ) {
+    return this.characterService.getRelationshipGraph(projectId, req.user.id);
+  }
+
+  @Post("projects/:projectId/characters/:characterId/relationships")
+  async addRelationship(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+    @Param("characterId") characterId: string,
+    @Body()
+    dto: {
+      targetCharacterId: string;
+      relationshipType: string;
+      description?: string;
+    },
+  ) {
+    return this.characterService.addRelationship(
+      characterId,
+      projectId,
+      req.user.id,
+      dto,
+    );
+  }
+
+  @Delete("projects/:projectId/relationships/:relationshipId")
+  async deleteRelationship(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+    @Param("relationshipId") relationshipId: string,
+  ) {
+    return this.characterService.deleteRelationship(
+      relationshipId,
+      projectId,
+      req.user.id,
+    );
+  }
+
   // ==================== Volumes ====================
 
   @Post("projects/:projectId/volumes")
@@ -306,6 +349,12 @@ export class AiWritingController {
       targetAgent?: string;
       /** 目标章节号（编辑特定章节时使用） */
       chapterNumber?: number;
+      /** 多轮对话历史 */
+      conversationHistory?: Array<{
+        role: "user" | "assistant";
+        content: string;
+        timestamp?: string;
+      }>;
     },
   ) {
     this.logger.log(
@@ -336,6 +385,8 @@ export class AiWritingController {
         targetWordCount: dto.targetWordCount,
         additionalInstructions: dto.additionalInstructions,
         chapterId,
+        targetAgent: dto.targetAgent,
+        conversationHistory: dto.conversationHistory,
       },
       req.user.id,
     );

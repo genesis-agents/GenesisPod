@@ -13,6 +13,8 @@ export type WritingEventType =
   | 'mission:progress'
   | 'mission:completed'
   | 'mission:failed'
+  // Leader 多轮对话响应事件
+  | 'leader:response'
   | 'agent:working'
   | 'agent:completed'
   | 'agent:failed'
@@ -256,6 +258,12 @@ export function useWritingWebSocket(
       console.error('[WritingWS] Mission failed:', data);
       setError(data.error || '任务失败');
       emitEvent('mission:failed', data);
+    });
+
+    // Leader 多轮对话响应事件
+    socket.on('leader:response', (data) => {
+      console.log('[WritingWS] Leader response:', data);
+      emitEvent('leader:response', data);
     });
 
     // Agent 事件
