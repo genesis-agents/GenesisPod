@@ -22,6 +22,8 @@ import {
   type WritingAgentConfig,
 } from '@/lib/ai-writing/agent-config';
 import CharacterRelationshipGraph from '@/components/ai-writing/CharacterRelationshipGraph';
+import ChapterEditPanel from '@/components/ai-writing/ChapterEditPanel';
+import ChapterImportModal from '@/components/ai-writing/ChapterImportModal';
 
 // Dynamic import for Canvas component
 const WritingCanvas = dynamic(
@@ -324,6 +326,8 @@ export default function WritingProjectPage() {
 
   const [userInput, setUserInput] = useState('');
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  const [isEditingChapter, setIsEditingChapter] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [showLeaderMenu, setShowLeaderMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<
     'chapters' | 'worldview' | 'storyBible' | 'relationships' | 'taskDetails'
@@ -1880,6 +1884,26 @@ export default function WritingProjectPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {/* Import Button */}
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                  />
+                </svg>
+                导入
+              </button>
               {/* Export Dropdown */}
               <div className="relative" ref={exportMenuRef}>
                 <button
@@ -3927,8 +3951,8 @@ export default function WritingProjectPage() {
           </div>
         </div>
 
-        {/* Chapter Content Modal */}
-        {selectedChapter && (
+        {/* Chapter Content Modal - Preview Mode */}
+        {selectedChapter && !isEditingChapter && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="relative mx-4 flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl">
               {/* Modal Header */}
@@ -3992,22 +4016,10 @@ export default function WritingProjectPage() {
               </div>
 
               {/* Modal Footer */}
-              <div className="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 px-6 py-4">
+              <div className="flex shrink-0 items-center justify-between border-t border-gray-100 px-6 py-4">
                 <button
-                  onClick={() => {
-                    if (!selectedChapter.content) return;
-                    const blob = new Blob([selectedChapter.content], {
-                      type: 'text/plain;charset=utf-8',
-                    });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `第${selectedChapter.chapterNumber}章-${selectedChapter.title}.txt`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                  disabled={!selectedChapter.content}
-                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => setIsEditingChapter(true)}
+                  className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
                 >
                   <svg
                     className="h-4 w-4"
@@ -4019,19 +4031,69 @@ export default function WritingProjectPage() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                     />
                   </svg>
-                  下载
+                  编辑章节
                 </button>
-                <button
-                  onClick={() => setSelectedChapter(null)}
-                  className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
-                >
-                  关闭
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      if (!selectedChapter.content) return;
+                      const blob = new Blob([selectedChapter.content], {
+                        type: 'text/plain;charset=utf-8',
+                      });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `第${selectedChapter.chapterNumber}章-${selectedChapter.title}.txt`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    disabled={!selectedChapter.content}
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
+                    </svg>
+                    下载
+                  </button>
+                  <button
+                    onClick={() => setSelectedChapter(null)}
+                    className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
+                  >
+                    关闭
+                  </button>
+                </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Chapter Edit Panel - Full Screen Edit Mode */}
+        {selectedChapter && isEditingChapter && (
+          <div className="fixed inset-0 z-50 bg-white">
+            <ChapterEditPanel
+              chapter={selectedChapter}
+              onUpdate={(updatedChapter) => {
+                setSelectedChapter(updatedChapter);
+                // Refresh volumes to get updated content
+                fetchVolumes(projectId);
+              }}
+              onClose={() => {
+                setIsEditingChapter(false);
+              }}
+            />
           </div>
         )}
 
@@ -4231,6 +4293,21 @@ export default function WritingProjectPage() {
               </div>
             )}
           </div>
+        )}
+        {/* Import Modal */}
+        {showImportModal && (
+          <ChapterImportModal
+            projectId={projectId}
+            volumes={volumes.map((v) => ({
+              id: v.id,
+              title: v.title,
+              volumeNumber: v.volumeNumber,
+            }))}
+            onSuccess={() => {
+              fetchVolumes(projectId);
+            }}
+            onClose={() => setShowImportModal(false)}
+          />
         )}
       </main>
     </AppShell>
