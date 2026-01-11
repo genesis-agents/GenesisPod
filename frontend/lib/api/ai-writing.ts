@@ -66,13 +66,19 @@ export interface StoryBible {
   characters?: Character[];
 }
 
+export interface CharacterPersonality {
+  arc?: string;
+  traits?: string[];
+  motivation?: string;
+}
+
 export interface Character {
   id: string;
   projectId: string;
   name: string;
   role: string;
   description?: string;
-  personality?: string;
+  personality?: string | CharacterPersonality;
   background?: string;
 }
 

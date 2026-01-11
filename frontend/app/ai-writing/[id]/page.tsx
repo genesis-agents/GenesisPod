@@ -2610,24 +2610,82 @@ export default function WritingProjectPage() {
                                           {char.description}
                                         </p>
                                       )}
+                                      {/* 性格特征 */}
                                       {char.personality && (
-                                        <div className="mt-2">
-                                          <span className="text-xs font-medium text-emerald-600">
-                                            性格：
-                                          </span>
-                                          <span className="text-xs text-gray-600">
-                                            {typeof char.personality ===
-                                            'string'
-                                              ? char.personality
-                                              : JSON.stringify(
-                                                  char.personality
-                                                )}
-                                          </span>
+                                        <div className="mt-2 space-y-1">
+                                          {typeof char.personality ===
+                                          'string' ? (
+                                            <div>
+                                              <span className="text-xs font-medium text-emerald-600">
+                                                性格：
+                                              </span>
+                                              <span className="text-xs text-gray-600">
+                                                {char.personality}
+                                              </span>
+                                            </div>
+                                          ) : (
+                                            (() => {
+                                              const p = char.personality as {
+                                                arc?: string;
+                                                traits?: string[];
+                                                motivation?: string;
+                                              };
+                                              return (
+                                                <>
+                                                  {/* 性格特征数组 */}
+                                                  {p.traits &&
+                                                    p.traits.length > 0 && (
+                                                      <div className="flex flex-wrap gap-1">
+                                                        <span className="text-xs font-medium text-emerald-600">
+                                                          性格：
+                                                        </span>
+                                                        {p.traits.map(
+                                                          (
+                                                            trait: string,
+                                                            i: number
+                                                          ) => (
+                                                            <span
+                                                              key={i}
+                                                              className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700"
+                                                            >
+                                                              {trait}
+                                                            </span>
+                                                          )
+                                                        )}
+                                                      </div>
+                                                    )}
+                                                  {/* 角色弧线 */}
+                                                  {p.arc && (
+                                                    <div>
+                                                      <span className="text-xs font-medium text-purple-600">
+                                                        成长弧线：
+                                                      </span>
+                                                      <span className="text-xs text-gray-600">
+                                                        {p.arc}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {/* 动机 */}
+                                                  {p.motivation && (
+                                                    <div>
+                                                      <span className="text-xs font-medium text-blue-600">
+                                                        动机：
+                                                      </span>
+                                                      <span className="text-xs text-gray-600">
+                                                        {p.motivation}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                </>
+                                              );
+                                            })()
+                                          )}
                                         </div>
                                       )}
+                                      {/* 背景故事 */}
                                       {char.background && (
                                         <div className="mt-1">
-                                          <span className="text-xs font-medium text-emerald-600">
+                                          <span className="text-xs font-medium text-amber-600">
                                             背景：
                                           </span>
                                           <span className="text-xs text-gray-600">
@@ -2697,31 +2755,35 @@ export default function WritingProjectPage() {
                         </div>
 
                         {/* 详细世界设定 */}
-                        {storyBible.worldSettings &&
-                          storyBible.worldSettings.length > 0 && (
-                            <div className="rounded-xl border border-green-200 bg-white p-4">
-                              <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-green-800">
-                                <span>🗺️</span> 详细设定
-                              </h3>
-                              <div className="space-y-2">
-                                {storyBible.worldSettings
-                                  .filter((s) => s.key && s.value)
-                                  .map((setting) => (
-                                    <div
-                                      key={setting.id}
-                                      className="flex items-start gap-2 rounded-lg bg-green-50 p-2 text-sm"
-                                    >
-                                      <span className="shrink-0 font-medium text-green-700">
-                                        {setting.category || setting.key}:
-                                      </span>
-                                      <span className="text-gray-600">
-                                        {setting.value}
-                                      </span>
-                                    </div>
-                                  ))}
-                              </div>
+                        <div className="rounded-xl border border-green-200 bg-white p-4">
+                          <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-green-800">
+                            <span>🗺️</span> 详细设定
+                          </h3>
+                          {storyBible.worldSettings &&
+                          storyBible.worldSettings.length > 0 ? (
+                            <div className="space-y-2">
+                              {storyBible.worldSettings.map((setting) => (
+                                <div
+                                  key={setting.id}
+                                  className="flex items-start gap-2 rounded-lg bg-green-50 p-2 text-sm"
+                                >
+                                  <span className="shrink-0 font-medium text-green-700">
+                                    {setting.category || setting.key || '设定'}:
+                                  </span>
+                                  <span className="text-gray-600">
+                                    {setting.value ||
+                                      setting.description ||
+                                      JSON.stringify(setting)}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
+                          ) : (
+                            <p className="text-sm text-gray-400">
+                              详细设定将在故事生成过程中逐步完善...
+                            </p>
                           )}
+                        </div>
                       </>
                     ) : isMissionRunning ? (
                       <div className="flex flex-col items-center justify-center py-12 text-center">
