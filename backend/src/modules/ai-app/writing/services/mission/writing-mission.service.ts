@@ -3586,11 +3586,61 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
       const content = response.content || "{}";
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
+        // 清理 JSON 字符串中的常见问题
+        let jsonStr = jsonMatch[0]
+          .replace(/,\s*}/g, "}") // 移除对象末尾多余的逗号
+          .replace(/,\s*]/g, "]") // 移除数组末尾多余的逗号
+          .replace(/[\x00-\x1F\x7F]/g, " ") // 移除控制字符
+          .replace(/\n\s*\.\.\./g, "") // 移除省略号
+          .replace(/"\s*\n\s*"/g, '", "'); // 修复换行导致的字符串断开
+
+        interface BibleUpdateParsed {
+          newCharacters?: Array<{
+            name: string;
+            role?: string;
+            description?: string;
+            firstAppearance?: number;
+            relationships?: Array<{ target: string; relation: string }>;
+          }>;
+          characterUpdates?: Array<{ name: string; change: string } | string>;
+          timelineEvents?: string[];
+          newSettings?: string[];
+          newRelationships?: Array<{
+            character1: string;
+            character2: string;
+            relation: string;
+          }>;
+        }
+
+        let parsed: BibleUpdateParsed;
+        try {
+          parsed = JSON.parse(jsonStr) as BibleUpdateParsed;
+        } catch (parseError) {
+          // 如果解析失败，尝试提取部分有效数据
+          this.logger.warn(
+            `[${missionId}] JSON parse failed, attempting partial extraction: ${(parseError as Error).message}`,
+          );
+          // 返回空更新而不是抛出错误
+          parsed = {
+            newCharacters: [],
+            characterUpdates: [],
+            timelineEvents: [],
+            newSettings: [],
+            newRelationships: [],
+          };
+        }
+
+        // 将 characterUpdates 统一转换为 string[]
+        const characterUpdatesStr = (parsed.characterUpdates || []).map(
+          (update) =>
+            typeof update === "string"
+              ? update
+              : `${update.name}: ${update.change}`,
+        );
 
         const updates = {
           newFacts: parsed.newSettings || [],
-          characterUpdates: parsed.characterUpdates || [],
+          characterUpdates: characterUpdatesStr,
           timelineEvents: parsed.timelineEvents || [],
           newCharacters: parsed.newCharacters || [],
           newRelationships: parsed.newRelationships || [],
@@ -3622,11 +3672,24 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
                     ? `${newChar.description}\n首次出现：第${newChar.firstAppearance || chapterNumber}章`
                     : `首次出现：第${newChar.firstAppearance || chapterNumber}章`;
 
+                  // 将字符串 role 映射到 CharacterRole 枚举
+                  const roleMap: Record<
+                    string,
+                    "PROTAGONIST" | "ANTAGONIST" | "SUPPORTING" | "MINOR"
+                  > = {
+                    PROTAGONIST: "PROTAGONIST",
+                    ANTAGONIST: "ANTAGONIST",
+                    SUPPORTING: "SUPPORTING",
+                    MINOR: "MINOR",
+                  };
+                  const mappedRole =
+                    roleMap[newChar.role?.toUpperCase() || ""] || "MINOR";
+
                   await this.prisma.writingCharacter.create({
                     data: {
                       bibleId: bible.id,
                       name: newChar.name,
-                      role: newChar.role || "MINOR",
+                      role: mappedRole,
                       background: backgroundText,
                       personality: newChar.relationships
                         ? {
@@ -3667,14 +3730,9 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
           if (updates.characterUpdates.length > 0) {
             for (const update of updates.characterUpdates) {
               try {
-                const charName =
-                  typeof update === "string"
-                    ? update.split(/[：:]/)[0]
-                    : update.name;
-                const change =
-                  typeof update === "string"
-                    ? update
-                    : `${update.name}: ${update.change}`;
+                // update 已经是 string 格式 (如 "角色名: 变化描述")
+                const charName = update.split(/[：:]/)[0].trim();
+                const change = update;
 
                 const existingChar =
                   await this.prisma.writingCharacter.findFirst({
