@@ -924,6 +924,19 @@ export class WritingMissionService {
           modelToUse,
           missionId,
         );
+
+        // 检查 @Leader 是否委托给 full_story 任务
+        if (generatedContent === "[DELEGATE_FULL_STORY_INTERNAL]") {
+          this.logger.log(
+            `[${missionId}] @Leader delegated to full_story, starting chapter generation...`,
+          );
+          // 切换到 full_story 模式继续创作
+          generatedContent = await this.generateFullStory(
+            { ...input, missionType: "full_story" },
+            modelToUse,
+            missionId,
+          );
+        }
       }
 
       if (generatedContent) {
@@ -4215,6 +4228,22 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
           modelId,
           missionId,
         );
+
+        // 检查是否需要委托给 full_story 任务
+        if (leaderResponse?.startsWith("[DELEGATE_TO_FULL_STORY]")) {
+          this.logger.log(
+            `[${missionId}] Leader delegating to full_story task`,
+          );
+          // 通知用户 Leader 正在委托任务
+          await this.eventEmitter.emitLeaderResponse(
+            input.projectId,
+            missionId,
+            "📝 收到您的请求，正在安排作家团队创作新章节...",
+          );
+          // 返回 null 让调用方知道需要走 full_story 流程
+          // 实际的 full_story 执行会在 execute 方法中处理
+          return "[DELEGATE_FULL_STORY_INTERNAL]";
+        }
 
         // 发送 Leader 响应事件（支持多轮对话）
         if (leaderResponse) {

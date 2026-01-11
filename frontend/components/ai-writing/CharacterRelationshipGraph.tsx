@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import {
   RelationshipGraph,
   RelationshipNode,
@@ -41,7 +47,6 @@ const RELATION_COLORS: Record<string, string> = {
 // 简单的力导向布局计算
 function calculateLayout(
   nodes: RelationshipNode[],
-  edges: RelationshipEdge[],
   width: number,
   height: number
 ): Map<string, { x: number; y: number }> {
@@ -105,6 +110,14 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
   );
   const [hoveredEdge, setHoveredEdge] = useState<RelationshipEdge | null>(null);
 
+  // 拖动状态
+  const [nodePositions, setNodePositions] = useState<
+    Map<string, { x: number; y: number }>
+  >(new Map());
+  const [draggingNode, setDraggingNode] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const svgRef = useRef<SVGSVGElement>(null);
+
   // 添加关系的状态
   const [isAddingRelation, setIsAddingRelation] = useState(false);
   const [sourceNode, setSourceNode] = useState<RelationshipNode | null>(null);
@@ -128,11 +141,89 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
     fetchGraph();
   }, [fetchGraph]);
 
-  // 计算布局
-  const positions = useMemo(() => {
+  // 计算初始布局
+  const initialPositions = useMemo(() => {
     if (!graph) return new Map();
-    return calculateLayout(graph.nodes, graph.edges, 800, 600);
+    return calculateLayout(graph.nodes, 800, 600);
   }, [graph]);
+
+  // 当 graph 变化时重置位置
+  useEffect(() => {
+    if (graph) {
+      setNodePositions(calculateLayout(graph.nodes, 800, 600));
+    }
+  }, [graph]);
+
+  // 获取当前位置（拖动后的位置或初始位置）
+  const getNodePosition = useCallback(
+    (nodeId: string) => {
+      return nodePositions.get(nodeId) || initialPositions.get(nodeId);
+    },
+    [nodePositions, initialPositions]
+  );
+
+  // 重置布局
+  const resetLayout = useCallback(() => {
+    if (graph) {
+      setNodePositions(calculateLayout(graph.nodes, 800, 600));
+    }
+  }, [graph]);
+
+  // 处理拖动开始
+  const handleDragStart = useCallback(
+    (nodeId: string, e: React.MouseEvent<SVGGElement>) => {
+      if (isAddingRelation) return; // 添加关系模式下不允许拖动
+
+      e.stopPropagation();
+      const svg = svgRef.current;
+      if (!svg) return;
+
+      const point = svg.createSVGPoint();
+      point.x = e.clientX;
+      point.y = e.clientY;
+      const svgPoint = point.matrixTransform(svg.getScreenCTM()?.inverse());
+
+      const pos = getNodePosition(nodeId);
+      if (pos) {
+        setDragOffset({
+          x: svgPoint.x - pos.x,
+          y: svgPoint.y - pos.y,
+        });
+      }
+      setDraggingNode(nodeId);
+    },
+    [isAddingRelation, getNodePosition]
+  );
+
+  // 处理拖动移动
+  const handleDragMove = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      if (!draggingNode) return;
+
+      const svg = svgRef.current;
+      if (!svg) return;
+
+      const point = svg.createSVGPoint();
+      point.x = e.clientX;
+      point.y = e.clientY;
+      const svgPoint = point.matrixTransform(svg.getScreenCTM()?.inverse());
+
+      const newX = Math.max(40, Math.min(760, svgPoint.x - dragOffset.x));
+      const newY = Math.max(40, Math.min(560, svgPoint.y - dragOffset.y));
+
+      setNodePositions((prev) => {
+        const newPositions = new Map(prev);
+        newPositions.set(draggingNode, { x: newX, y: newY });
+        return newPositions;
+      });
+    },
+    [draggingNode, dragOffset]
+  );
+
+  // 处理拖动结束
+  const handleDragEnd = useCallback(() => {
+    setDraggingNode(null);
+  }, []);
 
   // 添加关系
   const handleAddRelation = async (targetNode: RelationshipNode) => {
@@ -170,7 +261,7 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
     return (
       <div className="flex h-96 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500" />
-        <span className="ml-2 text-gray-400">加载角色关系图谱...</span>
+        <span className="ml-2 text-gray-500">加载角色关系图谱...</span>
       </div>
     );
   }
@@ -178,7 +269,7 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
   if (error) {
     return (
       <div className="flex h-96 flex-col items-center justify-center">
-        <p className="mb-4 text-red-400">{error}</p>
+        <p className="mb-4 text-red-500">{error}</p>
         <button
           onClick={fetchGraph}
           className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
@@ -191,7 +282,7 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
 
   if (!graph || graph.nodes.length === 0) {
     return (
-      <div className="flex h-96 flex-col items-center justify-center text-gray-400">
+      <div className="flex h-96 flex-col items-center justify-center text-gray-500">
         <svg
           className="mb-4 h-16 w-16"
           fill="none"
@@ -216,8 +307,7 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
       {/* 工具栏 */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h3 className="text-lg font-medium text-white">角色关系图谱</h3>
-          <div className="flex items-center gap-2 text-xs text-gray-400">
+          <div className="flex items-center gap-2 text-xs text-gray-600">
             <span className="flex items-center gap-1">
               <span
                 className="h-3 w-3 rounded-full"
@@ -256,14 +346,14 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
                 value={relationType}
                 onChange={(e) => setRelationType(e.target.value)}
                 placeholder="关系类型（如：师徒、朋友）"
-                className="rounded border border-gray-600 bg-gray-700 px-3 py-1 text-sm text-white"
+                className="rounded border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700"
               />
               <button
                 onClick={() => {
                   setIsAddingRelation(false);
                   setSourceNode(null);
                 }}
-                className="rounded bg-gray-600 px-3 py-1 text-sm text-white hover:bg-gray-500"
+                className="rounded bg-gray-200 px-3 py-1 text-sm text-gray-700 hover:bg-gray-300"
               >
                 取消
               </button>
@@ -277,8 +367,15 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
             </button>
           )}
           <button
+            onClick={resetLayout}
+            className="rounded bg-gray-200 px-3 py-1 text-sm text-gray-700 hover:bg-gray-300"
+            title="重置布局"
+          >
+            ↺ 重置布局
+          </button>
+          <button
             onClick={fetchGraph}
-            className="rounded bg-gray-600 px-3 py-1 text-sm text-white hover:bg-gray-500"
+            className="rounded bg-gray-200 px-3 py-1 text-sm text-gray-700 hover:bg-gray-300"
           >
             刷新
           </button>
@@ -287,16 +384,32 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
 
       {/* 添加关系提示 */}
       {isAddingRelation && (
-        <div className="mb-4 rounded border border-blue-700 bg-blue-900/30 p-3 text-sm text-blue-300">
+        <div className="mb-4 rounded border border-blue-300 bg-blue-50 p-3 text-sm text-blue-700">
           {!sourceNode
             ? '请点击源角色节点'
             : `已选择 ${sourceNode.name}，请点击目标角色节点建立关系`}
         </div>
       )}
 
+      {/* 拖动提示 */}
+      {!isAddingRelation && (
+        <div className="mb-2 text-xs text-gray-400">
+          💡 提示：可以拖动角色节点调整位置
+        </div>
+      )}
+
       {/* 图谱 SVG */}
-      <div className="relative overflow-hidden rounded-lg border border-gray-700 bg-gray-900/50">
-        <svg width="100%" height="600" viewBox="0 0 800 600">
+      <div className="relative overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <svg
+          ref={svgRef}
+          width="100%"
+          height="600"
+          viewBox="0 0 800 600"
+          onMouseMove={handleDragMove}
+          onMouseUp={handleDragEnd}
+          onMouseLeave={handleDragEnd}
+          style={{ cursor: draggingNode ? 'grabbing' : 'default' }}
+        >
           <defs>
             {/* 箭头标记 */}
             <marker
@@ -307,20 +420,38 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
               refY="3.5"
               orient="auto"
             >
-              <polygon points="0 0, 10 3.5, 0 7" fill="#6B7280" />
+              <polygon points="0 0, 10 3.5, 0 7" fill="#9CA3AF" />
             </marker>
           </defs>
 
+          {/* 背景网格 */}
+          <defs>
+            <pattern
+              id="grid"
+              width="40"
+              height="40"
+              patternUnits="userSpaceOnUse"
+            >
+              <path
+                d="M 40 0 L 0 0 0 40"
+                fill="none"
+                stroke="#f0f0f0"
+                strokeWidth="1"
+              />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" />
+
           {/* 绘制边（关系线） */}
           {graph.edges.map((edge) => {
-            const sourcePos = positions.get(edge.source);
-            const targetPos = positions.get(edge.target);
+            const sourcePos = getNodePosition(edge.source);
+            const targetPos = getNodePosition(edge.target);
             if (!sourcePos || !targetPos) return null;
 
             const color =
               RELATION_COLORS[edge.type] ||
               RELATION_COLORS[edge.label] ||
-              '#6B7280';
+              '#9CA3AF';
             const isHovered = hoveredEdge?.id === edge.id;
 
             // 计算线的中点用于放置标签
@@ -331,6 +462,8 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
             const dx = targetPos.x - sourcePos.x;
             const dy = targetPos.y - sourcePos.y;
             const len = Math.sqrt(dx * dx + dy * dy);
+            if (len === 0) return null;
+
             const nodeRadius = 30;
             const startX = sourcePos.x + (dx / len) * nodeRadius;
             const startY = sourcePos.y + (dy / len) * nodeRadius;
@@ -352,15 +485,25 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
                   y2={endY}
                   stroke={color}
                   strokeWidth={isHovered ? 3 : 2}
-                  strokeOpacity={isHovered ? 1 : 0.6}
+                  strokeOpacity={isHovered ? 1 : 0.7}
                   markerEnd="url(#arrowhead)"
+                />
+                {/* 关系标签背景 */}
+                <rect
+                  x={midX - 20}
+                  y={midY - 18}
+                  width="40"
+                  height="16"
+                  rx="4"
+                  fill="white"
+                  fillOpacity="0.9"
                 />
                 <text
                   x={midX}
-                  y={midY - 8}
+                  y={midY - 6}
                   textAnchor="middle"
                   fill={color}
-                  fontSize="12"
+                  fontSize="11"
                   fontWeight={isHovered ? 'bold' : 'normal'}
                 >
                   {edge.label}
@@ -371,18 +514,22 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
 
           {/* 绘制节点 */}
           {graph.nodes.map((node) => {
-            const pos = positions.get(node.id);
+            const pos = getNodePosition(node.id);
             if (!pos) return null;
 
             const color = ROLE_COLORS[node.role] || ROLE_COLORS.MINOR;
             const isSelected = selectedNode?.id === node.id;
             const isSource = sourceNode?.id === node.id;
+            const isDragging = draggingNode === node.id;
 
             return (
               <g
                 key={node.id}
                 transform={`translate(${pos.x}, ${pos.y})`}
-                onClick={() => {
+                onMouseDown={(e) => handleDragStart(node.id, e)}
+                onClick={(e) => {
+                  if (isDragging) return;
+                  e.stopPropagation();
                   if (isAddingRelation) {
                     if (!sourceNode) {
                       setSourceNode(node);
@@ -393,15 +540,34 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
                     setSelectedNode(isSelected ? null : node);
                   }
                 }}
-                style={{ cursor: 'pointer' }}
+                style={{
+                  cursor: isAddingRelation
+                    ? 'pointer'
+                    : isDragging
+                      ? 'grabbing'
+                      : 'grab',
+                }}
               >
-                {/* 节点圆圈 */}
+                {/* 节点阴影 */}
+                <circle
+                  r={32}
+                  fill="rgba(0,0,0,0.1)"
+                  cx={2}
+                  cy={2}
+                  style={{ display: isDragging ? 'block' : 'none' }}
+                />
+                {/* 节点圆圈背景 */}
                 <circle
                   r={isSelected || isSource ? 35 : 30}
-                  fill={color}
-                  fillOpacity={0.2}
+                  fill="white"
                   stroke={color}
                   strokeWidth={isSelected || isSource ? 3 : 2}
+                />
+                {/* 节点圆圈内部填充 */}
+                <circle
+                  r={isSelected || isSource ? 33 : 28}
+                  fill={color}
+                  fillOpacity={0.15}
                 />
                 {/* 头像首字母 */}
                 <text
@@ -410,18 +576,32 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
                   fill={color}
                   fontSize="18"
                   fontWeight="bold"
+                  style={{ pointerEvents: 'none' }}
                 >
                   {node.name.charAt(0)}
                 </text>
+                {/* 名字标签背景 */}
+                <rect
+                  x={-40}
+                  y={38}
+                  width="80"
+                  height="18"
+                  rx="4"
+                  fill="white"
+                  fillOpacity="0.9"
+                />
                 {/* 名字标签 */}
                 <text
-                  y={45}
+                  y={50}
                   textAnchor="middle"
-                  fill="white"
+                  fill="#374151"
                   fontSize="12"
                   fontWeight="medium"
+                  style={{ pointerEvents: 'none' }}
                 >
-                  {node.name}
+                  {node.name.length > 8
+                    ? node.name.substring(0, 8) + '...'
+                    : node.name}
                 </text>
               </g>
             );
@@ -431,23 +611,23 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
 
       {/* 选中节点的详情面板 */}
       {selectedNode && (
-        <div className="absolute right-4 top-16 w-64 rounded-lg border border-gray-700 bg-gray-800 p-4 shadow-lg">
+        <div className="absolute right-4 top-16 w-64 rounded-lg border border-gray-200 bg-white p-4 shadow-lg">
           <div className="mb-3 flex items-center justify-between">
-            <h4 className="font-medium text-white">{selectedNode.name}</h4>
+            <h4 className="font-medium text-gray-900">{selectedNode.name}</h4>
             <button
               onClick={() => setSelectedNode(null)}
-              className="text-gray-400 hover:text-white"
+              className="text-gray-400 hover:text-gray-600"
             >
               ✕
             </button>
           </div>
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">角色类型:</span>
+              <span className="text-gray-500">角色类型:</span>
               <span
                 className="rounded px-2 py-0.5 text-xs"
                 style={{
-                  backgroundColor: ROLE_COLORS[selectedNode.role] + '30',
+                  backgroundColor: ROLE_COLORS[selectedNode.role] + '20',
                   color: ROLE_COLORS[selectedNode.role],
                 }}
               >
@@ -462,20 +642,20 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
             </div>
             {selectedNode.aliases.length > 0 && (
               <div>
-                <span className="text-gray-400">别名:</span>
-                <span className="ml-2 text-gray-300">
+                <span className="text-gray-500">别名:</span>
+                <span className="ml-2 text-gray-700">
                   {selectedNode.aliases.join(', ')}
                 </span>
               </div>
             )}
             {selectedNode.traits.length > 0 && (
               <div>
-                <span className="text-gray-400">性格特征:</span>
+                <span className="text-gray-500">性格特征:</span>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {selectedNode.traits.map((trait, i) => (
                     <span
                       key={i}
-                      className="rounded bg-gray-700 px-2 py-0.5 text-xs text-gray-300"
+                      className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
                     >
                       {trait}
                     </span>
@@ -484,8 +664,8 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
               </div>
             )}
             {/* 关系列表 */}
-            <div className="mt-3 border-t border-gray-700 pt-3">
-              <span className="text-gray-400">关系:</span>
+            <div className="mt-3 border-t border-gray-200 pt-3">
+              <span className="text-gray-500">关系:</span>
               <div className="mt-1 space-y-1">
                 {graph.edges
                   .filter(
@@ -501,12 +681,12 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
                     return (
                       <div
                         key={edge.id}
-                        className="flex items-center gap-1 text-xs text-gray-300"
+                        className="flex items-center gap-1 text-xs text-gray-600"
                       >
                         <span>{isSource ? '→' : '←'}</span>
                         <span
                           style={{
-                            color: RELATION_COLORS[edge.label] || '#9CA3AF',
+                            color: RELATION_COLORS[edge.label] || '#6B7280',
                           }}
                         >
                           {edge.label}
@@ -515,6 +695,12 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
                       </div>
                     );
                   })}
+                {graph.edges.filter(
+                  (e) =>
+                    e.source === selectedNode.id || e.target === selectedNode.id
+                ).length === 0 && (
+                  <p className="text-xs text-gray-400">暂无关系</p>
+                )}
               </div>
             </div>
           </div>
@@ -523,7 +709,7 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
 
       {/* 悬浮边的详情 */}
       {hoveredEdge && hoveredEdge.description && (
-        <div className="absolute bottom-4 left-4 max-w-xs rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-300">
+        <div className="absolute bottom-4 left-4 max-w-xs rounded border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 shadow">
           <span className="font-medium">{hoveredEdge.label}:</span>{' '}
           {hoveredEdge.description}
         </div>
