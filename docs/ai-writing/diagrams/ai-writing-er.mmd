@@ -1,0 +1,82 @@
+erDiagram
+  User ||--o{ WritingProject : owns
+  WritingProject ||--|| StoryBible : has
+  WritingProject ||--o{ WritingVolume : contains
+  WritingVolume ||--o{ WritingChapter : contains
+
+  WritingProject ||--o{ WritingMission : runs
+  WritingMission ||--o{ WritingMissionLog : logs
+
+  WritingProject }o--|| WritingStyleTemplate : uses
+
+  StoryBible ||--o{ WritingCharacter : defines
+  StoryBible ||--o{ WorldSetting : defines
+  StoryBible ||--o{ Terminology : defines
+  StoryBible ||--o{ TimelineEvent : defines
+
+  WritingProject {
+    string id
+    string ownerId
+    string genre
+    int targetWords
+    int currentWords
+    string status
+    string styleTemplateId
+    json styleOverrides
+  }
+
+  StoryBible {
+    string id
+    string projectId
+    int version
+    datetime lastSyncAt
+  }
+
+  WritingVolume {
+    string id
+    string projectId
+    int volumeNumber
+  }
+
+  WritingChapter {
+    string id
+    string volumeId
+    int chapterNumber
+    string status
+    text outline
+    text content
+    int wordCount
+    json dependsOn
+  }
+
+  WritingMission {
+    string id
+    string projectId
+    string status
+    string missionType
+    datetime startedAt
+    datetime updatedAt
+    datetime completedAt
+    json result
+    json orchestratorState
+  }
+
+  WritingMissionLog {
+    string id
+    string missionId
+    string eventType
+    string agentId
+    text content
+    json detail
+    datetime createdAt
+  }
+
+  WritingStyleTemplate {
+    string id
+    string baseStyle
+    json dialogueRules
+    json descriptionRules
+    json pacingRules
+    json avoidPatterns
+    text systemPromptFragment
+  }

@@ -1956,7 +1956,7 @@ export default function WritingProjectPage() {
         {/* Main Content */}
         <div className="flex flex-1 gap-4 overflow-hidden p-4">
           {/* Left: AI Team Panel - Compact and Professional */}
-          <div className="w-80 shrink-0 self-start overflow-hidden rounded-2xl border border-gray-100 bg-gradient-to-br from-slate-50 via-white to-violet-50/50 shadow-sm">
+          <div className="flex max-h-full w-80 shrink-0 flex-col rounded-2xl border border-gray-100 bg-gradient-to-br from-slate-50 via-white to-violet-50/50 shadow-sm">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100/80 bg-white/60 px-4 py-3">
               <div className="flex items-center gap-2">
@@ -2391,7 +2391,7 @@ export default function WritingProjectPage() {
             </div>
 
             {/* Action Buttons - 始终显示，确保用户可以操作 */}
-            <div className="flex items-center justify-center gap-2 border-t border-gray-100/80 bg-white/60 px-4 py-3">
+            <div className="sticky bottom-0 z-10 flex items-center justify-center gap-2 border-t border-gray-100/80 bg-white px-4 py-3 shadow-lg">
               {/* 主按钮：开始/继续创作 */}
               <button
                 onClick={handleContinueWriting}
