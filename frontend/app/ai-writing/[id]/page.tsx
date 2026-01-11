@@ -192,11 +192,19 @@ export default function WritingProjectPage() {
 
     // 替换 @query 为 @Leader
     const newTextBefore = textBeforeCursor.replace(/@\w*$/, '@Leader ');
-    setUserInput(newTextBefore + textAfterCursor);
+    const newText = newTextBefore + textAfterCursor;
+    const newCursorPos = newTextBefore.length; // 光标位置在 @Leader 之后
+
+    setUserInput(newText);
     setShowLeaderMenu(false);
 
-    // 聚焦输入框
-    setTimeout(() => inputRef.current?.focus(), 0);
+    // 聚焦输入框并设置光标位置到 @Leader 之后
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
   };
 
   // Convert WebSocket events to task messages
@@ -3292,12 +3300,15 @@ export default function WritingProjectPage() {
             <div className="relative mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               {/* @Leader Dropdown - 只支持 Leader */}
               {showLeaderMenu && (
-                <div className="absolute bottom-full left-4 mb-2 w-64 rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
+                <div className="absolute bottom-full left-4 z-50 mb-2 w-64 rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
                   <div className="px-3 py-1.5 text-xs font-medium text-gray-400">
                     提及 Leader
                   </div>
                   <button
-                    onClick={handleSelectLeader}
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // 阻止 blur 事件
+                      handleSelectLeader();
+                    }}
                     className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-amber-50"
                   >
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-sm">
