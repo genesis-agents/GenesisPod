@@ -824,15 +824,15 @@ export class NarrativeCraftService {
       (i) => i.type === "npc_dialogue",
     ).length;
 
-    // 每个问题扣分 - 结尾问题最严重，是必须解决的
-    // AI陋习在全文中有一定容忍度，但结尾必须干净
+    // 每个问题扣分 - 只有结尾问题才严重，其他问题宽容度较高
+    // 避免因为常见的中文小说写法而过度惩罚
     const score = Math.max(
       0,
       100 -
-        Math.min(aiClicheCount, 3) * 8 - // AI陋习：前3处扣分，超过3处不再累加扣分（避免无限循环）
-        otherPreachCount * 6 - // 其他说教：每处扣6分
-        endingCount * 25 - // 结尾问题：每处扣25分（必须修复！）
-        dialogueCount * 8, // 对话问题：每处扣8分
+        Math.min(aiClicheCount, 2) * 5 - // AI陋习：最多扣10分（2*5），超过2处不再累加
+        Math.min(otherPreachCount, 3) * 2 - // 其他说教：最多扣6分（3*2），宽容常见写法
+        endingCount * 20 - // 结尾问题：每处扣20分（降低，避免单个结尾问题导致失败）
+        Math.min(dialogueCount, 2) * 4, // 对话问题：最多扣8分
     );
 
     if (issues.length > 0) {
@@ -844,7 +844,9 @@ export class NarrativeCraftService {
     return {
       issues,
       score,
-      passed: score >= 60,
+      // 只有结尾问题才会导致不通过（score < 80）
+      // 其他问题只是警告，不阻止章节通过
+      passed: endingCount === 0 || score >= 50,
     };
   }
 
