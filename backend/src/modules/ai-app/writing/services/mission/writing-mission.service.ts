@@ -2541,6 +2541,9 @@ ${firstChapterGuidance}
       let rewriteAttempts = 0;
       // ★ 最大重写次数由 QualityGate 配置控制，这里只做备用保护
       const safetyMaxRewriteAttempts = 5;
+      // ★★★ 修复死循环：叙事工艺重写也需要计数限制 ★★★
+      let narrativeCraftRewriteAttempts = 0;
+      const maxNarrativeCraftRewrites = 3; // 最多尝试3次叙事工艺修复
 
       // ★ 用 try-catch 包裹质量检查，防止异常导致整个任务失败
       try {
@@ -2549,9 +2552,14 @@ ${firstChapterGuidance}
           // 这是解决"AI写作陋习"问题的关键！
           const narrativeReport =
             this.narrativeCraft.analyzeContent(chapterContent);
-          if (!narrativeReport.passed) {
+
+          // ★★★ 修复：只在未超过重试限制时处理叙事工艺问题 ★★★
+          if (
+            !narrativeReport.passed &&
+            narrativeCraftRewriteAttempts < maxNarrativeCraftRewrites
+          ) {
             this.logger.warn(
-              `[${missionId}] Chapter ${chapterNumber} failed narrative craft check (score=${narrativeReport.score})`,
+              `[${missionId}] Chapter ${chapterNumber} failed narrative craft check (score=${narrativeReport.score}, attempt=${narrativeCraftRewriteAttempts + 1}/${maxNarrativeCraftRewrites})`,
             );
 
             // 如果有结尾问题或AI陋习，先修复
@@ -2565,8 +2573,10 @@ ${firstChapterGuidance}
             );
 
             if (hasEndingIssues || hasAiCliche) {
+              narrativeCraftRewriteAttempts++; // ★ 重要：递增计数！
+
               this.logger.log(
-                `[${missionId}] Chapter ${chapterNumber} has narrative issues (ending=${hasEndingIssues}, ai_cliche=${hasAiCliche}), attempting fix`,
+                `[${missionId}] Chapter ${chapterNumber} has narrative issues (ending=${hasEndingIssues}, ai_cliche=${hasAiCliche}), attempting fix #${narrativeCraftRewriteAttempts}`,
               );
 
               // 尝试重写结尾/问题段落
@@ -2578,12 +2588,25 @@ ${firstChapterGuidance}
               if (rewrittenContent !== chapterContent) {
                 chapterContent = rewrittenContent;
                 this.logger.log(
-                  `[${missionId}] Chapter ${chapterNumber} narrative issues fixed`,
+                  `[${missionId}] Chapter ${chapterNumber} narrative issues fixed (attempt ${narrativeCraftRewriteAttempts})`,
                 );
-                // 修复后重新检查，不增加重写计数
+                // 修复后重新检查
                 continue;
               }
             }
+          } else if (
+            !narrativeReport.passed &&
+            narrativeCraftRewriteAttempts >= maxNarrativeCraftRewrites
+          ) {
+            // ★★★ 超过重试限制，记录警告并继续 ★★★
+            const aiClicheCount = narrativeReport.issues.filter(
+              (i) =>
+                i.category === "ai_writing_cliche" ||
+                i.category === "excessive_psychology",
+            ).length;
+            this.logger.warn(
+              `[${missionId}] Chapter ${chapterNumber} narrative craft max rewrites reached (${maxNarrativeCraftRewrites}), accepting with ${aiClicheCount} AI cliche issues`,
+            );
           }
 
           // ★★★ 第二步：执行 QualityGate 检查
