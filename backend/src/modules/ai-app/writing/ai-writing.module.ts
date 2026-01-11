@@ -23,6 +23,9 @@ import { WorldBuildingEnhancerService } from "./services/bible/world-building-en
 // Writing services
 import { ProjectService } from "./services/writing/project.service";
 import { ChapterWritingService } from "./services/writing/chapter-writing.service";
+import { ChapterRevisionService } from "./services/writing/chapter-revision.service";
+import { ChapterAnnotationService } from "./services/writing/chapter-annotation.service";
+import { ChapterImportService } from "./services/writing/chapter-import.service";
 import { ContextBuilderService } from "./services/writing/context-builder.service";
 import { OutlineService } from "./services/writing/outline.service";
 
@@ -95,6 +98,9 @@ import {
     // Writing services
     ProjectService,
     ChapterWritingService,
+    ChapterRevisionService,
+    ChapterAnnotationService,
+    ChapterImportService,
     ContextBuilderService,
     OutlineService,
     // Mission services (integrates AI Teams mechanism)

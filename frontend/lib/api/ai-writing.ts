@@ -601,3 +601,420 @@ export async function startChapterWriting(
     body: JSON.stringify(dto),
   });
 }
+
+// ==================== Chapter Revision (Version History) ====================
+
+export type RevisionChangeType =
+  | 'MANUAL_EDIT'
+  | 'AI_REWRITE'
+  | 'AI_POLISH'
+  | 'AI_EXPAND'
+  | 'AI_CONDENSE'
+  | 'AI_STYLE_FIX'
+  | 'IMPORTED'
+  | 'ROLLBACK';
+
+export interface ChapterRevision {
+  id: string;
+  chapterId: string;
+  versionNumber: number;
+  content: string;
+  wordCount: number;
+  changeType: RevisionChangeType;
+  changeSummary: string | null;
+  changedBy: string;
+  aiParams: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface RevisionDiff {
+  revision1: ChapterRevision;
+  revision2: ChapterRevision;
+  diff: {
+    additions: string[];
+    deletions: string[];
+    changes: Array<{ before: string; after: string }>;
+  };
+}
+
+export type AiEditOperation =
+  | 'rewrite'
+  | 'polish'
+  | 'expand'
+  | 'condense'
+  | 'style_fix';
+
+export type PolishLevel = 'light' | 'moderate' | 'heavy';
+
+export interface AiEditDto {
+  operation: AiEditOperation;
+  selection?: {
+    startOffset: number;
+    endOffset: number;
+    originalText: string;
+  };
+  userFeedback: string;
+  polishLevel?: PolishLevel;
+  targetStyle?: {
+    tone?: string;
+    vocabulary?: string;
+    sentenceLength?: string;
+  };
+}
+
+export interface AiEditResult {
+  chapter: {
+    id: string;
+    content: string;
+    wordCount: number;
+  };
+  revision: ChapterRevision;
+  changes: Array<{
+    type: string;
+    before: string;
+    after: string;
+    description: string;
+  }>;
+}
+
+/**
+ * 获取章节修订历史
+ */
+export async function getChapterRevisions(
+  chapterId: string
+): Promise<{ items: ChapterRevision[]; total: number }> {
+  return fetchWithAuth(`/api/v1/ai-writing/chapters/${chapterId}/revisions`);
+}
+
+/**
+ * 更新章节内容（人工编辑，自动创建版本）
+ */
+export async function updateChapterContent(
+  chapterId: string,
+  dto: { content: string; changeSummary?: string }
+): Promise<{
+  chapter: { id: string; content: string; wordCount: number };
+  revision: ChapterRevision;
+}> {
+  return fetchWithAuth(`/api/v1/ai-writing/chapters/${chapterId}/content`, {
+    method: 'PATCH',
+    body: JSON.stringify(dto),
+  });
+}
+
+/**
+ * AI 辅助编辑章节
+ */
+export async function aiEditChapter(
+  chapterId: string,
+  dto: AiEditDto
+): Promise<AiEditResult> {
+  return fetchWithAuth(`/api/v1/ai-writing/chapters/${chapterId}/ai-edit`, {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  });
+}
+
+/**
+ * 比较两个版本
+ */
+export async function compareRevisions(
+  chapterId: string,
+  revisionId1: string,
+  revisionId2: string
+): Promise<RevisionDiff> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/chapters/${chapterId}/revisions/diff?v1=${revisionId1}&v2=${revisionId2}`
+  );
+}
+
+/**
+ * 回退到指定版本
+ */
+export async function rollbackRevision(
+  chapterId: string,
+  revisionId: string,
+  reason?: string
+): Promise<{
+  chapter: { id: string; content: string; wordCount: number };
+  newRevision: ChapterRevision;
+}> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/chapters/${chapterId}/revisions/${revisionId}/rollback`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }
+  );
+}
+
+// ==================== Chapter Annotations ====================
+
+export type AnnotationType = 'COMMENT' | 'SUGGESTION' | 'ISSUE' | 'REFERENCE';
+export type AnnotationStatus = 'OPEN' | 'RESOLVED' | 'DISMISSED';
+
+export interface ChapterAnnotation {
+  id: string;
+  chapterId: string;
+  startOffset: number;
+  endOffset: number;
+  content: string;
+  type: AnnotationType;
+  status: AnnotationStatus;
+  selectedText: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+/**
+ * 获取章节批注
+ */
+export async function getChapterAnnotations(
+  chapterId: string,
+  status?: AnnotationStatus
+): Promise<{ items: ChapterAnnotation[]; total: number }> {
+  const params = status ? `?status=${status}` : '';
+  return fetchWithAuth(
+    `/api/v1/ai-writing/chapters/${chapterId}/annotations${params}`
+  );
+}
+
+/**
+ * 创建批注
+ */
+export async function createAnnotation(
+  chapterId: string,
+  dto: {
+    startOffset: number;
+    endOffset: number;
+    content: string;
+    type?: AnnotationType;
+    selectedText?: string;
+  }
+): Promise<ChapterAnnotation> {
+  return fetchWithAuth(`/api/v1/ai-writing/chapters/${chapterId}/annotations`, {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  });
+}
+
+/**
+ * 更新批注
+ */
+export async function updateAnnotation(
+  chapterId: string,
+  annotationId: string,
+  dto: { content?: string; status?: AnnotationStatus }
+): Promise<ChapterAnnotation> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/chapters/${chapterId}/annotations/${annotationId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(dto),
+    }
+  );
+}
+
+/**
+ * 删除批注
+ */
+export async function deleteAnnotation(
+  chapterId: string,
+  annotationId: string
+): Promise<{ success: boolean }> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/chapters/${chapterId}/annotations/${annotationId}`,
+    {
+      method: 'DELETE',
+    }
+  );
+}
+
+/**
+ * 批量解决批注
+ */
+export async function resolveAnnotations(
+  chapterId: string,
+  annotationIds: string[]
+): Promise<{ resolved: number }> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/chapters/${chapterId}/annotations/resolve`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ annotationIds }),
+    }
+  );
+}
+
+// ==================== Chapter Import ====================
+
+export type ImportSource =
+  | 'PASTE'
+  | 'FILE_TXT'
+  | 'FILE_DOCX'
+  | 'FILE_EPUB'
+  | 'FILE_MD'
+  | 'URL_QIDIAN'
+  | 'URL_JJWXC'
+  | 'URL_FANQIE'
+  | 'URL_OTHER';
+
+export type ImportStatus =
+  | 'PENDING'
+  | 'PARSING'
+  | 'PREVIEWING'
+  | 'IMPORTING'
+  | 'POST_PROCESSING'
+  | 'COMPLETED'
+  | 'FAILED';
+
+export type ChapterPatternType =
+  | 'auto'
+  | 'standard_chinese'
+  | 'chapter_number'
+  | 'numbered'
+  | 'custom';
+
+export type ConflictStrategy = 'skip' | 'overwrite' | 'append';
+
+export interface ChapterPreview {
+  index: number;
+  title: string;
+  wordCount: number;
+  preview: string;
+  content: string;
+}
+
+export interface ParseImportResult {
+  success: boolean;
+  importId: string;
+  preview: {
+    totalChapters: number;
+    totalWords: number;
+    chapters: ChapterPreview[];
+  };
+}
+
+export interface ImportStatusResponse {
+  id: string;
+  status: ImportStatus;
+  source: ImportSource;
+  totalChapters: number;
+  totalWords: number;
+  progress?: {
+    current: number;
+    total: number;
+    currentChapter?: string;
+  };
+  result?: {
+    importedChapterIds: string[];
+    skippedCount: number;
+    errors: Array<{ chapter: string; error: string }>;
+  };
+  postProcessStatus?: {
+    consistencyCheck: 'pending' | 'running' | 'completed' | 'skipped';
+    bibleExtraction: 'pending' | 'running' | 'completed' | 'skipped';
+  };
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface ImportHistoryItem {
+  id: string;
+  source: ImportSource;
+  fileName: string | null;
+  sourceUrl: string | null;
+  totalChapters: number;
+  totalWords: number;
+  status: ImportStatus;
+  importedChapterIds: string[];
+  createdAt: string;
+  completedAt: string | null;
+}
+
+/**
+ * 解析导入内容
+ */
+export async function parseImport(
+  projectId: string,
+  dto: {
+    source: ImportSource;
+    content?: string;
+    sourceUrl?: string;
+    fileName?: string;
+    chapterPattern?: ChapterPatternType;
+    customPattern?: string;
+  }
+): Promise<ParseImportResult> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/projects/${projectId}/import/parse`,
+    {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    }
+  );
+}
+
+/**
+ * 确认并执行导入
+ */
+export async function confirmImport(
+  projectId: string,
+  importId: string,
+  dto: {
+    targetVolumeId: string;
+    startChapterNumber: number;
+    selectedChapters: number[];
+    conflictStrategy?: ConflictStrategy;
+    postProcess?: {
+      runConsistencyCheck?: boolean;
+      extractToBible?: boolean;
+    };
+  }
+): Promise<{ success: boolean; importId: string }> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/projects/${projectId}/import/${importId}/confirm`,
+    {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    }
+  );
+}
+
+/**
+ * 获取导入状态
+ */
+export async function getImportStatus(
+  projectId: string,
+  importId: string
+): Promise<ImportStatusResponse> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/projects/${projectId}/import/${importId}`
+  );
+}
+
+/**
+ * 获取导入历史
+ */
+export async function getImportHistory(
+  projectId: string
+): Promise<{ items: ImportHistoryItem[]; total: number }> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/projects/${projectId}/import/history`
+  );
+}
+
+/**
+ * 取消导入
+ */
+export async function cancelImport(
+  projectId: string,
+  importId: string
+): Promise<{ success: boolean }> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/projects/${projectId}/import/${importId}`,
+    {
+      method: 'DELETE',
+    }
+  );
+}

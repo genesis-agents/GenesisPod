@@ -749,25 +749,40 @@ export class QualityGateService {
       return false;
     }
 
-    // ★★★ 新增：叙事工艺错误检查（结尾问题、说教模式）
-    // 这是核心修复：确保严重的叙事问题触发重写
-    const criticalNarrativeIssues = issues.filter(
+    // ★★★ 智能叙事工艺检查：结尾问题必须修复，AI cliche 有阈值 ★★★
+    const endingIssues = issues.filter(
       (issue) =>
         issue.severity === "error" &&
         issue.type === "style_issue" &&
-        (issue.description.includes("[ending]") ||
-          issue.description.includes("[preach]")),
+        issue.description.includes("[ending]"),
     );
 
-    if (criticalNarrativeIssues.length > 0) {
-      const issueTypes = criticalNarrativeIssues
-        .slice(0, 3)
-        .map((i) => i.description.substring(0, 50))
-        .join("; ");
+    // 结尾问题：必须修复
+    if (endingIssues.length > 0) {
       this.logger.warn(
-        `[QualityGate] Hard gate failed: ${criticalNarrativeIssues.length} critical narrative issues: ${issueTypes}`,
+        `[QualityGate] Hard gate failed: ${endingIssues.length} ending issues`,
       );
       return false;
+    }
+
+    // AI cliche/preach 问题：超过阈值才触发重写（避免少量问题导致无限循环）
+    const preachIssues = issues.filter(
+      (issue) =>
+        issue.severity === "error" &&
+        issue.type === "style_issue" &&
+        issue.description.includes("[preach]"),
+    );
+
+    // 超过5个 preach 问题才触发 hard gate 失败
+    if (preachIssues.length > 5) {
+      this.logger.warn(
+        `[QualityGate] Hard gate failed: ${preachIssues.length} preach issues (threshold: 5)`,
+      );
+      return false;
+    } else if (preachIssues.length > 0) {
+      this.logger.log(
+        `[QualityGate] ${preachIssues.length} preach issues detected (under threshold, accepted)`,
+      );
     }
 
     // ★ 新增：表达冷却违规检查

@@ -2591,59 +2591,54 @@ ${firstChapterGuidance}
           const narrativeReport =
             this.narrativeCraft.analyzeContent(chapterContent);
 
-          // ★★★ 修复：只在未超过重试限制时处理叙事工艺问题 ★★★
-          if (
-            !narrativeReport.passed &&
-            narrativeCraftRewriteAttempts < maxNarrativeCraftRewrites
-          ) {
+          // ★★★ 智能重写策略：结尾问题必须修复，AI cliche 有限修复 ★★★
+          const hasEndingIssues = narrativeReport.issues.some(
+            (i) => i.type === "ending",
+          );
+          const aiClicheIssues = narrativeReport.issues.filter(
+            (i) =>
+              i.category === "ai_writing_cliche" ||
+              i.category === "excessive_psychology",
+          );
+
+          // 结尾问题是必须修复的（影响阅读体验）
+          // AI cliche 问题：只修复前2次，超过后接受（避免无限循环）
+          const shouldRewriteEnding =
+            hasEndingIssues &&
+            narrativeCraftRewriteAttempts < maxNarrativeCraftRewrites;
+          const shouldRewriteCliche =
+            aiClicheIssues.length > 3 && // 只有超过3个 cliche 问题才触发重写
+            narrativeCraftRewriteAttempts < 2; // 最多尝试2次 cliche 修复
+
+          if (shouldRewriteEnding || shouldRewriteCliche) {
+            narrativeCraftRewriteAttempts++;
+
+            const issueType = hasEndingIssues ? "ending" : "ai_cliche";
             this.logger.warn(
-              `[${missionId}] Chapter ${chapterNumber} failed narrative craft check (score=${narrativeReport.score}, attempt=${narrativeCraftRewriteAttempts + 1}/${maxNarrativeCraftRewrites})`,
+              `[${missionId}] Chapter ${chapterNumber} has ${issueType} issues (ending=${hasEndingIssues}, cliche=${aiClicheIssues.length}), attempting fix #${narrativeCraftRewriteAttempts}`,
             );
 
-            // 如果有结尾问题或AI陋习，先修复
-            const hasEndingIssues = narrativeReport.issues.some(
-              (i) => i.type === "ending",
-            );
-            const hasAiCliche = narrativeReport.issues.some(
-              (i) =>
-                i.category === "ai_writing_cliche" ||
-                i.category === "excessive_psychology",
+            // 传入需要修复的问题
+            const issuesToFix = hasEndingIssues
+              ? narrativeReport.issues.filter((i) => i.type === "ending")
+              : aiClicheIssues.slice(0, 5); // 只修复前5个最严重的 cliche
+
+            const rewrittenContent = await this.narrativeCraft.rewriteEnding(
+              chapterContent,
+              issuesToFix,
             );
 
-            if (hasEndingIssues || hasAiCliche) {
-              narrativeCraftRewriteAttempts++; // ★ 重要：递增计数！
-
+            if (rewrittenContent !== chapterContent) {
+              chapterContent = rewrittenContent;
               this.logger.log(
-                `[${missionId}] Chapter ${chapterNumber} has narrative issues (ending=${hasEndingIssues}, ai_cliche=${hasAiCliche}), attempting fix #${narrativeCraftRewriteAttempts}`,
+                `[${missionId}] Chapter ${chapterNumber} ${issueType} issues fixed (attempt ${narrativeCraftRewriteAttempts})`,
               );
-
-              // 尝试重写结尾/问题段落
-              const rewrittenContent = await this.narrativeCraft.rewriteEnding(
-                chapterContent,
-                narrativeReport.issues,
-              );
-
-              if (rewrittenContent !== chapterContent) {
-                chapterContent = rewrittenContent;
-                this.logger.log(
-                  `[${missionId}] Chapter ${chapterNumber} narrative issues fixed (attempt ${narrativeCraftRewriteAttempts})`,
-                );
-                // 修复后重新检查
-                continue;
-              }
+              continue;
             }
-          } else if (
-            !narrativeReport.passed &&
-            narrativeCraftRewriteAttempts >= maxNarrativeCraftRewrites
-          ) {
-            // ★★★ 超过重试限制，记录警告并继续 ★★★
-            const aiClicheCount = narrativeReport.issues.filter(
-              (i) =>
-                i.category === "ai_writing_cliche" ||
-                i.category === "excessive_psychology",
-            ).length;
-            this.logger.warn(
-              `[${missionId}] Chapter ${chapterNumber} narrative craft max rewrites reached (${maxNarrativeCraftRewrites}), accepting with ${aiClicheCount} AI cliche issues`,
+          } else if (!narrativeReport.passed) {
+            // 超过重试限制或问题数量不够触发重写，记录并继续
+            this.logger.log(
+              `[${missionId}] Chapter ${chapterNumber} narrative score=${narrativeReport.score}, ending=${hasEndingIssues}, cliche=${aiClicheIssues.length} (proceeding)`,
             );
           }
 

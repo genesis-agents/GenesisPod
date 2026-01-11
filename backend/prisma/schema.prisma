@@ -5474,6 +5474,9 @@ model WritingProject {
   qualityScores      WritingQualityScore[]
   issuePatterns      WritingQualityIssuePattern[]
 
+  // 章节导入记录
+  chapterImports ChapterImport[]
+
   // 风格模板关联（新增）
   styleTemplateId String?               @map("style_template_id")
   styleTemplate   WritingStyleTemplate? @relation(fields: [styleTemplateId], references: [id])
@@ -5873,6 +5876,8 @@ model WritingChapter {
   // 关系
   scenes            WritingScene[]
   consistencyChecks ConsistencyCheck[]
+  revisions         ChapterRevision[] // 版本历史
+  annotations       ChapterAnnotation[] // 批注
 
   @@unique([volumeId, chapterNumber])
   @@index([volumeId])
@@ -6267,6 +6272,148 @@ model WritingQualityIssuePattern {
   @@index([projectId, issueType])
   @@index([issueType])
   @@map("writing_quality_issue_patterns")
+}
+
+// ============ 章节版本管理与导入 ============
+
+// 修订变更类型
+enum RevisionChangeType {
+  MANUAL_EDIT // 人工编辑
+  AI_REWRITE // AI 重写段落
+  AI_POLISH // AI 润色
+  AI_EXPAND // AI 扩写
+  AI_CONDENSE // AI 缩写
+  AI_STYLE_FIX // AI 风格修正
+  IMPORTED // 导入内容
+  ROLLBACK // 版本回退
+}
+
+// 章节修订历史
+model ChapterRevision {
+  id        String         @id @default(uuid())
+  chapterId String         @map("chapter_id")
+  chapter   WritingChapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  // 版本信息
+  versionNumber Int                @map("version_number")
+  content       String             @db.Text // 该版本的完整内容
+  wordCount     Int                @default(0) @map("word_count")
+  changeType    RevisionChangeType @map("change_type")
+  changeSummary String?            @map("change_summary") @db.VarChar(500) // 修改说明
+  changedBy     String             @map("changed_by") @db.VarChar(50) // 修改者: "user" | "ai_polish" | "ai_rewrite"
+
+  // AI 修改时的元数据
+  aiParams Json? @map("ai_params") // { operation, targetSection, userFeedback, etc. }
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([chapterId, versionNumber])
+  @@index([chapterId])
+  @@index([changeType])
+  @@map("chapter_revisions")
+}
+
+// 批注类型
+enum AnnotationType {
+  COMMENT // 普通评论
+  SUGGESTION // 修改建议
+  ISSUE // 问题标记
+  REFERENCE // 参考说明
+}
+
+// 批注状态
+enum AnnotationStatus {
+  OPEN // 待处理
+  RESOLVED // 已解决
+  DISMISSED // 已忽略
+}
+
+// 章节批注
+model ChapterAnnotation {
+  id        String         @id @default(uuid())
+  chapterId String         @map("chapter_id")
+  chapter   WritingChapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  // 批注位置
+  startOffset Int @map("start_offset") // 起始位置（字符偏移）
+  endOffset   Int @map("end_offset") // 结束位置
+
+  // 批注内容
+  content      String           @db.Text
+  type         AnnotationType   @default(COMMENT)
+  status       AnnotationStatus @default(OPEN)
+  selectedText String?          @map("selected_text") @db.Text // 被批注的原文
+
+  // 时间戳
+  createdAt  DateTime  @default(now()) @map("created_at")
+  resolvedAt DateTime? @map("resolved_at")
+
+  @@index([chapterId])
+  @@index([status])
+  @@map("chapter_annotations")
+}
+
+// 导入来源
+enum ImportSource {
+  PASTE // 粘贴文本
+  FILE_TXT // TXT 文件
+  FILE_DOCX // Word 文档
+  FILE_EPUB // EPUB 电子书
+  FILE_MD // Markdown 文件
+  URL_QIDIAN // 起点中文网
+  URL_JJWXC // 晋江文学城
+  URL_FANQIE // 番茄小说
+  URL_OTHER // 其他网址
+}
+
+// 导入状态
+enum ImportStatus {
+  PENDING // 待处理
+  PARSING // 解析中
+  PREVIEWING // 预览中（等待用户确认）
+  IMPORTING // 导入中
+  POST_PROCESSING // 后处理中（一致性检查、提取）
+  COMPLETED // 完成
+  FAILED // 失败
+}
+
+// 章节导入记录
+model ChapterImport {
+  id        String         @id @default(uuid())
+  projectId String         @map("project_id")
+  project   WritingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // 导入来源
+  source    ImportSource
+  sourceUrl String?      @map("source_url") @db.VarChar(500) // 来源URL
+  fileName  String?      @map("file_name") @db.VarChar(255) // 文件名
+
+  // 导入统计
+  totalChapters Int @default(0) @map("total_chapters")
+  totalWords    Int @default(0) @map("total_words")
+
+  // 状态
+  status ImportStatus @default(PENDING)
+
+  // 解析结果（预览数据）
+  parsedChapters Json? @map("parsed_chapters") // ChapterPreview[]
+
+  // 导入结果
+  importedChapterIds String[] @default([]) @map("imported_chapter_ids")
+  errors             Json[]   @default([]) // { chapter: string, error: string }[]
+
+  // 后处理任务ID
+  consistencyCheckMissionId String? @map("consistency_check_mission_id")
+  bibleExtractionMissionId  String? @map("bible_extraction_mission_id")
+
+  // 时间戳
+  createdAt   DateTime  @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@index([projectId])
+  @@index([status])
+  @@map("chapter_imports")
 }
 
 // ============ AI 团队模板（Admin 配置） ============

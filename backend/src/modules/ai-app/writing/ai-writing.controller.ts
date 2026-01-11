@@ -18,6 +18,9 @@ import { ProjectService } from "./services/writing/project.service";
 import { StoryBibleService } from "./services/bible/story-bible.service";
 import { CharacterService } from "./services/bible/character.service";
 import { ChapterWritingService } from "./services/writing/chapter-writing.service";
+import { ChapterRevisionService } from "./services/writing/chapter-revision.service";
+import { ChapterAnnotationService } from "./services/writing/chapter-annotation.service";
+import { ChapterImportService } from "./services/writing/chapter-import.service";
 import { ConsistencyEngineService } from "./services/consistency/consistency-engine.service";
 import { ParallelOrchestratorService } from "./services/parallel/parallel-orchestrator.service";
 import { WritingMissionService } from "./services/mission/writing-mission.service";
@@ -45,6 +48,9 @@ export class AiWritingController {
     private readonly storyBibleService: StoryBibleService,
     private readonly characterService: CharacterService,
     private readonly chapterWritingService: ChapterWritingService,
+    private readonly chapterRevisionService: ChapterRevisionService,
+    private readonly chapterAnnotationService: ChapterAnnotationService,
+    private readonly chapterImportService: ChapterImportService,
     private readonly consistencyEngine: ConsistencyEngineService,
     private readonly parallelOrchestrator: ParallelOrchestratorService,
     private readonly writingMissionService: WritingMissionService,
@@ -611,5 +617,283 @@ export class AiWritingController {
       chapters: result.chapters,
       message: `已更新 ${result.updated} 个章节的标题`,
     };
+  }
+
+  // ==================== Chapter Revision (Version History) ====================
+
+  /**
+   * 获取章节修订历史
+   */
+  @Get("chapters/:chapterId/revisions")
+  async getChapterRevisions(
+    @Request() req: any,
+    @Param("chapterId") chapterId: string,
+  ) {
+    return this.chapterRevisionService.getRevisions(chapterId, req.user.id);
+  }
+
+  /**
+   * 更新章节内容（人工编辑，自动创建版本）
+   */
+  @Patch("chapters/:chapterId/content")
+  async updateChapterContent(
+    @Request() req: any,
+    @Param("chapterId") chapterId: string,
+    @Body() dto: { content: string; changeSummary?: string },
+  ) {
+    return this.chapterRevisionService.updateContent(
+      chapterId,
+      req.user.id,
+      dto,
+    );
+  }
+
+  /**
+   * AI 辅助编辑章节
+   */
+  @Post("chapters/:chapterId/ai-edit")
+  async aiEditChapter(
+    @Request() req: any,
+    @Param("chapterId") chapterId: string,
+    @Body()
+    dto: {
+      operation: "rewrite" | "polish" | "expand" | "condense" | "style_fix";
+      selection?: {
+        startOffset: number;
+        endOffset: number;
+        originalText: string;
+      };
+      userFeedback: string;
+      polishLevel?: "light" | "moderate" | "heavy";
+      targetStyle?: {
+        tone?: string;
+        vocabulary?: string;
+        sentenceLength?: string;
+      };
+    },
+  ) {
+    return this.chapterRevisionService.aiEdit(chapterId, req.user.id, dto);
+  }
+
+  /**
+   * 比较两个版本
+   */
+  @Get("chapters/:chapterId/revisions/diff")
+  async compareRevisions(
+    @Request() req: any,
+    @Param("chapterId") chapterId: string,
+    @Query("v1") revisionId1: string,
+    @Query("v2") revisionId2: string,
+  ) {
+    return this.chapterRevisionService.compareRevisions(
+      chapterId,
+      revisionId1,
+      revisionId2,
+      req.user.id,
+    );
+  }
+
+  /**
+   * 回退到指定版本
+   */
+  @Post("chapters/:chapterId/revisions/:revisionId/rollback")
+  async rollbackRevision(
+    @Request() req: any,
+    @Param("chapterId") chapterId: string,
+    @Param("revisionId") revisionId: string,
+    @Body() dto: { reason?: string },
+  ) {
+    return this.chapterRevisionService.rollback(
+      chapterId,
+      revisionId,
+      req.user.id,
+      dto.reason,
+    );
+  }
+
+  // ==================== Chapter Annotations ====================
+
+  /**
+   * 获取章节批注
+   */
+  @Get("chapters/:chapterId/annotations")
+  async getChapterAnnotations(
+    @Request() req: any,
+    @Param("chapterId") chapterId: string,
+    @Query("status") status?: string,
+  ) {
+    return this.chapterAnnotationService.getAnnotations(
+      chapterId,
+      req.user.id,
+      status as any,
+    );
+  }
+
+  /**
+   * 创建批注
+   */
+  @Post("chapters/:chapterId/annotations")
+  async createAnnotation(
+    @Request() req: any,
+    @Param("chapterId") chapterId: string,
+    @Body()
+    dto: {
+      startOffset: number;
+      endOffset: number;
+      content: string;
+      type?: "COMMENT" | "SUGGESTION" | "ISSUE" | "REFERENCE";
+      selectedText?: string;
+    },
+  ) {
+    return this.chapterAnnotationService.createAnnotation(
+      chapterId,
+      req.user.id,
+      dto,
+    );
+  }
+
+  /**
+   * 更新批注
+   */
+  @Patch("chapters/:chapterId/annotations/:annotationId")
+  async updateAnnotation(
+    @Request() req: any,
+    @Param("annotationId") annotationId: string,
+    @Body()
+    dto: { content?: string; status?: "OPEN" | "RESOLVED" | "DISMISSED" },
+  ) {
+    return this.chapterAnnotationService.updateAnnotation(
+      annotationId,
+      req.user.id,
+      dto,
+    );
+  }
+
+  /**
+   * 删除批注
+   */
+  @Delete("chapters/:chapterId/annotations/:annotationId")
+  async deleteAnnotation(
+    @Request() req: any,
+    @Param("annotationId") annotationId: string,
+  ) {
+    await this.chapterAnnotationService.deleteAnnotation(
+      annotationId,
+      req.user.id,
+    );
+    return { success: true };
+  }
+
+  /**
+   * 批量解决批注
+   */
+  @Post("chapters/:chapterId/annotations/resolve")
+  async resolveAnnotations(
+    @Request() req: any,
+    @Param("chapterId") chapterId: string,
+    @Body() dto: { annotationIds: string[] },
+  ) {
+    return this.chapterAnnotationService.resolveAnnotations(
+      chapterId,
+      req.user.id,
+      dto.annotationIds,
+    );
+  }
+
+  // ==================== Chapter Import ====================
+
+  /**
+   * 解析导入内容
+   */
+  @Post("projects/:projectId/import/parse")
+  async parseImport(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+    @Body()
+    dto: {
+      source: string;
+      content?: string;
+      sourceUrl?: string;
+      fileName?: string;
+      chapterPattern?: string;
+      customPattern?: string;
+    },
+  ) {
+    return this.chapterImportService.parseImport(
+      projectId,
+      req.user.id,
+      dto as any,
+    );
+  }
+
+  /**
+   * 确认并执行导入
+   */
+  @Post("projects/:projectId/import/:importId/confirm")
+  async confirmImport(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+    @Param("importId") importId: string,
+    @Body()
+    dto: {
+      targetVolumeId: string;
+      startChapterNumber: number;
+      selectedChapters: number[];
+      conflictStrategy?: "skip" | "overwrite" | "append";
+      postProcess?: {
+        runConsistencyCheck?: boolean;
+        extractToBible?: boolean;
+      };
+    },
+  ) {
+    return this.chapterImportService.confirmImport(
+      projectId,
+      importId,
+      req.user.id,
+      dto as any,
+    );
+  }
+
+  /**
+   * 获取导入状态
+   */
+  @Get("projects/:projectId/import/:importId")
+  async getImportStatus(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+    @Param("importId") importId: string,
+  ) {
+    return this.chapterImportService.getImportStatus(
+      projectId,
+      importId,
+      req.user.id,
+    );
+  }
+
+  /**
+   * 获取导入历史
+   */
+  @Get("projects/:projectId/import/history")
+  async getImportHistory(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+  ) {
+    return this.chapterImportService.getImportHistory(projectId, req.user.id);
+  }
+
+  /**
+   * 取消导入
+   */
+  @Delete("projects/:projectId/import/:importId")
+  async cancelImport(
+    @Request() req: any,
+    @Param("projectId") projectId: string,
+    @Param("importId") importId: string,
+  ) {
+    return this.chapterImportService.cancelImport(
+      projectId,
+      importId,
+      req.user.id,
+    );
   }
 }
