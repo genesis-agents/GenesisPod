@@ -50,7 +50,7 @@ export interface QualityGateConfig {
  */
 const DEFAULT_QUALITY_GATE_CONFIG: QualityGateConfig = {
   hard: {
-    minDiversityScore: 0.6,
+    minDiversityScore: 0.45, // 从 0.6 降低到 0.45，因为中文小说常用表达会拉低得分
     minCharacterConsistency: 0.7,
     maxRewriteAttempts: 3,
   },
@@ -384,8 +384,8 @@ export class QualityGateService {
     const noveltyRatio =
       analysisResult.newExpressions.length / totalExpressions;
 
-    // 违反冷却期的表达严重降分
-    const penaltyRatio = analysisResult.violatedExpressions.length * 0.1;
+    // 违反冷却期的表达降分（从 0.1 降到 0.03，因为中文小说常用表达会触发很多次）
+    const penaltyRatio = analysisResult.violatedExpressions.length * 0.03;
 
     // ★ 详细日志：追踪违规表达
     if (analysisResult.violatedExpressions.length > 0) {
