@@ -338,22 +338,60 @@ export class CharacterService {
       );
       if (personality?.relationships) {
         const relationshipsData = personality.relationships;
-        // relationships 可能是字符串数组 ["与苏清婉为主仆关系"] 或对象
+        // relationships 可能有三种格式:
+        // 1. 字符串数组 ["与苏清婉为主仆关系"]
+        // 2. 对象格式 { "苏清婉": "主仆关系" }
+        // 3. 对象数组 [{ target: "苏清婉", relation: "主仆关系" }]
         if (Array.isArray(relationshipsData)) {
           this.logger.debug(
             `Processing array format relationships: ${relationshipsData.length} items`,
           );
-          for (const relStr of relationshipsData) {
-            this.parseAndAddRelationshipWithFinder(
-              String(relStr),
-              char.id,
-              findCharacterIdByName,
-              edges,
-              addedEdges,
-            );
+          for (const relItem of relationshipsData) {
+            // ★ 格式3: 对象数组 [{ target: "角色名", relation: "关系类型" }]
+            if (
+              typeof relItem === "object" &&
+              relItem !== null &&
+              "target" in relItem
+            ) {
+              const targetName = String(relItem.target);
+              const relationType = String(relItem.relation || "关联");
+              const targetId = findCharacterIdByName(targetName);
+              this.logger.debug(
+                `Object array format: looking for "${targetName}" -> ${targetId ? "found" : "not found"}`,
+              );
+              if (targetId && targetId !== char.id) {
+                const edgeKey = `${char.id}-${targetId}`;
+                const reverseKey = `${targetId}-${char.id}`;
+                if (!addedEdges.has(edgeKey) && !addedEdges.has(reverseKey)) {
+                  edges.push({
+                    id: `auto-${char.id}-${targetId}`,
+                    source: char.id,
+                    target: targetId,
+                    type: relationType,
+                    label:
+                      relationType.length > 6
+                        ? relationType.slice(0, 6)
+                        : relationType,
+                  });
+                  addedEdges.add(edgeKey);
+                  this.logger.debug(
+                    `Added object-array relationship: ${char.name} -> ${targetName} (${relationType})`,
+                  );
+                }
+              }
+            } else {
+              // 格式1: 字符串数组
+              this.parseAndAddRelationshipWithFinder(
+                String(relItem),
+                char.id,
+                findCharacterIdByName,
+                edges,
+                addedEdges,
+              );
+            }
           }
         } else if (typeof relationshipsData === "object") {
-          // 对象格式: { "苏清婉": "主仆关系" }
+          // 格式2: 对象格式 { "苏清婉": "主仆关系" }
           this.logger.debug(
             `Processing object format relationships: ${Object.keys(relationshipsData).length} items`,
           );
@@ -409,6 +447,84 @@ export class CharacterService {
               edges,
               addedEdges,
             );
+          }
+        }
+      }
+    }
+
+    // 4. ★ 从 WorldSetting 章节记录中提取关系（格式: [关系] 沈苑 → 掌事姑姑: 描述）
+    const chapterSettings = await this.prisma.worldSetting.findMany({
+      where: {
+        bibleId: bible.id,
+        category: { startsWith: "第" }, // 章节设定
+      },
+      select: {
+        category: true,
+        description: true,
+      },
+    });
+
+    this.logger.debug(
+      `Found ${chapterSettings.length} chapter settings to parse for relationships`,
+    );
+
+    for (const setting of chapterSettings) {
+      if (!setting.description) continue;
+
+      // 匹配 [关系] 标签后的内容，支持 "A → B: 描述" 格式
+      const relationRegex = /\[关系\]\s*([^\[]+)/g;
+      let match;
+      while ((match = relationRegex.exec(setting.description)) !== null) {
+        const relationText = match[1].trim();
+        this.logger.debug(
+          `[${setting.category}] Found relation tag: ${relationText}`,
+        );
+
+        // 解析 "沈苑 → 掌事姑姑: 描述" 或 "沈苑 → 掌事姑姑：描述" 格式
+        const arrowMatch = relationText.match(
+          /^(.+?)\s*(?:→|➡|->)+\s*(.+?)\s*[:：]\s*(.+)$/,
+        );
+        if (arrowMatch) {
+          const sourceName = arrowMatch[1].trim();
+          const targetName = arrowMatch[2].trim();
+          const relationDesc = arrowMatch[3].trim();
+
+          const sourceId = findCharacterIdByName(sourceName);
+          const targetId = findCharacterIdByName(targetName);
+
+          this.logger.debug(
+            `Parsed: "${sourceName}" (${sourceId ? "found" : "not found"}) → "${targetName}" (${targetId ? "found" : "not found"})`,
+          );
+
+          if (sourceId && targetId && sourceId !== targetId) {
+            const edgeKey = `${sourceId}-${targetId}`;
+            const reverseKey = `${targetId}-${sourceId}`;
+            if (!addedEdges.has(edgeKey) && !addedEdges.has(reverseKey)) {
+              // 从描述中提取简短的关系类型
+              let relationType = relationDesc;
+              // 尝试提取关系类型关键词
+              const typeMatch = relationDesc.match(
+                /(监管|主仆|师徒|父子|母女|兄弟|姐妹|朋友|仇敌|恋人|夫妻|同门|同袍|同事|上下级)/,
+              );
+              if (typeMatch) {
+                relationType = typeMatch[1];
+              } else if (relationDesc.length > 6) {
+                relationType = relationDesc.slice(0, 6);
+              }
+
+              edges.push({
+                id: `chapter-${setting.category}-${sourceId}-${targetId}`,
+                source: sourceId,
+                target: targetId,
+                type: relationType,
+                label: relationType,
+                description: relationDesc,
+              });
+              addedEdges.add(edgeKey);
+              this.logger.debug(
+                `Added chapter relationship: ${sourceName} → ${targetName} (${relationType})`,
+              );
+            }
           }
         }
       }
