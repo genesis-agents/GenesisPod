@@ -130,6 +130,29 @@ export interface CharacterBehaviorConstraints {
   relationshipConstraints: string[]; // 基于人际关系的约束
 }
 
+/**
+ * ★★★ 新增：角色名称验证结果 ★★★
+ * 检测内容中的角色名称是否与 Story Bible 一致
+ */
+export interface CharacterNameValidationResult {
+  isValid: boolean;
+  issues: CharacterNameIssue[];
+  mentionedCharacters: string[]; // 内容中提到的所有角色名
+  unmatchedNames: string[]; // 无法匹配的名字
+}
+
+export interface CharacterNameIssue {
+  type:
+    | "unknown_character" // 未知角色（可能是笔误或遗漏）
+    | "inconsistent_name" // 名字不一致（如用别名代替正名）
+    | "wrong_title" // 称谓错误
+    | "possible_typo"; // 可能的笔误
+  foundName: string; // 在内容中发现的名字
+  suggestedName?: string; // 建议使用的正确名字
+  context?: string; // 上下文（名字出现的位置）
+  severity: "error" | "warning";
+}
+
 // ==================== 服务实现 ====================
 
 @Injectable()
@@ -895,5 +918,574 @@ export class CharacterConsistencyService {
     }
 
     return constraints;
+  }
+
+  // ==================== ★★★ 角色名称验证（新增） ★★★ ====================
+
+  /**
+   * 验证内容中的角色名称是否与 Story Bible 一致
+   *
+   * 核心功能：
+   * 1. 从内容中提取所有可能的角色名（2-4字中文名）
+   * 2. 与 Story Bible 中定义的角色名和别名对比
+   * 3. 报告未知名字、可能的笔误、不一致的称谓
+   *
+   * @param projectId 项目ID
+   * @param content 待验证的章节内容
+   * @returns 验证结果，包含发现的问题
+   */
+  async validateCharacterNames(
+    projectId: string,
+    content: string,
+  ): Promise<CharacterNameValidationResult> {
+    const issues: CharacterNameIssue[] = [];
+
+    // 1. 获取项目中所有角色（包括别名）
+    const characters = await this.getProjectCharacters(projectId);
+    if (characters.length === 0) {
+      return {
+        isValid: true,
+        issues: [],
+        mentionedCharacters: [],
+        unmatchedNames: [],
+      };
+    }
+
+    // 2. 构建名字查找表
+    const nameMap = this.buildCharacterNameMap(characters);
+
+    // 3. 从内容中提取所有可能的角色名
+    const extractedNames = this.extractPotentialCharacterNames(content);
+
+    // 4. 验证每个提取的名字
+    const mentionedCharacters: string[] = [];
+    const unmatchedNames: string[] = [];
+
+    for (const { name, context } of extractedNames) {
+      const lookupResult = nameMap.get(name);
+
+      if (lookupResult) {
+        // 找到匹配
+        mentionedCharacters.push(lookupResult.canonicalName);
+
+        // 检查是否使用了非规范名（别名而非正名）
+        if (
+          lookupResult.type === "alias" &&
+          lookupResult.canonicalName !== name
+        ) {
+          // 别名使用是警告级别，因为有时故意使用别名
+          issues.push({
+            type: "inconsistent_name",
+            foundName: name,
+            suggestedName: lookupResult.canonicalName,
+            context: context,
+            severity: "warning",
+          });
+        }
+      } else {
+        // 未找到匹配，检查是否可能是笔误
+        const similarName = this.findSimilarCharacterName(name, nameMap);
+        if (similarName) {
+          issues.push({
+            type: "possible_typo",
+            foundName: name,
+            suggestedName: similarName,
+            context: context,
+            severity: "error",
+          });
+        } else {
+          // 完全未知的名字
+          unmatchedNames.push(name);
+          // 只有当这个名字看起来像角色名时才报告（排除地名等）
+          if (this.looksLikeCharacterName(name)) {
+            issues.push({
+              type: "unknown_character",
+              foundName: name,
+              context: context,
+              severity: "warning",
+            });
+          }
+        }
+      }
+    }
+
+    // 5. 检查称谓一致性（如"娘娘"/"王妃"等）
+    const titleIssues = this.checkTitleConsistency(content, characters);
+    issues.push(...titleIssues);
+
+    return {
+      isValid: issues.filter((i) => i.severity === "error").length === 0,
+      issues,
+      mentionedCharacters: [...new Set(mentionedCharacters)],
+      unmatchedNames: [...new Set(unmatchedNames)],
+    };
+  }
+
+  /**
+   * 获取项目中所有角色
+   */
+  private async getProjectCharacters(projectId: string): Promise<
+    Array<{
+      id: string;
+      name: string;
+      aliases: string[];
+      role: string | null;
+      title?: string;
+    }>
+  > {
+    const project = await this.prisma.writingProject.findUnique({
+      where: { id: projectId },
+      include: {
+        storyBible: {
+          include: {
+            characters: {
+              select: {
+                id: true,
+                name: true,
+                aliases: true,
+                role: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!project?.storyBible) {
+      return [];
+    }
+
+    return project.storyBible.characters;
+  }
+
+  /**
+   * 构建角色名称查找表
+   * 包含正名和所有别名
+   */
+  private buildCharacterNameMap(
+    characters: Array<{
+      id: string;
+      name: string;
+      aliases: string[];
+      role: string | null;
+    }>,
+  ): Map<
+    string,
+    { canonicalName: string; type: "canonical" | "alias"; characterId: string }
+  > {
+    const nameMap = new Map<
+      string,
+      {
+        canonicalName: string;
+        type: "canonical" | "alias";
+        characterId: string;
+      }
+    >();
+
+    for (const char of characters) {
+      // 正名
+      nameMap.set(char.name, {
+        canonicalName: char.name,
+        type: "canonical",
+        characterId: char.id,
+      });
+
+      // 别名
+      for (const alias of char.aliases || []) {
+        nameMap.set(alias, {
+          canonicalName: char.name,
+          type: "alias",
+          characterId: char.id,
+        });
+      }
+
+      // 常见变体：只取姓或只取名
+      if (char.name.length >= 2) {
+        // 姓氏（第一个字）+ 角色 -> 如"苏姑娘"
+        const surname = char.name.charAt(0);
+        const commonTitles = [
+          "姑娘",
+          "公子",
+          "小姐",
+          "夫人",
+          "大人",
+          "娘子",
+          "郎君",
+        ];
+        for (const title of commonTitles) {
+          nameMap.set(`${surname}${title}`, {
+            canonicalName: char.name,
+            type: "alias",
+            characterId: char.id,
+          });
+        }
+      }
+    }
+
+    return nameMap;
+  }
+
+  /**
+   * 从内容中提取潜在的角色名
+   * 返回名字和上下文
+   */
+  private extractPotentialCharacterNames(
+    content: string,
+  ): Array<{ name: string; context: string }> {
+    const results: Array<{ name: string; context: string }> = [];
+    const seen = new Set<string>();
+
+    // 模式1：引号内说话的人 - "XXX道"、"XXX说"
+    const dialoguePattern =
+      /[「""]([^「」""]+)[」""]，?([^，。]{1,4})(道|说|问|答|喊|叫|笑道|冷笑|叹息)/g;
+    let match;
+    while ((match = dialoguePattern.exec(content)) !== null) {
+      const speaker = match[2];
+      if (this.isValidCharacterName(speaker) && !seen.has(speaker)) {
+        seen.add(speaker);
+        results.push({
+          name: speaker,
+          context: match[0].substring(0, 50),
+        });
+      }
+    }
+
+    // 模式2：直接的角色名（2-4字中文名）
+    // 常见模式："XXX心中"、"XXX看着"、"XXX走了"等
+    const namePattern =
+      /([\u4e00-\u9fa5]{2,4})(?:心中|心想|看着|望着|走|说|道|笑|问|答|想|觉得|以为|知道|明白|发现|注意到)/g;
+    while ((match = namePattern.exec(content)) !== null) {
+      const name = match[1];
+      if (this.isValidCharacterName(name) && !seen.has(name)) {
+        seen.add(name);
+        results.push({
+          name: name,
+          context: match[0],
+        });
+      }
+    }
+
+    // 模式3：对话前的称呼 "XXX，你..."
+    const addressPattern = /([\u4e00-\u9fa5]{2,4})，[你我他她]/g;
+    while ((match = addressPattern.exec(content)) !== null) {
+      const name = match[1];
+      if (this.isValidCharacterName(name) && !seen.has(name)) {
+        seen.add(name);
+        results.push({
+          name: name,
+          context: match[0],
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * 判断是否为有效的角色名
+   */
+  private isValidCharacterName(name: string): boolean {
+    if (!name || name.length < 2 || name.length > 4) {
+      return false;
+    }
+
+    // 排除常见非名字词汇
+    const excludeWords = [
+      "这里",
+      "那里",
+      "什么",
+      "为什么",
+      "怎么",
+      "如何",
+      "这样",
+      "那样",
+      "这个",
+      "那个",
+      "一个",
+      "两个",
+      "三个",
+      "自己",
+      "别人",
+      "大家",
+      "众人",
+      "所有",
+      "没有",
+      "可以",
+      "不能",
+      "应该",
+      "或许",
+      "也许",
+      "当然",
+      "只是",
+      "不过",
+      "然而",
+      "虽然",
+      "因为",
+      "所以",
+      "如果",
+      "就是",
+      "那时",
+      "此刻",
+      "之后",
+      "之前",
+      "左右",
+      "上下",
+      "里面",
+      "外面",
+      "今天",
+      "明天",
+      "昨天",
+      "时候",
+      "地方",
+      "事情",
+      "东西",
+      "意思",
+      "样子",
+      "声音",
+      "眼睛",
+      "心里",
+    ];
+
+    if (excludeWords.includes(name)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * 判断名字是否看起来像角色名
+   */
+  private looksLikeCharacterName(name: string): boolean {
+    // 常见姓氏
+    const commonSurnames = [
+      "王",
+      "李",
+      "张",
+      "刘",
+      "陈",
+      "杨",
+      "黄",
+      "赵",
+      "周",
+      "吴",
+      "徐",
+      "孙",
+      "马",
+      "朱",
+      "胡",
+      "郭",
+      "何",
+      "高",
+      "林",
+      "罗",
+      "郑",
+      "梁",
+      "谢",
+      "宋",
+      "唐",
+      "许",
+      "韩",
+      "冯",
+      "邓",
+      "曹",
+      "彭",
+      "曾",
+      "萧",
+      "田",
+      "董",
+      "袁",
+      "潘",
+      "于",
+      "蒋",
+      "蔡",
+      "余",
+      "杜",
+      "叶",
+      "程",
+      "苏",
+      "魏",
+      "吕",
+      "丁",
+      "任",
+      "沈",
+      "姚",
+      "卢",
+      "姜",
+      "崔",
+      "钟",
+      "谭",
+      "陆",
+      "汪",
+      "范",
+      "金",
+      "石",
+      "廖",
+      "贾",
+      "夏",
+      "韦",
+      "付",
+      "方",
+      "白",
+      "邹",
+      "孟",
+      "熊",
+      "秦",
+      "邱",
+      "江",
+      "尹",
+      "薛",
+      "闫",
+      "段",
+      "雷",
+      "侯",
+      "龙",
+      "史",
+      "陶",
+      "黎",
+      "贺",
+      "顾",
+      "毛",
+      "郝",
+      "龚",
+      "邵",
+      "万",
+      "钱",
+      "严",
+      "覃",
+      "武",
+      "戴",
+      "莫",
+      "孔",
+      "向",
+      "汤",
+    ];
+
+    // 以常见姓氏开头
+    if (commonSurnames.includes(name.charAt(0))) {
+      return true;
+    }
+
+    // 包含常见称谓结尾
+    const titleSuffixes = [
+      "公",
+      "妃",
+      "嫔",
+      "妃",
+      "后",
+      "帝",
+      "王",
+      "侯",
+      "伯",
+      "子",
+      "爷",
+      "姑",
+      "嬷",
+      "娘",
+    ];
+    if (titleSuffixes.some((s) => name.endsWith(s))) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * 查找相似的角色名（用于检测笔误）
+   */
+  private findSimilarCharacterName(
+    name: string,
+    nameMap: Map<
+      string,
+      {
+        canonicalName: string;
+        type: "canonical" | "alias";
+        characterId: string;
+      }
+    >,
+  ): string | null {
+    // 计算编辑距离，找最接近的名字
+    let minDistance = Infinity;
+    let closestName: string | null = null;
+
+    for (const [registeredName] of nameMap) {
+      const distance = this.levenshteinDistance(name, registeredName);
+      // 只考虑编辑距离为1的情况（一个字的差异）
+      if (distance === 1 && distance < minDistance) {
+        minDistance = distance;
+        closestName = registeredName;
+      }
+    }
+
+    return closestName;
+  }
+
+  /**
+   * 计算 Levenshtein 编辑距离
+   */
+  private levenshteinDistance(s1: string, s2: string): number {
+    const len1 = s1.length;
+    const len2 = s2.length;
+
+    const dp: number[][] = Array(len1 + 1)
+      .fill(null)
+      .map(() => Array(len2 + 1).fill(0));
+
+    for (let i = 0; i <= len1; i++) dp[i][0] = i;
+    for (let j = 0; j <= len2; j++) dp[0][j] = j;
+
+    for (let i = 1; i <= len1; i++) {
+      for (let j = 1; j <= len2; j++) {
+        const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + cost,
+        );
+      }
+    }
+
+    return dp[len1][len2];
+  }
+
+  /**
+   * 检查称谓一致性
+   * 例如：同一角色不应在同一章节中既被称为"王妃"又被称为"娘娘"
+   */
+  private checkTitleConsistency(
+    content: string,
+    _characters: Array<{
+      id: string;
+      name: string;
+      aliases: string[];
+      role: string | null;
+    }>,
+  ): CharacterNameIssue[] {
+    const issues: CharacterNameIssue[] = [];
+
+    // 定义互斥的称谓组
+    const exclusiveGroups = [
+      ["王妃", "娘娘", "夫人"], // 宫廷女性称谓
+      ["太子", "殿下", "王爷"], // 皇室男性称谓
+      ["皇上", "陛下", "圣上"], // 皇帝称谓
+      ["小姐", "姑娘", "千金"], // 未婚女子称谓
+    ];
+
+    for (const group of exclusiveGroups) {
+      const foundTitles = group.filter((title) => content.includes(title));
+      if (foundTitles.length > 1) {
+        // 同一组内出现多个称谓，可能是问题
+        // 但需要排除确实有多个角色使用不同称谓的情况
+        // 这里只做警告
+        issues.push({
+          type: "wrong_title",
+          foundName: foundTitles.join("/"),
+          context: `同一章节中出现了多个相似称谓：${foundTitles.join("、")}`,
+          severity: "warning",
+        });
+      }
+    }
+
+    return issues;
   }
 }

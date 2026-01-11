@@ -2607,7 +2607,23 @@ ${firstChapterGuidance}
           );
 
           if (!qualityResult.requiresRewrite) {
-            // 已达到最大重写次数，强制通过
+            // ★★★ 改进：达到最大重写次数时记录详细警告 ★★★
+            const errorIssues = qualityResult.issues.filter(
+              (i) => i.severity === "error",
+            );
+            if (errorIssues.length > 0) {
+              const issuesSummary = errorIssues
+                .slice(0, 5)
+                .map((i) => `[${i.type}] ${i.description.substring(0, 60)}`)
+                .join("; ");
+              this.logger.error(
+                `[${missionId}] Chapter ${chapterNumber} FORCED PASS with ${errorIssues.length} unresolved errors: ${issuesSummary}`,
+              );
+            } else {
+              this.logger.warn(
+                `[${missionId}] Chapter ${chapterNumber} max rewrite attempts reached, accepting with score=${qualityResult.scores.overallScore.toFixed(2)}`,
+              );
+            }
             break;
           }
 

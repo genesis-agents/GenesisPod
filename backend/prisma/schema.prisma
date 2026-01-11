@@ -6071,13 +6071,15 @@ model WritingExpressionMemory {
   category       String?        @db.VarChar(50) // 细分类别
 
   // 使用统计
-  useCount      Int      @default(1) @map("use_count") // 使用次数
-  lastUsedAt    DateTime @default(now()) @map("last_used_at") // 最后使用时间
-  lastChapterId String?  @map("last_chapter_id") // 最后使用的章节ID
+  useCount             Int      @default(1) @map("use_count") // 使用次数
+  lastUsedAt           DateTime @default(now()) @map("last_used_at") // 最后使用时间
+  lastChapterId        String?  @map("last_chapter_id") // 最后使用的章节ID
+  lastUsedChapterNumber Int?    @map("last_used_chapter_number") // ★ 最后使用的章节号（用于精确冷却计算）
 
-  // 冷却控制
-  cooldownUntil DateTime? @map("cooldown_until") // 冷却截止时间
-  isCoolingDown Boolean   @default(false) @map("is_cooling_down")
+  // 冷却控制 - ★ 改用章节数而非时间
+  cooldownUntil        DateTime? @map("cooldown_until") // 冷却截止时间（已弃用，保留兼容）
+  cooldownUntilChapter Int?      @map("cooldown_until_chapter") // ★ 冷却到哪一章（章节号）
+  isCoolingDown        Boolean   @default(false) @map("is_cooling_down")
 
   // 时间戳
   createdAt DateTime @default(now()) @map("created_at")

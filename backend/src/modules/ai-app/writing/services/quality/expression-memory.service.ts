@@ -522,6 +522,144 @@ const COMMON_EXPRESSION_PATTERNS: Array<{
     category: "密会",
   },
 
+  // ★★★ 新增：信息获取方式模式 ★★★
+  // 发现信件/密报
+  {
+    pattern: /发现[^，。]{2,6}信[件笺]/g,
+    type: "SCENE_STRUCTURE",
+    category: "发现信件",
+  },
+  {
+    pattern: /看到[^，。]{2,6}密[信报]/g,
+    type: "SCENE_STRUCTURE",
+    category: "发现密报",
+  },
+  {
+    pattern: /无意中[^，。]{2,6}听[到见]/g,
+    type: "SCENE_STRUCTURE",
+    category: "无意听闻",
+  },
+  {
+    pattern: /不经意间[^，。]{2,6}瞥见/g,
+    type: "SCENE_STRUCTURE",
+    category: "无意瞥见",
+  },
+  // 被告知/被通风报信
+  {
+    pattern: /有人来报[^，。]{2,8}/g,
+    type: "SCENE_STRUCTURE",
+    category: "来人禀报",
+  },
+  {
+    pattern: /急匆匆[^，。]{2,6}来报/g,
+    type: "SCENE_STRUCTURE",
+    category: "来人禀报",
+  },
+
+  // ★★★ 新增：冲突触发模式 ★★★
+  // 误会触发
+  {
+    pattern: /误以为[^，。]{2,8}/g,
+    type: "SCENE_STRUCTURE",
+    category: "误会冲突",
+  },
+  {
+    pattern: /以为[^，。]{2,6}却原来/g,
+    type: "SCENE_STRUCTURE",
+    category: "误会冲突",
+  },
+  // 第三者介入
+  {
+    pattern: /忽然有人[^，。]{2,6}闯入/g,
+    type: "SCENE_STRUCTURE",
+    category: "第三者介入",
+  },
+  {
+    pattern: /不速之客[^，。]{2,6}到来/g,
+    type: "SCENE_STRUCTURE",
+    category: "第三者介入",
+  },
+  // 旧事重提
+  {
+    pattern: /提起[^，。]{2,6}旧事/g,
+    type: "SCENE_STRUCTURE",
+    category: "旧事重提",
+  },
+  {
+    pattern: /想起[^，。]{2,6}往事/g,
+    type: "SCENE_STRUCTURE",
+    category: "回忆往事",
+  },
+
+  // ★★★ 新增：解决方式模式 ★★★
+  // 外力介入解决
+  {
+    pattern: /就在这时[^，。]{2,8}出现/g,
+    type: "SCENE_STRUCTURE",
+    category: "外力介入",
+  },
+  {
+    pattern: /恰在此刻[^，。]{2,8}赶到/g,
+    type: "SCENE_STRUCTURE",
+    category: "外力介入",
+  },
+  // 主角隐忍
+  {
+    pattern: /只得[^，。]{2,6}忍下/g,
+    type: "SCENE_STRUCTURE",
+    category: "主角隐忍",
+  },
+  {
+    pattern: /压下[^，。]{2,6}怒火/g,
+    type: "SCENE_STRUCTURE",
+    category: "主角隐忍",
+  },
+  // 妥协和解
+  {
+    pattern: /各退一步[^，。]{2,6}/g,
+    type: "SCENE_STRUCTURE",
+    category: "妥协和解",
+  },
+  {
+    pattern: /暂时搁置[^，。]{2,6}/g,
+    type: "SCENE_STRUCTURE",
+    category: "搁置争议",
+  },
+
+  // ★★★ 新增：情节便利模式（Deus ex machina）★★★
+  {
+    pattern: /凑巧[^，。]{2,8}/g,
+    type: "SCENE_STRUCTURE",
+    category: "巧合便利",
+  },
+  {
+    pattern: /幸好[^，。]{2,6}否则/g,
+    type: "SCENE_STRUCTURE",
+    category: "巧合便利",
+  },
+  {
+    pattern: /多亏[^，。]{2,6}及时/g,
+    type: "SCENE_STRUCTURE",
+    category: "巧合便利",
+  },
+
+  // ★★★ 新增：场景转换模式 ★★★
+  {
+    pattern: /话分两头[^，。]{2,8}/g,
+    type: "SCENE_STRUCTURE",
+    category: "场景切换",
+  },
+  {
+    pattern: /却说[^，。]{2,6}那边/g,
+    type: "SCENE_STRUCTURE",
+    category: "场景切换",
+  },
+  {
+    pattern: /另一边[^，。]{2,8}/g,
+    type: "SCENE_STRUCTURE",
+    category: "场景切换",
+  },
+
   // ==================== 叙事节奏模式类（★新增） ====================
   // 被动观察型（主角无作为）
   {
@@ -560,6 +698,74 @@ const COMMON_EXPRESSION_PATTERNS: Array<{
     pattern: /时间一点一点过去/g,
     type: "NARRATIVE_PACING",
     category: "时间拖延",
+  },
+
+  // ★★★ 新增：情绪循环模式（防止情绪反复） ★★★
+  {
+    pattern: /又[^，。]{2,4}一阵[^，。]{2,4}涌上心头/g,
+    type: "NARRATIVE_PACING",
+    category: "情绪反复",
+  },
+  {
+    pattern: /心中[^，。]{2,4}复杂的情绪/g,
+    type: "NARRATIVE_PACING",
+    category: "情绪复杂",
+  },
+  {
+    pattern: /说不清是[^，。]{2,8}还是/g,
+    type: "NARRATIVE_PACING",
+    category: "情绪复杂",
+  },
+
+  // ★★★ 新增：信息堆砌模式（防止情节灌输） ★★★
+  {
+    pattern: /原来[^，。]{2,8}原来[^，。]{2,8}/g,
+    type: "NARRATIVE_PACING",
+    category: "信息堆砌",
+  },
+  {
+    pattern: /这才知道[^，。]{2,8}/g,
+    type: "NARRATIVE_PACING",
+    category: "信息揭示",
+  },
+  {
+    pattern: /事情的真相[^，。]{2,8}/g,
+    type: "NARRATIVE_PACING",
+    category: "真相揭示",
+  },
+
+  // ★★★ 新增：主角被动模式（防止主角变NPC） ★★★
+  {
+    pattern: /只好[^，。]{2,6}照做/g,
+    type: "NARRATIVE_PACING",
+    category: "主角被动",
+  },
+  {
+    pattern: /无可奈何[^，。]{2,6}只得/g,
+    type: "NARRATIVE_PACING",
+    category: "主角被动",
+  },
+  {
+    pattern: /被[^，。]{2,6}带到[^，。]{2,8}/g,
+    type: "NARRATIVE_PACING",
+    category: "主角被动",
+  },
+
+  // ★★★ 新增：转折预告模式（防止虚假悬念） ★★★
+  {
+    pattern: /殊不知[^，。]{2,8}/g,
+    type: "NARRATIVE_PACING",
+    category: "上帝视角",
+  },
+  {
+    pattern: /谁也没想到[^，。]{2,8}/g,
+    type: "NARRATIVE_PACING",
+    category: "上帝视角",
+  },
+  {
+    pattern: /这一切都是[^，。]{2,6}安排/g,
+    type: "NARRATIVE_PACING",
+    category: "幕后黑手",
   },
 ];
 
@@ -977,22 +1183,24 @@ export class ExpressionMemoryService {
         useCount: 1,
         lastUsedAt: new Date(),
         lastChapterId: chapterId,
+        lastUsedChapterNumber: chapterNumber, // ★ 记录章节号
         isCoolingDown: true,
-        cooldownUntil: this.calculateCooldownEnd(
+        cooldownUntilChapter: this.calculateCooldownEndChapter(
           chapterNumber,
           cooldownChapters,
-        ),
+        ), // ★ 使用章节号而非时间
       },
       update: {
         // 如果已存在（并发创建），增加计数
         useCount: { increment: 1 },
         lastUsedAt: new Date(),
         lastChapterId: chapterId,
+        lastUsedChapterNumber: chapterNumber, // ★ 记录章节号
         isCoolingDown: true,
-        cooldownUntil: this.calculateCooldownEnd(
+        cooldownUntilChapter: this.calculateCooldownEndChapter(
           chapterNumber,
           cooldownChapters,
-        ),
+        ), // ★ 使用章节号而非时间
       },
     });
   }
@@ -1024,22 +1232,33 @@ export class ExpressionMemoryService {
         useCount: newCount,
         lastUsedAt: new Date(),
         lastChapterId: chapterId,
+        lastUsedChapterNumber: chapterNumber, // ★ 记录章节号
         isCoolingDown: true,
-        cooldownUntil: this.calculateCooldownEnd(
+        cooldownUntilChapter: this.calculateCooldownEndChapter(
           chapterNumber,
           cooldownChapters,
-        ),
+        ), // ★ 使用章节号而非时间
       },
     });
   }
 
   /**
-   * 更新冷却状态（定期调用或写作前调用）
+   * 更新冷却状态（写作前调用）
+   *
+   * ★ 重要修复：使用章节号而非时间来判断冷却是否结束
    */
   async refreshCooldownStatus(
     projectId: string,
-    _currentChapterNumber?: number,
+    currentChapterNumber?: number,
   ): Promise<void> {
+    // 如果没有提供当前章节号，无法判断冷却状态
+    if (!currentChapterNumber) {
+      this.logger.warn(
+        "[ExpressionMemory] refreshCooldownStatus called without chapter number, skipping",
+      );
+      return;
+    }
+
     // 获取所有冷却中的表达
     const coolingExpressions =
       await this.prisma.writingExpressionMemory.findMany({
@@ -1049,12 +1268,15 @@ export class ExpressionMemoryService {
         },
       });
 
-    const now = new Date();
     const updates: string[] = [];
 
     for (const expr of coolingExpressions) {
-      // 检查是否应该解除冷却
-      if (expr.cooldownUntil && expr.cooldownUntil <= now) {
+      // ★ 使用章节号判断冷却是否结束
+      // 如果当前章节 >= 冷却截止章节，则解除冷却
+      if (
+        expr.cooldownUntilChapter &&
+        currentChapterNumber >= expr.cooldownUntilChapter
+      ) {
         updates.push(expr.id);
       }
     }
@@ -1066,7 +1288,7 @@ export class ExpressionMemoryService {
       });
 
       this.logger.log(
-        `[ExpressionMemory] Released ${updates.length} expressions from cooldown`,
+        `[ExpressionMemory] Released ${updates.length} expressions from cooldown (chapter ${currentChapterNumber})`,
       );
     }
   }
@@ -1117,47 +1339,39 @@ export class ExpressionMemoryService {
   }
 
   /**
-   * 计算冷却结束时间
+   * 计算冷却结束章节号
+   *
+   * ★ 重要修复：使用章节数而非墙钟时间
+   * 之前的 bug：冷却10章被转换为冷却10小时，如果用户快速写作，冷却会过早失效
    */
-  private calculateCooldownEnd(
-    _currentChapter: number,
+  private calculateCooldownEndChapter(
+    currentChapter: number,
     cooldownChapters: number,
-  ): Date {
-    // 估算每章写作时间（假设每章需要 1 小时）
-    const hoursPerChapter = 1;
-    const cooldownHours = cooldownChapters * hoursPerChapter;
-
-    const cooldownEnd = new Date();
-    cooldownEnd.setHours(cooldownEnd.getHours() + cooldownHours);
-
-    return cooldownEnd;
+  ): number {
+    // 直接返回目标章节号：当前章节 + 冷却章节数
+    return currentChapter + cooldownChapters;
   }
 
   /**
    * 计算剩余冷却章节数
+   *
+   * ★ 重要修复：使用章节号而非时间
    */
   private calculateRemainingCooldown(
     expr: {
-      cooldownUntil: Date | null;
+      cooldownUntilChapter: number | null;
       useCount: number;
       expressionType: ExpressionType;
     },
-    _currentChapterNumber: number,
+    currentChapterNumber: number,
   ): number {
-    if (!expr.cooldownUntil) {
+    if (!expr.cooldownUntilChapter) {
       return 0;
     }
 
-    const now = new Date();
-    const remainingMs = expr.cooldownUntil.getTime() - now.getTime();
-
-    if (remainingMs <= 0) {
-      return 0;
-    }
-
-    // 估算剩余章节数
-    const hoursRemaining = remainingMs / (1000 * 60 * 60);
-    return Math.ceil(hoursRemaining);
+    // 直接计算剩余章节数
+    const remaining = expr.cooldownUntilChapter - currentChapterNumber;
+    return Math.max(0, remaining);
   }
 
   /**
@@ -1328,6 +1542,9 @@ export class ExpressionMemoryService {
     const topPhrases = highFrequencyPhrases.slice(0, 50);
 
     // 6. 添加到表达记忆（标记为动态学习）
+    // 获取当前最大章节号作为基准
+    const maxChapter = chapters.length;
+
     for (const { expression, frequency } of topPhrases) {
       const type = this.inferExpressionType(expression);
 
@@ -1339,9 +1556,12 @@ export class ExpressionMemoryService {
           category: "动态学习",
           useCount: frequency,
           lastUsedAt: new Date(),
+          lastUsedChapterNumber: maxChapter,
           isCoolingDown: frequency >= 10, // 高频直接进入冷却
-          cooldownUntil:
-            frequency >= 10 ? this.calculateCooldownEnd(0, 15) : null,
+          cooldownUntilChapter:
+            frequency >= 10
+              ? this.calculateCooldownEndChapter(maxChapter, 15)
+              : null,
         },
       });
     }

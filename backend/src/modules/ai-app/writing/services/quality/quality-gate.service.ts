@@ -197,7 +197,12 @@ export class QualityGateService {
     }
 
     // 4. 判断是否通过门禁
-    const hardGatePassed = this.checkHardGate(scores, personalityResult);
+    // ★ 修复：传入 issues 让 checkHardGate 检查叙事工艺错误
+    const hardGatePassed = this.checkHardGate(
+      scores,
+      personalityResult,
+      issues,
+    );
     const softGatePassed = this.checkSoftGate(scores);
 
     // 5. 决定是否需要重写
@@ -716,10 +721,15 @@ export class QualityGateService {
 
   /**
    * 检查硬性门禁
+   *
+   * ★★★ 重要修复：增加叙事工艺错误检查 ★★★
+   * 之前的 bug：checkHardGate 只检查 diversityScore 和 characterConsistency，
+   * 即使检测到严重的结尾问题、说教模式等，也不会触发重写。
    */
   private checkHardGate(
     scores: QualityScoreResult,
     personalityResult: PersonalityConsistencyResult,
+    issues: QualityIssue[] = [],
   ): boolean {
     const { hard } = this.config;
 
@@ -735,6 +745,40 @@ export class QualityGateService {
     if (personalityResult.score < hard.minCharacterConsistency) {
       this.logger.warn(
         `[QualityGate] Hard gate failed: character consistency ${personalityResult.score} < ${hard.minCharacterConsistency}`,
+      );
+      return false;
+    }
+
+    // ★★★ 新增：叙事工艺错误检查（结尾问题、说教模式）
+    // 这是核心修复：确保严重的叙事问题触发重写
+    const criticalNarrativeIssues = issues.filter(
+      (issue) =>
+        issue.severity === "error" &&
+        issue.type === "style_issue" &&
+        (issue.description.includes("[ending]") ||
+          issue.description.includes("[preach]")),
+    );
+
+    if (criticalNarrativeIssues.length > 0) {
+      const issueTypes = criticalNarrativeIssues
+        .slice(0, 3)
+        .map((i) => i.description.substring(0, 50))
+        .join("; ");
+      this.logger.warn(
+        `[QualityGate] Hard gate failed: ${criticalNarrativeIssues.length} critical narrative issues: ${issueTypes}`,
+      );
+      return false;
+    }
+
+    // ★ 新增：表达冷却违规检查
+    // 如果使用了过多冷却中的表达，也应该触发重写
+    const expressionViolations = issues.filter(
+      (issue) => issue.severity === "error" && issue.type === "repetition",
+    );
+
+    if (expressionViolations.length >= 5) {
+      this.logger.warn(
+        `[QualityGate] Hard gate failed: ${expressionViolations.length} repetition errors`,
       );
       return false;
     }
