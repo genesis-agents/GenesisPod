@@ -1262,7 +1262,21 @@ ${storyCreativitySection}
     // ★ 世界观生成带降级策略
     let worldSettings: Record<string, unknown> = {};
 
+    // ★ 启动心跳日志（每30秒输出一次，表示AI调用仍在进行）
+    let worldHeartbeatCount = 0;
+    const worldHeartbeatInterval = setInterval(() => {
+      worldHeartbeatCount++;
+      this.logger.log(
+        `[${missionId}] ♥ Heartbeat: world building in progress... (${worldHeartbeatCount * 30}s elapsed)`,
+      );
+    }, 30000);
+
     try {
+      this.logger.log(
+        `[${missionId}] → Calling AI service for world building with model: ${keeperModel}`,
+      );
+      const worldStartTime = Date.now();
+
       // ★ 不传 maxTokens，让 AI Engine 自动使用数据库配置
       const worldResponse = await this.aiChatService.chat({
         messages: [
@@ -1280,6 +1294,13 @@ ${storyCreativitySection}
         strictMode: true, // ★ 严格模式：API失败直接抛异常，进入 catch 降级逻辑
       });
 
+      // ★ 清除心跳
+      clearInterval(worldHeartbeatInterval);
+      const worldElapsed = Date.now() - worldStartTime;
+      this.logger.log(
+        `[${missionId}] ← World building AI response received (${worldElapsed}ms, ${worldResponse.content?.length || 0} chars)`,
+      );
+
       worldSettings = this.parseWorldSettings(worldResponse.content || "{}");
 
       // ★ 验证世界观有效性：必须有 core 和至少一个角色
@@ -1296,8 +1317,10 @@ ${storyCreativitySection}
         );
       }
     } catch (error) {
+      // ★ 清除心跳
+      clearInterval(worldHeartbeatInterval);
       this.logger.error(
-        `[${missionId}] World building failed: ${(error as Error).message}`,
+        `[${missionId}] ✗ World building failed: ${(error as Error).message}`,
       );
       // 使用空的默认设定继续
       worldSettings = {
@@ -1668,10 +1691,24 @@ ${Array.from(
       retryCount++;
 
       this.logger.log(
-        `[${missionId}] Generating outline (attempt ${retryCount}/${maxRetries + 1}) with model: ${currentModel}`,
+        `[${missionId}] ★ Generating outline (attempt ${retryCount}/${maxRetries + 1}) with model: ${currentModel}`,
       );
 
+      // ★ 启动心跳日志（每30秒输出一次，表示AI调用仍在进行）
+      let heartbeatCount = 0;
+      const heartbeatInterval = setInterval(() => {
+        heartbeatCount++;
+        this.logger.log(
+          `[${missionId}] ♥ Heartbeat: outline generation in progress... (${heartbeatCount * 30}s elapsed)`,
+        );
+      }, 30000);
+
       try {
+        this.logger.log(
+          `[${missionId}] → Calling AI service for outline generation...`,
+        );
+        const startTime = Date.now();
+
         // ★ 不传 maxTokens，让 AI Engine 自动使用数据库配置
         const outlineResponse = await this.aiChatService.chat({
           messages: [
@@ -1688,6 +1725,13 @@ ${Array.from(
           // maxTokens: 由 AI Engine 自动从数据库获取
           strictMode: true, // ★ 严格模式：API失败直接抛异常进入 catch 重试
         });
+
+        // ★ 清除心跳
+        clearInterval(heartbeatInterval);
+        const elapsed = Date.now() - startTime;
+        this.logger.log(
+          `[${missionId}] ← AI response received (${elapsed}ms, ${outlineResponse.content?.length || 0} chars)`,
+        );
 
         if (!outlineResponse.content) {
           this.logger.warn(
@@ -1729,8 +1773,10 @@ ${Array.from(
           `[${missionId}] Outline validated: ${titledChapters.length}/${parsedOutline.chapters.length} chapters have titles`,
         );
       } catch (error) {
+        // ★ 清除心跳
+        clearInterval(heartbeatInterval);
         this.logger.warn(
-          `[${missionId}] Outline generation error (attempt ${retryCount}): ${(error as Error).message}`,
+          `[${missionId}] ✗ Outline generation error (attempt ${retryCount}): ${(error as Error).message}`,
         );
         if (retryCount > maxRetries) {
           throw new Error(
