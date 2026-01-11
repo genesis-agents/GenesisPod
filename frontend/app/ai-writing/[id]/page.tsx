@@ -3157,17 +3157,100 @@ export default function WritingProjectPage() {
                                                         {Array.isArray(
                                                           p.relationships
                                                         )
-                                                          ? p.relationships.join(
-                                                              '、'
-                                                            )
-                                                          : Object.entries(
-                                                              p.relationships
-                                                            )
+                                                          ? p.relationships
                                                               .map(
-                                                                ([name, rel]) =>
-                                                                  `${name}(${rel})`
+                                                                (r: unknown) =>
+                                                                  typeof r ===
+                                                                  'string'
+                                                                    ? r
+                                                                    : typeof r ===
+                                                                          'object' &&
+                                                                        r !==
+                                                                          null
+                                                                      ? (
+                                                                          r as Record<
+                                                                            string,
+                                                                            unknown
+                                                                          >
+                                                                        )
+                                                                          .name ||
+                                                                        (
+                                                                          r as Record<
+                                                                            string,
+                                                                            unknown
+                                                                          >
+                                                                        )
+                                                                          .type ||
+                                                                        (
+                                                                          r as Record<
+                                                                            string,
+                                                                            unknown
+                                                                          >
+                                                                        )
+                                                                          .relation ||
+                                                                        JSON.stringify(
+                                                                          r
+                                                                        )
+                                                                      : String(
+                                                                          r
+                                                                        )
                                                               )
-                                                              .join('、')}
+                                                              .join('、')
+                                                          : typeof p.relationships ===
+                                                              'object'
+                                                            ? Object.entries(
+                                                                p.relationships as Record<
+                                                                  string,
+                                                                  unknown
+                                                                >
+                                                              )
+                                                                .map(
+                                                                  ([
+                                                                    name,
+                                                                    rel,
+                                                                  ]) => {
+                                                                    const relStr =
+                                                                      typeof rel ===
+                                                                      'string'
+                                                                        ? rel
+                                                                        : typeof rel ===
+                                                                              'object' &&
+                                                                            rel !==
+                                                                              null
+                                                                          ? (
+                                                                              rel as Record<
+                                                                                string,
+                                                                                unknown
+                                                                              >
+                                                                            )
+                                                                              .type ||
+                                                                            (
+                                                                              rel as Record<
+                                                                                string,
+                                                                                unknown
+                                                                              >
+                                                                            )
+                                                                              .relation ||
+                                                                            (
+                                                                              rel as Record<
+                                                                                string,
+                                                                                unknown
+                                                                              >
+                                                                            )
+                                                                              .description ||
+                                                                            ''
+                                                                          : String(
+                                                                              rel
+                                                                            );
+                                                                    return relStr
+                                                                      ? `${name}(${relStr})`
+                                                                      : name;
+                                                                  }
+                                                                )
+                                                                .join('、')
+                                                            : String(
+                                                                p.relationships
+                                                              )}
                                                       </span>
                                                     </div>
                                                   )}
