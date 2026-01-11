@@ -167,13 +167,16 @@ export class WritingMissionHealthCheckService
         status: true,
         createdAt: true,
         startedAt: true,
+        updatedAt: true, // ★ 使用 updatedAt 检测最后活动时间
       },
     });
 
     const stuckMissions: StuckMissionInfo[] = [];
 
     for (const mission of missions) {
-      const lastUpdateAt = mission.startedAt || mission.createdAt;
+      // ★ 优先使用 updatedAt（任务每次更新都会刷新），其次是 startedAt
+      const lastUpdateAt =
+        mission.updatedAt || mission.startedAt || mission.createdAt;
 
       // 检查是否超过最大执行时间
       const isOverMaxTime = mission.createdAt < maxExecutionThreshold;
