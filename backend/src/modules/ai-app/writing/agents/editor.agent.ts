@@ -427,7 +427,7 @@ ${content}
     );
 
     // ★ 步骤2：质量门禁检查（深度检测）
-    const projectId = contextPackage.extensions.storyBible.bibleId;
+    const projectId = contextPackage.extensions.storyBible.projectId;
     let qualityGateResult: QualityGateResult | null = null;
 
     try {

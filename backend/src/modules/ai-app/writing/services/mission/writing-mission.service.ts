@@ -4535,6 +4535,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
     if (!project?.storyBible) {
       // 创建空的 Story Bible 扩展
       const emptyStoryBible = {
+        projectId: input.projectId, // ★ 关键：使用正确的 projectId
         bibleId: "",
         bibleVersion: 1,
         snapshotAt: new Date().toISOString(),
@@ -4555,6 +4556,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
 
     // 构建 Story Bible 扩展数据
     const storyBibleExtensions = {
+      projectId: input.projectId, // ★ 关键：使用正确的 projectId（而非 bibleId）
       bibleId: bible.id,
       bibleVersion: bible.version,
       snapshotAt: new Date().toISOString(),

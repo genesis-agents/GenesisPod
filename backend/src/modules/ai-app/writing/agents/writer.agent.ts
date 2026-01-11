@@ -392,7 +392,7 @@ ${content.slice(-500)}
     chapterContext: ChapterWritingContext,
   ): Promise<string> {
     const parts: string[] = [];
-    const projectId = contextPackage.extensions.storyBible.bibleId;
+    const projectId = contextPackage.extensions.storyBible.projectId;
     const chapterNumber = chapterContext.chapter.chapterNumber;
 
     // ★★★ 1. 叙事工艺约束（最高优先级）- 禁止说教/总结式结尾/NPC对话

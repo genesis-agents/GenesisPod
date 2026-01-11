@@ -229,6 +229,8 @@ export interface FactionEntity {
  * Story Bible 扩展 - 作为 MissionContextPackage.extensions 的一部分
  */
 export interface StoryBibleExtensions {
+  /** 项目ID（用于质量评分、表达记忆等服务） */
+  projectId: string;
   /** Story Bible ID */
   bibleId: string;
   /** Story Bible 版本 */
