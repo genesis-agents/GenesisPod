@@ -49,9 +49,44 @@ export interface WorldSetting {
   id: string;
   bibleId: string;
   category: string;
-  key: string;
-  value: string;
+  name: string; // 设定名称
+  description: string; // 设定描述
+  rules?: string[]; // 规则/限制
+  references?: Record<string, unknown>; // 相关引用
+}
+
+// 时间线事件
+export interface TimelineEvent {
+  id: string;
+  bibleId: string;
+  eventName: string;
+  description: string;
+  storyTime: string; // 故事内时间
+  importance: number; // 重要程度 1-5
+  involvedCharacterIds?: string[];
+  relatedChapterId?: string;
+}
+
+// 术语/专有名词
+export interface Terminology {
+  id: string;
+  bibleId: string;
+  term: string;
+  definition: string;
+  category: string; // 功法、地名、物品、称谓等
+  variants?: string[]; // 同义词/变体
+  usage?: string;
+}
+
+// 势力/组织
+export interface Faction {
+  id: string;
+  bibleId: string;
+  name: string;
+  type: string; // 国家、门派、公司、家族等
   description?: string;
+  hierarchy?: Record<string, unknown>;
+  territory?: string;
 }
 
 export interface StoryBible {
@@ -61,9 +96,12 @@ export interface StoryBible {
   theme?: string;
   tone?: string;
   worldType?: string;
-  // Relations (arrays, not rendered directly)
+  // Relations
   worldSettings?: WorldSetting[];
   characters?: Character[];
+  timelineEvents?: TimelineEvent[];
+  terminologies?: Terminology[];
+  factions?: Faction[];
 }
 
 export interface CharacterPersonality {

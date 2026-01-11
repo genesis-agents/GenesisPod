@@ -1126,15 +1126,15 @@ export default function WritingProjectPage() {
 
     // 世界设定
     if (storyBible.worldSettings && storyBible.worldSettings.length > 0) {
-      // 过滤出有效的设定（必须有 key 和 value，且 key 不是内部字段）
+      // 过滤出有效的设定（必须有 name 和 description，且 name 不是内部字段）
       const validSettings = storyBible.worldSettings.filter(
         (s) =>
           s &&
-          typeof s.key === 'string' &&
-          s.key &&
-          !s.key.startsWith('_') &&
-          typeof s.value === 'string' &&
-          s.value
+          typeof s.name === 'string' &&
+          s.name &&
+          !s.name.startsWith('_') &&
+          typeof s.description === 'string' &&
+          s.description
       );
 
       if (validSettings.length > 0) {
@@ -1151,7 +1151,7 @@ export default function WritingProjectPage() {
           Object.entries(grouped).forEach(([category, settings]) => {
             content += `<div class="setting-category"><h4>${category}</h4><ul>`;
             settings.forEach((s) => {
-              content += `<li><strong>${s.key}</strong>：${s.value}${s.description ? ` <span class="desc">(${s.description})</span>` : ''}</li>`;
+              content += `<li><strong>${s.name}</strong>：${s.description}</li>`;
             });
             content += '</ul></div>';
           });
@@ -1165,7 +1165,7 @@ export default function WritingProjectPage() {
             content +=
               format === 'md' ? `### ${category}\n` : `\n【${category}】\n`;
             settings.forEach((s) => {
-              content += `- ${s.key}：${s.value}${s.description ? ` (${s.description})` : ''}\n`;
+              content += `- ${s.name}：${s.description}\n`;
             });
           });
           sections.push(content);
@@ -2504,7 +2504,7 @@ export default function WritingProjectPage() {
                         {/* World Settings */}
                         {storyBible.worldSettings &&
                           storyBible.worldSettings.filter(
-                            (s) => s.key && s.value
+                            (s) => s.name && s.description
                           ).length > 0 && (
                             <div className="rounded-xl bg-green-50 p-4">
                               <h3 className="mb-2 flex items-center gap-2 font-medium text-green-800">
@@ -2512,18 +2512,142 @@ export default function WritingProjectPage() {
                               </h3>
                               <div className="space-y-2">
                                 {storyBible.worldSettings
-                                  .filter((s) => s.key && s.value)
+                                  .filter((s) => s.name && s.description)
                                   .map((setting) => (
                                     <div
                                       key={setting.id}
                                       className="text-sm text-green-700"
                                     >
                                       <span className="font-medium">
-                                        {setting.key}:
+                                        {setting.category || setting.name}:
                                       </span>{' '}
-                                      {setting.value}
+                                      {setting.description}
                                     </div>
                                   ))}
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Timeline Events - 时间线事件 */}
+                        {storyBible.timelineEvents &&
+                          storyBible.timelineEvents.length > 0 && (
+                            <div className="rounded-xl bg-orange-50 p-4">
+                              <h3 className="mb-2 flex items-center gap-2 font-medium text-orange-800">
+                                <span>📅</span> 时间线事件
+                                <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs">
+                                  {storyBible.timelineEvents.length} 个事件
+                                </span>
+                              </h3>
+                              <div className="space-y-2">
+                                {storyBible.timelineEvents
+                                  .sort((a, b) => b.importance - a.importance)
+                                  .map((event) => (
+                                    <div
+                                      key={event.id}
+                                      className="rounded-lg bg-white/50 p-2 text-sm"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium text-orange-700">
+                                          {event.storyTime}
+                                        </span>
+                                        {event.importance >= 4 && (
+                                          <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-600">
+                                            重要
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="mt-1 text-gray-700">
+                                        <span className="font-medium">
+                                          {event.eventName}
+                                        </span>
+                                        {event.description && (
+                                          <span className="text-gray-500">
+                                            {' '}
+                                            - {event.description}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Factions - 势力/组织 */}
+                        {storyBible.factions &&
+                          storyBible.factions.length > 0 && (
+                            <div className="rounded-xl bg-rose-50 p-4">
+                              <h3 className="mb-2 flex items-center gap-2 font-medium text-rose-800">
+                                <span>🏛️</span> 势力与组织
+                                <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs">
+                                  {storyBible.factions.length} 个势力
+                                </span>
+                              </h3>
+                              <div className="space-y-2">
+                                {storyBible.factions.map((faction) => (
+                                  <div
+                                    key={faction.id}
+                                    className="rounded-lg bg-white/50 p-2 text-sm"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-semibold text-rose-700">
+                                        {faction.name}
+                                      </span>
+                                      <span className="rounded bg-rose-100 px-1.5 py-0.5 text-xs text-rose-600">
+                                        {faction.type}
+                                      </span>
+                                    </div>
+                                    {faction.description && (
+                                      <p className="mt-1 text-gray-600">
+                                        {faction.description}
+                                      </p>
+                                    )}
+                                    {faction.territory && (
+                                      <p className="mt-1 text-xs text-gray-500">
+                                        势力范围: {faction.territory}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Terminologies - 术语/专有名词 */}
+                        {storyBible.terminologies &&
+                          storyBible.terminologies.length > 0 && (
+                            <div className="rounded-xl bg-cyan-50 p-4">
+                              <h3 className="mb-2 flex items-center gap-2 font-medium text-cyan-800">
+                                <span>📖</span> 术语与专有名词
+                                <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs">
+                                  {storyBible.terminologies.length} 个术语
+                                </span>
+                              </h3>
+                              <div className="space-y-2">
+                                {storyBible.terminologies.map((term) => (
+                                  <div
+                                    key={term.id}
+                                    className="rounded-lg bg-white/50 p-2 text-sm"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-semibold text-cyan-700">
+                                        {term.term}
+                                      </span>
+                                      <span className="rounded bg-cyan-100 px-1.5 py-0.5 text-xs text-cyan-600">
+                                        {term.category}
+                                      </span>
+                                    </div>
+                                    <p className="mt-1 text-gray-600">
+                                      {term.definition}
+                                    </p>
+                                    {term.variants &&
+                                      term.variants.length > 0 && (
+                                        <p className="mt-1 text-xs text-gray-500">
+                                          别名: {term.variants.join('、')}
+                                        </p>
+                                      )}
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           )}
@@ -2768,12 +2892,11 @@ export default function WritingProjectPage() {
                                   className="flex items-start gap-2 rounded-lg bg-green-50 p-2 text-sm"
                                 >
                                   <span className="shrink-0 font-medium text-green-700">
-                                    {setting.category || setting.key || '设定'}:
+                                    {setting.category || setting.name || '设定'}
+                                    :
                                   </span>
                                   <span className="text-gray-600">
-                                    {setting.value ||
-                                      setting.description ||
-                                      JSON.stringify(setting)}
+                                    {setting.description || setting.name}
                                   </span>
                                 </div>
                               ))}
