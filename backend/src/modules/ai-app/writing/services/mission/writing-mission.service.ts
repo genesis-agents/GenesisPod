@@ -2760,6 +2760,9 @@ ${narrativeConstraints}`;
               this.logger.log(
                 `[${missionId}] Chapter ${chapterNumber} rewritten (attempt ${rewriteAttempts})`,
               );
+              // ★★★ 关键修复：重写后重置计数器，让新内容有机会修复叙事工艺问题 ★★★
+              narrativeCraftRewriteAttempts = 0;
+              endingRewriteAttempts = 0;
             }
           } catch (e) {
             this.logger.warn(
