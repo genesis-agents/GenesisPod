@@ -2544,6 +2544,9 @@ ${firstChapterGuidance}
       // ★★★ 修复死循环：叙事工艺重写也需要计数限制 ★★★
       let narrativeCraftRewriteAttempts = 0;
       const maxNarrativeCraftRewrites = 3; // 最多尝试3次叙事工艺修复
+      // ★★★ 新增：质量门禁结尾重写计数限制 ★★★
+      let endingRewriteAttempts = 0;
+      const maxEndingRewrites = 2; // 最多尝试2次结尾重写
 
       // ★ 用 try-catch 包裹质量检查，防止异常导致整个任务失败
       try {
@@ -2657,9 +2660,14 @@ ${firstChapterGuidance}
               issue.description.includes("[ending]"),
           );
 
-          if (endingIssues.length > 0) {
+          // ★★★ 修复：结尾重写也需要计数限制，防止无效重写循环 ★★★
+          if (
+            endingIssues.length > 0 &&
+            endingRewriteAttempts < maxEndingRewrites
+          ) {
+            endingRewriteAttempts++;
             this.logger.log(
-              `[${missionId}] Chapter ${chapterNumber} has ending issues, attempting targeted rewrite`,
+              `[${missionId}] Chapter ${chapterNumber} has ending issues, attempting targeted rewrite #${endingRewriteAttempts}/${maxEndingRewrites}`,
             );
 
             // 使用 NarrativeCraftService 进行结尾重写
@@ -2672,11 +2680,18 @@ ${firstChapterGuidance}
             if (rewrittenContent !== chapterContent) {
               chapterContent = rewrittenContent;
               this.logger.log(
-                `[${missionId}] Chapter ${chapterNumber} ending rewritten successfully`,
+                `[${missionId}] Chapter ${chapterNumber} ending rewritten successfully (attempt ${endingRewriteAttempts})`,
               );
-              // 重新进入循环检查，不增加重写计数（因为这是轻量修复）
+              // 重新进入循环检查
               continue;
             }
+          } else if (
+            endingIssues.length > 0 &&
+            endingRewriteAttempts >= maxEndingRewrites
+          ) {
+            this.logger.warn(
+              `[${missionId}] Chapter ${chapterNumber} ending rewrite max attempts reached (${maxEndingRewrites}), proceeding to full rewrite`,
+            );
           }
 
           // 构建重写提示，包含需要避免的表达
