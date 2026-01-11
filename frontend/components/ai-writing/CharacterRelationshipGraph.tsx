@@ -44,16 +44,17 @@ const RELATION_COLORS: Record<string, string> = {
   同事: '#06B6D4',
 };
 
-// 简单的力导向布局计算
+// ★★★ 改进的分区布局算法 ★★★
+// 参考专业人物关系图，按阵营分区布局
 function calculateLayout(
   nodes: RelationshipNode[],
+  edges: RelationshipEdge[],
   width: number,
   height: number
 ): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>();
   const centerX = width / 2;
   const centerY = height / 2;
-  const radius = Math.min(width, height) * 0.35;
 
   // 按角色类型分组
   const protagonists = nodes.filter((n) => n.role === 'PROTAGONIST');
@@ -61,41 +62,235 @@ function calculateLayout(
   const supporting = nodes.filter((n) => n.role === 'SUPPORTING');
   const minor = nodes.filter((n) => n.role === 'MINOR');
 
-  // 主角放中心
-  protagonists.forEach((node, i) => {
-    const angle = (i * 2 * Math.PI) / Math.max(protagonists.length, 1);
-    positions.set(node.id, {
-      x: centerX + Math.cos(angle) * radius * 0.2,
-      y: centerY + Math.sin(angle) * radius * 0.2,
-    });
+  // 构建关系图用于分组
+  const connections = new Map<string, Set<string>>();
+  nodes.forEach((n) => connections.set(n.id, new Set()));
+  edges.forEach((e) => {
+    connections.get(e.source)?.add(e.target);
+    connections.get(e.target)?.add(e.source);
   });
 
-  // 反派放对面
-  antagonists.forEach((node, i) => {
-    const angle =
-      Math.PI + (i * Math.PI) / Math.max(antagonists.length, 1) - Math.PI / 4;
-    positions.set(node.id, {
-      x: centerX + Math.cos(angle) * radius * 0.8,
-      y: centerY + Math.sin(angle) * radius * 0.8,
+  // ★ 定义5个区域（上、左、中、右、下）
+  // 中心区：主角
+  // 上方区：反派/敌对势力
+  // 左侧区：家族/亲密关系
+  // 右侧区：朋友/盟友
+  // 下方区：下属/龙套
+
+  const zones = {
+    center: { x: centerX, y: centerY, radius: 60 },
+    top: {
+      x: centerX,
+      y: height * 0.15,
+      width: width * 0.6,
+      height: height * 0.2,
+    },
+    left: {
+      x: width * 0.15,
+      y: centerY,
+      width: width * 0.25,
+      height: height * 0.5,
+    },
+    right: {
+      x: width * 0.85,
+      y: centerY,
+      width: width * 0.25,
+      height: height * 0.5,
+    },
+    bottom: {
+      x: centerX,
+      y: height * 0.85,
+      width: width * 0.7,
+      height: height * 0.2,
+    },
+  };
+
+  // ★ 主角放中心（如果多个主角，围绕中心点）
+  if (protagonists.length === 1) {
+    positions.set(protagonists[0].id, { x: centerX, y: centerY });
+  } else {
+    protagonists.forEach((node, i) => {
+      const angle = (i * 2 * Math.PI) / protagonists.length - Math.PI / 2;
+      positions.set(node.id, {
+        x: centerX + Math.cos(angle) * zones.center.radius,
+        y: centerY + Math.sin(angle) * zones.center.radius,
+      });
     });
+  }
+
+  // ★ 反派放上方区域（敌对势力）
+  if (antagonists.length > 0) {
+    const spacing = zones.top.width / (antagonists.length + 1);
+    antagonists.forEach((node, i) => {
+      positions.set(node.id, {
+        x: zones.top.x - zones.top.width / 2 + spacing * (i + 1),
+        y: zones.top.y + (i % 2) * 40, // 错落排列
+      });
+    });
+  }
+
+  // ★ 将配角按与主角的关系分类
+  const protagonistIds = new Set(protagonists.map((p) => p.id));
+  const supportingWithRelations: { node: RelationshipNode; zone: string }[] =
+    [];
+
+  supporting.forEach((node) => {
+    // 检查这个配角与主角的关系类型
+    const relatedEdges = edges.filter(
+      (e) =>
+        (e.source === node.id && protagonistIds.has(e.target)) ||
+        (e.target === node.id && protagonistIds.has(e.source))
+    );
+
+    let zone = 'right'; // 默认右侧（朋友/盟友）
+
+    for (const edge of relatedEdges) {
+      const relType = edge.type || edge.label || '';
+      // 家族关系放左侧
+      if (
+        /父|母|子|女|兄|弟|姐|妹|夫|妻|亲/.test(relType) ||
+        /家族|血缘/.test(relType)
+      ) {
+        zone = 'left';
+        break;
+      }
+      // 敌对关系放上方
+      if (/敌|仇|对立|竞争/.test(relType)) {
+        zone = 'top';
+        break;
+      }
+      // 下属关系放下方
+      if (/仆|从|下属|手下|监管/.test(relType)) {
+        zone = 'bottom';
+        break;
+      }
+    }
+
+    supportingWithRelations.push({ node, zone });
   });
 
-  // 配角围绕
-  supporting.forEach((node, i) => {
-    const angle = (i * 2 * Math.PI) / Math.max(supporting.length, 1);
-    positions.set(node.id, {
-      x: centerX + Math.cos(angle) * radius * 0.6,
-      y: centerY + Math.sin(angle) * radius * 0.6,
-    });
-  });
+  // 按区域分组配角
+  const leftSupporting = supportingWithRelations.filter(
+    (s) => s.zone === 'left'
+  );
+  const rightSupporting = supportingWithRelations.filter(
+    (s) => s.zone === 'right'
+  );
+  const topSupporting = supportingWithRelations.filter((s) => s.zone === 'top');
+  const bottomSupporting = supportingWithRelations.filter(
+    (s) => s.zone === 'bottom'
+  );
 
-  // 龙套外围
-  minor.forEach((node, i) => {
-    const angle = (i * 2 * Math.PI) / Math.max(minor.length, 1) + Math.PI / 6;
-    positions.set(node.id, {
-      x: centerX + Math.cos(angle) * radius,
-      y: centerY + Math.sin(angle) * radius,
+  // 布局左侧配角（家族）
+  if (leftSupporting.length > 0) {
+    const rows = Math.ceil(leftSupporting.length / 2);
+    const colSpacing = zones.left.width / 3;
+    const rowSpacing = zones.left.height / (rows + 1);
+    leftSupporting.forEach((item, i) => {
+      const row = Math.floor(i / 2);
+      const col = i % 2;
+      positions.set(item.node.id, {
+        x: zones.left.x - zones.left.width / 2 + colSpacing * (col + 1),
+        y: zones.left.y - zones.left.height / 2 + rowSpacing * (row + 1),
+      });
     });
+  }
+
+  // 布局右侧配角（盟友）
+  if (rightSupporting.length > 0) {
+    const rows = Math.ceil(rightSupporting.length / 2);
+    const colSpacing = zones.right.width / 3;
+    const rowSpacing = zones.right.height / (rows + 1);
+    rightSupporting.forEach((item, i) => {
+      const row = Math.floor(i / 2);
+      const col = i % 2;
+      positions.set(item.node.id, {
+        x: zones.right.x - zones.right.width / 2 + colSpacing * (col + 1),
+        y: zones.right.y - zones.right.height / 2 + rowSpacing * (row + 1),
+      });
+    });
+  }
+
+  // 布局上方配角（与反派同区）
+  if (topSupporting.length > 0) {
+    const totalTop = antagonists.length + topSupporting.length;
+    const spacing = zones.top.width / (totalTop + 1);
+    topSupporting.forEach((item, i) => {
+      positions.set(item.node.id, {
+        x:
+          zones.top.x -
+          zones.top.width / 2 +
+          spacing * (antagonists.length + i + 1),
+        y: zones.top.y + ((antagonists.length + i) % 2) * 40,
+      });
+    });
+  }
+
+  // 布局下方配角
+  if (bottomSupporting.length > 0) {
+    const spacing = zones.bottom.width / (bottomSupporting.length + 1);
+    bottomSupporting.forEach((item, i) => {
+      positions.set(item.node.id, {
+        x: zones.bottom.x - zones.bottom.width / 2 + spacing * (i + 1),
+        y: zones.bottom.y + (i % 2) * 30,
+      });
+    });
+  }
+
+  // ★ 龙套放在外围/下方区域
+  if (minor.length > 0) {
+    // 先统计下方区域还有多少空间
+    const bottomUsed = bottomSupporting.length;
+    const remainingBottom = Math.max(0, 6 - bottomUsed);
+
+    // 部分龙套放下方
+    const minorForBottom = minor.slice(0, remainingBottom);
+    const minorForEdges = minor.slice(remainingBottom);
+
+    // 下方龙套
+    if (minorForBottom.length > 0) {
+      const totalBottom = bottomSupporting.length + minorForBottom.length;
+      const spacing = zones.bottom.width / (totalBottom + 1);
+      minorForBottom.forEach((node, i) => {
+        positions.set(node.id, {
+          x:
+            zones.bottom.x -
+            zones.bottom.width / 2 +
+            spacing * (bottomSupporting.length + i + 1),
+          y: zones.bottom.y + 50 + (i % 2) * 25,
+        });
+      });
+    }
+
+    // 剩余龙套放边缘
+    if (minorForEdges.length > 0) {
+      // 在四个角落分布
+      const corners = [
+        { x: width * 0.1, y: height * 0.1 },
+        { x: width * 0.9, y: height * 0.1 },
+        { x: width * 0.1, y: height * 0.9 },
+        { x: width * 0.9, y: height * 0.9 },
+      ];
+      minorForEdges.forEach((node, i) => {
+        const corner = corners[i % 4];
+        const offset = Math.floor(i / 4) * 50;
+        positions.set(node.id, {
+          x: corner.x + (i % 2 === 0 ? offset : -offset),
+          y: corner.y + (Math.floor(i / 2) % 2 === 0 ? offset : -offset),
+        });
+      });
+    }
+  }
+
+  // ★ 确保所有节点都有位置（fallback）
+  nodes.forEach((node) => {
+    if (!positions.has(node.id)) {
+      // 没有位置的节点放在随机位置
+      positions.set(node.id, {
+        x: width * 0.2 + Math.random() * width * 0.6,
+        y: height * 0.2 + Math.random() * height * 0.6,
+      });
+    }
   });
 
   return positions;
@@ -150,13 +345,13 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
   // 计算初始布局
   const initialPositions = useMemo(() => {
     if (!graph) return new Map();
-    return calculateLayout(graph.nodes, 800, 600);
+    return calculateLayout(graph.nodes, graph.edges, 800, 600);
   }, [graph]);
 
   // 当 graph 变化时重置位置
   useEffect(() => {
     if (graph) {
-      setNodePositions(calculateLayout(graph.nodes, 800, 600));
+      setNodePositions(calculateLayout(graph.nodes, graph.edges, 800, 600));
     }
   }, [graph]);
 
@@ -171,7 +366,7 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
   // 重置布局
   const resetLayout = useCallback(() => {
     if (graph) {
-      setNodePositions(calculateLayout(graph.nodes, 800, 600));
+      setNodePositions(calculateLayout(graph.nodes, graph.edges, 800, 600));
     }
   }, [graph]);
 
