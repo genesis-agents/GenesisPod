@@ -2354,12 +2354,12 @@ export default function WritingProjectPage() {
                 </div>
               </div>
 
-              {/* Stuck Mission Warning */}
+              {/* Stuck Mission Warning - 带强制取消按钮 */}
               {isStuckMission && (
-                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
                   <div className="flex items-start gap-2">
                     <svg
-                      className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500"
+                      className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -2372,119 +2372,43 @@ export default function WritingProjectPage() {
                       />
                     </svg>
                     <div className="flex-1">
-                      <p className="text-xs font-medium text-amber-800">
+                      <p className="text-xs font-medium text-red-800">
                         任务已卡住
                       </p>
-                      <p className="mt-0.5 text-xs text-amber-600">
-                        可能是后台服务重启导致。点击"继续创作"可重新开始任务。
+                      <p className="mt-0.5 text-xs text-red-600">
+                        后台任务状态异常，请点击下方按钮强制取消后重新开始。
                       </p>
+                      <button
+                        onClick={handleCancelMission}
+                        className="mt-2 rounded bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600"
+                      >
+                        🛑 强制取消任务
+                      </button>
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Action Buttons */}
+            {/* Action Buttons - 始终显示，确保用户可以操作 */}
             <div className="flex items-center justify-center gap-2 border-t border-gray-100/80 bg-white/60 px-4 py-3">
-              {!isMissionRunning ? (
-                <>
-                  {allChapters.length === 0 ? (
-                    <button
-                      onClick={handleStartWriting}
-                      className="flex items-center gap-1.5 rounded-lg bg-violet-500 px-4 py-2 text-xs font-medium text-white hover:bg-violet-600"
-                    >
-                      <span>✨</span>
-                      开始创作
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={handleContinueWriting}
-                        className="flex items-center gap-1.5 rounded-lg bg-violet-500 px-4 py-2 text-xs font-medium text-white hover:bg-violet-600"
-                      >
-                        <span>📝</span>
-                        继续创作
-                      </button>
-                      {/* Continue Task Button - Let Leader continue organizing tasks */}
-                      {missionCompleted && (
-                        <button
-                          onClick={async () => {
-                            try {
-                              await startMission(projectId, {
-                                prompt:
-                                  '@Leader 请继续执行任务，检查当前进度并安排下一步工作',
-                                missionType: 'edit',
-                                additionalInstructions:
-                                  '请分析当前创作进度，检查已完成的章节质量，并决定是否需要继续创作或进行修改。',
-                              });
-                            } catch {
-                              // Error handled by store
-                            }
-                          }}
-                          className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-4 py-2 text-xs font-medium text-amber-600 hover:bg-amber-50"
-                        >
-                          <svg
-                            className="h-3.5 w-3.5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-                          继续任务
-                        </button>
-                      )}
-                    </>
-                  )}
-                </>
-              ) : (
-                <>
-                  {/* Continue Writing Button - Actually continue the story */}
-                  <button
-                    onClick={handleContinueWriting}
-                    className="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-4 py-2 text-xs font-medium text-amber-600 hover:bg-amber-50"
-                  >
-                    <svg
-                      className="h-3.5 w-3.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    继续创作
-                  </button>
-                  <button
-                    onClick={handleCancelMission}
-                    className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-4 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
-                  >
-                    <span>⏹</span>
-                    取消任务
-                  </button>
-                </>
-              )}
+              {/* 主按钮：开始/继续创作 */}
+              <button
+                onClick={handleContinueWriting}
+                className="flex items-center gap-1.5 rounded-lg bg-violet-500 px-4 py-2 text-xs font-medium text-white hover:bg-violet-600"
+              >
+                <span>{(allChapters?.length || 0) === 0 ? '✨' : '📝'}</span>
+                {(allChapters?.length || 0) === 0 ? '开始创作' : '继续创作'}
+              </button>
+
+              {/* 取消按钮：始终显示，方便用户取消卡住的任务 */}
+              <button
+                onClick={handleCancelMission}
+                className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-4 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
+              >
+                <span>⏹</span>
+                取消任务
+              </button>
             </div>
           </div>
 
