@@ -287,13 +287,24 @@ export class WritingMissionService {
     try {
       // 3. 专业声音约束（如果有角色职业信息）
       if (characters && characters.length > 0) {
+        // ★ 智能提取职业：优先从 background 文本中提取，否则使用 role
+        const charactersWithProfession = characters.map((c) => {
+          // 尝试从背景描述中智能提取职业
+          const extractedProfession = c.background
+            ? this.professionalVoice.extractProfessionFromBackground(
+                c.background,
+              )
+            : null;
+          return {
+            name: c.name,
+            profession: extractedProfession || c.role || c.background,
+            background: c.background,
+          };
+        });
+
         const voiceConstraints =
           this.professionalVoice.generateChapterVoiceConstraints(
-            characters.map((c) => ({
-              name: c.name,
-              profession: c.background || c.role,
-              background: c.background,
-            })),
+            charactersWithProfession,
           );
         if (voiceConstraints) {
           constraints.push(voiceConstraints);

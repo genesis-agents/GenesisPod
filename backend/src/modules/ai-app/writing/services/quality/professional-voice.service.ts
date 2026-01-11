@@ -292,6 +292,219 @@ const PROFESSION_TEMPLATES: Record<string, Partial<ProfessionProfile>> = {
     ],
     habitualActions: ["双手粗糙有力", "对工具爱惜", "做事一丝不苟"],
   },
+
+  // ==================== 宫廷人物模板 ====================
+  女官: {
+    category: "politician",
+    thinkingPattern: "宫中行走，步步谨慎。察言观色是生存之本。",
+    analyticalSteps: [
+      "观察主子脸色",
+      "揣摩话中深意",
+      "衡量各方势力",
+      "选择最安全的应对",
+      "留有余地",
+    ],
+    professionalReflexes: [
+      "听到脚步声自动判断来人身份",
+      "进门先看座次排位",
+      "说话前先扫视四周有无闲人",
+    ],
+    speechPatterns: [
+      "奴婢斗胆...",
+      "恕奴婢直言...",
+      "这其中怕是...",
+      "依奴婢愚见...",
+    ],
+    terminology: ["请安", "膳食", "份例", "赏赐", "冷落", "召见", "伺候"],
+    knowledgeShowcaseOpportunities: [
+      "分析后宫局势",
+      "揣摩主子心意",
+      "应对突发状况",
+      "传递关键信息",
+    ],
+    habitualActions: [
+      "低眉顺眼",
+      "说话轻声",
+      "时刻保持警觉",
+      "记住每个人的喜好",
+    ],
+  },
+
+  宫女: {
+    category: "craftsman",
+    thinkingPattern: "做好本分，不多嘴不多问。活着才是最重要的。",
+    analyticalSteps: [
+      "判断差事紧急程度",
+      "回想相关规矩",
+      "选择最稳妥做法",
+      "执行时不出差错",
+    ],
+    professionalReflexes: [
+      "听到铃声知道该做什么",
+      "看到器物自动检查是否摆正",
+      "对时辰极度敏感",
+    ],
+    speechPatterns: ["奴婢遵命", "奴婢不敢", "奴婢这就去办"],
+    terminology: ["当值", "换班", "传话", "请安", "伺候", "膳房", "针线"],
+    knowledgeShowcaseOpportunities: [
+      "精通宫中规矩",
+      "熟悉各宫位置",
+      "了解各主子习惯",
+    ],
+    habitualActions: ["走路无声", "动作利索", "眼观六路"],
+  },
+
+  太监: {
+    category: "politician",
+    thinkingPattern: "身残志坚，以忍为先。主子的心意是一切。",
+    analyticalSteps: [
+      "揣摩主子意图",
+      "评估传话风险",
+      "选择措辞方式",
+      "留有回旋余地",
+    ],
+    professionalReflexes: [
+      "自动记住所有人的品级",
+      "听声识人",
+      "看赏赐判断得失宠情况",
+    ],
+    speechPatterns: ["奴才遵旨", "奴才不敢妄言", "陛下圣明", "这事儿嘛..."],
+    terminology: ["传旨", "请安", "圣意", "龙颜", "天恩", "伺候"],
+    knowledgeShowcaseOpportunities: [
+      "传递圣意",
+      "分析局势",
+      "揣摩圣心",
+      "协调关系",
+    ],
+    habitualActions: ["躬身说话", "察言观色", "记性极好"],
+  },
+
+  皇帝: {
+    category: "politician",
+    thinkingPattern: "帝王心术，平衡各方。朕即天下，天下即朕。",
+    analyticalSteps: [
+      "评估各方势力",
+      "权衡利弊得失",
+      "制衡而非偏废",
+      "维护皇权至上",
+      "恩威并施",
+    ],
+    professionalReflexes: [
+      "任何事先想是否有人在试探",
+      "任何话先想有几层意思",
+      "任何人先想能否为朕所用",
+    ],
+    speechPatterns: ["朕以为...", "爱卿所言...", "退下吧", "准奏"],
+    terminology: ["社稷", "朝纲", "龙体", "恩典", "圣旨", "御览"],
+    knowledgeShowcaseOpportunities: [
+      "决断朝政",
+      "制衡大臣",
+      "施恩后宫",
+      "布局天下",
+    ],
+    habitualActions: ["端坐如山", "喜怒不形于色", "说话字斟句酌"],
+  },
+
+  皇后: {
+    category: "politician",
+    thinkingPattern: "母仪天下，稳如磐石。后宫安宁是本分。",
+    analyticalSteps: [
+      "维护中宫体面",
+      "平衡各宫关系",
+      "处理后宫事务",
+      "保护皇嗣安全",
+    ],
+    professionalReflexes: [
+      "自动衡量每个妃嫔的威胁程度",
+      "听到消息先想对皇嗣的影响",
+      "任何事先考虑是否有损凤仪",
+    ],
+    speechPatterns: ["本宫知道了", "依本宫之见...", "这是规矩", "退下吧"],
+    terminology: ["凤仪", "中宫", "六宫", "嫡子", "母仪", "懿旨"],
+    knowledgeShowcaseOpportunities: [
+      "主持后宫大局",
+      "处理妃嫔纷争",
+      "教导皇子公主",
+      "应对太后皇帝",
+    ],
+    habitualActions: ["端庄得体", "喜怒不显", "处事公允"],
+  },
+
+  妃嫔: {
+    category: "politician",
+    thinkingPattern: "争宠求存，步步为营。恩宠即是一切。",
+    analyticalSteps: [
+      "分析当前局势",
+      "寻找邀宠机会",
+      "规避潜在威胁",
+      "巩固自身地位",
+    ],
+    professionalReflexes: [
+      "自动计算自己在后宫的位置",
+      "听到圣驾先想能否见到",
+      "任何事先想对自己有何影响",
+    ],
+    speechPatterns: ["臣妾遵命", "臣妾不敢", "皇上恩典", "姐姐说的是"],
+    terminology: ["恩宠", "侍寝", "晋封", "禁足", "降位", "赐死"],
+    knowledgeShowcaseOpportunities: [
+      "争取圣宠",
+      "应对后宫纷争",
+      "培养心腹",
+      "保护自己",
+    ],
+    habitualActions: ["仪态万千", "善于察言观色", "心思细腻"],
+  },
+
+  // ==================== 江湖人物模板 ====================
+  侠客: {
+    category: "warrior",
+    thinkingPattern: "侠之大者，为国为民。拔剑四顾心茫然。",
+    analyticalSteps: [
+      "判断是非曲直",
+      "评估敌我实力",
+      "选择行侠方式",
+      "果断出手",
+    ],
+    professionalReflexes: [
+      "见不平自动想出手",
+      "遇高手自动想比试",
+      "听到江湖消息自动关心",
+    ],
+    speechPatterns: ["在下...", "阁下好本事", "请！", "得罪了"],
+    terminology: ["江湖", "武林", "门派", "内力", "招式", "切磋", "仇敌"],
+    knowledgeShowcaseOpportunities: [
+      "行侠仗义",
+      "比武较量",
+      "分析武学",
+      "评判门派",
+    ],
+    habitualActions: ["背负长剑", "目光锐利", "步伐轻灵"],
+  },
+
+  书生: {
+    category: "scholar",
+    thinkingPattern: "书中自有黄金屋，书中自有颜如玉。以理服人，以德化人。",
+    analyticalSteps: [
+      "引经据典分析",
+      "权衡义理得失",
+      "考虑前例先例",
+      "得出合理结论",
+    ],
+    professionalReflexes: [
+      "遇事先想古人如何处理",
+      "听言自动分析逻辑谬误",
+      "见字先品评书法",
+    ],
+    speechPatterns: ["子曰...", "据史书记载...", "古人云...", "依在下愚见..."],
+    terminology: ["圣贤", "经义", "科举", "功名", "典故", "笔墨"],
+    knowledgeShowcaseOpportunities: [
+      "引经据典",
+      "诗词唱和",
+      "分析局势",
+      "教书育人",
+    ],
+    habitualActions: ["手不释卷", "出口成章", "仪态儒雅"],
+  },
 };
 
 // ==================== 服务实现 ====================
@@ -362,24 +575,64 @@ export class ProfessionalVoiceService {
       }
     }
 
-    // 关键词匹配
+    // 关键词匹配（按优先级排序，更具体的关键词优先）
     const keywordMap: Record<string, string> = {
+      // 化妆品/科研相关
       配方: "化妆品配方工程师",
       化学: "化妆品配方工程师",
       研发: "化妆品配方工程师",
       科研: "化妆品配方工程师",
+      化妆: "化妆品配方工程师",
+      // 医疗相关
       医: "医者",
       药: "医者",
       治病: "医者",
+      太医: "医者",
+      御医: "医者",
+      // 军事相关
       将: "将军",
       兵: "将军",
       军: "将军",
+      // 谋略相关
       谋: "谋士",
       策: "谋士",
+      幕僚: "谋士",
+      // 商业相关
       商: "商人",
       贾: "商人",
+      // 工艺相关
       匠: "工匠",
       艺: "工匠",
+      // 宫廷人物
+      女官: "女官",
+      掌事: "女官",
+      尚宫: "女官",
+      宫女: "宫女",
+      侍女: "宫女",
+      丫鬟: "宫女",
+      太监: "太监",
+      公公: "太监",
+      内侍: "太监",
+      皇上: "皇帝",
+      陛下: "皇帝",
+      天子: "皇帝",
+      皇后: "皇后",
+      中宫: "皇后",
+      国母: "皇后",
+      妃: "妃嫔",
+      嫔: "妃嫔",
+      贵人: "妃嫔",
+      昭仪: "妃嫔",
+      婕妤: "妃嫔",
+      美人: "妃嫔",
+      // 江湖人物
+      侠: "侠客",
+      剑客: "侠客",
+      武者: "侠客",
+      书生: "书生",
+      秀才: "书生",
+      举人: "书生",
+      读书人: "书生",
     };
 
     for (const [keyword, templateKey] of Object.entries(keywordMap)) {
@@ -403,6 +656,80 @@ export class ProfessionalVoiceService {
       knowledgeShowcaseOpportunities: ["分析专业问题", "提供专业建议"],
       habitualActions: ["冷静观察", "理性分析"],
     };
+  }
+
+  /**
+   * 从角色背景描述中提取职业
+   * 用于处理 background 字段包含完整背景描述的情况
+   */
+  extractProfessionFromBackground(background: string): string | null {
+    if (!background) return null;
+
+    // 常见职业关键词列表（按优先级排序）
+    const professionPatterns = [
+      // 精确匹配
+      { pattern: /化妆品配方工程师/, result: "化妆品配方工程师" },
+      { pattern: /配方师/, result: "化妆品配方工程师" },
+      { pattern: /研究员/, result: "化妆品配方工程师" },
+      // 医疗
+      { pattern: /太医/, result: "医者" },
+      { pattern: /御医/, result: "医者" },
+      { pattern: /大夫/, result: "医者" },
+      { pattern: /郎中/, result: "医者" },
+      // 宫廷
+      { pattern: /女官/, result: "女官" },
+      { pattern: /尚宫/, result: "女官" },
+      { pattern: /掌事/, result: "女官" },
+      { pattern: /嬷嬷/, result: "女官" },
+      { pattern: /宫女/, result: "宫女" },
+      { pattern: /侍女/, result: "宫女" },
+      { pattern: /丫鬟/, result: "宫女" },
+      { pattern: /太监/, result: "太监" },
+      { pattern: /公公/, result: "太监" },
+      { pattern: /内侍/, result: "太监" },
+      { pattern: /皇后/, result: "皇后" },
+      { pattern: /皇上/, result: "皇帝" },
+      { pattern: /陛下/, result: "皇帝" },
+      { pattern: /贵妃/, result: "妃嫔" },
+      { pattern: /妃子/, result: "妃嫔" },
+      { pattern: /嫔妃/, result: "妃嫔" },
+      // 军事
+      { pattern: /将军/, result: "将军" },
+      { pattern: /统帅/, result: "将军" },
+      { pattern: /元帅/, result: "将军" },
+      // 谋略
+      { pattern: /谋士/, result: "谋士" },
+      { pattern: /军师/, result: "谋士" },
+      { pattern: /幕僚/, result: "谋士" },
+      // 商业
+      { pattern: /商人/, result: "商人" },
+      { pattern: /掌柜/, result: "商人" },
+      { pattern: /东家/, result: "商人" },
+      // 工艺
+      { pattern: /工匠/, result: "工匠" },
+      { pattern: /匠人/, result: "工匠" },
+      { pattern: /铁匠/, result: "工匠" },
+      // 江湖
+      { pattern: /侠客/, result: "侠客" },
+      { pattern: /剑客/, result: "侠客" },
+      { pattern: /武者/, result: "侠客" },
+      // 书生
+      { pattern: /书生/, result: "书生" },
+      { pattern: /秀才/, result: "书生" },
+      { pattern: /举人/, result: "书生" },
+      { pattern: /进士/, result: "书生" },
+    ];
+
+    for (const { pattern, result } of professionPatterns) {
+      if (pattern.test(background)) {
+        this.logger.debug(
+          `[ProfessionalVoice] Extracted profession "${result}" from background`,
+        );
+        return result;
+      }
+    }
+
+    return null;
   }
 
   /**
