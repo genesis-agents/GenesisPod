@@ -208,7 +208,7 @@ private async buildQualityConstraints(
   chapterContext: ChapterWritingContext,
 ): Promise<string> {
   const parts: string[] = [];
-  const projectId = contextPackage.extensions.storyBible.bibleId;
+  const projectId = contextPackage.extensions.storyBible.projectId;
 
   // 1. 角色行为约束（使用 CharacterConsistencyService）
   if (chapterContext.involvedCharacters.length > 0) {
