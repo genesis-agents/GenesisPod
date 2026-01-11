@@ -5358,9 +5358,19 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
         ch.content.includes("内容生成中"),
     );
 
-    // 获取故事圣经
+    // 获取故事圣经（包含角色信息）
     const storyBible = await this.prisma.storyBible.findUnique({
       where: { projectId },
+      include: {
+        characters: {
+          select: {
+            name: true,
+            role: true,
+            background: true,
+            personality: true,
+          },
+        },
+      },
     });
 
     return {
@@ -5417,7 +5427,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
       `🚀 继续创作任务开始，已有 ${existingContent.currentWords.toLocaleString()} 字，目标 ${targetWordCount.toLocaleString()} 字`,
     );
 
-    // 获取世界观设定
+    // 获取世界观设定（包含角色信息，用于质量约束生成）
     let worldSettings: any = null;
     if (existingContent.storyBible) {
       worldSettings = {
@@ -5426,6 +5436,8 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
           theme: existingContent.storyBible.theme,
           premise: existingContent.storyBible.premise,
         },
+        // ★ 添加角色信息，用于专业声音服务
+        characters: existingContent.storyBible.characters || [],
       };
     }
 
