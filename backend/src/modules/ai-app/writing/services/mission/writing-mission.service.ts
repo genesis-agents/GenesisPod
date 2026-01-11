@@ -4195,37 +4195,8 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
 3. 标注关键转折点`;
       } else if (input.missionType === "edit") {
         // @Leader 编辑调整：智能分析用户指令并执行相应操作
-        // 首先获取上下文信息
-        const contextInfo = await this.getLeaderContextInfo(
-          input.projectId,
-          input.chapterId,
-        );
-
-        userPrompt = `你是故事架构师（Leader），负责指挥整个 AI 写作团队。
-
-## 当前项目状态
-${contextInfo}
-
-## 用户指令
-${userPrompt}
-
-## 你的职责
-分析用户指令，决定执行什么操作。可用的操作包括：
-- 修改/重写章节内容
-- 检查一致性问题
-- 润色文字表达
-- 更新故事设定（世界观、角色等）
-- 继续创作下一章
-- 分析当前进度并给出建议
-
-## 输出要求
-1. 首先简要说明你对用户指令的理解
-2. 说明你将执行的操作
-3. 执行操作并输出结果
-4. 如果是修改内容，输出完整的修改后内容
-5. 如果是分析/检查，给出详细的分析报告和建议
-
-请开始执行：`;
+        // 使用两阶段处理：先分析意图，再执行操作
+        return this.executeLeaderCommand(input, userPrompt, modelId, missionId);
       }
 
       this.logger.log(`Calling LLM (${modelId}) for mission ${missionId}`);
@@ -4736,6 +4707,378 @@ ${userPrompt}
     }
 
     return truncated + "...";
+  }
+
+  /**
+   * @Leader 智能任务分派执行
+   * 两阶段处理：1. 分析用户意图 2. 执行具体操作
+   */
+  private async executeLeaderCommand(
+    input: WritingMissionInput,
+    userPrompt: string,
+    modelId: string,
+    missionId: string,
+  ): Promise<string | null> {
+    // 获取上下文信息
+    const contextInfo = await this.getLeaderContextInfo(
+      input.projectId,
+      input.chapterId,
+    );
+
+    // 阶段1：分析用户意图
+    const analysisPrompt = `你是故事架构师（Leader），负责分析用户指令并决定执行什么操作。
+
+## 当前项目状态
+${contextInfo}
+
+## 用户指令
+${userPrompt}
+
+## 你的任务
+分析用户指令，判断需要执行的操作类型，并输出结构化的 JSON 指令。
+
+## 可用操作类型
+1. add_character - 添加新角色到故事圣经
+2. update_character - 更新现有角色信息
+3. add_world_setting - 添加世界观设定
+4. modify_chapter - 修改/重写章节内容
+5. continue_writing - 继续创作下一章
+6. consistency_check - 检查内容一致性
+7. analyze - 分析项目状态并给出建议（不执行修改）
+
+## 输出格式（必须是有效的 JSON）
+{
+  "action": "操作类型",
+  "understanding": "对用户指令的理解（一句话）",
+  "params": {
+    // 根据操作类型填写参数
+    // add_character: { "name": "角色名", "role": "PROTAGONIST/ANTAGONIST/SUPPORTING/MINOR", "description": "角色描述", "background": "背景故事", "abilities": ["能力1"] }
+    // update_character: { "name": "角色名", "updates": { "字段": "新值" } }
+    // add_world_setting: { "category": "分类", "name": "设定名", "description": "描述", "rules": ["规则1"] }
+    // modify_chapter: { "chapterNumber": 章节号, "instruction": "修改指令" }
+    // continue_writing: { "instruction": "创作指令" }
+    // consistency_check: {}
+    // analyze: {}
+  },
+  "explanation": "执行说明"
+}
+
+请直接输出 JSON，不要包含其他文字：`;
+
+    this.logger.log(`[${missionId}] Analyzing user intent for @Leader command`);
+
+    const analysisResponse = await this.aiChatService.chat({
+      messages: [{ role: "user", content: analysisPrompt }],
+      model: modelId,
+      temperature: 0.3, // 低温度确保输出稳定
+      maxTokens: 2000,
+    });
+
+    if (!analysisResponse.content) {
+      this.logger.error(`[${missionId}] Failed to analyze user intent`);
+      return "无法理解指令，请重新描述您的需求。";
+    }
+
+    // 解析 JSON 指令
+    let command: {
+      action: string;
+      understanding: string;
+      params: Record<string, unknown>;
+      explanation: string;
+    };
+
+    try {
+      // 尝试提取 JSON
+      const jsonMatch = analysisResponse.content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error("No JSON found in response");
+      }
+      command = JSON.parse(jsonMatch[0]);
+    } catch (error) {
+      this.logger.warn(
+        `[${missionId}] Failed to parse command JSON: ${(error as Error).message}`,
+      );
+      // 回退：当作分析请求处理
+      return `## Leader 分析\n\n${analysisResponse.content}`;
+    }
+
+    this.logger.log(
+      `[${missionId}] Executing @Leader action: ${command.action}`,
+    );
+
+    // 阶段2：执行具体操作
+    switch (command.action) {
+      case "add_character": {
+        const params = command.params as {
+          name: string;
+          role?: string;
+          description?: string;
+          background?: string;
+          abilities?: string[];
+        };
+
+        if (!params.name) {
+          return "错误：创建角色需要提供角色名称。";
+        }
+
+        // 获取 Story Bible ID
+        const project = await this.prisma.writingProject.findUnique({
+          where: { id: input.projectId },
+          include: { storyBible: true },
+        });
+
+        if (!project?.storyBible) {
+          return "错误：项目没有关联的故事圣经。";
+        }
+
+        // 检查角色是否已存在
+        const existingChar = await this.prisma.writingCharacter.findFirst({
+          where: {
+            bibleId: project.storyBible.id,
+            name: params.name,
+          },
+        });
+
+        if (existingChar) {
+          return `角色「${params.name}」已存在，如需更新请使用"修改角色"指令。`;
+        }
+
+        // 创建新角色
+        const newCharacter = await this.prisma.writingCharacter.create({
+          data: {
+            bibleId: project.storyBible.id,
+            name: params.name,
+            role:
+              (params.role as
+                | "PROTAGONIST"
+                | "ANTAGONIST"
+                | "SUPPORTING"
+                | "MINOR") || "SUPPORTING",
+            background: params.background || params.description || "",
+            abilities: params.abilities || [],
+            appearance: {},
+            personality: params.description
+              ? { summary: params.description }
+              : {},
+            currentState: {},
+            stateTimeline: [],
+          },
+        });
+
+        this.logger.log(
+          `[${missionId}] Created character: ${newCharacter.name} (${newCharacter.id})`,
+        );
+
+        return `## ✅ 角色创建成功
+
+**角色名称**：${newCharacter.name}
+**角色定位**：${newCharacter.role}
+**描述**：${params.description || "（未提供）"}
+**背景**：${params.background || "（未提供）"}
+
+角色已添加到故事圣经，后续章节创作时会自动引用此角色设定。`;
+      }
+
+      case "update_character": {
+        const params = command.params as {
+          name: string;
+          updates: Record<string, unknown>;
+        };
+
+        if (!params.name) {
+          return "错误：更新角色需要提供角色名称。";
+        }
+
+        const project = await this.prisma.writingProject.findUnique({
+          where: { id: input.projectId },
+          include: { storyBible: true },
+        });
+
+        if (!project?.storyBible) {
+          return "错误：项目没有关联的故事圣经。";
+        }
+
+        const character = await this.prisma.writingCharacter.findFirst({
+          where: {
+            bibleId: project.storyBible.id,
+            name: params.name,
+          },
+        });
+
+        if (!character) {
+          return `未找到角色「${params.name}」，请检查名称是否正确。`;
+        }
+
+        // 更新角色
+        const updatedChar = await this.prisma.writingCharacter.update({
+          where: { id: character.id },
+          data: params.updates as Record<string, string | string[]>,
+        });
+
+        return `## ✅ 角色更新成功
+
+**角色**：${updatedChar.name}
+**更新内容**：${JSON.stringify(params.updates, null, 2)}`;
+      }
+
+      case "add_world_setting": {
+        const params = command.params as {
+          category: string;
+          name: string;
+          description: string;
+          rules?: string[];
+        };
+
+        if (!params.name || !params.category) {
+          return "错误：添加世界观设定需要提供名称和分类。";
+        }
+
+        const project = await this.prisma.writingProject.findUnique({
+          where: { id: input.projectId },
+          include: { storyBible: true },
+        });
+
+        if (!project?.storyBible) {
+          return "错误：项目没有关联的故事圣经。";
+        }
+
+        const newSetting = await this.prisma.worldSetting.create({
+          data: {
+            bibleId: project.storyBible.id,
+            category: params.category,
+            name: params.name,
+            description: params.description || "",
+            rules: params.rules || [],
+          },
+        });
+
+        return `## ✅ 世界观设定添加成功
+
+**分类**：${newSetting.category}
+**名称**：${newSetting.name}
+**描述**：${newSetting.description}`;
+      }
+
+      case "modify_chapter": {
+        const params = command.params as {
+          chapterNumber?: number;
+          instruction: string;
+        };
+
+        // 需要生成新内容，转换为章节写作任务
+        return this.generateChapterModification(
+          input,
+          params.chapterNumber,
+          params.instruction,
+          modelId,
+          missionId,
+        );
+      }
+
+      case "continue_writing": {
+        // 转换为继续创作任务
+        return `[DELEGATE_TO_FULL_STORY]继续创作`;
+      }
+
+      case "consistency_check":
+      case "analyze":
+      default: {
+        // 返回分析结果
+        return `## 📋 Leader 分析
+
+**理解**：${command.understanding}
+
+**建议**：
+${command.explanation}`;
+      }
+    }
+  }
+
+  /**
+   * 生成章节修改内容
+   */
+  private async generateChapterModification(
+    input: WritingMissionInput,
+    chapterNumber: number | undefined,
+    instruction: string,
+    modelId: string,
+    missionId: string,
+  ): Promise<string | null> {
+    // 获取目标章节
+    let chapter;
+    if (chapterNumber) {
+      const volumes = await this.prisma.writingVolume.findMany({
+        where: { projectId: input.projectId },
+        include: {
+          chapters: {
+            where: { chapterNumber },
+          },
+        },
+      });
+      chapter = volumes.flatMap((v) => v.chapters)[0];
+    } else if (input.chapterId) {
+      chapter = await this.prisma.writingChapter.findUnique({
+        where: { id: input.chapterId },
+      });
+    }
+
+    if (!chapter) {
+      return "未找到指定章节，请确认章节号或选择一个章节后再试。";
+    }
+
+    // 生成修改后的内容
+    const modifyPrompt = `请根据以下指令修改章节内容：
+
+## 当前章节
+**标题**：第${chapter.chapterNumber}章 ${chapter.title}
+**大纲**：${chapter.outline || "无"}
+
+**原内容**：
+${chapter.content || "（空）"}
+
+## 修改指令
+${instruction}
+
+## 要求
+1. 保持故事连贯性
+2. 保留原有的精彩部分
+3. 按照指令进行针对性修改
+4. 输出完整的修改后内容
+
+请输出修改后的完整章节内容：`;
+
+    const response = await this.aiChatService.chat({
+      messages: [{ role: "user", content: modifyPrompt }],
+      model: modelId,
+      temperature: 0.8,
+      maxTokens: 8000,
+    });
+
+    if (response.content && response.content.length > 200) {
+      // 保存修改后的内容
+      await this.prisma.writingChapter.update({
+        where: { id: chapter.id },
+        data: {
+          content: response.content,
+          wordCount: this.countWords(response.content),
+          status: "WRITING",
+        },
+      });
+
+      // 更新 Story Bible
+      await this.updateStoryBibleAfterChapter(
+        input.projectId,
+        missionId,
+        chapter.chapterNumber,
+        response.content,
+        {},
+        modelId,
+      );
+
+      return response.content;
+    }
+
+    return "章节修改失败，请重试。";
   }
 
   /**
