@@ -527,11 +527,12 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
               return;
             }
 
-            // 每 4 秒刷新一次章节列表（检查是否有新章节/内容更新）
+            // 每 4 秒刷新一次章节列表和项目信息（检查是否有新章节/内容/字数更新）
             // 使用 silent=true 避免 UI 闪烁
             if (pollCount % 2 === 0) {
               try {
                 await fetchVolumes(projectId, true);
+                await fetchProject(projectId, true); // ★ 同步更新项目信息（标题、字数等）
               } catch {
                 // Ignore errors during polling
               }
