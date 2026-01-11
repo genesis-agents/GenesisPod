@@ -4189,12 +4189,38 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
 2. 每章简要描述主要情节
 3. 标注关键转折点`;
       } else if (input.missionType === "edit") {
-        // @Leader 编辑调整：由故事架构师处理修改请求
-        userPrompt = `作为故事架构师，请根据以下指令对当前内容进行调整：\n\n${userPrompt}\n\n要求：
-1. 仔细理解用户的修改意图
-2. 保持与现有内容的一致性
-3. 输出修改后的完整内容
-4. 说明主要修改了哪些部分`;
+        // @Leader 编辑调整：智能分析用户指令并执行相应操作
+        // 首先获取上下文信息
+        const contextInfo = await this.getLeaderContextInfo(
+          input.projectId,
+          input.chapterId,
+        );
+
+        userPrompt = `你是故事架构师（Leader），负责指挥整个 AI 写作团队。
+
+## 当前项目状态
+${contextInfo}
+
+## 用户指令
+${userPrompt}
+
+## 你的职责
+分析用户指令，决定执行什么操作。可用的操作包括：
+- 修改/重写章节内容
+- 检查一致性问题
+- 润色文字表达
+- 更新故事设定（世界观、角色等）
+- 继续创作下一章
+- 分析当前进度并给出建议
+
+## 输出要求
+1. 首先简要说明你对用户指令的理解
+2. 说明你将执行的操作
+3. 执行操作并输出结果
+4. 如果是修改内容，输出完整的修改后内容
+5. 如果是分析/检查，给出详细的分析报告和建议
+
+请开始执行：`;
       }
 
       this.logger.log(`Calling LLM (${modelId}) for mission ${missionId}`);
@@ -4705,6 +4731,128 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
     }
 
     return truncated + "...";
+  }
+
+  /**
+   * 获取 Leader 执行指令时需要的上下文信息
+   * 包括项目进度、当前章节、角色信息等
+   */
+  private async getLeaderContextInfo(
+    projectId: string,
+    chapterId?: string,
+  ): Promise<string> {
+    const parts: string[] = [];
+
+    try {
+      // 1. 获取项目基本信息
+      const project = await this.prisma.writingProject.findUnique({
+        where: { id: projectId },
+        include: {
+          storyBible: {
+            include: {
+              characters: { take: 10 },
+              worldSettings: { take: 5 },
+            },
+          },
+          volumes: {
+            include: {
+              chapters: {
+                orderBy: { chapterNumber: "asc" },
+                select: {
+                  id: true,
+                  chapterNumber: true,
+                  title: true,
+                  status: true,
+                  wordCount: true,
+                },
+              },
+            },
+            orderBy: { volumeNumber: "asc" },
+          },
+        },
+      });
+
+      if (!project) {
+        return "项目信息不可用";
+      }
+
+      // 项目进度
+      const totalChapters = project.volumes.reduce(
+        (sum, v) => sum + v.chapters.length,
+        0,
+      );
+      const completedChapters = project.volumes.reduce(
+        (sum, v) => sum + v.chapters.filter((c) => c.status === "FINAL").length,
+        0,
+      );
+      parts.push(
+        `项目：${project.name}`,
+        `进度：${completedChapters}/${totalChapters} 章已完成`,
+        `总字数：${project.currentWords || 0} 字`,
+      );
+
+      // 2. 章节列表概览
+      if (project.volumes.length > 0) {
+        parts.push("\n### 章节列表");
+        for (const volume of project.volumes) {
+          parts.push(`\n**${volume.title}**`);
+          for (const chapter of volume.chapters) {
+            const statusIcon =
+              chapter.status === "FINAL"
+                ? "✅"
+                : chapter.status === "WRITING"
+                  ? "✍️"
+                  : "📋";
+            parts.push(
+              `  ${statusIcon} 第${chapter.chapterNumber}章：${chapter.title} (${chapter.wordCount}字)`,
+            );
+          }
+        }
+      }
+
+      // 3. 当前章节详情（如果有指定）
+      if (chapterId) {
+        const chapter = await this.prisma.writingChapter.findUnique({
+          where: { id: chapterId },
+          select: {
+            chapterNumber: true,
+            title: true,
+            content: true,
+            outline: true,
+            status: true,
+          },
+        });
+        if (chapter) {
+          parts.push(`\n### 当前操作章节`);
+          parts.push(`第${chapter.chapterNumber}章：${chapter.title}`);
+          parts.push(`状态：${chapter.status}`);
+          if (chapter.outline) {
+            parts.push(`大纲：${chapter.outline}`);
+          }
+          if (chapter.content) {
+            parts.push(
+              `内容预览：${chapter.content.slice(0, 500)}${chapter.content.length > 500 ? "..." : ""}`,
+            );
+          }
+        }
+      }
+
+      // 4. 主要角色
+      if (
+        project.storyBible?.characters &&
+        project.storyBible.characters.length > 0
+      ) {
+        parts.push("\n### 主要角色");
+        for (const char of project.storyBible.characters.slice(0, 5)) {
+          parts.push(`- ${char.name}（${char.role}）`);
+        }
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to get leader context info: ${error}`);
+      return "上下文信息获取失败";
+    }
+
+    return parts.join("\n");
   }
 
   /**
