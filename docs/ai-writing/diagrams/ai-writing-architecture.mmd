@@ -1,18 +1,18 @@
 flowchart TB
   %% Frontend
-  subgraph FE[Frontend (Next.js)]
-    UIList[AI Writing 列表页\nfrontend/app/ai-writing/page.tsx]
-    UIDetail[项目详情页\nfrontend/app/ai-writing/[id]/page.tsx]
-    Store[Zustand Store\nfrontend/stores/aiWritingStore.ts]
-    ApiClient[API Client\nfrontend/lib/api/ai-writing.ts]
-    WsHook[WS Hook\nfrontend/hooks/useWritingWebSocket.ts]
+  subgraph FE[Frontend - Next.js]
+    UIList[AI Writing 列表页<br/>frontend/app/ai-writing/page.tsx]
+    UIDetail[项目详情页<br/>frontend/app/ai-writing/:id/page.tsx]
+    Store[Zustand Store<br/>frontend/stores/aiWritingStore.ts]
+    ApiClient[API Client<br/>frontend/lib/api/ai-writing.ts]
+    WsHook[WS Hook<br/>frontend/hooks/useWritingWebSocket.ts]
   end
 
   %% Backend
-  subgraph BE[Backend (NestJS)]
-    Ctrl[AI Writing Controller\nbackend/.../ai-writing.controller.ts]
-    Gw[AI Writing WS Gateway\nbackend/.../ai-writing.gateway.ts]
-    Emit[WritingEventEmitterService\nbackend/.../writing-event-emitter.service.ts]
+  subgraph BE[Backend - NestJS]
+    Ctrl[AI Writing Controller<br/>backend/.../ai-writing.controller.ts]
+    Gw[AI Writing WS Gateway<br/>backend/.../ai-writing.gateway.ts]
+    Emit[WritingEventEmitterService<br/>backend/.../writing-event-emitter.service.ts]
 
     subgraph Svc[Domain Services]
       Proj[ProjectService]
@@ -28,7 +28,7 @@ flowchart TB
     subgraph AI[AI Engine]
       Orchestrator[Teams/MissionOrchestrator]
       LongContent[LongContentEngineService]
-      LLM[AiChatService (LLM)]
+      LLM[AiChatService - LLM]
     end
 
     DB[(PostgreSQL via Prisma)]
