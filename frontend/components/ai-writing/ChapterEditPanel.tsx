@@ -130,16 +130,23 @@ export default function ChapterEditPanel({
       setError(null);
       setShowAiMenu(false);
 
+      // 如果没有选中内容，创建全文选择（兼容旧版后端）
+      const effectiveSelection = selection
+        ? {
+            startOffset: selection.start,
+            endOffset: selection.end,
+            originalText: selection.text,
+          }
+        : {
+            startOffset: 0,
+            endOffset: content.length,
+            originalText: content,
+          };
+
       const result = await aiEditChapter(chapter.id, {
         operation,
-        selection: selection
-          ? {
-              startOffset: selection.start,
-              endOffset: selection.end,
-              originalText: selection.text,
-            }
-          : undefined,
-        userFeedback: aiPrompt,
+        selection: effectiveSelection,
+        userFeedback: aiPrompt || `执行${operation}操作`,
       });
 
       setContent(result.chapter.content);
@@ -256,21 +263,31 @@ export default function ChapterEditPanel({
             📝 批注
           </button>
 
-          {/* 保存按钮 */}
-          {hasChanges && (
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="rounded bg-violet-600 px-3 py-1 text-sm text-white hover:bg-violet-700 disabled:opacity-50"
-            >
-              {saving ? '保存中...' : '保存'}
-            </button>
-          )}
+          {/* 保存按钮 - 始终显示 */}
+          <button
+            onClick={handleSave}
+            disabled={saving || !content}
+            className={`rounded px-3 py-1 text-sm ${
+              hasChanges
+                ? 'bg-violet-600 text-white hover:bg-violet-700'
+                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+            } disabled:opacity-50`}
+          >
+            {saving ? '保存中...' : hasChanges ? '保存' : '已保存'}
+          </button>
 
           {/* 关闭按钮 */}
           {onClose && (
             <button
-              onClick={onClose}
+              onClick={() => {
+                if (hasChanges) {
+                  if (window.confirm('有未保存的更改，确定要关闭吗？')) {
+                    onClose();
+                  }
+                } else {
+                  onClose();
+                }
+              }}
               className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
               <svg
