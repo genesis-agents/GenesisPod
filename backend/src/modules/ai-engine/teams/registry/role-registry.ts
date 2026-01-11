@@ -33,8 +33,9 @@ export class RoleRegistry implements OnModuleInit {
    * 注册角色
    */
   register(role: IRole): void {
+    // 如果已经注册，静默跳过（正常情况，无需告警）
     if (this.roles.has(role.id)) {
-      this.logger.warn(`Role ${role.id} already registered, overwriting`);
+      return;
     }
     this.roles.set(role.id, role);
     this.logger.log(`Registered role: ${role.id}`);

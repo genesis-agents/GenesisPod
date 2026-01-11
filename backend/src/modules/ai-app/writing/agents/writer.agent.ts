@@ -251,10 +251,25 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     const userPrompt = this.buildChapterPrompt(chapterContext, contextPackage);
 
     // 4. 调用 LLM 生成内容
+    // ★★★ 根据目标字数动态调整 maxTokens ★★★
+    // 中文约 1.5-2 tokens/字，加上输出缓冲
+    const targetWords =
+      chapterContext.writingInstructions?.targetWordCount || 3000;
+    // 确保 maxTokens 足够：目标字数 × 2.5（中文token系数 + 缓冲）
+    // 最小 8192，最大 16384（避免超出模型限制）
+    const calculatedMaxTokens = Math.min(
+      16384,
+      Math.max(8192, Math.ceil(targetWords * 2.5)),
+    );
+
+    this.logger.log(
+      `[Writer] Target: ${targetWords} words, maxTokens: ${calculatedMaxTokens}`,
+    );
+
     // 使用 TaskProfile 语义化描述任务需求
     const taskProfile: TaskProfile = {
       creativity: "high", // 创作需要更高的创造性 (原 temperature: 0.8)
-      outputLength: "long", // 章节内容需要更多 tokens (原 maxTokens: 8192)
+      outputLength: targetWords >= 5000 ? "extended" : "long", // 根据目标字数选择输出长度
     };
 
     const response = await this.aiChatService.chat({
@@ -265,7 +280,7 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       taskProfile,
       // 保持向后兼容：如果 TaskProfile 映射失败，使用原始参数
       temperature: 0.8,
-      maxTokens: 8192,
+      maxTokens: calculatedMaxTokens,
     });
 
     let content = response.content || "";
@@ -277,7 +292,72 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     );
 
     // 5. 解析生成的内容
-    const wordCount = this.countWords(content);
+    let wordCount = this.countWords(content);
+
+    // ★★★ 5.1 字数不足时自动续写（最多2次）★★★
+    const minRequiredWords = Math.floor(targetWords * 0.85); // 至少达到85%
+    let continuationAttempts = 0;
+    const maxContinuations = 2;
+
+    while (
+      wordCount < minRequiredWords &&
+      continuationAttempts < maxContinuations
+    ) {
+      continuationAttempts++;
+      const remainingWords = targetWords - wordCount;
+
+      this.logger.warn(
+        `[Writer] Word count insufficient: ${wordCount}/${targetWords}, attempting continuation ${continuationAttempts}/${maxContinuations}`,
+      );
+
+      // 构建续写提示词
+      const continuationPrompt = `你刚才写的章节内容只有 ${wordCount} 字，距离目标 ${targetWords} 字还差约 ${remainingWords} 字。
+
+请基于以下已写内容，继续写作。要求：
+1. 必须从上文自然衔接，不要重复已写内容
+2. 继续展开情节，丰富细节和对话
+3. 补充约 ${remainingWords} 字的内容
+4. 不要写结尾总结，保持情节推进
+
+已写内容的最后 500 字：
+---
+${content.slice(-500)}
+---
+
+请直接输出续写内容（从接续处开始，不要重复上文）：`;
+
+      try {
+        const continuationResponse = await this.aiChatService.chat({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: continuationPrompt },
+          ],
+          taskProfile,
+          temperature: 0.8,
+          maxTokens: Math.min(8192, Math.ceil(remainingWords * 2.5)),
+        });
+
+        const continuation = continuationResponse.content?.trim();
+        if (continuation && continuation.length > 100) {
+          content = content + "\n\n" + continuation;
+          wordCount = this.countWords(content);
+          this.logger.log(
+            `[Writer] Continuation ${continuationAttempts} added ${this.countWords(continuation)} words, total now: ${wordCount}`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          `[Writer] Continuation attempt ${continuationAttempts} failed: ${error}`,
+        );
+        break;
+      }
+    }
+
+    if (wordCount < minRequiredWords) {
+      this.logger.warn(
+        `[Writer] Final word count ${wordCount} still below minimum ${minRequiredWords}`,
+      );
+    }
 
     // 6. 提取元数据
     const metadata = this.extractMetadata(content, chapterContext);
@@ -770,16 +850,21 @@ ${chapterContext.relevantWorldSettings.map((s) => `**${s.name}** (${s.category})
 `;
     }
 
-    // 添加写作指令
-    if (writingInstructions) {
-      prompt += `### 写作要求
-- 目标字数：${writingInstructions.targetWordCount || 3000}字
-${writingInstructions.focusPoints ? `- 重点描写：${writingInstructions.focusPoints.join("、")}` : ""}
-${writingInstructions.avoidPoints ? `- 避免出现：${writingInstructions.avoidPoints.join("、")}` : ""}
-${writingInstructions.additionalInstructions || ""}
+    // 添加写作指令（增强字数要求）
+    const targetWordCount = writingInstructions?.targetWordCount || 3000;
+    const minWordCount = Math.floor(targetWordCount * 0.9); // 至少达到90%
+    prompt += `### 写作要求
+**【字数要求 - 必须严格遵守】**
+- 目标字数：${targetWordCount}字（允许范围：${minWordCount}-${targetWordCount + 500}字）
+- ⚠️ 这是硬性要求，字数不足将被退回重写
+- 如果情节不够，请丰富细节描写、对话、心理活动、环境氛围
+- 禁止因为"字数快到了"而草草收尾
+
+${writingInstructions?.focusPoints ? `- 重点描写：${writingInstructions.focusPoints.join("、")}` : ""}
+${writingInstructions?.avoidPoints ? `- 避免出现：${writingInstructions.avoidPoints.join("、")}` : ""}
+${writingInstructions?.additionalInstructions || ""}
 
 `;
-    }
 
     prompt += `请开始写作第${chapter.chapterNumber}章的内容。`;
 

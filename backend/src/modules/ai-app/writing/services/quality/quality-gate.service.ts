@@ -816,25 +816,43 @@ export class QualityGateService {
     passedGate: boolean,
     rewriteCount: number,
   ): Promise<void> {
-    await this.prisma.writingQualityScore.create({
-      data: {
-        projectId,
-        chapterId,
-        diversityScore: scores.diversityScore,
-        vocabularyRichness: scores.vocabularyRichness,
-        sentenceVariety: scores.sentenceVariety,
-        expressionNovelty: scores.expressionNovelty,
-        characterConsistency: scores.characterConsistency,
-        dialogueAuthenticity: scores.dialogueAuthenticity,
-        plotNovelty: scores.plotNovelty,
-        narrativeFlow: scores.narrativeFlow,
-        settingAccuracy: scores.settingAccuracy,
-        overallScore: scores.overallScore,
-        issues: issues as unknown as object,
-        passedGate,
-        rewriteCount,
-      },
+    // 先检查是否已存在记录，避免重复创建
+    const existing = await this.prisma.writingQualityScore.findFirst({
+      where: { projectId, chapterId },
     });
+
+    const scoreData = {
+      diversityScore: scores.diversityScore,
+      vocabularyRichness: scores.vocabularyRichness,
+      sentenceVariety: scores.sentenceVariety,
+      expressionNovelty: scores.expressionNovelty,
+      characterConsistency: scores.characterConsistency,
+      dialogueAuthenticity: scores.dialogueAuthenticity,
+      plotNovelty: scores.plotNovelty,
+      narrativeFlow: scores.narrativeFlow,
+      settingAccuracy: scores.settingAccuracy,
+      overallScore: scores.overallScore,
+      issues: issues as unknown as object,
+      passedGate,
+      rewriteCount,
+    };
+
+    if (existing) {
+      // 更新现有记录
+      await this.prisma.writingQualityScore.update({
+        where: { id: existing.id },
+        data: scoreData,
+      });
+    } else {
+      // 创建新记录
+      await this.prisma.writingQualityScore.create({
+        data: {
+          projectId,
+          chapterId,
+          ...scoreData,
+        },
+      });
+    }
   }
 
   /**

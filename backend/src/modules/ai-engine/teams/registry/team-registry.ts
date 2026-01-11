@@ -24,8 +24,9 @@ export class TeamRegistry {
    * 注册团队
    */
   register(team: ITeam): void {
+    // 如果已经注册，静默跳过（正常情况，无需告警）
     if (this.teams.has(team.id)) {
-      this.logger.warn(`Team ${team.id} already registered, overwriting`);
+      return;
     }
     this.teams.set(team.id, team);
     this.teamConfigs.set(team.id, team.config);
@@ -36,10 +37,9 @@ export class TeamRegistry {
    * 注册团队配置（延迟实例化）
    */
   registerConfig(config: TeamConfig): void {
+    // 如果已经注册，静默跳过（正常情况，无需告警）
     if (this.teamConfigs.has(config.id)) {
-      this.logger.warn(
-        `Team config ${config.id} already registered, overwriting`,
-      );
+      return;
     }
     this.teamConfigs.set(config.id, config);
     this.logger.log(`Registered team config: ${config.id} (${config.name})`);

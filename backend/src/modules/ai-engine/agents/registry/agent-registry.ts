@@ -32,8 +32,9 @@ export class AgentRegistry {
    * 注册 Agent
    */
   register(agent: IPlanBasedAgent): void {
+    // 如果已经注册，静默跳过（正常情况，无需告警）
     if (this.agents.has(agent.id)) {
-      this.logger.warn(`Agent ${agent.id} already registered, overwriting`);
+      return;
     }
 
     this.agents.set(agent.id, agent);

@@ -771,46 +771,70 @@ ${endingPart}
       outputLength: "short", // 只重写结尾，不需要太长
     };
 
-    try {
-      const response = await this.aiChatService.chat({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        taskProfile,
-        temperature: 0.8,
-        maxTokens: 1000,
-      });
+    // 重试机制：最多尝试3次
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await this.aiChatService.chat({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          taskProfile,
+          temperature: 0.8 + (attempt - 1) * 0.05, // 每次重试稍微提高温度
+          maxTokens: 1000,
+        });
 
-      const newEnding = response.content?.trim();
-      if (!newEnding) {
-        this.logger.warn("[NarrativeCraft] Rewrite failed: empty response");
-        return content;
-      }
+        const newEnding = response.content?.trim();
+        if (!newEnding) {
+          this.logger.warn(
+            `[NarrativeCraft] Rewrite attempt ${attempt}/${maxRetries} failed: empty response`,
+          );
+          if (attempt < maxRetries) {
+            // 等待一小段时间后重试
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            continue;
+          }
+          this.logger.error(
+            "[NarrativeCraft] All rewrite attempts failed with empty response",
+          );
+          return content;
+        }
 
-      // 验证重写后的结尾是否仍有问题
-      const rewriteReport = this.analyzeContent(newEnding);
-      const stillHasEndingIssues = rewriteReport.issues.some(
-        (i) => i.type === "ending",
-      );
-
-      if (stillHasEndingIssues) {
-        this.logger.warn(
-          "[NarrativeCraft] Rewritten ending still has issues, keeping original",
+        // 验证重写后的结尾是否仍有问题
+        const rewriteReport = this.analyzeContent(newEnding);
+        const stillHasEndingIssues = rewriteReport.issues.some(
+          (i) => i.type === "ending",
         );
+
+        if (stillHasEndingIssues) {
+          this.logger.warn(
+            "[NarrativeCraft] Rewritten ending still has issues, keeping original",
+          );
+          return content;
+        }
+
+        // 拼接新内容
+        const newContent = beforePart
+          ? `${beforePart}\n\n${newEnding}`
+          : newEnding;
+
+        this.logger.log("[NarrativeCraft] Ending rewritten successfully");
+        return newContent;
+      } catch (error) {
+        this.logger.warn(
+          `[NarrativeCraft] Rewrite attempt ${attempt}/${maxRetries} failed: ${error}`,
+        );
+        if (attempt < maxRetries) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          continue;
+        }
+        this.logger.error(`[NarrativeCraft] All rewrite attempts failed`);
         return content;
       }
-
-      // 拼接新内容
-      const newContent = beforePart
-        ? `${beforePart}\n\n${newEnding}`
-        : newEnding;
-
-      this.logger.log("[NarrativeCraft] Ending rewritten successfully");
-      return newContent;
-    } catch (error) {
-      this.logger.error(`[NarrativeCraft] Rewrite failed: ${error}`);
-      return content;
     }
+
+    // 不应该到达这里，但作为安全返回
+    return content;
   }
 }
