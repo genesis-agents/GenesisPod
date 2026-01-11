@@ -833,8 +833,9 @@ export class WritingMissionService {
     userId: string,
   ): Promise<{ missionId: string }> {
     const missionId = uuidv4();
+    // ★★★ 增强日志：记录 userPrompt 以便调试
     this.logger.log(
-      `Starting async writing mission ${missionId} for project ${input.projectId}`,
+      `Starting async writing mission ${missionId} for project ${input.projectId}, type: ${input.missionType}, userPrompt: "${input.userPrompt?.slice(0, 100) || "(empty)"}"`,
     );
 
     // 验证项目访问权限
@@ -1066,18 +1067,50 @@ export class WritingMissionService {
    * Phase 3: 逐章生成（作家创作 → 检查员校验 → 编辑润色）
    * Phase 4: 质量监控和一致性维护
    */
+  // ★★★ 最小 prompt 长度常量（与前端保持一致）
+  private readonly MIN_USER_PROMPT_LENGTH = 5;
+
   private async generateFullStory(
     input: WritingMissionInput,
     modelId: string,
     missionId: string,
   ): Promise<string | null> {
-    // 从项目获取目标字数作为默认值
+    // 从项目获取信息
     const project = await this.prisma.writingProject.findUnique({
       where: { id: input.projectId },
-      select: { targetWords: true },
+      select: { targetWords: true, description: true, name: true },
     });
+
+    if (!project) {
+      throw new NotFoundException(`Project ${input.projectId} not found`);
+    }
+
+    // ★★★ 关键日志：记录原始 userPrompt
+    this.logger.log(
+      `[${missionId}] generateFullStory - original userPrompt: "${input.userPrompt?.slice(0, 100) || "(empty)"}" (length: ${input.userPrompt?.length || 0})`,
+    );
+
+    // ★★★ 安全的 prompt 获取（使用局部变量，不修改原始参数）
+    let effectiveUserPrompt =
+      input.userPrompt?.trim() || project.description?.trim() || project.name;
+
+    if (
+      !effectiveUserPrompt ||
+      effectiveUserPrompt.length < this.MIN_USER_PROMPT_LENGTH
+    ) {
+      const errorMsg = `Invalid user prompt: "${effectiveUserPrompt}" (length: ${effectiveUserPrompt?.length || 0}). Minimum required: ${this.MIN_USER_PROMPT_LENGTH} chars`;
+      this.logger.error(`[${missionId}] ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+
+    if (effectiveUserPrompt !== input.userPrompt) {
+      this.logger.log(
+        `[${missionId}] Using fallback prompt: "${effectiveUserPrompt.slice(0, 100)}" (source: ${input.userPrompt ? "trimmed" : project.description ? "project.description" : "project.name"})`,
+      );
+    }
+
     const targetWordCount =
-      input.targetWordCount || project?.targetWords || 50000;
+      input.targetWordCount || project.targetWords || 50000;
     const wordsPerChapter = 3000;
     const chaptersPerVolume = 10;
 
@@ -1157,9 +1190,11 @@ export class WritingMissionService {
 
     const keeperModel = (await this.getModelForRole("bible-keeper")) || modelId;
 
-    // ★ 使用知识库增强世界观构建
+    // ★ 使用知识库增强世界观构建（使用 effectiveUserPrompt）
     const worldEnhancement =
-      this.worldBuildingEnhancer.enhanceWorldBuildingPrompt(input.userPrompt);
+      this.worldBuildingEnhancer.enhanceWorldBuildingPrompt(
+        effectiveUserPrompt,
+      );
     const hasHistoricalContext = worldEnhancement.detectedEra !== null;
     if (hasHistoricalContext) {
       this.logger.log(
@@ -1171,7 +1206,7 @@ export class WritingMissionService {
     // 如果检测到历史背景，使用增强的提示词（包含朝代知识库信息）
     const storyCreativitySection = hasHistoricalContext
       ? worldEnhancement.enhancedPrompt
-      : `【故事创意】\n${input.userPrompt}`;
+      : `【故事创意】\n${effectiveUserPrompt}`;
 
     const worldBuildingPrompt = `作为设定守护者，请根据以下故事创意独立建立完整的世界观设定。
 
@@ -1267,7 +1302,7 @@ ${storyCreativitySection}
       // 使用空的默认设定继续
       worldSettings = {
         core: {
-          summary: input.userPrompt.slice(0, 100),
+          summary: effectiveUserPrompt.slice(0, 100),
           genre: "通用",
           theme: "待定",
         },
@@ -1352,12 +1387,12 @@ ${storyCreativitySection}
     try {
       // 使用事务确保数据一致性
       await this.prisma.$transaction(async (tx) => {
-        // 1. 保存/更新 StoryBible
+        // 1. 保存/更新 StoryBible（使用 effectiveUserPrompt）
         const bible = await tx.storyBible.upsert({
           where: { projectId: input.projectId },
           create: {
             projectId: input.projectId,
-            premise: `${input.userPrompt}\n\n${worldDescription}`,
+            premise: `${effectiveUserPrompt}\n\n${worldDescription}`,
             theme: cleanedTheme,
             tone: cleanedTone,
             worldType: worldInfo?.type || "现代",
@@ -1365,7 +1400,7 @@ ${storyCreativitySection}
             lastSyncAt: new Date(),
           },
           update: {
-            premise: `${input.userPrompt}\n\n${worldDescription}`,
+            premise: `${effectiveUserPrompt}\n\n${worldDescription}`,
             theme: cleanedTheme,
             tone: cleanedTone,
             worldType: worldInfo?.type || "现代",
@@ -1539,7 +1574,7 @@ ${storyCreativitySection}
 【重要】你的章节规划必须严格遵守世界观设定，不能违反已建立的规则！
 
 【故事创意】
-${input.userPrompt}
+${effectiveUserPrompt}
 
 【已建立的世界观（摘要）】
 ${JSON.stringify(worldSummary, null, 2)}
@@ -1711,7 +1746,7 @@ ${Array.from(
     // ★ 如果大纲没有 core，使用世界观的 core
     if (!outline.core || !outline.core.theme) {
       outline.core = {
-        summary: worldCore?.summary || input.userPrompt.slice(0, 100),
+        summary: worldCore?.summary || effectiveUserPrompt.slice(0, 100),
         genre: worldCore?.genre || "通用",
         theme: worldCore?.theme || "待定",
       };
@@ -1734,7 +1769,7 @@ ${Array.from(
         const fillPrompt = `请为以下章节生成具体的章节标题（不含"第X章"前缀，如"暗流涌动"、"命运交汇"）：
 
 【故事主题】
-${input.userPrompt.slice(0, 200)}
+${effectiveUserPrompt.slice(0, 200)}
 
 【需要标题的章节】
 ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.chapter.plot || "待定"}`).join("\n")}
@@ -1948,7 +1983,7 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
         outline,
         worldSettings,
         previousChapterSummary,
-        input.userPrompt,
+        effectiveUserPrompt, // ★ 使用 effectiveUserPrompt
         keeperContext,
         undefined, // styleId (ignored when templateStylePrompt is provided)
         avoidancePrompt,
@@ -6560,11 +6595,12 @@ ${instruction}
       volumeId: string;
     }>;
     storyBible: any;
+    projectDescription: string | null; // ★ 新增：项目原始描述（用户设定的主题）
   }> {
-    // 获取项目当前字数
+    // 获取项目当前字数和原始描述
     const project = await this.prisma.writingProject.findUnique({
       where: { id: projectId },
-      select: { currentWords: true, targetWords: true },
+      select: { currentWords: true, targetWords: true, description: true },
     });
 
     // 获取所有章节
@@ -6617,6 +6653,7 @@ ${instruction}
         volumeId: ch.volumeId,
       })),
       storyBible,
+      projectDescription: project?.description || null, // ★ 新增：返回项目原始描述
     };
   }
 
@@ -6639,6 +6676,7 @@ ${instruction}
         volumeId: string;
       }>;
       storyBible: any;
+      projectDescription: string | null; // ★ 新增：项目原始描述
     },
     targetWordCount: number,
   ): Promise<string | null> {
@@ -6672,6 +6710,17 @@ ${instruction}
         characters: existingContent.storyBible.characters || [],
       };
     }
+
+    // ★★★ 关键修复：使用正确的故事背景（优先级：storyBible.premise > projectDescription > input.userPrompt）
+    // 这修复了继续创作时使用通用提示词而忽略用户原始主题的致命Bug
+    const storyBackground =
+      existingContent.storyBible?.premise ||
+      existingContent.projectDescription ||
+      input.userPrompt;
+
+    this.logger.log(
+      `[${missionId}] Story background source: ${existingContent.storyBible?.premise ? "storyBible.premise" : existingContent.projectDescription ? "projectDescription" : "input.userPrompt"}`,
+    );
 
     // 获取作家模型
     const writerModel = (await this.getModelForRole("writer")) || modelId;
@@ -6835,10 +6884,11 @@ ${instruction}
       });
 
       // 作家创作
+      // ★★★ 关键修复：使用 storyBackground 而非 input.userPrompt（修复继续创作时忽略用户主题的Bug）
       const writerPrompt = `你正在继续创作一部小说，请创作第${chapter.chapterNumber}章「${chapter.title}」。
 
 【故事背景】
-${input.userPrompt}
+${storyBackground}
 
 ${worldSettings ? `【世界观设定】\n${JSON.stringify(worldSettings, null, 2)}\n` : ""}
 

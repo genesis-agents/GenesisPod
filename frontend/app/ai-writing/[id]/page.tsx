@@ -1129,13 +1129,45 @@ export default function WritingProjectPage() {
     }
   }, [toast]);
 
+  // ★★★ 提取通用的 prompt 获取函数，避免代码重复
+  const MIN_PROMPT_LENGTH = 5;
+
+  const getEffectivePrompt = useCallback(
+    (customPrompt: string): string => {
+      return (
+        customPrompt.trim() ||
+        currentProject?.description?.trim() ||
+        currentProject?.name ||
+        ''
+      );
+    },
+    [currentProject]
+  );
+
   const handleStartWriting = async () => {
     if (!currentProject) return;
+
+    // ★★★ 修复：确保使用项目描述作为故事创意，避免 AI 生成不相关内容
+    const storyPrompt = getEffectivePrompt(userInput);
+
+    if (!storyPrompt || storyPrompt.length < MIN_PROMPT_LENGTH) {
+      setToast({
+        message: `请输入至少 ${MIN_PROMPT_LENGTH} 个字的故事创意，或在项目设置中添加描述`,
+        type: 'error',
+      });
+      return;
+    }
+
+    console.log(
+      '[handleStartWriting] Using prompt:',
+      storyPrompt.slice(0, 100)
+    );
+
     try {
       await startMission(projectId, {
-        prompt: userInput || currentProject.description || '开始写作',
+        prompt: storyPrompt,
         missionType: 'full_story',
-        targetWordCount: currentProject.targetWords, // 传入目标字数
+        targetWordCount: currentProject.targetWords,
       });
       setUserInput('');
     } catch {
@@ -1183,15 +1215,29 @@ export default function WritingProjectPage() {
     }
 
     try {
+      // ★★★ 修复：使用通用函数确保 prompt 有效
+      const continuePrompt = getEffectivePrompt(userInput);
+
+      if (!continuePrompt || continuePrompt.length < MIN_PROMPT_LENGTH) {
+        setToast({
+          message: `请输入至少 ${MIN_PROMPT_LENGTH} 个字的续写指令，或确保项目有描述`,
+          type: 'error',
+        });
+        return;
+      }
+
+      console.log(
+        '[handleContinueWriting] Using prompt:',
+        continuePrompt.slice(0, 100)
+      );
+
       // 始终使用 full_story 类型，让后端持续创作直到达到目标字数
       // 后端会自动根据当前进度继续写作
       await startMission(projectId, {
-        prompt:
-          userInput ||
-          `继续创作故事，目标完成 ${currentProject.targetWords.toLocaleString()} 字`,
+        prompt: continuePrompt,
         missionType: 'full_story',
-        targetWordCount: currentProject.targetWords, // 传入总目标字数
-        additionalInstructions: `当前已有 ${currentProject.currentWords.toLocaleString()} 字，请继续创作直到达到目标。`,
+        targetWordCount: currentProject.targetWords,
+        additionalInstructions: `当前已有 ${currentProject.currentWords.toLocaleString()} 字，请继续创作直到达到目标。保持与已有内容的风格和主题一致。`,
       });
       setUserInput('');
     } catch {
