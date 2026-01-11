@@ -7,6 +7,7 @@
 
 import { create } from 'zustand';
 import * as api from '@/lib/api/ai-writing';
+import { ApiError } from '@/lib/api/ai-writing';
 import type {
   WritingProject,
   Volume,
@@ -527,8 +528,19 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
               }
             }
           } catch (err) {
+            // 404 表示任务已被删除，停止轮询
+            if (err instanceof ApiError && err.status === 404) {
+              set({
+                isMissionRunning: false,
+                missionProgress: 0,
+                missionMessage: '',
+                missionCompleted: false,
+                activeAgentIds: [],
+              });
+              return;
+            }
             console.warn('轮询状态失败:', err);
-            // 继续轮询，不中断
+            // 其他错误继续轮询，不中断
           }
         }
 
@@ -688,8 +700,19 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
                 await fetchVolumes(projectId, true);
                 await fetchProject(projectId, true); // 更新字数显示
               }
-            } catch {
-              // 忽略轮询错误
+            } catch (err) {
+              // 404 表示任务已被删除，停止轮询
+              if (err instanceof ApiError && err.status === 404) {
+                set({
+                  isMissionRunning: false,
+                  missionProgress: 0,
+                  missionMessage: '',
+                  missionCompleted: false,
+                  activeAgentIds: [],
+                });
+                return;
+              }
+              // 其他错误继续轮询
             }
           }
         };

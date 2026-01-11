@@ -187,6 +187,17 @@ export interface StartMissionDto {
 // Use relative URLs to leverage Next.js rewrites proxy (avoids CORS)
 // Next.js rewrites /api/v1/* to the backend URL
 
+// 自定义 API 错误类，保留 HTTP 状态码
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function fetchWithAuth<T>(
   url: string,
   options: RequestInit = {}
@@ -212,7 +223,10 @@ async function fetchWithAuth<T>(
     const error = await response
       .json()
       .catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    throw new ApiError(
+      error.message || `HTTP ${response.status}`,
+      response.status
+    );
   }
 
   // Handle empty responses

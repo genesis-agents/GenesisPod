@@ -12,7 +12,12 @@
  * 5. 收集结果并更新 Story Bible
  */
 
-import { Injectable, Logger, ConflictException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  ConflictException,
+  NotFoundException,
+} from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
@@ -6814,11 +6819,11 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
     });
 
     if (!mission) {
-      throw new Error("Mission not found");
+      throw new NotFoundException("Mission not found");
     }
 
     if (mission.project.ownerId !== userId) {
-      throw new Error("Access denied");
+      throw new NotFoundException("Mission not found");
     }
 
     // 获取 orchestrator 状态
@@ -7021,11 +7026,11 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
     });
 
     if (!mission) {
-      throw new Error("Mission not found");
+      throw new NotFoundException("Mission not found");
     }
 
     if (mission.project.ownerId !== userId) {
-      throw new Error("Access denied");
+      throw new NotFoundException("Mission not found");
     }
 
     // 获取总数
