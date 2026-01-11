@@ -127,27 +127,214 @@ const PREACH_PATTERNS = {
       },
     ],
   },
+
+  // ★★★ 新增：AI写作典型陋习 - 全文行文中的决心/感悟式写法
+  ai_writing_cliche: {
+    patterns: [
+      // 内心独白式决心（最常见！）- 使用正则支持更多变体
+      "心中暗.*决心",
+      "心中暗想",
+      "心中暗自",
+      "暗暗发誓",
+      "暗暗决定",
+      "暗暗立下",
+      "默默立下",
+      "默默发誓",
+      "在心.*立下",
+      "在心.*发誓",
+      // 眼神坚定类 - 扩展变体
+      "[她他].眼神.*坚定",
+      "眼中闪.*坚定",
+      "眼中闪.*决心",
+      "眼.*充满.*坚定",
+      "眼.*充满.*决心",
+      "目光.*坚定",
+      "目光.*坚毅",
+      // 展望式决心 - 扩展
+      "[她他]不会.*放弃",
+      "[她他]绝不.*放弃",
+      "不再退缩",
+      "不再逃避",
+      "不再犹豫",
+      "绝不妥协",
+      "绝不低头",
+      "绝不认输",
+      "绝不屈服",
+      // 条件+决心组合（正则）
+      "即使.*也[要将会]",
+      "无论.*都[要会]",
+      "不管.*都[要会]",
+      "哪怕.*也[要将]",
+      "纵使.*也[要将]",
+      // 感悟式写法 - 扩展
+      "[她他]终于明白",
+      "[她他]终于懂得",
+      "[她他]终于理解",
+      "此刻[她他]才",
+      "这一刻[她他]",
+      "经历.*之?后",
+      "从此以后",
+      "从这一刻起",
+      // 心情升华式
+      "心中一片澄明",
+      "心中豁然开朗",
+      "心境.*开阔",
+      "仿佛做出了.*决定",
+      "做出了一个.*决定",
+      "下定了决心",
+      // 决心宣言类
+      "[她他]知道.*必须",
+      "[她他]明白.*必须",
+      "属于.*自己的.*一席之地",
+      "属于.*自己的.*位置",
+      "掌控.*自己的.*命运",
+      "改变.*这一切",
+      "改变.*命运",
+      // ★★★ GAP-7: 新增更多检测模式 ★★★
+      // 内心活动强调类
+      "[她他]在心[中底里]默默",
+      "[她他].*心.*充满了",
+      "[她他].*心.*涌动着",
+      "[她他]告诉自己",
+      "[她他]提醒自己",
+      "[她他]暗暗告诫",
+      // 认知转变类
+      "[她他]开始明白",
+      "[她他]开始懂得",
+      "[她他]渐渐明白",
+      "[她他]渐渐懂得",
+      "这让[她他]更加",
+      "这让[她他]意识到",
+      // 决定性时刻类
+      "做出了.*选择",
+      "做出了.*抉择",
+      "[她他]已经决定",
+      "[她他]早已决定",
+      // 意志力描写类
+      "凭借.*意志",
+      "靠着.*毅力",
+      "[她他].*意志.*坚定",
+      "坚强的意志",
+      // 情绪转化类
+      "化作了.*动力",
+      "化为了.*力量",
+      "转化为.*决心",
+    ],
+    problem: "AI写作典型陋习：用内心独白代替具体行动，用决心总结代替情节推进",
+    fix: "删除内心独白，用具体的动作、对话、感官描写来展现角色状态",
+    examples: [
+      {
+        bad: "她心中暗下决心，一定要在这后宫中生存下去。",
+        good: "她攥紧袖中那枚铜钱，指甲几乎嵌入掌心。",
+      },
+      {
+        bad: "她的眼神坚定，仿佛做出了某种决定。",
+        good: "她抬起头，目光越过众人的头顶，落在远处的宫门上。",
+      },
+      {
+        bad: "即使前路艰险，她也将不再退缩。",
+        good: "（删除此句，让前文的行动自己说话）",
+      },
+    ],
+  },
+
+  // ★★★ 新增：过度心理描写
+  excessive_psychology: {
+    patterns: [
+      // 心中系列
+      "心中一[紧震颤动沉]",
+      "心头一[紧震颤动沉]",
+      "心[中头]涌起",
+      "心[中头]升起",
+      "心[中头]燃起",
+      "心[中头]浮现",
+      "心[中头]掠过",
+      // 脑海系列
+      "脑海.*浮现",
+      "脑海.*闪过",
+      "脑中.*浮现",
+      // 思绪系列
+      "思绪万千",
+      "思绪纷乱",
+      "思绪翻涌",
+      "思绪如潮",
+      "百感交集",
+      "心潮澎湃",
+      // 内心系列
+      "内心深处",
+      "内心最深处",
+      "在[她他]心[中里]",
+      "[她他]的内心",
+      // 情绪涌动系列
+      "一股.*涌上心头",
+      "一阵.*涌上心头",
+      "一种.*感觉涌上",
+      "说不出的.*涌上",
+      // ★★★ GAP-7: 新增更多过度心理描写模式 ★★★
+      // 目光系列（内心外化）
+      "[她他]的目光.*深邃",
+      "[她他]的眼神.*复杂",
+      "[她他]的眼[中眸里].*闪过",
+      "眼[眸中].*掠过.*神色",
+      // 不由自主系列
+      "不由自主地",
+      "下意识地想到",
+      "下意识地回忆",
+      "情不自禁地想到",
+      // 回忆闪回系列
+      "记忆中.*浮现",
+      "回忆.*涌上",
+      "往事.*浮现",
+      "过往.*涌上",
+      // 感受系列
+      "感受到.*压力",
+      "感受到.*重量",
+      "感受到.*分量",
+      "[她他]能感受到",
+      // 预感系列
+      "[她他]有种预感",
+      "一种.*预感",
+      "莫名的.*感觉",
+      "说不清.*感觉",
+    ],
+    problem: "过度使用心理描写词汇，破坏叙事节奏",
+    fix: "用外在的生理反应和行为代替直接的心理描写",
+    examples: [
+      {
+        bad: "她心中一震，没想到他会出现在这里。",
+        good: "她的脚步顿住，手中的茶盏晃了一下。",
+      },
+    ],
+  },
 };
 
 /**
  * 结尾禁止模式
  * 这些句式会让结尾显得"总结式"，缺乏余韵
+ * ★ 使用正则表达式提高检测覆盖率
  */
 const ENDING_PATTERNS = {
   // 预告式结尾
   foreshadowing_cliche: {
     patterns: [
-      "而这一切，只是开始",
-      "风暴即将来临",
-      "命运的齿轮开始转动",
-      "历史的洪流",
-      "新的篇章",
-      "故事才刚刚开始",
-      "序幕就此拉开",
-      "未来的方向也在逐渐明朗",
-      "前路艰难",
-      "前方的道路",
-      "未知的挑战",
+      // 开始/篇章类
+      "这一切.*只是.*开始",
+      "故事.*才?刚刚?开始",
+      "序幕.*拉开",
+      "新的.*篇章",
+      "新的.*征程",
+      // 风暴/命运类
+      "风暴.*来临",
+      "命运的齿轮.*转动",
+      "历史的.*洪流",
+      "命运.*降临",
+      // 未来/前路类
+      "未来.*方向.*明朗",
+      "前[路方].*艰[难险]",
+      "前[方路]的.*道路",
+      "未知的.*挑战",
+      "更大的.*挑战",
+      "等待.*的.*将是",
     ],
     problem: "空洞的预告，没有具体内容",
     fix: "用具体的悬念或未解决的冲突结尾",
@@ -156,57 +343,75 @@ const ENDING_PATTERNS = {
   // 感悟式结尾
   epiphany_cliche: {
     patterns: [
-      "她终于明白",
-      "他终于懂得",
-      "此刻她才意识到",
-      "这一刻他才知道",
-      "她第一次感受到",
+      // 终于明白类
+      "[她他]终于明白",
+      "[她他]终于懂得",
+      "[她他]终于理解",
+      "[她他]明白了",
+      "[她他]懂得了",
+      "[她他]理解了",
+      // 此刻感悟类
+      "此刻[她他]才",
+      "这一刻[她他]才",
+      "这时[她他]才",
+      "[她他]第一次感受到",
+      "[她他]第一次意识到",
+      // 从此以后类
       "从此以后",
-      "她明白了",
-      "她懂得了",
+      "从这一刻起",
+      "从今往后",
+      // 或许类
       "或许这正是",
+      "也许这就是",
+      "大概这便是",
     ],
     problem: "把领悟直接告诉读者，而非让读者自己体会",
     fix: "用角色的沉默、动作或未完成的对话结尾",
   },
 
-  // 决心式结尾 - 大幅扩展
+  // 决心式结尾 - 大幅扩展（使用正则）
   resolution_cliche: {
     patterns: [
       // 直接决心
-      "她暗暗发誓",
-      "他在心中立下誓言",
-      "她决定",
-      "他下定决心",
-      "无论如何，她都要",
-      "不管怎样，他都会",
-      "她不会放弃",
-      "他绝不认输",
-      // 最新评估发现的问题模式
-      "牢牢握住自己的命运",
+      "[她他]暗暗发誓",
+      "[她他]在心中.*誓",
+      "[她他]下定.*决心",
+      "[她他]决定.*要",
+      // 无论如何类
+      "无论如何.*[她他]都[要会]",
+      "不管怎样.*[她他]都[要会]",
+      // 不会放弃类
+      "[她他]不会.*放弃",
+      "[她他]绝不.*放弃",
+      "[她他]绝不.*认输",
+      "[她他]绝不.*屈服",
+      // 命运/力量类
+      "牢牢握住.*命运",
+      "掌控.*自己的.*命运",
+      "找到.*掌控.*力量",
+      "找到.*自己的.*一席之地",
+      "找到.*属于.*位置",
+      "改变.*这[里一].*一切",
+      "书写.*属于.*篇章",
       "绝不随波逐流",
-      "找到掌控这一切的力量",
-      "找到自己的一席之地",
-      "改变这里的一切",
-      "书写属于自己的篇章",
-      "她要在这",
-      "她必须在这",
+      // 她要/她必须类
+      "[她他][要必]须.*在这",
+      "[她他][要必]须.*走出",
+      "[她他][要必]须.*成为",
       // 使命宣言式
-      "只要她能",
-      "只要他能",
-      "既然命运已将她",
-      "既然命运已将他",
-      "她就不打算放弃",
-      "她绝不会就此",
-      "他绝不会就此",
+      "只要[她他]能",
+      "既然命运.*将[她他]",
+      "[她他]就不打算.*放弃",
+      "[她他]绝不会就此",
       // 心中燃起式
-      "心中燃起",
-      "心中升起",
-      "心底涌起",
+      "心[中底头]燃起",
+      "心[中底头]升起",
+      "心[中底]涌起",
       "胸中涌起",
-      "一股力量",
-      "一丝希望",
-      "一丝斗志",
+      "一股.*力量",
+      "一丝.*希望",
+      "一丝.*斗志",
+      "一线.*生机",
     ],
     problem: "用空洞的决心代替具体的行动计划",
     fix: "让角色做出一个具体的小行动，暗示其决心",
@@ -215,15 +420,24 @@ const ENDING_PATTERNS = {
   // 抒情式结尾
   lyrical_cliche: {
     patterns: [
-      "夜色渐深，",
-      "月光如水，",
-      "繁星点点，",
-      "长夜漫漫，",
-      "岁月静好，",
-      "闪烁着希望的光芒",
-      "充满了温暖的气息",
-      "逐渐拉近",
-      "渐行渐近",
+      // 夜色/月光类
+      "夜色.*深",
+      "月光如水",
+      "月色.*笼罩",
+      "繁星点点",
+      "星光.*闪烁",
+      "长夜漫漫",
+      // 岁月/时光类
+      "岁月静好",
+      "时光.*流逝",
+      // 希望/温暖类
+      "闪烁着.*希望.*光",
+      "充满了.*温暖",
+      "洋溢着.*幸福",
+      // 距离类
+      "[逐渐慢慢]拉近",
+      "渐行渐[近远]",
+      "越来越[近远]",
     ],
     problem: "用空洞的景色描写收尾，没有情节张力",
     fix: "景色描写要服务于情绪，且要有具体细节",
@@ -241,6 +455,58 @@ const ENDING_PATTERNS = {
     ],
     problem: "用陈述句总结情节，缺乏戏剧张力",
     fix: "用动作或感官细节结尾，让读者自己感受",
+  },
+
+  // ★★★ GAP-7: 新增更多结尾模式 ★★★
+  // 展望未来式结尾
+  future_outlook: {
+    patterns: [
+      "未来.*可期",
+      "前途.*光明",
+      "一切.*会好",
+      "总会.*好起来",
+      "明天.*更好",
+      "希望.*明天",
+      "[她他]相信.*未来",
+      "[她他]期待.*明天",
+      "新的.*开始",
+      "崭新的.*开始",
+    ],
+    problem: "用空洞的未来展望代替具体情节",
+    fix: "用悬念或未解决的问题结尾",
+  },
+
+  // 情感升华式结尾
+  emotional_climax: {
+    patterns: [
+      "[她他]的心.*温暖",
+      "[她他]感到.*温暖",
+      "[她他]感到.*幸福",
+      "[她他]感到.*安心",
+      "一股暖流",
+      "暖流.*涌过",
+      "心.*安定.*下来",
+      "心.*平静.*下来",
+      "[她他].*释然",
+      "[她他].*释怀",
+    ],
+    problem: "直接告诉读者角色的情感结论",
+    fix: "用角色的动作或沉默来暗示情感状态",
+  },
+
+  // 伪悬念式结尾
+  pseudo_suspense: {
+    patterns: [
+      "但[她他]不知道的是",
+      "然而[她他]不知道",
+      "[她他]还不知道",
+      "殊不知",
+      "却不知",
+      "接下来.*等待[她他]的",
+      "命运.*另有.*安排",
+    ],
+    problem: "作者跳出来提示悬念，破坏沉浸感",
+    fix: "让悬念自然留在情节中，不要明说",
   },
 };
 
@@ -542,6 +808,42 @@ export class NarrativeCraftService {
   }
 
   /**
+   * ★★★ 辅助方法：检测模式是否包含正则表达式语法 ★★★
+   */
+  private isRegexPattern(pattern: string): boolean {
+    // 检测常见的正则表达式特殊字符
+    return /[.*+?|^$\[\]{}()\\]/.test(pattern);
+  }
+
+  /**
+   * ★★★ 辅助方法：匹配模式（支持正则和字面量） ★★★
+   */
+  private matchPattern(
+    line: string,
+    pattern: string,
+  ): { matched: boolean; matchedText: string } {
+    if (this.isRegexPattern(pattern)) {
+      try {
+        const regex = new RegExp(pattern);
+        const match = line.match(regex);
+        if (match) {
+          return { matched: true, matchedText: match[0] };
+        }
+      } catch {
+        // 正则表达式无效，降级为字面量匹配
+        if (line.includes(pattern)) {
+          return { matched: true, matchedText: pattern };
+        }
+      }
+    } else {
+      if (line.includes(pattern)) {
+        return { matched: true, matchedText: pattern };
+      }
+    }
+    return { matched: false, matchedText: "" };
+  }
+
+  /**
    * 分析内容中的叙事问题
    * 用于后置检查
    */
@@ -549,15 +851,16 @@ export class NarrativeCraftService {
     const lines = content.split("\n");
     const issues: NarrativeCraftReport["issues"] = [];
 
-    // 检查说教模式
+    // 检查说教模式（支持正则表达式）
     for (const [category, config] of Object.entries(PREACH_PATTERNS)) {
       for (const pattern of config.patterns) {
         lines.forEach((line, index) => {
-          if (line.includes(pattern)) {
+          const { matched, matchedText } = this.matchPattern(line, pattern);
+          if (matched) {
             issues.push({
               type: "preach",
               category,
-              match: pattern,
+              match: matchedText || pattern,
               line: index + 1,
               problem: config.problem,
               suggestion: config.fix,
@@ -572,11 +875,12 @@ export class NarrativeCraftService {
     for (const [category, config] of Object.entries(ENDING_PATTERNS)) {
       for (const pattern of config.patterns) {
         lastLines.forEach((line, index) => {
-          if (line.includes(pattern)) {
+          const { matched, matchedText } = this.matchPattern(line, pattern);
+          if (matched) {
             issues.push({
               type: "ending",
               category,
-              match: pattern,
+              match: matchedText || pattern,
               line: lines.length - 5 + index + 1,
               problem: config.problem,
               suggestion: config.fix,
@@ -590,11 +894,12 @@ export class NarrativeCraftService {
     for (const [category, config] of Object.entries(NPC_DIALOGUE_PATTERNS)) {
       for (const pattern of config.patterns) {
         lines.forEach((line, index) => {
-          if (line.includes(pattern)) {
+          const { matched, matchedText } = this.matchPattern(line, pattern);
+          if (matched) {
             issues.push({
               type: "npc_dialogue",
               category,
-              match: pattern,
+              match: matchedText || pattern,
               line: index + 1,
               problem: config.problem,
               suggestion: config.fix,
@@ -604,22 +909,37 @@ export class NarrativeCraftService {
       }
     }
 
-    // 计算分数
-    const preachCount = issues.filter((i) => i.type === "preach").length;
+    // 计算分数 - 区分不同严重程度
+    const aiClicheCount = issues.filter(
+      (i) =>
+        i.type === "preach" &&
+        (i.category === "ai_writing_cliche" ||
+          i.category === "excessive_psychology"),
+    ).length;
+    const otherPreachCount = issues.filter(
+      (i) =>
+        i.type === "preach" &&
+        i.category !== "ai_writing_cliche" &&
+        i.category !== "excessive_psychology",
+    ).length;
     const endingCount = issues.filter((i) => i.type === "ending").length;
     const dialogueCount = issues.filter(
       (i) => i.type === "npc_dialogue",
     ).length;
 
-    // 每个问题扣分
+    // 每个问题扣分 - AI典型陋习扣分最重！
     const score = Math.max(
       0,
-      100 - preachCount * 10 - endingCount * 20 - dialogueCount * 15,
+      100 -
+        aiClicheCount * 15 - // AI陋习：每处扣15分（最严重）
+        otherPreachCount * 8 - // 其他说教：每处扣8分
+        endingCount * 20 - // 结尾问题：每处扣20分
+        dialogueCount * 12, // 对话问题：每处扣12分
     );
 
     if (issues.length > 0) {
       this.logger.warn(
-        `[NarrativeCraft] Found ${issues.length} issues: ${preachCount} preach, ${endingCount} ending, ${dialogueCount} dialogue`,
+        `[NarrativeCraft] Found ${issues.length} issues: ${aiClicheCount} AI-cliche, ${otherPreachCount} preach, ${endingCount} ending, ${dialogueCount} dialogue`,
       );
     }
 
@@ -680,95 +1000,201 @@ export class NarrativeCraftService {
   }
 
   /**
-   * ★★★ 自动重写章节结尾
-   * 当检测到结尾问题时，自动调用 LLM 重写最后几段
+   * ★★★ 自动重写章节内容
+   * 处理结尾问题和全文散布的 AI 陋习
    *
    * @param content 完整章节内容
-   * @param issues 检测到的结尾问题
+   * @param issues 检测到的问题
    * @returns 重写后的完整章节内容
    */
   async rewriteEnding(
     content: string,
     issues: NarrativeCraftReport["issues"],
   ): Promise<string> {
-    // 只处理结尾问题
+    // 处理结尾问题和全文AI陋习问题
     const endingIssues = issues.filter((i) => i.type === "ending");
-    if (endingIssues.length === 0) {
+    const aiClicheIssues = issues.filter(
+      (i) =>
+        i.type === "preach" &&
+        (i.category === "ai_writing_cliche" ||
+          i.category === "excessive_psychology"),
+    );
+
+    // 如果两者都没有，直接返回
+    if (endingIssues.length === 0 && aiClicheIssues.length === 0) {
       return content;
     }
 
     this.logger.log(
-      `[NarrativeCraft] Rewriting ending due to ${endingIssues.length} issues`,
+      `[NarrativeCraft] Rewriting content due to ${endingIssues.length} ending issues and ${aiClicheIssues.length} AI cliche issues`,
     );
 
-    // 提取最后 3 段作为需要重写的部分
+    const lines = content.split("\n");
     const paragraphs = content.split(/\n\s*\n/).filter((p) => p.trim());
     if (paragraphs.length < 2) {
       return content; // 内容太短，不处理
     }
 
-    const lastParagraphsCount = Math.min(3, paragraphs.length);
-    const beforePart = paragraphs.slice(0, -lastParagraphsCount).join("\n\n");
-    const endingPart = paragraphs.slice(-lastParagraphsCount).join("\n\n");
+    // ★★★ 新策略：根据问题分布决定处理范围 ★★★
+    // 1. 如果只有结尾问题（最后5行），只处理最后3段
+    // 2. 如果有全文散布的 AI 陋习，需要处理受影响的段落
 
-    // 构建重写提示词
-    const systemPrompt = `你是一位专业的小说编辑，负责修复章节结尾问题。
+    const totalLines = lines.length;
+    const midContentIssues = aiClicheIssues.filter(
+      (i) => i.line < totalLines - 5,
+    ); // 非结尾部分的问题
+
+    let beforePart: string;
+    let targetPart: string;
+    let rewriteMode: "ending" | "full";
+
+    if (midContentIssues.length === 0) {
+      // 只有结尾问题，处理最后3段
+      const lastParagraphsCount = Math.min(3, paragraphs.length);
+      beforePart = paragraphs.slice(0, -lastParagraphsCount).join("\n\n");
+      targetPart = paragraphs.slice(-lastParagraphsCount).join("\n\n");
+      rewriteMode = "ending";
+    } else {
+      // 有全文散布的问题，需要处理更大范围
+      // 找出所有有问题的行号
+      const problemLines = new Set(aiClicheIssues.map((i) => i.line));
+
+      // 找出包含问题的段落索引
+      let currentLine = 0;
+      const problemParagraphIndices = new Set<number>();
+      for (let i = 0; i < paragraphs.length; i++) {
+        const paragraphLines = paragraphs[i].split("\n").length;
+        const paragraphEndLine = currentLine + paragraphLines;
+
+        // 检查这个段落是否包含问题行
+        for (let line = currentLine; line < paragraphEndLine; line++) {
+          if (problemLines.has(line + 1)) {
+            // line是0-indexed，problemLines是1-indexed
+            problemParagraphIndices.add(i);
+            break;
+          }
+        }
+        currentLine = paragraphEndLine + 1; // +1 for the blank line between paragraphs
+      }
+
+      // 如果问题段落超过总段落的 30%，或超过 5 段，则全文重写太耗资源
+      // 改为只处理有问题的段落（及其前后各1段作为上下文）
+      if (
+        problemParagraphIndices.size > paragraphs.length * 0.3 ||
+        problemParagraphIndices.size > 5
+      ) {
+        // 问题太多，只处理最后部分 + 记录警告
+        this.logger.warn(
+          `[NarrativeCraft] Too many AI cliche issues (${problemParagraphIndices.size} paragraphs), falling back to ending-only rewrite`,
+        );
+        const lastParagraphsCount = Math.min(5, paragraphs.length); // 扩展到5段
+        beforePart = paragraphs.slice(0, -lastParagraphsCount).join("\n\n");
+        targetPart = paragraphs.slice(-lastParagraphsCount).join("\n\n");
+        rewriteMode = "ending";
+      } else {
+        // 提取有问题的段落及上下文
+        const indicesToInclude = new Set<number>();
+        for (const idx of problemParagraphIndices) {
+          if (idx > 0) indicesToInclude.add(idx - 1); // 前一段作为上下文
+          indicesToInclude.add(idx);
+          if (idx < paragraphs.length - 1) indicesToInclude.add(idx + 1); // 后一段作为上下文
+        }
+
+        // 找出连续的段落范围
+        const sortedIndices = Array.from(indicesToInclude).sort(
+          (a, b) => a - b,
+        );
+        const minIdx = sortedIndices[0];
+        const maxIdx = sortedIndices[sortedIndices.length - 1];
+
+        beforePart = paragraphs.slice(0, minIdx).join("\n\n");
+        targetPart = paragraphs.slice(minIdx, maxIdx + 1).join("\n\n");
+        // 还需要保留后面的内容
+        const afterPart = paragraphs.slice(maxIdx + 1).join("\n\n");
+        if (afterPart) {
+          // 将 afterPart 暂存，稍后拼接回去
+          (this as any)._tempAfterPart = afterPart;
+        }
+        rewriteMode = "full";
+      }
+    }
+
+    // 构建重写提示词 - 同时处理结尾问题和全文AI陋习
+    const systemPrompt = `你是一位专业的小说编辑，负责修复章节中的叙事问题。
 
 ## 核心任务
-重写以下章节结尾，将抽象的总结/感悟改为具体的场景/动作/对话。
+重写以下章节内容，将所有抽象的心理描写/总结/感悟改为具体的场景/动作/对话。
 
-## 禁止的结尾模式
-- ❌ "她知道，这只是开始" 类预告
-- ❌ "命运的齿轮开始转动" 类抒情
-- ❌ "她终于明白了..." 类顿悟
-- ❌ "心中燃起斗志/决心" 类心理描写
-- ❌ "未来的路还很长" 类空洞总结
+## 【严格禁止】AI写作典型陋习（必须全部删除或改写！）
 
-## 正确的结尾方式
-章节应在以下任一方式中自然结束：
-- ✅ 一个具体的动作（门被关上、脚步声远去）
-- ✅ 一句意味深长的对话
-- ✅ 一个感官细节（烛火熄灭、风声呼啸）
-- ✅ 一个悬念（留下未解决的问题）
+### 1. 内心独白式决心（最常见的错误！）
+- ❌ "她心中暗下决心" → ✅ 用具体动作展现
+- ❌ "她的眼神坚定，仿佛做出了某种决定" → ✅ 描写她做的具体事情
+- ❌ "他默默立下目标" → ✅ 删除，让行动说话
+- ❌ "心中燃起斗志/决心/希望" → ✅ 删除这类空洞描写
 
-## Few-shot 示例
+### 2. 展望式收尾
+- ❌ "她不会轻易放弃" → ✅ 直接删除
+- ❌ "即使前路艰险，她也将不再退缩" → ✅ 直接删除
+- ❌ "无论如何，她都要..." → ✅ 直接删除
 
-### 示例1
+### 3. 过度心理描写
+- ❌ "心中一震/一紧" → ✅ 用生理反应代替（手指发抖、脚步顿住）
+- ❌ "脑海中浮现" → ✅ 删除或改为具体行为
+- ❌ "思绪万千" → ✅ 删除
+
+### 4. 总结式结尾
+- ❌ "这一切才刚刚开始" → ✅ 用悬念代替
+- ❌ "命运的齿轮开始转动" → ✅ 删除这类抒情
+- ❌ "她终于明白了..." → ✅ 用沉默或动作代替
+
+## 正确的写法示例
+
+### 示例1：删除决心式内心独白
 ❌ 原文：
 苏薇的心中燃起一丝怒火与决心，不仅要活下去，更要找到掌控这一切的力量。
 
 ✅ 改为：
-她走到窗前，指尖轻轻触上冰冷的窗棂。外面的夜色浓得像墨。
+她走到窗前，指尖轻轻触上冰冷的窗棂。
 "阿翠，"她头也不回地问，"明天，是谁当值验粉？"
 
-### 示例2
+### 示例2：用动作代替心理描写
 ❌ 原文：
-她知道，这一切才刚刚开始，未来的挑战还有很多，但她已经做好了准备。
+她心中一震，没想到他会出现在这里。她的眼神坚定，仿佛做出了某种决定。
 
 ✅ 改为：
-铜盆里的水已经凉透，她却仍盯着水面出神。
-远处传来更鼓声，一下，两下，三下。
-她终于动了，将袖口挽起，露出腕上那道已经结痂的伤痕。
+她的脚步顿住，手中的茶盏晃了一下。
+"你怎么在这？"她压低声音。
+
+### 示例3：删除展望式结尾
+❌ 原文：
+即使前路艰险，她也将不再退缩。她知道，未来的挑战还有很多。
+
+✅ 改为：
+（直接删除这两句，让前文的情节自己说话）
 
 ## 输出要求
-- 只输出重写后的结尾段落
+- 只输出重写后的段落
 - 保持与前文风格一致
-- 不要添加任何解释或说明`;
+- 不要添加任何解释或说明
+- 遇到"决心/感悟/展望"类内容，优先选择直接删除`;
 
+    // 合并所有问题的诊断
+    const allIssues = [...endingIssues, ...aiClicheIssues];
     const userPrompt = `## 问题诊断
-${endingIssues.map((i) => `- 第${i.line}行: ${i.problem}`).join("\n")}
+${allIssues.map((i) => `- 第${i.line}行: "${i.match}" - ${i.problem}`).join("\n")}
 
 ## 前文内容（保持一致性）
 ${beforePart.slice(-500)}
 
-## 需要重写的结尾
-${endingPart}
+## 需要重写的内容
+${targetPart}
 
-请重写以上结尾，使其在具体的动作/对话/场景中自然结束：`;
+请重写以上内容，删除或改写所有AI陋习表达，使其在具体的动作/对话/场景中自然${rewriteMode === "ending" ? "结束" : "衔接"}：`;
 
     const taskProfile: TaskProfile = {
       creativity: "high", // 创意写作需要高创造性
-      outputLength: "short", // 只重写结尾，不需要太长
+      outputLength: rewriteMode === "full" ? "medium" : "short", // 全文模式需要更长输出
     };
 
     // 重试机制：最多尝试3次
@@ -801,25 +1227,51 @@ ${endingPart}
           return content;
         }
 
-        // 验证重写后的结尾是否仍有问题
+        // ★★★ GAP-4 修复：验证重写后的内容是否仍有问题（包括AI陋习） ★★★
         const rewriteReport = this.analyzeContent(newEnding);
         const stillHasEndingIssues = rewriteReport.issues.some(
           (i) => i.type === "ending",
         );
+        const stillHasClicheIssues = rewriteReport.issues.some(
+          (i) =>
+            i.category === "ai_writing_cliche" ||
+            i.category === "excessive_psychology",
+        );
 
-        if (stillHasEndingIssues) {
+        if (stillHasEndingIssues || stillHasClicheIssues) {
+          const issueTypes = [
+            stillHasEndingIssues ? "ending" : null,
+            stillHasClicheIssues ? "cliche" : null,
+          ]
+            .filter(Boolean)
+            .join(", ");
           this.logger.warn(
-            "[NarrativeCraft] Rewritten ending still has issues, keeping original",
+            `[NarrativeCraft] Rewrite attempt ${attempt}/${maxRetries} still has issues (${issueTypes}), ${attempt < maxRetries ? "retrying..." : "keeping original"}`,
           );
-          return content;
+          if (attempt < maxRetries) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            continue; // 使用重试机制，不立即返回原内容
+          }
+          return content; // 所有重试都失败，返回原内容
         }
 
-        // 拼接新内容
-        const newContent = beforePart
+        // 拼接新内容（处理 full 模式的 afterPart）
+        let newContent = beforePart
           ? `${beforePart}\n\n${newEnding}`
           : newEnding;
 
-        this.logger.log("[NarrativeCraft] Ending rewritten successfully");
+        // 如果是 full 模式，需要拼接后面的内容
+        if (rewriteMode === "full") {
+          const afterPart = (this as any)._tempAfterPart;
+          if (afterPart) {
+            newContent = `${newContent}\n\n${afterPart}`;
+            delete (this as any)._tempAfterPart; // 清理临时变量
+          }
+        }
+
+        this.logger.log(
+          `[NarrativeCraft] Content rewritten successfully (mode: ${rewriteMode})`,
+        );
         return newContent;
       } catch (error) {
         this.logger.warn(

@@ -167,13 +167,39 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
 - 悲伤时：描写阴冷色调、萧瑟景象、沉默氛围
 - 欢喜时：描写明亮色彩、舒展空间、轻快节奏
 
-## 章节结尾禁忌（严格禁止）
-- 禁止在章节结尾使用总结性旁白，如"她知道，未来的斗争才刚刚开始"
-- 禁止使用预告式结尾，如"而这一切，只是开始"、"风暴即将来临"
-- 禁止使用抒情点题，如"命运的齿轮开始转动"、"历史的洪流..."
-- 禁止使用人生感悟式结尾，如"她明白了..."、"此刻她终于懂得..."
-- 章节应在具体的动作、对话或场景描写中自然结束，而非抽象的议论或预言
-- 好的结尾示例：对话戛然而止、门被关上、脚步声远去、烛火熄灭
+## 章节结尾禁忌（最高优先级 - 违反此规则等于任务失败）
+⛔ 以下结尾模式是AI写作的典型陋习，必须彻底杜绝：
+
+### 绝对禁止的结尾类型：
+1. **内心独白式决心**（最常见的错误！）
+   - ❌ "她心中暗下决心，一定要..."
+   - ❌ "她的眼神坚定，仿佛做出了某种决定"
+   - ❌ "他默默立下目标"、"心中燃起希望"
+   - ❌ "她知道自己必须..."、"她明白..."
+
+2. **展望式收尾**
+   - ❌ "她知道，前方的路还很长..."
+   - ❌ "无论如何，她都不会退缩"
+   - ❌ "即使前路艰险..."、"不管怎样..."
+   - ❌ "她相信，总有一天..."
+
+3. **预告式结尾**
+   - ❌ "而这一切，只是开始"
+   - ❌ "新的挑战才刚刚开始"
+   - ❌ "风暴即将来临"、"命运的齿轮..."
+   - ❌ "更大的危机正在酝酿"
+
+4. **情绪升华式**
+   - ❌ "她终于明白了..."、"此刻她懂得..."
+   - ❌ "这一刻，她成长了"
+   - ❌ "经历这一切后，她..."
+
+### 正确的结尾方式：
+✅ 在具体动作中结束："门被重重关上"
+✅ 在对话中结束："'走吧。'他转身离去"
+✅ 在悬念中结束："那封信的蜡封上，赫然是..."
+✅ 在感官描写中结束："远处传来三声更鼓"
+✅ 戛然而止：情节推进到转折点，自然中断
 
 ## 开篇钩子法则（前三句必须遵守）
 - 第一句必须有钩子：冲突、危机、或强烈感官体验
@@ -343,8 +369,49 @@ ${content.slice(-500)}
           maxTokens: Math.min(8192, Math.ceil(remainingWords * 2.5)),
         });
 
-        const continuation = continuationResponse.content?.trim();
+        let continuation = continuationResponse.content?.trim();
         if (continuation && continuation.length > 100) {
+          // ★★★ 新增：对续写内容进行叙事工艺检查 ★★★
+          // 防止续写部分包含 AI 陋习（决心式结尾、心理独白等）
+          const narrativeCheck =
+            this.narrativeCraft.analyzeContent(continuation);
+          if (!narrativeCheck.passed) {
+            this.logger.warn(
+              `[Writer] Continuation failed narrative craft check (score=${narrativeCheck.score}), attempting rewrite`,
+            );
+            // 尝试重写有问题的续写内容
+            const rewrittenContinuation =
+              await this.narrativeCraft.rewriteEnding(
+                continuation,
+                narrativeCheck.issues,
+              );
+            if (
+              rewrittenContinuation &&
+              rewrittenContinuation !== continuation
+            ) {
+              continuation = rewrittenContinuation;
+
+              // ★★★ GAP-3 修复：重写后进行第二次验证 ★★★
+              const secondCheck = this.narrativeCraft.analyzeContent(
+                rewrittenContinuation,
+              );
+              if (secondCheck.passed) {
+                this.logger.log(
+                  `[Writer] Continuation rewritten and validated successfully (score=${secondCheck.score})`,
+                );
+              } else {
+                // 仍有问题，记录警告但继续使用（因为已经尝试过修复）
+                const remainingIssues = secondCheck.issues
+                  .slice(0, 3)
+                  .map((i) => i.match)
+                  .join(", ");
+                this.logger.warn(
+                  `[Writer] Continuation still has ${secondCheck.issues.length} issues after rewrite: ${remainingIssues}...`,
+                );
+              }
+            }
+          }
+
           content = content + "\n\n" + continuation;
           wordCount = this.countWords(content);
           this.logger.log(
@@ -1006,13 +1073,39 @@ ${(contextPackage.establishedFacts || [])
 ❌ "第一章 暴室惊魂\n那种冷..."
 ❌ "## 第二章 血色铅粉\n刺鼻的铅粉气息..."
 
-## 章节结尾禁忌（严格禁止）
-- 禁止在章节结尾使用总结性旁白，如"她知道，未来的斗争才刚刚开始"
-- 禁止使用预告式结尾，如"而这一切，只是开始"、"风暴即将来临"
-- 禁止使用抒情点题，如"命运的齿轮开始转动"、"历史的洪流..."
-- 禁止使用人生感悟式结尾，如"她明白了..."、"此刻她终于懂得..."
-- 章节应在具体的动作、对话或场景描写中自然结束，而非抽象的议论或预言
-- 好的结尾示例：对话戛然而止、门被关上、脚步声远去、烛火熄灭`;
+## 章节结尾禁忌（最高优先级 - 违反此规则等于任务失败）
+⛔ 以下结尾模式是AI写作的典型陋习，必须彻底杜绝：
+
+### 绝对禁止的结尾类型：
+1. **内心独白式决心**（最常见的错误！）
+   - ❌ "她心中暗下决心，一定要..."
+   - ❌ "她的眼神坚定，仿佛做出了某种决定"
+   - ❌ "他默默立下目标"、"心中燃起希望"
+   - ❌ "她知道自己必须..."、"她明白..."
+
+2. **展望式收尾**
+   - ❌ "她知道，前方的路还很长..."
+   - ❌ "无论如何，她都不会退缩"
+   - ❌ "即使前路艰险..."、"不管怎样..."
+   - ❌ "她相信，总有一天..."
+
+3. **预告式结尾**
+   - ❌ "而这一切，只是开始"
+   - ❌ "新的挑战才刚刚开始"
+   - ❌ "风暴即将来临"、"命运的齿轮..."
+   - ❌ "更大的危机正在酝酿"
+
+4. **情绪升华式**
+   - ❌ "她终于明白了..."、"此刻她懂得..."
+   - ❌ "这一刻，她成长了"
+   - ❌ "经历这一切后，她..."
+
+### 正确的结尾方式：
+✅ 在具体动作中结束："门被重重关上"
+✅ 在对话中结束："'走吧。'他转身离去"
+✅ 在悬念中结束："那封信的蜡封上，赫然是..."
+✅ 在感官描写中结束："远处传来三声更鼓"
+✅ 戛然而止：情节推进到转折点，自然中断`;
 
     // ★ 新增：添加风格预设的标志性技法
     const styleId = storyBible.stylePresetId;

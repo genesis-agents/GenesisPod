@@ -424,23 +424,8 @@ export default function CharacterRelationshipGraph({ projectId }: Props) {
             </marker>
           </defs>
 
-          {/* 背景网格 */}
-          <defs>
-            <pattern
-              id="grid"
-              width="40"
-              height="40"
-              patternUnits="userSpaceOnUse"
-            >
-              <path
-                d="M 40 0 L 0 0 0 40"
-                fill="none"
-                stroke="#f0f0f0"
-                strokeWidth="1"
-              />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#grid)" />
+          {/* 无限画布风格背景 */}
+          <rect width="100%" height="100%" fill="#fafafa" />
 
           {/* 绘制边（关系线） */}
           {graph.edges.map((edge) => {

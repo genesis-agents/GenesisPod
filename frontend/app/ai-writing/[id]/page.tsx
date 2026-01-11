@@ -120,6 +120,7 @@ export default function WritingProjectPage() {
     new Set()
   );
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showConsistencyPanel, setShowConsistencyPanel] = useState(true);
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'error';
@@ -3669,81 +3670,97 @@ export default function WritingProjectPage() {
           </div>
         )}
 
-        {/* 实时一致性检查浮动面板 */}
-        {isMissionRunning && consistencyIssues.length > 0 && (
-          <div className="fixed bottom-4 right-4 z-50 max-h-96 w-80 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
-            <div className="flex items-center justify-between bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2">
+        {/* 一致性检查浮动面板 - 可关闭/最小化 */}
+        {consistencyIssues.length > 0 && (
+          <div
+            className={`fixed bottom-4 right-4 z-50 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl transition-all duration-200 ${
+              showConsistencyPanel ? 'max-h-96 w-80' : 'w-auto'
+            }`}
+          >
+            <div
+              className="flex cursor-pointer items-center justify-between bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2"
+              onClick={() => setShowConsistencyPanel(!showConsistencyPanel)}
+            >
               <div className="flex items-center gap-2">
                 <span className="text-lg">🔍</span>
                 <span className="text-sm font-semibold text-white">
                   一致性检查
                 </span>
               </div>
-              <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs text-white">
-                {consistencyIssues.reduce(
-                  (acc, ci) => acc + ci.issues.length,
-                  0
-                )}{' '}
-                个问题
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs text-white">
+                  {consistencyIssues.reduce(
+                    (acc, ci) => acc + ci.issues.length,
+                    0
+                  )}{' '}
+                  个问题
+                </span>
+                <span className="text-white/80">
+                  {showConsistencyPanel ? '▼' : '▲'}
+                </span>
+              </div>
             </div>
-            <div className="max-h-72 space-y-2 overflow-y-auto p-3">
-              {consistencyIssues.slice(-5).map((check, idx) => (
-                <div key={idx} className="rounded-lg bg-gray-50 p-2">
-                  <div className="mb-1 flex items-center gap-2">
-                    <span
-                      className={`text-xs font-medium ${check.passed ? 'text-green-600' : 'text-amber-600'}`}
-                    >
-                      第 {check.chapterNumber} 章
-                    </span>
-                    {check.passed ? (
-                      <span className="text-xs text-green-500">✓ 通过</span>
-                    ) : (
-                      <span className="text-xs text-amber-500">
-                        {check.issues.length} 个问题
-                      </span>
-                    )}
-                  </div>
-                  {!check.passed &&
-                    check.issues.slice(0, 3).map((issue, iIdx) => (
-                      <div
-                        key={iIdx}
-                        className={`mb-1 rounded p-1.5 text-xs ${
-                          issue.severity === 'error'
-                            ? 'bg-red-50 text-red-700'
-                            : issue.severity === 'warning'
-                              ? 'bg-amber-50 text-amber-700'
-                              : 'bg-blue-50 text-blue-700'
-                        }`}
+            {showConsistencyPanel && (
+              <div className="max-h-72 space-y-2 overflow-y-auto p-3">
+                {consistencyIssues.slice(-5).map((check, idx) => (
+                  <div key={idx} className="rounded-lg bg-gray-50 p-2">
+                    <div className="mb-1 flex items-center gap-2">
+                      <span
+                        className={`text-xs font-medium ${check.passed ? 'text-green-600' : 'text-amber-600'}`}
                       >
-                        <div className="flex items-start gap-1">
-                          <span>
-                            {issue.severity === 'error'
-                              ? '❌'
+                        第 {check.chapterNumber} 章
+                      </span>
+                      {check.passed ? (
+                        <span className="text-xs text-green-500">✓ 通过</span>
+                      ) : (
+                        <span className="text-xs text-amber-500">
+                          {check.issues.length} 个问题
+                        </span>
+                      )}
+                    </div>
+                    {!check.passed &&
+                      check.issues.slice(0, 3).map((issue, iIdx) => (
+                        <div
+                          key={iIdx}
+                          className={`mb-1 rounded p-1.5 text-xs ${
+                            issue.severity === 'error'
+                              ? 'bg-red-50 text-red-700'
                               : issue.severity === 'warning'
-                                ? '⚠️'
-                                : 'ℹ️'}
-                          </span>
-                          <div>
-                            <span className="font-medium">[{issue.type}]</span>{' '}
-                            {issue.description}
-                            {issue.suggestion && (
-                              <div className="mt-0.5 text-gray-500">
-                                💡 {issue.suggestion}
-                              </div>
-                            )}
+                                ? 'bg-amber-50 text-amber-700'
+                                : 'bg-blue-50 text-blue-700'
+                          }`}
+                        >
+                          <div className="flex items-start gap-1">
+                            <span>
+                              {issue.severity === 'error'
+                                ? '❌'
+                                : issue.severity === 'warning'
+                                  ? '⚠️'
+                                  : 'ℹ️'}
+                            </span>
+                            <div>
+                              <span className="font-medium">
+                                [{issue.type}]
+                              </span>{' '}
+                              {issue.description}
+                              {issue.suggestion && (
+                                <div className="mt-0.5 text-gray-500">
+                                  💡 {issue.suggestion}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
+                      ))}
+                    {!check.passed && check.issues.length > 3 && (
+                      <div className="text-center text-xs text-gray-400">
+                        还有 {check.issues.length - 3} 个问题...
                       </div>
-                    ))}
-                  {!check.passed && check.issues.length > 3 && (
-                    <div className="text-center text-xs text-gray-400">
-                      还有 {check.issues.length - 3} 个问题...
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>
