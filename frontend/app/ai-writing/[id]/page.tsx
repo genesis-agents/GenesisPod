@@ -1086,23 +1086,27 @@ export default function WritingProjectPage() {
   };
 
   const handleContinueWriting = async () => {
-    if (!currentProject || isMissionRunning) return;
+    if (!currentProject) return;
 
-    // 如果有卡住的任务，先清除状态（允许重新开始）
-    if (isStuckMission) {
+    // ★★★ 修复：允许在任务运行中时重新开始（处理后端重启等情况）
+    // 如果任务正在运行或卡住，先尝试取消再重新开始
+    if (isMissionRunning || isStuckMission) {
       console.log(
-        '[handleContinueWriting] Clearing stuck mission:',
-        stuckMissionId
+        '[handleContinueWriting] Mission running or stuck, attempting to restart:',
+        { isMissionRunning, isStuckMission, stuckMissionId }
       );
-      // 尝试取消卡住的任务（可能后端已经重启，任务已不存在）
-      if (stuckMissionId) {
-        try {
-          await cancelMission(projectId);
-        } catch {
-          // 忽略取消错误，任务可能已经不存在
-        }
+      // 尝试取消当前任务（可能后端已经重启，任务已不存在）
+      try {
+        await cancelMission(projectId);
+      } catch {
+        // 忽略取消错误，任务可能已经不存在
+        console.log('[handleContinueWriting] Cancel failed, continuing anyway');
       }
-      clearStuckMission();
+      if (isStuckMission) {
+        clearStuckMission();
+      }
+      // 等待状态更新
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     // 计算剩余需要写的字数
