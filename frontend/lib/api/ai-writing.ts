@@ -548,6 +548,18 @@ export async function cancelMission(
   });
 }
 
+// 强制清理项目的所有卡住任务
+export async function forceCleanupStuckMissions(
+  projectId: string
+): Promise<{ success: boolean; cleanedCount: number; message: string }> {
+  return fetchWithAuth(
+    `/api/v1/ai-writing/projects/${projectId}/force-cleanup`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
 export async function getProjectMissions(
   projectId: string
 ): Promise<{ items: WritingMission[]; total: number }> {

@@ -585,35 +585,62 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
     }
   },
 
-  // 取消当前任务
+  // 取消当前任务（支持强制清理卡住的任务）
   cancelMission: async (projectId: string) => {
-    const { currentMissionId } = get();
+    const { currentMissionId, isStuckMission } = get();
 
-    // 如果没有记录 missionId，尝试从 API 获取
+    // 方式1: 如果有记录 missionId，先尝试正常取消
     let missionId = currentMissionId;
-    if (!missionId) {
+    let cancelSuccess = false;
+
+    if (missionId) {
+      try {
+        await api.cancelMission(missionId);
+        cancelSuccess = true;
+        console.log(
+          '[cancelMission] Normal cancel succeeded for mission:',
+          missionId
+        );
+      } catch (err) {
+        console.log('[cancelMission] Normal cancel failed:', err);
+      }
+    }
+
+    // 方式2: 如果没有 missionId 或者正常取消失败，尝试从 API 获取并取消
+    if (!cancelSuccess) {
       try {
         const { items } = await api.getProjectMissions(projectId);
-        // 兼容不同状态格式
         const runningMission = items.find(
           (m) =>
             m.status === 'running' ||
             m.status === 'pending' ||
             m.status === 'IN_PROGRESS'
         );
-        if (runningMission) {
-          missionId = runningMission.id;
+        if (runningMission && runningMission.id !== missionId) {
+          try {
+            await api.cancelMission(runningMission.id);
+            cancelSuccess = true;
+            console.log(
+              '[cancelMission] Cancel succeeded for found mission:',
+              runningMission.id
+            );
+          } catch (err) {
+            console.log('[cancelMission] Cancel found mission failed:', err);
+          }
         }
       } catch {
         // ignore
       }
     }
 
-    if (missionId) {
+    // 方式3: 如果仍然失败或任务卡住，使用强制清理
+    if (!cancelSuccess || isStuckMission) {
       try {
-        await api.cancelMission(missionId);
-      } catch {
-        // ignore cancel errors
+        const result = await api.forceCleanupStuckMissions(projectId);
+        console.log('[cancelMission] Force cleanup result:', result);
+        cancelSuccess = true;
+      } catch (err) {
+        console.log('[cancelMission] Force cleanup failed:', err);
       }
     }
 
