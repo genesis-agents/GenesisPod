@@ -190,71 +190,81 @@ export class CharacterConsistencyService {
 
   /**
    * 更新角色状态（章节写完后调用）
+   *
+   * ★ 使用事务确保并行场景下的数据一致性
    */
   async updateCharacterState(
     characterId: string,
     chapterNumber: number,
     stateUpdates: Partial<CharacterState>,
   ): Promise<void> {
-    const character = await this.prisma.writingCharacter.findUnique({
-      where: { id: characterId },
-    });
+    // ★ 使用事务确保读取和更新的原子性，避免并行写作时的竞态条件
+    await this.prisma.$transaction(async (tx) => {
+      const character = await tx.writingCharacter.findUnique({
+        where: { id: characterId },
+      });
 
-    if (!character) {
-      this.logger.warn(
-        `[CharacterConsistency] Character ${characterId} not found`,
-      );
-      return;
-    }
+      if (!character) {
+        this.logger.warn(
+          `[CharacterConsistency] Character ${characterId} not found`,
+        );
+        return;
+      }
 
-    // 读取当前状态
-    const currentState = character.currentState as any;
-    const stateTimeline = (character.stateTimeline as any[]) || [];
+      // 读取当前状态
+      const currentState = character.currentState as any;
+      const stateTimeline = (character.stateTimeline as any[]) || [];
 
-    // 创建状态快照
-    const snapshot: CharacterStateSnapshot = {
-      storyTime: `第${chapterNumber}章`,
-      sourceChapterId: `chapter-${chapterNumber}`,
-      state: {
-        location: stateUpdates.physicalState?.location || currentState.location,
-        condition:
-          this.serializeHealthCondition(stateUpdates.physicalState) ||
-          currentState.condition,
-        mood: stateUpdates.emotionalState?.mood || currentState.mood || "平静",
+      // 创建状态快照
+      const snapshot: CharacterStateSnapshot = {
+        storyTime: `第${chapterNumber}章`,
+        sourceChapterId: `chapter-${chapterNumber}`,
+        state: {
+          location:
+            stateUpdates.physicalState?.location || currentState.location,
+          condition:
+            this.serializeHealthCondition(stateUpdates.physicalState) ||
+            currentState.condition,
+          mood:
+            stateUpdates.emotionalState?.mood || currentState.mood || "平静",
+          relationships:
+            stateUpdates.relationships || currentState.relationships,
+          secrets: stateUpdates.knownSecrets || currentState.secrets,
+          goals:
+            stateUpdates.goals?.map((g) => g.description) || currentState.goals,
+        },
+      };
+
+      // 合并新状态到 currentState
+      const newCurrentState = {
+        ...currentState,
+        physicalState: stateUpdates.physicalState || currentState.physicalState,
+        emotionalState:
+          stateUpdates.emotionalState || currentState.emotionalState,
         relationships: stateUpdates.relationships || currentState.relationships,
-        secrets: stateUpdates.knownSecrets || currentState.secrets,
-        goals:
-          stateUpdates.goals?.map((g) => g.description) || currentState.goals,
-      },
-    };
+        knownSecrets: stateUpdates.knownSecrets || currentState.knownSecrets,
+        goals: stateUpdates.goals || currentState.goals,
+      };
 
-    // 合并新状态到 currentState
-    const newCurrentState = {
-      ...currentState,
-      physicalState: stateUpdates.physicalState || currentState.physicalState,
-      emotionalState:
-        stateUpdates.emotionalState || currentState.emotionalState,
-      relationships: stateUpdates.relationships || currentState.relationships,
-      knownSecrets: stateUpdates.knownSecrets || currentState.knownSecrets,
-      goals: stateUpdates.goals || currentState.goals,
-    };
+      // 更新数据库（在事务内执行，确保一致性）
+      await tx.writingCharacter.update({
+        where: { id: characterId },
+        data: {
+          currentState: newCurrentState,
+          stateTimeline: [...stateTimeline, snapshot],
+        },
+      });
 
-    // 更新数据库
-    await this.prisma.writingCharacter.update({
-      where: { id: characterId },
-      data: {
-        currentState: newCurrentState,
-        stateTimeline: [...stateTimeline, snapshot],
-      },
+      this.logger.log(
+        `[CharacterConsistency] Updated state for ${character.name} at chapter ${chapterNumber}`,
+      );
     });
-
-    this.logger.log(
-      `[CharacterConsistency] Updated state for ${character.name} at chapter ${chapterNumber}`,
-    );
   }
 
   /**
    * 记录角色状态转变（重大身份/立场变化）
+   *
+   * ★ 使用事务确保并行场景下的数据一致性
    */
   async recordStateTransition(
     characterId: string,
@@ -262,44 +272,47 @@ export class CharacterConsistencyService {
       chapterNumber: number;
     },
   ): Promise<void> {
-    const character = await this.prisma.writingCharacter.findUnique({
-      where: { id: characterId },
-    });
+    // ★ 使用事务确保读取和更新的原子性
+    await this.prisma.$transaction(async (tx) => {
+      const character = await tx.writingCharacter.findUnique({
+        where: { id: characterId },
+      });
 
-    if (!character) {
-      return;
-    }
+      if (!character) {
+        return;
+      }
 
-    const stateTimeline = (character.stateTimeline as any[]) || [];
+      const stateTimeline = (character.stateTimeline as any[]) || [];
 
-    const newTransition: CharacterStateTransition = {
-      ...transition,
-      chapterId: `chapter-${transition.chapterNumber}`,
-      storyTime: `第${transition.chapterNumber}章`,
-    };
+      const newTransition: CharacterStateTransition = {
+        ...transition,
+        chapterId: `chapter-${transition.chapterNumber}`,
+        storyTime: `第${transition.chapterNumber}章`,
+      };
 
-    // 将转变记录添加到时间线
-    const updatedTimeline = [
-      ...stateTimeline,
-      {
-        storyTime: newTransition.storyTime,
-        sourceChapterId: newTransition.chapterId,
-        state: {
-          transition: newTransition,
+      // 将转变记录添加到时间线
+      const updatedTimeline = [
+        ...stateTimeline,
+        {
+          storyTime: newTransition.storyTime,
+          sourceChapterId: newTransition.chapterId,
+          state: {
+            transition: newTransition,
+          },
         },
-      },
-    ];
+      ];
 
-    await this.prisma.writingCharacter.update({
-      where: { id: characterId },
-      data: {
-        stateTimeline: updatedTimeline,
-      },
+      await tx.writingCharacter.update({
+        where: { id: characterId },
+        data: {
+          stateTimeline: updatedTimeline,
+        },
+      });
+
+      this.logger.log(
+        `[CharacterConsistency] Recorded state transition for ${character.name}: ${transition.fromState} → ${transition.toState}`,
+      );
     });
-
-    this.logger.log(
-      `[CharacterConsistency] Recorded state transition for ${character.name}: ${transition.fromState} → ${transition.toState}`,
-    );
   }
 
   // ==================== OOC 检测 ====================

@@ -4529,6 +4529,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
             factions: true,
           },
         },
+        styleTemplate: true, // ★ 关键：获取风格模板配置
       },
     });
 
@@ -4544,6 +4545,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
         terminologies: [],
         timelineEvents: [],
         factions: [],
+        stylePresetId: project?.styleTemplate?.baseStyle, // ★ 传递风格预设ID
       };
       return createWritingContextPackage(
         "story-architect", // leaderId
@@ -4649,6 +4651,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
         dialogueStyle: "natural",
         descriptionStyle: "vivid",
       },
+      stylePresetId: project.styleTemplate?.baseStyle, // ★ 传递风格预设ID
     };
 
     // 构建上下文包
