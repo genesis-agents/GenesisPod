@@ -17,6 +17,8 @@ import {
 import { ExecutionMode, BUILTIN_TOOLS } from "../../../ai-engine/core";
 import { WritingContextPackage } from "../interfaces/writing-context.interface";
 import { TaskProfile } from "../../../ai-engine/llm/types";
+// 增强：注入质量门禁服务用于审核
+import { QualityGateService } from "../services/quality/quality-gate.service";
 
 // ==================== 输入输出类型 ====================
 
@@ -162,6 +164,10 @@ export class StoryArchitectAgent extends BaseAgent<
     BUILTIN_TOOLS.TASK_DELEGATION,
     BUILTIN_TOOLS.WORKFLOW_ORCHESTRATION,
   ];
+
+  constructor(private readonly qualityGate: QualityGateService) {
+    super();
+  }
 
   /**
    * 核心执行逻辑
@@ -342,17 +348,56 @@ ${contextPackage.extensions.chapterContext ? JSON.stringify(contextPackage.exten
   }
 
   /**
-   * 审核章节
+   * 审核章节（增强版：集成质量门禁）
    */
   private async reviewChapter(
     input: StoryArchitectInput,
     _context: AgentContext,
   ): Promise<StoryArchitectOutput> {
-    const { contextPackage, payload } = input;
+    const { contextPackage, payload, projectId } = input;
     const reviewData = payload.reviewData;
 
     if (!reviewData) {
       throw new Error("Review data is required for review_chapter task");
+    }
+
+    // ★ 增强：先执行质量门禁检查
+    let qualityGateInfo = "";
+    try {
+      const chapterNumber =
+        contextPackage.extensions.chapterContext?.chapter?.chapterNumber || 1;
+      const qualityResult = await this.qualityGate.checkQualityGate(
+        projectId,
+        reviewData.chapterId,
+        chapterNumber,
+        reviewData.content,
+        0,
+      );
+
+      this.logger.log(
+        `[StoryArchitect] Quality gate for chapter ${reviewData.chapterId}: passed=${qualityResult.passed}, issues=${qualityResult.issues.length}`,
+      );
+
+      qualityGateInfo = `
+### 质量门禁检查结果
+- 通过状态: ${qualityResult.passed ? "✓ 通过" : "✗ 未通过"}
+- 综合评分: ${qualityResult.scores.overallScore.toFixed(1)}/100
+- 多样性: ${qualityResult.scores.diversityScore.toFixed(2)}
+- 角色一致性: ${qualityResult.scores.characterConsistency.toFixed(2)}
+- 发现问题数: ${qualityResult.issues.length}
+${
+  qualityResult.issues.length > 0
+    ? "\n问题列表:\n" +
+      qualityResult.issues
+        .slice(0, 5)
+        .map((i) => `- [${i.severity}] ${i.description}`)
+        .join("\n")
+    : ""
+}
+`;
+    } catch (error) {
+      this.logger.warn(`[StoryArchitect] Quality gate check failed: ${error}`);
+      qualityGateInfo = "\n### 质量门禁检查\n检查失败，跳过质量评估\n";
     }
 
     const systemPrompt = this.buildReviewSystemPrompt();
@@ -367,7 +412,7 @@ ${reviewData.content.slice(0, 3000)}${reviewData.content.length > 3000 ? "...(�
 
 ### 一致性检查报告
 ${reviewData.consistencyReport ? JSON.stringify(reviewData.consistencyReport.issues, null, 2) : "无问题"}
-
+${qualityGateInfo}
 ### Story Bible 约束
 ${contextPackage.hardConstraints.map((c) => `- [${c.severity}] ${c.rule}`).join("\n")}
 
@@ -377,7 +422,7 @@ ${(contextPackage.establishedFacts || [])
   .map((f) => `- ${f.statement}`)
   .join("\n")}
 
-请审核章节内容，判断是否符合要求，并提取需要记录的新事实。
+请综合质量门禁结果和一致性检查报告，审核章节内容，判断是否符合要求，并提取需要记录的新事实。
 
 输出 JSON 格式：
 {

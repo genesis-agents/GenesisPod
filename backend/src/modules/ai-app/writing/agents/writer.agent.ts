@@ -32,6 +32,9 @@ import { OpeningHookService } from "../services/quality/opening-hook.service";
 import { NarrativeCraftService } from "../services/quality/narrative-craft.service";
 import { ForeshadowingService } from "../services/quality/foreshadowing.service";
 import { PacingControlService } from "../services/quality/pacing-control.service";
+// 新增：对话约束和角色一致性服务
+import { DialogueConstraintsService } from "../services/quality/dialogue-constraints.service";
+import { CharacterConsistencyService } from "../services/quality/character-consistency.service";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { TaskProfile } from "../../../ai-engine/llm/types";
 import {
@@ -190,6 +193,9 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     private readonly foreshadowing: ForeshadowingService,
     private readonly pacingControl: PacingControlService,
     private readonly aiChatService: AiChatService,
+    // 新增：对话约束和角色一致性服务
+    private readonly dialogueConstraints: DialogueConstraintsService,
+    private readonly characterConsistency: CharacterConsistencyService,
   ) {
     super();
   }
@@ -595,6 +601,74 @@ ${content.slice(-500)}
       // 非关键约束，失败不阻塞
     }
 
+    // 11. 对话约束（新增：时代对话风格）
+    try {
+      const worldType = contextPackage.extensions.storyBible.worldType;
+      const detectedDynasty =
+        this.historicalKnowledge.detectDynastyFromWorldType(worldType);
+
+      if (detectedDynasty) {
+        const dialectPrompt =
+          await this.dialogueConstraints.generateDialectConstraintPrompt(
+            detectedDynasty,
+          );
+        if (dialectPrompt) {
+          parts.push(dialectPrompt);
+        }
+      }
+
+      // 为出场角色生成对话约束
+      if (chapterContext.involvedCharacters.length > 0) {
+        for (const char of chapterContext.involvedCharacters.slice(0, 5)) {
+          // 使用正确的参数：projectId, characterName, socialClass
+          const charDialoguePrompt =
+            await this.dialogueConstraints.generateCharacterDialoguePrompt(
+              projectId,
+              char.name,
+              char.role || "commoner",
+            );
+          if (charDialoguePrompt) {
+            parts.push(charDialoguePrompt);
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.warn(`[Writer] Failed to get dialogue constraints: ${error}`);
+      // 非关键约束，失败不阻塞
+    }
+
+    // 12. 角色行为一致性约束（新增）
+    try {
+      for (const char of chapterContext.involvedCharacters.slice(0, 5)) {
+        // 传入角色实体和章节上下文
+        const behaviorConstraints =
+          await this.characterConsistency.generateCharacterBehaviorConstraints(
+            char,
+            {
+              chapterNumber: chapterContext.chapter.chapterNumber,
+              involvedCharacters: chapterContext.involvedCharacters.map(
+                (c) => c.name,
+              ),
+            },
+          );
+        if (behaviorConstraints) {
+          // 将约束对象转换为提示词字符串
+          const constraintPrompt =
+            this.characterConsistency.formatBehaviorConstraintsAsPrompt(
+              behaviorConstraints,
+            );
+          if (constraintPrompt) {
+            parts.push(constraintPrompt);
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[Writer] Failed to get character consistency constraints: ${error}`,
+      );
+      // 非关键约束，失败不阻塞
+    }
+
     return parts.join("\n\n");
   }
 
@@ -635,6 +709,116 @@ ${content.slice(-500)}
   }
 
   /**
+   * 【风格精炼约束】避免"AI味"，增强真实感
+   */
+  private static readonly STYLE_ENHANCEMENT_CONSTRAINTS = `
+## 风格精炼约束（避免"AI味"）
+
+### 1. 禁止华丽空洞的描写
+以下描写模式会让文字显得"AI味"十足：
+- ❌ "她如同一朵盛开的牡丹，美丽动人"
+- ✅ 改为具体：她侧身避过时，裙裾扬起一道弧线
+
+- ❌ "月光洒落，如同银色的轻纱"
+- ✅ 改为实用：月光照出地上那道淡淡的影子
+
+- ❌ "她的眼神清澈如水，仿佛能看透一切"
+- ✅ 改为具体：她盯着他看了三秒，眼皮都没眨一下
+
+### 2. 动作描写要有功能
+每个动作描写都应该：
+- 推进情节，或
+- 展示性格，或
+- 传递情绪
+
+❌ 无意义动作："她走到窗前，看着窗外"
+✅ 有意义动作："她走到窗前，手指无意识地划过窗棂的尘土——三天了，没人来打扫过"
+
+❌ 无功能动作："他端起茶杯，喝了一口"
+✅ 有功能动作："他端起茶杯，在唇边停了片刻，最终没有喝下去"（暗示犹豫、怀疑）
+
+### 3. 对话的三层结构
+每段对话应有三层：
+1. 表面意思（字面含义）
+2. 真实意图（说话者真正想表达的）
+3. 读者理解（读者能感知到的弦外之音）
+
+示例：
+表面："姐姐今日气色真好。"
+真实意图：试探对方是否得到皇帝宠幸
+读者理解：宫斗开始了
+
+❌ 直白对话："你是不是想害我？"
+✅ 三层对话："姐姐真是好心，特意送来这么贵重的补品。"（表面感谢，实则怀疑，读者明白是暗指有毒）
+
+### 4. 场景描写的"功能性"
+场景描写必须服务于以下至少一项：
+- 时间/地点交代
+- 氛围营造
+- 角色心理外化
+- 情节伏笔
+
+❌ 无功能场景："殿内陈设华丽，雕梁画栋，金碧辉煌"
+✅ 有功能场景："殿内的熏香让人昏昏欲睡，她掐了一下手心强迫自己清醒"（暗示危险）
+
+❌ 无功能场景："街上人来人往，热闹非凡"
+✅ 有功能场景："街上挤满了围观的人，她夹在人群中，谁都不会注意到她"（为后续潜行铺垫）
+
+### 5. 情节推进的"因果链"
+每个情节点都必须有：
+- 触发条件（为什么现在发生）
+- 角色动机（角色为什么这么做）
+- 后续影响（这会导致什么）
+
+❌ 无因果："她决定去找太后。"
+✅ 有因果："消息传来说太后今日心情不错——这是唯一的机会。她整理衣裙，往长乐宫方向走去。"
+
+❌ 无因果："他突然拔剑刺向对方。"
+✅ 有因果："对方的手已经伸向腰间——他认出那是毒针的位置。来不及多想，他拔剑刺了过去。"
+
+---
+
+`;
+
+  /**
+   * 【开篇增强约束】前100字决定读者去留
+   */
+  private static readonly OPENING_ENHANCEMENT = `
+## 开篇黄金法则（前100字决定读者去留）
+
+### 禁止的开场
+- ❌ "阳光透过窗帘洒进房间..."（老套）
+- ❌ "又是平凡的一天..."（无聊）
+- ❌ "让我们把时间拨回..."（说教）
+- ❌ 以内心独白开场（不够有冲击力）
+- ❌ "一阵XX袭来"（陈词滥调）
+- ❌ "突然"、"忽然"开头（弱开场）
+
+### 推荐的开场技法
+1. **危机开场**：直接进入冲突
+   "殿外的脚步声越来越近，她却还没想好该说什么。"
+
+2. **感官冲击**：用非视觉感官
+   "那股铅粉的气息让她险些窒息。"
+   "刀刃划过皮肤的声音，细微得像是撕裂丝绸。"
+
+3. **对话开场**：直接进入戏剧
+   "她死了？"
+   "昨夜的事。"
+
+4. **动作开场**：主角正在做某事
+   "她第三次检查了那瓶胭脂的封口。"
+   "血渗进了绸缎的纹路，像是绽开的梅花。"
+
+5. **矛盾开场**：用对比制造张力
+   "不是冷，是那种能冻进骨头里的寒意。"
+   "宫宴的笙歌依旧，可桌下她的手已经握紧了袖中的匕首。"
+
+---
+
+`;
+
+  /**
    * 【超级约束】放在 prompt 最开始，确保模型优先看到
    * 根据 LLM 注意力机制，首尾位置权重最高
    */
@@ -646,16 +830,26 @@ ${content.slice(-500)}
 - ❌ 禁止："命运的齿轮开始转动"
 - ❌ 禁止："风暴即将来临"
 - ❌ 禁止："未来的路还很长"
+- ❌ 禁止："一切都变了"、"什么都不一样了"
 - ✅ 正确：门被关上、脚步声远去、烛火熄灭、对话戛然而止
 
 ### 禁止说教和人生感悟
 - ❌ 禁止：大段讲述人生道理
 - ❌ 禁止："她终于明白了..."式的顿悟
 - ❌ 禁止：角色突然变成哲学家
+- ❌ 禁止："这就是人生"、"世事无常"等总结式话语
 
 ### NPC对话禁止千篇一律
 - ❌ 禁止：路人甲乙丙都说"是啊是啊"、"可不是嘛"
+- ❌ 禁止：所有宫女都是"小心翼翼"、"战战兢兢"
 - ✅ 正确：通过口音、用词、语气区分不同角色
+- ✅ 正确：老宫女老练世故，新宫女生涩紧张，有明显区别
+
+### 禁止滥用比喻和修辞
+- ❌ 禁止："如同"、"仿佛"、"宛如"每段都出现
+- ❌ 禁止："眼神如刀"、"冷若冰霜"等烂俗比喻
+- ✅ 正确：少用比喻，多用具体描写
+- ✅ 正确：如果使用比喻，必须新颖且贴合场景
 
 ---
 
@@ -672,13 +866,49 @@ ${content.slice(-500)}
 
 在输出章节内容前，请逐项确认：
 
-1. □ 章节最后一段是【具体场景/动作/对话】，而非抽象感慨
-2. □ 没有出现"这只是开始"、"风暴即将来临"等预告式结尾
-3. □ 没有角色突然开始讲人生道理或哲学感悟
-4. □ 如果有路人/NPC对话，每个人的说话方式有区别
-5. □ 开篇第一句有钩子（冲突/危机/感官冲击），不是"一阵XX袭来"
+### 开篇检查
+1. □ 开篇第一句有钩子（冲突/危机/感官冲击），不是"一阵XX袭来"
+2. □ 没有使用"突然"、"忽然"等弱开场词
+3. □ 没有以内心独白或抽象描写开场
+4. □ 优先使用非视觉感官（触觉、嗅觉、听觉）引入场景
 
-如果任何一项不符合，请修改后再输出。`;
+### 对话检查
+5. □ 每个角色的对话都符合其性格设定和说话方式
+6. □ 路人/NPC对话有区分度，不是千篇一律的"是啊是啊"
+7. □ 重要对话有三层结构（表面意思、真实意图、读者理解）
+8. □ 没有角色OOC（Out of Character，偏离人设）
+
+### 描写检查
+9. □ 没有滥用"如同"、"仿佛"、"宛如"等比喻词
+10. □ 场景描写有功能性（推进情节/营造氛围/角色心理/伏笔）
+11. □ 动作描写有意义（展示性格/传递情绪/推进情节）
+12. □ 没有华丽空洞的描写（如"如同盛开的牡丹"）
+
+### 情节检查
+13. □ 情节推进有清晰的因果链（触发条件→动机→后续影响）
+14. □ 没有突兀的情节跳转或角色行为
+15. □ 符合已确立的时间线和角色状态
+
+### 结尾检查
+16. □ 章节最后一段是【具体场景/动作/对话】，而非抽象感慨
+17. □ 没有出现"这只是开始"、"风暴即将来临"等预告式结尾
+18. □ 没有角色突然开始讲人生道理或哲学感悟
+19. □ 没有"她明白了..."、"世事无常"等总结式话语
+20. □ 结尾在具体动作中戛然而止（门关上/脚步远去/烛火熄灭/对话中断）
+
+如果任何一项不符合，请修改后再输出。
+
+---
+
+## 💡 最后提醒：让文字"活"起来
+
+- **Show, Don't Tell**：展示而非告知，让读者自己感受
+- **每个字都要有用**：无用的描写、对话、动作一律删除
+- **信任读者的智商**：不要把所有事情都解释得明明白白
+- **让角色说人话**：对话要符合时代、身份、性格，不要像演讲
+- **珍惜读者的时间**：前100字决定他们是否继续读下去
+
+现在开始写作，创造一个让读者无法放下的故事！`;
 
   /**
    * 构建写作系统提示词
@@ -802,6 +1032,12 @@ ${(contextPackage.establishedFacts || [])
         }
       }
     }
+
+    // ★ 新增：风格精炼约束（避免AI味）
+    prompt += `\n\n${WriterAgent.STYLE_ENHANCEMENT_CONSTRAINTS}`;
+
+    // ★ 新增：开篇增强约束
+    prompt += `\n\n${WriterAgent.OPENING_ENHANCEMENT}`;
 
     // 添加质量约束
     if (qualityConstraints) {

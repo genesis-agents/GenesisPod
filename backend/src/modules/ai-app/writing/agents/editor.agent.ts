@@ -18,6 +18,12 @@ import { ExecutionMode, BUILTIN_TOOLS } from "../../../ai-engine/core";
 import { WritingContextPackage } from "../interfaces/writing-context.interface";
 import { ConsistencyIssue } from "./consistency-checker.agent";
 import { TaskProfile } from "../../../ai-engine/llm/types";
+// 增强：注入质量服务
+import {
+  QualityGateService,
+  QualityGateResult,
+} from "../services/quality/quality-gate.service";
+import { ChapterQualityEvaluatorService } from "../services/quality/chapter-quality-evaluator.service";
 
 // ==================== 输入输出类型 ====================
 
@@ -114,7 +120,7 @@ export class EditorAgent extends BaseAgent<EditorInput, EditorOutput> {
     {
       id: "final-review",
       name: "Final Review",
-      description: "提交前的最后检查",
+      description: "提交前的最后检查（含质量门禁）",
       category: "validation",
     },
   ];
@@ -123,6 +129,13 @@ export class EditorAgent extends BaseAgent<EditorInput, EditorOutput> {
     BUILTIN_TOOLS.TEXT_GENERATION,
     BUILTIN_TOOLS.EXPORT_DOCX,
   ];
+
+  constructor(
+    private readonly qualityGate: QualityGateService,
+    private readonly chapterQualityEvaluator: ChapterQualityEvaluatorService,
+  ) {
+    super();
+  }
 
   /**
    * 核心执行逻辑
@@ -393,14 +406,80 @@ ${content}
   }
 
   /**
-   * 最终审核
+   * 最终审核（增强版：集成质量门禁和多维度评估）
    */
   private async finalReview(
     input: EditorInput,
     _context: AgentContext,
   ): Promise<EditorOutput> {
-    const { chapterId, content } = input;
+    const { chapterId, content, contextPackage } = input;
 
+    // ★ 步骤1：快速质量评估（规则检测，零成本）
+    const chapterNumber =
+      contextPackage.extensions.chapterContext?.chapter?.chapterNumber || 1;
+    const quickEvaluation = this.chapterQualityEvaluator.quickEvaluate(
+      content,
+      chapterNumber,
+    );
+
+    this.logger.log(
+      `[Editor] Quick evaluation: score=${quickEvaluation.overallScore}, grade=${quickEvaluation.grade}`,
+    );
+
+    // ★ 步骤2：质量门禁检查（深度检测）
+    const projectId = contextPackage.extensions.storyBible.bibleId;
+    let qualityGateResult: QualityGateResult | null = null;
+
+    try {
+      qualityGateResult = await this.qualityGate.checkQualityGate(
+        projectId,
+        chapterId,
+        chapterNumber,
+        content,
+        0, // 首次检查
+      );
+
+      this.logger.log(
+        `[Editor] Quality gate: passed=${qualityGateResult.passed}, issues=${qualityGateResult.issues.length}`,
+      );
+    } catch (error) {
+      this.logger.warn(`[Editor] Quality gate check failed: ${error}`);
+    }
+
+    // ★ 步骤3：收集所有质量问题
+    const allIssues: Array<{ type: string; description: string }> = [];
+
+    // 从快速评估收集问题
+    if (quickEvaluation.writingQuality) {
+      for (const [, dimension] of Object.entries(
+        quickEvaluation.writingQuality,
+      )) {
+        for (const issue of dimension.issues) {
+          allIssues.push({ type: "writing_quality", description: issue });
+        }
+      }
+    }
+    if (quickEvaluation.contentQuality) {
+      for (const [, dimension] of Object.entries(
+        quickEvaluation.contentQuality,
+      )) {
+        for (const issue of dimension.issues) {
+          allIssues.push({ type: "content_quality", description: issue });
+        }
+      }
+    }
+
+    // 从质量门禁收集问题
+    if (qualityGateResult) {
+      for (const issue of qualityGateResult.issues) {
+        allIssues.push({
+          type: issue.type,
+          description: `[${issue.severity}] ${issue.description}`,
+        });
+      }
+    }
+
+    // ★ 步骤4：基于问题进行 LLM 修正
     const systemPrompt = `你是专业的终审编辑，负责章节提交前的最后检查。
 
 ## 检查清单
@@ -409,10 +488,15 @@ ${content}
 3. 段落分割是否合理
 4. 对话格式是否正确
 5. 叙事流畅性
+6. 结尾质量（禁止总结式/预告式结尾）
+
+## 质量评估发现的问题
+${allIssues.length > 0 ? allIssues.map((i) => `- [${i.type}] ${i.description}`).join("\n") : "无明显问题"}
 
 ## 输出要求
 如果发现问题，直接修正并输出完整内容。
-如果没有问题，直接输出原内容。`;
+如果没有问题，直接输出原内容。
+特别注意修正质量评估发现的问题。`;
 
     const userPrompt = `请进行最终审核：
 
@@ -420,10 +504,9 @@ ${content}
 
 直接输出审核/修正后的完整内容。`;
 
-    // 使用 TaskProfile 语义化描述任务特征
     const taskProfile: TaskProfile = {
-      creativity: "low", // 最终审核需要严格准确 (原 temperature: 0.3)
-      outputLength: "long", // 章节内容较长 (原 maxTokens: 8192)
+      creativity: "low",
+      outputLength: "long",
     };
 
     const response = await this.callLLM(
@@ -432,8 +515,7 @@ ${content}
         { role: "user", content: userPrompt },
       ],
       {
-        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
-        // 保持向后兼容
+        taskProfile,
         temperature: 0.3,
         maxTokens: 8192,
       },
@@ -442,21 +524,48 @@ ${content}
     const revisedContent = response.content || content;
     const hasChanges = revisedContent !== content;
 
+    // ★ 步骤5：构建详细的审核结果
+    const changes: EditorOutput["changes"] = [];
+    if (hasChanges) {
+      changes.push({ type: "final_review", description: "终审微调" });
+    }
+    for (const issue of allIssues.slice(0, 5)) {
+      changes.push({
+        type: `quality_fix_${issue.type}`,
+        description: `质量修复: ${issue.description}`,
+      });
+    }
+
+    const notes: string[] = [];
+    if (quickEvaluation.overallScore !== undefined) {
+      notes.push(
+        `质量评分: ${quickEvaluation.overallScore}/100 (${quickEvaluation.grade}级)`,
+      );
+    }
+    if (qualityGateResult) {
+      notes.push(
+        `质量门禁: ${qualityGateResult.passed ? "通过" : "未通过"}, 问题数: ${qualityGateResult.issues.length}`,
+      );
+    }
+    if (hasChanges) {
+      notes.push("终审发现并修正了一些问题");
+    } else {
+      notes.push("终审通过，无需修改");
+    }
+
     return {
       chapterId,
       operation: "final_review",
       success: true,
       revisedContent,
-      changes: hasChanges
-        ? [{ type: "final_review", description: "终审微调" }]
-        : [],
+      changes,
       stats: {
-        totalChanges: hasChanges ? 1 : 0,
-        fixedIssues: 0,
+        totalChanges: changes.length,
+        fixedIssues: allIssues.length,
         wordCountBefore: this.countWords(content),
         wordCountAfter: this.countWords(revisedContent),
       },
-      notes: hasChanges ? ["终审发现并修正了一些问题"] : ["终审通过，无需修改"],
+      notes,
     };
   }
 

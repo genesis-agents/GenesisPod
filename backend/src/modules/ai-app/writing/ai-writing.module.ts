@@ -48,8 +48,10 @@ import { ParallelConflictDetectorService } from "./services/parallel/parallel-co
 import {
   ExpressionMemoryService,
   CharacterPersonalityService,
+  CharacterConsistencyService,
   QualityGateService,
   HistoricalKnowledgeService,
+  DialogueConstraintsService,
   NarrativePacingService,
   SemanticConsistencyService,
   ExpressionAlternativesService,
@@ -60,6 +62,7 @@ import {
   PacingControlService,
   ChapterQualityEvaluatorService,
   NarrativeCraftService,
+  WritingQualityCheckerService,
 } from "./services/quality";
 
 // Style services (Three-layer style configuration system)
@@ -112,8 +115,10 @@ import {
     // Quality services (AI Writing Quality Enhancement System)
     ExpressionMemoryService,
     CharacterPersonalityService,
+    CharacterConsistencyService,
     QualityGateService,
     HistoricalKnowledgeService,
+    DialogueConstraintsService,
     NarrativePacingService,
     SemanticConsistencyService,
     ExpressionAlternativesService,
@@ -124,6 +129,7 @@ import {
     PacingControlService,
     ChapterQualityEvaluatorService,
     NarrativeCraftService,
+    WritingQualityCheckerService,
     // Style services (Three-layer style configuration)
     StyleTemplateService,
     // Writing Agents (from BaseAgent)
@@ -147,8 +153,10 @@ import {
     // Quality services
     ExpressionMemoryService,
     CharacterPersonalityService,
+    CharacterConsistencyService,
     QualityGateService,
     HistoricalKnowledgeService,
+    DialogueConstraintsService,
     NarrativePacingService,
     SemanticConsistencyService,
     ExpressionAlternativesService,

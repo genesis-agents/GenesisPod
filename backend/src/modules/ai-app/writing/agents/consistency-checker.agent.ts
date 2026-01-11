@@ -20,6 +20,11 @@ import {
 import { ExecutionMode, BUILTIN_TOOLS } from "../../../ai-engine/core";
 import { WritingContextPackage } from "../interfaces/writing-context.interface";
 import { TaskProfile } from "../../../ai-engine/llm/types";
+// 增强：集成语义一致性服务
+import {
+  SemanticConsistencyService,
+  SemanticFact,
+} from "../services/quality/semantic-consistency.service";
 
 // ==================== 输入输出类型 ====================
 
@@ -135,8 +140,14 @@ export class ConsistencyCheckerAgent extends BaseAgent<
     BUILTIN_TOOLS.DATA_ANALYSIS,
   ];
 
+  constructor(
+    private readonly semanticConsistency: SemanticConsistencyService,
+  ) {
+    super();
+  }
+
   /**
-   * 核心执行逻辑
+   * 核心执行逻辑（增强版：集成语义一致性检查）
    */
   protected async doExecute(
     input: ConsistencyCheckerInput,
@@ -163,6 +174,13 @@ export class ConsistencyCheckerAgent extends BaseAgent<
     const results = await Promise.all(checkPromises);
     results.forEach((issues) => allIssues.push(...issues));
 
+    // ★ 增强：语义一致性检查
+    const semanticIssues = await this.checkSemanticConsistency(
+      content,
+      contextPackage,
+    );
+    allIssues.push(...semanticIssues);
+
     // 提取新事实
     const extractedFacts = await this.extractFacts(
       content,
@@ -183,6 +201,137 @@ export class ConsistencyCheckerAgent extends BaseAgent<
         .filter(Boolean) as string[],
       extractedFacts,
     };
+  }
+
+  /**
+   * ★ 增强：语义一致性检查
+   * 使用 SemanticConsistencyService 进行深度语义分析
+   */
+  private async checkSemanticConsistency(
+    content: string,
+    contextPackage: WritingContextPackage,
+  ): Promise<ConsistencyIssue[]> {
+    const issues: ConsistencyIssue[] = [];
+
+    try {
+      // 从 contextPackage 构建已确立事实
+      const establishedFacts: SemanticFact[] = (
+        contextPackage.establishedFacts || []
+      ).map((f) => ({
+        statement: f.statement,
+        category: this.mapFactCategory(f.category),
+        relatedEntities: f.relatedEntities || [],
+        importance: f.importance,
+      }));
+
+      // 从角色设定构建角色事实
+      const characterFacts: SemanticFact[] = [];
+      for (const char of contextPackage.extensions.storyBible.characters) {
+        // 外貌事实
+        if (char.appearance) {
+          const app = char.appearance;
+          if (app.hair) {
+            characterFacts.push({
+              statement: `${char.name}的发色是${app.hair}`,
+              category: "character",
+              relatedEntities: [char.name],
+              importance: "high",
+            });
+          }
+          if (app.eyes) {
+            characterFacts.push({
+              statement: `${char.name}的眼睛颜色是${app.eyes}`,
+              category: "character",
+              relatedEntities: [char.name],
+              importance: "high",
+            });
+          }
+        }
+        // 能力事实
+        if (char.abilities && char.abilities.length > 0) {
+          characterFacts.push({
+            statement: `${char.name}拥有的能力：${char.abilities.join("、")}`,
+            category: "ability",
+            relatedEntities: [char.name],
+            importance: "medium",
+          });
+        }
+      }
+
+      // 执行语义一致性检查
+      const result = await this.semanticConsistency.checkSemanticConsistency(
+        content,
+        establishedFacts,
+        characterFacts,
+      );
+
+      this.logger.log(
+        `[ConsistencyChecker] Semantic check: passed=${result.passed}, conflicts=${result.conflicts.length}`,
+      );
+
+      // 将语义冲突转换为 ConsistencyIssue
+      for (const conflict of result.conflicts) {
+        issues.push({
+          type: this.mapSemanticConflictType(conflict.conflictType),
+          severity: this.mapSemanticSeverity(conflict.severity),
+          location: `语义检测`,
+          description: conflict.description,
+          expected: conflict.conflictingFact.statement,
+          found: conflict.newStatement,
+          suggestion: conflict.suggestion,
+          relatedEntities: conflict.conflictingFact.relatedEntities,
+        });
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[ConsistencyChecker] Semantic consistency check failed: ${error}`,
+      );
+      // 语义检查失败不阻塞其他检查
+    }
+
+    return issues;
+  }
+
+  /**
+   * 映射事实类别
+   */
+  private mapFactCategory(
+    category: string,
+  ): "character" | "timeline" | "world" | "relationship" | "ability" {
+    const mapping: Record<
+      string,
+      "character" | "timeline" | "world" | "relationship" | "ability"
+    > = {
+      entity_state: "character",
+      sequence_point: "timeline",
+      decision: "character",
+      relationship: "relationship",
+    };
+    return mapping[category] || "world";
+  }
+
+  /**
+   * 映射语义冲突类型到一致性检查类型
+   */
+  private mapSemanticConflictType(conflictType: string): ConsistencyCheckType {
+    const mapping: Record<string, ConsistencyCheckType> = {
+      contradiction: "CHARACTER",
+      inconsistency: "PLOT",
+      timeline_violation: "TIMELINE",
+    };
+    return mapping[conflictType] || "PLOT";
+  }
+
+  /**
+   * 映射语义严重程度
+   */
+  private mapSemanticSeverity(severity: string): IssueSeverity {
+    const mapping: Record<string, IssueSeverity> = {
+      critical: "CRITICAL",
+      warning: "WARNING",
+      info: "INFO",
+    };
+    return mapping[severity] || "WARNING";
   }
 
   /**
