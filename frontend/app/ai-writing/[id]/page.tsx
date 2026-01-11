@@ -2717,31 +2717,104 @@ export default function WritingProjectPage() {
                               <div className="space-y-3">
                                 {storyBible.worldSettings
                                   .filter((s) => s.name && s.description)
-                                  .map((setting) => (
-                                    <div
-                                      key={setting.id}
-                                      className="rounded-lg border border-green-200 bg-white/70 p-3"
-                                    >
-                                      <div className="mb-1.5 flex items-center gap-2">
-                                        <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                                          {setting.category || setting.name}
-                                        </span>
-                                      </div>
-                                      <div className="whitespace-pre-wrap text-sm leading-relaxed text-green-800">
-                                        {setting.description
-                                          .split(/[。！？\n]/)
-                                          .filter((s) => s.trim())
-                                          .map((sentence, idx) => (
-                                            <p key={idx} className="mb-1.5">
-                                              {sentence.trim()}
-                                              {!/[。！？]$/.test(
-                                                sentence.trim()
-                                              ) && '。'}
+                                  .map((setting) => {
+                                    // ★ 智能解析：按"标签:"或"第X章:"分段
+                                    const content = setting.description || '';
+                                    // 匹配：时代:、地理:、第1章:、[设定]、[事件]、[关系] 等
+                                    const segments = content
+                                      .split(
+                                        /(?=(?:时代|地理|社会|类型|第\d+章|【|\[(?:设定|事件|关系)\]))/g
+                                      )
+                                      .filter((s) => s.trim());
+
+                                    return (
+                                      <div
+                                        key={setting.id}
+                                        className="rounded-lg border border-green-200 bg-white/70 p-3"
+                                      >
+                                        <div className="mb-2 flex items-center gap-2">
+                                          <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                                            {setting.category || setting.name}
+                                          </span>
+                                        </div>
+                                        <div className="space-y-2 text-sm leading-relaxed text-green-800">
+                                          {segments.length > 1 ? (
+                                            // 多段内容，每段独立显示
+                                            segments.map((segment, idx) => {
+                                              // 提取标签和内容
+                                              const labelMatch = segment.match(
+                                                /^(时代|地理|社会|类型|第\d+章)[：:]\s*/
+                                              );
+                                              const tagMatch =
+                                                segment.match(
+                                                  /^\[?(设定|事件|关系)\]?\s*/
+                                                );
+                                              if (labelMatch) {
+                                                const label = labelMatch[1];
+                                                const text = segment
+                                                  .slice(labelMatch[0].length)
+                                                  .trim();
+                                                return (
+                                                  <div
+                                                    key={idx}
+                                                    className="rounded bg-green-50/50 p-2"
+                                                  >
+                                                    <span className="mr-2 inline-block rounded bg-green-200 px-1.5 py-0.5 text-xs font-medium text-green-800">
+                                                      {label}
+                                                    </span>
+                                                    <span className="text-gray-700">
+                                                      {text}
+                                                    </span>
+                                                  </div>
+                                                );
+                                              } else if (tagMatch) {
+                                                const tag = tagMatch[1];
+                                                const text = segment
+                                                  .slice(tagMatch[0].length)
+                                                  .trim();
+                                                const tagColors: Record<
+                                                  string,
+                                                  string
+                                                > = {
+                                                  设定: 'bg-blue-100 text-blue-700',
+                                                  事件: 'bg-orange-100 text-orange-700',
+                                                  关系: 'bg-purple-100 text-purple-700',
+                                                };
+                                                return (
+                                                  <div
+                                                    key={idx}
+                                                    className="rounded bg-gray-50 p-2"
+                                                  >
+                                                    <span
+                                                      className={`mr-2 inline-block rounded px-1.5 py-0.5 text-xs font-medium ${tagColors[tag] || 'bg-gray-200 text-gray-700'}`}
+                                                    >
+                                                      {tag}
+                                                    </span>
+                                                    <span className="text-gray-700">
+                                                      {text}
+                                                    </span>
+                                                  </div>
+                                                );
+                                              }
+                                              return (
+                                                <p
+                                                  key={idx}
+                                                  className="text-gray-700"
+                                                >
+                                                  {segment.trim()}
+                                                </p>
+                                              );
+                                            })
+                                          ) : (
+                                            // 单段内容，保持原样
+                                            <p className="whitespace-pre-wrap text-gray-700">
+                                              {content}
                                             </p>
-                                          ))}
+                                          )}
+                                        </div>
                                       </div>
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                               </div>
                             </div>
                           )}
