@@ -43,6 +43,8 @@ interface AIWritingState {
   missionMessage: string;
   missionCompleted: boolean;
   activeAgentIds: string[]; // IDs of currently active agents (supports parallel)
+  isStuckMission: boolean; // 任务卡住（后台重启等情况）
+  stuckMissionId: string | null; // 卡住的任务ID
 
   // Multi-turn Conversation (Agent 多轮对话)
   conversationHistory: ConversationMessage[];
@@ -91,6 +93,7 @@ interface AIWritingState {
   startMission: (projectId: string, dto: StartMissionDto) => Promise<void>;
   cancelMission: (projectId: string) => Promise<void>;
   checkRunningMission: (projectId: string) => Promise<void>;
+  clearStuckMission: () => void; // 清除卡住状态，允许继续创作
 
   // Actions - Conversation History (多轮对话)
   addToConversationHistory: (message: ConversationMessage) => void;
@@ -118,6 +121,8 @@ const initialState = {
   missionMessage: '',
   missionCompleted: false,
   activeAgentIds: [],
+  isStuckMission: false,
+  stuckMissionId: null as string | null,
   conversationHistory: [] as ConversationMessage[],
   error: null,
 };
@@ -619,6 +624,20 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
       missionProgress: 0,
       missionMessage: '',
       activeAgentIds: [],
+      isStuckMission: false,
+      stuckMissionId: null,
+    });
+  },
+
+  // 清除卡住状态（允许用户强制继续创作）
+  clearStuckMission: () => {
+    set({
+      isStuckMission: false,
+      stuckMissionId: null,
+      isMissionRunning: false,
+      currentMissionId: null,
+      missionProgress: 0,
+      missionMessage: '',
     });
   },
 
@@ -635,6 +654,32 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
       );
 
       if (runningMission) {
+        // 检查任务是否卡住（超过3分钟没有更新）
+        const STUCK_THRESHOLD_MS = 3 * 60 * 1000; // 3分钟
+        const lastUpdateTime = runningMission.updatedAt
+          ? new Date(runningMission.updatedAt).getTime()
+          : runningMission.createdAt
+            ? new Date(runningMission.createdAt).getTime()
+            : Date.now();
+        const timeSinceUpdate = Date.now() - lastUpdateTime;
+
+        if (timeSinceUpdate > STUCK_THRESHOLD_MS) {
+          // 任务卡住了（可能是后台重启导致）
+          console.warn(
+            `[checkRunningMission] Mission ${runningMission.id} appears stuck (${Math.round(timeSinceUpdate / 1000)}s since last update)`
+          );
+          set({
+            isStuckMission: true,
+            stuckMissionId: runningMission.id,
+            isMissionRunning: false, // 不阻塞继续创作
+            currentMissionId: runningMission.id,
+            missionProgress: runningMission.progress || 0,
+            missionMessage: '任务已卡住，请点击"继续创作"重新开始',
+            missionCompleted: false,
+          });
+          return; // 不启动轮询
+        }
+
         // 有正在运行的任务，同步状态
         set({
           isMissionRunning: true,
@@ -642,6 +687,8 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
           missionProgress: runningMission.progress || 0,
           missionMessage: '任务进行中...',
           missionCompleted: false,
+          isStuckMission: false,
+          stuckMissionId: null,
         });
 
         // 开始轮询状态
@@ -649,11 +696,28 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
         const pollInterval = 2000;
         const maxPolls = 450; // 15分钟
         let pollCount = 0;
+        let lastProgressUpdate = Date.now();
+        let lastProgress = runningMission.progress || 0;
+        const STUCK_DURING_POLL_MS = 2 * 60 * 1000; // 2分钟无进度更新视为卡住
 
         const pollForStatus = async () => {
           while (pollCount < maxPolls) {
             await new Promise((resolve) => setTimeout(resolve, pollInterval));
             pollCount++;
+
+            // 检查是否长时间无进度更新（卡住）
+            if (Date.now() - lastProgressUpdate > STUCK_DURING_POLL_MS) {
+              console.warn(
+                `[pollForStatus] Mission ${runningMission.id} appears stuck (no progress for ${Math.round((Date.now() - lastProgressUpdate) / 1000)}s)`
+              );
+              set({
+                isStuckMission: true,
+                stuckMissionId: runningMission.id,
+                isMissionRunning: false,
+                missionMessage: '任务已卡住，请点击"继续创作"重新开始',
+              });
+              return; // 停止轮询
+            }
 
             try {
               const status = await api.getMissionStatus(runningMission.id);
@@ -696,8 +760,16 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
               // 更新进度
               if (status.orchestratorState) {
                 const { progress, currentSteps } = status.orchestratorState;
+                const currentProgress = progress || 0;
+
+                // 如果进度有变化，重置卡住检测计时器
+                if (currentProgress !== lastProgress) {
+                  lastProgress = currentProgress;
+                  lastProgressUpdate = Date.now();
+                }
+
                 set({
-                  missionProgress: progress || 0,
+                  missionProgress: currentProgress,
                   missionMessage:
                     status.result?.currentStep ||
                     currentSteps?.[0] ||
@@ -789,6 +861,8 @@ export const useAIWritingStore = create<AIWritingState>((set, get) => ({
       missionMessage: '',
       missionCompleted: false,
       activeAgentIds: [],
+      isStuckMission: false,
+      stuckMissionId: null,
       conversationHistory: [],
     });
   },

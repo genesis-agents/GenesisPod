@@ -140,6 +140,7 @@ export class CharacterService {
         role: true,
         aliases: true,
         personality: true,
+        background: true, // ★ 添加 background 字段用于提取关系
         relationships: {
           select: {
             id: true,
@@ -237,13 +238,78 @@ export class CharacterService {
       for (const alias of char.aliases || []) {
         nameToId.set((alias as string).toLowerCase(), char.id);
       }
+      // ★ 增强：添加名字的各种变体（去掉常见后缀/前缀）
+      const nameParts = char.name
+        .replace(/（.+?）/g, "") // 移除括号内容
+        .replace(/[【】\[\]]/g, "") // 移除方括号
+        .trim();
+      if (nameParts && nameParts !== char.name.toLowerCase()) {
+        nameToId.set(nameParts.toLowerCase(), char.id);
+      }
     }
+
+    // ★ 模糊名称查找函数 - 尝试多种方式匹配角色名
+    const findCharacterIdByName = (targetName: string): string | undefined => {
+      const normalizedTarget = targetName.toLowerCase().trim();
+
+      // 1. 精确匹配
+      if (nameToId.has(normalizedTarget)) {
+        return nameToId.get(normalizedTarget);
+      }
+
+      // 2. 去除常见称谓后匹配（如 "沈姑娘" -> "沈苑"）
+      const withoutTitle = normalizedTarget
+        .replace(
+          /(?:姑娘|小姐|公子|先生|夫人|大人|太太|姐姐|妹妹|哥哥|弟弟)$/g,
+          "",
+        )
+        .trim();
+      if (withoutTitle && nameToId.has(withoutTitle)) {
+        return nameToId.get(withoutTitle);
+      }
+
+      // 3. 部分匹配（名字是否包含在已知角色名中，或已知角色名是否包含这个名字）
+      for (const [knownName, id] of nameToId) {
+        // 跳过太短的名字避免误匹配
+        if (normalizedTarget.length < 2 || knownName.length < 2) continue;
+
+        // 一个包含另一个
+        if (
+          knownName.includes(normalizedTarget) ||
+          normalizedTarget.includes(knownName)
+        ) {
+          return id;
+        }
+
+        // 姓氏匹配（如果名字至少2个字，且姓相同）
+        if (normalizedTarget.length >= 2 && knownName.length >= 2) {
+          if (
+            normalizedTarget[0] === knownName[0] &&
+            (normalizedTarget.slice(1) ===
+              knownName.slice(1, normalizedTarget.length) ||
+              knownName.slice(1) ===
+                normalizedTarget.slice(1, knownName.length))
+          ) {
+            return id;
+          }
+        }
+      }
+
+      return undefined;
+    };
 
     // 已添加的边的集合，用于去重
     const addedEdges = new Set<string>();
 
+    this.logger.debug(
+      `Building relationship graph: ${deduplicatedCharacters.length} characters, nameToId map size: ${nameToId.size}`,
+    );
+
     for (const char of deduplicatedCharacters) {
       // 1. 从数据库关系表添加边
+      this.logger.debug(
+        `Character ${char.name}: ${char.relationships.length} db relationships`,
+      );
       for (const rel of char.relationships) {
         // 只添加目标角色也在有效列表中的边
         if (validNodeIds.has(rel.targetCharacterId)) {
@@ -258,49 +324,46 @@ export class CharacterService {
               description: rel.description || undefined,
             });
             addedEdges.add(edgeKey);
+            this.logger.debug(
+              `Added db relationship: ${char.name} -> ${rel.targetCharacter?.name} (${rel.relationshipType})`,
+            );
           }
         }
       }
 
       // 2. ★ 从 personality.relationships 中提取关系（用于未显式添加关系的角色）
       const personality = char.personality as any;
+      this.logger.debug(
+        `Character ${char.name} personality.relationships: ${JSON.stringify(personality?.relationships || "none")}`,
+      );
       if (personality?.relationships) {
         const relationshipsData = personality.relationships;
         // relationships 可能是字符串数组 ["与苏清婉为主仆关系"] 或对象
         if (Array.isArray(relationshipsData)) {
+          this.logger.debug(
+            `Processing array format relationships: ${relationshipsData.length} items`,
+          );
           for (const relStr of relationshipsData) {
-            // 解析 "与苏清婉为主仆关系" 或 "苏清婉: 主仆关系" 格式
-            const match = String(relStr).match(
-              /(?:与|和)?(.+?)(?:为|是|：|:)(.+?)(?:关系)?$/,
+            this.parseAndAddRelationshipWithFinder(
+              String(relStr),
+              char.id,
+              findCharacterIdByName,
+              edges,
+              addedEdges,
             );
-            if (match) {
-              const targetName = match[1].trim().toLowerCase();
-              const relationType = match[2].trim();
-              const targetId = nameToId.get(targetName);
-              if (targetId && targetId !== char.id) {
-                const edgeKey = `${char.id}-${targetId}`;
-                const reverseKey = `${targetId}-${char.id}`;
-                // 避免重复添加（包括反向边）
-                if (!addedEdges.has(edgeKey) && !addedEdges.has(reverseKey)) {
-                  edges.push({
-                    id: `auto-${char.id}-${targetId}`,
-                    source: char.id,
-                    target: targetId,
-                    type: relationType,
-                    label: relationType,
-                    description: String(relStr),
-                  });
-                  addedEdges.add(edgeKey);
-                }
-              }
-            }
           }
         } else if (typeof relationshipsData === "object") {
           // 对象格式: { "苏清婉": "主仆关系" }
+          this.logger.debug(
+            `Processing object format relationships: ${Object.keys(relationshipsData).length} items`,
+          );
           for (const [targetName, relationType] of Object.entries(
             relationshipsData,
           )) {
-            const targetId = nameToId.get(targetName.toLowerCase());
+            const targetId = findCharacterIdByName(targetName);
+            this.logger.debug(
+              `Looking for "${targetName}" in nameToId: ${targetId ? "found" : "not found"}`,
+            );
             if (targetId && targetId !== char.id) {
               const edgeKey = `${char.id}-${targetId}`;
               const reverseKey = `${targetId}-${char.id}`;
@@ -313,13 +376,47 @@ export class CharacterService {
                   label: String(relationType),
                 });
                 addedEdges.add(edgeKey);
+                this.logger.debug(
+                  `Added personality relationship: ${char.name} -> ${targetName} (${relationType})`,
+                );
               }
             }
           }
         }
       }
+
+      // 3. ★ 从 background 字段提取关系（如 "与掌事姑姑是监管关系"）
+      const background = char.background as string;
+      if (background) {
+        this.logger.debug(
+          `Character ${char.name} background: ${background.substring(0, 100)}...`,
+        );
+        // 尝试匹配多种关系描述格式
+        const relationPatterns = [
+          /(?:与|和)([^，。,\.]+?)(?:是|为|有)([^，。,\.]*?关系)/g,
+          /([^，。,\.]+?)(?:是|为)[她他]的([^，。,\.]+)/g,
+        ];
+        for (const pattern of relationPatterns) {
+          let match;
+          while ((match = pattern.exec(background)) !== null) {
+            this.logger.debug(
+              `Found background relationship match: ${match[0]}`,
+            );
+            this.parseAndAddRelationshipWithFinder(
+              match[0],
+              char.id,
+              findCharacterIdByName,
+              edges,
+              addedEdges,
+            );
+          }
+        }
+      }
     }
 
+    this.logger.log(
+      `Relationship graph built: ${nodes.length} nodes, ${edges.length} edges`,
+    );
     return { nodes, edges };
   }
 
@@ -396,6 +493,85 @@ export class CharacterService {
     return this.prisma.characterRelationship.delete({
       where: { id: relationshipId },
     });
+  }
+
+  /**
+   * 解析关系字符串并添加到边列表
+   * @param findCharacterId - 角色名称查找函数（支持模糊匹配）
+   */
+  private parseAndAddRelationshipWithFinder(
+    relStr: string,
+    sourceId: string,
+    findCharacterId: (name: string) => string | undefined,
+    edges: Array<{
+      id: string;
+      source: string;
+      target: string;
+      type: string;
+      label: string;
+      description?: string;
+    }>,
+    addedEdges: Set<string>,
+  ): void {
+    // 多种关系格式解析
+    const patterns = [
+      // "与苏清婉为主仆关系" 或 "和苏清婉是朋友关系"
+      /(?:与|和)(.+?)(?:为|是|：|:)(.+?)(?:关系)?$/,
+      // "苏清婉: 主仆关系" 或 "苏清婉：朋友"
+      /^(.+?)(?:：|:)\s*(.+?)(?:关系)?$/,
+      // "A → B: 描述" 格式
+      /^(.+?)\s*(?:→|->)\s*(.+?)(?::|：)\s*(.+)$/,
+      // "A 和 B 是 XX 关系"
+      /^(.+?)\s*(?:和|与)\s*(.+?)\s*(?:是|为)\s*(.+?)(?:关系)?$/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = relStr.match(pattern);
+      if (match) {
+        let targetName: string;
+        let relationType: string;
+
+        if (match.length === 4) {
+          // 三组匹配：source, target, type
+          targetName = match[2].trim();
+          relationType = match[3].trim();
+        } else {
+          // 两组匹配：target, type
+          targetName = match[1].trim();
+          relationType = match[2].trim();
+        }
+
+        // 使用模糊匹配查找目标角色ID
+        const targetId = findCharacterId(targetName);
+
+        if (targetId && targetId !== sourceId) {
+          const edgeKey = `${sourceId}-${targetId}`;
+          const reverseKey = `${targetId}-${sourceId}`;
+          if (!addedEdges.has(edgeKey) && !addedEdges.has(reverseKey)) {
+            edges.push({
+              id: `auto-${sourceId}-${targetId}`,
+              source: sourceId,
+              target: targetId,
+              type: relationType,
+              label:
+                relationType.length > 6
+                  ? relationType.slice(0, 6)
+                  : relationType,
+              description: relStr,
+            });
+            addedEdges.add(edgeKey);
+            this.logger.debug(
+              `Extracted relationship: ${sourceId} -> ${targetId} (${relationType}) from "${relStr}"`,
+            );
+          }
+        } else {
+          this.logger.debug(
+            `Could not find target character "${targetName}" for relationship: ${relStr}`,
+          );
+        }
+        break; // 只使用第一个匹配的模式
+      }
+    }
   }
 
   private async getBibleByProject(projectId: string, userId: string) {

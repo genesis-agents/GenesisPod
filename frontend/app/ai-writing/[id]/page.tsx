@@ -51,6 +51,183 @@ function getAgentConfig(agentName: string | undefined) {
   };
 }
 
+// 解析章节内容，提取 [设定]、[事件]、[关系] 等结构化数据
+function parseChapterContent(content: string): {
+  settings: string[];
+  events: string[];
+  relations: string[];
+  other: string[];
+} {
+  const result = {
+    settings: [] as string[],
+    events: [] as string[],
+    relations: [] as string[],
+    other: [] as string[],
+  };
+
+  if (!content) return result;
+
+  // 使用正则匹配 [类型] 内容 的模式
+  const patterns = [
+    { regex: /\[设定\]\s*([^[\n]+)/g, key: 'settings' as const },
+    { regex: /\[事件\]\s*([^[\n]+)/g, key: 'events' as const },
+    { regex: /\[关系\]\s*([^[\n]+)/g, key: 'relations' as const },
+  ];
+
+  let processedContent = content;
+
+  for (const { regex, key } of patterns) {
+    let match;
+    while ((match = regex.exec(content)) !== null) {
+      const item = match[1].trim().replace(/[。，、]+$/, '');
+      if (item) {
+        result[key].push(item);
+        processedContent = processedContent.replace(match[0], '');
+      }
+    }
+  }
+
+  // 处理剩余未分类的内容
+  const remaining = processedContent
+    .replace(/\[设定\]|\[事件\]|\[关系\]/g, '')
+    .split(/[。，]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 5);
+
+  result.other = remaining;
+
+  return result;
+}
+
+// 章节内容结构化显示组件
+function ChapterContentStructured({
+  content,
+  chapterName,
+}: {
+  content: string;
+  chapterName: string;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const parsed = parseChapterContent(content);
+
+  const hasContent =
+    parsed.settings.length > 0 ||
+    parsed.events.length > 0 ||
+    parsed.relations.length > 0;
+
+  if (!hasContent) {
+    // 如果解析不出结构，显示原文（截断）
+    return (
+      <div className="rounded-lg bg-gray-50 p-3">
+        <div className="mb-2 font-medium text-gray-700">{chapterName}</div>
+        <p className="line-clamp-3 text-sm text-gray-600">{content}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+      {/* 章节标题 */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center justify-between p-3 transition-colors hover:bg-gray-50"
+      >
+        <span className="font-medium text-gray-800">{chapterName}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400">
+            {parsed.settings.length}设定 · {parsed.events.length}事件 ·{' '}
+            {parsed.relations.length}关系
+          </span>
+          <svg
+            className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </div>
+      </button>
+
+      {/* 展开内容 */}
+      {isExpanded && (
+        <div className="space-y-3 border-t border-gray-100 p-3">
+          {/* 设定 */}
+          {parsed.settings.length > 0 && (
+            <div>
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-blue-600">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-blue-100">
+                  📍
+                </span>
+                设定 ({parsed.settings.length})
+              </div>
+              <div className="space-y-1">
+                {parsed.settings.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded bg-blue-50 px-2 py-1 text-xs text-gray-700"
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 事件 */}
+          {parsed.events.length > 0 && (
+            <div>
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-600">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-amber-100">
+                  ⚡
+                </span>
+                事件 ({parsed.events.length})
+              </div>
+              <div className="space-y-1">
+                {parsed.events.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded bg-amber-50 px-2 py-1 text-xs text-gray-700"
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 关系 */}
+          {parsed.relations.length > 0 && (
+            <div>
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-pink-600">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-pink-100">
+                  🔗
+                </span>
+                关系 ({parsed.relations.length})
+              </div>
+              <div className="space-y-1">
+                {parsed.relations.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded bg-pink-50 px-2 py-1 text-xs text-gray-700"
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function WritingProjectPage() {
   const params = useParams();
   const router = useRouter();
@@ -76,6 +253,9 @@ export default function WritingProjectPage() {
     missionMessage,
     missionCompleted,
     activeAgentIds,
+    isStuckMission,
+    stuckMissionId,
+    clearStuckMission,
     clearError,
     clearCurrentProjectData,
     // Multi-turn conversation
@@ -631,6 +811,7 @@ export default function WritingProjectPage() {
   ]);
 
   // Load mission logs from database when entering project
+  // 加载该项目所有任务的日志，确保历史消息不丢失
   useEffect(() => {
     const loadMissionLogs = async () => {
       if (!user || !projectId) return;
@@ -640,20 +821,14 @@ export default function WritingProjectPage() {
         const { items: missions } = await getProjectMissions(projectId);
         if (!missions || missions.length === 0) return;
 
-        // 找到最近的任务（使用 createdAt 或 startedAt 排序）
-        const latestMission = missions.sort((a, b) => {
+        // 按时间排序任务（从旧到新）
+        const sortedMissions = missions.sort((a, b) => {
           const dateA = new Date(a.createdAt || a.startedAt || 0).getTime();
           const dateB = new Date(b.createdAt || b.startedAt || 0).getTime();
-          return dateB - dateA;
-        })[0];
+          return dateA - dateB; // 旧的在前
+        });
 
-        if (!latestMission?.id) return;
-
-        // 获取该任务的日志（增加到 500 条以支持更长的任务）
-        const { items: logs } = await getMissionLogs(latestMission.id, 500);
-        if (!logs || logs.length === 0) return;
-
-        // 转换日志为 taskMessages 格式
+        // 转换日志为 taskMessages 格式的类型定义
         type TaskMessage = {
           id: string;
           type: 'user' | 'system' | 'agent' | 'progress';
@@ -674,47 +849,75 @@ export default function WritingProjectPage() {
           };
         };
 
-        const messages: TaskMessage[] = logs.map((log: MissionLogItem) => {
-          const msgType = log.eventType.includes('system')
-            ? 'system'
-            : log.eventType.includes('progress')
-              ? 'progress'
-              : 'agent';
+        // 从所有任务中加载日志（每个任务最多200条，总共不超过1000条）
+        const allMessages: TaskMessage[] = [];
+        const maxLogsPerMission = 200;
+        const maxTotalLogs = 1000;
 
-          // Ensure content is always a string
-          const content =
-            typeof log.content === 'string'
-              ? log.content
-              : JSON.stringify(log.content);
+        for (const mission of sortedMissions) {
+          if (!mission.id) continue;
+          if (allMessages.length >= maxTotalLogs) break;
 
-          return {
-            id: log.id,
-            type: msgType as 'user' | 'system' | 'agent' | 'progress',
-            content,
-            agent: log.agentName,
-            timestamp: new Date(log.createdAt),
-            detail: log.detail
-              ? {
-                  type: (log.detail as { type?: string }).type as
-                    | 'chapter_content'
-                    | 'issues'
-                    | 'world_settings'
-                    | 'text',
-                  data: (log.detail as { data?: unknown }).data as
-                    | string
-                    | Record<string, unknown>,
-                }
-              : undefined,
-          };
-        });
+          try {
+            const { items: logs } = await getMissionLogs(
+              mission.id,
+              Math.min(maxLogsPerMission, maxTotalLogs - allMessages.length)
+            );
+            if (!logs || logs.length === 0) continue;
+
+            const messages: TaskMessage[] = logs.map((log: MissionLogItem) => {
+              const msgType = log.eventType.includes('system')
+                ? 'system'
+                : log.eventType.includes('progress')
+                  ? 'progress'
+                  : 'agent';
+
+              // Ensure content is always a string
+              const content =
+                typeof log.content === 'string'
+                  ? log.content
+                  : JSON.stringify(log.content);
+
+              return {
+                id: log.id,
+                type: msgType as 'user' | 'system' | 'agent' | 'progress',
+                content,
+                agent: log.agentName,
+                timestamp: new Date(log.createdAt),
+                detail: log.detail
+                  ? {
+                      type: (log.detail as { type?: string }).type as
+                        | 'chapter_content'
+                        | 'issues'
+                        | 'world_settings'
+                        | 'text',
+                      data: (log.detail as { data?: unknown }).data as
+                        | string
+                        | Record<string, unknown>,
+                    }
+                  : undefined,
+              };
+            });
+
+            allMessages.push(...messages);
+          } catch {
+            // 单个任务日志加载失败，继续加载其他任务
+            continue;
+          }
+        }
+
+        // 按时间排序所有消息
+        allMessages.sort(
+          (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+        );
 
         // 加载历史日志 - 始终加载以确保日志不丢失
-        if (messages.length > 0) {
+        if (allMessages.length > 0) {
           hasLoadedLogsRef.current = true;
           setTaskMessages((prev) => {
             // 如果当前没有消息，直接使用历史日志
             if (prev.length === 0) {
-              return messages;
+              return allMessages;
             }
             // 如果当前只有一条系统消息（任务开始），用历史日志替换
             if (
@@ -722,10 +925,16 @@ export default function WritingProjectPage() {
               prev[0].type === 'system' &&
               prev[0].content.includes('任务开始')
             ) {
-              return messages;
+              return allMessages;
             }
-            // 否则保留当前消息（正在进行的任务）
-            return prev;
+            // 否则合并：历史日志 + 当前消息（去重）
+            const existingIds = new Set(prev.map((m) => m.id));
+            const newMessages = allMessages.filter(
+              (m) => !existingIds.has(m.id)
+            );
+            return [...newMessages, ...prev].sort(
+              (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+            );
           });
         } else {
           hasLoadedLogsRef.current = true;
@@ -878,6 +1087,23 @@ export default function WritingProjectPage() {
 
   const handleContinueWriting = async () => {
     if (!currentProject || isMissionRunning) return;
+
+    // 如果有卡住的任务，先清除状态（允许重新开始）
+    if (isStuckMission) {
+      console.log(
+        '[handleContinueWriting] Clearing stuck mission:',
+        stuckMissionId
+      );
+      // 尝试取消卡住的任务（可能后端已经重启，任务已不存在）
+      if (stuckMissionId) {
+        try {
+          await cancelMission(projectId);
+        } catch {
+          // 忽略取消错误，任务可能已经不存在
+        }
+      }
+      clearStuckMission();
+    }
 
     // 计算剩余需要写的字数
     const remainingWords = Math.max(
@@ -2065,6 +2291,35 @@ export default function WritingProjectPage() {
                   />
                 </div>
               </div>
+
+              {/* Stuck Mission Warning */}
+              {isStuckMission && (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <div className="flex items-start gap-2">
+                    <svg
+                      className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-amber-800">
+                        任务已卡住
+                      </p>
+                      <p className="mt-0.5 text-xs text-amber-600">
+                        可能是后台服务重启导致。点击"继续创作"可重新开始任务。
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Action Buttons */}
@@ -2698,6 +2953,10 @@ export default function WritingProjectPage() {
                                                 arc?: string;
                                                 traits?: string[];
                                                 motivation?: string;
+                                                relationships?:
+                                                  | string[]
+                                                  | Record<string, string>;
+                                                firstAppearance?: number;
                                               };
                                               return (
                                                 <>
@@ -2742,6 +3001,41 @@ export default function WritingProjectPage() {
                                                       </span>
                                                       <span className="text-xs text-gray-600">
                                                         {p.motivation}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {/* 关系 */}
+                                                  {p.relationships && (
+                                                    <div>
+                                                      <span className="text-xs font-medium text-pink-600">
+                                                        关系：
+                                                      </span>
+                                                      <span className="text-xs text-gray-600">
+                                                        {Array.isArray(
+                                                          p.relationships
+                                                        )
+                                                          ? p.relationships.join(
+                                                              '、'
+                                                            )
+                                                          : Object.entries(
+                                                              p.relationships
+                                                            )
+                                                              .map(
+                                                                ([name, rel]) =>
+                                                                  `${name}(${rel})`
+                                                              )
+                                                              .join('、')}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {/* 首次出现 */}
+                                                  {p.firstAppearance && (
+                                                    <div>
+                                                      <span className="text-xs font-medium text-gray-500">
+                                                        首次出现：
+                                                      </span>
+                                                      <span className="text-xs text-gray-600">
+                                                        第{p.firstAppearance}章
                                                       </span>
                                                     </div>
                                                   )}
@@ -2830,21 +3124,74 @@ export default function WritingProjectPage() {
                           </h3>
                           {storyBible.worldSettings &&
                           storyBible.worldSettings.length > 0 ? (
-                            <div className="space-y-2">
-                              {storyBible.worldSettings.map((setting) => (
-                                <div
-                                  key={setting.id}
-                                  className="flex items-start gap-2 rounded-lg bg-green-50 p-2 text-sm"
-                                >
-                                  <span className="shrink-0 font-medium text-green-700">
-                                    {setting.category || setting.name || '设定'}
-                                    :
-                                  </span>
-                                  <span className="text-gray-600">
-                                    {setting.description || setting.name}
-                                  </span>
-                                </div>
-                              ))}
+                            <div className="space-y-3">
+                              {/* 分离章节设定和通用设定 */}
+                              {(() => {
+                                const chapterSettings =
+                                  storyBible.worldSettings.filter((s) =>
+                                    /^第\d+章/.test(s.category || s.name || '')
+                                  );
+                                const generalSettings =
+                                  storyBible.worldSettings.filter(
+                                    (s) =>
+                                      !/^第\d+章/.test(
+                                        s.category || s.name || ''
+                                      )
+                                  );
+
+                                return (
+                                  <>
+                                    {/* 通用设定 */}
+                                    {generalSettings.length > 0 && (
+                                      <div className="space-y-2">
+                                        {generalSettings.map((setting) => (
+                                          <div
+                                            key={setting.id}
+                                            className="flex items-start gap-2 rounded-lg bg-green-50 p-2 text-sm"
+                                          >
+                                            <span className="shrink-0 font-medium text-green-700">
+                                              {setting.category ||
+                                                setting.name ||
+                                                '设定'}
+                                              :
+                                            </span>
+                                            <span className="text-gray-600">
+                                              {setting.description ||
+                                                setting.name}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* 章节情节设定 - 结构化显示 */}
+                                    {chapterSettings.length > 0 && (
+                                      <div className="mt-4">
+                                        <h4 className="mb-2 text-sm font-medium text-gray-700">
+                                          📖 章节情节记录
+                                        </h4>
+                                        <div className="space-y-2">
+                                          {chapterSettings.map((setting) => (
+                                            <ChapterContentStructured
+                                              key={setting.id}
+                                              chapterName={
+                                                setting.category ||
+                                                setting.name ||
+                                                '章节'
+                                              }
+                                              content={
+                                                setting.description ||
+                                                setting.name ||
+                                                ''
+                                              }
+                                            />
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                           ) : (
                             <p className="text-sm text-gray-400">
