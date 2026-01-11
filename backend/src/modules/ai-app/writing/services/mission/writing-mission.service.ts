@@ -3765,6 +3765,12 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
       });
 
       const content = response.content || "{}";
+
+      // 【调试日志】记录LLM原始响应，方便排查问题
+      this.logger.log(
+        `[${missionId}] Bible Keeper LLM response (first 500 chars): ${content.slice(0, 500)}`,
+      );
+
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         // 清理 JSON 字符串中的常见问题
@@ -3796,14 +3802,53 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
         let parsed: BibleUpdateParsed;
         try {
           parsed = JSON.parse(jsonStr) as BibleUpdateParsed;
-        } catch (parseError) {
-          // 如果解析失败，尝试提取部分有效数据
-          this.logger.warn(
-            `[${missionId}] JSON parse failed, attempting partial extraction: ${(parseError as Error).message}`,
+
+          // 【关键日志】记录解析成功的数据量
+          this.logger.log(
+            `[${missionId}] Bible update parsed: ` +
+              `newCharacters=${parsed.newCharacters?.length || 0}, ` +
+              `characterUpdates=${parsed.characterUpdates?.length || 0}, ` +
+              `timelineEvents=${parsed.timelineEvents?.length || 0}, ` +
+              `newSettings=${parsed.newSettings?.length || 0}, ` +
+              `newRelationships=${parsed.newRelationships?.length || 0}`,
           );
+        } catch (parseError) {
+          // 如果解析失败，记录详细错误信息
+          this.logger.warn(
+            `[${missionId}] JSON parse failed: ${(parseError as Error).message}`,
+          );
+          this.logger.warn(
+            `[${missionId}] Failed JSON string (first 300 chars): ${jsonStr.slice(0, 300)}`,
+          );
+
+          // 【改进】尝试从文本中提取角色名（即使JSON解析失败）
+          const characterNameMatches = content.match(/"name"\s*:\s*"([^"]+)"/g);
+          const extractedNames = characterNameMatches
+            ? characterNameMatches
+                .map((m) => {
+                  const nameMatch = m.match(/"name"\s*:\s*"([^"]+)"/);
+                  return nameMatch ? nameMatch[1] : null;
+                })
+                .filter((n): n is string => n !== null)
+            : [];
+
+          if (extractedNames.length > 0) {
+            this.logger.log(
+              `[${missionId}] Partial extraction found ${extractedNames.length} character names: ${extractedNames.join(", ")}`,
+            );
+          }
+
           // 返回空更新而不是抛出错误
           parsed = {
-            newCharacters: [],
+            newCharacters:
+              extractedNames.length > 0
+                ? extractedNames.map((name) => ({
+                    name,
+                    role: "MINOR",
+                    description: `在第${chapterNumber}章出现`,
+                    firstAppearance: chapterNumber,
+                  }))
+                : [],
             characterUpdates: [],
             timelineEvents: [],
             newSettings: [],
@@ -4522,6 +4567,30 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
       });
 
       if (chapter) {
+        // 【关键修复】从 Story Bible 提取所有角色，确保 Writer Agent 能获得角色约束
+        // 这解决了角色名不一致的问题（如"王皇后"被写成"卫皇后"）
+        const allCharacters = storyBibleExtensions.characters;
+
+        // 尝试从章节大纲中提取涉及的角色名
+        const outlineText = chapter.outline || "";
+        const involvedChars = allCharacters.filter((char) => {
+          // 检查角色名是否出现在大纲中
+          if (outlineText.includes(char.name)) return true;
+          // 检查角色别名是否出现在大纲中
+          if (char.aliases?.some((alias) => outlineText.includes(alias)))
+            return true;
+          return false;
+        });
+
+        // 如果大纲没有明确提到角色，则包含所有主要角色（protagonist + antagonist）
+        // 这确保 Writer Agent 至少知道主角和反派的正确名字
+        const finalInvolvedCharacters =
+          involvedChars.length > 0
+            ? involvedChars
+            : allCharacters.filter(
+                (c) => c.role === "protagonist" || c.role === "antagonist",
+              );
+
         contextPackage.extensions.chapterContext = {
           chapter: {
             id: chapter.id,
@@ -4532,10 +4601,10 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
             volumeTitle: chapter.volume?.title,
           },
           previousContext: [],
-          involvedCharacters: [],
-          relevantWorldSettings: [],
-          relevantTerminology: [],
-          timelineContext: [],
+          involvedCharacters: finalInvolvedCharacters,
+          relevantWorldSettings: storyBibleExtensions.worldSettings,
+          relevantTerminology: storyBibleExtensions.terminologies,
+          timelineContext: storyBibleExtensions.timelineEvents,
         };
       }
     }
