@@ -3531,18 +3531,41 @@ ${chapterContent.slice(0, 4000)}
 ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
 
 请识别本章中出现的：
-1. 新事实（新出现的人物、地点、物品、组织等）
+1. 新角色（所有有名有姓的角色，包括配角、龙套，只要有名字就要记录）
 2. 角色状态变化（受伤、死亡、关系变化、获得新能力等）
-3. 时间线事件（重要事件及其时间）
+3. 角色关系（角色之间的关系，如"XX是XX的丫鬟"、"XX与XX是敌人"等）
+4. 时间线事件（重要事件及其时间）
+5. 新的地点/组织/物品等设定
+
+【重要】新角色必须详细记录：
+- name: 角色名字
+- role: 角色定位（PROTAGONIST主角/ANTAGONIST反派/SUPPORTING配角/MINOR龙套）
+- description: 角色描述（外貌、身份、职业等）
+- firstAppearance: 首次出现章节
+- relationships: 与其他角色的关系
 
 输出 JSON：
 {
-  "newFacts": ["新事实1", "新事实2"],
-  "characterUpdates": ["张三受了重伤", "李四获得了神秘宝剑"],
-  "timelineEvents": ["第X天：发生了某事件"]
+  "newCharacters": [
+    {
+      "name": "角色名",
+      "role": "SUPPORTING",
+      "description": "角色的身份和特征描述",
+      "firstAppearance": ${chapterNumber},
+      "relationships": [{"target": "另一角色名", "relation": "关系描述"}]
+    }
+  ],
+  "characterUpdates": [
+    {"name": "角色名", "change": "发生了什么变化"}
+  ],
+  "newRelationships": [
+    {"character1": "角色A", "character2": "角色B", "relation": "关系描述"}
+  ],
+  "timelineEvents": ["第X天：发生了某事件"],
+  "newSettings": ["新地点/组织/物品等"]
 }
 
-只输出有意义的变化，如果没有重要变化可以返回空数组。`;
+务必提取所有出现的有名角色，即使只是一笔带过的角色也要记录！`;
 
     try {
       const response = await this.aiChatService.chat({
@@ -3566,61 +3589,176 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
         const parsed = JSON.parse(jsonMatch[0]);
 
         const updates = {
-          newFacts: parsed.newFacts || [],
+          newFacts: parsed.newSettings || [],
           characterUpdates: parsed.characterUpdates || [],
           timelineEvents: parsed.timelineEvents || [],
+          newCharacters: parsed.newCharacters || [],
+          newRelationships: parsed.newRelationships || [],
         };
 
-        // 将更新保存到数据库（创建 WorldSetting 记录）
-        if (
-          updates.newFacts.length > 0 ||
-          updates.characterUpdates.length > 0 ||
-          updates.timelineEvents.length > 0
-        ) {
-          try {
-            const bible = await this.prisma.storyBible.findFirst({
-              where: { projectId },
-            });
-            if (bible) {
-              // 创建一个 WorldSetting 记录来存储章节更新
+        // 获取 StoryBible
+        const bible = await this.prisma.storyBible.findFirst({
+          where: { projectId },
+        });
+
+        if (bible) {
+          // ★★★ 1. 自动创建新角色到 WritingCharacter 表 ★★★
+          if (updates.newCharacters.length > 0) {
+            for (const newChar of updates.newCharacters) {
+              try {
+                // 检查角色是否已存在
+                const existingChar =
+                  await this.prisma.writingCharacter.findFirst({
+                    where: {
+                      bibleId: bible.id,
+                      name: newChar.name,
+                    },
+                  });
+
+                if (!existingChar) {
+                  // 创建新角色
+                  // 将 description 合并到 background 中（schema 没有 description 字段）
+                  const backgroundText = newChar.description
+                    ? `${newChar.description}\n首次出现：第${newChar.firstAppearance || chapterNumber}章`
+                    : `首次出现：第${newChar.firstAppearance || chapterNumber}章`;
+
+                  await this.prisma.writingCharacter.create({
+                    data: {
+                      bibleId: bible.id,
+                      name: newChar.name,
+                      role: newChar.role || "MINOR",
+                      background: backgroundText,
+                      personality: newChar.relationships
+                        ? {
+                            relationships: newChar.relationships,
+                            firstAppearance: chapterNumber,
+                          }
+                        : { firstAppearance: chapterNumber },
+                      currentState: {
+                        status: "active",
+                        lastSeenChapter: chapterNumber,
+                      },
+                    },
+                  });
+                  this.logger.log(
+                    `[${missionId}] Created new character: ${newChar.name} (${newChar.role})`,
+                  );
+                } else {
+                  // 更新现有角色的 lastSeenChapter
+                  await this.prisma.writingCharacter.update({
+                    where: { id: existingChar.id },
+                    data: {
+                      currentState: {
+                        ...((existingChar.currentState as object) || {}),
+                        lastSeenChapter: chapterNumber,
+                      },
+                    },
+                  });
+                }
+              } catch (charError) {
+                this.logger.warn(
+                  `[${missionId}] Failed to create character ${newChar.name}: ${(charError as Error).message}`,
+                );
+              }
+            }
+          }
+
+          // ★★★ 2. 更新角色状态变化 ★★★
+          if (updates.characterUpdates.length > 0) {
+            for (const update of updates.characterUpdates) {
+              try {
+                const charName =
+                  typeof update === "string"
+                    ? update.split(/[：:]/)[0]
+                    : update.name;
+                const change =
+                  typeof update === "string"
+                    ? update
+                    : `${update.name}: ${update.change}`;
+
+                const existingChar =
+                  await this.prisma.writingCharacter.findFirst({
+                    where: { bibleId: bible.id, name: { contains: charName } },
+                  });
+
+                if (existingChar) {
+                  const currentState =
+                    (existingChar.currentState as Record<string, unknown>) ||
+                    {};
+                  const stateHistory = (currentState.history as string[]) || [];
+                  stateHistory.push(`第${chapterNumber}章: ${change}`);
+
+                  await this.prisma.writingCharacter.update({
+                    where: { id: existingChar.id },
+                    data: {
+                      currentState: {
+                        ...currentState,
+                        lastSeenChapter: chapterNumber,
+                        history: stateHistory.slice(-10), // 保留最近10条变化
+                      },
+                    },
+                  });
+                }
+              } catch (updateError) {
+                this.logger.warn(
+                  `[${missionId}] Failed to update character: ${(updateError as Error).message}`,
+                );
+              }
+            }
+          }
+
+          // ★★★ 3. 保存其他设定更新 ★★★
+          const hasUpdates =
+            updates.newFacts.length > 0 ||
+            updates.timelineEvents.length > 0 ||
+            updates.newRelationships.length > 0;
+
+          if (hasUpdates) {
+            try {
+              // WorldSetting schema: name (标题), description (内容)
               await this.prisma.worldSetting.create({
                 data: {
                   bibleId: bible.id,
-                  category: "_chapterUpdate",
-                  name: `第${chapterNumber}章更新`,
+                  category: `第${chapterNumber}章`,
+                  name: `第${chapterNumber}章设定更新`,
                   description: [
-                    ...updates.newFacts.map((f: string) => `[新事实] ${f}`),
-                    ...updates.characterUpdates.map(
-                      (u: string) => `[角色变化] ${u}`,
-                    ),
-                    ...updates.timelineEvents.map(
-                      (e: string) => `[时间线] ${e}`,
+                    ...updates.newFacts.map((f: string) => `[设定] ${f}`),
+                    ...updates.timelineEvents.map((e: string) => `[事件] ${e}`),
+                    ...updates.newRelationships.map(
+                      (r: {
+                        character1: string;
+                        character2: string;
+                        relation: string;
+                      }) =>
+                        `[关系] ${r.character1} ↔ ${r.character2}: ${r.relation}`,
                     ),
                   ].join("\n"),
-                  references: {
-                    chapter: chapterNumber,
-                    timestamp: new Date().toISOString(),
-                    ...updates,
-                  },
                 },
               });
-
-              this.logger.log(
-                `[${missionId}] Keeper updated bible after chapter ${chapterNumber}: ${updates.newFacts.length} facts, ${updates.characterUpdates.length} character updates`,
+            } catch (dbError) {
+              this.logger.warn(
+                `[${missionId}] Failed to save settings: ${(dbError as Error).message}`,
               );
             }
-          } catch (dbError) {
-            this.logger.warn(
-              `[${missionId}] Failed to save bible updates: ${(dbError as Error).message}`,
-            );
           }
+
+          this.logger.log(
+            `[${missionId}] Keeper updated bible after chapter ${chapterNumber}: ` +
+              `${updates.newCharacters.length} new characters, ` +
+              `${updates.characterUpdates.length} updates, ` +
+              `${updates.timelineEvents.length} events`,
+          );
         }
 
         // 发送更新完成事件
         await this.eventEmitter.emitKeeperBibleUpdated(
           projectId,
           chapterNumber,
-          updates,
+          {
+            newFacts: updates.newFacts,
+            characterUpdates: updates.characterUpdates,
+            timelineEvents: updates.timelineEvents,
+          },
         );
         await this.eventEmitter.emitAgentWorking(projectId, {
           agentId: "bible-keeper",
@@ -3628,12 +3766,18 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
           agentRole: "keeper",
           status: "completed",
           taskDescription:
-            updates.newFacts.length + updates.characterUpdates.length > 0
-              ? `已记录 ${updates.newFacts.length + updates.characterUpdates.length} 项更新`
-              : "本章无重大设定变化",
+            updates.newCharacters.length > 0
+              ? `已添加 ${updates.newCharacters.length} 个新角色，${updates.characterUpdates.length} 项状态更新`
+              : updates.characterUpdates.length > 0
+                ? `已记录 ${updates.characterUpdates.length} 项角色状态变化`
+                : "本章无重大设定变化",
         });
 
-        return updates;
+        return {
+          newFacts: updates.newFacts,
+          characterUpdates: updates.characterUpdates,
+          timelineEvents: updates.timelineEvents,
+        };
       }
     } catch (e) {
       this.logger.warn(
