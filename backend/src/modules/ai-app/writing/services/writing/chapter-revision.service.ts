@@ -166,16 +166,19 @@ export class ChapterRevisionService {
     let newContent: string;
     let changeDescription: string;
 
+    // 如果没有选中内容，创建全文选择
+    const fullContentSelection = {
+      startOffset: 0,
+      endOffset: chapter.content.length,
+      originalText: chapter.content,
+    };
+    const effectiveSelection = dto.selection || fullContentSelection;
+
     switch (dto.operation) {
       case "rewrite":
-        if (!dto.selection) {
-          throw new BadRequestException(
-            "Selection is required for rewrite operation",
-          );
-        }
         const rewriteResult = await this.aiRewriteSection(
           chapter.content,
-          dto.selection,
+          effectiveSelection,
           dto.userFeedback,
         );
         newContent = rewriteResult.content;
@@ -193,14 +196,9 @@ export class ChapterRevisionService {
         break;
 
       case "expand":
-        if (!dto.selection) {
-          throw new BadRequestException(
-            "Selection is required for expand operation",
-          );
-        }
         const expandResult = await this.aiExpand(
           chapter.content,
-          dto.selection,
+          effectiveSelection,
           dto.userFeedback,
         );
         newContent = expandResult.content;
@@ -208,14 +206,9 @@ export class ChapterRevisionService {
         break;
 
       case "condense":
-        if (!dto.selection) {
-          throw new BadRequestException(
-            "Selection is required for condense operation",
-          );
-        }
         const condenseResult = await this.aiCondense(
           chapter.content,
-          dto.selection,
+          effectiveSelection,
           dto.userFeedback,
         );
         newContent = condenseResult.content;
