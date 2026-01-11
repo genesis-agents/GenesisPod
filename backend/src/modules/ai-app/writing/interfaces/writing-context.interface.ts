@@ -39,6 +39,50 @@ export interface CharacterStateSnapshot {
 }
 
 /**
+ * 物理识别特征 - 用于一致性校验的关键识别点
+ */
+export interface PhysicalIdentifier {
+  /** 特征位置 */
+  location: string;
+  /** 特征描述 */
+  description: string;
+  /** 特征类型 */
+  type: "birthmark" | "scar" | "tattoo" | "mole" | "other";
+  /** 特征颜色（如适用） */
+  color?: string;
+  /** 特征大小（如适用） */
+  size?: string;
+  /** 特征来源/原因（如伤疤的来源） */
+  origin?: string;
+}
+
+/**
+ * 角色状态转变记录 - 追踪身份/立场的重大变化
+ */
+export interface CharacterStateTransition {
+  /** 转变前状态 */
+  fromState: string;
+  /** 转变后状态 */
+  toState: string;
+  /** 转变类型 */
+  transitionType:
+    | "identity_change"
+    | "alliance_shift"
+    | "status_change"
+    | "revelation"
+    | "death"
+    | "resurrection";
+  /** 发生章节ID */
+  chapterId: string;
+  /** 故事内时间 */
+  storyTime: string;
+  /** 转变理由/原因 */
+  justification: string;
+  /** 是否在正文中显式交代 */
+  isExplicitInText: boolean;
+}
+
+/**
  * 角色档案 - 继承 CoreEntity 并扩展
  */
 export interface WritingCharacterEntity extends CoreEntity {
@@ -58,6 +102,8 @@ export interface WritingCharacterEntity extends CoreEntity {
     eyes?: string;
     distinguishingFeatures?: string[];
     clothing?: string;
+    /** 物理识别特征（胎记、伤疤、痣等） - 用于一致性校验 */
+    physicalIdentifiers?: PhysicalIdentifier[];
   };
   /** 性格特征（结构化） */
   personality?: {
@@ -67,6 +113,10 @@ export interface WritingCharacterEntity extends CoreEntity {
     fears?: string[];
     desires?: string[];
     speechPattern?: string;
+    /** 核心动机层级（按优先级排序） */
+    motivationHierarchy?: string[];
+    /** 内心冲突 */
+    internalConflicts?: string[];
   };
   /** 背景故事 */
   background?: string;
@@ -76,6 +126,12 @@ export interface WritingCharacterEntity extends CoreEntity {
   currentState?: CharacterStateSnapshot;
   /** 状态时间线 */
   stateTimeline?: CharacterStateSnapshot[];
+  /** 状态转变记录 - 追踪身份/立场的重大变化 */
+  stateTransitions?: CharacterStateTransition[];
+  /** 已知秘密（角色知道的秘密） */
+  knownSecrets?: string[];
+  /** 隐藏秘密（只有作者知道，角色不知道） */
+  hiddenSecrets?: string[];
 }
 
 /**
@@ -100,7 +156,7 @@ export interface WorldSettingEntity {
 /**
  * 术语定义
  */
-export interface TerminologyEntry {
+export interface TerminologyEntity {
   /** 术语 */
   term: string;
   /** 定义 */
@@ -116,7 +172,7 @@ export interface TerminologyEntry {
 /**
  * 时间线事件
  */
-export interface TimelineEventEntry {
+export interface TimelineEventEntity {
   /** 事件名称 */
   eventName: string;
   /** 描述 */
@@ -129,6 +185,19 @@ export interface TimelineEventEntry {
   involvedCharacterIds?: string[];
   /** 相关章节ID */
   relatedChapterId?: string;
+  /** 由哪个事件引起（因果链上游） */
+  causedByEventId?: string;
+  /** 导致了哪些事件（因果链下游） */
+  causesEventIds?: string[];
+  /** 事件类型：plot_point（剧情点）、character_change（角色变化）、world_event（世界事件）、conflict（冲突）、resolution（解决） */
+  eventType?:
+    | "plot_point"
+    | "character_change"
+    | "world_event"
+    | "conflict"
+    | "resolution";
+  /** 是否关键剧情点 */
+  isKeyEvent?: boolean;
 }
 
 /**
@@ -183,10 +252,10 @@ export interface StoryBibleExtensions {
   worldSettings: WorldSettingEntity[];
 
   /** 术语表（扩展 glossary） */
-  terminologies: TerminologyEntry[];
+  terminologies: TerminologyEntity[];
 
   /** 时间线事件 */
-  timelineEvents: TimelineEventEntry[];
+  timelineEvents: TimelineEventEntity[];
 
   /** 势力/组织 */
   factions: FactionEntity[];
@@ -236,10 +305,10 @@ export interface ChapterWritingContext {
   relevantWorldSettings: WorldSettingEntity[];
 
   /** 相关术语 */
-  relevantTerminology: TerminologyEntry[];
+  relevantTerminology: TerminologyEntity[];
 
   /** 时间线上下文 */
-  timelineContext: TimelineEventEntry[];
+  timelineContext: TimelineEventEntity[];
 
   /** 写作指令 */
   writingInstructions?: {

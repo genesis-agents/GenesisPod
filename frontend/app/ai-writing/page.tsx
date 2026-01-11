@@ -6,40 +6,17 @@ import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIWritingStore } from '@/stores/aiWritingStore';
 import { getStylePresets, type WritingStylePreset } from '@/lib/api/ai-writing';
+import { WRITING_AGENT_REGISTRY } from '@/lib/ai-writing/agent-config';
 
-// AI Writing Team - Preview (5 core agents)
-const AI_TEAM_PREVIEW = [
-  {
-    id: 'architect',
-    icon: '📐',
-    name: '架构师',
-    color: 'from-purple-500 to-violet-600',
-  },
-  {
-    id: 'keeper',
-    icon: '📚',
-    name: '守护者',
-    color: 'from-indigo-500 to-blue-600',
-  },
-  {
-    id: 'writer',
-    icon: '✍️',
-    name: '作家',
-    color: 'from-amber-500 to-orange-600',
-  },
-  {
-    id: 'checker',
-    icon: '🔍',
-    name: '检查员',
-    color: 'from-green-500 to-emerald-600',
-  },
-  {
-    id: 'editor',
-    icon: '📝',
-    name: '编辑',
-    color: 'from-pink-500 to-rose-600',
-  },
-];
+// AI Writing Team - Preview (5 core agents) - 使用统一配置
+const AI_TEAM_PREVIEW = Object.values(WRITING_AGENT_REGISTRY)
+  .filter((agent) => !agent.supportsMultiInstance || agent.id === 'writer')
+  .map((agent) => ({
+    id: agent.id,
+    icon: agent.icon,
+    name: agent.nameCn,
+    color: agent.gradient,
+  }));
 
 // Genre options
 const GENRES = [

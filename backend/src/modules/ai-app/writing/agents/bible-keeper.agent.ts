@@ -19,7 +19,7 @@ import {
   WritingContextPackage,
   WritingCharacterEntity,
   CharacterStateSnapshot,
-  TimelineEventEntry,
+  TimelineEventEntity,
 } from "../interfaces/writing-context.interface";
 import { TaskProfile } from "../../../ai-engine/llm/types";
 
@@ -59,7 +59,7 @@ export interface BibleKeeperInput {
     /** 更新：来源章节ID */
     sourceChapterId?: string;
     /** 添加：新时间线事件 */
-    newEvent?: TimelineEventEntry;
+    newEvent?: TimelineEventEntity;
     /** 验证：待验证的变更 */
     proposedChange?: {
       type: "character" | "world" | "timeline" | "terminology";
@@ -86,7 +86,7 @@ export interface BibleKeeperOutput {
       rules?: string[];
     }>;
     /** 时间线查询结果 */
-    timelineEvents?: TimelineEventEntry[];
+    timelineEvents?: TimelineEventEntity[];
     /** 术语查询结果 */
     terminology?: {
       term: string;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import ReactMarkdown from 'react-markdown';
@@ -15,6 +15,12 @@ import {
 } from '@/hooks/useWritingWebSocket';
 import type { Chapter, MissionLogItem } from '@/lib/api/ai-writing';
 import { getMissionLogs, getProjectMissions } from '@/lib/api/ai-writing';
+import {
+  generateDisplayAgentList,
+  matchAgentByName,
+  getAgentDetails,
+  type WritingAgentConfig,
+} from '@/lib/ai-writing/agent-config';
 
 // Dynamic import for Canvas component
 const WritingCanvas = dynamic(
@@ -22,118 +28,25 @@ const WritingCanvas = dynamic(
   { ssr: false }
 );
 
-// AI Writing Team - 8 Agents (max configuration)
-// Leader decides actual count at runtime
-const WRITING_AGENTS = [
-  {
-    id: 'architect',
-    name: '故事架构师',
-    icon: '👑',
-    color: 'bg-purple-500',
-    gradient: 'from-purple-400 to-purple-600',
-    desc: '统筹规划',
-  },
-  {
-    id: 'keeper',
-    name: '设定守护者',
-    icon: '📚',
-    color: 'bg-emerald-500',
-    gradient: 'from-emerald-400 to-emerald-600',
-    desc: '世界观',
-  },
-  {
-    id: 'writer-1',
-    name: '作家①',
-    icon: '✍️',
-    color: 'bg-orange-500',
-    gradient: 'from-orange-400 to-orange-600',
-    desc: '内容创作',
-  },
-  {
-    id: 'writer-2',
-    name: '作家②',
-    icon: '✍️',
-    color: 'bg-amber-500',
-    gradient: 'from-amber-400 to-amber-600',
-    desc: '内容创作',
-  },
-  {
-    id: 'writer-3',
-    name: '作家③',
-    icon: '✍️',
-    color: 'bg-yellow-500',
-    gradient: 'from-yellow-400 to-yellow-600',
-    desc: '内容创作',
-  },
-  {
-    id: 'checker-1',
-    name: '检查员①',
-    icon: '🔍',
-    color: 'bg-teal-500',
-    gradient: 'from-teal-400 to-teal-600',
-    desc: '逻辑校验',
-  },
-  {
-    id: 'checker-2',
-    name: '检查员②',
-    icon: '🔍',
-    color: 'bg-cyan-500',
-    gradient: 'from-cyan-400 to-cyan-600',
-    desc: '逻辑校验',
-  },
-  {
-    id: 'editor',
-    name: '润色编辑',
-    icon: '🎨',
-    color: 'bg-pink-500',
-    gradient: 'from-pink-400 to-pink-600',
-    desc: '文字打磨',
-  },
-];
+// 使用统一配置生成 Agent 列表（默认3个作家）
+const WRITING_AGENTS = generateDisplayAgentList(3).map((agent) => ({
+  id: agent.instanceId,
+  name: agent.nameCn,
+  icon: agent.icon,
+  color: agent.color,
+  gradient: agent.gradient,
+  desc: agent.descCn,
+}));
 
-// 根据后端返回的 agentName 匹配到前端配置
+// 根据后端返回的 agentName 匹配到前端配置（使用统一的匹配函数）
 function getAgentConfig(agentName: string | undefined) {
-  if (!agentName)
-    return {
-      icon: '🤖',
-      color: 'bg-gray-500',
-      gradient: 'from-gray-400 to-gray-600',
-      name: 'AI 团队',
-    };
-
-  // 移除 emoji 前缀
-  const cleanName = agentName.replace(/^[^\u4e00-\u9fa5a-zA-Z]+/, '').trim();
-
-  // 精确匹配
-  const exactMatch = WRITING_AGENTS.find((a) => a.name === cleanName);
-  if (exactMatch) return exactMatch;
-
-  // 模糊匹配
-  if (cleanName.includes('架构') || cleanName.includes('Leader')) {
-    return WRITING_AGENTS.find((a) => a.id === 'architect')!;
-  }
-  if (cleanName.includes('守护') || cleanName.includes('设定')) {
-    return WRITING_AGENTS.find((a) => a.id === 'keeper')!;
-  }
-  if (cleanName.includes('作家') || cleanName.includes('写作')) {
-    return WRITING_AGENTS.find((a) => a.id === 'writer-1')!;
-  }
-  if (
-    cleanName.includes('检查') ||
-    cleanName.includes('一致性') ||
-    cleanName.includes('校验')
-  ) {
-    return WRITING_AGENTS.find((a) => a.id === 'checker-1')!;
-  }
-  if (cleanName.includes('编辑') || cleanName.includes('润色')) {
-    return WRITING_AGENTS.find((a) => a.id === 'editor')!;
-  }
-
+  const config = matchAgentByName(agentName);
   return {
-    icon: '🤖',
-    color: 'bg-violet-500',
-    gradient: 'from-violet-400 to-violet-600',
-    name: agentName,
+    icon: config.icon,
+    color: config.color,
+    gradient: config.gradient,
+    name: config.nameCn,
+    id: config.id,
   };
 }
 
@@ -211,76 +124,42 @@ export default function WritingProjectPage() {
   const lastMissionMessageRef = useRef<string>('');
   const hasLoadedLogsRef = useRef<boolean>(false);
 
-  // Agent 详情数据
-  const agentDetails: Record<
-    string,
-    {
-      name: string;
-      role: string;
-      description: string;
-      skills: string[];
-      tools: string[];
+  // Agent 详情数据（使用统一配置动态生成）
+  const agentDetails = useMemo(() => {
+    const details: Record<
+      string,
+      {
+        name: string;
+        role: string;
+        description: string;
+        skills: string[];
+        tools: string[];
+      }
+    > = {};
+
+    // 为所有 Agent 生成详情
+    const agentIds = [
+      'story-architect',
+      'bible-keeper',
+      'writer',
+      'writer-1',
+      'writer-2',
+      'writer-3',
+      'consistency-checker',
+      'editor',
+      // 兼容旧的 ID
+      'architect',
+      'keeper',
+      'checker-1',
+      'checker-2',
+    ];
+
+    for (const id of agentIds) {
+      details[id] = getAgentDetails(id);
     }
-  > = {
-    architect: {
-      name: '故事架构师',
-      role: '团队领导',
-      description:
-        '负责统筹整体故事结构，规划章节大纲，确保叙事逻辑连贯。擅长把握故事节奏和情节转折。',
-      skills: ['故事结构设计', '章节规划', '情节编排', '节奏把控'],
-      tools: ['大纲生成器', '故事线追踪', '冲突设计器'],
-    },
-    keeper: {
-      name: '设定守护者',
-      role: '世界观管理',
-      description:
-        '维护故事世界观的一致性，管理角色设定、地点背景和时间线，确保细节不出错。',
-      skills: ['世界观构建', '角色档案管理', '时间线维护', '设定校验'],
-      tools: ['角色数据库', '世界观图谱', '时间线编辑器'],
-    },
-    'writer-1': {
-      name: '作家①',
-      role: '内容创作',
-      description: '专注于创作生动的故事内容，擅长细腻的情感描写和人物对话。',
-      skills: ['情感描写', '对话创作', '场景渲染', '人物刻画'],
-      tools: ['文本生成器', '风格模板', '词汇库'],
-    },
-    'writer-2': {
-      name: '作家②',
-      role: '内容创作',
-      description: '擅长动作场面和紧张情节的描写，为故事增添激动人心的元素。',
-      skills: ['动作描写', '悬念构建', '节奏控制', '冲突展现'],
-      tools: ['文本生成器', '风格模板', '词汇库'],
-    },
-    'writer-3': {
-      name: '作家③',
-      role: '内容创作',
-      description: '专注于环境描写和氛围营造，让读者身临其境。',
-      skills: ['环境描写', '氛围营造', '意象运用', '细节刻画'],
-      tools: ['文本生成器', '风格模板', '词汇库'],
-    },
-    'checker-1': {
-      name: '检查员①',
-      role: '一致性审核',
-      description: '负责检查内容的逻辑一致性和设定准确性，发现并标记问题。',
-      skills: ['逻辑校验', '设定比对', '时间线检查', '角色行为分析'],
-      tools: ['一致性检查器', '设定比对器', '问题标记器'],
-    },
-    'checker-2': {
-      name: '检查员②',
-      role: '质量审核',
-      description: '专注于内容质量审核，包括文笔流畅度和表达准确性。',
-      skills: ['文笔审核', '语法检查', '表达优化建议', '质量评分'],
-      tools: ['语法检查器', '质量评估器', '改进建议器'],
-    },
-    editor: {
-      name: '编辑',
-      role: '润色优化',
-      description: '对内容进行最终润色，优化文字表达，提升整体阅读体验。',
-      skills: ['文字润色', '表达优化', '风格统一', '细节打磨'],
-      tools: ['润色工具', '同义词库', '风格指南'],
-    },
-  };
+
+    return details;
+  }, []);
 
   // 处理输入变化，检测 @Leader 提及
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
