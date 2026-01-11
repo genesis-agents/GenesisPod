@@ -2728,7 +2728,7 @@ ${narrativeConstraints}`;
         `[${missionId}] Chapter ${chapterNumber} completed: ${chapterWordCount} words`,
       );
 
-      // ★ 关键：立即将章节内容保存到数据库
+      // ★ 关键：立即将章节内容保存到数据库（包含 AI 生成的摘要）
       try {
         const existingChapter = await this.prisma.writingChapter.findFirst({
           where: {
@@ -2737,17 +2737,27 @@ ${narrativeConstraints}`;
           },
         });
         if (existingChapter) {
+          // ★ 合并现有 metadata 和新的摘要，避免覆盖其他字段（如 facts）
+          const existingMetadata =
+            (existingChapter.metadata as Record<string, unknown>) || {};
+          const updatedMetadata = {
+            ...existingMetadata,
+            summary: previousChapterSummary, // ★ 保存 AI 生成的摘要
+            summaryUpdatedAt: new Date().toISOString(),
+          };
+
           await this.prisma.writingChapter.update({
             where: { id: existingChapter.id },
             data: {
               content: chapterContent,
               wordCount: chapterWordCount,
               status: "DRAFT",
+              metadata: updatedMetadata,
               updatedAt: new Date(),
             },
           });
           this.logger.log(
-            `[${missionId}] ✅ Saved chapter ${chapterNumber} to database (${chapterWordCount} words)`,
+            `[${missionId}] ✅ Saved chapter ${chapterNumber} to database (${chapterWordCount} words, with AI summary)`,
           );
         } else {
           this.logger.warn(
@@ -4709,17 +4719,28 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
             chapterNumber: true,
             title: true,
             content: true,
+            metadata: true, // ★ 包含 metadata 以获取存储的 AI 摘要
           },
         });
 
-        // 构建前情提要（从正文提取摘要）
-        const previousContext = previousChapters.reverse().map((prevChap) => ({
-          chapterNumber: prevChap.chapterNumber,
-          title: prevChap.title,
-          summary: prevChap.content
-            ? this.extractSummaryFromContent(prevChap.content)
-            : "（无内容）",
-        }));
+        // ★ 构建前情提要：优先使用存储的 AI 摘要，否则降级到简单截取
+        const previousContext = previousChapters.reverse().map((prevChap) => {
+          const metadata = prevChap.metadata as Record<string, unknown> | null;
+          const storedSummary = metadata?.summary as string | undefined;
+
+          // 优先使用 AI 生成的摘要（如果存在）
+          const summary = storedSummary
+            ? storedSummary
+            : prevChap.content
+              ? this.extractSummaryFromContent(prevChap.content)
+              : "（无内容）";
+
+          return {
+            chapterNumber: prevChap.chapterNumber,
+            title: prevChap.title,
+            summary,
+          };
+        });
 
         contextPackage.extensions.chapterContext = {
           chapter: {
