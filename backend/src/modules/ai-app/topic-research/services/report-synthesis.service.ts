@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { AIModelType, Prisma } from "@prisma/client";
 import type {
   ResearchTopic,
@@ -389,35 +390,26 @@ export class ReportSynthesisService {
 
   /**
    * 解析 AI 报告响应
+   * 使用共享的 JSON 提取工具，支持截断修复
    */
   private parseAIReportResponse(content: string): ComprehensiveReport {
-    try {
-      // 尝试直接解析 JSON
-      const parsed = JSON.parse(content) as AIReportSynthesisResponse;
-      return this.normalizeReportResponse(parsed);
-    } catch {
-      // 如果不是纯 JSON，尝试提取 JSON 代码块
-      const jsonMatch = content.match(/```json\n([\s\S]+?)\n```/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[1]) as AIReportSynthesisResponse;
-        return this.normalizeReportResponse(parsed);
-      }
+    const extractionResult =
+      extractJsonFromAIResponse<AIReportSynthesisResponse>(content, {
+        requiredKey: "preface",
+      });
 
-      // 如果都失败，尝试更宽松的匹配
-      const jsonMatch2 = content.match(/\{[\s\S]*"preface"[\s\S]*\}/);
-      if (jsonMatch2) {
-        try {
-          const parsed = JSON.parse(jsonMatch2[0]) as AIReportSynthesisResponse;
-          return this.normalizeReportResponse(parsed);
-        } catch {
-          // 继续到 fallback
-        }
-      }
-
-      // 如果都失败，创建一个基础的报告结构
-      this.logger.warn("Failed to parse AI report response, using fallback");
-      return this.createFallbackReport(content);
+    if (extractionResult.success && extractionResult.data) {
+      this.logger.debug(
+        `Successfully extracted report JSON using method: ${extractionResult.method}`,
+      );
+      return this.normalizeReportResponse(extractionResult.data);
     }
+
+    // 如果都失败，创建一个基础的报告结构
+    this.logger.warn(
+      `Failed to parse AI report response: ${extractionResult.error}`,
+    );
+    return this.createFallbackReport(content);
   }
 
   /**

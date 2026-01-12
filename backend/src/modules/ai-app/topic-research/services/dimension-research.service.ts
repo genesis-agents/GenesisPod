@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { AIModelType, DimensionStatus } from "@prisma/client";
 import type { ResearchTopic, TopicDimension } from "@prisma/client";
 import type {
@@ -219,60 +220,24 @@ export class DimensionResearchService {
 
   /**
    * 解析 AI 响应
+   * 使用共享的 JSON 提取工具，支持：
+   * - 直接 JSON 解析
+   * - ```json 代码块提取
+   * - ``` 代码块提取
+   * - 带 requiredKey 的 JSON 对象查找
+   * - 截断 JSON 修复
    */
   private parseAIResponse(content: string): AIDimensionAnalysisResponse {
-    // 方法1: 尝试直接解析 JSON
-    try {
-      const parsed = JSON.parse(content);
-      return this.validateAndNormalizeResponse(parsed);
-    } catch {
-      // 继续尝试其他方法
-    }
+    const extractionResult =
+      extractJsonFromAIResponse<AIDimensionAnalysisResponse>(content, {
+        requiredKey: "dimensionAnalysis",
+      });
 
-    // 方法2: 尝试提取 ```json 代码块
-    const jsonBlockMatch = content.match(/```json\s*([\s\S]+?)\s*```/);
-    if (jsonBlockMatch) {
-      try {
-        const parsed = JSON.parse(jsonBlockMatch[1]);
-        return this.validateAndNormalizeResponse(parsed);
-      } catch {
-        // 继续尝试其他方法
-      }
-    }
-
-    // 方法3: 尝试提取 ``` 代码块（不带 json 标记）
-    const codeBlockMatch = content.match(/```\s*([\s\S]+?)\s*```/);
-    if (codeBlockMatch) {
-      try {
-        const parsed = JSON.parse(codeBlockMatch[1]);
-        return this.validateAndNormalizeResponse(parsed);
-      } catch {
-        // 继续尝试其他方法
-      }
-    }
-
-    // 方法4: 尝试找到 JSON 对象的起始和结束
-    const jsonObjectMatch = content.match(
-      /\{[\s\S]*"dimensionAnalysis"[\s\S]*\}/,
-    );
-    if (jsonObjectMatch) {
-      try {
-        const parsed = JSON.parse(jsonObjectMatch[0]);
-        return this.validateAndNormalizeResponse(parsed);
-      } catch {
-        // 继续尝试其他方法
-      }
-    }
-
-    // 方法5: 尝试找到任何有效的 JSON 对象
-    const anyJsonMatch = content.match(/\{[\s\S]*\}/);
-    if (anyJsonMatch) {
-      try {
-        const parsed = JSON.parse(anyJsonMatch[0]);
-        return this.validateAndNormalizeResponse(parsed);
-      } catch {
-        // 继续
-      }
+    if (extractionResult.success && extractionResult.data) {
+      this.logger.debug(
+        `Successfully extracted JSON using method: ${extractionResult.method}`,
+      );
+      return this.validateAndNormalizeResponse(extractionResult.data);
     }
 
     // 所有方法都失败，记录错误并创建后备响应
@@ -280,6 +245,7 @@ export class DimensionResearchService {
       "Failed to parse AI response, content preview:",
       content.substring(0, 500),
     );
+    this.logger.warn("Creating fallback response due to parse failure");
     return this.createFallbackResponse(content);
   }
 
