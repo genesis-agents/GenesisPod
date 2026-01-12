@@ -142,8 +142,15 @@ export function CreateTopicDialog({
   onCreated,
   defaultType = ResearchTopicType.MACRO,
 }: CreateTopicDialogProps) {
-  const { createTopic, fetchTemplates, templates, isLoadingTemplates } =
-    useTopicResearchStore();
+  const {
+    createTopic,
+    fetchTemplates,
+    templates: rawTemplates,
+    isLoadingTemplates,
+  } = useTopicResearchStore();
+
+  // Ensure templates is always an array
+  const templates = Array.isArray(rawTemplates) ? rawTemplates : [];
 
   const [step, setStep] = useState<'type' | 'details'>('type');
   const [selectedType, setSelectedType] =

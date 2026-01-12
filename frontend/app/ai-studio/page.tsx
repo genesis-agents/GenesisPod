@@ -10,6 +10,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getAuthTokens } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
 import { KnowledgeBaseSelector } from '@/components/shared/selectors';
+import {
+  TopicResearchTab,
+  CreateTopicDialog as TopicCreateDialog,
+} from '@/components/topic-research';
+import { ResearchTopicType } from '@/types/topic-research';
 
 // ==================== 自定义图标组件 ====================
 const PlusIcon = ({ className }: { className?: string }) => (
@@ -625,9 +630,12 @@ function StudioPageContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get('tab');
 
-  const [activeTab, setActiveTab] = useState<'fast' | 'deep'>(() => {
+  const [activeTab, setActiveTab] = useState<'fast' | 'deep' | 'topic'>(() => {
     if (tabParam === 'deep') {
       return 'deep';
+    }
+    if (tabParam === 'topic') {
+      return 'topic';
     }
     return 'fast';
   });
@@ -637,15 +645,26 @@ function StudioPageContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
+  // Topic Research tab state
+  const [topicActiveType, setTopicActiveType] =
+    useState<ResearchTopicType | null>(null);
+  const [showTopicCreateDialog, setShowTopicCreateDialog] = useState(false);
+
   // Update activeTab when URL parameter changes
   useEffect(() => {
-    if (tabParam === 'fast' || tabParam === 'deep') {
+    if (tabParam === 'fast' || tabParam === 'deep' || tabParam === 'topic') {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
 
   // 加载项目
   const loadProjects = useCallback(async () => {
+    // Skip loading for topic tab
+    if (activeTab === 'topic') {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -794,8 +813,12 @@ function StudioPageContent() {
               )}
             </button>
             <button
-              onClick={() => router.push('/ai-studio/topic-research')}
-              className="relative pb-3 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700"
+              onClick={() => setActiveTab('topic')}
+              className={`relative pb-3 text-sm font-medium transition-colors ${
+                activeTab === 'topic'
+                  ? 'text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
             >
               <div className="flex items-center gap-2">
                 <svg
@@ -813,6 +836,9 @@ function StudioPageContent() {
                 </svg>
                 {t('topicResearch.title')}
               </div>
+              {activeTab === 'topic' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+              )}
             </button>
           </div>
 
@@ -834,61 +860,73 @@ function StudioPageContent() {
 
       {/* Content */}
       <div className="px-8 py-6">
-        {/* Projects Grid */}
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <LoaderIcon className="h-8 w-8 animate-spin text-violet-600" />
-          </div>
-        ) : error ? (
-          <div className="rounded-xl bg-red-50 p-6 text-center">
-            <p className="text-red-600">{error}</p>
-            <button
-              onClick={loadProjects}
-              className="mt-4 text-sm text-purple-600 hover:underline"
-            >
-              {t('aiStudio.tryAgain')}
-            </button>
-          </div>
-        ) : projects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
-            <FolderOpenIcon className="h-16 w-16 text-gray-300" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">
-              {t('aiStudio.empty.noProjects')}
-            </h3>
-            <p className="mt-1 text-gray-500">
-              {t('aiStudio.empty.noProjectsDesc')}
-            </p>
-            <button
-              onClick={() => setShowCreateDialog(true)}
-              className="mt-6 flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700"
-            >
-              <PlusIcon className="h-5 w-5" />
-              {t('aiStudio.empty.createFirst')}
-            </button>
-          </div>
+        {activeTab === 'topic' ? (
+          /* Topic Research Tab Content */
+          <TopicResearchTab
+            activeType={topicActiveType}
+            searchQuery={searchQuery}
+            showCreateDialog={showTopicCreateDialog}
+            onShowCreateDialog={setShowTopicCreateDialog}
+          />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onClick={() => router.push(`/studio/${project.id}`)}
-                onArchive={() => handleArchive(project.id)}
-                onDelete={() => handleDelete(project.id)}
-              />
-            ))}
+          /* Fast/Deep Research Projects Grid */
+          <>
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <LoaderIcon className="h-8 w-8 animate-spin text-violet-600" />
+              </div>
+            ) : error ? (
+              <div className="rounded-xl bg-red-50 p-6 text-center">
+                <p className="text-red-600">{error}</p>
+                <button
+                  onClick={loadProjects}
+                  className="mt-4 text-sm text-purple-600 hover:underline"
+                >
+                  {t('aiStudio.tryAgain')}
+                </button>
+              </div>
+            ) : projects.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
+                <FolderOpenIcon className="h-16 w-16 text-gray-300" />
+                <h3 className="mt-4 text-lg font-medium text-gray-900">
+                  {t('aiStudio.empty.noProjects')}
+                </h3>
+                <p className="mt-1 text-gray-500">
+                  {t('aiStudio.empty.noProjectsDesc')}
+                </p>
+                <button
+                  onClick={() => setShowCreateDialog(true)}
+                  className="mt-6 flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white hover:bg-purple-700"
+                >
+                  <PlusIcon className="h-5 w-5" />
+                  {t('aiStudio.empty.createFirst')}
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {projects.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    onClick={() => router.push(`/studio/${project.id}`)}
+                    onArchive={() => handleArchive(project.id)}
+                    onDelete={() => handleDelete(project.id)}
+                  />
+                ))}
 
-            {/* Create New Card */}
-            <button
-              onClick={() => setShowCreateDialog(true)}
-              className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-violet-400 hover:bg-violet-50"
-            >
-              <PlusIcon className="h-10 w-10 text-gray-400" />
-              <span className="mt-2 text-sm font-medium text-gray-600">
-                {t('aiStudio.empty.createNew')}
-              </span>
-            </button>
-          </div>
+                {/* Create New Card */}
+                <button
+                  onClick={() => setShowCreateDialog(true)}
+                  className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-violet-400 hover:bg-violet-50"
+                >
+                  <PlusIcon className="h-10 w-10 text-gray-400" />
+                  <span className="mt-2 text-sm font-medium text-gray-600">
+                    {t('aiStudio.empty.createNew')}
+                  </span>
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 

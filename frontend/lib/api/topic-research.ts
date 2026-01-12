@@ -91,7 +91,11 @@ export async function getTopics(
   if (options?.take) params.set('take', options.take.toString());
 
   const query = params.toString();
-  return fetchWithAuth(`${API_PREFIX}/topics${query ? `?${query}` : ''}`);
+  const response = await fetchWithAuth(
+    `${API_PREFIX}/topics${query ? `?${query}` : ''}`
+  );
+  // Backend returns { topics, total, skip, take }, extract the topics array
+  return Array.isArray(response) ? response : response.topics || [];
 }
 
 /**
@@ -411,7 +415,29 @@ export async function getEvidenceDetail(
 export async function getTemplates(
   type: ResearchTopicType
 ): Promise<ResearchTemplate[]> {
-  return fetchWithAuth(`${API_PREFIX}/templates?type=${type}`);
+  const response = await fetchWithAuth(`${API_PREFIX}/templates?type=${type}`);
+  // Backend returns { type, dimensions }, convert to template format
+  if (Array.isArray(response)) {
+    return response;
+  }
+  // If dimensions exist, create a single template from them
+  if (response.dimensions && Array.isArray(response.dimensions)) {
+    return [
+      {
+        id: `template-${response.type}`,
+        name:
+          response.type === 'MACRO'
+            ? '宏观洞察模板'
+            : response.type === 'TECHNOLOGY'
+              ? '技术趋势模板'
+              : '企业追踪模板',
+        description: `${response.type} 类型的默认研究维度模板`,
+        type: response.type,
+        dimensions: response.dimensions,
+      },
+    ];
+  }
+  return [];
 }
 
 /**
