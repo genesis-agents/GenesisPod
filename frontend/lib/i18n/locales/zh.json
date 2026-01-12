@@ -1365,5 +1365,39 @@
     "baseCredits": "基础积分",
     "perOperation": "每次操作",
     "usageByModule": "按模块使用量"
+  },
+  "topicResearch": {
+    "title": "专题研究",
+    "subtitle": "持续追踪行业动态，生成深度研究报告",
+    "createTopic": "创建专题",
+    "createFirstTopic": "创建第一个专题",
+    "searchPlaceholder": "搜索专题...",
+    "noTopics": "暂无研究专题",
+    "noTopicsDesc": "创建您的第一个研究专题，开始追踪行业动态",
+    "noMatchingTopics": "未找到匹配的专题",
+    "noMatchingTopicsDesc": "请尝试其他搜索关键词",
+    "confirmDelete": "确定要删除这个专题吗？所有相关数据将被永久删除。",
+    "refreshNow": "立即刷新",
+    "deleteTopic": "删除专题",
+    "lastRefresh": "上次刷新",
+    "never": "从未",
+    "minutesAgo": "{{count}} 分钟前",
+    "hoursAgo": "{{count}} 小时前",
+    "daysAgo": "{{count}} 天前",
+    "yesterday": "昨天",
+    "dimensionProgress": "维度完成度",
+    "reports": "份报告",
+    "sources": "个来源",
+    "tabs": {
+      "all": "全部",
+      "macro": "宏观洞察",
+      "technology": "技术趋势",
+      "company": "企业追踪"
+    },
+    "types": {
+      "macro": "宏观洞察",
+      "technology": "技术趋势",
+      "company": "企业追踪"
+    }
   }
 }
