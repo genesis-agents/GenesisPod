@@ -134,7 +134,7 @@ export function TopicResearchLayout({
   evidence,
   isRefreshing,
   refreshProgress,
-  missionStatus: _missionStatus,
+  missionStatus,
   teamInfo: _teamInfo,
   isLoadingReport,
   isLoadingEvidence,
@@ -271,7 +271,7 @@ export function TopicResearchLayout({
               <div className="flex-1 overflow-hidden">
                 <TopicTeamPanel
                   topicName={topic.name}
-                  dimensions={dimensions}
+                  missionStatus={missionStatus}
                   isRefreshing={isRefreshing}
                   refreshProgress={refreshProgress}
                   onStartRefresh={onStartRefresh}

@@ -1,18 +1,16 @@
 'use client';
 
 /**
- * Topic Team Panel - Minimalist Business Style
+ * Topic Team Panel - Leader-driven Research Panel
  *
- * Clean, professional design with:
- * - Simple geometric shapes
- * - Muted color palette (grays, subtle blues)
- * - Clear hierarchy without clutter
- * - @Leader input for sending instructions
+ * v7.0: 参照 AI Writing 设计
+ * - 顶部：简洁团队可视化
+ * - 中间：任务清单（显示 Leader 规划的步骤）
+ * - 底部：进度条 + 操作按钮
  */
 
-import { useMemo } from 'react';
-import type { TopicDimension } from '@/types/topic-research';
-import { DimensionStatus } from '@/types/topic-research';
+import { useState, useMemo } from 'react';
+import type { MissionStatus, TaskStatus } from '@/lib/api/topic-research';
 
 interface SimpleRefreshProgress {
   phase: string;
@@ -25,194 +23,273 @@ interface SimpleRefreshProgress {
 
 interface TopicTeamPanelProps {
   topicName: string;
-  dimensions: TopicDimension[];
+  missionStatus?: MissionStatus | null;
   isRefreshing: boolean;
   refreshProgress: SimpleRefreshProgress | null;
   onStartRefresh?: () => void;
   onCancelRefresh?: () => void;
 }
 
+// 任务类型显示名称
+const taskTypeLabels: Record<string, string> = {
+  dimension_research: '维度研究',
+  quality_review: '质量审核',
+  report_synthesis: '报告撰写',
+};
+
+// 状态图标映射
+const statusIcons: Record<string, string> = {
+  PENDING: '○',
+  EXECUTING: '◐',
+  COMPLETED: '✓',
+  FAILED: '✕',
+  NEEDS_REVISION: '↻',
+};
+
+// 状态颜色映射
+const statusColors: Record<
+  string,
+  { bg: string; text: string; border: string }
+> = {
+  PENDING: {
+    bg: 'bg-gray-50',
+    text: 'text-gray-500',
+    border: 'border-gray-200',
+  },
+  EXECUTING: {
+    bg: 'bg-blue-50',
+    text: 'text-blue-600',
+    border: 'border-blue-300',
+  },
+  COMPLETED: {
+    bg: 'bg-green-50',
+    text: 'text-green-600',
+    border: 'border-green-300',
+  },
+  FAILED: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-300' },
+  NEEDS_REVISION: {
+    bg: 'bg-yellow-50',
+    text: 'text-yellow-600',
+    border: 'border-yellow-300',
+  },
+};
+
 // Phase display mapping
 const phaseDisplay: Record<string, string> = {
   idle: '待研究',
-  starting: '启动中',
+  planning: '规划中',
   researching: '研究中',
   reviewing: '审核中',
-  synthesizing: '生成报告',
+  synthesizing: '撰写中',
   completed: '已完成',
   failed: '失败',
 };
 
 export function TopicTeamPanel({
   topicName,
-  dimensions,
+  missionStatus,
   isRefreshing,
   refreshProgress,
   onStartRefresh,
   onCancelRefresh,
 }: TopicTeamPanelProps) {
-  const safeDimensions = dimensions || [];
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
-  // Calculate researcher states
-  const researchers = useMemo(() => {
-    return safeDimensions.map((dim, index) => {
-      const isActive = refreshProgress?.currentDimension === dim.name;
-      let isCompleted = false;
-      let isFailed = false;
+  // 从 missionStatus 提取任务
+  const tasks = missionStatus?.tasks || [];
 
-      if (isRefreshing && refreshProgress) {
-        isCompleted = index < refreshProgress.completedDimensions;
-      } else {
-        isCompleted = dim.status === DimensionStatus.COMPLETED;
-        isFailed = dim.status === DimensionStatus.FAILED;
-      }
+  // 按类型分组任务
+  const taskGroups = useMemo(() => {
+    const dimensionTasks = tasks.filter(
+      (t) => t.taskType === 'dimension_research'
+    );
+    const reviewTask = tasks.find((t) => t.taskType === 'quality_review');
+    const synthesisTask = tasks.find((t) => t.taskType === 'report_synthesis');
+    return { dimensionTasks, reviewTask, synthesisTask };
+  }, [tasks]);
 
-      return {
-        id: dim.id,
-        name: dim.name,
-        isActive,
-        isCompleted,
-        isFailed,
-      };
-    });
-  }, [safeDimensions, refreshProgress, isRefreshing]);
-
-  // Progress stats
+  // 计算统计
   const stats = useMemo(() => {
-    const completed = refreshProgress?.completedDimensions || 0;
-    const total = refreshProgress?.totalDimensions || safeDimensions.length;
-    const progress = refreshProgress?.progress || 0;
-    return { completed, total, progress };
-  }, [refreshProgress, safeDimensions.length]);
+    const completed = missionStatus?.completedTasks || 0;
+    const total = missionStatus?.totalTasks || 0;
+    const progress = missionStatus?.progress || 0;
+    const executing = tasks.filter((t) => t.status === 'EXECUTING').length;
+    const failed = tasks.filter((t) => t.status === 'FAILED').length;
+    return { completed, total, progress, executing, failed };
+  }, [missionStatus, tasks]);
 
-  // Current phase
+  // 当前阶段
   const currentPhase =
-    refreshProgress?.phase || (stats.progress >= 100 ? 'completed' : 'idle');
+    missionStatus?.currentPhase || refreshProgress?.phase || 'idle';
+  const hasMission = !!missionStatus && tasks.length > 0;
+
+  const toggleTask = (taskId: string) => {
+    setExpandedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  };
 
   return (
     <div className="flex h-full flex-col bg-white">
       {/* Header */}
       <div className="border-b border-gray-100 px-4 py-3">
         <div className="flex items-center justify-between">
-          <h3 className="truncate text-sm font-medium text-gray-700">
+          <h3 className="truncate text-sm font-medium text-gray-800">
             {topicName}
           </h3>
           <span
-            className={`flex-shrink-0 rounded px-2 py-0.5 text-xs font-medium ${
-              isRefreshing
-                ? 'bg-blue-50 text-blue-600'
-                : stats.progress >= 100
-                  ? 'bg-green-50 text-green-600'
-                  : 'bg-gray-50 text-gray-500'
+            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+              currentPhase === 'completed'
+                ? 'bg-green-100 text-green-700'
+                : currentPhase === 'failed'
+                  ? 'bg-red-100 text-red-700'
+                  : isRefreshing
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-600'
             }`}
           >
             {phaseDisplay[currentPhase] || currentPhase}
           </span>
         </div>
 
+        {/* Progress stats */}
+        {hasMission && (
+          <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
+            <span className="text-green-600">✓ {stats.completed}</span>
+            {stats.executing > 0 && (
+              <span className="text-blue-600">◐ {stats.executing}</span>
+            )}
+            {stats.failed > 0 && (
+              <span className="text-red-600">✕ {stats.failed}</span>
+            )}
+            <span className="text-gray-400">共 {stats.total} 个任务</span>
+          </div>
+        )}
+
         {/* Progress bar */}
         <div className="mt-3">
-          <div className="mb-1 flex justify-between text-xs text-gray-400">
-            <span>研究进度</span>
-            <span>
-              {stats.completed} / {stats.total}
-            </span>
-          </div>
-          <div className="h-1 overflow-hidden rounded-full bg-gray-100">
+          <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
             <div
               className={`h-full transition-all duration-500 ${
-                isRefreshing ? 'bg-blue-500' : 'bg-green-500'
+                currentPhase === 'failed'
+                  ? 'bg-red-500'
+                  : currentPhase === 'completed'
+                    ? 'bg-green-500'
+                    : 'bg-blue-500'
               }`}
-              style={{ width: `${Math.min(stats.progress, 100)}%` }}
+              style={{ width: `${stats.progress}%` }}
             />
           </div>
+          <div className="mt-1 flex justify-between text-xs text-gray-400">
+            <span>整体进度</span>
+            <span>{Math.round(stats.progress)}%</span>
+          </div>
         </div>
-
-        {/* Current message */}
-        {isRefreshing && refreshProgress?.message && (
-          <p className="mt-2 truncate text-xs text-blue-500">
-            {refreshProgress.message}
-          </p>
-        )}
       </div>
 
-      {/* Team Visualization - Minimalist Style */}
-      <div className="flex-1 overflow-hidden p-4">
-        <MinimalistTeamCanvas
-          researchers={researchers}
+      {/* Team Visualization - Compact */}
+      <div className="border-b border-gray-100 px-4 py-3">
+        <CompactTeamVisualization
+          dimensionCount={taskGroups.dimensionTasks.length}
+          hasReviewer={!!taskGroups.reviewTask}
+          hasSynthesizer={!!taskGroups.synthesisTask}
           isRefreshing={isRefreshing}
           currentPhase={currentPhase}
         />
       </div>
 
-      {/* Legend - Role colors */}
-      <div className="border-t border-gray-100 px-4 py-2">
-        <div className="flex flex-wrap items-center justify-center gap-3 text-xs">
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-full border-2 border-purple-500 bg-purple-50" />
-            <span className="text-purple-600">协调</span>
+      {/* Task List */}
+      <div className="flex-1 overflow-y-auto">
+        {!hasMission ? (
+          <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+              <span className="text-xl">👑</span>
+            </div>
+            <p className="text-sm font-medium text-gray-700">
+              等待 Leader 规划
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              点击"开始研究"后，Leader 将分析任务并分配研究员
+            </p>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-full border-2 border-blue-500 bg-blue-50" />
-            <span className="text-blue-600">研究</span>
+        ) : (
+          <div className="space-y-2 p-3">
+            {/* 维度研究任务 */}
+            {taskGroups.dimensionTasks.length > 0 && (
+              <div className="mb-3">
+                <div className="mb-2 flex items-center gap-2 text-xs font-medium text-gray-500">
+                  <span className="h-4 w-4 rounded bg-blue-100 text-center text-blue-600">
+                    🔍
+                  </span>
+                  <span>维度研究 ({taskGroups.dimensionTasks.length})</span>
+                </div>
+                {taskGroups.dimensionTasks.map((task) => (
+                  <TaskItem
+                    key={task.id}
+                    task={task}
+                    isExpanded={expandedTasks.has(task.id)}
+                    onToggle={() => toggleTask(task.id)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* 质量审核任务 */}
+            {taskGroups.reviewTask && (
+              <div className="mb-3">
+                <div className="mb-2 flex items-center gap-2 text-xs font-medium text-gray-500">
+                  <span className="h-4 w-4 rounded bg-green-100 text-center text-green-600">
+                    ✓
+                  </span>
+                  <span>质量审核</span>
+                </div>
+                <TaskItem
+                  task={taskGroups.reviewTask}
+                  isExpanded={expandedTasks.has(taskGroups.reviewTask.id)}
+                  onToggle={() => toggleTask(taskGroups.reviewTask!.id)}
+                />
+              </div>
+            )}
+
+            {/* 报告撰写任务 */}
+            {taskGroups.synthesisTask && (
+              <div>
+                <div className="mb-2 flex items-center gap-2 text-xs font-medium text-gray-500">
+                  <span className="h-4 w-4 rounded bg-orange-100 text-center text-orange-600">
+                    📊
+                  </span>
+                  <span>报告撰写</span>
+                </div>
+                <TaskItem
+                  task={taskGroups.synthesisTask}
+                  isExpanded={expandedTasks.has(taskGroups.synthesisTask.id)}
+                  onToggle={() => toggleTask(taskGroups.synthesisTask!.id)}
+                />
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-full border-2 border-green-500 bg-green-50" />
-            <span className="text-green-600">审核</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-full border-2 border-orange-500 bg-orange-50" />
-            <span className="text-orange-600">撰写</span>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Action Button */}
+      {/* Action Buttons */}
       <div className="border-t border-gray-100 p-3">
         {isRefreshing ? (
           <button
             onClick={onCancelRefresh}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
           >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-            取消研究
+            <span>□</span>
+            取消任务
           </button>
         ) : (
           <button
             onClick={onStartRefresh}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-3 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
           >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+            <span>▶</span>
             开始研究
           </button>
         )}
@@ -221,367 +298,151 @@ export function TopicTeamPanel({
   );
 }
 
-// Minimalist Team Canvas Component
-interface MinimalistTeamCanvasProps {
-  researchers: Array<{
-    id: string;
-    name: string;
-    isActive: boolean;
-    isCompleted: boolean;
-    isFailed: boolean;
-  }>;
-  isRefreshing: boolean;
-  currentPhase: string;
-}
-
-function MinimalistTeamCanvas({
-  researchers,
+// 紧凑型团队可视化
+function CompactTeamVisualization({
+  dimensionCount,
+  hasReviewer,
+  hasSynthesizer,
   isRefreshing,
   currentPhase,
-}: MinimalistTeamCanvasProps) {
-  const canvasWidth = 320;
-  const canvasHeight = 320;
-
-  // Calculate positions for a clean hierarchical layout
-  const nodePositions = useMemo(() => {
-    const positions: Record<string, { x: number; y: number }> = {};
-    const centerX = canvasWidth / 2;
-
-    // Coordinator at top
-    positions.coordinator = { x: centerX, y: 40 };
-
-    // Researchers in rows (max 3 per row)
-    const maxPerRow = 3;
-    const rowGap = 65;
-    const startY = 110;
-
-    researchers.forEach((_, index) => {
-      const row = Math.floor(index / maxPerRow);
-      const col = index % maxPerRow;
-      const itemsInRow = Math.min(
-        maxPerRow,
-        researchers.length - row * maxPerRow
-      );
-      const colWidth = 85;
-      const totalWidth = itemsInRow * colWidth;
-      const startX = (canvasWidth - totalWidth) / 2 + colWidth / 2;
-
-      positions[researchers[index].id] = {
-        x: startX + col * colWidth,
-        y: startY + row * rowGap,
-      };
-    });
-
-    // Bottom row: Reviewer and Synthesizer
-    const rows = Math.ceil(researchers.length / maxPerRow);
-    const bottomY = startY + rows * rowGap + 20;
-    positions.reviewer = { x: centerX - 50, y: bottomY };
-    positions.synthesizer = { x: centerX + 50, y: bottomY };
-
-    return positions;
-  }, [researchers]);
-
-  // Coordinator state
-  const coordinatorActive =
-    isRefreshing && ['starting', 'researching'].includes(currentPhase);
-  const coordinatorCompleted = currentPhase === 'completed';
-
-  // Reviewer state
-  const reviewerActive = currentPhase === 'reviewing';
-  const reviewerCompleted = ['synthesizing', 'completed'].includes(
-    currentPhase
-  );
-
-  // Synthesizer state
-  const synthesizerActive = currentPhase === 'synthesizing';
-  const synthesizerCompleted = currentPhase === 'completed';
+}: {
+  dimensionCount: number;
+  hasReviewer: boolean;
+  hasSynthesizer: boolean;
+  isRefreshing: boolean;
+  currentPhase: string;
+}) {
+  const showPlaceholder = dimensionCount === 0;
 
   return (
-    <svg
-      viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
-      className="h-full w-full"
-      preserveAspectRatio="xMidYMid meet"
-    >
-      {/* Subtle grid pattern */}
-      <defs>
-        <pattern
-          id="minimalist-grid"
-          width="40"
-          height="40"
-          patternUnits="userSpaceOnUse"
+    <div className="flex flex-col items-center gap-3">
+      {/* Leader */}
+      <div className="flex flex-col items-center">
+        <div
+          className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${
+            isRefreshing
+              ? 'border-purple-400 bg-purple-50'
+              : 'border-gray-300 bg-gray-50'
+          }`}
         >
-          <circle cx="20" cy="20" r="0.5" fill="#e5e7eb" />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#minimalist-grid)" />
+          <span className="text-lg">👑</span>
+        </div>
+        <span className="mt-1 text-xs text-purple-600">Leader</span>
+      </div>
 
-      {/* Connection lines - simple straight lines */}
-      {researchers.map((researcher) => {
-        const from = nodePositions.coordinator;
-        const to = nodePositions[researcher.id];
-        if (!from || !to) return null;
-
-        return (
-          <line
-            key={`coord-${researcher.id}`}
-            x1={from.x}
-            y1={from.y + 16}
-            x2={to.x}
-            y2={to.y - 16}
-            stroke={
-              researcher.isCompleted
-                ? '#10b981'
-                : researcher.isActive
-                  ? '#3b82f6'
-                  : '#e5e7eb'
-            }
-            strokeWidth={1}
-            strokeDasharray={
-              researcher.isCompleted || researcher.isActive ? '0' : '4 2'
-            }
-          />
-        );
-      })}
-
-      {/* Lines from researchers to bottom nodes */}
-      {researchers.map((researcher, index) => {
-        const from = nodePositions[researcher.id];
-        const toNode =
-          index < researchers.length / 2 ? 'reviewer' : 'synthesizer';
-        const to = nodePositions[toNode];
-        if (!from || !to) return null;
-
-        return (
-          <line
-            key={`${researcher.id}-bottom`}
-            x1={from.x}
-            y1={from.y + 16}
-            x2={to.x}
-            y2={to.y - 16}
-            stroke={researcher.isCompleted ? '#d1d5db' : '#e5e7eb'}
-            strokeWidth={1}
-            strokeDasharray="4 2"
-          />
-        );
-      })}
-
-      {/* Coordinator Node */}
-      <MinimalistNode
-        x={nodePositions.coordinator.x}
-        y={nodePositions.coordinator.y}
-        label="协调"
-        role="coordinator"
-        isActive={coordinatorActive}
-        isCompleted={coordinatorCompleted}
+      {/* Connection line */}
+      <div
+        className={`h-4 w-px ${isRefreshing ? 'bg-purple-300' : 'bg-gray-200'}`}
       />
 
-      {/* Researcher Nodes */}
-      {researchers.map((researcher) => {
-        const pos = nodePositions[researcher.id];
-        if (!pos) return null;
-        return (
-          <MinimalistNode
-            key={researcher.id}
-            x={pos.x}
-            y={pos.y}
-            label={
-              researcher.name.length > 4
-                ? researcher.name.slice(0, 4)
-                : researcher.name
-            }
-            role="researcher"
-            isActive={researcher.isActive}
-            isCompleted={researcher.isCompleted}
-            isFailed={researcher.isFailed}
+      {/* Researchers row */}
+      <div className="flex items-center justify-center gap-2">
+        {showPlaceholder ? (
+          // 占位符 - 等待分配
+          <div className="flex items-center gap-1 rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs text-gray-400">
+            <span>?</span>
+            <span>等待分配研究员...</span>
+          </div>
+        ) : (
+          // 显示研究员数量
+          <>
+            {Array.from({ length: Math.min(dimensionCount, 4) }).map((_, i) => (
+              <div
+                key={i}
+                className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
+                  currentPhase === 'researching'
+                    ? 'border-blue-400 bg-blue-50'
+                    : 'border-gray-300 bg-gray-50'
+                }`}
+              >
+                <span className="text-sm">🔍</span>
+              </div>
+            ))}
+            {dimensionCount > 4 && (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 bg-gray-50 text-xs text-gray-500">
+                +{dimensionCount - 4}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Bottom row - Reviewer & Synthesizer */}
+      {(hasReviewer || hasSynthesizer) && (
+        <>
+          <div
+            className={`h-4 w-px ${isRefreshing ? 'bg-gray-300' : 'bg-gray-200'}`}
           />
-        );
-      })}
-
-      {/* Reviewer Node */}
-      <MinimalistNode
-        x={nodePositions.reviewer.x}
-        y={nodePositions.reviewer.y}
-        label="审核"
-        role="reviewer"
-        isActive={reviewerActive}
-        isCompleted={reviewerCompleted}
-      />
-
-      {/* Synthesizer Node */}
-      <MinimalistNode
-        x={nodePositions.synthesizer.x}
-        y={nodePositions.synthesizer.y}
-        label="撰写"
-        role="synthesizer"
-        isActive={synthesizerActive}
-        isCompleted={synthesizerCompleted}
-      />
-    </svg>
+          <div className="flex items-center gap-4">
+            {hasReviewer && (
+              <div className="flex flex-col items-center">
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
+                    currentPhase === 'reviewing'
+                      ? 'border-green-400 bg-green-50'
+                      : 'border-gray-300 bg-gray-50'
+                  }`}
+                >
+                  <span className="text-sm">✅</span>
+                </div>
+                <span className="mt-0.5 text-[10px] text-green-600">审核</span>
+              </div>
+            )}
+            {hasSynthesizer && (
+              <div className="flex flex-col items-center">
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
+                    currentPhase === 'synthesizing'
+                      ? 'border-orange-400 bg-orange-50'
+                      : 'border-gray-300 bg-gray-50'
+                  }`}
+                >
+                  <span className="text-sm">📊</span>
+                </div>
+                <span className="mt-0.5 text-[10px] text-orange-600">撰写</span>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
-// Agent role color configuration (matching AI Writing pattern)
-type AgentRoleType = 'coordinator' | 'researcher' | 'reviewer' | 'synthesizer';
-
-const AGENT_ROLE_COLORS: Record<
-  AgentRoleType,
-  { fill: string; stroke: string; text: string; icon: string; name: string }
-> = {
-  coordinator: {
-    fill: '#faf5ff', // purple-50
-    stroke: '#a855f7', // purple-500
-    text: '#7c3aed', // violet-600
-    icon: '👑',
-    name: '协调',
-  },
-  researcher: {
-    fill: '#eff6ff', // blue-50
-    stroke: '#3b82f6', // blue-500
-    text: '#2563eb', // blue-600
-    icon: '🔍',
-    name: '研究',
-  },
-  reviewer: {
-    fill: '#f0fdf4', // green-50
-    stroke: '#22c55e', // green-500
-    text: '#16a34a', // green-600
-    icon: '✅',
-    name: '审核',
-  },
-  synthesizer: {
-    fill: '#fff7ed', // orange-50
-    stroke: '#f97316', // orange-500
-    text: '#ea580c', // orange-600
-    icon: '📊',
-    name: '撰写',
-  },
-};
-
-// Minimalist Node Component with role-based coloring
-interface MinimalistNodeProps {
-  x: number;
-  y: number;
-  label: string;
-  role: AgentRoleType;
-  isActive?: boolean;
-  isCompleted?: boolean;
-  isFailed?: boolean;
-}
-
-function MinimalistNode({
-  x,
-  y,
-  label,
-  role,
-  isActive,
-  isCompleted,
-  isFailed,
-}: MinimalistNodeProps) {
-  const isLeader = role === 'coordinator';
-  const radius = isLeader ? 20 : 16;
-  const roleConfig = AGENT_ROLE_COLORS[role];
-
-  // Determine colors based on state
-  let fillColor = roleConfig.fill;
-  let strokeColor = roleConfig.stroke;
-  let textColor = roleConfig.text;
-
-  // Override with status colors if active/completed/failed
-  if (isActive) {
-    // Keep role color but add glow
-  } else if (isCompleted) {
-    fillColor = '#f0fdf4'; // green-50
-    strokeColor = '#10b981'; // green-500
-    textColor = '#10b981';
-  } else if (isFailed) {
-    fillColor = '#fef2f2'; // red-50
-    strokeColor = '#ef4444'; // red-500
-    textColor = '#ef4444';
-  }
+// 任务项组件
+function TaskItem({
+  task,
+  isExpanded,
+  onToggle,
+}: {
+  task: TaskStatus;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const colors = statusColors[task.status] || statusColors.PENDING;
+  const icon = statusIcons[task.status] || '○';
 
   return (
-    <g>
-      {/* Active glow effect */}
-      {isActive && (
-        <circle
-          cx={x}
-          cy={y}
-          r={radius + 8}
-          fill="none"
-          stroke={strokeColor}
-          strokeWidth={2}
-          opacity={0.4}
-        >
-          <animate
-            attributeName="r"
-            from={radius + 4}
-            to={radius + 12}
-            dur="1.5s"
-            repeatCount="indefinite"
-          />
-          <animate
-            attributeName="opacity"
-            from="0.4"
-            to="0"
-            dur="1.5s"
-            repeatCount="indefinite"
-          />
-        </circle>
+    <div className={`mb-2 rounded-lg border ${colors.border} ${colors.bg}`}>
+      <button className="w-full px-3 py-2 text-left" onClick={onToggle}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className={`text-sm font-medium ${colors.text}`}>{icon}</span>
+            <span className="text-sm text-gray-800">
+              {task.dimensionName || task.title}
+            </span>
+          </div>
+          <span className="text-xs text-gray-400">
+            {isExpanded ? '▲' : '▼'}
+          </span>
+        </div>
+      </button>
+
+      {isExpanded && task.reviewStatus && (
+        <div className="border-t border-gray-100 px-3 py-2 text-xs text-gray-500">
+          <p>状态: {task.reviewStatus}</p>
+        </div>
       )}
-
-      {/* Main circle with gradient effect */}
-      <circle
-        cx={x}
-        cy={y}
-        r={radius}
-        fill={fillColor}
-        stroke={strokeColor}
-        strokeWidth={2}
-      />
-
-      {/* Role icon */}
-      <text
-        x={x}
-        y={y + 1}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fontSize={isLeader ? 14 : 12}
-      >
-        {roleConfig.icon}
-      </text>
-
-      {/* Status indicator dot */}
-      {(isActive || isCompleted) && (
-        <circle
-          cx={x + radius - 3}
-          cy={y - radius + 3}
-          r={5}
-          fill={isActive ? strokeColor : '#10b981'}
-          stroke="white"
-          strokeWidth={1.5}
-        >
-          {isActive && (
-            <animate
-              attributeName="opacity"
-              values="1;0.5;1"
-              dur="1s"
-              repeatCount="indefinite"
-            />
-          )}
-        </circle>
-      )}
-
-      {/* Label */}
-      <text
-        x={x}
-        y={y + radius + 14}
-        textAnchor="middle"
-        fontSize={10}
-        fontWeight={600}
-        fill={textColor}
-      >
-        {label}
-      </text>
-    </g>
+    </div>
   );
 }
