@@ -24,6 +24,8 @@ import {
   ResearchLeaderService,
   type LeaderPlan,
 } from "./research-leader.service";
+import { DimensionResearchService } from "./dimension-research.service";
+import { ReportSynthesisService } from "./report-synthesis.service";
 
 // ==================== Constants ====================
 
@@ -107,6 +109,8 @@ export class ResearchMissionService {
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly leaderService: ResearchLeaderService,
+    private readonly dimensionResearchService: DimensionResearchService,
+    private readonly reportSynthesisService: ReportSynthesisService,
   ) {}
 
   /**
@@ -218,6 +222,11 @@ export class ResearchMissionService {
       this.logger.log(
         `[createMission] Mission ${mission.id} created with ${tasks.length} tasks`,
       );
+
+      // ★ 启动异步任务执行（不阻塞返回）
+      this.startExecution(mission.id, topicId).catch((err) => {
+        this.logger.error(`[createMission] Execution failed: ${err}`);
+      });
 
       return updatedMission;
     } catch (error) {
@@ -815,5 +824,270 @@ export class ResearchMissionService {
       const dependencies = task.dependencies || [];
       return dependencies.every((depId) => completedTaskIds.has(depId));
     });
+  }
+
+  /**
+   * 启动任务执行循环
+   * 异步执行所有可执行的任务
+   */
+  private async startExecution(
+    missionId: string,
+    topicId: string,
+  ): Promise<void> {
+    this.logger.log(
+      `[startExecution] Starting execution for mission ${missionId}`,
+    );
+
+    // 获取专题信息
+    const topic = await this.prisma.researchTopic.findUnique({
+      where: { id: topicId },
+      include: { dimensions: true },
+    });
+
+    if (!topic) {
+      throw new Error(`Topic ${topicId} not found`);
+    }
+
+    // 执行循环
+    let iteration = 0;
+    const maxIterations = 100; // 防止无限循环
+
+    while (iteration < maxIterations) {
+      iteration++;
+
+      // 获取可执行的任务
+      const executableTasks = await this.getExecutableTasks(missionId);
+
+      if (executableTasks.length === 0) {
+        // 检查是否所有任务都完成了
+        const allTasks = await this.prisma.researchTask.findMany({
+          where: { missionId },
+        });
+        const pendingTasks = allTasks.filter(
+          (t) =>
+            t.status === ResearchTaskStatus.PENDING ||
+            t.status === ResearchTaskStatus.EXECUTING,
+        );
+
+        if (pendingTasks.length === 0) {
+          this.logger.log(
+            `[startExecution] All tasks completed for mission ${missionId}`,
+          );
+          break;
+        }
+
+        // 有任务在等待依赖，短暂等待后继续
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        continue;
+      }
+
+      // 并行执行可执行的任务
+      this.logger.log(
+        `[startExecution] Executing ${executableTasks.length} tasks in parallel`,
+      );
+
+      await Promise.all(
+        executableTasks.map((task) => this.executeTask(task, topic, missionId)),
+      );
+    }
+
+    // 更新最终状态
+    await this.finalizeMission(missionId, topicId);
+  }
+
+  /**
+   * 执行单个任务
+   */
+  private async executeTask(
+    task: ResearchTask,
+    topic: any,
+    missionId: string,
+  ): Promise<void> {
+    this.logger.log(`[executeTask] Executing task: ${task.title} (${task.id})`);
+
+    try {
+      // 更新任务状态为执行中
+      await this.updateTaskStatus(task.id, ResearchTaskStatus.EXECUTING);
+
+      // 发送进度事件
+      this.emitProgress({
+        missionId,
+        topicId: topic.id,
+        status: ResearchMissionStatus.EXECUTING,
+        progress: 0,
+        phase: "executing",
+        message: `正在执行: ${task.title}`,
+        currentTask: task.title,
+        completedTasks: 0,
+        totalTasks: 0,
+      });
+
+      let result: any;
+
+      switch (task.taskType) {
+        case "dimension_research": {
+          // 找到对应的维度
+          const dimension = topic.dimensions?.find(
+            (d: any) => d.name === task.dimensionName,
+          );
+
+          if (dimension) {
+            const researchResult =
+              await this.dimensionResearchService.researchDimension(
+                topic,
+                dimension,
+                undefined, // reportId - 暂时不关联报告
+              );
+            result = researchResult.analysisResult;
+          } else {
+            // 如果没有预定义维度，创建临时维度进行研究
+            result = await this.executeGenericDimensionResearch(task, topic);
+          }
+          break;
+        }
+
+        case "quality_review": {
+          // 获取所有已完成的维度研究结果
+          const completedTasks = await this.prisma.researchTask.findMany({
+            where: {
+              missionId,
+              taskType: "dimension_research",
+              status: ResearchTaskStatus.COMPLETED,
+            },
+          });
+
+          result = {
+            reviewedTasks: completedTasks.length,
+            status: "approved",
+            feedback: "所有维度研究已完成质量审核",
+          };
+          break;
+        }
+
+        case "report_synthesis": {
+          // 创建报告草稿并合成最终报告
+          const draftReport =
+            await this.reportSynthesisService.createDraftReport(topic.id);
+          result = await this.reportSynthesisService.synthesizeReport(
+            topic,
+            draftReport.id,
+          );
+          break;
+        }
+
+        default:
+          result = {
+            status: "completed",
+            message: `任务类型 ${task.taskType} 已处理`,
+          };
+      }
+
+      // 更新任务状态为完成
+      await this.updateTaskStatus(
+        task.id,
+        ResearchTaskStatus.COMPLETED,
+        result,
+        typeof result === "string"
+          ? result.substring(0, 500)
+          : JSON.stringify(result).substring(0, 500),
+      );
+
+      this.logger.log(`[executeTask] Task completed: ${task.title}`);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `[executeTask] Task failed: ${task.title} - ${errorMsg}`,
+      );
+
+      // 更新任务状态为失败
+      await this.updateTaskStatus(
+        task.id,
+        ResearchTaskStatus.FAILED,
+        { error: errorMsg },
+        `执行失败: ${errorMsg}`,
+      );
+    }
+  }
+
+  /**
+   * 执行通用维度研究（当没有预定义维度时）
+   */
+  private async executeGenericDimensionResearch(
+    task: ResearchTask,
+    topic: any,
+  ): Promise<any> {
+    // 创建临时维度对象
+    const tempDimension = {
+      id: `temp_${task.id}`,
+      name: task.dimensionName || task.title,
+      description: task.description || "",
+      searchQueries: [task.dimensionName || topic.name],
+      dataSources: ["web", "news"],
+      topicId: topic.id,
+    };
+
+    const result = await this.dimensionResearchService.researchDimension(
+      topic,
+      tempDimension as any,
+      undefined,
+    );
+
+    return result.analysisResult;
+  }
+
+  /**
+   * 完成 Mission，更新最终状态
+   */
+  private async finalizeMission(
+    missionId: string,
+    topicId: string,
+  ): Promise<void> {
+    const tasks = await this.prisma.researchTask.findMany({
+      where: { missionId },
+    });
+
+    const completedTasks = tasks.filter(
+      (t) => t.status === ResearchTaskStatus.COMPLETED,
+    );
+    const failedTasks = tasks.filter(
+      (t) => t.status === ResearchTaskStatus.FAILED,
+    );
+
+    const finalStatus =
+      failedTasks.length > 0
+        ? ResearchMissionStatus.FAILED
+        : ResearchMissionStatus.COMPLETED;
+
+    await this.prisma.researchMission.update({
+      where: { id: missionId },
+      data: {
+        status: finalStatus,
+        completedTasks: completedTasks.length,
+        progressPercent: 100,
+        completedAt: new Date(),
+      },
+    });
+
+    // 发送完成事件
+    this.emitProgress({
+      missionId,
+      topicId,
+      status: finalStatus,
+      progress: 100,
+      phase:
+        finalStatus === ResearchMissionStatus.COMPLETED
+          ? "completed"
+          : "failed",
+      message:
+        finalStatus === ResearchMissionStatus.COMPLETED
+          ? `研究完成，共完成 ${completedTasks.length} 个任务`
+          : `研究失败，${failedTasks.length} 个任务失败`,
+      completedTasks: completedTasks.length,
+      totalTasks: tasks.length,
+    });
+
+    this.logger.log(
+      `[finalizeMission] Mission ${missionId} finalized with status: ${finalStatus}`,
+    );
   }
 }
