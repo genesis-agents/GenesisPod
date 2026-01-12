@@ -344,6 +344,143 @@ export class AiChatService {
   }
 
   /**
+   * ★ 获取推理模型配置
+   * 用于需要深度推理能力的任务（如 Leader 规划、复杂分析）
+   *
+   * 智能选择顺序：
+   * 1. 用户显式设置 isReasoning=true 的模型
+   * 2. 自动检测已知推理模型（按 model ID 模式匹配）
+   * 3. 回退到非 OpenAI 的 CHAT 模型（避免 rate limit）
+   * 4. 最后回退到任意可用 CHAT 模型
+   *
+   * @returns 推理模型配置，如果没有可用模型则返回 null
+   */
+  async getReasoningModelConfig(): Promise<AIModelConfig | null> {
+    try {
+      // 1. 优先查找用户显式设置 isReasoning=true 的模型
+      let model = await this.prisma.aIModel.findFirst({
+        where: {
+          modelType: AIModelType.CHAT,
+          isEnabled: true,
+          isReasoning: true,
+        },
+        orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+      });
+
+      if (model) {
+        this.logger.log(
+          `[getReasoningModelConfig] Found explicitly configured reasoning model: ${model.modelId}`,
+        );
+        return this.toAIModelConfig(model);
+      }
+
+      // 2. 自动检测已知推理模型（按 model ID 模式匹配）
+      const allChatModels = await this.prisma.aIModel.findMany({
+        where: {
+          modelType: AIModelType.CHAT,
+          isEnabled: true,
+        },
+        orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+      });
+
+      const detectedReasoningModel = allChatModels.find((m) =>
+        this.isKnownReasoningModelId(m.modelId),
+      );
+
+      if (detectedReasoningModel) {
+        this.logger.log(
+          `[getReasoningModelConfig] Auto-detected reasoning model by pattern: ${detectedReasoningModel.modelId}`,
+        );
+        return this.toAIModelConfig(detectedReasoningModel, true);
+      }
+
+      // 3. 回退到非 OpenAI 的 CHAT 模型（避免 rate limit）
+      const nonOpenAIModel = allChatModels.find(
+        (m) => m.provider.toLowerCase() !== "openai",
+      );
+
+      if (nonOpenAIModel) {
+        this.logger.warn(
+          `[getReasoningModelConfig] No reasoning model found, using non-OpenAI fallback: ${nonOpenAIModel.modelId} (${nonOpenAIModel.provider})`,
+        );
+        return this.toAIModelConfig(nonOpenAIModel);
+      }
+
+      // 4. 最后回退到任意可用 CHAT 模型
+      if (allChatModels.length > 0) {
+        this.logger.warn(
+          `[getReasoningModelConfig] Falling back to default CHAT model: ${allChatModels[0].modelId}`,
+        );
+        return this.toAIModelConfig(allChatModels[0]);
+      }
+
+      this.logger.error("[getReasoningModelConfig] No CHAT model available");
+      return null;
+    } catch (error) {
+      this.logger.error(`[getReasoningModelConfig] Failed: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * 检查模型 ID 是否匹配已知的推理模型模式
+   */
+  private isKnownReasoningModelId(modelId: string): boolean {
+    const patterns = [
+      // OpenAI reasoning models
+      /^o1/i,
+      /^o3/i,
+      /^gpt-5/i,
+      // DeepSeek reasoning models
+      /deepseek.*r1/i,
+      /deepseek-reasoner/i,
+      // Claude with extended thinking
+      /claude.*think/i,
+      // Gemini reasoning
+      /gemini.*think/i,
+      // Grok reasoning
+      /grok.*reason/i,
+    ];
+    return patterns.some((pattern) => pattern.test(modelId));
+  }
+
+  /**
+   * 转换数据库模型为 AIModelConfig
+   */
+  private toAIModelConfig(
+    model: {
+      id: string;
+      name: string;
+      displayName: string;
+      provider: string;
+      modelId: string;
+      apiEndpoint: string;
+      apiKey: string | null;
+      maxTokens: number;
+      temperature: number;
+      isEnabled: boolean;
+      isDefault: boolean;
+      isReasoning?: boolean | null;
+    },
+    autoDetectedReasoning = false,
+  ): AIModelConfig {
+    return {
+      id: model.id,
+      name: model.name,
+      displayName: model.displayName,
+      provider: model.provider,
+      modelId: model.modelId,
+      apiEndpoint: model.apiEndpoint,
+      apiKey: model.apiKey,
+      maxTokens: model.maxTokens,
+      temperature: model.temperature,
+      isEnabled: model.isEnabled,
+      isDefault: model.isDefault,
+      isReasoning: model.isReasoning ?? autoDetectedReasoning,
+    };
+  }
+
+  /**
    * 根据 provider 确定 API 格式类型
    */
   private getApiFormatForProvider(
