@@ -29,6 +29,11 @@ interface SearchConfig {
   perplexity: { apiKey: string | null; hasApiKey: boolean };
   tavily: { apiKey: string | null; hasApiKey: boolean };
   serper: { apiKey: string | null; hasApiKey: boolean };
+  duckduckgo: {
+    apiKey: string | null;
+    hasApiKey: boolean;
+    noKeyRequired?: boolean;
+  };
 }
 
 interface ExtractionConfig {
@@ -148,6 +153,19 @@ const SEARCH_PROVIDERS = [
     textColor: 'text-green-600',
     url: 'https://serper.dev',
     placeholder: 'Enter API key',
+  },
+  {
+    id: 'duckduckgo',
+    name: 'DuckDuckGo',
+    description: '隐私优先的免费搜索引擎',
+    features: ['免费使用', '无需API Key', '隐私保护'],
+    icon: '/icons/search/duckduckgo.svg',
+    color: 'from-orange-500 to-red-500',
+    bgColor: 'bg-orange-50',
+    textColor: 'text-orange-600',
+    url: 'https://duckduckgo.com',
+    placeholder: '',
+    noKeyRequired: true,
   },
 ] as const;
 
@@ -396,6 +414,7 @@ export default function ExternalAPISettings() {
     perplexity: { apiKey: null, hasApiKey: false },
     tavily: { apiKey: null, hasApiKey: false },
     serper: { apiKey: null, hasApiKey: false },
+    duckduckgo: { apiKey: null, hasApiKey: true, noKeyRequired: true },
   });
   const [searchApiKeys, setSearchApiKeys] = useState<Record<string, string>>({
     perplexity: '',
@@ -1566,7 +1585,12 @@ export default function ExternalAPISettings() {
                     {/* Status */}
                     <div className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
                       <span className="text-sm text-gray-600">API Key:</span>
-                      {isConfigured ? (
+                      {'noKeyRequired' in provider && provider.noKeyRequired ? (
+                        <span className="flex items-center gap-1.5 text-sm font-medium text-green-600">
+                          <CheckCircle className="h-4 w-4" />
+                          免费使用
+                        </span>
+                      ) : isConfigured ? (
                         <span className="flex items-center gap-1.5 text-sm font-medium text-green-600">
                           <CheckCircle className="h-4 w-4" />
                           已配置
@@ -1582,49 +1606,55 @@ export default function ExternalAPISettings() {
                     {/* Balance Info */}
                     {renderBalanceInfo('search', provider.id)}
 
-                    {/* API Key Input */}
-                    <div className="space-y-2">
-                      <div className="relative">
-                        <input
-                          type={
-                            visibleApiKeys[`search-${provider.id}`]
-                              ? 'text'
-                              : 'password'
-                          }
-                          value={searchApiKeys[provider.id]}
-                          onChange={(e) =>
-                            setSearchApiKeys((prev) => ({
-                              ...prev,
-                              [provider.id]: e.target.value,
-                            }))
-                          }
-                          placeholder={
-                            isConfigured
-                              ? '••••••••••••••••'
-                              : provider.placeholder
-                          }
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 font-mono text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            toggleApiKeyVisibility(`search-${provider.id}`)
-                          }
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
-                          title={
-                            visibleApiKeys[`search-${provider.id}`]
-                              ? '隐藏'
-                              : '显示'
-                          }
-                        >
-                          {visibleApiKeys[`search-${provider.id}`] ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </button>
+                    {/* API Key Input - only show if key is required */}
+                    {'noKeyRequired' in provider && provider.noKeyRequired ? (
+                      <div className="rounded-lg bg-green-50 p-3 text-center text-sm text-green-700">
+                        无需配置 API Key，可直接使用
                       </div>
-                    </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <input
+                            type={
+                              visibleApiKeys[`search-${provider.id}`]
+                                ? 'text'
+                                : 'password'
+                            }
+                            value={searchApiKeys[provider.id]}
+                            onChange={(e) =>
+                              setSearchApiKeys((prev) => ({
+                                ...prev,
+                                [provider.id]: e.target.value,
+                              }))
+                            }
+                            placeholder={
+                              isConfigured
+                                ? '••••••••••••••••'
+                                : provider.placeholder
+                            }
+                            className="font-mono w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              toggleApiKeyVisibility(`search-${provider.id}`)
+                            }
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                            title={
+                              visibleApiKeys[`search-${provider.id}`]
+                                ? '隐藏'
+                                : '显示'
+                            }
+                          >
+                            {visibleApiKeys[`search-${provider.id}`] ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Test Result */}
                     {testResult && (
@@ -1650,7 +1680,12 @@ export default function ExternalAPISettings() {
                         onClick={() => handleTestSearch(provider.id)}
                         disabled={
                           testing === provider.id ||
-                          (!searchApiKeys[provider.id] && !isConfigured)
+                          (!(
+                            'noKeyRequired' in provider &&
+                            provider.noKeyRequired
+                          ) &&
+                            !searchApiKeys[provider.id] &&
+                            !isConfigured)
                         }
                         className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                       >
@@ -1665,11 +1700,19 @@ export default function ExternalAPISettings() {
                         <button
                           onClick={() => setAsDefault(provider.id)}
                           className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                            isConfigured
+                            isConfigured ||
+                            ('noKeyRequired' in provider &&
+                              provider.noKeyRequired)
                               ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
                               : 'cursor-not-allowed bg-gray-100 text-gray-400'
                           }`}
-                          disabled={!isConfigured}
+                          disabled={
+                            !isConfigured &&
+                            !(
+                              'noKeyRequired' in provider &&
+                              provider.noKeyRequired
+                            )
+                          }
                         >
                           <Sparkles className="h-4 w-4" />
                           设为默认
@@ -1853,7 +1896,7 @@ export default function ExternalAPISettings() {
                               ? '••••••••••••••••'
                               : provider.placeholder
                           }
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 font-mono text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                          className="font-mono w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                         />
                         <button
                           type="button"
@@ -2176,7 +2219,7 @@ export default function ExternalAPISettings() {
                           }
                           placeholder='Headers (JSON): {"X-API-KEY": "..."}'
                           rows={2}
-                          className="mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="font-mono mb-2 w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                         <div className="flex items-center justify-between">
                           <label className="flex items-center gap-2 text-xs text-gray-600">
@@ -2492,7 +2535,7 @@ export default function ExternalAPISettings() {
                               ? '••••••••••••••••'
                               : provider.placeholder
                           }
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 font-mono text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+                          className="font-mono w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
                         />
                         <button
                           type="button"
@@ -2764,7 +2807,7 @@ export default function ExternalAPISettings() {
                               ? '••••••••••••••••'
                               : provider.placeholder
                           }
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 font-mono text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="font-mono w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                         <button
                           type="button"

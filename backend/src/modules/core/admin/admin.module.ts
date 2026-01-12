@@ -6,6 +6,8 @@ import {
   AITeamsTemplatesController,
 } from "./ai-teams-admin.controller";
 import { AITeamsAdminService } from "./ai-teams-admin.service";
+import { CapabilitiesAdminController } from "./capabilities-admin.controller";
+import { CapabilitiesAdminService } from "./capabilities-admin.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 
@@ -15,8 +17,9 @@ import { AiEngineModule } from "../../ai-engine/ai-engine.module";
     AdminController,
     AITeamsAdminController,
     AITeamsTemplatesController,
+    CapabilitiesAdminController,
   ],
-  providers: [AdminService, AITeamsAdminService],
-  exports: [AdminService, AITeamsAdminService],
+  providers: [AdminService, AITeamsAdminService, CapabilitiesAdminService],
+  exports: [AdminService, AITeamsAdminService, CapabilitiesAdminService],
 })
 export class AdminModule {}

@@ -11,6 +11,7 @@ import {
   HardDrive,
   Settings,
   UsersRound,
+  Wrench,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -46,6 +47,12 @@ export default function AdminLayout({
       href: '/admin/ai-teams',
       icon: UsersRound,
       description: 'AI team templates configuration',
+    },
+    {
+      name: 'Capabilities',
+      href: '/admin/capabilities',
+      icon: Wrench,
+      description: 'Tools, Skills and MCP management',
     },
     {
       name: 'External API',

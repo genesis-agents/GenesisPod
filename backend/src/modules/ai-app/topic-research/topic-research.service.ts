@@ -32,6 +32,7 @@ import {
   ResearchTopicStatus,
   RefreshFrequency,
   DimensionStatus,
+  AIModelType,
 } from "@prisma/client";
 import {
   TopicTeamOrchestratorService,
@@ -40,6 +41,8 @@ import {
   EvidenceManagementService,
   RefreshProgressEvent,
 } from "./services";
+import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { REPORT_EDITING_SYSTEM_PROMPT, buildEditPrompt } from "./prompts";
 
 // 导入维度模板
 const MACRO_INSIGHT_DIMENSIONS = [
@@ -400,6 +403,7 @@ export class TopicResearchService {
     private readonly reportService: ReportSynthesisService,
     private readonly scheduler: TopicRefreshScheduler,
     private readonly evidenceService: EvidenceManagementService,
+    private readonly aiChatService: AiChatService,
   ) {}
 
   // ==================== Topics CRUD ====================
@@ -1027,6 +1031,255 @@ export class TopicResearchService {
       fromReport.id,
       toReport.id,
     );
+  }
+
+  /**
+   * 更新报告内容
+   */
+  async updateReportContent(
+    userId: string,
+    topicId: string,
+    reportId: string,
+    dto: {
+      executiveSummary?: string;
+      fullReport?: string;
+      changeDescription?: string;
+    },
+  ) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    // 使用事务确保修订历史和报告更新的原子性
+    return this.prisma.$transaction(async (tx) => {
+      // 创建修订历史记录
+      const latestRevision = await tx.topicReportRevision.findFirst({
+        where: { reportId },
+        orderBy: { revisionNumber: "desc" },
+      });
+
+      const newRevisionNumber = (latestRevision?.revisionNumber || 0) + 1;
+
+      // 保存当前版本到修订历史
+      await tx.topicReportRevision.create({
+        data: {
+          reportId,
+          revisionNumber: newRevisionNumber,
+          content: report.fullReport,
+          changeDescription: dto.changeDescription || "用户手动编辑",
+          editedBy: "user",
+          editOperation: "manual_edit",
+        },
+      });
+
+      // 更新报告
+      const updatedReport = await tx.topicReport.update({
+        where: { id: reportId },
+        data: {
+          ...(dto.executiveSummary && {
+            executiveSummary: dto.executiveSummary,
+          }),
+          ...(dto.fullReport && { fullReport: dto.fullReport }),
+        },
+      });
+
+      return updatedReport;
+    });
+  }
+
+  /**
+   * AI 编辑报告
+   */
+  async aiEditReport(
+    userId: string,
+    topicId: string,
+    reportId: string,
+    dto: {
+      operation: "rewrite" | "polish" | "expand" | "compress" | "style";
+      selection?: string;
+      customInstruction?: string;
+      targetStyle?: "academic" | "business" | "casual" | "technical";
+    },
+  ) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    // 构建 AI 编辑 prompt
+    const contentToEdit = dto.selection || report.fullReport;
+    const prompt = buildEditPrompt(dto.operation, contentToEdit, {
+      targetStyle: dto.targetStyle,
+      customInstruction: dto.customInstruction,
+    });
+
+    // 调用 AI 服务进行编辑
+    const aiResponse = await this.aiChatService.chat({
+      messages: [
+        {
+          role: "system",
+          content: REPORT_EDITING_SYSTEM_PROMPT,
+        },
+        { role: "user", content: prompt },
+      ],
+      modelType: AIModelType.CHAT,
+      taskProfile: {
+        creativity: dto.operation === "rewrite" ? "high" : "medium",
+        outputLength: dto.operation === "compress" ? "short" : "medium",
+      },
+    });
+
+    const editedContent = aiResponse.content || "";
+
+    // 计算新报告内容
+    let newFullReport = report.fullReport;
+    if (dto.selection) {
+      // 仅替换第一次出现的选中部分（避免 replace 替换所有匹配）
+      const selectionIndex = report.fullReport.indexOf(dto.selection);
+      if (selectionIndex !== -1) {
+        newFullReport =
+          report.fullReport.substring(0, selectionIndex) +
+          editedContent +
+          report.fullReport.substring(selectionIndex + dto.selection.length);
+      } else {
+        // 选中内容未找到，可能已被修改，使用原报告
+        this.logger.warn(
+          `Selection not found in report ${reportId}, keeping original content`,
+        );
+      }
+    } else {
+      // 替换整个报告
+      newFullReport = editedContent;
+    }
+
+    // 使用事务确保修订历史和报告更新的原子性
+    const updatedReport = await this.prisma.$transaction(async (tx) => {
+      // 保存修订历史
+      const latestRevision = await tx.topicReportRevision.findFirst({
+        where: { reportId },
+        orderBy: { revisionNumber: "desc" },
+      });
+
+      const newRevisionNumber = (latestRevision?.revisionNumber || 0) + 1;
+
+      await tx.topicReportRevision.create({
+        data: {
+          reportId,
+          revisionNumber: newRevisionNumber,
+          content: report.fullReport,
+          changeDescription: `AI ${dto.operation} 操作`,
+          editedBy: "ai",
+          editOperation: dto.operation,
+        },
+      });
+
+      // 更新报告
+      return tx.topicReport.update({
+        where: { id: reportId },
+        data: { fullReport: newFullReport },
+      });
+    });
+
+    return {
+      report: updatedReport,
+      editedContent,
+      operation: dto.operation,
+    };
+  }
+
+  /**
+   * 获取报告修订历史
+   */
+  async getReportRevisions(userId: string, topicId: string, reportId: string) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    const revisions = await this.prisma.topicReportRevision.findMany({
+      where: { reportId },
+      orderBy: { revisionNumber: "desc" },
+      select: {
+        id: true,
+        revisionNumber: true,
+        changeDescription: true,
+        editedBy: true,
+        editOperation: true,
+        createdAt: true,
+      },
+    });
+
+    return revisions;
+  }
+
+  /**
+   * 回滚报告到指定版本
+   */
+  async rollbackReport(
+    userId: string,
+    topicId: string,
+    reportId: string,
+    revisionNumber: number,
+  ) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    // 获取目标修订版本
+    const targetRevision = await this.prisma.topicReportRevision.findFirst({
+      where: { reportId, revisionNumber },
+    });
+
+    if (!targetRevision) {
+      throw new NotFoundException(
+        `Revision ${revisionNumber} not found for this report`,
+      );
+    }
+
+    // 保存当前版本到修订历史
+    const latestRevision = await this.prisma.topicReportRevision.findFirst({
+      where: { reportId },
+      orderBy: { revisionNumber: "desc" },
+    });
+
+    const newRevisionNumber = (latestRevision?.revisionNumber || 0) + 1;
+
+    await this.prisma.topicReportRevision.create({
+      data: {
+        reportId,
+        revisionNumber: newRevisionNumber,
+        content: report.fullReport,
+        changeDescription: `回滚前的版本（从版本 ${revisionNumber} 回滚）`,
+        editedBy: "user",
+        editOperation: "rollback",
+      },
+    });
+
+    // 恢复到目标版本
+    const updatedReport = await this.prisma.topicReport.update({
+      where: { id: reportId },
+      data: { fullReport: targetRevision.content },
+    });
+
+    return {
+      report: updatedReport,
+      rolledBackFrom: newRevisionNumber - 1,
+      rolledBackTo: revisionNumber,
+    };
   }
 
   // ==================== Evidence ====================

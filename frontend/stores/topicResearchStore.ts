@@ -31,6 +31,11 @@ import type {
   ResearchTopicType,
 } from '@/types/topic-research';
 import * as api from '@/lib/api/topic-research';
+import type {
+  MissionStatus,
+  TeamInfo,
+  ResearchMission,
+} from '@/lib/api/topic-research';
 
 interface TopicResearchState {
   // Topics
@@ -66,6 +71,12 @@ interface TopicResearchState {
     totalDimensions: number;
   } | null;
   refreshStream: { close: () => void } | null;
+
+  // Leader/Mission
+  currentMission: ResearchMission | null;
+  missionStatus: MissionStatus | null;
+  teamInfo: TeamInfo | null;
+  isLoadingMission: boolean;
 
   // Schedule & Logs
   schedule: TopicSchedule | null;
@@ -114,6 +125,16 @@ interface TopicResearchState {
   fetchRefreshStatus: (topicId: string) => Promise<void>;
   startRefreshProgressStream: (topicId: string) => void;
   stopRefreshProgressStream: () => void;
+
+  // Actions - Leader/Mission
+  startLeaderPlan: (topicId: string, userPrompt?: string) => Promise<void>;
+  fetchMissionStatus: (topicId: string) => Promise<void>;
+  fetchTeamInfo: (topicId: string) => Promise<void>;
+  sendLeaderInstruction: (
+    topicId: string,
+    instruction: string
+  ) => Promise<void>;
+  retryMission: (topicId: string, taskIds?: string[]) => Promise<void>;
 
   // Actions - Reports
   fetchReports: (topicId: string, loadMore?: boolean) => Promise<void>;
@@ -175,6 +196,10 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
   isRefreshing: false,
   refreshProgress: null,
   refreshStream: null,
+  currentMission: null,
+  missionStatus: null,
+  teamInfo: null,
+  isLoadingMission: false,
   schedule: null,
   logs: [],
   isLoadingLogs: false,
@@ -377,6 +402,110 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
     if (refreshStream) {
       refreshStream.close();
       set({ refreshStream: null });
+    }
+  },
+
+  // ==================== Leader/Mission ====================
+
+  startLeaderPlan: async (topicId, userPrompt) => {
+    set({ isRefreshing: true, isLoadingMission: true, error: null });
+    try {
+      const mission = await api.leaderPlan(topicId, { userPrompt });
+      set({ currentMission: mission, isLoadingMission: false });
+      // Start polling for mission status
+      get().fetchMissionStatus(topicId);
+    } catch (error) {
+      set({
+        isRefreshing: false,
+        isLoadingMission: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to start leader plan',
+      });
+      throw error;
+    }
+  },
+
+  fetchMissionStatus: async (topicId) => {
+    try {
+      const status = await api.getMission(topicId);
+      set({ missionStatus: status });
+
+      // Update refresh state based on mission status
+      if (status) {
+        const isActive = ['PLANNING', 'EXECUTING', 'REVIEWING'].includes(
+          status.status
+        );
+        set({
+          isRefreshing: isActive,
+          refreshProgress: isActive
+            ? {
+                phase: status.currentPhase,
+                progress: status.progress,
+                message: `${status.completedTasks}/${status.totalTasks} 任务完成`,
+                completedDimensions: status.completedTasks,
+                totalDimensions: status.totalTasks,
+              }
+            : null,
+        });
+
+        // If completed, fetch the latest report
+        if (status.status === 'COMPLETED') {
+          get().fetchLatestReport(topicId);
+        }
+      }
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to fetch mission status',
+      });
+    }
+  },
+
+  fetchTeamInfo: async (topicId) => {
+    try {
+      const teamInfo = await api.getTeam(topicId);
+      set({ teamInfo });
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error ? error.message : 'Failed to fetch team info',
+      });
+    }
+  },
+
+  sendLeaderInstruction: async (topicId, instruction) => {
+    try {
+      await api.sendLeaderMessage(topicId, instruction);
+      // Refresh mission status after sending instruction
+      get().fetchMissionStatus(topicId);
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to send leader instruction',
+      });
+      throw error;
+    }
+  },
+
+  retryMission: async (topicId, taskIds) => {
+    set({ isRefreshing: true, error: null });
+    try {
+      await api.retryMission(topicId, taskIds);
+      // Refresh mission status
+      get().fetchMissionStatus(topicId);
+    } catch (error) {
+      set({
+        isRefreshing: false,
+        error:
+          error instanceof Error ? error.message : 'Failed to retry mission',
+      });
+      throw error;
     }
   },
 

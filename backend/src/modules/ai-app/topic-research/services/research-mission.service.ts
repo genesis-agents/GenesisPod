@@ -5,19 +5,40 @@
  * 复用 AI Teams Mission 框架的核心概念
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   ResearchMissionStatus,
   ResearchTaskStatus,
   LeaderDecisionType,
+  Prisma,
 } from "@prisma/client";
 import type { ResearchMission, ResearchTask } from "@prisma/client";
 import {
   ResearchLeaderService,
   type LeaderPlan,
 } from "./research-leader.service";
+
+// ==================== Constants ====================
+
+/**
+ * 任务优先级常量
+ * 数值越小优先级越高（先执行）
+ */
+export const TASK_PRIORITY = {
+  /** 动态添加的维度研究任务 */
+  DIMENSION_RESEARCH_DYNAMIC: 50,
+  /** 质量审核任务 */
+  QUALITY_REVIEW: 100,
+  /** 报告撰写任务 */
+  REPORT_SYNTHESIS: 200,
+} as const;
 
 // ==================== Types ====================
 
@@ -163,7 +184,7 @@ export class ResearchMissionService {
           missionId: mission.id,
           type: LeaderDecisionType.PLAN,
           input: { topicId, userPrompt },
-          decision: leaderPlan as any,
+          decision: leaderPlan as unknown as Prisma.InputJsonValue,
           reasoning: `规划了 ${leaderPlan.dimensions.length} 个研究维度，分配了 ${leaderPlan.agentAssignments.length} 个 Agent`,
         },
       });
@@ -175,7 +196,7 @@ export class ResearchMissionService {
       const updatedMission = await this.prisma.researchMission.update({
         where: { id: mission.id },
         data: {
-          leaderPlan: leaderPlan as any,
+          leaderPlan: leaderPlan as unknown as Prisma.InputJsonValue,
           totalTasks: tasks.length,
           status: ResearchMissionStatus.EXECUTING,
           startedAt: new Date(),
@@ -258,7 +279,7 @@ export class ResearchMissionService {
         taskType: "quality_review",
         assignedAgent: reviewerAssignment?.agentId || "reviewer_default",
         assignedAgentType: "quality_reviewer",
-        priority: 100,
+        priority: TASK_PRIORITY.QUALITY_REVIEW,
         dependencies: tasks.map((t) => t.id),
         status: ResearchTaskStatus.PENDING,
       },
@@ -277,7 +298,7 @@ export class ResearchMissionService {
         taskType: "report_synthesis",
         assignedAgent: writerAssignment?.agentId || "writer_default",
         assignedAgentType: "report_writer",
-        priority: 200,
+        priority: TASK_PRIORITY.REPORT_SYNTHESIS,
         dependencies: [reviewTask.id],
         status: ResearchTaskStatus.PENDING,
       },
@@ -563,6 +584,168 @@ export class ResearchMissionService {
       leaderModel: mission.leaderModelName || "unknown",
       agents: Array.from(agentMap.values()),
     };
+  }
+
+  /**
+   * 调整 Mission 执行策略
+   */
+  async adjustMission(
+    userId: string,
+    missionId: string,
+    adjustment: {
+      addDimensions?: Array<{ name: string; description: string }>;
+      removeDimensions?: string[];
+      focusAreas?: string[];
+    },
+  ): Promise<ResearchMission> {
+    const mission = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+      include: { tasks: true, topic: { select: { userId: true } } },
+    });
+
+    if (!mission) {
+      throw new NotFoundException(`Mission ${missionId} not found`);
+    }
+
+    // 验证用户权限
+    if (mission.topic.userId !== userId) {
+      throw new ForbiddenException(
+        "You do not have permission to adjust this mission",
+      );
+    }
+
+    // 只允许在执行中的 Mission 进行调整
+    if (mission.status !== ResearchMissionStatus.EXECUTING) {
+      throw new Error(
+        `Cannot adjust mission in ${mission.status} status. Only EXECUTING missions can be adjusted.`,
+      );
+    }
+
+    const changes: string[] = [];
+
+    // 1. 添加新维度
+    if (adjustment.addDimensions?.length) {
+      for (const dim of adjustment.addDimensions) {
+        await this.prisma.researchTask.create({
+          data: {
+            missionId,
+            title: `研究: ${dim.name}`,
+            description: dim.description,
+            taskType: "dimension_research",
+            dimensionName: dim.name,
+            assignedAgent: "researcher_dynamic",
+            assignedAgentType: "dimension_researcher",
+            priority: TASK_PRIORITY.DIMENSION_RESEARCH_DYNAMIC,
+            status: ResearchTaskStatus.PENDING,
+          },
+        });
+        changes.push(`新增维度: ${dim.name}`);
+      }
+
+      // 更新总任务数
+      await this.prisma.researchMission.update({
+        where: { id: missionId },
+        data: {
+          totalTasks: { increment: adjustment.addDimensions.length },
+        },
+      });
+    }
+
+    // 2. 移除维度（删除待处理的任务）
+    if (adjustment.removeDimensions?.length) {
+      for (const dimName of adjustment.removeDimensions) {
+        const task = await this.prisma.researchTask.findFirst({
+          where: {
+            missionId,
+            dimensionName: dimName,
+            status: ResearchTaskStatus.PENDING,
+          },
+        });
+
+        if (task) {
+          // 删除待处理的任务
+          await this.prisma.researchTask.delete({
+            where: { id: task.id },
+          });
+          changes.push(`移除维度: ${dimName}`);
+        }
+      }
+    }
+
+    // 3. 调整聚焦领域（通知 Leader）
+    if (adjustment.focusAreas?.length) {
+      // 请求 Leader 重新评估任务优先级
+      await this.leaderService.handleUserMessage(
+        mission.topicId,
+        missionId,
+        `请调整研究重点，优先关注以下领域：${adjustment.focusAreas.join("、")}`,
+      );
+      changes.push(`调整聚焦: ${adjustment.focusAreas.join("、")}`);
+    }
+
+    // 4. 记录 Leader 决策
+    await this.prisma.leaderDecision.create({
+      data: {
+        missionId,
+        type: LeaderDecisionType.ADJUST,
+        input: adjustment,
+        decision: { changes },
+        reasoning: `用户请求调整：${changes.join("；")}`,
+      },
+    });
+
+    // 5. 发送进度事件
+    this.emitProgress({
+      missionId,
+      topicId: mission.topicId,
+      status: mission.status,
+      progress: mission.progressPercent,
+      phase: "adjusting",
+      message: `已调整：${changes.join("、")}`,
+      completedTasks: mission.completedTasks,
+      totalTasks: mission.totalTasks + (adjustment.addDimensions?.length || 0),
+    });
+
+    // 返回更新后的 Mission
+    return this.prisma.researchMission.findUniqueOrThrow({
+      where: { id: missionId },
+    });
+  }
+
+  /**
+   * 取消 Mission
+   */
+  async cancelMission(
+    userId: string,
+    missionId: string,
+  ): Promise<ResearchMission> {
+    const mission = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+      include: { topic: { select: { userId: true } } },
+    });
+
+    if (!mission) {
+      throw new NotFoundException(`Mission ${missionId} not found`);
+    }
+
+    // 验证用户权限
+    if (mission.topic.userId !== userId) {
+      throw new ForbiddenException(
+        "You do not have permission to cancel this mission",
+      );
+    }
+
+    if (
+      mission.status === ResearchMissionStatus.COMPLETED ||
+      mission.status === ResearchMissionStatus.CANCELLED
+    ) {
+      throw new Error(`Cannot cancel mission in ${mission.status} status`);
+    }
+
+    return this.prisma.researchMission.update({
+      where: { id: missionId },
+      data: { status: ResearchMissionStatus.CANCELLED },
+    });
   }
 
   /**

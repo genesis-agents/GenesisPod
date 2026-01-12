@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import * as duckDuckScrape from "duck-duck-scrape";
 
 export interface SearchResult {
   title: string;
@@ -35,7 +36,8 @@ export class SearchService {
     // Get search API configuration from system settings
     const searchConfig = await this.getSearchConfig();
 
-    if (!searchConfig.apiKey) {
+    // DuckDuckGo doesn't require API key
+    if (!searchConfig.apiKey && searchConfig.provider !== "duckduckgo") {
       this.logger.warn("Search API key not configured");
       return {
         success: false,
@@ -49,19 +51,21 @@ export class SearchService {
         case "tavily":
           return await this.searchWithTavily(
             query,
-            searchConfig.apiKey,
+            searchConfig.apiKey!,
             maxResults,
           );
         case "serper":
           return await this.searchWithSerper(
             query,
-            searchConfig.apiKey,
+            searchConfig.apiKey!,
             maxResults,
           );
+        case "duckduckgo":
+          return await this.searchWithDuckduckgo(query, maxResults);
         default:
           return await this.searchWithTavily(
             query,
-            searchConfig.apiKey,
+            searchConfig.apiKey!,
             maxResults,
           );
       }
@@ -115,6 +119,10 @@ export class SearchService {
     apiKey: string | null;
     enabled: boolean;
   }> {
+    // Environment variable keys
+    const tavilyEnvKey = process.env.TAVILY_API_KEY;
+    const serperEnvKey = process.env.SERPER_API_KEY;
+
     try {
       // Try to get from database first
       const settings = await this.prisma.systemSetting.findMany({
@@ -147,35 +155,55 @@ export class SearchService {
         return { provider: "tavily", apiKey: null, enabled: false };
       }
 
+      // Get provider from database (user's configured default)
       const provider = settingsMap["search.provider"] || "tavily";
 
-      // Get API key based on provider
+      // Get API key based on provider - check DB first, then env vars
       let apiKey: string | null = null;
       if (provider === "tavily") {
-        apiKey = settingsMap["search.tavily.apiKey"] || null;
+        apiKey = settingsMap["search.tavily.apiKey"] || tavilyEnvKey || null;
       } else if (provider === "serper") {
-        apiKey = settingsMap["search.serper.apiKey"] || null;
+        apiKey = settingsMap["search.serper.apiKey"] || serperEnvKey || null;
       }
 
-      // If database has config, use it
+      // Return with the user's configured provider
       if (apiKey) {
+        this.logger.debug(
+          `Using search provider: ${provider} (configured in settings)`,
+        );
         return { provider, apiKey, enabled: true };
       }
+
+      // If configured provider has no API key, try the alternative
+      // But log a warning since user explicitly chose the provider
+      if (provider === "serper" && tavilyEnvKey) {
+        this.logger.warn(
+          `Serper is configured as default but no API key found. Falling back to Tavily.`,
+        );
+        return { provider: "tavily", apiKey: tavilyEnvKey, enabled: true };
+      }
+      if (provider === "tavily" && serperEnvKey) {
+        this.logger.warn(
+          `Tavily is configured as default but no API key found. Falling back to Serper.`,
+        );
+        return { provider: "serper", apiKey: serperEnvKey, enabled: true };
+      }
+
+      // No API keys available
+      return { provider, apiKey: null, enabled: true };
     } catch (error) {
       this.logger.warn(
         "Failed to get search config from database, using env vars",
       );
     }
 
-    // Fallback to environment variables
-    const tavilyKey = process.env.TAVILY_API_KEY;
-    const serperKey = process.env.SERPER_API_KEY;
-
-    if (tavilyKey) {
-      return { provider: "tavily", apiKey: tavilyKey, enabled: true };
+    // Fallback to environment variables when DB access fails
+    // Still respect common config: serper first if available, then tavily
+    if (serperEnvKey) {
+      return { provider: "serper", apiKey: serperEnvKey, enabled: true };
     }
-    if (serperKey) {
-      return { provider: "serper", apiKey: serperKey, enabled: true };
+    if (tavilyEnvKey) {
+      return { provider: "tavily", apiKey: tavilyEnvKey, enabled: true };
     }
 
     return { provider: "tavily", apiKey: null, enabled: true };
@@ -549,6 +577,56 @@ export class SearchService {
 
     this.logger.debug(`Serper returned ${results.length} results`);
     return { success: true, results };
+  }
+
+  /**
+   * Search using DuckDuckGo (no API key required)
+   * Uses duck-duck-scrape library
+   */
+  private async searchWithDuckduckgo(
+    query: string,
+    maxResults: number,
+  ): Promise<SearchResponse> {
+    this.logger.debug(`Searching with DuckDuckGo: "${query}"`);
+
+    try {
+      const searchResults = await duckDuckScrape.search(query, {
+        safeSearch: duckDuckScrape.SafeSearchType.MODERATE,
+      });
+
+      if (searchResults.noResults) {
+        this.logger.debug("DuckDuckGo returned no results");
+        return { success: true, results: [] };
+      }
+
+      const rawResults: SearchResult[] = searchResults.results
+        .slice(0, maxResults * 2) // Get more for ranking
+        .map((r) => ({
+          title: r.title,
+          url: r.url,
+          content: r.description || r.rawDescription || "",
+          domain: r.hostname,
+        }));
+
+      // Apply ranking algorithm
+      const rankedResults = this.rankSearchResults(
+        rawResults,
+        query,
+        maxResults,
+      );
+
+      this.logger.debug(
+        `DuckDuckGo returned ${searchResults.results.length} results, ranked to ${rankedResults.length}`,
+      );
+      return { success: true, results: rankedResults };
+    } catch (error: any) {
+      this.logger.error(`DuckDuckGo search failed: ${error.message}`);
+      return {
+        success: false,
+        results: [],
+        error: `DuckDuckGo search failed: ${error.message}`,
+      };
+    }
   }
 
   /**

@@ -17,6 +17,7 @@ import type {
   TopicReport,
   TopicEvidence,
 } from '@/types/topic-research';
+import type { MissionStatus, TeamInfo } from '@/lib/api/topic-research';
 import { TopicTeamPanel } from './TopicTeamPanel';
 import { TopicContentPanel } from './TopicContentPanel';
 
@@ -37,12 +38,15 @@ interface TopicResearchLayoutProps {
   evidence: TopicEvidence[];
   isRefreshing: boolean;
   refreshProgress: SimpleRefreshProgress | null;
+  missionStatus?: MissionStatus | null;
+  teamInfo?: TeamInfo | null;
   isLoadingReport: boolean;
   isLoadingEvidence: boolean;
   onStartRefresh: () => void;
   onCancelRefresh: () => void;
   onExportReport: (format: 'pdf' | 'docx') => void;
   onBack: () => void;
+  onSendLeaderInstruction?: (instruction: string) => void;
 }
 
 // Icons
@@ -130,12 +134,15 @@ export function TopicResearchLayout({
   evidence,
   isRefreshing,
   refreshProgress,
+  missionStatus: _missionStatus,
+  teamInfo: _teamInfo,
   isLoadingReport,
   isLoadingEvidence,
   onStartRefresh,
   onCancelRefresh,
   onExportReport,
   onBack,
+  onSendLeaderInstruction,
 }: TopicResearchLayoutProps) {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
 
@@ -269,6 +276,7 @@ export function TopicResearchLayout({
                   refreshProgress={refreshProgress}
                   onStartRefresh={onStartRefresh}
                   onCancelRefresh={onCancelRefresh}
+                  onSendInstruction={onSendLeaderInstruction}
                 />
               </div>
             </div>

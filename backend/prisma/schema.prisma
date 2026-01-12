@@ -6510,6 +6510,134 @@ model AITeamMemberTemplate {
   @@map("ai_team_member_templates")
 }
 
+// ============ AI Agent 能力配置 ============
+
+/// 工具配置
+model ToolConfig {
+  id String @id @default(uuid())
+
+  // 工具标识
+  toolId String @unique @map("tool_id") // e.g., "web-search"
+
+  // 配置
+  enabled     Boolean @default(true)
+  displayName String? @map("display_name")
+  description String?
+
+  // 参数配置（覆盖默认值）
+  config Json? // { timeout: 30000, retry: { maxRetries: 3 } }
+
+  // 访问控制
+  requiresAuth Boolean  @default(false) @map("requires_auth")
+  allowedRoles String[] @default([]) @map("allowed_roles") // 空=所有角色
+
+  // 元数据
+  category String?
+  tags     String[] @default([])
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([enabled])
+  @@index([category])
+  @@map("tool_configs")
+}
+
+/// 技能配置
+model SkillConfig {
+  id String @id @default(uuid())
+
+  // 技能标识
+  skillId String @unique @map("skill_id") // e.g., "slides-outline-planning"
+
+  // 配置
+  enabled     Boolean @default(true)
+  displayName String? @map("display_name")
+  description String?
+
+  // 参数配置
+  config Json? // { llm: { temperature: 0.7 }, enableFallback: true }
+
+  // 访问控制
+  allowedDomains String[] @default([]) @map("allowed_domains") // 空=所有领域
+
+  // 元数据
+  layer  String?
+  domain String?
+  tags   String[] @default([])
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([enabled])
+  @@index([domain])
+  @@map("skill_configs")
+}
+
+/// MCP 服务器配置
+model MCPServerConfig {
+  id String @id @default(uuid())
+
+  // 服务器标识
+  serverId String @unique @map("server_id") // e.g., "duckduckgo"
+
+  // 基本信息
+  name        String
+  description String?
+
+  // 连接配置
+  transport String // "stdio" | "sse"
+  command   String? // stdio: 启动命令
+  args      String[] @default([]) // stdio: 命令参数
+  url       String? // sse: 服务器 URL
+
+  // 状态
+  enabled     Boolean @default(true)
+  autoConnect Boolean @default(true) @map("auto_connect")
+
+  // 认证（如需要）
+  apiKey String? @map("api_key") // 加密存储
+
+  // 元数据
+  metadata Json?
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([enabled])
+  @@map("mcp_server_configs")
+}
+
+/// 能力使用统计
+model CapabilityUsage {
+  id String @id @default(uuid())
+
+  // 能力标识
+  capabilityType String @map("capability_type") // "tool" | "skill" | "mcp"
+  capabilityId   String @map("capability_id")
+
+  // 调用信息
+  userId  String? @map("user_id")
+  teamId  String? @map("team_id")
+  agentId String? @map("agent_id")
+
+  // 执行结果
+  success    Boolean
+  duration   Int?    @db.Integer // ms
+  tokensUsed Int?    @map("tokens_used")
+  errorCode  String? @map("error_code")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([capabilityType, capabilityId])
+  @@index([createdAt])
+  @@map("capability_usages")
+}
+
 // ============ Topic Research 专题研究 ============
 
 // ==================== Enums ====================

@@ -19,3 +19,11 @@ export {
   formatEvidenceList,
   renderReportSynthesisPrompt,
 } from "./report-synthesis.prompt";
+
+export {
+  REPORT_EDITING_SYSTEM_PROMPT,
+  REPORT_EDIT_OPERATION_PROMPTS,
+  TARGET_STYLE_NAMES,
+  getStylePrompt,
+  buildEditPrompt,
+} from "./report-editing.prompt";

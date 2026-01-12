@@ -333,6 +333,15 @@ export class DataFetchingService {
     apiKey: string;
     endpoint?: string;
   } | null> {
+    // 环境变量 API Keys
+    const envKeys = {
+      perplexity: process.env.PERPLEXITY_API_KEY,
+      tavily: process.env.TAVILY_API_KEY,
+      serper: process.env.SERPER_API_KEY,
+    };
+
+    let configuredProvider: string = "tavily"; // 默认值
+
     try {
       // 1. 首先尝试从数据库读取配置
       const dbConfig = await this.adminService.getSearchConfig();
@@ -343,67 +352,49 @@ export class DataFetchingService {
         return null;
       }
 
-      const provider = dbConfig.provider || "tavily";
+      // 获取用户配置的默认 provider
+      configuredProvider = dbConfig.provider || "tavily";
 
-      // 根据配置的 provider 获取对应的 API key
-      if (provider === "perplexity" && dbConfig.perplexity?.hasApiKey) {
-        const apiKey = await this.adminService.getSearchApiKey("perplexity");
-        if (apiKey) {
-          this.logger.log(
-            "[getSearchApiConfig] Using Perplexity from database config",
-          );
-          return { provider: "perplexity", apiKey };
-        }
+      // 2. 优先使用用户配置的 provider
+      // 先检查 DB 中的 API key，再检查环境变量
+      const dbApiKey =
+        await this.adminService.getSearchApiKey(configuredProvider);
+      const envApiKey =
+        envKeys[configuredProvider as keyof typeof envKeys] || null;
+
+      if (dbApiKey) {
+        this.logger.log(
+          `[getSearchApiConfig] Using ${configuredProvider} from database (user's default)`,
+        );
+        return { provider: configuredProvider, apiKey: dbApiKey };
       }
 
-      if (provider === "tavily" && dbConfig.tavily?.hasApiKey) {
-        const apiKey = await this.adminService.getSearchApiKey("tavily");
-        if (apiKey) {
-          this.logger.log(
-            "[getSearchApiConfig] Using Tavily from database config",
-          );
-          return { provider: "tavily", apiKey };
-        }
+      if (envApiKey) {
+        this.logger.log(
+          `[getSearchApiConfig] Using ${configuredProvider} from env var (user's default)`,
+        );
+        return { provider: configuredProvider, apiKey: envApiKey };
       }
 
-      if (provider === "serper" && dbConfig.serper?.hasApiKey) {
-        const apiKey = await this.adminService.getSearchApiKey("serper");
-        if (apiKey) {
-          this.logger.log(
-            "[getSearchApiConfig] Using Serper from database config",
-          );
-          return { provider: "serper", apiKey };
-        }
-      }
+      // 3. 配置的 provider 没有 API key，尝试其他可用的（数据库优先）
+      const fallbackOrder = ["perplexity", "tavily", "serper"].filter(
+        (p) => p !== configuredProvider,
+      );
 
-      // 如果配置的 provider 没有 API key，尝试其他已配置的 provider
-      if (dbConfig.perplexity?.hasApiKey) {
-        const apiKey = await this.adminService.getSearchApiKey("perplexity");
-        if (apiKey) {
-          this.logger.log(
-            "[getSearchApiConfig] Fallback to Perplexity from database",
+      for (const provider of fallbackOrder) {
+        const fallbackDbKey = await this.adminService.getSearchApiKey(provider);
+        if (fallbackDbKey) {
+          this.logger.warn(
+            `[getSearchApiConfig] ${configuredProvider} has no API key, falling back to ${provider} (from DB)`,
           );
-          return { provider: "perplexity", apiKey };
+          return { provider, apiKey: fallbackDbKey };
         }
-      }
-
-      if (dbConfig.tavily?.hasApiKey) {
-        const apiKey = await this.adminService.getSearchApiKey("tavily");
-        if (apiKey) {
-          this.logger.log(
-            "[getSearchApiConfig] Fallback to Tavily from database",
+        const fallbackEnvKey = envKeys[provider as keyof typeof envKeys];
+        if (fallbackEnvKey) {
+          this.logger.warn(
+            `[getSearchApiConfig] ${configuredProvider} has no API key, falling back to ${provider} (from env)`,
           );
-          return { provider: "tavily", apiKey };
-        }
-      }
-
-      if (dbConfig.serper?.hasApiKey) {
-        const apiKey = await this.adminService.getSearchApiKey("serper");
-        if (apiKey) {
-          this.logger.log(
-            "[getSearchApiConfig] Fallback to Serper from database",
-          );
-          return { provider: "serper", apiKey };
+          return { provider, apiKey: fallbackEnvKey };
         }
       }
     } catch (error) {
@@ -413,29 +404,23 @@ export class DataFetchingService {
       );
     }
 
-    // 2. 回退到环境变量
-    if (process.env.PERPLEXITY_API_KEY) {
-      this.logger.log("[getSearchApiConfig] Using Perplexity from env var");
-      return {
-        provider: "perplexity",
-        apiKey: process.env.PERPLEXITY_API_KEY,
-      };
-    }
+    // 4. 数据库访问失败时，使用环境变量（按用户配置的顺序）
+    const fallbackProviders = [
+      configuredProvider,
+      "perplexity",
+      "tavily",
+      "serper",
+    ];
+    const uniqueProviders = [...new Set(fallbackProviders)];
 
-    if (process.env.TAVILY_API_KEY) {
-      this.logger.log("[getSearchApiConfig] Using Tavily from env var");
-      return {
-        provider: "tavily",
-        apiKey: process.env.TAVILY_API_KEY,
-      };
-    }
-
-    if (process.env.SERPER_API_KEY) {
-      this.logger.log("[getSearchApiConfig] Using Serper from env var");
-      return {
-        provider: "serper",
-        apiKey: process.env.SERPER_API_KEY,
-      };
+    for (const provider of uniqueProviders) {
+      const envKey = envKeys[provider as keyof typeof envKeys];
+      if (envKey) {
+        this.logger.log(
+          `[getSearchApiConfig] Using ${provider} from env var (fallback)`,
+        );
+        return { provider, apiKey: envKey };
+      }
     }
 
     this.logger.warn("[getSearchApiConfig] No search API configured");

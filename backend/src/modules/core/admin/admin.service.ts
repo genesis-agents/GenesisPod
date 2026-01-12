@@ -792,6 +792,12 @@ export class AdminService {
         apiKey: serperKey ? "***configured***" : null,
         hasApiKey: !!serperKey,
       },
+      // DuckDuckGo doesn't require API key - always available
+      duckduckgo: {
+        apiKey: null,
+        hasApiKey: true, // Always "configured" since no key needed
+        noKeyRequired: true,
+      },
     };
   }
 
@@ -816,7 +822,8 @@ export class AdminService {
       updates.push({
         key: "search.provider",
         value: config.provider,
-        description: "Search API provider (perplexity, tavily or serper)",
+        description:
+          "Search API provider (perplexity, tavily, serper or duckduckgo)",
         category: "search",
       });
     }

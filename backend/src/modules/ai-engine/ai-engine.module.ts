@@ -81,6 +81,9 @@ import {
 // MCP
 import { MCPManager } from "./mcp/manager/mcp-manager";
 
+// Capabilities
+import { CapabilityResolver } from "./capabilities/capability-resolver.service";
+
 // RAG
 import { EmbeddingService } from "./rag/embedding";
 import { VectorService } from "./rag/vector";
@@ -312,6 +315,9 @@ const conversationMemoryFactory = {
     // === MCP ===
     MCPManager,
 
+    // === Capabilities ===
+    CapabilityResolver,
+
     // === RAG ===
     EmbeddingService,
     VectorService,
@@ -379,6 +385,9 @@ const conversationMemoryFactory = {
 
     // === MCP ===
     MCPManager,
+
+    // === Capabilities ===
+    CapabilityResolver,
 
     // === RAG ===
     EmbeddingService,

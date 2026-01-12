@@ -44,6 +44,10 @@ import {
   LeaderPlanDto,
   LeaderMessageDto,
   MissionRetryDto,
+  UpdateReportContentDto,
+  AIEditReportDto,
+  RollbackReportDto,
+  MissionAdjustDto,
 } from "./dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { ResearchMissionService } from "./services/research-mission.service";
@@ -490,6 +494,124 @@ export class TopicResearchController {
     return this.topicResearchService.compareReports(userId, id, dto);
   }
 
+  /**
+   * 更新报告内容
+   */
+  @Patch("topics/:topicId/reports/:reportId")
+  @ApiOperation({
+    summary: "更新报告内容",
+    description: "手动编辑报告内容，自动创建修订历史",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "更新成功" })
+  @ApiResponse({ status: 404, description: "报告不存在" })
+  async updateReportContent(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+    @Body() dto: UpdateReportContentDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.updateReportContent(
+      userId,
+      topicId,
+      reportId,
+      dto,
+    );
+  }
+
+  /**
+   * AI 编辑报告
+   */
+  @Post("topics/:topicId/reports/:reportId/ai-edit")
+  @ApiOperation({
+    summary: "AI 编辑报告",
+    description: "使用 AI 对报告进行重写、润色、扩写、压缩或风格调整",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "编辑成功" })
+  @ApiResponse({ status: 404, description: "报告不存在" })
+  async aiEditReport(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+    @Body() dto: AIEditReportDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.aiEditReport(
+      userId,
+      topicId,
+      reportId,
+      dto,
+    );
+  }
+
+  /**
+   * 获取报告修订历史
+   */
+  @Get("topics/:topicId/reports/:reportId/revisions")
+  @ApiOperation({
+    summary: "获取修订历史",
+    description: "获取报告的所有修订版本记录",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "返回修订历史列表" })
+  @ApiResponse({ status: 404, description: "报告不存在" })
+  async getReportRevisions(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.getReportRevisions(
+      userId,
+      topicId,
+      reportId,
+    );
+  }
+
+  /**
+   * 回滚报告版本
+   */
+  @Post("topics/:topicId/reports/:reportId/rollback")
+  @ApiOperation({
+    summary: "回滚报告版本",
+    description: "将报告回滚到指定的历史版本",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "回滚成功" })
+  @ApiResponse({ status: 404, description: "报告或修订版本不存在" })
+  async rollbackReport(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+    @Body() dto: RollbackReportDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.rollbackReport(
+      userId,
+      topicId,
+      reportId,
+      dto.revisionNumber,
+    );
+  }
+
   // ==================== Evidence ====================
 
   /**
@@ -824,5 +946,53 @@ export class TopicResearchController {
       return { leaderId: null, leaderModel: null, agents: [] };
     }
     return this.missionService.getTeamInfo(mission.id);
+  }
+
+  /**
+   * 调整 Mission 执行策略
+   */
+  @Post("topics/:id/mission/adjust")
+  @ApiOperation({
+    summary: "调整 Mission 执行策略",
+    description: "添加/移除维度、调整聚焦领域等",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "调整成功" })
+  async adjustMission(
+    @Request() req: any,
+    @Param("id") id: string,
+    @Body() dto: MissionAdjustDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const mission = await this.missionService.getMissionByTopicId(id);
+    if (!mission) {
+      throw new Error("No active mission for this topic");
+    }
+    return this.missionService.adjustMission(userId, mission.id, dto);
+  }
+
+  /**
+   * 取消 Mission
+   */
+  @Post("topics/:id/mission/cancel")
+  @ApiOperation({
+    summary: "取消 Mission",
+    description: "取消正在执行的研究任务",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "取消成功" })
+  async cancelMission(@Request() req: any, @Param("id") id: string) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const mission = await this.missionService.getMissionByTopicId(id);
+    if (!mission) {
+      throw new Error("No active mission for this topic");
+    }
+    return this.missionService.cancelMission(userId, mission.id);
   }
 }

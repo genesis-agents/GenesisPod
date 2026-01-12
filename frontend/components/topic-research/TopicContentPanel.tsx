@@ -1,35 +1,48 @@
 'use client';
 
 /**
- * Topic Content Panel - 专业内容展示面板
+ * Topic Content Panel - 专题研究内容面板
  *
- * 设计理念：
- * 1. 信息分层 - 从概览到详情，支持渐进式深入
- * 2. 快速导航 - 报告目录、维度快速跳转
- * 3. 数据可视化 - 关键指标、趋势图表
- * 4. 证据追溯 - 每个结论可追溯到来源
+ * 设计参考 AI Writing 实现:
+ * 1. 洞察报告 - Markdown 文档视图 + 大纲导航
+ * 2. 团队互动 - Agent 对话历史、Leader 决策过程
+ * 3. Agent思考架构 - 每个 Agent 的推理链路
+ * 4. 参考文献 - 引用管理
  */
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import type {
   TopicReport,
   TopicDimension,
-  DimensionAnalysis,
   TopicEvidence,
 } from '@/types/topic-research';
 
 // Tab 类型定义
 type TabType = 'report' | 'team' | 'thinking' | 'references';
 
-// 研究事件类型 (导出供其他组件使用)
+// 研究事件类型
 export interface ResearchEvent {
   id: string;
   timestamp: Date;
-  agentType: 'coordinator' | 'researcher' | 'reviewer' | 'synthesizer';
+  agentType: 'leader' | 'researcher' | 'reviewer' | 'synthesizer';
   agentName: string;
-  eventType: 'start' | 'progress' | 'complete' | 'error';
+  eventType: 'start' | 'progress' | 'complete' | 'error' | 'decision';
   dimensionName?: string;
   message: string;
+  details?: string;
+}
+
+// Agent 思考记录
+export interface AgentThinking {
+  id: string;
+  agentType: 'leader' | 'researcher' | 'reviewer' | 'synthesizer';
+  agentName: string;
+  timestamp: Date;
+  phase: string;
+  thinking: string;
+  decision?: string;
+  reasoning?: string;
 }
 
 interface TopicContentPanelProps {
@@ -39,8 +52,8 @@ interface TopicContentPanelProps {
   isLoadingReport: boolean;
   isLoadingEvidence: boolean;
   onExportReport?: (format: 'pdf' | 'docx') => void;
-  // 研究事件列表（用于团队互动展示）
   researchEvents?: ResearchEvent[];
+  agentThinkings?: AgentThinking[];
 }
 
 // Icons
@@ -126,7 +139,6 @@ const SpinnerIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// Team Icon
 const TeamIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -143,7 +155,6 @@ const TeamIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// Thinking Icon (Brain/Mind)
 const ThinkingIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -160,6 +171,22 @@ const ThinkingIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const ListIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M4 6h16M4 10h16M4 14h16M4 18h16"
+    />
+  </svg>
+);
+
 export function TopicContentPanel({
   report,
   dimensions,
@@ -168,14 +195,16 @@ export function TopicContentPanel({
   isLoadingEvidence,
   onExportReport,
   researchEvents = [],
+  agentThinkings = [],
 }: TopicContentPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('report');
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
-  // Safe array fallbacks to prevent undefined access
+  // Safe array fallbacks
   const safeDimensions = dimensions || [];
   const safeEvidence = evidence || [];
   const safeEvents = researchEvents || [];
+  const safeThinkings = agentThinkings || [];
 
   // Tab 配置
   const tabs: {
@@ -186,7 +215,7 @@ export function TopicContentPanel({
   }[] = [
     {
       key: 'report',
-      label: '研究报告',
+      label: '洞察报告',
       icon: <DocumentIcon className="h-4 w-4" />,
     },
     {
@@ -197,8 +226,9 @@ export function TopicContentPanel({
     },
     {
       key: 'thinking',
-      label: 'Agent思考架构',
+      label: 'Agent思考',
       icon: <ThinkingIcon className="h-4 w-4" />,
+      badge: safeThinkings.length > 0 ? safeThinkings.length : undefined,
     },
     {
       key: 'references',
@@ -227,11 +257,7 @@ export function TopicContentPanel({
               <span>{tab.label}</span>
               {tab.badge !== undefined && tab.badge > 0 && (
                 <span
-                  className={`rounded-full px-1.5 py-0.5 text-xs ${
-                    activeTab === tab.key
-                      ? 'bg-blue-100 text-blue-600'
-                      : 'bg-gray-100 text-gray-500'
-                  }`}
+                  className={`rounded-full px-1.5 py-0.5 text-xs ${activeTab === tab.key ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}
                 >
                   {tab.badge}
                 </span>
@@ -295,7 +321,9 @@ export function TopicContentPanel({
         {activeTab === 'team' && (
           <TeamInteractionTabContent events={safeEvents} />
         )}
-        {activeTab === 'thinking' && <AgentThinkingTabContent />}
+        {activeTab === 'thinking' && (
+          <AgentThinkingTabContent thinkings={safeThinkings} />
+        )}
         {activeTab === 'references' && (
           <EvidenceTabContent
             evidence={safeEvidence}
@@ -307,7 +335,36 @@ export function TopicContentPanel({
   );
 }
 
-// 报告 Tab 内容 - 简洁版，无TOC侧边栏
+// ==================== 报告 Tab ====================
+// 提取报告内容中的标题，生成大纲
+interface OutlineItem {
+  id: string;
+  level: number;
+  text: string;
+  offset: number;
+}
+
+function extractOutline(content: string): OutlineItem[] {
+  const lines = content.split('\n');
+  const outline: OutlineItem[] = [];
+  let offset = 0;
+
+  for (const line of lines) {
+    const match = line.match(/^(#{1,3})\s+(.+)$/);
+    if (match) {
+      outline.push({
+        id: `heading-${outline.length}`,
+        level: match[1].length,
+        text: match[2].trim(),
+        offset,
+      });
+    }
+    offset += line.length + 1;
+  }
+
+  return outline;
+}
+
 function ReportTabContent({
   report,
   dimensions,
@@ -317,7 +374,104 @@ function ReportTabContent({
   dimensions: TopicDimension[];
   isLoading: boolean;
 }) {
+  const [showOutline, setShowOutline] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // 从报告中提取完整的 Markdown 内容
+  const reportMarkdown = useMemo(() => {
+    if (!report) return '';
+
+    const sections: string[] = [];
+
+    // 标题
+    if (report.title) {
+      sections.push(`# ${report.title}\n`);
+    }
+
+    // 摘要
+    if (report.summary) {
+      sections.push(`## 核心摘要\n\n${report.summary}\n`);
+    }
+
+    // 关键发现
+    if (report.highlights && report.highlights.length > 0) {
+      sections.push(`## 关键发现\n`);
+      report.highlights.forEach((h, i) => {
+        const typeEmoji =
+          h.type === 'trend'
+            ? '📈'
+            : h.type === 'finding'
+              ? '💡'
+              : h.type === 'opportunity'
+                ? '🎯'
+                : '⚠️';
+        sections.push(`### ${typeEmoji} ${h.title}\n\n${h.content}\n`);
+      });
+    }
+
+    // 维度分析
+    if (report.dimensionAnalyses && report.dimensionAnalyses.length > 0) {
+      sections.push(`## 维度分析\n`);
+      report.dimensionAnalyses.forEach((analysis) => {
+        const dimName = analysis.dimension?.name || '未知维度';
+        sections.push(`### ${dimName}\n`);
+
+        if (analysis.summary) {
+          sections.push(`${analysis.summary}\n`);
+        }
+
+        if (analysis.keyFindings && analysis.keyFindings.length > 0) {
+          sections.push(`\n**关键发现:**\n`);
+          analysis.keyFindings.forEach((f) => {
+            const sig =
+              f.significance === 'high'
+                ? '🔴'
+                : f.significance === 'medium'
+                  ? '🟡'
+                  : '⚪';
+            sections.push(`- ${sig} ${f.finding}\n`);
+          });
+        }
+
+        if (analysis.trends && analysis.trends.length > 0) {
+          sections.push(`\n**趋势:**\n`);
+          analysis.trends.forEach((t) => {
+            const dir =
+              t.direction === 'increasing'
+                ? '↑'
+                : t.direction === 'decreasing'
+                  ? '↓'
+                  : t.direction === 'emerging'
+                    ? '★'
+                    : '→';
+            sections.push(`- ${dir} ${t.trend}\n`);
+          });
+        }
+
+        if (analysis.detailedContent) {
+          sections.push(`\n${analysis.detailedContent}\n`);
+        }
+
+        sections.push('\n');
+      });
+    }
+
+    return sections.join('\n');
+  }, [report]);
+
+  // 大纲
+  const outline = useMemo(
+    () => extractOutline(reportMarkdown),
+    [reportMarkdown]
+  );
+
+  // 滚动到指定标题
+  const scrollToHeading = useCallback((id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
 
   if (isLoading) {
     return (
@@ -345,273 +499,140 @@ function ReportTabContent({
   }
 
   return (
-    <div className="h-full overflow-y-auto">
-      {/* 报告内容 - 无TOC侧边栏 */}
-      <div ref={contentRef} className="h-full overflow-y-auto">
-        <div className="mx-auto max-w-3xl px-6 py-6">
-          {/* 报告头部 */}
-          <div className="mb-8 border-b border-gray-200 pb-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm text-gray-500">
-                  版本 {report.version} · 生成于{' '}
-                  {report.generatedAt
-                    ? new Date(report.generatedAt).toLocaleString('zh-CN')
-                    : '-'}
-                </p>
-                <h1 className="mt-2 text-2xl font-bold text-gray-900">
-                  {report.title || '研究报告'}
-                </h1>
-              </div>
-              <div className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-1.5">
-                <span className="text-sm font-medium text-blue-700">
-                  {report.totalSources || 0}
-                </span>
-                <span className="text-sm text-blue-600">来源引用</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 核心摘要 */}
-          {report.summary && (
-            <section id="summary" className="mb-8">
-              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-                <span className="flex h-6 w-6 items-center justify-center rounded bg-blue-100 text-sm text-blue-600">
-                  1
-                </span>
-                核心摘要
-              </h2>
-              <div className="rounded-xl border border-gray-200 bg-gradient-to-br from-blue-50 to-white p-6">
-                <p className="whitespace-pre-wrap leading-relaxed text-gray-700">
-                  {report.summary}
-                </p>
-              </div>
-            </section>
-          )}
-
-          {/* 关键发现 */}
-          {report.highlights && report.highlights.length > 0 && (
-            <section id="highlights" className="mb-8">
-              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-                <span className="flex h-6 w-6 items-center justify-center rounded bg-blue-100 text-sm text-blue-600">
-                  2
-                </span>
-                关键发现
-              </h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                {report.highlights.map((highlight, index) => (
-                  <HighlightCard key={index} highlight={highlight} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* 维度分析摘要 */}
-          {report.dimensionAnalyses && report.dimensionAnalyses.length > 0 && (
-            <section id="dimensions" className="mb-8">
-              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-                <span className="flex h-6 w-6 items-center justify-center rounded bg-blue-100 text-sm text-blue-600">
-                  3
-                </span>
-                维度分析
-              </h2>
-              <div className="space-y-4">
-                {report.dimensionAnalyses.map((analysis) => (
-                  <DimensionAnalysisCard
-                    key={analysis.id}
-                    analysis={analysis}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// 关键发现卡片
-function HighlightCard({
-  highlight,
-}: {
-  highlight: {
-    type: 'trend' | 'finding' | 'opportunity' | 'challenge';
-    title: string;
-    content: string;
-  };
-}) {
-  const typeConfig = {
-    trend: {
-      icon: '📈',
-      label: '趋势',
-      className: 'border-blue-200 bg-blue-50',
-      textClass: 'text-blue-600',
-    },
-    finding: {
-      icon: '💡',
-      label: '发现',
-      className: 'border-purple-200 bg-purple-50',
-      textClass: 'text-purple-600',
-    },
-    opportunity: {
-      icon: '🎯',
-      label: '机会',
-      className: 'border-green-200 bg-green-50',
-      textClass: 'text-green-600',
-    },
-    challenge: {
-      icon: '⚠️',
-      label: '挑战',
-      className: 'border-orange-200 bg-orange-50',
-      textClass: 'text-orange-600',
-    },
-  };
-
-  const config = typeConfig[highlight.type] || {
-    icon: '📋',
-    label: highlight.type || '发现',
-    className: 'border-gray-200 bg-gray-50',
-    textClass: 'text-gray-600',
-  };
-
-  return (
-    <div className={`rounded-xl border p-4 ${config.className}`}>
-      <div className="mb-2 flex items-center gap-2">
-        <span className="text-lg">{config.icon}</span>
-        <span className={`text-xs font-semibold uppercase ${config.textClass}`}>
-          {config.label}
-        </span>
-      </div>
-      <h4 className="font-medium text-gray-900">{highlight.title}</h4>
-      <p className="mt-1 text-sm text-gray-600">{highlight.content}</p>
-    </div>
-  );
-}
-
-// 维度分析卡片
-function DimensionAnalysisCard({ analysis }: { analysis: DimensionAnalysis }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  return (
-    <div
-      id={`dim-${analysis.id}`}
-      className="overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-md"
-    >
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex w-full items-center justify-between p-4 text-left"
-      >
-        <div className="flex-1">
-          <h4 className="font-medium text-gray-900">
-            {analysis.dimension?.name || '未知维度'}
-          </h4>
-          {analysis.summary && (
-            <p className="mt-1 line-clamp-2 text-sm text-gray-500">
-              {analysis.summary}
-            </p>
-          )}
-        </div>
-        <div className="ml-4 flex items-center gap-3">
-          {analysis.confidenceLevel && (
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                analysis.confidenceLevel === 'high'
-                  ? 'bg-green-100 text-green-700'
-                  : analysis.confidenceLevel === 'medium'
-                    ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              {analysis.confidenceLevel === 'high'
-                ? '高可信'
-                : analysis.confidenceLevel === 'medium'
-                  ? '中可信'
-                  : '低可信'}
+    <div className="flex h-full">
+      {/* 大纲侧边栏 */}
+      {showOutline && outline.length > 0 && (
+        <div className="w-56 flex-shrink-0 border-r border-gray-100 bg-gray-50">
+          <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              目录大纲
             </span>
-          )}
-          <ChevronDownIcon
-            className={`h-5 w-5 text-gray-400 transition-transform ${
-              isExpanded ? 'rotate-180' : ''
-            }`}
-          />
-        </div>
-      </button>
-
-      {isExpanded && (
-        <div className="border-t border-gray-100 bg-gray-50 p-4">
-          {/* 关键发现 */}
-          {analysis.keyFindings && analysis.keyFindings.length > 0 && (
-            <div className="mb-4">
-              <h5 className="mb-2 text-sm font-medium text-gray-700">
-                关键发现
-              </h5>
-              <ul className="space-y-2">
-                {analysis.keyFindings.map((finding, idx) => (
-                  <li key={idx} className="flex items-start gap-2">
-                    <span
-                      className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${
-                        finding.significance === 'high'
-                          ? 'bg-red-500'
-                          : finding.significance === 'medium'
-                            ? 'bg-yellow-500'
-                            : 'bg-gray-400'
-                      }`}
-                    />
-                    <span className="text-sm text-gray-600">
-                      {finding.finding}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* 趋势 */}
-          {analysis.trends && analysis.trends.length > 0 && (
-            <div className="mb-4">
-              <h5 className="mb-2 text-sm font-medium text-gray-700">趋势</h5>
-              <div className="flex flex-wrap gap-2">
-                {analysis.trends.map((trend, idx) => (
-                  <span
-                    key={idx}
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
-                      trend.direction === 'increasing'
-                        ? 'bg-green-100 text-green-700'
-                        : trend.direction === 'decreasing'
-                          ? 'bg-red-100 text-red-700'
-                          : trend.direction === 'emerging'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {trend.direction === 'increasing' && '↑'}
-                    {trend.direction === 'decreasing' && '↓'}
-                    {trend.direction === 'emerging' && '★'}
-                    {trend.direction === 'stable' && '→'}
-                    {trend.trend}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 详细内容 */}
-          {analysis.detailedContent && (
-            <div className="rounded-lg bg-white p-3">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-600">
-                {analysis.detailedContent.slice(0, 500)}
-                {analysis.detailedContent.length > 500 && '...'}
-              </p>
-            </div>
-          )}
+            <button
+              onClick={() => setShowOutline(false)}
+              className="rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+          <nav className="overflow-y-auto p-2">
+            {outline.map((item, idx) => (
+              <button
+                key={item.id}
+                onClick={() => scrollToHeading(`outline-${idx}`)}
+                className={`block w-full truncate rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-gray-200 ${
+                  item.level === 1
+                    ? 'font-semibold text-gray-900'
+                    : item.level === 2
+                      ? 'pl-4 text-gray-700'
+                      : 'pl-6 text-gray-500'
+                }`}
+              >
+                {item.text}
+              </button>
+            ))}
+          </nav>
         </div>
       )}
+
+      {/* 报告内容 */}
+      <div ref={contentRef} className="flex-1 overflow-y-auto">
+        {/* 工具栏 */}
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white/95 px-4 py-2 backdrop-blur">
+          <div className="flex items-center gap-2">
+            {!showOutline && (
+              <button
+                onClick={() => setShowOutline(true)}
+                className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+              >
+                <ListIcon className="h-3 w-3" />
+                显示目录
+              </button>
+            )}
+            <span className="text-xs text-gray-400">
+              版本 {report.version} ·{' '}
+              {report.generatedAt
+                ? new Date(report.generatedAt).toLocaleString('zh-CN')
+                : '-'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <span className="rounded bg-blue-50 px-2 py-1 text-blue-600">
+              {report.totalSources || 0} 来源引用
+            </span>
+          </div>
+        </div>
+
+        {/* Markdown 渲染区域 */}
+        <div className="mx-auto max-w-3xl px-6 py-6">
+          <article className="prose prose-sm prose-blue max-w-none">
+            <ReactMarkdown
+              components={{
+                // 为标题添加 ID 以支持导航
+                h1: ({ children, ...props }) => {
+                  const text = String(children);
+                  const idx = outline.findIndex(
+                    (o) => o.text === text && o.level === 1
+                  );
+                  return (
+                    <h1 id={`outline-${idx}`} {...props}>
+                      {children}
+                    </h1>
+                  );
+                },
+                h2: ({ children, ...props }) => {
+                  const text = String(children);
+                  const idx = outline.findIndex(
+                    (o) => o.text === text && o.level === 2
+                  );
+                  return (
+                    <h2
+                      id={`outline-${idx}`}
+                      className="scroll-mt-16"
+                      {...props}
+                    >
+                      {children}
+                    </h2>
+                  );
+                },
+                h3: ({ children, ...props }) => {
+                  const text = String(children);
+                  const idx = outline.findIndex(
+                    (o) => o.text === text && o.level === 3
+                  );
+                  return (
+                    <h3
+                      id={`outline-${idx}`}
+                      className="scroll-mt-16"
+                      {...props}
+                    >
+                      {children}
+                    </h3>
+                  );
+                },
+              }}
+            >
+              {reportMarkdown}
+            </ReactMarkdown>
+          </article>
+        </div>
+      </div>
     </div>
   );
 }
 
-// 团队互动 Tab 内容
+// ==================== 团队互动 Tab ====================
 function TeamInteractionTabContent({ events }: { events: ResearchEvent[] }) {
   const safeEvents = events || [];
 
@@ -620,53 +641,89 @@ function TeamInteractionTabContent({ events }: { events: ResearchEvent[] }) {
     ResearchEvent['agentType'],
     { icon: string; label: string; color: string; bgColor: string }
   > = {
-    coordinator: {
-      icon: 'C',
-      label: '协调者',
-      color: 'text-gray-700',
-      bgColor: 'bg-gray-100',
+    leader: {
+      icon: '👑',
+      label: 'Leader',
+      color: 'text-purple-700',
+      bgColor: 'bg-purple-100',
     },
     researcher: {
-      icon: 'R',
+      icon: '🔍',
       label: '研究员',
       color: 'text-blue-700',
       bgColor: 'bg-blue-100',
     },
     reviewer: {
-      icon: 'V',
+      icon: '✅',
       label: '审核员',
-      color: 'text-purple-700',
-      bgColor: 'bg-purple-100',
-    },
-    synthesizer: {
-      icon: 'S',
-      label: '撰写员',
       color: 'text-green-700',
       bgColor: 'bg-green-100',
+    },
+    synthesizer: {
+      icon: '📊',
+      label: '撰写员',
+      color: 'text-orange-700',
+      bgColor: 'bg-orange-100',
     },
   };
 
   // 事件类型配置
   const eventTypeConfig: Record<
     ResearchEvent['eventType'],
-    { icon: string; label: string }
+    { icon: string; label: string; color: string }
   > = {
-    start: { icon: '▶', label: '开始' },
-    progress: { icon: '◐', label: '进行中' },
-    complete: { icon: '✓', label: '完成' },
-    error: { icon: '✗', label: '错误' },
+    start: { icon: '▶️', label: '开始', color: 'text-blue-600' },
+    progress: { icon: '⏳', label: '进行中', color: 'text-gray-600' },
+    complete: { icon: '✅', label: '完成', color: 'text-green-600' },
+    error: { icon: '❌', label: '错误', color: 'text-red-600' },
+    decision: { icon: '🎯', label: '决策', color: 'text-purple-600' },
   };
 
   if (safeEvents.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-8">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
-          <TeamIcon className="h-10 w-10 text-gray-400" />
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-100">
+          <TeamIcon className="h-10 w-10 text-blue-500" />
         </div>
-        <h3 className="mt-4 text-lg font-medium text-gray-900">暂无团队互动</h3>
+        <h3 className="mt-4 text-lg font-medium text-gray-900">等待研究开始</h3>
         <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
-          开始研究后，AI团队的协作过程将在此展示
+          研究过程中，AI 团队的协作动态将实时展示在此处
         </p>
+        <div className="mt-6 w-full max-w-md space-y-3">
+          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">👑</span>
+              <div>
+                <div className="font-medium text-gray-900">Leader 协调</div>
+                <p className="text-xs text-gray-500">
+                  分析任务、规划维度、分配研究员
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🔍</span>
+              <div>
+                <div className="font-medium text-gray-900">研究员执行</div>
+                <p className="text-xs text-gray-500">
+                  搜索资料、分析数据、整理发现
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">✅</span>
+              <div>
+                <div className="font-medium text-gray-900">审核与撰写</div>
+                <p className="text-xs text-gray-500">
+                  质量审核、报告撰写、最终交付
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -682,11 +739,10 @@ function TeamInteractionTabContent({ events }: { events: ResearchEvent[] }) {
 
         {/* 事件时间线 */}
         <div className="relative">
-          {/* 时间线竖线 */}
           <div className="absolute left-4 top-0 h-full w-px bg-gray-200" />
 
           <div className="space-y-4">
-            {safeEvents.map((event, index) => {
+            {safeEvents.map((event) => {
               const agent = agentConfig[event.agentType];
               const eventType = eventTypeConfig[event.eventType];
 
@@ -694,7 +750,7 @@ function TeamInteractionTabContent({ events }: { events: ResearchEvent[] }) {
                 <div key={event.id} className="relative flex gap-4 pl-10">
                   {/* 时间线节点 */}
                   <div
-                    className={`absolute left-2 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${agent.bgColor} ${agent.color}`}
+                    className={`absolute left-1 flex h-7 w-7 items-center justify-center rounded-full text-sm ${agent.bgColor}`}
                   >
                     {agent.icon}
                   </div>
@@ -706,7 +762,9 @@ function TeamInteractionTabContent({ events }: { events: ResearchEvent[] }) {
                         ? 'border-red-200 bg-red-50'
                         : event.eventType === 'complete'
                           ? 'border-green-200 bg-green-50'
-                          : 'border-gray-200 bg-white'
+                          : event.eventType === 'decision'
+                            ? 'border-purple-200 bg-purple-50'
+                            : 'border-gray-200 bg-white'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -715,6 +773,9 @@ function TeamInteractionTabContent({ events }: { events: ResearchEvent[] }) {
                           className={`rounded px-1.5 py-0.5 text-xs font-medium ${agent.bgColor} ${agent.color}`}
                         >
                           {event.agentName || agent.label}
+                        </span>
+                        <span className={`text-xs ${eventType.color}`}>
+                          {eventType.icon} {eventType.label}
                         </span>
                         {event.dimensionName && (
                           <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
@@ -733,6 +794,11 @@ function TeamInteractionTabContent({ events }: { events: ResearchEvent[] }) {
                     <p className="mt-2 text-sm text-gray-700">
                       {event.message}
                     </p>
+                    {event.details && (
+                      <div className="mt-2 rounded bg-gray-50 p-2 text-xs text-gray-500">
+                        {event.details}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -744,57 +810,218 @@ function TeamInteractionTabContent({ events }: { events: ResearchEvent[] }) {
   );
 }
 
-// Agent 思考架构 Tab 内容
-function AgentThinkingTabContent() {
-  return (
-    <div className="flex h-full flex-col items-center justify-center px-8">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-purple-100">
-        <ThinkingIcon className="h-10 w-10 text-purple-500" />
+// ==================== Agent 思考架构 Tab ====================
+function AgentThinkingTabContent({
+  thinkings,
+}: {
+  thinkings: AgentThinking[];
+}) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const safeThinkings = thinkings || [];
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Agent 类型配置
+  const agentConfig: Record<
+    AgentThinking['agentType'],
+    {
+      icon: string;
+      label: string;
+      color: string;
+      bgColor: string;
+      borderColor: string;
+    }
+  > = {
+    leader: {
+      icon: '👑',
+      label: 'Leader',
+      color: 'text-purple-700',
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-200',
+    },
+    researcher: {
+      icon: '🔍',
+      label: '研究员',
+      color: 'text-blue-700',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200',
+    },
+    reviewer: {
+      icon: '✅',
+      label: '审核员',
+      color: 'text-green-700',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200',
+    },
+    synthesizer: {
+      icon: '📊',
+      label: '撰写员',
+      color: 'text-orange-700',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200',
+    },
+  };
+
+  if (safeThinkings.length === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center px-8">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-purple-100">
+          <ThinkingIcon className="h-10 w-10 text-purple-500" />
+        </div>
+        <h3 className="mt-4 text-lg font-medium text-gray-900">
+          Agent 思考架构
+        </h3>
+        <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
+          研究过程中，各 Agent 的推理链路、决策依据和思考过程将在此展示
+        </p>
+        <div className="mt-6 w-full max-w-md space-y-3">
+          <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-purple-700">
+              <span>👑</span> Leader 决策链
+            </div>
+            <p className="mt-2 text-xs text-purple-600">
+              任务理解 → 维度规划 → Agent 分配 → 质量审核 → 报告整合
+            </p>
+          </div>
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-blue-700">
+              <span>🔍</span> 研究员推理链
+            </div>
+            <p className="mt-2 text-xs text-blue-600">
+              信息检索 → 数据分析 → 关键发现 → 结论推导
+            </p>
+          </div>
+          <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-green-700">
+              <span>✅</span> 审核反馈链
+            </div>
+            <p className="mt-2 text-xs text-green-600">
+              质量评估 → 一致性检查 → 改进建议 → 通过/拒绝决定
+            </p>
+          </div>
+        </div>
       </div>
-      <h3 className="mt-4 text-lg font-medium text-gray-900">Agent 思考架构</h3>
-      <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
-        研究过程中，各 Agent 的推理链路、决策依据和思考过程将在此展示
-      </p>
-      <div className="mt-6 w-full max-w-md space-y-3">
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 text-xs text-white">
-              👑
-            </span>
-            Leader 决策
-          </div>
-          <p className="mt-2 text-xs text-gray-500">
-            研究维度规划、任务分配、质量审核决策
-          </p>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500 text-xs text-white">
-              🔍
-            </span>
-            研究员推理
-          </div>
-          <p className="mt-2 text-xs text-gray-500">
-            信息检索策略、数据分析逻辑、结论推导过程
-          </p>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-xs text-white">
-              ✅
-            </span>
-            审核反馈
-          </div>
-          <p className="mt-2 text-xs text-gray-500">
-            质量评估标准、改进建议、通过/拒绝依据
-          </p>
-        </div>
+    );
+  }
+
+  // 按 Agent 分组
+  const groupedByAgent = safeThinkings.reduce(
+    (acc, t) => {
+      const key = t.agentName || t.agentType;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(t);
+      return acc;
+    },
+    {} as Record<string, AgentThinking[]>
+  );
+
+  return (
+    <div className="h-full overflow-y-auto p-4">
+      <div className="space-y-4">
+        {Object.entries(groupedByAgent).map(([agentKey, thinkingList]) => {
+          const firstThinking = thinkingList[0];
+          const config = agentConfig[firstThinking.agentType];
+
+          return (
+            <div
+              key={agentKey}
+              className={`rounded-lg border ${config.borderColor} ${config.bgColor}`}
+            >
+              {/* Agent 头部 */}
+              <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
+                <span className="text-lg">{config.icon}</span>
+                <span className={`font-medium ${config.color}`}>
+                  {agentKey}
+                </span>
+                <span className="text-xs text-gray-500">
+                  ({thinkingList.length} 条思考记录)
+                </span>
+              </div>
+
+              {/* 思考列表 */}
+              <div className="divide-y divide-gray-100">
+                {thinkingList.map((thinking) => {
+                  const isExpanded = expandedIds.has(thinking.id);
+
+                  return (
+                    <div key={thinking.id} className="p-3">
+                      <button
+                        onClick={() => toggleExpand(thinking.id)}
+                        className="flex w-full items-center justify-between text-left"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="rounded bg-white px-2 py-0.5 text-xs font-medium text-gray-600">
+                            {thinking.phase}
+                          </span>
+                          <span className="line-clamp-1 text-sm text-gray-700">
+                            {thinking.thinking.slice(0, 100)}...
+                          </span>
+                        </div>
+                        <ChevronDownIcon
+                          className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+
+                      {isExpanded && (
+                        <div className="mt-3 space-y-3 rounded-lg bg-white p-3">
+                          <div>
+                            <div className="mb-1 text-xs font-medium text-gray-500">
+                              思考过程
+                            </div>
+                            <p className="whitespace-pre-wrap text-sm text-gray-700">
+                              {thinking.thinking}
+                            </p>
+                          </div>
+                          {thinking.reasoning && (
+                            <div>
+                              <div className="mb-1 text-xs font-medium text-gray-500">
+                                推理依据
+                              </div>
+                              <p className="whitespace-pre-wrap text-sm text-gray-600">
+                                {thinking.reasoning}
+                              </p>
+                            </div>
+                          )}
+                          {thinking.decision && (
+                            <div>
+                              <div className="mb-1 text-xs font-medium text-gray-500">
+                                决策结果
+                              </div>
+                              <p className="whitespace-pre-wrap text-sm font-medium text-gray-800">
+                                {thinking.decision}
+                              </p>
+                            </div>
+                          )}
+                          <div className="text-right text-xs text-gray-400">
+                            {new Date(thinking.timestamp).toLocaleString(
+                              'zh-CN'
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// 证据来源 Tab 内容
+// ==================== 证据来源 Tab ====================
 function EvidenceTabContent({
   evidence,
   isLoading,
@@ -802,19 +1029,16 @@ function EvidenceTabContent({
   evidence: TopicEvidence[];
   isLoading: boolean;
 }) {
-  // Safe array fallback
   const safeEvidence = evidence || [];
-
   const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>(
     'all'
   );
   const [sortBy, setSortBy] = useState<'credibility' | 'date'>('credibility');
 
-  // 筛选和排序证据
+  // 筛选和排序
   const filteredEvidence = useMemo(() => {
     let result = [...safeEvidence];
 
-    // 筛选
     if (filter !== 'all') {
       result = result.filter((e) => {
         const score = e.credibilityScore || 0;
@@ -825,17 +1049,13 @@ function EvidenceTabContent({
       });
     }
 
-    // 排序
     result.sort((a, b) => {
       if (sortBy === 'credibility') {
         return (b.credibilityScore || 0) - (a.credibilityScore || 0);
       }
-      if (sortBy === 'date') {
-        const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-        const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-        return dateB - dateA;
-      }
-      return 0;
+      const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+      const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+      return dateB - dateA;
     });
 
     return result;
