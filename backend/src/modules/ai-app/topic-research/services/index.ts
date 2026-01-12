@@ -10,6 +10,7 @@ export { ReportSynthesisService } from "./report-synthesis.service";
 export { TopicTeamOrchestratorService } from "./topic-team-orchestrator.service";
 export { TopicRefreshScheduler } from "./topic-refresh.scheduler";
 export { EvidenceManagementService } from "./evidence-management.service";
+export { ResearchReviewerService } from "./research-reviewer.service";
 
 // Re-export types
 export type {
@@ -18,3 +19,9 @@ export type {
 } from "./topic-team-orchestrator.service";
 export type { EvidenceQueryOptions } from "./evidence-management.service";
 export type { DimensionResearchResult } from "./dimension-research.service";
+export {
+  ReviewQualityLevel,
+  type DimensionReviewResult,
+  type OverallReviewResult,
+  type ReviewIssue,
+} from "./research-reviewer.service";

@@ -9,3 +9,4 @@ export { CreateTopicDialog } from './CreateTopicDialog';
 export { RefreshProgress } from './RefreshProgress';
 export { TopicDetail } from './TopicDetail';
 export { TopicResearchTab } from './TopicResearchTab';
+export { TopicResearchCanvas } from './TopicResearchCanvas';

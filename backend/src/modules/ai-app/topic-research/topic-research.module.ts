@@ -14,6 +14,7 @@ import {
   TopicTeamOrchestratorService,
   TopicRefreshScheduler,
   EvidenceManagementService,
+  ResearchReviewerService,
 } from "./services";
 
 const services = [
@@ -21,6 +22,7 @@ const services = [
   DataSourceRouterService,
   DimensionResearchService,
   ReportSynthesisService,
+  ResearchReviewerService,
   TopicTeamOrchestratorService,
   TopicRefreshScheduler,
   EvidenceManagementService,

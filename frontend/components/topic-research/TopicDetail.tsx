@@ -16,6 +16,7 @@ import type {
 import { DimensionStatus, ResearchTopicType } from '@/types/topic-research';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
 import { RefreshProgress } from './RefreshProgress';
+import { TopicResearchCanvas } from './TopicResearchCanvas';
 
 interface TopicDetailProps {
   topic: ResearchTopic;
@@ -194,8 +195,8 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
   } = useTopicResearchStore();
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'dimensions' | 'evidence'
-  >('overview');
+    'team' | 'overview' | 'dimensions' | 'evidence'
+  >('team');
   const [expandedDimension, setExpandedDimension] = useState<string | null>(
     null
   );
@@ -295,6 +296,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
         {/* Tabs */}
         <div className="mt-4 flex gap-6 border-b border-gray-200">
           {[
+            { key: 'team', label: '研究团队' },
             { key: 'overview', label: '报告概览' },
             { key: 'dimensions', label: '研究维度' },
             { key: 'evidence', label: '证据来源' },
@@ -328,20 +330,40 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
-        {activeTab === 'overview' && (
-          <ReportOverview report={currentReport} isLoading={isLoadingReports} />
-        )}
-        {activeTab === 'dimensions' && (
-          <DimensionsList
+      <div className="flex-1 overflow-auto">
+        {activeTab === 'team' && (
+          <TopicResearchCanvas
+            topicName={topic.name}
             dimensions={dimensions}
-            report={currentReport}
-            expandedId={expandedDimension}
-            onToggle={setExpandedDimension}
+            isRefreshing={isRefreshing}
+            refreshProgress={refreshProgress}
+            onStartRefresh={handleRefresh}
+            onCancelRefresh={handleCancelRefresh}
+            embedded
           />
         )}
+        {activeTab === 'overview' && (
+          <div className="p-6">
+            <ReportOverview
+              report={currentReport}
+              isLoading={isLoadingReports}
+            />
+          </div>
+        )}
+        {activeTab === 'dimensions' && (
+          <div className="p-6">
+            <DimensionsList
+              dimensions={dimensions}
+              report={currentReport}
+              expandedId={expandedDimension}
+              onToggle={setExpandedDimension}
+            />
+          </div>
+        )}
         {activeTab === 'evidence' && (
-          <EvidenceList topicId={topic.id} reportId={currentReport?.id} />
+          <div className="p-6">
+            <EvidenceList topicId={topic.id} reportId={currentReport?.id} />
+          </div>
         )}
       </div>
     </div>
@@ -520,13 +542,13 @@ function DimensionAnalysisCard({ analysis }: { analysis: DimensionAnalysis }) {
       {isExpanded && (
         <div className="border-t border-gray-100 p-4">
           {/* Key Findings */}
-          {analysis.keyFindings.length > 0 && (
+          {(analysis.keyFindings || []).length > 0 && (
             <div className="mb-4">
               <h5 className="mb-2 text-sm font-medium text-gray-700">
                 关键发现
               </h5>
               <ul className="space-y-2">
-                {analysis.keyFindings.map((finding, idx) => (
+                {(analysis.keyFindings || []).map((finding, idx) => (
                   <li key={idx} className="flex items-start gap-2 text-sm">
                     <span
                       className={`mt-1 h-2 w-2 flex-shrink-0 rounded-full ${
@@ -545,11 +567,11 @@ function DimensionAnalysisCard({ analysis }: { analysis: DimensionAnalysis }) {
           )}
 
           {/* Trends */}
-          {analysis.trends.length > 0 && (
+          {(analysis.trends || []).length > 0 && (
             <div className="mb-4">
               <h5 className="mb-2 text-sm font-medium text-gray-700">趋势</h5>
               <ul className="space-y-2">
-                {analysis.trends.map((trend, idx) => (
+                {(analysis.trends || []).map((trend, idx) => (
                   <li key={idx} className="flex items-start gap-2 text-sm">
                     <span
                       className={`mt-0.5 text-xs ${
@@ -641,7 +663,7 @@ function DimensionsList({
             >
               <div className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-sm font-medium text-gray-600">
-                  {dimension.sortOrder + 1}
+                  {dimension.sortOrder}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -678,7 +700,7 @@ function DimensionsList({
                   <div>
                     <span className="text-gray-500">搜索关键词:</span>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {dimension.searchQueries.map((query, idx) => (
+                      {(dimension.searchQueries || []).map((query, idx) => (
                         <span
                           key={idx}
                           className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
@@ -686,12 +708,16 @@ function DimensionsList({
                           {query}
                         </span>
                       ))}
+                      {(!dimension.searchQueries ||
+                        dimension.searchQueries.length === 0) && (
+                        <span className="text-gray-400">暂无配置</span>
+                      )}
                     </div>
                   </div>
                   <div>
                     <span className="text-gray-500">数据来源:</span>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {dimension.searchSources.map((source, idx) => (
+                      {(dimension.searchSources || []).map((source, idx) => (
                         <span
                           key={idx}
                           className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-600"
@@ -699,6 +725,10 @@ function DimensionsList({
                           {source}
                         </span>
                       ))}
+                      {(!dimension.searchSources ||
+                        dimension.searchSources.length === 0) && (
+                        <span className="text-gray-400">暂无配置</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -769,16 +799,40 @@ function EvidenceList({
     );
   }
 
+  const safeEvidence = evidence || [];
+
+  if (safeEvidence.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
+        <svg
+          className="h-16 w-16 text-gray-300"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+          />
+        </svg>
+        <h3 className="mt-4 text-lg font-medium text-gray-900">暂无证据来源</h3>
+        <p className="mt-1 text-gray-500">刷新专题后将显示所有引用的证据</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-gray-700">
-          共 {evidenceTotal} 个来源
+          共 {evidenceTotal || 0} 个来源
         </h3>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {evidence.map((item) => (
+        {safeEvidence.map((item) => (
           <a
             key={item.id}
             href={item.url}

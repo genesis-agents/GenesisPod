@@ -13,6 +13,11 @@ import type {
 } from "@prisma/client";
 import { DimensionResearchService } from "./dimension-research.service";
 import { ReportSynthesisService } from "./report-synthesis.service";
+import {
+  ResearchReviewerService,
+  type OverallReviewResult,
+  ReviewQualityLevel,
+} from "./research-reviewer.service";
 import type { DimensionAnalysisResult } from "../types/research.types";
 
 /**
@@ -21,7 +26,13 @@ import type { DimensionAnalysisResult } from "../types/research.types";
 export interface RefreshProgressEvent {
   topicId: string;
   reportId: string;
-  phase: "starting" | "researching" | "synthesizing" | "completed" | "failed";
+  phase:
+    | "starting"
+    | "researching"
+    | "reviewing"
+    | "synthesizing"
+    | "completed"
+    | "failed";
   progress: number; // 0-100
   currentDimension?: string;
   completedDimensions: number;
@@ -69,6 +80,7 @@ export class TopicTeamOrchestratorService {
     private readonly eventEmitter: EventEmitter2,
     private readonly dimensionResearchService: DimensionResearchService,
     private readonly reportSynthesisService: ReportSynthesisService,
+    private readonly researchReviewerService: ResearchReviewerService,
   ) {}
 
   /**
@@ -173,18 +185,53 @@ export class TopicTeamOrchestratorService {
         }
       }
 
+      // 5. 质量审核阶段
+      this.emitProgress({
+        topicId,
+        reportId: report.id,
+        phase: "reviewing",
+        progress: 70,
+        completedDimensions: dimensions.length,
+        totalDimensions: dimensions.length,
+        message: "质量审核员正在审核研究质量...",
+      });
+
+      // 执行质量审核
+      const reviewResult = await this.reviewResearchQuality(
+        topic,
+        dimensions,
+        analysisResults,
+      );
+
+      // 记录审核结果
+      this.logger.log(
+        `Review completed: ${reviewResult.qualityLevel} (${reviewResult.overallScore.toFixed(1)}/100)`,
+      );
+
+      // 检查是否需要重新研究（质量不达标）
+      if (
+        reviewResult.qualityLevel === ReviewQualityLevel.REJECTED ||
+        reviewResult.qualityLevel === ReviewQualityLevel.NEEDS_REVISION
+      ) {
+        this.logger.warn(
+          `Research quality below threshold: ${reviewResult.qualityLevel}. ` +
+            `Recommendations: ${reviewResult.recommendations.join("; ")}`,
+        );
+        // 目前仅记录警告，不中断流程；未来可以在这里触发重新研究
+      }
+
       // 发送合成开始事件
       this.emitProgress({
         topicId,
         reportId: report.id,
         phase: "synthesizing",
-        progress: 80,
+        progress: 85,
         completedDimensions: dimensions.length,
         totalDimensions: dimensions.length,
         message: "正在合成最终报告...",
       });
 
-      // 5. 合成最终报告
+      // 6. 合成最终报告
       const finalReport = await this.reportSynthesisService.synthesizeReport(
         topic,
         report.id,
@@ -430,5 +477,61 @@ export class TopicTeamOrchestratorService {
       dimension,
     );
     return result.analysisResult;
+  }
+
+  /**
+   * 执行研究质量审核
+   */
+  private async reviewResearchQuality(
+    topic: ResearchTopic,
+    dimensions: TopicDimension[],
+    analysisResults: PromiseSettledResult<{
+      dimensionId: string;
+      analysisResult: DimensionAnalysisResult;
+      evidenceIds: string[];
+    }>[],
+  ): Promise<OverallReviewResult> {
+    // 收集成功的分析结果
+    const successfulAnalyses: Array<{
+      dimension: TopicDimension;
+      analysis: DimensionAnalysisResult;
+      evidenceCount: number;
+    }> = [];
+
+    for (const result of analysisResults) {
+      if (result.status === "fulfilled") {
+        const dimension = dimensions.find(
+          (d) => d.id === result.value.dimensionId,
+        );
+        if (dimension) {
+          successfulAnalyses.push({
+            dimension,
+            analysis: result.value.analysisResult,
+            evidenceCount: result.value.evidenceIds.length,
+          });
+        }
+      }
+    }
+
+    // 对每个维度进行审核
+    const dimensionReviews = await Promise.all(
+      successfulAnalyses.map(async ({ dimension, analysis, evidenceCount }) => {
+        return this.researchReviewerService.reviewDimension(
+          topic,
+          dimension,
+          analysis,
+          evidenceCount,
+        );
+      }),
+    );
+
+    // 执行整体审核
+    const overallReview = await this.researchReviewerService.reviewOverall(
+      topic,
+      dimensions,
+      dimensionReviews,
+    );
+
+    return overallReview;
   }
 }

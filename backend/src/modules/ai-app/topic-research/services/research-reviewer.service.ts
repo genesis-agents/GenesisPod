@@ -1,0 +1,647 @@
+import { Injectable, Logger } from "@nestjs/common";
+import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AIModelType } from "@prisma/client";
+import type { ResearchTopic, TopicDimension } from "@prisma/client";
+import type { DimensionAnalysisResult } from "../types/research.types";
+
+/**
+ * 审核质量等级
+ */
+export enum ReviewQualityLevel {
+  EXCELLENT = "excellent", // 优秀，可直接使用
+  GOOD = "good", // 良好，可使用但有改进空间
+  ACCEPTABLE = "acceptable", // 可接受，建议改进
+  NEEDS_REVISION = "needs_revision", // 需要修订
+  REJECTED = "rejected", // 拒绝，需要重新研究
+}
+
+/**
+ * 单维度审核结果
+ */
+export interface DimensionReviewResult {
+  dimensionId: string;
+  dimensionName: string;
+  qualityLevel: ReviewQualityLevel;
+  overallScore: number; // 0-100
+  scores: {
+    breadth: number; // 广度得分
+    depth: number; // 深度得分
+    evidence: number; // 证据支撑得分
+    coherence: number; // 逻辑连贯性得分
+    currency: number; // 时效性得分
+  };
+  issues: ReviewIssue[];
+  suggestions: string[];
+  needsReresearch: boolean;
+  reresearchFocus?: string[];
+}
+
+/**
+ * 审核问题
+ */
+export interface ReviewIssue {
+  type:
+    | "missing_coverage" // 缺少覆盖
+    | "weak_evidence" // 证据薄弱
+    | "outdated_info" // 信息过时
+    | "logical_gap" // 逻辑漏洞
+    | "shallow_analysis" // 分析浅显
+    | "missing_perspective"; // 缺少视角
+  severity: "critical" | "major" | "minor";
+  description: string;
+  affectedSection?: string;
+}
+
+/**
+ * 全局审核结果
+ */
+export interface OverallReviewResult {
+  topicId: string;
+  topicName: string;
+  qualityLevel: ReviewQualityLevel;
+  overallScore: number;
+  dimensionReviews: DimensionReviewResult[];
+  crossDimensionIssues: ReviewIssue[];
+  coverageAnalysis: {
+    coveredAspects: string[];
+    missingAspects: string[];
+    coverageScore: number;
+  };
+  recommendations: string[];
+  needsReresearch: boolean;
+  dimensionsToReresearch: string[];
+}
+
+/**
+ * AI 审核响应
+ */
+interface AIReviewResponse {
+  qualityLevel: ReviewQualityLevel;
+  overallScore: number;
+  scores: {
+    breadth: number;
+    depth: number;
+    evidence: number;
+    coherence: number;
+    currency: number;
+  };
+  issues: Array<{
+    type: string;
+    severity: string;
+    description: string;
+    affectedSection?: string;
+  }>;
+  suggestions: string[];
+  needsReresearch: boolean;
+  reresearchFocus?: string[];
+}
+
+/**
+ * Research Reviewer Service
+ *
+ * 质量审核员服务 - 负责审核研究质量
+ *
+ * 职责：
+ * 1. 审核每个维度的研究质量
+ * 2. 检查研究广度（是否覆盖关键角度）
+ * 3. 检查研究深度（是否有足够证据支撑）
+ * 4. 评估逻辑连贯性和时效性
+ * 5. 提出改进建议或触发重新研究
+ *
+ * 质量标准：
+ * - 广度：每个维度必须覆盖主要方面，不能遗漏关键角度
+ * - 深度：每个发现必须有至少2个证据支撑，分析要深入本质
+ * - 证据：证据来源多样，可信度高，时效性好
+ * - 连贯：分析逻辑清晰，结论有依据
+ * - 时效：信息来源不超过6个月，关注最新动态
+ */
+@Injectable()
+export class ResearchReviewerService {
+  private readonly logger = new Logger(ResearchReviewerService.name);
+
+  // 质量阈值
+  private readonly QUALITY_THRESHOLDS = {
+    excellent: 90,
+    good: 75,
+    acceptable: 60,
+    needsRevision: 40,
+  };
+
+  // 最低可接受分数
+  private readonly MIN_ACCEPTABLE_SCORE = 60;
+
+  constructor(private readonly aiChatService: AiChatService) {}
+
+  /**
+   * 审核单个维度的研究质量
+   */
+  async reviewDimension(
+    topic: ResearchTopic,
+    dimension: TopicDimension,
+    analysis: DimensionAnalysisResult,
+    evidenceCount: number,
+  ): Promise<DimensionReviewResult> {
+    this.logger.log(
+      `Reviewing dimension: ${dimension.name} for topic: ${topic.name}`,
+    );
+
+    const systemPrompt = this.buildDimensionReviewSystemPrompt();
+    const userPrompt = this.buildDimensionReviewUserPrompt(
+      topic,
+      dimension,
+      analysis,
+      evidenceCount,
+    );
+
+    try {
+      const response = await this.aiChatService.chat({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        modelType: AIModelType.CHAT,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "medium",
+        },
+      });
+
+      const reviewData = JSON.parse(response.content) as AIReviewResponse;
+
+      const result: DimensionReviewResult = {
+        dimensionId: dimension.id,
+        dimensionName: dimension.name,
+        qualityLevel: this.determineQualityLevel(reviewData.overallScore),
+        overallScore: reviewData.overallScore,
+        scores: reviewData.scores,
+        issues: reviewData.issues.map((issue) => ({
+          type: issue.type as ReviewIssue["type"],
+          severity: issue.severity as ReviewIssue["severity"],
+          description: issue.description,
+          affectedSection: issue.affectedSection,
+        })),
+        suggestions: reviewData.suggestions,
+        needsReresearch:
+          reviewData.needsReresearch ||
+          reviewData.overallScore < this.MIN_ACCEPTABLE_SCORE,
+        reresearchFocus: reviewData.reresearchFocus,
+      };
+
+      this.logger.log(
+        `Dimension ${dimension.name} review complete: ${result.qualityLevel} (${result.overallScore}/100)`,
+      );
+
+      return result;
+    } catch (error) {
+      this.logger.error(`Failed to review dimension ${dimension.name}:`, error);
+      // 返回一个需要重新研究的结果
+      return this.createFailedReviewResult(dimension, error);
+    }
+  }
+
+  /**
+   * 审核整体研究质量
+   */
+  async reviewOverall(
+    topic: ResearchTopic,
+    dimensions: TopicDimension[],
+    dimensionReviews: DimensionReviewResult[],
+  ): Promise<OverallReviewResult> {
+    this.logger.log(`Performing overall review for topic: ${topic.name}`);
+
+    // 计算整体分数
+    const overallScore =
+      dimensionReviews.length > 0
+        ? dimensionReviews.reduce((sum, r) => sum + r.overallScore, 0) /
+          dimensionReviews.length
+        : 0;
+
+    // 检查跨维度问题
+    const crossDimensionIssues = await this.analyzeCrossDimensionIssues(
+      topic,
+      dimensions,
+      dimensionReviews,
+    );
+
+    // 分析覆盖度
+    const coverageAnalysis = this.analyzeCoverage(topic, dimensions);
+
+    // 确定需要重新研究的维度
+    const dimensionsToReresearch = dimensionReviews
+      .filter((r) => r.needsReresearch)
+      .map((r) => r.dimensionId);
+
+    // 生成总体建议
+    const recommendations = this.generateOverallRecommendations(
+      dimensionReviews,
+      crossDimensionIssues,
+      coverageAnalysis,
+    );
+
+    const result: OverallReviewResult = {
+      topicId: topic.id,
+      topicName: topic.name,
+      qualityLevel: this.determineQualityLevel(overallScore),
+      overallScore,
+      dimensionReviews,
+      crossDimensionIssues,
+      coverageAnalysis,
+      recommendations,
+      needsReresearch: dimensionsToReresearch.length > 0,
+      dimensionsToReresearch,
+    };
+
+    this.logger.log(
+      `Overall review complete: ${result.qualityLevel} (${result.overallScore.toFixed(1)}/100), ` +
+        `${dimensionsToReresearch.length} dimensions need reresearch`,
+    );
+
+    return result;
+  }
+
+  /**
+   * 构建维度审核系统提示词
+   */
+  private buildDimensionReviewSystemPrompt(): string {
+    return `你是一位资深的研究质量审核专家，负责审核 AI 研究团队产出的研究报告质量。
+
+## 你的职责
+
+你需要从以下五个维度严格评估研究质量：
+
+### 1. 广度 (Breadth) - 25%权重
+- 是否覆盖了该维度的主要方面？
+- 是否遗漏了关键视角？
+- 是否考虑了不同利益相关方的观点？
+- 评分标准：
+  - 90-100: 全面覆盖所有关键方面，无明显遗漏
+  - 75-89: 覆盖大部分方面，有少量遗漏
+  - 60-74: 覆盖基本方面，有一些遗漏
+  - 40-59: 覆盖不足，多处遗漏
+  - 0-39: 严重遗漏关键方面
+
+### 2. 深度 (Depth) - 25%权重
+- 分析是否深入本质？
+- 是否仅停留在表面描述？
+- 是否揭示了深层原因和影响？
+- 评分标准：
+  - 90-100: 分析深入透彻，揭示本质规律
+  - 75-89: 分析较深入，有一定洞察
+  - 60-74: 分析一般，缺乏深度
+  - 40-59: 分析浅显，多为表面描述
+  - 0-39: 分析严重不足
+
+### 3. 证据支撑 (Evidence) - 25%权重
+- 每个关键发现是否有足够证据支撑？
+- 证据来源是否多样、可靠？
+- 是否有原始引用？
+- 评分标准：
+  - 90-100: 证据充分、来源可靠多样
+  - 75-89: 证据较充分，来源较可靠
+  - 60-74: 证据基本足够，来源有限
+  - 40-59: 证据不足，来源单一
+  - 0-39: 证据严重不足或不可靠
+
+### 4. 逻辑连贯 (Coherence) - 15%权重
+- 分析逻辑是否清晰？
+- 结论是否有依据？
+- 是否存在逻辑跳跃或矛盾？
+- 评分标准：
+  - 90-100: 逻辑严密，论证清晰
+  - 75-89: 逻辑较清晰，论证较完整
+  - 60-74: 逻辑基本清晰，有少量问题
+  - 40-59: 逻辑不清，论证不完整
+  - 0-39: 逻辑混乱，结论无依据
+
+### 5. 时效性 (Currency) - 10%权重
+- 信息来源是否足够新？
+- 是否关注了最新动态？
+- 是否有过时信息？
+- 评分标准：
+  - 90-100: 信息非常新，关注最新动态
+  - 75-89: 信息较新，时效性好
+  - 60-74: 信息时效性一般
+  - 40-59: 部分信息过时
+  - 0-39: 大量信息过时
+
+## 输出格式
+
+返回 JSON 格式：
+{
+  "qualityLevel": "excellent|good|acceptable|needs_revision|rejected",
+  "overallScore": <0-100的整数>,
+  "scores": {
+    "breadth": <0-100>,
+    "depth": <0-100>,
+    "evidence": <0-100>,
+    "coherence": <0-100>,
+    "currency": <0-100>
+  },
+  "issues": [
+    {
+      "type": "missing_coverage|weak_evidence|outdated_info|logical_gap|shallow_analysis|missing_perspective",
+      "severity": "critical|major|minor",
+      "description": "问题描述",
+      "affectedSection": "受影响的部分（可选）"
+    }
+  ],
+  "suggestions": ["改进建议1", "改进建议2"],
+  "needsReresearch": true/false,
+  "reresearchFocus": ["需要重新研究的重点方向"]
+}
+
+## 审核原则
+
+1. **高标准严要求**：作为质量守门人，你的标准必须严格
+2. **具体可操作**：问题描述和建议必须具体，可以指导改进
+3. **实事求是**：基于实际内容评分，不主观臆断
+4. **建设性反馈**：指出问题的同时给出改进方向`;
+  }
+
+  /**
+   * 构建维度审核用户提示词
+   */
+  private buildDimensionReviewUserPrompt(
+    topic: ResearchTopic,
+    dimension: TopicDimension,
+    analysis: DimensionAnalysisResult,
+    evidenceCount: number,
+  ): string {
+    return `请审核以下研究内容：
+
+## 研究主题
+${topic.name}
+
+## 研究维度
+名称：${dimension.name}
+描述：${dimension.description || "无"}
+
+## 研究结果
+
+### 核心摘要
+${analysis.summary}
+
+### 关键发现 (${analysis.keyFindings.length} 条)
+${analysis.keyFindings.map((f, i) => `${i + 1}. [${f.significance}重要性] ${f.finding} (${f.evidenceIds.length}个证据支撑)`).join("\n")}
+
+### 趋势分析 (${analysis.trends.length} 条)
+${analysis.trends.map((t, i) => `${i + 1}. [${t.direction}] ${t.trend} (时间范围: ${t.timeframe}, ${t.evidenceIds.length}个证据)`).join("\n")}
+
+### 挑战分析 (${analysis.challenges.length} 条)
+${analysis.challenges.map((c, i) => `${i + 1}. ${c.challenge}\n   影响: ${c.impact} (${c.evidenceIds.length}个证据)`).join("\n")}
+
+### 机会分析 (${analysis.opportunities.length} 条)
+${analysis.opportunities.map((o, i) => `${i + 1}. ${o.opportunity}\n   潜力: ${o.potential} (${o.evidenceIds.length}个证据)`).join("\n")}
+
+### 置信度
+${analysis.confidenceLevel}
+
+### 证据统计
+- 总证据数: ${evidenceCount}
+- 已使用证据: ${analysis.evidenceUsed}
+
+### 详细内容
+${analysis.detailedContent.substring(0, 3000)}${analysis.detailedContent.length > 3000 ? "...(已截断)" : ""}
+
+---
+
+请严格按照审核标准评估这份研究报告，输出 JSON 格式的审核结果。`;
+  }
+
+  /**
+   * 分析跨维度问题
+   */
+  private async analyzeCrossDimensionIssues(
+    _topic: ResearchTopic,
+    dimensions: TopicDimension[],
+    dimensionReviews: DimensionReviewResult[],
+  ): Promise<ReviewIssue[]> {
+    const issues: ReviewIssue[] = [];
+
+    // 如果有多个维度分数很低，可能存在系统性问题
+    const lowScoreDimensions = dimensionReviews.filter(
+      (r) => r.overallScore < 60,
+    );
+    if (lowScoreDimensions.length >= dimensions.length * 0.5) {
+      issues.push({
+        type: "shallow_analysis",
+        severity: "critical",
+        description: `超过一半的维度 (${lowScoreDimensions.length}/${dimensions.length}) 研究质量不达标，可能存在系统性问题`,
+      });
+    }
+
+    // 检查证据支撑普遍不足
+    const weakEvidenceDimensions = dimensionReviews.filter(
+      (r) => r.scores.evidence < 60,
+    );
+    if (weakEvidenceDimensions.length >= dimensions.length * 0.3) {
+      issues.push({
+        type: "weak_evidence",
+        severity: "major",
+        description: `多个维度 (${weakEvidenceDimensions.length}/${dimensions.length}) 证据支撑不足，需要加强数据收集`,
+      });
+    }
+
+    return issues;
+  }
+
+  /**
+   * 分析研究覆盖度
+   */
+  private analyzeCoverage(
+    topic: ResearchTopic,
+    dimensions: TopicDimension[],
+  ): OverallReviewResult["coverageAnalysis"] {
+    // 根据主题类型确定应该覆盖的方面
+    const expectedAspects = this.getExpectedAspects(topic.type);
+    const coveredAspects = dimensions.map((d) => d.name);
+
+    // 找出缺失的方面
+    const missingAspects = expectedAspects.filter(
+      (aspect) =>
+        !coveredAspects.some(
+          (covered) =>
+            covered.includes(aspect) ||
+            aspect.includes(covered) ||
+            this.areRelatedAspects(covered, aspect),
+        ),
+    );
+
+    const coverageScore =
+      ((expectedAspects.length - missingAspects.length) /
+        expectedAspects.length) *
+      100;
+
+    return {
+      coveredAspects,
+      missingAspects,
+      coverageScore: Math.round(coverageScore),
+    };
+  }
+
+  /**
+   * 获取期望覆盖的方面
+   */
+  private getExpectedAspects(topicType: string): string[] {
+    switch (topicType) {
+      case "MACRO":
+        return [
+          "政策法规",
+          "市场格局",
+          "技术趋势",
+          "竞争态势",
+          "投资动向",
+          "人才状况",
+          "国际比较",
+          "未来展望",
+        ];
+      case "TECHNOLOGY":
+        return [
+          "技术原理",
+          "发展现状",
+          "应用场景",
+          "技术难点",
+          "竞争格局",
+          "未来趋势",
+        ];
+      case "COMPANY":
+        return [
+          "公司概况",
+          "业务分析",
+          "财务状况",
+          "竞争优势",
+          "战略方向",
+          "风险因素",
+        ];
+      default:
+        return ["现状分析", "趋势预测", "竞争格局", "机会与挑战"];
+    }
+  }
+
+  /**
+   * 判断两个方面是否相关
+   */
+  private areRelatedAspects(aspect1: string, aspect2: string): boolean {
+    const relatedPairs = [
+      ["市场", "行业"],
+      ["竞争", "格局"],
+      ["技术", "创新"],
+      ["政策", "法规"],
+      ["投资", "融资"],
+      ["人才", "团队"],
+    ];
+
+    return relatedPairs.some(
+      (pair) =>
+        (aspect1.includes(pair[0]) && aspect2.includes(pair[1])) ||
+        (aspect1.includes(pair[1]) && aspect2.includes(pair[0])),
+    );
+  }
+
+  /**
+   * 生成总体建议
+   */
+  private generateOverallRecommendations(
+    dimensionReviews: DimensionReviewResult[],
+    crossDimensionIssues: ReviewIssue[],
+    coverageAnalysis: OverallReviewResult["coverageAnalysis"],
+  ): string[] {
+    const recommendations: string[] = [];
+
+    // 根据缺失覆盖提建议
+    if (coverageAnalysis.missingAspects.length > 0) {
+      recommendations.push(
+        `建议补充以下研究维度: ${coverageAnalysis.missingAspects.join(", ")}`,
+      );
+    }
+
+    // 根据低分维度提建议
+    const worstDimensions = dimensionReviews
+      .filter((r) => r.overallScore < 70)
+      .sort((a, b) => a.overallScore - b.overallScore)
+      .slice(0, 3);
+
+    if (worstDimensions.length > 0) {
+      recommendations.push(
+        `重点改进以下维度: ${worstDimensions.map((d) => `${d.dimensionName}(${d.overallScore}分)`).join(", ")}`,
+      );
+    }
+
+    // 根据跨维度问题提建议
+    const criticalIssues = crossDimensionIssues.filter(
+      (i) => i.severity === "critical",
+    );
+    if (criticalIssues.length > 0) {
+      recommendations.push(
+        `需要解决的关键问题: ${criticalIssues.map((i) => i.description).join("; ")}`,
+      );
+    }
+
+    // 通用建议
+    const avgEvidenceScore =
+      dimensionReviews.reduce((sum, r) => sum + r.scores.evidence, 0) /
+      dimensionReviews.length;
+    if (avgEvidenceScore < 70) {
+      recommendations.push(
+        "建议增加高质量证据来源，特别是权威机构报告和学术论文",
+      );
+    }
+
+    const avgDepthScore =
+      dimensionReviews.reduce((sum, r) => sum + r.scores.depth, 0) /
+      dimensionReviews.length;
+    if (avgDepthScore < 70) {
+      recommendations.push(
+        "建议深入分析因果关系和底层逻辑，避免停留在表面描述",
+      );
+    }
+
+    return recommendations;
+  }
+
+  /**
+   * 确定质量等级
+   */
+  private determineQualityLevel(score: number): ReviewQualityLevel {
+    if (score >= this.QUALITY_THRESHOLDS.excellent)
+      return ReviewQualityLevel.EXCELLENT;
+    if (score >= this.QUALITY_THRESHOLDS.good) return ReviewQualityLevel.GOOD;
+    if (score >= this.QUALITY_THRESHOLDS.acceptable)
+      return ReviewQualityLevel.ACCEPTABLE;
+    if (score >= this.QUALITY_THRESHOLDS.needsRevision)
+      return ReviewQualityLevel.NEEDS_REVISION;
+    return ReviewQualityLevel.REJECTED;
+  }
+
+  /**
+   * 创建失败的审核结果
+   */
+  private createFailedReviewResult(
+    dimension: TopicDimension,
+    error: unknown,
+  ): DimensionReviewResult {
+    return {
+      dimensionId: dimension.id,
+      dimensionName: dimension.name,
+      qualityLevel: ReviewQualityLevel.NEEDS_REVISION,
+      overallScore: 0,
+      scores: {
+        breadth: 0,
+        depth: 0,
+        evidence: 0,
+        coherence: 0,
+        currency: 0,
+      },
+      issues: [
+        {
+          type: "shallow_analysis",
+          severity: "critical",
+          description: `审核过程出错: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      suggestions: ["需要重新进行研究和审核"],
+      needsReresearch: true,
+      reresearchFocus: ["全部内容"],
+    };
+  }
+}
