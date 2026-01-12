@@ -221,21 +221,130 @@ export class DimensionResearchService {
    * 解析 AI 响应
    */
   private parseAIResponse(content: string): AIDimensionAnalysisResponse {
+    // 方法1: 尝试直接解析 JSON
     try {
-      // 尝试直接解析 JSON
       const parsed = JSON.parse(content);
-      return parsed as AIDimensionAnalysisResponse;
-    } catch (error) {
-      // 如果不是纯 JSON，尝试提取 JSON 代码块
-      const jsonMatch = content.match(/```json\n([\s\S]+?)\n```/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[1]) as AIDimensionAnalysisResponse;
-      }
-
-      // 如果都失败，抛出错误
-      this.logger.error("Failed to parse AI response", content);
-      throw new Error("Invalid AI response format");
+      return this.validateAndNormalizeResponse(parsed);
+    } catch {
+      // 继续尝试其他方法
     }
+
+    // 方法2: 尝试提取 ```json 代码块
+    const jsonBlockMatch = content.match(/```json\s*([\s\S]+?)\s*```/);
+    if (jsonBlockMatch) {
+      try {
+        const parsed = JSON.parse(jsonBlockMatch[1]);
+        return this.validateAndNormalizeResponse(parsed);
+      } catch {
+        // 继续尝试其他方法
+      }
+    }
+
+    // 方法3: 尝试提取 ``` 代码块（不带 json 标记）
+    const codeBlockMatch = content.match(/```\s*([\s\S]+?)\s*```/);
+    if (codeBlockMatch) {
+      try {
+        const parsed = JSON.parse(codeBlockMatch[1]);
+        return this.validateAndNormalizeResponse(parsed);
+      } catch {
+        // 继续尝试其他方法
+      }
+    }
+
+    // 方法4: 尝试找到 JSON 对象的起始和结束
+    const jsonObjectMatch = content.match(
+      /\{[\s\S]*"dimensionAnalysis"[\s\S]*\}/,
+    );
+    if (jsonObjectMatch) {
+      try {
+        const parsed = JSON.parse(jsonObjectMatch[0]);
+        return this.validateAndNormalizeResponse(parsed);
+      } catch {
+        // 继续尝试其他方法
+      }
+    }
+
+    // 方法5: 尝试找到任何有效的 JSON 对象
+    const anyJsonMatch = content.match(/\{[\s\S]*\}/);
+    if (anyJsonMatch) {
+      try {
+        const parsed = JSON.parse(anyJsonMatch[0]);
+        return this.validateAndNormalizeResponse(parsed);
+      } catch {
+        // 继续
+      }
+    }
+
+    // 所有方法都失败，记录错误并创建后备响应
+    this.logger.error(
+      "Failed to parse AI response, content preview:",
+      content.substring(0, 500),
+    );
+    return this.createFallbackResponse(content);
+  }
+
+  /**
+   * 验证并标准化响应
+   */
+  private validateAndNormalizeResponse(
+    parsed: unknown,
+  ): AIDimensionAnalysisResponse {
+    const response = parsed as AIDimensionAnalysisResponse;
+
+    // 确保必需字段存在
+    if (!response.dimensionAnalysis) {
+      throw new Error("Missing dimensionAnalysis field");
+    }
+
+    // 标准化字段
+    return {
+      dimensionAnalysis: {
+        summary: response.dimensionAnalysis.summary || "",
+        keyFindings: response.dimensionAnalysis.keyFindings || [],
+        trends: response.dimensionAnalysis.trends || [],
+        keyPlayers: response.dimensionAnalysis.keyPlayers || [],
+        challenges: response.dimensionAnalysis.challenges || [],
+        opportunities: response.dimensionAnalysis.opportunities || [],
+        dataGaps: response.dimensionAnalysis.dataGaps || [],
+        confidenceLevel: response.dimensionAnalysis.confidenceLevel || "medium",
+        confidenceReason: response.dimensionAnalysis.confidenceReason || "",
+      },
+      detailedContent: response.detailedContent || "",
+      evidenceUsage: response.evidenceUsage || {
+        total: 0,
+        highCredibility: 0,
+        mediumCredibility: 0,
+        lowCredibility: 0,
+      },
+    };
+  }
+
+  /**
+   * 创建后备响应（当解析完全失败时）
+   */
+  private createFallbackResponse(content: string): AIDimensionAnalysisResponse {
+    this.logger.warn("Creating fallback response due to parse failure");
+    return {
+      dimensionAnalysis: {
+        summary:
+          "由于AI响应格式问题，无法完整解析分析结果。原始内容已保存在详细分析中。",
+        keyFindings: [],
+        trends: [],
+        keyPlayers: [],
+        challenges: [],
+        opportunities: [],
+        dataGaps: ["AI响应解析失败，需要重新研究此维度"],
+        confidenceLevel: "low",
+        confidenceReason: "AI响应格式不正确，无法提取结构化信息",
+      },
+      detailedContent: content.substring(0, 10000), // 保留原始内容的前10000字符
+      evidenceUsage: {
+        total: 0,
+        highCredibility: 0,
+        mediumCredibility: 0,
+        lowCredibility: 0,
+      },
+    };
   }
 
   /**
