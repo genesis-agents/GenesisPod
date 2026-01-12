@@ -3,6 +3,7 @@ import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service"
 import { AIModelType } from "@prisma/client";
 import type { ResearchTopic, TopicDimension } from "@prisma/client";
 import type { DimensionAnalysisResult } from "../types/research.types";
+import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 
 /**
  * 审核质量等级
@@ -166,7 +167,23 @@ export class ResearchReviewerService {
         },
       });
 
-      const reviewData = JSON.parse(response.content) as AIReviewResponse;
+      // Use robust JSON extraction to handle markdown code blocks
+      const extractionResult = extractJsonFromAIResponse<AIReviewResponse>(
+        response.content,
+        { requiredKey: "qualityLevel" },
+      );
+
+      if (!extractionResult.success || !extractionResult.data) {
+        this.logger.error(
+          `Failed to parse review response for dimension ${dimension.name}:`,
+          extractionResult.error,
+        );
+        throw new Error(
+          extractionResult.error || "Failed to parse AI response",
+        );
+      }
+
+      const reviewData = extractionResult.data;
 
       const result: DimensionReviewResult = {
         dimensionId: dimension.id,
