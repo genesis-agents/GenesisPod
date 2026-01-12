@@ -1,17 +1,18 @@
 'use client';
 
 /**
- * Topic Team Panel - 紧凑型研究团队面板
+ * Topic Team Panel - Minimalist Business Style
  *
- * 参考 AI Writing 的 WritingCanvasView 设计，用于左侧边栏
- * 包含：团队 Canvas、进度条、操作按钮、图例
+ * Clean, professional design with:
+ * - Simple geometric shapes
+ * - Muted color palette (grays, subtle blues)
+ * - Clear hierarchy without clutter
  */
 
 import { useMemo } from 'react';
 import type { TopicDimension } from '@/types/topic-research';
 import { DimensionStatus } from '@/types/topic-research';
 
-// 简化的刷新进度类型
 interface SimpleRefreshProgress {
   phase: string;
   progress: number;
@@ -19,56 +20,6 @@ interface SimpleRefreshProgress {
   currentDimension?: string;
   completedDimensions: number;
   totalDimensions: number;
-}
-
-// 研究团队配置
-const RESEARCH_COORDINATOR = {
-  id: 'coordinator',
-  name: '研究协调员',
-  icon: '🎯',
-  bgColor: '#8B5CF6',
-};
-
-const QUALITY_REVIEWER = {
-  id: 'reviewer',
-  name: '质量审核',
-  icon: '🔍',
-  bgColor: '#F59E0B',
-};
-
-const REPORT_SYNTHESIZER = {
-  id: 'synthesizer',
-  name: '报告撰写',
-  icon: '📊',
-  bgColor: '#EC4899',
-};
-
-// 维度样式映射
-const DIMENSION_STYLES: Record<string, { icon: string; bgColor: string }> = {
-  policy: { icon: '📜', bgColor: '#3B82F6' },
-  market: { icon: '📈', bgColor: '#10B981' },
-  competition: { icon: '⚔️', bgColor: '#F59E0B' },
-  technology: { icon: '💡', bgColor: '#6366F1' },
-  investment: { icon: '💰', bgColor: '#EF4444' },
-  talent: { icon: '👥', bgColor: '#06B6D4' },
-  international: { icon: '🌍', bgColor: '#8B5CF6' },
-  application: { icon: '🔧', bgColor: '#F97316' },
-  default: { icon: '🔍', bgColor: '#6B7280' },
-};
-
-function getDimensionStyle(name: string): { icon: string; bgColor: string } {
-  const lowerName = name.toLowerCase();
-  if (lowerName.includes('政策') || lowerName.includes('法规'))
-    return DIMENSION_STYLES.policy;
-  if (lowerName.includes('市场')) return DIMENSION_STYLES.market;
-  if (lowerName.includes('竞争')) return DIMENSION_STYLES.competition;
-  if (lowerName.includes('技术')) return DIMENSION_STYLES.technology;
-  if (lowerName.includes('投资') || lowerName.includes('融资'))
-    return DIMENSION_STYLES.investment;
-  if (lowerName.includes('人才')) return DIMENSION_STYLES.talent;
-  if (lowerName.includes('国际')) return DIMENSION_STYLES.international;
-  if (lowerName.includes('应用')) return DIMENSION_STYLES.application;
-  return DIMENSION_STYLES.default;
 }
 
 interface TopicTeamPanelProps {
@@ -80,6 +31,17 @@ interface TopicTeamPanelProps {
   onCancelRefresh?: () => void;
 }
 
+// Phase display mapping
+const phaseDisplay: Record<string, string> = {
+  idle: '待研究',
+  starting: '启动中',
+  researching: '研究中',
+  reviewing: '审核中',
+  synthesizing: '生成报告',
+  completed: '已完成',
+  failed: '失败',
+};
+
 export function TopicTeamPanel({
   topicName,
   dimensions,
@@ -90,18 +52,15 @@ export function TopicTeamPanel({
 }: TopicTeamPanelProps) {
   const safeDimensions = dimensions || [];
 
-  // 计算研究员状态
+  // Calculate researcher states
   const researchers = useMemo(() => {
     return safeDimensions.map((dim, index) => {
-      const style = getDimensionStyle(dim.name);
       const isActive = refreshProgress?.currentDimension === dim.name;
-
       let isCompleted = false;
       let isFailed = false;
 
       if (isRefreshing && refreshProgress) {
         isCompleted = index < refreshProgress.completedDimensions;
-        isFailed = false;
       } else {
         isCompleted = dim.status === DimensionStatus.COMPLETED;
         isFailed = dim.status === DimensionStatus.FAILED;
@@ -110,8 +69,6 @@ export function TopicTeamPanel({
       return {
         id: dim.id,
         name: dim.name,
-        icon: style.icon,
-        bgColor: style.bgColor,
         isActive,
         isCompleted,
         isFailed,
@@ -119,41 +76,7 @@ export function TopicTeamPanel({
     });
   }, [safeDimensions, refreshProgress, isRefreshing]);
 
-  // 协调员状态
-  const coordinatorStatus = useMemo(() => {
-    const phase = refreshProgress?.phase;
-    const isActive =
-      (isRefreshing && !phase) ||
-      phase === 'starting' ||
-      phase === 'researching';
-    return {
-      ...RESEARCH_COORDINATOR,
-      isActive,
-      isCompleted: phase === 'completed',
-    };
-  }, [refreshProgress?.phase, isRefreshing]);
-
-  // 审核员状态
-  const reviewerStatus = useMemo(() => {
-    const phase = refreshProgress?.phase;
-    return {
-      ...QUALITY_REVIEWER,
-      isActive: phase === 'reviewing',
-      isCompleted: phase === 'synthesizing' || phase === 'completed',
-    };
-  }, [refreshProgress?.phase]);
-
-  // 撰写员状态
-  const synthesizerStatus = useMemo(() => {
-    const phase = refreshProgress?.phase;
-    return {
-      ...REPORT_SYNTHESIZER,
-      isActive: phase === 'synthesizing',
-      isCompleted: phase === 'completed',
-    };
-  }, [refreshProgress?.phase]);
-
-  // 进度统计
+  // Progress stats
   const stats = useMemo(() => {
     const completed = refreshProgress?.completedDimensions || 0;
     const total = refreshProgress?.totalDimensions || safeDimensions.length;
@@ -161,94 +84,40 @@ export function TopicTeamPanel({
     return { completed, total, progress };
   }, [refreshProgress, safeDimensions.length]);
 
-  // 计算紧凑型布局的节点位置
-  const canvasWidth = 320;
-  const canvasHeight = 340;
-
-  const nodePositions = useMemo(() => {
-    const positions: Record<string, { x: number; y: number }> = {};
-    const centerX = canvasWidth / 2;
-
-    // 协调员在顶部
-    positions.coordinator = { x: centerX, y: 45 };
-
-    // 研究员分两行布局
-    const maxPerRow = 3;
-    const rows = Math.ceil(researchers.length / maxPerRow);
-    const startY = 120;
-    const rowGap = 70;
-
-    researchers.forEach((_, index) => {
-      const row = Math.floor(index / maxPerRow);
-      const col = index % maxPerRow;
-      const itemsInRow = Math.min(
-        maxPerRow,
-        researchers.length - row * maxPerRow
-      );
-      const totalWidth = itemsInRow * 90;
-      const startX = (canvasWidth - totalWidth) / 2 + 45;
-
-      positions[researchers[index].id] = {
-        x: startX + col * 90,
-        y: startY + row * rowGap,
-      };
-    });
-
-    // 审核员和撰写员在底部
-    const bottomY = startY + rows * rowGap + 40;
-    positions.reviewer = { x: centerX - 60, y: bottomY };
-    positions.synthesizer = { x: centerX + 60, y: bottomY };
-
-    return positions;
-  }, [researchers]);
-
-  // 阶段映射
-  const phaseDisplay: Record<string, string> = {
-    idle: '空闲',
-    starting: '启动中',
-    researching: '研究中',
-    reviewing: '审核中',
-    synthesizing: '生成报告',
-    completed: '已完成',
-    failed: '失败',
-  };
+  // Current phase
+  const currentPhase =
+    refreshProgress?.phase || (stats.progress >= 100 ? 'completed' : 'idle');
 
   return (
     <div className="flex h-full flex-col bg-white">
-      {/* 头部信息 */}
+      {/* Header */}
       <div className="border-b border-gray-100 px-4 py-3">
         <div className="flex items-center justify-between">
-          <h3 className="truncate text-sm font-semibold text-gray-800">
+          <h3 className="truncate text-sm font-medium text-gray-700">
             {topicName}
           </h3>
           <span
-            className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+            className={`flex-shrink-0 rounded px-2 py-0.5 text-xs font-medium ${
               isRefreshing
-                ? 'bg-blue-100 text-blue-700'
+                ? 'bg-blue-50 text-blue-600'
                 : stats.progress >= 100
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-gray-100 text-gray-600'
+                  ? 'bg-green-50 text-green-600'
+                  : 'bg-gray-50 text-gray-500'
             }`}
           >
-            {refreshProgress?.phase
-              ? phaseDisplay[refreshProgress.phase] || refreshProgress.phase
-              : isRefreshing
-                ? '研究中'
-                : stats.progress >= 100
-                  ? '已完成'
-                  : '待研究'}
+            {phaseDisplay[currentPhase] || currentPhase}
           </span>
         </div>
 
-        {/* 进度条 */}
+        {/* Progress bar */}
         <div className="mt-3">
-          <div className="mb-1 flex justify-between text-xs text-gray-500">
+          <div className="mb-1 flex justify-between text-xs text-gray-400">
             <span>研究进度</span>
             <span>
-              {stats.completed} / {stats.total} 维度
+              {stats.completed} / {stats.total}
             </span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+          <div className="h-1 overflow-hidden rounded-full bg-gray-100">
             <div
               className={`h-full transition-all duration-500 ${
                 isRefreshing ? 'bg-blue-500' : 'bg-green-500'
@@ -258,318 +127,420 @@ export function TopicTeamPanel({
           </div>
         </div>
 
-        {/* 当前消息 */}
+        {/* Current message */}
         {isRefreshing && refreshProgress?.message && (
-          <p className="mt-2 truncate text-xs text-blue-600">
+          <p className="mt-2 truncate text-xs text-blue-500">
             {refreshProgress.message}
           </p>
         )}
       </div>
 
-      {/* Canvas 区域 */}
-      <div className="flex-1 overflow-hidden">
-        <svg
-          viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
-          className="h-full w-full"
-          preserveAspectRatio="xMidYMid meet"
-        >
-          {/* 背景网格 */}
-          <defs>
-            <pattern
-              id="team-grid"
-              width="20"
-              height="20"
-              patternUnits="userSpaceOnUse"
-            >
-              <path
-                d="M 20 0 L 0 0 0 20"
-                fill="none"
-                stroke="#f5f5f5"
-                strokeWidth="0.5"
-              />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#team-grid)" />
-
-          {/* 连接线：协调员 -> 研究员 */}
-          {researchers.map((researcher) => {
-            const from = nodePositions.coordinator;
-            const to = nodePositions[researcher.id];
-            if (!from || !to) return null;
-
-            return (
-              <line
-                key={`coord-${researcher.id}`}
-                x1={from.x}
-                y1={from.y + 20}
-                x2={to.x}
-                y2={to.y - 20}
-                stroke={
-                  researcher.isActive
-                    ? '#3B82F6'
-                    : researcher.isCompleted
-                      ? '#10B981'
-                      : '#E5E7EB'
-                }
-                strokeWidth={researcher.isActive ? 2 : 1.5}
-                strokeDasharray={
-                  researcher.isCompleted || researcher.isActive ? 'none' : '3,3'
-                }
-                className={researcher.isActive ? 'animate-pulse' : ''}
-              />
-            );
-          })}
-
-          {/* 连接线：研究员 -> 底部节点 */}
-          {researchers.map((researcher) => {
-            const from = nodePositions[researcher.id];
-            const toReviewer = nodePositions.reviewer;
-            const toSynthesizer = nodePositions.synthesizer;
-            if (!from || !toReviewer || !toSynthesizer) return null;
-
-            // 连接到最近的底部节点
-            const target =
-              from.x < canvasWidth / 2 ? toReviewer : toSynthesizer;
-
-            return (
-              <line
-                key={`${researcher.id}-bottom`}
-                x1={from.x}
-                y1={from.y + 20}
-                x2={target.x}
-                y2={target.y - 20}
-                stroke={researcher.isCompleted ? '#10B981' : '#E5E7EB'}
-                strokeWidth={1.5}
-                strokeDasharray={researcher.isCompleted ? 'none' : '3,3'}
-              />
-            );
-          })}
-
-          {/* 协调员节点 */}
-          <CompactAgentNode
-            x={nodePositions.coordinator.x}
-            y={nodePositions.coordinator.y}
-            agent={coordinatorStatus}
-            isLeader
-          />
-
-          {/* 研究员节点 */}
-          {researchers.map((researcher) => {
-            const pos = nodePositions[researcher.id];
-            if (!pos) return null;
-            return (
-              <CompactAgentNode
-                key={researcher.id}
-                x={pos.x}
-                y={pos.y}
-                agent={researcher}
-              />
-            );
-          })}
-
-          {/* 审核员节点 */}
-          <CompactAgentNode
-            x={nodePositions.reviewer.x}
-            y={nodePositions.reviewer.y}
-            agent={reviewerStatus}
-          />
-
-          {/* 撰写员节点 */}
-          <CompactAgentNode
-            x={nodePositions.synthesizer.x}
-            y={nodePositions.synthesizer.y}
-            agent={synthesizerStatus}
-          />
-        </svg>
+      {/* Team Visualization - Minimalist Style */}
+      <div className="flex-1 overflow-hidden p-4">
+        <MinimalistTeamCanvas
+          researchers={researchers}
+          isRefreshing={isRefreshing}
+          currentPhase={currentPhase}
+        />
       </div>
 
-      {/* 图例 */}
+      {/* Legend */}
       <div className="border-t border-gray-100 px-4 py-2">
-        <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-gray-500">
-          <div className="flex items-center gap-1">
-            <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500"></div>
+        <div className="flex items-center justify-center gap-4 text-xs text-gray-400">
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full bg-blue-500" />
             <span>研究中</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="h-2 w-2 rounded-full bg-green-500"></div>
-            <span>已完成</span>
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full bg-green-500" />
+            <span>完成</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="h-2 w-2 rounded-full bg-red-500"></div>
-            <span>失败</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="h-2 w-2 rounded-full bg-gray-300"></div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full bg-gray-300" />
             <span>待研究</span>
           </div>
         </div>
       </div>
 
-      {/* 操作按钮 */}
+      {/* Action Button */}
       <div className="border-t border-gray-100 p-3">
-        <div className="flex gap-2">
-          {isRefreshing ? (
-            <button
-              onClick={onCancelRefresh}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
+        {isRefreshing ? (
+          <button
+            onClick={onCancelRefresh}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-              取消研究
-            </button>
-          ) : (
-            <button
-              onClick={onStartRefresh}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+            取消研究
+          </button>
+        ) : (
+          <button
+            onClick={onStartRefresh}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-3 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              开始研究
-            </button>
-          )}
-        </div>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            开始研究
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-// 紧凑型 Agent 节点
-interface CompactAgentNodeProps {
-  x: number;
-  y: number;
-  agent: {
+// Minimalist Team Canvas Component
+interface MinimalistTeamCanvasProps {
+  researchers: Array<{
     id: string;
     name: string;
-    icon: string;
-    bgColor: string;
-    isActive?: boolean;
-    isCompleted?: boolean;
-    isFailed?: boolean;
-  };
+    isActive: boolean;
+    isCompleted: boolean;
+    isFailed: boolean;
+  }>;
+  isRefreshing: boolean;
+  currentPhase: string;
+}
+
+function MinimalistTeamCanvas({
+  researchers,
+  isRefreshing,
+  currentPhase,
+}: MinimalistTeamCanvasProps) {
+  const canvasWidth = 320;
+  const canvasHeight = 320;
+
+  // Calculate positions for a clean hierarchical layout
+  const nodePositions = useMemo(() => {
+    const positions: Record<string, { x: number; y: number }> = {};
+    const centerX = canvasWidth / 2;
+
+    // Coordinator at top
+    positions.coordinator = { x: centerX, y: 40 };
+
+    // Researchers in rows (max 3 per row)
+    const maxPerRow = 3;
+    const rowGap = 65;
+    const startY = 110;
+
+    researchers.forEach((_, index) => {
+      const row = Math.floor(index / maxPerRow);
+      const col = index % maxPerRow;
+      const itemsInRow = Math.min(
+        maxPerRow,
+        researchers.length - row * maxPerRow
+      );
+      const colWidth = 85;
+      const totalWidth = itemsInRow * colWidth;
+      const startX = (canvasWidth - totalWidth) / 2 + colWidth / 2;
+
+      positions[researchers[index].id] = {
+        x: startX + col * colWidth,
+        y: startY + row * rowGap,
+      };
+    });
+
+    // Bottom row: Reviewer and Synthesizer
+    const rows = Math.ceil(researchers.length / maxPerRow);
+    const bottomY = startY + rows * rowGap + 20;
+    positions.reviewer = { x: centerX - 50, y: bottomY };
+    positions.synthesizer = { x: centerX + 50, y: bottomY };
+
+    return positions;
+  }, [researchers]);
+
+  // Coordinator state
+  const coordinatorActive =
+    isRefreshing && ['starting', 'researching'].includes(currentPhase);
+  const coordinatorCompleted = currentPhase === 'completed';
+
+  // Reviewer state
+  const reviewerActive = currentPhase === 'reviewing';
+  const reviewerCompleted = ['synthesizing', 'completed'].includes(
+    currentPhase
+  );
+
+  // Synthesizer state
+  const synthesizerActive = currentPhase === 'synthesizing';
+  const synthesizerCompleted = currentPhase === 'completed';
+
+  return (
+    <svg
+      viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
+      className="h-full w-full"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      {/* Subtle grid pattern */}
+      <defs>
+        <pattern
+          id="minimalist-grid"
+          width="40"
+          height="40"
+          patternUnits="userSpaceOnUse"
+        >
+          <circle cx="20" cy="20" r="0.5" fill="#e5e7eb" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#minimalist-grid)" />
+
+      {/* Connection lines - simple straight lines */}
+      {researchers.map((researcher) => {
+        const from = nodePositions.coordinator;
+        const to = nodePositions[researcher.id];
+        if (!from || !to) return null;
+
+        return (
+          <line
+            key={`coord-${researcher.id}`}
+            x1={from.x}
+            y1={from.y + 16}
+            x2={to.x}
+            y2={to.y - 16}
+            stroke={
+              researcher.isCompleted
+                ? '#10b981'
+                : researcher.isActive
+                  ? '#3b82f6'
+                  : '#e5e7eb'
+            }
+            strokeWidth={1}
+            strokeDasharray={
+              researcher.isCompleted || researcher.isActive ? '0' : '4 2'
+            }
+          />
+        );
+      })}
+
+      {/* Lines from researchers to bottom nodes */}
+      {researchers.map((researcher, index) => {
+        const from = nodePositions[researcher.id];
+        const toNode =
+          index < researchers.length / 2 ? 'reviewer' : 'synthesizer';
+        const to = nodePositions[toNode];
+        if (!from || !to) return null;
+
+        return (
+          <line
+            key={`${researcher.id}-bottom`}
+            x1={from.x}
+            y1={from.y + 16}
+            x2={to.x}
+            y2={to.y - 16}
+            stroke={researcher.isCompleted ? '#d1d5db' : '#e5e7eb'}
+            strokeWidth={1}
+            strokeDasharray="4 2"
+          />
+        );
+      })}
+
+      {/* Coordinator Node */}
+      <MinimalistNode
+        x={nodePositions.coordinator.x}
+        y={nodePositions.coordinator.y}
+        label="协调"
+        isActive={coordinatorActive}
+        isCompleted={coordinatorCompleted}
+        isLeader
+      />
+
+      {/* Researcher Nodes */}
+      {researchers.map((researcher) => {
+        const pos = nodePositions[researcher.id];
+        if (!pos) return null;
+        return (
+          <MinimalistNode
+            key={researcher.id}
+            x={pos.x}
+            y={pos.y}
+            label={
+              researcher.name.length > 4
+                ? researcher.name.slice(0, 4)
+                : researcher.name
+            }
+            isActive={researcher.isActive}
+            isCompleted={researcher.isCompleted}
+            isFailed={researcher.isFailed}
+          />
+        );
+      })}
+
+      {/* Reviewer Node */}
+      <MinimalistNode
+        x={nodePositions.reviewer.x}
+        y={nodePositions.reviewer.y}
+        label="审核"
+        isActive={reviewerActive}
+        isCompleted={reviewerCompleted}
+      />
+
+      {/* Synthesizer Node */}
+      <MinimalistNode
+        x={nodePositions.synthesizer.x}
+        y={nodePositions.synthesizer.y}
+        label="撰写"
+        isActive={synthesizerActive}
+        isCompleted={synthesizerCompleted}
+      />
+    </svg>
+  );
+}
+
+// Minimalist Node Component
+interface MinimalistNodeProps {
+  x: number;
+  y: number;
+  label: string;
+  isActive?: boolean;
+  isCompleted?: boolean;
+  isFailed?: boolean;
   isLeader?: boolean;
 }
 
-function CompactAgentNode({ x, y, agent, isLeader }: CompactAgentNodeProps) {
-  const radius = isLeader ? 22 : 18;
+function MinimalistNode({
+  x,
+  y,
+  label,
+  isActive,
+  isCompleted,
+  isFailed,
+  isLeader,
+}: MinimalistNodeProps) {
+  const radius = isLeader ? 18 : 14;
 
-  const statusColor = agent.isActive
-    ? '#3B82F6'
-    : agent.isFailed
-      ? '#EF4444'
-      : agent.isCompleted
-        ? '#10B981'
-        : '#D1D5DB';
+  // Determine colors
+  let fillColor = '#f3f4f6'; // gray-100
+  let strokeColor = '#d1d5db'; // gray-300
+  let textColor = '#6b7280'; // gray-500
+
+  if (isActive) {
+    fillColor = '#eff6ff'; // blue-50
+    strokeColor = '#3b82f6'; // blue-500
+    textColor = '#3b82f6';
+  } else if (isCompleted) {
+    fillColor = '#f0fdf4'; // green-50
+    strokeColor = '#10b981'; // green-500
+    textColor = '#10b981';
+  } else if (isFailed) {
+    fillColor = '#fef2f2'; // red-50
+    strokeColor = '#ef4444'; // red-500
+    textColor = '#ef4444';
+  } else if (isLeader) {
+    fillColor = '#f9fafb'; // gray-50
+    strokeColor = '#6b7280'; // gray-500
+    textColor = '#374151'; // gray-700
+  }
 
   return (
-    <g className="cursor-pointer">
-      {/* 活跃状态光晕 */}
-      {agent.isActive && (
-        <>
-          <circle
-            cx={x}
-            cy={y}
-            r={radius + 10}
-            fill="none"
-            stroke={statusColor}
-            strokeWidth="1.5"
-            opacity="0.3"
-          >
-            <animate
-              attributeName="r"
-              from={radius + 6}
-              to={radius + 16}
-              dur="1.2s"
-              repeatCount="indefinite"
-            />
-            <animate
-              attributeName="opacity"
-              from="0.4"
-              to="0"
-              dur="1.2s"
-              repeatCount="indefinite"
-            />
-          </circle>
-          <circle cx={x} cy={y} r={radius + 4} fill={statusColor} opacity="0.2">
-            <animate
-              attributeName="opacity"
-              values="0.2;0.4;0.2"
-              dur="0.8s"
-              repeatCount="indefinite"
-            />
-          </circle>
-        </>
+    <g>
+      {/* Active glow effect - subtle */}
+      {isActive && (
+        <circle
+          cx={x}
+          cy={y}
+          r={radius + 6}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth={1}
+          opacity={0.3}
+        >
+          <animate
+            attributeName="r"
+            from={radius + 4}
+            to={radius + 10}
+            dur="1.5s"
+            repeatCount="indefinite"
+          />
+          <animate
+            attributeName="opacity"
+            from="0.3"
+            to="0"
+            dur="1.5s"
+            repeatCount="indefinite"
+          />
+        </circle>
       )}
 
-      {/* 状态环 */}
-      <circle
-        cx={x}
-        cy={y}
-        r={radius + 2}
-        fill="none"
-        stroke={statusColor}
-        strokeWidth={agent.isActive ? 2.5 : 2}
-      />
-
-      {/* 主圆 */}
+      {/* Main circle */}
       <circle
         cx={x}
         cy={y}
         r={radius}
-        fill={agent.bgColor}
-        className="drop-shadow-sm"
+        fill={fillColor}
+        stroke={strokeColor}
+        strokeWidth={1.5}
       />
 
-      {/* 图标 */}
-      <text
-        x={x}
-        y={y + 1}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fontSize={isLeader ? 14 : 12}
-      >
-        {agent.icon}
-      </text>
-
-      {/* Leader 皇冠 */}
-      {isLeader && (
-        <text x={x} y={y - radius - 4} textAnchor="middle" fontSize="10">
-          👑
-        </text>
+      {/* Status indicator dot */}
+      {(isActive || isCompleted) && (
+        <circle
+          cx={x + radius - 2}
+          cy={y - radius + 2}
+          r={4}
+          fill={isActive ? '#3b82f6' : '#10b981'}
+        >
+          {isActive && (
+            <animate
+              attributeName="opacity"
+              values="1;0.5;1"
+              dur="1s"
+              repeatCount="indefinite"
+            />
+          )}
+        </circle>
       )}
 
-      {/* 名称 */}
+      {/* Label */}
       <text
         x={x}
-        y={y + radius + 12}
+        y={y + radius + 14}
         textAnchor="middle"
-        fontSize="9"
-        fontWeight="500"
-        fill="#4B5563"
+        fontSize={10}
+        fontWeight={500}
+        fill={textColor}
       >
-        {agent.name.length > 6 ? agent.name.slice(0, 6) : agent.name}
+        {label}
       </text>
+
+      {/* Leader indicator */}
+      {isLeader && (
+        <text
+          x={x}
+          y={y + 1}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize={12}
+          fill={textColor}
+        >
+          C
+        </text>
+      )}
     </g>
   );
 }

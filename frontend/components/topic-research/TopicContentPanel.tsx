@@ -10,7 +10,7 @@
  * 4. 证据追溯 - 每个结论可追溯到来源
  */
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import type {
   TopicReport,
   TopicDimension,
@@ -19,7 +19,18 @@ import type {
 } from '@/types/topic-research';
 
 // Tab 类型定义
-type TabType = 'report' | 'dimensions' | 'evidence';
+type TabType = 'report' | 'team' | 'evidence';
+
+// 研究事件类型 (导出供其他组件使用)
+export interface ResearchEvent {
+  id: string;
+  timestamp: Date;
+  agentType: 'coordinator' | 'researcher' | 'reviewer' | 'synthesizer';
+  agentName: string;
+  eventType: 'start' | 'progress' | 'complete' | 'error';
+  dimensionName?: string;
+  message: string;
+}
 
 interface TopicContentPanelProps {
   report: TopicReport | null;
@@ -28,6 +39,8 @@ interface TopicContentPanelProps {
   isLoadingReport: boolean;
   isLoadingEvidence: boolean;
   onExportReport?: (format: 'pdf' | 'docx') => void;
+  // 研究事件列表（用于团队互动展示）
+  researchEvents?: ResearchEvent[];
 }
 
 // Icons
@@ -43,22 +56,6 @@ const DocumentIcon = ({ className }: { className?: string }) => (
       strokeLinejoin="round"
       strokeWidth={2}
       d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-    />
-  </svg>
-);
-
-const ChartIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
     />
   </svg>
 );
@@ -129,6 +126,23 @@ const SpinnerIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+// Team Icon
+const TeamIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+    />
+  </svg>
+);
+
 export function TopicContentPanel({
   report,
   dimensions,
@@ -136,6 +150,7 @@ export function TopicContentPanel({
   isLoadingReport,
   isLoadingEvidence,
   onExportReport,
+  researchEvents = [],
 }: TopicContentPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('report');
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -143,6 +158,7 @@ export function TopicContentPanel({
   // Safe array fallbacks to prevent undefined access
   const safeDimensions = dimensions || [];
   const safeEvidence = evidence || [];
+  const safeEvents = researchEvents || [];
 
   // Tab 配置
   const tabs: {
@@ -157,10 +173,10 @@ export function TopicContentPanel({
       icon: <DocumentIcon className="h-4 w-4" />,
     },
     {
-      key: 'dimensions',
-      label: '维度分析',
-      icon: <ChartIcon className="h-4 w-4" />,
-      badge: safeDimensions.length,
+      key: 'team',
+      label: '团队互动',
+      icon: <TeamIcon className="h-4 w-4" />,
+      badge: safeEvents.length > 0 ? safeEvents.length : undefined,
     },
     {
       key: 'evidence',
@@ -248,10 +264,14 @@ export function TopicContentPanel({
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden">
         {activeTab === 'report' && (
-          <ReportTabContent report={report} isLoading={isLoadingReport} />
+          <ReportTabContent
+            report={report}
+            dimensions={safeDimensions}
+            isLoading={isLoadingReport}
+          />
         )}
-        {activeTab === 'dimensions' && (
-          <DimensionsTabContent dimensions={safeDimensions} report={report} />
+        {activeTab === 'team' && (
+          <TeamInteractionTabContent events={safeEvents} />
         )}
         {activeTab === 'evidence' && (
           <EvidenceTabContent
@@ -264,49 +284,17 @@ export function TopicContentPanel({
   );
 }
 
-// 报告 Tab 内容
+// 报告 Tab 内容 - 简洁版，无TOC侧边栏
 function ReportTabContent({
   report,
+  dimensions,
   isLoading,
 }: {
   report: TopicReport | null;
+  dimensions: TopicDimension[];
   isLoading: boolean;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
-  const [activeSection, setActiveSection] = useState<string | null>(null);
-
-  // 构建报告目录
-  const tableOfContents = useMemo(() => {
-    if (!report) return [];
-    const toc: { id: string; title: string; level: number }[] = [];
-
-    if (report.summary) {
-      toc.push({ id: 'summary', title: '核心摘要', level: 1 });
-    }
-    if (report.highlights && report.highlights.length > 0) {
-      toc.push({ id: 'highlights', title: '关键发现', level: 1 });
-    }
-    if (report.dimensionAnalyses && report.dimensionAnalyses.length > 0) {
-      toc.push({ id: 'dimensions', title: '维度分析', level: 1 });
-      report.dimensionAnalyses.forEach((analysis) => {
-        toc.push({
-          id: `dim-${analysis.id}`,
-          title: analysis.dimension?.name || '未知维度',
-          level: 2,
-        });
-      });
-    }
-
-    return toc;
-  }, [report]);
-
-  const scrollToSection = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setActiveSection(id);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -334,37 +322,9 @@ function ReportTabContent({
   }
 
   return (
-    <div className="flex h-full">
-      {/* 左侧目录导航 */}
-      {tableOfContents.length > 0 && (
-        <div className="hidden w-48 flex-shrink-0 border-r border-gray-100 lg:block">
-          <div className="sticky top-0 p-4">
-            <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-              目录
-            </h4>
-            <nav className="space-y-1">
-              {tableOfContents.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => scrollToSection(item.id)}
-                  className={`block w-full truncate rounded px-2 py-1.5 text-left text-sm transition-colors ${
-                    item.level === 2 ? 'pl-4' : ''
-                  } ${
-                    activeSection === item.id
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  {item.title}
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
-      )}
-
-      {/* 右侧报告内容 */}
-      <div ref={contentRef} className="flex-1 overflow-y-auto">
+    <div className="h-full overflow-y-auto">
+      {/* 报告内容 - 无TOC侧边栏 */}
+      <div ref={contentRef} className="h-full overflow-y-auto">
         <div className="mx-auto max-w-3xl px-6 py-6">
           {/* 报告头部 */}
           <div className="mb-8 border-b border-gray-200 pb-6">
@@ -628,233 +588,135 @@ function DimensionAnalysisCard({ analysis }: { analysis: DimensionAnalysis }) {
   );
 }
 
-// 维度分析 Tab 内容
-function DimensionsTabContent({
-  dimensions,
-  report,
-}: {
-  dimensions: TopicDimension[];
-  report: TopicReport | null;
-}) {
-  // Safe array fallback
-  const safeDims = dimensions || [];
+// 团队互动 Tab 内容
+function TeamInteractionTabContent({ events }: { events: ResearchEvent[] }) {
+  const safeEvents = events || [];
 
-  const [selectedDimension, setSelectedDimension] = useState<string | null>(
-    safeDims[0]?.id || null
-  );
+  // Agent 类型配置
+  const agentConfig: Record<
+    ResearchEvent['agentType'],
+    { icon: string; label: string; color: string; bgColor: string }
+  > = {
+    coordinator: {
+      icon: 'C',
+      label: '协调者',
+      color: 'text-gray-700',
+      bgColor: 'bg-gray-100',
+    },
+    researcher: {
+      icon: 'R',
+      label: '研究员',
+      color: 'text-blue-700',
+      bgColor: 'bg-blue-100',
+    },
+    reviewer: {
+      icon: 'V',
+      label: '审核员',
+      color: 'text-purple-700',
+      bgColor: 'bg-purple-100',
+    },
+    synthesizer: {
+      icon: 'S',
+      label: '撰写员',
+      color: 'text-green-700',
+      bgColor: 'bg-green-100',
+    },
+  };
 
-  const selectedAnalysis = useMemo(() => {
-    if (!selectedDimension || !report?.dimensionAnalyses) return null;
-    return report.dimensionAnalyses.find(
-      (a) => a.dimensionId === selectedDimension
-    );
-  }, [selectedDimension, report?.dimensionAnalyses]);
+  // 事件类型配置
+  const eventTypeConfig: Record<
+    ResearchEvent['eventType'],
+    { icon: string; label: string }
+  > = {
+    start: { icon: '▶', label: '开始' },
+    progress: { icon: '◐', label: '进行中' },
+    complete: { icon: '✓', label: '完成' },
+    error: { icon: '✗', label: '错误' },
+  };
 
-  if (safeDims.length === 0) {
+  if (safeEvents.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-8">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
-          <ChartIcon className="h-10 w-10 text-gray-400" />
+          <TeamIcon className="h-10 w-10 text-gray-400" />
         </div>
-        <h3 className="mt-4 text-lg font-medium text-gray-900">暂无研究维度</h3>
+        <h3 className="mt-4 text-lg font-medium text-gray-900">暂无团队互动</h3>
         <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
-          请先配置研究维度，系统将根据维度进行深度分析
+          开始研究后，AI团队的协作过程将在此展示
         </p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full">
-      {/* 维度列表 */}
-      <div className="w-56 flex-shrink-0 overflow-y-auto border-r border-gray-100">
-        <div className="p-3">
-          <h4 className="mb-3 px-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            研究维度 ({safeDims.length})
+    <div className="h-full overflow-y-auto">
+      <div className="p-4">
+        <div className="mb-4 flex items-center justify-between">
+          <h4 className="text-sm font-semibold text-gray-700">
+            研究过程 ({safeEvents.length} 条记录)
           </h4>
-          <div className="space-y-1">
-            {safeDims.map((dim, index) => {
-              const hasAnalysis = report?.dimensionAnalyses?.some(
-                (a) => a.dimensionId === dim.id
-              );
+        </div>
+
+        {/* 事件时间线 */}
+        <div className="relative">
+          {/* 时间线竖线 */}
+          <div className="absolute left-4 top-0 h-full w-px bg-gray-200" />
+
+          <div className="space-y-4">
+            {safeEvents.map((event, index) => {
+              const agent = agentConfig[event.agentType];
+              const eventType = eventTypeConfig[event.eventType];
+
               return (
-                <button
-                  key={dim.id}
-                  onClick={() => setSelectedDimension(dim.id)}
-                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${
-                    selectedDimension === dim.id
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-gray-100 text-xs font-medium text-gray-600">
-                    {index + 1}
-                  </span>
-                  <span className="flex-1 truncate text-sm font-medium">
-                    {dim.name}
-                  </span>
-                  {hasAnalysis && (
-                    <span className="h-2 w-2 flex-shrink-0 rounded-full bg-green-500" />
-                  )}
-                </button>
+                <div key={event.id} className="relative flex gap-4 pl-10">
+                  {/* 时间线节点 */}
+                  <div
+                    className={`absolute left-2 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${agent.bgColor} ${agent.color}`}
+                  >
+                    {agent.icon}
+                  </div>
+
+                  {/* 事件卡片 */}
+                  <div
+                    className={`flex-1 rounded-lg border p-3 ${
+                      event.eventType === 'error'
+                        ? 'border-red-200 bg-red-50'
+                        : event.eventType === 'complete'
+                          ? 'border-green-200 bg-green-50'
+                          : 'border-gray-200 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-xs font-medium ${agent.bgColor} ${agent.color}`}
+                        >
+                          {event.agentName || agent.label}
+                        </span>
+                        {event.dimensionName && (
+                          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
+                            {event.dimensionName}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {new Date(event.timestamp).toLocaleTimeString('zh-CN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-700">
+                      {event.message}
+                    </p>
+                  </div>
+                </div>
               );
             })}
           </div>
         </div>
       </div>
-
-      {/* 维度详情 */}
-      <div className="flex-1 overflow-y-auto">
-        {selectedDimension ? (
-          <DimensionDetailView
-            dimension={safeDims.find((d) => d.id === selectedDimension)!}
-            analysis={selectedAnalysis}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-gray-500">
-            选择一个维度查看详情
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// 维度详情视图
-function DimensionDetailView({
-  dimension,
-  analysis,
-}: {
-  dimension: TopicDimension;
-  analysis: DimensionAnalysis | null | undefined;
-}) {
-  return (
-    <div className="p-6">
-      {/* 维度头部 */}
-      <div className="mb-6 border-b border-gray-200 pb-4">
-        <h2 className="text-xl font-bold text-gray-900">{dimension.name}</h2>
-        {dimension.description && (
-          <p className="mt-1 text-gray-500">{dimension.description}</p>
-        )}
-        <div className="mt-3 flex flex-wrap gap-2">
-          {dimension.searchQueries?.map((query, idx) => (
-            <span
-              key={idx}
-              className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600"
-            >
-              {query}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {analysis ? (
-        <div className="space-y-6">
-          {/* 摘要 */}
-          {analysis.summary && (
-            <div className="rounded-xl bg-blue-50 p-4">
-              <h3 className="mb-2 text-sm font-semibold text-blue-800">
-                分析摘要
-              </h3>
-              <p className="text-sm leading-relaxed text-blue-700">
-                {analysis.summary}
-              </p>
-            </div>
-          )}
-
-          {/* 关键发现 */}
-          {analysis.keyFindings && analysis.keyFindings.length > 0 && (
-            <div>
-              <h3 className="mb-3 font-semibold text-gray-900">关键发现</h3>
-              <div className="space-y-3">
-                {analysis.keyFindings.map((finding, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-3"
-                  >
-                    <span
-                      className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-xs font-medium text-white ${
-                        finding.significance === 'high'
-                          ? 'bg-red-500'
-                          : finding.significance === 'medium'
-                            ? 'bg-yellow-500'
-                            : 'bg-gray-400'
-                      }`}
-                    >
-                      {idx + 1}
-                    </span>
-                    <div>
-                      <p className="text-sm text-gray-700">{finding.finding}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 趋势分析 */}
-          {analysis.trends && analysis.trends.length > 0 && (
-            <div>
-              <h3 className="mb-3 font-semibold text-gray-900">趋势分析</h3>
-              <div className="grid gap-3 md:grid-cols-2">
-                {analysis.trends.map((trend, idx) => (
-                  <div
-                    key={idx}
-                    className={`rounded-lg border p-3 ${
-                      trend.direction === 'increasing'
-                        ? 'border-green-200 bg-green-50'
-                        : trend.direction === 'decreasing'
-                          ? 'border-red-200 bg-red-50'
-                          : trend.direction === 'emerging'
-                            ? 'border-blue-200 bg-blue-50'
-                            : 'border-gray-200 bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">
-                        {trend.direction === 'increasing' && '📈'}
-                        {trend.direction === 'decreasing' && '📉'}
-                        {trend.direction === 'emerging' && '🌟'}
-                        {trend.direction === 'stable' && '➡️'}
-                      </span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {trend.trend}
-                      </span>
-                    </div>
-                    {trend.timeframe && (
-                      <p className="mt-1 text-xs text-gray-500">
-                        时间范围: {trend.timeframe}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 详细内容 */}
-          {analysis.detailedContent && (
-            <div>
-              <h3 className="mb-3 font-semibold text-gray-900">详细分析</h3>
-              <div className="prose prose-sm max-w-none rounded-lg border border-gray-200 bg-white p-4">
-                <p className="whitespace-pre-wrap text-gray-600">
-                  {analysis.detailedContent}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-            <ChartIcon className="h-8 w-8 text-gray-400" />
-          </div>
-          <h4 className="mt-4 font-medium text-gray-900">暂无分析数据</h4>
-          <p className="mt-1 text-sm text-gray-500">
-            开始研究后将生成此维度的详细分析
-          </p>
-        </div>
-      )}
     </div>
   );
 }
