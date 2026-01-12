@@ -140,6 +140,10 @@ export function TopicContentPanel({
   const [activeTab, setActiveTab] = useState<TabType>('report');
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
+  // Safe array fallbacks to prevent undefined access
+  const safeDimensions = dimensions || [];
+  const safeEvidence = evidence || [];
+
   // Tab 配置
   const tabs: {
     key: TabType;
@@ -156,13 +160,13 @@ export function TopicContentPanel({
       key: 'dimensions',
       label: '维度分析',
       icon: <ChartIcon className="h-4 w-4" />,
-      badge: dimensions.length,
+      badge: safeDimensions.length,
     },
     {
       key: 'evidence',
       label: '证据来源',
       icon: <LinkIcon className="h-4 w-4" />,
-      badge: evidence.length,
+      badge: safeEvidence.length,
     },
   ];
 
@@ -247,11 +251,11 @@ export function TopicContentPanel({
           <ReportTabContent report={report} isLoading={isLoadingReport} />
         )}
         {activeTab === 'dimensions' && (
-          <DimensionsTabContent dimensions={dimensions} report={report} />
+          <DimensionsTabContent dimensions={safeDimensions} report={report} />
         )}
         {activeTab === 'evidence' && (
           <EvidenceTabContent
-            evidence={evidence}
+            evidence={safeEvidence}
             isLoading={isLoadingEvidence}
           />
         )}
@@ -632,8 +636,11 @@ function DimensionsTabContent({
   dimensions: TopicDimension[];
   report: TopicReport | null;
 }) {
+  // Safe array fallback
+  const safeDims = dimensions || [];
+
   const [selectedDimension, setSelectedDimension] = useState<string | null>(
-    dimensions[0]?.id || null
+    safeDims[0]?.id || null
   );
 
   const selectedAnalysis = useMemo(() => {
@@ -643,7 +650,7 @@ function DimensionsTabContent({
     );
   }, [selectedDimension, report?.dimensionAnalyses]);
 
-  if (dimensions.length === 0) {
+  if (safeDims.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-8">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
@@ -663,10 +670,10 @@ function DimensionsTabContent({
       <div className="w-56 flex-shrink-0 overflow-y-auto border-r border-gray-100">
         <div className="p-3">
           <h4 className="mb-3 px-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            研究维度 ({dimensions.length})
+            研究维度 ({safeDims.length})
           </h4>
           <div className="space-y-1">
-            {dimensions.map((dim, index) => {
+            {safeDims.map((dim, index) => {
               const hasAnalysis = report?.dimensionAnalyses?.some(
                 (a) => a.dimensionId === dim.id
               );
@@ -700,7 +707,7 @@ function DimensionsTabContent({
       <div className="flex-1 overflow-y-auto">
         {selectedDimension ? (
           <DimensionDetailView
-            dimension={dimensions.find((d) => d.id === selectedDimension)!}
+            dimension={safeDims.find((d) => d.id === selectedDimension)!}
             analysis={selectedAnalysis}
           />
         ) : (
@@ -860,6 +867,9 @@ function EvidenceTabContent({
   evidence: TopicEvidence[];
   isLoading: boolean;
 }) {
+  // Safe array fallback
+  const safeEvidence = evidence || [];
+
   const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>(
     'all'
   );
@@ -867,7 +877,7 @@ function EvidenceTabContent({
 
   // 筛选和排序证据
   const filteredEvidence = useMemo(() => {
-    let result = [...evidence];
+    let result = [...safeEvidence];
 
     // 筛选
     if (filter !== 'all') {
@@ -894,17 +904,21 @@ function EvidenceTabContent({
     });
 
     return result;
-  }, [evidence, filter, sortBy]);
+  }, [safeEvidence, filter, sortBy]);
 
   // 统计
   const stats = useMemo(() => {
-    const high = evidence.filter((e) => (e.credibilityScore || 0) >= 70).length;
-    const medium = evidence.filter(
+    const high = safeEvidence.filter(
+      (e) => (e.credibilityScore || 0) >= 70
+    ).length;
+    const medium = safeEvidence.filter(
       (e) => (e.credibilityScore || 0) >= 40 && (e.credibilityScore || 0) < 70
     ).length;
-    const low = evidence.filter((e) => (e.credibilityScore || 0) < 40).length;
-    return { total: evidence.length, high, medium, low };
-  }, [evidence]);
+    const low = safeEvidence.filter(
+      (e) => (e.credibilityScore || 0) < 40
+    ).length;
+    return { total: safeEvidence.length, high, medium, low };
+  }, [safeEvidence]);
 
   if (isLoading) {
     return (
@@ -917,7 +931,7 @@ function EvidenceTabContent({
     );
   }
 
-  if (evidence.length === 0) {
+  if (safeEvidence.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-8">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
