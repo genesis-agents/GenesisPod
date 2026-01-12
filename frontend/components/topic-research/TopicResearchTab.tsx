@@ -69,6 +69,7 @@ interface TopicResearchTabProps {
   searchQuery: string;
   showCreateDialog: boolean;
   onShowCreateDialog: (show: boolean) => void;
+  onDetailViewChange?: (isDetailView: boolean) => void;
 }
 
 export function TopicResearchTab({
@@ -76,6 +77,7 @@ export function TopicResearchTab({
   searchQuery,
   showCreateDialog,
   onShowCreateDialog,
+  onDetailViewChange,
 }: TopicResearchTabProps) {
   const { t } = useTranslation();
   const {
@@ -91,6 +93,11 @@ export function TopicResearchTab({
   const [selectedTopic, setSelectedTopic] = useState<ResearchTopic | null>(
     null
   );
+
+  // Notify parent when detail view changes
+  useEffect(() => {
+    onDetailViewChange?.(selectedTopic !== null);
+  }, [selectedTopic, onDetailViewChange]);
 
   // Ensure topics is always an array
   const topicsList = Array.isArray(topics) ? topics : [];
