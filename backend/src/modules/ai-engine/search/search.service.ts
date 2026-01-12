@@ -66,11 +66,43 @@ export class SearchService {
           );
       }
     } catch (error: any) {
-      this.logger.error(`Search failed: ${error.message}`);
+      // Extract detailed error information
+      const statusCode = error.response?.status;
+      const errorData = error.response?.data;
+      const errorMessage =
+        errorData?.message || errorData?.error || error.message;
+
+      // Log detailed error for debugging
+      if (statusCode === 432) {
+        this.logger.error(
+          `Search failed: Tavily API quota exceeded or rate limited (HTTP 432). ` +
+            `Consider upgrading plan or reducing request frequency.`,
+        );
+      } else if (statusCode === 401) {
+        this.logger.error(
+          `Search failed: Invalid or expired API key (HTTP 401). ` +
+            `Please check TAVILY_API_KEY configuration.`,
+        );
+      } else if (statusCode === 429) {
+        this.logger.error(
+          `Search failed: Rate limit exceeded (HTTP 429). ` +
+            `Please wait before making more requests.`,
+        );
+      } else {
+        this.logger.error(
+          `Search failed: ${errorMessage} (HTTP ${statusCode || "unknown"})`,
+        );
+      }
+
       return {
         success: false,
         results: [],
-        error: error.response?.data?.message || error.message,
+        error:
+          statusCode === 432
+            ? "Search API quota exceeded. Please try again later."
+            : statusCode === 401
+              ? "Search API key invalid. Please check configuration."
+              : errorMessage,
       };
     }
   }
