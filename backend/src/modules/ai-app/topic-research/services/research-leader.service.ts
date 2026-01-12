@@ -195,6 +195,37 @@ const LEADER_INTERVENE_PROMPT = `你是研究团队的 Leader，用户通过 @Le
 }
 \`\`\``;
 
+// ==================== Constants ====================
+
+/**
+ * 已知的推理模型 ID 模式
+ * 用于自动检测推理模型，即使用户没有手动设置 isReasoning=true
+ */
+const KNOWN_REASONING_MODEL_PATTERNS = [
+  // OpenAI reasoning models
+  /^o1/i,
+  /^o3/i,
+  /^gpt-5/i,
+  // DeepSeek reasoning models
+  /deepseek.*r1/i,
+  /deepseek-reasoner/i,
+  // Claude with extended thinking (future)
+  /claude.*think/i,
+  // Gemini reasoning (future)
+  /gemini.*think/i,
+  // Grok reasoning (future)
+  /grok.*reason/i,
+];
+
+/**
+ * 检查模型 ID 是否匹配已知的推理模型模式
+ */
+function isKnownReasoningModel(modelId: string): boolean {
+  return KNOWN_REASONING_MODEL_PATTERNS.some((pattern) =>
+    pattern.test(modelId),
+  );
+}
+
 // ==================== Service ====================
 
 @Injectable()
@@ -208,11 +239,15 @@ export class ResearchLeaderService {
 
   /**
    * 获取用户配置的推理模型
-   * 优先获取 isReasoning=true 的模型，否则回退到默认 CHAT 模型
+   * 智能选择顺序：
+   * 1. 用户显式设置 isReasoning=true 的模型
+   * 2. 自动检测已知推理模型（按 model ID 模式匹配）
+   * 3. 回退到非 OpenAI 的 CHAT 模型（避免 rate limit）
+   * 4. 最后回退到任意可用 CHAT 模型
    */
   async getReasoningModel(): Promise<LeaderModelInfo | null> {
     try {
-      // 1. 优先查找 isReasoning=true 的模型
+      // 1. 优先查找用户显式设置 isReasoning=true 的模型
       let model = await this.prisma.aIModel.findFirst({
         where: {
           modelType: AIModelType.CHAT,
@@ -222,50 +257,79 @@ export class ResearchLeaderService {
         orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
       });
 
-      // 2. 如果没有推理模型，回退到默认 CHAT 模型
-      if (!model) {
-        this.logger.warn(
-          "[getReasoningModel] No reasoning model found, falling back to default CHAT model",
+      if (model) {
+        this.logger.log(
+          `[getReasoningModel] Found explicitly configured reasoning model: ${model.modelId}`,
         );
-        model = await this.prisma.aIModel.findFirst({
-          where: {
-            modelType: AIModelType.CHAT,
-            isEnabled: true,
-            isDefault: true,
-          },
-        });
+        return this.toLeaderModelInfo(model);
       }
 
-      // 3. 如果还没有，任意 CHAT 模型
-      if (!model) {
-        model = await this.prisma.aIModel.findFirst({
-          where: {
-            modelType: AIModelType.CHAT,
-            isEnabled: true,
-          },
-          orderBy: { createdAt: "desc" },
-        });
-      }
+      // 2. 自动检测已知推理模型（按 model ID 模式匹配）
+      const allChatModels = await this.prisma.aIModel.findMany({
+        where: {
+          modelType: AIModelType.CHAT,
+          isEnabled: true,
+        },
+        orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+      });
 
-      if (!model) {
-        this.logger.error("[getReasoningModel] No CHAT model available");
-        return null;
-      }
-
-      this.logger.log(
-        `[getReasoningModel] Using model: ${model.modelId} (isReasoning: ${model.isReasoning})`,
+      const detectedReasoningModel = allChatModels.find((m) =>
+        isKnownReasoningModel(m.modelId),
       );
 
-      return {
-        modelId: model.modelId,
-        modelName: model.name,
-        provider: model.provider,
-        isReasoning: model.isReasoning ?? false,
-      };
+      if (detectedReasoningModel) {
+        this.logger.log(
+          `[getReasoningModel] Auto-detected reasoning model by pattern: ${detectedReasoningModel.modelId}`,
+        );
+        return this.toLeaderModelInfo(detectedReasoningModel, true);
+      }
+
+      // 3. 回退到非 OpenAI 的 CHAT 模型（避免 rate limit）
+      const nonOpenAIModel = allChatModels.find(
+        (m) => m.provider.toLowerCase() !== "openai",
+      );
+
+      if (nonOpenAIModel) {
+        this.logger.warn(
+          `[getReasoningModel] No reasoning model found, using non-OpenAI fallback: ${nonOpenAIModel.modelId} (${nonOpenAIModel.provider})`,
+        );
+        return this.toLeaderModelInfo(nonOpenAIModel);
+      }
+
+      // 4. 最后回退到任意可用 CHAT 模型
+      if (allChatModels.length > 0) {
+        this.logger.warn(
+          `[getReasoningModel] Falling back to default CHAT model: ${allChatModels[0].modelId}`,
+        );
+        return this.toLeaderModelInfo(allChatModels[0]);
+      }
+
+      this.logger.error("[getReasoningModel] No CHAT model available");
+      return null;
     } catch (error) {
       this.logger.error(`[getReasoningModel] Failed: ${error}`);
       return null;
     }
+  }
+
+  /**
+   * 转换数据库模型为 LeaderModelInfo
+   */
+  private toLeaderModelInfo(
+    model: {
+      modelId: string;
+      name: string;
+      provider: string;
+      isReasoning: boolean | null;
+    },
+    autoDetected = false,
+  ): LeaderModelInfo {
+    return {
+      modelId: model.modelId,
+      modelName: model.name,
+      provider: model.provider,
+      isReasoning: model.isReasoning ?? autoDetected,
+    };
   }
 
   /**
