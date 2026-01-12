@@ -24,6 +24,7 @@ import {
   ConcurrencyLimits,
 } from "../../../../../../common/utils/concurrency.utils";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
+import { LeaderModelService } from "../../ai/leader-model.service";
 // ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务
 import {
   CircuitBreakerService,
@@ -120,6 +121,8 @@ export class TeamMissionService implements OnModuleInit {
     private retryService: MissionRetryService,
     private healthCheckService: MissionHealthCheckService,
     private contextInitializationService: ContextInitializationService,
+    // ★ Leader 模型容错服务：支持重试和模型切换
+    private leaderModelService: LeaderModelService,
   ) {}
 
   // ==================== 生命周期钩子 ====================
@@ -858,24 +861,40 @@ export class TeamMissionService implements OnModuleInit {
         await this.contextInitializationService.buildWorldContext(
           mission.title,
           mission.description || "",
-          async (model, messages, options) => {
-            const response = await this.callAIWithConfig(
-              model,
-              messages.map((m) => ({ role: m.role, content: m.content })),
-              messages.find((m) => m.role === "system")?.content || "",
+          async (_model, messages, options) => {
+            // ★ 使用 LeaderModelService 支持重试和模型切换
+            const result = await this.leaderModelService.executeWithFallback(
+              mission.leader.aiModel,
+              async (modelConfig) => {
+                const response = await this.callAIWithConfig(
+                  modelConfig.modelId,
+                  messages.map((m) => ({ role: m.role, content: m.content })),
+                  messages.find((m) => m.role === "system")?.content || "",
+                  {
+                    maxTokens: options?.maxTokens,
+                    temperature: options?.temperature,
+                    missionId: mission.id,
+                  },
+                );
+                return {
+                  content: response.content || "",
+                  tokensUsed:
+                    "tokensUsed" in response
+                      ? response.tokensUsed
+                      : response.usage?.totalTokens || 0,
+                };
+              },
               {
-                maxTokens: options?.maxTokens,
-                temperature: options?.temperature,
-                missionId: mission.id,
+                operation: "world_building",
+                context: { missionId: mission.id },
               },
             );
-            return {
-              content: response.content || "",
-              tokensUsed:
-                "tokensUsed" in response
-                  ? response.tokensUsed
-                  : response.usage?.totalTokens || 0,
-            };
+            if (!result.success || !result.data) {
+              throw new Error(
+                `世界观构建失败: ${result.error?.message || "未知错误"}`,
+              );
+            }
+            return result.data;
           },
           mission.leader.aiModel,
         );
@@ -1002,12 +1021,37 @@ export class TeamMissionService implements OnModuleInit {
 
           // ★ 增加 maxTokens 到 16000，以支持大量任务（如 96+ 章节）的规划输出
           // 原 8000 tokens 约能输出 12-15 个任务，对于长篇小说远远不够
-          aiResponse = await this.callAIWithConfig(
+          // ★ 使用 LeaderModelService 执行，支持重试和模型切换
+          const systemPrompt = this.getLeaderSystemPrompt(leader);
+          const result = await this.leaderModelService.executeWithFallback(
             leader.aiModel,
-            [{ role: "user", content: currentPrompt }],
-            this.getLeaderSystemPrompt(leader),
-            { maxTokens: 16000, temperature: 0.7, missionId: mission.id },
+            async (modelConfig) => {
+              return this.callAIWithConfig(
+                modelConfig.modelId,
+                [{ role: "user", content: currentPrompt }],
+                systemPrompt,
+                { maxTokens: 16000, temperature: 0.7, missionId: mission.id },
+              );
+            },
+            {
+              operation: "leader_planning",
+              context: { missionId: mission.id },
+            },
           );
+
+          if (result.success && result.data) {
+            aiResponse = result.data;
+            if (result.fallbackUsed) {
+              this.logger.log(
+                `[executeLeaderPlanning] Used fallback model ${result.modelUsed} (original: ${leader.aiModel})`,
+              );
+            }
+          } else {
+            // 模型切换失败，抛出错误让外层重试逻辑处理
+            throw new Error(
+              result.error?.getUserMessage() || "All leader models failed",
+            );
+          }
 
           // ★ 检查响应是否实际上是错误消息（以 "API Error:" 开头）
           if (aiResponse?.content?.startsWith("API Error:")) {
@@ -2312,12 +2356,27 @@ export class TeamMissionService implements OnModuleInit {
 \`\`\``;
 
     try {
-      const aiResponse = await this.callAIWithConfig(
+      // ★ 使用 LeaderModelService 支持重试和模型切换
+      const result = await this.leaderModelService.executeWithFallback(
         leader.aiModel,
-        [{ role: "user", content: replanPrompt }],
-        this.getLeaderSystemPrompt(leader),
-        { maxTokens: 4000, temperature: 0.7, missionId: mission.id },
+        async (modelConfig) => {
+          return this.callAIWithConfig(
+            modelConfig.modelId,
+            [{ role: "user", content: replanPrompt }],
+            this.getLeaderSystemPrompt(leader),
+            { maxTokens: 4000, temperature: 0.7, missionId: mission.id },
+          );
+        },
+        {
+          operation: "task_replan",
+          context: { missionId: mission.id, taskId: task.id },
+        },
       );
+
+      if (!result.success || !result.data) {
+        throw new Error(`重新规划失败: ${result.error?.message || "未知错误"}`);
+      }
+      const aiResponse = result.data;
 
       // 发送 Leader 的重新规划消息
       await this.sendMessageToTopic(
@@ -2472,7 +2531,7 @@ export class TeamMissionService implements OnModuleInit {
 
       // 调用 AI 进行审核 (使用数据库 API Key)
       // ★ 添加心跳机制，让前端持续显示 Leader 正在审核
-      let aiResponse;
+      let aiResponse: { content: string };
       let reviewHeartbeatTimer: NodeJS.Timeout | null = null;
       let reviewHeartbeatCount = 0;
 
@@ -2495,12 +2554,27 @@ export class TeamMissionService implements OnModuleInit {
           );
         }, 3000);
 
-        aiResponse = await this.callAIWithConfig(
+        // ★ 使用 LeaderModelService 支持重试和模型切换
+        const result = await this.leaderModelService.executeWithFallback(
           leader.aiModel,
-          [{ role: "user", content: reviewPrompt }],
-          this.getLeaderSystemPrompt(leader),
-          { maxTokens: 4000, temperature: 0.5, missionId: mission.id },
+          async (modelConfig) => {
+            return this.callAIWithConfig(
+              modelConfig.modelId,
+              [{ role: "user", content: reviewPrompt }],
+              this.getLeaderSystemPrompt(leader),
+              { maxTokens: 4000, temperature: 0.5, missionId: mission.id },
+            );
+          },
+          {
+            operation: "leader_review",
+            context: { missionId: mission.id, taskId: task.id },
+          },
         );
+
+        if (!result.success || !result.data) {
+          throw new Error(`审核失败: ${result.error?.message || "未知错误"}`);
+        }
+        aiResponse = result.data;
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         this.logger.error(
@@ -2988,15 +3062,26 @@ export class TeamMissionService implements OnModuleInit {
       }
 
       // 生成执行总结（可选，失败不影响完整内容输出）
+      // ★ 使用 LeaderModelService 支持重试和模型切换
       let executiveSummary = "";
       try {
-        const summaryResponse = await this.callAIWithConfig(
+        const result = await this.leaderModelService.executeWithFallback(
           mission.leader.aiModel,
-          [{ role: "user", content: summaryPrompt }],
-          this.getLeaderSystemPrompt(mission.leader),
-          { maxTokens: 2000, temperature: 0.5, missionId },
+          async (modelConfig) => {
+            return this.callAIWithConfig(
+              modelConfig.modelId,
+              [{ role: "user", content: summaryPrompt }],
+              this.getLeaderSystemPrompt(mission.leader),
+              { maxTokens: 2000, temperature: 0.5, missionId },
+            );
+          },
+          { operation: "mission_summary", context: { missionId } },
         );
-        executiveSummary = summaryResponse.content;
+        if (result.success && result.data) {
+          executiveSummary = result.data.content;
+        } else {
+          throw new Error(result.error?.message || "总结生成失败");
+        }
       } catch (summaryError) {
         const errorMsg =
           summaryError instanceof Error
@@ -4236,12 +4321,23 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
 ## 潜在问题
 [如有发现，列出可能需要改进的地方]`;
 
-      const response = await this.callAIWithConfig(
+      // ★ 使用 LeaderModelService 支持重试和模型切换
+      const result = await this.leaderModelService.executeWithFallback(
         leaderModel,
-        [{ role: "user", content: prompt }],
-        "你是一位专业的内容审核助手，擅长快速提炼长文精华。请客观、准确地生成摘要。",
-        { maxTokens: 1500, temperature: 0.3, missionId },
+        async (modelConfig) => {
+          return this.callAIWithConfig(
+            modelConfig.modelId,
+            [{ role: "user", content: prompt }],
+            "你是一位专业的内容审核助手，擅长快速提炼长文精华。请客观、准确地生成摘要。",
+            { maxTokens: 1500, temperature: 0.3, missionId },
+          );
+        },
+        { operation: "content_summary", context: { missionId } },
       );
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error?.message || "摘要生成失败");
+      }
 
       // 提取开头和结尾的关键片段
       const headExcerpt = content.substring(0, 500);
@@ -4249,7 +4345,7 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
       const keyExcerpts = `【开篇】\n${headExcerpt}\n\n【结尾】\n${tailExcerpt}`;
 
       return {
-        summary: response.content,
+        summary: result.data.content,
         keyExcerpts,
       };
     } catch (error) {

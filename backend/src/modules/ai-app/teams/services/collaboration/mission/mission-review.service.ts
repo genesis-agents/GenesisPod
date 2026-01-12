@@ -16,6 +16,7 @@ import {
 } from "@prisma/client";
 import { TopicEventEmitterService } from "../../events";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
+import { LeaderModelService } from "../../ai/leader-model.service";
 // ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务
 import {
   CircuitBreakerService,
@@ -110,10 +111,12 @@ export class MissionReviewService {
     private outputReviewerService: OutputReviewerService,
     // ★ AI Engine 能力下沉：注入上下文演进服务
     private contextEvolutionService: ContextEvolutionService,
+    // ★ Leader 模型容错服务：支持重试和模型切换
+    private leaderModelService: LeaderModelService,
   ) {
     // 验证 AI Engine 服务可用
     this.logger.debug(
-      `[MissionReviewService] AI Engine services injected: OutputReviewer=${!!this.outputReviewerService}, ContextEvolution=${!!this.contextEvolutionService}`,
+      `[MissionReviewService] AI Engine services injected: OutputReviewer=${!!this.outputReviewerService}, ContextEvolution=${!!this.contextEvolutionService}, LeaderModel=${!!this.leaderModelService}`,
     );
   }
 
@@ -233,9 +236,9 @@ export class MissionReviewService {
         reviewPrompt += qualityContext;
       }
 
-      // 调用 AI 审核（带心跳）
-      // ★ AI Engine 能力下沉：通过 aiCaller 注入执行上下文
-      let aiResponse;
+      // 调用 AI 审核（带心跳 + 模型容错）
+      // ★ Leader 模型容错：支持重试和自动切换到其他推理模型
+      let aiResponse: { content: string; tokensUsed: number };
       let reviewHeartbeatTimer: NodeJS.Timeout | null = null;
       let reviewHeartbeatCount = 0;
 
@@ -261,23 +264,50 @@ export class MissionReviewService {
         const aiCaller = this.createAiCaller(callbacks, mission.id);
         const systemPrompt = callbacks.getLeaderSystemPrompt(leader);
 
-        // 委托给 AI Engine 执行
-        aiResponse = await this.outputReviewerService.executeAICall(
+        // ★ 使用 LeaderModelService 执行，支持重试和模型切换
+        const result = await this.leaderModelService.executeWithFallback(
           leader.aiModel,
-          [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: reviewPrompt },
-          ],
-          {
-            maxTokens: 4000,
-            temperature: 0.5,
+          async (modelConfig) => {
+            return this.outputReviewerService.executeAICall(
+              modelConfig.modelId,
+              [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: reviewPrompt },
+              ],
+              {
+                maxTokens: 4000,
+                temperature: 0.5,
+              },
+              aiCaller,
+            );
           },
-          aiCaller,
+          {
+            operation: "leader_review",
+            context: { missionId: mission.id, taskId: task.id },
+          },
         );
+
+        if (result.success && result.data) {
+          aiResponse = result.data;
+          if (result.fallbackUsed) {
+            this.logger.log(
+              `[leaderReviewTask] Used fallback model ${result.modelUsed} (original: ${leader.aiModel})`,
+            );
+          }
+        } else {
+          const errorMsg = result.error?.getUserMessage() || "未知错误";
+          this.logger.error(
+            `[leaderReviewTask] All model attempts failed: ${errorMsg}`,
+          );
+          aiResponse = {
+            content: `审核失败: ${errorMsg}\n\n不通过。请重新执行任务。`,
+            tokensUsed: 0,
+          };
+        }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         this.logger.error(
-          `[reviewTaskResult] Review AI call failed: ${errorMsg}`,
+          `[leaderReviewTask] Review AI call failed unexpectedly: ${errorMsg}`,
         );
         aiResponse = {
           content: `审核失败: ${errorMsg}\n\n不通过。请重新执行任务。`,

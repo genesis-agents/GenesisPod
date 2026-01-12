@@ -5,6 +5,7 @@
 
 export {
   AiChatService,
+  AIModelConfig,
   ChatMessage,
   ChatCompletionOptions,
   ChatCompletionResult,

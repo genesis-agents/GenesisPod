@@ -40,6 +40,7 @@ import {
   CircuitBreakerService,
   ContextInitializationService,
 } from "../../../../../ai-engine/orchestration/services";
+import { LeaderModelService } from "../../ai/leader-model.service";
 import { MissionContextService } from "../mission/mission-context.service";
 import { ConstraintEnforcementService } from "../context/constraint-enforcement.service";
 import { EmailService } from "../../../../../core/email/email.service";
@@ -219,13 +220,33 @@ describe("TeamMissionService Long Content Integration", () => {
             detectContentType: jest
               .fn()
               .mockReturnValue({ needed: false, contentType: "other" }),
-            buildWorldContext: jest
+            buildWorldContext: jest.fn().mockResolvedValue({
+              needed: false,
+              contentType: "other",
+              tokensUsed: 0,
+            }),
+          },
+        },
+        {
+          provide: LeaderModelService,
+          useValue: {
+            executeWithFallback: jest
               .fn()
-              .mockResolvedValue({
-                needed: false,
-                contentType: "other",
-                tokensUsed: 0,
+              .mockImplementation(async (_modelId, executor) => {
+                const result = await executor({
+                  modelId: "mock-model",
+                  apiKey: "mock-key",
+                });
+                return {
+                  success: true,
+                  data: result,
+                  modelUsed: "mock-model",
+                  fallbackUsed: false,
+                  attempts: 1,
+                  attemptedModels: ["mock-model"],
+                };
               }),
+            getReasoningModelFallbackChain: jest.fn().mockResolvedValue([]),
           },
         },
       ],

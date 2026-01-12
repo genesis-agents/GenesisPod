@@ -27,6 +27,7 @@ import {
   ConcurrencyLimits,
 } from "../../../../../../common/utils/concurrency.utils";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
+import { LeaderModelService } from "../../ai/leader-model.service";
 import { CircuitBreakerService } from "../../../../../ai-engine/orchestration/services";
 import { MissionStateManager } from "./mission-state.manager";
 import { RETRY_CONFIG, AGENT_SWITCH_CONFIG } from "../config";
@@ -132,10 +133,12 @@ export class MissionExecutionService {
     // ★ AI Engine 能力下沉：注入执行服务
     // 当前为预留接口，后续可逐步将执行逻辑委托给 AI Engine
     private agentExecutorService: AgentExecutorService,
+    // ★ Leader 模型容错服务：支持重试和模型切换
+    private leaderModelService: LeaderModelService,
   ) {
     // 验证 AI Engine 服务可用
     this.logger.debug(
-      `[MissionExecutionService] AI Engine AgentExecutorService injected: ${!!this.agentExecutorService}`,
+      `[MissionExecutionService] AI Engine services injected: AgentExecutor=${!!this.agentExecutorService}, LeaderModel=${!!this.leaderModelService}`,
     );
   }
 
@@ -1509,32 +1512,62 @@ export class MissionExecutionService {
       MessageContentType.TEXT,
     );
 
-    // Leader 重新规划
+    // Leader 重新规划（带模型容错）
     const replanPrompt = this.buildReplanPrompt(task, assignedTo, errorMsg);
+    const systemPrompt = callbacks.getLeaderSystemPrompt(leader);
 
     try {
-      const aiResponse = await this.callAIWithConfig(
+      // ★ 使用 LeaderModelService 执行，支持重试和模型切换
+      const result = await this.leaderModelService.executeWithFallback(
         leader.aiModel,
-        [{ role: "user", content: replanPrompt }],
-        callbacks.getLeaderSystemPrompt(leader),
-        { maxTokens: 4000, temperature: 0.7, missionId: mission.id },
+        async (modelConfig) => {
+          return this.callAIWithConfig(
+            modelConfig.modelId,
+            [{ role: "user", content: replanPrompt }],
+            systemPrompt,
+            { maxTokens: 4000, temperature: 0.7, missionId: mission.id },
+          );
+        },
+        {
+          operation: "leader_replan",
+          context: { missionId: mission.id, taskId: task.id },
+        },
       );
 
-      await callbacks.sendMessageToTopic(
-        mission.topicId,
-        leader.id,
-        `[任务重新规划]\n\n${aiResponse.content}`,
-        MessageContentType.TEXT,
-      );
+      if (result.success && result.data) {
+        if (result.fallbackUsed) {
+          this.logger.log(
+            `[handleTaskExecutionFailure] Used fallback model ${result.modelUsed} for replan (original: ${leader.aiModel})`,
+          );
+        }
 
-      // 解析并创建新任务
-      await this.parseAndCreateReplanTasks(
-        mission,
-        aiResponse.content,
-        callbacks,
-      );
+        await callbacks.sendMessageToTopic(
+          mission.topicId,
+          leader.id,
+          `[任务重新规划]\n\n${result.data.content}`,
+          MessageContentType.TEXT,
+        );
+
+        // 解析并创建新任务
+        await this.parseAndCreateReplanTasks(
+          mission,
+          result.data.content,
+          callbacks,
+        );
+      } else {
+        const errorDetail = result.error?.getUserMessage() || "未知错误";
+        this.logger.error(
+          `[handleTaskExecutionFailure] All replan model attempts failed: ${errorDetail}`,
+        );
+        await callbacks.sendMessageToTopic(
+          mission.topicId,
+          null,
+          `⚠️ **需要人工干预**\n\n任务「${task.title}」执行失败，且自动重新规划也失败了（${errorDetail}）。\n\n请手动取消当前任务或创建新的任务。`,
+          MessageContentType.SYSTEM,
+        );
+      }
     } catch (replanError) {
-      this.logger.error(`Replan AI call failed: ${replanError}`);
+      this.logger.error(`Replan AI call failed unexpectedly: ${replanError}`);
       await callbacks.sendMessageToTopic(
         mission.topicId,
         null,

@@ -35,6 +35,7 @@ import {
   AiResponseService,
   TopicContextRetrievalService,
   TeamsLongContentService,
+  LeaderModelService,
   // 协作服务
   DebateService,
   TeamMissionService,
@@ -84,6 +85,7 @@ import { TeamMemberAgent } from "./agents";
     AiResponseService,
     TopicContextRetrievalService,
     TeamsLongContentService,
+    LeaderModelService,
     TeamMemberAgent,
 
     // 协作服务
