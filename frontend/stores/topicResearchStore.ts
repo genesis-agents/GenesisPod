@@ -77,6 +77,7 @@ interface TopicResearchState {
   missionStatus: MissionStatus | null;
   teamInfo: TeamInfo | null;
   isLoadingMission: boolean;
+  missionPollingInterval: NodeJS.Timeout | null;
 
   // Schedule & Logs
   schedule: TopicSchedule | null;
@@ -135,6 +136,8 @@ interface TopicResearchState {
     instruction: string
   ) => Promise<void>;
   retryMission: (topicId: string, taskIds?: string[]) => Promise<void>;
+  stopMissionPolling: () => void;
+  startMissionPolling: (topicId: string) => void;
 
   // Actions - Reports
   fetchReports: (topicId: string, loadMore?: boolean) => Promise<void>;
@@ -200,6 +203,7 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
   missionStatus: null,
   teamInfo: null,
   isLoadingMission: false,
+  missionPollingInterval: null,
   schedule: null,
   logs: [],
   isLoadingLogs: false,
@@ -407,6 +411,59 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
 
   // ==================== Leader/Mission ====================
 
+  stopMissionPolling: () => {
+    const { missionPollingInterval } = get();
+    if (missionPollingInterval) {
+      clearInterval(missionPollingInterval);
+      set({ missionPollingInterval: null });
+    }
+  },
+
+  startMissionPolling: (topicId: string) => {
+    // Stop any existing polling first
+    get().stopMissionPolling();
+
+    // Start polling every 2 seconds
+    const interval = setInterval(async () => {
+      try {
+        const status = await api.getMission(topicId);
+        set({ missionStatus: status });
+
+        if (status) {
+          const isActive = ['PLANNING', 'EXECUTING', 'REVIEWING'].includes(
+            status.status
+          );
+          set({
+            isRefreshing: isActive,
+            refreshProgress: isActive
+              ? {
+                  phase: status.currentPhase,
+                  progress: status.progress,
+                  message: `${status.completedTasks}/${status.totalTasks} 任务完成`,
+                  completedDimensions: status.completedTasks,
+                  totalDimensions: status.totalTasks,
+                }
+              : null,
+          });
+
+          // Stop polling if mission is done
+          if (!isActive) {
+            get().stopMissionPolling();
+
+            // If completed, fetch the latest report
+            if (status.status === 'COMPLETED') {
+              get().fetchLatestReport(topicId);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Mission polling error:', error);
+      }
+    }, 2000);
+
+    set({ missionPollingInterval: interval });
+  },
+
   startLeaderPlan: async (topicId, userPrompt) => {
     set({ isRefreshing: true, isLoadingMission: true, error: null });
     try {
@@ -414,6 +471,8 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
       set({ currentMission: mission, isLoadingMission: false });
       // Start polling for mission status
       get().fetchMissionStatus(topicId);
+      // Start continuous polling
+      get().startMissionPolling(topicId);
     } catch (error) {
       set({
         isRefreshing: false,
@@ -688,6 +747,7 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
 
   resetStore: () => {
     get().stopRefreshProgressStream();
+    get().stopMissionPolling();
     set({
       topics: [],
       currentTopic: null,
@@ -706,6 +766,11 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
       isRefreshing: false,
       refreshProgress: null,
       refreshStream: null,
+      currentMission: null,
+      missionStatus: null,
+      teamInfo: null,
+      isLoadingMission: false,
+      missionPollingInterval: null,
       schedule: null,
       logs: [],
       isLoadingLogs: false,
