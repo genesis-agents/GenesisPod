@@ -41,15 +41,24 @@ import {
   CreateFromTemplateDto,
   UpdateScheduleDto,
   ListLogsDto,
+  LeaderPlanDto,
+  LeaderMessageDto,
+  MissionRetryDto,
 } from "./dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { ResearchMissionService } from "./services/research-mission.service";
+import { ResearchLeaderService } from "./services/research-leader.service";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
 @Controller("topic-research")
 @UseGuards(JwtAuthGuard)
 export class TopicResearchController {
-  constructor(private readonly topicResearchService: TopicResearchService) {}
+  constructor(
+    private readonly topicResearchService: TopicResearchService,
+    private readonly missionService: ResearchMissionService,
+    private readonly leaderService: ResearchLeaderService,
+  ) {}
 
   // ==================== Topics CRUD ====================
 
@@ -662,5 +671,158 @@ export class TopicResearchController {
     }
     // TODO: Implement getStats
     return this.topicResearchService.getStats(userId, id);
+  }
+
+  // ==================== Leader API ====================
+
+  /**
+   * Leader 生成研究规划
+   */
+  @Post("topics/:id/leader/plan")
+  @ApiOperation({
+    summary: "Leader 生成研究规划",
+    description: "调用 Leader（推理模型）规划研究维度和执行策略",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 201, description: "规划成功" })
+  async leaderPlan(
+    @Request() req: any,
+    @Param("id") id: string,
+    @Body() dto: LeaderPlanDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.missionService.createMission({
+      topicId: id,
+      userPrompt: dto.userPrompt,
+      userContext: dto.userContext,
+    });
+  }
+
+  /**
+   * 处理 @Leader 用户消息
+   */
+  @Post("topics/:id/leader/message")
+  @ApiOperation({
+    summary: "处理 @Leader 消息",
+    description: "用户通过 @Leader 向 Leader 发送指令或补充提示",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "消息处理成功" })
+  async leaderMessage(
+    @Request() req: any,
+    @Param("id") id: string,
+    @Body() dto: LeaderMessageDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    // 获取当前 Mission
+    const mission = await this.missionService.getMissionByTopicId(id);
+    if (!mission) {
+      throw new Error("No active mission for this topic");
+    }
+    return this.leaderService.handleUserMessage(id, mission.id, dto.content);
+  }
+
+  /**
+   * 获取 Leader 决策历史
+   */
+  @Get("topics/:id/leader/decisions")
+  @ApiOperation({
+    summary: "获取 Leader 决策历史",
+    description: "获取 Leader 在研究过程中的所有决策记录",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "返回决策历史" })
+  async getLeaderDecisions(@Request() req: any, @Param("id") id: string) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const mission = await this.missionService.getMissionByTopicId(id);
+    if (!mission) {
+      return [];
+    }
+    return this.leaderService.getDecisionHistory(mission.id);
+  }
+
+  // ==================== Mission API ====================
+
+  /**
+   * 获取当前 Mission 状态
+   */
+  @Get("topics/:id/mission")
+  @ApiOperation({
+    summary: "获取 Mission 状态",
+    description: "获取专题当前研究任务的状态和进度",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "返回 Mission 状态" })
+  async getMission(@Request() req: any, @Param("id") id: string) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.missionService.getMissionByTopicId(id);
+  }
+
+  /**
+   * 重试失败的任务
+   */
+  @Post("topics/:id/mission/retry")
+  @ApiOperation({
+    summary: "重试失败任务",
+    description: "重试 Mission 中失败的任务",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "重试成功" })
+  async retryMission(
+    @Request() req: any,
+    @Param("id") id: string,
+    @Body() dto: MissionRetryDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const mission = await this.missionService.getMissionByTopicId(id);
+    if (!mission) {
+      throw new Error("No mission found for this topic");
+    }
+    if (dto.taskIds?.length) {
+      // 重试指定任务
+      const results = await Promise.all(
+        dto.taskIds.map((taskId) => this.missionService.retryTask(taskId)),
+      );
+      return { retriedTasks: results.length };
+    }
+    // 重试整个 Mission
+    return this.missionService.retryMission(mission.id);
+  }
+
+  /**
+   * 获取当前团队组成
+   */
+  @Get("topics/:id/team")
+  @ApiOperation({
+    summary: "获取研究团队",
+    description: "获取 Leader 动态创建的 Agent 列表",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "返回团队信息" })
+  async getTeam(@Request() req: any, @Param("id") id: string) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const mission = await this.missionService.getMissionByTopicId(id);
+    if (!mission) {
+      return { leaderId: null, leaderModel: null, agents: [] };
+    }
+    return this.missionService.getTeamInfo(mission.id);
   }
 }

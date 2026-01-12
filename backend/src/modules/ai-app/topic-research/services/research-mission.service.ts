@@ -1,0 +1,636 @@
+/**
+ * Research Mission Service
+ *
+ * 管理研究 Mission 和 Task 的生命周期
+ * 复用 AI Teams Mission 框架的核心概念
+ */
+
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
+import {
+  ResearchMissionStatus,
+  ResearchTaskStatus,
+  LeaderDecisionType,
+} from "@prisma/client";
+import type { ResearchMission, ResearchTask } from "@prisma/client";
+import {
+  ResearchLeaderService,
+  type LeaderPlan,
+} from "./research-leader.service";
+
+// ==================== Types ====================
+
+export interface CreateMissionInput {
+  topicId: string;
+  userPrompt?: string;
+  userContext?: Record<string, any>;
+}
+
+export interface MissionStatus {
+  id: string;
+  status: ResearchMissionStatus;
+  progress: number;
+  totalTasks: number;
+  completedTasks: number;
+  currentPhase: string;
+  tasks: TaskStatus[];
+  leaderPlan?: LeaderPlan;
+}
+
+export interface TaskStatus {
+  id: string;
+  title: string;
+  taskType: string;
+  dimensionName?: string;
+  assignedAgent: string;
+  status: ResearchTaskStatus;
+  reviewStatus?: string;
+  progress?: number;
+}
+
+export interface MissionProgressEvent {
+  missionId: string;
+  topicId: string;
+  status: ResearchMissionStatus;
+  progress: number;
+  phase: string;
+  message: string;
+  currentTask?: string;
+  completedTasks: number;
+  totalTasks: number;
+}
+
+export interface TeamInfo {
+  leaderId: string;
+  leaderModel: string;
+  agents: AgentInfo[];
+}
+
+export interface AgentInfo {
+  id: string;
+  type: string;
+  role: string;
+  status: "idle" | "working" | "completed" | "failed";
+  currentTask?: string;
+  assignedDimensions?: string[];
+}
+
+// ==================== Service ====================
+
+@Injectable()
+export class ResearchMissionService {
+  private readonly logger = new Logger(ResearchMissionService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+    private readonly leaderService: ResearchLeaderService,
+  ) {}
+
+  /**
+   * 创建新的研究 Mission
+   * 调用 Leader 进行规划，创建任务列表
+   */
+  async createMission(input: CreateMissionInput): Promise<ResearchMission> {
+    const { topicId, userPrompt, userContext } = input;
+    this.logger.log(`[createMission] Creating mission for topic ${topicId}`);
+
+    // 1. 验证专题存在
+    const topic = await this.prisma.researchTopic.findUnique({
+      where: { id: topicId },
+    });
+
+    if (!topic) {
+      throw new NotFoundException(`Topic ${topicId} not found`);
+    }
+
+    // 2. 检查是否有正在进行的 Mission
+    const existingMission = await this.prisma.researchMission.findFirst({
+      where: {
+        topicId,
+        status: {
+          in: [
+            ResearchMissionStatus.PLANNING,
+            ResearchMissionStatus.EXECUTING,
+            ResearchMissionStatus.REVIEWING,
+          ],
+        },
+      },
+    });
+
+    if (existingMission) {
+      throw new Error(`A mission is already in progress for topic ${topicId}`);
+    }
+
+    // 3. 获取 Leader 模型信息
+    const leaderModel = await this.leaderService.getReasoningModel();
+
+    // 4. 创建 Mission 记录（状态为 PLANNING）
+    const mission = await this.prisma.researchMission.create({
+      data: {
+        topicId,
+        status: ResearchMissionStatus.PLANNING,
+        leaderModelId: leaderModel?.modelId,
+        leaderModelName: leaderModel?.modelName,
+        userPrompt,
+        userContext: userContext ?? undefined,
+      },
+    });
+
+    // 5. 发送进度事件
+    this.emitProgress({
+      missionId: mission.id,
+      topicId,
+      status: ResearchMissionStatus.PLANNING,
+      progress: 5,
+      phase: "planning",
+      message: "Leader 正在规划研究方案...",
+      completedTasks: 0,
+      totalTasks: 0,
+    });
+
+    // 6. 调用 Leader 生成规划
+    try {
+      const leaderPlan = await this.leaderService.planResearch(
+        topicId,
+        userPrompt,
+      );
+
+      // 7. 记录 Leader 决策
+      await this.prisma.leaderDecision.create({
+        data: {
+          missionId: mission.id,
+          type: LeaderDecisionType.PLAN,
+          input: { topicId, userPrompt },
+          decision: leaderPlan as any,
+          reasoning: `规划了 ${leaderPlan.dimensions.length} 个研究维度，分配了 ${leaderPlan.agentAssignments.length} 个 Agent`,
+        },
+      });
+
+      // 8. 根据规划创建任务
+      const tasks = await this.createTasksFromPlan(mission.id, leaderPlan);
+
+      // 9. 更新 Mission
+      const updatedMission = await this.prisma.researchMission.update({
+        where: { id: mission.id },
+        data: {
+          leaderPlan: leaderPlan as any,
+          totalTasks: tasks.length,
+          status: ResearchMissionStatus.EXECUTING,
+          startedAt: new Date(),
+        },
+      });
+
+      // 10. 发送进度事件
+      this.emitProgress({
+        missionId: mission.id,
+        topicId,
+        status: ResearchMissionStatus.EXECUTING,
+        progress: 10,
+        phase: "executing",
+        message: `规划完成，开始执行 ${tasks.length} 个任务`,
+        completedTasks: 0,
+        totalTasks: tasks.length,
+      });
+
+      this.logger.log(
+        `[createMission] Mission ${mission.id} created with ${tasks.length} tasks`,
+      );
+
+      return updatedMission;
+    } catch (error) {
+      // 规划失败，更新状态
+      await this.prisma.researchMission.update({
+        where: { id: mission.id },
+        data: {
+          status: ResearchMissionStatus.FAILED,
+        },
+      });
+
+      this.logger.error(`[createMission] Planning failed: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 根据 Leader 规划创建任务
+   */
+  private async createTasksFromPlan(
+    missionId: string,
+    plan: LeaderPlan,
+  ): Promise<ResearchTask[]> {
+    const tasks: ResearchTask[] = [];
+
+    // 1. 为每个维度创建研究任务
+    for (const dimension of plan.dimensions) {
+      const assignment = plan.agentAssignments.find(
+        (a) =>
+          a.agentType === "dimension_researcher" &&
+          a.assignedDimensions?.includes(dimension.id),
+      );
+
+      const task = await this.prisma.researchTask.create({
+        data: {
+          missionId,
+          title: `研究: ${dimension.name}`,
+          description: dimension.description,
+          taskType: "dimension_research",
+          dimensionName: dimension.name,
+          assignedAgent: assignment?.agentId || "researcher_default",
+          assignedAgentType: "dimension_researcher",
+          priority: dimension.priority,
+          status: ResearchTaskStatus.PENDING,
+        },
+      });
+      tasks.push(task);
+    }
+
+    // 2. 创建质量审核任务（依赖所有研究任务）
+    const reviewerAssignment = plan.agentAssignments.find(
+      (a) => a.agentType === "quality_reviewer",
+    );
+    const reviewTask = await this.prisma.researchTask.create({
+      data: {
+        missionId,
+        title: "质量审核",
+        description: "审核所有维度研究结果的质量",
+        taskType: "quality_review",
+        assignedAgent: reviewerAssignment?.agentId || "reviewer_default",
+        assignedAgentType: "quality_reviewer",
+        priority: 100,
+        dependencies: tasks.map((t) => t.id),
+        status: ResearchTaskStatus.PENDING,
+      },
+    });
+    tasks.push(reviewTask);
+
+    // 3. 创建报告撰写任务（依赖审核任务）
+    const writerAssignment = plan.agentAssignments.find(
+      (a) => a.agentType === "report_writer",
+    );
+    const writeTask = await this.prisma.researchTask.create({
+      data: {
+        missionId,
+        title: "报告撰写",
+        description: "整合研究结果，生成最终报告",
+        taskType: "report_synthesis",
+        assignedAgent: writerAssignment?.agentId || "writer_default",
+        assignedAgentType: "report_writer",
+        priority: 200,
+        dependencies: [reviewTask.id],
+        status: ResearchTaskStatus.PENDING,
+      },
+    });
+    tasks.push(writeTask);
+
+    return tasks;
+  }
+
+  /**
+   * 获取 Mission 状态
+   */
+  async getMissionStatus(missionId: string): Promise<MissionStatus> {
+    const mission = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+      include: { tasks: { orderBy: { priority: "asc" } } },
+    });
+
+    if (!mission) {
+      throw new NotFoundException(`Mission ${missionId} not found`);
+    }
+
+    const tasks: TaskStatus[] = mission.tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      taskType: task.taskType,
+      dimensionName: task.dimensionName ?? undefined,
+      assignedAgent: task.assignedAgent,
+      status: task.status,
+      reviewStatus: task.reviewStatus ?? undefined,
+    }));
+
+    return {
+      id: mission.id,
+      status: mission.status,
+      progress: mission.progressPercent,
+      totalTasks: mission.totalTasks,
+      completedTasks: mission.completedTasks,
+      currentPhase: this.getPhaseFromStatus(mission.status),
+      tasks,
+      leaderPlan: mission.leaderPlan as unknown as LeaderPlan | undefined,
+    };
+  }
+
+  /**
+   * 获取专题当前 Mission 状态
+   */
+  async getMissionByTopicId(topicId: string): Promise<MissionStatus | null> {
+    const mission = await this.prisma.researchMission.findFirst({
+      where: { topicId },
+      orderBy: { createdAt: "desc" },
+      include: { tasks: { orderBy: { priority: "asc" } } },
+    });
+
+    if (!mission) {
+      return null;
+    }
+
+    const tasks: TaskStatus[] = mission.tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      taskType: task.taskType,
+      dimensionName: task.dimensionName ?? undefined,
+      assignedAgent: task.assignedAgent,
+      status: task.status,
+      reviewStatus: task.reviewStatus ?? undefined,
+    }));
+
+    return {
+      id: mission.id,
+      status: mission.status,
+      progress: mission.progressPercent,
+      totalTasks: mission.totalTasks,
+      completedTasks: mission.completedTasks,
+      currentPhase: this.getPhaseFromStatus(mission.status),
+      tasks,
+      leaderPlan: mission.leaderPlan as unknown as LeaderPlan | undefined,
+    };
+  }
+
+  /**
+   * 更新任务状态
+   */
+  async updateTaskStatus(
+    taskId: string,
+    status: ResearchTaskStatus,
+    result?: any,
+    resultSummary?: string,
+  ): Promise<ResearchTask> {
+    const now = new Date();
+    const updateData: any = { status };
+
+    if (status === ResearchTaskStatus.EXECUTING) {
+      updateData.startedAt = now;
+    } else if (
+      status === ResearchTaskStatus.COMPLETED ||
+      status === ResearchTaskStatus.FAILED
+    ) {
+      updateData.completedAt = now;
+    }
+
+    if (result !== undefined) {
+      updateData.result = result;
+    }
+
+    if (resultSummary !== undefined) {
+      updateData.resultSummary = resultSummary;
+    }
+
+    const task = await this.prisma.researchTask.update({
+      where: { id: taskId },
+      data: updateData,
+      include: { mission: true },
+    });
+
+    // 更新 Mission 进度
+    await this.updateMissionProgress(task.missionId);
+
+    return task;
+  }
+
+  /**
+   * 更新 Mission 进度
+   */
+  private async updateMissionProgress(missionId: string): Promise<void> {
+    const tasks = await this.prisma.researchTask.findMany({
+      where: { missionId },
+    });
+
+    const completedTasks = tasks.filter(
+      (t) => t.status === ResearchTaskStatus.COMPLETED,
+    ).length;
+    const totalTasks = tasks.length;
+    const progressPercent =
+      totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    // 检查是否全部完成
+    const allCompleted = completedTasks === totalTasks;
+    const anyFailed = tasks.some((t) => t.status === ResearchTaskStatus.FAILED);
+
+    let status: ResearchMissionStatus | undefined;
+    if (allCompleted) {
+      status = ResearchMissionStatus.COMPLETED;
+    } else if (anyFailed) {
+      status = ResearchMissionStatus.FAILED;
+    }
+
+    await this.prisma.researchMission.update({
+      where: { id: missionId },
+      data: {
+        completedTasks,
+        progressPercent,
+        ...(status && { status }),
+        ...(status === ResearchMissionStatus.COMPLETED && {
+          completedAt: new Date(),
+        }),
+      },
+    });
+  }
+
+  /**
+   * 重试失败的任务
+   */
+  async retryTask(taskId: string): Promise<ResearchTask> {
+    const task = await this.prisma.researchTask.findUnique({
+      where: { id: taskId },
+    });
+
+    if (!task) {
+      throw new NotFoundException(`Task ${taskId} not found`);
+    }
+
+    if (
+      task.status !== ResearchTaskStatus.FAILED &&
+      task.status !== ResearchTaskStatus.NEEDS_REVISION
+    ) {
+      throw new Error(`Task ${taskId} is not in a retryable state`);
+    }
+
+    return this.prisma.researchTask.update({
+      where: { id: taskId },
+      data: {
+        status: ResearchTaskStatus.PENDING,
+        revisionCount: { increment: 1 },
+        startedAt: null,
+        completedAt: null,
+        result: undefined,
+        resultSummary: null,
+      },
+    });
+  }
+
+  /**
+   * 重试整个 Mission
+   */
+  async retryMission(missionId: string): Promise<ResearchMission> {
+    const mission = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+    });
+
+    if (!mission) {
+      throw new NotFoundException(`Mission ${missionId} not found`);
+    }
+
+    if (mission.status !== ResearchMissionStatus.FAILED) {
+      throw new Error(`Mission ${missionId} is not failed`);
+    }
+
+    // 重置所有失败的任务
+    await this.prisma.researchTask.updateMany({
+      where: {
+        missionId,
+        status: {
+          in: [ResearchTaskStatus.FAILED, ResearchTaskStatus.NEEDS_REVISION],
+        },
+      },
+      data: {
+        status: ResearchTaskStatus.PENDING,
+        startedAt: null,
+        completedAt: null,
+      },
+    });
+
+    // 更新 Mission 状态
+    return this.prisma.researchMission.update({
+      where: { id: missionId },
+      data: {
+        status: ResearchMissionStatus.EXECUTING,
+        completedAt: null,
+      },
+    });
+  }
+
+  /**
+   * 获取当前团队组成
+   */
+  async getTeamInfo(missionId: string): Promise<TeamInfo> {
+    const mission = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+      include: { tasks: true },
+    });
+
+    if (!mission) {
+      throw new NotFoundException(`Mission ${missionId} not found`);
+    }
+
+    // 从任务中提取 Agent 信息
+    const agentMap = new Map<string, AgentInfo>();
+
+    for (const task of mission.tasks) {
+      if (!agentMap.has(task.assignedAgent)) {
+        agentMap.set(task.assignedAgent, {
+          id: task.assignedAgent,
+          type: task.assignedAgentType || "unknown",
+          role: this.getAgentRole(task.assignedAgentType),
+          status: "idle",
+          assignedDimensions: [],
+        });
+      }
+
+      const agent = agentMap.get(task.assignedAgent)!;
+
+      // 更新 Agent 状态
+      if (task.status === ResearchTaskStatus.EXECUTING) {
+        agent.status = "working";
+        agent.currentTask = task.title;
+      } else if (task.status === ResearchTaskStatus.COMPLETED) {
+        if (agent.status !== "working") {
+          agent.status = "completed";
+        }
+      } else if (task.status === ResearchTaskStatus.FAILED) {
+        agent.status = "failed";
+      }
+
+      // 收集分配的维度
+      if (task.dimensionName) {
+        agent.assignedDimensions?.push(task.dimensionName);
+      }
+    }
+
+    return {
+      leaderId: "leader",
+      leaderModel: mission.leaderModelName || "unknown",
+      agents: Array.from(agentMap.values()),
+    };
+  }
+
+  /**
+   * 获取 Agent 角色名称
+   */
+  private getAgentRole(agentType?: string | null): string {
+    switch (agentType) {
+      case "dimension_researcher":
+        return "维度研究员";
+      case "quality_reviewer":
+        return "质量审核员";
+      case "report_writer":
+        return "报告撰写员";
+      default:
+        return "研究员";
+    }
+  }
+
+  /**
+   * 获取阶段名称
+   */
+  private getPhaseFromStatus(status: ResearchMissionStatus): string {
+    switch (status) {
+      case ResearchMissionStatus.PLANNING:
+        return "planning";
+      case ResearchMissionStatus.EXECUTING:
+        return "researching";
+      case ResearchMissionStatus.REVIEWING:
+        return "reviewing";
+      case ResearchMissionStatus.COMPLETED:
+        return "completed";
+      case ResearchMissionStatus.FAILED:
+        return "failed";
+      default:
+        return "unknown";
+    }
+  }
+
+  /**
+   * 发送进度事件
+   */
+  private emitProgress(event: MissionProgressEvent): void {
+    this.eventEmitter.emit("research-mission.progress", event);
+  }
+
+  /**
+   * 获取可执行的任务（依赖已完成）
+   */
+  async getExecutableTasks(missionId: string): Promise<ResearchTask[]> {
+    const allTasks = await this.prisma.researchTask.findMany({
+      where: { missionId },
+    });
+
+    const completedTaskIds = new Set(
+      allTasks
+        .filter((t) => t.status === ResearchTaskStatus.COMPLETED)
+        .map((t) => t.id),
+    );
+
+    return allTasks.filter((task) => {
+      // 必须是 PENDING 状态
+      if (task.status !== ResearchTaskStatus.PENDING) {
+        return false;
+      }
+
+      // 所有依赖必须已完成
+      const dependencies = task.dependencies || [];
+      return dependencies.every((depId) => completedTaskIds.has(depId));
+    });
+  }
+}

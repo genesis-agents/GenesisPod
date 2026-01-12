@@ -502,3 +502,177 @@ export async function getLogs(
 export async function getStats(topicId: string): Promise<TopicStats> {
   return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/stats`);
 }
+
+// ==================== Leader API ====================
+
+/**
+ * Leader 生成研究规划
+ */
+export async function leaderPlan(
+  topicId: string,
+  options?: { userPrompt?: string; userContext?: Record<string, unknown> }
+): Promise<ResearchMission> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/leader/plan`, {
+    method: 'POST',
+    body: JSON.stringify(options || {}),
+  });
+}
+
+/**
+ * 处理 @Leader 消息
+ */
+export async function sendLeaderMessage(
+  topicId: string,
+  content: string
+): Promise<{ response: string; planAdjustments?: unknown }> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/leader/message`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  });
+}
+
+/**
+ * 获取 Leader 决策历史
+ */
+export async function getLeaderDecisions(
+  topicId: string
+): Promise<LeaderDecision[]> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/leader/decisions`);
+}
+
+// ==================== Mission API ====================
+
+/**
+ * 获取当前 Mission 状态
+ */
+export async function getMission(
+  topicId: string
+): Promise<MissionStatus | null> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/mission`);
+}
+
+/**
+ * 重试失败的任务
+ */
+export async function retryMission(
+  topicId: string,
+  taskIds?: string[]
+): Promise<{ retriedTasks?: number } | ResearchMission> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/mission/retry`, {
+    method: 'POST',
+    body: JSON.stringify({ taskIds }),
+  });
+}
+
+/**
+ * 获取研究团队信息
+ */
+export async function getTeam(topicId: string): Promise<TeamInfo> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/team`);
+}
+
+// ==================== Mission Types ====================
+
+export interface ResearchMission {
+  id: string;
+  topicId: string;
+  status: 'PLANNING' | 'EXECUTING' | 'REVIEWING' | 'COMPLETED' | 'FAILED';
+  leaderModelId?: string;
+  leaderModelName?: string;
+  leaderPlan?: LeaderPlan;
+  userPrompt?: string;
+  totalTasks: number;
+  completedTasks: number;
+  progressPercent: number;
+  startedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LeaderPlan {
+  taskUnderstanding: {
+    topic: string;
+    scope: string;
+    objectives: string[];
+    constraints?: string[];
+  };
+  dimensions: LeaderPlannedDimension[];
+  executionStrategy: {
+    parallelism: number;
+    priorityOrder: string[];
+    estimatedTime?: string;
+  };
+  agentAssignments: AgentAssignment[];
+}
+
+export interface LeaderPlannedDimension {
+  id: string;
+  name: string;
+  description: string;
+  searchQueries: string[];
+  dataSources: string[];
+  priority: number;
+}
+
+export interface AgentAssignment {
+  agentId: string;
+  agentType: 'dimension_researcher' | 'quality_reviewer' | 'report_writer';
+  assignedDimensions?: string[];
+  role: string;
+}
+
+export interface MissionStatus {
+  id: string;
+  status: 'PLANNING' | 'EXECUTING' | 'REVIEWING' | 'COMPLETED' | 'FAILED';
+  progress: number;
+  totalTasks: number;
+  completedTasks: number;
+  currentPhase: string;
+  tasks: TaskStatus[];
+  leaderPlan?: LeaderPlan;
+}
+
+export interface TaskStatus {
+  id: string;
+  title: string;
+  taskType: string;
+  dimensionName?: string;
+  assignedAgent: string;
+  status:
+    | 'PENDING'
+    | 'ASSIGNED'
+    | 'EXECUTING'
+    | 'COMPLETED'
+    | 'NEEDS_REVISION'
+    | 'FAILED';
+  reviewStatus?: string;
+  progress?: number;
+}
+
+export interface TeamInfo {
+  leaderId: string | null;
+  leaderModel: string | null;
+  agents: AgentInfo[];
+}
+
+export interface AgentInfo {
+  id: string;
+  type: string;
+  role: string;
+  status: 'idle' | 'working' | 'completed' | 'failed';
+  currentTask?: string;
+  assignedDimensions?: string[];
+}
+
+export interface LeaderDecision {
+  id: string;
+  missionId: string;
+  type: 'PLAN' | 'REVIEW' | 'ADJUST' | 'INTERVENE';
+  input: unknown;
+  decision: unknown;
+  reasoning: string;
+  modelUsed?: string;
+  latencyMs?: number;
+  createdAt: string;
+}

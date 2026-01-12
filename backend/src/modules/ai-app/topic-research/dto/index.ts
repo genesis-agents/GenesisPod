@@ -23,3 +23,6 @@ export * from "./schedule.dto";
 
 // Log DTOs
 export * from "./log.dto";
+
+// Leader DTOs
+export * from "./leader.dto";

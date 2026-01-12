@@ -19,7 +19,7 @@ import type {
 } from '@/types/topic-research';
 
 // Tab 类型定义
-type TabType = 'report' | 'team' | 'evidence';
+type TabType = 'report' | 'team' | 'thinking' | 'references';
 
 // 研究事件类型 (导出供其他组件使用)
 export interface ResearchEvent {
@@ -143,6 +143,23 @@ const TeamIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+// Thinking Icon (Brain/Mind)
+const ThinkingIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+    />
+  </svg>
+);
+
 export function TopicContentPanel({
   report,
   dimensions,
@@ -179,8 +196,13 @@ export function TopicContentPanel({
       badge: safeEvents.length > 0 ? safeEvents.length : undefined,
     },
     {
-      key: 'evidence',
-      label: '证据来源',
+      key: 'thinking',
+      label: 'Agent思考架构',
+      icon: <ThinkingIcon className="h-4 w-4" />,
+    },
+    {
+      key: 'references',
+      label: '参考文献',
       icon: <LinkIcon className="h-4 w-4" />,
       badge: safeEvidence.length,
     },
@@ -273,7 +295,8 @@ export function TopicContentPanel({
         {activeTab === 'team' && (
           <TeamInteractionTabContent events={safeEvents} />
         )}
-        {activeTab === 'evidence' && (
+        {activeTab === 'thinking' && <AgentThinkingTabContent />}
+        {activeTab === 'references' && (
           <EvidenceTabContent
             evidence={safeEvidence}
             isLoading={isLoadingEvidence}
@@ -715,6 +738,56 @@ function TeamInteractionTabContent({ events }: { events: ResearchEvent[] }) {
               );
             })}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Agent 思考架构 Tab 内容
+function AgentThinkingTabContent() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center px-8">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-purple-100">
+        <ThinkingIcon className="h-10 w-10 text-purple-500" />
+      </div>
+      <h3 className="mt-4 text-lg font-medium text-gray-900">Agent 思考架构</h3>
+      <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
+        研究过程中，各 Agent 的推理链路、决策依据和思考过程将在此展示
+      </p>
+      <div className="mt-6 w-full max-w-md space-y-3">
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 text-xs text-white">
+              👑
+            </span>
+            Leader 决策
+          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            研究维度规划、任务分配、质量审核决策
+          </p>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500 text-xs text-white">
+              🔍
+            </span>
+            研究员推理
+          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            信息检索策略、数据分析逻辑、结论推导过程
+          </p>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-xs text-white">
+              ✅
+            </span>
+            审核反馈
+          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            质量评估标准、改进建议、通过/拒绝依据
+          </p>
         </div>
       </div>
     </div>
