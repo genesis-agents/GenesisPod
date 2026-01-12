@@ -14,6 +14,7 @@ import {
   TopicCard,
   CreateTopicDialog,
   TopicDetail,
+  TopicSharingModal,
 } from '@/components/topic-research';
 import type { ResearchTopic } from '@/types/topic-research';
 import { ResearchTopicType } from '@/types/topic-research';
@@ -167,6 +168,7 @@ export default function TopicResearchPage() {
   const [selectedTopic, setSelectedTopic] = useState<ResearchTopic | null>(
     null
   );
+  const [sharingTopic, setSharingTopic] = useState<ResearchTopic | null>(null);
 
   // Topic type tabs with i18n
   const topicTypeTabs = [
@@ -381,6 +383,7 @@ export default function TopicResearchPage() {
                 onClick={() => setSelectedTopic(topic)}
                 onRefresh={() => handleRefresh(topic.id)}
                 onDelete={() => handleDelete(topic.id)}
+                onShare={() => setSharingTopic(topic)}
               />
             ))}
 
@@ -405,6 +408,16 @@ export default function TopicResearchPage() {
         onCreated={handleTopicCreated}
         defaultType={activeType || ResearchTopicType.MACRO}
       />
+
+      {/* Sharing Modal */}
+      {sharingTopic && (
+        <TopicSharingModal
+          topicId={sharingTopic.id}
+          topicName={sharingTopic.name}
+          isOpen={!!sharingTopic}
+          onClose={() => setSharingTopic(null)}
+        />
+      )}
     </div>
   );
 }

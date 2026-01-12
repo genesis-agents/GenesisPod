@@ -12,6 +12,7 @@ import { useTopicResearchStore } from '@/stores/topicResearchStore';
 import { TopicCard } from './TopicCard';
 import { CreateTopicDialog } from './CreateTopicDialog';
 import { TopicDetail } from './TopicDetail';
+import { TopicSharingModal } from './TopicSharingModal';
 import type { ResearchTopic } from '@/types/topic-research';
 import { ResearchTopicType } from '@/types/topic-research';
 
@@ -93,6 +94,7 @@ export function TopicResearchTab({
   const [selectedTopic, setSelectedTopic] = useState<ResearchTopic | null>(
     null
   );
+  const [sharingTopic, setSharingTopic] = useState<ResearchTopic | null>(null);
 
   // Notify parent when detail view changes
   useEffect(() => {
@@ -212,6 +214,7 @@ export function TopicResearchTab({
               onClick={() => setSelectedTopic(topic)}
               onRefresh={() => handleRefresh(topic.id)}
               onDelete={() => handleDelete(topic.id)}
+              onShare={() => setSharingTopic(topic)}
             />
           ))}
 
@@ -235,6 +238,16 @@ export function TopicResearchTab({
         onCreated={handleTopicCreated}
         defaultType={activeType || ResearchTopicType.MACRO}
       />
+
+      {/* Sharing Modal */}
+      {sharingTopic && (
+        <TopicSharingModal
+          topicId={sharingTopic.id}
+          topicName={sharingTopic.name}
+          isOpen={!!sharingTopic}
+          onClose={() => setSharingTopic(null)}
+        />
+      )}
     </>
   );
 }
