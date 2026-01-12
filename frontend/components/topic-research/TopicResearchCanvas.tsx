@@ -110,11 +110,28 @@ export function TopicResearchCanvas({
 
   // 计算研究员状态
   const researchers = useMemo(() => {
-    return safeDimensions.map((dim) => {
+    return safeDimensions.map((dim, index) => {
       const style = getDimensionStyle(dim);
+
+      // 判断活跃状态：当前正在研究这个维度
       const isActive = refreshProgress?.currentDimension === dim.name;
-      const isCompleted = dim.status === DimensionStatus.COMPLETED;
-      const isFailed = dim.status === DimensionStatus.FAILED;
+
+      // 判断完成状态：
+      // 1. 如果正在刷新，根据 completedDimensions 数量判断（按顺序）
+      // 2. 如果不在刷新，使用数据库状态
+      let isCompleted = false;
+      let isFailed = false;
+
+      if (isRefreshing && refreshProgress) {
+        // 在刷新中：已完成的维度数量大于当前索引
+        isCompleted = index < refreshProgress.completedDimensions;
+        // 只有刷新完成后才显示失败状态
+        isFailed = false;
+      } else {
+        // 不在刷新：使用数据库状态
+        isCompleted = dim.status === DimensionStatus.COMPLETED;
+        isFailed = dim.status === DimensionStatus.FAILED;
+      }
 
       return {
         id: dim.id,
@@ -130,18 +147,23 @@ export function TopicResearchCanvas({
         status: dim.status,
       };
     });
-  }, [safeDimensions, refreshProgress?.currentDimension]);
+  }, [safeDimensions, refreshProgress, isRefreshing]);
 
   // 协调员状态
   const coordinatorStatus = useMemo(() => {
     const phase = refreshProgress?.phase;
+    // 如果正在刷新但还没收到进度，或者 phase 是 starting/researching，协调员都是活跃的
+    const isActive =
+      (isRefreshing && !phase) ||
+      phase === 'starting' ||
+      phase === 'researching';
     return {
       ...RESEARCH_COORDINATOR,
-      isActive: phase === 'starting' || phase === 'researching',
+      isActive,
       isCompleted: phase === 'completed',
       isFailed: phase === 'failed',
     };
-  }, [refreshProgress?.phase]);
+  }, [refreshProgress?.phase, isRefreshing]);
 
   // 审核员状态
   const reviewerStatus = useMemo(() => {
