@@ -7,9 +7,10 @@
  * - Simple geometric shapes
  * - Muted color palette (grays, subtle blues)
  * - Clear hierarchy without clutter
+ * - @Leader input for sending instructions
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import type { TopicDimension } from '@/types/topic-research';
 import { DimensionStatus } from '@/types/topic-research';
 
@@ -29,6 +30,8 @@ interface TopicTeamPanelProps {
   refreshProgress: SimpleRefreshProgress | null;
   onStartRefresh?: () => void;
   onCancelRefresh?: () => void;
+  /** 发送指令给 Leader */
+  onSendInstruction?: (instruction: string) => void;
 }
 
 // Phase display mapping
@@ -49,8 +52,77 @@ export function TopicTeamPanel({
   refreshProgress,
   onStartRefresh,
   onCancelRefresh,
+  onSendInstruction,
 }: TopicTeamPanelProps) {
   const safeDimensions = dimensions || [];
+
+  // @Leader input state
+  const [userInput, setUserInput] = useState('');
+  const [showLeaderMenu, setShowLeaderMenu] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Handle input change and detect @Leader mention
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setUserInput(value);
+
+    // Detect @ trigger
+    const cursorPos = e.target.selectionStart || 0;
+    const textBeforeCursor = value.slice(0, cursorPos);
+    const atMatch = textBeforeCursor.match(/@(\w*)$/);
+
+    if (atMatch) {
+      const query = atMatch[1].toLowerCase();
+      if (query === '' || 'leader'.startsWith(query)) {
+        setShowLeaderMenu(true);
+      } else {
+        setShowLeaderMenu(false);
+      }
+    } else {
+      setShowLeaderMenu(false);
+    }
+  };
+
+  // Select @Leader
+  const handleSelectLeader = () => {
+    const cursorPos = inputRef.current?.selectionStart || userInput.length;
+    const textBeforeCursor = userInput.slice(0, cursorPos);
+    const textAfterCursor = userInput.slice(cursorPos);
+
+    const newTextBefore = textBeforeCursor.replace(/@\w*$/, '@Leader ');
+    const newText = newTextBefore + textAfterCursor;
+    const newCursorPos = newTextBefore.length;
+
+    setUserInput(newText);
+    setShowLeaderMenu(false);
+
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
+  };
+
+  // Send instruction
+  const handleSendInstruction = () => {
+    if (!userInput.trim() || !onSendInstruction) return;
+
+    // Clean @Leader from the instruction
+    const cleanInstruction = userInput.replace(/@Leader\s*/gi, '').trim();
+    if (cleanInstruction) {
+      onSendInstruction(cleanInstruction);
+      setUserInput('');
+    }
+  };
+
+  // Handle key press (Enter to send)
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendInstruction();
+    }
+  };
 
   // Calculate researcher states
   const researchers = useMemo(() => {
@@ -161,6 +233,75 @@ export function TopicTeamPanel({
           </div>
         </div>
       </div>
+
+      {/* @Leader Input */}
+      {onSendInstruction && (
+        <div className="relative border-t border-gray-100 p-3">
+          {/* @Leader Dropdown */}
+          {showLeaderMenu && (
+            <div className="absolute bottom-full left-3 right-3 z-50 mb-2 rounded-lg border border-gray-200 bg-white py-2 shadow-lg">
+              <div className="px-3 py-1 text-xs font-medium text-gray-400">
+                提及 Leader
+              </div>
+              <button
+                onClick={handleSelectLeader}
+                className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-gray-50"
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-blue-600 text-xs text-white">
+                  C
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium text-gray-800">
+                    @Leader
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    研究协调员 · 调整研究方向
+                  </div>
+                </div>
+              </button>
+            </div>
+          )}
+
+          {/* Input Area */}
+          <div className="flex gap-2">
+            <textarea
+              ref={inputRef}
+              value={userInput}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyPress}
+              onBlur={() => {
+                setTimeout(() => setShowLeaderMenu(false), 200);
+              }}
+              placeholder="输入 @Leader 给协调员发送指令..."
+              rows={2}
+              className="flex-1 resize-none rounded-lg border border-gray-200 p-2 text-sm placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-100"
+              disabled={isRefreshing}
+            />
+            <button
+              onClick={handleSendInstruction}
+              disabled={!userInput.trim() || isRefreshing}
+              className="flex-shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                />
+              </svg>
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-gray-400">
+            输入 @ 可提及 Leader，Enter 发送，Shift+Enter 换行
+          </p>
+        </div>
+      )}
 
       {/* Action Button */}
       <div className="border-t border-gray-100 p-3">
