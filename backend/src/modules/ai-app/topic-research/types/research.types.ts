@@ -1,0 +1,182 @@
+/**
+ * Topic Research - Research Types
+ *
+ * 维度研究相关的类型定义
+ */
+
+// ==================== Research Options ====================
+
+/**
+ * 研究选项
+ */
+export interface ResearchOptions {
+  /** 最大来源数量 */
+  maxSources?: number;
+  /** 超时时间（毫秒） */
+  timeout?: number;
+  /** 强制刷新（忽略缓存） */
+  forceRefresh?: boolean;
+  /** 自定义搜索查询词 */
+  searchQueries?: string[];
+  /** 自定义搜索来源 */
+  searchSources?: string[];
+}
+
+// ==================== Dimension Analysis Result ====================
+
+/**
+ * 维度分析结果
+ */
+export interface DimensionAnalysisResult {
+  /** 维度 ID */
+  dimensionId: string;
+  /** 核心摘要 */
+  summary: string;
+  /** 关键发现 */
+  keyFindings: KeyFinding[];
+  /** 趋势分析 */
+  trends: Trend[];
+  /** 挑战分析 */
+  challenges: Challenge[];
+  /** 机会分析 */
+  opportunities: Opportunity[];
+  /** 使用的证据数量 */
+  evidenceUsed: number;
+  /** 置信度 */
+  confidenceLevel: "high" | "medium" | "low";
+  /** 详细内容（Markdown 格式） */
+  detailedContent: string;
+}
+
+// ==================== Key Finding ====================
+
+/**
+ * 关键发现
+ */
+export interface KeyFinding {
+  /** 发现内容 */
+  finding: string;
+  /** 重要性 */
+  significance: "high" | "medium" | "low";
+  /** 支撑证据的 ID 列表 */
+  evidenceIds: string[];
+}
+
+// ==================== Trend ====================
+
+/**
+ * 趋势
+ */
+export interface Trend {
+  /** 趋势描述 */
+  trend: string;
+  /** 趋势方向 */
+  direction: "increasing" | "decreasing" | "stable" | "emerging";
+  /** 时间范围 */
+  timeframe: string;
+  /** 支撑证据的 ID 列表 */
+  evidenceIds: string[];
+}
+
+// ==================== Challenge ====================
+
+/**
+ * 挑战
+ */
+export interface Challenge {
+  /** 挑战描述 */
+  challenge: string;
+  /** 影响分析 */
+  impact: string;
+  /** 支撑证据的 ID 列表 */
+  evidenceIds: string[];
+}
+
+// ==================== Opportunity ====================
+
+/**
+ * 机会
+ */
+export interface Opportunity {
+  /** 机会描述 */
+  opportunity: string;
+  /** 潜力评估 */
+  potential: string;
+  /** 支撑证据的 ID 列表 */
+  evidenceIds: string[];
+}
+
+// ==================== Evidence Data ====================
+
+/**
+ * 证据数据（用于提示词）
+ */
+export interface EvidenceData {
+  /** 证据 ID */
+  id: string;
+  /** 标题 */
+  title: string;
+  /** URL */
+  url: string;
+  /** 域名 */
+  domain: string | null;
+  /** 内容片段 */
+  snippet: string | null;
+  /** 来源类型 */
+  sourceType: string | null;
+  /** 发布时间 */
+  publishedAt: Date | null;
+  /** 可信度评分 */
+  credibilityScore: number | null;
+}
+
+// ==================== AI Response Types ====================
+
+/**
+ * AI 维度分析响应
+ */
+export interface AIDimensionAnalysisResponse {
+  dimensionAnalysis: {
+    summary: string;
+    keyFindings: Array<{
+      finding: string;
+      significance: "high" | "medium" | "low";
+      evidenceIds: string[];
+    }>;
+    trends: Array<{
+      trend: string;
+      direction: "increasing" | "decreasing" | "stable" | "emerging";
+      timeframe: string;
+      evidenceIds: string[];
+    }>;
+    keyPlayers?: Array<{
+      name: string;
+      role: string;
+      significance: string;
+      evidenceIds: string[];
+    }>;
+    challenges: Array<{
+      challenge: string;
+      impact: string;
+      evidenceIds: string[];
+    }>;
+    opportunities: Array<{
+      opportunity: string;
+      potential: string;
+      evidenceIds: string[];
+    }>;
+    dataGaps: string[];
+    confidenceLevel: "high" | "medium" | "low";
+    confidenceReason: string;
+  };
+  detailedContent: string;
+  evidenceUsage: {
+    total: number;
+    highCredibility: number;
+    mediumCredibility: number;
+    lowCredibility: number;
+  };
+}
+
+// Note: AggregatedSearchResult 和 SearchResultItem 已在 data-source.types.ts 中定义
+// 这里不再重复导出，使用 data-source.types.ts 中的定义

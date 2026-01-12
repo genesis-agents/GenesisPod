@@ -1,6 +1,6 @@
 # PRD 文档目录
 
-> **最后更新**: 2026-01-01
+> **最后更新**: 2026-01-11
 > **文档规范**: `[模块]-[类型]-v[版本].md`
 
 ---
@@ -15,6 +15,7 @@ prd/
 ├── ai-group/         # 多AI协作社区
 ├── ai-coding/        # AI编程助手
 ├── ai-ask/           # 智能问答
+├── topic-research/   # 专题洞察 (Insight Hub) [NEW]
 ├── knowledge-base/   # 知识库系统
 ├── library/          # 资源库
 ├── integrations/     # 第三方集成
@@ -106,6 +107,14 @@ prd/
 
 ---
 
+## Topic Research / Insight Hub (专题洞察) [NEW]
+
+| 文件                                                                      | 版本 | 状态     | 说明                                    |
+| ------------------------------------------------------------------------- | ---- | -------- | --------------------------------------- |
+| [topic-research-prd-v1.0.md](./topic-research/topic-research-prd-v1.0.md) | v1.0 | **最新** | 专题洞察完整PRD，支持宏观/技术/企业洞察 |
+
+---
+
 ## Knowledge Base (知识库系统)
 
 | 文件                                                                                      | 版本 | 状态     | 说明           |
@@ -191,6 +200,7 @@ prd/
 | AI Group        | v1.0    | 开发中   | 85%        |
 | AI Coding       | v1.0    | 开发中   | 95%        |
 | AI Ask          | v1.0    | 开发中   | 80%        |
+| Topic Research  | v1.0    | 规划中   | 95%        |
 | Knowledge Base  | v1.0    | 开发中   | 85%        |
 | Library         | v2      | 已完成   | 80%        |
 | Integrations    | v2.0    | 开发中   | 90%        |
