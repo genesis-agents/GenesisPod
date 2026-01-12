@@ -13,6 +13,7 @@ export { EvidenceManagementService } from "./evidence-management.service";
 export { ResearchReviewerService } from "./research-reviewer.service";
 export { ResearchLeaderService } from "./research-leader.service";
 export { ResearchMissionService } from "./research-mission.service";
+export { TopicCollaboratorService } from "./topic-collaborator.service";
 
 // Re-export types
 export type {

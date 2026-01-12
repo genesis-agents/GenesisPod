@@ -10,7 +10,7 @@
  * - @Leader input for sending instructions
  */
 
-import { useMemo, useState, useRef } from 'react';
+import { useMemo } from 'react';
 import type { TopicDimension } from '@/types/topic-research';
 import { DimensionStatus } from '@/types/topic-research';
 
@@ -30,8 +30,6 @@ interface TopicTeamPanelProps {
   refreshProgress: SimpleRefreshProgress | null;
   onStartRefresh?: () => void;
   onCancelRefresh?: () => void;
-  /** 发送指令给 Leader */
-  onSendInstruction?: (instruction: string) => void;
 }
 
 // Phase display mapping
@@ -52,77 +50,8 @@ export function TopicTeamPanel({
   refreshProgress,
   onStartRefresh,
   onCancelRefresh,
-  onSendInstruction,
 }: TopicTeamPanelProps) {
   const safeDimensions = dimensions || [];
-
-  // @Leader input state
-  const [userInput, setUserInput] = useState('');
-  const [showLeaderMenu, setShowLeaderMenu] = useState(false);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  // Handle input change and detect @Leader mention
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setUserInput(value);
-
-    // Detect @ trigger
-    const cursorPos = e.target.selectionStart || 0;
-    const textBeforeCursor = value.slice(0, cursorPos);
-    const atMatch = textBeforeCursor.match(/@(\w*)$/);
-
-    if (atMatch) {
-      const query = atMatch[1].toLowerCase();
-      if (query === '' || 'leader'.startsWith(query)) {
-        setShowLeaderMenu(true);
-      } else {
-        setShowLeaderMenu(false);
-      }
-    } else {
-      setShowLeaderMenu(false);
-    }
-  };
-
-  // Select @Leader
-  const handleSelectLeader = () => {
-    const cursorPos = inputRef.current?.selectionStart || userInput.length;
-    const textBeforeCursor = userInput.slice(0, cursorPos);
-    const textAfterCursor = userInput.slice(cursorPos);
-
-    const newTextBefore = textBeforeCursor.replace(/@\w*$/, '@Leader ');
-    const newText = newTextBefore + textAfterCursor;
-    const newCursorPos = newTextBefore.length;
-
-    setUserInput(newText);
-    setShowLeaderMenu(false);
-
-    setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-        inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
-      }
-    }, 0);
-  };
-
-  // Send instruction
-  const handleSendInstruction = () => {
-    if (!userInput.trim() || !onSendInstruction) return;
-
-    // Clean @Leader from the instruction
-    const cleanInstruction = userInput.replace(/@Leader\s*/gi, '').trim();
-    if (cleanInstruction) {
-      onSendInstruction(cleanInstruction);
-      setUserInput('');
-    }
-  };
-
-  // Handle key press (Enter to send)
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendInstruction();
-    }
-  };
 
   // Calculate researcher states
   const researchers = useMemo(() => {
@@ -216,92 +145,27 @@ export function TopicTeamPanel({
         />
       </div>
 
-      {/* Legend */}
+      {/* Legend - Role colors */}
       <div className="border-t border-gray-100 px-4 py-2">
-        <div className="flex items-center justify-center gap-4 text-xs text-gray-400">
+        <div className="flex flex-wrap items-center justify-center gap-3 text-xs">
           <div className="flex items-center gap-1.5">
-            <div className="h-2 w-2 rounded-full bg-blue-500" />
-            <span>研究中</span>
+            <div className="h-3 w-3 rounded-full border-2 border-purple-500 bg-purple-50" />
+            <span className="text-purple-600">协调</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="h-2 w-2 rounded-full bg-green-500" />
-            <span>完成</span>
+            <div className="h-3 w-3 rounded-full border-2 border-blue-500 bg-blue-50" />
+            <span className="text-blue-600">研究</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="h-2 w-2 rounded-full bg-gray-300" />
-            <span>待研究</span>
+            <div className="h-3 w-3 rounded-full border-2 border-green-500 bg-green-50" />
+            <span className="text-green-600">审核</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-3 w-3 rounded-full border-2 border-orange-500 bg-orange-50" />
+            <span className="text-orange-600">撰写</span>
           </div>
         </div>
       </div>
-
-      {/* @Leader Input */}
-      {onSendInstruction && (
-        <div className="relative border-t border-gray-100 p-3">
-          {/* @Leader Dropdown */}
-          {showLeaderMenu && (
-            <div className="absolute bottom-full left-3 right-3 z-50 mb-2 rounded-lg border border-gray-200 bg-white py-2 shadow-lg">
-              <div className="px-3 py-1 text-xs font-medium text-gray-400">
-                提及 Leader
-              </div>
-              <button
-                onClick={handleSelectLeader}
-                className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-gray-50"
-              >
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-blue-600 text-xs text-white">
-                  C
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-gray-800">
-                    @Leader
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    研究协调员 · 调整研究方向
-                  </div>
-                </div>
-              </button>
-            </div>
-          )}
-
-          {/* Input Area */}
-          <div className="flex gap-2">
-            <textarea
-              ref={inputRef}
-              value={userInput}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyPress}
-              onBlur={() => {
-                setTimeout(() => setShowLeaderMenu(false), 200);
-              }}
-              placeholder="输入 @Leader 给协调员发送指令..."
-              rows={2}
-              className="flex-1 resize-none rounded-lg border border-gray-200 p-2 text-sm placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-100"
-              disabled={isRefreshing}
-            />
-            <button
-              onClick={handleSendInstruction}
-              disabled={!userInput.trim() || isRefreshing}
-              className="flex-shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                />
-              </svg>
-            </button>
-          </div>
-          <p className="mt-1 text-xs text-gray-400">
-            输入 @ 可提及 Leader，Enter 发送，Shift+Enter 换行
-          </p>
-        </div>
-      )}
 
       {/* Action Button */}
       <div className="border-t border-gray-100 p-3">
@@ -506,9 +370,9 @@ function MinimalistTeamCanvas({
         x={nodePositions.coordinator.x}
         y={nodePositions.coordinator.y}
         label="协调"
+        role="coordinator"
         isActive={coordinatorActive}
         isCompleted={coordinatorCompleted}
-        isLeader
       />
 
       {/* Researcher Nodes */}
@@ -525,6 +389,7 @@ function MinimalistTeamCanvas({
                 ? researcher.name.slice(0, 4)
                 : researcher.name
             }
+            role="researcher"
             isActive={researcher.isActive}
             isCompleted={researcher.isCompleted}
             isFailed={researcher.isFailed}
@@ -537,6 +402,7 @@ function MinimalistTeamCanvas({
         x={nodePositions.reviewer.x}
         y={nodePositions.reviewer.y}
         label="审核"
+        role="reviewer"
         isActive={reviewerActive}
         isCompleted={reviewerCompleted}
       />
@@ -546,6 +412,7 @@ function MinimalistTeamCanvas({
         x={nodePositions.synthesizer.x}
         y={nodePositions.synthesizer.y}
         label="撰写"
+        role="synthesizer"
         isActive={synthesizerActive}
         isCompleted={synthesizerCompleted}
       />
@@ -553,37 +420,75 @@ function MinimalistTeamCanvas({
   );
 }
 
-// Minimalist Node Component
+// Agent role color configuration (matching AI Writing pattern)
+type AgentRoleType = 'coordinator' | 'researcher' | 'reviewer' | 'synthesizer';
+
+const AGENT_ROLE_COLORS: Record<
+  AgentRoleType,
+  { fill: string; stroke: string; text: string; icon: string; name: string }
+> = {
+  coordinator: {
+    fill: '#faf5ff', // purple-50
+    stroke: '#a855f7', // purple-500
+    text: '#7c3aed', // violet-600
+    icon: '👑',
+    name: '协调',
+  },
+  researcher: {
+    fill: '#eff6ff', // blue-50
+    stroke: '#3b82f6', // blue-500
+    text: '#2563eb', // blue-600
+    icon: '🔍',
+    name: '研究',
+  },
+  reviewer: {
+    fill: '#f0fdf4', // green-50
+    stroke: '#22c55e', // green-500
+    text: '#16a34a', // green-600
+    icon: '✅',
+    name: '审核',
+  },
+  synthesizer: {
+    fill: '#fff7ed', // orange-50
+    stroke: '#f97316', // orange-500
+    text: '#ea580c', // orange-600
+    icon: '📊',
+    name: '撰写',
+  },
+};
+
+// Minimalist Node Component with role-based coloring
 interface MinimalistNodeProps {
   x: number;
   y: number;
   label: string;
+  role: AgentRoleType;
   isActive?: boolean;
   isCompleted?: boolean;
   isFailed?: boolean;
-  isLeader?: boolean;
 }
 
 function MinimalistNode({
   x,
   y,
   label,
+  role,
   isActive,
   isCompleted,
   isFailed,
-  isLeader,
 }: MinimalistNodeProps) {
-  const radius = isLeader ? 18 : 14;
+  const isLeader = role === 'coordinator';
+  const radius = isLeader ? 20 : 16;
+  const roleConfig = AGENT_ROLE_COLORS[role];
 
-  // Determine colors
-  let fillColor = '#f3f4f6'; // gray-100
-  let strokeColor = '#d1d5db'; // gray-300
-  let textColor = '#6b7280'; // gray-500
+  // Determine colors based on state
+  let fillColor = roleConfig.fill;
+  let strokeColor = roleConfig.stroke;
+  let textColor = roleConfig.text;
 
+  // Override with status colors if active/completed/failed
   if (isActive) {
-    fillColor = '#eff6ff'; // blue-50
-    strokeColor = '#3b82f6'; // blue-500
-    textColor = '#3b82f6';
+    // Keep role color but add glow
   } else if (isCompleted) {
     fillColor = '#f0fdf4'; // green-50
     strokeColor = '#10b981'; // green-500
@@ -592,35 +497,31 @@ function MinimalistNode({
     fillColor = '#fef2f2'; // red-50
     strokeColor = '#ef4444'; // red-500
     textColor = '#ef4444';
-  } else if (isLeader) {
-    fillColor = '#f9fafb'; // gray-50
-    strokeColor = '#6b7280'; // gray-500
-    textColor = '#374151'; // gray-700
   }
 
   return (
     <g>
-      {/* Active glow effect - subtle */}
+      {/* Active glow effect */}
       {isActive && (
         <circle
           cx={x}
           cy={y}
-          r={radius + 6}
+          r={radius + 8}
           fill="none"
           stroke={strokeColor}
-          strokeWidth={1}
-          opacity={0.3}
+          strokeWidth={2}
+          opacity={0.4}
         >
           <animate
             attributeName="r"
             from={radius + 4}
-            to={radius + 10}
+            to={radius + 12}
             dur="1.5s"
             repeatCount="indefinite"
           />
           <animate
             attributeName="opacity"
-            from="0.3"
+            from="0.4"
             to="0"
             dur="1.5s"
             repeatCount="indefinite"
@@ -628,23 +529,36 @@ function MinimalistNode({
         </circle>
       )}
 
-      {/* Main circle */}
+      {/* Main circle with gradient effect */}
       <circle
         cx={x}
         cy={y}
         r={radius}
         fill={fillColor}
         stroke={strokeColor}
-        strokeWidth={1.5}
+        strokeWidth={2}
       />
+
+      {/* Role icon */}
+      <text
+        x={x}
+        y={y + 1}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize={isLeader ? 14 : 12}
+      >
+        {roleConfig.icon}
+      </text>
 
       {/* Status indicator dot */}
       {(isActive || isCompleted) && (
         <circle
-          cx={x + radius - 2}
-          cy={y - radius + 2}
-          r={4}
-          fill={isActive ? '#3b82f6' : '#10b981'}
+          cx={x + radius - 3}
+          cy={y - radius + 3}
+          r={5}
+          fill={isActive ? strokeColor : '#10b981'}
+          stroke="white"
+          strokeWidth={1.5}
         >
           {isActive && (
             <animate
@@ -663,25 +577,11 @@ function MinimalistNode({
         y={y + radius + 14}
         textAnchor="middle"
         fontSize={10}
-        fontWeight={500}
+        fontWeight={600}
         fill={textColor}
       >
         {label}
       </text>
-
-      {/* Leader indicator */}
-      {isLeader && (
-        <text
-          x={x}
-          y={y + 1}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fontSize={12}
-          fill={textColor}
-        >
-          C
-        </text>
-      )}
     </g>
   );
 }

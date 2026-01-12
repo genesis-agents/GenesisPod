@@ -49,9 +49,15 @@ import {
   RollbackReportDto,
   MissionAdjustDto,
 } from "./dto";
+import {
+  AddCollaboratorDto,
+  UpdateCollaboratorRoleDto,
+  UpdateTopicVisibilityDto,
+} from "./dto/collaborator.dto";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { ResearchMissionService } from "./services/research-mission.service";
 import { ResearchLeaderService } from "./services/research-leader.service";
+import { TopicCollaboratorService } from "./services/topic-collaborator.service";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
@@ -62,6 +68,7 @@ export class TopicResearchController {
     private readonly topicResearchService: TopicResearchService,
     private readonly missionService: ResearchMissionService,
     private readonly leaderService: ResearchLeaderService,
+    private readonly collaboratorService: TopicCollaboratorService,
   ) {}
 
   // ==================== Topics CRUD ====================
@@ -994,5 +1001,172 @@ export class TopicResearchController {
       throw new Error("No active mission for this topic");
     }
     return this.missionService.cancelMission(userId, mission.id);
+  }
+
+  // ==================== Collaborators ====================
+
+  /**
+   * 获取协作者列表
+   */
+  @Get("topics/:id/collaborators")
+  @ApiOperation({
+    summary: "获取协作者列表",
+    description: "获取专题的所有协作者",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "返回协作者列表" })
+  async getCollaborators(@Request() req: any, @Param("id") id: string) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.collaboratorService.getCollaborators(id, userId);
+  }
+
+  /**
+   * 添加协作者
+   */
+  @Post("topics/:id/collaborators")
+  @ApiOperation({
+    summary: "添加协作者",
+    description: "通过邮箱添加协作者到专题",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 201, description: "协作者添加成功" })
+  async addCollaborator(
+    @Request() req: any,
+    @Param("id") id: string,
+    @Body() dto: AddCollaboratorDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.collaboratorService.addCollaborator(
+      id,
+      userId,
+      dto.email,
+      dto.role,
+    );
+  }
+
+  /**
+   * 更新协作者角色
+   */
+  @Patch("topics/:topicId/collaborators/:collaboratorId")
+  @ApiOperation({
+    summary: "更新协作者角色",
+    description: "更新协作者的权限角色",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "collaboratorId", description: "协作者ID" })
+  @ApiResponse({ status: 200, description: "更新成功" })
+  async updateCollaboratorRole(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("collaboratorId") collaboratorId: string,
+    @Body() dto: UpdateCollaboratorRoleDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.collaboratorService.updateCollaboratorRole(
+      topicId,
+      collaboratorId,
+      userId,
+      dto.role,
+    );
+  }
+
+  /**
+   * 移除协作者
+   */
+  @Delete("topics/:topicId/collaborators/:collaboratorId")
+  @ApiOperation({
+    summary: "移除协作者",
+    description: "从专题中移除协作者",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "collaboratorId", description: "协作者ID" })
+  @ApiResponse({ status: 200, description: "移除成功" })
+  async removeCollaborator(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("collaboratorId") collaboratorId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    await this.collaboratorService.removeCollaborator(
+      topicId,
+      collaboratorId,
+      userId,
+    );
+    return { success: true };
+  }
+
+  /**
+   * 离开专题
+   */
+  @Post("topics/:id/leave")
+  @ApiOperation({
+    summary: "离开专题",
+    description: "协作者主动退出专题",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "退出成功" })
+  async leaveTopic(@Request() req: any, @Param("id") id: string) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    await this.collaboratorService.leaveProject(id, userId);
+    return { success: true };
+  }
+
+  /**
+   * 更新专题可见性
+   */
+  @Patch("topics/:id/visibility")
+  @ApiOperation({
+    summary: "更新专题可见性",
+    description: "设置专题为私有、共享或公开",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "更新成功" })
+  async updateVisibility(
+    @Request() req: any,
+    @Param("id") id: string,
+    @Body() dto: UpdateTopicVisibilityDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.updateVisibility(
+      userId,
+      id,
+      dto.visibility,
+    );
+  }
+
+  /**
+   * 获取专题共享设置
+   */
+  @Get("topics/:id/sharing")
+  @ApiOperation({
+    summary: "获取共享设置",
+    description: "获取专题的可见性和协作者信息",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "返回共享设置" })
+  async getSharingSettings(@Request() req: any, @Param("id") id: string) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.getSharingSettings(userId, id);
   }
 }

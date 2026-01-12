@@ -29,3 +29,6 @@ export { ReferencePanel } from './ReferencePanel';
 // Advanced Components (v7.0 P2)
 export { ReportRevisionHistory } from './ReportRevisionHistory';
 export { ReportAnnotations } from './ReportAnnotations';
+
+// Sharing Components
+export { TopicSharingModal } from './TopicSharingModal';

@@ -17,6 +17,7 @@ import {
   ResearchReviewerService,
   ResearchLeaderService,
   ResearchMissionService,
+  TopicCollaboratorService,
 } from "./services";
 
 const services = [
@@ -30,6 +31,7 @@ const services = [
   EvidenceManagementService,
   ResearchLeaderService,
   ResearchMissionService,
+  TopicCollaboratorService,
 ];
 
 @Module({

@@ -276,7 +276,6 @@ export function TopicResearchLayout({
                   refreshProgress={refreshProgress}
                   onStartRefresh={onStartRefresh}
                   onCancelRefresh={onCancelRefresh}
-                  onSendInstruction={onSendLeaderInstruction}
                 />
               </div>
             </div>
@@ -292,6 +291,8 @@ export function TopicResearchLayout({
             isLoadingReport={isLoadingReport}
             isLoadingEvidence={isLoadingEvidence}
             onExportReport={handleExport}
+            onSendLeaderInstruction={onSendLeaderInstruction}
+            isRefreshing={isRefreshing}
           />
         </div>
       </div>

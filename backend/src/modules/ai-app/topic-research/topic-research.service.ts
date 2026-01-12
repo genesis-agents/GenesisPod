@@ -1533,4 +1533,84 @@ export class TopicResearchService {
       },
     };
   }
+
+  // ==================== Visibility & Sharing ====================
+
+  /**
+   * 更新专题可见性
+   * 注意：需要运行数据库迁移后此功能才能正常工作
+   */
+  async updateVisibility(
+    userId: string,
+    topicId: string,
+    visibility: string,
+  ): Promise<{ success: boolean; visibility: string }> {
+    // 验证所有者权限
+    const topic = await this.prisma.researchTopic.findFirst({
+      where: { id: topicId, userId },
+    });
+
+    if (!topic) {
+      throw new NotFoundException("专题不存在或无权修改");
+    }
+
+    // 使用 $executeRaw 直接更新，因为 Prisma 客户端可能尚未包含新字段
+    await this.prisma.$executeRaw`
+      UPDATE research_topics
+      SET visibility = ${visibility}::"TopicVisibility"
+      WHERE id = ${topicId}
+    `;
+
+    this.logger.log(`专题 ${topicId} 可见性更新为 ${visibility}`);
+
+    return { success: true, visibility };
+  }
+
+  /**
+   * 获取专题共享设置
+   * 注意：需要运行数据库迁移后此功能才能正常工作
+   */
+  async getSharingSettings(
+    userId: string,
+    topicId: string,
+  ): Promise<{
+    topicId: string;
+    visibility: string;
+    collaboratorCount: number;
+    publicLink?: string;
+  }> {
+    // 先验证访问权限
+    const topic = await this.prisma.researchTopic.findFirst({
+      where: {
+        id: topicId,
+        OR: [
+          { userId },
+          { collaborators: { some: { userId, isActive: true } } },
+        ],
+      },
+    });
+
+    if (!topic) {
+      throw new NotFoundException("专题不存在或无权访问");
+    }
+
+    // 获取协作者数量
+    const collaboratorCount = await this.prisma.topicCollaborator.count({
+      where: { topicId, isActive: true },
+    });
+
+    // 使用原始查询获取 visibility 字段
+    const result = await this.prisma.$queryRaw<{ visibility: string }[]>`
+      SELECT visibility FROM research_topics WHERE id = ${topicId}
+    `;
+    const visibility = result[0]?.visibility || "PRIVATE";
+
+    return {
+      topicId: topic.id,
+      visibility,
+      collaboratorCount,
+      publicLink:
+        visibility === "PUBLIC" ? `/shared/topics/${topic.id}` : undefined,
+    };
+  }
 }

@@ -145,7 +145,9 @@ model User {
   writingStyleTemplates WritingStyleTemplate[] @relation("WritingStyleTemplateOwner")
 
   // Topic Research 专题研究
-  researchTopics ResearchTopic[] @relation("UserResearchTopics")
+  researchTopics     ResearchTopic[]     @relation("UserResearchTopics")
+  topicCollaborators TopicCollaborator[] @relation("TopicCollaborators")
+  topicInvitations   TopicCollaborator[] @relation("TopicInvitations")
 
   @@map("users")
 }
@@ -6698,6 +6700,7 @@ model ResearchTopic {
   color       String?             @db.VarChar(20) // 十六进制颜色代码
   type        ResearchTopicType // 专题类型
   status      ResearchTopicStatus @default(DRAFT) // 专题状态
+  visibility  TopicVisibility     @default(PRIVATE) // 可见性：私有/共享/公开
 
   // ========== 类型特定配置 ==========
   // JSON 字段，根据 type 存储不同的配置
@@ -6723,12 +6726,13 @@ model ResearchTopic {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // ========== 关系 ==========
-  user        User              @relation("UserResearchTopics", fields: [userId], references: [id], onDelete: Cascade)
-  dimensions  TopicDimension[]
-  reports     TopicReport[]
-  schedules   TopicSchedule[]
-  refreshLogs TopicRefreshLog[]
-  missions    ResearchMission[] // Leader 驱动的研究任务
+  user          User                   @relation("UserResearchTopics", fields: [userId], references: [id], onDelete: Cascade)
+  dimensions    TopicDimension[]
+  reports       TopicReport[]
+  schedules     TopicSchedule[]
+  refreshLogs   TopicRefreshLog[]
+  missions      ResearchMission[]      // Leader 驱动的研究任务
+  collaborators TopicCollaborator[]    // 协作者列表
 
   // ========== 索引 ==========
   @@index([userId, status]) // 按用户和状态查询
@@ -6736,6 +6740,54 @@ model ResearchTopic {
   @@index([nextRefreshAt]) // 定时任务查询
   @@index([createdAt(sort: Desc)]) // 按创建时间排序
   @@map("research_topics")
+}
+
+/// 专题可见性
+enum TopicVisibility {
+  PRIVATE // 私有：仅所有者可见
+  SHARED  // 共享：所有者和协作者可见
+  PUBLIC  // 公开：所有人可见
+}
+
+/// 协作者角色
+enum TopicCollaboratorRole {
+  VIEWER // 只读
+  EDITOR // 可编辑
+  ADMIN  // 管理员（可邀请/移除成员）
+}
+
+/// 专题协作者
+/// 用于实现专题的成员共享功能
+model TopicCollaborator {
+  id      String @id @default(uuid())
+  topicId String @map("topic_id")
+  userId  String @map("user_id")
+
+  // 协作者角色
+  role TopicCollaboratorRole @default(VIEWER)
+
+  // 邀请信息
+  invitedById String    @map("invited_by")
+  invitedAt   DateTime  @default(now()) @map("invited_at")
+  acceptedAt  DateTime? @map("accepted_at")
+
+  // 状态
+  isActive Boolean @default(true) @map("is_active")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  topic     ResearchTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  user      User          @relation("TopicCollaborators", fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy User          @relation("TopicInvitations", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  // 索引
+  @@unique([topicId, userId])
+  @@index([userId])
+  @@index([topicId, isActive])
+  @@map("research_topic_collaborators")
 }
 
 /// 专题维度定义
