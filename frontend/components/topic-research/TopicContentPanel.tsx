@@ -481,7 +481,12 @@ function HighlightCard({
     },
   };
 
-  const config = typeConfig[highlight.type];
+  const config = typeConfig[highlight.type] || {
+    icon: '📋',
+    label: highlight.type || '发现',
+    className: 'border-gray-200 bg-gray-50',
+    textClass: 'text-gray-600',
+  };
 
   return (
     <div className={`rounded-xl border p-4 ${config.className}`}>
