@@ -10,3 +10,12 @@ export {
   formatEvidenceForPrompt,
   renderPromptTemplate,
 } from "./dimension-research.prompt";
+
+export {
+  REPORT_SYNTHESIS_SYSTEM_PROMPT,
+  REPORT_SYNTHESIS_USER_PROMPT_TEMPLATE,
+  formatDimensionOverview,
+  formatDimensionDetails,
+  formatEvidenceList,
+  renderReportSynthesisPrompt,
+} from "./report-synthesis.prompt";

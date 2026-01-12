@@ -7,49 +7,31 @@ import type {
   TopicDimension,
   TopicReport,
   DimensionAnalysis,
+  TopicEvidence,
 } from "@prisma/client";
-import type { DimensionAnalysisResult } from "../types/research.types";
-
-/**
- * Report Highlight
- */
-interface ReportHighlight {
-  title: string;
-  content: string;
-  category: string;
-  dimensionName: string;
-}
-
-/**
- * Report Synthesis Result
- */
-interface ReportSynthesisResult {
-  executiveSummary: string;
-  fullReport: string;
-  highlights: ReportHighlight[];
-}
-
-/**
- * AI Report Synthesis Response
- */
-interface AIReportSynthesisResponse {
-  executiveSummary: string;
-  highlights: Array<{
-    title: string;
-    content: string;
-    category: string;
-    dimensionName: string;
-  }>;
-  fullReport: string;
-}
+import type {
+  ComprehensiveReport,
+  ReportSynthesisResult,
+  ReportHighlight,
+  AIReportSynthesisResponse,
+  DimensionAnalysisInput,
+  EvidenceInput,
+} from "../types/report.types";
+import {
+  REPORT_SYNTHESIS_SYSTEM_PROMPT,
+  formatDimensionOverview,
+  formatDimensionDetails,
+  formatEvidenceList,
+  renderReportSynthesisPrompt,
+} from "../prompts/report-synthesis.prompt";
 
 /**
  * Report Synthesis Service
  *
  * 负责从多个维度分析结果合成最终报告：
  * 1. 收集所有维度的分析结果
- * 2. 生成执行摘要
- * 3. 整合为完整报告
+ * 2. 使用 AI 生成综合研究报告
+ * 3. 支持前言、目录、核心观点、子章节、附录、参考文献
  * 4. 提取核心亮点
  * 5. 管理报告版本
  */
@@ -103,7 +85,33 @@ export class ReportSynthesisService {
   async saveDimensionAnalysis(
     reportId: string,
     dimensionId: string,
-    result: DimensionAnalysisResult,
+    result: {
+      summary: string;
+      keyFindings: Array<{
+        finding: string;
+        significance: string;
+        evidenceIds: string[];
+      }>;
+      trends: Array<{
+        trend: string;
+        direction: string;
+        timeframe: string;
+        evidenceIds: string[];
+      }>;
+      challenges: Array<{
+        challenge: string;
+        impact: string;
+        evidenceIds: string[];
+      }>;
+      opportunities: Array<{
+        opportunity: string;
+        potential: string;
+        evidenceIds: string[];
+      }>;
+      evidenceUsed: number;
+      confidenceLevel: string;
+      detailedContent?: string;
+    },
   ): Promise<DimensionAnalysis> {
     const analysis = await this.prisma.dimensionAnalysis.create({
       data: {
@@ -116,6 +124,7 @@ export class ReportSynthesisService {
           challenges: result.challenges,
           opportunities: result.opportunities,
           confidenceLevel: result.confidenceLevel,
+          detailedContent: result.detailedContent || "",
         } as unknown as Prisma.InputJsonValue,
         sourcesUsed: result.evidenceUsed,
       },
@@ -174,7 +183,7 @@ export class ReportSynthesisService {
 
     const startTime = Date.now();
 
-    // 1. 获取所有维度分析
+    // 1. 获取所有维度分析（包含维度和证据信息）
     const dimensionAnalyses = await this.prisma.dimensionAnalysis.findMany({
       where: { reportId },
       include: {
@@ -192,19 +201,29 @@ export class ReportSynthesisService {
       throw new Error("No dimension analyses found for report synthesis");
     }
 
-    // 2. 使用 AI 生成报告
-    const synthesisResult = await this.generateReportWithAI(
+    // 2. 获取报告关联的所有证据
+    const allEvidences = await this.prisma.topicEvidence.findMany({
+      where: { reportId },
+      orderBy: { citationIndex: "asc" },
+    });
+
+    // 3. 准备维度分析输入
+    const dimensionInputs = this.prepareDimensionInputs(dimensionAnalyses);
+
+    // 4. 准备证据输入
+    const evidenceInputs = this.prepareEvidenceInputs(allEvidences);
+
+    // 5. 使用 AI 生成综合报告
+    const synthesisResult = await this.generateComprehensiveReport(
       topic,
-      dimensionAnalyses,
+      dimensionInputs,
+      evidenceInputs,
     );
 
-    // 3. 计算统计数据
-    const totalSources = dimensionAnalyses.reduce(
-      (sum, da) => sum + (da.sourcesUsed || 0),
-      0,
-    );
+    // 6. 计算统计数据
+    const totalSources = allEvidences.length;
 
-    // 4. 更新报告
+    // 7. 更新报告
     const generationTimeMs = Date.now() - startTime;
 
     const updatedReport = await this.prisma.topicReport.update({
@@ -221,166 +240,389 @@ export class ReportSynthesisService {
     });
 
     this.logger.log(
-      `Synthesized report ${reportId} in ${generationTimeMs}ms with ${totalSources} sources`,
+      `Synthesized comprehensive report ${reportId} in ${generationTimeMs}ms with ${totalSources} sources`,
     );
 
     return updatedReport;
   }
 
   /**
-   * 使用 AI 生成报告内容
+   * 准备维度分析输入
    */
-  private async generateReportWithAI(
-    topic: ResearchTopic,
-    dimensionAnalyses: Array<DimensionAnalysis & { dimension: TopicDimension }>,
-  ): Promise<ReportSynthesisResult> {
-    // 准备维度分析摘要
-    const dimensionSummaries = dimensionAnalyses.map((da) => ({
-      name: da.dimension.name,
-      summary: da.summary,
-      keyFindings: da.keyFindings,
-      dataPoints: da.dataPoints,
-      sourcesUsed: da.sourcesUsed,
-    }));
+  private prepareDimensionInputs(
+    dimensionAnalyses: Array<
+      DimensionAnalysis & {
+        dimension: TopicDimension;
+        evidences: TopicEvidence[];
+      }
+    >,
+  ): DimensionAnalysisInput[] {
+    return dimensionAnalyses.map((da) => {
+      const dataPoints = da.dataPoints as {
+        trends?: Array<{
+          trend: string;
+          direction: string;
+          timeframe: string;
+          evidenceIds: string[];
+        }>;
+        challenges?: Array<{
+          challenge: string;
+          impact: string;
+          evidenceIds: string[];
+        }>;
+        opportunities?: Array<{
+          opportunity: string;
+          potential: string;
+          evidenceIds: string[];
+        }>;
+        detailedContent?: string;
+      } | null;
 
-    const systemPrompt = this.getReportSynthesisSystemPrompt();
-    const userPrompt = this.getReportSynthesisUserPrompt(
-      topic,
-      dimensionSummaries,
+      const keyFindings =
+        (da.keyFindings as Array<{
+          finding: string;
+          significance: string;
+          evidenceIds: string[];
+        }>) || [];
+
+      return {
+        dimensionId: da.dimensionId,
+        dimensionName: da.dimension.name,
+        dimensionDescription: da.dimension.description,
+        summary: da.summary,
+        keyFindings,
+        trends: dataPoints?.trends || [],
+        challenges: dataPoints?.challenges || [],
+        opportunities: dataPoints?.opportunities || [],
+        detailedContent: dataPoints?.detailedContent || "",
+        sourcesUsed: da.sourcesUsed || 0,
+      };
+    });
+  }
+
+  /**
+   * 准备证据输入
+   */
+  private prepareEvidenceInputs(evidences: TopicEvidence[]): EvidenceInput[] {
+    return evidences.map((e) => ({
+      citationIndex: e.citationIndex || 0,
+      title: e.title,
+      url: e.url,
+      domain: e.domain,
+      sourceType: e.sourceType,
+      publishedAt: e.publishedAt,
+      credibilityScore: e.credibilityScore,
+    }));
+  }
+
+  /**
+   * 使用 AI 生成综合研究报告
+   */
+  private async generateComprehensiveReport(
+    topic: ResearchTopic,
+    dimensionInputs: DimensionAnalysisInput[],
+    evidenceInputs: EvidenceInput[],
+  ): Promise<ReportSynthesisResult> {
+    // 准备维度概览
+    const dimensionOverview = formatDimensionOverview(
+      dimensionInputs.map((d) => ({
+        name: d.dimensionName,
+        description: d.dimensionDescription,
+        keyFindingsCount: d.keyFindings.length,
+        sourcesUsed: d.sourcesUsed,
+      })),
     );
 
+    // 准备维度详细分析
+    const dimensionDetails = formatDimensionDetails(dimensionInputs);
+
+    // 准备证据列表
+    const evidenceList = formatEvidenceList(evidenceInputs);
+
+    // 渲染用户提示词
+    const userPrompt = renderReportSynthesisPrompt(
+      topic.name,
+      topic.type,
+      topic.description,
+      new Date().toISOString().split("T")[0],
+      dimensionInputs.length,
+      evidenceInputs.length,
+      dimensionOverview,
+      dimensionDetails,
+      evidenceList,
+    );
+
+    this.logger.debug("Calling AI for comprehensive report synthesis");
+
+    // 调用 AI 生成报告
     const response = await this.aiChatService.chat({
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: REPORT_SYNTHESIS_SYSTEM_PROMPT },
         { role: "user", content: userPrompt },
       ],
-      modelType: AIModelType.CHAT,
+      modelType: AIModelType.CHAT, // 使用标准聊天模型进行深度分析
       taskProfile: {
         creativity: "medium",
         outputLength: "extended", // 长报告需要更多 tokens
       },
     });
 
-    // 解析响应
-    const parsed = this.parseAIReportResponse(response.content);
+    // 解析 AI 响应
+    const structuredReport = this.parseAIReportResponse(response.content);
+
+    // 构建完整的 Markdown 报告
+    const fullReport = this.buildFullReport(structuredReport);
+
+    // 提取亮点
+    const highlights = this.extractHighlights(
+      structuredReport,
+      dimensionInputs,
+    );
 
     return {
-      executiveSummary: parsed.executiveSummary,
-      fullReport: parsed.fullReport,
-      highlights: parsed.highlights,
+      executiveSummary: structuredReport.executiveSummary,
+      fullReport,
+      highlights,
+      structuredReport,
     };
-  }
-
-  /**
-   * 报告合成系统提示词
-   */
-  private getReportSynthesisSystemPrompt(): string {
-    return `你是一位专业的研究报告撰写专家，负责将多个维度的研究分析整合为一份完整的研究报告。
-
-## 你的职责
-1. 综合各维度的分析结果
-2. 提炼跨维度的核心洞察
-3. 生成执行摘要
-4. 提取核心亮点
-5. 撰写完整的研究报告
-
-## 输出格式（JSON）
-{
-  "executiveSummary": "执行摘要（3-5段，概述研究的核心发现和建议）",
-  "highlights": [
-    {
-      "title": "亮点标题",
-      "content": "亮点内容描述",
-      "category": "发现类别（如：市场机会、技术趋势、风险警示）",
-      "dimensionName": "来源维度名称"
-    }
-  ],
-  "fullReport": "完整报告内容（Markdown格式，包含所有维度的详细分析）"
-}
-
-## 报告结构要求
-1. 执行摘要：高管级别的快速阅读版本
-2. 核心亮点：3-5个最重要的发现
-3. 完整报告：按维度组织的详细分析
-
-## 写作风格
-- 专业、客观、有洞察力
-- 用数据和事实说话
-- 明确标注信息来源维度
-- 提供可行的建议`;
-  }
-
-  /**
-   * 报告合成用户提示词
-   */
-  private getReportSynthesisUserPrompt(
-    topic: ResearchTopic,
-    dimensionSummaries: Array<{
-      name: string;
-      summary: string;
-      keyFindings: any;
-      dataPoints: any;
-      sourcesUsed: number | null;
-    }>,
-  ): string {
-    const dimensionsContent = dimensionSummaries
-      .map(
-        (d) => `
-## ${d.name}
-
-### 核心摘要
-${d.summary}
-
-### 关键发现
-${JSON.stringify(d.keyFindings, null, 2)}
-
-### 数据点
-${JSON.stringify(d.dataPoints, null, 2)}
-
-### 使用来源数: ${d.sourcesUsed || 0}
-`,
-      )
-      .join("\n---\n");
-
-    return `请为以下研究专题生成完整的研究报告：
-
-## 专题信息
-- 名称: ${topic.name}
-- 类型: ${topic.type}
-- 描述: ${topic.description || "无"}
-
-## 各维度分析结果
-
-${dimensionsContent}
-
----
-
-请综合以上各维度的分析，生成一份完整的研究报告。`;
   }
 
   /**
    * 解析 AI 报告响应
    */
-  private parseAIReportResponse(content: string): AIReportSynthesisResponse {
+  private parseAIReportResponse(content: string): ComprehensiveReport {
     try {
       // 尝试直接解析 JSON
-      const parsed = JSON.parse(content);
-      return parsed as AIReportSynthesisResponse;
+      const parsed = JSON.parse(content) as AIReportSynthesisResponse;
+      return this.normalizeReportResponse(parsed);
     } catch {
       // 如果不是纯 JSON，尝试提取 JSON 代码块
       const jsonMatch = content.match(/```json\n([\s\S]+?)\n```/);
       if (jsonMatch) {
-        return JSON.parse(jsonMatch[1]) as AIReportSynthesisResponse;
+        const parsed = JSON.parse(jsonMatch[1]) as AIReportSynthesisResponse;
+        return this.normalizeReportResponse(parsed);
       }
 
-      // 如果都失败，返回默认结构
+      // 如果都失败，尝试更宽松的匹配
+      const jsonMatch2 = content.match(/\{[\s\S]*"preface"[\s\S]*\}/);
+      if (jsonMatch2) {
+        try {
+          const parsed = JSON.parse(jsonMatch2[0]) as AIReportSynthesisResponse;
+          return this.normalizeReportResponse(parsed);
+        } catch {
+          // 继续到 fallback
+        }
+      }
+
+      // 如果都失败，创建一个基础的报告结构
       this.logger.warn("Failed to parse AI report response, using fallback");
-      return {
-        executiveSummary: content.slice(0, 1000),
-        highlights: [],
-        fullReport: content,
-      };
+      return this.createFallbackReport(content);
     }
+  }
+
+  /**
+   * 标准化报告响应
+   */
+  private normalizeReportResponse(
+    parsed: AIReportSynthesisResponse,
+  ): ComprehensiveReport {
+    return {
+      preface: parsed.preface || "",
+      tableOfContents: parsed.tableOfContents || "",
+      executiveSummary: parsed.executiveSummary || "",
+      sections: parsed.sections || [],
+      conclusion: parsed.conclusion || "",
+      appendices: parsed.appendices || [],
+      references: parsed.references || [],
+      metadata: {
+        totalWords: parsed.metadata?.totalWords || 0,
+        totalSources: parsed.metadata?.totalSources || 0,
+        researchPeriod: parsed.metadata?.researchPeriod || "",
+        generatedAt: parsed.metadata?.generatedAt || new Date().toISOString(),
+      },
+    };
+  }
+
+  /**
+   * 创建后备报告（当 AI 响应解析失败时）
+   */
+  private createFallbackReport(content: string): ComprehensiveReport {
+    return {
+      preface: "报告生成过程中遇到技术问题，以下是原始内容。",
+      tableOfContents: "",
+      executiveSummary: content.slice(0, 2000),
+      sections: [
+        {
+          sectionNumber: "1",
+          title: "研究内容",
+          coreViewpoints: ["请查看详细内容"],
+          content: content,
+          keyData: [],
+          figureReferences: [],
+        },
+      ],
+      conclusion: "",
+      appendices: [],
+      references: [],
+      metadata: {
+        totalWords: content.length,
+        totalSources: 0,
+        researchPeriod: "",
+        generatedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  /**
+   * 构建完整的 Markdown 报告
+   */
+  private buildFullReport(report: ComprehensiveReport): string {
+    const parts: string[] = [];
+
+    // 1. 前言
+    if (report.preface) {
+      parts.push("# 前言\n\n" + report.preface);
+    }
+
+    // 2. 目录
+    if (report.tableOfContents) {
+      parts.push("# 目录\n\n" + report.tableOfContents);
+    }
+
+    // 3. 各章节
+    for (const section of report.sections) {
+      parts.push(`# ${section.sectionNumber}. ${section.title}`);
+
+      // 核心观点
+      if (section.coreViewpoints && section.coreViewpoints.length > 0) {
+        parts.push("\n🎯 **核心观点：**\n");
+        section.coreViewpoints.forEach((vp) => {
+          parts.push(`- ${vp}`);
+        });
+        parts.push("");
+      }
+
+      // 章节内容
+      if (section.content) {
+        parts.push(section.content);
+      }
+
+      // 关键数据
+      if (section.keyData && section.keyData.length > 0) {
+        parts.push("\n**关键数据：**\n");
+        section.keyData.forEach((kd) => {
+          parts.push(`- ${kd.data} (来源: ${kd.source})`);
+        });
+        parts.push("");
+      }
+
+      // 图表引用
+      if (section.figureReferences && section.figureReferences.length > 0) {
+        section.figureReferences.forEach((fig) => {
+          parts.push(
+            `\n[${fig.id}: ${fig.description}] (${fig.suggestedType})\n`,
+          );
+        });
+      }
+
+      parts.push("\n---\n");
+    }
+
+    // 4. 结束语
+    if (report.conclusion) {
+      parts.push("# 结束语\n\n" + report.conclusion);
+    }
+
+    // 5. 附录
+    if (report.appendices && report.appendices.length > 0) {
+      parts.push("\n# 附录\n");
+      report.appendices.forEach((appendix, i) => {
+        parts.push(`\n## 附录${i + 1}：${appendix.title}\n`);
+        parts.push(appendix.content);
+      });
+    }
+
+    // 6. 参考文献
+    if (report.references && report.references.length > 0) {
+      parts.push("\n# 参考文献\n");
+      report.references.forEach((ref) => {
+        parts.push(
+          `[${ref.index}] ${ref.title}. ${ref.domain || ""}. ${ref.url}. 访问日期: ${ref.accessDate}`,
+        );
+      });
+    }
+
+    return parts.join("\n");
+  }
+
+  /**
+   * 从结构化报告中提取亮点
+   */
+  private extractHighlights(
+    report: ComprehensiveReport,
+    dimensionInputs: DimensionAnalysisInput[],
+  ): ReportHighlight[] {
+    const highlights: ReportHighlight[] = [];
+
+    // 从各章节的核心观点中提取亮点
+    for (
+      let i = 0;
+      i < report.sections.length && i < dimensionInputs.length;
+      i++
+    ) {
+      const section = report.sections[i];
+      const dimension = dimensionInputs[i];
+
+      if (section.coreViewpoints) {
+        section.coreViewpoints.slice(0, 2).forEach((vp, j) => {
+          highlights.push({
+            title: `${section.title} - 核心观点 ${j + 1}`,
+            content: vp,
+            category: this.categorizeViewpoint(vp),
+            dimensionName: dimension.dimensionName,
+          });
+        });
+      }
+    }
+
+    // 限制亮点数量
+    return highlights.slice(0, 10);
+  }
+
+  /**
+   * 分类观点
+   */
+  private categorizeViewpoint(viewpoint: string): string {
+    const lowerVp = viewpoint.toLowerCase();
+    if (
+      lowerVp.includes("机会") ||
+      lowerVp.includes("潜力") ||
+      lowerVp.includes("增长")
+    ) {
+      return "市场机会";
+    }
+    if (
+      lowerVp.includes("趋势") ||
+      lowerVp.includes("发展") ||
+      lowerVp.includes("演进")
+    ) {
+      return "技术趋势";
+    }
+    if (
+      lowerVp.includes("风险") ||
+      lowerVp.includes("挑战") ||
+      lowerVp.includes("威胁")
+    ) {
+      return "风险警示";
+    }
+    if (
+      lowerVp.includes("战略") ||
+      lowerVp.includes("策略") ||
+      lowerVp.includes("建议")
+    ) {
+      return "战略建议";
+    }
+    return "核心发现";
   }
 
   /**

@@ -196,10 +196,8 @@ export class DimensionResearchService {
       modelType: AIModelType.CHAT, // 使用标准聊天模型
       taskProfile: {
         creativity: "medium", // 需要一定创造性综合
-        outputLength: "long", // 详细分析
+        outputLength: "extended", // 详细深度分析需要更多 tokens
       },
-      // 使用 JSON 输出格式
-      // responseFormat: { type: 'json_object' }, // 注意：某些模型可能不支持
     });
 
     // 解析 AI 响应
