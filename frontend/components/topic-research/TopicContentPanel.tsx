@@ -53,6 +53,13 @@ interface ReportRevision {
   summary?: string;
 }
 
+// WebSocket 事件类型
+interface WsEvent {
+  type: string;
+  data: unknown;
+  timestamp: string;
+}
+
 interface TopicContentPanelProps {
   report: TopicReport | null;
   dimensions: TopicDimension[];
@@ -70,6 +77,12 @@ interface TopicContentPanelProps {
   onSendLeaderInstruction?: (instruction: string) => void;
   /** Whether research is in progress */
   isRefreshing?: boolean;
+  /** WebSocket events for real-time updates */
+  wsEvents?: WsEvent[];
+  /** WebSocket connection status */
+  wsConnected?: boolean;
+  /** Clear WebSocket events */
+  onClearWsEvents?: () => void;
 }
 
 // Icons
@@ -216,8 +229,11 @@ export function TopicContentPanel({
   onRollbackVersion,
   onSendLeaderInstruction,
   isRefreshing = false,
+  wsEvents = [],
+  wsConnected = false,
+  onClearWsEvents,
 }: TopicContentPanelProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('report');
+  const [activeTab, setActiveTab] = useState<TabType>('team');
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [versionMenuOpen, setVersionMenuOpen] = useState(false);
 
@@ -227,18 +243,13 @@ export function TopicContentPanel({
   const safeEvents = researchEvents || [];
   const safeThinkings = agentThinkings || [];
 
-  // Tab 配置
+  // Tab 配置 - 顺序: 团队互动 → Agent思考 → 洞察报告 → 参考文献
   const tabs: {
     key: TabType;
     label: string;
     icon: React.ReactNode;
     badge?: number;
   }[] = [
-    {
-      key: 'report',
-      label: '洞察报告',
-      icon: <DocumentIcon className="h-4 w-4" />,
-    },
     {
       key: 'team',
       label: '团队互动',
@@ -250,6 +261,11 @@ export function TopicContentPanel({
       label: 'Agent思考',
       icon: <ThinkingIcon className="h-4 w-4" />,
       badge: safeThinkings.length > 0 ? safeThinkings.length : undefined,
+    },
+    {
+      key: 'report',
+      label: '洞察报告',
+      icon: <DocumentIcon className="h-4 w-4" />,
     },
     {
       key: 'references',
@@ -409,7 +425,12 @@ export function TopicContentPanel({
           />
         )}
         {activeTab === 'team' && (
-          <TeamInteractionTabContent events={safeEvents} />
+          <TeamInteractionTabContent
+            events={safeEvents}
+            wsEvents={wsEvents}
+            wsConnected={wsConnected}
+            onClearEvents={onClearWsEvents}
+          />
         )}
         {activeTab === 'thinking' && (
           <AgentThinkingTabContent thinkings={safeThinkings} />
@@ -733,14 +754,86 @@ interface LeaderPlanDisplay {
   researchStrategy?: string;
 }
 
+// Agent 详情配置类型
+interface AgentDetailInfo {
+  name: string;
+  role: string;
+  description: string;
+  skills: string[];
+  tools: string[];
+  icon: string;
+  color: string;
+  bgColor: string;
+  gradient: string;
+}
+
+// 研究团队 Agent 详情配置
+const RESEARCH_AGENT_DETAILS: Record<string, AgentDetailInfo> = {
+  leader: {
+    name: 'Research Leader',
+    role: '研究协调员',
+    description:
+      '负责理解研究任务、规划研究维度、分配研究员任务、协调团队协作。Leader 会分析专题需求，制定研究策略，并根据进度动态调整研究方向。',
+    skills: ['任务理解', '研究规划', '团队协调', '质量把控', '报告审核'],
+    tools: ['任务分解器', '研究规划器', '质量评估器'],
+    icon: '👑',
+    color: 'text-purple-700',
+    bgColor: 'bg-purple-100',
+    gradient: 'from-purple-400 to-purple-600',
+  },
+  researcher: {
+    name: 'Research Agent',
+    role: '研究员',
+    description:
+      '负责执行具体维度的研究任务，包括信息检索、数据分析、关键发现提取。研究员会使用多种数据源获取信息，并进行深度分析。',
+    skills: ['信息检索', '数据分析', '关键发现', '趋势识别', '证据收集'],
+    tools: ['网络搜索', '学术搜索', '数据分析器', 'PDF解析器'],
+    icon: '🔍',
+    color: 'text-blue-700',
+    bgColor: 'bg-blue-100',
+    gradient: 'from-blue-400 to-blue-600',
+  },
+  reviewer: {
+    name: 'Quality Reviewer',
+    role: '审核员',
+    description:
+      '负责审核研究结果的质量、准确性和一致性。审核员会检查数据来源可信度、论据逻辑性，并提出改进建议。',
+    skills: ['质量评估', '一致性检查', '准确性验证', '逻辑审核', '改进建议'],
+    tools: ['质量评估器', '事实核查器', '一致性分析器'],
+    icon: '✅',
+    color: 'text-green-700',
+    bgColor: 'bg-green-100',
+    gradient: 'from-green-400 to-green-600',
+  },
+  synthesizer: {
+    name: 'Report Synthesizer',
+    role: '撰写员',
+    description:
+      '负责整合各维度研究结果，撰写专业的研究报告。撰写员会组织内容结构、提炼核心观点、生成可读性强的研究报告。',
+    skills: ['内容整合', '报告撰写', '观点提炼', '结构组织', '可视化呈现'],
+    tools: ['报告生成器', '摘要提取器', '可视化工具'],
+    icon: '📊',
+    color: 'text-orange-700',
+    bgColor: 'bg-orange-100',
+    gradient: 'from-orange-400 to-orange-600',
+  },
+};
+
 function TeamInteractionTabContent({
   events,
   leaderPlan,
+  wsEvents = [],
+  wsConnected = false,
+  onClearEvents,
 }: {
   events: ResearchEvent[];
   leaderPlan?: LeaderPlanDisplay | null;
+  wsEvents?: WsEvent[];
+  wsConnected?: boolean;
+  onClearEvents?: () => void;
 }) {
   const safeEvents = events || [];
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   // Agent 类型配置
   const agentConfig: Record<
@@ -888,7 +981,82 @@ function TeamInteractionTabContent({
     );
   };
 
-  if (safeEvents.length === 0 && !leaderPlan) {
+  // Helper to format WebSocket event for display
+  const formatWsEvent = (wsEvent: WsEvent) => {
+    const data = wsEvent.data as Record<string, unknown>;
+    const eventType = wsEvent.type;
+
+    // Determine icon, color, and agentType based on event type
+    let icon = '📋';
+    let bgColor = 'bg-blue-100';
+    let textColor = 'text-blue-700';
+    let label = 'AI 团队';
+    let agentType: string | null = null; // For click-to-show-details
+
+    if (eventType.startsWith('leader:')) {
+      icon = '👑';
+      bgColor = 'bg-purple-100';
+      textColor = 'text-purple-700';
+      label = 'Leader';
+      agentType = 'leader';
+    } else if (eventType.startsWith('agent:')) {
+      const agentRole = (data.agentRole as string) || '';
+      icon =
+        agentRole === 'reviewer'
+          ? '✅'
+          : agentRole === 'synthesizer'
+            ? '📊'
+            : '🔍';
+      bgColor =
+        agentRole === 'reviewer'
+          ? 'bg-green-100'
+          : agentRole === 'synthesizer'
+            ? 'bg-orange-100'
+            : 'bg-blue-100';
+      textColor =
+        agentRole === 'reviewer'
+          ? 'text-green-700'
+          : agentRole === 'synthesizer'
+            ? 'text-orange-700'
+            : 'text-blue-700';
+      label = (data.agentName as string) || 'Agent';
+      agentType = agentRole || 'researcher';
+    } else if (eventType.startsWith('task:')) {
+      icon = '📋';
+      bgColor = 'bg-gray-100';
+      textColor = 'text-gray-700';
+      label = '任务';
+    } else if (eventType.startsWith('mission:')) {
+      icon = '🎯';
+      bgColor = 'bg-green-100';
+      textColor = 'text-green-700';
+      label = 'Leader';
+      agentType = 'leader';
+    } else if (eventType.startsWith('dimension:')) {
+      icon = '🔍';
+      bgColor = 'bg-blue-100';
+      textColor = 'text-blue-700';
+      label = '研究员';
+      agentType = 'researcher';
+    } else if (eventType.startsWith('report:')) {
+      icon = '📊';
+      bgColor = 'bg-orange-100';
+      textColor = 'text-orange-700';
+      label = '撰写员';
+      agentType = 'synthesizer';
+    }
+
+    // Extract message from data
+    const message =
+      (data.message as string) ||
+      (data.content as string) ||
+      eventType.replace(/:/g, ' ').replace(/_/g, ' ');
+
+    return { icon, bgColor, textColor, label, message, agentType };
+  };
+
+  // Show empty state only if no wsEvents and no legacy events
+  if (safeEvents.length === 0 && wsEvents.length === 0 && !leaderPlan) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-8">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-100">
@@ -898,6 +1066,15 @@ function TeamInteractionTabContent({
         <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
           研究过程中，AI 团队的协作动态将实时展示在此处
         </p>
+        {/* Connection status */}
+        <div className="mt-4 flex items-center gap-2">
+          <span
+            className={`h-2 w-2 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-gray-300'}`}
+          />
+          <span className="text-xs text-gray-400">
+            {wsConnected ? '实时连接已建立' : '等待连接...'}
+          </span>
+        </div>
         <div className="mt-6 w-full max-w-md space-y-3">
           <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
             <div className="flex items-center gap-3">
@@ -940,10 +1117,96 @@ function TeamInteractionTabContent({
   return (
     <div className="h-full overflow-y-auto">
       <div className="p-4">
+        {/* Connection status and controls */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span
+                className={`h-2 w-2 rounded-full ${wsConnected ? 'animate-pulse bg-green-500' : 'bg-gray-300'}`}
+              />
+              <span className="text-xs text-gray-500">
+                {wsConnected ? '实时更新中' : '未连接'}
+              </span>
+            </div>
+            {wsEvents.length > 0 && (
+              <span className="text-xs text-gray-400">
+                {wsEvents.length} 条消息
+              </span>
+            )}
+          </div>
+          {wsEvents.length > 0 && onClearEvents && (
+            <button
+              onClick={onClearEvents}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              清除消息
+            </button>
+          )}
+        </div>
+
         {/* Leader Plan Section */}
         {renderLeaderPlanSection()}
 
-        {/* Events Header */}
+        {/* WebSocket Events - Real-time messages (AI Writing style) */}
+        {wsEvents.length > 0 && (
+          <div className="mb-4 space-y-3">
+            {wsEvents.map((wsEvent, idx) => {
+              const { icon, bgColor, textColor, label, message, agentType } =
+                formatWsEvent(wsEvent);
+              const time = new Date(wsEvent.timestamp).toLocaleTimeString(
+                'zh-CN',
+                {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }
+              );
+
+              return (
+                <div
+                  key={`ws-${idx}`}
+                  className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Clickable Agent Icon */}
+                    <button
+                      onClick={() => agentType && setSelectedAgent(agentType)}
+                      disabled={!agentType}
+                      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${bgColor} ${
+                        agentType
+                          ? 'cursor-pointer transition-transform hover:scale-110'
+                          : 'cursor-default'
+                      }`}
+                      title={agentType ? '点击查看详情' : undefined}
+                    >
+                      <span className="text-sm">{icon}</span>
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        {/* Clickable Agent Label */}
+                        {agentType ? (
+                          <button
+                            onClick={() => setSelectedAgent(agentType)}
+                            className={`text-sm font-medium ${textColor} hover:underline`}
+                          >
+                            {label}
+                          </button>
+                        ) : (
+                          <span className={`text-sm font-medium ${textColor}`}>
+                            {label}
+                          </span>
+                        )}
+                        <span className="text-xs text-gray-400">{time}</span>
+                      </div>
+                      <p className="mt-1 text-sm text-gray-700">{message}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Legacy Events Header */}
         {safeEvents.length > 0 && (
           <div className="mb-4 flex items-center justify-between">
             <h4 className="text-sm font-semibold text-gray-700">
@@ -952,75 +1215,187 @@ function TeamInteractionTabContent({
           </div>
         )}
 
-        {/* 事件时间线 */}
-        <div className="relative">
-          <div className="absolute left-4 top-0 h-full w-px bg-gray-200" />
+        {/* Legacy 事件时间线 */}
+        {safeEvents.length > 0 && (
+          <div className="relative">
+            <div className="absolute left-4 top-0 h-full w-px bg-gray-200" />
 
-          <div className="space-y-4">
-            {safeEvents.map((event) => {
-              const agent = agentConfig[event.agentType];
-              const eventType = eventTypeConfig[event.eventType];
+            <div className="space-y-4">
+              {safeEvents.map((event) => {
+                const agent = agentConfig[event.agentType];
+                const eventType = eventTypeConfig[event.eventType];
 
-              return (
-                <div key={event.id} className="relative flex gap-4 pl-10">
-                  {/* 时间线节点 */}
-                  <div
-                    className={`absolute left-1 flex h-7 w-7 items-center justify-center rounded-full text-sm ${agent.bgColor}`}
-                  >
-                    {agent.icon}
-                  </div>
+                return (
+                  <div key={event.id} className="relative flex gap-4 pl-10">
+                    {/* 时间线节点 - Clickable */}
+                    <button
+                      onClick={() => setSelectedAgent(event.agentType)}
+                      className={`absolute left-1 flex h-7 w-7 items-center justify-center rounded-full text-sm ${agent.bgColor} cursor-pointer transition-transform hover:scale-110`}
+                      title="点击查看详情"
+                    >
+                      {agent.icon}
+                    </button>
 
-                  {/* 事件卡片 */}
-                  <div
-                    className={`flex-1 rounded-lg border p-3 ${
-                      event.eventType === 'error'
-                        ? 'border-red-200 bg-red-50'
-                        : event.eventType === 'complete'
-                          ? 'border-green-200 bg-green-50'
-                          : event.eventType === 'decision'
-                            ? 'border-purple-200 bg-purple-50'
-                            : 'border-gray-200 bg-white'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`rounded px-1.5 py-0.5 text-xs font-medium ${agent.bgColor} ${agent.color}`}
-                        >
-                          {event.agentName || agent.label}
-                        </span>
-                        <span className={`text-xs ${eventType.color}`}>
-                          {eventType.icon} {eventType.label}
-                        </span>
-                        {event.dimensionName && (
-                          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
-                            {event.dimensionName}
+                    {/* 事件卡片 */}
+                    <div
+                      className={`flex-1 rounded-lg border p-3 ${
+                        event.eventType === 'error'
+                          ? 'border-red-200 bg-red-50'
+                          : event.eventType === 'complete'
+                            ? 'border-green-200 bg-green-50'
+                            : event.eventType === 'decision'
+                              ? 'border-purple-200 bg-purple-50'
+                              : 'border-gray-200 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {/* Clickable Agent Label */}
+                          <button
+                            onClick={() => setSelectedAgent(event.agentType)}
+                            className={`rounded px-1.5 py-0.5 text-xs font-medium ${agent.bgColor} ${agent.color} hover:opacity-80`}
+                            title="点击查看详情"
+                          >
+                            {event.agentName || agent.label}
+                          </button>
+                          <span className={`text-xs ${eventType.color}`}>
+                            {eventType.icon} {eventType.label}
                           </span>
-                        )}
+                          {event.dimensionName && (
+                            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
+                              {event.dimensionName}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-400">
+                          {new Date(event.timestamp).toLocaleTimeString(
+                            'zh-CN',
+                            {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                            }
+                          )}
+                        </span>
                       </div>
-                      <span className="text-xs text-gray-400">
-                        {new Date(event.timestamp).toLocaleTimeString('zh-CN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                        })}
-                      </span>
+                      <p className="mt-2 text-sm text-gray-700">
+                        {event.message}
+                      </p>
+                      {event.details && (
+                        <div className="mt-2 rounded bg-gray-50 p-2 text-xs text-gray-500">
+                          {event.details}
+                        </div>
+                      )}
                     </div>
-                    <p className="mt-2 text-sm text-gray-700">
-                      {event.message}
-                    </p>
-                    {event.details && (
-                      <div className="mt-2 rounded bg-gray-50 p-2 text-xs text-gray-500">
-                        {event.details}
-                      </div>
-                    )}
                   </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Agent Details Modal */}
+      {selectedAgent && RESEARCH_AGENT_DETAILS[selectedAgent] && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => setSelectedAgent(null)}
+        >
+          <div
+            className="relative mx-4 w-full max-w-md rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br ${RESEARCH_AGENT_DETAILS[selectedAgent].gradient} text-xl text-white shadow-md`}
+                >
+                  {RESEARCH_AGENT_DETAILS[selectedAgent].icon}
                 </div>
-              );
-            })}
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    {RESEARCH_AGENT_DETAILS[selectedAgent].name}
+                  </h3>
+                  <span className="text-sm text-gray-500">
+                    {RESEARCH_AGENT_DETAILS[selectedAgent].role}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedAgent(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="px-6 py-4">
+              {/* Description */}
+              <p className="text-sm leading-relaxed text-gray-600">
+                {RESEARCH_AGENT_DETAILS[selectedAgent].description}
+              </p>
+
+              {/* Skills */}
+              <div className="mt-4">
+                <h4 className="mb-2 text-sm font-semibold text-gray-800">
+                  技能
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {RESEARCH_AGENT_DETAILS[selectedAgent].skills.map((skill) => (
+                    <span
+                      key={skill}
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${RESEARCH_AGENT_DETAILS[selectedAgent].bgColor} ${RESEARCH_AGENT_DETAILS[selectedAgent].color}`}
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tools */}
+              <div className="mt-4">
+                <h4 className="mb-2 text-sm font-semibold text-gray-800">
+                  工具
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {RESEARCH_AGENT_DETAILS[selectedAgent].tools.map((tool) => (
+                    <span
+                      key={tool}
+                      className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700"
+                    >
+                      {tool}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end border-t border-gray-100 px-6 py-4">
+              <button
+                onClick={() => setSelectedAgent(null)}
+                className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+              >
+                关闭
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

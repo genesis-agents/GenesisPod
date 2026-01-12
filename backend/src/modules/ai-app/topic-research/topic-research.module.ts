@@ -7,6 +7,7 @@ import { CreditsModule } from "../../credits/credits.module";
 // import { CrawlersModule } from '../../ingestion/crawlers/crawlers.module';
 import { TopicResearchController } from "./topic-research.controller";
 import { TopicResearchService } from "./topic-research.service";
+import { TopicResearchGateway } from "./topic-research.gateway";
 import {
   DataSourceRouterService,
   DimensionResearchService,
@@ -18,6 +19,7 @@ import {
   ResearchLeaderService,
   ResearchMissionService,
   TopicCollaboratorService,
+  ResearchEventEmitterService,
 } from "./services";
 
 const services = [
@@ -32,6 +34,7 @@ const services = [
   ResearchLeaderService,
   ResearchMissionService,
   TopicCollaboratorService,
+  ResearchEventEmitterService,
 ];
 
 @Module({
@@ -42,7 +45,7 @@ const services = [
     EventEmitterModule.forRoot(),
   ],
   controllers: [TopicResearchController],
-  providers: services,
+  providers: [...services, TopicResearchGateway],
   exports: services,
 })
 export class TopicResearchModule {}

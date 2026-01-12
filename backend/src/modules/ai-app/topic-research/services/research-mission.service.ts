@@ -26,6 +26,7 @@ import {
 } from "./research-leader.service";
 import { DimensionResearchService } from "./dimension-research.service";
 import { ReportSynthesisService } from "./report-synthesis.service";
+import { ResearchEventEmitterService } from "./research-event-emitter.service";
 
 // ==================== Constants ====================
 
@@ -111,6 +112,7 @@ export class ResearchMissionService {
     private readonly leaderService: ResearchLeaderService,
     private readonly dimensionResearchService: DimensionResearchService,
     private readonly reportSynthesisService: ReportSynthesisService,
+    private readonly researchEventEmitter: ResearchEventEmitterService,
   ) {}
 
   /**
@@ -795,9 +797,22 @@ export class ResearchMissionService {
 
   /**
    * 发送进度事件
+   * 同时通过 EventEmitter2（内部）和 WebSocket（前端）发送
    */
   private emitProgress(event: MissionProgressEvent): void {
+    // 内部事件（用于服务间通信）
     this.eventEmitter.emit("research-mission.progress", event);
+
+    // WebSocket 事件（推送给前端）
+    this.researchEventEmitter.emitMissionProgress(event.topicId, {
+      missionId: event.missionId,
+      progress: event.progress,
+      phase: event.phase,
+      message: event.message,
+      currentTask: event.currentTask,
+      completedTasks: event.completedTasks,
+      totalTasks: event.totalTasks,
+    });
   }
 
   /**

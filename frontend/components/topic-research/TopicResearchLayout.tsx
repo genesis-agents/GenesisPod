@@ -31,6 +31,13 @@ interface SimpleRefreshProgress {
   totalDimensions: number;
 }
 
+// WebSocket 事件类型
+interface WsEvent {
+  type: string;
+  data: unknown;
+  timestamp: string;
+}
+
 interface TopicResearchLayoutProps {
   topic: ResearchTopic;
   dimensions: TopicDimension[];
@@ -47,6 +54,10 @@ interface TopicResearchLayoutProps {
   onExportReport: (format: 'pdf' | 'docx') => void;
   onBack: () => void;
   onSendLeaderInstruction?: (instruction: string) => void;
+  // WebSocket 实时事件
+  wsEvents?: WsEvent[];
+  wsConnected?: boolean;
+  onClearWsEvents?: () => void;
 }
 
 // Icons
@@ -143,6 +154,9 @@ export function TopicResearchLayout({
   onExportReport,
   onBack,
   onSendLeaderInstruction,
+  wsEvents,
+  wsConnected,
+  onClearWsEvents,
 }: TopicResearchLayoutProps) {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
 
@@ -293,6 +307,9 @@ export function TopicResearchLayout({
             onExportReport={handleExport}
             onSendLeaderInstruction={onSendLeaderInstruction}
             isRefreshing={isRefreshing}
+            wsEvents={wsEvents}
+            wsConnected={wsConnected}
+            onClearWsEvents={onClearWsEvents}
           />
         </div>
       </div>

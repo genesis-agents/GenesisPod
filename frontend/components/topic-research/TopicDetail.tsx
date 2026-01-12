@@ -5,11 +5,13 @@
  *
  * 专题详情页面 - 使用新的左右分栏布局
  * v7.0: 支持 Leader 驱动的研究模式
+ * v7.1: 集成 WebSocket 实时事件推送
  */
 
 import { useEffect, useCallback } from 'react';
 import type { ResearchTopic } from '@/types/topic-research';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
+import { useResearchWebSocket } from '@/hooks/useResearchWebSocket';
 import { TopicResearchLayout } from './TopicResearchLayout';
 
 interface TopicDetailProps {
@@ -38,6 +40,13 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     exportReport,
     sendLeaderInstruction,
   } = useTopicResearchStore();
+
+  // WebSocket 实时事件
+  const {
+    events: wsEvents,
+    isConnected: wsConnected,
+    clearEvents: clearWsEvents,
+  } = useResearchWebSocket(topic.id, { enabled: true });
 
   // Load initial data
   useEffect(() => {
@@ -126,6 +135,9 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
       onExportReport={handleExport}
       onBack={onBack}
       onSendLeaderInstruction={handleSendLeaderInstruction}
+      wsEvents={wsEvents}
+      wsConnected={wsConnected}
+      onClearWsEvents={clearWsEvents}
     />
   );
 }

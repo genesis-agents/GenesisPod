@@ -14,6 +14,7 @@ export { ResearchReviewerService } from "./research-reviewer.service";
 export { ResearchLeaderService } from "./research-leader.service";
 export { ResearchMissionService } from "./research-mission.service";
 export { TopicCollaboratorService } from "./topic-collaborator.service";
+export { ResearchEventEmitterService } from "./research-event-emitter.service";
 
 // Re-export types
 export type {
