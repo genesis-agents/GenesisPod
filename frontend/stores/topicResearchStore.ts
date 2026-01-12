@@ -136,6 +136,7 @@ interface TopicResearchState {
     instruction: string
   ) => Promise<void>;
   retryMission: (topicId: string, taskIds?: string[]) => Promise<void>;
+  cancelMission: (topicId: string) => Promise<void>;
   stopMissionPolling: () => void;
   startMissionPolling: (topicId: string) => void;
 
@@ -563,6 +564,26 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
         isRefreshing: false,
         error:
           error instanceof Error ? error.message : 'Failed to retry mission',
+      });
+      throw error;
+    }
+  },
+
+  cancelMission: async (topicId) => {
+    try {
+      await api.cancelMission(topicId);
+      // Stop polling and reset state
+      get().stopMissionPolling();
+      set({
+        isRefreshing: false,
+        refreshProgress: null,
+        missionStatus: null,
+        currentMission: null,
+      });
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error ? error.message : 'Failed to cancel mission',
       });
       throw error;
     }

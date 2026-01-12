@@ -34,7 +34,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     fetchMissionStatus,
     fetchTeamInfo,
     startLeaderPlan,
-    cancelRefresh,
+    cancelMission,
     exportReport,
     sendLeaderInstruction,
   } = useTopicResearchStore();
@@ -79,11 +79,11 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
 
   const handleCancelRefresh = useCallback(async () => {
     try {
-      await cancelRefresh(topic.id, 'current');
+      await cancelMission(topic.id);
     } catch {
       // Error is already handled in store
     }
-  }, [topic.id, cancelRefresh]);
+  }, [topic.id, cancelMission]);
 
   const handleExport = useCallback(
     async (format: 'pdf' | 'docx') => {

@@ -565,6 +565,17 @@ export async function retryMission(
 }
 
 /**
+ * 取消当前 Mission
+ */
+export async function cancelMission(
+  topicId: string
+): Promise<{ success: boolean }> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/mission/cancel`, {
+    method: 'POST',
+  });
+}
+
+/**
  * 获取研究团队信息
  */
 export async function getTeam(topicId: string): Promise<TeamInfo> {
