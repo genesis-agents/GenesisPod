@@ -31,8 +31,25 @@ export class TopicRefreshScheduler implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     this.logger.log("Topic Refresh Scheduler initialized");
+
     // 启动时更新所有专题的下次刷新时间
-    await this.updateNextRefreshTimes();
+    // 使用 try-catch 优雅处理表不存在的情况（数据库迁移未完成）
+    try {
+      await this.updateNextRefreshTimes();
+    } catch (error) {
+      // P2021: 表不存在
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        (error as { code: string }).code === "P2021"
+      ) {
+        this.logger.warn(
+          "ResearchTopic table does not exist yet. Scheduler will retry on next interval.",
+        );
+      } else {
+        this.logger.error("Failed to update next refresh times on init", error);
+      }
+    }
 
     // 设置定时检查
     this.intervalHandle = setInterval(() => {
@@ -58,10 +75,11 @@ export class TopicRefreshScheduler implements OnModuleInit, OnModuleDestroy {
    * 检查需要刷新的专题（每小时调用一次）
    */
   async checkAndRefreshTopics() {
-    this.logger.log("Checking for topics that need refresh...");
+    this.logger.debug("Checking for topics that need refresh...");
 
     try {
       // 查找需要刷新的专题
+      // 如果表不存在会抛出 P2021 错误，在外层 catch 中处理
       const topicsToRefresh = await this.prisma.researchTopic.findMany({
         where: {
           status: ResearchTopicStatus.ACTIVE,
@@ -90,7 +108,18 @@ export class TopicRefreshScheduler implements OnModuleInit, OnModuleDestroy {
         }
       }
     } catch (error) {
-      this.logger.error("Error in scheduled refresh check", error);
+      // P2021: 表不存在 - 优雅降级，等待数据库迁移
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        (error as { code: string }).code === "P2021"
+      ) {
+        this.logger.debug(
+          "ResearchTopic table does not exist yet. Skipping refresh check.",
+        );
+      } else {
+        this.logger.error("Error in scheduled refresh check", error);
+      }
     }
   }
 
