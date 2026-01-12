@@ -478,18 +478,69 @@ function AgentNode({ x, y, agent, isLeader }: AgentNodeProps) {
 
   return (
     <g className="cursor-pointer">
-      {/* 外圈光晕（活跃时） */}
+      {/* 活跃时的多层闪光效果 */}
       {agent.isActive && (
-        <circle
-          cx={x}
-          cy={y}
-          r={radius + 8}
-          fill="none"
-          stroke={statusColor}
-          strokeWidth="2"
-          opacity="0.3"
-          className="animate-ping"
-        />
+        <>
+          {/* 最外层扩散光环 */}
+          <circle
+            cx={x}
+            cy={y}
+            r={radius + 20}
+            fill="none"
+            stroke={statusColor}
+            strokeWidth="2"
+            opacity="0.2"
+          >
+            <animate
+              attributeName="r"
+              from={radius + 10}
+              to={radius + 30}
+              dur="1.5s"
+              repeatCount="indefinite"
+            />
+            <animate
+              attributeName="opacity"
+              from="0.4"
+              to="0"
+              dur="1.5s"
+              repeatCount="indefinite"
+            />
+          </circle>
+          {/* 中层脉冲光环 */}
+          <circle
+            cx={x}
+            cy={y}
+            r={radius + 12}
+            fill="none"
+            stroke={statusColor}
+            strokeWidth="3"
+            opacity="0.5"
+          >
+            <animate
+              attributeName="r"
+              from={radius + 8}
+              to={radius + 18}
+              dur="1s"
+              repeatCount="indefinite"
+            />
+            <animate
+              attributeName="opacity"
+              from="0.6"
+              to="0.1"
+              dur="1s"
+              repeatCount="indefinite"
+            />
+          </circle>
+          {/* 内层呼吸光环 */}
+          <circle cx={x} cy={y} r={radius + 6} fill={statusColor} opacity="0.3">
+            <animate
+              attributeName="opacity"
+              values="0.3;0.6;0.3"
+              dur="0.8s"
+              repeatCount="indefinite"
+            />
+          </circle>
+        </>
       )}
 
       {/* 状态环 */}
@@ -499,8 +550,17 @@ function AgentNode({ x, y, agent, isLeader }: AgentNodeProps) {
         r={radius + 4}
         fill="none"
         stroke={statusColor}
-        strokeWidth="3"
-      />
+        strokeWidth={agent.isActive ? 4 : 3}
+      >
+        {agent.isActive && (
+          <animate
+            attributeName="stroke-width"
+            values="3;5;3"
+            dur="0.6s"
+            repeatCount="indefinite"
+          />
+        )}
+      </circle>
 
       {/* 主圆 */}
       <circle
@@ -509,7 +569,16 @@ function AgentNode({ x, y, agent, isLeader }: AgentNodeProps) {
         r={radius}
         fill={agent.bgColor}
         className="drop-shadow-lg"
-      />
+      >
+        {agent.isActive && (
+          <animate
+            attributeName="r"
+            values={`${radius};${radius + 2};${radius}`}
+            dur="0.6s"
+            repeatCount="indefinite"
+          />
+        )}
+      </circle>
 
       {/* 图标 */}
       <text
