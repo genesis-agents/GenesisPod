@@ -196,8 +196,12 @@ export class ResearchMissionService {
         },
       });
 
-      // 8. 根据规划创建任务
-      const tasks = await this.createTasksFromPlan(mission.id, leaderPlan);
+      // 8. 将 Leader 规划的维度同步到数据库，并创建任务
+      const tasks = await this.createTasksFromPlan(
+        mission.id,
+        topicId,
+        leaderPlan,
+      );
 
       // 9. 更新 Mission
       const updatedMission = await this.prisma.researchMission.update({
@@ -248,12 +252,59 @@ export class ResearchMissionService {
 
   /**
    * 根据 Leader 规划创建任务
+   * ★ 重要：会将 Leader 规划的维度同步到 TopicDimension 表
    */
   private async createTasksFromPlan(
     missionId: string,
+    topicId: string,
     plan: LeaderPlan,
   ): Promise<ResearchTask[]> {
     const tasks: ResearchTask[] = [];
+
+    // ★ 首先：将 Leader 规划的维度同步到数据库
+    // 这确保执行时 topic.dimensions 能正确加载
+    this.logger.log(
+      `[createTasksFromPlan] Syncing ${plan.dimensions.length} planned dimensions to DB`,
+    );
+
+    // 获取当前最大 sortOrder
+    const maxDimension = await this.prisma.topicDimension.findFirst({
+      where: { topicId },
+      orderBy: { sortOrder: "desc" },
+      select: { sortOrder: true },
+    });
+    let sortOrder = (maxDimension?.sortOrder || 0) + 1;
+
+    // 创建维度记录并建立映射 (plannedDimensionId -> dbDimensionId)
+    const dimensionIdMap = new Map<string, string>();
+
+    for (const plannedDim of plan.dimensions) {
+      // 检查是否已存在同名维度
+      const existingDim = await this.prisma.topicDimension.findFirst({
+        where: { topicId, name: plannedDim.name },
+      });
+
+      if (existingDim) {
+        dimensionIdMap.set(plannedDim.id, existingDim.id);
+        this.logger.log(
+          `[createTasksFromPlan] Reusing existing dimension: ${plannedDim.name} (${existingDim.id})`,
+        );
+      } else {
+        const newDim = await this.prisma.topicDimension.create({
+          data: {
+            topicId,
+            name: plannedDim.name,
+            description: plannedDim.description,
+            sortOrder: sortOrder++,
+            status: "PENDING",
+          },
+        });
+        dimensionIdMap.set(plannedDim.id, newDim.id);
+        this.logger.log(
+          `[createTasksFromPlan] Created dimension: ${plannedDim.name} (${newDim.id})`,
+        );
+      }
+    }
 
     // 1. 为每个维度创建研究任务
     for (const dimension of plan.dimensions) {
@@ -263,6 +314,8 @@ export class ResearchMissionService {
           a.assignedDimensions?.includes(dimension.id),
       );
 
+      const dbDimensionId = dimensionIdMap.get(dimension.id);
+
       const task = await this.prisma.researchTask.create({
         data: {
           missionId,
@@ -270,6 +323,7 @@ export class ResearchMissionService {
           description: dimension.description,
           taskType: "dimension_research",
           dimensionName: dimension.name,
+          dimensionId: dbDimensionId, // ★ 关联真实的数据库维度 ID
           assignedAgent: assignment?.agentId || "researcher_default",
           assignedAgentType: "dimension_researcher",
           priority: dimension.priority,
@@ -950,12 +1004,22 @@ export class ResearchMissionService {
 
       switch (task.taskType) {
         case "dimension_research": {
-          // 找到对应的维度
-          const dimension = topic.dimensions?.find(
-            (d: any) => d.name === task.dimensionName,
-          );
+          // ★ 优先使用 dimensionId 查找（更可靠）
+          let dimension = task.dimensionId
+            ? topic.dimensions?.find((d: any) => d.id === task.dimensionId)
+            : null;
+
+          // 回退：按名称查找
+          if (!dimension && task.dimensionName) {
+            dimension = topic.dimensions?.find(
+              (d: any) => d.name === task.dimensionName,
+            );
+          }
 
           if (dimension) {
+            this.logger.log(
+              `[executeTask] Found dimension: ${dimension.name} (${dimension.id})`,
+            );
             const researchResult =
               await this.dimensionResearchService.researchDimension(
                 topic,
@@ -964,7 +1028,10 @@ export class ResearchMissionService {
               );
             result = researchResult.analysisResult;
           } else {
-            // 如果没有预定义维度，创建临时维度进行研究
+            // 如果没有找到维度，创建新维度进行研究
+            this.logger.warn(
+              `[executeTask] Dimension not found for task ${task.id}, creating new one`,
+            );
             result = await this.executeGenericDimensionResearch(task, topic);
           }
           break;
