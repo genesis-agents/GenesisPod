@@ -126,6 +126,14 @@ export class DimensionMissionService {
       const evidenceSummary = this.createEvidenceSummary(evidenceData);
 
       // 3. Leader 规划大纲
+      // 发送 Leader 思考事件 - 理解阶段
+      await this.eventEmitter.emitLeaderThinking(topic.id, {
+        missionId: dimension.id,
+        phase: "understanding",
+        content: `正在理解研究主题「${topic.name}」的需求，分析维度「${dimension.name}」的研究范围...`,
+        progress: 10,
+      });
+
       this.emitProgress(topic.id, dimension.id, {
         stage: "planning",
         sectionsTotal: 0,
@@ -146,6 +154,23 @@ export class DimensionMissionService {
       this.logger.log(
         `[executeDimensionMission] Outline created with ${outline.sections.length} sections`,
       );
+
+      // 发送 Leader 规划完成事件
+      await this.eventEmitter.emitLeaderPlanReady(
+        topic.id,
+        dimension.id,
+        outline.sections.length,
+        outline.sections.length, // 每个章节一个 Agent
+      );
+
+      // 发送详细的 Leader 思考事件 - 包含理解内容
+      const understanding = outline.intentUnderstanding;
+      await this.eventEmitter.emitLeaderThinking(topic.id, {
+        missionId: dimension.id,
+        phase: "analyzing",
+        content: `核心问题: ${understanding.coreQuestion}\n研究范围: ${understanding.scope.included.join(", ")}\n期望深度: ${understanding.expectedDepth}`,
+        progress: 20,
+      });
 
       // 4. Agent 写作各章节
       this.emitProgress(topic.id, dimension.id, {

@@ -7,9 +7,14 @@
  * - Leader (👑) 在中心
  * - 维度研究员 (🔍) 围绕 Leader
  * - 质量审核 (✅) 和 报告撰写 (📊) 在底部
+ *
+ * 功能:
+ * - 点击 Agent 弹出详情
+ * - 悬停显示 Tooltip
+ * - 每个 Agent 有唯一名称
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import type {
   AgentInfo,
   TeamInfo,
@@ -20,6 +25,24 @@ interface ResearchTeamPanelProps {
   teamInfo: TeamInfo | null;
   missionStatus: MissionStatus | null;
   isRefreshing: boolean;
+}
+
+// Agent 节点完整信息（用于弹窗显示）
+interface AgentNodeInfo {
+  id: string;
+  type: string;
+  name: string;
+  role: string;
+  status: AgentInfo['status'];
+  x: number;
+  y: number;
+  icon: string;
+  color: typeof agentColors.leader;
+  description?: string;
+  skills?: string[];
+  currentTask?: string;
+  completedTasks?: number;
+  totalTasks?: number;
 }
 
 // Agent 颜色配置
@@ -38,6 +61,34 @@ const agentIcons = {
   report_writer: '📊',
 };
 
+// Agent 角色信息映射
+const agentRoleInfo: Record<
+  string,
+  { name: string; description: string; skills: string[] }
+> = {
+  leader: {
+    name: '研究协调员',
+    description:
+      '负责规划研究大纲、分配任务给研究员、审核研究质量、整合最终结果',
+    skills: ['大纲规划', '任务分配', '质量审核', '结果整合'],
+  },
+  dimension_researcher: {
+    name: '维度研究员',
+    description: '负责深入研究特定维度，收集证据，撰写分析内容',
+    skills: ['资料收集', '深度分析', '证据引用', '内容撰写'],
+  },
+  quality_reviewer: {
+    name: '质量审核员',
+    description: '负责审核研究内容的准确性、完整性和一致性',
+    skills: ['质量检查', '一致性审核', '准确性验证'],
+  },
+  report_writer: {
+    name: '报告撰写员',
+    description: '负责整合各维度研究结果，撰写最终综合报告',
+    skills: ['报告整合', '内容润色', '格式规范'],
+  },
+};
+
 // 状态样式
 const statusStyles = {
   idle: { stroke: '#D1D5DB', fill: '#F9FAFB' },
@@ -51,6 +102,13 @@ export function ResearchTeamPanel({
   missionStatus,
   isRefreshing,
 }: ResearchTeamPanelProps) {
+  // 选中的 Agent（用于显示详情弹窗）
+  const [selectedAgent, setSelectedAgent] = useState<AgentNodeInfo | null>(
+    null
+  );
+  // 悬停的 Agent（用于显示 Tooltip）
+  const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
+
   // 计算节点位置 - 星型拓扑
   const nodeLayout = useMemo(() => {
     const canvasWidth = 260;
@@ -58,27 +116,22 @@ export function ResearchTeamPanel({
     const centerX = canvasWidth / 2;
     const centerY = 90;
 
-    const nodes: {
-      id: string;
-      type: string;
-      role: string;
-      status: AgentInfo['status'];
-      x: number;
-      y: number;
-      icon: string;
-      color: typeof agentColors.leader;
-    }[] = [];
+    const nodes: AgentNodeInfo[] = [];
 
     // Leader 节点 - 中心
+    const leaderInfo = agentRoleInfo.leader;
     nodes.push({
       id: 'leader',
       type: 'leader',
-      role: '研究协调员',
+      name: 'Leader',
+      role: leaderInfo.name,
       status: isRefreshing ? 'working' : 'idle',
       x: centerX,
       y: centerY,
       icon: agentIcons.leader,
       color: agentColors.leader,
+      description: leaderInfo.description,
+      skills: leaderInfo.skills,
     });
 
     // 从 teamInfo 获取 agents，或者使用默认配置
@@ -94,48 +147,64 @@ export function ResearchTeamPanel({
     const radius = 70;
     const startAngle = -Math.PI / 2; // 从顶部开始
 
+    const researcherInfo = agentRoleInfo.dimension_researcher;
     for (let i = 0; i < researcherCount; i++) {
       const researcher = researchers[i];
       const angle = startAngle + (i / researcherCount) * 2 * Math.PI;
       const x = centerX + radius * Math.cos(angle);
       const y = centerY + radius * Math.sin(angle);
+      const dimensionName = researcher?.assignedDimensions?.[0];
 
       nodes.push({
         id: researcher?.id || `researcher_${i}`,
         type: 'dimension_researcher',
-        role: researcher?.assignedDimensions?.[0] || '维度研究员',
+        name: `研究员${i + 1}`,
+        role: dimensionName || researcherInfo.name,
         status: researcher?.status || 'idle',
         x,
         y,
         icon: agentIcons.dimension_researcher,
         color: agentColors.dimension_researcher,
+        description: dimensionName
+          ? `负责研究「${dimensionName}」维度`
+          : researcherInfo.description,
+        skills: researcherInfo.skills,
+        currentTask: dimensionName,
       });
     }
 
     // 质量审核 - 左下
     const reviewer = reviewers[0];
+    const reviewerInfo = agentRoleInfo.quality_reviewer;
     nodes.push({
       id: reviewer?.id || 'reviewer',
       type: 'quality_reviewer',
-      role: '质量审核',
+      name: '审核',
+      role: reviewerInfo.name,
       status: reviewer?.status || 'idle',
       x: centerX - 50,
       y: canvasHeight - 50,
       icon: agentIcons.quality_reviewer,
       color: agentColors.quality_reviewer,
+      description: reviewerInfo.description,
+      skills: reviewerInfo.skills,
     });
 
     // 报告撰写 - 右下
     const writer = writers[0];
+    const writerInfo = agentRoleInfo.report_writer;
     nodes.push({
       id: writer?.id || 'writer',
       type: 'report_writer',
-      role: '报告撰写',
+      name: '撰写',
+      role: writerInfo.name,
       status: writer?.status || 'idle',
       x: centerX + 50,
       y: canvasHeight - 50,
       icon: agentIcons.report_writer,
       color: agentColors.report_writer,
+      description: writerInfo.description,
+      skills: writerInfo.skills,
     });
 
     return { nodes, canvasWidth, canvasHeight, centerX, centerY };
@@ -253,10 +322,31 @@ export function ResearchTeamPanel({
               key={node.id}
               {...node}
               isLeader={node.type === 'leader'}
+              isHovered={hoveredAgent === node.id}
+              onMouseEnter={() => setHoveredAgent(node.id)}
+              onMouseLeave={() => setHoveredAgent(null)}
+              onClick={() => setSelectedAgent(node)}
             />
           ))}
         </svg>
+
+        {/* 悬停 Tooltip */}
+        {hoveredAgent && !selectedAgent && (
+          <AgentTooltip
+            agent={nodes.find((n) => n.id === hoveredAgent)!}
+            canvasWidth={canvasWidth}
+            canvasHeight={canvasHeight}
+          />
+        )}
       </div>
+
+      {/* Agent 详情弹窗 */}
+      {selectedAgent && (
+        <AgentDetailModal
+          agent={selectedAgent}
+          onClose={() => setSelectedAgent(null)}
+        />
+      )}
 
       {/* Legend */}
       <div className="border-t border-gray-100 px-3 py-2">
@@ -280,31 +370,51 @@ export function ResearchTeamPanel({
 }
 
 // Agent Node 组件
-interface AgentNodeProps {
-  id: string;
-  x: number;
-  y: number;
-  icon: string;
-  role: string;
-  status: AgentInfo['status'];
-  color: typeof agentColors.leader;
+interface AgentNodeProps extends AgentNodeInfo {
   isLeader?: boolean;
+  isHovered?: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  onClick?: () => void;
 }
 
 function AgentNode({
   x,
   y,
   icon,
+  name,
   role,
   status,
   color,
   isLeader,
+  isHovered,
+  onMouseEnter,
+  onMouseLeave,
+  onClick,
 }: AgentNodeProps) {
   const radius = isLeader ? 22 : 16;
   const style = statusStyles[status];
 
   return (
-    <g>
+    <g
+      style={{ cursor: 'pointer' }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      onClick={onClick}
+    >
+      {/* 悬停时的高亮效果 */}
+      {isHovered && (
+        <circle
+          cx={x}
+          cy={y}
+          r={radius + 6}
+          fill="none"
+          stroke={color.bg}
+          strokeWidth={2}
+          opacity={0.5}
+        />
+      )}
+
       {/* 活跃时的发光效果 */}
       {status === 'working' && (
         <circle
@@ -400,7 +510,7 @@ function AgentNode({
         </g>
       )}
 
-      {/* 角色标签 */}
+      {/* Agent 名称标签 */}
       <text
         x={x}
         y={y + radius + 12}
@@ -409,8 +519,163 @@ function AgentNode({
         fontWeight={500}
         fill={status === 'working' ? color.bg : '#6B7280'}
       >
-        {role.length > 6 ? role.slice(0, 6) : role}
+        {name.length > 6 ? name.slice(0, 6) : name}
       </text>
     </g>
+  );
+}
+
+// Agent Tooltip 组件
+function AgentTooltip({
+  agent,
+  canvasWidth,
+  canvasHeight,
+}: {
+  agent: AgentNodeInfo;
+  canvasWidth: number;
+  canvasHeight: number;
+}) {
+  const tooltipX = (agent.x / canvasWidth) * 100;
+  const tooltipY = (agent.y / canvasHeight) * 100;
+  const showAbove = tooltipY > 50;
+
+  return (
+    <div
+      className="pointer-events-none absolute z-10 max-w-[180px] rounded-lg border border-gray-200 bg-white/95 p-2 shadow-lg backdrop-blur"
+      style={{
+        left: `${Math.min(Math.max(tooltipX, 20), 80)}%`,
+        top: showAbove ? `${tooltipY - 12}%` : `${tooltipY + 15}%`,
+        transform: 'translateX(-50%)',
+      }}
+    >
+      <div className="text-xs">
+        <div className="flex items-center gap-1 font-medium text-gray-900">
+          {agent.icon} {agent.name}
+          {agent.type === 'leader' && (
+            <span className="ml-1 text-purple-600">👑</span>
+          )}
+        </div>
+        <div className="mt-0.5 text-gray-500">{agent.role}</div>
+        {agent.currentTask && (
+          <div className="mt-1 truncate text-blue-600">
+            当前: {agent.currentTask}
+          </div>
+        )}
+        <div className="mt-1 text-gray-400">点击查看详情</div>
+      </div>
+    </div>
+  );
+}
+
+// Agent 详情弹窗组件
+function AgentDetailModal({
+  agent,
+  onClose,
+}: {
+  agent: AgentNodeInfo;
+  onClose: () => void;
+}) {
+  const statusText = {
+    idle: '待命中',
+    working: '工作中',
+    completed: '已完成',
+    failed: '失败',
+  };
+
+  const statusColor = {
+    idle: 'bg-gray-100 text-gray-700',
+    working: 'bg-blue-100 text-blue-700',
+    completed: 'bg-green-100 text-green-700',
+    failed: 'bg-red-100 text-red-700',
+  };
+
+  return (
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+      <div className="mx-4 w-full max-w-xs rounded-xl border border-gray-200 bg-white shadow-xl">
+        {/* 头部 */}
+        <div
+          className="rounded-t-xl px-4 py-3"
+          style={{ backgroundColor: `${agent.color.bg}15` }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">{agent.icon}</span>
+              <div>
+                <h3 className="font-semibold text-gray-900">
+                  {agent.name}
+                  {agent.type === 'leader' && <span className="ml-1">👑</span>}
+                </h3>
+                <p className="text-xs text-gray-500">{agent.role}</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* 内容 */}
+        <div className="p-4">
+          {/* 状态 */}
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-xs text-gray-500">状态:</span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs ${statusColor[agent.status]}`}
+            >
+              {statusText[agent.status]}
+            </span>
+          </div>
+
+          {/* 描述 */}
+          {agent.description && (
+            <div className="mb-3">
+              <p className="text-xs text-gray-500">职责:</p>
+              <p className="mt-1 text-sm text-gray-700">{agent.description}</p>
+            </div>
+          )}
+
+          {/* 技能 */}
+          {agent.skills && agent.skills.length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs text-gray-500">能力:</p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {agent.skills.map((skill, i) => (
+                  <span
+                    key={i}
+                    className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                  >
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 当前任务 */}
+          {agent.currentTask && (
+            <div className="rounded-lg bg-blue-50 p-2">
+              <p className="text-xs text-blue-600">
+                当前任务: {agent.currentTask}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
