@@ -10,7 +10,7 @@
  * 4. 参考文献 - 引用管理
  */
 
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type {
   TopicReport,
@@ -58,6 +58,32 @@ interface WsEvent {
   type: string;
   data: unknown;
   timestamp: string;
+}
+
+// ★ AI Writing 模式：消息详情类型（用于展开预览）
+interface MessageDetail {
+  type:
+    | 'dimension_content'
+    | 'report_preview'
+    | 'leader_plan'
+    | 'agent_analysis'
+    | 'text';
+  data: string | Record<string, unknown>;
+}
+
+// ★ AI Writing 模式：转换后的 UI 消息
+interface UIMessage {
+  id: string;
+  type: 'system' | 'agent' | 'progress' | 'leader';
+  agent?: string;
+  agentIcon?: string;
+  agentColor?: string;
+  agentBgColor?: string;
+  agentType?: string; // for click-to-show-details
+  content: string;
+  timestamp: Date;
+  detail?: MessageDetail; // ★ 可展开的详情
+  progress?: number; // 0-100 进度
 }
 
 interface TopicContentPanelProps {
@@ -834,6 +860,196 @@ function TeamInteractionTabContent({
 }) {
   const safeEvents = events || [];
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  // ★ AI Writing 模式：展开的消息ID集合
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
+    new Set()
+  );
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // ★ 切换消息展开状态
+  const toggleMessageExpand = useCallback((msgId: string) => {
+    setExpandedMessages((prev) => {
+      const next = new Set(prev);
+      if (next.has(msgId)) {
+        next.delete(msgId);
+      } else {
+        next.add(msgId);
+      }
+      return next;
+    });
+  }, []);
+
+  // ★ AI Writing 模式：将 WebSocket 事件转换为 UI 消息（带详情）
+  const uiMessages = useMemo<UIMessage[]>(() => {
+    return wsEvents.map((wsEvent, idx) => {
+      const data = wsEvent.data as Record<string, unknown>;
+      const eventType = wsEvent.type;
+      const msgId = `ws-${idx}-${wsEvent.timestamp}`;
+
+      let agent = 'AI 团队';
+      let agentIcon = '📋';
+      let agentColor = 'text-blue-700';
+      let agentBgColor = 'bg-blue-100';
+      let agentType: string | undefined;
+      let msgType: UIMessage['type'] = 'system';
+      let content = '';
+      let detail: MessageDetail | undefined;
+      let progress: number | undefined;
+
+      // 根据事件类型解析
+      if (eventType.startsWith('leader:')) {
+        agent = 'Leader';
+        agentIcon = '👑';
+        agentColor = 'text-purple-700';
+        agentBgColor = 'bg-purple-100';
+        agentType = 'leader';
+        msgType = 'leader';
+
+        if (eventType === 'leader:thinking') {
+          const phase = (data.phase as string) || '';
+          const thinking = (data.content as string) || '';
+          progress = (data.progress as number) || 0;
+          content = `[${phase}] ${thinking}`;
+          // ★ 添加思考详情
+          if (thinking.length > 100) {
+            detail = { type: 'text', data: thinking };
+          }
+        } else if (eventType === 'leader:planning') {
+          content = (data.message as string) || 'Leader 正在规划研究维度...';
+        } else if (eventType === 'leader:plan_ready') {
+          const plan = data.plan as Record<string, unknown>;
+          content = `Leader 规划完成：${(plan?.dimensions as unknown[])?.length || 0} 个研究维度`;
+          // ★ 添加规划详情
+          if (plan) {
+            detail = { type: 'leader_plan', data: plan };
+          }
+        } else {
+          content =
+            (data.message as string) || (data.content as string) || eventType;
+        }
+      } else if (eventType.startsWith('agent:')) {
+        const role = (data.agentRole as string) || 'researcher';
+        agent = (data.agentName as string) || 'Agent';
+        agentType = role;
+        msgType = 'agent';
+
+        if (role === 'reviewer') {
+          agentIcon = '✅';
+          agentColor = 'text-green-700';
+          agentBgColor = 'bg-green-100';
+        } else if (role === 'synthesizer') {
+          agentIcon = '📊';
+          agentColor = 'text-orange-700';
+          agentBgColor = 'bg-orange-100';
+        } else {
+          agentIcon = '🔍';
+          agentColor = 'text-blue-700';
+          agentBgColor = 'bg-blue-100';
+        }
+
+        content =
+          (data.message as string) ||
+          (data.status as string) ||
+          `${agent} 工作中`;
+      } else if (eventType.startsWith('task:')) {
+        agentIcon = '📋';
+        agentBgColor = 'bg-gray-100';
+        agentColor = 'text-gray-700';
+        msgType = 'progress';
+        progress = (data.progress as number) || 0;
+        content = (data.message as string) || `任务 ${eventType.split(':')[1]}`;
+      } else if (eventType.startsWith('dimension:')) {
+        agent = '研究员';
+        agentIcon = '🔍';
+        agentColor = 'text-blue-700';
+        agentBgColor = 'bg-blue-100';
+        agentType = 'researcher';
+        msgType = 'agent';
+
+        const dimName = (data.dimensionName as string) || '';
+        if (eventType === 'dimension:research_started') {
+          content = `开始研究维度「${dimName}」`;
+        } else if (eventType === 'dimension:research_progress') {
+          progress = (data.progress as number) || 0;
+          content = `「${dimName}」研究进度 ${progress}%`;
+        } else if (eventType === 'dimension:research_completed') {
+          content = `「${dimName}」研究完成`;
+          // ★ 添加研究结果预览
+          const summary = (data.summary as string) || '';
+          const keyFindings = (data.keyFindings as string[]) || [];
+          if (summary || keyFindings.length > 0) {
+            detail = {
+              type: 'dimension_content',
+              data: { summary, keyFindings, dimensionName: dimName },
+            };
+          }
+        } else {
+          content = (data.message as string) || eventType;
+        }
+      } else if (eventType.startsWith('report:')) {
+        agent = '撰写员';
+        agentIcon = '📊';
+        agentColor = 'text-orange-700';
+        agentBgColor = 'bg-orange-100';
+        agentType = 'synthesizer';
+        msgType = 'agent';
+
+        if (eventType === 'report:synthesis_started') {
+          content = '开始撰写研究报告...';
+        } else if (eventType === 'report:synthesis_completed') {
+          content = '研究报告撰写完成';
+          // ★ 添加报告预览
+          const reportTitle = (data.title as string) || '';
+          const summary = (data.summary as string) || '';
+          if (reportTitle || summary) {
+            detail = {
+              type: 'report_preview',
+              data: { title: reportTitle, summary },
+            };
+          }
+        } else {
+          content = (data.message as string) || eventType;
+        }
+      } else if (eventType.startsWith('mission:')) {
+        agent = 'Leader';
+        agentIcon = '🎯';
+        agentColor = 'text-green-700';
+        agentBgColor = 'bg-green-100';
+        agentType = 'leader';
+        msgType = 'system';
+        progress = data.progress as number;
+        content = (data.message as string) || `任务 ${eventType.split(':')[1]}`;
+      } else {
+        content =
+          (data.message as string) ||
+          (data.content as string) ||
+          eventType.replace(/:/g, ' ');
+      }
+
+      return {
+        id: msgId,
+        type: msgType,
+        agent,
+        agentIcon,
+        agentColor,
+        agentBgColor,
+        agentType,
+        content,
+        timestamp: new Date(wsEvent.timestamp),
+        detail,
+        progress,
+      };
+    });
+  }, [wsEvents]);
+
+  // ★ 自动滚动到底部
+  useEffect(() => {
+    if (uiMessages.length > 0) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [uiMessages.length]);
 
   // Agent 类型配置
   const agentConfig: Record<
@@ -981,82 +1197,8 @@ function TeamInteractionTabContent({
     );
   };
 
-  // Helper to format WebSocket event for display
-  const formatWsEvent = (wsEvent: WsEvent) => {
-    const data = wsEvent.data as Record<string, unknown>;
-    const eventType = wsEvent.type;
-
-    // Determine icon, color, and agentType based on event type
-    let icon = '📋';
-    let bgColor = 'bg-blue-100';
-    let textColor = 'text-blue-700';
-    let label = 'AI 团队';
-    let agentType: string | null = null; // For click-to-show-details
-
-    if (eventType.startsWith('leader:')) {
-      icon = '👑';
-      bgColor = 'bg-purple-100';
-      textColor = 'text-purple-700';
-      label = 'Leader';
-      agentType = 'leader';
-    } else if (eventType.startsWith('agent:')) {
-      const agentRole = (data.agentRole as string) || '';
-      icon =
-        agentRole === 'reviewer'
-          ? '✅'
-          : agentRole === 'synthesizer'
-            ? '📊'
-            : '🔍';
-      bgColor =
-        agentRole === 'reviewer'
-          ? 'bg-green-100'
-          : agentRole === 'synthesizer'
-            ? 'bg-orange-100'
-            : 'bg-blue-100';
-      textColor =
-        agentRole === 'reviewer'
-          ? 'text-green-700'
-          : agentRole === 'synthesizer'
-            ? 'text-orange-700'
-            : 'text-blue-700';
-      label = (data.agentName as string) || 'Agent';
-      agentType = agentRole || 'researcher';
-    } else if (eventType.startsWith('task:')) {
-      icon = '📋';
-      bgColor = 'bg-gray-100';
-      textColor = 'text-gray-700';
-      label = '任务';
-    } else if (eventType.startsWith('mission:')) {
-      icon = '🎯';
-      bgColor = 'bg-green-100';
-      textColor = 'text-green-700';
-      label = 'Leader';
-      agentType = 'leader';
-    } else if (eventType.startsWith('dimension:')) {
-      icon = '🔍';
-      bgColor = 'bg-blue-100';
-      textColor = 'text-blue-700';
-      label = '研究员';
-      agentType = 'researcher';
-    } else if (eventType.startsWith('report:')) {
-      icon = '📊';
-      bgColor = 'bg-orange-100';
-      textColor = 'text-orange-700';
-      label = '撰写员';
-      agentType = 'synthesizer';
-    }
-
-    // Extract message from data
-    const message =
-      (data.message as string) ||
-      (data.content as string) ||
-      eventType.replace(/:/g, ' ').replace(/_/g, ' ');
-
-    return { icon, bgColor, textColor, label, message, agentType };
-  };
-
-  // Show empty state only if no wsEvents and no legacy events
-  if (safeEvents.length === 0 && wsEvents.length === 0 && !leaderPlan) {
+  // Show empty state only if no uiMessages and no legacy events
+  if (safeEvents.length === 0 && uiMessages.length === 0 && !leaderPlan) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-8">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-100">
@@ -1128,13 +1270,13 @@ function TeamInteractionTabContent({
                 {wsConnected ? '实时更新中' : '未连接'}
               </span>
             </div>
-            {wsEvents.length > 0 && (
+            {uiMessages.length > 0 && (
               <span className="text-xs text-gray-400">
-                {wsEvents.length} 条消息
+                {uiMessages.length} 条消息
               </span>
             )}
           </div>
-          {wsEvents.length > 0 && onClearEvents && (
+          {uiMessages.length > 0 && onClearEvents && (
             <button
               onClick={onClearEvents}
               className="text-xs text-gray-400 hover:text-gray-600"
@@ -1147,62 +1289,141 @@ function TeamInteractionTabContent({
         {/* Leader Plan Section */}
         {renderLeaderPlanSection()}
 
-        {/* WebSocket Events - Real-time messages (AI Writing style) */}
-        {wsEvents.length > 0 && (
+        {/* ★ AI Writing 风格：WebSocket 事件消息流（带详情展开） */}
+        {uiMessages.length > 0 && (
           <div className="mb-4 space-y-3">
-            {wsEvents.map((wsEvent, idx) => {
-              const { icon, bgColor, textColor, label, message, agentType } =
-                formatWsEvent(wsEvent);
-              const time = new Date(wsEvent.timestamp).toLocaleTimeString(
-                'zh-CN',
-                {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }
-              );
+            {uiMessages.map((msg) => {
+              const isExpanded = expandedMessages.has(msg.id);
+              const time = msg.timestamp.toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit',
+              });
 
               return (
                 <div
-                  key={`ws-${idx}`}
-                  className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
+                  key={msg.id}
+                  className={`rounded-lg border shadow-sm transition-all ${
+                    msg.type === 'leader'
+                      ? 'border-purple-200 bg-purple-50'
+                      : msg.type === 'progress'
+                        ? 'border-amber-200 bg-amber-50'
+                        : 'border-gray-200 bg-white'
+                  }`}
                 >
-                  <div className="flex items-start gap-3">
-                    {/* Clickable Agent Icon */}
-                    <button
-                      onClick={() => agentType && setSelectedAgent(agentType)}
-                      disabled={!agentType}
-                      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${bgColor} ${
-                        agentType
-                          ? 'cursor-pointer transition-transform hover:scale-110'
-                          : 'cursor-default'
-                      }`}
-                      title={agentType ? '点击查看详情' : undefined}
-                    >
-                      <span className="text-sm">{icon}</span>
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        {/* Clickable Agent Label */}
-                        {agentType ? (
-                          <button
-                            onClick={() => setSelectedAgent(agentType)}
-                            className={`text-sm font-medium ${textColor} hover:underline`}
-                          >
-                            {label}
-                          </button>
-                        ) : (
-                          <span className={`text-sm font-medium ${textColor}`}>
-                            {label}
-                          </span>
+                  <div className="p-3">
+                    <div className="flex items-start gap-3">
+                      {/* Agent Icon - 可点击查看详情 */}
+                      <button
+                        onClick={() =>
+                          msg.agentType && setSelectedAgent(msg.agentType)
+                        }
+                        disabled={!msg.agentType}
+                        className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${msg.agentBgColor} ${
+                          msg.agentType
+                            ? 'cursor-pointer transition-transform hover:scale-110'
+                            : 'cursor-default'
+                        }`}
+                        title={
+                          msg.agentType ? '点击查看 Agent 详情' : undefined
+                        }
+                      >
+                        <span className="text-sm">{msg.agentIcon}</span>
+                      </button>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          {msg.agentType ? (
+                            <button
+                              onClick={() => setSelectedAgent(msg.agentType!)}
+                              className={`text-sm font-medium ${msg.agentColor} hover:underline`}
+                            >
+                              {msg.agent}
+                            </button>
+                          ) : (
+                            <span
+                              className={`text-sm font-medium ${msg.agentColor}`}
+                            >
+                              {msg.agent}
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-400">{time}</span>
+                          {/* 进度指示器 */}
+                          {msg.progress !== undefined && msg.progress > 0 && (
+                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-600">
+                              {msg.progress}%
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-sm text-gray-700">
+                          {msg.content}
+                        </p>
+
+                        {/* ★ 进度条（如果有进度） */}
+                        {msg.progress !== undefined && msg.progress > 0 && (
+                          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                            <div
+                              className="h-full rounded-full bg-blue-500 transition-all duration-300"
+                              style={{ width: `${msg.progress}%` }}
+                            />
+                          </div>
                         )}
-                        <span className="text-xs text-gray-400">{time}</span>
                       </div>
-                      <p className="mt-1 text-sm text-gray-700">{message}</p>
+
+                      {/* ★ 详情展开按钮 */}
+                      {msg.detail && (
+                        <button
+                          onClick={() => toggleMessageExpand(msg.id)}
+                          className="flex-shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          title={isExpanded ? '收起详情' : '展开详情'}
+                        >
+                          <svg
+                            className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   </div>
+
+                  {/* ★ 可展开的详情内容（AI Writing 核心模式） */}
+                  {msg.detail && isExpanded && (
+                    <div className="border-t border-gray-100 bg-gray-50 p-3">
+                      {msg.detail.type === 'dimension_content' && (
+                        <DimensionContentPreview
+                          data={msg.detail.data as Record<string, unknown>}
+                        />
+                      )}
+                      {msg.detail.type === 'report_preview' && (
+                        <ReportPreview
+                          data={msg.detail.data as Record<string, unknown>}
+                        />
+                      )}
+                      {msg.detail.type === 'leader_plan' && (
+                        <LeaderPlanPreview
+                          data={msg.detail.data as Record<string, unknown>}
+                        />
+                      )}
+                      {msg.detail.type === 'text' && (
+                        <div className="whitespace-pre-wrap text-sm text-gray-600">
+                          {msg.detail.data as string}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
+            {/* 滚动锚点 */}
+            <div ref={messagesEndRef} />
           </div>
         )}
 
@@ -1931,6 +2152,163 @@ function LeaderInputSection({
       <p className="mt-1.5 text-xs text-gray-400">
         输入 @ 可提及 Leader，Enter 发送，Shift+Enter 换行
       </p>
+    </div>
+  );
+}
+
+// ==================== ★ AI Writing 风格：详情预览组件 ====================
+
+/**
+ * 维度研究内容预览
+ * 显示研究摘要和关键发现
+ */
+function DimensionContentPreview({ data }: { data: Record<string, unknown> }) {
+  const summary = (data.summary as string) || '';
+  const keyFindings = (data.keyFindings as string[]) || [];
+  const dimensionName = (data.dimensionName as string) || '';
+
+  return (
+    <div className="space-y-3">
+      {dimensionName && (
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🔍</span>
+          <span className="font-medium text-blue-700">{dimensionName}</span>
+        </div>
+      )}
+
+      {summary && (
+        <div>
+          <h5 className="mb-1 text-xs font-semibold text-gray-500">研究摘要</h5>
+          <p className="text-sm leading-relaxed text-gray-700">{summary}</p>
+        </div>
+      )}
+
+      {keyFindings.length > 0 && (
+        <div>
+          <h5 className="mb-2 text-xs font-semibold text-gray-500">关键发现</h5>
+          <ul className="space-y-1.5">
+            {keyFindings.slice(0, 5).map((finding, idx) => (
+              <li
+                key={idx}
+                className="flex items-start gap-2 text-sm text-gray-600"
+              >
+                <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />
+                <span>
+                  {typeof finding === 'string'
+                    ? finding
+                    : JSON.stringify(finding)}
+                </span>
+              </li>
+            ))}
+            {keyFindings.length > 5 && (
+              <li className="text-xs text-gray-400">
+                还有 {keyFindings.length - 5} 条发现...
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+
+      {!summary && keyFindings.length === 0 && (
+        <p className="text-sm text-gray-400">暂无详细内容</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 报告预览
+ * 显示报告标题和摘要
+ */
+function ReportPreview({ data }: { data: Record<string, unknown> }) {
+  const title = (data.title as string) || '';
+  const summary = (data.summary as string) || '';
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">📊</span>
+        <span className="font-medium text-orange-700">研究报告</span>
+      </div>
+
+      {title && (
+        <h4 className="text-base font-semibold text-gray-900">{title}</h4>
+      )}
+
+      {summary && (
+        <div>
+          <h5 className="mb-1 text-xs font-semibold text-gray-500">核心摘要</h5>
+          <p className="text-sm leading-relaxed text-gray-700">
+            {summary.slice(0, 300)}
+            {summary.length > 300 && '...'}
+          </p>
+        </div>
+      )}
+
+      {!title && !summary && (
+        <p className="text-sm text-gray-400">报告内容正在生成中...</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Leader 规划预览
+ * 显示规划的维度和策略
+ */
+function LeaderPlanPreview({ data }: { data: Record<string, unknown> }) {
+  const dimensions =
+    (data.dimensions as Array<{ name: string; description?: string }>) || [];
+  const strategy =
+    (data.strategy as string) || (data.researchStrategy as string) || '';
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">👑</span>
+        <span className="font-medium text-purple-700">Leader 研究规划</span>
+      </div>
+
+      {strategy && (
+        <div>
+          <h5 className="mb-1 text-xs font-semibold text-gray-500">研究策略</h5>
+          <p className="text-sm leading-relaxed text-gray-600">{strategy}</p>
+        </div>
+      )}
+
+      {dimensions.length > 0 && (
+        <div>
+          <h5 className="mb-2 text-xs font-semibold text-gray-500">
+            规划维度 ({dimensions.length})
+          </h5>
+          <div className="grid gap-2">
+            {dimensions.map((dim, idx) => (
+              <div
+                key={idx}
+                className="rounded-lg border border-purple-100 bg-purple-50 p-2"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-200 text-xs font-medium text-purple-700">
+                    {idx + 1}
+                  </span>
+                  <span className="font-medium text-purple-800">
+                    {dim.name}
+                  </span>
+                </div>
+                {dim.description && (
+                  <p className="mt-1 pl-7 text-xs text-purple-600">
+                    {dim.description}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!strategy && dimensions.length === 0 && (
+        <p className="text-sm text-gray-400">规划详情加载中...</p>
+      )}
     </div>
   );
 }
