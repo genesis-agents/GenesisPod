@@ -73,6 +73,8 @@ export function TextSelectionContextMenu({
   const [showAnnotationColors, setShowAnnotationColors] = useState(false);
   const [showAIMenu, setShowAIMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const annotationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const aiMenuTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handle context menu (right-click)
   const handleContextMenu = useCallback(
@@ -286,14 +288,25 @@ export function TextSelectionContextMenu({
 
         {/* Add Annotation */}
         {onAddAnnotation && (
-          <div className="relative">
-            <button
-              onClick={() => {
-                setShowAnnotationColors(!showAnnotationColors);
-                setShowAIMenu(false);
-              }}
-              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            >
+          <div
+            className="relative"
+            onMouseEnter={() => {
+              // Clear any pending close timeout
+              if (annotationTimeoutRef.current) {
+                clearTimeout(annotationTimeoutRef.current);
+                annotationTimeoutRef.current = null;
+              }
+              setShowAnnotationColors(true);
+              setShowAIMenu(false);
+            }}
+            onMouseLeave={() => {
+              // Delay closing to allow mouse to move to submenu
+              annotationTimeoutRef.current = setTimeout(() => {
+                setShowAnnotationColors(false);
+              }, 150);
+            }}
+          >
+            <button className="flex w-full items-center justify-between gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
               <div className="flex items-center gap-2">
                 <svg
                   className="h-4 w-4"
@@ -327,7 +340,20 @@ export function TextSelectionContextMenu({
 
             {/* Color picker submenu */}
             {showAnnotationColors && (
-              <div className="absolute left-full top-0 z-[1001] ml-1 min-w-[140px] rounded-lg border border-gray-200 bg-white py-2 shadow-lg">
+              <div
+                className="absolute left-full top-0 z-[1001] ml-1 min-w-[140px] rounded-lg border border-gray-200 bg-white py-2 shadow-lg"
+                onMouseEnter={() => {
+                  // Keep submenu open when mouse enters it
+                  if (annotationTimeoutRef.current) {
+                    clearTimeout(annotationTimeoutRef.current);
+                    annotationTimeoutRef.current = null;
+                  }
+                }}
+                onMouseLeave={() => {
+                  // Close when leaving submenu
+                  setShowAnnotationColors(false);
+                }}
+              >
                 <p className="px-3 pb-2 text-xs text-gray-400">选择高亮颜色</p>
                 <div className="flex gap-2 px-3">
                   {ANNOTATION_COLORS.map((item) => (
@@ -346,12 +372,25 @@ export function TextSelectionContextMenu({
 
         {/* AI Edit */}
         {onAIEdit && (
-          <div className="relative">
+          <div
+            className="relative"
+            onMouseEnter={() => {
+              // Clear any pending close timeout
+              if (aiMenuTimeoutRef.current) {
+                clearTimeout(aiMenuTimeoutRef.current);
+                aiMenuTimeoutRef.current = null;
+              }
+              setShowAIMenu(true);
+              setShowAnnotationColors(false);
+            }}
+            onMouseLeave={() => {
+              // Delay closing to allow mouse to move to submenu
+              aiMenuTimeoutRef.current = setTimeout(() => {
+                setShowAIMenu(false);
+              }, 150);
+            }}
+          >
             <button
-              onClick={() => {
-                setShowAIMenu(!showAIMenu);
-                setShowAnnotationColors(false);
-              }}
               disabled={isAIProcessing}
               className="flex w-full items-center justify-between gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
@@ -391,7 +430,20 @@ export function TextSelectionContextMenu({
 
             {/* AI operations submenu */}
             {showAIMenu && (
-              <div className="absolute left-full top-0 z-[1001] ml-1 min-w-[120px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+              <div
+                className="absolute left-full top-0 z-[1001] ml-1 min-w-[120px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                onMouseEnter={() => {
+                  // Keep submenu open when mouse enters it
+                  if (aiMenuTimeoutRef.current) {
+                    clearTimeout(aiMenuTimeoutRef.current);
+                    aiMenuTimeoutRef.current = null;
+                  }
+                }}
+                onMouseLeave={() => {
+                  // Close when leaving submenu
+                  setShowAIMenu(false);
+                }}
+              >
                 {AI_OPERATIONS.map((item) => (
                   <button
                     key={item.operation}

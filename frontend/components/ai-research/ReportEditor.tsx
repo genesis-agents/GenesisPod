@@ -314,15 +314,28 @@ export function ReportEditor({
       parts.push(`# ${report.title}\n`);
     }
 
+    // Helper to check if content is just a placeholder
+    const isPlaceholder = (text: string | undefined | null): boolean => {
+      if (!text) return true;
+      const trimmed = text.trim();
+      // Only filter if content is EXACTLY a placeholder or very short
+      return (
+        trimmed === '请查看详细内容' ||
+        trimmed === '详细内容待生成' ||
+        trimmed === '...' ||
+        trimmed.length < 5
+      );
+    };
+
     // Summary - filter placeholder
-    if (report.summary && !report.summary.includes('请查看详细内容')) {
+    if (report.summary && !isPlaceholder(report.summary)) {
       parts.push(`## 摘要\n\n${report.summary}\n`);
     }
 
     // Highlights - filter placeholders (关键发现/核心洞察)
     if (report.highlights && report.highlights.length > 0) {
       const validHighlights = report.highlights.filter(
-        (h) => h.content && !h.content.includes('请查看详细内容')
+        (h) => h.content && !isPlaceholder(h.content)
       );
       if (validHighlights.length > 0) {
         parts.push(`## 关键发现\n\n`);
@@ -339,13 +352,13 @@ export function ReportEditor({
         const dimName = analysis.dimension?.name || `维度 ${idx + 1}`;
         parts.push(`## ${dimName}\n`);
 
-        if (analysis.summary && !analysis.summary.includes('请查看详细内容')) {
+        if (analysis.summary && !isPlaceholder(analysis.summary)) {
           parts.push(`${analysis.summary}\n`);
         }
 
         if (analysis.keyFindings && analysis.keyFindings.length > 0) {
           const validFindings = analysis.keyFindings.filter(
-            (f) => f.finding && !f.finding.includes('请查看详细内容')
+            (f) => f.finding && !isPlaceholder(f.finding)
           );
           if (validFindings.length > 0) {
             parts.push(`### 关键发现\n\n`);
@@ -399,7 +412,7 @@ export function ReportEditor({
 
         if (
           analysis.detailedContent &&
-          !analysis.detailedContent.includes('请查看详细内容')
+          !isPlaceholder(analysis.detailedContent)
         ) {
           parts.push(`\n${analysis.detailedContent}\n`);
         }

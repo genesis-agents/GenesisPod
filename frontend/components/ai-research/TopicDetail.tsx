@@ -23,6 +23,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
   const {
     dimensions,
     currentReport,
+    reports,
     evidence,
     isRefreshing,
     refreshProgress,
@@ -34,6 +35,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     isLoadingEvidence,
     fetchDimensions,
     fetchLatestReport,
+    fetchReports,
     fetchEvidence,
     fetchMissionStatus,
     fetchTeamInfo,
@@ -55,6 +57,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
   useEffect(() => {
     fetchDimensions(topic.id);
     fetchLatestReport(topic.id);
+    fetchReports(topic.id); // Load all report versions for version history
     fetchMissionStatus(topic.id);
     fetchTeamInfo(topic.id);
     fetchTeamData(topic.id); // Load persisted team messages and agent activities
@@ -62,6 +65,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     topic.id,
     fetchDimensions,
     fetchLatestReport,
+    fetchReports,
     fetchMissionStatus,
     fetchTeamInfo,
     fetchTeamData,
@@ -123,12 +127,23 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     [topic.id, sendLeaderInstruction]
   );
 
+  // Convert reports to revisions format (exclude current report)
+  const revisions = reports
+    .filter((r) => r.id !== currentReport?.id)
+    .map((r) => ({
+      id: r.id,
+      version: r.version,
+      createdAt: r.generatedAt ? new Date(r.generatedAt) : new Date(),
+      summary: r.title || `版本 ${r.version}`,
+    }));
+
   return (
     <TopicResearchLayout
       topic={topic}
       dimensions={dimensions}
       report={currentReport}
       evidence={evidence}
+      revisions={revisions}
       isRefreshing={isRefreshing}
       refreshProgress={refreshProgress}
       missionStatus={missionStatus}

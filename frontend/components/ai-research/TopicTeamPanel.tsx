@@ -53,6 +53,30 @@ const AGENT_DISPLAY: Record<
   synthesizer: { name: '撰写者', icon: '📝', color: 'orange' },
 };
 
+// Agent 角色详细信息
+const AGENT_ROLE_INFO: Record<
+  ResearchAgentRole,
+  { description: string; skills: string[] }
+> = {
+  leader: {
+    description:
+      '负责规划研究大纲、分配任务给研究员、审核研究质量、整合最终结果',
+    skills: ['大纲规划', '任务分配', '质量审核', '结果整合'],
+  },
+  researcher: {
+    description: '负责深入研究特定维度，收集证据，撰写分析内容',
+    skills: ['资料收集', '深度分析', '证据引用', '内容撰写'],
+  },
+  reviewer: {
+    description: '负责审核研究内容的准确性、完整性和一致性',
+    skills: ['质量检查', '一致性审核', '准确性验证'],
+  },
+  synthesizer: {
+    description: '负责整合各维度研究结果，撰写最终综合报告',
+    skills: ['报告整合', '内容润色', '格式规范'],
+  },
+};
+
 // Phase display mapping
 const phaseDisplay: Record<string, string> = {
   idle: '待研究',
@@ -91,6 +115,7 @@ export function TopicTeamPanel({
   onCancelRefresh,
 }: TopicTeamPanelProps) {
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   // 从 missionStatus 构建 agents
   const { agents, tasksByStatus, stats } = useMemo(() => {
@@ -265,6 +290,8 @@ export function TopicTeamPanel({
           isRefreshing={isRefreshing}
           hoveredAgent={hoveredAgent}
           onHover={setHoveredAgent}
+          selectedAgent={selectedAgent}
+          onSelect={setSelectedAgent}
         />
       </div>
 
@@ -359,12 +386,16 @@ function TeamCanvasView({
   isRefreshing,
   hoveredAgent,
   onHover,
+  selectedAgent,
+  onSelect,
 }: {
   agents: ResearchAgent[];
   currentPhase: string;
   isRefreshing: boolean;
   hoveredAgent: string | null;
   onHover: (id: string | null) => void;
+  selectedAgent: string | null;
+  onSelect: (id: string | null) => void;
 }) {
   const canvasSize = { width: 320, height: 200 };
 
@@ -509,6 +540,7 @@ function TeamCanvasView({
           transform={`translate(${pos.x}, ${pos.y})`}
           onMouseEnter={() => onHover(agent.id)}
           onMouseLeave={() => onHover(null)}
+          onClick={() => onSelect(agent.id)}
           style={{ cursor: 'pointer' }}
         >
           {/* 工作中光晕 */}
@@ -685,6 +717,116 @@ function TeamCanvasView({
                 )}
               </div>
             </div>
+          );
+        })()}
+
+      {/* Agent 详情弹窗 */}
+      {selectedAgent &&
+        (() => {
+          const agent = agents.find((a) => a.id === selectedAgent);
+          if (!agent) return null;
+
+          const display = AGENT_DISPLAY[agent.role];
+          const roleInfo = AGENT_ROLE_INFO[agent.role];
+
+          return (
+            <>
+              {/* 背景遮罩 */}
+              <div
+                className="absolute inset-0 z-20 bg-black/10"
+                onClick={() => onSelect(null)}
+              />
+              {/* 详情卡片 */}
+              <div className="absolute left-1/2 top-1/2 z-30 w-[260px] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white p-4 shadow-xl">
+                {/* 头部 */}
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">{display.icon}</span>
+                    <div>
+                      <div className="font-semibold text-gray-800">
+                        {agent.name}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {display.name}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onSelect(null)}
+                    className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* 状态 */}
+                <div className="mb-3 flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      agent.status === 'working'
+                        ? 'bg-blue-100 text-blue-700'
+                        : agent.status === 'completed'
+                          ? 'bg-green-100 text-green-700'
+                          : agent.status === 'error'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {agent.status === 'working'
+                      ? '工作中'
+                      : agent.status === 'completed'
+                        ? '已完成'
+                        : agent.status === 'error'
+                          ? '出错'
+                          : '空闲'}
+                  </span>
+                  {agent.taskCount > 0 && (
+                    <span className="text-xs text-gray-500">
+                      任务: {agent.completedCount}/{agent.taskCount}
+                    </span>
+                  )}
+                </div>
+
+                {/* 职责描述 */}
+                <div className="mb-3">
+                  <div className="mb-1 text-xs font-medium text-gray-500">
+                    职责
+                  </div>
+                  <p className="text-sm text-gray-700">
+                    {roleInfo.description}
+                  </p>
+                </div>
+
+                {/* 技能列表 */}
+                <div>
+                  <div className="mb-1.5 text-xs font-medium text-gray-500">
+                    能力
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {roleInfo.skills.map((skill, i) => (
+                      <span
+                        key={i}
+                        className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
           );
         })()}
     </div>

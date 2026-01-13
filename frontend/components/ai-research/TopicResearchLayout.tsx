@@ -38,11 +38,20 @@ interface WsEvent {
   timestamp: string;
 }
 
+// Report revision for version history
+interface ReportRevision {
+  id: string;
+  version: number;
+  createdAt: Date;
+  summary?: string;
+}
+
 interface TopicResearchLayoutProps {
   topic: ResearchTopic;
   dimensions: TopicDimension[];
   report: TopicReport | null;
   evidence: TopicEvidence[];
+  revisions?: ReportRevision[];
   isRefreshing: boolean;
   refreshProgress: SimpleRefreshProgress | null;
   missionStatus?: MissionStatus | null;
@@ -54,6 +63,7 @@ interface TopicResearchLayoutProps {
   onExportReport: (format: 'pdf' | 'docx') => void;
   onBack: () => void;
   onSendLeaderInstruction?: (instruction: string) => void;
+  onRollbackVersion?: (revisionId: string) => void;
   // WebSocket 实时事件
   wsEvents?: WsEvent[];
   wsConnected?: boolean;
@@ -143,6 +153,7 @@ export function TopicResearchLayout({
   dimensions,
   report,
   evidence,
+  revisions = [],
   isRefreshing,
   refreshProgress,
   missionStatus,
@@ -154,6 +165,7 @@ export function TopicResearchLayout({
   onExportReport,
   onBack,
   onSendLeaderInstruction,
+  onRollbackVersion,
   wsEvents,
   wsConnected,
   onClearWsEvents,
@@ -302,9 +314,11 @@ export function TopicResearchLayout({
             report={report}
             dimensions={dimensions}
             evidence={evidence}
+            revisions={revisions}
             isLoadingReport={isLoadingReport}
             isLoadingEvidence={isLoadingEvidence}
             onExportReport={handleExport}
+            onRollbackVersion={onRollbackVersion}
             onSendLeaderInstruction={onSendLeaderInstruction}
             isRefreshing={isRefreshing}
             wsEvents={wsEvents}
