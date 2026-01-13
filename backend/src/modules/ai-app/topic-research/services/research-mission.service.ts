@@ -178,12 +178,43 @@ export class ResearchMissionService {
       totalTasks: 0,
     });
 
+    // ★ 发送 Leader 思考事件：理解任务
+    await this.researchEventEmitter.emitLeaderThinking(topicId, {
+      missionId: mission.id,
+      phase: "understanding",
+      content: `正在理解研究主题「${topic.name}」的需求...`,
+      progress: 10,
+    });
+
     // 6. 调用 Leader 生成规划
     try {
+      // ★ 发送 Leader 思考事件：分析
+      await this.researchEventEmitter.emitLeaderThinking(topicId, {
+        missionId: mission.id,
+        phase: "analyzing",
+        content: "正在分析研究范围和关键维度...",
+        progress: 20,
+      });
+
+      // ★ 发送 Leader 规划中事件
+      await this.researchEventEmitter.emitLeaderPlanning(
+        topicId,
+        mission.id,
+        "Leader 正在制定研究计划，确定研究维度和任务分配...",
+      );
+
       const leaderPlan = await this.leaderService.planResearch(
         topicId,
         userPrompt,
       );
+
+      // ★ 发送 Leader 思考事件：规划完成
+      await this.researchEventEmitter.emitLeaderThinking(topicId, {
+        missionId: mission.id,
+        phase: "planning",
+        content: `已规划 ${leaderPlan.dimensions.length} 个研究维度：${leaderPlan.dimensions.map((d) => d.name).join("、")}`,
+        progress: 40,
+      });
 
       // 7. 记录 Leader 决策
       await this.prisma.leaderDecision.create({
@@ -196,11 +227,27 @@ export class ResearchMissionService {
         },
       });
 
+      // ★ 发送 Leader 思考事件：分配任务
+      await this.researchEventEmitter.emitLeaderThinking(topicId, {
+        missionId: mission.id,
+        phase: "assigning",
+        content: `正在分配 ${leaderPlan.agentAssignments.length} 个研究员执行任务...`,
+        progress: 50,
+      });
+
       // 8. 将 Leader 规划的维度同步到数据库，并创建任务
       const tasks = await this.createTasksFromPlan(
         mission.id,
         topicId,
         leaderPlan,
+      );
+
+      // ★ 发送 Leader 规划完成事件
+      await this.researchEventEmitter.emitLeaderPlanReady(
+        topicId,
+        mission.id,
+        leaderPlan.dimensions.length,
+        leaderPlan.agentAssignments.length,
       );
 
       // 9. 更新 Mission
@@ -297,11 +344,14 @@ export class ResearchMissionService {
             description: plannedDim.description,
             sortOrder: sortOrder++,
             status: "PENDING",
+            // ★ 保存 Leader 规划的搜索配置
+            searchQueries: plannedDim.searchQueries || [],
+            searchSources: plannedDim.dataSources || ["web"],
           },
         });
         dimensionIdMap.set(plannedDim.id, newDim.id);
         this.logger.log(
-          `[createTasksFromPlan] Created dimension: ${plannedDim.name} (${newDim.id})`,
+          `[createTasksFromPlan] Created dimension: ${plannedDim.name} (${newDim.id}) with sources: ${(plannedDim.dataSources || ["web"]).join(", ")}`,
         );
       }
     }
@@ -839,6 +889,40 @@ export class ResearchMissionService {
   }
 
   /**
+   * 根据任务类型获取 Agent 角色（用于事件发送）
+   */
+  private getAgentRoleFromTaskType(
+    taskType: string,
+  ): "leader" | "researcher" | "reviewer" | "synthesizer" {
+    switch (taskType) {
+      case "dimension_research":
+        return "researcher";
+      case "quality_review":
+        return "reviewer";
+      case "report_synthesis":
+        return "synthesizer";
+      default:
+        return "researcher";
+    }
+  }
+
+  /**
+   * 根据任务类型获取 Agent 名称（用于事件发送）
+   */
+  private getAgentNameFromTaskType(taskType: string): string {
+    switch (taskType) {
+      case "dimension_research":
+        return "研究员";
+      case "quality_review":
+        return "质量审核员";
+      case "report_synthesis":
+        return "报告撰写员";
+      default:
+        return "研究员";
+    }
+  }
+
+  /**
    * 获取阶段名称
    */
   private getPhaseFromStatus(status: ResearchMissionStatus): string {
@@ -983,27 +1067,48 @@ export class ResearchMissionService {
   ): Promise<void> {
     this.logger.log(`[executeTask] Executing task: ${task.title} (${task.id})`);
 
+    // 确定 Agent 角色
+    const agentRole = this.getAgentRoleFromTaskType(task.taskType);
+    const agentName = this.getAgentNameFromTaskType(task.taskType);
+
     try {
       // 更新任务状态为执行中
       await this.updateTaskStatus(task.id, ResearchTaskStatus.EXECUTING);
 
-      // 发送进度事件
-      this.emitProgress({
-        missionId,
-        topicId: topic.id,
-        status: ResearchMissionStatus.EXECUTING,
+      // ★ 发送任务开始事件
+      await this.researchEventEmitter.emitTaskStarted(topic.id, {
+        taskId: task.id,
+        taskType: task.taskType,
+        title: task.title,
+        dimensionName: task.dimensionName ?? undefined,
+        status: "executing",
         progress: 0,
-        phase: "executing",
-        message: `正在执行: ${task.title}`,
-        currentTask: task.title,
-        completedTasks: 0,
-        totalTasks: 0,
+        message: `开始执行: ${task.title}`,
+      });
+
+      // ★ 发送 Agent 工作状态事件
+      await this.researchEventEmitter.emitAgentWorking(topic.id, {
+        agentId: task.assignedAgent,
+        agentName,
+        agentRole,
+        status: "working",
+        taskDescription: task.title,
+        dimensionName: task.dimensionName ?? undefined,
+        progress: 0,
       });
 
       let result: any;
 
       switch (task.taskType) {
         case "dimension_research": {
+          // ★ 发送维度研究开始事件
+          const dimensionName = task.dimensionName || task.title;
+          await this.researchEventEmitter.emitDimensionResearchStarted(
+            topic.id,
+            dimensionName,
+            agentName,
+          );
+
           // ★ 优先使用 dimensionId 查找（更可靠）
           let dimension = task.dimensionId
             ? topic.dimensions?.find((d: any) => d.id === task.dimensionId)
@@ -1020,6 +1125,15 @@ export class ResearchMissionService {
             this.logger.log(
               `[executeTask] Found dimension: ${dimension.name} (${dimension.id})`,
             );
+
+            // ★ 发送进度事件：正在采集数据
+            await this.researchEventEmitter.emitDimensionResearchProgress(
+              topic.id,
+              dimensionName,
+              30,
+              "正在采集相关数据...",
+            );
+
             const researchResult =
               await this.dimensionResearchService.researchDimension(
                 topic,
@@ -1027,17 +1141,43 @@ export class ResearchMissionService {
                 undefined, // reportId - 暂时不关联报告
               );
             result = researchResult.analysisResult;
+
+            // ★ 发送维度研究完成事件
+            await this.researchEventEmitter.emitDimensionResearchCompleted(
+              topic.id,
+              dimensionName,
+              result.keyFindings?.length || 0,
+              result.detailedContent?.length || 0,
+            );
           } else {
             // 如果没有找到维度，创建新维度进行研究
             this.logger.warn(
               `[executeTask] Dimension not found for task ${task.id}, creating new one`,
             );
             result = await this.executeGenericDimensionResearch(task, topic);
+
+            // ★ 发送维度研究完成事件
+            await this.researchEventEmitter.emitDimensionResearchCompleted(
+              topic.id,
+              dimensionName,
+              result.keyFindings?.length || 0,
+              result.detailedContent?.length || 0,
+            );
           }
           break;
         }
 
         case "quality_review": {
+          // ★ 发送审核开始提示
+          await this.researchEventEmitter.emitAgentWorking(topic.id, {
+            agentId: task.assignedAgent,
+            agentName: "质量审核员",
+            agentRole: "reviewer",
+            status: "working",
+            taskDescription: "正在审核所有维度研究结果的质量...",
+            progress: 50,
+          });
+
           // 获取所有已完成的维度研究结果
           const completedTasks = await this.prisma.researchTask.findMany({
             where: {
@@ -1050,18 +1190,68 @@ export class ResearchMissionService {
           result = {
             reviewedTasks: completedTasks.length,
             status: "approved",
-            feedback: "所有维度研究已完成质量审核",
+            feedback: `已审核 ${completedTasks.length} 个维度研究结果，质量合格`,
           };
           break;
         }
 
         case "report_synthesis": {
-          // 创建报告草稿并合成最终报告
+          // ★ 发送报告撰写开始事件
+          await this.researchEventEmitter.emitReportSynthesisStarted(topic.id);
+
+          // 创建报告草稿
           const draftReport =
             await this.reportSynthesisService.createDraftReport(topic.id);
+
+          // ★ 收集所有维度研究结果并保存到 DimensionAnalysis 表
+          const dimensionTasks = await this.prisma.researchTask.findMany({
+            where: {
+              missionId,
+              taskType: "dimension_research",
+              status: ResearchTaskStatus.COMPLETED,
+            },
+          });
+
+          for (const dimTask of dimensionTasks) {
+            if (dimTask.result && dimTask.dimensionId) {
+              const taskResult = dimTask.result as any;
+              try {
+                await this.reportSynthesisService.saveDimensionAnalysis(
+                  draftReport.id,
+                  dimTask.dimensionId,
+                  {
+                    summary: taskResult.summary || "无摘要",
+                    keyFindings: taskResult.keyFindings || [],
+                    trends: taskResult.trends || [],
+                    challenges: taskResult.challenges || [],
+                    opportunities: taskResult.opportunities || [],
+                    evidenceUsed: taskResult.evidenceUsed || 0,
+                    confidenceLevel: taskResult.confidenceLevel || "medium",
+                    detailedContent: taskResult.detailedContent || "",
+                  },
+                );
+                this.logger.log(
+                  `[report_synthesis] Saved dimension analysis for ${dimTask.dimensionName}`,
+                );
+              } catch (err) {
+                this.logger.warn(
+                  `[report_synthesis] Failed to save dimension analysis for ${dimTask.dimensionName}: ${err}`,
+                );
+              }
+            }
+          }
+
+          // 合成最终报告
           result = await this.reportSynthesisService.synthesizeReport(
             topic,
             draftReport.id,
+          );
+
+          // ★ 发送报告撰写完成事件
+          await this.researchEventEmitter.emitReportSynthesisCompleted(
+            topic.id,
+            result?.chapters?.length || 0,
+            JSON.stringify(result).length,
           );
           break;
         }
@@ -1072,6 +1262,25 @@ export class ResearchMissionService {
             message: `任务类型 ${task.taskType} 已处理`,
           };
       }
+
+      // ★ 发送 Agent 完成事件
+      await this.researchEventEmitter.emitAgentCompleted(
+        topic.id,
+        task.assignedAgent,
+        agentName,
+        `${task.title} 完成`,
+      );
+
+      // ★ 发送任务完成事件
+      await this.researchEventEmitter.emitTaskCompleted(topic.id, {
+        taskId: task.id,
+        taskType: task.taskType,
+        title: task.title,
+        dimensionName: task.dimensionName ?? undefined,
+        status: "completed",
+        progress: 100,
+        message: `完成: ${task.title}`,
+      });
 
       // 更新任务状态为完成
       await this.updateTaskStatus(
@@ -1130,6 +1339,9 @@ export class ResearchMissionService {
         description: task.description || `研究维度: ${dimensionName}`,
         sortOrder,
         status: "PENDING",
+        // ★ 设置默认搜索配置
+        searchQueries: [dimensionName],
+        searchSources: ["web"],
       },
     });
 
