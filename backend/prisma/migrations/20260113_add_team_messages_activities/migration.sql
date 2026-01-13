@@ -4,32 +4,28 @@
 
 -- ==================== ENUMS ====================
 
--- 研究消息类型
+-- 研究消息类型（匹配 Prisma schema）
 DO $$ BEGIN
     CREATE TYPE "ResearchMessageType" AS ENUM (
-        'SYSTEM_STATUS',      -- 系统状态更新
-        'LEADER_PLAN',        -- Leader 规划
-        'LEADER_DECISION',    -- Leader 决策
-        'AGENT_PROGRESS',     -- Agent 进度
-        'DIMENSION_COMPLETE', -- 维度完成
-        'USER_INSTRUCTION',   -- 用户指令
-        'RESEARCH_COMPLETE',  -- 研究完成
-        'ERROR'               -- 错误消息
+        'LEADER_RESPONSE',   -- Leader 回复
+        'USER_MESSAGE',      -- 用户消息
+        'SYSTEM_MESSAGE',    -- 系统消息
+        'AGENT_REPORT'       -- Agent 汇报
     );
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- Agent 活动类型
+-- Agent 活动类型（匹配 Prisma schema）
 DO $$ BEGIN
     CREATE TYPE "AgentActivityType" AS ENUM (
         'THINKING',    -- 思考中
-        'ANALYZING',   -- 分析中
+        'PLANNING',    -- 规划中
+        'RESEARCHING', -- 研究中
         'WRITING',     -- 撰写中
         'REVIEWING',   -- 审核中
         'COMPLETED',   -- 完成
-        'WAITING',     -- 等待中
-        'ERROR'        -- 错误
+        'FAILED'       -- 失败
     );
 EXCEPTION
     WHEN duplicate_object THEN null;

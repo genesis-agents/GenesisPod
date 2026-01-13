@@ -128,6 +128,49 @@ const AIIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+// View mode type (consistent with continuous view)
+type ViewMode = 'preview' | 'edit' | 'source';
+
+// Eye icon for preview mode
+const EyeIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+    />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+    />
+  </svg>
+);
+
+// Code icon for source view
+const CodeIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+    />
+  </svg>
+);
+
 export function ChapterizedReportView({
   report,
   dimensions,
@@ -137,7 +180,7 @@ export function ChapterizedReportView({
   onAIEditChapter,
 }: ChapterizedReportViewProps) {
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const [editContent, setEditContent] = useState('');
 
   // Convert evidence to SourceReference format for citation linking
@@ -259,19 +302,14 @@ export function ChapterizedReportView({
   const openChapter = useCallback((chapter: Chapter) => {
     setSelectedChapter(chapter);
     setEditContent(chapter.content);
-    setIsEditing(false);
+    setViewMode('preview');
   }, []);
 
   // Close chapter panel
   const closeChapter = useCallback(() => {
     setSelectedChapter(null);
-    setIsEditing(false);
+    setViewMode('preview');
     setEditContent('');
-  }, []);
-
-  // Start editing
-  const startEditing = useCallback(() => {
-    setIsEditing(true);
   }, []);
 
   // Save edit
@@ -279,15 +317,15 @@ export function ChapterizedReportView({
     if (selectedChapter && onEditChapter) {
       onEditChapter(selectedChapter.id, editContent);
     }
-    setIsEditing(false);
+    setViewMode('preview');
   }, [selectedChapter, editContent, onEditChapter]);
 
-  // Cancel editing
+  // Cancel editing (reset content and return to preview)
   const cancelEdit = useCallback(() => {
     if (selectedChapter) {
       setEditContent(selectedChapter.content);
     }
-    setIsEditing(false);
+    setViewMode('preview');
   }, [selectedChapter]);
 
   // Calculate stats
@@ -360,28 +398,44 @@ export function ChapterizedReportView({
           </div>
 
           <div className="flex items-center gap-2">
-            {!isEditing ? (
-              <>
-                <button
-                  onClick={startEditing}
-                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                  <EditIcon className="h-4 w-4" />
-                  编辑
-                </button>
-                {onAIEditChapter && (
-                  <button
-                    onClick={() =>
-                      onAIEditChapter(selectedChapter.id, 'polish')
-                    }
-                    className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100"
-                  >
-                    <AIIcon className="h-4 w-4" />
-                    AI 润色
-                  </button>
-                )}
-              </>
-            ) : (
+            {/* View Mode Switcher - consistent with continuous view */}
+            <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+              <button
+                onClick={() => setViewMode('preview')}
+                className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  viewMode === 'preview'
+                    ? 'bg-white font-medium text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <EyeIcon className="h-4 w-4" />
+                预览
+              </button>
+              <button
+                onClick={() => setViewMode('edit')}
+                className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  viewMode === 'edit'
+                    ? 'bg-white font-medium text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <EditIcon className="h-4 w-4" />
+                编辑
+              </button>
+              <button
+                onClick={() => setViewMode('source')}
+                className={`flex items-center gap-1 rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  viewMode === 'source'
+                    ? 'bg-white font-medium text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <CodeIcon className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Save/Cancel buttons when editing */}
+            {viewMode === 'edit' && (
               <>
                 <button
                   onClick={cancelEdit}
@@ -402,13 +456,17 @@ export function ChapterizedReportView({
 
         {/* Chapter Content - Full Screen */}
         <div className="flex-1 overflow-auto p-6">
-          {isEditing ? (
+          {viewMode === 'edit' ? (
             <textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
               className="font-mono h-full w-full resize-none rounded-lg border border-gray-300 p-4 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               placeholder="编辑章节内容..."
             />
+          ) : viewMode === 'source' ? (
+            <pre className="h-full w-full overflow-auto rounded-lg bg-gray-900 p-4 text-sm text-gray-100">
+              <code>{selectedChapter.content || '暂无内容'}</code>
+            </pre>
           ) : sources.length > 0 ? (
             <CitedMarkdown
               content={selectedChapter.content || '暂无内容'}
