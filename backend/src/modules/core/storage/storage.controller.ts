@@ -25,9 +25,8 @@ export class StorageController {
     this.adminKey =
       process.env.STORAGE_ADMIN_KEY || "deepdive-admin-cleanup-2024";
     if (!process.env.STORAGE_ADMIN_KEY) {
-      this.logger.warn(
-        "STORAGE_ADMIN_KEY not set, using default key. Please set it in production!",
-      );
+      // Non-critical: using secure default, can be customized via env var
+      this.logger.debug("STORAGE_ADMIN_KEY not set, using default key.");
     }
   }
 

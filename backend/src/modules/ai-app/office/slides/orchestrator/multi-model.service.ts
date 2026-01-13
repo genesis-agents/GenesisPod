@@ -54,7 +54,8 @@ export class MultiModelService {
   private readonly logger = new Logger(MultiModelService.name);
 
   constructor(private readonly llmFactory: LLMFactory) {
-    this.logger.warn(
+    // Note: This service is deprecated, will be removed in future version
+    this.logger.debug(
       "MultiModelService is deprecated. Please use LLMFactory instead.",
     );
   }

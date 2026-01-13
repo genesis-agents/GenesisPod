@@ -267,7 +267,8 @@ export class ImageFetcherSkill
       "UNSPLASH_ACCESS_KEY",
     );
     if (!this.unsplashAccessKey) {
-      this.logger.warn(
+      // Non-critical: gracefully falls back to default images
+      this.logger.debug(
         "[ImageFetcherSkill] UNSPLASH_ACCESS_KEY not configured, using fallback images",
       );
     }

@@ -479,6 +479,32 @@ ${request.issues.map((issue, i) => `${i + 1}. ${issue}`).join("\n")}
   }
 
   /**
+   * Map temperature to creativity level
+   */
+  private mapTemperatureToCreativity(
+    temp: number,
+  ): "deterministic" | "low" | "medium" | "high" {
+    if (temp <= 0.2) return "deterministic";
+    if (temp <= 0.3) return "low";
+    if (temp <= 0.7) return "medium";
+    return "high";
+  }
+
+  /**
+   * Map maxTokens to output length
+   */
+  private mapMaxTokensToOutputLength(
+    tokens: number,
+  ): "minimal" | "short" | "medium" | "standard" | "long" | "extended" {
+    if (tokens <= 1000) return "minimal";
+    if (tokens <= 2000) return "short";
+    if (tokens <= 4000) return "medium";
+    if (tokens <= 6000) return "standard";
+    if (tokens <= 8000) return "long";
+    return "extended";
+  }
+
+  /**
    * 获取模型配置
    */
   private async getModelConfig(aiModel: string) {
@@ -511,6 +537,12 @@ ${request.issues.map((issue, i) => `${i + 1}. ${issue}`).join("\n")}
     },
     modelConfig: Awaited<ReturnType<typeof this.getModelConfig>>,
   ): Promise<{ content: string; tokensUsed: number }> {
+    // Map legacy options to taskProfile
+    const taskProfile = {
+      creativity: this.mapTemperatureToCreativity(options.temperature ?? 0.7),
+      outputLength: this.mapMaxTokensToOutputLength(options.maxTokens || 4000),
+    };
+
     let result;
     if (modelConfig?.apiKey) {
       result = await this.aiChatService.chat({
@@ -520,8 +552,7 @@ ${request.issues.map((issue, i) => `${i + 1}. ${issue}`).join("\n")}
           { role: "system", content: systemPrompt },
           ...messages,
         ] as Array<{ role: "system" | "user" | "assistant"; content: string }>,
-        maxTokens: options.maxTokens || 4000,
-        temperature: options.temperature ?? 0.7,
+        taskProfile,
         apiKey: modelConfig.apiKey,
         apiEndpoint: modelConfig.apiEndpoint || undefined,
       });
@@ -532,8 +563,7 @@ ${request.issues.map((issue, i) => `${i + 1}. ${issue}`).join("\n")}
           { role: "system", content: systemPrompt },
           ...messages,
         ] as Array<{ role: "system" | "user" | "assistant"; content: string }>,
-        maxTokens: options.maxTokens || 4000,
-        temperature: options.temperature ?? 0.7,
+        taskProfile,
       });
     }
 
