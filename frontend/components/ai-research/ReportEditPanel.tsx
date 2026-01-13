@@ -21,8 +21,8 @@ import { ReportAnnotations } from './ReportAnnotations';
 import type { TopicReport, TopicEvidence } from '@/types/topic-research';
 import type { AIEditOperation, TextSelection } from './types';
 
-// View modes
-type ViewMode = 'preview' | 'edit' | 'split';
+// View modes - removed split mode (space is limited)
+type ViewMode = 'preview' | 'edit';
 
 // Side panel types
 type SidePanelType = null | 'history' | 'annotations';
@@ -209,11 +209,6 @@ export function ReportEditPanel({
         e.preventDefault();
         setViewMode('edit');
       }
-      // Ctrl+3: Split mode
-      else if (e.ctrlKey && e.key === '3') {
-        e.preventDefault();
-        setViewMode('split');
-      }
       // Ctrl+H: History panel
       else if (e.ctrlKey && e.key === 'h') {
         e.preventDefault();
@@ -227,11 +222,7 @@ export function ReportEditPanel({
         );
       }
       // Ctrl+S: Save (if in edit mode)
-      else if (
-        e.ctrlKey &&
-        e.key === 's' &&
-        (viewMode === 'edit' || viewMode === 'split')
-      ) {
+      else if (e.ctrlKey && e.key === 's' && viewMode === 'edit') {
         e.preventDefault();
         handleSave();
       }
@@ -369,7 +360,7 @@ export function ReportEditPanel({
           <div className="mx-1 h-6 w-px bg-gray-300" />
 
           {/* Save button (only in edit mode) */}
-          {(viewMode === 'edit' || viewMode === 'split') && onSave && (
+          {viewMode === 'edit' && onSave && (
             <button
               onClick={handleSave}
               disabled={isSaving}
@@ -484,7 +475,7 @@ export function ReportEditPanel({
           </div>
           <div className="flex items-center gap-4">
             <span>
-              快捷键: Ctrl+1/2/3 切换模式 | Ctrl+H 历史 | Ctrl+M 批注 | Ctrl+S
+              快捷键: Ctrl+1/2 切换模式 | Ctrl+H 历史 | Ctrl+M 批注 | Ctrl+S
               保存
             </span>
           </div>

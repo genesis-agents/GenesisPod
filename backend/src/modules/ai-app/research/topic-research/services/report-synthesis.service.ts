@@ -437,17 +437,27 @@ export class ReportSynthesisService {
 
   /**
    * 创建后备报告（当 AI 响应解析失败时）
+   * ★ 改进：尝试从原始内容中提取有意义的观点
    */
   private createFallbackReport(content: string): ComprehensiveReport {
+    // 尝试从内容中提取关键观点
+    const coreViewpoints = this.extractViewpointsFromContent(content);
+
+    // 尝试提取第一段作为摘要
+    const summaryMatch = content.match(/^[^。！？\n]+[。！？]/);
+    const executiveSummary = summaryMatch
+      ? summaryMatch[0]
+      : content.slice(0, 500);
+
     return {
-      preface: "报告生成过程中遇到技术问题，以下是原始内容。",
+      preface: "",
       tableOfContents: "",
-      executiveSummary: content.slice(0, 2000),
+      executiveSummary,
       sections: [
         {
           sectionNumber: "1",
           title: "研究内容",
-          coreViewpoints: ["请查看详细内容"],
+          coreViewpoints: coreViewpoints.length > 0 ? coreViewpoints : [], // 不再使用占位符
           content: content,
           keyData: [],
           figureReferences: [],
@@ -463,6 +473,40 @@ export class ReportSynthesisService {
         generatedAt: new Date().toISOString(),
       },
     };
+  }
+
+  /**
+   * 从内容中提取关键观点
+   */
+  private extractViewpointsFromContent(content: string): string[] {
+    const viewpoints: string[] = [];
+
+    // 尝试提取以数字开头的要点
+    const numberedPoints = content.match(
+      /(?:^|\n)\d+[.、）]\s*([^。\n]+[。])/g,
+    );
+    if (numberedPoints) {
+      numberedPoints.slice(0, 5).forEach((point) => {
+        const cleaned = point.replace(/^[\n\d.、）\s]+/, "").trim();
+        if (cleaned.length > 10 && cleaned.length < 200) {
+          viewpoints.push(cleaned);
+        }
+      });
+    }
+
+    // 如果没有找到，尝试提取以"关键"、"核心"、"重点"等开头的句子
+    if (viewpoints.length === 0) {
+      const keyPhrases = content.match(
+        /(?:关键|核心|重点|发现|结论)[：:][^。\n]+[。]/g,
+      );
+      if (keyPhrases) {
+        keyPhrases.slice(0, 5).forEach((phrase) => {
+          viewpoints.push(phrase.trim());
+        });
+      }
+    }
+
+    return viewpoints;
   }
 
   /**

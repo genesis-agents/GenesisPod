@@ -25,6 +25,7 @@ export { ResearchCommandInput } from './ResearchCommandInput';
 // Report Components
 export { ReportEditor } from './ReportEditor';
 export { ReportOutlineNav } from './ReportOutlineNav';
+export { TextSelectionContextMenu } from './TextSelectionContextMenu';
 
 // Team & Reference Components
 export { AgentThinkingGraph } from './AgentThinkingGraph';

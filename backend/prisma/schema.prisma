@@ -6738,6 +6738,8 @@ model ResearchTopic {
   refreshLogs   TopicRefreshLog[]
   missions      ResearchMission[] // Leader 驱动的研究任务
   collaborators TopicCollaborator[] // 协作者列表
+  teamMessages  ResearchTeamMessage[] // 团队互动消息
+  agentActivities ResearchAgentActivity[] // Agent 活动记录
 
   // ========== 索引 ==========
   @@index([userId, status]) // 按用户和状态查询
@@ -7247,4 +7249,93 @@ enum ChangeType {
   ADDED
   MODIFIED
   DELETED
+}
+
+// ==================== Research Team Interaction ====================
+// 团队互动和 Agent 活动记录
+
+/// 团队消息类型
+enum ResearchMessageType {
+  LEADER_RESPONSE // Leader 回复
+  USER_MESSAGE // 用户消息
+  SYSTEM_MESSAGE // 系统消息
+  AGENT_REPORT // Agent 汇报
+}
+
+/// Agent 活动类型
+enum AgentActivityType {
+  THINKING // 思考中
+  PLANNING // 规划中
+  RESEARCHING // 研究中
+  WRITING // 写作中
+  REVIEWING // 审核中
+  COMPLETED // 完成
+  FAILED // 失败
+}
+
+/// 团队互动消息
+/// 记录 Leader 回复、用户消息等团队互动信息
+model ResearchTeamMessage {
+  id        String @id @default(uuid())
+  topicId   String @map("topic_id")
+  missionId String @map("mission_id")
+
+  // ========== 消息信息 ==========
+  messageType ResearchMessageType @map("message_type")
+  senderRole  String?             @map("sender_role") // leader, user, system
+  senderName  String?             @map("sender_name") // 显示名称
+  content     String              @db.Text // 消息内容
+
+  // ========== 元数据 ==========
+  metadata Json? // 额外的上下文信息
+
+  // ========== 时间戳 ==========
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // ========== 关系 ==========
+  topic ResearchTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  // ========== 索引 ==========
+  @@index([topicId, createdAt(sort: Desc)])
+  @@index([missionId])
+  @@map("research_team_messages")
+}
+
+/// Agent 活动记录
+/// 记录 Agent 的思考过程和工作状态
+model ResearchAgentActivity {
+  id        String @id @default(uuid())
+  topicId   String @map("topic_id")
+  missionId String @map("mission_id")
+
+  // ========== Agent 信息 ==========
+  agentId     String            @map("agent_id")
+  agentName   String            @map("agent_name")
+  agentRole   String            @map("agent_role") // leader, researcher, reviewer, synthesizer
+
+  // ========== 活动信息 ==========
+  activityType AgentActivityType @map("activity_type")
+  phase        String?           // 阶段：understanding, analyzing, planning, executing
+  content      String            @db.Text // 活动内容/思考内容
+  progress     Int               @default(0) // 进度 0-100
+
+  // ========== 维度关联 ==========
+  dimensionId   String? @map("dimension_id")
+  dimensionName String? @map("dimension_name")
+
+  // ========== 元数据 ==========
+  metadata Json? // 额外信息
+
+  // ========== 时间戳 ==========
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // ========== 关系 ==========
+  topic ResearchTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  // ========== 索引 ==========
+  @@index([topicId, createdAt(sort: Desc)])
+  @@index([missionId])
+  @@index([agentRole])
+  @@index([dimensionId])
+  @@map("research_agent_activities")
 }

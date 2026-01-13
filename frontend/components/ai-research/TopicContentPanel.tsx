@@ -731,20 +731,26 @@ function ReportTabContent({
       });
     }
 
-    // Highlights section
+    // Highlights section - 添加序号
     if (report.highlights && report.highlights.length > 0) {
-      const highlightsContent = report.highlights
-        .map((h) => `### ${h.title}\n${h.content}`)
-        .join('\n\n');
-      result.push({
-        id: 'highlights',
-        type: 'highlights',
-        title: '关键发现',
-        summary: `${report.highlights.length} 个关键洞察`,
-        isCompleted: true,
-        wordCount: highlightsContent.length,
-        content: highlightsContent,
-      });
+      // 过滤掉占位符内容
+      const validHighlights = report.highlights.filter(
+        (h) => h.content && !h.content.includes('请查看详细内容')
+      );
+      if (validHighlights.length > 0) {
+        const highlightsContent = validHighlights
+          .map((h, idx) => `### ${idx + 1}. ${h.title}\n${h.content}`)
+          .join('\n\n');
+        result.push({
+          id: 'highlights',
+          type: 'highlights',
+          title: '关键发现',
+          summary: `${validHighlights.length} 个关键洞察`,
+          isCompleted: true,
+          wordCount: highlightsContent.length,
+          content: highlightsContent,
+        });
+      }
     }
 
     // Dimension analysis sections
@@ -756,7 +762,9 @@ function ReportTabContent({
         if (analysis.keyFindings && analysis.keyFindings.length > 0) {
           content +=
             '\n\n**关键发现:**\n' +
-            analysis.keyFindings.map((f) => `- ${f.finding}`).join('\n');
+            analysis.keyFindings
+              .map((f, fIdx) => `${fIdx + 1}. ${f.finding}`)
+              .join('\n');
         }
         if (analysis.trends && analysis.trends.length > 0) {
           content +=

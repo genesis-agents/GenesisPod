@@ -3,9 +3,12 @@
  *
  * 参考 AI Writing 的 WritingEventEmitterService 设计
  * 提供研究任务实时事件广播能力
+ *
+ * ★ 新增：同时持久化关键事件到数据库（团队消息、Agent活动）
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { PrismaService } from "@/common/prisma/prisma.service";
 
 export type ResearchEmitHandler = (
   topicId: string,
@@ -106,6 +109,8 @@ export class ResearchEventEmitterService {
   private readonly logger = new Logger(ResearchEventEmitterService.name);
   private emitHandler?: ResearchEmitHandler;
 
+  constructor(private readonly prisma: PrismaService) {}
+
   /**
    * 注册事件发射处理器（由 Gateway 调用）
    */
@@ -200,12 +205,32 @@ export class ResearchEventEmitterService {
 
   /**
    * 发送 Leader 思考事件
+   * ★ 同时保存到数据库
    */
   async emitLeaderThinking(
     topicId: string,
     data: LeaderThinkingData,
   ): Promise<void> {
     await this.emitToTopic(topicId, ResearchEventType.LEADER_THINKING, data);
+
+    // ★ 保存到数据库
+    try {
+      await this.prisma.researchAgentActivity.create({
+        data: {
+          topicId,
+          missionId: data.missionId,
+          agentId: "leader",
+          agentName: "研究协调员",
+          agentRole: "leader",
+          activityType: data.phase === "planning" ? "PLANNING" : "THINKING",
+          phase: data.phase,
+          content: data.content,
+          progress: data.progress || 0,
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Failed to persist Leader thinking: ${error}`);
+    }
   }
 
   /**
@@ -242,39 +267,108 @@ export class ResearchEventEmitterService {
 
   /**
    * 发送 Leader 响应事件（多轮对话）
+   * ★ 同时保存到数据库
    */
   async emitLeaderResponse(
     topicId: string,
     missionId: string,
     response: string,
   ): Promise<void> {
+    // 发送 WebSocket 事件
     await this.emitToTopic(topicId, ResearchEventType.LEADER_RESPONSE, {
       missionId,
       response,
       message: response,
     });
+
+    // ★ 保存到数据库
+    try {
+      await this.prisma.researchTeamMessage.create({
+        data: {
+          topicId,
+          missionId,
+          messageType: "LEADER_RESPONSE",
+          senderRole: "leader",
+          senderName: "研究协调员",
+          content: response,
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Failed to persist Leader response: ${error}`);
+    }
+  }
+
+  /**
+   * 保存用户消息到数据库
+   */
+  async saveUserMessage(
+    topicId: string,
+    missionId: string,
+    content: string,
+    userName?: string,
+  ): Promise<void> {
+    try {
+      await this.prisma.researchTeamMessage.create({
+        data: {
+          topicId,
+          missionId,
+          messageType: "USER_MESSAGE",
+          senderRole: "user",
+          senderName: userName || "用户",
+          content,
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Failed to persist user message: ${error}`);
+    }
   }
 
   // ==================== Agent 事件 ====================
 
   /**
    * 发送 Agent 工作状态事件
+   * ★ 同时保存到数据库
    */
   async emitAgentWorking(
     topicId: string,
     data: AgentWorkingData,
+    missionId?: string,
   ): Promise<void> {
     await this.emitToTopic(topicId, ResearchEventType.AGENT_WORKING, data);
+
+    // ★ 保存到数据库
+    if (missionId) {
+      try {
+        const activityType = this.mapAgentStatusToActivityType(data.status);
+        await this.prisma.researchAgentActivity.create({
+          data: {
+            topicId,
+            missionId,
+            agentId: data.agentId,
+            agentName: data.agentName,
+            agentRole: data.agentRole,
+            activityType,
+            content: data.taskDescription || `${data.agentName} 正在工作`,
+            progress: data.progress || 0,
+            dimensionName: data.dimensionName,
+          },
+        });
+      } catch (error) {
+        this.logger.error(`Failed to persist Agent working: ${error}`);
+      }
+    }
   }
 
   /**
    * 发送 Agent 完成事件
+   * ★ 同时保存到数据库
    */
   async emitAgentCompleted(
     topicId: string,
     agentId: string,
     agentName: string,
     result?: string,
+    missionId?: string,
   ): Promise<void> {
     await this.emitToTopic(topicId, ResearchEventType.AGENT_COMPLETED, {
       agentId,
@@ -282,6 +376,44 @@ export class ResearchEventEmitterService {
       result,
       message: `${agentName} 完成工作`,
     });
+
+    // ★ 保存到数据库
+    if (missionId) {
+      try {
+        await this.prisma.researchAgentActivity.create({
+          data: {
+            topicId,
+            missionId,
+            agentId,
+            agentName,
+            agentRole: "researcher",
+            activityType: "COMPLETED",
+            content: result || `${agentName} 完成工作`,
+            progress: 100,
+          },
+        });
+      } catch (error) {
+        this.logger.error(`Failed to persist Agent completed: ${error}`);
+      }
+    }
+  }
+
+  /**
+   * 映射 Agent 状态到活动类型
+   */
+  private mapAgentStatusToActivityType(
+    status: "working" | "completed" | "failed",
+  ): "THINKING" | "RESEARCHING" | "COMPLETED" | "FAILED" {
+    switch (status) {
+      case "working":
+        return "RESEARCHING";
+      case "completed":
+        return "COMPLETED";
+      case "failed":
+        return "FAILED";
+      default:
+        return "THINKING";
+    }
   }
 
   // ==================== Task 事件 ====================
@@ -417,6 +549,43 @@ export class ResearchEventEmitterService {
         message: `📊 报告撰写完成，共 ${chapterCount} 个章节，${totalWordCount} 字`,
       },
     );
+  }
+
+  // ==================== 数据查询方法 ====================
+
+  /**
+   * 获取专题的团队互动消息
+   */
+  async getTeamMessages(
+    topicId: string,
+    options?: { limit?: number; missionId?: string },
+  ) {
+    return this.prisma.researchTeamMessage.findMany({
+      where: {
+        topicId,
+        ...(options?.missionId ? { missionId: options.missionId } : {}),
+      },
+      orderBy: { createdAt: "asc" },
+      take: options?.limit || 100,
+    });
+  }
+
+  /**
+   * 获取专题的 Agent 活动记录
+   */
+  async getAgentActivities(
+    topicId: string,
+    options?: { limit?: number; missionId?: string; agentRole?: string },
+  ) {
+    return this.prisma.researchAgentActivity.findMany({
+      where: {
+        topicId,
+        ...(options?.missionId ? { missionId: options.missionId } : {}),
+        ...(options?.agentRole ? { agentRole: options.agentRole } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      take: options?.limit || 200,
+    });
   }
 
   /**
