@@ -21,6 +21,9 @@ export * from "./executors";
 // Checkpoints (检查点)
 export * from "./checkpoints";
 
+// State Machine (★ P4 沉淀)
+export * from "./state-machine";
+
 // 服务和工具需要通过独立路径导入:
 // import { ... } from "./orchestration/services"
 // import { ... } from "./orchestration/utils"

@@ -16,7 +16,7 @@ import {
   MessageContentType,
 } from "@prisma/client";
 import { CreateMissionDto } from "../../../dto/create-mission.dto";
-import { AiChatService } from "../../../../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade, ChatMessage } from "../../../../../ai-engine/facade";
 import { SearchService } from "../../../../../ai-engine/search/search.service";
 import { TopicEventEmitterService } from "../../events";
 import {
@@ -107,7 +107,7 @@ export class TeamMissionService implements OnModuleInit {
 
   constructor(
     private prisma: PrismaService,
-    private aiChatService: AiChatService,
+    private aiFacade: AIEngineFacade,
     private searchService: SearchService,
     private topicEventEmitter: TopicEventEmitterService,
     private longContentService: TeamsLongContentService,
@@ -352,50 +352,31 @@ export class TeamMissionService implements OnModuleInit {
   ) {
     const modelConfig = await this.getModelConfig(aiModel);
 
-    // Determine appropriate max_tokens based on model
-    const isLargeModel =
-      aiModel.includes("gpt-4") ||
-      aiModel.includes("claude") ||
-      aiModel.includes("gemini") ||
-      aiModel.includes("gpt-5") ||
-      aiModel.startsWith("o1") ||
-      aiModel.startsWith("o3");
-    const defaultMaxTokens = isLargeModel ? 6000 : 4000;
-
     // ★ 内部调用默认关闭网页搜索，避免任务修订等场景误触发搜索
-    const enableSearch = options?.enableSearch ?? false;
+    // searchOptions 暂不支持，后续可扩展 Facade
 
-    let result;
-    if (modelConfig && modelConfig.apiKey) {
-      // Use database API key
-      result = await this.aiChatService.chat({
-        provider: modelConfig.provider,
-        model: modelConfig.modelId,
-        apiKey: modelConfig.apiKey,
-        apiEndpoint: modelConfig.apiEndpoint ?? undefined,
-        systemPrompt,
-        messages: messages as any,
-        maxTokens: options?.maxTokens ?? defaultMaxTokens,
-        temperature: options?.temperature ?? 0.7,
-        enableSearch, // ★ 传递搜索开关
-      });
-    } else {
-      // Fallback to environment variable based method
-      result = await this.aiChatService.generateChatCompletion({
-        model: aiModel,
-        messages: messages as any,
-        systemPrompt,
-        maxTokens: options?.maxTokens ?? defaultMaxTokens,
-        temperature: options?.temperature ?? 0.7,
-      });
-    }
+    // 构建消息列表，包含系统提示
+    const facadeMessages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      ...(messages as { role: "user" | "assistant"; content: string }[]).map(
+        (m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        }),
+      ),
+    ];
+
+    const result = await this.aiFacade.chat({
+      messages: facadeMessages,
+      model: modelConfig?.modelId ?? aiModel,
+      taskProfile: {
+        creativity: "medium",
+        outputLength: "standard",
+      },
+    });
 
     // ★ Track token consumption for mission
-    // Handle both chat() return type (usage.totalTokens) and generateChatCompletion() (tokensUsed)
-    const tokensUsed =
-      "tokensUsed" in result
-        ? result.tokensUsed
-        : result.usage?.totalTokens || 0;
+    const tokensUsed = result.tokensUsed || 0;
     if (options?.missionId && tokensUsed > 0) {
       this.trackMissionTokens(options.missionId, tokensUsed).catch((err) => {
         this.logger.warn(
@@ -878,10 +859,7 @@ export class TeamMissionService implements OnModuleInit {
                 );
                 return {
                   content: response.content || "",
-                  tokensUsed:
-                    "tokensUsed" in response
-                      ? response.tokensUsed
-                      : response.usage?.totalTokens || 0,
+                  tokensUsed: response.tokensUsed || 0,
                 };
               },
               {

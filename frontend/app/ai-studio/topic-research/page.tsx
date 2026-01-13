@@ -15,7 +15,7 @@ import {
   CreateTopicDialog,
   TopicDetail,
   TopicSharingModal,
-} from '@/components/topic-research';
+} from '@/components/ai-research';
 import type { ResearchTopic } from '@/types/topic-research';
 import { ResearchTopicType } from '@/types/topic-research';
 

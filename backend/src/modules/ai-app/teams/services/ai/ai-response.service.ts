@@ -6,10 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { MessageContentType } from "@prisma/client";
-import {
-  AiChatService,
-  ChatMessage,
-} from "../../../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade, ChatMessage } from "../../../../ai-engine/facade";
 import { SearchService } from "../../../../ai-engine/search/search.service";
 import {
   ContextRouterService,
@@ -41,7 +38,7 @@ export class AiResponseService {
 
   constructor(
     private prisma: PrismaService,
-    private aiChatService: AiChatService,
+    private aiFacade: AIEngineFacade,
     private searchService: SearchService,
     private contextRouter: ContextRouterService,
     private teamMemberAgent: TeamMemberAgent,
@@ -1189,9 +1186,7 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
         const provider = aiModelConfig?.provider || aiMember.aiModel;
         const modelId =
           aiModelConfig?.modelId || this.getDefaultModelId(aiMember.aiModel);
-        const apiEndpoint =
-          aiModelConfig?.apiEndpoint ||
-          this.getDefaultEndpoint(aiMember.aiModel);
+        // apiEndpoint 由 Facade 内部处理，不再需要手动传递
 
         // Determine max_tokens based on model capabilities
         // Reasoning models and large context models can handle more output
@@ -1235,28 +1230,41 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
           );
         }
 
-        result = await this.aiChatService.generateChatCompletionWithKey({
-          provider,
-          modelId,
-          apiKey,
-          apiEndpoint,
-          systemPrompt: finalSystemPrompt,
-          messages: chatMessages,
-          maxTokens: effectiveMaxTokens,
-          temperature: aiModelConfig?.temperature || 0.7,
-          displayName: aiMember.displayName,
-          capabilities: effectiveCapabilities,
+        // 构建消息列表，包含系统提示
+        const facadeMessages: ChatMessage[] = [
+          { role: "system", content: finalSystemPrompt },
+          ...chatMessages.map((m) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          })),
+        ];
+        result = await this.aiFacade.chat({
+          messages: facadeMessages,
+          model: modelId,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "long",
+          },
         });
       } else {
         this.logger.warn(
           `No API key found for ${aiMember.aiModel}. Configure API key in Admin panel or set environment variable.`,
         );
-        result = await this.aiChatService.generateChatCompletion({
+        // 构建消息列表，包含系统提示
+        const facadeMessages: ChatMessage[] = [
+          { role: "system", content: finalSystemPrompt },
+          ...chatMessages.map((m) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          })),
+        ];
+        result = await this.aiFacade.chat({
+          messages: facadeMessages,
           model: aiMember.aiModel,
-          systemPrompt: finalSystemPrompt,
-          messages: chatMessages,
-          maxTokens: 4096, // Increased from 1024 to prevent truncation
-          temperature: 0.7,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "standard",
+          },
         });
       }
       aiResponse = result.content;
@@ -1930,31 +1938,5 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       gemini: "gemini-2.0-flash",
     };
     return defaults[lower] || modelIdentifier;
-  }
-
-  /**
-   * Get default API endpoint for a given AI model identifier
-   */
-  private getDefaultEndpoint(modelIdentifier: string): string {
-    const lower = modelIdentifier.toLowerCase();
-
-    if (lower.includes("grok")) {
-      return "https://api.x.ai/v1/chat/completions";
-    }
-    if (
-      lower.includes("gpt") ||
-      lower.startsWith("o1") ||
-      lower.startsWith("o3")
-    ) {
-      return "https://api.openai.com/v1/chat/completions";
-    }
-    if (lower.includes("claude")) {
-      return "https://api.anthropic.com/v1/messages";
-    }
-    if (lower.includes("gemini")) {
-      return "https://generativelanguage.googleapis.com/v1beta/models";
-    }
-
-    return "";
   }
 }

@@ -14,11 +14,8 @@ import {
   SKILL_LAYERS,
   SkillResultMetadata,
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
-import { AIModelService } from "../../core/ai-model.service";
-import {
-  AiChatService,
-  ChatMessage,
-} from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade, ChatMessage } from "@/modules/ai-engine/facade";
+import { AIModelType } from "@prisma/client";
 import { PageState } from "../checkpoint/checkpoint.types";
 
 /**
@@ -171,10 +168,7 @@ export class TerminologyUnifierSkill
 
   private readonly logger = new Logger(TerminologyUnifierSkill.name);
 
-  constructor(
-    @Optional() private readonly aiModelService: AIModelService,
-    @Optional() private readonly aiChatService: AiChatService,
-  ) {}
+  constructor(@Optional() private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 执行术语检查技能
@@ -361,10 +355,10 @@ ${ruleBasedVariations.map((v) => `- ${v.preferred}: ${v.alternatives.join(", ")}
 
 请深度分析术语一致性，输出完整的检查报告（JSON 格式）。`;
 
-    // 使用数据库配置的模型（严禁硬编码模型名！）
-    if (!this.aiModelService || !this.aiChatService) {
+    // ★ 使用 AIEngineFacade 统一入口
+    if (!this.aiFacade) {
       this.logger.warn(
-        "[checkWithAI] AIModelService or AiChatService not available, using rule-based result",
+        "[checkWithAI] AIEngineFacade not available, using rule-based result",
       );
       return {
         variations: ruleBasedVariations,
@@ -377,25 +371,21 @@ ${ruleBasedVariations.map((v) => `- ${v.preferred}: ${v.alternatives.join(", ")}
       };
     }
 
-    const model = await this.aiModelService.getDefaultTextModel();
-    this.logger.debug(
-      `[checkWithAI] Using model: ${model.displayName} (${model.modelId})`,
-    );
+    const messages: ChatMessage[] = [
+      { role: "system", content: TERMINOLOGY_SYSTEM_PROMPT },
+      { role: "user", content: userMessage },
+    ];
 
-    const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
-
-    const response = await this.aiChatService.chat({
-      provider: model.provider,
-      model: model.modelId,
-      apiKey: model.apiKey || "",
-      apiEndpoint: model.apiEndpoint || undefined,
-      systemPrompt: TERMINOLOGY_SYSTEM_PROMPT,
+    const response = await this.aiFacade.chat({
       messages,
-      maxTokens: model.maxTokens || 4096,
-      temperature: model.temperature || 0.1,
+      modelType: AIModelType.CHAT_FAST, // 术语检查是简单分析任务
+      taskProfile: {
+        creativity: "deterministic", // 术语检测需要高一致性
+        outputLength: "medium",
+      },
     });
 
-    if (!response) {
+    if (!response?.content) {
       this.logger.error("[checkWithAI] AI call returned no content");
       return {
         variations: ruleBasedVariations,

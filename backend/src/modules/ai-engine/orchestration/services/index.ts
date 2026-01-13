@@ -46,3 +46,12 @@ export {
   type ContentPriority,
   type BudgetAllocation,
 } from "./token-budget.service";
+
+// 反思服务 (★ P0 沉淀: 从 Deep Research 提取的通用反思能力)
+export {
+  ReflectionService,
+  type ReflectionDecision,
+  type ReflectionInput,
+  type ReflectionResult,
+  type ReflectionConfig,
+} from "./reflection.service";

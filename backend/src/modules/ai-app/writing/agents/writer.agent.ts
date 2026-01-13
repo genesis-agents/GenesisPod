@@ -35,8 +35,9 @@ import { PacingControlService } from "../services/quality/pacing-control.service
 // 新增：对话约束和角色一致性服务
 import { DialogueConstraintsService } from "../services/quality/dialogue-constraints.service";
 import { CharacterConsistencyService } from "../services/quality/character-consistency.service";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
-import { TaskProfile } from "../../../ai-engine/llm/types";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { TaskProfile } from "@/modules/ai-engine/llm/types";
+import { AIModelType } from "@prisma/client";
 import {
   generateStylePrompt,
   getRandomTechniques,
@@ -218,7 +219,7 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
     private readonly narrativeCraft: NarrativeCraftService,
     private readonly foreshadowing: ForeshadowingService,
     private readonly pacingControl: PacingControlService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
     // 新增：对话约束和角色一致性服务
     private readonly dialogueConstraints: DialogueConstraintsService,
     private readonly characterConsistency: CharacterConsistencyService,
@@ -304,15 +305,14 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       outputLength: targetWords >= 5000 ? "extended" : "long", // 根据目标字数选择输出长度
     };
 
-    const response = await this.aiChatService.chat({
+    // ★ P3 迁移：使用 AIEngineFacade 统一入口
+    const response = await this.aiFacade.chat({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
+      modelType: AIModelType.CHAT,
       taskProfile,
-      // 保持向后兼容：如果 TaskProfile 映射失败，使用原始参数
-      temperature: 0.8,
-      maxTokens: calculatedMaxTokens,
     });
 
     let content = response.content || "";
@@ -359,14 +359,14 @@ ${content.slice(-500)}
 请直接输出续写内容（从接续处开始，不要重复上文）：`;
 
       try {
-        const continuationResponse = await this.aiChatService.chat({
+        // ★ P3 迁移：使用 AIEngineFacade 统一入口
+        const continuationResponse = await this.aiFacade.chat({
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: continuationPrompt },
           ],
+          modelType: AIModelType.CHAT,
           taskProfile,
-          temperature: 0.8,
-          maxTokens: Math.min(8192, Math.ceil(remainingWords * 2.5)),
         });
 
         let continuation = continuationResponse.content?.trim();

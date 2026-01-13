@@ -19,7 +19,7 @@ import {
   MissionLogType,
   MessageContentType,
 } from "@prisma/client";
-import { AiChatService } from "../../../../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade, ChatMessage } from "../../../../../ai-engine/facade";
 import { SearchService } from "../../../../../ai-engine/search/search.service";
 import { TopicEventEmitterService } from "../../events";
 import {
@@ -124,7 +124,7 @@ export class MissionExecutionService {
 
   constructor(
     private prisma: PrismaService,
-    private aiChatService: AiChatService,
+    private aiFacade: AIEngineFacade,
     private searchService: SearchService,
     private topicEventEmitter: TopicEventEmitterService,
     private longContentService: TeamsLongContentService,
@@ -199,38 +199,28 @@ export class MissionExecutionService {
   ) {
     const modelConfig = await this.getModelConfig(aiModel);
 
-    const isLargeModel =
-      aiModel.includes("gpt-4") ||
-      aiModel.includes("claude") ||
-      aiModel.includes("gemini") ||
-      aiModel.includes("gpt-5") ||
-      aiModel.startsWith("o1") ||
-      aiModel.startsWith("o3");
-    const defaultMaxTokens = isLargeModel ? 6000 : 4000;
-    const enableSearch = options?.enableSearch ?? false;
+    // ★ 内部调用默认关闭网页搜索，避免任务修订等场景误触发搜索
+    // searchOptions 暂不支持，后续可扩展 Facade
 
-    let result;
-    if (modelConfig && modelConfig.apiKey) {
-      result = await this.aiChatService.generateChatCompletionWithKey({
-        provider: modelConfig.provider,
-        modelId: modelConfig.modelId,
-        apiKey: modelConfig.apiKey,
-        apiEndpoint: modelConfig.apiEndpoint ?? undefined,
-        systemPrompt,
-        messages: messages as { role: "user" | "assistant"; content: string }[],
-        maxTokens: options?.maxTokens ?? defaultMaxTokens,
-        temperature: options?.temperature ?? 0.7,
-        enableSearch,
-      });
-    } else {
-      result = await this.aiChatService.generateChatCompletion({
-        model: aiModel,
-        messages: messages as { role: "user" | "assistant"; content: string }[],
-        systemPrompt,
-        maxTokens: options?.maxTokens ?? defaultMaxTokens,
-        temperature: options?.temperature ?? 0.7,
-      });
-    }
+    // 构建消息列表，包含系统提示
+    const facadeMessages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      ...(messages as { role: "user" | "assistant"; content: string }[]).map(
+        (m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        }),
+      ),
+    ];
+
+    const result = await this.aiFacade.chat({
+      messages: facadeMessages,
+      model: modelConfig?.modelId ?? aiModel,
+      taskProfile: {
+        creativity: "medium",
+        outputLength: "standard",
+      },
+    });
 
     // 追踪 Token 消耗
     if (options?.missionId && result.tokensUsed > 0) {

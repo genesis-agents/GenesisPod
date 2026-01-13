@@ -10,11 +10,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import {
-  AiChatService,
-  ChatMessage,
-} from "../../../ai-engine/llm/services/ai-chat.service";
-import { TaskProfile } from "../../../ai-engine/llm/types";
+import { AIEngineFacade, ChatMessage } from "../../../ai-engine/facade";
 import { CodingTeamService, DefaultAIModel } from "./coding-team.service";
 import {
   CodingMissionService,
@@ -71,7 +67,7 @@ export class CodingAgentService {
   private readonly MAX_RETRIES = 3;
 
   constructor(
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
     private readonly teamService: CodingTeamService,
     private readonly missionService: CodingMissionService,
   ) {}
@@ -555,36 +551,30 @@ ${JSON.stringify(output, null, 2)}
 
   /**
    * 调用 AI 服务
+   * ★ 迁移到 AIEngineFacade
    */
   private async callAI(
     model: DefaultAIModel,
     systemPrompt: string,
     userMessage: string,
   ): Promise<{ content: string; tokensUsed: number }> {
-    if (!model.apiKey) {
-      throw new Error(`API Key not configured for model: ${model.displayName}`);
-    }
+    const messages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
+    ];
 
-    const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
-
-    const result = await this.aiChatService.chat({
-      provider: model.provider,
-      model: model.modelId,
-      apiKey: model.apiKey,
-      apiEndpoint: model.apiEndpoint ?? undefined,
-      systemPrompt,
+    const result = await this.aiFacade.chat({
       messages,
+      model: model.modelId,
       taskProfile: {
         creativity: "medium",
         outputLength: "long",
-      } as TaskProfile,
-      maxTokens: 8192, // Kept for backward compatibility
-      temperature: 0.7, // Kept for backward compatibility
+      },
     });
 
     return {
       content: result.content,
-      tokensUsed: result.usage?.totalTokens || 0,
+      tokensUsed: result.tokensUsed || 0,
     };
   }
 

@@ -11,7 +11,7 @@ import {
   ToolCategory,
 } from "../../abstractions/tool.interface";
 
-import { AiStudioTTSService } from "../../../../ai-app/studio/ai-studio-tts.service";
+import { AiStudioTTSService } from "../../../../ai-app/research";
 
 // ============================================================================
 // Types

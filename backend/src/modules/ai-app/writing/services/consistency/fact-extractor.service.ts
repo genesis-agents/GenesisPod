@@ -15,7 +15,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import { ChapterWritingContext } from "../../interfaces/writing-context.interface";
 import { TaskProfile } from "../../../../ai-engine/llm/types";
@@ -237,7 +237,7 @@ export class FactExtractorService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   /**
@@ -272,7 +272,7 @@ export class FactExtractorService {
         outputLength: "short", // 事实提取输出较短 (原 maxTokens: 2000)
       };
 
-      const response = await this.aiChatService.chat({
+      const response = await this.aiFacade.chat({
         modelType: AIModelType.CHAT, // 需要高能力模型进行准确提取
         messages: [{ role: "user", content: prompt }],
         taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
@@ -490,7 +490,7 @@ export class FactExtractorService {
         outputLength: "short", // 冲突检测输出较短 (原 maxTokens: 1500)
       };
 
-      const response = await this.aiChatService.chat({
+      const response = await this.aiFacade.chat({
         modelType: AIModelType.CHAT, // 需要高能力模型进行准确判断
         messages: [{ role: "user", content: prompt }],
         taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens

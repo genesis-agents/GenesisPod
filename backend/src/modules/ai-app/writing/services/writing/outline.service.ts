@@ -1,8 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade } from "../../../../ai-engine/facade";
 import { StoryBibleService } from "../bible/story-bible.service";
 import { TaskProfile } from "../../../../ai-engine/llm/types";
+import { AIModelType } from "@prisma/client";
 
 export interface ChapterOutline {
   chapterNumber: number;
@@ -26,7 +27,7 @@ export class OutlineService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
     private readonly storyBibleService: StoryBibleService,
   ) {}
 
@@ -42,7 +43,7 @@ export class OutlineService {
     projectId: string,
     volumeNumber: number,
     chapterCount: number,
-    modelId: string = "gpt-4o",
+    _modelId: string = "gpt-4o", // 保留参数用于未来扩展
   ): Promise<VolumeOutline> {
     this._logger.log(
       `Generating outline for project ${projectId}, volume ${volumeNumber}, ${chapterCount} chapters`,
@@ -144,7 +145,8 @@ ${previousOutlineContext ? `【前几卷大纲】\n${previousOutlineContext}\n` 
         outputLength: "long", // 大纲需要详细输出 (原 maxTokens: 8000)
       };
 
-      const response = await this.aiChatService.chat({
+      // ★ P3 迁移：使用 AIEngineFacade 统一入口
+      const response = await this.aiFacade.chat({
         messages: [
           {
             role: "system",
@@ -153,11 +155,8 @@ ${previousOutlineContext ? `【前几卷大纲】\n${previousOutlineContext}\n` 
           },
           { role: "user", content: outlinePrompt },
         ],
-        model: modelId,
-        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
-        // 保持向后兼容
-        temperature: 0.7,
-        maxTokens: 8000,
+        modelType: AIModelType.CHAT, // 使用语义化模型类型
+        taskProfile, // 语义化任务配置
       });
 
       // 5. 解析 AI 响应

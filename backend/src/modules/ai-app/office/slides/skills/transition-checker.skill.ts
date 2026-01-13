@@ -14,11 +14,8 @@ import {
   SkillLayer,
   SKILL_LAYERS,
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
-import { AIModelService } from "../../core/ai-model.service";
-import {
-  AiChatService,
-  ChatMessage,
-} from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade, ChatMessage } from "@/modules/ai-engine/facade";
+import { AIModelType } from "@prisma/client";
 import { PageState, PageTemplateType } from "../checkpoint/checkpoint.types";
 
 /**
@@ -218,10 +215,7 @@ export class TransitionCheckerSkill
   readonly tags = ["slides", "quality", "transition"];
   readonly version = "4.0.0";
 
-  constructor(
-    @Optional() private readonly aiModelService: AIModelService,
-    @Optional() private readonly aiChatService: AiChatService,
-  ) {}
+  constructor(@Optional() private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 执行过渡检查 (ISkill 接口实现)
@@ -524,11 +518,9 @@ ${ruleBasedTransitions.map((t) => `- 第${t.fromPage}→${t.toPage}页: ${t.qual
 
 请深度分析页面过渡质量，输出完整的检查报告（JSON 格式）。`;
 
-    // 使用数据库配置的模型（严禁硬编码模型名！）
-    if (!this.aiModelService || !this.aiChatService) {
-      this.logger.error(
-        "[checkWithAI] AIModelService or AiChatService not available",
-      );
+    // ★ 使用 AIEngineFacade 统一入口
+    if (!this.aiFacade) {
+      this.logger.error("[checkWithAI] AIEngineFacade not available");
       return {
         transitions: ruleBasedTransitions,
         issueCount: ruleBasedTransitions.filter((t) => t.quality !== "smooth")
@@ -539,25 +531,21 @@ ${ruleBasedTransitions.map((t) => `- 第${t.fromPage}→${t.toPage}页: ${t.qual
     }
 
     try {
-      const model = await this.aiModelService.getDefaultTextModel();
-      this.logger.debug(
-        `[checkWithAI] Using model: ${model.displayName} (${model.modelId})`,
-      );
+      const messages: ChatMessage[] = [
+        { role: "system", content: TRANSITION_CHECK_SYSTEM_PROMPT },
+        { role: "user", content: userMessage },
+      ];
 
-      const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
-
-      const response = await this.aiChatService.chat({
-        provider: model.provider,
-        model: model.modelId,
-        apiKey: model.apiKey || "",
-        apiEndpoint: model.apiEndpoint || undefined,
-        systemPrompt: TRANSITION_CHECK_SYSTEM_PROMPT,
+      const response = await this.aiFacade.chat({
         messages,
-        maxTokens: model.maxTokens || 4096,
-        temperature: model.temperature || 0.1,
+        modelType: AIModelType.CHAT_FAST, // 过渡检查是简单分析任务
+        taskProfile: {
+          creativity: "deterministic", // 检查需要高一致性
+          outputLength: "medium",
+        },
       });
 
-      if (!response) {
+      if (!response?.content) {
         this.logger.error("[checkWithAI] Empty response from LLM");
         return {
           transitions: ruleBasedTransitions,

@@ -37,7 +37,7 @@ import {
 import { PageGeneratedEvent } from "../skills/page-pipeline.skill";
 import { ContentCompressionSkill } from "../skills/content-compression.skill";
 import { TemplateRenderingSkill } from "../skills/template-rendering.skill";
-import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
 /**
@@ -115,7 +115,7 @@ export class SlidesEngineService {
     private readonly exportService: SlidesExportService,
     @Optional() private readonly contentCompression: ContentCompressionSkill,
     @Optional() private readonly templateRendering: TemplateRenderingSkill,
-    @Optional() private readonly aiChatService: AiChatService,
+    @Optional() private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -798,7 +798,7 @@ export class SlidesEngineService {
     _sessionId: string, // 保留用于未来日志记录
   ): Promise<PageOutline> {
     // 如果没有 AI 服务或反馈为空，直接返回原大纲
-    if (!this.aiChatService || !feedback.trim()) {
+    if (!this.aiFacade || !feedback.trim()) {
       this.logger.warn(
         "[interpretFeedbackAndModifyOutline] No AI service or empty feedback, returning original outline",
       );
@@ -835,11 +835,14 @@ ${feedback}
 3. 关键内容应该与新标题相关
 4. 只输出 JSON，不要其他内容`;
 
-      const response = await this.aiChatService.chat({
-        modelType: AIModelType.CHAT_FAST,
+      // ★ P3 迁移：使用 AIEngineFacade 替代 AiChatService
+      const response = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.3,
-        maxTokens: 500,
+        modelType: AIModelType.CHAT_FAST,
+        taskProfile: {
+          creativity: "low", // 反馈解析需要低创造性
+          outputLength: "minimal", // 输出较短
+        },
       });
 
       // 解析 AI 响应

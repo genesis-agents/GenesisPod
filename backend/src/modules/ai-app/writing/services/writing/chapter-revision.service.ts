@@ -14,7 +14,7 @@ import {
   RevisionDiffResponse,
   AiEditOperation,
 } from "../../dto/chapter-revision.dto";
-import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 
 @Injectable()
@@ -23,7 +23,7 @@ export class ChapterRevisionService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   /**
@@ -576,7 +576,7 @@ ${userFeedback}
 
 请直接输出重写后的段落内容，保持与上下文的连贯性。不要输出任何解释或说明。`;
 
-    const response = await this.aiChatService.chat({
+    const response = await this.aiFacade.chat({
       messages: [{ role: "user", content: prompt }],
       modelType: AIModelType.CHAT,
       taskProfile: {
@@ -620,7 +620,7 @@ ${userFeedback || "无"}
 
 请直接输出润色后的完整章节内容。不要输出任何解释或说明。`;
 
-    const response = await this.aiChatService.chat({
+    const response = await this.aiFacade.chat({
       messages: [{ role: "user", content: prompt }],
       modelType: AIModelType.CHAT,
       taskProfile: {
@@ -656,7 +656,7 @@ ${userFeedback}
 
 请直接输出扩写后的段落内容，保持与上下文的连贯性。不要输出任何解释或说明。`;
 
-    const response = await this.aiChatService.chat({
+    const response = await this.aiFacade.chat({
       messages: [{ role: "user", content: prompt }],
       modelType: AIModelType.CHAT,
       taskProfile: {
@@ -699,7 +699,7 @@ ${userFeedback}
 
 请直接输出精简后的段落内容，保持与上下文的连贯性。不要输出任何解释或说明。`;
 
-    const response = await this.aiChatService.chat({
+    const response = await this.aiFacade.chat({
       messages: [{ role: "user", content: prompt }],
       modelType: AIModelType.CHAT,
       taskProfile: {
@@ -750,7 +750,7 @@ ${userFeedback || "无"}
 
 请直接输出调整风格后的完整章节内容。不要输出任何解释或说明。`;
 
-    const response = await this.aiChatService.chat({
+    const response = await this.aiFacade.chat({
       messages: [{ role: "user", content: prompt }],
       modelType: AIModelType.CHAT,
       taskProfile: {

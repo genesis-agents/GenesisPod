@@ -1,8 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade } from "../../../ai-engine/facade";
 import { TaskProfile } from "../../../ai-engine/llm/types";
-import { AIModelService } from "../../office/core";
+import { AIModelType } from "@prisma/client";
 
 /**
  * AI 图像分析服务
@@ -16,8 +16,7 @@ export class AiImageAnalyticsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiChatService: AiChatService,
-    private readonly aiModelService: AIModelService,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   /**
@@ -45,7 +44,7 @@ export class AiImageAnalyticsService {
     }
 
     try {
-      const model = await this.aiModelService.getDefaultTextModel();
+      // ★ P3 迁移：模型选择由 AIEngineFacade 内部处理，无需手动获取
 
       const imageDescriptions = images
         .map(
@@ -54,11 +53,8 @@ export class AiImageAnalyticsService {
         )
         .join("\n");
 
-      const response = await this.aiChatService.chat({
-        provider: model.provider,
-        model: model.modelId,
-        apiKey: model.apiKey || "",
-        apiEndpoint: model.apiEndpoint || undefined,
+      // ★ P3 迁移：使用 AIEngineFacade 统一入口
+      const response = await this.aiFacade.chat({
         messages: [
           {
             role: "system",
@@ -70,12 +66,11 @@ export class AiImageAnalyticsService {
             content: `Analyze these image prompts and suggest tags for each. Return JSON: {"tags": [{"imageId": "id", "tags": ["tag1", "tag2", "tag3"]}]}\n\nImages:\n${imageDescriptions}`,
           },
         ],
+        modelType: AIModelType.CHAT_FAST, // 使用快速模型进行标签生成
         taskProfile: {
           creativity: "low",
           outputLength: "minimal",
         } as TaskProfile,
-        temperature: 0.3, // Kept for backward compatibility
-        maxTokens: 1000, // Kept for backward compatibility
       });
 
       try {
@@ -119,7 +114,7 @@ export class AiImageAnalyticsService {
     }
 
     try {
-      const model = await this.aiModelService.getDefaultTextModel();
+      // ★ P3 迁移：模型选择由 AIEngineFacade 内部处理，无需手动获取
 
       const imageDescriptions = images
         .map(
@@ -128,11 +123,8 @@ export class AiImageAnalyticsService {
         )
         .join("\n");
 
-      const response = await this.aiChatService.chat({
-        provider: model.provider,
-        model: model.modelId,
-        apiKey: model.apiKey || "",
-        apiEndpoint: model.apiEndpoint || undefined,
+      // ★ P3 迁移：使用 AIEngineFacade 统一入口
+      const response = await this.aiFacade.chat({
         messages: [
           {
             role: "system",
@@ -144,12 +136,11 @@ export class AiImageAnalyticsService {
             content: `Analyze the art styles and visual characteristics of these images based on their prompts. Return JSON: {"styles": [{"name": "style name", "description": "style characteristics", "count": number, "imageIds": ["id1"]}], "colorPalettes": [{"name": "palette name", "colors": ["color1"], "imageIds": ["id1"]}]}\n\nImages:\n${imageDescriptions}`,
           },
         ],
+        modelType: AIModelType.CHAT_FAST,
         taskProfile: {
           creativity: "low",
           outputLength: "minimal",
         } as TaskProfile,
-        temperature: 0.4, // Kept for backward compatibility
-        maxTokens: 1000, // Kept for backward compatibility
       });
 
       try {
@@ -196,7 +187,7 @@ export class AiImageAnalyticsService {
     }
 
     try {
-      const model = await this.aiModelService.getDefaultTextModel();
+      // ★ P3 迁移：模型选择由 AIEngineFacade 内部处理，无需手动获取
 
       const imageDescriptions = images
         .map(
@@ -205,11 +196,8 @@ export class AiImageAnalyticsService {
         )
         .join("\n");
 
-      const response = await this.aiChatService.chat({
-        provider: model.provider,
-        model: model.modelId,
-        apiKey: model.apiKey || "",
-        apiEndpoint: model.apiEndpoint || undefined,
+      // ★ P3 迁移：使用 AIEngineFacade 统一入口
+      const response = await this.aiFacade.chat({
         messages: [
           {
             role: "system",
@@ -221,12 +209,11 @@ export class AiImageAnalyticsService {
             content: `Group these images into visual theme clusters based on their prompts. Return JSON: {"clusters": [{"name": "theme name", "description": "what unifies this cluster", "imageIds": ["id1", "id2"], "count": number}]}\n\nImages:\n${imageDescriptions}`,
           },
         ],
+        modelType: AIModelType.CHAT_FAST,
         taskProfile: {
           creativity: "low",
           outputLength: "minimal",
         } as TaskProfile,
-        temperature: 0.4, // Kept for backward compatibility
-        maxTokens: 1000, // Kept for backward compatibility
       });
 
       try {

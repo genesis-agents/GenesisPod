@@ -9,7 +9,7 @@ import type {
   ResearchPlanData,
   ResearchStep,
   StepStatus,
-} from '@/components/ai-studio/ResearchPlan';
+} from '@/components/ai-research/deep-research/ResearchPlan';
 
 // ============================================================================
 // Types

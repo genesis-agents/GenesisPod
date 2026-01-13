@@ -7,10 +7,7 @@ import {
 } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ExternalDataService } from "./external-data.service";
-import {
-  AiChatService,
-  ChatMessage,
-} from "../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade, ChatMessage } from "../../ai-engine/facade";
 
 interface AdjudicationResult {
   ruling: string;
@@ -105,7 +102,7 @@ export class AiSimulationEngineService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly externalData: ExternalDataService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   /**
@@ -155,29 +152,14 @@ export class AiSimulationEngineService {
 
       // 使用模型数据库中配置的maxTokens
       // 推理模型（如o1, gpt-5, gemini思考模式）需要更多tokens
-      // 因为它们会先用tokens进行思考/推理，然后才输出实际内容
-      const isReasoningModel =
-        model.modelId?.includes("o1") ||
-        model.modelId?.includes("gpt-5") ||
-        model.modelId?.includes("-thinking") ||
-        model.modelId?.includes("gemini-3");
-
-      // 优先使用数据库配置的maxTokens
-      // 推理模型需要更高的tokens（reasoning + output），使用16000
-      // 非推理模型使用数据库配置或默认2048
-      const maxTokens = isReasoningModel
-        ? Math.max(model.maxTokens || 4096, 16000)
-        : model.maxTokens || 2048;
-
       try {
-        const result = await this.aiChatService.generateChatCompletionWithKey({
-          provider: model.provider,
-          modelId: model.modelId,
-          apiKey: model.apiKey,
-          apiEndpoint: model.apiEndpoint ?? undefined,
+        const result = await this.aiFacade.chat({
           messages,
-          maxTokens,
-          temperature: irrationalBias ? 0.9 : 0.7,
+          model: model.modelId,
+          taskProfile: {
+            creativity: irrationalBias ? "high" : "medium",
+            outputLength: "medium",
+          },
         });
 
         // 成功：解析AI响应并返回

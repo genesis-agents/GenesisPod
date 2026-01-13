@@ -11,8 +11,9 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
-import { TaskProfile } from "../../../../ai-engine/llm/types";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { TaskProfile } from "@/modules/ai-engine/llm/types";
+import type { AIModelType as _AIModelType } from "@prisma/client"; // 保留用于类型参考
 
 export interface CoherenceIssue {
   /** 问题类型 */
@@ -81,7 +82,7 @@ export class ChapterCoherenceService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   /**
@@ -369,7 +370,7 @@ ${pair.toChapter.openingContent}
         outputLength: "medium", // 分析结果需要中等长度 (原 maxTokens: 3000)
       };
 
-      const response = await this.aiChatService.chat({
+      const response = await this.aiFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -473,7 +474,7 @@ ${pair.toChapter.openingContent}
         outputLength: "short", // 整体问题输出较短 (原 maxTokens: 2000)
       };
 
-      const response = await this.aiChatService.chat({
+      const response = await this.aiFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           {

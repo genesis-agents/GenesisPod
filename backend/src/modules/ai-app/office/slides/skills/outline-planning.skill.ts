@@ -13,11 +13,8 @@ import {
   SkillLayer,
   SKILL_LAYERS,
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
-import { AIModelService } from "../../core/ai-model.service";
-import {
-  AiChatService,
-  ChatMessage,
-} from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade, ChatMessage } from "@/modules/ai-engine/facade";
+import { AIModelType } from "@prisma/client";
 import {
   TaskDecomposition,
   OutlinePlan,
@@ -320,10 +317,7 @@ export class OutlinePlanningSkill
   readonly tags = ["slides", "planning", "outline", "architecture"];
   readonly version = "4.0.0";
 
-  constructor(
-    @Optional() private readonly aiModelService: AIModelService,
-    @Optional() private readonly aiChatService: AiChatService,
-  ) {}
+  constructor(@Optional() private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 执行大纲规划 (ISkill 接口实现)
@@ -364,36 +358,29 @@ export class OutlinePlanningSkill
     try {
       const userMessage = this.buildUserMessage(actualInput);
 
-      // 使用数据库配置的模型（严禁硬编码模型名！）
-      if (!this.aiModelService || !this.aiChatService) {
+      // ★ 使用 AIEngineFacade 统一入口
+      if (!this.aiFacade) {
         throw new Error(
-          "AIModelService or AiChatService not available. Please check module configuration.",
+          "AIEngineFacade not available. Please check module configuration.",
         );
       }
 
-      const model = await this.aiModelService.getDefaultTextModel();
-      this.logger.debug(
-        `[execute] Using model: ${model.displayName} (${model.modelId})`,
-      );
+      const messages: ChatMessage[] = [
+        { role: "system", content: OUTLINE_PLANNING_SYSTEM_PROMPT },
+        { role: "user", content: userMessage },
+      ];
 
-      const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
-
-      // 大纲规划需要生成完整的 JSON，需要较大的 token 限制
-      // 默认 16384 以避免响应被截断
-      const outlineMaxTokens = Math.max(model.maxTokens || 16384, 16384);
-
-      const response = await this.aiChatService.chat({
-        provider: model.provider,
-        model: model.modelId,
-        apiKey: model.apiKey || "",
-        apiEndpoint: model.apiEndpoint || undefined,
-        systemPrompt: OUTLINE_PLANNING_SYSTEM_PROMPT,
+      // 大纲规划需要生成完整的 JSON，使用 extended outputLength
+      const response = await this.aiFacade.chat({
         messages,
-        maxTokens: outlineMaxTokens,
-        temperature: model.temperature || 0.3,
+        modelType: AIModelType.CHAT,
+        taskProfile: {
+          creativity: "low", // 大纲规划需要一致性和准确性
+          outputLength: "extended", // 需要生成完整的 JSON 结构
+        },
       });
 
-      if (!response) {
+      if (!response?.content) {
         throw new Error("Empty response from LLM");
       }
 

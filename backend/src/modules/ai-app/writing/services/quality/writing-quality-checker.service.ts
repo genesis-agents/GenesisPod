@@ -20,8 +20,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ExpressionMemoryService } from "./expression-memory.service";
 import { CharacterPersonalityService } from "./character-personality.service";
 import { NarrativeCraftService } from "./narrative-craft.service";
-import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
-import { TaskProfile } from "../../../../ai-engine/llm/types";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { TaskProfile } from "@/modules/ai-engine/llm/types";
 import { AIModelType } from "@prisma/client";
 
 // ==================== 类型定义 ====================
@@ -178,7 +178,7 @@ export class WritingQualityCheckerService {
     private readonly expressionMemoryService: ExpressionMemoryService,
     private readonly characterPersonalityService: CharacterPersonalityService,
     private readonly narrativeCraftService: NarrativeCraftService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   // ==================== 核心检查方法 ====================
@@ -1050,7 +1050,7 @@ ${content}
     };
 
     try {
-      const response = await this.aiChatService.chat({
+      const response = await this.aiFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

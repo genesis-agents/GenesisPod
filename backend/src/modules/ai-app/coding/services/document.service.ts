@@ -6,10 +6,7 @@
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import {
-  AiChatService,
-  ChatMessage,
-} from "../../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade, ChatMessage } from "../../../ai-engine/facade";
 import { AiCodingDocumentType, Prisma } from "@prisma/client";
 
 /**
@@ -51,48 +48,42 @@ export class DocumentService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   /**
    * Call AI with model config (from database) or fallback to environment variables
+   * ★ 迁移到 AIEngineFacade
    */
   private async callAI(
     messages: ChatMessage[],
     systemPrompt: string,
-    maxTokens: number,
-    temperature: number,
+    _maxTokens: number, // 由 taskProfile 控制
+    _temperature: number, // 由 taskProfile 控制
     aiModel?: AIModelConfig,
   ): Promise<{ content: string }> {
-    if (aiModel?.apiKey) {
-      // Use admin-configured model from database
+    // 构建带系统消息的消息列表
+    const messagesWithSystem: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      ...messages,
+    ];
+
+    if (aiModel?.modelId) {
       this.logger.log(
         `[DocumentService] Using AI model: ${aiModel.displayName || aiModel.modelId}`,
       );
-      const result = await this.aiChatService.generateChatCompletionWithKey({
-        provider: aiModel.provider,
-        modelId: aiModel.modelId,
-        apiKey: aiModel.apiKey,
-        apiEndpoint: aiModel.apiEndpoint || undefined,
-        systemPrompt,
-        messages,
-        maxTokens,
-        temperature,
-        displayName: aiModel.displayName,
-      });
-      return { content: result.content };
-    } else {
-      // Fallback to environment variables
-      this.logger.warn(
-        `[DocumentService] No AI model config provided, falling back to environment variables`,
-      );
-      return this.aiChatService.chat({
-        messages,
-        systemPrompt,
-        maxTokens,
-        temperature,
-      });
     }
+
+    const result = await this.aiFacade.chat({
+      messages: messagesWithSystem,
+      model: aiModel?.modelId,
+      taskProfile: {
+        creativity: "medium",
+        outputLength: "long",
+      },
+    });
+
+    return { content: result.content };
   }
 
   /**

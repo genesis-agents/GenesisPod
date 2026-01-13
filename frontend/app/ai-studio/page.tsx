@@ -13,7 +13,7 @@ import { KnowledgeBaseSelector } from '@/components/shared/selectors';
 import {
   TopicResearchTab,
   CreateTopicDialog as TopicCreateDialog,
-} from '@/components/topic-research';
+} from '@/components/ai-research';
 import { ResearchTopicType } from '@/types/topic-research';
 
 // ==================== 自定义图标组件 ====================

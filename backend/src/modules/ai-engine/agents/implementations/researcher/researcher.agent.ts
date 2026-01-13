@@ -20,10 +20,12 @@ import {
   ToolId,
 } from "../../base/plan-based-agent";
 import { BUILTIN_TOOLS, PlanStep } from "../../../core/types/agent.types";
-import { AiStudioService } from "../../../../ai-app/studio/ai-studio.service";
-import { AiStudioChatService } from "../../../../ai-app/studio/ai-studio-chat.service";
-import { AiStudioSourceService } from "../../../../ai-app/studio/ai-studio-source.service";
-import { AiStudioOutputService } from "../../../../ai-app/studio/ai-studio-output.service";
+import {
+  AiStudioService,
+  AiStudioChatService,
+  AiStudioSourceService,
+  AiStudioOutputService,
+} from "../../../../ai-app/research";
 
 /**
  * 研究任务类型

@@ -45,6 +45,13 @@ import { ContextInitializationService } from "./orchestration/services/context-i
 import { ConstraintEnforcementService } from "./orchestration/services/constraint-enforcement.service";
 import { ContextCompressionService } from "./orchestration/services/context-compression.service";
 import { IntentDetectionService } from "./orchestration/services/intent-detection.service";
+import { ReflectionService } from "./orchestration/services/reflection.service";
+
+// State Machine (★ P4 沉淀)
+import { ExecutionStateManager } from "./orchestration/state-machine/execution-state.manager";
+
+// Model Fallback (★ P4 沉淀)
+import { ModelFallbackService } from "./llm/model-fallback/model-fallback.service";
 
 // Memory Services
 import { ShortTermMemoryService } from "./memory/stores/short-term-memory.service";
@@ -102,6 +109,9 @@ import { LongContentModule } from "./long-content/long-content.module";
 import { AiChatService } from "./llm/services/ai-chat.service";
 import { SearchService } from "./search/search.service";
 import { AiCoreService, AiCoreController } from "./api";
+
+// Facade (统一入口)
+import { AIEngineFacade } from "./facade";
 
 /**
  * 工具管道工厂
@@ -283,6 +293,11 @@ const conversationMemoryFactory = {
     ConstraintEnforcementService,
     ContextCompressionService,
     IntentDetectionService,
+    ReflectionService, // ★ P0 沉淀: 从 Deep Research 提取的通用反思能力
+    ExecutionStateManager, // ★ P4 沉淀
+
+    // === Model Fallback (★ P4 沉淀) ===
+    ModelFallbackService,
 
     // === Collaboration ===
     votingManagerFactory,
@@ -322,6 +337,9 @@ const conversationMemoryFactory = {
     EmbeddingService,
     VectorService,
     DocumentChunker,
+
+    // === Facade (统一入口) ===
+    AIEngineFacade,
   ],
   exports: [
     // === Registries ===
@@ -354,6 +372,11 @@ const conversationMemoryFactory = {
     ConstraintEnforcementService,
     ContextCompressionService,
     IntentDetectionService,
+    ReflectionService, // ★ P0 沉淀: 从 Deep Research 提取的通用反思能力
+    ExecutionStateManager, // ★ P4 沉淀
+
+    // === Model Fallback (★ P4 沉淀) ===
+    ModelFallbackService,
 
     // === Collaboration ===
     VotingManager,
@@ -402,6 +425,9 @@ const conversationMemoryFactory = {
 
     // === Long Content Engine ===
     LongContentModule,
+
+    // === Facade (统一入口) ===
+    AIEngineFacade,
   ],
 })
 export class AiEngineModule implements OnModuleInit {

@@ -162,6 +162,32 @@ export {
 
 export { TeamsModule } from "./teams";
 
+// Facade (统一入口)
+export { AIEngineFacade } from "./facade";
+export type {
+  // LLM 类型
+  ChatRequest,
+  ChatResponse,
+  // 搜索类型
+  SearchRequest,
+  SearchResponse,
+  SearchResultItem,
+  // 上下文类型
+  BuildContextRequest,
+  ContextSource,
+  // 记忆类型
+  StoreMemoryRequest,
+  RetrieveMemoryRequest,
+  MemoryItem,
+  // 约束类型
+  ConstraintConfig,
+  ConstraintResult,
+  // 任务配置类型（Facade 专用，与 Teams 不同）
+  TaskProfile as FacadeTaskProfile,
+  MissionProgress as FacadeMissionProgress,
+  ProgressCallback as FacadeProgressCallback,
+} from "./facade/types";
+
 // Image 模块核心服务
 export { ImageFactory } from "./image/factory";
 export { ImageModule } from "./image/image.module";

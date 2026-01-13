@@ -8,8 +8,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
-import { PrismaService } from "@/common/prisma/prisma.service";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { AIModelType } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
 import {
   TaskBreakdown,
@@ -22,68 +22,40 @@ import {
   SLIDES_TEAM_MEMBERS,
 } from "./types";
 
+/**
+ * ★ P3 迁移：使用 AIEngineFacade 替代 AiChatService
+ */
 @Injectable()
 export class SlidesLeader {
   private readonly logger = new Logger(SlidesLeader.name);
 
-  constructor(
-    private readonly aiChatService: AiChatService,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly aiFacade: AIEngineFacade) {}
 
   // ============================================
   // AI 调用辅助方法
   // ============================================
 
-  private async getDefaultModel(): Promise<string> {
-    // 优先获取默认 CHAT 模型
-    const defaultModel = await this.prisma.aIModel.findFirst({
-      where: {
-        modelType: "CHAT",
-        isDefault: true,
-        isEnabled: true,
-      },
-      select: { modelId: true },
-    });
-
-    if (defaultModel) {
-      return defaultModel.modelId;
-    }
-
-    // 如果没有默认模型，获取任意启用的 CHAT 模型
-    const anyModel = await this.prisma.aIModel.findFirst({
-      where: {
-        modelType: "CHAT",
-        isEnabled: true,
-      },
-      select: { modelId: true },
-    });
-
-    if (anyModel) {
-      return anyModel.modelId;
-    }
-
-    // 严禁硬编码！如果数据库没有配置任何模型，抛出错误
-    throw new Error(
-      "No AI model configured in database. Please configure a CHAT model in Admin Console.",
-    );
-  }
-
+  /**
+   * ★ P3 迁移：使用 AIEngineFacade 统一入口
+   * 模型选择由 Facade 内部处理
+   */
   private async callAI(
     systemPrompt: string,
     userMessage: string,
-    options?: { maxTokens?: number; temperature?: number },
+    options?: {
+      outputLength?: "minimal" | "short" | "medium" | "standard" | "long";
+    },
   ): Promise<string> {
-    const model = await this.getDefaultModel();
-
-    const result = await this.aiChatService.generateChatCompletion({
-      model,
+    const result = await this.aiFacade.chat({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
       ],
-      maxTokens: options?.maxTokens ?? 4000,
-      temperature: options?.temperature ?? 0.3,
+      modelType: AIModelType.CHAT,
+      taskProfile: {
+        creativity: "low", // Leader 规划需要低创造性，保持一致性
+        outputLength: options?.outputLength ?? "standard",
+      },
     });
 
     return result.content || "";
@@ -100,8 +72,7 @@ export class SlidesLeader {
     const userPrompt = this.buildPlanningPrompt(mission);
 
     const response = await this.callAI(systemPrompt, userPrompt, {
-      maxTokens: 8000,
-      temperature: 0.3,
+      outputLength: "long", // 任务规划需要长输出
     });
 
     const breakdown = this.parseTaskBreakdown(response);
@@ -478,8 +449,7 @@ ${mission.sourceText.substring(0, 8000)}${mission.sourceText.length > 8000 ? "\n
     const userPrompt = this.buildReviewPrompt(mission, task, result);
 
     const response = await this.callAI(systemPrompt, userPrompt, {
-      maxTokens: 2000,
-      temperature: 0.2,
+      outputLength: "short", // 审核输出较短
     });
 
     const reviewResult = this.parseReviewResult(response);
@@ -618,8 +588,7 @@ ${JSON.stringify(result, null, 2).substring(0, 4000)}
 `;
 
     const response = await this.callAI(systemPrompt, userPrompt, {
-      maxTokens: 1000,
-      temperature: 0.3,
+      outputLength: "short", // 总结输出较短
     });
 
     return {

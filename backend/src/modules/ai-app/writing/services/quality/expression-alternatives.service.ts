@@ -12,8 +12,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
-import { TaskProfile } from "../../../../ai-engine/llm/types";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { TaskProfile } from "@/modules/ai-engine/llm/types";
 import { AIModelType } from "@prisma/client";
 
 // ==================== 重试配置 ====================
@@ -88,7 +88,7 @@ export class ExpressionAlternativesService {
   private readonly cacheExpiry = 24 * 60 * 60 * 1000; // 24 小时
   private readonly cacheTimestamps = new Map<string, number>();
 
-  constructor(private readonly aiChatService: AiChatService) {}
+  constructor(private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 获取表达的替代方案
@@ -195,7 +195,7 @@ export class ExpressionAlternativesService {
       // ★ 使用重试机制包装 LLM 调用
       const response = await withRetry(
         () =>
-          this.aiChatService.chat({
+          this.aiFacade.chat({
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: userPrompt },
@@ -260,7 +260,7 @@ ${style ? `4. 风格：${style}` : ""}
         // ★ 使用重试机制包装 LLM 调用
         const response = await withRetry(
           () =>
-            this.aiChatService.chat({
+            this.aiFacade.chat({
               messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt },

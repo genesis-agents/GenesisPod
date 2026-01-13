@@ -15,7 +15,7 @@
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade, ChatMessage } from "../../../../ai-engine/facade";
 import { DebateStatus, DebateRole, DebateAgent, Prisma } from "@prisma/client";
 
 // 辩论消息类型（用于Agent的conversationHistory）
@@ -50,7 +50,7 @@ export class DebateService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   /**
@@ -288,16 +288,20 @@ export class DebateService {
 
     // 调用AI生成回复
     const startTime = Date.now();
-    const response = await this.aiChatService.generateChatCompletionWithKey({
-      provider: aiModelConfig.provider,
-      modelId: aiModelConfig.modelId,
-      apiKey: aiModelConfig.apiKey || "",
-      apiEndpoint: aiModelConfig.apiEndpoint || undefined,
-      systemPrompt: agent.stancePrompt || "",
-      messages,
-      maxTokens: aiModelConfig.maxTokens,
-      temperature: aiModelConfig.temperature,
-      displayName: agent.displayName,
+    const debateMessages: ChatMessage[] = [
+      { role: "system", content: agent.stancePrompt || "" },
+      ...messages.map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+    ];
+    const response = await this.aiFacade.chat({
+      messages: debateMessages,
+      model: aiModelConfig.modelId,
+      taskProfile: {
+        creativity: "medium",
+        outputLength: "standard",
+      },
     });
     const latencyMs = Date.now() - startTime;
 

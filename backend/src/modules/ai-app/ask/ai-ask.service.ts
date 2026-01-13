@@ -5,9 +5,8 @@ import {
   Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade } from "../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
-import { TaskProfile } from "../../ai-engine/llm/types";
 import {
   FunctionCallingExecutor,
   ExecutionConfig,
@@ -65,7 +64,7 @@ export class AiAskService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
     @Optional()
     private readonly functionCallingExecutor: FunctionCallingExecutor,
     @Optional()
@@ -369,11 +368,13 @@ export class AiAskService {
         };
 
         // 执行配置
+        // Note: ExecutionConfig 暂不支持 taskProfile，保持原参数
+        // TODO: Phase 1 - 更新 ExecutionConfig 接口以支持 taskProfile
         const executionConfig: Partial<ExecutionConfig> = {
           maxIterations: 5,
           maxToolCalls: 10,
-          temperature: 0.7,
-          maxTokens: 4000,
+          temperature: 0.7, // creativity: medium
+          maxTokens: 4000, // outputLength: standard
         };
 
         // 执行自主模式（使用 AI Engine 的 FunctionCallingLLMAdapter）
@@ -406,7 +407,7 @@ export class AiAskService {
 
         aiResponseContent = finalContent || "抱歉，我无法完成这个请求。";
       } else {
-        // 使用传统模式（直接调用 AiChatService）
+        // 使用传统模式（通过 AIEngineFacade 调用）
         // 构建系统提示词（包含项目上下文和 RAG 上下文）
         const systemPrompt = this.buildSystemPromptForChat(
           dto.content,
@@ -421,21 +422,18 @@ export class AiAskService {
           ...contextMessages,
         ];
 
-        const aiResponse = await this.aiChatService.chat({
-          provider: modelConfig.provider,
-          model: modelConfig.modelId,
-          apiKey: modelConfig.apiKey ?? "",
-          apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+        // 使用 AIEngineFacade 统一入口
+        const aiResponse = await this.aiFacade.chat({
           messages: messagesWithSystem,
+          model: modelConfig.modelId, // 指定模型
+          modelType: AIModelType.CHAT,
           taskProfile: {
-            creativity: "medium",
-            outputLength: "standard",
-          } as TaskProfile,
-          maxTokens: 4000, // Kept for backward compatibility
-          temperature: 0.7, // Kept for backward compatibility
+            creativity: "medium", // 对话需要中等创造性 (mapped from temperature: 0.7)
+            outputLength: "standard", // 标准输出长度 (mapped from maxTokens: 4000)
+          },
         });
         aiResponseContent = aiResponse.content;
-        tokensUsed = aiResponse.usage?.totalTokens || 0;
+        tokensUsed = aiResponse.tokensUsed || 0;
       }
 
       // 保存 AI 响应（如果使用了工具，在内容末尾添加工具使用信息）
@@ -719,19 +717,15 @@ export class AiAskService {
     }));
 
     try {
-      // 调用 AI
-      const aiResponse = await this.aiChatService.chat({
-        provider: modelConfig.provider,
-        model: modelConfig.modelId,
-        apiKey: modelConfig.apiKey ?? "",
-        apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+      // 调用 AI (通过 AIEngineFacade 统一入口)
+      const aiResponse = await this.aiFacade.chat({
         messages: contextMessages,
+        model: modelConfig.modelId, // 指定模型
+        modelType: AIModelType.CHAT,
         taskProfile: {
-          creativity: "medium",
-          outputLength: "standard",
-        } as TaskProfile,
-        maxTokens: 4000, // Kept for backward compatibility
-        temperature: 0.7, // Kept for backward compatibility
+          creativity: "medium", // 对话需要中等创造性 (mapped from temperature: 0.7)
+          outputLength: "standard", // 标准输出长度 (mapped from maxTokens: 4000)
+        },
       });
 
       // 更新消息内容
@@ -739,7 +733,7 @@ export class AiAskService {
         where: { id: messageId },
         data: {
           content: aiResponse.content,
-          tokens: aiResponse.usage?.totalTokens || 0,
+          tokens: aiResponse.tokensUsed || 0,
         },
       });
 

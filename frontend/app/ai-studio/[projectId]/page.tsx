@@ -61,8 +61,8 @@ import {
   Pencil,
   Check,
 } from 'lucide-react';
-import { FileUploader } from '@/components/ai-studio/FileUploader';
-import { OutputViewer } from '@/components/ai-studio/outputs/OutputViewer';
+import { FileUploader } from '@/components/ai-research/deep-research/FileUploader';
+import { OutputViewer } from '@/components/ai-research/deep-research/outputs/OutputViewer';
 import {
   CitationProvider,
   CitedContent,
@@ -70,8 +70,8 @@ import {
   SourceHighlight,
   useCitationOptional,
   type SourceReference,
-} from '@/components/ai-studio/citations';
-import { ResearchTab } from '@/components/ai-studio/ResearchTab';
+} from '@/components/ai-research/deep-research/citations';
+import { ResearchTab } from '@/components/ai-research/deep-research/ResearchTab';
 
 // ==================== 类型定义 ====================
 interface Source {

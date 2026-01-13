@@ -20,7 +20,8 @@ import {
 } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade } from "../../../../ai-engine/facade";
+import type { AIModelType as _AIModelType } from "@prisma/client"; // 保留用于类型参考
 
 // AI Engine 核心依赖
 import { MissionOrchestrator } from "../../../../ai-engine/teams/orchestrator/mission-orchestrator";
@@ -215,8 +216,8 @@ export class WritingMissionService {
     private readonly writer: WriterAgent,
     private readonly consistencyChecker: ConsistencyCheckerAgent,
     private readonly editor: EditorAgent,
-    // AI Chat Service - 直接 LLM 调用
-    private readonly aiChatService: AiChatService,
+    // ★ P3 迁移：使用 AIEngineFacade 统一入口
+    private readonly aiFacade: AIEngineFacade,
     // Event Emitter - 实时事件推送
     private readonly eventEmitter: WritingEventEmitterService,
     // Expression Memory - 表达冷却服务
@@ -1278,7 +1279,7 @@ ${storyCreativitySection}
       const worldStartTime = Date.now();
 
       // ★ 不传 maxTokens，让 AI Engine 自动使用数据库配置
-      const worldResponse = await this.aiChatService.chat({
+      const worldResponse = await this.aiFacade.chat({
         messages: [
           {
             role: "system",
@@ -1710,7 +1711,7 @@ ${Array.from(
         const startTime = Date.now();
 
         // ★ 不传 maxTokens，让 AI Engine 自动使用数据库配置
-        const outlineResponse = await this.aiChatService.chat({
+        const outlineResponse = await this.aiFacade.chat({
           messages: [
             {
               role: "system",
@@ -1823,7 +1824,7 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
 请以JSON数组格式输出，每个元素是章节标题字符串：
 ["标题1", "标题2", ...]`;
 
-        const fillResponse = await this.aiChatService.chat({
+        const fillResponse = await this.aiFacade.chat({
           messages: [
             {
               role: "system",
@@ -2066,7 +2067,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
 - 对话要符合角色性格
 - 描写要符合世界观设定`;
 
-        const writerResponse = await this.aiChatService.chat({
+        const writerResponse = await this.aiFacade.chat({
           messages: [
             {
               role: "system",
@@ -2108,7 +2109,7 @@ ${WriterAgent.CORE_WRITING_PRINCIPLES}
 
 ${qualityConstraints ? `${qualityConstraints}\n` : ""}`;
 
-          const retryResponse = await this.aiChatService.chat({
+          const retryResponse = await this.aiFacade.chat({
             messages: [
               {
                 role: "system",
@@ -2178,7 +2179,7 @@ ${previousChapterSummary || "这是第一章"}
   ]
 }`;
 
-      const checkResponse = await this.aiChatService.chat({
+      const checkResponse = await this.aiFacade.chat({
         messages: [
           {
             role: "system",
@@ -2258,7 +2259,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
 3. 不改变主要情节和人物关系
 4. 直接输出修复后的完整内容，不要加任何解释`;
 
-        const fixResponse = await this.aiChatService.chat({
+        const fixResponse = await this.aiFacade.chat({
           messages: [
             {
               role: "system",
@@ -2304,7 +2305,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
           )
           .join("\n\n");
 
-        const reCheckResponse = await this.aiChatService.chat({
+        const reCheckResponse = await this.aiFacade.chat({
           messages: [
             {
               role: "system",
@@ -2450,7 +2451,7 @@ ${chapterContent}
 
 ${editNarrativeConstraints}`;
 
-        const editResponse = await this.aiChatService.chat({
+        const editResponse = await this.aiFacade.chat({
           messages: [
             { role: "system", content: editSystemPrompt },
             { role: "user", content: editPrompt },
@@ -2530,7 +2531,7 @@ ${firstChapterGuidance}
 4. 让读者立刻关心主角的处境`;
 
           try {
-            const openingRewriteResponse = await this.aiChatService.chat({
+            const openingRewriteResponse = await this.aiFacade.chat({
               messages: [
                 {
                   role: "system",
@@ -2815,7 +2816,7 @@ ${chapterContent}
 
 ${narrativeConstraints}`;
 
-            const rewriteResponse = await this.aiChatService.chat({
+            const rewriteResponse = await this.aiFacade.chat({
               messages: [
                 {
                   role: "system",
@@ -3754,7 +3755,7 @@ ${content.slice(0, 6000)}${content.length > 6000 ? "...(内容截断)" : ""}
 
 直接输出摘要内容，不要添加额外格式标记。`;
 
-      const response = await this.aiChatService.chat({
+      const response = await this.aiFacade.chat({
         messages: [
           {
             role: "system",
@@ -3836,7 +3837,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 3000)}
 }`;
 
     try {
-      const response = await this.aiChatService.chat({
+      const response = await this.aiFacade.chat({
         messages: [
           {
             role: "system",
@@ -3974,7 +3975,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
 务必提取所有出现的有名角色，即使只是一笔带过的角色也要记录！`;
 
     try {
-      const response = await this.aiChatService.chat({
+      const response = await this.aiFacade.chat({
         messages: [
           {
             role: "system",
@@ -4054,7 +4055,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
           // 【重试机制】尝试让 LLM 修复 JSON
           try {
             this.logger.log(`[${missionId}] Attempting JSON repair via LLM...`);
-            const repairResponse = await this.aiChatService.chat({
+            const repairResponse = await this.aiFacade.chat({
               messages: [
                 {
                   role: "system",
@@ -4595,7 +4596,7 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
       this.logger.log(`Calling LLM (${modelId}) for mission ${missionId}`);
 
       // 调用 AiChatService
-      const response = await this.aiChatService.chat({
+      const response = await this.aiFacade.chat({
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -5201,7 +5202,7 @@ ${userPrompt}
     // 添加当前用户消息
     messages.push({ role: "user", content: userPrompt });
 
-    const analysisResponse = await this.aiChatService.chat({
+    const analysisResponse = await this.aiFacade.chat({
       messages,
       model: modelId,
       temperature: 0.3, // 低温度确保输出稳定
@@ -5481,7 +5482,7 @@ ${instruction}
 
 请输出修改后的完整章节内容：`;
 
-    const response = await this.aiChatService.chat({
+    const response = await this.aiFacade.chat({
       messages: [{ role: "user", content: modifyPrompt }],
       model: modelId,
       temperature: 0.8,
@@ -6965,7 +6966,7 @@ ${WriterAgent.CORE_WRITING_PRINCIPLES}
 ${qualityConstraints ? `${qualityConstraints}\n` : ""}
 请直接输出章节内容。`;
 
-      const writerResponse = await this.aiChatService.chat({
+      const writerResponse = await this.aiFacade.chat({
         messages: [
           {
             role: "system",
@@ -6985,7 +6986,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
           `[${missionId}] Chapter content too short, retrying...`,
         );
         // ★★★ 重试时也必须包含完整质量约束（修复：之前遗漏了 qualityConstraints）
-        const retryResponse = await this.aiChatService.chat({
+        const retryResponse = await this.aiFacade.chat({
           messages: [
             {
               role: "system",
@@ -7027,7 +7028,7 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
             this.openingHook.generateOpeningConstraints(1, undefined);
 
           try {
-            const openingRewriteResponse = await this.aiChatService.chat({
+            const openingRewriteResponse = await this.aiFacade.chat({
               messages: [
                 {
                   role: "system",

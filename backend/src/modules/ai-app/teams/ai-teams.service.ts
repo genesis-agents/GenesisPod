@@ -28,7 +28,7 @@ import {
   ForwardMessagesDto,
   BookmarkMessageDto,
 } from "./dto";
-import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade, ChatMessage } from "../../ai-engine/facade";
 import {
   UrlParserService,
   ParsedUrl,
@@ -45,7 +45,7 @@ export class AiTeamsService {
 
   constructor(
     private prisma: PrismaService,
-    private aiChatService: AiChatService,
+    private aiFacade: AIEngineFacade,
     private urlParserService: UrlParserService,
     private aiResponseService: AiResponseService,
     private membershipService: TopicMembershipService,
@@ -1017,10 +1017,20 @@ export class AiTeamsService {
     let summaryContent: string;
 
     try {
-      const result = await this.aiChatService.generateSummary(
-        messagesForSummary,
-        aiModel,
-      );
+      // 构建摘要提示词
+      const summaryPrompt = `请为以下对话生成一份专业的讨论纪要，包含：主要议题、关键观点、结论和待办事项。
+
+对话内容：
+${messagesForSummary.map((m) => `[${m.sender}]: ${m.content}`).join("\n")}`;
+
+      const summaryMessages: ChatMessage[] = [
+        { role: "user", content: summaryPrompt },
+      ];
+      const result = await this.aiFacade.chat({
+        messages: summaryMessages,
+        model: aiModel,
+        taskProfile: { creativity: "low", outputLength: "standard" },
+      });
       summaryContent = result.content;
     } catch (error) {
       this.logger.error(`Failed to generate summary: ${error}`);

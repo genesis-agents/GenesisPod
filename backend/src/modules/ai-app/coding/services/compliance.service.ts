@@ -6,8 +6,7 @@
 
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
-import { TaskProfile } from "../../../ai-engine/llm/types";
+import { AIEngineFacade } from "../../../ai-engine/facade";
 import { StandardsService, StandardRule } from "./standards.service";
 import { AiCodingComplianceStatus, Prisma } from "@prisma/client";
 
@@ -42,7 +41,7 @@ export class ComplianceService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
     private readonly standardsService: StandardsService,
   ) {}
 
@@ -238,8 +237,12 @@ Be thorough but fair. Only flag actual violations, not stylistic preferences.`;
     }));
 
     try {
-      const result = await this.aiChatService.chat({
+      const result = await this.aiFacade.chat({
         messages: [
+          {
+            role: "system",
+            content: systemPrompt,
+          },
           {
             role: "user",
             content: `Check these files against the rules:
@@ -254,13 +257,10 @@ OUTPUTS (PRD, Design, etc):
 ${JSON.stringify(outputs, null, 2).substring(0, 2000)}`,
           },
         ],
-        systemPrompt,
         taskProfile: {
           creativity: "low",
           outputLength: "standard",
-        } as TaskProfile,
-        maxTokens: 4096, // Kept for backward compatibility
-        temperature: 0.3, // Kept for backward compatibility
+        },
       });
 
       const jsonMatch = result.content.match(/\{[\s\S]*\}/);

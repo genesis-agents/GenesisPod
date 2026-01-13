@@ -19,11 +19,8 @@ import {
   SkillLayer,
   SKILL_LAYERS,
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
-import { AIModelService } from "../../core/ai-model.service";
-import {
-  AiChatService,
-  ChatMessage,
-} from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade, ChatMessage } from "@/modules/ai-engine/facade";
+import { AIModelType } from "@prisma/client";
 import {
   PageOutline,
   PageContent,
@@ -735,10 +732,7 @@ export class FourStepDesignSkill
 
   private readonly logger = new Logger(FourStepDesignSkill.name);
 
-  constructor(
-    @Optional() private readonly aiModelService: AIModelService,
-    @Optional() private readonly aiChatService: AiChatService,
-  ) {}
+  constructor(@Optional() private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 将 MissionOrchestrator 输入格式转换为直接输入格式
@@ -817,14 +811,14 @@ export class FourStepDesignSkill
 
     const userMessage = this.buildUserMessage(normalizedInput);
 
-    // 使用数据库配置的模型（严禁硬编码模型名！）
-    if (!this.aiModelService || !this.aiChatService) {
+    // ★ 使用 AIEngineFacade 统一入口
+    if (!this.aiFacade) {
       return {
         success: false,
         error: {
           code: "SERVICE_NOT_AVAILABLE",
           message:
-            "AIModelService or AiChatService not available. Please check module configuration.",
+            "AIEngineFacade not available. Please check module configuration.",
           retryable: false,
         },
         metadata: {
@@ -836,25 +830,21 @@ export class FourStepDesignSkill
       };
     }
 
-    const model = await this.aiModelService.getDefaultTextModel();
-    this.logger.debug(
-      `[execute] Using model: ${model.displayName} (${model.modelId})`,
-    );
+    const messages: ChatMessage[] = [
+      { role: "system", content: FOUR_STEP_DESIGN_SYSTEM_PROMPT },
+      { role: "user", content: userMessage },
+    ];
 
-    const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
-
-    const llmResponse = await this.aiChatService.chat({
-      provider: model.provider,
-      model: model.modelId,
-      apiKey: model.apiKey || "",
-      apiEndpoint: model.apiEndpoint || undefined,
-      systemPrompt: FOUR_STEP_DESIGN_SYSTEM_PROMPT,
+    const llmResponse = await this.aiFacade.chat({
       messages,
-      maxTokens: model.maxTokens || 8192,
-      temperature: model.temperature || 0.2,
+      modelType: AIModelType.CHAT,
+      taskProfile: {
+        creativity: "low", // 设计需要一致性和准确性
+        outputLength: "long", // 需要生成完整的 HTML
+      },
     });
 
-    if (!llmResponse) {
+    if (!llmResponse?.content) {
       this.logger.error("[execute] AI call failed: no content returned");
       return {
         success: false,
@@ -919,7 +909,7 @@ export class FourStepDesignSkill
         startTime,
         endTime,
         duration: durationMs,
-        tokensUsed: llmResponse.usage?.totalTokens || 0,
+        tokensUsed: llmResponse.tokensUsed || 0,
       },
     };
   }

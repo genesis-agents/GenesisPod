@@ -22,8 +22,9 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
-import { TaskProfile } from "../../../../ai-engine/llm/types";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { TaskProfile } from "@/modules/ai-engine/llm/types";
+import type { AIModelType as _AIModelType } from "@prisma/client"; // 保留用于类型参考
 
 // ==================== 禁止模式库 ====================
 
@@ -592,7 +593,7 @@ export interface NarrativeCraftReport {
 export class NarrativeCraftService {
   private readonly logger = new Logger(NarrativeCraftService.name);
 
-  constructor(private readonly aiChatService: AiChatService) {}
+  constructor(private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 生成叙事工艺约束提示词
@@ -1101,7 +1102,7 @@ ${targetPart}
     const maxRetries = 3;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const response = await this.aiChatService.chat({
+        const response = await this.aiFacade.chat({
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },

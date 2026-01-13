@@ -2,12 +2,13 @@
  * Prompt Enhancement Service
  *
  * This service handles AI-powered prompt enhancement and parsing
- * 使用 AiChatService 统一调用 LLM
+ * ★ P3 迁移：使用 AIEngineFacade 统一入口
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade } from "../../../ai-engine/facade";
 import { TaskProfile } from "../../../ai-engine/llm/types";
+import { AIModelType } from "@prisma/client";
 import {
   PromptEngineeringInsights,
   PromptDesignJournalEntry,
@@ -37,30 +38,26 @@ import {
 export class PromptEnhancementService {
   private readonly logger = new Logger(PromptEnhancementService.name);
 
-  constructor(private readonly aiChatService: AiChatService) {}
+  constructor(private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 调用 LLM 进行 Prompt 增强
-   * 使用 AiChatService 统一接口
+   * ★ P3 迁移：使用 AIEngineFacade 统一入口
    */
   async enhancePromptWithLLM(
     content: string,
-    modelId?: string,
+    _modelId?: string,
   ): Promise<string> {
-    this.logger.log(
-      `[enhancePromptWithLLM] Calling LLM with model: ${modelId || "default"}`,
-    );
+    this.logger.log(`[enhancePromptWithLLM] Calling LLM via AIEngineFacade`);
 
-    const result = await this.aiChatService.chat({
+    const result = await this.aiFacade.chat({
       messages: [{ role: "user", content }],
       systemPrompt: PROMPT_ENHANCEMENT_SYSTEM,
+      modelType: AIModelType.CHAT_FAST, // Prompt 增强使用快速模型
       taskProfile: {
         creativity: "low",
         outputLength: "standard",
       } as TaskProfile,
-      temperature: 0.3, // Kept for backward compatibility
-      maxTokens: 4096, // Kept for backward compatibility
-      model: modelId,
     });
 
     if (!result.content) {

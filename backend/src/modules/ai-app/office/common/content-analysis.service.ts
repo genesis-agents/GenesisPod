@@ -4,9 +4,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
-import { TaskProfile } from "../../../ai-engine/llm/types";
-import { AIModelService } from "../core/ai-model.service";
+import { AIEngineFacade } from "../../../ai-engine/facade";
+import { AIModelType } from "@prisma/client";
 import {
   CONTENT_ANALYSIS_SYSTEM_PROMPT,
   CONTENT_ANALYSIS_USER_PROMPT,
@@ -25,14 +24,14 @@ import {
   SuggestedStructure,
 } from "./content-analysis.types";
 
+/**
+ * ★ P3 迁移：使用 AIEngineFacade 替代 AiChatService
+ */
 @Injectable()
 export class ContentAnalysisService {
   private readonly logger = new Logger(ContentAnalysisService.name);
 
-  constructor(
-    private readonly aiModelService: AIModelService,
-    private readonly aiChatService: AiChatService,
-  ) {}
+  constructor(private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 分析内容特征
@@ -340,6 +339,8 @@ export class ContentAnalysisService {
 
   /**
    * AI 深度分析
+   *
+   * ★ P3 迁移：使用 AIEngineFacade 替代 AiChatService
    */
   private async performAIAnalysis(input: ContentAnalysisInput): Promise<{
     features: Partial<ContentFeatures>;
@@ -354,26 +355,17 @@ export class ContentAnalysisService {
         .replace("{{purpose}}", input.context?.purpose || "生成专业报告")
         .replace("{{content}}", input.content.slice(0, 8000)); // 限制长度
 
-      // 获取模型配置
-      const model = await this.aiModelService.getDefaultTextModel(
-        input.context?.modelId,
-      );
-
-      // 调用 AI 服务
-      const response = await this.aiChatService.chat({
-        provider: model.provider,
-        model: model.modelId,
-        apiKey: model.apiKey || "",
-        systemPrompt: CONTENT_ANALYSIS_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: userPrompt }],
+      // ★ 使用 AIEngineFacade 统一入口
+      const response = await this.aiFacade.chat({
+        messages: [
+          { role: "system", content: CONTENT_ANALYSIS_SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+        modelType: AIModelType.CHAT_FAST, // 内容分析使用快速模型
         taskProfile: {
-          creativity: "low",
-          outputLength: "short",
-          outputFormat: "json",
-        } as TaskProfile,
-        // 向后兼容：保留原始参数
-        temperature: 0.3,
-        maxTokens: 2000,
+          creativity: "low", // 内容分析需要低创造性，保持客观
+          outputLength: "short", // 分析输出较短
+        },
       });
 
       // 解析 JSON 响应

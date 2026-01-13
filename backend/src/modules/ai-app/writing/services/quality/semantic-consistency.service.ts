@@ -12,8 +12,8 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
-import { TaskProfile } from "../../../../ai-engine/llm/types";
+import { AIEngineFacade } from "@/modules/ai-engine/facade";
+import { TaskProfile } from "@/modules/ai-engine/llm/types";
 import { AIModelType } from "@prisma/client";
 
 // ==================== 重试配置 ====================
@@ -100,7 +100,7 @@ export interface SemanticCheckResult {
 export class SemanticConsistencyService {
   private readonly logger = new Logger(SemanticConsistencyService.name);
 
-  constructor(private readonly aiChatService: AiChatService) {}
+  constructor(private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 执行语义一致性检查
@@ -207,7 +207,7 @@ export class SemanticConsistencyService {
       // ★ 使用重试机制包装 LLM 调用
       const response = await withRetry(
         () =>
-          this.aiChatService.chat({
+          this.aiFacade.chat({
             messages: [
               { role: "system", content: systemPrompt },
               {
@@ -291,7 +291,7 @@ export class SemanticConsistencyService {
       // ★ 使用重试机制包装 LLM 调用
       const response = await withRetry(
         () =>
-          this.aiChatService.chat({
+          this.aiFacade.chat({
             messages: [
               { role: "system", content: systemPrompt },
               {
@@ -381,7 +381,7 @@ export class SemanticConsistencyService {
       // ★ 使用重试机制包装 LLM 调用
       const response = await withRetry(
         () =>
-          this.aiChatService.chat({
+          this.aiFacade.chat({
             messages: [
               { role: "system", content: systemPrompt },
               {

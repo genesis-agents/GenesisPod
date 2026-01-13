@@ -1,9 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ExternalDataService } from "./external-data.service";
-import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade, ChatMessage } from "../../ai-engine/facade";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AIModelType } from "@prisma/client";
-import { TaskProfile } from "../../ai-engine/llm/types";
 
 interface IndustryAnalysis {
   companies: Array<{
@@ -135,7 +134,7 @@ export class AIAssistService {
 
   constructor(
     private readonly externalData: ExternalDataService,
-    private readonly aiChat: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -313,19 +312,17 @@ ${existingCompanies.length > 0 ? `用户已选择的公司（请不要重复推�
         this.logger.log(
           `Trying model: ${model.name} (${model.modelId}) for industry analysis`,
         );
-        result = await this.aiChat.chat({
-          provider: model.provider,
+        const messages: ChatMessage[] = [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ];
+        result = await this.aiFacade.chat({
+          messages,
           model: model.modelId,
-          apiKey: model.apiKey ?? "",
-          apiEndpoint: model.apiEndpoint ?? undefined,
-          systemPrompt,
-          messages: [{ role: "user", content: userPrompt }],
           taskProfile: {
             creativity: "medium",
             outputLength: "medium",
-          } as TaskProfile,
-          maxTokens: 2048, // Kept for backward compatibility
-          temperature: 0.7, // Kept for backward compatibility
+          },
         });
 
         // 检查是否是 API 错误消息
@@ -776,19 +773,17 @@ ${externalDataStr.slice(0, 3000)}${externalDataStr.length > 3000 ? "\n...(数据
     );
 
     try {
-      const result = await this.aiChat.generateChatCompletionWithKey({
-        provider: model.provider,
-        modelId: model.modelId,
-        apiKey: model.apiKey ?? "",
-        apiEndpoint: model.apiEndpoint ?? undefined,
-        systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
+      const metricsMessages: ChatMessage[] = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ];
+      const result = await this.aiFacade.chat({
+        messages: metricsMessages,
+        model: model.modelId,
         taskProfile: {
           creativity: "medium",
           outputLength: "short",
-        } as TaskProfile,
-        maxTokens: 1024, // Kept for backward compatibility
-        temperature: 0.7, // Kept for backward compatibility
+        },
       });
 
       if (!result.content) {

@@ -19,11 +19,8 @@ import {
   SkillLayer,
   SKILL_LAYERS,
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
-import { AIModelService } from "../../core/ai-model.service";
-import {
-  AiChatService,
-  ChatMessage,
-} from "@/modules/ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade, ChatMessage } from "@/modules/ai-engine/facade";
+import { AIModelType } from "@prisma/client";
 import {
   PageOutline,
   PageContent,
@@ -336,8 +333,7 @@ export class ContentCompressionSkill
   readonly version = "4.0.0";
 
   constructor(
-    @Optional() private readonly aiModelService: AIModelService,
-    @Optional() private readonly aiChatService: AiChatService,
+    @Optional() private readonly aiFacade: AIEngineFacade,
     @Inject(forwardRef(() => DataSupplementSkill))
     private readonly dataSupplementSkill: DataSupplementSkill,
     @Inject(forwardRef(() => ContentAnalyzerSkill))
@@ -417,32 +413,28 @@ export class ContentCompressionSkill
       const inputWithDefaults = { ...normalizedInput, maxCharacters: maxChars };
       const userMessage = this.buildUserMessage(inputWithDefaults);
 
-      // 使用数据库配置的模型（严禁硬编码模型名！）
-      if (!this.aiModelService || !this.aiChatService) {
+      // ★ 使用 AIEngineFacade 统一入口
+      if (!this.aiFacade) {
         throw new Error(
-          "AIModelService or AiChatService not available. Please check module configuration.",
+          "AIEngineFacade not available. Please check module configuration.",
         );
       }
 
-      const model = await this.aiModelService.getDefaultTextModel();
-      this.logger.debug(
-        `[execute] Using model: ${model.displayName} (${model.modelId})`,
-      );
+      const messages: ChatMessage[] = [
+        { role: "system", content: CONTENT_COMPRESSION_SYSTEM_PROMPT },
+        { role: "user", content: userMessage },
+      ];
 
-      const messages: ChatMessage[] = [{ role: "user", content: userMessage }];
-
-      const response = await this.aiChatService.chat({
-        provider: model.provider,
-        model: model.modelId,
-        apiKey: model.apiKey || "",
-        apiEndpoint: model.apiEndpoint || undefined,
-        systemPrompt: CONTENT_COMPRESSION_SYSTEM_PROMPT,
+      const response = await this.aiFacade.chat({
         messages,
-        maxTokens: model.maxTokens || 4096,
-        temperature: model.temperature || 0.5,
+        modelType: AIModelType.CHAT,
+        taskProfile: {
+          creativity: "medium", // 内容压缩需要平衡准确性和创意
+          outputLength: "medium",
+        },
       });
 
-      if (!response) {
+      if (!response?.content) {
         throw new Error("Empty response from LLM");
       }
 
@@ -497,7 +489,7 @@ export class ContentCompressionSkill
           startTime,
           endTime,
           duration: endTime.getTime() - startTime.getTime(),
-          tokensUsed: response.usage?.totalTokens || 0,
+          tokensUsed: response.tokensUsed || 0,
         },
       };
     } catch (error) {

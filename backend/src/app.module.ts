@@ -30,12 +30,11 @@ import { AiAskModule } from "./modules/ai-app/ask/ai-ask.module";
 import { AiImageModule } from "./modules/ai-app/image/ai-image.module";
 import { AiOfficeModule } from "./modules/ai-app/office/ai-office.module";
 import { AiSimulationModule } from "./modules/ai-app/simulation/ai-simulation.module";
-import { AiStudioModule } from "./modules/ai-app/studio/ai-studio.module";
 import { AiTeamsModule } from "./modules/ai-app/teams/ai-teams.module";
 import { AiCodingModule } from "./modules/ai-app/coding/ai-coding.module";
 import { RAGModule } from "./modules/ai-app/rag/rag.module";
 import { AiWritingModule } from "./modules/ai-app/writing/ai-writing.module";
-import { TopicResearchModule } from "./modules/ai-app/topic-research/topic-research.module";
+import { ResearchModule } from "./modules/ai-app/research";
 // Content modules
 import { CollectionsModule } from "./modules/content/collections/collections.module";
 import { CommentsModule } from "./modules/content/comments/comments.module";
@@ -122,12 +121,11 @@ import { WebhooksModule } from "./modules/webhooks";
     AiImageModule,
     AiOfficeModule,
     AiSimulationModule,
-    AiStudioModule,
     AiTeamsModule,
     AiCodingModule,
     RAGModule,
     AiWritingModule,
-    TopicResearchModule,
+    ResearchModule, // 统一研究模块 (包含 Topic, Deep, Notebook Research)
 
     // Content modules
     ResourcesModule,

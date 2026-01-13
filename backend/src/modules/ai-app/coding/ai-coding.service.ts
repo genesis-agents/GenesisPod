@@ -1,7 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
-import { TaskProfile } from "../../ai-engine/llm/types";
+import { AIEngineFacade, ChatMessage } from "../../ai-engine/facade";
 import {
   AiCodingProjectStatus,
   AiCodingAgentStatus,
@@ -81,7 +80,7 @@ export class AiCodingService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
     private readonly documentService: DocumentService,
     private readonly standardsService: StandardsService,
     private readonly eventEmitter: ProjectEventEmitterService,
@@ -875,33 +874,20 @@ Tech Stack: ${JSON.stringify(techStack)}
 
 Generate a PRD for this project.`;
 
-    // Use admin-configured model if provided
-    const result = aiModel
-      ? await this.aiChatService.generateChatCompletionWithKey({
-          provider: aiModel.provider,
-          modelId: aiModel.modelId,
-          apiKey: aiModel.apiKey || "",
-          apiEndpoint: aiModel.apiEndpoint || undefined,
-          systemPrompt,
-          messages: [{ role: "user", content: userMessage }],
-          taskProfile: {
-            creativity: "medium",
-            outputLength: "standard",
-          } as TaskProfile,
-          maxTokens: 4096, // Kept for backward compatibility
-          temperature: 0.7, // Kept for backward compatibility
-          displayName: aiModel.displayName,
-        })
-      : await this.aiChatService.chat({
-          messages: [{ role: "user", content: userMessage }],
-          systemPrompt,
-          taskProfile: {
-            creativity: "medium",
-            outputLength: "standard",
-          } as TaskProfile,
-          maxTokens: 4096, // Kept for backward compatibility
-          temperature: 0.7, // Kept for backward compatibility
-        });
+    // ★ 迁移到 AIEngineFacade
+    const messages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
+    ];
+
+    const result = await this.aiFacade.chat({
+      messages,
+      model: aiModel?.modelId,
+      taskProfile: {
+        creativity: "medium",
+        outputLength: "standard",
+      },
+    });
 
     try {
       const jsonMatch = result.content.match(/\{[\s\S]*\}/);
@@ -949,33 +935,20 @@ Tech Stack: ${JSON.stringify(techStack)}
 
 Design the technical architecture.`;
 
-    // Use admin-configured model if provided
-    const result = aiModel
-      ? await this.aiChatService.generateChatCompletionWithKey({
-          provider: aiModel.provider,
-          modelId: aiModel.modelId,
-          apiKey: aiModel.apiKey || "",
-          apiEndpoint: aiModel.apiEndpoint || undefined,
-          systemPrompt,
-          messages: [{ role: "user", content: userMessage }],
-          taskProfile: {
-            creativity: "medium",
-            outputLength: "standard",
-          } as TaskProfile,
-          maxTokens: 4096, // Kept for backward compatibility
-          temperature: 0.7, // Kept for backward compatibility
-          displayName: aiModel.displayName,
-        })
-      : await this.aiChatService.chat({
-          messages: [{ role: "user", content: userMessage }],
-          systemPrompt,
-          taskProfile: {
-            creativity: "medium",
-            outputLength: "standard",
-          } as TaskProfile,
-          maxTokens: 4096, // Kept for backward compatibility
-          temperature: 0.7, // Kept for backward compatibility
-        });
+    // ★ 迁移到 AIEngineFacade
+    const messages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
+    ];
+
+    const result = await this.aiFacade.chat({
+      messages,
+      model: aiModel?.modelId,
+      taskProfile: {
+        creativity: "medium",
+        outputLength: "standard",
+      },
+    });
 
     try {
       const jsonMatch = result.content.match(/\{[\s\S]*\}/);
@@ -1016,25 +989,20 @@ Design: ${JSON.stringify(design)}
 
 Create a task list for this project.`;
 
-    // Use admin-configured model if provided
-    const result = aiModel
-      ? await this.aiChatService.chat({
-          provider: aiModel.provider,
-          model: aiModel.modelId,
-          apiKey: aiModel.apiKey || "",
-          apiEndpoint: aiModel.apiEndpoint || undefined,
-          systemPrompt,
-          messages: [{ role: "user", content: userMessage }],
-          maxTokens: 2048,
-          temperature: 0.7,
-          displayName: aiModel.displayName,
-        })
-      : await this.aiChatService.chat({
-          messages: [{ role: "user", content: userMessage }],
-          systemPrompt,
-          maxTokens: 2048,
-          temperature: 0.7,
-        });
+    // ★ 迁移到 AIEngineFacade
+    const messages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
+    ];
+
+    const result = await this.aiFacade.chat({
+      messages,
+      model: aiModel?.modelId,
+      taskProfile: {
+        creativity: "medium",
+        outputLength: "short",
+      },
+    });
 
     try {
       const jsonMatch = result.content.match(/\[[\s\S]*\]/);
@@ -1086,25 +1054,20 @@ Tech Stack: ${JSON.stringify(techStack)}
 
 Generate the project code files.`;
 
-    // Use admin-configured model if provided
-    const result = aiModel
-      ? await this.aiChatService.chat({
-          provider: aiModel.provider,
-          model: aiModel.modelId,
-          apiKey: aiModel.apiKey || "",
-          apiEndpoint: aiModel.apiEndpoint || undefined,
-          systemPrompt,
-          messages: [{ role: "user", content: userMessage }],
-          maxTokens: 8192,
-          temperature: 0.5,
-          displayName: aiModel.displayName,
-        })
-      : await this.aiChatService.chat({
-          messages: [{ role: "user", content: userMessage }],
-          systemPrompt,
-          maxTokens: 8192,
-          temperature: 0.5,
-        });
+    // ★ 迁移到 AIEngineFacade
+    const engineerMessages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
+    ];
+
+    const result = await this.aiFacade.chat({
+      messages: engineerMessages,
+      model: aiModel?.modelId,
+      taskProfile: {
+        creativity: "low",
+        outputLength: "extended",
+      },
+    });
 
     let codeOutput: NonNullable<ProjectOutputs["code"]> = {
       files: [],
@@ -1189,25 +1152,20 @@ Code Files: ${JSON.stringify(codeFiles)}
 
 Generate test files for this project.`;
 
-    // Use admin-configured model if provided
-    const result = aiModel
-      ? await this.aiChatService.chat({
-          provider: aiModel.provider,
-          model: aiModel.modelId,
-          apiKey: aiModel.apiKey || "",
-          apiEndpoint: aiModel.apiEndpoint || undefined,
-          systemPrompt,
-          messages: [{ role: "user", content: userMessage }],
-          maxTokens: 4096,
-          temperature: 0.5,
-          displayName: aiModel.displayName,
-        })
-      : await this.aiChatService.chat({
-          messages: [{ role: "user", content: userMessage }],
-          systemPrompt,
-          maxTokens: 4096,
-          temperature: 0.5,
-        });
+    // ★ 迁移到 AIEngineFacade
+    const qaMessages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
+    ];
+
+    const result = await this.aiFacade.chat({
+      messages: qaMessages,
+      model: aiModel?.modelId,
+      taskProfile: {
+        creativity: "low",
+        outputLength: "standard",
+      },
+    });
 
     let testOutput: {
       testFiles: Array<{ path: string; content: string; language: string }>;
@@ -1396,25 +1354,30 @@ Output a JSON object:
   "changes": ["Changed X to Y", "Added feature Z"]
 }`;
 
-      const result = await this.aiChatService.chat({
-        messages: [
-          {
-            role: "user",
-            content: `Current Files: ${JSON.stringify(
-              project.files.map((f) => ({
-                path: f.path,
-                content: f.content,
-              })),
-            )}
+      // ★ 迁移到 AIEngineFacade
+      const iterationMessages: ChatMessage[] = [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: `Current Files: ${JSON.stringify(
+            project.files.map((f) => ({
+              path: f.path,
+              content: f.content,
+            })),
+          )}
 
 User Feedback: ${feedback}
 
 Update the code based on this feedback.`,
-          },
-        ],
-        systemPrompt,
-        maxTokens: 8192,
-        temperature: 0.5,
+        },
+      ];
+
+      const result = await this.aiFacade.chat({
+        messages: iterationMessages,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "extended",
+        },
       });
 
       let updates: {
