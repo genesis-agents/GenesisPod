@@ -687,3 +687,84 @@ export interface LeaderDecision {
   latencyMs?: number;
   createdAt: string;
 }
+
+// ==================== Team Messages & Agent Activities ====================
+
+/**
+ * 团队互动消息
+ */
+export interface TeamMessage {
+  id: string;
+  topicId: string;
+  missionId?: string;
+  messageType:
+    | 'LEADER_RESPONSE'
+    | 'USER_MESSAGE'
+    | 'SYSTEM_MESSAGE'
+    | 'AGENT_REPORT';
+  senderRole: 'leader' | 'user' | 'system';
+  senderName: string;
+  content: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+/**
+ * Agent 活动记录
+ */
+export interface AgentActivity {
+  id: string;
+  topicId: string;
+  missionId?: string;
+  agentId?: string;
+  agentName: string;
+  agentRole: 'leader' | 'researcher' | 'reviewer' | 'synthesizer';
+  activityType:
+    | 'THINKING'
+    | 'PLANNING'
+    | 'RESEARCHING'
+    | 'WRITING'
+    | 'REVIEWING'
+    | 'COMPLETED'
+    | 'FAILED';
+  phase?: string;
+  content: string;
+  progress?: number;
+  dimensionId?: string;
+  dimensionName?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+/**
+ * 获取团队互动消息
+ */
+export async function getTeamMessages(
+  topicId: string,
+  options?: { limit?: number; missionId?: string }
+): Promise<TeamMessage[]> {
+  const params = new URLSearchParams();
+  if (options?.limit) params.append('limit', options.limit.toString());
+  if (options?.missionId) params.append('missionId', options.missionId);
+
+  const queryString = params.toString();
+  const url = `${API_PREFIX}/topics/${topicId}/team-messages${queryString ? `?${queryString}` : ''}`;
+  return fetchWithAuth(url);
+}
+
+/**
+ * 获取 Agent 活动记录
+ */
+export async function getAgentActivities(
+  topicId: string,
+  options?: { limit?: number; missionId?: string; agentRole?: string }
+): Promise<AgentActivity[]> {
+  const params = new URLSearchParams();
+  if (options?.limit) params.append('limit', options.limit.toString());
+  if (options?.missionId) params.append('missionId', options.missionId);
+  if (options?.agentRole) params.append('agentRole', options.agentRole);
+
+  const queryString = params.toString();
+  const url = `${API_PREFIX}/topics/${topicId}/agent-activities${queryString ? `?${queryString}` : ''}`;
+  return fetchWithAuth(url);
+}

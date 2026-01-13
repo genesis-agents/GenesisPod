@@ -58,6 +58,7 @@ import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { ResearchMissionService } from "./services/research-mission.service";
 import { ResearchLeaderService } from "./services/research-leader.service";
 import { TopicCollaboratorService } from "./services/topic-collaborator.service";
+import { ResearchEventEmitterService } from "./services/research-event-emitter.service";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
@@ -69,6 +70,7 @@ export class TopicResearchController {
     private readonly missionService: ResearchMissionService,
     private readonly leaderService: ResearchLeaderService,
     private readonly collaboratorService: TopicCollaboratorService,
+    private readonly eventEmitterService: ResearchEventEmitterService,
   ) {}
 
   // ==================== Topics CRUD ====================
@@ -1207,6 +1209,77 @@ export class TopicResearchController {
       return { leaderId: null, leaderModel: null, agents: [] };
     }
     return this.missionService.getTeamInfo(mission.id);
+  }
+
+  /**
+   * 获取团队互动消息
+   */
+  @Get("topics/:id/team-messages")
+  @ApiOperation({
+    summary: "获取团队互动消息",
+    description: "获取专题的团队互动消息历史，包括 Leader 回复、用户消息等",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiQuery({ name: "limit", required: false, description: "返回数量限制" })
+  @ApiQuery({
+    name: "missionId",
+    required: false,
+    description: "按 Mission ID 过滤",
+  })
+  @ApiResponse({ status: 200, description: "返回团队消息列表" })
+  async getTeamMessages(
+    @Request() req: any,
+    @Param("id") id: string,
+    @Query("limit") limit?: string,
+    @Query("missionId") missionId?: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.eventEmitterService.getTeamMessages(id, {
+      limit: limit ? parseInt(limit, 10) : undefined,
+      missionId,
+    });
+  }
+
+  /**
+   * 获取 Agent 活动记录
+   */
+  @Get("topics/:id/agent-activities")
+  @ApiOperation({
+    summary: "获取 Agent 活动记录",
+    description: "获取专题的 Agent 思考和工作记录",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiQuery({ name: "limit", required: false, description: "返回数量限制" })
+  @ApiQuery({
+    name: "missionId",
+    required: false,
+    description: "按 Mission ID 过滤",
+  })
+  @ApiQuery({
+    name: "agentRole",
+    required: false,
+    description: "按 Agent 角色过滤",
+  })
+  @ApiResponse({ status: 200, description: "返回 Agent 活动列表" })
+  async getAgentActivities(
+    @Request() req: any,
+    @Param("id") id: string,
+    @Query("limit") limit?: string,
+    @Query("missionId") missionId?: string,
+    @Query("agentRole") agentRole?: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.eventEmitterService.getAgentActivities(id, {
+      limit: limit ? parseInt(limit, 10) : undefined,
+      missionId,
+      agentRole,
+    });
   }
 
   /**

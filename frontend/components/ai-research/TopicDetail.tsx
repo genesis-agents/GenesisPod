@@ -28,6 +28,8 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     refreshProgress,
     missionStatus,
     teamInfo,
+    teamMessages,
+    agentActivities,
     isLoadingReports,
     isLoadingEvidence,
     fetchDimensions,
@@ -35,6 +37,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     fetchEvidence,
     fetchMissionStatus,
     fetchTeamInfo,
+    fetchTeamData,
     startLeaderPlan,
     cancelMission,
     exportReport,
@@ -54,12 +57,14 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     fetchLatestReport(topic.id);
     fetchMissionStatus(topic.id);
     fetchTeamInfo(topic.id);
+    fetchTeamData(topic.id); // Load persisted team messages and agent activities
   }, [
     topic.id,
     fetchDimensions,
     fetchLatestReport,
     fetchMissionStatus,
     fetchTeamInfo,
+    fetchTeamData,
   ]);
 
   // Load evidence when report is available

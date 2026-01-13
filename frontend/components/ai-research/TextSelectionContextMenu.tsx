@@ -327,7 +327,7 @@ export function TextSelectionContextMenu({
 
             {/* Color picker submenu */}
             {showAnnotationColors && (
-              <div className="absolute left-full top-0 ml-1 min-w-[140px] rounded-lg border border-gray-200 bg-white py-2 shadow-lg">
+              <div className="absolute left-full top-0 z-[1001] ml-1 min-w-[140px] rounded-lg border border-gray-200 bg-white py-2 shadow-lg">
                 <p className="px-3 pb-2 text-xs text-gray-400">选择高亮颜色</p>
                 <div className="flex gap-2 px-3">
                   {ANNOTATION_COLORS.map((item) => (
@@ -391,7 +391,7 @@ export function TextSelectionContextMenu({
 
             {/* AI operations submenu */}
             {showAIMenu && (
-              <div className="absolute left-full top-0 ml-1 min-w-[120px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+              <div className="absolute left-full top-0 z-[1001] ml-1 min-w-[120px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                 {AI_OPERATIONS.map((item) => (
                   <button
                     key={item.operation}

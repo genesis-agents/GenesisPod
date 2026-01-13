@@ -19,6 +19,7 @@ import type {
 } from '@/types/topic-research';
 import type { MissionStatus } from '@/lib/api/topic-research';
 import { ReportEditPanel } from './ReportEditPanel';
+import { useTopicResearchStore } from '@/stores/topicResearchStore';
 
 // Tab 类型定义
 type TabType = 'report' | 'team' | 'thinking' | 'references';
@@ -264,9 +265,122 @@ export function TopicContentPanel({
   onClearWsEvents,
   missionStatus,
 }: TopicContentPanelProps) {
+  // Get persisted team data from store
+  const {
+    teamMessages: persistedMessages,
+    agentActivities: persistedActivities,
+  } = useTopicResearchStore();
+
   const [activeTab, setActiveTab] = useState<TabType>('team');
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [versionMenuOpen, setVersionMenuOpen] = useState(false);
+
+  // Annotation state (client-side only for now)
+  type AnnotationColor = 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
+  type AnnotationStatus = 'active' | 'resolved' | 'archived';
+  interface ReportAnnotation {
+    id: string;
+    reportId: string;
+    userId: string;
+    userName: string;
+    userAvatar?: string;
+    selectedText: string;
+    content: string;
+    startOffset: number;
+    endOffset: number;
+    sectionId?: string;
+    color: AnnotationColor;
+    status: AnnotationStatus;
+    createdAt: string;
+    updatedAt: string;
+    replies?: Array<{
+      id: string;
+      userId: string;
+      userName: string;
+      userAvatar?: string;
+      content: string;
+      createdAt: string;
+    }>;
+  }
+
+  const [annotations, setAnnotations] = useState<ReportAnnotation[]>([]);
+
+  // Annotation handlers
+  const handleAnnotationAdd = useCallback(
+    async (
+      annotation: Omit<
+        ReportAnnotation,
+        'id' | 'createdAt' | 'updatedAt' | 'replies'
+      >
+    ) => {
+      const newAnnotation: ReportAnnotation = {
+        ...annotation,
+        id: `ann-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        replies: [],
+      };
+      setAnnotations((prev) => [...prev, newAnnotation]);
+    },
+    []
+  );
+
+  const handleAnnotationUpdate = useCallback(
+    async (annotationId: string, content: string) => {
+      setAnnotations((prev) =>
+        prev.map((ann) =>
+          ann.id === annotationId
+            ? { ...ann, content, updatedAt: new Date().toISOString() }
+            : ann
+        )
+      );
+    },
+    []
+  );
+
+  const handleAnnotationDelete = useCallback(async (annotationId: string) => {
+    setAnnotations((prev) => prev.filter((ann) => ann.id !== annotationId));
+  }, []);
+
+  const handleAnnotationResolve = useCallback(async (annotationId: string) => {
+    setAnnotations((prev) =>
+      prev.map((ann) =>
+        ann.id === annotationId
+          ? {
+              ...ann,
+              status: 'resolved' as const,
+              updatedAt: new Date().toISOString(),
+            }
+          : ann
+      )
+    );
+  }, []);
+
+  const handleAnnotationReply = useCallback(
+    async (annotationId: string, content: string) => {
+      setAnnotations((prev) =>
+        prev.map((ann) =>
+          ann.id === annotationId
+            ? {
+                ...ann,
+                replies: [
+                  ...(ann.replies || []),
+                  {
+                    id: `reply-${Date.now()}`,
+                    userId: 'current-user',
+                    userName: '当前用户',
+                    content,
+                    createdAt: new Date().toISOString(),
+                  },
+                ],
+                updatedAt: new Date().toISOString(),
+              }
+            : ann
+        )
+      );
+    },
+    []
+  );
 
   // Safe array fallbacks
   const safeDimensions = dimensions || [];
@@ -453,7 +567,8 @@ export function TopicContentPanel({
             report={report}
             evidence={safeEvidence}
             revisions={revisions}
-            annotations={[]}
+            annotations={annotations}
+            currentUserId="current-user"
             isLoading={isLoadingReport}
             onSave={async (content: string) => {
               // TODO: Implement save functionality
@@ -468,6 +583,11 @@ export function TopicContentPanel({
               // Use existing rollback handler
               onRollbackVersion?.(revisionId);
             }}
+            onAnnotationAdd={handleAnnotationAdd}
+            onAnnotationUpdate={handleAnnotationUpdate}
+            onAnnotationDelete={handleAnnotationDelete}
+            onAnnotationResolve={handleAnnotationResolve}
+            onAnnotationReply={handleAnnotationReply}
           />
         )}
         {activeTab === 'team' && (
@@ -476,6 +596,7 @@ export function TopicContentPanel({
             wsEvents={wsEvents}
             wsConnected={wsConnected}
             onClearEvents={onClearWsEvents}
+            persistedMessages={persistedMessages}
           />
         )}
         {activeTab === 'thinking' && (
@@ -483,6 +604,7 @@ export function TopicContentPanel({
             thinkings={safeThinkings}
             missionStatus={missionStatus}
             wsEvents={wsEvents}
+            persistedActivities={persistedActivities}
           />
         )}
         {activeTab === 'references' && (
@@ -1078,12 +1200,21 @@ function TeamInteractionTabContent({
   wsEvents = [],
   wsConnected = false,
   onClearEvents,
+  persistedMessages = [],
 }: {
   events: ResearchEvent[];
   leaderPlan?: LeaderPlanDisplay | null;
   wsEvents?: WsEvent[];
   wsConnected?: boolean;
   onClearEvents?: () => void;
+  persistedMessages?: Array<{
+    id: string;
+    messageType: string;
+    senderRole: string;
+    senderName: string;
+    content: string;
+    createdAt: string;
+  }>;
 }) {
   const safeEvents = events || [];
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
@@ -1106,9 +1237,46 @@ function TeamInteractionTabContent({
     });
   }, []);
 
-  // ★ AI Writing 模式：将 WebSocket 事件转换为 UI 消息（带详情）
+  // ★ AI Writing 模式：将 WebSocket 事件和持久化消息转换为 UI 消息
   const uiMessages = useMemo<UIMessage[]>(() => {
-    return wsEvents.map((wsEvent, idx) => {
+    // Convert persisted messages to UI format
+    const persistedUIMessages: UIMessage[] = persistedMessages.map((msg) => {
+      let agentIcon = '💬';
+      let agentColor = 'text-gray-700';
+      let agentBgColor = 'bg-gray-100';
+      let msgType: UIMessage['type'] = 'system';
+
+      if (msg.senderRole === 'leader') {
+        agentIcon = '👑';
+        agentColor = 'text-purple-700';
+        agentBgColor = 'bg-purple-100';
+        msgType = 'leader';
+      } else if (msg.senderRole === 'user') {
+        agentIcon = '👤';
+        agentColor = 'text-blue-700';
+        agentBgColor = 'bg-blue-100';
+        msgType = 'agent';
+      }
+
+      return {
+        id: `persisted-${msg.id}`,
+        type: msgType,
+        agent: msg.senderName,
+        agentIcon,
+        agentColor,
+        agentBgColor,
+        agentType: msg.senderRole,
+        content: msg.content,
+        timestamp: new Date(msg.createdAt),
+        detail:
+          msg.content.length > 150
+            ? { type: 'text' as const, data: msg.content }
+            : undefined,
+      };
+    });
+
+    // Convert WebSocket events to UI format
+    const wsUIMessages: UIMessage[] = wsEvents.map((wsEvent, idx) => {
       const data = wsEvent.data as Record<string, unknown>;
       const eventType = wsEvent.type;
       const msgId = `ws-${idx}-${wsEvent.timestamp}`;
@@ -1276,7 +1444,12 @@ function TeamInteractionTabContent({
         progress,
       };
     });
-  }, [wsEvents]);
+
+    // Combine and sort by timestamp (persisted first, then real-time)
+    const allMessages = [...persistedUIMessages, ...wsUIMessages];
+    allMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    return allMessages;
+  }, [wsEvents, persistedMessages]);
 
   // ★ 自动滚动到底部
   useEffect(() => {
@@ -1862,10 +2035,22 @@ function AgentThinkingTabContent({
   thinkings,
   missionStatus,
   wsEvents = [],
+  persistedActivities = [],
 }: {
   thinkings: AgentThinking[];
   missionStatus?: MissionStatus | null;
   wsEvents?: WsEvent[];
+  persistedActivities?: Array<{
+    id: string;
+    agentName: string;
+    agentRole: string;
+    activityType: string;
+    phase?: string;
+    content: string;
+    progress?: number;
+    dimensionName?: string;
+    createdAt: string;
+  }>;
 }) {
   // 折叠状态：按 Agent 类型折叠
   const [collapsedAgents, setCollapsedAgents] = useState<Set<string>>(
@@ -2047,8 +2232,27 @@ function AgentThinkingTabContent({
       }
     });
 
+    // Add persisted activities from database
+    persistedActivities.forEach((pa) => {
+      const agentRole = pa.agentRole as AgentActivity['agentType'];
+      activities.push({
+        id: `persisted-${pa.id}`,
+        agentType: agentRole || 'researcher',
+        eventType: pa.activityType.toLowerCase(),
+        phase: pa.phase || pa.activityType.toLowerCase(),
+        content: pa.content,
+        progress: pa.progress,
+        dimensionName: pa.dimensionName,
+        agentName: pa.agentName,
+        timestamp: new Date(pa.createdAt),
+      });
+    });
+
+    // Sort by timestamp
+    activities.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
     return activities;
-  }, [wsEvents]);
+  }, [wsEvents, persistedActivities]);
 
   // 按 Agent 类型分组活动
   const activitiesByAgent = useMemo(() => {

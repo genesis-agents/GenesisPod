@@ -35,6 +35,8 @@ import type {
   MissionStatus,
   TeamInfo,
   ResearchMission,
+  TeamMessage,
+  AgentActivity,
 } from '@/lib/api/topic-research';
 
 interface TopicResearchState {
@@ -78,6 +80,11 @@ interface TopicResearchState {
   teamInfo: TeamInfo | null;
   isLoadingMission: boolean;
   missionPollingInterval: NodeJS.Timeout | null;
+
+  // Team Messages & Agent Activities (persisted)
+  teamMessages: TeamMessage[];
+  agentActivities: AgentActivity[];
+  isLoadingTeamData: boolean;
 
   // Schedule & Logs
   schedule: TopicSchedule | null;
@@ -139,6 +146,11 @@ interface TopicResearchState {
   cancelMission: (topicId: string) => Promise<void>;
   stopMissionPolling: () => void;
   startMissionPolling: (topicId: string) => void;
+
+  // Actions - Team Messages & Agent Activities
+  fetchTeamMessages: (topicId: string) => Promise<void>;
+  fetchAgentActivities: (topicId: string) => Promise<void>;
+  fetchTeamData: (topicId: string) => Promise<void>;
 
   // Actions - Reports
   fetchReports: (topicId: string, loadMore?: boolean) => Promise<void>;
@@ -205,6 +217,9 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
   teamInfo: null,
   isLoadingMission: false,
   missionPollingInterval: null,
+  teamMessages: [],
+  agentActivities: [],
+  isLoadingTeamData: false,
   schedule: null,
   logs: [],
   isLoadingLogs: false,
@@ -463,6 +478,44 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
     }, 2000);
 
     set({ missionPollingInterval: interval });
+  },
+
+  // ==================== Team Messages & Agent Activities ====================
+
+  fetchTeamMessages: async (topicId) => {
+    try {
+      const messages = await api.getTeamMessages(topicId, { limit: 100 });
+      set({ teamMessages: messages });
+    } catch (error) {
+      console.error('Failed to fetch team messages:', error);
+    }
+  },
+
+  fetchAgentActivities: async (topicId) => {
+    try {
+      const activities = await api.getAgentActivities(topicId, { limit: 100 });
+      set({ agentActivities: activities });
+    } catch (error) {
+      console.error('Failed to fetch agent activities:', error);
+    }
+  },
+
+  fetchTeamData: async (topicId) => {
+    set({ isLoadingTeamData: true });
+    try {
+      const [messages, activities] = await Promise.all([
+        api.getTeamMessages(topicId, { limit: 100 }),
+        api.getAgentActivities(topicId, { limit: 100 }),
+      ]);
+      set({
+        teamMessages: messages,
+        agentActivities: activities,
+        isLoadingTeamData: false,
+      });
+    } catch (error) {
+      console.error('Failed to fetch team data:', error);
+      set({ isLoadingTeamData: false });
+    }
   },
 
   startLeaderPlan: async (topicId, userPrompt) => {
@@ -792,6 +845,9 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
       teamInfo: null,
       isLoadingMission: false,
       missionPollingInterval: null,
+      teamMessages: [],
+      agentActivities: [],
+      isLoadingTeamData: false,
       schedule: null,
       logs: [],
       isLoadingLogs: false,

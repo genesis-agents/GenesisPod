@@ -319,15 +319,16 @@ export function ReportEditor({
       parts.push(`## 摘要\n\n${report.summary}\n`);
     }
 
-    // Highlights - filter placeholders
+    // Highlights - filter placeholders (关键发现/核心洞察)
     if (report.highlights && report.highlights.length > 0) {
       const validHighlights = report.highlights.filter(
         (h) => h.content && !h.content.includes('请查看详细内容')
       );
       if (validHighlights.length > 0) {
-        parts.push(`## 关键洞察\n`);
+        parts.push(`## 关键发现\n\n`);
         validHighlights.forEach((h, idx) => {
-          parts.push(`### ${idx + 1}. ${h.title}\n\n${h.content}\n`);
+          // 使用带序号的列表项，突出显示
+          parts.push(`**${idx + 1}. ${h.title}**\n\n${h.content}\n\n`);
         });
       }
     }
@@ -347,10 +348,11 @@ export function ReportEditor({
             (f) => f.finding && !f.finding.includes('请查看详细内容')
           );
           if (validFindings.length > 0) {
-            parts.push(`### 关键发现\n`);
+            parts.push(`### 关键发现\n\n`);
             validFindings.forEach((f, fIdx) => {
               const citations = formatCitations(f.evidenceIds);
-              parts.push(`${fIdx + 1}. ${f.finding}${citations}\n`);
+              // 使用有序列表格式，确保正确渲染
+              parts.push(`${fIdx + 1}. **${f.finding}**${citations}\n\n`);
             });
           }
         }
@@ -404,9 +406,9 @@ export function ReportEditor({
       });
     }
 
-    // Add References section
+    // Add References section with rich information
     if (report.evidence && report.evidence.length > 0) {
-      parts.push(`\n---\n\n## 参考文献\n`);
+      parts.push(`\n---\n\n## 参考文献\n\n`);
       report.evidence.forEach((ev, idx) => {
         let domain = ev.domain;
         if (!domain) {
@@ -420,9 +422,19 @@ export function ReportEditor({
           ? new Date(ev.publishedAt).toLocaleDateString('zh-CN')
           : '';
         const dateStr = date ? ` (${date})` : '';
-        parts.push(
-          `**[${idx + 1}]** [${ev.title}](${ev.url}) - *${domain}*${dateStr}\n`
-        );
+
+        // Reference with sequence number, clickable title, source info
+        parts.push(`**[${idx + 1}]** [${ev.title}](${ev.url})\n`);
+        parts.push(`*${domain}*${dateStr}\n`);
+
+        // Add snippet/quote if available
+        if (ev.snippet) {
+          parts.push(
+            `> ${ev.snippet.slice(0, 200)}${ev.snippet.length > 200 ? '...' : ''}\n`
+          );
+        }
+
+        parts.push(`\n`);
       });
     }
 
@@ -831,7 +843,22 @@ export function ReportEditor({
         {viewMode === 'preview' && (
           <div ref={previewRef} className="h-full overflow-auto p-6">
             <article className="prose prose-gray max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  // Custom link component to open in new tab
+                  a: ({ href, children }) => (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      {children}
+                    </a>
+                  ),
+                }}
+              >
                 {markdownContent}
               </ReactMarkdown>
             </article>
@@ -929,7 +956,21 @@ export function ReportEditor({
             </div>
             <div className="max-h-[calc(80vh-48px)] overflow-auto p-4">
               <article className="prose prose-gray prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: ({ href, children }) => (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        {children}
+                      </a>
+                    ),
+                  }}
+                >
                   {editContent}
                 </ReactMarkdown>
               </article>

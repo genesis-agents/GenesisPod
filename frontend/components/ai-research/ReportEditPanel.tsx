@@ -196,6 +196,39 @@ export function ReportEditPanel({
   const [sidePanelType, setSidePanelType] = useState<SidePanelType>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Handle annotation add from context menu
+  const handleAddAnnotationFromMenu = useCallback(
+    (data: {
+      selectedText: string;
+      startOffset: number;
+      endOffset: number;
+      color: 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
+    }) => {
+      if (!onAnnotationAdd || !report) return;
+
+      // Create full annotation object
+      const annotation: Omit<
+        ReportAnnotation,
+        'id' | 'createdAt' | 'updatedAt' | 'replies'
+      > = {
+        reportId: report.id,
+        userId: currentUserId || 'anonymous',
+        userName: '当前用户',
+        selectedText: data.selectedText,
+        content: '', // Empty content, user will fill in the annotation panel
+        startOffset: data.startOffset,
+        endOffset: data.endOffset,
+        color: data.color,
+        status: 'active',
+      };
+
+      onAnnotationAdd(annotation);
+      // Open annotation panel to let user add content
+      setSidePanelType('annotations');
+    },
+    [onAnnotationAdd, report, currentUserId]
+  );
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -407,6 +440,9 @@ export function ReportEditPanel({
                     return onAIEdit(operation, textSelection);
                   }
                 : undefined
+            }
+            onAddAnnotation={
+              onAnnotationAdd ? handleAddAnnotationFromMenu : undefined
             }
           />
         </div>
