@@ -36,7 +36,13 @@ const turndownService = new TurndownService({
 
 // Simple markdown to HTML converter (for TipTap)
 function markdownToHtml(markdown: string): string {
-  let html = markdown
+  // First normalize multiple consecutive newlines to double newlines
+  let normalized = markdown
+    .replace(/\r\n/g, '\n') // Normalize Windows line endings
+    .replace(/\n{3,}/g, '\n\n') // Collapse 3+ newlines to 2
+    .trim();
+
+  let html = normalized
     // Headers
     .replace(/^### (.*$)/gm, '<h3>$1</h3>')
     .replace(/^## (.*$)/gm, '<h2>$1</h2>')
@@ -52,14 +58,18 @@ function markdownToHtml(markdown: string): string {
     // Lists
     .replace(/^- (.*)$/gm, '<li>$1</li>')
     .replace(/^(\d+)\. (.*)$/gm, '<li>$2</li>')
-    // Line breaks
+    // Line breaks - double newlines become paragraph breaks
     .replace(/\n\n/g, '</p><p>')
-    .replace(/\n/g, '<br>');
+    // Single newlines become soft breaks (not <br> to avoid excessive spacing)
+    .replace(/\n/g, ' ');
 
   // Wrap in paragraphs if not already wrapped
   if (!html.startsWith('<')) {
     html = '<p>' + html + '</p>';
   }
+
+  // Clean up empty paragraphs
+  html = html.replace(/<p>\s*<\/p>/g, '');
 
   return html;
 }

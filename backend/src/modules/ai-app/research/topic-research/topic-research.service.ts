@@ -45,6 +45,8 @@ import {
 } from "./services";
 import { AIEngineFacade } from "../../../ai-engine/facade";
 import { REPORT_EDITING_SYSTEM_PROMPT, buildEditPrompt } from "./prompts";
+import { ExportOrchestratorService } from "../../../../common/export/services/export-orchestrator.service";
+import { ExportFormat } from "@prisma/client";
 
 // 导入维度模板
 const MACRO_INSIGHT_DIMENSIONS = [
@@ -408,6 +410,7 @@ export class TopicResearchService {
     private readonly aiFacade: AIEngineFacade,
     private readonly reportChangeService: ReportChangeService,
     private readonly reportAnnotationService: ReportAnnotationService,
+    private readonly exportOrchestrator: ExportOrchestratorService,
   ) {}
 
   // ==================== Topics CRUD ====================
@@ -1032,11 +1035,38 @@ export class TopicResearchService {
       throw new NotFoundException("Report not found");
     }
 
-    // TODO: 实际的导出逻辑需要集成导出服务
+    // 映射格式
+    const format = dto.format === "pdf" ? ExportFormat.PDF : ExportFormat.DOCX;
+
+    // 创建导出任务
+    const jobResponse = await this.exportOrchestrator.createExportJob(userId, {
+      source: {
+        type: "REPORT",
+        reportId,
+      },
+      format,
+      options: {
+        includeCover: true,
+        includeTableOfContents: true,
+        includeReferences: true,
+        fileName: `research-report-v${report.version}`,
+      },
+    });
+
+    // 如果任务已完成，直接返回下载链接
+    if (jobResponse.status === "COMPLETED" && jobResponse.downloadUrl) {
+      return {
+        downloadUrl: jobResponse.downloadUrl,
+        fileName: jobResponse.fileName,
+        fileSize: jobResponse.fileSize,
+      };
+    }
+
+    // 否则返回任务 ID 让前端轮询
     return {
-      success: true,
-      format: dto.format,
-      message: "导出功能开发中",
+      jobId: jobResponse.jobId,
+      status: jobResponse.status,
+      downloadUrl: jobResponse.downloadUrl,
     };
   }
 

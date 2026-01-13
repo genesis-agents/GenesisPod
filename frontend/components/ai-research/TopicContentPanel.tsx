@@ -662,6 +662,8 @@ export function TopicContentPanel({
         {activeTab === 'references' && (
           <EvidenceTabContent
             evidence={safeEvidence}
+            report={report}
+            dimensions={safeDimensions}
             isLoading={isLoadingEvidence}
           />
         )}
@@ -2861,9 +2863,13 @@ function ActivityItem({
 // ==================== 证据来源 Tab ====================
 function EvidenceTabContent({
   evidence,
+  report,
+  dimensions,
   isLoading,
 }: {
   evidence: TopicEvidence[];
+  report: TopicReport | null;
+  dimensions: TopicDimension[];
   isLoading: boolean;
 }) {
   const safeEvidence = evidence || [];
@@ -2871,6 +2877,72 @@ function EvidenceTabContent({
     'all'
   );
   const [sortBy, setSortBy] = useState<'credibility' | 'date'>('credibility');
+
+  // 构建证据ID到引用位置的映射
+  const citationLocations = useMemo(() => {
+    const locations = new Map<
+      string,
+      { dimensionName: string; count: number }[]
+    >();
+
+    if (!report?.dimensionAnalyses) return locations;
+
+    // 构建维度ID到名称的映射
+    const dimensionNameMap = new Map<string, string>();
+    dimensions.forEach((dim) => {
+      dimensionNameMap.set(dim.id, dim.name);
+    });
+
+    // 构建证据ID到索引的映射 (用于匹配 [1], [2] 格式)
+    const evidenceIndexMap = new Map<number, string>();
+    safeEvidence.forEach((e, idx) => {
+      evidenceIndexMap.set(idx + 1, e.id);
+    });
+
+    // 遍历每个维度分析，查找引用
+    report.dimensionAnalyses.forEach((analysis) => {
+      const dimName = dimensionNameMap.get(analysis.dimensionId) || '未知维度';
+      const content =
+        (analysis.detailedContent || '') + (analysis.summary || '');
+
+      // 匹配多种引用格式: [1], [1, 2], [temp-x-y]
+      const citationPattern = /\[(\d+(?:\s*,\s*\d+)*)\]|\[(temp-\d+-\d+)\]/g;
+      const foundEvidenceIds = new Set<string>();
+
+      let match;
+      while ((match = citationPattern.exec(content)) !== null) {
+        if (match[1]) {
+          // 数字格式 [1] 或 [1, 2]
+          const indices = match[1].split(/\s*,\s*/).map((s) => parseInt(s, 10));
+          indices.forEach((idx) => {
+            const evidenceId = evidenceIndexMap.get(idx);
+            if (evidenceId) foundEvidenceIds.add(evidenceId);
+          });
+        } else if (match[2]) {
+          // temp-x-y 格式
+          const evidenceId = match[2];
+          // 检查是否在当前证据列表中
+          if (safeEvidence.some((e) => e.id === evidenceId)) {
+            foundEvidenceIds.add(evidenceId);
+          }
+        }
+      }
+
+      // 更新每个证据的引用位置
+      foundEvidenceIds.forEach((evidenceId) => {
+        const existing = locations.get(evidenceId) || [];
+        const dimEntry = existing.find((e) => e.dimensionName === dimName);
+        if (dimEntry) {
+          dimEntry.count++;
+        } else {
+          existing.push({ dimensionName: dimName, count: 1 });
+        }
+        locations.set(evidenceId, existing);
+      });
+    });
+
+    return locations;
+  }, [report, dimensions, safeEvidence]);
 
   // 筛选和排序
   const filteredEvidence = useMemo(() => {
@@ -3020,6 +3092,27 @@ function EvidenceTabContent({
                   {item.snippet}
                 </p>
               )}
+              {/* 引用位置 */}
+              {citationLocations.get(item.id) &&
+                citationLocations.get(item.id)!.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-gray-500">被引用于:</span>
+                    {citationLocations.get(item.id)!.map((loc, idx) => (
+                      <span
+                        key={idx}
+                        className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600"
+                        title={`在"${loc.dimensionName}"中被引用${loc.count}次`}
+                      >
+                        {loc.dimensionName}
+                        {loc.count > 1 && (
+                          <span className="ml-0.5 opacity-70">
+                            ×{loc.count}
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )}
               <div className="mt-3 flex items-center gap-3 text-xs text-gray-400">
                 <span className="rounded bg-gray-100 px-1.5 py-0.5">
                   {item.sourceType || '网页'}

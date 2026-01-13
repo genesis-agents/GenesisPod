@@ -201,16 +201,32 @@ export class DimensionMissionService {
           sectionResults.map((r) => ({ title: r.title, content: r.content })),
         );
 
-      // 6. 保存证据到数据库
+      // 6. 保存证据到数据库并替换临时ID
       let savedEvidenceIds: string[] = [];
+      let finalIntegratedResult = integratedResult;
       if (reportId) {
-        savedEvidenceIds = await this.saveEvidence(evidenceData, reportId);
+        const { savedIds, idMapping } = await this.saveEvidence(
+          evidenceData,
+          reportId,
+        );
+        savedEvidenceIds = savedIds;
+
+        // 替换报告内容中的临时证据ID为实际数据库ID
+        if (idMapping.size > 0) {
+          finalIntegratedResult = {
+            ...integratedResult,
+            content: this.replaceEvidenceIds(
+              integratedResult.content,
+              idMapping,
+            ),
+          };
+        }
       }
 
       // 7. 转换为标准结果格式
       const analysisResult = this.convertToAnalysisResult(
         dimension.id,
-        integratedResult,
+        finalIntegratedResult,
         savedEvidenceIds,
       );
 
@@ -233,7 +249,7 @@ export class DimensionMissionService {
         evidenceIds: savedEvidenceIds,
         outline,
         sectionResults,
-        integratedResult,
+        integratedResult: finalIntegratedResult,
       };
     } catch (error) {
       const errorMessage =
@@ -416,13 +432,14 @@ export class DimensionMissionService {
 
   /**
    * 保存证据到数据库
+   * 返回一个映射：{ tempId -> actualId }
    */
   private async saveEvidence(
     evidenceData: EvidenceData[],
     reportId: string,
-  ): Promise<string[]> {
+  ): Promise<{ savedIds: string[]; idMapping: Map<string, string> }> {
     if (evidenceData.length === 0) {
-      return [];
+      return { savedIds: [], idMapping: new Map() };
     }
 
     // 评估可信度
@@ -450,7 +467,29 @@ export class DimensionMissionService {
       ),
     );
 
-    return created.map((e) => e.id);
+    // 构建 tempId -> actualId 映射
+    const idMapping = new Map<string, string>();
+    evidenceData.forEach((e, index) => {
+      idMapping.set(e.id, created[index].id);
+    });
+
+    return { savedIds: created.map((e) => e.id), idMapping };
+  }
+
+  /**
+   * 替换内容中的临时证据ID为实际数据库ID
+   */
+  private replaceEvidenceIds(
+    content: string,
+    idMapping: Map<string, string>,
+  ): string {
+    let result = content;
+    // 替换 [temp-X-Y] 格式的引用
+    idMapping.forEach((actualId, tempId) => {
+      const pattern = new RegExp(`\\[${tempId}\\]`, "g");
+      result = result.replace(pattern, `[${actualId}]`);
+    });
+    return result;
   }
 
   /**

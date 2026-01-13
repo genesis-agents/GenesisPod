@@ -293,18 +293,26 @@ function processChildren(
  * - [资料 1], [资料 1, 2] - Chinese "资料" format
  * - __CITE_GROUP_1_2__ - internal marker format
  * - CITE_GROUP_6_8 - AI output format (without delimiters)
+ * - [temp-X-Y] - evidence ID format from research reports
  */
 function processText(
   text: string,
   sources: SourceReference[]
 ): React.ReactNode {
+  // Build a map from evidence IDs to source indices for [temp-X-Y] format
+  const evidenceIdMap = new Map<string, number>();
+  sources.forEach((source, index) => {
+    evidenceIdMap.set(source.id, index + 1);
+  });
+
   // Match multiple citation formats:
   // 1. __CITE_GROUP_1_2__ - internal marker with delimiters
   // 2. CITE_GROUP_6_8 - AI output format without delimiters
   // 3. [资料 1] or [资料 1, 2] - Chinese reference format
   // 4. [1] or [1, 2] - standard citation format
+  // 5. [temp-X-Y] - evidence ID format
   const pattern =
-    /(__CITE_GROUP_[\d_]+__|CITE_GROUP_\d+(?:_\d+)*|\[资料\s*(\d+(?:\s*[,、]\s*\d+)*)\]|\[(\d+(?:\s*,\s*\d+)*)\])/g;
+    /(__CITE_GROUP_[\d_]+__|CITE_GROUP_\d+(?:_\d+)*|\[资料\s*(\d+(?:\s*[,、]\s*\d+)*)\]|\[(temp-\d+-\d+)\]|\[(\d+(?:\s*,\s*\d+)*)\])/g;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -318,7 +326,9 @@ function processText(
     }
 
     // Parse indices based on format
-    let indices: number[];
+    let indices: number[] = [];
+    let evidenceId: string | null = null;
+
     if (match[0].startsWith('__CITE_GROUP_')) {
       // Extract indices from __CITE_GROUP_1_2__ marker
       const indicesStr = match[0]
@@ -334,8 +344,15 @@ function processText(
       // Split by comma (,) or Chinese comma (、)
       indices = match[2].split(/\s*[,、]\s*/).map((s) => parseInt(s, 10));
     } else if (match[3]) {
+      // [temp-X-Y] format - evidence ID from research reports
+      evidenceId = match[3];
+      const sourceIndex = evidenceIdMap.get(evidenceId);
+      if (sourceIndex) {
+        indices = [sourceIndex];
+      }
+    } else if (match[4]) {
       // Original [1] or [1, 2] format
-      indices = match[3].split(/\s*,\s*/).map((s) => parseInt(s, 10));
+      indices = match[4].split(/\s*,\s*/).map((s) => parseInt(s, 10));
     } else {
       // Fallback - should not happen
       continue;
@@ -356,6 +373,7 @@ function processText(
       .replace(/\[资料\s*[\d,、\s]+\]/g, '') // Remove Chinese patterns
       .replace(/__CITE_GROUP_[\d_]+__/g, '') // Remove internal markers
       .replace(/CITE_GROUP_\d+(?:_\d+)*/g, '') // Remove AI markers
+      .replace(/\[temp-\d+-\d+\]/g, '') // Remove evidence ID patterns
       .trim();
 
     // Try to extract a meaningful phrase (between punctuation)

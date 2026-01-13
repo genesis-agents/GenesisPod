@@ -3,6 +3,7 @@ import { PrismaModule } from "../../../../common/prisma/prisma.module";
 // Import directly from source to avoid circular dependency via barrel export
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
 import { CreditsModule } from "../../../credits/credits.module";
+import { ExportModule } from "../../../../common/export/export.module";
 // TODO: 后续添加 CrawlersModule 以支持更多数据源
 // import { CrawlersModule } from '../../ingestion/crawlers/crawlers.module';
 // Note: EventEmitterModule is globally configured in AppModule
@@ -51,6 +52,7 @@ const services = [
     PrismaModule,
     AiEngineModule,
     CreditsModule,
+    ExportModule,
     // EventEmitterModule is globally configured in AppModule
   ],
   controllers: [TopicResearchController],
