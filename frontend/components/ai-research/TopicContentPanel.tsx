@@ -451,6 +451,7 @@ export function TopicContentPanel({
           <ReportTabContent
             report={report}
             dimensions={safeDimensions}
+            evidence={safeEvidence}
             isLoading={isLoadingReport}
           />
         )}
@@ -489,6 +490,186 @@ export function TopicContentPanel({
 }
 
 // ==================== 报告 Tab ====================
+
+// ==================== 内联引用 Tooltip 组件 ====================
+// 参考 Fast Research 的引用呈现方式
+interface CitationTooltipProps {
+  citationId: string;
+  citationIndex: number;
+  evidence: TopicEvidence | null;
+}
+
+function CitationTooltip({ citationIndex, evidence }: CitationTooltipProps) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <span
+      className="relative inline-block"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Citation badge */}
+      <sup className="cursor-pointer rounded bg-purple-100 px-1 py-0.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200">
+        [{citationIndex}]
+      </sup>
+
+      {/* Tooltip */}
+      {isHovered && evidence && (
+        <div className="absolute bottom-full left-1/2 z-50 mb-2 w-80 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
+          {/* Arrow */}
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-8 border-transparent border-t-white" />
+          <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 border-8 border-transparent border-t-gray-200" />
+
+          {/* Content */}
+          <div className="flex items-start gap-2">
+            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-bold text-purple-700">
+              {citationIndex}
+            </span>
+            <div className="min-w-0 flex-1">
+              <h4 className="line-clamp-2 text-sm font-medium text-gray-900">
+                {evidence.title || '未知来源'}
+              </h4>
+              {evidence.snippet && (
+                <p className="mt-1 line-clamp-3 text-xs text-gray-600">
+                  {evidence.snippet}
+                </p>
+              )}
+              {evidence.url && (
+                <a
+                  href={evidence.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <svg
+                    className="h-3 w-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                  点击查看原文
+                </a>
+              )}
+              {evidence.domain && (
+                <span className="mt-1 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">
+                  {evidence.domain}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </span>
+  );
+}
+
+/**
+ * 将字符串内容中的引用标记替换为可交互的组件
+ * 支持格式: [1], [2], [temp-1-1], [temp-2-3] 等
+ */
+function renderTextWithCitations(
+  text: string,
+  evidence: TopicEvidence[],
+  keyPrefix: string = ''
+): React.ReactNode[] {
+  // 匹配 [数字] 或 [temp-数字-数字] 格式
+  const citationPattern = /\[(\d+)\]|\[(temp-\d+-\d+)\]/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+
+  // 建立引用索引到证据的映射
+  const evidenceMap = new Map<
+    string,
+    { index: number; evidence: TopicEvidence }
+  >();
+  evidence.forEach((e, idx) => {
+    // 按顺序映射：第一个证据对应 [1]，第二个对应 [2]
+    evidenceMap.set(String(idx + 1), { index: idx + 1, evidence: e });
+    // 同时支持 temp-x-y 格式映射到证据 ID
+    evidenceMap.set(e.id, { index: idx + 1, evidence: e });
+  });
+
+  while ((match = citationPattern.exec(text)) !== null) {
+    // 添加引用前的文本
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+
+    // 获取引用标识符
+    const citationRef = match[1] || match[2];
+    const evidenceData = evidenceMap.get(citationRef);
+
+    if (evidenceData) {
+      parts.push(
+        <CitationTooltip
+          key={`${keyPrefix}citation-${match.index}`}
+          citationId={citationRef}
+          citationIndex={evidenceData.index}
+          evidence={evidenceData.evidence}
+        />
+      );
+    } else {
+      // 未找到对应证据，保留原始文本但添加样式
+      parts.push(
+        <sup
+          key={`${keyPrefix}citation-unknown-${match.index}`}
+          className="rounded bg-gray-100 px-1 py-0.5 text-xs text-gray-500"
+        >
+          [{citationRef}]
+        </sup>
+      );
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // 添加剩余文本
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts;
+}
+
+/**
+ * 处理 React children，将其中的字符串内容替换为带引用的组件
+ */
+function processChildrenWithCitations(
+  children: React.ReactNode,
+  evidence: TopicEvidence[]
+): React.ReactNode {
+  if (!children) return children;
+
+  // 如果是字符串，处理引用
+  if (typeof children === 'string') {
+    const parts = renderTextWithCitations(children, evidence);
+    return parts.length === 1 ? parts[0] : <>{parts}</>;
+  }
+
+  // 如果是数组，递归处理每个元素
+  if (Array.isArray(children)) {
+    return children.map((child, idx) => {
+      if (typeof child === 'string') {
+        const parts = renderTextWithCitations(child, evidence, `arr-${idx}-`);
+        return parts.length === 1 ? parts[0] : <span key={idx}>{parts}</span>;
+      }
+      return child;
+    });
+  }
+
+  // 其他情况直接返回
+  return children;
+}
+
 // Section card for chapter-like display (AI Writing pattern)
 interface ReportSection {
   id: string;
@@ -503,10 +684,12 @@ interface ReportSection {
 function ReportTabContent({
   report,
   dimensions,
+  evidence,
   isLoading,
 }: {
   report: TopicReport | null;
   dimensions: TopicDimension[];
+  evidence: TopicEvidence[];
   isLoading: boolean;
 }) {
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
@@ -653,7 +836,20 @@ function ReportTabContent({
         <div ref={contentRef} className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-3xl px-6 py-6">
             <article className="prose prose-sm prose-blue max-w-none">
-              <ReactMarkdown>{selectedContent.content || ''}</ReactMarkdown>
+              <ReactMarkdown
+                components={{
+                  // 自定义段落渲染，支持内联引用
+                  p: ({ children }) => (
+                    <p>{processChildrenWithCitations(children, evidence)}</p>
+                  ),
+                  // 自定义列表项渲染
+                  li: ({ children }) => (
+                    <li>{processChildrenWithCitations(children, evidence)}</li>
+                  ),
+                }}
+              >
+                {selectedContent.content || ''}
+              </ReactMarkdown>
             </article>
           </div>
         </div>
