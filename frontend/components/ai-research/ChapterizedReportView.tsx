@@ -11,9 +11,14 @@
  * - 支持引用链接 [1], [2] 可点击跳转到参考文献
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import Typography from '@tiptap/extension-typography';
+import TurndownService from 'turndown';
 import { CitedMarkdown } from './deep-research/citations';
 import type { SourceReference } from './deep-research/citations/types';
 import type {
@@ -21,6 +26,43 @@ import type {
   TopicDimension,
   TopicEvidence,
 } from '@/types/topic-research';
+
+// Initialize Turndown for HTML to Markdown conversion
+const turndownService = new TurndownService({
+  headingStyle: 'atx',
+  bulletListMarker: '-',
+  codeBlockStyle: 'fenced',
+});
+
+// Simple markdown to HTML converter (for TipTap)
+function markdownToHtml(markdown: string): string {
+  let html = markdown
+    // Headers
+    .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+    // Bold and italic
+    .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    // Links
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+    // Horizontal rule
+    .replace(/^---$/gm, '<hr>')
+    // Lists
+    .replace(/^- (.*)$/gm, '<li>$1</li>')
+    .replace(/^(\d+)\. (.*)$/gm, '<li>$2</li>')
+    // Line breaks
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+
+  // Wrap in paragraphs if not already wrapped
+  if (!html.startsWith('<')) {
+    html = '<p>' + html + '</p>';
+  }
+
+  return html;
+}
 
 interface ChapterizedReportViewProps {
   report: TopicReport | null;
@@ -182,6 +224,38 @@ export function ChapterizedReportView({
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const [editContent, setEditContent] = useState('');
+
+  // TipTap editor for rich text mode
+  const tiptapEditor = useEditor({
+    extensions: [
+      StarterKit,
+      Placeholder.configure({
+        placeholder: '开始编辑章节内容...',
+      }),
+      Typography,
+    ],
+    content: '',
+    editable: true,
+    onUpdate: ({ editor }) => {
+      // Convert HTML to Markdown and update editContent
+      const html = editor.getHTML();
+      const markdown = turndownService.turndown(html);
+      setEditContent(markdown);
+    },
+    editorProps: {
+      attributes: {
+        class: 'prose prose-gray max-w-none focus:outline-none min-h-full p-6',
+      },
+    },
+  });
+
+  // Update TipTap editor when switching to edit mode or when chapter changes
+  useEffect(() => {
+    if (viewMode === 'edit' && tiptapEditor && editContent) {
+      const html = markdownToHtml(editContent);
+      tiptapEditor.commands.setContent(html);
+    }
+  }, [viewMode, tiptapEditor, selectedChapter?.id]);
 
   // Convert evidence to SourceReference format for citation linking
   const sources: SourceReference[] = useMemo(() => {
@@ -435,7 +509,7 @@ export function ChapterizedReportView({
             </div>
 
             {/* Save/Cancel buttons when editing */}
-            {viewMode === 'edit' && (
+            {(viewMode === 'edit' || viewMode === 'source') && (
               <>
                 <button
                   onClick={cancelEdit}
@@ -454,30 +528,181 @@ export function ChapterizedReportView({
           </div>
         </div>
 
+        {/* TipTap toolbar (only in edit mode) */}
+        {viewMode === 'edit' && tiptapEditor && (
+          <div className="flex items-center gap-1 border-b border-gray-100 bg-gray-50 px-4 py-1.5">
+            <button
+              onClick={() => tiptapEditor.chain().focus().toggleBold().run()}
+              className={`rounded p-1.5 ${
+                tiptapEditor.isActive('bold')
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-600 hover:bg-gray-200'
+              }`}
+              title="粗体 (Ctrl+B)"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6V4zm0 8h9a4 4 0 014 4 4 4 0 01-4 4H6v-8z"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={() => tiptapEditor.chain().focus().toggleItalic().run()}
+              className={`rounded p-1.5 ${
+                tiptapEditor.isActive('italic')
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-600 hover:bg-gray-200'
+              }`}
+              title="斜体 (Ctrl+I)"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 4h4m-2 0v16m-4 0h8"
+                />
+              </svg>
+            </button>
+            <div className="mx-1 h-4 w-px bg-gray-300" />
+            <button
+              onClick={() =>
+                tiptapEditor.chain().focus().toggleHeading({ level: 2 }).run()
+              }
+              className={`rounded p-1.5 ${
+                tiptapEditor.isActive('heading', { level: 2 })
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-600 hover:bg-gray-200'
+              }`}
+              title="标题"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h7"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={() =>
+                tiptapEditor.chain().focus().toggleBulletList().run()
+              }
+              className={`rounded p-1.5 ${
+                tiptapEditor.isActive('bulletList')
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-600 hover:bg-gray-200'
+              }`}
+              title="列表"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                />
+              </svg>
+            </button>
+            <div className="mx-1 h-4 w-px bg-gray-300" />
+            <button
+              onClick={() =>
+                tiptapEditor.chain().focus().toggleBlockquote().run()
+              }
+              className={`rounded px-2 py-1 text-xs ${
+                tiptapEditor.isActive('blockquote')
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-600 hover:bg-gray-200'
+              }`}
+              title="引用"
+            >
+              引用
+            </button>
+            <button
+              onClick={() =>
+                tiptapEditor.chain().focus().toggleCodeBlock().run()
+              }
+              className={`rounded px-2 py-1 text-xs ${
+                tiptapEditor.isActive('codeBlock')
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-600 hover:bg-gray-200'
+              }`}
+              title="代码块"
+            >
+              代码
+            </button>
+            <div className="mx-1 h-4 w-px bg-gray-300" />
+            <button
+              onClick={() => tiptapEditor.chain().focus().undo().run()}
+              disabled={!tiptapEditor.can().undo()}
+              className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-200 disabled:opacity-50"
+              title="撤销"
+            >
+              撤销
+            </button>
+            <button
+              onClick={() => tiptapEditor.chain().focus().redo().run()}
+              disabled={!tiptapEditor.can().redo()}
+              className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-200 disabled:opacity-50"
+              title="重做"
+            >
+              重做
+            </button>
+          </div>
+        )}
+
         {/* Chapter Content - Full Screen */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto">
           {viewMode === 'edit' ? (
+            <div className="h-full bg-white">
+              <EditorContent editor={tiptapEditor} className="h-full" />
+            </div>
+          ) : viewMode === 'source' ? (
             <textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              className="font-mono h-full w-full resize-none rounded-lg border border-gray-300 p-4 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-              placeholder="编辑章节内容..."
-            />
-          ) : viewMode === 'source' ? (
-            <pre className="h-full w-full overflow-auto rounded-lg bg-gray-900 p-4 text-sm text-gray-100">
-              <code>{selectedChapter.content || '暂无内容'}</code>
-            </pre>
-          ) : sources.length > 0 ? (
-            <CitedMarkdown
-              content={selectedChapter.content || '暂无内容'}
-              sources={sources}
+              className="font-mono h-full w-full resize-none border-none p-6 text-sm focus:outline-none"
+              placeholder="编辑 Markdown 源码..."
             />
           ) : (
-            <article className="prose prose-sm prose-gray max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {selectedChapter.content || '暂无内容'}
-              </ReactMarkdown>
-            </article>
+            <div className="p-6">
+              {sources.length > 0 ? (
+                <CitedMarkdown
+                  content={selectedChapter.content || '暂无内容'}
+                  sources={sources}
+                />
+              ) : (
+                <article className="prose prose-sm prose-gray max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {selectedChapter.content || '暂无内容'}
+                  </ReactMarkdown>
+                </article>
+              )}
+            </div>
           )}
         </div>
       </div>

@@ -74,8 +74,8 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
   // Load evidence when report is available
   useEffect(() => {
     if (currentReport?.id) {
-      // Request all evidence (up to 500) instead of default 20
-      fetchEvidence(topic.id, currentReport.id, { pageSize: 500 });
+      // Request all evidence (up to 100, backend max limit)
+      fetchEvidence(topic.id, currentReport.id, { pageSize: 100 });
     }
   }, [topic.id, currentReport?.id, fetchEvidence]);
 
