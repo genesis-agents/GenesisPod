@@ -48,6 +48,22 @@ interface Chapter {
 }
 
 // Icons
+const BackIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M10 19l-7-7m0 0l7-7m-7 7h18"
+    />
+  </svg>
+);
+
 const CheckIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -305,31 +321,130 @@ export function ChapterizedReportView({
     );
   }
 
-  return (
-    <div className="flex h-full">
-      {/* Chapter List */}
-      <div
-        className={`flex-1 overflow-auto p-4 ${selectedChapter ? 'hidden lg:block lg:w-1/2' : ''}`}
-      >
-        {/* Stats Header */}
-        <div className="mb-4 flex items-center justify-between">
-          <div className="text-sm text-gray-500">
-            共 {stats.total} 章 · {stats.completed} 已完成 ·{' '}
-            {stats.totalWords.toLocaleString()} 字
+  // If a chapter is selected, show ONLY the chapter content (full screen)
+  if (selectedChapter) {
+    return (
+      <div className="flex h-full flex-col bg-white">
+        {/* Header with back button */}
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center gap-3">
+            {/* Back button */}
+            <button
+              onClick={closeChapter}
+              className="flex items-center gap-1 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              title="返回章节列表"
+            >
+              <BackIcon className="h-5 w-5" />
+            </button>
+            <span
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium ${
+                selectedChapter.status === 'completed'
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-gray-100 text-gray-500'
+              }`}
+            >
+              {selectedChapter.status === 'completed' ? (
+                <CheckIcon className="h-4 w-4" />
+              ) : (
+                selectedChapter.chapterNumber
+              )}
+            </span>
+            <div>
+              <h3 className="font-medium text-gray-900">
+                第{selectedChapter.chapterNumber}章 {selectedChapter.title}
+              </h3>
+              <p className="text-xs text-gray-500">
+                {selectedChapter.wordCount.toLocaleString()} 字
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {!isEditing ? (
+              <>
+                <button
+                  onClick={startEditing}
+                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  <EditIcon className="h-4 w-4" />
+                  编辑
+                </button>
+                {onAIEditChapter && (
+                  <button
+                    onClick={() =>
+                      onAIEditChapter(selectedChapter.id, 'polish')
+                    }
+                    className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100"
+                  >
+                    <AIIcon className="h-4 w-4" />
+                    AI 润色
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={cancelEdit}
+                  className="rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={saveEdit}
+                  className="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700"
+                >
+                  保存
+                </button>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Chapter Cards */}
+        {/* Chapter Content - Full Screen */}
+        <div className="flex-1 overflow-auto p-6">
+          {isEditing ? (
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              className="font-mono h-full w-full resize-none rounded-lg border border-gray-300 p-4 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              placeholder="编辑章节内容..."
+            />
+          ) : sources.length > 0 ? (
+            <CitedMarkdown
+              content={selectedChapter.content || '暂无内容'}
+              sources={sources}
+            />
+          ) : (
+            <article className="prose prose-sm prose-gray max-w-none">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {selectedChapter.content || '暂无内容'}
+              </ReactMarkdown>
+            </article>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Chapter List View (when no chapter is selected)
+  return (
+    <div className="flex h-full flex-col">
+      {/* Stats Header */}
+      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+        <div className="text-sm text-gray-500">
+          共 {stats.total} 章 · {stats.completed} 已完成 ·{' '}
+          {stats.totalWords.toLocaleString()} 字
+        </div>
+      </div>
+
+      {/* Chapter Cards */}
+      <div className="flex-1 overflow-auto p-4">
         <div className="space-y-2">
           {chapters.map((chapter) => (
             <button
               key={chapter.id}
               onClick={() => openChapter(chapter)}
-              className={`block w-full rounded-xl border p-4 text-left transition-all ${
-                selectedChapter?.id === chapter.id
-                  ? 'border-blue-300 bg-blue-50'
-                  : 'border-gray-100 bg-white hover:border-blue-200 hover:bg-blue-50/50'
-              }`}
+              className="block w-full rounded-xl border border-gray-100 bg-white p-4 text-left transition-all hover:border-blue-200 hover:bg-blue-50/50"
             >
               <div className="flex items-start gap-3">
                 {/* Status Icon */}
@@ -382,109 +497,6 @@ export function ChapterizedReportView({
           ))}
         </div>
       </div>
-
-      {/* Chapter Edit Panel */}
-      {selectedChapter && (
-        <div className="fixed inset-0 z-50 bg-white lg:relative lg:w-1/2 lg:border-l lg:border-gray-200">
-          {/* Panel Header */}
-          <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-            <div className="flex items-center gap-3">
-              <span
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium ${
-                  selectedChapter.status === 'completed'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-100 text-gray-500'
-                }`}
-              >
-                {selectedChapter.status === 'completed' ? (
-                  <CheckIcon className="h-4 w-4" />
-                ) : (
-                  selectedChapter.chapterNumber
-                )}
-              </span>
-              <div>
-                <h3 className="font-medium text-gray-900">
-                  第{selectedChapter.chapterNumber}章 {selectedChapter.title}
-                </h3>
-                <p className="text-xs text-gray-500">
-                  {selectedChapter.wordCount.toLocaleString()} 字
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {!isEditing ? (
-                <>
-                  <button
-                    onClick={startEditing}
-                    className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-                  >
-                    <EditIcon className="h-4 w-4" />
-                    编辑
-                  </button>
-                  {onAIEditChapter && (
-                    <button
-                      onClick={() =>
-                        onAIEditChapter(selectedChapter.id, 'polish')
-                      }
-                      className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100"
-                    >
-                      <AIIcon className="h-4 w-4" />
-                      AI 润色
-                    </button>
-                  )}
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={cancelEdit}
-                    className="rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-                  >
-                    取消
-                  </button>
-                  <button
-                    onClick={saveEdit}
-                    className="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700"
-                  >
-                    保存
-                  </button>
-                </>
-              )}
-              <button
-                onClick={closeChapter}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              >
-                <CloseIcon className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Panel Content */}
-          <div className="h-[calc(100%-57px)] overflow-auto p-4">
-            {isEditing ? (
-              <textarea
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                className="font-mono h-full w-full resize-none rounded-lg border border-gray-300 p-4 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                placeholder="编辑章节内容..."
-              />
-            ) : sources.length > 0 ? (
-              // Use CitedMarkdown when we have sources for citation linking
-              <CitedMarkdown
-                content={selectedChapter.content || '暂无内容'}
-                sources={sources}
-              />
-            ) : (
-              // Fallback to plain markdown when no sources
-              <article className="prose prose-sm prose-gray max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {selectedChapter.content || '暂无内容'}
-                </ReactMarkdown>
-              </article>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
