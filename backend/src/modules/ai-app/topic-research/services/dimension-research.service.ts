@@ -485,18 +485,25 @@ export class DimensionResearchService {
 
   /**
    * 更新维度状态
+   * 使用 updateMany 以优雅处理记录不存在的情况（任务可能已被取消/删除）
    */
   private async updateDimensionStatus(
     dimensionId: string,
     status: DimensionStatus,
     lastResearchedAt?: Date,
   ): Promise<void> {
-    await this.prisma.topicDimension.update({
+    const result = await this.prisma.topicDimension.updateMany({
       where: { id: dimensionId },
       data: {
         status,
         lastResearchedAt: lastResearchedAt || undefined,
       },
     });
+
+    if (result.count === 0) {
+      this.logger.warn(
+        `[updateDimensionStatus] Dimension ${dimensionId} not found, may have been deleted`,
+      );
+    }
   }
 }

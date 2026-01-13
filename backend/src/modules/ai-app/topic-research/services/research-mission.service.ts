@@ -10,6 +10,7 @@ import {
   Logger,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
@@ -746,11 +747,19 @@ export class ResearchMissionService {
       );
     }
 
-    if (
-      mission.status === ResearchMissionStatus.COMPLETED ||
-      mission.status === ResearchMissionStatus.CANCELLED
-    ) {
-      throw new Error(`Cannot cancel mission in ${mission.status} status`);
+    // 幂等处理：如果已经取消，直接返回当前状态
+    if (mission.status === ResearchMissionStatus.CANCELLED) {
+      this.logger.log(
+        `[cancelMission] Mission ${missionId} already cancelled, returning current state`,
+      );
+      return mission;
+    }
+
+    // 已完成的任务不能取消
+    if (mission.status === ResearchMissionStatus.COMPLETED) {
+      throw new BadRequestException(
+        `Cannot cancel mission that is already completed`,
+      );
     }
 
     return this.prisma.researchMission.update({
