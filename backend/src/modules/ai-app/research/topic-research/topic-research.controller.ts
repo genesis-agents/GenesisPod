@@ -619,6 +619,260 @@ export class TopicResearchController {
     );
   }
 
+  // ==================== Report Editing ====================
+
+  /**
+   * 获取报告变更列表
+   */
+  @Get("topics/:topicId/reports/:reportId/changes")
+  @ApiOperation({
+    summary: "获取报告变更列表",
+    description: "获取报告的所有增量更新变更记录",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "返回变更列表" })
+  async getReportChanges(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException("User not authenticated");
+    return this.topicResearchService.getReportChanges(
+      userId,
+      topicId,
+      reportId,
+    );
+  }
+
+  /**
+   * Checkin 单条变更
+   */
+  @Post("topics/:topicId/reports/:reportId/changes/:changeId/checkin")
+  @ApiOperation({
+    summary: "Checkin 单条变更",
+    description: "将单条变更标记为已确认",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiParam({ name: "changeId", description: "变更ID" })
+  @ApiResponse({ status: 200, description: "Checkin 成功" })
+  async checkinChange(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+    @Param("changeId") changeId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException("User not authenticated");
+    return this.topicResearchService.checkinChange(
+      userId,
+      topicId,
+      reportId,
+      changeId,
+    );
+  }
+
+  /**
+   * 批量 Checkin 变更
+   */
+  @Post("topics/:topicId/reports/:reportId/changes/checkin")
+  @ApiOperation({
+    summary: "批量 Checkin 变更",
+    description: "批量确认报告变更",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "Checkin 成功" })
+  async checkinAllChanges(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+    @Body() dto: { changeIds?: string[] },
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException("User not authenticated");
+    return this.topicResearchService.checkinAllChanges(
+      userId,
+      topicId,
+      reportId,
+      dto.changeIds,
+    );
+  }
+
+  /**
+   * 获取报告批注列表
+   */
+  @Get("topics/:topicId/reports/:reportId/annotations")
+  @ApiOperation({
+    summary: "获取报告批注",
+    description: "获取报告的所有批注",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiQuery({
+    name: "status",
+    required: false,
+    description: "批注状态 (OPEN, RESOLVED, DISMISSED)",
+  })
+  @ApiResponse({ status: 200, description: "返回批注列表" })
+  async getReportAnnotations(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+    @Query("status") status?: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException("User not authenticated");
+    return this.topicResearchService.getReportAnnotations(
+      userId,
+      topicId,
+      reportId,
+      status,
+    );
+  }
+
+  /**
+   * 创建批注
+   */
+  @Post("topics/:topicId/reports/:reportId/annotations")
+  @ApiOperation({
+    summary: "创建批注",
+    description: "在报告中添加新批注",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 201, description: "批注创建成功" })
+  async createAnnotation(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+    @Body() dto: any,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException("User not authenticated");
+    return this.topicResearchService.createAnnotation(
+      userId,
+      topicId,
+      reportId,
+      dto,
+    );
+  }
+
+  /**
+   * 更新批注
+   */
+  @Patch("topics/:topicId/reports/:reportId/annotations/:annotationId")
+  @ApiOperation({
+    summary: "更新批注",
+    description: "修改批注内容或状态",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiParam({ name: "annotationId", description: "批注ID" })
+  @ApiResponse({ status: 200, description: "更新成功" })
+  async updateAnnotation(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+    @Param("annotationId") annotationId: string,
+    @Body() dto: any,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException("User not authenticated");
+    return this.topicResearchService.updateAnnotation(
+      userId,
+      topicId,
+      reportId,
+      annotationId,
+      dto,
+    );
+  }
+
+  /**
+   * 删除批注
+   */
+  @Delete("topics/:topicId/reports/:reportId/annotations/:annotationId")
+  @ApiOperation({
+    summary: "删除批注",
+    description: "从报告中删除批注",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiParam({ name: "annotationId", description: "批注ID" })
+  @ApiResponse({ status: 200, description: "删除成功" })
+  async deleteAnnotation(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+    @Param("annotationId") annotationId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException("User not authenticated");
+    return this.topicResearchService.deleteAnnotation(
+      userId,
+      topicId,
+      reportId,
+      annotationId,
+    );
+  }
+
+  /**
+   * 解决批注
+   */
+  @Post("topics/:topicId/reports/:reportId/annotations/:annotationId/resolve")
+  @ApiOperation({
+    summary: "解决批注",
+    description: "将批注标记为已解决",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiParam({ name: "annotationId", description: "批注ID" })
+  @ApiResponse({ status: 200, description: "解决成功" })
+  async resolveAnnotation(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+    @Param("annotationId") annotationId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException("User not authenticated");
+    return this.topicResearchService.resolveAnnotation(
+      userId,
+      topicId,
+      reportId,
+      annotationId,
+    );
+  }
+
+  /**
+   * 批量解决批注
+   */
+  @Post("topics/:topicId/reports/:reportId/annotations/resolve-all")
+  @ApiOperation({
+    summary: "批量解决批注",
+    description: "批量将批注标记为已解决",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "批量解决成功" })
+  async resolveAllAnnotations(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+    @Body() dto: { annotationIds?: string[] },
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException("User not authenticated");
+    return this.topicResearchService.resolveAllAnnotations(
+      userId,
+      topicId,
+      reportId,
+      dto.annotationIds,
+    );
+  }
+
   // ==================== Evidence ====================
 
   /**

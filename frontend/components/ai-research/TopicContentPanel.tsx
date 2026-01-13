@@ -18,6 +18,7 @@ import type {
   TopicEvidence,
 } from '@/types/topic-research';
 import type { MissionStatus } from '@/lib/api/topic-research';
+import { ReportEditPanel } from './ReportEditPanel';
 
 // Tab 类型定义
 type TabType = 'report' | 'team' | 'thinking' | 'references';
@@ -448,11 +449,25 @@ export function TopicContentPanel({
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden">
         {activeTab === 'report' && (
-          <ReportTabContent
+          <ReportEditPanel
             report={report}
-            dimensions={safeDimensions}
             evidence={safeEvidence}
+            revisions={revisions}
+            annotations={[]}
             isLoading={isLoadingReport}
+            onSave={async (content: string) => {
+              // TODO: Implement save functionality
+              console.log('Save report:', content);
+            }}
+            onAIEdit={async (operation, selection) => {
+              // TODO: Implement AI edit functionality
+              console.log('AI Edit:', operation, selection);
+              return 'AI edited content';
+            }}
+            onRollback={async (revisionId: string) => {
+              // Use existing rollback handler
+              onRollbackVersion?.(revisionId);
+            }}
           />
         )}
         {activeTab === 'team' && (
@@ -2043,6 +2058,22 @@ function AgentThinkingTabContent({
     return grouped;
   }, [agentActivities]);
 
+  // ★ 研究员按维度拆分（每个维度独立显示）
+  const researchersByDimension = useMemo(() => {
+    const grouped: Record<string, typeof agentActivities> = {};
+
+    activitiesByAgent.researcher.forEach((activity) => {
+      const dimKey = activity.dimensionName || '未知维度';
+      if (!grouped[dimKey]) {
+        grouped[dimKey] = [];
+      }
+      grouped[dimKey].push(activity);
+    });
+
+    // 按维度名称排序
+    return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b));
+  }, [activitiesByAgent.researcher]);
+
   // Agent 类型配置
   const agentConfig: Record<
     string,
@@ -2266,22 +2297,82 @@ function AgentThinkingTabContent({
           </AgentSection>
         )}
 
-        {/* ==================== 研究员区块（可折叠）==================== */}
-        {activitiesByAgent.researcher.length > 0 && (
-          <AgentSection
-            agentType="researcher"
-            config={agentConfig.researcher}
-            isCollapsed={collapsedAgents.has('researcher')}
-            onToggle={() => toggleAgentCollapse('researcher')}
-            itemCount={activitiesByAgent.researcher.length}
-          >
-            <div className="space-y-1">
-              {activitiesByAgent.researcher.map((activity) => (
-                <ActivityItem key={activity.id} activity={activity} />
-              ))}
-            </div>
-          </AgentSection>
-        )}
+        {/* ==================== 研究员区块（按维度拆分，每个维度独立折叠）==================== */}
+        {researchersByDimension.map(([dimensionName, activities]) => {
+          const sectionKey = `researcher-${dimensionName}`;
+          const isCollapsed = collapsedAgents.has(sectionKey);
+          // 动态配置：每个维度使用不同的颜色渐变
+          const dimIndex = researchersByDimension.findIndex(
+            ([d]) => d === dimensionName
+          );
+          const colorVariants = [
+            {
+              color: 'text-blue-700',
+              bgColor: 'bg-blue-50',
+              borderColor: 'border-blue-200',
+              headerBg: 'bg-blue-100',
+            },
+            {
+              color: 'text-indigo-700',
+              bgColor: 'bg-indigo-50',
+              borderColor: 'border-indigo-200',
+              headerBg: 'bg-indigo-100',
+            },
+            {
+              color: 'text-cyan-700',
+              bgColor: 'bg-cyan-50',
+              borderColor: 'border-cyan-200',
+              headerBg: 'bg-cyan-100',
+            },
+            {
+              color: 'text-teal-700',
+              bgColor: 'bg-teal-50',
+              borderColor: 'border-teal-200',
+              headerBg: 'bg-teal-100',
+            },
+            {
+              color: 'text-sky-700',
+              bgColor: 'bg-sky-50',
+              borderColor: 'border-sky-200',
+              headerBg: 'bg-sky-100',
+            },
+            {
+              color: 'text-violet-700',
+              bgColor: 'bg-violet-50',
+              borderColor: 'border-violet-200',
+              headerBg: 'bg-violet-100',
+            },
+            {
+              color: 'text-fuchsia-700',
+              bgColor: 'bg-fuchsia-50',
+              borderColor: 'border-fuchsia-200',
+              headerBg: 'bg-fuchsia-100',
+            },
+          ];
+          const variant = colorVariants[dimIndex % colorVariants.length];
+          const dimConfig = {
+            icon: '🔍',
+            label: `研究员 · ${dimensionName}`,
+            ...variant,
+          };
+
+          return (
+            <AgentSection
+              key={sectionKey}
+              agentType="researcher"
+              config={dimConfig}
+              isCollapsed={isCollapsed}
+              onToggle={() => toggleAgentCollapse(sectionKey)}
+              itemCount={activities.length}
+            >
+              <div className="space-y-1">
+                {activities.map((activity) => (
+                  <ActivityItem key={activity.id} activity={activity} />
+                ))}
+              </div>
+            </AgentSection>
+          );
+        })}
 
         {/* ==================== 审核员区块（可折叠）==================== */}
         {activitiesByAgent.reviewer.length > 0 && (

@@ -149,6 +149,11 @@ model User {
   topicCollaborators TopicCollaborator[] @relation("TopicCollaborators")
   topicInvitations   TopicCollaborator[] @relation("TopicInvitations")
 
+  // 报告编辑相关
+  reportChangesCheckedIn    ReportChange[]     @relation("ReportChangeCheckedInBy")
+  reportAnnotationsCreated  ReportAnnotation[] @relation("ReportAnnotationCreator")
+  reportAnnotationsResolved ReportAnnotation[] @relation("ReportAnnotationResolver")
+
   @@map("users")
 }
 
@@ -6726,13 +6731,13 @@ model ResearchTopic {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // ========== 关系 ==========
-  user          User                   @relation("UserResearchTopics", fields: [userId], references: [id], onDelete: Cascade)
+  user          User                @relation("UserResearchTopics", fields: [userId], references: [id], onDelete: Cascade)
   dimensions    TopicDimension[]
   reports       TopicReport[]
   schedules     TopicSchedule[]
   refreshLogs   TopicRefreshLog[]
-  missions      ResearchMission[]      // Leader 驱动的研究任务
-  collaborators TopicCollaborator[]    // 协作者列表
+  missions      ResearchMission[] // Leader 驱动的研究任务
+  collaborators TopicCollaborator[] // 协作者列表
 
   // ========== 索引 ==========
   @@index([userId, status]) // 按用户和状态查询
@@ -6745,15 +6750,15 @@ model ResearchTopic {
 /// 专题可见性
 enum TopicVisibility {
   PRIVATE // 私有：仅所有者可见
-  SHARED  // 共享：所有者和协作者可见
-  PUBLIC  // 公开：所有人可见
+  SHARED // 共享：所有者和协作者可见
+  PUBLIC // 公开：所有人可见
 }
 
 /// 协作者角色
 enum TopicCollaboratorRole {
   VIEWER // 只读
   EDITOR // 可编辑
-  ADMIN  // 管理员（可邀请/移除成员）
+  ADMIN // 管理员（可邀请/移除成员）
 }
 
 /// 专题协作者
@@ -6887,6 +6892,8 @@ model TopicReport {
   dimensionAnalyses DimensionAnalysis[]
   evidences         TopicEvidence[]
   revisions         TopicReportRevision[] // 修订历史
+  changes           ReportChange[] // 变更记录
+  annotations       ReportAnnotation[] // 批注
 
   // ========== 唯一约束 ==========
   @@unique([topicId, version])
@@ -7035,7 +7042,7 @@ model ResearchMission {
   topicId String @map("topic_id")
 
   // ========== Leader 信息 ==========
-  leaderModelId String? @map("leader_model_id") // 使用的推理模型 ID
+  leaderModelId   String? @map("leader_model_id") // 使用的推理模型 ID
   leaderModelName String? @map("leader_model_name") // 模型名称（如 claude-opus-4）
 
   // ========== 状态 ==========
@@ -7046,23 +7053,23 @@ model ResearchMission {
   leaderPlan Json? @map("leader_plan")
 
   // ========== 用户输入 ==========
-  userPrompt String? @map("user_prompt") @db.Text // 用户的研究指令
-  userContext Json? @map("user_context") // 用户补充的上下文
+  userPrompt  String? @map("user_prompt") @db.Text // 用户的研究指令
+  userContext Json?   @map("user_context") // 用户补充的上下文
 
   // ========== 进度统计 ==========
-  totalTasks Int @default(0) @map("total_tasks")
-  completedTasks Int @default(0) @map("completed_tasks")
+  totalTasks      Int @default(0) @map("total_tasks")
+  completedTasks  Int @default(0) @map("completed_tasks")
   progressPercent Int @default(0) @map("progress_percent")
 
   // ========== 时间戳 ==========
-  startedAt DateTime? @map("started_at")
+  startedAt   DateTime? @map("started_at")
   completedAt DateTime? @map("completed_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   // ========== 关系 ==========
-  topic ResearchTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  tasks ResearchTask[]
+  topic     ResearchTopic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  tasks     ResearchTask[]
   decisions LeaderDecision[]
 
   // ========== 索引 ==========
@@ -7074,39 +7081,39 @@ model ResearchMission {
 /// 研究任务
 /// Leader 分配给各个 Agent 的具体任务
 model ResearchTask {
-  id String @id @default(uuid())
+  id        String @id @default(uuid())
   missionId String @map("mission_id")
 
   // ========== 任务信息 ==========
-  title String @db.VarChar(500) // 任务标题
+  title       String @db.VarChar(500) // 任务标题
   description String @db.Text // 任务描述
-  taskType String @map("task_type") // 任务类型：dimension_research, quality_review, report_synthesis
+  taskType    String @map("task_type") // 任务类型：dimension_research, quality_review, report_synthesis
 
   // ========== 维度关联（可选）==========
-  dimensionId String? @map("dimension_id") // 关联的维度 ID（如果是维度研究任务）
+  dimensionId   String? @map("dimension_id") // 关联的维度 ID（如果是维度研究任务）
   dimensionName String? @map("dimension_name") // Leader 定义的维度名称
 
   // ========== Agent 分配 ==========
-  assignedAgent String @map("assigned_agent") // 分配的 Agent ID/名称
+  assignedAgent     String  @map("assigned_agent") // 分配的 Agent ID/名称
   assignedAgentType String? @map("assigned_agent_type") // Agent 类型
-  priority Int @default(0)
+  priority          Int     @default(0)
 
   // ========== 依赖关系 ==========
   dependencies String[] @default([]) // 依赖的任务 ID 列表
 
   // ========== 执行状态 ==========
-  status ResearchTaskStatus @default(PENDING)
-  startedAt DateTime? @map("started_at")
-  completedAt DateTime? @map("completed_at")
+  status      ResearchTaskStatus @default(PENDING)
+  startedAt   DateTime?          @map("started_at")
+  completedAt DateTime?          @map("completed_at")
 
   // ========== 任务结果 ==========
-  result Json? // 任务产出（JSON 格式）
+  result        Json? // 任务产出（JSON 格式）
   resultSummary String? @map("result_summary") @db.Text // 结果摘要
 
   // ========== Leader 审核 ==========
-  leaderReview Json? @map("leader_review") // Leader 审核意见
-  reviewStatus String? @map("review_status") // approved, needs_revision, rejected
-  revisionCount Int @default(0) @map("revision_count") // 修订次数
+  leaderReview  Json?   @map("leader_review") // Leader 审核意见
+  reviewStatus  String? @map("review_status") // approved, needs_revision, rejected
+  revisionCount Int     @default(0) @map("revision_count") // 修订次数
 
   // ========== 时间戳 ==========
   createdAt DateTime @default(now()) @map("created_at")
@@ -7125,19 +7132,19 @@ model ResearchTask {
 /// Leader 决策记录
 /// 记录 Leader 在研究过程中的所有决策
 model LeaderDecision {
-  id String @id @default(uuid())
+  id        String @id @default(uuid())
   missionId String @map("mission_id")
 
   // ========== 决策信息 ==========
-  type LeaderDecisionType
-  input Json // 输入上下文（触发决策的信息）
-  decision Json // 决策内容
-  reasoning String @db.Text // 决策理由（可展示给用户）
+  type      LeaderDecisionType
+  input     Json // 输入上下文（触发决策的信息）
+  decision  Json // 决策内容
+  reasoning String             @db.Text // 决策理由（可展示给用户）
 
   // ========== 元数据 ==========
-  modelUsed String? @map("model_used") // 使用的模型
-  tokensUsed Int? @map("tokens_used") // 消耗的 tokens
-  latencyMs Int? @map("latency_ms") // 决策耗时（毫秒）
+  modelUsed  String? @map("model_used") // 使用的模型
+  tokensUsed Int?    @map("tokens_used") // 消耗的 tokens
+  latencyMs  Int?    @map("latency_ms") // 决策耗时（毫秒）
 
   // ========== 时间戳 ==========
   createdAt DateTime @default(now()) @map("created_at")
@@ -7154,16 +7161,16 @@ model LeaderDecision {
 /// 报告修订历史
 /// 记录报告的修订版本
 model TopicReportRevision {
-  id String @id @default(uuid())
+  id       String @id @default(uuid())
   reportId String @map("report_id")
 
   // ========== 修订信息 ==========
-  revisionNumber Int @map("revision_number") // 修订序号
-  content String @db.Text // 报告内容快照
+  revisionNumber    Int     @map("revision_number") // 修订序号
+  content           String  @db.Text // 报告内容快照
   changeDescription String? @map("change_description") @db.Text // 修改描述
 
   // ========== 修改来源 ==========
-  editedBy String? @map("edited_by") // user / ai
+  editedBy      String? @map("edited_by") // user / ai
   editOperation String? @map("edit_operation") // rewrite, polish, expand, condense, style_fix
 
   // ========== 时间戳 ==========
@@ -7176,4 +7183,68 @@ model TopicReportRevision {
   @@unique([reportId, revisionNumber])
   @@index([reportId, createdAt(sort: Desc)])
   @@map("topic_report_revisions")
+}
+
+/// 报告变更记录
+/// 用于跟踪报告的继承式更新变更
+model ReportChange {
+  id              String     @id @default(cuid())
+  reportId        String     @map("report_id")
+  sectionId       String?    @map("section_id")
+  sectionName     String?    @map("section_name")
+  changeType      ChangeType @map("change_type")
+  previousContent String?    @map("previous_content") @db.Text
+  currentContent  String     @map("current_content") @db.Text
+  startOffset     Int        @map("start_offset")
+  endOffset       Int        @map("end_offset")
+  wordsDiff       Int        @default(0) @map("words_diff")
+  confidence      Float      @default(1.0)
+  checkedInAt     DateTime?  @map("checked_in_at")
+  checkedInById   String?    @map("checked_in_by_id")
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  // ========== 关系 ==========
+  report      TopicReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  checkedInBy User?       @relation("ReportChangeCheckedInBy", fields: [checkedInById], references: [id])
+
+  // ========== 索引 ==========
+  @@index([reportId])
+  @@index([reportId, checkedInAt])
+  @@map("report_changes")
+}
+
+/// 报告批注
+/// 用于报告审核和协作批注系统
+model ReportAnnotation {
+  id           String           @id @default(cuid())
+  reportId     String           @map("report_id")
+  content      String           @db.Text
+  type         AnnotationType
+  status       AnnotationStatus @default(OPEN)
+  selectedText String?          @map("selected_text") @db.Text
+  startOffset  Int              @map("start_offset")
+  endOffset    Int              @map("end_offset")
+  createdById  String           @map("created_by_id")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  resolvedAt   DateTime?        @map("resolved_at")
+  resolvedById String?          @map("resolved_by_id")
+
+  // ========== 关系 ==========
+  report     TopicReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  createdBy  User        @relation("ReportAnnotationCreator", fields: [createdById], references: [id])
+  resolvedBy User?       @relation("ReportAnnotationResolver", fields: [resolvedById], references: [id])
+
+  // ========== 索引 ==========
+  @@index([reportId])
+  @@index([reportId, status])
+  @@index([createdById])
+  @@map("report_annotations")
+}
+
+/// 变更类型枚举
+enum ChangeType {
+  ADDED
+  MODIFIED
+  DELETED
 }

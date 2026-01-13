@@ -40,6 +40,8 @@ import {
   TopicRefreshScheduler,
   EvidenceManagementService,
   RefreshProgressEvent,
+  ReportChangeService,
+  ReportAnnotationService,
 } from "./services";
 import { AIEngineFacade } from "../../../ai-engine/facade";
 import { REPORT_EDITING_SYSTEM_PROMPT, buildEditPrompt } from "./prompts";
@@ -404,6 +406,8 @@ export class TopicResearchService {
     private readonly scheduler: TopicRefreshScheduler,
     private readonly evidenceService: EvidenceManagementService,
     private readonly aiFacade: AIEngineFacade,
+    private readonly reportChangeService: ReportChangeService,
+    private readonly reportAnnotationService: ReportAnnotationService,
   ) {}
 
   // ==================== Topics CRUD ====================
@@ -1656,5 +1660,176 @@ export class TopicResearchService {
       publicLink:
         visibility === "PUBLIC" ? `/shared/topics/${topic.id}` : undefined,
     };
+  }
+
+  // ==================== Report Editing ====================
+
+  async getReportChanges(userId: string, topicId: string, reportId: string) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    // 验证报告属于该专题
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    return this.reportChangeService.getChanges(reportId);
+  }
+
+  async checkinChange(
+    userId: string,
+    topicId: string,
+    reportId: string,
+    changeId: string,
+  ) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    // 验证报告属于该专题
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    await this.reportChangeService.checkinChange(changeId, userId);
+    return { success: true };
+  }
+
+  async checkinAllChanges(
+    userId: string,
+    topicId: string,
+    reportId: string,
+    changeIds?: string[],
+  ) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    // 验证报告属于该专题
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    const count = await this.reportChangeService.checkinAllChanges(
+      reportId,
+      userId,
+      changeIds,
+    );
+    return { count };
+  }
+
+  async getReportAnnotations(
+    userId: string,
+    topicId: string,
+    reportId: string,
+    status?: string,
+  ) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    // 验证报告属于该专题
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    return this.reportAnnotationService.getAnnotations(reportId, status as any);
+  }
+
+  async createAnnotation(
+    userId: string,
+    topicId: string,
+    reportId: string,
+    dto: any,
+  ) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    // 验证报告属于该专题
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    return this.reportAnnotationService.createAnnotation(reportId, userId, dto);
+  }
+
+  async updateAnnotation(
+    userId: string,
+    topicId: string,
+    reportId: string,
+    annotationId: string,
+    dto: any,
+  ) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    // 验证报告属于该专题
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    return this.reportAnnotationService.updateAnnotation(annotationId, dto);
+  }
+
+  async deleteAnnotation(
+    userId: string,
+    topicId: string,
+    reportId: string,
+    annotationId: string,
+  ) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    // 验证报告属于该专题
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    return this.reportAnnotationService.deleteAnnotation(annotationId);
+  }
+
+  async resolveAnnotation(
+    userId: string,
+    topicId: string,
+    reportId: string,
+    annotationId: string,
+  ) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    // 验证报告属于该专题
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    return this.reportAnnotationService.resolveAnnotation(annotationId, userId);
+  }
+
+  async resolveAllAnnotations(
+    userId: string,
+    topicId: string,
+    reportId: string,
+    annotationIds?: string[],
+  ) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    // 验证报告属于该专题
+    const report = await this.reportService.getReport(reportId);
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    const count = await this.reportAnnotationService.resolveAllAnnotations(
+      reportId,
+      userId,
+      annotationIds,
+    );
+    return { count };
   }
 }

@@ -3,22 +3,25 @@
 /**
  * Report Editor Component
  *
- * v7.0 报告编辑器:
+ * v8.0 报告编辑器:
  * - 三种视图模式（预览/编辑/分屏）
  * - 章节/小节多层级结构
- * - AI 编辑工具（底部面板）
+ * - AI 浮动工具栏（选中文本时显示）
+ * - AI 编辑预览对话框
+ *
+ * 参考 PRD: docs/prd/topic-research-report-editing.md
  */
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { TopicReport } from '@/types/topic-research';
+import { AIFloatingToolbar } from './AIFloatingToolbar';
+import { AIEditPreviewDialog } from './AIEditPreviewDialog';
+import type { AIEditOperation, TextSelection } from './types';
 
 // View modes
 type ViewMode = 'preview' | 'edit' | 'split';
-
-// AI Edit operations
-type AIEditOperation = 'rewrite' | 'polish' | 'expand' | 'compress' | 'style';
 
 interface ReportEditorProps {
   report: TopicReport | null;
@@ -102,17 +105,17 @@ const AIIcon = ({ className }: { className?: string }) => (
 );
 
 // AI Edit buttons config
-const aiEditButtons: {
-  key: AIEditOperation;
-  label: string;
-  description: string;
+const aiEditButtons: readonly {
+  readonly key: AIEditOperation;
+  readonly label: string;
+  readonly description: string;
 }[] = [
   { key: 'rewrite', label: '重写', description: '完全重写选中内容' },
   { key: 'polish', label: '润色', description: '优化语言表达' },
   { key: 'expand', label: '扩写', description: '补充更多细节' },
   { key: 'compress', label: '缩写', description: '精简内容' },
   { key: 'style', label: '风格', description: '调整写作风格' },
-];
+] as const;
 
 export function ReportEditor({
   report,
