@@ -179,8 +179,6 @@ Focus on being specific and informative.`;
         creativity: "low",
         outputLength: "minimal",
       } as TaskProfile,
-      temperature: 0.3, // Kept for backward compatibility
-      maxTokens: 500, // Kept for backward compatibility
       modelId: modelConfig?.modelId || "gpt-4o-mini", // Fallback to default
     });
 

@@ -231,10 +231,7 @@ ${params.leaderFeedback ? `## Leader 反馈\n${params.leaderFeedback}` : ""}
         { role: "user", content: userPrompt },
       ],
       {
-        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
-        // 保持向后兼容
-        temperature: 0.5,
-        maxTokens: 8192,
+        taskProfile,
       },
     );
 
@@ -306,10 +303,7 @@ ${content}
         { role: "user", content: userPrompt },
       ],
       {
-        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
-        // 保持向后兼容
-        temperature: 0.6,
-        maxTokens: 8192,
+        taskProfile,
       },
     );
 

@@ -49,6 +49,7 @@ import { MissionLifecycleService } from "../mission/mission-lifecycle.service";
 import { MissionRetryService } from "../mission/mission-retry.service";
 import { MissionHealthCheckService } from "../mission/mission-health-check.service";
 import { ConfigService } from "@nestjs/config";
+import { AIEngineFacade } from "../../../../../ai-engine/facade";
 
 /**
  * 这些测试验证 TeamMissionService 与 LongContentEngine 的集成
@@ -157,6 +158,15 @@ describe("TeamMissionService Long Content Integration", () => {
           provide: ConfigService,
           useValue: {
             get: jest.fn().mockReturnValue("http://localhost:3000"),
+          },
+        },
+        {
+          provide: AIEngineFacade,
+          useValue: {
+            chat: jest.fn().mockResolvedValue({
+              content: "Mock AI response",
+              tokensUsed: 100,
+            }),
           },
         },
         {

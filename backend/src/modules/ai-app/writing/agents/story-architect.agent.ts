@@ -222,10 +222,7 @@ export class StoryArchitectAgent extends BaseAgent<
     const response = await this.callLLM(
       this.buildMessages(userPrompt, { ..._context, memory: undefined }),
       {
-        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
-        // 保持向后兼容
-        temperature: 0.7,
-        maxTokens: 4096,
+        taskProfile,
       },
     );
 

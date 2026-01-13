@@ -299,8 +299,6 @@ export class TaskDecompositionSkill
           { role: "user", content: userMessage },
         ],
         // model 留空，由 UniversalLLMAdapter 从数据库获取默认模型
-        maxTokens: 4096,
-        temperature: 0.3,
         taskProfile: {
           creativity: "low",
           outputLength: "long",
