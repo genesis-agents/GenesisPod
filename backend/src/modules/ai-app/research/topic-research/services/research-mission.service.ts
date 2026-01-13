@@ -1096,16 +1096,20 @@ export class ResearchMissionService {
         message: `开始执行: ${task.title}`,
       });
 
-      // ★ 发送 Agent 工作状态事件
-      await this.researchEventEmitter.emitAgentWorking(topic.id, {
-        agentId: task.assignedAgent,
-        agentName,
-        agentRole,
-        status: "working",
-        taskDescription: task.title,
-        dimensionName: task.dimensionName ?? undefined,
-        progress: 0,
-      });
+      // ★ 发送 Agent 工作状态事件（传递 missionId 以便持久化）
+      await this.researchEventEmitter.emitAgentWorking(
+        topic.id,
+        {
+          agentId: task.assignedAgent,
+          agentName,
+          agentRole,
+          status: "working",
+          taskDescription: task.title,
+          dimensionName: task.dimensionName ?? undefined,
+          progress: 0,
+        },
+        missionId,
+      );
 
       let result: any;
 
@@ -1189,15 +1193,19 @@ export class ResearchMissionService {
         }
 
         case "quality_review": {
-          // ★ 发送审核开始提示
-          await this.researchEventEmitter.emitAgentWorking(topic.id, {
-            agentId: task.assignedAgent,
-            agentName: "质量审核员",
-            agentRole: "reviewer",
-            status: "working",
-            taskDescription: "正在审核所有维度研究结果的质量...",
-            progress: 50,
-          });
+          // ★ 发送审核开始提示（传递 missionId 以便持久化）
+          await this.researchEventEmitter.emitAgentWorking(
+            topic.id,
+            {
+              agentId: task.assignedAgent,
+              agentName: "质量审核员",
+              agentRole: "reviewer",
+              status: "working",
+              taskDescription: "正在审核所有维度研究结果的质量...",
+              progress: 50,
+            },
+            missionId,
+          );
 
           // 获取所有已完成的维度研究结果
           const completedTasks = await this.prisma.researchTask.findMany({
@@ -1286,12 +1294,13 @@ export class ResearchMissionService {
           };
       }
 
-      // ★ 发送 Agent 完成事件
+      // ★ 发送 Agent 完成事件（传递 missionId 以便持久化）
       await this.researchEventEmitter.emitAgentCompleted(
         topic.id,
         task.assignedAgent,
         agentName,
         `${task.title} 完成`,
+        missionId,
       );
 
       // ★ 发送任务完成事件

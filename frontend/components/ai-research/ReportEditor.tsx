@@ -65,6 +65,16 @@ function markdownToHtml(markdown: string): string {
   return html;
 }
 
+// Annotation type for highlighting
+interface ReportAnnotation {
+  id: string;
+  selectedText: string;
+  startOffset: number;
+  endOffset: number;
+  color: 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
+  status: 'active' | 'resolved' | 'archived';
+}
+
 interface ReportEditorProps {
   report: TopicReport | null;
   isLoading?: boolean;
@@ -79,6 +89,10 @@ interface ReportEditorProps {
     endOffset: number;
     color: 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
   }) => void;
+  /** Annotations for highlighting in preview */
+  annotations?: ReportAnnotation[];
+  /** Currently highlighted annotation ID (for navigation) */
+  highlightedAnnotationId?: string | null;
 }
 
 // Icons
@@ -236,12 +250,78 @@ const aiEditButtons: readonly {
   { key: 'style', label: '风格', icon: '🎨', description: '调整写作风格' },
 ] as const;
 
+// Citation badge component with hover tooltip
+interface CitationBadgeProps {
+  index: number;
+  evidence: {
+    title?: string | null;
+    url?: string | null;
+    snippet?: string | null;
+    domain?: string | null;
+  };
+}
+
+function CitationBadge({ index, evidence }: CitationBadgeProps) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <span
+      className="relative inline-block"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <sup className="cursor-pointer rounded bg-purple-100 px-1 py-0.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200">
+        [{index}]
+      </sup>
+
+      {isHovered && (
+        <div className="absolute bottom-full left-1/2 z-50 mb-2 w-72 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-8 border-transparent border-t-white" />
+          <div className="flex items-start gap-2">
+            <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-bold text-purple-700">
+              {index}
+            </span>
+            <div className="min-w-0 flex-1">
+              <h4 className="line-clamp-2 text-sm font-medium text-gray-900">
+                {evidence.title || '未知来源'}
+              </h4>
+              {evidence.snippet && (
+                <p className="mt-1 line-clamp-2 text-xs text-gray-600">
+                  {evidence.snippet}
+                </p>
+              )}
+              {evidence.url && (
+                <a
+                  href={evidence.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  查看来源 →
+                </a>
+              )}
+              {evidence.domain && (
+                <span className="mt-1 inline-block text-xs text-gray-400">
+                  {evidence.domain}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </span>
+  );
+}
+
 export function ReportEditor({
   report,
   isLoading = false,
   onSave,
   onAIEdit,
   onAddAnnotation,
+  annotations = [],
+  highlightedAnnotationId,
 }: ReportEditorProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const [editContent, setEditContent] = useState('');
@@ -585,6 +665,161 @@ export function ReportEditor({
     return chineseChars + englishWords;
   }, [isEditing, editContent, markdownContent]);
 
+  // Annotation color map for background highlights
+  const annotationColorMap: Record<string, string> = {
+    yellow: 'bg-yellow-200',
+    green: 'bg-green-200',
+    blue: 'bg-blue-200',
+    pink: 'bg-pink-200',
+    purple: 'bg-purple-200',
+  };
+
+  // Scroll to highlighted annotation when it changes
+  useEffect(() => {
+    if (highlightedAnnotationId && previewRef.current) {
+      const highlightEl = previewRef.current.querySelector(
+        `[data-annotation-id="${highlightedAnnotationId}"]`
+      );
+      if (highlightEl) {
+        highlightEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [highlightedAnnotationId]);
+
+  // Process text to add annotation highlights
+  const processTextWithAnnotations = useCallback(
+    (text: string): React.ReactNode => {
+      if (!text || annotations.length === 0) return text;
+
+      // Sort annotations by start position (descending) to process from end to start
+      const activeAnnotations = annotations.filter(
+        (a) => a.status === 'active'
+      );
+      if (activeAnnotations.length === 0) return text;
+
+      // Find all annotation matches in the text
+      const matches: Array<{
+        start: number;
+        end: number;
+        annotation: ReportAnnotation;
+      }> = [];
+
+      activeAnnotations.forEach((annotation) => {
+        const idx = text.indexOf(annotation.selectedText);
+        if (idx !== -1) {
+          matches.push({
+            start: idx,
+            end: idx + annotation.selectedText.length,
+            annotation,
+          });
+        }
+      });
+
+      if (matches.length === 0) return text;
+
+      // Sort by start position
+      matches.sort((a, b) => a.start - b.start);
+
+      // Build result with highlighted spans
+      const parts: React.ReactNode[] = [];
+      let lastEnd = 0;
+
+      matches.forEach((match, idx) => {
+        // Add text before this match
+        if (match.start > lastEnd) {
+          parts.push(text.slice(lastEnd, match.start));
+        }
+
+        // Skip overlapping matches
+        if (match.start < lastEnd) return;
+
+        const isHighlighted = match.annotation.id === highlightedAnnotationId;
+        const colorClass =
+          annotationColorMap[match.annotation.color] || 'bg-yellow-200';
+
+        parts.push(
+          <mark
+            key={`ann-${idx}`}
+            data-annotation-id={match.annotation.id}
+            className={`${colorClass} ${isHighlighted ? 'ring-2 ring-purple-500 ring-offset-1' : ''} rounded px-0.5 transition-all`}
+            title={`批注: ${match.annotation.selectedText.slice(0, 50)}...`}
+          >
+            {match.annotation.selectedText}
+          </mark>
+        );
+
+        lastEnd = match.end;
+      });
+
+      // Add remaining text
+      if (lastEnd < text.length) {
+        parts.push(text.slice(lastEnd));
+      }
+
+      return parts;
+    },
+    [annotations, highlightedAnnotationId, annotationColorMap]
+  );
+
+  // Process text to convert citation patterns [1], [2] to interactive components
+  const processTextWithCitations = useCallback(
+    (text: string): React.ReactNode => {
+      if (!text || !report?.evidence?.length) return text;
+
+      // Match [1], [2], [1, 2] patterns
+      const citationPattern = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
+      const parts: React.ReactNode[] = [];
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+
+      citationPattern.lastIndex = 0;
+
+      while ((match = citationPattern.exec(text)) !== null) {
+        // Add text before match
+        if (match.index > lastIndex) {
+          parts.push(text.slice(lastIndex, match.index));
+        }
+
+        // Parse indices
+        const indices = match[1].split(/\s*,\s*/).map((s) => parseInt(s, 10));
+
+        // Create citation badges with tooltip
+        indices.forEach((idx, i) => {
+          const evidence = report.evidence?.[idx - 1];
+          if (evidence) {
+            parts.push(
+              <CitationBadge
+                key={`cite-${match!.index}-${idx}-${i}`}
+                index={idx}
+                evidence={evidence}
+              />
+            );
+          } else {
+            // Unknown citation
+            parts.push(
+              <sup
+                key={`cite-unknown-${match!.index}-${i}`}
+                className="rounded bg-gray-100 px-1 py-0.5 text-xs text-gray-500"
+              >
+                [{idx}]
+              </sup>
+            );
+          }
+        });
+
+        lastIndex = match.index + match[0].length;
+      }
+
+      // Add remaining text
+      if (lastIndex < text.length) {
+        parts.push(text.slice(lastIndex));
+      }
+
+      return parts.length === 1 ? parts[0] : parts;
+    },
+    [report?.evidence]
+  );
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -869,6 +1104,55 @@ export function ReportEditor({
                     >
                       {children}
                     </a>
+                  ),
+                  // Process text nodes for citations and annotation highlighting
+                  p: ({ children, ...props }) => (
+                    <p {...props}>
+                      {typeof children === 'string'
+                        ? processTextWithCitations(children)
+                        : Array.isArray(children)
+                          ? children.map((child, i) =>
+                              typeof child === 'string' ? (
+                                <span key={i}>
+                                  {processTextWithCitations(child)}
+                                </span>
+                              ) : (
+                                child
+                              )
+                            )
+                          : children}
+                    </p>
+                  ),
+                  li: ({ children, ...props }) => (
+                    <li {...props}>
+                      {typeof children === 'string'
+                        ? processTextWithCitations(children)
+                        : Array.isArray(children)
+                          ? children.map((child, i) =>
+                              typeof child === 'string' ? (
+                                <span key={i}>
+                                  {processTextWithCitations(child)}
+                                </span>
+                              ) : (
+                                child
+                              )
+                            )
+                          : children}
+                    </li>
+                  ),
+                  strong: ({ children, ...props }) => (
+                    <strong {...props}>
+                      {typeof children === 'string'
+                        ? processTextWithCitations(children)
+                        : children}
+                    </strong>
+                  ),
+                  em: ({ children, ...props }) => (
+                    <em {...props}>
+                      {typeof children === 'string'
+                        ? processTextWithCitations(children)
+                        : children}
+                    </em>
                   ),
                 }}
               >

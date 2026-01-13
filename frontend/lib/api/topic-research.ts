@@ -340,13 +340,26 @@ export async function getReport(
 }
 
 /**
- * 导出报告
+ * 导出任务响应类型
+ */
+export interface ExportJobResponse {
+  jobId?: string;
+  status: 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  progress?: number;
+  downloadUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  error?: string;
+}
+
+/**
+ * 导出报告 - 创建导出任务
  */
 export async function exportReport(
   topicId: string,
   reportId: string,
   dto: ExportReportDto
-): Promise<{ downloadUrl: string }> {
+): Promise<ExportJobResponse> {
   return fetchWithAuth(
     `${API_PREFIX}/topics/${topicId}/reports/${reportId}/export`,
     {
@@ -354,6 +367,67 @@ export async function exportReport(
       body: JSON.stringify(dto),
     }
   );
+}
+
+/**
+ * 获取导出任务状态
+ */
+export async function getExportJobStatus(
+  jobId: string
+): Promise<ExportJobResponse> {
+  return fetchWithAuth(`/api/v1/export/jobs/${jobId}`, {
+    method: 'GET',
+  });
+}
+
+/**
+ * 等待导出完成并返回下载URL
+ * 轮询直到任务完成或失败
+ */
+export async function waitForExportCompletion(
+  topicId: string,
+  reportId: string,
+  dto: ExportReportDto,
+  onProgress?: (progress: number) => void
+): Promise<string> {
+  // 1. 创建导出任务
+  const initialResponse = await exportReport(topicId, reportId, dto);
+
+  // 如果已经完成，直接返回
+  if (initialResponse.status === 'COMPLETED' && initialResponse.downloadUrl) {
+    return initialResponse.downloadUrl;
+  }
+
+  // 如果失败，抛出错误
+  if (initialResponse.status === 'FAILED') {
+    throw new Error(initialResponse.error || '导出失败');
+  }
+
+  // 没有 jobId，无法轮询
+  if (!initialResponse.jobId) {
+    throw new Error('导出任务创建失败');
+  }
+
+  // 2. 轮询等待完成
+  const maxAttempts = 60; // 最多等待 60 秒
+  const pollInterval = 1000; // 每秒轮询一次
+
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise((resolve) => setTimeout(resolve, pollInterval));
+
+    const status = await getExportJobStatus(initialResponse.jobId);
+    onProgress?.(status.progress || 0);
+
+    if (status.status === 'COMPLETED' && status.downloadUrl) {
+      return status.downloadUrl;
+    }
+
+    if (status.status === 'FAILED') {
+      throw new Error(status.error || '导出失败');
+    }
+  }
+
+  throw new Error('导出超时，请稍后重试');
 }
 
 /**

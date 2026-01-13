@@ -195,6 +195,19 @@ export function ReportEditPanel({
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const [sidePanelType, setSidePanelType] = useState<SidePanelType>(null);
   const [isSaving, setIsSaving] = useState(false);
+  // State for highlighted annotation (for navigation from annotation panel)
+  const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<
+    string | null
+  >(null);
+
+  // Handle navigation to annotation in report
+  const handleNavigateToAnnotation = useCallback((annotationId: string) => {
+    setHighlightedAnnotationId(annotationId);
+    // Auto-clear highlight after 3 seconds
+    setTimeout(() => {
+      setHighlightedAnnotationId(null);
+    }, 3000);
+  }, []);
 
   // Handle annotation add from context menu
   const handleAddAnnotationFromMenu = useCallback(
@@ -444,6 +457,8 @@ export function ReportEditPanel({
             onAddAnnotation={
               onAnnotationAdd ? handleAddAnnotationFromMenu : undefined
             }
+            annotations={annotations}
+            highlightedAnnotationId={highlightedAnnotationId}
           />
         </div>
 
@@ -487,6 +502,7 @@ export function ReportEditPanel({
                     onDelete={onAnnotationDelete}
                     onResolve={onAnnotationResolve}
                     onReply={onAnnotationReply}
+                    onNavigate={handleNavigateToAnnotation}
                   />
                 )}
               </div>

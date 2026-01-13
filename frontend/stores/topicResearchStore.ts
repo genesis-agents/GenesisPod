@@ -698,8 +698,13 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
   },
 
   exportReport: async (topicId, reportId, dto) => {
-    const result = await api.exportReport(topicId, reportId, dto);
-    return result.downloadUrl;
+    // 使用轮询等待导出完成
+    const downloadUrl = await api.waitForExportCompletion(
+      topicId,
+      reportId,
+      dto
+    );
+    return downloadUrl;
   },
 
   compareReports: async (topicId, dto) => {
