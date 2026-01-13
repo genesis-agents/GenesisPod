@@ -946,6 +946,347 @@ ${capabilityDescriptions}
 
 ---
 
-**文档版本：** v2.0
-**更新日期：** 2025-01-13
+## 11. 用户诉求管理机制
+
+### 11.1 设计目标
+
+- **全生命周期管理**：从接收到完成，全程跟踪用户诉求
+- **智能优先级评估**：Leader 根据研究状态智能判断处理优先级
+- **冲突检测与处理**：识别并处理相互冲突的诉求
+- **透明反馈**：用户清楚知道诉求的处理状态和原因
+
+### 11.2 诉求状态流转
+
+```
+RECEIVED → ANALYZING → CLARIFYING → PLANNED → EXECUTING → COMPLETED
+   │           │           │            │          │          │
+   └───────────┴───────────┴────────────┴──────────┴──────────┘
+                           ↓            ↓          ↓
+                        REJECTED    DEFERRED    FAILED
+```
+
+| 状态       | 说明                            | 用户提示           |
+| ---------- | ------------------------------- | ------------------ |
+| RECEIVED   | Leader 已收到诉求               | "✓ 已收到"         |
+| ANALYZING  | Leader 正在分析诉求意图和可行性 | "🔍 分析中..."     |
+| CLARIFYING | 需要用户补充信息                | "❓ 请补充..."     |
+| PLANNED    | 已纳入执行计划，等待执行        | "📋 已规划"        |
+| EXECUTING  | 正在执行中                      | "⚙️ 执行中..."     |
+| COMPLETED  | 执行完成                        | "✅ 已完成"        |
+| REJECTED   | 无法执行（说明原因）            | "⚠️ 无法执行：..." |
+| DEFERRED   | 延后处理（说明原因和预计时间）  | "⏸️ 已延后：..."   |
+| FAILED     | 执行失败（说明原因和建议）      | "❌ 执行失败：..." |
+
+### 11.3 Leader 决策逻辑
+
+```typescript
+interface RequestDecisionContext {
+  request: UserRequest;
+  currentMission: MissionStatus;
+  pendingRequests: UserRequest[];
+  researchProgress: number;
+  availableAgents: Agent[];
+}
+
+interface RequestDecision {
+  action: "accept" | "reject" | "defer" | "clarify";
+  priority: "immediate" | "high" | "normal" | "low";
+  reason: string;
+  executionPlan?: ExecutionStep[];
+  clarificationQuestion?: string;
+  deferUntil?: Date;
+}
+```
+
+**决策规则：**
+
+```typescript
+async function makeRequestDecision(
+  ctx: RequestDecisionContext,
+): Promise<RequestDecision> {
+  // 1. 检查请求是否与当前任务冲突
+  const conflict = detectConflict(ctx.request, ctx.currentMission);
+  if (conflict.hasConflict) {
+    // 评估冲突严重程度
+    if (conflict.severity === "blocking") {
+      return {
+        action: "reject",
+        priority: "normal",
+        reason: `当前请求与进行中的「${conflict.conflictingTask}」任务冲突，请等待该任务完成后再试`,
+      };
+    }
+    // 轻微冲突，可以延后
+    return {
+      action: "defer",
+      priority: "normal",
+      reason: `需要等待「${conflict.conflictingTask}」完成后执行`,
+      deferUntil: conflict.estimatedCompletion,
+    };
+  }
+
+  // 2. 评估请求紧急程度
+  const urgency = assessUrgency(ctx.request, ctx.researchProgress);
+
+  // 3. 检查资源可用性
+  const resourceCheck = checkResourceAvailability(
+    ctx.request,
+    ctx.availableAgents,
+  );
+  if (!resourceCheck.available) {
+    return {
+      action: "defer",
+      priority: urgency.priority,
+      reason: `当前研究员繁忙，${resourceCheck.estimatedWait}后开始执行`,
+      deferUntil: resourceCheck.availableAt,
+    };
+  }
+
+  // 4. 生成执行计划
+  const plan = await generateExecutionPlan(ctx.request, ctx);
+
+  return {
+    action: "accept",
+    priority: urgency.priority,
+    reason: urgency.reason,
+    executionPlan: plan,
+  };
+}
+```
+
+### 11.4 优先级评估规则
+
+| 场景                           | 优先级    | 说明                       |
+| ------------------------------ | --------- | -------------------------- |
+| 研究方向完全错误，需要紧急纠正 | immediate | 立即暂停当前任务，优先处理 |
+| 补充关键遗漏的研究维度         | high      | 尽快插入执行队列           |
+| 调整某个维度的研究深度         | normal    | 按顺序执行                 |
+| 单纯查询状态                   | low       | 不影响执行，立即响应       |
+| 研究已完成80%后的大幅调整      | deferred  | 建议完成当前研究后再调整   |
+
+### 11.5 冲突检测与处理
+
+**冲突类型：**
+
+| 冲突类型 | 示例                           | 处理方式       |
+| -------- | ------------------------------ | -------------- |
+| 方向冲突 | "关注A" vs "关注B"（A、B互斥） | 询问用户选择   |
+| 深度冲突 | "深入分析" vs "简化内容"       | 以最新指令为准 |
+| 资源冲突 | 多个请求都需要同一个研究员     | 按优先级排队   |
+| 时间冲突 | 研究已80%，要求大幅调整方向    | 建议延后或确认 |
+| 逻辑冲突 | "删除维度A" + "深入分析维度A"  | 拒绝后一个请求 |
+
+**冲突处理流程：**
+
+```
+检测到冲突 → 评估影响 → 决定处理方式 → 反馈用户
+                          ↓
+                    ┌─────┴─────┐
+                    │           │
+                 可自动解决   需用户决定
+                    │           │
+                    ↓           ↓
+              执行最优方案   询问用户选择
+```
+
+### 11.6 诉求队列管理
+
+```typescript
+interface RequestQueue {
+  // 等待中的请求
+  pending: {
+    request: UserRequest;
+    receivedAt: Date;
+    estimatedStartTime: Date;
+    blockedBy?: string[]; // 被哪些任务阻塞
+  }[];
+
+  // 正在执行的请求
+  executing: {
+    request: UserRequest;
+    startedAt: Date;
+    progress: number;
+    currentStep: string;
+  }[];
+
+  // 已延后的请求
+  deferred: {
+    request: UserRequest;
+    deferredAt: Date;
+    reason: string;
+    resumeCondition: string;
+    autoResumeAt?: Date;
+  }[];
+}
+```
+
+**队列优化规则：**
+
+1. **合并相似请求**：短时间内的相似请求合并处理
+2. **批量执行**：同类型请求批量执行提高效率
+3. **智能排序**：根据依赖关系优化执行顺序
+4. **超时处理**：等待超过阈值的请求提醒用户
+
+### 11.7 用户反馈界面
+
+**诉求状态面板：**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  我的诉求                                    [查看历史]      │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ⚙️ 执行中                                                  │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ "深入分析技术趋势"                           45%    │   │
+│  │ 研究员 2 正在分析中...                              │   │
+│  │ 预计 3 分钟后完成                                   │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  📋 排队中 (2)                                              │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ 1. "补充市场分析维度"                      高优先级 │   │
+│  │    预计 5 分钟后开始执行                            │   │
+│  │                                                     │   │
+│  │ 2. "调整报告结构"                          普通     │   │
+│  │    预计 10 分钟后开始执行                           │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  ⏸️ 已延后 (1)                                              │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ "重新规划整体研究方向"                              │   │
+│  │ 原因: 当前研究已完成78%，建议完成后再调整          │   │
+│  │ [立即执行] [取消请求]                               │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  ✅ 最近完成 (3)                              [展开查看]    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 11.8 异常处理
+
+| 异常情况     | 处理方式         | 用户提示                          |
+| ------------ | ---------------- | --------------------------------- |
+| 请求解析失败 | 请求澄清         | "未能理解您的意图，请详细说明..." |
+| 执行超时     | 自动重试 + 通知  | "执行时间较长，正在重试..."       |
+| Agent 异常   | 切换到备用 Agent | "正在调整执行方案..."             |
+| 多次失败     | 人工介入提示     | "遇到困难，建议手动调整..."       |
+
+### 11.9 数据模型扩展
+
+```prisma
+// 用户诉求记录
+model UserRequest {
+  id          String   @id @default(cuid())
+  topicId     String   @map("topic_id")
+  missionId   String?  @map("mission_id")
+  userId      String   @map("user_id")
+
+  // 诉求内容
+  instruction String   @db.Text
+  parsedIntent Json?   // 解析后的意图
+
+  // 状态管理
+  status      RequestStatus @default(RECEIVED)
+  priority    RequestPriority @default(NORMAL)
+
+  // 处理信息
+  assignedTo  String?  // 分配给哪个 Agent
+  result      Json?    // 执行结果
+  errorMessage String?
+
+  // 延后信息
+  deferredReason String?
+  deferredUntil DateTime?
+  autoResume    Boolean @default(false)
+
+  // 冲突信息
+  conflictsWith String[] @default([])
+  conflictResolution String?
+
+  // 时间线
+  receivedAt  DateTime @default(now())
+  analyzedAt  DateTime?
+  plannedAt   DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  // 关系
+  topic       ResearchTopic @relation(fields: [topicId], references: [id])
+  user        User @relation(fields: [userId], references: [id])
+
+  @@index([topicId, status])
+  @@index([userId, receivedAt(sort: Desc)])
+  @@map("user_requests")
+}
+
+enum RequestStatus {
+  RECEIVED
+  ANALYZING
+  CLARIFYING
+  PLANNED
+  EXECUTING
+  COMPLETED
+  REJECTED
+  DEFERRED
+  FAILED
+}
+
+enum RequestPriority {
+  IMMEDIATE
+  HIGH
+  NORMAL
+  LOW
+}
+```
+
+---
+
+## 12. 完整实现计划
+
+### Phase 1: 基础框架 (Week 1)
+
+- [ ] 创建 LeaderCapability 数据模型
+- [ ] 创建 UserRequest 数据模型
+- [ ] 实现能力服务 CRUD
+- [ ] 预置13个基础能力
+- [ ] 实现意图识别服务
+- [ ] 实现内置执行器
+
+### Phase 2: 诉求管理 (Week 2)
+
+- [ ] 实现诉求状态机
+- [ ] 实现优先级评估
+- [ ] 实现冲突检测
+- [ ] 实现诉求队列管理
+- [ ] WebSocket 实时推送
+
+### Phase 3: 管理界面 (Week 3)
+
+- [ ] Admin 能力列表页面
+- [ ] 能力编辑表单
+- [ ] 能力启用/禁用
+- [ ] 使用日志查看
+- [ ] 诉求状态面板
+
+### Phase 4: 用户交互 (Week 4)
+
+- [ ] 指令发送状态反馈
+- [ ] Leader 回复消息卡片
+- [ ] 快捷指令按钮
+- [ ] 诉求历史查看
+- [ ] 延后请求管理
+
+### Phase 5: 高级功能 (Week 5)
+
+- [ ] 自定义脚本执行器
+- [ ] 能力统计分析
+- [ ] 低置信度优化建议
+- [ ] 能力版本管理
+- [ ] 智能诉求合并
+
+---
+
+**文档版本：** v2.1
+**更新日期：** 2026-01-13
 **作者：** Claude (PM)
