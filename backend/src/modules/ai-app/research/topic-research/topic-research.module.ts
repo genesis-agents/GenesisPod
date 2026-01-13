@@ -1,10 +1,10 @@
 import { Module } from "@nestjs/common";
-import { EventEmitterModule } from "@nestjs/event-emitter";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../../ai-engine";
 import { CreditsModule } from "../../../credits/credits.module";
 // TODO: 后续添加 CrawlersModule 以支持更多数据源
 // import { CrawlersModule } from '../../ingestion/crawlers/crawlers.module';
+// Note: EventEmitterModule is globally configured in AppModule
 import { TopicResearchController } from "./topic-research.controller";
 import { TopicResearchService } from "./topic-research.service";
 import { TopicResearchGateway } from "./topic-research.gateway";
@@ -42,7 +42,7 @@ const services = [
     PrismaModule,
     AiEngineModule,
     CreditsModule,
-    EventEmitterModule.forRoot(),
+    // EventEmitterModule is globally configured in AppModule
   ],
   controllers: [TopicResearchController],
   providers: [...services, TopicResearchGateway],

@@ -455,9 +455,7 @@ ${JSON.stringify(storyBible, null, 2).slice(0, 5000)}`;
     const response = await this.callLLM(
       this.buildMessages(userPrompt, { ...context, memory: undefined }),
       {
-        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
-        // 保持向后兼容
-        temperature: 0.3,
+        taskProfile,
       },
     );
 

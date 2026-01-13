@@ -366,12 +366,16 @@ export class TeamMissionService implements OnModuleInit {
       ),
     ];
 
+    // Map legacy temperature/maxTokens to taskProfile
+    const creativity = this.mapTemperatureToCreativity(options?.temperature);
+    const outputLength = this.mapMaxTokensToOutputLength(options?.maxTokens);
+
     const result = await this.aiFacade.chat({
       messages: facadeMessages,
       model: modelConfig?.modelId ?? aiModel,
       taskProfile: {
-        creativity: "medium",
-        outputLength: "standard",
+        creativity,
+        outputLength,
       },
     });
 
@@ -5965,5 +5969,35 @@ ${taskList}
       members: otherMembers,
       all: members,
     };
+  }
+
+  // ==================== Helper Methods ====================
+
+  /**
+   * Map legacy temperature values to creativity levels
+   */
+  private mapTemperatureToCreativity(
+    temperature?: number,
+  ): "deterministic" | "low" | "medium" | "high" {
+    if (temperature === undefined) return "medium";
+    if (temperature <= 0.2) return "deterministic";
+    if (temperature <= 0.3) return "low";
+    if (temperature <= 0.7) return "medium";
+    return "high";
+  }
+
+  /**
+   * Map legacy maxTokens values to outputLength levels
+   */
+  private mapMaxTokensToOutputLength(
+    maxTokens?: number,
+  ): "minimal" | "short" | "medium" | "standard" | "long" | "extended" {
+    if (maxTokens === undefined) return "standard";
+    if (maxTokens <= 1000) return "minimal";
+    if (maxTokens <= 2000) return "short";
+    if (maxTokens <= 4000) return "medium";
+    if (maxTokens <= 6000) return "standard";
+    if (maxTokens <= 8000) return "long";
+    return "extended";
   }
 }

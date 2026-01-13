@@ -1290,8 +1290,10 @@ ${storyCreativitySection}
           { role: "user", content: worldBuildingPrompt },
         ],
         model: keeperModel,
-        temperature: 0.7,
-        // maxTokens: 由 AI Engine 自动从数据库获取
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "medium",
+        },
         strictMode: true, // ★ 严格模式：API失败直接抛异常，进入 catch 降级逻辑
       });
 
@@ -1722,8 +1724,10 @@ ${Array.from(
             { role: "user", content: outlinePrompt },
           ],
           model: currentModel,
-          temperature: 0.7,
-          // maxTokens: 由 AI Engine 自动从数据库获取
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "medium",
+          },
           strictMode: true, // ★ 严格模式：API失败直接抛异常进入 catch 重试
         });
 
@@ -1834,8 +1838,10 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
             { role: "user", content: fillPrompt },
           ],
           model: architectModel,
-          temperature: 0.8,
-          maxTokens: 4000,
+          taskProfile: {
+            creativity: "high",
+            outputLength: "medium",
+          },
           strictMode: true,
         });
 
@@ -2076,8 +2082,10 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
             { role: "user", content: writerPrompt },
           ],
           model: writerModel,
-          temperature: 0.8,
-          maxTokens: 6000,
+          taskProfile: {
+            creativity: "high",
+            outputLength: "standard",
+          },
           strictMode: true, // ★ 严格模式：API失败抛异常进入 catch 重试
         });
         chapterContent = writerResponse.content || "";
@@ -2121,8 +2129,10 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}`;
               },
             ],
             model: writerModel,
-            temperature: 0.85,
-            maxTokens: 6000,
+            taskProfile: {
+              creativity: "high",
+              outputLength: "standard",
+            },
             strictMode: true,
           });
           chapterContent =
@@ -2190,8 +2200,10 @@ ${previousChapterSummary || "这是第一章"}
           { role: "user", content: checkPrompt },
         ],
         model: checkerModel,
-        temperature: 0.2,
-        maxTokens: 2000,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "short",
+        },
       });
 
       // 解析检查结果
@@ -2269,8 +2281,10 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
             { role: "user", content: fixPrompt },
           ],
           model: writerModel,
-          temperature: 0.3, // 降低温度以提高修复准确性
-          maxTokens: 6000,
+          taskProfile: {
+            creativity: "low",
+            outputLength: "standard",
+          },
         });
 
         if (
@@ -2336,8 +2350,10 @@ ${chapterContent.slice(0, 4000)}
             },
           ],
           model: checkerModel,
-          temperature: 0.1,
-          maxTokens: 1500,
+          taskProfile: {
+            creativity: "deterministic",
+            outputLength: "short",
+          },
         });
 
         // 解析验证结果
@@ -2457,8 +2473,10 @@ ${editNarrativeConstraints}`;
             { role: "user", content: editPrompt },
           ],
           model: editorModel,
-          temperature: 0.5,
-          maxTokens: 6000,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "standard",
+          },
         });
 
         if (
@@ -2551,8 +2569,10 @@ ${firstChapterGuidance}
                 { role: "user", content: openingRewritePrompt },
               ],
               model: writerModel,
-              temperature: 0.85,
-              maxTokens: 2000,
+              taskProfile: {
+                creativity: "high",
+                outputLength: "short",
+              },
             });
 
             if (
@@ -2825,8 +2845,10 @@ ${narrativeConstraints}`;
                 { role: "user", content: rewritePrompt },
               ],
               model: writerModel,
-              temperature: 0.9, // 高温度增加多样性
-              maxTokens: 6000,
+              taskProfile: {
+                creativity: "high",
+                outputLength: "standard",
+              },
             });
 
             if (
@@ -3765,8 +3787,10 @@ ${content.slice(0, 6000)}${content.length > 6000 ? "...(内容截断)" : ""}
           { role: "user", content: summaryPrompt },
         ],
         model: modelId,
-        temperature: 0.3,
-        maxTokens: 1000,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "minimal",
+        },
       });
 
       if (response.content && response.content.length > 100) {
@@ -3848,8 +3872,10 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 3000)}
           { role: "user", content: extractPrompt },
         ],
         model: keeperModel,
-        temperature: 0.3,
-        maxTokens: 2000,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "short",
+        },
       });
 
       const content = response.content || "{}";
@@ -3987,8 +4013,10 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
           { role: "user", content: updatePrompt },
         ],
         model: keeperModel,
-        temperature: 0.3,
-        maxTokens: 3000, // ★ 从 1500 增加到 3000，避免 JSON 被截断
+        taskProfile: {
+          creativity: "low",
+          outputLength: "medium",
+        },
       });
 
       const content = response.content || "{}";
@@ -4068,8 +4096,10 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
                 },
               ],
               model: keeperModel,
-              temperature: 0.1,
-              maxTokens: 1500,
+              taskProfile: {
+                creativity: "deterministic",
+                outputLength: "short",
+              },
             });
 
             const repairedJson =

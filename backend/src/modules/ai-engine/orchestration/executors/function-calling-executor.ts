@@ -122,6 +122,8 @@ export interface ExecutionConfig {
   enableRetry: boolean;
   temperature: number;
   maxTokens: number;
+  /** ★ TaskProfile for semantic parameter mapping */
+  taskProfile?: import("../../llm/types").TaskProfile;
 }
 
 /**

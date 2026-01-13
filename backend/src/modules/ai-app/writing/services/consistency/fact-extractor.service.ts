@@ -275,10 +275,7 @@ export class FactExtractorService {
       const response = await this.aiFacade.chat({
         modelType: AIModelType.CHAT, // 需要高能力模型进行准确提取
         messages: [{ role: "user", content: prompt }],
-        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
-        // 保持向后兼容
-        temperature: 0.3,
-        maxTokens: 2000,
+        taskProfile,
       });
 
       // 解析 JSON 响应
@@ -493,10 +490,7 @@ export class FactExtractorService {
       const response = await this.aiFacade.chat({
         modelType: AIModelType.CHAT, // 需要高能力模型进行准确判断
         messages: [{ role: "user", content: prompt }],
-        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
-        // 保持向后兼容
-        temperature: 0.2,
-        maxTokens: 1500,
+        taskProfile,
       });
 
       // 解析 JSON 响应

@@ -376,10 +376,7 @@ ${pair.toChapter.openingContent}
           { role: "user", content: userPrompt },
         ],
         model: modelId,
-        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
-        // 保持向后兼容
-        temperature: 0.3,
-        maxTokens: 3000,
+        taskProfile,
       });
 
       const content = response.content || "{}";
@@ -483,10 +480,7 @@ ${pair.toChapter.openingContent}
           },
         ],
         model: modelId,
-        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
-        // 保持向后兼容
-        temperature: 0.3,
-        maxTokens: 2000,
+        taskProfile,
       });
 
       const content = response.content || "[]";

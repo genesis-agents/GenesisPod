@@ -1108,8 +1108,7 @@ ${targetPart}
             { role: "user", content: userPrompt },
           ],
           taskProfile,
-          temperature: 0.8 + (attempt - 1) * 0.05, // 每次重试稍微提高温度
-          maxTokens: 4000, // ★ 增加到4000，避免空响应
+          temperature: 0.8 + (attempt - 1) * 0.05, // 重试时稍微提高温度增加多样性
         });
 
         const newEnding = response.content?.trim();
