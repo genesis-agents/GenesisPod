@@ -630,6 +630,7 @@ export function TopicContentPanel({
           <ChapterizedReportView
             report={report}
             dimensions={dimensions}
+            evidence={safeEvidence}
             isLoading={isLoadingReport}
             onEditChapter={async (chapterId, content) => {
               // TODO: Implement chapter save

@@ -3,21 +3,29 @@
 /**
  * Chapterized Report View Component
  *
- * 章节化报告视图:
- * - 每个维度作为独立章节展示
- * - 支持展开/收起章节
- * - 支持单独编辑每个章节
+ * 章节化报告视图 - 参考 AI Writing 样式:
+ * - 每个维度作为独立章节卡片
+ * - 点击卡片进入编辑面板
+ * - 显示章节状态、摘要预览、字数
  * - 便于分工协作
+ * - 支持引用链接 [1], [2] 可点击跳转到参考文献
  */
 
 import { useState, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { TopicReport, TopicDimension } from '@/types/topic-research';
+import { CitedMarkdown } from './deep-research/citations';
+import type { SourceReference } from './deep-research/citations/types';
+import type {
+  TopicReport,
+  TopicDimension,
+  TopicEvidence,
+} from '@/types/topic-research';
 
 interface ChapterizedReportViewProps {
   report: TopicReport | null;
   dimensions: TopicDimension[];
+  evidence?: TopicEvidence[];
   isLoading?: boolean;
   onEditChapter?: (chapterId: string, content: string) => void;
   onAIEditChapter?: (chapterId: string, operation: string) => Promise<void>;
@@ -29,18 +37,18 @@ type ChapterStatus = 'pending' | 'in_progress' | 'completed' | 'needs_review';
 // Chapter data structure
 interface Chapter {
   id: string;
+  chapterNumber: number;
   title: string;
   dimensionId?: string;
   type: 'summary' | 'dimension' | 'conclusion' | 'references';
   status: ChapterStatus;
-  content: string;
+  outline: string; // Brief description/outline
+  content: string; // Full content
   wordCount: number;
-  assignee?: string;
-  lastUpdated?: Date;
 }
 
 // Icons
-const ChevronDownIcon = ({ className }: { className?: string }) => (
+const CheckIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
     fill="none"
@@ -51,12 +59,12 @@ const ChevronDownIcon = ({ className }: { className?: string }) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="M19 9l-7 7-7-7"
+      d="M5 13l4 4L19 7"
     />
   </svg>
 );
 
-const ChevronRightIcon = ({ className }: { className?: string }) => (
+const CloseIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
     fill="none"
@@ -67,7 +75,7 @@ const ChevronRightIcon = ({ className }: { className?: string }) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="M9 5l7 7-7 7"
+      d="M6 18L18 6M6 6l12 12"
     />
   </svg>
 );
@@ -88,38 +96,6 @@ const EditIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const CheckIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M5 13l4 4L19 7"
-    />
-  </svg>
-);
-
-const ClockIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-    />
-  </svg>
-);
-
 const AIIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -136,101 +112,40 @@ const AIIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// Status badge component
-function StatusBadge({ status }: { status: ChapterStatus }) {
-  const config = {
-    pending: {
-      label: '待开始',
-      bgColor: 'bg-gray-100',
-      textColor: 'text-gray-600',
-    },
-    in_progress: {
-      label: '进行中',
-      bgColor: 'bg-blue-100',
-      textColor: 'text-blue-700',
-    },
-    completed: {
-      label: '已完成',
-      bgColor: 'bg-green-100',
-      textColor: 'text-green-700',
-    },
-    needs_review: {
-      label: '待审核',
-      bgColor: 'bg-yellow-100',
-      textColor: 'text-yellow-700',
-    },
-  };
-
-  const { label, bgColor, textColor } = config[status];
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${bgColor} ${textColor}`}
-    >
-      {status === 'completed' && <CheckIcon className="h-3 w-3" />}
-      {status === 'in_progress' && <ClockIcon className="h-3 w-3" />}
-      {label}
-    </span>
-  );
-}
-
 export function ChapterizedReportView({
   report,
   dimensions,
+  evidence = [],
   isLoading = false,
   onEditChapter,
   onAIEditChapter,
 }: ChapterizedReportViewProps) {
-  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(
-    new Set()
-  );
-  const [editingChapter, setEditingChapter] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState<string>('');
+  const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+
+  // Convert evidence to SourceReference format for citation linking
+  const sources: SourceReference[] = useMemo(() => {
+    return evidence.map((ev) => ({
+      id: ev.id,
+      title: ev.title,
+      content: ev.snippet || null,
+      abstract: ev.snippet || null,
+    }));
+  }, [evidence]);
 
   // Build chapters from report and dimensions
   const chapters = useMemo<Chapter[]>(() => {
     if (!report) return [];
 
     const result: Chapter[] = [];
-    let chapterIndex = 0;
-
-    // Add summary chapter if exists
-    if (report.summary && report.summary.trim().length > 5) {
-      result.push({
-        id: 'summary',
-        title: '摘要',
-        type: 'summary',
-        status: 'completed',
-        content: report.summary,
-        wordCount: report.summary.length,
-      });
-    }
-
-    // Add highlights as a chapter
-    if (report.highlights && report.highlights.length > 0) {
-      const validHighlights = report.highlights.filter(
-        (h) => h.content && h.content.trim().length > 5
-      );
-      if (validHighlights.length > 0) {
-        const highlightContent = validHighlights
-          .map((h, idx) => `### ${idx + 1}. ${h.title}\n\n${h.content}`)
-          .join('\n\n');
-        result.push({
-          id: 'highlights',
-          title: '关键发现',
-          type: 'summary',
-          status: 'completed',
-          content: highlightContent,
-          wordCount: highlightContent.length,
-        });
-      }
-    }
+    let chapterNum = 1;
 
     // Add dimension chapters
     if (report.dimensionAnalyses && report.dimensionAnalyses.length > 0) {
-      report.dimensionAnalyses.forEach((analysis, idx) => {
-        const dimName = analysis.dimension?.name || `维度 ${idx + 1}`;
-        const dimId = analysis.dimension?.id || `dim-${idx}`;
+      report.dimensionAnalyses.forEach((analysis) => {
+        const dimName = analysis.dimension?.name || `维度 ${chapterNum}`;
+        const dimId = analysis.dimension?.id || `dim-${chapterNum}`;
 
         // Find corresponding dimension for status
         const dimension = dimensions.find((d) => d.id === dimId);
@@ -303,77 +218,66 @@ export function ChapterizedReportView({
         }
 
         const content = parts.join('\n');
+        const outline = analysis.summary?.slice(0, 100) || dimName;
 
         result.push({
           id: dimId,
+          chapterNumber: chapterNum,
           title: dimName,
           dimensionId: dimId,
           type: 'dimension',
           status,
+          outline,
           content,
           wordCount: content.length,
-          assignee: undefined, // TODO: Add assignee support when available
         });
 
-        chapterIndex++;
+        chapterNum++;
       });
     }
 
     return result;
   }, [report, dimensions]);
 
-  // Toggle chapter expansion
-  const toggleChapter = useCallback((chapterId: string) => {
-    setExpandedChapters((prev) => {
-      const next = new Set(prev);
-      if (next.has(chapterId)) {
-        next.delete(chapterId);
-      } else {
-        next.add(chapterId);
-      }
-      return next;
-    });
-  }, []);
-
-  // Start editing a chapter
-  const startEditing = useCallback((chapter: Chapter) => {
-    setEditingChapter(chapter.id);
+  // Open chapter for viewing/editing
+  const openChapter = useCallback((chapter: Chapter) => {
+    setSelectedChapter(chapter);
     setEditContent(chapter.content);
-    // Ensure chapter is expanded
-    setExpandedChapters((prev) => new Set([...prev, chapter.id]));
+    setIsEditing(false);
   }, []);
 
-  // Save chapter edit
-  const saveEdit = useCallback(() => {
-    if (editingChapter && onEditChapter) {
-      onEditChapter(editingChapter, editContent);
-    }
-    setEditingChapter(null);
+  // Close chapter panel
+  const closeChapter = useCallback(() => {
+    setSelectedChapter(null);
+    setIsEditing(false);
     setEditContent('');
-  }, [editingChapter, editContent, onEditChapter]);
+  }, []);
+
+  // Start editing
+  const startEditing = useCallback(() => {
+    setIsEditing(true);
+  }, []);
+
+  // Save edit
+  const saveEdit = useCallback(() => {
+    if (selectedChapter && onEditChapter) {
+      onEditChapter(selectedChapter.id, editContent);
+    }
+    setIsEditing(false);
+  }, [selectedChapter, editContent, onEditChapter]);
 
   // Cancel editing
   const cancelEdit = useCallback(() => {
-    setEditingChapter(null);
-    setEditContent('');
-  }, []);
-
-  // Expand all chapters
-  const expandAll = useCallback(() => {
-    setExpandedChapters(new Set(chapters.map((c) => c.id)));
-  }, [chapters]);
-
-  // Collapse all chapters
-  const collapseAll = useCallback(() => {
-    setExpandedChapters(new Set());
-  }, []);
+    if (selectedChapter) {
+      setEditContent(selectedChapter.content);
+    }
+    setIsEditing(false);
+  }, [selectedChapter]);
 
   // Calculate stats
   const stats = useMemo(() => {
-    const total = chapters.filter((c) => c.type === 'dimension').length;
-    const completed = chapters.filter(
-      (c) => c.type === 'dimension' && c.status === 'completed'
-    ).length;
+    const total = chapters.length;
+    const completed = chapters.filter((c) => c.status === 'completed').length;
     const totalWords = chapters.reduce((sum, c) => sum + c.wordCount, 0);
     return { total, completed, totalWords };
   }, [chapters]);
@@ -393,7 +297,8 @@ export function ChapterizedReportView({
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-500">暂无报告内容</p>
+          <span className="mb-4 text-4xl">📝</span>
+          <p className="mt-2 text-gray-500">暂无报告内容</p>
           <p className="mt-1 text-sm text-gray-400">开始研究后将在此显示章节</p>
         </div>
       </div>
@@ -401,156 +306,185 @@ export function ChapterizedReportView({
   }
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Header with stats and controls */}
-      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-        <div className="flex items-center gap-4">
-          <h2 className="text-lg font-semibold text-gray-900">章节视图</h2>
-          <div className="flex items-center gap-3 text-sm text-gray-500">
-            <span>共 {stats.total} 章</span>
-            <span className="text-green-600">{stats.completed} 已完成</span>
-            <span>{stats.totalWords} 字</span>
+    <div className="flex h-full">
+      {/* Chapter List */}
+      <div
+        className={`flex-1 overflow-auto p-4 ${selectedChapter ? 'hidden lg:block lg:w-1/2' : ''}`}
+      >
+        {/* Stats Header */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="text-sm text-gray-500">
+            共 {stats.total} 章 · {stats.completed} 已完成 ·{' '}
+            {stats.totalWords.toLocaleString()} 字
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={expandAll}
-            className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
-          >
-            展开全部
-          </button>
-          <button
-            onClick={collapseAll}
-            className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
-          >
-            收起全部
-          </button>
-        </div>
-      </div>
 
-      {/* Chapter list */}
-      <div className="flex-1 overflow-auto">
-        <div className="divide-y divide-gray-100">
-          {chapters.map((chapter, index) => {
-            const isExpanded = expandedChapters.has(chapter.id);
-            const isEditing = editingChapter === chapter.id;
-
-            return (
-              <div
-                key={chapter.id}
-                className={`bg-white ${isEditing ? 'ring-2 ring-inset ring-blue-500' : ''}`}
-              >
-                {/* Chapter header */}
-                <div
-                  className={`flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50 ${
-                    isExpanded ? 'bg-gray-50' : ''
+        {/* Chapter Cards */}
+        <div className="space-y-2">
+          {chapters.map((chapter) => (
+            <button
+              key={chapter.id}
+              onClick={() => openChapter(chapter)}
+              className={`block w-full rounded-xl border p-4 text-left transition-all ${
+                selectedChapter?.id === chapter.id
+                  ? 'border-blue-300 bg-blue-50'
+                  : 'border-gray-100 bg-white hover:border-blue-200 hover:bg-blue-50/50'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                {/* Status Icon */}
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium ${
+                    chapter.status === 'completed'
+                      ? 'bg-green-100 text-green-700'
+                      : chapter.status === 'in_progress'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-500'
                   }`}
-                  onClick={() => toggleChapter(chapter.id)}
                 >
-                  {/* Expand/collapse icon */}
-                  <button className="flex-shrink-0 text-gray-400">
-                    {isExpanded ? (
-                      <ChevronDownIcon className="h-5 w-5" />
-                    ) : (
-                      <ChevronRightIcon className="h-5 w-5" />
-                    )}
-                  </button>
+                  {chapter.status === 'completed' ? (
+                    <CheckIcon className="h-4 w-4" />
+                  ) : (
+                    chapter.chapterNumber
+                  )}
+                </span>
 
-                  {/* Chapter number */}
-                  {chapter.type === 'dimension' && (
-                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-medium text-blue-700">
-                      {index}
-                    </span>
+                {/* Chapter Info */}
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-gray-800">
+                    第{chapter.chapterNumber}章 {chapter.title}
+                  </div>
+
+                  {/* Outline/Summary */}
+                  {chapter.outline && chapter.outline !== chapter.title && (
+                    <div className="mt-1 line-clamp-2 text-xs text-gray-400">
+                      {chapter.outline}
+                    </div>
                   )}
 
-                  {/* Chapter title */}
-                  <div className="min-w-0 flex-1">
-                    <h3 className="truncate font-medium text-gray-900">
-                      {chapter.title}
-                    </h3>
-                    <p className="mt-0.5 text-xs text-gray-500">
-                      {chapter.wordCount} 字
-                      {chapter.assignee && ` · 负责人: ${chapter.assignee}`}
-                    </p>
-                  </div>
-
-                  {/* Status badge */}
-                  <StatusBadge status={chapter.status} />
-
-                  {/* Action buttons */}
-                  <div
-                    className="flex items-center gap-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {!isEditing && (
-                      <>
-                        <button
-                          onClick={() => startEditing(chapter)}
-                          className="rounded p-1.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
-                          title="编辑章节"
-                        >
-                          <EditIcon className="h-4 w-4" />
-                        </button>
-                        {onAIEditChapter && (
-                          <button
-                            onClick={() =>
-                              onAIEditChapter(chapter.id, 'polish')
-                            }
-                            className="rounded p-1.5 text-gray-400 hover:bg-purple-100 hover:text-purple-600"
-                            title="AI 润色"
-                          >
-                            <AIIcon className="h-4 w-4" />
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
+                  {/* Content Preview */}
+                  {chapter.content && (
+                    <div className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs text-gray-500">
+                      {chapter.content.slice(0, 200)}
+                      {chapter.content.length > 200 ? '...' : ''}
+                    </div>
+                  )}
                 </div>
 
-                {/* Chapter content */}
-                {isExpanded && (
-                  <div className="border-t border-gray-100 bg-white">
-                    {isEditing ? (
-                      // Edit mode
-                      <div className="p-4">
-                        <textarea
-                          value={editContent}
-                          onChange={(e) => setEditContent(e.target.value)}
-                          className="font-mono h-64 w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                          placeholder="编辑章节内容..."
-                        />
-                        <div className="mt-3 flex items-center justify-end gap-2">
-                          <button
-                            onClick={cancelEdit}
-                            className="rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-                          >
-                            取消
-                          </button>
-                          <button
-                            onClick={saveEdit}
-                            className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-                          >
-                            保存
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      // Preview mode
-                      <div className="p-4 pl-14">
-                        <article className="prose prose-sm prose-gray max-w-none">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {chapter.content || '暂无内容'}
-                          </ReactMarkdown>
-                        </article>
-                      </div>
-                    )}
-                  </div>
+                {/* Word Count Badge */}
+                {chapter.wordCount > 0 && (
+                  <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                    {chapter.wordCount.toLocaleString()} 字
+                  </span>
                 )}
               </div>
-            );
-          })}
+            </button>
+          ))}
         </div>
       </div>
+
+      {/* Chapter Edit Panel */}
+      {selectedChapter && (
+        <div className="fixed inset-0 z-50 bg-white lg:relative lg:w-1/2 lg:border-l lg:border-gray-200">
+          {/* Panel Header */}
+          <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <span
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium ${
+                  selectedChapter.status === 'completed'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-gray-100 text-gray-500'
+                }`}
+              >
+                {selectedChapter.status === 'completed' ? (
+                  <CheckIcon className="h-4 w-4" />
+                ) : (
+                  selectedChapter.chapterNumber
+                )}
+              </span>
+              <div>
+                <h3 className="font-medium text-gray-900">
+                  第{selectedChapter.chapterNumber}章 {selectedChapter.title}
+                </h3>
+                <p className="text-xs text-gray-500">
+                  {selectedChapter.wordCount.toLocaleString()} 字
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {!isEditing ? (
+                <>
+                  <button
+                    onClick={startEditing}
+                    className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    <EditIcon className="h-4 w-4" />
+                    编辑
+                  </button>
+                  {onAIEditChapter && (
+                    <button
+                      onClick={() =>
+                        onAIEditChapter(selectedChapter.id, 'polish')
+                      }
+                      className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100"
+                    >
+                      <AIIcon className="h-4 w-4" />
+                      AI 润色
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={cancelEdit}
+                    className="rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={saveEdit}
+                    className="rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700"
+                  >
+                    保存
+                  </button>
+                </>
+              )}
+              <button
+                onClick={closeChapter}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <CloseIcon className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Panel Content */}
+          <div className="h-[calc(100%-57px)] overflow-auto p-4">
+            {isEditing ? (
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="font-mono h-full w-full resize-none rounded-lg border border-gray-300 p-4 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                placeholder="编辑章节内容..."
+              />
+            ) : sources.length > 0 ? (
+              // Use CitedMarkdown when we have sources for citation linking
+              <CitedMarkdown
+                content={selectedChapter.content || '暂无内容'}
+                sources={sources}
+              />
+            ) : (
+              // Fallback to plain markdown when no sources
+              <article className="prose prose-sm prose-gray max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {selectedChapter.content || '暂无内容'}
+                </ReactMarkdown>
+              </article>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
