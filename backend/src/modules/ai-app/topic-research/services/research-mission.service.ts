@@ -1035,24 +1035,44 @@ export class ResearchMissionService {
 
   /**
    * 执行通用维度研究（当没有预定义维度时）
+   * 会在数据库中创建真实的维度记录
    */
   private async executeGenericDimensionResearch(
     task: ResearchTask,
     topic: any,
   ): Promise<any> {
-    // 创建临时维度对象
-    const tempDimension = {
-      id: `temp_${task.id}`,
-      name: task.dimensionName || task.title,
-      description: task.description || "",
-      searchQueries: [task.dimensionName || topic.name],
-      dataSources: ["web", "news"],
-      topicId: topic.id,
-    };
+    const dimensionName = task.dimensionName || task.title;
+
+    this.logger.log(
+      `[executeGenericDimensionResearch] Creating dimension in DB: ${dimensionName}`,
+    );
+
+    // 计算 sortOrder（获取当前最大值 + 1）
+    const maxDimension = await this.prisma.topicDimension.findFirst({
+      where: { topicId: topic.id },
+      orderBy: { sortOrder: "desc" },
+      select: { sortOrder: true },
+    });
+    const sortOrder = (maxDimension?.sortOrder || 0) + 1;
+
+    // 在数据库中创建真实的维度记录
+    const dimension = await this.prisma.topicDimension.create({
+      data: {
+        topicId: topic.id,
+        name: dimensionName,
+        description: task.description || `研究维度: ${dimensionName}`,
+        sortOrder,
+        status: "PENDING",
+      },
+    });
+
+    this.logger.log(
+      `[executeGenericDimensionResearch] Created dimension: ${dimension.id}`,
+    );
 
     const result = await this.dimensionResearchService.researchDimension(
       topic,
-      tempDimension as any,
+      dimension,
       undefined,
     );
 
