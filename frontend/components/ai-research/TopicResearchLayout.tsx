@@ -310,6 +310,7 @@ export function TopicResearchLayout({
             wsEvents={wsEvents}
             wsConnected={wsConnected}
             onClearWsEvents={onClearWsEvents}
+            missionStatus={missionStatus}
           />
         </div>
       </div>

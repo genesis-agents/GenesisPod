@@ -117,7 +117,7 @@ export class SectionWriterService {
       modelType: AIModelType.CHAT,
       taskProfile: {
         creativity: "medium",
-        outputLength: "medium", // 单章节不需要 extended
+        outputLength: "long", // 支持 800-1500 字的章节
       },
     });
     const latencyMs = Date.now() - startTime;
@@ -191,7 +191,7 @@ export class SectionWriterService {
       modelType: AIModelType.CHAT,
       taskProfile: {
         creativity: "low", // 修订时降低创造性，保持一致性
-        outputLength: "medium",
+        outputLength: "long", // 支持 800-1500 字的章节
       },
     });
     const latencyMs = Date.now() - startTime;

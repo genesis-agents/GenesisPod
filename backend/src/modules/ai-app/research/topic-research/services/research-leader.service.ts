@@ -355,9 +355,9 @@ const DIMENSION_OUTLINE_PROMPT = `你是资深的研究协调专家（Research L
       "title": "章节标题",
       "description": "这个章节要回答什么问题",
       "keyPoints": ["必须覆盖的要点1", "要点2", "要点3"],
-      "targetWords": 500,
+      "targetWords": 1000,
       "evidenceRequirements": {
-        "minReferences": 2,
+        "minReferences": 3,
         "preferredSources": ["优先使用的来源类型"]
       },
       "dependsOn": [],
@@ -372,17 +372,18 @@ const DIMENSION_OUTLINE_PROMPT = `你是资深的研究协调专家（Research L
   ],
   "executionPlan": {
     "parallelGroups": [["section_1", "section_2"], ["section_3"]],
-    "estimatedTotalWords": 3000
+    "estimatedTotalWords": 6000
   }
 }
 \`\`\`
 
 ## 章节设计原则
-1. 章节数量：根据维度复杂度决定（通常 4-7 个）
-2. 每个章节 300-800 字，确保单次 AI 调用不超 token
+1. 章节数量：根据维度复杂度决定（通常 5-8 个）
+2. 每个章节 800-1500 字，确保内容充实、有深度
 3. 章节要有逻辑递进，避免重复
 4. 最后一个章节可以是"总结与展望"
 5. 如果某些章节有依赖关系，在 dependsOn 中注明
+6. **重要**：总字数目标 5000-10000 字，确保报告有足够的深度和广度
 
 ## agentConfig 配置指南
 为每个章节配置 Agent 的能力和指导：

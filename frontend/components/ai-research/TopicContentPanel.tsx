@@ -17,6 +17,7 @@ import type {
   TopicDimension,
   TopicEvidence,
 } from '@/types/topic-research';
+import type { MissionStatus } from '@/lib/api/topic-research';
 
 // Tab 类型定义
 type TabType = 'report' | 'team' | 'thinking' | 'references';
@@ -109,6 +110,8 @@ interface TopicContentPanelProps {
   wsConnected?: boolean;
   /** Clear WebSocket events */
   onClearWsEvents?: () => void;
+  /** Mission status from backend */
+  missionStatus?: MissionStatus | null;
 }
 
 // Icons
@@ -258,6 +261,7 @@ export function TopicContentPanel({
   wsEvents = [],
   wsConnected = false,
   onClearWsEvents,
+  missionStatus,
 }: TopicContentPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('team');
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -459,7 +463,11 @@ export function TopicContentPanel({
           />
         )}
         {activeTab === 'thinking' && (
-          <AgentThinkingTabContent thinkings={safeThinkings} />
+          <AgentThinkingTabContent
+            thinkings={safeThinkings}
+            missionStatus={missionStatus}
+            wsEvents={wsEvents}
+          />
         )}
         {activeTab === 'references' && (
           <EvidenceTabContent
@@ -1624,8 +1632,12 @@ function TeamInteractionTabContent({
 // ==================== Agent 思考架构 Tab ====================
 function AgentThinkingTabContent({
   thinkings,
+  missionStatus,
+  wsEvents = [],
 }: {
   thinkings: AgentThinking[];
+  missionStatus?: MissionStatus | null;
+  wsEvents?: WsEvent[];
 }) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const safeThinkings = thinkings || [];
@@ -1641,6 +1653,25 @@ function AgentThinkingTabContent({
       return next;
     });
   };
+
+  // 从 WebSocket 事件中提取 Leader 思考内容
+  const leaderThinkings = useMemo(() => {
+    return wsEvents
+      .filter((e) => e.type === 'leader:thinking')
+      .map((e, idx) => {
+        const data = e.data as Record<string, unknown>;
+        return {
+          id: `leader-thinking-${idx}`,
+          phase: (data.phase as string) || 'thinking',
+          content: (data.content as string) || '',
+          progress: (data.progress as number) || 0,
+          timestamp: new Date(e.timestamp),
+        };
+      });
+  }, [wsEvents]);
+
+  // 从 missionStatus 中提取 Leader 理解意图
+  const leaderPlan = missionStatus?.leaderPlan;
 
   // Agent 类型配置
   const agentConfig: Record<
@@ -1683,7 +1714,13 @@ function AgentThinkingTabContent({
     },
   };
 
-  if (safeThinkings.length === 0) {
+  // 判断是否有实际内容（Leader 规划或思考记录）
+  const hasContent =
+    safeThinkings.length > 0 ||
+    leaderThinkings.length > 0 ||
+    leaderPlan?.taskUnderstanding;
+
+  if (!hasContent) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-8">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-purple-100">
@@ -1725,108 +1762,318 @@ function AgentThinkingTabContent({
     );
   }
 
-  // 按 Agent 分组
-  const groupedByAgent = safeThinkings.reduce(
-    (acc, t) => {
-      const key = t.agentName || t.agentType;
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(t);
-      return acc;
-    },
-    {} as Record<string, AgentThinking[]>
-  );
-
+  // 有内容时显示 Leader 理解意图和思考过程
   return (
     <div className="h-full overflow-y-auto p-4">
       <div className="space-y-4">
-        {Object.entries(groupedByAgent).map(([agentKey, thinkingList]) => {
-          const firstThinking = thinkingList[0];
-          const config = agentConfig[firstThinking.agentType];
-
-          return (
-            <div
-              key={agentKey}
-              className={`rounded-lg border ${config.borderColor} ${config.bgColor}`}
-            >
-              {/* Agent 头部 */}
-              <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
-                <span className="text-lg">{config.icon}</span>
-                <span className={`font-medium ${config.color}`}>
-                  {agentKey}
-                </span>
-                <span className="text-xs text-gray-500">
-                  ({thinkingList.length} 条思考记录)
-                </span>
+        {/* ★ Leader 理解意图 - 最重要的部分 */}
+        {leaderPlan?.taskUnderstanding && (
+          <div className="rounded-xl border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500 text-lg text-white shadow">
+                👑
               </div>
-
-              {/* 思考列表 */}
-              <div className="divide-y divide-gray-100">
-                {thinkingList.map((thinking) => {
-                  const isExpanded = expandedIds.has(thinking.id);
-
-                  return (
-                    <div key={thinking.id} className="p-3">
-                      <button
-                        onClick={() => toggleExpand(thinking.id)}
-                        className="flex w-full items-center justify-between text-left"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="rounded bg-white px-2 py-0.5 text-xs font-medium text-gray-600">
-                            {thinking.phase}
-                          </span>
-                          <span className="line-clamp-1 text-sm text-gray-700">
-                            {thinking.thinking.slice(0, 100)}...
-                          </span>
-                        </div>
-                        <ChevronDownIcon
-                          className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                        />
-                      </button>
-
-                      {isExpanded && (
-                        <div className="mt-3 space-y-3 rounded-lg bg-white p-3">
-                          <div>
-                            <div className="mb-1 text-xs font-medium text-gray-500">
-                              思考过程
-                            </div>
-                            <p className="whitespace-pre-wrap text-sm text-gray-700">
-                              {thinking.thinking}
-                            </p>
-                          </div>
-                          {thinking.reasoning && (
-                            <div>
-                              <div className="mb-1 text-xs font-medium text-gray-500">
-                                推理依据
-                              </div>
-                              <p className="whitespace-pre-wrap text-sm text-gray-600">
-                                {thinking.reasoning}
-                              </p>
-                            </div>
-                          )}
-                          {thinking.decision && (
-                            <div>
-                              <div className="mb-1 text-xs font-medium text-gray-500">
-                                决策结果
-                              </div>
-                              <p className="whitespace-pre-wrap text-sm font-medium text-gray-800">
-                                {thinking.decision}
-                              </p>
-                            </div>
-                          )}
-                          <div className="text-right text-xs text-gray-400">
-                            {new Date(thinking.timestamp).toLocaleString(
-                              'zh-CN'
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              <div>
+                <h3 className="text-lg font-bold text-purple-800">
+                  Leader 任务理解
+                </h3>
+                <p className="text-xs text-purple-500">
+                  AI 如何理解你的研究需求
+                </p>
               </div>
             </div>
-          );
-        })}
+
+            <div className="space-y-4">
+              {/* 研究主题 */}
+              <div className="rounded-lg bg-white p-3 shadow-sm">
+                <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-purple-700">
+                  <span>🎯</span> 研究主题
+                </div>
+                <p className="text-gray-700">
+                  {leaderPlan.taskUnderstanding.topic}
+                </p>
+              </div>
+
+              {/* 研究范围 */}
+              <div className="rounded-lg bg-white p-3 shadow-sm">
+                <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-purple-700">
+                  <span>📐</span> 研究范围
+                </div>
+                <p className="text-gray-700">
+                  {leaderPlan.taskUnderstanding.scope}
+                </p>
+              </div>
+
+              {/* 研究目标 */}
+              {leaderPlan.taskUnderstanding.objectives &&
+                leaderPlan.taskUnderstanding.objectives.length > 0 && (
+                  <div className="rounded-lg bg-white p-3 shadow-sm">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-purple-700">
+                      <span>✅</span> 研究目标
+                    </div>
+                    <ul className="space-y-1.5">
+                      {leaderPlan.taskUnderstanding.objectives.map(
+                        (obj, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-start gap-2 text-sm text-gray-700"
+                          >
+                            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-purple-400" />
+                            {obj}
+                          </li>
+                        )
+                      )}
+                    </ul>
+                  </div>
+                )}
+            </div>
+          </div>
+        )}
+
+        {/* 执行策略 */}
+        {leaderPlan?.executionStrategy && (
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-lg">🧭</span>
+              <h4 className="font-medium text-indigo-800">执行策略</h4>
+            </div>
+            <div className="space-y-1 text-sm text-indigo-700">
+              <p>并行度: {leaderPlan.executionStrategy.parallelism}</p>
+              {leaderPlan.executionStrategy.estimatedTime && (
+                <p>预计时间: {leaderPlan.executionStrategy.estimatedTime}</p>
+              )}
+              {leaderPlan.executionStrategy.priorityOrder.length > 0 && (
+                <p>
+                  优先顺序:{' '}
+                  {leaderPlan.executionStrategy.priorityOrder.join(' → ')}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 维度规划 */}
+        {leaderPlan?.dimensions && leaderPlan.dimensions.length > 0 && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-lg">📋</span>
+              <h4 className="font-medium text-blue-800">
+                研究维度规划 ({leaderPlan.dimensions.length})
+              </h4>
+            </div>
+            <div className="grid gap-2">
+              {leaderPlan.dimensions.map((dim, idx) => (
+                <div
+                  key={dim.id || idx}
+                  className="flex items-start gap-3 rounded-lg bg-white p-3"
+                >
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white">
+                    {idx + 1}
+                  </span>
+                  <div>
+                    <div className="font-medium text-gray-800">{dim.name}</div>
+                    {dim.description && (
+                      <p className="mt-0.5 text-sm text-gray-500">
+                        {dim.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Agent 任务分配 */}
+        {leaderPlan?.agentAssignments &&
+          leaderPlan.agentAssignments.length > 0 && (
+            <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-lg">👥</span>
+                <h4 className="font-medium text-green-800">Agent 任务分配</h4>
+              </div>
+              <div className="space-y-2">
+                {leaderPlan.agentAssignments.map((assignment, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-3 rounded-lg bg-white p-2 text-sm"
+                  >
+                    <span
+                      className={`flex h-7 w-7 items-center justify-center rounded-full text-sm ${
+                        assignment.agentType === 'dimension_researcher'
+                          ? 'bg-blue-100'
+                          : assignment.agentType === 'quality_reviewer'
+                            ? 'bg-green-100'
+                            : 'bg-orange-100'
+                      }`}
+                    >
+                      {assignment.agentType === 'dimension_researcher'
+                        ? '🔍'
+                        : assignment.agentType === 'quality_reviewer'
+                          ? '✅'
+                          : '📊'}
+                    </span>
+                    <div className="flex-1">
+                      <span className="font-medium text-gray-700">
+                        {assignment.role}
+                      </span>
+                      {assignment.assignedDimensions &&
+                        assignment.assignedDimensions.length > 0 && (
+                          <>
+                            <span className="mx-2 text-gray-400">→</span>
+                            <span className="text-gray-600">
+                              {assignment.assignedDimensions.join(', ')}
+                            </span>
+                          </>
+                        )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+        {/* Leader 思考过程（从 WebSocket 事件） */}
+        {leaderThinkings.length > 0 && (
+          <div className="rounded-lg border border-purple-200 bg-purple-50">
+            <div className="flex items-center gap-2 border-b border-purple-100 px-4 py-3">
+              <span className="text-lg">💭</span>
+              <h4 className="font-medium text-purple-800">
+                Leader 思考过程 ({leaderThinkings.length})
+              </h4>
+            </div>
+            <div className="divide-y divide-purple-100">
+              {leaderThinkings.map((thinking) => (
+                <div key={thinking.id} className="p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="rounded bg-purple-200 px-2 py-0.5 text-xs font-medium text-purple-700">
+                      {thinking.phase}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {thinking.progress > 0 && (
+                        <span className="text-xs text-purple-500">
+                          {thinking.progress}%
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-400">
+                        {thinking.timestamp.toLocaleTimeString('zh-CN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
+                    {thinking.content}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 原有的 Agent 思考记录 */}
+        {safeThinkings.length > 0 && (
+          <>
+            {/* 按 Agent 分组显示 */}
+            {Object.entries(
+              safeThinkings.reduce(
+                (acc, t) => {
+                  const key = t.agentName || t.agentType;
+                  if (!acc[key]) acc[key] = [];
+                  acc[key].push(t);
+                  return acc;
+                },
+                {} as Record<string, AgentThinking[]>
+              )
+            ).map(([agentKey, thinkingList]) => {
+              const firstThinking = thinkingList[0];
+              const config = agentConfig[firstThinking.agentType];
+
+              return (
+                <div
+                  key={agentKey}
+                  className={`rounded-lg border ${config.borderColor} ${config.bgColor}`}
+                >
+                  <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
+                    <span className="text-lg">{config.icon}</span>
+                    <span className={`font-medium ${config.color}`}>
+                      {agentKey}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      ({thinkingList.length} 条思考记录)
+                    </span>
+                  </div>
+
+                  <div className="divide-y divide-gray-100">
+                    {thinkingList.map((thinking) => {
+                      const isExpanded = expandedIds.has(thinking.id);
+
+                      return (
+                        <div key={thinking.id} className="p-3">
+                          <button
+                            onClick={() => toggleExpand(thinking.id)}
+                            className="flex w-full items-center justify-between text-left"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="rounded bg-white px-2 py-0.5 text-xs font-medium text-gray-600">
+                                {thinking.phase}
+                              </span>
+                              <span className="line-clamp-1 text-sm text-gray-700">
+                                {thinking.thinking.slice(0, 100)}...
+                              </span>
+                            </div>
+                            <ChevronDownIcon
+                              className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                            />
+                          </button>
+
+                          {isExpanded && (
+                            <div className="mt-3 space-y-3 rounded-lg bg-white p-3">
+                              <div>
+                                <div className="mb-1 text-xs font-medium text-gray-500">
+                                  思考过程
+                                </div>
+                                <p className="whitespace-pre-wrap text-sm text-gray-700">
+                                  {thinking.thinking}
+                                </p>
+                              </div>
+                              {thinking.reasoning && (
+                                <div>
+                                  <div className="mb-1 text-xs font-medium text-gray-500">
+                                    推理依据
+                                  </div>
+                                  <p className="whitespace-pre-wrap text-sm text-gray-600">
+                                    {thinking.reasoning}
+                                  </p>
+                                </div>
+                              )}
+                              {thinking.decision && (
+                                <div>
+                                  <div className="mb-1 text-xs font-medium text-gray-500">
+                                    决策结果
+                                  </div>
+                                  <p className="whitespace-pre-wrap text-sm font-medium text-gray-800">
+                                    {thinking.decision}
+                                  </p>
+                                </div>
+                              )}
+                              <div className="text-right text-xs text-gray-400">
+                                {new Date(thinking.timestamp).toLocaleString(
+                                  'zh-CN'
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
     </div>
   );

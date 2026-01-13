@@ -954,7 +954,8 @@ export class TopicResearchService {
       throw new NotFoundException("No reports found for this topic");
     }
 
-    return report;
+    // 转换报告数据，提取 dataPoints 中的字段到顶层
+    return this.transformReportForFrontend(report);
   }
 
   /**
@@ -968,6 +969,42 @@ export class TopicResearchService {
 
     if (!report || report.topicId !== topicId) {
       throw new NotFoundException("Report not found");
+    }
+
+    // 转换报告数据，提取 dataPoints 中的字段到顶层
+    return this.transformReportForFrontend(report);
+  }
+
+  /**
+   * 转换报告数据以适配前端接口
+   * 主要将 dataPoints JSON 字段中的内容提取到顶层
+   */
+  private transformReportForFrontend(report: any) {
+    if (!report) return report;
+
+    // 转换维度分析数据
+    if (report.dimensionAnalyses) {
+      report.dimensionAnalyses = report.dimensionAnalyses.map(
+        (analysis: any) => {
+          const dataPoints = analysis.dataPoints as {
+            trends?: any[];
+            challenges?: any[];
+            opportunities?: any[];
+            confidenceLevel?: string;
+            detailedContent?: string;
+          } | null;
+
+          return {
+            ...analysis,
+            // 从 dataPoints 提取到顶层
+            trends: dataPoints?.trends || [],
+            challenges: dataPoints?.challenges || [],
+            opportunities: dataPoints?.opportunities || [],
+            confidenceLevel: dataPoints?.confidenceLevel || null,
+            detailedContent: dataPoints?.detailedContent || null,
+          };
+        },
+      );
     }
 
     return report;
@@ -1305,12 +1342,19 @@ export class TopicResearchService {
     const page = query.page || 1;
     const pageSize = query.pageSize || 20;
 
-    return this.evidenceService.listEvidence(reportId, {
+    const result = await this.evidenceService.listEvidence(reportId, {
       skip: (page - 1) * pageSize,
       take: pageSize,
       sourceType: query.sourceType as string | undefined,
       minCredibility: query.minCredibility,
     });
+
+    // 转换为前端期望的格式
+    return {
+      evidence: result.evidences,
+      total: result.total,
+      hasMore: (page - 1) * pageSize + result.evidences.length < result.total,
+    };
   }
 
   /**
