@@ -370,10 +370,7 @@ ${content}
         { role: "user", content: userPrompt },
       ],
       {
-        taskProfile, // 使用 TaskProfile 替代 temperature/maxTokens
-        // 保持向后兼容
-        temperature: 0.5,
-        maxTokens: 8192,
+        taskProfile,
       },
     );
 
@@ -510,8 +507,6 @@ ${content}
       ],
       {
         taskProfile,
-        temperature: 0.3,
-        maxTokens: 8192,
       },
     );
 
