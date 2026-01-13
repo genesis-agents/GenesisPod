@@ -19,7 +19,11 @@ import type {
 } from '@/types/topic-research';
 import type { MissionStatus } from '@/lib/api/topic-research';
 import { ReportEditPanel } from './ReportEditPanel';
+import { ChapterizedReportView } from './ChapterizedReportView';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
+
+// 报告视图模式
+type ReportViewMode = 'continuous' | 'chapter';
 
 // Tab 类型定义
 type TabType = 'report' | 'team' | 'thinking' | 'references';
@@ -274,6 +278,8 @@ export function TopicContentPanel({
   const [activeTab, setActiveTab] = useState<TabType>('team');
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [versionMenuOpen, setVersionMenuOpen] = useState(false);
+  const [reportViewMode, setReportViewMode] =
+    useState<ReportViewMode>('continuous');
 
   // Annotation state (client-side only for now)
   type AnnotationColor = 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
@@ -449,6 +455,36 @@ export function TopicContentPanel({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* 视图模式切换 */}
+          {activeTab === 'report' && (
+            <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+              <button
+                onClick={() => setReportViewMode('continuous')}
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  reportViewMode === 'continuous'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                title="连续视图"
+              >
+                <ListIcon className="h-3.5 w-3.5" />
+                <span>连续</span>
+              </button>
+              <button
+                onClick={() => setReportViewMode('chapter')}
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  reportViewMode === 'chapter'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                title="章节视图"
+              >
+                <DocumentIcon className="h-3.5 w-3.5" />
+                <span>章节</span>
+              </button>
+            </div>
+          )}
+
           {/* 版本选择下拉框 */}
           {activeTab === 'report' && report && (
             <div className="relative">
@@ -562,7 +598,7 @@ export function TopicContentPanel({
 
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden">
-        {activeTab === 'report' && (
+        {activeTab === 'report' && reportViewMode === 'continuous' && (
           <ReportEditPanel
             report={report}
             evidence={safeEvidence}
@@ -588,6 +624,21 @@ export function TopicContentPanel({
             onAnnotationDelete={handleAnnotationDelete}
             onAnnotationResolve={handleAnnotationResolve}
             onAnnotationReply={handleAnnotationReply}
+          />
+        )}
+        {activeTab === 'report' && reportViewMode === 'chapter' && (
+          <ChapterizedReportView
+            report={report}
+            dimensions={dimensions}
+            isLoading={isLoadingReport}
+            onEditChapter={async (chapterId, content) => {
+              // TODO: Implement chapter save
+              console.log('Save chapter:', chapterId, content);
+            }}
+            onAIEditChapter={async (chapterId, operation) => {
+              // TODO: Implement AI edit for chapter
+              console.log('AI Edit chapter:', chapterId, operation);
+            }}
           />
         )}
         {activeTab === 'team' && (
