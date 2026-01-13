@@ -146,6 +146,7 @@ function hasKey(obj: unknown, key: string): boolean {
 
 /**
  * Try to repair truncated JSON by adding missing closing brackets
+ * Handles cases where JSON is truncated mid-string or mid-value
  */
 function tryRepairTruncatedJson(content: string): string | null {
   // Extract potential JSON from code block first
@@ -161,13 +162,16 @@ function tryRepairTruncatedJson(content: string): string | null {
 
   jsonContent = jsonContent.substring(jsonStart);
 
-  // Count brackets to find missing closures
+  // Count brackets and track string state
   let braceCount = 0;
   let bracketCount = 0;
   let inString = false;
   let escapeNext = false;
+  let lastValidStringEnd = -1;
 
-  for (const char of jsonContent) {
+  for (let i = 0; i < jsonContent.length; i++) {
+    const char = jsonContent[i];
+
     if (escapeNext) {
       escapeNext = false;
       continue;
@@ -180,6 +184,9 @@ function tryRepairTruncatedJson(content: string): string | null {
 
     if (char === '"' && !escapeNext) {
       inString = !inString;
+      if (!inString) {
+        lastValidStringEnd = i;
+      }
       continue;
     }
 
@@ -191,33 +198,84 @@ function tryRepairTruncatedJson(content: string): string | null {
     }
   }
 
-  // If brackets are unbalanced, try to close them
-  if (braceCount > 0 || bracketCount > 0) {
-    // Find the last complete property (ends with comma, value, or bracket)
-    let lastValidPos = jsonContent.length;
+  // If brackets are unbalanced or we're in an incomplete string, try to repair
+  if (braceCount > 0 || bracketCount > 0 || inString) {
+    let repaired = jsonContent;
 
-    // Look for incomplete string or value
-    const lastQuotePos = jsonContent.lastIndexOf('"');
-    const lastColonPos = jsonContent.lastIndexOf(":");
+    // If we're in the middle of a string, close it and truncate the incomplete value
+    if (inString) {
+      // Find the last complete property before the truncated string
+      const lastCommaBeforeEnd = jsonContent.lastIndexOf(
+        ",",
+        lastValidStringEnd,
+      );
+      const truncatePoint = Math.max(lastCommaBeforeEnd, 0);
 
-    // If we have an incomplete key-value pair, truncate it
-    if (lastColonPos > lastQuotePos) {
-      // Find the start of this incomplete property
-      const propStart = jsonContent.lastIndexOf(",", lastColonPos);
-      if (propStart !== -1) {
-        lastValidPos = propStart;
+      if (truncatePoint > 0) {
+        // Truncate to last complete property
+        repaired = jsonContent.substring(0, truncatePoint);
+      } else if (lastValidStringEnd > 0) {
+        // Fall back to last valid string end
+        repaired = jsonContent.substring(0, lastValidStringEnd + 1);
+      }
+
+      // Recount brackets after truncation
+      braceCount = 0;
+      bracketCount = 0;
+      inString = false;
+      escapeNext = false;
+
+      for (const char of repaired) {
+        if (escapeNext) {
+          escapeNext = false;
+          continue;
+        }
+        if (char === "\\") {
+          escapeNext = true;
+          continue;
+        }
+        if (char === '"' && !escapeNext) {
+          inString = !inString;
+          continue;
+        }
+        if (!inString) {
+          if (char === "{") braceCount++;
+          if (char === "}") braceCount--;
+          if (char === "[") bracketCount++;
+          if (char === "]") bracketCount--;
+        }
+      }
+    } else {
+      // Not in string, find last complete property
+      const lastComma = jsonContent.lastIndexOf(",");
+      const lastBrace = Math.max(
+        jsonContent.lastIndexOf("}"),
+        jsonContent.lastIndexOf("]"),
+      );
+
+      if (lastBrace > lastComma && lastBrace > 0) {
+        repaired = jsonContent.substring(0, lastBrace + 1);
+      } else if (lastComma > 0) {
+        repaired = jsonContent.substring(0, lastComma);
+      }
+
+      // Recount brackets after truncation
+      braceCount = 0;
+      bracketCount = 0;
+      for (const char of repaired) {
+        if (char === "{") braceCount++;
+        if (char === "}") braceCount--;
+        if (char === "[") bracketCount++;
+        if (char === "]") bracketCount--;
       }
     }
-
-    // Truncate to last valid position and close brackets
-    let repaired = jsonContent.substring(0, lastValidPos);
 
     // Remove trailing comma if present
     repaired = repaired.replace(/,\s*$/, "");
 
     // Add closing brackets
-    repaired += "]".repeat(bracketCount > 0 ? bracketCount : 0);
-    repaired += "}".repeat(braceCount > 0 ? braceCount : 0);
+    if (bracketCount > 0) repaired += "]".repeat(bracketCount);
+    if (braceCount > 0) repaired += "}".repeat(braceCount);
 
     return repaired;
   }
