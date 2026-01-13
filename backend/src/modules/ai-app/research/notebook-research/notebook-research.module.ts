@@ -9,7 +9,8 @@
  */
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
-import { AiEngineModule } from "../../../ai-engine";
+// Import directly from source to avoid circular dependency via barrel export
+import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
 import { StorageModule } from "../../../core/storage/storage.module";
 import { CreditsModule } from "../../../credits/credits.module";
 

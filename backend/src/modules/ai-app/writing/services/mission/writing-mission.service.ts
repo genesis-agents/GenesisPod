@@ -251,6 +251,32 @@ export class WritingMissionService {
   }
 
   /**
+   * 将 temperature 映射到 TaskProfile 的 creativity 级别
+   */
+  private mapTemperatureToCreativity(
+    temp: number,
+  ): "deterministic" | "low" | "medium" | "high" {
+    if (temp <= 0.2) return "deterministic";
+    if (temp <= 0.3) return "low";
+    if (temp <= 0.7) return "medium";
+    return "high";
+  }
+
+  /**
+   * 将 maxTokens 映射到 TaskProfile 的 outputLength 级别
+   */
+  private mapMaxTokensToOutputLength(
+    tokens: number,
+  ): "minimal" | "short" | "medium" | "standard" | "long" | "extended" {
+    if (tokens <= 1000) return "minimal";
+    if (tokens <= 2000) return "short";
+    if (tokens <= 4000) return "medium";
+    if (tokens <= 6000) return "standard";
+    if (tokens <= 8000) return "long";
+    return "extended";
+  }
+
+  /**
    * 生成章节质量约束提示词（v3 新增）
    * 整合专业声音、五感沉浸、开篇钩子、节奏控制等服务
    */
@@ -4632,8 +4658,10 @@ ${JSON.stringify(worldSettings, null, 2).slice(0, 1500)}
           { role: "user", content: userPrompt },
         ],
         model: modelId,
-        temperature: 0.8,
-        maxTokens: 8000,
+        taskProfile: {
+          creativity: this.mapTemperatureToCreativity(0.8),
+          outputLength: this.mapMaxTokensToOutputLength(8000),
+        },
       });
 
       if (response.content) {
@@ -5235,8 +5263,10 @@ ${userPrompt}
     const analysisResponse = await this.aiFacade.chat({
       messages,
       model: modelId,
-      temperature: 0.3, // 低温度确保输出稳定
-      maxTokens: 2000,
+      taskProfile: {
+        creativity: this.mapTemperatureToCreativity(0.3), // 低温度确保输出稳定
+        outputLength: this.mapMaxTokensToOutputLength(2000),
+      },
     });
 
     if (!analysisResponse.content) {
@@ -5515,8 +5545,10 @@ ${instruction}
     const response = await this.aiFacade.chat({
       messages: [{ role: "user", content: modifyPrompt }],
       model: modelId,
-      temperature: 0.8,
-      maxTokens: 8000,
+      taskProfile: {
+        creativity: this.mapTemperatureToCreativity(0.8),
+        outputLength: this.mapMaxTokensToOutputLength(8000),
+      },
     });
 
     if (response.content && response.content.length > 200) {
@@ -7005,8 +7037,10 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
           { role: "user", content: writerPrompt },
         ],
         model: writerModel,
-        temperature: 0.8,
-        maxTokens: 6000,
+        taskProfile: {
+          creativity: this.mapTemperatureToCreativity(0.8),
+          outputLength: this.mapMaxTokensToOutputLength(6000),
+        },
       });
 
       let chapterContent = writerResponse.content || "";
@@ -7028,8 +7062,10 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
             },
           ],
           model: writerModel,
-          temperature: 0.85,
-          maxTokens: 6000,
+          taskProfile: {
+            creativity: this.mapTemperatureToCreativity(0.85),
+            outputLength: this.mapMaxTokensToOutputLength(6000),
+          },
         });
         chapterContent =
           retryResponse.content ||
@@ -7082,8 +7118,10 @@ ${qualityConstraints ? `${qualityConstraints}\n` : ""}
                 },
               ],
               model: writerModel,
-              temperature: 0.85,
-              maxTokens: 2000,
+              taskProfile: {
+                creativity: this.mapTemperatureToCreativity(0.85),
+                outputLength: this.mapMaxTokensToOutputLength(2000),
+              },
             });
 
             if (
