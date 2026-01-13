@@ -21,6 +21,8 @@ import {
   ResearchMissionService,
   TopicCollaboratorService,
   ResearchEventEmitterService,
+  DimensionMissionService,
+  SectionWriterService,
 } from "./services";
 
 const services = [
@@ -36,6 +38,8 @@ const services = [
   ResearchMissionService,
   TopicCollaboratorService,
   ResearchEventEmitterService,
+  DimensionMissionService,
+  SectionWriterService,
 ];
 
 @Module({

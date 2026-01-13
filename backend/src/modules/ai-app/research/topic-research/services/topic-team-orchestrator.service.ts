@@ -11,7 +11,7 @@ import type {
   TopicDimension,
   TopicReport,
 } from "@prisma/client";
-import { DimensionResearchService } from "./dimension-research.service";
+import { DimensionMissionService } from "./dimension-mission.service";
 import { ReportSynthesisService } from "./report-synthesis.service";
 import {
   ResearchReviewerService,
@@ -78,7 +78,7 @@ export class TopicTeamOrchestratorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly dimensionResearchService: DimensionResearchService,
+    private readonly dimensionMissionService: DimensionMissionService,
     private readonly reportSynthesisService: ReportSynthesisService,
     private readonly researchReviewerService: ResearchReviewerService,
   ) {}
@@ -410,13 +410,17 @@ export class TopicTeamOrchestratorService {
       }
 
       try {
-        // 执行维度研究（传入 reportId 以关联证据）
-        const researchResult =
-          await this.dimensionResearchService.researchDimension(
+        // 执行维度研究（使用新的 Leader-Agent 协作机制）
+        const missionResult =
+          await this.dimensionMissionService.executeDimensionMission(
             topic,
             dimension,
             reportId,
           );
+
+        if (!missionResult.success) {
+          throw new Error(missionResult.error || "Dimension mission failed");
+        }
 
         completedCount++;
 
@@ -435,8 +439,8 @@ export class TopicTeamOrchestratorService {
 
         return {
           dimensionId: dimension.id,
-          analysisResult: researchResult.analysisResult,
-          evidenceIds: researchResult.evidenceIds,
+          analysisResult: missionResult.analysisResult!,
+          evidenceIds: missionResult.evidenceIds,
         };
       } catch (error) {
         this.logger.error(
@@ -472,11 +476,17 @@ export class TopicTeamOrchestratorService {
       throw new Error("Dimension not found or does not belong to topic");
     }
 
-    const result = await this.dimensionResearchService.researchDimension(
-      topic,
-      dimension,
-    );
-    return result.analysisResult;
+    const missionResult =
+      await this.dimensionMissionService.executeDimensionMission(
+        topic,
+        dimension,
+      );
+
+    if (!missionResult.success || !missionResult.analysisResult) {
+      throw new Error(missionResult.error || "Dimension mission failed");
+    }
+
+    return missionResult.analysisResult;
   }
 
   /**

@@ -13,7 +13,7 @@ import {
  * 研究规划服务
  * 使用 AI 生成智能研究计划
  *
- * ★ P3 迁移：使用 AIEngineFacade 替代 AiChatService
+ * ✅ 已迁移：使用 AIEngineFacade 统一入口
  */
 @Injectable()
 export class ResearchPlannerService {

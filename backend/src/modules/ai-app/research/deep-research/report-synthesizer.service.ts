@@ -14,7 +14,7 @@ import {
  * 报告合成服务
  * 将搜索结果合成为结构化研究报告
  *
- * ★ P3 迁移：使用 AIEngineFacade 替代 AiChatService
+ * ✅ 已迁移：使用 AIEngineFacade 统一入口
  */
 @Injectable()
 export class ReportSynthesizerService {

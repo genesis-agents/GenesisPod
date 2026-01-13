@@ -25,7 +25,7 @@ import {
   ResearchLeaderService,
   type LeaderPlan,
 } from "./research-leader.service";
-import { DimensionResearchService } from "./dimension-research.service";
+import { DimensionMissionService } from "./dimension-mission.service";
 import { ReportSynthesisService } from "./report-synthesis.service";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
 
@@ -111,7 +111,7 @@ export class ResearchMissionService {
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly leaderService: ResearchLeaderService,
-    private readonly dimensionResearchService: DimensionResearchService,
+    private readonly dimensionMissionService: DimensionMissionService,
     private readonly reportSynthesisService: ReportSynthesisService,
     private readonly researchEventEmitter: ResearchEventEmitterService,
   ) {}
@@ -1134,13 +1134,20 @@ export class ResearchMissionService {
               "正在采集相关数据...",
             );
 
-            const researchResult =
-              await this.dimensionResearchService.researchDimension(
+            // 使用新的 Leader-Agent 协作机制
+            const missionResult =
+              await this.dimensionMissionService.executeDimensionMission(
                 topic,
                 dimension,
                 undefined, // reportId - 暂时不关联报告
               );
-            result = researchResult.analysisResult;
+
+            if (!missionResult.success) {
+              throw new Error(
+                missionResult.error || "Dimension mission failed",
+              );
+            }
+            result = missionResult.analysisResult;
 
             // ★ 发送维度研究完成事件
             await this.researchEventEmitter.emitDimensionResearchCompleted(
@@ -1349,13 +1356,19 @@ export class ResearchMissionService {
       `[executeGenericDimensionResearch] Created dimension: ${dimension.id}`,
     );
 
-    const result = await this.dimensionResearchService.researchDimension(
-      topic,
-      dimension,
-      undefined,
-    );
+    // 使用新的 Leader-Agent 协作机制
+    const missionResult =
+      await this.dimensionMissionService.executeDimensionMission(
+        topic,
+        dimension,
+        undefined,
+      );
 
-    return result.analysisResult;
+    if (!missionResult.success || !missionResult.analysisResult) {
+      throw new Error(missionResult.error || "Dimension mission failed");
+    }
+
+    return missionResult.analysisResult;
   }
 
   /**

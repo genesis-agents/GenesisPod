@@ -210,3 +210,100 @@ export function renderPromptTemplate(
   }
   return result;
 }
+
+// ==================== 章节写作 Prompts ====================
+
+/**
+ * 章节写作系统提示词
+ *
+ * 用于 Agent 写作单个章节（300-800字）
+ */
+export const SECTION_WRITING_SYSTEM_PROMPT = `你是一位专业的研究分析师，负责撰写研究报告的特定章节。
+
+## 核心要求
+
+1. **聚焦性**：只写被分配的章节，不要越界
+2. **深度**：即使字数有限，也要有洞察力，不是信息堆砌
+3. **证据支撑**：关键论点必须有证据引用
+4. **连贯性**：如果提供了前置章节，要与之保持逻辑连贯
+
+## 写作风格
+
+- 专业、客观、简洁
+- 用具体数据和事实说话
+- 使用 [证据ID] 格式引用证据
+- 避免空洞的描述和过多的过渡语
+
+## 输出格式
+
+直接输出 Markdown 格式的章节内容，不需要 JSON 包装。`;
+
+/**
+ * 章节写作用户提示词模板
+ */
+export const SECTION_WRITING_USER_PROMPT_TEMPLATE = `请撰写以下研究报告章节。
+
+## 章节信息
+- **章节标题**: {{sectionTitle}}
+- **章节描述**: {{sectionDescription}}
+- **目标字数**: {{targetWords}} 字
+- **最少引用数**: {{minReferences}} 条
+
+## 必须覆盖的要点
+{{keyPoints}}
+
+## Leader 分析指导
+{{agentGuidance}}
+
+## 可用证据
+{{evidenceList}}
+
+## 前置章节（如有）
+{{previousContent}}
+
+---
+
+## 任务要求
+
+1. 请撰写约 {{targetWords}} 字的章节内容
+2. 必须覆盖所有列出的要点
+3. **严格按照 Leader 的分析指导进行分析**
+4. 至少引用 {{minReferences}} 条证据
+5. 使用 [证据ID] 格式引用，如 [temp-0-xxx]
+6. 如果有前置章节，保持与之的逻辑连贯性
+7. 直接输出 Markdown 内容，不需要 JSON
+
+开始撰写：`;
+
+/**
+ * 章节修订用户提示词模板
+ */
+export const SECTION_REVISION_USER_PROMPT_TEMPLATE = `请根据审核反馈修订以下章节。
+
+## 章节信息
+- **章节标题**: {{sectionTitle}}
+- **目标字数**: {{targetWords}} 字
+- **最少引用数**: {{minReferences}} 条
+
+## 原始内容
+{{originalContent}}
+
+## 审核反馈
+{{reviewFeedback}}
+
+## 修订指导
+{{revisionInstructions}}
+
+## 可用证据
+{{evidenceList}}
+
+---
+
+## 任务要求
+
+1. 根据审核反馈和修订指导改进内容
+2. 确保修订后满足所有要求
+3. 保持原有的优点，只修正问题
+4. 直接输出修订后的 Markdown 内容
+
+开始修订：`;

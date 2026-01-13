@@ -15,7 +15,7 @@ import {
  * 自我反思服务
  * 评估搜索结果质量，决定是否继续搜索
  *
- * ★ P3 迁移：使用 AIEngineFacade 替代 AiChatService
+ * ✅ 已迁移：使用 AIEngineFacade 统一入口
  */
 @Injectable()
 export class SelfReflectionService {

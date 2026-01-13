@@ -23,7 +23,7 @@ import {
 } from "./types";
 
 /**
- * ★ P3 迁移：使用 AIEngineFacade 替代 AiChatService
+ * ✅ 已迁移：使用 AIEngineFacade 统一入口
  */
 @Injectable()
 export class SlidesLeader {
@@ -36,7 +36,7 @@ export class SlidesLeader {
   // ============================================
 
   /**
-   * ★ P3 迁移：使用 AIEngineFacade 统一入口
+   * 使用 AIEngineFacade 统一入口
    * 模型选择由 Facade 内部处理
    */
   private async callAI(

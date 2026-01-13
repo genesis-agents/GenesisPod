@@ -587,11 +587,15 @@ ${memberNames.map((name, i) => `${i + 1}. ${name}`).join("\n")}
    * - 让 AI 根据任务内容自动识别关键事实
    * - 支持任何类型的任务（小说、文档、研究等）
    *
+   * ★ 参数映射说明：本方法接收 legacy 参数（maxTokens/temperature），
+   *   调用方应使用带映射层的 aiCaller（如 TeamMissionService.callAIWithConfig），
+   *   映射层会将 legacy 参数转换为 taskProfile
+   *
    * @param taskId - 任务ID
    * @param taskTitle - 任务标题
    * @param taskOutput - 任务产出内容
    * @param existingContext - 现有上下文（用于避免重复提取）
-   * @param aiCaller - AI 调用函数
+   * @param aiCaller - AI 调用函数（应通过带映射层的服务创建）
    */
   async extractEstablishedFacts(
     taskId: string,

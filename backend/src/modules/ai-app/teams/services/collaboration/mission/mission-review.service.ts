@@ -120,6 +120,11 @@ export class MissionReviewService {
     );
   }
 
+  // ==================== 参数映射说明 ====================
+  // 本服务的 AI 调用通过 callbacks.callAIWithConfig 进行
+  // 参数映射（maxTokens/temperature → taskProfile）在 TeamMissionService 中处理
+  // 详见: team-mission.service.ts 的 mapTemperatureToCreativity / mapMaxTokensToOutputLength
+
   /**
    * 设置回调接口
    */
