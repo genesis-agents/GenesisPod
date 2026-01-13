@@ -1010,6 +1010,13 @@ export class ResearchMissionService {
       throw new Error(`Topic ${topicId} not found`);
     }
 
+    // ★ 先创建草稿报告，以便关联证据
+    const draftReport =
+      await this.reportSynthesisService.createDraftReport(topicId);
+    this.logger.log(
+      `[startExecution] Created draft report: ${draftReport.id} for evidence association`,
+    );
+
     // 执行循环
     let iteration = 0;
     const maxIterations = 100; // 防止无限循环
@@ -1049,7 +1056,9 @@ export class ResearchMissionService {
       );
 
       await Promise.all(
-        executableTasks.map((task) => this.executeTask(task, topic, missionId)),
+        executableTasks.map((task) =>
+          this.executeTask(task, topic, missionId, draftReport.id),
+        ),
       );
     }
 
@@ -1064,6 +1073,7 @@ export class ResearchMissionService {
     task: ResearchTask,
     topic: any,
     missionId: string,
+    reportId: string,
   ): Promise<void> {
     this.logger.log(`[executeTask] Executing task: ${task.title} (${task.id})`);
 
@@ -1139,7 +1149,7 @@ export class ResearchMissionService {
               await this.dimensionMissionService.executeDimensionMission(
                 topic,
                 dimension,
-                undefined, // reportId - 暂时不关联报告
+                reportId, // ★ 传入 reportId 以便关联证据
               );
 
             if (!missionResult.success) {
@@ -1161,7 +1171,11 @@ export class ResearchMissionService {
             this.logger.warn(
               `[executeTask] Dimension not found for task ${task.id}, creating new one`,
             );
-            result = await this.executeGenericDimensionResearch(task, topic);
+            result = await this.executeGenericDimensionResearch(
+              task,
+              topic,
+              reportId,
+            );
 
             // ★ 发送维度研究完成事件
             await this.researchEventEmitter.emitDimensionResearchCompleted(
@@ -1206,9 +1220,11 @@ export class ResearchMissionService {
           // ★ 发送报告撰写开始事件
           await this.researchEventEmitter.emitReportSynthesisStarted(topic.id);
 
-          // 创建报告草稿
-          const draftReport =
-            await this.reportSynthesisService.createDraftReport(topic.id);
+          // ★ 复用 startExecution 中创建的草稿报告，避免重复创建
+          // reportId 已在 startExecution 中创建并传递到此处
+          this.logger.log(
+            `[report_synthesis] Using existing draft report: ${reportId}`,
+          );
 
           // ★ 收集所有维度研究结果并保存到 DimensionAnalysis 表
           const dimensionTasks = await this.prisma.researchTask.findMany({
@@ -1224,7 +1240,7 @@ export class ResearchMissionService {
               const taskResult = dimTask.result as any;
               try {
                 await this.reportSynthesisService.saveDimensionAnalysis(
-                  draftReport.id,
+                  reportId, // ★ 使用已有的 reportId
                   dimTask.dimensionId,
                   {
                     summary: taskResult.summary || "无摘要",
@@ -1251,7 +1267,7 @@ export class ResearchMissionService {
           // 合成最终报告
           result = await this.reportSynthesisService.synthesizeReport(
             topic,
-            draftReport.id,
+            reportId, // ★ 使用已有的 reportId
           );
 
           // ★ 发送报告撰写完成事件
@@ -1323,6 +1339,7 @@ export class ResearchMissionService {
   private async executeGenericDimensionResearch(
     task: ResearchTask,
     topic: any,
+    reportId: string,
   ): Promise<any> {
     const dimensionName = task.dimensionName || task.title;
 
@@ -1361,7 +1378,7 @@ export class ResearchMissionService {
       await this.dimensionMissionService.executeDimensionMission(
         topic,
         dimension,
-        undefined,
+        reportId, // ★ 传入 reportId 以便关联证据
       );
 
     if (!missionResult.success || !missionResult.analysisResult) {
