@@ -13,6 +13,7 @@ import {
   UserIntent,
 } from "@/modules/ai-engine/orchestration/services";
 import { LeaderDecisionType } from "@prisma/client";
+import { ResearchEventEmitterService } from "./research-event-emitter.service";
 
 // ==================== Types ====================
 
@@ -525,6 +526,7 @@ export class ResearchLeaderService {
     private readonly prisma: PrismaService,
     private readonly aiFacade: AIEngineFacade,
     private readonly intentDetectionService: IntentDetectionService,
+    private readonly eventEmitter: ResearchEventEmitterService,
   ) {}
 
   /**
@@ -763,6 +765,12 @@ export class ResearchLeaderService {
           "intent_detection_service",
           0,
         );
+        // ★ 发射 WebSocket 事件到团队互动区
+        await this.eventEmitter.emitLeaderResponse(
+          topicId,
+          missionId,
+          quickResponse.response,
+        );
         return quickResponse;
       }
     }
@@ -819,8 +827,15 @@ export class ResearchLeaderService {
     const result = this.extractJsonFromResponse<any>(response.content);
 
     if (!result) {
+      const fallbackResponse = "收到您的指令，我会继续推进研究工作。";
+      // ★ 发射 WebSocket 事件到团队互动区
+      await this.eventEmitter.emitLeaderResponse(
+        topicId,
+        missionId,
+        fallbackResponse,
+      );
       return {
-        response: "收到您的指令，我会继续推进研究工作。",
+        response: fallbackResponse,
       };
     }
 
@@ -833,6 +848,13 @@ export class ResearchLeaderService {
       result.response,
       leaderModel.modelId,
       latencyMs,
+    );
+
+    // ★ 发射 WebSocket 事件到团队互动区
+    await this.eventEmitter.emitLeaderResponse(
+      topicId,
+      missionId,
+      result.response,
     );
 
     return {

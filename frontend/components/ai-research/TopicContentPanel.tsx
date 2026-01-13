@@ -1127,6 +1127,15 @@ function TeamInteractionTabContent({
           if (plan) {
             detail = { type: 'leader_plan', data: plan };
           }
+        } else if (eventType === 'leader:response') {
+          // ★ Leader 响应用户 @Leader 消息
+          const responseText =
+            (data.response as string) || (data.message as string) || '';
+          content = responseText;
+          // 长响应添加详情折叠
+          if (responseText.length > 150) {
+            detail = { type: 'text', data: responseText };
+          }
         } else {
           content =
             (data.message as string) || (data.content as string) || eventType;
