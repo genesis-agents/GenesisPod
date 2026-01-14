@@ -1351,6 +1351,30 @@ const RESEARCH_AGENT_DETAILS: Record<string, AgentDetailInfo> = {
   },
 };
 
+// ★ 默认 Agent 详情（用于未知类型）
+const DEFAULT_AGENT_DETAILS: AgentDetailInfo = {
+  name: 'Agent',
+  role: '助手',
+  description: 'AI 研究助手',
+  skills: ['研究', '分析'],
+  tools: ['通用工具'],
+  icon: '🤖',
+  color: 'text-gray-700',
+  bgColor: 'bg-gray-100',
+  gradient: 'from-gray-400 to-gray-600',
+};
+
+// ★ 安全获取 Agent 详情（大小写不敏感）
+function getAgentDetails(agentType: string): AgentDetailInfo {
+  if (!agentType) return DEFAULT_AGENT_DETAILS;
+  const key = agentType.toLowerCase();
+  return (
+    RESEARCH_AGENT_DETAILS[key] ||
+    RESEARCH_AGENT_DETAILS[agentType] ||
+    DEFAULT_AGENT_DETAILS
+  );
+}
+
 function TeamInteractionTabContent({
   events,
   leaderPlan,
@@ -2104,107 +2128,111 @@ function TeamInteractionTabContent({
         )}
       </div>
 
-      {/* Agent Details Modal */}
-      {selectedAgent && RESEARCH_AGENT_DETAILS[selectedAgent] && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={() => setSelectedAgent(null)}
-        >
-          <div
-            className="relative mx-4 w-full max-w-md rounded-2xl bg-white shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br ${RESEARCH_AGENT_DETAILS[selectedAgent].gradient} text-xl text-white shadow-md`}
-                >
-                  {RESEARCH_AGENT_DETAILS[selectedAgent].icon}
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">
-                    {RESEARCH_AGENT_DETAILS[selectedAgent].name}
-                  </h3>
-                  <span className="text-sm text-gray-500">
-                    {RESEARCH_AGENT_DETAILS[selectedAgent].role}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedAgent(null)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+      {/* Agent Details Modal - ★ 使用安全访问器 */}
+      {selectedAgent &&
+        (() => {
+          const details = getAgentDetails(selectedAgent);
+          return (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+              onClick={() => setSelectedAgent(null)}
+            >
+              <div
+                className="relative mx-4 w-full max-w-md rounded-2xl bg-white shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
               >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="px-6 py-4">
-              {/* Description */}
-              <p className="text-sm leading-relaxed text-gray-600">
-                {RESEARCH_AGENT_DETAILS[selectedAgent].description}
-              </p>
-
-              {/* Skills */}
-              <div className="mt-4">
-                <h4 className="mb-2 text-sm font-semibold text-gray-800">
-                  技能
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {RESEARCH_AGENT_DETAILS[selectedAgent].skills.map((skill) => (
-                    <span
-                      key={skill}
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${RESEARCH_AGENT_DETAILS[selectedAgent].bgColor} ${RESEARCH_AGENT_DETAILS[selectedAgent].color}`}
+                {/* Modal Header */}
+                <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br ${details.gradient} text-xl text-white shadow-md`}
                     >
-                      {skill}
-                    </span>
-                  ))}
+                      {details.icon}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">
+                        {details.name}
+                      </h3>
+                      <span className="text-sm text-gray-500">
+                        {details.role}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSelectedAgent(null)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Modal Content */}
+                <div className="px-6 py-4">
+                  {/* Description */}
+                  <p className="text-sm leading-relaxed text-gray-600">
+                    {details.description}
+                  </p>
+
+                  {/* Skills */}
+                  <div className="mt-4">
+                    <h4 className="mb-2 text-sm font-semibold text-gray-800">
+                      技能
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {details.skills.map((skill) => (
+                        <span
+                          key={skill}
+                          className={`rounded-full px-3 py-1 text-xs font-medium ${details.bgColor} ${details.color}`}
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tools */}
+                  <div className="mt-4">
+                    <h4 className="mb-2 text-sm font-semibold text-gray-800">
+                      工具
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {details.tools.map((tool) => (
+                        <span
+                          key={tool}
+                          className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700"
+                        >
+                          {tool}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="flex items-center justify-end border-t border-gray-100 px-6 py-4">
+                  <button
+                    onClick={() => setSelectedAgent(null)}
+                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                  >
+                    关闭
+                  </button>
                 </div>
               </div>
-
-              {/* Tools */}
-              <div className="mt-4">
-                <h4 className="mb-2 text-sm font-semibold text-gray-800">
-                  工具
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {RESEARCH_AGENT_DETAILS[selectedAgent].tools.map((tool) => (
-                    <span
-                      key={tool}
-                      className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700"
-                    >
-                      {tool}
-                    </span>
-                  ))}
-                </div>
-              </div>
             </div>
-
-            {/* Modal Footer */}
-            <div className="flex items-center justify-end border-t border-gray-100 px-6 py-4">
-              <button
-                onClick={() => setSelectedAgent(null)}
-                className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-              >
-                关闭
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          );
+        })()}
     </div>
   );
 }

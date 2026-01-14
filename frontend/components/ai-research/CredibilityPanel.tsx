@@ -360,17 +360,28 @@ function CoverageList({ details }: { details: CoverageDetail[] }) {
     return 'insufficient';
   };
 
-  const statusConfig = {
+  const statusConfig: Record<
+    string,
+    { icon: typeof CheckCircle; color: string; label: string }
+  > = {
     sufficient: { icon: CheckCircle, color: 'text-green-500', label: '充分' },
     moderate: { icon: AlertCircle, color: 'text-yellow-500', label: '一般' },
     insufficient: { icon: XCircle, color: 'text-red-500', label: '不足' },
+  };
+
+  // ★ 默认状态配置
+  const defaultStatusInfo = {
+    icon: AlertCircle,
+    color: 'text-gray-500',
+    label: '未知',
   };
 
   return (
     <div className="space-y-2">
       {details.map((detail) => {
         const normalizedStatus = normalizeStatus(detail.status);
-        const statusInfo = statusConfig[normalizedStatus];
+        // ★ 安全访问：使用 fallback
+        const statusInfo = statusConfig[normalizedStatus] || defaultStatusInfo;
         const Icon = statusInfo.icon;
         // 支持 sourceCount（API）和 sourcesCount（内部）两种字段名
         const sourceCount = detail.sourceCount ?? detail.sourcesCount ?? 0;

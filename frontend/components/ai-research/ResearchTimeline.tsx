@@ -164,6 +164,19 @@ const statusConfig: Record<
   },
 };
 
+// ★ 默认状态配置
+const defaultStatusConfig = {
+  icon: AlertTriangle,
+  label: '未知',
+  color: 'text-gray-600 dark:text-gray-400',
+  borderColor: 'border-gray-300 dark:border-gray-700',
+};
+
+// ★ 安全获取状态配置
+function getStatusConfig(status: string) {
+  return statusConfig[status as ResearchStatus] || defaultStatusConfig;
+}
+
 const phaseConfig: Record<
   ThinkingPhase,
   {
@@ -677,7 +690,8 @@ function SessionCard({
   onViewReport?: (version: number) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(isCurrent);
-  const status = statusConfig[history.status];
+  // ★ 使用安全访问器
+  const status = getStatusConfig(history.status);
   const StatusIcon = status.icon;
 
   return (

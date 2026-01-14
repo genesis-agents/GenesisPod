@@ -637,7 +637,15 @@ function ResearchSessionCard({
     },
   };
 
-  const config = statusConfig[session.status];
+  // ★ 默认配置
+  const defaultConfig = {
+    color: 'text-gray-600 bg-gray-50',
+    icon: Loader2,
+    key: 'unknown',
+  };
+
+  // ★ 安全访问
+  const config = statusConfig[session.status] || defaultConfig;
   const StatusIcon = config.icon;
 
   return (
