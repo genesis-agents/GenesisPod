@@ -2438,7 +2438,7 @@ function AgentThinkingTabContent({
     return activities;
   }, [safeWsEvents, safePersistedActivities]);
 
-  // 按 Agent 类型分组活动
+  // 按 Agent 类型分组活动（★ 大小写不敏感）
   const activitiesByAgent = useMemo(() => {
     const grouped: Record<string, typeof agentActivities> = {
       leader: [],
@@ -2448,7 +2448,14 @@ function AgentThinkingTabContent({
     };
 
     agentActivities.forEach((activity) => {
-      grouped[activity.agentType].push(activity);
+      // ★ 安全处理：大小写不敏感匹配
+      const key = activity.agentType?.toLowerCase() || 'researcher';
+      if (grouped[key]) {
+        grouped[key].push(activity);
+      } else {
+        // 未知类型归入 researcher
+        grouped.researcher.push(activity);
+      }
     });
 
     return grouped;
@@ -2526,13 +2533,16 @@ function AgentThinkingTabContent({
     headerBg: 'bg-gray-100',
   };
 
-  // ★ 安全获取 Agent 配置（用于 ThinkingTabContent）
-  const getThinkingAgentConfig = (agentType: string) => {
-    const key = agentType.toLowerCase();
+  // ★ 安全获取 Agent 配置（用于所有 Agent 展示）
+  const getAgentConfigSafe = (agentType: string) => {
+    const key = agentType?.toLowerCase() || 'researcher';
     return (
       agentConfig[key] || agentConfig[agentType] || defaultThinkingAgentConfig
     );
   };
+
+  // 别名：用于 ThinkingTabContent
+  const getThinkingAgentConfig = getAgentConfigSafe;
 
   // 判断是否有实际内容
   const hasContent =
@@ -2591,7 +2601,7 @@ function AgentThinkingTabContent({
           activitiesByAgent.leader.length > 0) && (
           <AgentSection
             agentType="leader"
-            config={agentConfig.leader}
+            config={getAgentConfigSafe('leader')}
             isCollapsed={collapsedAgents.has('leader')}
             onToggle={() => toggleAgentCollapse('leader')}
             itemCount={
@@ -2792,7 +2802,7 @@ function AgentThinkingTabContent({
         {activitiesByAgent.reviewer.length > 0 && (
           <AgentSection
             agentType="reviewer"
-            config={agentConfig.reviewer}
+            config={getAgentConfigSafe('reviewer')}
             isCollapsed={collapsedAgents.has('reviewer')}
             onToggle={() => toggleAgentCollapse('reviewer')}
             itemCount={activitiesByAgent.reviewer.length}
@@ -2809,7 +2819,7 @@ function AgentThinkingTabContent({
         {activitiesByAgent.synthesizer.length > 0 && (
           <AgentSection
             agentType="synthesizer"
-            config={agentConfig.synthesizer}
+            config={getAgentConfigSafe('synthesizer')}
             isCollapsed={collapsedAgents.has('synthesizer')}
             onToggle={() => toggleAgentCollapse('synthesizer')}
             itemCount={activitiesByAgent.synthesizer.length}
