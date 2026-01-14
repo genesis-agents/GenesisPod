@@ -92,6 +92,14 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     return () => clearInterval(interval);
   }, [topic.id, isRefreshing, fetchMissionStatus, fetchTeamInfo]);
 
+  // ★ 当任务完成时自动刷新报告
+  useEffect(() => {
+    if (missionStatus?.status === 'COMPLETED') {
+      // 任务完成后刷新报告数据
+      fetchLatestReport(topic.id);
+    }
+  }, [missionStatus?.status, topic.id, fetchLatestReport]);
+
   // Start Leader-driven research
   const handleStartResearch = useCallback(() => {
     startLeaderPlan(topic.id);
