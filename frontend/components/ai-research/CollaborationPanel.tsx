@@ -544,10 +544,16 @@ export function CollaborationPanel({
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // 判断使用哪种模式
+  // 判断使用哪种模式（★ 使用 Array.isArray 确保是数组）
   const useAutoFetchMode = !propReviewTasks;
-  const reviewTasks = useAutoFetchMode ? fetchedTasks : propReviewTasks || [];
-  const collaborators = propCollaborators || [];
+  const reviewTasks = useAutoFetchMode
+    ? fetchedTasks
+    : Array.isArray(propReviewTasks)
+      ? propReviewTasks
+      : [];
+  const collaborators = Array.isArray(propCollaborators)
+    ? propCollaborators
+    : [];
 
   // 转换API任务格式到组件格式
   const convertApiTask = (task: ApiReviewTask): ReviewTask => ({

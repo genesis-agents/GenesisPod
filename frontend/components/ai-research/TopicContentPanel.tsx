@@ -452,11 +452,11 @@ export function TopicContentPanel({
     []
   );
 
-  // Safe array fallbacks
-  const safeDimensions = dimensions || [];
-  const safeEvidence = evidence || [];
-  const safeEvents = researchEvents || [];
-  const safeThinkings = agentThinkings || [];
+  // Safe array fallbacks (★ 使用 Array.isArray 确保是数组)
+  const safeDimensions = Array.isArray(dimensions) ? dimensions : [];
+  const safeEvidence = Array.isArray(evidence) ? evidence : [];
+  const safeEvents = Array.isArray(researchEvents) ? researchEvents : [];
+  const safeThinkings = Array.isArray(agentThinkings) ? agentThinkings : [];
 
   // Tab 配置 - 顺序: 团队互动 → Agent思考 → 洞察报告 → 可信度 → 研究历史 → 参考文献
   const tabs: {
@@ -1373,8 +1373,8 @@ function TeamInteractionTabContent({
     createdAt: string;
   }>;
 }) {
-  const safeEvents = events || [];
-  // ★ 安全处理：确保数组类型，防止 undefined 绕过默认值
+  // ★ 使用 Array.isArray 确保是数组
+  const safeEvents = Array.isArray(events) ? events : [];
   const safeWsEvents = Array.isArray(wsEvents) ? wsEvents : [];
   const safePersistedMessages = Array.isArray(persistedMessages)
     ? persistedMessages
@@ -2237,9 +2237,8 @@ function AgentThinkingTabContent({
   );
   // 展开状态：单条记录详情
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const safeThinkings = thinkings || [];
-
-  // ★ 安全处理：确保数组类型，防止 undefined 绕过默认值
+  // ★ 使用 Array.isArray 确保是数组
+  const safeThinkings = Array.isArray(thinkings) ? thinkings : [];
   const safeWsEvents = Array.isArray(wsEvents) ? wsEvents : [];
   const safePersistedActivities = Array.isArray(persistedActivities)
     ? persistedActivities
@@ -3021,7 +3020,8 @@ function EvidenceTabContent({
   dimensions: TopicDimension[];
   isLoading: boolean;
 }) {
-  const safeEvidence = evidence || [];
+  // ★ 使用 Array.isArray 确保是数组
+  const safeEvidence = Array.isArray(evidence) ? evidence : [];
   const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>(
     'all'
   );

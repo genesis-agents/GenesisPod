@@ -190,6 +190,24 @@ function formatTime(dateStr: string): string {
 
 // ==================== Sub Components ====================
 
+// ★ 默认 phase 配置
+const defaultPhaseConfig = {
+  icon: Brain,
+  label: '处理中',
+  color: 'text-gray-600 dark:text-gray-400',
+  bgColor: 'bg-gray-100 dark:bg-gray-900/30',
+};
+
+// ★ 安全获取 phase 配置
+function getPhaseConfig(phase: string) {
+  const key = phase.toLowerCase();
+  return (
+    phaseConfig[key as ThinkingPhase] ||
+    phaseConfig[phase as ThinkingPhase] ||
+    defaultPhaseConfig
+  );
+}
+
 /**
  * 思考阶段详情
  */
@@ -197,7 +215,7 @@ function PhaseDetail({ activity }: { activity: AgentActivity }) {
   const phase = activity.thinkingPhase;
   if (!phase) return null;
 
-  const config = phaseConfig[phase];
+  const config = getPhaseConfig(phase);
   const Icon = config.icon;
 
   return (

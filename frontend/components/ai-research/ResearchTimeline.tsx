@@ -917,10 +917,22 @@ export function ResearchTimeline({
     };
   }, [topicId]);
 
-  // 使用传入的数据或获取的数据（确保有默认空数组）
-  const histories = propHistories || fetchedHistories || [];
-  const activities = propActivities || fetchedActivities || [];
-  const messages = propMessages || fetchedMessages || [];
+  // 使用传入的数据或获取的数据（★ 安全处理：确保是数组）
+  const histories = Array.isArray(propHistories)
+    ? propHistories
+    : Array.isArray(fetchedHistories)
+      ? fetchedHistories
+      : [];
+  const activities = Array.isArray(propActivities)
+    ? propActivities
+    : Array.isArray(fetchedActivities)
+      ? fetchedActivities
+      : [];
+  const messages = Array.isArray(propMessages)
+    ? propMessages
+    : Array.isArray(fetchedMessages)
+      ? fetchedMessages
+      : [];
   const isLoading = propIsLoading || isFetching;
 
   // 按研究序号倒序排列
@@ -945,8 +957,8 @@ export function ResearchTimeline({
     if (!filteredHistories || filteredHistories.length === 0) return [];
 
     return filteredHistories.map((history) => {
-      // 该会话的所有活动（安全检查）
-      const safeActivities = activities || [];
+      // 该会话的所有活动（★ 使用 Array.isArray 确保是数组）
+      const safeActivities = Array.isArray(activities) ? activities : [];
       const sessionActivities = safeActivities.filter(
         (a) => a.missionId === history.missionId
       );
@@ -961,8 +973,8 @@ export function ResearchTimeline({
         dimensionActivities.get(key)!.push(getExtendedActivity(activity));
       });
 
-      // 该会话的消息（安全检查）
-      const safeMessages = messages || [];
+      // 该会话的消息（★ 使用 Array.isArray 确保是数组）
+      const safeMessages = Array.isArray(messages) ? messages : [];
       const sessionMessages = safeMessages.filter(
         (m) => m.missionId === history.missionId
       );
