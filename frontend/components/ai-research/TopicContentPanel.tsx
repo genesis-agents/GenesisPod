@@ -488,41 +488,42 @@ export function TopicContentPanel({
 
   return (
     <div className="flex h-full flex-col bg-white">
-      {/* Tab Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-4">
-        <div className="flex">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-                activeTab === tab.key
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-              }`}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-              {tab.badge !== undefined && tab.badge > 0 && (
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-xs ${activeTab === tab.key ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}
-                >
-                  {tab.badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+      {/* Tab Header - 只包含 Tab，不包含工具栏 */}
+      <div className="flex overflow-x-auto border-b border-gray-200 px-4">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === tab.key
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            {tab.icon}
+            <span>{tab.label}</span>
+            {tab.badge !== undefined && tab.badge > 0 && (
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-xs ${activeTab === tab.key ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}
+              >
+                {tab.badge}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
 
-        <div className="flex items-center gap-2">
-          {/* 视图模式切换 */}
-          {activeTab === 'report' && (
-            <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+      {/* 报告工具栏 - 仅在报告 Tab 时显示，位于内容区域顶部 */}
+      {activeTab === 'report' && (
+        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-4 py-2">
+          <div className="flex items-center gap-3">
+            {/* 视图模式切换 */}
+            <div className="flex rounded-lg border border-gray-200 bg-white p-0.5">
               <button
                 onClick={() => setReportViewMode('continuous')}
                 className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                   reportViewMode === 'continuous'
-                    ? 'bg-white text-gray-900 shadow-sm'
+                    ? 'bg-blue-50 text-blue-700'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
                 title="连续视图"
@@ -534,7 +535,7 @@ export function TopicContentPanel({
                 onClick={() => setReportViewMode('chapter')}
                 className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                   reportViewMode === 'chapter'
-                    ? 'bg-white text-gray-900 shadow-sm'
+                    ? 'bg-blue-50 text-blue-700'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
                 title="章节视图"
@@ -543,118 +544,127 @@ export function TopicContentPanel({
                 <span>章节</span>
               </button>
             </div>
-          )}
+            {report && (
+              <span className="text-xs text-gray-400">
+                版本 v{report.version} · {report.totalSources} 个来源
+              </span>
+            )}
+          </div>
 
-          {/* 版本选择下拉框 */}
-          {activeTab === 'report' && report && (
-            <div className="relative">
-              <button
-                onClick={() => setVersionMenuOpen(!versionMenuOpen)}
-                className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
-              >
-                <span>版本 {report.version}</span>
-                <ChevronDownIcon className="h-3 w-3" />
-              </button>
-              {versionMenuOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setVersionMenuOpen(false)}
-                  />
-                  <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                    <div className="border-b border-gray-100 px-3 py-2 text-xs font-medium text-gray-400">
-                      版本历史
-                    </div>
-                    {/* Current version */}
-                    <div className="flex items-center gap-2 bg-blue-50 px-3 py-2">
-                      <span className="h-2 w-2 rounded-full bg-blue-500"></span>
-                      <span className="flex-1 text-sm text-blue-700">
-                        版本 {report.version} (当前)
-                      </span>
-                      <span className="text-xs text-blue-500">
-                        {report.generatedAt
-                          ? new Date(report.generatedAt).toLocaleDateString(
-                              'zh-CN'
-                            )
-                          : '-'}
-                      </span>
-                    </div>
-                    {/* Previous versions */}
-                    {revisions.length > 0 ? (
-                      revisions.map((rev) => (
-                        <button
-                          key={rev.id}
-                          onClick={() => {
-                            onRollbackVersion?.(rev.id);
-                            setVersionMenuOpen(false);
-                          }}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
-                        >
-                          <span className="h-2 w-2 rounded-full bg-gray-300"></span>
-                          <span className="flex-1 text-sm text-gray-700">
-                            版本 {rev.version}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {new Date(rev.createdAt).toLocaleDateString(
-                              'zh-CN'
-                            )}
-                          </span>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-3 py-2 text-xs text-gray-400">
-                        暂无历史版本
+          <div className="flex items-center gap-2">
+            {/* 版本选择下拉框 */}
+            {report && (
+              <div className="relative">
+                <button
+                  onClick={() => setVersionMenuOpen(!versionMenuOpen)}
+                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                >
+                  <HistoryIcon className="h-3.5 w-3.5" />
+                  <span>历史</span>
+                  <span className="text-xs text-gray-400">
+                    {revisions.length}
+                  </span>
+                </button>
+                {versionMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setVersionMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                      <div className="border-b border-gray-100 px-3 py-2 text-xs font-medium text-gray-400">
+                        版本历史
                       </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+                      {/* Current version */}
+                      <div className="flex items-center gap-2 bg-blue-50 px-3 py-2">
+                        <span className="h-2 w-2 rounded-full bg-blue-500"></span>
+                        <span className="flex-1 text-sm text-blue-700">
+                          版本 {report.version} (当前)
+                        </span>
+                        <span className="text-xs text-blue-500">
+                          {report.generatedAt
+                            ? new Date(report.generatedAt).toLocaleDateString(
+                                'zh-CN'
+                              )
+                            : '-'}
+                        </span>
+                      </div>
+                      {/* Previous versions */}
+                      {revisions.length > 0 ? (
+                        revisions.map((rev) => (
+                          <button
+                            key={rev.id}
+                            onClick={() => {
+                              onRollbackVersion?.(rev.id);
+                              setVersionMenuOpen(false);
+                            }}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
+                          >
+                            <span className="h-2 w-2 rounded-full bg-gray-300"></span>
+                            <span className="flex-1 text-sm text-gray-700">
+                              版本 {rev.version}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {new Date(rev.createdAt).toLocaleDateString(
+                                'zh-CN'
+                              )}
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-3 py-2 text-xs text-gray-400">
+                          暂无历史版本
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
-          {/* 导出按钮 */}
-          {activeTab === 'report' && report && (
-            <div className="relative">
-              <button
-                onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                <DownloadIcon className="h-4 w-4" />
-                导出
-                <ChevronDownIcon className="h-3 w-3" />
-              </button>
-              {exportMenuOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setExportMenuOpen(false)}
-                  />
-                  <div className="absolute right-0 top-full z-20 mt-1 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                    <button
-                      onClick={() => {
-                        onExportReport?.('pdf');
-                        setExportMenuOpen(false);
-                      }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      导出 PDF
-                    </button>
-                    <button
-                      onClick={() => {
-                        onExportReport?.('docx');
-                        setExportMenuOpen(false);
-                      }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      导出 Word
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+            {/* 导出按钮 */}
+            {report && (
+              <div className="relative">
+                <button
+                  onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                >
+                  <DownloadIcon className="h-3.5 w-3.5" />
+                  <span>导出</span>
+                </button>
+                {exportMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setExportMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full z-20 mt-1 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                      <button
+                        onClick={() => {
+                          onExportReport?.('pdf');
+                          setExportMenuOpen(false);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        导出 PDF
+                      </button>
+                      <button
+                        onClick={() => {
+                          onExportReport?.('docx');
+                          setExportMenuOpen(false);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        导出 Word
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden">
