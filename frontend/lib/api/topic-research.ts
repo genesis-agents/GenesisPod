@@ -390,7 +390,7 @@ export async function exportReport(
 export async function getExportJobStatus(
   jobId: string
 ): Promise<ExportJobResponse> {
-  return fetchWithAuth(`/api/v1/export/jobs/${jobId}`, {
+  return fetchWithAuth(`/api/v1/export/${jobId}`, {
     method: 'GET',
   });
 }

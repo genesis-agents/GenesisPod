@@ -825,6 +825,41 @@ export function ReportEditor({
     [evidence]
   );
 
+  // ★ Combined processing: first annotations, then citations
+  // This ensures both highlighting and citation links work together
+  const processText = useCallback(
+    (text: string): React.ReactNode => {
+      if (!text) return text;
+
+      // First apply annotation highlighting
+      const annotatedResult = processTextWithAnnotations(text);
+
+      // If the result is still a string, apply citations
+      if (typeof annotatedResult === 'string') {
+        return processTextWithCitations(annotatedResult);
+      }
+
+      // If the result is an array of nodes, process string parts for citations
+      if (Array.isArray(annotatedResult)) {
+        return annotatedResult.map((part, i) => {
+          if (typeof part === 'string') {
+            const citationResult = processTextWithCitations(part);
+            // If citation processing returns an array, wrap in span with key
+            if (Array.isArray(citationResult)) {
+              return <span key={`text-${i}`}>{citationResult}</span>;
+            }
+            return citationResult;
+          }
+          return part;
+        });
+      }
+
+      // Single React node (mark element) - return as is
+      return annotatedResult;
+    },
+    [processTextWithAnnotations, processTextWithCitations]
+  );
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -1110,17 +1145,15 @@ export function ReportEditor({
                       {children}
                     </a>
                   ),
-                  // Process text nodes for citations and annotation highlighting
+                  // ★ Process text nodes for both annotations and citations
                   p: ({ children, ...props }) => (
                     <p {...props}>
                       {typeof children === 'string'
-                        ? processTextWithCitations(children)
+                        ? processText(children)
                         : Array.isArray(children)
                           ? children.map((child, i) =>
                               typeof child === 'string' ? (
-                                <span key={i}>
-                                  {processTextWithCitations(child)}
-                                </span>
+                                <span key={i}>{processText(child)}</span>
                               ) : (
                                 child
                               )
@@ -1131,13 +1164,11 @@ export function ReportEditor({
                   li: ({ children, ...props }) => (
                     <li {...props}>
                       {typeof children === 'string'
-                        ? processTextWithCitations(children)
+                        ? processText(children)
                         : Array.isArray(children)
                           ? children.map((child, i) =>
                               typeof child === 'string' ? (
-                                <span key={i}>
-                                  {processTextWithCitations(child)}
-                                </span>
+                                <span key={i}>{processText(child)}</span>
                               ) : (
                                 child
                               )
@@ -1148,14 +1179,14 @@ export function ReportEditor({
                   strong: ({ children, ...props }) => (
                     <strong {...props}>
                       {typeof children === 'string'
-                        ? processTextWithCitations(children)
+                        ? processText(children)
                         : children}
                     </strong>
                   ),
                   em: ({ children, ...props }) => (
                     <em {...props}>
                       {typeof children === 'string'
-                        ? processTextWithCitations(children)
+                        ? processText(children)
                         : children}
                     </em>
                   ),

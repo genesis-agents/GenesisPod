@@ -228,19 +228,19 @@ export class DimensionMissionService {
       let savedEvidenceIds: string[] = [];
       let finalIntegratedResult = integratedResult;
       if (reportId) {
-        const { savedIds, idMapping } = await this.saveEvidence(
+        const { savedIds, indexMapping } = await this.saveEvidence(
           evidenceData,
           reportId,
         );
         savedEvidenceIds = savedIds;
 
-        // 替换报告内容中的临时证据ID为实际数据库ID
-        if (idMapping.size > 0) {
+        // ★ 替换报告内容中的临时证据ID为数字引用 [n]
+        if (indexMapping.size > 0) {
           finalIntegratedResult = {
             ...integratedResult,
             content: this.replaceEvidenceIds(
               integratedResult.content,
-              idMapping,
+              indexMapping,
             ),
           };
         }
@@ -476,15 +476,27 @@ export class DimensionMissionService {
   private async saveEvidence(
     evidenceData: EvidenceData[],
     reportId: string,
-  ): Promise<{ savedIds: string[]; idMapping: Map<string, string> }> {
+  ): Promise<{
+    savedIds: string[];
+    idMapping: Map<string, string>;
+    indexMapping: Map<string, number>;
+  }> {
     if (evidenceData.length === 0) {
-      return { savedIds: [], idMapping: new Map() };
+      return { savedIds: [], idMapping: new Map(), indexMapping: new Map() };
     }
 
+    // ★ 获取当前报告的最大 citationIndex，以便从正确位置开始编号
+    const maxIndexResult = await this.prisma.topicEvidence.aggregate({
+      where: { reportId },
+      _max: { citationIndex: true },
+    });
+    const startIndex = (maxIndexResult._max.citationIndex || 0) + 1;
+
     // 评估可信度
-    const evidenceWithCredibility = evidenceData.map((e) => ({
+    const evidenceWithCredibility = evidenceData.map((e, index) => ({
       ...e,
       credibilityScore: this.assessCredibility(e),
+      citationIndex: startIndex + index, // ★ 设置引用编号
     }));
 
     // 批量创建
@@ -499,34 +511,39 @@ export class DimensionMissionService {
             sourceType: evidence.sourceType,
             publishedAt: evidence.publishedAt,
             credibilityScore: evidence.credibilityScore,
+            citationIndex: evidence.citationIndex, // ★ 保存引用编号
             reportId,
           },
-          select: { id: true },
+          select: { id: true, citationIndex: true },
         }),
       ),
     );
 
     // 构建 tempId -> actualId 映射
     const idMapping = new Map<string, string>();
+    // ★ 新增: 构建 tempId -> citationIndex 映射（用于替换为数字引用）
+    const indexMapping = new Map<string, number>();
     evidenceData.forEach((e, index) => {
       idMapping.set(e.id, created[index].id);
+      indexMapping.set(e.id, created[index].citationIndex!);
     });
 
-    return { savedIds: created.map((e) => e.id), idMapping };
+    return { savedIds: created.map((e) => e.id), idMapping, indexMapping };
   }
 
   /**
-   * 替换内容中的临时证据ID为实际数据库ID
+   * 替换内容中的临时证据ID为数字引用格式 [n]
+   * ★ 关键修复：前端期望 [1], [2] 格式，而非 UUID 格式
    */
   private replaceEvidenceIds(
     content: string,
-    idMapping: Map<string, string>,
+    indexMapping: Map<string, number>,
   ): string {
     let result = content;
-    // 替换 [temp-X-Y] 格式的引用
-    idMapping.forEach((actualId, tempId) => {
+    // 替换 [temp-X-Y] 格式的引用为 [n] 数字格式
+    indexMapping.forEach((citationIndex, tempId) => {
       const pattern = new RegExp(`\\[${tempId}\\]`, "g");
-      result = result.replace(pattern, `[${actualId}]`);
+      result = result.replace(pattern, `[${citationIndex}]`);
     });
     return result;
   }
