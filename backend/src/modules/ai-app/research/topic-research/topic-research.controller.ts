@@ -51,6 +51,11 @@ import {
   MissionAdjustDto,
   AssignReviewTaskDto,
   CompleteReviewTaskDto,
+  GetTodosQueryDto,
+  CancelTodoDto,
+  PrioritizeTodoDto,
+  UpdateTodoProgressDto,
+  CreateUserRequestTodoDto,
 } from "./dto";
 import {
   AddCollaboratorDto,
@@ -63,6 +68,7 @@ import { ResearchLeaderService } from "./services/research-leader.service";
 import { TopicCollaboratorService } from "./services/topic-collaborator.service";
 import { ResearchEventEmitterService } from "./services/research-event-emitter.service";
 import { ReviewWorkflowService } from "./services/review-workflow.service";
+import { ResearchTodoService } from "./services/research-todo.service";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
@@ -76,6 +82,7 @@ export class TopicResearchController {
     private readonly collaboratorService: TopicCollaboratorService,
     private readonly eventEmitterService: ResearchEventEmitterService,
     private readonly reviewWorkflowService: ReviewWorkflowService,
+    private readonly todoService: ResearchTodoService,
   ) {}
 
   // ==================== Topics CRUD ====================
@@ -1851,5 +1858,268 @@ export class TopicResearchController {
       throw new UnauthorizedException("User not authenticated");
     }
     return this.reviewWorkflowService.canPublishReport(reportId);
+  }
+
+  // ==================== TODO Management ====================
+
+  /**
+   * 获取专题的 TODO 列表
+   */
+  @Get("topics/:topicId/todos")
+  @ApiOperation({
+    summary: "获取 TODO 列表",
+    description: "获取专题的研究任务 TODO 列表",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiQuery({
+    name: "missionId",
+    required: false,
+    description: "按 Mission 过滤",
+  })
+  @ApiResponse({ status: 200, description: "返回 TODO 列表和汇总" })
+  async getTodos(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Query() query: GetTodosQueryDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.todoService.getTodos(topicId, {
+      missionId: query.missionId,
+      status: query.status,
+      type: query.type,
+    });
+  }
+
+  /**
+   * 获取单个 TODO 详情
+   */
+  @Get("topics/:topicId/todos/:todoId")
+  @ApiOperation({
+    summary: "获取 TODO 详情",
+    description: "获取单个 TODO 的详细信息",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "todoId", description: "TODO ID" })
+  @ApiResponse({ status: 200, description: "返回 TODO 详情" })
+  async getTodoById(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("todoId") todoId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.todoService.getTodoById(todoId);
+  }
+
+  /**
+   * 获取 TODO 详情（包含 Agent 活动）
+   */
+  @Get("topics/:topicId/todos/:todoId/details")
+  @ApiOperation({
+    summary: "获取 TODO 详情和活动",
+    description: "获取 TODO 详情，包含关联的 Agent 活动记录",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "todoId", description: "TODO ID" })
+  @ApiResponse({ status: 200, description: "返回 TODO 详情和活动" })
+  async getTodoDetails(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("todoId") todoId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.todoService.getTodoDetails(todoId);
+  }
+
+  /**
+   * 暂停 TODO
+   */
+  @Post("topics/:topicId/todos/:todoId/pause")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "暂停 TODO",
+    description: "暂停正在进行的 TODO",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "todoId", description: "TODO ID" })
+  @ApiResponse({ status: 200, description: "暂停成功" })
+  async pauseTodo(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("todoId") todoId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const todo = await this.todoService.pauseTodo(todoId);
+    return { success: true, todo };
+  }
+
+  /**
+   * 恢复 TODO
+   */
+  @Post("topics/:topicId/todos/:todoId/resume")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "恢复 TODO",
+    description: "恢复已暂停的 TODO",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "todoId", description: "TODO ID" })
+  @ApiResponse({ status: 200, description: "恢复成功" })
+  async resumeTodo(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("todoId") todoId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const todo = await this.todoService.resumeTodo(todoId);
+    return { success: true, todo };
+  }
+
+  /**
+   * 取消 TODO
+   */
+  @Post("topics/:topicId/todos/:todoId/cancel")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "取消 TODO",
+    description: "取消待处理或已暂停的 TODO",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "todoId", description: "TODO ID" })
+  @ApiResponse({ status: 200, description: "取消成功" })
+  async cancelTodo(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("todoId") todoId: string,
+    @Body() dto: CancelTodoDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const todo = await this.todoService.cancelTodo(todoId, dto.reason);
+    return { success: true, todo };
+  }
+
+  /**
+   * 重试 TODO
+   */
+  @Post("topics/:topicId/todos/:todoId/retry")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "重试 TODO",
+    description: "重试失败的 TODO",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "todoId", description: "TODO ID" })
+  @ApiResponse({ status: 200, description: "重试已排队" })
+  async retryTodo(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("todoId") todoId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const todo = await this.todoService.retryTodo(todoId);
+    return { success: true, todo };
+  }
+
+  /**
+   * 调整 TODO 优先级
+   */
+  @Patch("topics/:topicId/todos/:todoId/priority")
+  @ApiOperation({
+    summary: "调整优先级",
+    description: "调整 TODO 的执行优先级",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "todoId", description: "TODO ID" })
+  @ApiResponse({ status: 200, description: "优先级已调整" })
+  async prioritizeTodo(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("todoId") todoId: string,
+    @Body() dto: PrioritizeTodoDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const todo = await this.todoService.prioritizeTodo(todoId, dto.priority);
+    return { success: true, todo };
+  }
+
+  /**
+   * 更新 TODO 进度（内部使用）
+   */
+  @Patch("topics/:topicId/todos/:todoId/progress")
+  @ApiOperation({
+    summary: "更新进度",
+    description: "更新 TODO 的执行进度",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "todoId", description: "TODO ID" })
+  @ApiResponse({ status: 200, description: "进度已更新" })
+  async updateTodoProgress(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("todoId") todoId: string,
+    @Body() dto: UpdateTodoProgressDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const todo = await this.todoService.updateTodoProgress(todoId, {
+      progress: dto.progress,
+      statusMessage: dto.statusMessage,
+    });
+    return { success: true, todo };
+  }
+
+  /**
+   * 创建用户请求 TODO
+   */
+  @Post("topics/:topicId/missions/:missionId/todos")
+  @ApiOperation({
+    summary: "创建用户请求",
+    description: "创建一个用户请求的 TODO",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "missionId", description: "Mission ID" })
+  @ApiResponse({ status: 201, description: "TODO 创建成功" })
+  async createUserRequestTodo(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("missionId") missionId: string,
+    @Body() dto: CreateUserRequestTodoDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const todo = await this.todoService.createUserRequestTodo(
+      topicId,
+      missionId,
+      dto.title,
+      dto.description,
+    );
+    return { success: true, todo };
   }
 }

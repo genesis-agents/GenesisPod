@@ -102,9 +102,10 @@ describe("TaskProfileMapperService", () => {
   // ==================== 推理模型测试 ====================
 
   describe("Reasoning Model Handling", () => {
-    it("should boost tokens for reasoning models to minimum", () => {
+    it("should boost tokens for reasoning models to minimum when model supports it", () => {
       const modelConfig = createMockModelConfig({
         isReasoning: true,
+        maxTokens: 50000, // Model supports enough tokens
       });
 
       const result = service.mapToParameters(
@@ -115,9 +116,10 @@ describe("TaskProfileMapperService", () => {
       expect(result.maxTokens).toBe(REASONING_MODEL_MIN_TOKENS);
     });
 
-    it("should boost extended output to 32000 for reasoning models", () => {
+    it("should boost extended output to 32000 for reasoning models when supported", () => {
       const modelConfig = createMockModelConfig({
         isReasoning: true,
+        maxTokens: 50000, // Model supports enough tokens
       });
 
       const result = service.mapToParameters(
@@ -128,9 +130,10 @@ describe("TaskProfileMapperService", () => {
       expect(result.maxTokens).toBe(32000);
     });
 
-    it("should boost long output to 28000 for reasoning models", () => {
+    it("should boost long output to 28000 for reasoning models when supported", () => {
       const modelConfig = createMockModelConfig({
         isReasoning: true,
+        maxTokens: 50000, // Model supports enough tokens
       });
 
       const result = service.mapToParameters(
@@ -141,7 +144,7 @@ describe("TaskProfileMapperService", () => {
       expect(result.maxTokens).toBe(28000);
     });
 
-    it("should not cap reasoning model tokens even if model config is lower", () => {
+    it("should cap reasoning model tokens to model max to prevent API errors", () => {
       const modelConfig = createMockModelConfig({
         maxTokens: 12000, // Lower than REASONING_MODEL_MIN_TOKENS
         isReasoning: true,
@@ -152,7 +155,23 @@ describe("TaskProfileMapperService", () => {
         modelConfig,
       );
 
-      // Should use REASONING_MODEL_MIN_TOKENS, not be capped at 12000
+      // Should cap to model's maxTokens to prevent API 400 errors
+      // The service will log a warning about suboptimal configuration
+      expect(result.maxTokens).toBe(12000);
+    });
+
+    it("should use model maxTokens when it meets reasoning minimum", () => {
+      const modelConfig = createMockModelConfig({
+        maxTokens: 30000, // Higher than REASONING_MODEL_MIN_TOKENS
+        isReasoning: true,
+      });
+
+      const result = service.mapToParameters(
+        { outputLength: "medium" },
+        modelConfig,
+      );
+
+      // Should use REASONING_MODEL_MIN_TOKENS since it's within model limits
       expect(result.maxTokens).toBe(REASONING_MODEL_MIN_TOKENS);
     });
   });

@@ -100,15 +100,27 @@ export class TaskProfileMapperService {
     const modelMaxTokens = modelConfig?.maxTokens;
     if (modelMaxTokens && effectiveMaxTokens > modelMaxTokens) {
       if (isReasoning) {
-        // ★ 推理模型：如果数据库配置的 maxTokens 太低，发出警告但不强制降低
-        // 因为推理模型需要更多 tokens 来完成内部推理
-        this.logger.warn(
-          `[mapToParameters] ⚠️ Reasoning model token conflict! ` +
-            `Required: ${effectiveMaxTokens}, Model max: ${modelMaxTokens}. ` +
-            `Using required value to prevent empty output. ` +
-            `Consider updating model config in database.`,
-        );
-        // 不降低 - 让推理模型有足够空间
+        // ★ 推理模型：检查是否需要降低到模型实际限制
+        // 推理模型需要更多 tokens，但不能超过模型的实际最大值
+        // 如果数据库配置的 maxTokens 太低，使用模型最大值并警告
+        if (modelMaxTokens >= REASONING_MODEL_MIN_TOKENS) {
+          // 模型支持足够的 tokens，使用模型最大值
+          this.logger.debug(
+            `[mapToParameters] Reasoning model: capping at model max: ` +
+              `${effectiveMaxTokens} → ${modelMaxTokens}`,
+          );
+          effectiveMaxTokens = modelMaxTokens;
+        } else {
+          // 模型的 maxTokens 低于推理模型最小值
+          // 使用模型最大值，但警告用户更新配置
+          this.logger.warn(
+            `[mapToParameters] ⚠️ Reasoning model config issue: ` +
+              `Model max (${modelMaxTokens}) is below recommended minimum (${REASONING_MODEL_MIN_TOKENS}). ` +
+              `Using model max to prevent API errors. ` +
+              `Consider updating model config in database for better reasoning output.`,
+          );
+          effectiveMaxTokens = modelMaxTokens;
+        }
       } else {
         // 非推理模型：正常限制
         this.logger.debug(

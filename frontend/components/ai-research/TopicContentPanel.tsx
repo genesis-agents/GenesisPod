@@ -23,23 +23,19 @@ import { ChapterizedReportView } from './ChapterizedReportView';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
 // Phase 1-3 优化组件
 import { CredibilityPanel } from './CredibilityPanel';
-import { ResearchTimeline } from './ResearchTimeline';
-import { AgentThinkingTimeline } from './AgentThinkingTimeline';
-import { ChangeReviewPanel } from './ChangeReviewPanel';
-import { CollaborationPanel } from './CollaborationPanel';
+// Phase TODO UX 优化组件 - 新的研究协作面板（合并原 thinking/history/collaboration）
+import { ResearchCollaborationPanel } from './ResearchCollaborationPanel';
 
 // 报告视图模式
 type ReportViewMode = 'continuous' | 'chapter';
 
-// Tab 类型定义
+// Tab 类型定义 - 已简化，原 thinking/history/collaboration 合并为 research_collab
 type TabType =
   | 'report'
   | 'team'
-  | 'thinking'
   | 'references'
   | 'credibility'
-  | 'history'
-  | 'collaboration';
+  | 'research_collab';
 
 // 研究事件类型
 export interface ResearchEvent {
@@ -131,6 +127,8 @@ interface TopicContentPanelProps {
   onClearWsEvents?: () => void;
   /** Mission status from backend */
   missionStatus?: MissionStatus | null;
+  /** Topic ID for TODO integration */
+  topicId?: string;
 }
 
 // Icons
@@ -329,6 +327,7 @@ export function TopicContentPanel({
   wsConnected = false,
   onClearWsEvents,
   missionStatus,
+  topicId,
 }: TopicContentPanelProps) {
   // Get persisted team data from store
   const {
@@ -336,7 +335,7 @@ export function TopicContentPanel({
     agentActivities: persistedActivities,
   } = useTopicResearchStore();
 
-  const [activeTab, setActiveTab] = useState<TabType>('team');
+  const [activeTab, setActiveTab] = useState<TabType>('research_collab');
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [versionMenuOpen, setVersionMenuOpen] = useState(false);
   const [reportViewMode, setReportViewMode] =
@@ -458,7 +457,8 @@ export function TopicContentPanel({
   const safeEvents = Array.isArray(researchEvents) ? researchEvents : [];
   const safeThinkings = Array.isArray(agentThinkings) ? agentThinkings : [];
 
-  // Tab 配置 - 顺序: 团队互动 → Agent思考 → 洞察报告 → 可信度 → 研究历史 → 参考文献
+  // Tab 配置 - 顺序: 研究协作(TODO) → 团队互动 → 洞察报告 → 可信度 → 参考文献
+  // 注：原 Agent思考 和 研究历史 Tab 合并为 研究协作 Tab
   const tabs: {
     key: TabType;
     label: string;
@@ -466,16 +466,29 @@ export function TopicContentPanel({
     badge?: number;
   }[] = [
     {
+      key: 'research_collab',
+      label: '研究协作',
+      icon: (
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+          />
+        </svg>
+      ),
+    },
+    {
       key: 'team',
       label: '团队互动',
       icon: <TeamIcon className="h-4 w-4" />,
       badge: safeEvents.length > 0 ? safeEvents.length : undefined,
-    },
-    {
-      key: 'thinking',
-      label: 'Agent思考',
-      icon: <ThinkingIcon className="h-4 w-4" />,
-      badge: safeThinkings.length > 0 ? safeThinkings.length : undefined,
     },
     {
       key: 'report',
@@ -488,20 +501,10 @@ export function TopicContentPanel({
       icon: <CredibilityIcon className="h-4 w-4" />,
     },
     {
-      key: 'history',
-      label: '研究历史',
-      icon: <HistoryIcon className="h-4 w-4" />,
-    },
-    {
       key: 'references',
       label: '参考文献',
       icon: <LinkIcon className="h-4 w-4" />,
       badge: safeEvidence.length,
-    },
-    {
-      key: 'collaboration',
-      label: '协作审核',
-      icon: <TeamIcon className="h-4 w-4" />,
     },
   ];
 
@@ -733,6 +736,13 @@ export function TopicContentPanel({
             }}
           />
         )}
+        {activeTab === 'research_collab' && topicId && (
+          <ResearchCollaborationPanel
+            topicId={topicId}
+            missionId={missionStatus?.id}
+            className="h-full"
+          />
+        )}
         {activeTab === 'team' && (
           <TeamInteractionTabContent
             events={safeEvents}
@@ -742,19 +752,9 @@ export function TopicContentPanel({
             persistedMessages={persistedMessages}
           />
         )}
-        {activeTab === 'thinking' && report && (
-          <div className="h-full overflow-y-auto">
-            <ResearchTimeline topicId={report.topicId} />
-          </div>
-        )}
         {activeTab === 'credibility' && report && (
           <div className="h-full overflow-y-auto p-4">
             <CredibilityPanel reportId={report.id} />
-          </div>
-        )}
-        {activeTab === 'history' && (
-          <div className="h-full overflow-y-auto p-4">
-            <ResearchTimeline topicId={report?.topicId || ''} />
           </div>
         )}
         {activeTab === 'references' && (
@@ -764,11 +764,6 @@ export function TopicContentPanel({
             dimensions={safeDimensions}
             isLoading={isLoadingEvidence}
           />
-        )}
-        {activeTab === 'collaboration' && report && (
-          <div className="h-full overflow-y-auto">
-            <CollaborationPanel topicId={report.topicId} reportId={report.id} />
-          </div>
         )}
       </div>
 

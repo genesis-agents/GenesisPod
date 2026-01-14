@@ -35,7 +35,14 @@ export type ResearchEventType =
   // 报告撰写事件
   | 'report:synthesis_started'
   | 'report:synthesis_progress'
-  | 'report:synthesis_completed';
+  | 'report:synthesis_completed'
+  // TODO 事件 (Phase TODO UX Enhancement)
+  | 'todo:created'
+  | 'todo:status_changed'
+  | 'todo:progress'
+  | 'todo:completed'
+  | 'todo:failed'
+  | 'todo:cancelled';
 
 // Leader 思考数据
 export interface LeaderThinkingData {
@@ -328,6 +335,36 @@ export function useResearchWebSocket(
     socket.on('report:synthesis_completed', (data) => {
       console.log('[ResearchWS] Report synthesis completed:', data);
       handleEvent('report:synthesis_completed', data);
+    });
+
+    // TODO 事件 (Phase TODO UX Enhancement)
+    socket.on('todo:created', (data) => {
+      console.log('[ResearchWS] TODO created:', data);
+      handleEvent('todo:created', data);
+    });
+
+    socket.on('todo:status_changed', (data) => {
+      console.log('[ResearchWS] TODO status changed:', data);
+      handleEvent('todo:status_changed', data);
+    });
+
+    socket.on('todo:progress', (data) => {
+      handleEvent('todo:progress', data);
+    });
+
+    socket.on('todo:completed', (data) => {
+      console.log('[ResearchWS] TODO completed:', data);
+      handleEvent('todo:completed', data);
+    });
+
+    socket.on('todo:failed', (data) => {
+      console.log('[ResearchWS] TODO failed:', data);
+      handleEvent('todo:failed', data);
+    });
+
+    socket.on('todo:cancelled', (data) => {
+      console.log('[ResearchWS] TODO cancelled:', data);
+      handleEvent('todo:cancelled', data);
     });
 
     socketRef.current = socket;

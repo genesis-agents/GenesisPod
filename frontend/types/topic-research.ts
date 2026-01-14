@@ -478,3 +478,118 @@ export interface ResearchTemplate {
   icon?: string;
   color?: string;
 }
+
+// ==================== TODO Types ====================
+
+/**
+ * TODO 任务类型
+ */
+export enum ResearchTodoType {
+  LEADER_PLANNING = 'LEADER_PLANNING',
+  DIMENSION_RESEARCH = 'DIMENSION_RESEARCH',
+  REPORT_WRITING = 'REPORT_WRITING',
+  QUALITY_REVIEW = 'QUALITY_REVIEW',
+  USER_REQUEST = 'USER_REQUEST',
+}
+
+/**
+ * TODO 任务状态
+ */
+export enum ResearchTodoStatus {
+  PENDING = 'PENDING',
+  QUEUED = 'QUEUED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  PAUSED = 'PAUSED',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+}
+
+/**
+ * 研究 TODO
+ */
+export interface ResearchTodo {
+  id: string;
+  topicId: string;
+  missionId: string;
+  type: ResearchTodoType;
+  title: string;
+  description?: string;
+  dimensionId?: string;
+  dimensionName?: string;
+  agentId?: string;
+  agentName?: string;
+  agentRole?: string;
+  status: ResearchTodoStatus;
+  progress: number;
+  statusMessage?: string;
+  priority: number;
+  dependsOn: string[];
+  startedAt?: string;
+  completedAt?: string;
+  estimatedMs?: number;
+  actualMs?: number;
+  result?: TodoResult;
+  userCanPause: boolean;
+  userCanCancel: boolean;
+  userCanPrioritize: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * TODO 结果
+ */
+export interface TodoResult {
+  sourcesFound?: number;
+  wordCount?: number;
+  keyFindings?: number;
+  error?: string;
+}
+
+/**
+ * TODO 汇总
+ */
+export interface TodoSummary {
+  total: number;
+  pending: number;
+  queued: number;
+  inProgress: number;
+  paused: number;
+  completed: number;
+  failed: number;
+  cancelled: number;
+  overallProgress: number;
+}
+
+/**
+ * TODO 列表响应
+ */
+export interface TodoListResponse {
+  todos: ResearchTodo[];
+  summary: TodoSummary;
+}
+
+/**
+ * TODO 分组
+ */
+export interface TodoGroup {
+  status: 'in_progress' | 'pending' | 'completed' | 'failed';
+  label: string;
+  todos: ResearchTodo[];
+  isExpanded: boolean;
+}
+
+/**
+ * TODO WebSocket 事件类型
+ */
+export enum TodoEventType {
+  TODO_CREATED = 'todo:created',
+  TODO_STATUS_CHANGED = 'todo:status_changed',
+  TODO_PROGRESS = 'todo:progress',
+  TODO_COMPLETED = 'todo:completed',
+  TODO_FAILED = 'todo:failed',
+  TODO_CANCELLED = 'todo:cancelled',
+  TODO_PAUSED = 'todo:paused',
+  TODO_RESUMED = 'todo:resumed',
+}

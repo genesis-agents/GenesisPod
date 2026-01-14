@@ -1,0 +1,872 @@
+/**
+ * Research TODO Service
+ *
+ * 管理研究任务的 TODO 列表，提供任务可视化和进度追踪
+ * 参考 Claude Code 的 TODO 机制设计
+ *
+ * 功能：
+ * - TODO CRUD 操作
+ * - 从 Mission 自动生成 TODO 列表
+ * - 状态更新和进度追踪
+ * - WebSocket 事件推送
+ * - 数据库持久化
+ */
+
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import { ResearchTodoStatus, ResearchTodoType, Prisma } from "@prisma/client";
+import type { ResearchTodo, ResearchMission } from "@prisma/client";
+import { ResearchEventEmitterService } from "./research-event-emitter.service";
+
+// ==================== Types ====================
+
+export interface CreateTodoInput {
+  topicId: string;
+  missionId: string;
+  type: ResearchTodoType;
+  title: string;
+  description?: string;
+  dimensionId?: string;
+  dimensionName?: string;
+  agentId?: string;
+  agentName?: string;
+  agentRole?: string;
+  priority?: number;
+  dependsOn?: string[];
+  estimatedMs?: number;
+  userCanPause?: boolean;
+  userCanCancel?: boolean;
+  userCanPrioritize?: boolean;
+}
+
+export interface UpdateTodoProgressInput {
+  progress: number;
+  statusMessage?: string;
+}
+
+export interface TodoFilter {
+  missionId?: string;
+  status?: ResearchTodoStatus[];
+  type?: ResearchTodoType[];
+}
+
+export interface TodoSummary {
+  total: number;
+  pending: number;
+  queued: number;
+  inProgress: number;
+  paused: number;
+  completed: number;
+  failed: number;
+  cancelled: number;
+  overallProgress: number;
+}
+
+export interface TodoResult {
+  sourcesFound?: number;
+  wordCount?: number;
+  keyFindings?: number;
+  error?: string;
+}
+
+// ==================== WebSocket Event Types ====================
+
+export enum TodoEventType {
+  TODO_CREATED = "todo:created",
+  TODO_STATUS_CHANGED = "todo:status_changed",
+  TODO_PROGRESS = "todo:progress",
+  TODO_COMPLETED = "todo:completed",
+  TODO_FAILED = "todo:failed",
+  TODO_CANCELLED = "todo:cancelled",
+  TODO_PAUSED = "todo:paused",
+  TODO_RESUMED = "todo:resumed",
+}
+
+// ==================== Service ====================
+
+@Injectable()
+export class ResearchTodoService {
+  private readonly logger = new Logger(ResearchTodoService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: ResearchEventEmitterService,
+  ) {}
+
+  // ==================== CRUD 操作 ====================
+
+  /**
+   * 创建新的 TODO
+   */
+  async createTodo(input: CreateTodoInput): Promise<ResearchTodo> {
+    const todo = await this.prisma.researchTodo.create({
+      data: {
+        topicId: input.topicId,
+        missionId: input.missionId,
+        type: input.type,
+        title: input.title,
+        description: input.description,
+        dimensionId: input.dimensionId,
+        dimensionName: input.dimensionName,
+        agentId: input.agentId,
+        agentName: input.agentName,
+        agentRole: input.agentRole,
+        priority: input.priority ?? 0,
+        dependsOn: input.dependsOn ?? [],
+        estimatedMs: input.estimatedMs,
+        userCanPause: input.userCanPause ?? true,
+        userCanCancel: input.userCanCancel ?? true,
+        userCanPrioritize: input.userCanPrioritize ?? true,
+        status: ResearchTodoStatus.PENDING,
+      },
+    });
+
+    // 发送 WebSocket 事件
+    await this.emitTodoEvent(input.topicId, TodoEventType.TODO_CREATED, {
+      todo: this.formatTodoForClient(todo),
+    });
+
+    this.logger.log(`[createTodo] Created TODO ${todo.id}: ${todo.title}`);
+    return todo;
+  }
+
+  /**
+   * 获取专题的 TODO 列表
+   */
+  async getTodos(
+    topicId: string,
+    filter?: TodoFilter,
+  ): Promise<{ todos: ResearchTodo[]; summary: TodoSummary }> {
+    const where: Prisma.ResearchTodoWhereInput = {
+      topicId,
+      ...(filter?.missionId && { missionId: filter.missionId }),
+      ...(filter?.status?.length && { status: { in: filter.status } }),
+      ...(filter?.type?.length && { type: { in: filter.type } }),
+    };
+
+    const todos = await this.prisma.researchTodo.findMany({
+      where,
+      orderBy: [{ status: "asc" }, { priority: "desc" }, { createdAt: "asc" }],
+    });
+
+    const summary = this.calculateSummary(todos);
+
+    return { todos, summary };
+  }
+
+  /**
+   * 获取单个 TODO 详情
+   */
+  async getTodoById(todoId: string): Promise<ResearchTodo> {
+    const todo = await this.prisma.researchTodo.findUnique({
+      where: { id: todoId },
+    });
+
+    if (!todo) {
+      throw new NotFoundException(`TODO ${todoId} not found`);
+    }
+
+    return todo;
+  }
+
+  /**
+   * 获取 TODO 详情（包含关联的 Agent 活动）
+   */
+  async getTodoDetails(todoId: string): Promise<{
+    todo: ResearchTodo;
+    activities: any[];
+  }> {
+    const todo = await this.getTodoById(todoId);
+
+    // 获取关联的 Agent 活动
+    const activities = await this.prisma.researchAgentActivity.findMany({
+      where: {
+        topicId: todo.topicId,
+        missionId: todo.missionId,
+        ...(todo.dimensionId && { dimensionId: todo.dimensionId }),
+        ...(todo.agentId && { agentId: todo.agentId }),
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return { todo, activities };
+  }
+
+  // ==================== 状态管理 ====================
+
+  /**
+   * 更新 TODO 状态
+   */
+  async updateTodoStatus(
+    todoId: string,
+    newStatus: ResearchTodoStatus,
+    message?: string,
+  ): Promise<ResearchTodo> {
+    const todo = await this.getTodoById(todoId);
+    const oldStatus = todo.status;
+
+    // 验证状态转换
+    this.validateStatusTransition(oldStatus, newStatus);
+
+    // 更新字段
+    const updateData: Prisma.ResearchTodoUpdateInput = {
+      status: newStatus,
+      ...(message && { statusMessage: message }),
+    };
+
+    // 状态特定更新
+    if (newStatus === ResearchTodoStatus.IN_PROGRESS && !todo.startedAt) {
+      updateData.startedAt = new Date();
+    }
+
+    if (
+      newStatus === ResearchTodoStatus.COMPLETED ||
+      newStatus === ResearchTodoStatus.FAILED ||
+      newStatus === ResearchTodoStatus.CANCELLED
+    ) {
+      updateData.completedAt = new Date();
+      if (todo.startedAt) {
+        updateData.actualMs = Date.now() - todo.startedAt.getTime();
+      }
+    }
+
+    const updatedTodo = await this.prisma.researchTodo.update({
+      where: { id: todoId },
+      data: updateData,
+    });
+
+    // 发送状态变更事件
+    await this.emitTodoEvent(todo.topicId, TodoEventType.TODO_STATUS_CHANGED, {
+      todoId,
+      oldStatus,
+      newStatus,
+      message,
+      todo: this.formatTodoForClient(updatedTodo),
+    });
+
+    this.logger.log(
+      `[updateTodoStatus] TODO ${todoId}: ${oldStatus} -> ${newStatus}`,
+    );
+    return updatedTodo;
+  }
+
+  /**
+   * 更新 TODO 进度
+   */
+  async updateTodoProgress(
+    todoId: string,
+    input: UpdateTodoProgressInput,
+  ): Promise<ResearchTodo> {
+    const todo = await this.getTodoById(todoId);
+
+    // 只有进行中的任务才能更新进度
+    if (todo.status !== ResearchTodoStatus.IN_PROGRESS) {
+      throw new BadRequestException(
+        `Cannot update progress for TODO with status ${todo.status}`,
+      );
+    }
+
+    const updatedTodo = await this.prisma.researchTodo.update({
+      where: { id: todoId },
+      data: {
+        progress: Math.min(100, Math.max(0, input.progress)),
+        statusMessage: input.statusMessage,
+      },
+    });
+
+    // 发送进度事件
+    await this.emitTodoEvent(todo.topicId, TodoEventType.TODO_PROGRESS, {
+      todoId,
+      progress: updatedTodo.progress,
+      statusMessage: input.statusMessage,
+    });
+
+    return updatedTodo;
+  }
+
+  /**
+   * 完成 TODO（带结果）
+   */
+  async completeTodo(
+    todoId: string,
+    result?: TodoResult,
+  ): Promise<ResearchTodo> {
+    const todo = await this.getTodoById(todoId);
+
+    const updatedTodo = await this.prisma.researchTodo.update({
+      where: { id: todoId },
+      data: {
+        status: ResearchTodoStatus.COMPLETED,
+        progress: 100,
+        completedAt: new Date(),
+        actualMs: todo.startedAt ? Date.now() - todo.startedAt.getTime() : null,
+        result: result ? (result as any) : undefined,
+        statusMessage: "已完成",
+      },
+    });
+
+    // 发送完成事件
+    await this.emitTodoEvent(todo.topicId, TodoEventType.TODO_COMPLETED, {
+      todoId,
+      result,
+      duration: updatedTodo.actualMs,
+      todo: this.formatTodoForClient(updatedTodo),
+    });
+
+    this.logger.log(`[completeTodo] TODO ${todoId} completed`);
+    return updatedTodo;
+  }
+
+  /**
+   * 标记 TODO 失败
+   */
+  async failTodo(todoId: string, error: string): Promise<ResearchTodo> {
+    const todo = await this.getTodoById(todoId);
+
+    const updatedTodo = await this.prisma.researchTodo.update({
+      where: { id: todoId },
+      data: {
+        status: ResearchTodoStatus.FAILED,
+        completedAt: new Date(),
+        actualMs: todo.startedAt ? Date.now() - todo.startedAt.getTime() : null,
+        result: { error } as any,
+        statusMessage: `失败: ${error}`,
+      },
+    });
+
+    // 发送失败事件
+    await this.emitTodoEvent(todo.topicId, TodoEventType.TODO_FAILED, {
+      todoId,
+      error,
+      canRetry: true,
+      todo: this.formatTodoForClient(updatedTodo),
+    });
+
+    this.logger.error(`[failTodo] TODO ${todoId} failed: ${error}`);
+    return updatedTodo;
+  }
+
+  // ==================== 用户操作 ====================
+
+  /**
+   * 暂停 TODO
+   */
+  async pauseTodo(todoId: string): Promise<ResearchTodo> {
+    const todo = await this.getTodoById(todoId);
+
+    if (!todo.userCanPause) {
+      throw new BadRequestException("This TODO cannot be paused");
+    }
+
+    if (todo.status !== ResearchTodoStatus.IN_PROGRESS) {
+      throw new BadRequestException("Only in-progress TODOs can be paused");
+    }
+
+    const updatedTodo = await this.prisma.researchTodo.update({
+      where: { id: todoId },
+      data: {
+        status: ResearchTodoStatus.PAUSED,
+        statusMessage: "用户已暂停",
+      },
+    });
+
+    await this.emitTodoEvent(todo.topicId, TodoEventType.TODO_PAUSED, {
+      todoId,
+      todo: this.formatTodoForClient(updatedTodo),
+    });
+
+    this.logger.log(`[pauseTodo] TODO ${todoId} paused by user`);
+    return updatedTodo;
+  }
+
+  /**
+   * 恢复 TODO
+   */
+  async resumeTodo(todoId: string): Promise<ResearchTodo> {
+    const todo = await this.getTodoById(todoId);
+
+    if (todo.status !== ResearchTodoStatus.PAUSED) {
+      throw new BadRequestException("Only paused TODOs can be resumed");
+    }
+
+    const updatedTodo = await this.prisma.researchTodo.update({
+      where: { id: todoId },
+      data: {
+        status: ResearchTodoStatus.IN_PROGRESS,
+        statusMessage: "已恢复执行",
+      },
+    });
+
+    await this.emitTodoEvent(todo.topicId, TodoEventType.TODO_RESUMED, {
+      todoId,
+      todo: this.formatTodoForClient(updatedTodo),
+    });
+
+    this.logger.log(`[resumeTodo] TODO ${todoId} resumed by user`);
+    return updatedTodo;
+  }
+
+  /**
+   * 取消 TODO
+   */
+  async cancelTodo(todoId: string, reason?: string): Promise<ResearchTodo> {
+    const todo = await this.getTodoById(todoId);
+
+    if (!todo.userCanCancel) {
+      throw new BadRequestException("This TODO cannot be cancelled");
+    }
+
+    const cancellableStatuses: ResearchTodoStatus[] = [
+      ResearchTodoStatus.PENDING,
+      ResearchTodoStatus.QUEUED,
+      ResearchTodoStatus.PAUSED,
+    ];
+
+    if (!cancellableStatuses.includes(todo.status)) {
+      throw new BadRequestException(
+        `Cannot cancel TODO with status ${todo.status}`,
+      );
+    }
+
+    const updatedTodo = await this.prisma.researchTodo.update({
+      where: { id: todoId },
+      data: {
+        status: ResearchTodoStatus.CANCELLED,
+        completedAt: new Date(),
+        statusMessage: reason || "用户已取消",
+      },
+    });
+
+    await this.emitTodoEvent(todo.topicId, TodoEventType.TODO_CANCELLED, {
+      todoId,
+      reason,
+      todo: this.formatTodoForClient(updatedTodo),
+    });
+
+    this.logger.log(`[cancelTodo] TODO ${todoId} cancelled: ${reason}`);
+    return updatedTodo;
+  }
+
+  /**
+   * 重试失败的 TODO
+   */
+  async retryTodo(todoId: string): Promise<ResearchTodo> {
+    const todo = await this.getTodoById(todoId);
+
+    if (todo.status !== ResearchTodoStatus.FAILED) {
+      throw new BadRequestException("Only failed TODOs can be retried");
+    }
+
+    const updatedTodo = await this.prisma.researchTodo.update({
+      where: { id: todoId },
+      data: {
+        status: ResearchTodoStatus.QUEUED,
+        progress: 0,
+        startedAt: null,
+        completedAt: null,
+        actualMs: null,
+        result: Prisma.DbNull,
+        statusMessage: "等待重试",
+      },
+    });
+
+    await this.emitTodoEvent(todo.topicId, TodoEventType.TODO_STATUS_CHANGED, {
+      todoId,
+      oldStatus: ResearchTodoStatus.FAILED,
+      newStatus: ResearchTodoStatus.QUEUED,
+      message: "任务已重新排队",
+      todo: this.formatTodoForClient(updatedTodo),
+    });
+
+    this.logger.log(`[retryTodo] TODO ${todoId} queued for retry`);
+    return updatedTodo;
+  }
+
+  /**
+   * 调整 TODO 优先级
+   */
+  async prioritizeTodo(
+    todoId: string,
+    priority: "high" | "normal" | "low",
+  ): Promise<ResearchTodo> {
+    const todo = await this.getTodoById(todoId);
+
+    if (!todo.userCanPrioritize) {
+      throw new BadRequestException("This TODO cannot be prioritized");
+    }
+
+    const priorityValue = {
+      high: 100,
+      normal: 0,
+      low: -100,
+    }[priority];
+
+    const updatedTodo = await this.prisma.researchTodo.update({
+      where: { id: todoId },
+      data: { priority: priorityValue },
+    });
+
+    this.logger.log(
+      `[prioritizeTodo] TODO ${todoId} priority set to ${priority}`,
+    );
+    return updatedTodo;
+  }
+
+  // ==================== Mission 集成 ====================
+
+  /**
+   * 从 Mission 生成 TODO 列表
+   * 在 Leader 规划完成后调用
+   */
+  async generateTodosFromMission(
+    mission: ResearchMission,
+    leaderPlan: any,
+  ): Promise<ResearchTodo[]> {
+    const todos: ResearchTodo[] = [];
+    const topicId = mission.topicId;
+    const missionId = mission.id;
+
+    this.logger.log(
+      `[generateTodosFromMission] Generating TODOs for mission ${missionId}`,
+    );
+
+    // 1. Leader 规划 TODO（已完成）
+    const leaderTodo = await this.createTodo({
+      topicId,
+      missionId,
+      type: ResearchTodoType.LEADER_PLANNING,
+      title: "Leader 任务理解与规划",
+      description: "Leader 分析研究主题，制定研究策略和任务分配",
+      agentId: "leader",
+      agentName: "研究协调员",
+      agentRole: "leader",
+      priority: 1000,
+      userCanPause: false,
+      userCanCancel: false,
+    });
+    // 立即标记为完成
+    await this.completeTodo(leaderTodo.id, {
+      keyFindings: leaderPlan?.dimensions?.length || 0,
+    });
+    todos.push(leaderTodo);
+
+    // 2. 为每个维度创建研究 TODO
+    const dimensions = leaderPlan?.dimensions || [];
+    const dimensionTodoIds: string[] = [];
+
+    for (let i = 0; i < dimensions.length; i++) {
+      const dim = dimensions[i];
+      const dimensionTodo = await this.createTodo({
+        topicId,
+        missionId,
+        type: ResearchTodoType.DIMENSION_RESEARCH,
+        title: `${dim.name || dim.dimensionName}维度研究`,
+        description:
+          dim.description || `研究 ${dim.name || dim.dimensionName} 相关内容`,
+        dimensionId: dim.id || dim.dimensionId,
+        dimensionName: dim.name || dim.dimensionName,
+        agentId: `researcher-${i + 1}`,
+        agentName: `研究员 ${i + 1}`,
+        agentRole: "researcher",
+        priority: 500 - i,
+        dependsOn: [leaderTodo.id],
+        estimatedMs: 120000, // 预估 2 分钟
+      });
+      dimensionTodoIds.push(dimensionTodo.id);
+      todos.push(dimensionTodo);
+    }
+
+    // 3. 报告撰写 TODO
+    const reportTodo = await this.createTodo({
+      topicId,
+      missionId,
+      type: ResearchTodoType.REPORT_WRITING,
+      title: "报告撰写",
+      description: "整合各维度研究结果，撰写完整研究报告",
+      agentId: "synthesizer",
+      agentName: "报告撰写员",
+      agentRole: "synthesizer",
+      priority: 100,
+      dependsOn: dimensionTodoIds,
+      estimatedMs: 180000, // 预估 3 分钟
+    });
+    todos.push(reportTodo);
+
+    // 4. 质量审核 TODO
+    const reviewTodo = await this.createTodo({
+      topicId,
+      missionId,
+      type: ResearchTodoType.QUALITY_REVIEW,
+      title: "质量审核",
+      description: "审核研究报告质量，确保内容准确性和完整性",
+      agentId: "reviewer",
+      agentName: "质量审核员",
+      agentRole: "reviewer",
+      priority: 50,
+      dependsOn: [reportTodo.id],
+      estimatedMs: 60000, // 预估 1 分钟
+    });
+    todos.push(reviewTodo);
+
+    this.logger.log(
+      `[generateTodosFromMission] Generated ${todos.length} TODOs for mission ${missionId}`,
+    );
+
+    return todos;
+  }
+
+  /**
+   * 获取下一个可执行的 TODO
+   * 根据依赖关系和优先级
+   */
+  async getNextExecutableTodo(missionId: string): Promise<ResearchTodo | null> {
+    // 获取所有待执行的 TODO
+    const pendingTodos = await this.prisma.researchTodo.findMany({
+      where: {
+        missionId,
+        status: {
+          in: [ResearchTodoStatus.PENDING, ResearchTodoStatus.QUEUED],
+        },
+      },
+      orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
+    });
+
+    if (pendingTodos.length === 0) {
+      return null;
+    }
+
+    // 获取已完成的 TODO ID
+    const completedTodos = await this.prisma.researchTodo.findMany({
+      where: {
+        missionId,
+        status: ResearchTodoStatus.COMPLETED,
+      },
+      select: { id: true },
+    });
+    const completedIds = new Set(completedTodos.map((t) => t.id));
+
+    // 找到第一个依赖都已完成的 TODO
+    for (const todo of pendingTodos) {
+      const dependencies = todo.dependsOn || [];
+      const allDepsCompleted = dependencies.every((depId) =>
+        completedIds.has(depId),
+      );
+
+      if (allDepsCompleted) {
+        return todo;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * 检查 TODO 依赖是否满足
+   */
+  async checkDependencies(todoId: string): Promise<boolean> {
+    const todo = await this.getTodoById(todoId);
+    const dependencies = todo.dependsOn || [];
+
+    if (dependencies.length === 0) {
+      return true;
+    }
+
+    const completedCount = await this.prisma.researchTodo.count({
+      where: {
+        id: { in: dependencies },
+        status: ResearchTodoStatus.COMPLETED,
+      },
+    });
+
+    return completedCount === dependencies.length;
+  }
+
+  /**
+   * 创建用户请求的 TODO
+   */
+  async createUserRequestTodo(
+    topicId: string,
+    missionId: string,
+    title: string,
+    description?: string,
+  ): Promise<ResearchTodo> {
+    return this.createTodo({
+      topicId,
+      missionId,
+      type: ResearchTodoType.USER_REQUEST,
+      title,
+      description,
+      agentId: "leader",
+      agentName: "研究协调员",
+      agentRole: "leader",
+      priority: 800, // 用户请求优先级较高
+    });
+  }
+
+  // ==================== 辅助方法 ====================
+
+  /**
+   * 计算 TODO 汇总
+   */
+  private calculateSummary(todos: ResearchTodo[]): TodoSummary {
+    const summary: TodoSummary = {
+      total: todos.length,
+      pending: 0,
+      queued: 0,
+      inProgress: 0,
+      paused: 0,
+      completed: 0,
+      failed: 0,
+      cancelled: 0,
+      overallProgress: 0,
+    };
+
+    let totalProgress = 0;
+    let countableItems = 0;
+
+    for (const todo of todos) {
+      switch (todo.status) {
+        case ResearchTodoStatus.PENDING:
+          summary.pending++;
+          break;
+        case ResearchTodoStatus.QUEUED:
+          summary.queued++;
+          break;
+        case ResearchTodoStatus.IN_PROGRESS:
+          summary.inProgress++;
+          totalProgress += todo.progress;
+          countableItems++;
+          break;
+        case ResearchTodoStatus.PAUSED:
+          summary.paused++;
+          totalProgress += todo.progress;
+          countableItems++;
+          break;
+        case ResearchTodoStatus.COMPLETED:
+          summary.completed++;
+          totalProgress += 100;
+          countableItems++;
+          break;
+        case ResearchTodoStatus.FAILED:
+          summary.failed++;
+          break;
+        case ResearchTodoStatus.CANCELLED:
+          summary.cancelled++;
+          break;
+      }
+    }
+
+    // 计算整体进度（排除取消和失败的）
+    const activeItems =
+      summary.pending +
+      summary.queued +
+      summary.inProgress +
+      summary.paused +
+      summary.completed;
+    if (activeItems > 0) {
+      summary.overallProgress = Math.round(
+        (summary.completed * 100 +
+          todos
+            .filter(
+              (t) =>
+                t.status === ResearchTodoStatus.IN_PROGRESS ||
+                t.status === ResearchTodoStatus.PAUSED,
+            )
+            .reduce((sum, t) => sum + t.progress, 0)) /
+          activeItems,
+      );
+    }
+
+    return summary;
+  }
+
+  /**
+   * 验证状态转换是否有效
+   */
+  private validateStatusTransition(
+    from: ResearchTodoStatus,
+    to: ResearchTodoStatus,
+  ): void {
+    const validTransitions: Record<ResearchTodoStatus, ResearchTodoStatus[]> = {
+      [ResearchTodoStatus.PENDING]: [
+        ResearchTodoStatus.QUEUED,
+        ResearchTodoStatus.CANCELLED,
+      ],
+      [ResearchTodoStatus.QUEUED]: [
+        ResearchTodoStatus.IN_PROGRESS,
+        ResearchTodoStatus.CANCELLED,
+      ],
+      [ResearchTodoStatus.IN_PROGRESS]: [
+        ResearchTodoStatus.PAUSED,
+        ResearchTodoStatus.COMPLETED,
+        ResearchTodoStatus.FAILED,
+      ],
+      [ResearchTodoStatus.PAUSED]: [
+        ResearchTodoStatus.IN_PROGRESS,
+        ResearchTodoStatus.CANCELLED,
+      ],
+      [ResearchTodoStatus.COMPLETED]: [],
+      [ResearchTodoStatus.FAILED]: [ResearchTodoStatus.QUEUED],
+      [ResearchTodoStatus.CANCELLED]: [],
+    };
+
+    if (!validTransitions[from]?.includes(to)) {
+      throw new BadRequestException(
+        `Invalid status transition from ${from} to ${to}`,
+      );
+    }
+  }
+
+  /**
+   * 格式化 TODO 用于客户端
+   */
+  private formatTodoForClient(todo: ResearchTodo): any {
+    return {
+      id: todo.id,
+      topicId: todo.topicId,
+      missionId: todo.missionId,
+      type: todo.type,
+      title: todo.title,
+      description: todo.description,
+      dimensionId: todo.dimensionId,
+      dimensionName: todo.dimensionName,
+      agentId: todo.agentId,
+      agentName: todo.agentName,
+      agentRole: todo.agentRole,
+      status: todo.status,
+      progress: todo.progress,
+      statusMessage: todo.statusMessage,
+      priority: todo.priority,
+      dependsOn: todo.dependsOn,
+      startedAt: todo.startedAt?.toISOString(),
+      completedAt: todo.completedAt?.toISOString(),
+      estimatedMs: todo.estimatedMs,
+      actualMs: todo.actualMs,
+      result: todo.result,
+      userCanPause: todo.userCanPause,
+      userCanCancel: todo.userCanCancel,
+      userCanPrioritize: todo.userCanPrioritize,
+      createdAt: todo.createdAt.toISOString(),
+      updatedAt: todo.updatedAt.toISOString(),
+    };
+  }
+
+  /**
+   * 发送 TODO 事件到 WebSocket
+   */
+  private async emitTodoEvent(
+    topicId: string,
+    event: TodoEventType,
+    data: any,
+  ): Promise<void> {
+    await this.eventEmitter.emitToTopic(topicId, event, {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}

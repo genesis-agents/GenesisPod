@@ -6743,6 +6743,7 @@ model ResearchTopic {
   agentActivities ResearchAgentActivity[] // Agent 活动记录
   dimensionFreshness DimensionFreshness[] // 维度新鲜度 (Phase 3.1)
   researchHistories  ResearchHistory[] // 研究历史 (Phase 2.3)
+  researchTodos      ResearchTodo[] // 研究 TODO 列表 (UX Enhancement)
 
   // ========== 索引 ==========
   @@index([userId, status]) // 按用户和状态查询
@@ -7518,4 +7519,84 @@ model ResearchHistory {
   @@index([topicId, researchNumber])
   @@index([missionId])
   @@map("research_histories")
+}
+
+// ==================== Research TODO System ====================
+// TODO 机制：任务可视化、状态透明、进度追踪、用户可控
+
+/// TODO 任务类型
+enum ResearchTodoType {
+  LEADER_PLANNING // Leader 规划
+  DIMENSION_RESEARCH // 维度研究
+  REPORT_WRITING // 报告撰写
+  QUALITY_REVIEW // 质量审核
+  USER_REQUEST // 用户请求
+}
+
+/// TODO 任务状态
+enum ResearchTodoStatus {
+  PENDING // 待处理（等待前置任务）
+  QUEUED // 已排队（等待执行）
+  IN_PROGRESS // 进行中
+  PAUSED // 已暂停
+  COMPLETED // 已完成
+  FAILED // 失败
+  CANCELLED // 已取消
+}
+
+/// 研究 TODO
+/// 研究任务分解后的 TODO 项，提供任务可视化和进度追踪
+model ResearchTodo {
+  id        String @id @default(cuid())
+  topicId   String @map("topic_id")
+  missionId String @map("mission_id")
+
+  // ========== 任务基本信息 ==========
+  type        ResearchTodoType
+  title       String              @db.VarChar(200)
+  description String?             @db.Text
+
+  // ========== 关联信息 ==========
+  dimensionId   String? @map("dimension_id")
+  dimensionName String? @map("dimension_name")
+  agentId       String? @map("agent_id")
+  agentName     String? @map("agent_name")
+  agentRole     String? @map("agent_role") // leader, researcher, reviewer, synthesizer
+
+  // ========== 状态与进度 ==========
+  status        ResearchTodoStatus @default(PENDING)
+  progress      Int                @default(0) // 0-100
+  statusMessage String?            @map("status_message") @db.VarChar(500)
+  priority      Int                @default(0) // 数字越大优先级越高
+
+  // ========== 依赖关系 ==========
+  dependsOn String[] @default([]) @map("depends_on") // 依赖的任务 ID 列表
+
+  // ========== 执行时间 ==========
+  startedAt     DateTime? @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+  estimatedMs   Int?      @map("estimated_ms") // 预估耗时（毫秒）
+  actualMs      Int?      @map("actual_ms") // 实际耗时（毫秒）
+
+  // ========== 结果信息 ==========
+  result Json? // { sourcesFound?, wordCount?, keyFindings?, error? }
+
+  // ========== 用户控制权限 ==========
+  userCanPause      Boolean @default(true) @map("user_can_pause")
+  userCanCancel     Boolean @default(true) @map("user_can_cancel")
+  userCanPrioritize Boolean @default(true) @map("user_can_prioritize")
+
+  // ========== 时间戳 ==========
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ========== 关系 ==========
+  topic ResearchTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  // ========== 索引 ==========
+  @@index([topicId, missionId])
+  @@index([topicId, status])
+  @@index([missionId, status])
+  @@index([status, priority(sort: Desc)])
+  @@map("research_todos")
 }

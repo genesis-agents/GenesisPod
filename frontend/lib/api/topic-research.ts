@@ -1198,3 +1198,151 @@ export async function canPublishReport(
     `${API_PREFIX}/topics/${topicId}/reports/${reportId}/review-tasks/can-publish`
   );
 }
+
+// ==================== TODO API ====================
+
+import type {
+  ResearchTodo,
+  TodoListResponse,
+  ResearchTodoStatus,
+  ResearchTodoType,
+} from '@/types/topic-research';
+
+/**
+ * 获取 TODO 列表
+ */
+export async function getTodos(
+  topicId: string,
+  options?: {
+    missionId?: string;
+    status?: ResearchTodoStatus[];
+    type?: ResearchTodoType[];
+  }
+): Promise<TodoListResponse> {
+  const params = new URLSearchParams();
+  if (options?.missionId) params.append('missionId', options.missionId);
+  if (options?.status?.length) {
+    options.status.forEach((s) => params.append('status', s));
+  }
+  if (options?.type?.length) {
+    options.type.forEach((t) => params.append('type', t));
+  }
+
+  const queryString = params.toString();
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/todos${queryString ? `?${queryString}` : ''}`
+  );
+}
+
+/**
+ * 获取单个 TODO
+ */
+export async function getTodoById(
+  topicId: string,
+  todoId: string
+): Promise<ResearchTodo> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/todos/${todoId}`);
+}
+
+/**
+ * 获取 TODO 详情（包含 Agent 活动）
+ */
+export async function getTodoDetails(
+  topicId: string,
+  todoId: string
+): Promise<{ todo: ResearchTodo; activities: AgentActivity[] }> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/todos/${todoId}/details`
+  );
+}
+
+/**
+ * 暂停 TODO
+ */
+export async function pauseTodo(
+  topicId: string,
+  todoId: string
+): Promise<{ success: boolean; todo: ResearchTodo }> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/todos/${todoId}/pause`,
+    { method: 'POST' }
+  );
+}
+
+/**
+ * 恢复 TODO
+ */
+export async function resumeTodo(
+  topicId: string,
+  todoId: string
+): Promise<{ success: boolean; todo: ResearchTodo }> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/todos/${todoId}/resume`,
+    { method: 'POST' }
+  );
+}
+
+/**
+ * 取消 TODO
+ */
+export async function cancelTodo(
+  topicId: string,
+  todoId: string,
+  reason?: string
+): Promise<{ success: boolean; todo: ResearchTodo }> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/todos/${todoId}/cancel`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }
+  );
+}
+
+/**
+ * 重试 TODO
+ */
+export async function retryTodo(
+  topicId: string,
+  todoId: string
+): Promise<{ success: boolean; todo: ResearchTodo }> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/todos/${todoId}/retry`,
+    { method: 'POST' }
+  );
+}
+
+/**
+ * 调整 TODO 优先级
+ */
+export async function prioritizeTodo(
+  topicId: string,
+  todoId: string,
+  priority: 'high' | 'normal' | 'low'
+): Promise<{ success: boolean; todo: ResearchTodo }> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/todos/${todoId}/priority`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ priority }),
+    }
+  );
+}
+
+/**
+ * 创建用户请求 TODO
+ */
+export async function createUserRequestTodo(
+  topicId: string,
+  missionId: string,
+  title: string,
+  description?: string
+): Promise<{ success: boolean; todo: ResearchTodo }> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/missions/${missionId}/todos`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ title, description }),
+    }
+  );
+}

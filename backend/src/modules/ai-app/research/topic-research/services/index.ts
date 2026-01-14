@@ -23,6 +23,7 @@ export { AgentActivityService } from "./agent-activity.service";
 export { ResearchStrategyService } from "./research-strategy.service";
 export { CredibilityReportService } from "./credibility-report.service";
 export { ReviewWorkflowService } from "./review-workflow.service";
+export { ResearchTodoService } from "./research-todo.service";
 
 // Re-export types
 export type {
@@ -62,3 +63,11 @@ export type {
   CompleteTaskInput,
   ReviewTaskStats,
 } from "./review-workflow.service";
+export {
+  TodoEventType,
+  type CreateTodoInput,
+  type UpdateTodoProgressInput,
+  type TodoFilter,
+  type TodoSummary,
+  type TodoResult,
+} from "./research-todo.service";

@@ -29,6 +29,9 @@ import type {
   UpdateScheduleDto,
   ListLogsDto,
   ResearchTopicType,
+  ResearchTodo,
+  TodoSummary,
+  ResearchTodoStatus,
 } from '@/types/topic-research';
 import * as api from '@/lib/api/topic-research';
 import type {
@@ -100,6 +103,12 @@ interface TopicResearchState {
 
   // Comparison
   comparisonResult: ReportComparisonResult | null;
+
+  // TODOs
+  todos: ResearchTodo[];
+  todosSummary: TodoSummary | null;
+  selectedTodoId: string | null;
+  isLoadingTodos: boolean;
 
   // Error
   error: string | null;
@@ -193,6 +202,30 @@ interface TopicResearchState {
     overrides?: Partial<CreateTopicDto>
   ) => Promise<ResearchTopic>;
 
+  // Actions - TODOs
+  fetchTodos: (topicId: string, missionId?: string) => Promise<void>;
+  pauseTodo: (topicId: string, todoId: string) => Promise<void>;
+  resumeTodo: (topicId: string, todoId: string) => Promise<void>;
+  cancelTodo: (
+    topicId: string,
+    todoId: string,
+    reason?: string
+  ) => Promise<void>;
+  retryTodo: (topicId: string, todoId: string) => Promise<void>;
+  prioritizeTodo: (
+    topicId: string,
+    todoId: string,
+    priority: 'high' | 'normal' | 'low'
+  ) => Promise<void>;
+  selectTodo: (todoId: string | null) => void;
+  updateTodoFromWs: (todo: ResearchTodo) => void;
+  createUserRequestTodo: (
+    topicId: string,
+    missionId: string,
+    title: string,
+    description?: string
+  ) => Promise<void>;
+
   // Actions - UI
   clearError: () => void;
   resetStore: () => void;
@@ -232,6 +265,10 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
   templates: [],
   isLoadingTemplates: false,
   comparisonResult: null,
+  todos: [],
+  todosSummary: null,
+  selectedTodoId: null,
+  isLoadingTodos: false,
   error: null,
 
   // ==================== Topics ====================
@@ -841,6 +878,138 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
     return topic;
   },
 
+  // ==================== TODOs ====================
+
+  fetchTodos: async (topicId, missionId) => {
+    set({ isLoadingTodos: true, error: null });
+    try {
+      const response = await api.getTodos(topicId, { missionId });
+      set({
+        todos: response.todos,
+        todosSummary: response.summary,
+        isLoadingTodos: false,
+      });
+    } catch (error) {
+      set({
+        isLoadingTodos: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch todos',
+      });
+      throw error;
+    }
+  },
+
+  pauseTodo: async (topicId, todoId) => {
+    try {
+      const response = await api.pauseTodo(topicId, todoId);
+      set((state) => ({
+        todos: state.todos.map((t) => (t.id === todoId ? response.todo : t)),
+      }));
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to pause todo',
+      });
+      throw error;
+    }
+  },
+
+  resumeTodo: async (topicId, todoId) => {
+    try {
+      const response = await api.resumeTodo(topicId, todoId);
+      set((state) => ({
+        todos: state.todos.map((t) => (t.id === todoId ? response.todo : t)),
+      }));
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to resume todo',
+      });
+      throw error;
+    }
+  },
+
+  cancelTodo: async (topicId, todoId, reason) => {
+    try {
+      const response = await api.cancelTodo(topicId, todoId, reason);
+      set((state) => ({
+        todos: state.todos.map((t) => (t.id === todoId ? response.todo : t)),
+      }));
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to cancel todo',
+      });
+      throw error;
+    }
+  },
+
+  retryTodo: async (topicId, todoId) => {
+    try {
+      const response = await api.retryTodo(topicId, todoId);
+      set((state) => ({
+        todos: state.todos.map((t) => (t.id === todoId ? response.todo : t)),
+      }));
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to retry todo',
+      });
+      throw error;
+    }
+  },
+
+  prioritizeTodo: async (topicId, todoId, priority) => {
+    try {
+      const response = await api.prioritizeTodo(topicId, todoId, priority);
+      set((state) => ({
+        todos: state.todos.map((t) => (t.id === todoId ? response.todo : t)),
+      }));
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error ? error.message : 'Failed to prioritize todo',
+      });
+      throw error;
+    }
+  },
+
+  selectTodo: (todoId) => {
+    set({ selectedTodoId: todoId });
+  },
+
+  updateTodoFromWs: (todo) => {
+    set((state) => {
+      const existingIndex = state.todos.findIndex((t) => t.id === todo.id);
+      if (existingIndex >= 0) {
+        // Update existing todo
+        const newTodos = [...state.todos];
+        newTodos[existingIndex] = todo;
+        return { todos: newTodos };
+      } else {
+        // Add new todo
+        return { todos: [todo, ...state.todos] };
+      }
+    });
+  },
+
+  createUserRequestTodo: async (topicId, missionId, title, description) => {
+    try {
+      const response = await api.createUserRequestTodo(
+        topicId,
+        missionId,
+        title,
+        description
+      );
+      set((state) => ({
+        todos: [response.todo, ...state.todos],
+      }));
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to create user request todo',
+      });
+      throw error;
+    }
+  },
+
   // ==================== UI ====================
 
   clearError: () => {
@@ -883,6 +1052,10 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
       templates: [],
       isLoadingTemplates: false,
       comparisonResult: null,
+      todos: [],
+      todosSummary: null,
+      selectedTodoId: null,
+      isLoadingTodos: false,
       error: null,
     });
   },

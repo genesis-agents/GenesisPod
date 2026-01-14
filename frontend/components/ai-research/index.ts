@@ -22,6 +22,13 @@ export { ResearchTeamPanel } from './ResearchTeamPanel';
 export { ResearchProgressBar } from './ResearchProgressBar';
 export { ResearchCommandInput } from './ResearchCommandInput';
 
+// TODO & Collaboration Components
+export { ResearchTodoList } from './ResearchTodoList';
+export { QuickCommandBar } from './QuickCommandBar';
+export { ResearchCollaborationPanel } from './ResearchCollaborationPanel';
+export { TodoDetailPanel } from './TodoDetailPanel';
+export { ResearchProgressSummary } from './ResearchProgressSummary';
+
 // Report Components
 export { ReportEditor } from './ReportEditor';
 export { ReportOutlineNav } from './ReportOutlineNav';

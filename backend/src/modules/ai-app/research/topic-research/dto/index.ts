@@ -29,3 +29,6 @@ export * from "./leader.dto";
 
 // Review Workflow DTOs
 export * from "./review-workflow.dto";
+
+// TODO DTOs
+export * from "./todo.dto";

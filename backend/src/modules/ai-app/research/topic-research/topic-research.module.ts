@@ -30,6 +30,7 @@ import {
   AgentActivityService,
   CredibilityReportService,
   ReviewWorkflowService,
+  ResearchTodoService,
 } from "./services";
 
 const services = [
@@ -53,6 +54,7 @@ const services = [
   AgentActivityService,
   CredibilityReportService,
   ReviewWorkflowService,
+  ResearchTodoService,
 ];
 
 @Module({
