@@ -924,7 +924,7 @@ export function TopicContentPanel({
         )}
         {activeTab === 'credibility' && report && (
           <div className="h-full overflow-y-auto p-4">
-            <CredibilityPanel reportId={report.id} />
+            <CredibilityPanel topicId={topicId} reportId={report.id} />
           </div>
         )}
         {activeTab === 'history' && topicId && (
