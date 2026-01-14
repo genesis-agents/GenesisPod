@@ -2305,4 +2305,54 @@ export class TopicResearchController {
     );
     return { success: true, todo };
   }
+
+  /**
+   * ★ 更新 TODO（编辑标题和描述）
+   */
+  @Patch("topics/:topicId/todos/:todoId")
+  @ApiOperation({
+    summary: "更新 TODO",
+    description: "更新 TODO 的标题和描述（仅限 USER_REQUEST 类型）",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "todoId", description: "TODO ID" })
+  @ApiResponse({ status: 200, description: "更新成功" })
+  async updateTodo(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("todoId") todoId: string,
+    @Body() dto: { title?: string; description?: string },
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const todo = await this.todoService.updateTodoContent(todoId, dto);
+    return { success: true, todo };
+  }
+
+  /**
+   * ★ 删除 TODO
+   */
+  @Delete("topics/:topicId/todos/:todoId")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "删除 TODO",
+    description: "删除 TODO（仅限 USER_REQUEST 类型且状态为 PENDING）",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "todoId", description: "TODO ID" })
+  @ApiResponse({ status: 200, description: "删除成功" })
+  async deleteTodo(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("todoId") todoId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    await this.todoService.deleteTodo(todoId);
+    return { success: true };
+  }
 }

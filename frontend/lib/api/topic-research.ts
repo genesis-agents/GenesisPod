@@ -1417,6 +1417,32 @@ export async function prioritizeTodo(
 }
 
 /**
+ * ★ 更新 TODO（编辑标题和描述）
+ */
+export async function updateTodo(
+  topicId: string,
+  todoId: string,
+  data: { title?: string; description?: string }
+): Promise<{ success: boolean; todo: ResearchTodo }> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/todos/${todoId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * ★ 删除 TODO
+ */
+export async function deleteTodo(
+  topicId: string,
+  todoId: string
+): Promise<{ success: boolean }> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/todos/${todoId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
  * 创建用户请求 TODO
  */
 export async function createUserRequestTodo(

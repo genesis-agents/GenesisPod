@@ -373,6 +373,72 @@ export class ResearchTodoService {
   // ==================== 用户操作 ====================
 
   /**
+   * ★ 更新 TODO 内容（标题和描述）
+   * 仅限 USER_REQUEST 类型且状态为 PENDING 的 TODO
+   */
+  async updateTodoContent(
+    todoId: string,
+    input: { title?: string; description?: string },
+  ): Promise<ResearchTodo> {
+    const todo = await this.getTodoById(todoId);
+
+    // 只允许编辑 USER_REQUEST 类型
+    if (todo.type !== "USER_REQUEST") {
+      throw new BadRequestException("只能编辑用户请求类型的任务");
+    }
+
+    // 只允许编辑 PENDING 状态
+    if (todo.status !== ResearchTodoStatus.PENDING) {
+      throw new BadRequestException("只能编辑待处理状态的任务");
+    }
+
+    const updatedTodo = await this.prisma.researchTodo.update({
+      where: { id: todoId },
+      data: {
+        ...(input.title && { title: input.title }),
+        ...(input.description !== undefined && {
+          description: input.description,
+        }),
+      },
+    });
+
+    this.logger.log(`[updateTodoContent] TODO ${todoId} updated`);
+    return updatedTodo;
+  }
+
+  /**
+   * ★ 删除 TODO
+   * 仅限 USER_REQUEST 类型且状态为 PENDING 的 TODO
+   */
+  async deleteTodo(todoId: string): Promise<void> {
+    const todo = await this.getTodoById(todoId);
+
+    // 只允许删除 USER_REQUEST 类型
+    if (todo.type !== "USER_REQUEST") {
+      throw new BadRequestException("只能删除用户请求类型的任务");
+    }
+
+    // 只允许删除 PENDING 状态
+    if (todo.status !== ResearchTodoStatus.PENDING) {
+      throw new BadRequestException("只能删除待处理状态的任务");
+    }
+
+    await this.prisma.researchTodo.delete({
+      where: { id: todoId },
+    });
+
+    // 发送删除事件
+    await this.emitTodoEvent(todo.topicId, TodoEventType.TODO_STATUS_CHANGED, {
+      todoId,
+      oldStatus: todo.status,
+      newStatus: "DELETED",
+      message: "用户已删除",
+    });
+
+    this.logger.log(`[deleteTodo] TODO ${todoId} deleted`);
+  }
+
+  /**
    * 暂停 TODO
    */
   async pauseTodo(todoId: string): Promise<ResearchTodo> {

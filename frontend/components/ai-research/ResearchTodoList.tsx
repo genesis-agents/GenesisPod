@@ -22,6 +22,8 @@ import {
   RotateCcw,
   ArrowUp,
   ArrowDown,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import {
@@ -37,6 +39,8 @@ import {
   retryTodo,
   prioritizeTodo,
   executeTodo,
+  updateTodo,
+  deleteTodo,
 } from '@/lib/api/topic-research';
 
 // ==================== Types ====================
@@ -47,6 +51,7 @@ interface ResearchTodoListProps {
   topicId: string;
   isLoading?: boolean;
   onTodoUpdated?: (todo: ResearchTodo) => void;
+  onTodoDeleted?: (todoId: string) => void;
   onTodoSelect?: (todoId: string) => void;
   selectedTodoId?: string | null;
   onPause?: (todoId: string) => Promise<void>;
@@ -208,22 +213,40 @@ function TodoItem({
   isSelected,
   onSelect,
   onUpdated,
+  onDeleted,
 }: {
   todo: ResearchTodo;
   topicId: string;
   isSelected: boolean;
   onSelect?: () => void;
   onUpdated?: (todo: ResearchTodo) => void;
+  onDeleted?: (todoId: string) => void;
 }) {
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(todo.title);
 
   const statusConfig = STATUS_CONFIG[todo.status];
 
+  // 是否可以编辑/删除（仅 USER_REQUEST 且 PENDING 状态）
+  const canEditOrDelete =
+    todo.type === ResearchTodoType.USER_REQUEST &&
+    todo.status === ResearchTodoStatus.PENDING;
+
   const handleAction = async (
-    action: 'pause' | 'resume' | 'cancel' | 'retry' | 'prioritize' | 'execute',
+    action:
+      | 'pause'
+      | 'resume'
+      | 'cancel'
+      | 'retry'
+      | 'prioritize'
+      | 'execute'
+      | 'delete',
     priority?: 'high' | 'normal' | 'low'
   ) => {
     setIsLoading(true);
+    setError(null);
     try {
       let result;
       switch (action) {
@@ -247,12 +270,43 @@ function TodoItem({
         case 'execute':
           result = await executeTodo(topicId, todo.id);
           break;
+        case 'delete':
+          if (confirm('确定要删除这个任务吗？')) {
+            await deleteTodo(topicId, todo.id);
+            onDeleted?.(todo.id);
+            return;
+          }
+          break;
       }
       if (result?.todo && onUpdated) {
         onUpdated(result.todo);
       }
-    } catch (error) {
-      console.error(`Failed to ${action} todo:`, error);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : `操作失败: ${action}`;
+      setError(message);
+      console.error(`Failed to ${action} todo:`, err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTitle.trim()) {
+      setError('标题不能为空');
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await updateTodo(topicId, todo.id, { title: editTitle });
+      if (result?.todo && onUpdated) {
+        onUpdated(result.todo);
+      }
+      setIsEditing(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '保存失败';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -285,14 +339,35 @@ function TodoItem({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-base">{TYPE_ICONS[todo.type]}</span>
-            <span className="truncate text-sm font-medium">{todo.title}</span>
+            {isEditing ? (
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveEdit();
+                  if (e.key === 'Escape') {
+                    setIsEditing(false);
+                    setEditTitle(todo.title);
+                  }
+                }}
+                className="flex-1 rounded border px-2 py-0.5 text-sm"
+                autoFocus
+              />
+            ) : (
+              <span className="truncate text-sm font-medium">{todo.title}</span>
+            )}
             {todo.progress > 0 && todo.progress < 100 && (
               <span className="text-xs text-gray-500">{todo.progress}%</span>
             )}
           </div>
 
+          {/* 错误消息 */}
+          {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+
           {/* 状态消息 */}
-          {todo.statusMessage && (
+          {!error && todo.statusMessage && (
             <p className="mt-1 truncate text-xs text-gray-500">
               {todo.statusMessage}
             </p>
@@ -397,6 +472,60 @@ function TodoItem({
                     </button>
                   )}
 
+                {/* 编辑和删除 - 仅用户请求类且待处理 */}
+                {canEditOrDelete && (
+                  <>
+                    {isEditing ? (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSaveEdit();
+                          }}
+                          className="rounded bg-blue-500 px-2 py-0.5 text-xs text-white hover:bg-blue-600"
+                          title="保存"
+                        >
+                          保存
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsEditing(false);
+                            setEditTitle(todo.title);
+                          }}
+                          className="rounded bg-gray-300 px-2 py-0.5 text-xs text-gray-700 hover:bg-gray-400"
+                          title="取消"
+                        >
+                          取消
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsEditing(true);
+                          }}
+                          className="rounded p-1 text-gray-500 hover:bg-white/50"
+                          title="编辑"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAction('delete');
+                          }}
+                          className="rounded p-1 text-red-400 hover:bg-white/50"
+                          title="删除"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
+
                 {/* 优先级 */}
                 {todo.userCanPrioritize &&
                   [
@@ -445,6 +574,7 @@ function TodoGroup({
   selectedTodoId,
   onTodoSelect,
   onTodoUpdated,
+  onTodoDeleted,
 }: {
   config: TodoGroupConfig;
   todos: ResearchTodo[];
@@ -452,6 +582,7 @@ function TodoGroup({
   selectedTodoId?: string | null;
   onTodoSelect?: (todoId: string) => void;
   onTodoUpdated?: (todo: ResearchTodo) => void;
+  onTodoDeleted?: (todoId: string) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(config.defaultExpanded);
 
@@ -489,6 +620,7 @@ function TodoGroup({
               isSelected={selectedTodoId === todo.id}
               onSelect={() => onTodoSelect?.(todo.id)}
               onUpdated={onTodoUpdated}
+              onDeleted={onTodoDeleted}
             />
           ))}
         </div>
@@ -505,6 +637,7 @@ export function ResearchTodoList({
   topicId,
   isLoading,
   onTodoUpdated,
+  onTodoDeleted,
   onTodoSelect,
   selectedTodoId,
 }: ResearchTodoListProps) {
@@ -580,6 +713,7 @@ export function ResearchTodoList({
           selectedTodoId={selectedTodoId}
           onTodoSelect={onTodoSelect}
           onTodoUpdated={onTodoUpdated}
+          onTodoDeleted={onTodoDeleted}
         />
       ))}
     </div>
