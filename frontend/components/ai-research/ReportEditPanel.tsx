@@ -77,6 +77,8 @@ interface ReportEditPanelProps {
   annotations?: ReportAnnotation[];
   currentUserId?: string;
   isLoading?: boolean;
+  // Toolbar control
+  hideToolbar?: boolean;
   // Side panel control from parent
   sidePanelType?: SidePanelType;
   onSidePanelChange?: (type: SidePanelType) => void;
@@ -186,6 +188,7 @@ export function ReportEditPanel({
   annotations = [],
   currentUserId,
   isLoading = false,
+  hideToolbar = false,
   sidePanelType: externalSidePanelType,
   onSidePanelChange,
   onSave,
@@ -380,82 +383,84 @@ export function ReportEditPanel({
 
   return (
     <div className="flex h-full flex-col bg-gray-50">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2 shadow-sm">
-        {/* Left: Title */}
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {report?.title || '洞察报告'}
-          </h2>
-          <span className="text-sm text-gray-400">v{stats.version}</span>
-        </div>
+      {/* Toolbar - conditionally hidden */}
+      {!hideToolbar && (
+        <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2 shadow-sm">
+          {/* Left: Title */}
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {report?.title || '洞察报告'}
+            </h2>
+            <span className="text-sm text-gray-400">v{stats.version}</span>
+          </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center gap-2">
-          {/* History button */}
-          <button
-            onClick={() => toggleSidePanel('history')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-              sidePanelType === 'history'
-                ? 'bg-blue-100 text-blue-700'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-            title="版本历史 (Ctrl+H)"
-          >
-            <HistoryIcon className="h-4 w-4" />
-            <span>历史</span>
-            {stats.revisions > 0 && (
-              <span className="ml-1 rounded-full bg-gray-200 px-1.5 py-0.5 text-xs">
-                {stats.revisions}
-              </span>
-            )}
-          </button>
-
-          {/* Annotations button */}
-          <button
-            onClick={() => toggleSidePanel('annotations')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-              sidePanelType === 'annotations'
-                ? 'bg-purple-100 text-purple-700'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-            title="批注 (Ctrl+M)"
-          >
-            <AnnotationIcon className="h-4 w-4" />
-            <span>批注</span>
-            {stats.activeAnnotations > 0 && (
-              <span className="ml-1 rounded-full bg-red-500 px-1.5 py-0.5 text-xs text-white">
-                {stats.activeAnnotations}
-              </span>
-            )}
-          </button>
-
-          {/* Divider */}
-          <div className="mx-1 h-6 w-px bg-gray-300" />
-
-          {/* Save button (only in edit mode) */}
-          {viewMode === 'edit' && onSave && (
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2">
+            {/* History button */}
             <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:bg-blue-400"
-              title="保存 (Ctrl+S)"
+              onClick={() => toggleSidePanel('history')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                sidePanelType === 'history'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              title="版本历史 (Ctrl+H)"
             >
-              <SaveIcon className="h-4 w-4" />
-              <span>{isSaving ? '保存中...' : '保存'}</span>
+              <HistoryIcon className="h-4 w-4" />
+              <span>历史</span>
+              {stats.revisions > 0 && (
+                <span className="ml-1 rounded-full bg-gray-200 px-1.5 py-0.5 text-xs">
+                  {stats.revisions}
+                </span>
+              )}
             </button>
-          )}
 
-          {/* Export button */}
-          <button
-            className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200"
-            title="导出报告"
-          >
-            <ExportIcon className="h-4 w-4" />
-            <span>导出</span>
-          </button>
+            {/* Annotations button */}
+            <button
+              onClick={() => toggleSidePanel('annotations')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                sidePanelType === 'annotations'
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              title="批注 (Ctrl+M)"
+            >
+              <AnnotationIcon className="h-4 w-4" />
+              <span>批注</span>
+              {stats.activeAnnotations > 0 && (
+                <span className="ml-1 rounded-full bg-red-500 px-1.5 py-0.5 text-xs text-white">
+                  {stats.activeAnnotations}
+                </span>
+              )}
+            </button>
+
+            {/* Divider */}
+            <div className="mx-1 h-6 w-px bg-gray-300" />
+
+            {/* Save button (only in edit mode) */}
+            {viewMode === 'edit' && onSave && (
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:bg-blue-400"
+                title="保存 (Ctrl+S)"
+              >
+                <SaveIcon className="h-4 w-4" />
+                <span>{isSaving ? '保存中...' : '保存'}</span>
+              </button>
+            )}
+
+            {/* Export button */}
+            <button
+              className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200"
+              title="导出报告"
+            >
+              <ExportIcon className="h-4 w-4" />
+              <span>导出</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Content area */}
       <div className="flex flex-1 overflow-hidden">

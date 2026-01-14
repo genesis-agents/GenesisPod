@@ -280,6 +280,22 @@ const HistoryIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const AnnotationIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
+    />
+  </svg>
+);
+
 const ListIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -325,6 +341,9 @@ export function TopicContentPanel({
   const [versionMenuOpen, setVersionMenuOpen] = useState(false);
   const [reportViewMode, setReportViewMode] =
     useState<ReportViewMode>('continuous');
+  const [sidePanelType, setSidePanelType] = useState<
+    null | 'history' | 'annotations'
+  >(null);
 
   // Annotation state (client-side only for now)
   type AnnotationColor = 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
@@ -513,9 +532,10 @@ export function TopicContentPanel({
         ))}
       </div>
 
-      {/* 报告工具栏 - 仅在报告 Tab 时显示，位于内容区域顶部 */}
+      {/* 报告工具栏 - 仅在报告 Tab 时显示，合并为一行 */}
       {activeTab === 'report' && (
-        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-4 py-2">
+        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-4 py-2.5">
+          {/* 左侧：视图模式 + 版本信息 */}
           <div className="flex items-center gap-3">
             {/* 视图模式切换 */}
             <div className="flex rounded-lg border border-gray-200 bg-white p-0.5">
@@ -546,91 +566,89 @@ export function TopicContentPanel({
             </div>
             {report && (
               <span className="text-xs text-gray-400">
-                版本 v{report.version} · {report.totalSources} 个来源
+                v{report.version} · {report.totalSources}源
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* 版本选择下拉框 */}
-            {report && (
-              <div className="relative">
-                <button
-                  onClick={() => setVersionMenuOpen(!versionMenuOpen)}
-                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
-                >
-                  <HistoryIcon className="h-3.5 w-3.5" />
-                  <span>历史</span>
-                  <span className="text-xs text-gray-400">
-                    {revisions.length}
-                  </span>
-                </button>
-                {versionMenuOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setVersionMenuOpen(false)}
-                    />
-                    <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                      <div className="border-b border-gray-100 px-3 py-2 text-xs font-medium text-gray-400">
-                        版本历史
-                      </div>
-                      {/* Current version */}
-                      <div className="flex items-center gap-2 bg-blue-50 px-3 py-2">
-                        <span className="h-2 w-2 rounded-full bg-blue-500"></span>
-                        <span className="flex-1 text-sm text-blue-700">
-                          版本 {report.version} (当前)
-                        </span>
-                        <span className="text-xs text-blue-500">
-                          {report.generatedAt
-                            ? new Date(report.generatedAt).toLocaleDateString(
-                                'zh-CN'
-                              )
-                            : '-'}
-                        </span>
-                      </div>
-                      {/* Previous versions */}
-                      {revisions.length > 0 ? (
-                        revisions.map((rev) => (
-                          <button
-                            key={rev.id}
-                            onClick={() => {
-                              onRollbackVersion?.(rev.id);
-                              setVersionMenuOpen(false);
-                            }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
-                          >
-                            <span className="h-2 w-2 rounded-full bg-gray-300"></span>
-                            <span className="flex-1 text-sm text-gray-700">
-                              版本 {rev.version}
-                            </span>
-                            <span className="text-xs text-gray-400">
-                              {new Date(rev.createdAt).toLocaleDateString(
-                                'zh-CN'
-                              )}
-                            </span>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-3 py-2 text-xs text-gray-400">
-                          暂无历史版本
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+          {/* 中间：报告标题 */}
+          <div className="flex-1 text-center">
+            <h3 className="text-sm font-semibold text-gray-800">
+              {report?.title || '洞察报告'}
+            </h3>
+          </div>
 
-            {/* 导出按钮 */}
+          {/* 右侧：操作按钮 */}
+          <div className="flex items-center gap-2">
+            {/* 历史按钮 */}
+            <button
+              onClick={() =>
+                setSidePanelType(sidePanelType === 'history' ? null : 'history')
+              }
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                sidePanelType === 'history'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+              title="版本历史"
+            >
+              <HistoryIcon className="h-3.5 w-3.5" />
+              <span>历史</span>
+              {revisions.length > 0 && (
+                <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs">
+                  {revisions.length}
+                </span>
+              )}
+            </button>
+
+            {/* 批注按钮 */}
+            <button
+              onClick={() =>
+                setSidePanelType(
+                  sidePanelType === 'annotations' ? null : 'annotations'
+                )
+              }
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                sidePanelType === 'annotations'
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+              title="批注"
+            >
+              <AnnotationIcon className="h-3.5 w-3.5" />
+              <span>批注</span>
+              {annotations.filter((a) => a.status === 'active').length > 0 && (
+                <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs text-white">
+                  {annotations.filter((a) => a.status === 'active').length}
+                </span>
+              )}
+            </button>
+
+            {/* 分隔线 */}
+            <div className="mx-1 h-4 w-px bg-gray-300" />
+
+            {/* 导出下拉菜单 */}
             {report && (
               <div className="relative">
                 <button
                   onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
                 >
                   <DownloadIcon className="h-3.5 w-3.5" />
                   <span>导出</span>
+                  <svg
+                    className="h-3 w-3 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
                 </button>
                 {exportMenuOpen && (
                   <>
@@ -676,6 +694,9 @@ export function TopicContentPanel({
             annotations={annotations}
             currentUserId="current-user"
             isLoading={isLoadingReport}
+            hideToolbar={true}
+            sidePanelType={sidePanelType}
+            onSidePanelChange={setSidePanelType}
             onSave={async (content: string) => {
               // TODO: Implement save functionality
               console.log('Save report:', content);
