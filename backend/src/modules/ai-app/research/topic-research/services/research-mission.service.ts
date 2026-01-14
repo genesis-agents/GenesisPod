@@ -866,6 +866,26 @@ export class ResearchMissionService {
       );
     }
 
+    // ★ 清理该任务创建的空草稿报告（没有 dimensionAnalyses 的报告）
+    const topicId = mission.topicId;
+    const emptyDraftReports = await this.prisma.topicReport.findMany({
+      where: {
+        topicId,
+        dimensionAnalyses: { none: {} }, // 没有任何维度分析
+      },
+      select: { id: true },
+    });
+
+    if (emptyDraftReports.length > 0) {
+      const deleteIds = emptyDraftReports.map((r) => r.id);
+      await this.prisma.topicReport.deleteMany({
+        where: { id: { in: deleteIds } },
+      });
+      this.logger.log(
+        `[cancelMission] Cleaned up ${deleteIds.length} empty draft reports`,
+      );
+    }
+
     return this.prisma.researchMission.update({
       where: { id: missionId },
       data: { status: ResearchMissionStatus.CANCELLED },
@@ -1434,6 +1454,27 @@ export class ResearchMissionService {
         completedAt: new Date(),
       },
     });
+
+    // ★ 如果任务失败，清理空草稿报告
+    if (finalStatus === ResearchMissionStatus.FAILED) {
+      const emptyDraftReports = await this.prisma.topicReport.findMany({
+        where: {
+          topicId,
+          dimensionAnalyses: { none: {} },
+        },
+        select: { id: true },
+      });
+
+      if (emptyDraftReports.length > 0) {
+        const deleteIds = emptyDraftReports.map((r) => r.id);
+        await this.prisma.topicReport.deleteMany({
+          where: { id: { in: deleteIds } },
+        });
+        this.logger.log(
+          `[finalizeMission] Cleaned up ${deleteIds.length} empty draft reports after failure`,
+        );
+      }
+    }
 
     // 发送完成事件
     this.emitProgress({

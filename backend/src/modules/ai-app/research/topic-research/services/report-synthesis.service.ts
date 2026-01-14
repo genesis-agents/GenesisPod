@@ -749,6 +749,7 @@ export class ReportSynthesisService {
 
   /**
    * 获取报告列表
+   * ★ 只返回有内容的报告（至少有一个 dimensionAnalysis）
    */
   async listReports(
     topicId: string,
@@ -756,9 +757,15 @@ export class ReportSynthesisService {
   ) {
     const { skip = 0, take = 10 } = options;
 
+    // ★ 只查询有 dimensionAnalyses 的报告（非空草稿）
+    const whereClause = {
+      topicId,
+      dimensionAnalyses: { some: {} }, // 至少有一个维度分析
+    };
+
     const [reports, total] = await Promise.all([
       this.prisma.topicReport.findMany({
-        where: { topicId },
+        where: whereClause,
         orderBy: { generatedAt: "desc" },
         skip,
         take,
@@ -773,7 +780,7 @@ export class ReportSynthesisService {
           isIncremental: true,
         },
       }),
-      this.prisma.topicReport.count({ where: { topicId } }),
+      this.prisma.topicReport.count({ where: whereClause }),
     ]);
 
     return { reports, total, skip, take };
@@ -781,10 +788,14 @@ export class ReportSynthesisService {
 
   /**
    * 获取最新报告
+   * ★ 只返回有内容的报告（至少有一个 dimensionAnalysis）
    */
   async getLatestReport(topicId: string): Promise<TopicReport | null> {
     return this.prisma.topicReport.findFirst({
-      where: { topicId },
+      where: {
+        topicId,
+        dimensionAnalyses: { some: {} }, // ★ 只返回非空报告
+      },
       orderBy: { generatedAt: "desc" },
       include: {
         dimensionAnalyses: {
