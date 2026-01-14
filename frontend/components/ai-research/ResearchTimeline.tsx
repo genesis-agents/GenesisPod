@@ -263,47 +263,50 @@ function ThinkingPhasesTimeline({
                     检索 {activity.searchResults.total} 条，筛选{' '}
                     {activity.searchResults.filtered} 条
                   </span>
-                  {activity.searchResults.sources.length > 0 && (
-                    <span className="text-gray-400">
-                      (来源:{' '}
-                      {activity.searchResults.sources
-                        .slice(0, 2)
-                        .map((s) => s.domain)
-                        .join(', ')}
-                      )
-                    </span>
-                  )}
+                  {Array.isArray(activity.searchResults.sources) &&
+                    activity.searchResults.sources.length > 0 && (
+                      <span className="text-gray-400">
+                        (来源:{' '}
+                        {activity.searchResults.sources
+                          .slice(0, 2)
+                          .map((s) => s.domain)
+                          .join(', ')}
+                        )
+                      </span>
+                    )}
                 </div>
               )}
 
               {/* 撰写进度 */}
-              {phase === 'writing' && activity.writingProgress && (
-                <div className="mt-1 space-y-0.5">
-                  {activity.writingProgress.sections.map((section, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-1 text-gray-600 dark:text-gray-400"
-                    >
+              {phase === 'writing' &&
+                activity.writingProgress &&
+                Array.isArray(activity.writingProgress.sections) && (
+                  <div className="mt-1 space-y-0.5">
+                    {activity.writingProgress.sections.map((section, idx) => (
                       <div
-                        className={cn(
-                          'h-1.5 w-1.5 rounded-full',
-                          section.status === 'completed'
-                            ? 'bg-green-500'
-                            : section.status === 'writing'
-                              ? 'bg-yellow-500'
-                              : 'bg-gray-300'
+                        key={idx}
+                        className="flex items-center gap-1 text-gray-600 dark:text-gray-400"
+                      >
+                        <div
+                          className={cn(
+                            'h-1.5 w-1.5 rounded-full',
+                            section.status === 'completed'
+                              ? 'bg-green-500'
+                              : section.status === 'writing'
+                                ? 'bg-yellow-500'
+                                : 'bg-gray-300'
+                          )}
+                        />
+                        <span>{section.title}</span>
+                        {section.revisions > 0 && (
+                          <span className="text-gray-400">
+                            (修订{section.revisions}次)
+                          </span>
                         )}
-                      />
-                      <span>{section.title}</span>
-                      {section.revisions > 0 && (
-                        <span className="text-gray-400">
-                          (修订{section.revisions}次)
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                      </div>
+                    ))}
+                  </div>
+                )}
             </div>
           </div>
         );
@@ -572,7 +575,13 @@ function TeamInteractionSection({ messages }: { messages: TeamMessage[] }) {
  * 研究成果部分
  */
 function OutcomeSection({ history }: { history: ResearchHistoryItem }) {
-  const netChange = history.wordsAdded - history.wordsRemoved;
+  const netChange = (history.wordsAdded || 0) - (history.wordsRemoved || 0);
+  const dimensionsUpdated = Array.isArray(history.dimensionsUpdated)
+    ? history.dimensionsUpdated
+    : [];
+  const dimensionsKept = Array.isArray(history.dimensionsKept)
+    ? history.dimensionsKept
+    : [];
 
   return (
     <div className="rounded-lg border border-gray-200 bg-gray-50 p-2.5 dark:border-gray-700 dark:bg-gray-800/50">
@@ -586,7 +595,7 @@ function OutcomeSection({ history }: { history: ResearchHistoryItem }) {
             更新维度
           </div>
           <div className="text-lg font-semibold text-blue-700 dark:text-blue-300">
-            {history.dimensionsUpdated.length}
+            {dimensionsUpdated.length}
           </div>
         </div>
 
@@ -595,7 +604,7 @@ function OutcomeSection({ history }: { history: ResearchHistoryItem }) {
             保留维度
           </div>
           <div className="text-lg font-semibold text-gray-700 dark:text-gray-300">
-            {history.dimensionsKept.length}
+            {dimensionsKept.length}
           </div>
         </div>
 
@@ -732,7 +741,11 @@ function SessionCard({
             <div className="flex items-center gap-3 text-xs text-gray-500">
               <span className="flex items-center gap-1">
                 <Layers className="h-3 w-3" />
-                更新 {history.dimensionsUpdated.length} 个维度
+                更新{' '}
+                {Array.isArray(history.dimensionsUpdated)
+                  ? history.dimensionsUpdated.length
+                  : 0}{' '}
+                个维度
               </span>
               {history.newSourcesCount > 0 && (
                 <span className="flex items-center gap-1">
@@ -768,7 +781,11 @@ function SessionCard({
             {/* 维度研究进展 */}
             <DimensionProgressSection
               dimensionActivities={dimensionActivities}
-              dimensionsUpdated={history.dimensionsUpdated}
+              dimensionsUpdated={
+                Array.isArray(history.dimensionsUpdated)
+                  ? history.dimensionsUpdated
+                  : []
+              }
             />
 
             {/* 团队互动 */}
@@ -952,7 +969,7 @@ export function ResearchTimeline({
   }
 
   // 无历史
-  if (histories.length === 0) {
+  if (!histories || histories.length === 0) {
     return (
       <div className="flex h-64 flex-col items-center justify-center text-center">
         <Calendar className="mb-3 h-12 w-12 text-gray-300" />
