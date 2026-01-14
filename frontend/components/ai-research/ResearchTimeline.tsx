@@ -872,6 +872,9 @@ export function ResearchTimeline({
   useEffect(() => {
     if (!topicId) return;
 
+    // ★ 防止内存泄漏：标记请求是否已取消
+    let isCancelled = false;
+
     const fetchData = async () => {
       setIsFetching(true);
       try {
@@ -882,20 +885,36 @@ export function ResearchTimeline({
             getTeamMessages(topicId).catch(() => []),
           ]
         );
-        setFetchedHistories(historiesData);
-        setFetchedActivities(activitiesData);
-        setFetchedMessages(messagesData);
+
+        // 只在未取消时更新状态
+        if (!isCancelled) {
+          setFetchedHistories(historiesData);
+          setFetchedActivities(activitiesData);
+          setFetchedMessages(messagesData);
+        }
       } catch (error) {
-        console.error('Failed to fetch research timeline data:', error);
-        setFetchedHistories([]);
-        setFetchedActivities([]);
-        setFetchedMessages([]);
+        if (!isCancelled) {
+          // 仅在开发环境输出详细错误
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to fetch research timeline data:', error);
+          }
+          setFetchedHistories([]);
+          setFetchedActivities([]);
+          setFetchedMessages([]);
+        }
       } finally {
-        setIsFetching(false);
+        if (!isCancelled) {
+          setIsFetching(false);
+        }
       }
     };
 
     fetchData();
+
+    // ★ 清理函数：组件卸载时取消请求
+    return () => {
+      isCancelled = true;
+    };
   }, [topicId]);
 
   // 使用传入的数据或获取的数据（确保有默认空数组）
