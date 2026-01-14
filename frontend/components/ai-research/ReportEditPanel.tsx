@@ -24,9 +24,6 @@ import type { AIEditOperation, TextSelection } from './types';
 // View modes - removed split mode (space is limited)
 type ViewMode = 'preview' | 'edit';
 
-// Side panel types
-type SidePanelType = null | 'history' | 'annotations';
-
 // Report revision type (compatible with both TopicContentPanel and ReportRevisionHistory)
 interface ReportRevision {
   id: string;
@@ -70,6 +67,9 @@ interface AnnotationReply {
   createdAt: string;
 }
 
+// Side panel type - exported for parent component use
+export type SidePanelType = null | 'history' | 'annotations';
+
 interface ReportEditPanelProps {
   report: TopicReport | null;
   evidence: TopicEvidence[];
@@ -77,6 +77,9 @@ interface ReportEditPanelProps {
   annotations?: ReportAnnotation[];
   currentUserId?: string;
   isLoading?: boolean;
+  // Side panel control from parent
+  sidePanelType?: SidePanelType;
+  onSidePanelChange?: (type: SidePanelType) => void;
   onSave?: (content: string) => Promise<void>;
   onAIEdit?: (
     operation: AIEditOperation,
@@ -183,6 +186,8 @@ export function ReportEditPanel({
   annotations = [],
   currentUserId,
   isLoading = false,
+  sidePanelType: externalSidePanelType,
+  onSidePanelChange,
   onSave,
   onAIEdit,
   onRollback,
@@ -193,8 +198,41 @@ export function ReportEditPanel({
   onAnnotationReply,
 }: ReportEditPanelProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
-  const [sidePanelType, setSidePanelType] = useState<SidePanelType>(null);
+  const [internalSidePanelType, setInternalSidePanelType] =
+    useState<SidePanelType>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Use external state if provided, otherwise use internal state
+  const sidePanelType =
+    externalSidePanelType !== undefined
+      ? externalSidePanelType
+      : internalSidePanelType;
+
+  // Helper to toggle side panel that works with both internal and external state
+  const toggleSidePanel = useCallback(
+    (panel: 'history' | 'annotations') => {
+      const newValue = sidePanelType === panel ? null : panel;
+      if (onSidePanelChange) {
+        onSidePanelChange(newValue);
+      } else {
+        setInternalSidePanelType(newValue);
+      }
+    },
+    [sidePanelType, onSidePanelChange]
+  );
+
+  // Direct setter for side panel
+  const setSidePanelType = useCallback(
+    (value: SidePanelType) => {
+      if (onSidePanelChange) {
+        onSidePanelChange(value);
+      } else {
+        setInternalSidePanelType(value);
+      }
+    },
+    [onSidePanelChange]
+  );
+
   // State for highlighted annotation (for navigation from annotation panel)
   const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<
     string | null
@@ -258,14 +296,12 @@ export function ReportEditPanel({
       // Ctrl+H: History panel
       else if (e.ctrlKey && e.key === 'h') {
         e.preventDefault();
-        setSidePanelType((prev) => (prev === 'history' ? null : 'history'));
+        toggleSidePanel('history');
       }
       // Ctrl+M: Annotations panel
       else if (e.ctrlKey && e.key === 'm') {
         e.preventDefault();
-        setSidePanelType((prev) =>
-          prev === 'annotations' ? null : 'annotations'
-        );
+        toggleSidePanel('annotations');
       }
       // Ctrl+S: Save (if in edit mode)
       else if (e.ctrlKey && e.key === 's' && viewMode === 'edit') {
@@ -358,11 +394,7 @@ export function ReportEditPanel({
         <div className="flex items-center gap-2">
           {/* History button */}
           <button
-            onClick={() =>
-              setSidePanelType((prev) =>
-                prev === 'history' ? null : 'history'
-              )
-            }
+            onClick={() => toggleSidePanel('history')}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
               sidePanelType === 'history'
                 ? 'bg-blue-100 text-blue-700'
@@ -381,11 +413,7 @@ export function ReportEditPanel({
 
           {/* Annotations button */}
           <button
-            onClick={() =>
-              setSidePanelType((prev) =>
-                prev === 'annotations' ? null : 'annotations'
-              )
-            }
+            onClick={() => toggleSidePanel('annotations')}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
               sidePanelType === 'annotations'
                 ? 'bg-purple-100 text-purple-700'

@@ -85,6 +85,46 @@ async function deploy(): Promise<void> {
     });
     console.log("   Client generated\n");
 
+    // Step 4.5: Fix enum values (cannot be added via migrations due to transaction limitations)
+    console.log("4.5. Fixing enum values...");
+    const enumValues = [
+      { type: "ResearchMessageType", value: "DIMENSION_STARTED" },
+      { type: "ResearchMessageType", value: "DIMENSION_PROGRESS" },
+      { type: "ResearchMessageType", value: "DIMENSION_COMPLETED" },
+    ];
+
+    for (const { type, value } of enumValues) {
+      try {
+        // Check if enum value already exists
+        const result = await prisma.$queryRaw<{ exists: boolean }[]>`
+          SELECT EXISTS (
+            SELECT 1 FROM pg_enum
+            WHERE enumlabel = ${value}
+            AND enumtypid = (SELECT oid FROM pg_type WHERE typname = ${type})
+          ) as exists
+        `;
+
+        if (!result[0]?.exists) {
+          // Add enum value using raw SQL (outside transaction)
+          await prisma.$executeRawUnsafe(
+            `ALTER TYPE "${type}" ADD VALUE IF NOT EXISTS '${value}'`,
+          );
+          console.log(`   Added ${type}.${value}`);
+        } else {
+          console.log(`   OK ${type}.${value}`);
+        }
+      } catch (error: any) {
+        if (error.message?.includes("already exists")) {
+          console.log(`   OK ${type}.${value}`);
+        } else {
+          console.warn(
+            `   Warning: Could not add ${type}.${value}: ${error.message}`,
+          );
+        }
+      }
+    }
+    console.log("");
+
     // Step 5: Verify critical tables
     console.log("5. Verifying critical tables...");
     const tables = await prisma.$queryRaw<Array<{ tablename: string }>>`
