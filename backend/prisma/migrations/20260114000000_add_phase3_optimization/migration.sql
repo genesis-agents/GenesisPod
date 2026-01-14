@@ -5,49 +5,22 @@
 -- 0. Add missing enum values to ResearchMessageType
 -- =====================================================
 
--- Add DIMENSION_STARTED if not exists
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_enum
-        WHERE enumlabel = 'DIMENSION_STARTED'
-        AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'ResearchMessageType')
-    ) THEN
-        ALTER TYPE "ResearchMessageType" ADD VALUE 'DIMENSION_STARTED';
-    END IF;
-EXCEPTION WHEN duplicate_object THEN
-    -- Value already exists, ignore
-    NULL;
+DO $$ BEGIN
+    ALTER TYPE "ResearchMessageType" ADD VALUE IF NOT EXISTS 'DIMENSION_STARTED';
+EXCEPTION
+    WHEN others THEN NULL;
 END $$;
 
--- Add DIMENSION_PROGRESS if not exists
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_enum
-        WHERE enumlabel = 'DIMENSION_PROGRESS'
-        AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'ResearchMessageType')
-    ) THEN
-        ALTER TYPE "ResearchMessageType" ADD VALUE 'DIMENSION_PROGRESS';
-    END IF;
-EXCEPTION WHEN duplicate_object THEN
-    -- Value already exists, ignore
-    NULL;
+DO $$ BEGIN
+    ALTER TYPE "ResearchMessageType" ADD VALUE IF NOT EXISTS 'DIMENSION_PROGRESS';
+EXCEPTION
+    WHEN others THEN NULL;
 END $$;
 
--- Add DIMENSION_COMPLETED if not exists
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_enum
-        WHERE enumlabel = 'DIMENSION_COMPLETED'
-        AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'ResearchMessageType')
-    ) THEN
-        ALTER TYPE "ResearchMessageType" ADD VALUE 'DIMENSION_COMPLETED';
-    END IF;
-EXCEPTION WHEN duplicate_object THEN
-    -- Value already exists, ignore
-    NULL;
+DO $$ BEGIN
+    ALTER TYPE "ResearchMessageType" ADD VALUE IF NOT EXISTS 'DIMENSION_COMPLETED';
+EXCEPTION
+    WHEN others THEN NULL;
 END $$;
 
 -- =====================================================
