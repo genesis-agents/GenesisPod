@@ -1374,6 +1374,12 @@ function TeamInteractionTabContent({
   }>;
 }) {
   const safeEvents = events || [];
+  // ★ 安全处理：确保数组类型，防止 undefined 绕过默认值
+  const safeWsEvents = Array.isArray(wsEvents) ? wsEvents : [];
+  const safePersistedMessages = Array.isArray(persistedMessages)
+    ? persistedMessages
+    : [];
+
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   // ★ AI Writing 模式：展开的消息ID集合
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
@@ -1397,43 +1403,45 @@ function TeamInteractionTabContent({
   // ★ AI Writing 模式：将 WebSocket 事件和持久化消息转换为 UI 消息
   const uiMessages = useMemo<UIMessage[]>(() => {
     // Convert persisted messages to UI format
-    const persistedUIMessages: UIMessage[] = persistedMessages.map((msg) => {
-      let agentIcon = '💬';
-      let agentColor = 'text-gray-700';
-      let agentBgColor = 'bg-gray-100';
-      let msgType: UIMessage['type'] = 'system';
+    const persistedUIMessages: UIMessage[] = safePersistedMessages.map(
+      (msg) => {
+        let agentIcon = '💬';
+        let agentColor = 'text-gray-700';
+        let agentBgColor = 'bg-gray-100';
+        let msgType: UIMessage['type'] = 'system';
 
-      if (msg.senderRole === 'leader') {
-        agentIcon = '👑';
-        agentColor = 'text-purple-700';
-        agentBgColor = 'bg-purple-100';
-        msgType = 'leader';
-      } else if (msg.senderRole === 'user') {
-        agentIcon = '👤';
-        agentColor = 'text-blue-700';
-        agentBgColor = 'bg-blue-100';
-        msgType = 'agent';
+        if (msg.senderRole === 'leader') {
+          agentIcon = '👑';
+          agentColor = 'text-purple-700';
+          agentBgColor = 'bg-purple-100';
+          msgType = 'leader';
+        } else if (msg.senderRole === 'user') {
+          agentIcon = '👤';
+          agentColor = 'text-blue-700';
+          agentBgColor = 'bg-blue-100';
+          msgType = 'agent';
+        }
+
+        return {
+          id: `persisted-${msg.id}`,
+          type: msgType,
+          agent: msg.senderName,
+          agentIcon,
+          agentColor,
+          agentBgColor,
+          agentType: msg.senderRole,
+          content: msg.content,
+          timestamp: new Date(msg.createdAt),
+          detail:
+            msg.content.length > 150
+              ? { type: 'text' as const, data: msg.content }
+              : undefined,
+        };
       }
-
-      return {
-        id: `persisted-${msg.id}`,
-        type: msgType,
-        agent: msg.senderName,
-        agentIcon,
-        agentColor,
-        agentBgColor,
-        agentType: msg.senderRole,
-        content: msg.content,
-        timestamp: new Date(msg.createdAt),
-        detail:
-          msg.content.length > 150
-            ? { type: 'text' as const, data: msg.content }
-            : undefined,
-      };
-    });
+    );
 
     // Convert WebSocket events to UI format
-    const wsUIMessages: UIMessage[] = wsEvents.map((wsEvent, idx) => {
+    const wsUIMessages: UIMessage[] = safeWsEvents.map((wsEvent, idx) => {
       const data = wsEvent.data as Record<string, unknown>;
       const eventType = wsEvent.type;
       const msgId = `ws-${idx}-${wsEvent.timestamp}`;
@@ -1606,7 +1614,7 @@ function TeamInteractionTabContent({
     const allMessages = [...persistedUIMessages, ...wsUIMessages];
     allMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
     return allMessages;
-  }, [wsEvents, persistedMessages]);
+  }, [safeWsEvents, safePersistedMessages]);
 
   // ★ 自动滚动到底部
   useEffect(() => {
@@ -2217,6 +2225,12 @@ function AgentThinkingTabContent({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const safeThinkings = thinkings || [];
 
+  // ★ 安全处理：确保数组类型，防止 undefined 绕过默认值
+  const safeWsEvents = Array.isArray(wsEvents) ? wsEvents : [];
+  const safePersistedActivities = Array.isArray(persistedActivities)
+    ? persistedActivities
+    : [];
+
   const toggleAgentCollapse = (agentType: string) => {
     setCollapsedAgents((prev) => {
       const next = new Set(prev);
@@ -2260,7 +2274,7 @@ function AgentThinkingTabContent({
 
     const activities: AgentActivity[] = [];
 
-    wsEvents.forEach((e, idx) => {
+    safeWsEvents.forEach((e, idx) => {
       const data = e.data as Record<string, unknown>;
 
       // Leader 事件
@@ -2390,7 +2404,7 @@ function AgentThinkingTabContent({
     });
 
     // Add persisted activities from database
-    persistedActivities.forEach((pa) => {
+    safePersistedActivities.forEach((pa) => {
       const agentRole = pa.agentRole as AgentActivity['agentType'];
       activities.push({
         id: `persisted-${pa.id}`,
@@ -2409,7 +2423,7 @@ function AgentThinkingTabContent({
     activities.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
     return activities;
-  }, [wsEvents, persistedActivities]);
+  }, [safeWsEvents, safePersistedActivities]);
 
   // 按 Agent 类型分组活动
   const activitiesByAgent = useMemo(() => {
