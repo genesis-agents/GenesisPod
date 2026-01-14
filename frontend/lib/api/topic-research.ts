@@ -888,3 +888,249 @@ export async function getAgentActivities(
   const url = `${API_PREFIX}/topics/${topicId}/agent-activities${queryString ? `?${queryString}` : ''}`;
   return fetchWithAuth(url);
 }
+
+// ==================== Credibility Report (Phase 2) ====================
+
+/**
+ * 可信度报告数据
+ */
+export interface CredibilityReportData {
+  overallScore: number;
+  authorityScore: number;
+  diversityScore: number;
+  timelinessScore: number;
+  coverageScore: number;
+  sourceBreakdown: {
+    government: number;
+    academic: number;
+    industry: number;
+    news: number;
+    blog: number;
+    other: number;
+    total: number;
+  };
+  timeBreakdown: {
+    within1Month: number;
+    within3Months: number;
+    within6Months: number;
+    within1Year: number;
+    older: number;
+    unknown: number;
+    total: number;
+  };
+  coverageDetails: Array<{
+    dimensionId: string;
+    dimensionName: string;
+    sourceCount: number;
+    targetCount: number;
+    status: 'excellent' | 'good' | 'fair' | 'poor';
+    coveragePercent: number;
+  }>;
+  aiQualityMetrics: {
+    planningRounds: number;
+    revisionAverage: number;
+    approvalRate: number;
+    averageConfidence: string;
+    totalAgentActivities: number;
+  };
+  limitations: string[];
+}
+
+/**
+ * 获取报告的可信度评估
+ */
+export async function getCredibilityReport(
+  topicId: string,
+  reportId: string
+): Promise<CredibilityReportData> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/credibility`
+  );
+}
+
+/**
+ * 重新生成可信度报告
+ */
+export async function regenerateCredibilityReport(
+  topicId: string,
+  reportId: string
+): Promise<CredibilityReportData> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/credibility/regenerate`,
+    { method: 'POST' }
+  );
+}
+
+// ==================== Research History (Phase 2.3) ====================
+
+/**
+ * 研究历史记录
+ */
+export interface ResearchHistoryItem {
+  id: string;
+  topicId: string;
+  missionId: string;
+  researchNumber: number;
+  startedAt: string;
+  completedAt?: string;
+  status: 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'IN_PROGRESS';
+  researchGoal?: string;
+  researchStrategy?: string;
+  dimensionsUpdated: string[];
+  dimensionsKept: string[];
+  wordsAdded: number;
+  wordsRemoved: number;
+  newSourcesCount: number;
+  totalDurationMs?: number;
+  reportVersionBefore?: number;
+  reportVersionAfter?: number;
+}
+
+/**
+ * 获取研究历史时间线
+ */
+export async function getResearchHistory(
+  topicId: string,
+  limit?: number
+): Promise<ResearchHistoryItem[]> {
+  const params = new URLSearchParams();
+  if (limit) params.append('limit', limit.toString());
+  const queryString = params.toString();
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/research-history${queryString ? `?${queryString}` : ''}`
+  );
+}
+
+// ==================== Review Workflow (Phase 3.3) ====================
+
+/**
+ * 审核任务
+ */
+export interface ReviewTask {
+  id: string;
+  reportId: string;
+  sectionId?: string;
+  sectionName: string;
+  sectionOrder: number;
+  assigneeId?: string;
+  assigneeName?: string;
+  assignedById?: string;
+  assignedAt?: string;
+  dueAt?: string;
+  completedAt?: string;
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED';
+  approved?: boolean;
+  score?: number;
+  comments?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * 审核任务统计
+ */
+export interface ReviewTaskStats {
+  total: number;
+  pending: number;
+  inProgress: number;
+  completed: number;
+  approved: number;
+  rejected: number;
+  averageScore: number | null;
+}
+
+/**
+ * 获取报告的审核任务列表
+ */
+export async function getReviewTasks(
+  topicId: string,
+  reportId: string
+): Promise<ReviewTask[]> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/review-tasks`
+  );
+}
+
+/**
+ * 创建审核任务
+ */
+export async function createReviewTasks(
+  topicId: string,
+  reportId: string
+): Promise<{
+  created: number;
+  tasks: Array<{ id: string; sectionName: string }>;
+}> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/review-tasks`,
+    { method: 'POST' }
+  );
+}
+
+/**
+ * 分配审核任务
+ */
+export async function assignReviewTask(
+  topicId: string,
+  reportId: string,
+  taskId: string,
+  assigneeId: string,
+  assigneeName: string
+): Promise<ReviewTask> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/review-tasks/${taskId}/assign`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ assigneeId, assigneeName }),
+    }
+  );
+}
+
+/**
+ * 完成审核任务
+ */
+export async function completeReviewTask(
+  topicId: string,
+  reportId: string,
+  taskId: string,
+  approved: boolean,
+  comments?: string,
+  score?: number
+): Promise<ReviewTask> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/review-tasks/${taskId}/complete`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ approved, comments, score }),
+    }
+  );
+}
+
+/**
+ * 获取审核任务统计
+ */
+export async function getReviewTaskStats(
+  topicId: string,
+  reportId: string
+): Promise<ReviewTaskStats> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/review-tasks/stats`
+  );
+}
+
+/**
+ * 检查报告是否可发布
+ */
+export async function canPublishReport(
+  topicId: string,
+  reportId: string
+): Promise<{
+  canPublish: boolean;
+  reason?: string;
+  pendingTasks: number;
+  rejectedTasks: number;
+}> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/review-tasks/can-publish`
+  );
+}

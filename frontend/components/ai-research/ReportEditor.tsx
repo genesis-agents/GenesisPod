@@ -21,7 +21,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
 import TurndownService from 'turndown';
-import type { TopicReport } from '@/types/topic-research';
+import type { TopicReport, TopicEvidence } from '@/types/topic-research';
 import { TextSelectionContextMenu } from './TextSelectionContextMenu';
 import type { AIEditOperation } from './types';
 
@@ -77,6 +77,8 @@ interface ReportAnnotation {
 
 interface ReportEditorProps {
   report: TopicReport | null;
+  /** Evidence data for citation display - if not provided, falls back to report.evidence */
+  evidence?: TopicEvidence[];
   isLoading?: boolean;
   onSave?: (content: string) => Promise<void>;
   onAIEdit?: (
@@ -316,6 +318,7 @@ function CitationBadge({ index, evidence }: CitationBadgeProps) {
 
 export function ReportEditor({
   report,
+  evidence: evidenceProp,
   isLoading = false,
   onSave,
   onAIEdit,
@@ -323,6 +326,8 @@ export function ReportEditor({
   annotations = [],
   highlightedAnnotationId,
 }: ReportEditorProps) {
+  // Use passed evidence or fall back to report.evidence
+  const evidence = evidenceProp || report?.evidence || [];
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const [editContent, setEditContent] = useState('');
   const [showAIPanel, setShowAIPanel] = useState(false);
@@ -360,13 +365,13 @@ export function ReportEditor({
   // Build evidence map for citation lookup (evidenceId -> index)
   const evidenceMap = useMemo(() => {
     const map = new Map<string, number>();
-    if (report?.evidence) {
-      report.evidence.forEach((ev, idx) => {
+    if (evidence.length > 0) {
+      evidence.forEach((ev, idx) => {
         map.set(ev.id, idx + 1); // 1-based index for citations
       });
     }
     return map;
-  }, [report?.evidence]);
+  }, [evidence]);
 
   // Helper to format citation references like [1][2][3]
   const formatCitations = useCallback(
@@ -764,7 +769,7 @@ export function ReportEditor({
   // Process text to convert citation patterns [1], [2] to interactive components
   const processTextWithCitations = useCallback(
     (text: string): React.ReactNode => {
-      if (!text || !report?.evidence?.length) return text;
+      if (!text || !evidence?.length) return text;
 
       // Match [1], [2], [1, 2] patterns
       const citationPattern = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
@@ -785,13 +790,13 @@ export function ReportEditor({
 
         // Create citation badges with tooltip
         indices.forEach((idx, i) => {
-          const evidence = report.evidence?.[idx - 1];
-          if (evidence) {
+          const evidenceItem = evidence[idx - 1];
+          if (evidenceItem) {
             parts.push(
               <CitationBadge
                 key={`cite-${match!.index}-${idx}-${i}`}
                 index={idx}
-                evidence={evidence}
+                evidence={evidenceItem}
               />
             );
           } else {
@@ -817,7 +822,7 @@ export function ReportEditor({
 
       return parts.length === 1 ? parts[0] : parts;
     },
-    [report?.evidence]
+    [evidence]
   );
 
   if (isLoading) {

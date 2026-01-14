@@ -42,6 +42,9 @@ import {
   RefreshProgressEvent,
   ReportChangeService,
   ReportAnnotationService,
+  ResearchStrategyService,
+  AgentActivityService,
+  CredibilityReportService,
 } from "./services";
 import { AIEngineFacade } from "../../../ai-engine/facade";
 import { REPORT_EDITING_SYSTEM_PROMPT, buildEditPrompt } from "./prompts";
@@ -411,6 +414,9 @@ export class TopicResearchService {
     private readonly reportChangeService: ReportChangeService,
     private readonly reportAnnotationService: ReportAnnotationService,
     private readonly exportOrchestrator: ExportOrchestratorService,
+    private readonly researchStrategyService: ResearchStrategyService,
+    private readonly agentActivityService: AgentActivityService,
+    private readonly credibilityReportService: CredibilityReportService,
   ) {}
 
   // ==================== Topics CRUD ====================
@@ -682,6 +688,226 @@ export class TopicResearchService {
       success: true,
       reportId: report.id,
       message: "刷新完成",
+    };
+  }
+
+  /**
+   * 获取研究策略建议
+   *
+   * 智能分析主题状态并推荐研究策略
+   */
+  async getResearchStrategy(userId: string, topicId: string) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    return this.researchStrategyService.analyzeAndRecommend(topicId);
+  }
+
+  /**
+   * 快速检查研究状态（用于前端按钮显示）
+   */
+  async quickCheckResearchStatus(userId: string, topicId: string) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    return this.researchStrategyService.quickCheck(topicId);
+  }
+
+  /**
+   * 智能开始研究
+   *
+   * 根据主题状态自动决定研究策略：
+   * - 从未研究过 → 全新研究
+   * - 有部分过期 → 增量更新
+   * - 全部过期 → 全量刷新
+   */
+  async smartStartResearch(userId: string, topicId: string) {
+    // 验证专题所有权
+    const topic = await this.getTopic(userId, topicId);
+
+    // 获取智能策略
+    const smartOptions =
+      await this.researchStrategyService.getSmartRefreshOptions(topicId);
+
+    this.logger.log(
+      `Smart research for topic ${topicId}: ${smartOptions.strategy} - ${smartOptions.message}`,
+    );
+
+    // 执行研究
+    const report = await this.orchestrator.executeRefresh(topic, {
+      forceRefresh: smartOptions.forceRefresh,
+      dimensionIds: smartOptions.dimensionIds,
+      incremental: smartOptions.incremental,
+    });
+
+    return {
+      success: true,
+      reportId: report.id,
+      strategy: smartOptions.strategy,
+      message: smartOptions.message,
+    };
+  }
+
+  /**
+   * 获取 Agent 活动记录（按维度分组）
+   */
+  async getAgentActivities(
+    userId: string,
+    topicId: string,
+    missionId?: string,
+  ) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    return this.agentActivityService.getActivitiesByDimension(
+      topicId,
+      missionId,
+    );
+  }
+
+  /**
+   * 获取 Agent 活动统计
+   */
+  async getAgentActivityStats(
+    userId: string,
+    topicId: string,
+    missionId?: string,
+  ) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    return this.agentActivityService.getActivityStats(topicId, missionId);
+  }
+
+  /**
+   * 获取报告的可信度评估
+   */
+  async getCredibilityReport(userId: string, reportId: string) {
+    // 验证报告所有权
+    const report = await this.prisma.topicReport.findUnique({
+      where: { id: reportId },
+      include: { topic: { select: { userId: true } } },
+    });
+
+    if (!report || report.topic.userId !== userId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    return this.credibilityReportService.getOrGenerateCredibilityReport(
+      reportId,
+    );
+  }
+
+  /**
+   * 重新生成可信度报告
+   */
+  async regenerateCredibilityReport(userId: string, reportId: string) {
+    // 验证报告所有权
+    const report = await this.prisma.topicReport.findUnique({
+      where: { id: reportId },
+      include: { topic: { select: { userId: true } } },
+    });
+
+    if (!report || report.topic.userId !== userId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    return this.credibilityReportService.generateCredibilityReport(reportId);
+  }
+
+  /**
+   * 获取研究历史时间线 (Phase 2.3)
+   */
+  async getResearchHistory(userId: string, topicId: string, limit?: number) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    // 获取所有研究任务（Mission）
+    const missions = await this.prisma.researchMission.findMany({
+      where: { topicId },
+      orderBy: { createdAt: "desc" },
+      take: limit || 20,
+      include: {
+        tasks: {
+          select: {
+            id: true,
+            dimensionId: true,
+            status: true,
+            createdAt: true,
+            completedAt: true,
+          },
+        },
+      },
+    });
+
+    // 获取所有报告
+    const reports = await this.prisma.topicReport.findMany({
+      where: { topicId },
+      orderBy: { generatedAt: "desc" },
+      take: limit || 20,
+      select: {
+        id: true,
+        version: true,
+        generatedAt: true,
+        totalSources: true,
+      },
+    });
+
+    // 转换为时间线格式
+    const timeline: Array<{
+      id: string;
+      type: "mission" | "report";
+      timestamp: Date;
+      title: string;
+      description: string;
+      status?: string;
+      metadata?: Record<string, unknown>;
+    }> = [];
+
+    // 添加 Mission 记录
+    for (const mission of missions) {
+      const completedTasks = mission.tasks.filter(
+        (t) => t.status === "COMPLETED",
+      ).length;
+      const totalTasks = mission.tasks.length;
+
+      timeline.push({
+        id: mission.id,
+        type: "mission",
+        timestamp: mission.createdAt,
+        title: `研究任务 #${missions.indexOf(mission) + 1}`,
+        description: `完成 ${completedTasks}/${totalTasks} 个维度研究`,
+        status: mission.status,
+        metadata: {
+          completedTasks,
+          totalTasks,
+          completedAt: mission.completedAt,
+        },
+      });
+    }
+
+    // 添加报告记录
+    for (const report of reports) {
+      timeline.push({
+        id: report.id,
+        type: "report",
+        timestamp: report.generatedAt,
+        title: `研究报告 v${report.version}`,
+        description: `${report.totalSources || 0} 条来源`,
+        metadata: {
+          version: report.version,
+          totalSources: report.totalSources,
+        },
+      });
+    }
+
+    // 按时间排序
+    timeline.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+    return {
+      timeline,
+      totalMissions: missions.length,
+      totalReports: reports.length,
     };
   }
 

@@ -19,6 +19,10 @@ export { DimensionMissionService } from "./dimension-mission.service";
 export { SectionWriterService } from "./section-writer.service";
 export { ReportChangeService } from "./report-change.service";
 export { ReportAnnotationService } from "./report-annotation.service";
+export { AgentActivityService } from "./agent-activity.service";
+export { ResearchStrategyService } from "./research-strategy.service";
+export { CredibilityReportService } from "./credibility-report.service";
+export { ReviewWorkflowService } from "./review-workflow.service";
 
 // Re-export types
 export type {
@@ -33,3 +37,28 @@ export {
   type OverallReviewResult,
   type ReviewIssue,
 } from "./research-reviewer.service";
+export {
+  ResearchStrategyType,
+  DimensionFreshnessLevel,
+  type DimensionFreshnessInfo,
+  type ResearchStrategyRecommendation,
+} from "./research-strategy.service";
+export type {
+  SearchResultsRecord,
+  WritingProgressRecord,
+  DimensionActivities,
+  AgentActivityWithTiming,
+} from "./agent-activity.service";
+export type {
+  SourceBreakdown,
+  TimeBreakdown,
+  DimensionCoverageDetail,
+  AIQualityMetrics,
+  CredibilityReportData,
+} from "./credibility-report.service";
+export type {
+  CreateReviewTaskInput,
+  AssignTaskInput,
+  CompleteTaskInput,
+  ReviewTaskStats,
+} from "./review-workflow.service";

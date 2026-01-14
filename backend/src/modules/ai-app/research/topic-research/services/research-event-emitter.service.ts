@@ -458,32 +458,56 @@ export class ResearchEventEmitterService {
 
   /**
    * 发送维度研究开始事件
+   * ★ 同时保存到数据库
    */
   async emitDimensionResearchStarted(
     topicId: string,
     dimensionName: string,
     agentName: string,
+    missionId?: string,
   ): Promise<void> {
+    const message = `🔍 ${agentName} 开始研究「${dimensionName}」维度`;
     await this.emitToTopic(
       topicId,
       ResearchEventType.DIMENSION_RESEARCH_STARTED,
       {
         dimensionName,
         agentName,
-        message: `🔍 ${agentName} 开始研究「${dimensionName}」维度`,
+        message,
       },
     );
+
+    // ★ 保存到数据库
+    if (missionId) {
+      try {
+        await this.prisma.researchTeamMessage.create({
+          data: {
+            topicId,
+            missionId,
+            messageType: "DIMENSION_STARTED",
+            senderRole: "researcher",
+            senderName: `${dimensionName}研究员`,
+            content: message,
+          },
+        });
+      } catch (error) {
+        this.logger.error(`Failed to persist dimension started: ${error}`);
+      }
+    }
   }
 
   /**
    * 发送维度研究进度事件
+   * ★ 同时保存到数据库
    */
   async emitDimensionResearchProgress(
     topicId: string,
     dimensionName: string,
     progress: number,
     currentStep: string,
+    missionId?: string,
   ): Promise<void> {
+    const message = `「${dimensionName}」研究进度 ${progress}%`;
     await this.emitToTopic(
       topicId,
       ResearchEventType.DIMENSION_RESEARCH_PROGRESS,
@@ -491,20 +515,44 @@ export class ResearchEventEmitterService {
         dimensionName,
         progress,
         currentStep,
-        message: `「${dimensionName}」${currentStep}`,
+        message,
       },
     );
+
+    // ★ 保存到数据库（只保存关键进度点：0%, 25%, 50%, 75%, 100%）
+    if (
+      missionId &&
+      (progress === 0 || progress % 25 === 0 || progress === 100)
+    ) {
+      try {
+        await this.prisma.researchTeamMessage.create({
+          data: {
+            topicId,
+            missionId,
+            messageType: "DIMENSION_PROGRESS",
+            senderRole: "researcher",
+            senderName: `${dimensionName}研究员`,
+            content: `${message} - ${currentStep}`,
+          },
+        });
+      } catch (error) {
+        this.logger.error(`Failed to persist dimension progress: ${error}`);
+      }
+    }
   }
 
   /**
    * 发送维度研究完成事件
+   * ★ 同时保存到数据库
    */
   async emitDimensionResearchCompleted(
     topicId: string,
     dimensionName: string,
     findingsCount: number,
     wordCount: number,
+    missionId?: string,
   ): Promise<void> {
+    const message = `✅「${dimensionName}」研究完成，发现 ${findingsCount} 个要点，${wordCount} 字`;
     await this.emitToTopic(
       topicId,
       ResearchEventType.DIMENSION_RESEARCH_COMPLETED,
@@ -512,9 +560,27 @@ export class ResearchEventEmitterService {
         dimensionName,
         findingsCount,
         wordCount,
-        message: `✅「${dimensionName}」研究完成，发现 ${findingsCount} 个要点，${wordCount} 字`,
+        message,
       },
     );
+
+    // ★ 保存到数据库
+    if (missionId) {
+      try {
+        await this.prisma.researchTeamMessage.create({
+          data: {
+            topicId,
+            missionId,
+            messageType: "DIMENSION_COMPLETED",
+            senderRole: "researcher",
+            senderName: `${dimensionName}研究员`,
+            content: message,
+          },
+        });
+      } catch (error) {
+        this.logger.error(`Failed to persist dimension completed: ${error}`);
+      }
+    }
   }
 
   // ==================== 报告撰写事件 ====================

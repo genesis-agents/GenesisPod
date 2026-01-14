@@ -1121,6 +1121,7 @@ export class ResearchMissionService {
             topic.id,
             dimensionName,
             agentName,
+            missionId,
           );
 
           // ★ 优先使用 dimensionId 查找（更可靠）
@@ -1146,6 +1147,7 @@ export class ResearchMissionService {
               dimensionName,
               30,
               "正在采集相关数据...",
+              missionId,
             );
 
             // 使用新的 Leader-Agent 协作机制
@@ -1154,6 +1156,7 @@ export class ResearchMissionService {
                 topic,
                 dimension,
                 reportId, // ★ 传入 reportId 以便关联证据
+                missionId, // ★ 传入 missionId 以便持久化团队消息
               );
 
             if (!missionResult.success) {
@@ -1169,6 +1172,7 @@ export class ResearchMissionService {
               dimensionName,
               result.keyFindings?.length || 0,
               result.detailedContent?.length || 0,
+              missionId,
             );
           } else {
             // 如果没有找到维度，创建新维度进行研究
@@ -1187,6 +1191,7 @@ export class ResearchMissionService {
               dimensionName,
               result.keyFindings?.length || 0,
               result.detailedContent?.length || 0,
+              missionId,
             );
           }
           break;

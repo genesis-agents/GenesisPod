@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -48,6 +49,8 @@ import {
   AIEditReportDto,
   RollbackReportDto,
   MissionAdjustDto,
+  AssignReviewTaskDto,
+  CompleteReviewTaskDto,
 } from "./dto";
 import {
   AddCollaboratorDto,
@@ -59,6 +62,7 @@ import { ResearchMissionService } from "./services/research-mission.service";
 import { ResearchLeaderService } from "./services/research-leader.service";
 import { TopicCollaboratorService } from "./services/topic-collaborator.service";
 import { ResearchEventEmitterService } from "./services/research-event-emitter.service";
+import { ReviewWorkflowService } from "./services/review-workflow.service";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
@@ -71,6 +75,7 @@ export class TopicResearchController {
     private readonly leaderService: ResearchLeaderService,
     private readonly collaboratorService: TopicCollaboratorService,
     private readonly eventEmitterService: ResearchEventEmitterService,
+    private readonly reviewWorkflowService: ReviewWorkflowService,
   ) {}
 
   // ==================== Topics CRUD ====================
@@ -195,6 +200,112 @@ export class TopicResearchController {
     }
     // TODO: Implement triggerRefresh
     return this.topicResearchService.triggerRefresh(userId, id, dto);
+  }
+
+  /**
+   * 获取研究策略建议
+   */
+  @Get("topics/:id/research/strategy")
+  @ApiOperation({
+    summary: "获取研究策略建议",
+    description: "智能分析主题状态，推荐最佳研究策略（全新/增量/全量刷新）",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "返回研究策略建议" })
+  async getResearchStrategy(@Request() req: any, @Param("id") id: string) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.getResearchStrategy(userId, id);
+  }
+
+  /**
+   * 快速检查研究状态（用于前端按钮）
+   */
+  @Get("topics/:id/research/quick-check")
+  @ApiOperation({
+    summary: "快速检查研究状态",
+    description: "返回研究状态摘要，用于前端按钮显示",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "返回研究状态摘要" })
+  async quickCheckResearchStatus(@Request() req: any, @Param("id") id: string) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.quickCheckResearchStatus(userId, id);
+  }
+
+  /**
+   * 智能开始研究
+   */
+  @Post("topics/:id/research/smart-start")
+  @HttpCode(202)
+  @ApiOperation({
+    summary: "智能开始研究",
+    description:
+      "根据主题状态自动决定研究策略：从未研究→全新研究，有部分过期→增量更新，全部过期→全量刷新",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 202, description: "研究任务已创建" })
+  async smartStartResearch(@Request() req: any, @Param("id") id: string) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.smartStartResearch(userId, id);
+  }
+
+  /**
+   * 获取按维度分组的 Agent 活动记录
+   */
+  @Get("topics/:id/agent-activities/by-dimension")
+  @ApiOperation({
+    summary: "获取按维度分组的 Agent 活动记录",
+    description: "返回按维度分组的 Agent 思考过程和活动记录（增强版）",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiQuery({ name: "missionId", required: false, description: "任务ID" })
+  @ApiResponse({ status: 200, description: "返回按维度分组的 Agent 活动记录" })
+  async getAgentActivitiesByDimension(
+    @Request() req: any,
+    @Param("id") id: string,
+    @Query("missionId") missionId?: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.getAgentActivities(userId, id, missionId);
+  }
+
+  /**
+   * 获取 Agent 活动统计
+   */
+  @Get("topics/:id/agent-activities/stats")
+  @ApiOperation({
+    summary: "获取 Agent 活动统计",
+    description: "返回 Agent 活动的统计数据",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiQuery({ name: "missionId", required: false, description: "任务ID" })
+  @ApiResponse({ status: 200, description: "返回活动统计" })
+  async getAgentActivityStats(
+    @Request() req: any,
+    @Param("id") id: string,
+    @Query("missionId") missionId?: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.getAgentActivityStats(
+      userId,
+      id,
+      missionId,
+    );
   }
 
   /**
@@ -1495,5 +1606,250 @@ export class TopicResearchController {
       throw new UnauthorizedException("User not authenticated");
     }
     return this.topicResearchService.getSharingSettings(userId, id);
+  }
+
+  // ==================== Credibility Report (Phase 2.2) ====================
+
+  /**
+   * 获取报告可信度评估
+   */
+  @Get("topics/:topicId/reports/:reportId/credibility")
+  @ApiOperation({
+    summary: "获取可信度报告",
+    description: "获取报告的可信度评估，包括来源分布、时效性、覆盖度等指标",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "返回可信度评估" })
+  async getCredibilityReport(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("reportId") reportId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.getCredibilityReport(userId, reportId);
+  }
+
+  /**
+   * 重新生成可信度报告
+   */
+  @Post("topics/:topicId/reports/:reportId/credibility/regenerate")
+  @ApiOperation({
+    summary: "重新生成可信度报告",
+    description: "强制重新计算报告的可信度评估",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "返回新的可信度评估" })
+  async regenerateCredibilityReport(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("reportId") reportId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.regenerateCredibilityReport(
+      userId,
+      reportId,
+    );
+  }
+
+  // ==================== Research History (Phase 2.3) ====================
+
+  /**
+   * 获取研究历史时间线
+   */
+  @Get("topics/:id/research-history")
+  @ApiOperation({
+    summary: "获取研究历史时间线",
+    description: "获取专题的所有研究历史记录，包括每次研究的目标、策略和成果",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiQuery({ name: "limit", required: false, description: "返回数量" })
+  @ApiResponse({ status: 200, description: "返回研究历史列表" })
+  async getResearchHistory(
+    @Request() req: any,
+    @Param("id") id: string,
+    @Query("limit") limit?: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.getResearchHistory(
+      userId,
+      id,
+      limit ? parseInt(limit, 10) : undefined,
+    );
+  }
+
+  // ==================== Review Workflow (Phase 3.3) ====================
+
+  /**
+   * 获取报告的审核任务列表
+   */
+  @Get("topics/:topicId/reports/:reportId/review-tasks")
+  @ApiOperation({
+    summary: "获取审核任务列表",
+    description: "获取报告的所有审核任务",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "返回审核任务列表" })
+  async getReviewTasks(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("reportId") reportId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.reviewWorkflowService.getReviewTasks(reportId);
+  }
+
+  /**
+   * 创建审核任务
+   */
+  @Post("topics/:topicId/reports/:reportId/review-tasks")
+  @ApiOperation({
+    summary: "创建审核任务",
+    description: "为报告的各章节自动创建审核任务",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 201, description: "审核任务创建成功" })
+  async createReviewTasks(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("reportId") reportId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.reviewWorkflowService.createReviewTasksForReport(
+      reportId,
+      userId,
+    );
+  }
+
+  /**
+   * 分配审核任务
+   */
+  @Patch("topics/:topicId/reports/:reportId/review-tasks/:taskId/assign")
+  @ApiOperation({
+    summary: "分配审核任务",
+    description: "将审核任务分配给指定协作者",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiParam({ name: "taskId", description: "任务ID" })
+  @ApiResponse({ status: 200, description: "分配成功" })
+  async assignReviewTask(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("reportId") _reportId: string,
+    @Param("taskId") taskId: string,
+    @Body() dto: AssignReviewTaskDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.reviewWorkflowService.assignTask(
+      {
+        taskId,
+        assigneeId: dto.assigneeId,
+        assigneeName: dto.assigneeName,
+        dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
+      },
+      userId,
+    );
+  }
+
+  /**
+   * 完成审核任务
+   */
+  @Patch("topics/:topicId/reports/:reportId/review-tasks/:taskId/complete")
+  @ApiOperation({
+    summary: "完成审核任务",
+    description: "提交审核结果，标记任务为完成",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiParam({ name: "taskId", description: "任务ID" })
+  @ApiResponse({ status: 200, description: "审核完成" })
+  async completeReviewTask(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("reportId") _reportId: string,
+    @Param("taskId") taskId: string,
+    @Body() dto: CompleteReviewTaskDto,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.reviewWorkflowService.completeTask(
+      {
+        taskId,
+        approved: dto.approved,
+        comments: dto.comments,
+        score: dto.score,
+      },
+      userId,
+    );
+  }
+
+  /**
+   * 获取审核任务统计
+   */
+  @Get("topics/:topicId/reports/:reportId/review-tasks/stats")
+  @ApiOperation({
+    summary: "获取审核任务统计",
+    description: "获取报告审核任务的统计数据",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "返回审核任务统计" })
+  async getReviewTaskStats(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("reportId") reportId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.reviewWorkflowService.getTaskStats(reportId);
+  }
+
+  /**
+   * 检查报告是否可发布
+   */
+  @Get("topics/:topicId/reports/:reportId/review-tasks/can-publish")
+  @ApiOperation({
+    summary: "检查报告是否可发布",
+    description: "检查所有审核任务是否完成且通过",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "返回发布状态" })
+  async canPublishReport(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("reportId") reportId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.reviewWorkflowService.canPublishReport(reportId);
   }
 }

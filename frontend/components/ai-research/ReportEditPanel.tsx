@@ -437,6 +437,7 @@ export function ReportEditPanel({
         >
           <ReportEditor
             report={report}
+            evidence={evidence}
             isLoading={isLoading}
             onSave={onSave}
             onAIEdit={

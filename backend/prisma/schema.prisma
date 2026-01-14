@@ -153,6 +153,7 @@ model User {
   reportChangesCheckedIn    ReportChange[]     @relation("ReportChangeCheckedInBy")
   reportAnnotationsCreated  ReportAnnotation[] @relation("ReportAnnotationCreator")
   reportAnnotationsResolved ReportAnnotation[] @relation("ReportAnnotationResolver")
+  reviewTasksAssigned       ReviewTask[]       @relation("ReviewTaskAssignee") // 审核任务 (Phase 3.3)
 
   @@map("users")
 }
@@ -6740,6 +6741,8 @@ model ResearchTopic {
   collaborators TopicCollaborator[] // 协作者列表
   teamMessages  ResearchTeamMessage[] // 团队互动消息
   agentActivities ResearchAgentActivity[] // Agent 活动记录
+  dimensionFreshness DimensionFreshness[] // 维度新鲜度 (Phase 3.1)
+  researchHistories  ResearchHistory[] // 研究历史 (Phase 2.3)
 
   // ========== 索引 ==========
   @@index([userId, status]) // 按用户和状态查询
@@ -6819,8 +6822,9 @@ model TopicDimension {
   lastResearchedAt DateTime?       @map("last_researched_at")
 
   // ========== 关系 ==========
-  topic    ResearchTopic       @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  analyses DimensionAnalysis[]
+  topic     ResearchTopic        @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  analyses  DimensionAnalysis[]
+  freshness DimensionFreshness? // 新鲜度检测 (Phase 3.1)
 
   // ========== 索引 ==========
   @@index([topicId, sortOrder]) // 按专题和顺序查询
@@ -6896,6 +6900,8 @@ model TopicReport {
   revisions         TopicReportRevision[] // 修订历史
   changes           ReportChange[] // 变更记录
   annotations       ReportAnnotation[] // 批注
+  credibilityReport CredibilityReport? // 可信度报告 (Phase 2.1)
+  reviewTasks       ReviewTask[] // 协作审核任务 (Phase 3.3)
 
   // ========== 唯一约束 ==========
   @@unique([topicId, version])
@@ -7260,6 +7266,9 @@ enum ResearchMessageType {
   USER_MESSAGE // 用户消息
   SYSTEM_MESSAGE // 系统消息
   AGENT_REPORT // Agent 汇报
+  DIMENSION_STARTED // 维度研究开始
+  DIMENSION_PROGRESS // 维度研究进度
+  DIMENSION_COMPLETED // 维度研究完成
 }
 
 /// Agent 活动类型
@@ -7309,15 +7318,28 @@ model ResearchAgentActivity {
   missionId String @map("mission_id")
 
   // ========== Agent 信息 ==========
-  agentId     String            @map("agent_id")
-  agentName   String            @map("agent_name")
-  agentRole   String            @map("agent_role") // leader, researcher, reviewer, synthesizer
+  agentId   String @map("agent_id")
+  agentName String @map("agent_name")
+  agentRole String @map("agent_role") // leader, researcher, reviewer, synthesizer
 
   // ========== 活动信息 ==========
   activityType AgentActivityType @map("activity_type")
   phase        String?           // 阶段：understanding, analyzing, planning, executing
   content      String            @db.Text // 活动内容/思考内容
   progress     Int               @default(0) // 进度 0-100
+
+  // ========== 思考链增强 (Phase 1.2) ==========
+  thinkingPhase   String? @map("thinking_phase") // understanding | searching | writing | reviewing | integrating
+  thinkingContent String? @map("thinking_content") @db.Text // 详细思考内容
+  searchResults   Json?   @map("search_results") // { total, filtered, sources[] }
+  writingProgress Json?   @map("writing_progress") // { sections[], current, revisions }
+  actionTaken     String? @map("action_taken") // 采取的行动描述
+  actionResult    Json?   @map("action_result") // 行动结果
+
+  // ========== 时间追踪 ==========
+  phaseStartedAt DateTime? @map("phase_started_at")
+  phaseEndedAt   DateTime? @map("phase_ended_at")
+  durationMs     Int?      @map("duration_ms") // 阶段耗时（毫秒）
 
   // ========== 维度关联 ==========
   dimensionId   String? @map("dimension_id")
@@ -7337,5 +7359,163 @@ model ResearchAgentActivity {
   @@index([missionId])
   @@index([agentRole])
   @@index([dimensionId])
+  @@index([missionId, thinkingPhase])
   @@map("research_agent_activities")
+}
+
+// ==================== Research Optimization Models ====================
+// Phase 2 & 3 优化方案新增模型
+
+/// 可信度报告 (Phase 2.1)
+/// 记录报告的可信度评估结果
+model CredibilityReport {
+  id       String @id @default(cuid())
+  reportId String @unique @map("report_id")
+
+  // ========== 整体评分 ==========
+  overallScore Float @map("overall_score") // 0-100
+
+  // ========== 分项评分 ==========
+  authorityScore  Float @map("authority_score") // 权威性评分
+  diversityScore  Float @map("diversity_score") // 来源多样性评分
+  timelinessScore Float @map("timeliness_score") // 时效性评分
+  coverageScore   Float @map("coverage_score") // 覆盖度评分
+
+  // ========== 详细数据 (JSON) ==========
+  sourceBreakdown  Json @map("source_breakdown") // { government, academic, industry, news, blog }
+  timeBreakdown    Json @map("time_breakdown") // { within1Month, within3Months, older }
+  coverageDetails  Json @map("coverage_details") // { dimensionId: { count, target, status } }
+  aiQualityMetrics Json @map("ai_quality_metrics") // { planningRounds, revisionAvg, approvalRate }
+
+  // ========== 局限性声明 ==========
+  limitations String[] // 局限性列表
+
+  // ========== 时间戳 ==========
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ========== 关系 ==========
+  report TopicReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("credibility_reports")
+}
+
+/// 维度新鲜度检测 (Phase 3.1)
+/// 记录每个维度的数据新鲜度评估
+model DimensionFreshness {
+  id          String @id @default(cuid())
+  topicId     String @map("topic_id")
+  dimensionId String @unique @map("dimension_id")
+
+  // ========== 新鲜度指标 ==========
+  lastAnalyzedAt    DateTime @map("last_analyzed_at")
+  sourcesCount      Int      @map("sources_count")
+  newSourcesCount   Int      @map("new_sources_count") // 新增来源数
+  staleSourcesCount Int      @map("stale_sources_count") // 过时来源数
+  updatedSourcesCount Int    @map("updated_sources_count") // 有更新的来源数
+
+  // ========== 推荐操作 ==========
+  recommendation  String // KEEP | UPDATE | REFRESH
+  confidenceScore Float  @map("confidence_score") // 0-1
+
+  // ========== 详细分析 ==========
+  analysisDetails Json? @map("analysis_details") // 详细分析数据
+
+  // ========== 检查时间 ==========
+  checkedAt DateTime @map("checked_at")
+
+  // ========== 关系 ==========
+  topic     ResearchTopic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  dimension TopicDimension @relation(fields: [dimensionId], references: [id], onDelete: Cascade)
+
+  @@unique([topicId, dimensionId])
+  @@index([topicId])
+  @@index([dimensionId])
+  @@map("dimension_freshness")
+}
+
+/// 协作审核任务 (Phase 3.3)
+/// 支持团队协作审核报告
+model ReviewTask {
+  id        String @id @default(cuid())
+  reportId  String @map("report_id")
+  sectionId String? @map("section_id")
+
+  // ========== 章节信息 ==========
+  sectionName  String  @map("section_name")
+  sectionOrder Int     @default(0) @map("section_order")
+
+  // ========== 分配信息 ==========
+  assigneeId   String?   @map("assignee_id")
+  assigneeName String?   @map("assignee_name")
+  assignedAt   DateTime? @map("assigned_at")
+  assignedById String?   @map("assigned_by_id")
+  dueAt        DateTime? @map("due_at")
+
+  // ========== 状态 ==========
+  status      ReviewTaskStatus @default(PENDING)
+  completedAt DateTime?        @map("completed_at")
+
+  // ========== 审核结果 ==========
+  approved Boolean?
+  score    Float? // 质量评分 0-100
+  comments String? @db.Text
+
+  // ========== 时间戳 ==========
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // ========== 关系 ==========
+  report   TopicReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  assignee User?       @relation("ReviewTaskAssignee", fields: [assigneeId], references: [id])
+
+  @@index([reportId, status])
+  @@index([assigneeId])
+  @@map("review_tasks")
+}
+
+/// 审核任务状态
+enum ReviewTaskStatus {
+  PENDING // 待审核
+  IN_PROGRESS // 审核中
+  COMPLETED // 已完成
+  SKIPPED // 已跳过
+}
+
+/// 研究历史记录 (Phase 2.3)
+/// 记录每次研究的摘要信息，用于时间线展示
+model ResearchHistory {
+  id        String @id @default(cuid())
+  topicId   String @map("topic_id")
+  missionId String @map("mission_id")
+
+  // ========== 研究信息 ==========
+  researchNumber Int      @map("research_number") // 第几次研究
+  startedAt      DateTime @map("started_at")
+  completedAt    DateTime? @map("completed_at")
+  status         String   // COMPLETED | FAILED | CANCELLED
+
+  // ========== 研究目标 ==========
+  researchGoal    String? @map("research_goal") @db.Text
+  researchStrategy String? @map("research_strategy") @db.Text
+
+  // ========== 研究结果摘要 ==========
+  dimensionsUpdated   String[] @map("dimensions_updated") // 更新的维度列表
+  dimensionsKept      String[] @map("dimensions_kept") // 保留的维度列表
+  wordsAdded          Int      @default(0) @map("words_added")
+  wordsRemoved        Int      @default(0) @map("words_removed")
+  newSourcesCount     Int      @default(0) @map("new_sources_count")
+  totalDurationMs     Int?     @map("total_duration_ms")
+
+  // ========== 关联报告版本 ==========
+  reportVersionBefore Int? @map("report_version_before")
+  reportVersionAfter  Int? @map("report_version_after")
+
+  // ========== 关系 ==========
+  topic ResearchTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@index([topicId, researchNumber])
+  @@index([missionId])
+  @@map("research_histories")
 }

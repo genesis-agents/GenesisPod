@@ -21,12 +21,25 @@ import type { MissionStatus } from '@/lib/api/topic-research';
 import { ReportEditPanel } from './ReportEditPanel';
 import { ChapterizedReportView } from './ChapterizedReportView';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
+// Phase 1-3 优化组件
+import { CredibilityPanel } from './CredibilityPanel';
+import { ResearchTimeline } from './ResearchTimeline';
+import { AgentThinkingTimeline } from './AgentThinkingTimeline';
+import { ChangeReviewPanel } from './ChangeReviewPanel';
+import { CollaborationPanel } from './CollaborationPanel';
 
 // 报告视图模式
 type ReportViewMode = 'continuous' | 'chapter';
 
 // Tab 类型定义
-type TabType = 'report' | 'team' | 'thinking' | 'references';
+type TabType =
+  | 'report'
+  | 'team'
+  | 'thinking'
+  | 'references'
+  | 'credibility'
+  | 'history'
+  | 'collaboration';
 
 // 研究事件类型
 export interface ResearchEvent {
@@ -235,6 +248,38 @@ const ThinkingIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const CredibilityIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+    />
+  </svg>
+);
+
+const HistoryIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+);
+
 const ListIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -394,7 +439,7 @@ export function TopicContentPanel({
   const safeEvents = researchEvents || [];
   const safeThinkings = agentThinkings || [];
 
-  // Tab 配置 - 顺序: 团队互动 → Agent思考 → 洞察报告 → 参考文献
+  // Tab 配置 - 顺序: 团队互动 → Agent思考 → 洞察报告 → 可信度 → 研究历史 → 参考文献
   const tabs: {
     key: TabType;
     label: string;
@@ -419,10 +464,25 @@ export function TopicContentPanel({
       icon: <DocumentIcon className="h-4 w-4" />,
     },
     {
+      key: 'credibility',
+      label: '可信度',
+      icon: <CredibilityIcon className="h-4 w-4" />,
+    },
+    {
+      key: 'history',
+      label: '研究历史',
+      icon: <HistoryIcon className="h-4 w-4" />,
+    },
+    {
       key: 'references',
       label: '参考文献',
       icon: <LinkIcon className="h-4 w-4" />,
       badge: safeEvidence.length,
+    },
+    {
+      key: 'collaboration',
+      label: '协作审核',
+      icon: <TeamIcon className="h-4 w-4" />,
     },
   ];
 
@@ -659,6 +719,16 @@ export function TopicContentPanel({
             persistedActivities={persistedActivities}
           />
         )}
+        {activeTab === 'credibility' && report && (
+          <div className="h-full overflow-y-auto p-4">
+            <CredibilityPanel reportId={report.id} />
+          </div>
+        )}
+        {activeTab === 'history' && (
+          <div className="h-full overflow-y-auto p-4">
+            <ResearchTimeline topicId={report?.topicId || ''} />
+          </div>
+        )}
         {activeTab === 'references' && (
           <EvidenceTabContent
             evidence={safeEvidence}
@@ -666,6 +736,11 @@ export function TopicContentPanel({
             dimensions={safeDimensions}
             isLoading={isLoadingEvidence}
           />
+        )}
+        {activeTab === 'collaboration' && report && (
+          <div className="h-full overflow-y-auto">
+            <CollaborationPanel topicId={report.topicId} reportId={report.id} />
+          </div>
         )}
       </div>
 
@@ -3058,73 +3133,84 @@ function EvidenceTabContent({
       {/* 证据列表 */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="grid gap-4 md:grid-cols-2">
-          {filteredEvidence.map((item) => (
-            <a
-              key={item.id}
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group rounded-lg border border-gray-200 bg-white p-4 transition-all hover:border-blue-300 hover:shadow-md"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <h4 className="line-clamp-2 font-medium text-gray-900 group-hover:text-blue-600">
-                    {item.title}
-                  </h4>
-                  <p className="mt-1 text-xs text-gray-500">{item.domain}</p>
-                </div>
-                {item.credibilityScore !== null && (
-                  <span
-                    className={`flex-shrink-0 rounded-full px-2 py-1 text-xs font-bold ${
-                      item.credibilityScore >= 70
-                        ? 'bg-green-100 text-green-700'
-                        : item.credibilityScore >= 40
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-red-100 text-red-700'
-                    }`}
-                  >
-                    {item.credibilityScore}%
-                  </span>
-                )}
-              </div>
-              {item.snippet && (
-                <p className="mt-2 line-clamp-2 text-sm text-gray-600">
-                  {item.snippet}
-                </p>
-              )}
-              {/* 引用位置 */}
-              {citationLocations.get(item.id) &&
-                citationLocations.get(item.id)!.length > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs text-gray-500">被引用于:</span>
-                    {citationLocations.get(item.id)!.map((loc, idx) => (
-                      <span
-                        key={idx}
-                        className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600"
-                        title={`在"${loc.dimensionName}"中被引用${loc.count}次`}
-                      >
-                        {loc.dimensionName}
-                        {loc.count > 1 && (
-                          <span className="ml-0.5 opacity-70">
-                            ×{loc.count}
-                          </span>
-                        )}
+          {filteredEvidence.map((item) => {
+            // 找到该证据在原始列表中的索引，用于显示引用编号 [1], [2]
+            const citationIndex =
+              safeEvidence.findIndex((e) => e.id === item.id) + 1;
+            return (
+              <a
+                key={item.id}
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group rounded-lg border border-gray-200 bg-white p-4 transition-all hover:border-blue-300 hover:shadow-md"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start gap-2">
+                      {/* 引用编号标识 */}
+                      <span className="flex-shrink-0 rounded bg-purple-100 px-1.5 py-0.5 text-xs font-bold text-purple-700">
+                        [{citationIndex}]
                       </span>
-                    ))}
+                      <h4 className="line-clamp-2 font-medium text-gray-900 group-hover:text-blue-600">
+                        {item.title}
+                      </h4>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">{item.domain}</p>
                   </div>
+                  {item.credibilityScore !== null && (
+                    <span
+                      className={`flex-shrink-0 rounded-full px-2 py-1 text-xs font-bold ${
+                        item.credibilityScore >= 70
+                          ? 'bg-green-100 text-green-700'
+                          : item.credibilityScore >= 40
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {item.credibilityScore}%
+                    </span>
+                  )}
+                </div>
+                {item.snippet && (
+                  <p className="mt-2 line-clamp-2 text-sm text-gray-600">
+                    {item.snippet}
+                  </p>
                 )}
-              <div className="mt-3 flex items-center gap-3 text-xs text-gray-400">
-                <span className="rounded bg-gray-100 px-1.5 py-0.5">
-                  {item.sourceType || '网页'}
-                </span>
-                {item.publishedAt && (
-                  <span>
-                    {new Date(item.publishedAt).toLocaleDateString('zh-CN')}
+                {/* 引用位置 */}
+                {citationLocations.get(item.id) &&
+                  citationLocations.get(item.id)!.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs text-gray-500">被引用于:</span>
+                      {citationLocations.get(item.id)!.map((loc, idx) => (
+                        <span
+                          key={idx}
+                          className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600"
+                          title={`在"${loc.dimensionName}"中被引用${loc.count}次`}
+                        >
+                          {loc.dimensionName}
+                          {loc.count > 1 && (
+                            <span className="ml-0.5 opacity-70">
+                              ×{loc.count}
+                            </span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                <div className="mt-3 flex items-center gap-3 text-xs text-gray-400">
+                  <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                    {item.sourceType || '网页'}
                   </span>
-                )}
-              </div>
-            </a>
-          ))}
+                  {item.publishedAt && (
+                    <span>
+                      {new Date(item.publishedAt).toLocaleDateString('zh-CN')}
+                    </span>
+                  )}
+                </div>
+              </a>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -92,12 +92,14 @@ export class DimensionMissionService {
    * @param topic 研究专题
    * @param dimension 研究维度
    * @param reportId 报告ID（可选，用于关联证据）
+   * @param missionId 任务ID（可选，用于持久化团队消息）
    * @returns Mission 执行结果
    */
   async executeDimensionMission(
     topic: ResearchTopic,
     dimension: TopicDimension,
     reportId?: string,
+    missionId?: string,
   ): Promise<DimensionMissionResult> {
     this.logger.log(
       `[executeDimensionMission] Starting mission for dimension: ${dimension.name} (${dimension.id})`,
@@ -105,12 +107,17 @@ export class DimensionMissionService {
 
     try {
       // 1. 获取搜索结果
-      this.emitProgress(topic.id, dimension.id, {
-        stage: "planning",
-        sectionsTotal: 0,
-        sectionsCompleted: 0,
-        message: "正在收集资料...",
-      });
+      this.emitProgress(
+        topic.id,
+        dimension.id,
+        {
+          stage: "planning",
+          sectionsTotal: 0,
+          sectionsCompleted: 0,
+          message: "正在收集资料...",
+        },
+        missionId,
+      );
 
       const searchResult = await this.dataSourceRouter.fetchDataForDimension(
         dimension,
@@ -134,12 +141,17 @@ export class DimensionMissionService {
         progress: 10,
       });
 
-      this.emitProgress(topic.id, dimension.id, {
-        stage: "planning",
-        sectionsTotal: 0,
-        sectionsCompleted: 0,
-        message: "Leader 正在规划研究大纲...",
-      });
+      this.emitProgress(
+        topic.id,
+        dimension.id,
+        {
+          stage: "planning",
+          sectionsTotal: 0,
+          sectionsCompleted: 0,
+          message: "Leader 正在规划研究大纲...",
+        },
+        missionId,
+      );
 
       const outline = await this.leaderService.planDimensionOutline(
         { name: topic.name, type: topic.type, description: topic.description },
@@ -173,27 +185,38 @@ export class DimensionMissionService {
       });
 
       // 4. Agent 写作各章节
-      this.emitProgress(topic.id, dimension.id, {
-        stage: "writing",
-        sectionsTotal: outline.sections.length,
-        sectionsCompleted: 0,
-        message: "Agent 正在撰写章节...",
-      });
+      this.emitProgress(
+        topic.id,
+        dimension.id,
+        {
+          stage: "writing",
+          sectionsTotal: outline.sections.length,
+          sectionsCompleted: 0,
+          message: "Agent 正在撰写章节...",
+        },
+        missionId,
+      );
 
       const sectionResults = await this.writeSectionsWithReview(
         topic.id,
         dimension,
         outline,
         evidenceData,
+        missionId,
       );
 
       // 5. Leader 整合结果
-      this.emitProgress(topic.id, dimension.id, {
-        stage: "integrating",
-        sectionsTotal: outline.sections.length,
-        sectionsCompleted: outline.sections.length,
-        message: "Leader 正在整合最终报告...",
-      });
+      this.emitProgress(
+        topic.id,
+        dimension.id,
+        {
+          stage: "integrating",
+          sectionsTotal: outline.sections.length,
+          sectionsCompleted: outline.sections.length,
+          message: "Leader 正在整合最终报告...",
+        },
+        missionId,
+      );
 
       const integratedResult =
         await this.leaderService.integrateDimensionResults(
@@ -231,12 +254,17 @@ export class DimensionMissionService {
       );
 
       // 8. 完成
-      this.emitProgress(topic.id, dimension.id, {
-        stage: "completed",
-        sectionsTotal: outline.sections.length,
-        sectionsCompleted: outline.sections.length,
-        message: "维度研究完成",
-      });
+      this.emitProgress(
+        topic.id,
+        dimension.id,
+        {
+          stage: "completed",
+          sectionsTotal: outline.sections.length,
+          sectionsCompleted: outline.sections.length,
+          message: "维度研究完成",
+        },
+        missionId,
+      );
 
       this.logger.log(
         `[executeDimensionMission] Mission completed for dimension: ${dimension.name}`,
@@ -260,12 +288,17 @@ export class DimensionMissionService {
         error instanceof Error ? error.stack : error,
       );
 
-      this.emitProgress(topic.id, dimension.id, {
-        stage: "failed",
-        sectionsTotal: 0,
-        sectionsCompleted: 0,
-        message: `研究失败: ${errorMessage}`,
-      });
+      this.emitProgress(
+        topic.id,
+        dimension.id,
+        {
+          stage: "failed",
+          sectionsTotal: 0,
+          sectionsCompleted: 0,
+          message: `研究失败: ${errorMessage}`,
+        },
+        missionId,
+      );
 
       return {
         success: false,
@@ -289,6 +322,7 @@ export class DimensionMissionService {
     dimension: TopicDimension,
     outline: DimensionOutline,
     evidenceData: EvidenceData[],
+    missionId?: string,
   ): Promise<SectionWriteResult[]> {
     const sectionResults: SectionWriteResult[] = [];
     const sectionMap = new Map<string, SectionWriteResult>();
@@ -360,13 +394,18 @@ export class DimensionMissionService {
         sectionResults.push(result);
 
         // 发送进度
-        this.emitProgress(topicId, dimension.id, {
-          stage: "reviewing",
-          sectionsTotal: outline.sections.length,
-          sectionsCompleted: sectionResults.length,
-          currentSection: section.title,
-          message: `已完成章节: ${section.title}`,
-        });
+        this.emitProgress(
+          topicId,
+          dimension.id,
+          {
+            stage: "reviewing",
+            sectionsTotal: outline.sections.length,
+            sectionsCompleted: sectionResults.length,
+            currentSection: section.title,
+            message: `已完成章节: ${section.title}`,
+          },
+          missionId,
+        );
       }
     }
 
@@ -557,6 +596,7 @@ export class DimensionMissionService {
     topicId: string,
     _dimensionId: string,
     progress: MissionProgress,
+    missionId?: string,
   ): void {
     // 使用维度研究进度事件
     this.eventEmitter.emitDimensionResearchProgress(
@@ -567,6 +607,7 @@ export class DimensionMissionService {
           100,
       ),
       progress.message,
+      missionId,
     );
   }
 }
