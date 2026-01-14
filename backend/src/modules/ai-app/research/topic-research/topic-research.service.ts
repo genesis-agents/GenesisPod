@@ -832,6 +832,7 @@ export class TopicResearchService {
           select: {
             id: true,
             dimensionId: true,
+            dimensionName: true, // ★ 包含维度名称
             status: true,
             createdAt: true,
             completedAt: true,
@@ -868,20 +869,26 @@ export class TopicResearchService {
     for (const mission of missions) {
       const completedTasks = mission.tasks.filter(
         (t) => t.status === "COMPLETED",
-      ).length;
+      );
       const totalTasks = mission.tasks.length;
+
+      // ★ 提取已完成任务的维度名称
+      const dimensionsUpdated = completedTasks
+        .filter((t) => t.dimensionName)
+        .map((t) => t.dimensionName!);
 
       timeline.push({
         id: mission.id,
         type: "mission",
         timestamp: mission.createdAt,
         title: `研究任务 #${missions.indexOf(mission) + 1}`,
-        description: `完成 ${completedTasks}/${totalTasks} 个维度研究`,
+        description: `完成 ${completedTasks.length}/${totalTasks} 个维度研究`,
         status: mission.status,
         metadata: {
-          completedTasks,
+          completedTasks: completedTasks.length,
           totalTasks,
           completedAt: mission.completedAt,
+          dimensionsUpdated, // ★ 已更新的维度名称列表
         },
       });
     }

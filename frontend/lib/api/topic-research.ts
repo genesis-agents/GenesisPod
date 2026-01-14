@@ -1058,6 +1058,10 @@ export async function getResearchHistory(
     .filter((item) => item.type === 'mission') // 只保留 mission 类型
     .map((item) => {
       const metadata = item.metadata || {};
+      // ★ 从 metadata 中提取 dimensionsUpdated（后端现在会返回）
+      const dimensionsUpdated = Array.isArray(metadata.dimensionsUpdated)
+        ? (metadata.dimensionsUpdated as string[])
+        : [];
       return {
         id: item.id,
         topicId: topicId,
@@ -1068,11 +1072,11 @@ export async function getResearchHistory(
         status: (item.status as ResearchHistoryItem['status']) || 'COMPLETED',
         researchGoal: undefined,
         researchStrategy: undefined,
-        dimensionsUpdated: [],
+        dimensionsUpdated, // ★ 使用从 metadata 提取的数据
         dimensionsKept: [],
         wordsAdded: 0,
         wordsRemoved: 0,
-        newSourcesCount: 0,
+        newSourcesCount: (metadata.totalTasks as number) || 0,
         totalDurationMs: undefined,
         reportVersionBefore: undefined,
         reportVersionAfter: undefined,
