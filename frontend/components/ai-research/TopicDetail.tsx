@@ -141,8 +141,11 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     [topic.id, fetchReport]
   );
 
+  // ★ 安全处理：确保 reports 是数组，防止 undefined 报错
+  const safeReports = Array.isArray(reports) ? reports : [];
+
   // Convert reports to revisions format (exclude current report)
-  const revisions = reports
+  const revisions = safeReports
     .filter((r) => r.id !== currentReport?.id)
     .map((r) => ({
       id: r.id,
