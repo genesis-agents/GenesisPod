@@ -75,24 +75,24 @@ export function TodoDetailPanel({
       setTodo(initialTodo);
     }
 
-    // ★ 根据 TODO 类型选择正确的 API，避免不必要的 404 错误
-    // - USER_REQUEST 类型：使用 getTodoDetails（真正的 ResearchTodo）
-    // - 其他类型：使用 getTaskActivities（可能是 ResearchTask）
+    // ★ 根据数据来源选择正确的 API，避免不必要的 404 错误
+    // - 来自 apiTodos（真正的 ResearchTodo 记录）：topicId 非空，使用 getTodoDetails
+    // - 来自 missionStatus.tasks（ResearchTask 转换）：topicId 为空，使用 getTaskActivities
     const loadDetails = async () => {
       setIsLoading(true);
       setError(null);
 
-      // 判断是否应该使用 TodoDetails API
-      const isUserRequestTodo = initialTodo?.type === 'USER_REQUEST';
+      // 判断数据来源：apiTodos 的记录有 topicId，convertedTodos 的 topicId 为空
+      const isFromApiTodos = initialTodo?.topicId && initialTodo.topicId !== '';
 
       try {
-        if (isUserRequestTodo) {
-          // USER_REQUEST 类型直接用 getTodoDetails
+        if (isFromApiTodos) {
+          // 来自 apiTodos（真正的 ResearchTodo），用 getTodoDetails
           const response = await getTodoDetails(topicId, todoId);
           setTodo(response.todo);
           setActivities(response.activities || []);
         } else {
-          // 其他类型先尝试 getTaskActivities
+          // 来自 missionStatus.tasks（ResearchTask），用 getTaskActivities
           try {
             const taskResponse = await getTaskActivities(topicId, todoId);
             setActivities(taskResponse.activities || []);
