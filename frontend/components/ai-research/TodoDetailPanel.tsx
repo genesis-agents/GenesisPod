@@ -75,72 +75,78 @@ export function TodoDetailPanel({
       setTodo(initialTodo);
     }
 
-    // ★ 优先使用 getTaskActivities（因为 todoId 实际上是 ResearchTask.id）
-    // 如果失败，再尝试 getTodoDetails（兼容真正的 ResearchTodo）
+    // ★ 根据 TODO 类型选择正确的 API，避免不必要的 404 错误
+    // - USER_REQUEST 类型：使用 getTodoDetails（真正的 ResearchTodo）
+    // - 其他类型：使用 getTaskActivities（可能是 ResearchTask）
     const loadDetails = async () => {
       setIsLoading(true);
       setError(null);
+
+      // 判断是否应该使用 TodoDetails API
+      const isUserRequestTodo = initialTodo?.type === 'USER_REQUEST';
+
       try {
-        // 先尝试用 taskId（ResearchTask.id）获取
-        const taskResponse = await getTaskActivities(topicId, todoId);
-        setActivities(taskResponse.activities || []);
-        // 如果没有 initialTodo，用返回的 task 数据
-        if (!initialTodo && taskResponse.task) {
-          // 转换 task 数据为 todo 格式
-          setTodo({
-            id: taskResponse.task.id,
-            topicId: '',
-            missionId: taskResponse.task.missionId || '',
-            type: 'DIMENSION_RESEARCH',
-            title: taskResponse.task.title,
-            description: taskResponse.task.description,
-            dimensionName: taskResponse.task.dimensionName,
-            agentName: taskResponse.task.assignedAgent,
-            status:
-              taskResponse.task.status === 'COMPLETED'
-                ? 'COMPLETED'
-                : taskResponse.task.status === 'EXECUTING'
-                  ? 'IN_PROGRESS'
-                  : 'PENDING',
-            progress:
-              taskResponse.task.status === 'COMPLETED'
-                ? 100
-                : taskResponse.task.status === 'EXECUTING'
-                  ? 50
-                  : 0,
-            priority: taskResponse.task.priority || 0,
-            dependsOn: [],
-            userCanPause: false,
-            userCanCancel: false,
-            userCanPrioritize: false,
-            createdAt: taskResponse.task.createdAt,
-            updatedAt: taskResponse.task.updatedAt,
-            startedAt: taskResponse.task.startedAt,
-            completedAt: taskResponse.task.completedAt,
-            result: taskResponse.task.result,
-          } as any);
-        }
-      } catch (taskErr) {
-        // 如果 getTaskActivities 失败，尝试 getTodoDetails
-        console.warn(
-          'getTaskActivities failed, trying getTodoDetails:',
-          taskErr
-        );
-        try {
+        if (isUserRequestTodo) {
+          // USER_REQUEST 类型直接用 getTodoDetails
           const response = await getTodoDetails(topicId, todoId);
           setTodo(response.todo);
           setActivities(response.activities || []);
-        } catch (todoErr) {
-          // 两个 API 都失败
-          if (!initialTodo) {
-            setError(
-              todoErr instanceof Error
-                ? todoErr.message
-                : 'Failed to load details'
-            );
-          } else {
-            console.warn('Failed to load activities from both APIs:', todoErr);
+        } else {
+          // 其他类型先尝试 getTaskActivities
+          try {
+            const taskResponse = await getTaskActivities(topicId, todoId);
+            setActivities(taskResponse.activities || []);
+            // 如果没有 initialTodo，用返回的 task 数据
+            if (!initialTodo && taskResponse.task) {
+              // 转换 task 数据为 todo 格式
+              setTodo({
+                id: taskResponse.task.id,
+                topicId: '',
+                missionId: taskResponse.task.missionId || '',
+                type: 'DIMENSION_RESEARCH',
+                title: taskResponse.task.title,
+                description: taskResponse.task.description,
+                dimensionName: taskResponse.task.dimensionName,
+                agentName: taskResponse.task.assignedAgent,
+                status:
+                  taskResponse.task.status === 'COMPLETED'
+                    ? 'COMPLETED'
+                    : taskResponse.task.status === 'EXECUTING'
+                      ? 'IN_PROGRESS'
+                      : 'PENDING',
+                progress:
+                  taskResponse.task.status === 'COMPLETED'
+                    ? 100
+                    : taskResponse.task.status === 'EXECUTING'
+                      ? 50
+                      : 0,
+                priority: taskResponse.task.priority || 0,
+                dependsOn: [],
+                userCanPause: false,
+                userCanCancel: false,
+                userCanPrioritize: false,
+                createdAt: taskResponse.task.createdAt,
+                updatedAt: taskResponse.task.updatedAt,
+                startedAt: taskResponse.task.startedAt,
+                completedAt: taskResponse.task.completedAt,
+                result: taskResponse.task.result,
+              } as any);
+            }
+          } catch (taskErr) {
+            // 如果 getTaskActivities 失败，尝试 getTodoDetails 作为后备
+            const response = await getTodoDetails(topicId, todoId);
+            setTodo(response.todo);
+            setActivities(response.activities || []);
           }
+        }
+      } catch (err) {
+        // 所有尝试都失败
+        if (!initialTodo) {
+          setError(
+            err instanceof Error ? err.message : 'Failed to load details'
+          );
+        } else {
+          console.warn('Failed to load activities:', err);
         }
       } finally {
         setIsLoading(false);
