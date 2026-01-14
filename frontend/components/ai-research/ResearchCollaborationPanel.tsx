@@ -1,8 +1,9 @@
 /**
  * ResearchCollaborationPanel - 研究协作面板
  *
- * 整合 TODO List 和 QuickCommandBar 的主面板
- * 支持查看 TODO 详情和 Agent 思考过程
+ * 整合 TODO List、QuickCommandBar 和对话消息区的主面板
+ * 用户输入后，AI Leader 先解码意图，再决定是否创建 TODO
+ * 类似 Claude Code CLI 的交互模式
  *
  * 数据来源优先级：
  * 1. missionStatus.tasks (从父组件传入，与左侧面板同源)
@@ -11,13 +12,26 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ResearchTodoList } from './ResearchTodoList';
 import { QuickCommandBar } from './QuickCommandBar';
 import { TodoDetailPanel } from './TodoDetailPanel';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
-import { Loader2 } from 'lucide-react';
+import {
+  Loader2,
+  User,
+  Brain,
+  MessageSquare,
+  CheckCircle2,
+  HelpCircle,
+  MessageCircle,
+} from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import {
+  leaderChat,
+  type LeaderChatResponse,
+  type LeaderDecisionType,
+} from '@/lib/api/topic-research';
 import type { MissionStatus, TaskStatus } from '@/lib/api/topic-research';
 import type {
   ResearchTodo,
@@ -25,6 +39,19 @@ import type {
   ResearchTodoType,
   TodoSummary,
 } from '@/types/topic-research';
+
+// 对话消息类型
+interface ConversationMessage {
+  id: string;
+  type: 'user' | 'leader';
+  content: string;
+  timestamp: Date;
+  // Leader 响应特有字段
+  decisionType?: LeaderDecisionType;
+  understanding?: string;
+  todoCreated?: { id: string; title: string };
+  clarifyOptions?: string[];
+}
 
 interface ResearchCollaborationPanelProps {
   topicId: string;
@@ -134,6 +161,145 @@ function calculateSummary(todos: ResearchTodo[]): TodoSummary {
   };
 }
 
+/**
+ * 决策类型的显示配置
+ */
+const DECISION_TYPE_CONFIG: Record<
+  LeaderDecisionType,
+  { label: string; icon: React.ElementType; colorClass: string }
+> = {
+  DIRECT_ANSWER: {
+    label: '直接回答',
+    icon: MessageCircle,
+    colorClass: 'text-green-600 bg-green-50 border-green-200',
+  },
+  CREATE_TODO: {
+    label: '创建任务',
+    icon: CheckCircle2,
+    colorClass: 'text-blue-600 bg-blue-50 border-blue-200',
+  },
+  CLARIFY: {
+    label: '需要澄清',
+    icon: HelpCircle,
+    colorClass: 'text-amber-600 bg-amber-50 border-amber-200',
+  },
+  ACKNOWLEDGE: {
+    label: '已了解',
+    icon: MessageSquare,
+    colorClass: 'text-gray-600 bg-gray-50 border-gray-200',
+  },
+};
+
+/**
+ * 对话消息显示组件
+ */
+function ConversationMessageItem({
+  message,
+  onClarifyOptionClick,
+  onTodoClick,
+}: {
+  message: ConversationMessage;
+  onClarifyOptionClick?: (option: string) => void;
+  onTodoClick?: (todoId: string) => void;
+}) {
+  if (message.type === 'user') {
+    return (
+      <div className="flex gap-3 py-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100">
+          <User className="h-4 w-4 text-blue-600" />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">你</span>
+            <span className="text-xs text-gray-400">
+              {message.timestamp.toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-gray-900">{message.content}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Leader 消息
+  const config = message.decisionType
+    ? DECISION_TYPE_CONFIG[message.decisionType]
+    : null;
+  const DecisionIcon = config?.icon || Brain;
+
+  return (
+    <div className="flex gap-3 py-3">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-100">
+        <Brain className="h-4 w-4 text-purple-600" />
+      </div>
+      <div className="flex-1">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-700">Leader</span>
+          {config && (
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs',
+                config.colorClass
+              )}
+            >
+              <DecisionIcon className="h-3 w-3" />
+              {config.label}
+            </span>
+          )}
+          <span className="text-xs text-gray-400">
+            {message.timestamp.toLocaleTimeString('zh-CN', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </span>
+        </div>
+
+        {/* 理解说明 */}
+        {message.understanding && (
+          <p className="mt-1 text-xs italic text-gray-500">
+            💭 {message.understanding}
+          </p>
+        )}
+
+        {/* 响应内容 */}
+        <p className="mt-1 text-sm text-gray-900">{message.content}</p>
+
+        {/* 创建的 TODO - 可点击跳转 */}
+        {message.todoCreated && (
+          <button
+            onClick={() => onTodoClick?.(message.todoCreated!.id)}
+            className="mt-2 inline-flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs transition-colors hover:bg-blue-100"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5 text-blue-600" />
+            <span className="text-blue-700">
+              已创建任务: {message.todoCreated.title}
+            </span>
+            <span className="text-blue-500">查看 →</span>
+          </button>
+        )}
+
+        {/* 澄清选项 - 可点击发送 */}
+        {message.clarifyOptions && message.clarifyOptions.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {message.clarifyOptions.map((option, idx) => (
+              <button
+                key={idx}
+                onClick={() => onClarifyOptionClick?.(option)}
+                className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1 text-xs text-amber-700 transition-colors hover:border-amber-300 hover:bg-amber-100"
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function ResearchCollaborationPanel({
   topicId,
   missionId,
@@ -141,6 +307,11 @@ export function ResearchCollaborationPanel({
   className,
 }: ResearchCollaborationPanelProps) {
   const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null);
+  const [conversationMessages, setConversationMessages] = useState<
+    ConversationMessage[]
+  >([]);
+  const [isProcessingInput, setIsProcessingInput] = useState(false);
+  const conversationEndRef = useRef<HTMLDivElement>(null);
 
   const {
     todos: apiTodos,
@@ -148,8 +319,14 @@ export function ResearchCollaborationPanel({
     isLoadingTodos,
     currentMission,
     fetchTodos,
-    createUserRequestTodo,
   } = useTopicResearchStore();
+
+  // 自动滚动到最新消息
+  useEffect(() => {
+    if (conversationEndRef.current) {
+      conversationEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [conversationMessages]);
 
   // 优先使用 missionStatus.tasks，转换为 ResearchTodo 格式
   const { todos, todosSummary } = useMemo(() => {
@@ -178,7 +355,7 @@ export function ResearchCollaborationPanel({
   // Get current mission ID
   const activeMissionId = missionId || missionStatus?.id || currentMission?.id;
 
-  // Handle user instruction submission
+  // Handle user instruction submission - 使用 AI Leader 解码用户意图
   const handleInstructionSubmit = useCallback(
     async (instruction: string) => {
       console.log('[handleInstructionSubmit] Called with:', {
@@ -195,25 +372,58 @@ export function ResearchCollaborationPanel({
         return;
       }
 
+      // 1. 立即显示用户消息
+      const userMessage: ConversationMessage = {
+        id: `user-${Date.now()}`,
+        type: 'user',
+        content: instruction,
+        timestamp: new Date(),
+      };
+      setConversationMessages((prev) => [...prev, userMessage]);
+      setIsProcessingInput(true);
+
       try {
-        console.log('[handleInstructionSubmit] Creating user request todo...');
-        await createUserRequestTodo(topicId, activeMissionId, instruction);
-        console.log(
-          '[handleInstructionSubmit] User request todo created successfully'
-        );
-        // Refresh TODOs
-        await fetchTodos(topicId, activeMissionId);
+        // 2. 调用 Leader 解码 API
+        console.log('[handleInstructionSubmit] Calling leaderChat API...');
+        const result = await leaderChat(topicId, instruction, activeMissionId);
+        console.log('[handleInstructionSubmit] Leader response:', result);
+
+        // 3. 添加 Leader 响应消息
+        const leaderMessage: ConversationMessage = {
+          id: `leader-${Date.now()}`,
+          type: 'leader',
+          content: result.response,
+          timestamp: new Date(),
+          decisionType: result.decisionType,
+          understanding: result.understanding,
+          todoCreated: result.todo,
+          clarifyOptions: result.clarifyOptions,
+        };
+        setConversationMessages((prev) => [...prev, leaderMessage]);
+
+        // 4. 如果创建了 TODO，刷新列表
+        if (result.decisionType === 'CREATE_TODO' && result.todo) {
+          console.log(
+            '[handleInstructionSubmit] TODO created, refreshing list...'
+          );
+          await fetchTodos(topicId, activeMissionId);
+        }
       } catch (error) {
-        console.error(
-          '[handleInstructionSubmit] Failed to create user request todo:',
-          error
-        );
-        alert(
-          `创建指令失败: ${error instanceof Error ? error.message : '未知错误'}`
-        );
+        console.error('[handleInstructionSubmit] Leader chat failed:', error);
+
+        // 添加错误消息
+        const errorMessage: ConversationMessage = {
+          id: `leader-error-${Date.now()}`,
+          type: 'leader',
+          content: `抱歉，处理您的请求时遇到问题: ${error instanceof Error ? error.message : '未知错误'}`,
+          timestamp: new Date(),
+        };
+        setConversationMessages((prev) => [...prev, errorMessage]);
+      } finally {
+        setIsProcessingInput(false);
       }
     },
-    [topicId, activeMissionId, createUserRequestTodo, fetchTodos]
+    [topicId, activeMissionId, fetchTodos]
   );
 
   // Handle TODO selection
@@ -225,6 +435,19 @@ export function ResearchCollaborationPanel({
     setSelectedTodoId(null);
   }, []);
 
+  // Handle clarify option click - 发送选中的澄清选项
+  const handleClarifyOptionClick = useCallback(
+    (option: string) => {
+      void handleInstructionSubmit(option);
+    },
+    [handleInstructionSubmit]
+  );
+
+  // Handle TODO click from conversation - 跳转到 TODO 详情
+  const handleTodoClick = useCallback((todoId: string) => {
+    setSelectedTodoId(todoId);
+  }, []);
+
   // 获取当前选中的 TODO 对象（用于传递给 TodoDetailPanel，避免 API 调用）
   const selectedTodo = useMemo(() => {
     if (!selectedTodoId) return undefined;
@@ -233,43 +456,76 @@ export function ResearchCollaborationPanel({
 
   return (
     <div className={cn('flex h-full', className)}>
-      {/* Main Content Area */}
+      {/* Main Content Area - 单列布局 */}
       <div
         className={cn(
           'flex flex-col transition-all duration-300',
           selectedTodoId ? 'w-1/2' : 'w-full'
         )}
       >
-        {/* Quick Command Bar - Always visible at top */}
-        <div className="bg-background/95 supports-[backdrop-filter]:bg-background/60 shrink-0 border-b p-4 backdrop-blur">
+        {/* 可滚动区域: 对话消息 + TODO List */}
+        <div className="flex-1 overflow-y-auto">
+          {/* 对话消息区 */}
+          {conversationMessages.length > 0 && (
+            <div className="border-b px-4 py-2">
+              <div className="mb-2 flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-purple-600" />
+                <span className="text-xs font-medium text-gray-500">
+                  与 Leader 对话
+                </span>
+              </div>
+              <div className="divide-y">
+                {conversationMessages.map((msg) => (
+                  <ConversationMessageItem
+                    key={msg.id}
+                    message={msg}
+                    onClarifyOptionClick={handleClarifyOptionClick}
+                    onTodoClick={handleTodoClick}
+                  />
+                ))}
+                {/* 正在处理指示器 */}
+                {isProcessingInput && (
+                  <div className="flex items-center gap-2 py-3 text-gray-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Leader 正在思考...</span>
+                  </div>
+                )}
+                <div ref={conversationEndRef} />
+              </div>
+            </div>
+          )}
+
+          {/* TODO List */}
+          <div className="p-4">
+            {isLoadingTodos && !todos.length ? (
+              <div className="flex h-32 items-center justify-center">
+                <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+              </div>
+            ) : (
+              <ResearchTodoList
+                topicId={topicId}
+                todos={todos}
+                summary={todosSummary}
+                selectedTodoId={selectedTodoId}
+                onTodoSelect={handleSelectTodo}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* 输入框 - 固定在底部 */}
+        <div className="bg-background/95 supports-[backdrop-filter]:bg-background/60 shrink-0 border-t p-4 backdrop-blur">
           <QuickCommandBar
             topicId={topicId}
             missionId={activeMissionId}
             onSubmit={handleInstructionSubmit}
-            disabled={!activeMissionId}
+            disabled={!activeMissionId || isProcessingInput}
             placeholder={
               activeMissionId
                 ? '输入研究指令，如：深入研究政策环境...'
                 : '请先启动研究任务'
             }
           />
-        </div>
-
-        {/* TODO List - Scrollable area */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {isLoadingTodos && !todos.length ? (
-            <div className="flex h-full items-center justify-center">
-              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-            </div>
-          ) : (
-            <ResearchTodoList
-              topicId={topicId}
-              todos={todos}
-              summary={todosSummary}
-              selectedTodoId={selectedTodoId}
-              onTodoSelect={handleSelectTodo}
-            />
-          )}
         </div>
       </div>
 

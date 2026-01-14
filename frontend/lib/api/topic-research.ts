@@ -904,6 +904,47 @@ export async function getAgentActivities(
   return fetchWithAuth(url);
 }
 
+// ==================== Leader Chat (Claude Code CLI 风格) ====================
+
+/**
+ * Leader 解码决策类型
+ */
+export type LeaderDecisionType =
+  | 'DIRECT_ANSWER'
+  | 'CREATE_TODO'
+  | 'CLARIFY'
+  | 'ACKNOWLEDGE';
+
+/**
+ * Leader 解码响应
+ */
+export interface LeaderChatResponse {
+  decisionType: LeaderDecisionType;
+  understanding: string;
+  response: string;
+  todo?: {
+    id: string;
+    title: string;
+  };
+  clarifyQuestion?: string;
+  clarifyOptions?: string[];
+}
+
+/**
+ * ★ Leader 解码用户输入（Claude Code CLI 风格）
+ * 先理解用户意图，再决定如何响应
+ */
+export async function leaderChat(
+  topicId: string,
+  message: string,
+  missionId?: string
+): Promise<LeaderChatResponse> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/leader/chat`, {
+    method: 'POST',
+    body: JSON.stringify({ message, missionId }),
+  });
+}
+
 // ==================== Credibility Report (Phase 2) ====================
 
 /**

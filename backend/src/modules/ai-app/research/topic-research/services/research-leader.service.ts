@@ -482,6 +482,64 @@ const INTEGRATE_SECTIONS_PROMPT = `你是研究报告整合专家，负责将多
 }
 \`\`\``;
 
+/**
+ * ★ Leader 解码用户输入 Prompt
+ * 类似 Claude Code CLI：先理解用户意图，再决定如何响应
+ */
+const LEADER_DECODE_PROMPT = `你是研究团队的 AI Leader。用户发送了一条消息，你需要理解其意图并决定如何响应。
+
+## 当前研究状态
+- 主题: {topic}
+- 描述: {topicDescription}
+- 进度: {progress}%
+- 当前阶段: {stage}
+- TODO 列表: {todoList}
+- 已完成维度: {completedDimensions}
+- 进行中维度: {inProgressDimensions}
+
+## 用户消息
+{userMessage}
+
+## 决策指南
+
+根据用户消息内容，选择以下响应类型之一：
+
+1. **DIRECT_ANSWER**: 用户在询问信息、状态或简单问题，直接回答即可，不需要创建任务
+   - 例如："研究进度如何？"、"现在在做什么？"、"有哪些维度？"
+
+2. **CREATE_TODO**: 用户请求执行新的研究任务，需要创建 TODO 来追踪
+   - 例如："深入研究政策环境"、"添加新维度：竞争分析"、"对市场趋势做更详细分析"
+   - 必须提供 todoTitle（简洁的任务标题）和 todoDescription（详细描述）
+
+3. **CLARIFY**: 用户请求模糊或有歧义，需要进一步澄清
+   - 例如："再研究一下"、"这个不太好"、"改一改"
+   - 必须提供 clarifyQuestion 和可选的 options
+
+4. **ACKNOWLEDGE**: 用户表达感谢、确认或闲聊，友好回应即可
+   - 例如："好的"、"谢谢"、"不错"
+
+## 输出要求
+
+请输出 JSON 格式：
+
+\`\`\`json
+{
+  "decisionType": "DIRECT_ANSWER | CREATE_TODO | CLARIFY | ACKNOWLEDGE",
+  "understanding": "你对用户消息的理解（1-2句话）",
+  "response": "回复给用户的消息（自然、友好、简洁）",
+  "todoTitle": "如果创建TODO，填写任务标题",
+  "todoDescription": "如果创建TODO，填写任务描述",
+  "clarifyQuestion": "如果需要澄清，填写澄清问题",
+  "clarifyOptions": ["可选的澄清选项1", "可选的澄清选项2"]
+}
+\`\`\`
+
+## 回复风格
+- 简洁友好，像同事对话
+- 如果创建TODO，告诉用户创建了什么任务
+- 如果直接回答，给出有用的信息
+- 不要过于正式或冗长`;
+
 const LEADER_INTERVENE_PROMPT = `你是研究团队的 Leader，用户通过 @Leader 向你发送了指令。
 
 ## 当前研究状态
@@ -923,6 +981,272 @@ export class ResearchLeaderService {
         // 其他意图需要AI处理
         return null;
     }
+  }
+
+  // ==================== Leader 解码用户输入 ====================
+
+  /**
+   * Leader 解码响应类型
+   */
+  static readonly DecisionTypes = {
+    DIRECT_ANSWER: "DIRECT_ANSWER",
+    CREATE_TODO: "CREATE_TODO",
+    CLARIFY: "CLARIFY",
+    ACKNOWLEDGE: "ACKNOWLEDGE",
+  } as const;
+
+  /**
+   * ★ Leader 解码用户输入
+   * 类似 Claude Code CLI：先理解用户意图，再决定如何响应
+   *
+   * @param topicId 专题ID
+   * @param userMessage 用户消息
+   * @param missionId 可选的任务ID（如果已有进行中的任务）
+   * @returns 解码结果，包含决策类型和响应
+   */
+  async decodeUserInput(
+    topicId: string,
+    userMessage: string,
+    missionId?: string,
+  ): Promise<{
+    decisionType: "DIRECT_ANSWER" | "CREATE_TODO" | "CLARIFY" | "ACKNOWLEDGE";
+    understanding: string;
+    response: string;
+    todoTitle?: string;
+    todoDescription?: string;
+    clarifyQuestion?: string;
+    clarifyOptions?: string[];
+  }> {
+    this.logger.log(
+      `[decodeUserInput] Decoding user input for topic ${topicId}: "${userMessage.substring(0, 50)}..."`,
+    );
+
+    // 1. 获取专题信息
+    const topic = await this.prisma.researchTopic.findUnique({
+      where: { id: topicId },
+      include: { dimensions: true },
+    });
+
+    if (!topic) {
+      throw new Error(`Topic ${topicId} not found`);
+    }
+
+    // 2. 获取任务状态（如果有 missionId）
+    let mission = null;
+    let progress = 0;
+    let completedDimensions: string[] = [];
+    let inProgressDimensions: string[] = [];
+    let todoList = "暂无任务";
+
+    if (missionId) {
+      mission = await this.prisma.researchMission.findUnique({
+        where: { id: missionId },
+        include: { tasks: true },
+      });
+
+      if (mission) {
+        const completedTasks = mission.tasks.filter(
+          (t) => t.status === "COMPLETED",
+        );
+        const inProgressTasks = mission.tasks.filter(
+          (t) => t.status === "EXECUTING",
+        );
+        progress =
+          mission.tasks.length > 0
+            ? Math.round((completedTasks.length / mission.tasks.length) * 100)
+            : 0;
+
+        completedDimensions = completedTasks
+          .map((t) => t.dimensionName)
+          .filter(Boolean) as string[];
+        inProgressDimensions = inProgressTasks
+          .map((t) => t.dimensionName)
+          .filter(Boolean) as string[];
+
+        // 构建 TODO 列表摘要
+        const pendingTasks = mission.tasks.filter(
+          (t) => t.status === "PENDING" || t.status === "ASSIGNED",
+        );
+        todoList =
+          [
+            inProgressTasks.length > 0
+              ? `进行中: ${inProgressTasks.map((t) => t.title).join(", ")}`
+              : null,
+            pendingTasks.length > 0
+              ? `待处理: ${pendingTasks.map((t) => t.title).join(", ")}`
+              : null,
+            completedTasks.length > 0
+              ? `已完成: ${completedTasks.length} 个`
+              : null,
+          ]
+            .filter(Boolean)
+            .join("\n") || "暂无任务";
+      }
+    }
+
+    // 3. 快速意图检测（简单情况不需要调用 AI）
+    const quickResult = this.quickDecodeIntent(
+      userMessage,
+      progress,
+      topic.name,
+    );
+    if (quickResult) {
+      this.logger.log(
+        `[decodeUserInput] Quick decode result: ${quickResult.decisionType}`,
+      );
+      return quickResult;
+    }
+
+    // 4. 复杂情况：调用 AI 解码
+    const leaderModel = await this.getReasoningModel();
+    if (!leaderModel) {
+      // 无推理模型时的降级处理
+      return {
+        decisionType: "ACKNOWLEDGE",
+        understanding: "收到您的消息",
+        response: `收到！我会处理您的请求："${userMessage}"`,
+      };
+    }
+
+    // 5. 构建 prompt
+    const prompt = LEADER_DECODE_PROMPT.replace("{topic}", topic.name)
+      .replace("{topicDescription}", topic.description || "无")
+      .replace("{progress}", String(progress))
+      .replace("{stage}", mission?.status || "未开始")
+      .replace("{todoList}", todoList)
+      .replace("{completedDimensions}", completedDimensions.join(", ") || "无")
+      .replace(
+        "{inProgressDimensions}",
+        inProgressDimensions.join(", ") || "无",
+      )
+      .replace("{userMessage}", userMessage);
+
+    // 6. 调用 AI
+    const startTime = Date.now();
+    const response = await this.aiFacade.chat({
+      messages: [
+        {
+          role: "system",
+          content:
+            "你是研究团队的 AI Leader。请理解用户意图并输出 JSON 格式的响应。",
+        },
+        { role: "user", content: prompt },
+      ],
+      model: leaderModel.modelId,
+      taskProfile: {
+        creativity: "low", // 解码任务需要准确性
+        outputLength: "short",
+      },
+    });
+    const latencyMs = Date.now() - startTime;
+
+    this.logger.log(`[decodeUserInput] AI response in ${latencyMs}ms`);
+
+    // 7. 解析响应
+    const result = this.extractJsonFromResponse<{
+      decisionType: string;
+      understanding: string;
+      response: string;
+      todoTitle?: string;
+      todoDescription?: string;
+      clarifyQuestion?: string;
+      clarifyOptions?: string[];
+    }>(response.content);
+
+    if (!result) {
+      // 解析失败时的降级处理
+      return {
+        decisionType: "ACKNOWLEDGE",
+        understanding: "收到您的消息",
+        response: `收到！我会处理您的请求。`,
+      };
+    }
+
+    // 8. 验证并返回结果
+    const validTypes = [
+      "DIRECT_ANSWER",
+      "CREATE_TODO",
+      "CLARIFY",
+      "ACKNOWLEDGE",
+    ];
+    const decisionType = validTypes.includes(result.decisionType)
+      ? (result.decisionType as
+          | "DIRECT_ANSWER"
+          | "CREATE_TODO"
+          | "CLARIFY"
+          | "ACKNOWLEDGE")
+      : "ACKNOWLEDGE";
+
+    return {
+      decisionType,
+      understanding: result.understanding || "收到您的消息",
+      response: result.response || "收到！",
+      todoTitle: result.todoTitle,
+      todoDescription: result.todoDescription,
+      clarifyQuestion: result.clarifyQuestion,
+      clarifyOptions: result.clarifyOptions,
+    };
+  }
+
+  /**
+   * 快速意图解码（无需调用 AI）
+   * 处理简单、明确的用户输入
+   */
+  private quickDecodeIntent(
+    message: string,
+    progress: number,
+    topicName: string,
+  ): {
+    decisionType: "DIRECT_ANSWER" | "CREATE_TODO" | "CLARIFY" | "ACKNOWLEDGE";
+    understanding: string;
+    response: string;
+  } | null {
+    const lowerMessage = message.toLowerCase().trim();
+
+    // 进度查询
+    if (
+      lowerMessage.includes("进度") ||
+      lowerMessage.includes("状态") ||
+      lowerMessage === "怎么样了"
+    ) {
+      return {
+        decisionType: "DIRECT_ANSWER",
+        understanding: "用户询问研究进度",
+        response: `「${topicName}」研究进度：${progress}%`,
+      };
+    }
+
+    // 感谢/确认
+    if (
+      lowerMessage === "好" ||
+      lowerMessage === "好的" ||
+      lowerMessage === "谢谢" ||
+      lowerMessage === "收到" ||
+      lowerMessage === "ok" ||
+      lowerMessage === "知道了"
+    ) {
+      return {
+        decisionType: "ACKNOWLEDGE",
+        understanding: "用户表示确认",
+        response: "好的，有需要随时告诉我！",
+      };
+    }
+
+    // 模糊请求需要澄清
+    if (
+      lowerMessage === "再研究一下" ||
+      lowerMessage === "改一下" ||
+      lowerMessage === "不太好"
+    ) {
+      return {
+        decisionType: "CLARIFY",
+        understanding: "用户请求模糊，需要澄清",
+        response: "请告诉我具体希望改进哪个方面？",
+      };
+    }
+
+    // 其他情况需要 AI 处理
+    return null;
   }
 
   /**

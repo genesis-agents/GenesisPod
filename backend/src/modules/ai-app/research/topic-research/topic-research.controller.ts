@@ -1256,6 +1256,115 @@ export class TopicResearchController {
   }
 
   /**
+   * ★ Leader 解码用户输入（Claude Code CLI 风格）
+   * 先理解用户意图，再决定如何响应
+   */
+  @Post("topics/:id/leader/chat")
+  @ApiOperation({
+    summary: "Leader 解码用户输入",
+    description:
+      "类似 Claude Code CLI：Leader 理解用户意图后决定是直接回答、创建TODO、还是请求澄清",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({
+    status: 200,
+    description: "返回 Leader 解码结果",
+    schema: {
+      type: "object",
+      properties: {
+        decisionType: {
+          type: "string",
+          enum: ["DIRECT_ANSWER", "CREATE_TODO", "CLARIFY", "ACKNOWLEDGE"],
+        },
+        understanding: { type: "string" },
+        response: { type: "string" },
+        todo: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            title: { type: "string" },
+          },
+        },
+        clarifyQuestion: { type: "string" },
+        clarifyOptions: { type: "array", items: { type: "string" } },
+      },
+    },
+  })
+  async leaderChat(
+    @Request() req: any,
+    @Param("id") topicId: string,
+    @Body() dto: { message: string; missionId?: string },
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+
+    // 1. 获取当前 Mission（如果有）
+    let missionId = dto.missionId;
+    if (!missionId) {
+      const mission = await this.missionService.getMissionByTopicId(topicId);
+      missionId = mission?.id;
+    }
+
+    // 2. Leader 解码用户输入
+    const decodeResult = await this.leaderService.decodeUserInput(
+      topicId,
+      dto.message,
+      missionId,
+    );
+
+    // 3. 如果决定创建 TODO，则创建
+    let createdTodo = null;
+    if (
+      decodeResult.decisionType === "CREATE_TODO" &&
+      decodeResult.todoTitle &&
+      missionId
+    ) {
+      try {
+        const todo = await this.todoService.createTodo({
+          topicId,
+          missionId,
+          type: "USER_REQUEST",
+          title: decodeResult.todoTitle,
+          description: decodeResult.todoDescription,
+        });
+        createdTodo = {
+          id: todo.id,
+          title: todo.title,
+        };
+      } catch (error) {
+        // 继续返回响应，但标记 TODO 创建失败
+        console.error(`Failed to create TODO: ${error}`);
+      }
+    }
+
+    // 4. 保存用户消息和 Leader 响应到数据库（用于对话历史）
+    if (missionId) {
+      await this.eventEmitterService.saveUserMessage(
+        topicId,
+        missionId,
+        dto.message,
+      );
+      await this.eventEmitterService.emitLeaderResponse(
+        topicId,
+        missionId,
+        decodeResult.response,
+      );
+    }
+
+    // 5. 返回结果
+    return {
+      decisionType: decodeResult.decisionType,
+      understanding: decodeResult.understanding,
+      response: decodeResult.response,
+      todo: createdTodo,
+      clarifyQuestion: decodeResult.clarifyQuestion,
+      clarifyOptions: decodeResult.clarifyOptions,
+    };
+  }
+
+  /**
    * 获取 Leader 决策历史
    */
   @Get("topics/:id/leader/decisions")
