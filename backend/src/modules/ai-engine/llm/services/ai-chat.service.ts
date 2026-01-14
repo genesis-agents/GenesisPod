@@ -1283,8 +1283,11 @@ export class AiChatService {
 
       if (finishReason === "length") {
         if (isReasoningModelExhausted) {
+          // ★ 推理模型需要更多 tokens - 内部推理通常占 80-90%
           throw new Error(
-            `AI 推理模型的 token 全部用于思考，没有空间输出结果。请增加 max_tokens 设置（当前=${maxTokens}，建议 12000+）。`,
+            `AI 推理模型的 token 全部用于内部思考，没有空间输出结果。` +
+              `当前 max_tokens=${maxTokens}，建议增加到 25000+ 以确保有足够空间输出内容。` +
+              `（推理模型会使用大部分 tokens 进行 Chain of Thought）`,
           );
         } else {
           throw new Error(

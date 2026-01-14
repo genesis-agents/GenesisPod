@@ -136,9 +136,16 @@ export const OUTPUT_LENGTH_TO_TOKENS: Record<OutputLengthLevel, number> = {
 
 /**
  * 推理模型的最小 token 数
- * 推理模型需要额外空间进行内部推理
+ *
+ * ★ 重要：推理模型（如 o1, o3, GPT-5.x）会将大部分 completion tokens
+ * 用于内部推理（Chain of Thought），实际输出内容可能只占 10-20%。
+ *
+ * 例如：如果 max_completion_tokens=12000，模型可能用 12000 全部用于推理，
+ * 导致 content="" 空输出。
+ *
+ * 建议：推理模型至少需要 25000+ tokens 才能有足够空间输出内容。
  */
-export const REASONING_MODEL_MIN_TOKENS = 8000;
+export const REASONING_MODEL_MIN_TOKENS = 25000;
 
 /**
  * JSON 输出格式的最大 temperature

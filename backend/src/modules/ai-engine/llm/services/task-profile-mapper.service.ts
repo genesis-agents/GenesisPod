@@ -68,34 +68,55 @@ export class TaskProfileMapperService {
     );
 
     // 2. 推理模型调整
+    // ★ 推理模型需要大量额外 tokens 用于内部 Chain of Thought
+    // 实际输出可能只占 completion_tokens 的 10-20%
     const isReasoning = modelConfig?.isReasoning ?? false;
     let effectiveMaxTokens = baseMaxTokens;
 
     if (isReasoning) {
       const originalTokens = effectiveMaxTokens;
+
+      // ★ 推理模型的基础最小值（25000）
       effectiveMaxTokens = Math.max(baseMaxTokens, REASONING_MODEL_MIN_TOKENS);
 
-      // 对于 extended 输出，推理模型需要更多空间
+      // 对于 extended 输出，推理模型需要更多空间（32000+）
       if (profile.outputLength === "extended") {
-        effectiveMaxTokens = Math.max(effectiveMaxTokens, 16000);
+        effectiveMaxTokens = Math.max(effectiveMaxTokens, 32000);
+      } else if (profile.outputLength === "long") {
+        // long 输出也需要更多（28000+）
+        effectiveMaxTokens = Math.max(effectiveMaxTokens, 28000);
       }
 
       if (effectiveMaxTokens !== originalTokens) {
-        this.logger.debug(
-          `[mapToParameters] Reasoning model adjustment: ` +
-            `${originalTokens} → ${effectiveMaxTokens} tokens`,
+        this.logger.log(
+          `[mapToParameters] ★ Reasoning model token boost: ` +
+            `${originalTokens} → ${effectiveMaxTokens} tokens ` +
+            `(outputLength=${profile.outputLength || "default"})`,
         );
       }
     }
 
-    // 3. 不超过模型配置的最大值
+    // 3. 处理模型配置的最大值
     const modelMaxTokens = modelConfig?.maxTokens;
     if (modelMaxTokens && effectiveMaxTokens > modelMaxTokens) {
-      this.logger.debug(
-        `[mapToParameters] Capping tokens at model max: ` +
-          `${effectiveMaxTokens} → ${modelMaxTokens}`,
-      );
-      effectiveMaxTokens = modelMaxTokens;
+      if (isReasoning) {
+        // ★ 推理模型：如果数据库配置的 maxTokens 太低，发出警告但不强制降低
+        // 因为推理模型需要更多 tokens 来完成内部推理
+        this.logger.warn(
+          `[mapToParameters] ⚠️ Reasoning model token conflict! ` +
+            `Required: ${effectiveMaxTokens}, Model max: ${modelMaxTokens}. ` +
+            `Using required value to prevent empty output. ` +
+            `Consider updating model config in database.`,
+        );
+        // 不降低 - 让推理模型有足够空间
+      } else {
+        // 非推理模型：正常限制
+        this.logger.debug(
+          `[mapToParameters] Capping tokens at model max: ` +
+            `${effectiveMaxTokens} → ${modelMaxTokens}`,
+        );
+        effectiveMaxTokens = modelMaxTokens;
+      }
     }
 
     // 4. JSON 格式需要更低 temperature（Phase 2 完整实现）
