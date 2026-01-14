@@ -201,6 +201,12 @@ export function ResearchCollaborationPanel({
     setSelectedTodoId(null);
   }, []);
 
+  // 获取当前选中的 TODO 对象（用于传递给 TodoDetailPanel，避免 API 调用）
+  const selectedTodo = useMemo(() => {
+    if (!selectedTodoId) return undefined;
+    return todos.find((t) => t.id === selectedTodoId);
+  }, [selectedTodoId, todos]);
+
   return (
     <div className={cn('flex h-full', className)}>
       {/* Main Content Area */}
@@ -248,6 +254,7 @@ export function ResearchCollaborationPanel({
         <TodoDetailPanel
           topicId={topicId}
           todoId={selectedTodoId}
+          initialTodo={selectedTodo}
           onClose={handleCloseDetail}
           className="w-1/2"
         />

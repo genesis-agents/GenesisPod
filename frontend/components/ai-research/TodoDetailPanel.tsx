@@ -28,6 +28,8 @@ import { cn } from '@/lib/utils/common';
 interface TodoDetailPanelProps {
   topicId: string;
   todoId: string;
+  /** 直接传入的 TODO 数据（来自 missionStatus.tasks 转换），避免 API 调用 */
+  initialTodo?: ResearchTodo;
   onClose: () => void;
   className?: string;
 }
@@ -55,18 +57,26 @@ const STATUS_COLORS: Record<ResearchTodoStatus, string> = {
 export function TodoDetailPanel({
   topicId,
   todoId,
+  initialTodo,
   onClose,
   className,
 }: TodoDetailPanelProps) {
-  const [todo, setTodo] = useState<ResearchTodo | null>(null);
+  const [todo, setTodo] = useState<ResearchTodo | null>(initialTodo || null);
   const [activities, setActivities] = useState<AgentActivity[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!initialTodo);
   const [error, setError] = useState<string | null>(null);
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(
     new Set()
   );
 
   useEffect(() => {
+    // 如果已有 initialTodo，不需要调用 API
+    if (initialTodo) {
+      setTodo(initialTodo);
+      setIsLoading(false);
+      return;
+    }
+
     const loadDetails = async () => {
       setIsLoading(true);
       setError(null);
@@ -82,7 +92,7 @@ export function TodoDetailPanel({
     };
 
     void loadDetails();
-  }, [topicId, todoId]);
+  }, [topicId, todoId, initialTodo]);
 
   const toggleActivity = (activityId: string) => {
     setExpandedActivities((prev) => {
