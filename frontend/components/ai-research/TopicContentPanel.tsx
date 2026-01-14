@@ -1651,6 +1651,92 @@ function TeamInteractionTabContent({
     return allMessages;
   }, [safeWsEvents, safePersistedMessages]);
 
+  // ★ PRD: 按 Agent 分组的树形结构数据
+  interface AgentGroup {
+    groupKey: string; // e.g., "leader", "researcher-技术趋势"
+    agentType: string;
+    agentName: string;
+    agentIcon: string;
+    agentColor: string;
+    agentBgColor: string;
+    messages: UIMessage[];
+    firstTimestamp: Date;
+    lastTimestamp: Date;
+    isCompleted: boolean;
+  }
+
+  const groupedMessages = useMemo<AgentGroup[]>(() => {
+    if (uiMessages.length === 0) return [];
+
+    const groups = new Map<string, AgentGroup>();
+
+    for (const msg of uiMessages) {
+      const agentName = msg.agent || 'AI 团队';
+      // 生成分组键：Leader 单独一组，研究员按维度分组
+      let groupKey: string;
+      if (msg.agentType === 'leader') {
+        groupKey = 'leader';
+      } else if (
+        msg.agentType === 'researcher' ||
+        agentName.includes('研究员')
+      ) {
+        // 研究员按 agent 名称分组（包含维度信息）
+        groupKey = `researcher-${agentName}`;
+      } else if (msg.agentType === 'reviewer') {
+        groupKey = 'reviewer';
+      } else if (msg.agentType === 'synthesizer') {
+        groupKey = 'synthesizer';
+      } else {
+        groupKey = `other-${agentName}`;
+      }
+
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, {
+          groupKey,
+          agentType: msg.agentType || 'system',
+          agentName: agentName,
+          agentIcon: msg.agentIcon || '🤖',
+          agentColor: msg.agentColor || 'text-gray-700',
+          agentBgColor: msg.agentBgColor || 'bg-gray-100',
+          messages: [],
+          firstTimestamp: msg.timestamp,
+          lastTimestamp: msg.timestamp,
+          isCompleted: false,
+        });
+      }
+
+      const group = groups.get(groupKey)!;
+      group.messages.push(msg);
+      if (msg.timestamp > group.lastTimestamp) {
+        group.lastTimestamp = msg.timestamp;
+      }
+      // 检查是否完成（消息内容包含"完成"）
+      if (msg.content.includes('完成') || msg.content.includes('completed')) {
+        group.isCompleted = true;
+      }
+    }
+
+    // 按首次出现时间排序
+    return Array.from(groups.values()).sort(
+      (a, b) => a.firstTimestamp.getTime() - b.firstTimestamp.getTime()
+    );
+  }, [uiMessages]);
+
+  // ★ 展开的分组集合
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  const toggleGroupExpand = useCallback((groupKey: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
+  }, []);
+
   // ★ 自动滚动到底部
   useEffect(() => {
     if (uiMessages.length > 0) {
@@ -1912,134 +1998,223 @@ function TeamInteractionTabContent({
         {/* Leader Plan Section */}
         {renderLeaderPlanSection()}
 
-        {/* ★ AI Writing 风格：WebSocket 事件消息流（带详情展开） */}
-        {uiMessages.length > 0 && (
+        {/* ★ PRD: 按 Agent 分组的树形结构视图 */}
+        {groupedMessages.length > 0 && (
           <div className="mb-4 space-y-3">
-            {uiMessages.map((msg) => {
-              const isExpanded = expandedMessages.has(msg.id);
-              const time = msg.timestamp.toLocaleTimeString('zh-CN', {
-                hour: '2-digit',
-                minute: '2-digit',
-              });
+            {groupedMessages.map((group) => {
+              const isGroupExpanded = expandedGroups.has(group.groupKey);
+              const startTime = group.firstTimestamp.toLocaleTimeString(
+                'zh-CN',
+                {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }
+              );
+              const latestProgress = group.messages
+                .filter((m) => m.progress !== undefined)
+                .pop()?.progress;
 
               return (
                 <div
-                  key={msg.id}
-                  className={`rounded-lg border shadow-sm transition-all ${
-                    msg.type === 'leader'
-                      ? 'border-purple-200 bg-purple-50'
-                      : msg.type === 'progress'
-                        ? 'border-amber-200 bg-amber-50'
-                        : 'border-gray-200 bg-white'
+                  key={group.groupKey}
+                  className={`overflow-hidden rounded-lg border shadow-sm ${
+                    group.agentType === 'leader'
+                      ? 'border-purple-200'
+                      : group.agentType === 'reviewer'
+                        ? 'border-green-200'
+                        : group.agentType === 'synthesizer'
+                          ? 'border-orange-200'
+                          : 'border-blue-200'
                   }`}
                 >
-                  <div className="p-3">
-                    <div className="flex items-start gap-3">
-                      {/* Agent Icon - 可点击查看详情 */}
-                      <button
-                        onClick={() =>
-                          msg.agentType && setSelectedAgent(msg.agentType)
-                        }
-                        disabled={!msg.agentType}
-                        className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${msg.agentBgColor} ${
-                          msg.agentType
-                            ? 'cursor-pointer transition-transform hover:scale-110'
-                            : 'cursor-default'
-                        }`}
-                        title={
-                          msg.agentType ? '点击查看 Agent 详情' : undefined
-                        }
-                      >
-                        <span className="text-sm">{msg.agentIcon}</span>
-                      </button>
+                  {/* 分组标题 - 可点击展开/收起 */}
+                  <button
+                    onClick={() => toggleGroupExpand(group.groupKey)}
+                    className={`flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-gray-50 ${
+                      group.agentType === 'leader'
+                        ? 'bg-purple-50'
+                        : group.agentType === 'reviewer'
+                          ? 'bg-green-50'
+                          : group.agentType === 'synthesizer'
+                            ? 'bg-orange-50'
+                            : 'bg-blue-50'
+                    }`}
+                  >
+                    {/* Agent Icon */}
+                    <span
+                      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${group.agentBgColor}`}
+                    >
+                      <span className="text-sm">{group.agentIcon}</span>
+                    </span>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          {msg.agentType ? (
-                            <button
-                              onClick={() => setSelectedAgent(msg.agentType!)}
-                              className={`text-sm font-medium ${msg.agentColor} hover:underline`}
-                            >
-                              {msg.agent}
-                            </button>
-                          ) : (
-                            <span
-                              className={`text-sm font-medium ${msg.agentColor}`}
-                            >
-                              {msg.agent}
-                            </span>
-                          )}
-                          <span className="text-xs text-gray-400">{time}</span>
-                          {/* 进度指示器 */}
-                          {msg.progress !== undefined && msg.progress > 0 && (
-                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-600">
-                              {msg.progress}%
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-1 text-sm text-gray-700">
-                          {msg.content}
-                        </p>
-
-                        {/* ★ 进度条（如果有进度） */}
-                        {msg.progress !== undefined && msg.progress > 0 && (
-                          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
-                            <div
-                              className="h-full rounded-full bg-blue-500 transition-all duration-300"
-                              style={{ width: `${msg.progress}%` }}
-                            />
-                          </div>
-                        )}
+                    {/* Agent Name & Status */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`font-medium ${group.agentColor}`}>
+                          {group.agentName}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {startTime}
+                        </span>
+                        {group.isCompleted ? (
+                          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-600">
+                            已完成
+                          </span>
+                        ) : latestProgress !== undefined &&
+                          latestProgress > 0 ? (
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-600">
+                            {latestProgress}%
+                          </span>
+                        ) : null}
                       </div>
-
-                      {/* ★ 详情展开按钮 */}
-                      {msg.detail && (
-                        <button
-                          onClick={() => toggleMessageExpand(msg.id)}
-                          className="flex-shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                          title={isExpanded ? '收起详情' : '展开详情'}
-                        >
-                          <svg
-                            className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </button>
-                      )}
+                      <p className="mt-0.5 truncate text-xs text-gray-500">
+                        {group.messages.length} 条活动记录
+                      </p>
                     </div>
-                  </div>
 
-                  {/* ★ 可展开的详情内容（AI Writing 核心模式） */}
-                  {msg.detail && isExpanded && (
-                    <div className="border-t border-gray-100 bg-gray-50 p-3">
-                      {msg.detail.type === 'dimension_content' && (
-                        <DimensionContentPreview
-                          data={msg.detail.data as Record<string, unknown>}
-                        />
-                      )}
-                      {msg.detail.type === 'report_preview' && (
-                        <ReportPreview
-                          data={msg.detail.data as Record<string, unknown>}
-                        />
-                      )}
-                      {msg.detail.type === 'leader_plan' && (
-                        <LeaderPlanPreview
-                          data={msg.detail.data as Record<string, unknown>}
-                        />
-                      )}
-                      {msg.detail.type === 'text' && (
-                        <div className="whitespace-pre-wrap text-sm text-gray-600">
-                          {msg.detail.data as string}
-                        </div>
-                      )}
+                    {/* 展开/收起箭头 */}
+                    <svg
+                      className={`h-5 w-5 flex-shrink-0 text-gray-400 transition-transform ${isGroupExpanded ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+
+                  {/* 展开的活动树 */}
+                  {isGroupExpanded && (
+                    <div className="border-t bg-white">
+                      <div className="relative py-2 pl-6 pr-3">
+                        {/* 树形连接线 */}
+                        <div className="absolute bottom-4 left-[22px] top-2 w-px bg-gray-200" />
+
+                        {group.messages.map((msg, msgIdx) => {
+                          const isExpanded = expandedMessages.has(msg.id);
+                          const time = msg.timestamp.toLocaleTimeString(
+                            'zh-CN',
+                            {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                            }
+                          );
+                          const isLast = msgIdx === group.messages.length - 1;
+
+                          return (
+                            <div
+                              key={msg.id}
+                              className="relative mb-2 last:mb-0"
+                            >
+                              {/* 树形节点圆点 */}
+                              <div
+                                className={`absolute -left-[14px] top-1.5 h-2 w-2 rounded-full ${
+                                  isLast ? 'bg-blue-500' : 'bg-gray-300'
+                                }`}
+                              />
+
+                              <div className="ml-4 rounded-lg border border-gray-100 bg-gray-50 p-2">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <span className="text-xs text-gray-400">
+                                      {time}
+                                    </span>
+                                    <p className="mt-0.5 text-sm text-gray-700">
+                                      {msg.content}
+                                    </p>
+                                    {/* 进度条 */}
+                                    {msg.progress !== undefined &&
+                                      msg.progress > 0 && (
+                                        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-gray-200">
+                                          <div
+                                            className="h-full rounded-full bg-blue-500 transition-all duration-300"
+                                            style={{
+                                              width: `${msg.progress}%`,
+                                            }}
+                                          />
+                                        </div>
+                                      )}
+                                  </div>
+
+                                  {/* 详情展开按钮 */}
+                                  {msg.detail && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleMessageExpand(msg.id);
+                                      }}
+                                      className="flex-shrink-0 rounded p-1 text-gray-400 hover:bg-white hover:text-gray-600"
+                                      title={isExpanded ? '收起' : '展开'}
+                                    >
+                                      <svg
+                                        className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M19 9l-7 7-7-7"
+                                        />
+                                      </svg>
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* 详情内容 */}
+                                {msg.detail && isExpanded && (
+                                  <div className="mt-2 rounded border-t border-gray-200 bg-white p-2">
+                                    {msg.detail.type ===
+                                      'dimension_content' && (
+                                      <DimensionContentPreview
+                                        data={
+                                          msg.detail.data as Record<
+                                            string,
+                                            unknown
+                                          >
+                                        }
+                                      />
+                                    )}
+                                    {msg.detail.type === 'report_preview' && (
+                                      <ReportPreview
+                                        data={
+                                          msg.detail.data as Record<
+                                            string,
+                                            unknown
+                                          >
+                                        }
+                                      />
+                                    )}
+                                    {msg.detail.type === 'leader_plan' && (
+                                      <LeaderPlanPreview
+                                        data={
+                                          msg.detail.data as Record<
+                                            string,
+                                            unknown
+                                          >
+                                        }
+                                      />
+                                    )}
+                                    {msg.detail.type === 'text' && (
+                                      <div className="whitespace-pre-wrap text-xs text-gray-600">
+                                        {msg.detail.data as string}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
