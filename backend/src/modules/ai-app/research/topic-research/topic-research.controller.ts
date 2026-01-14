@@ -2198,6 +2198,32 @@ export class TopicResearchController {
   }
 
   /**
+   * ★ 执行用户请求的 TODO
+   * 解析 TODO 内容，执行相应操作（如新增维度并研究）
+   */
+  @Post("topics/:topicId/todos/:todoId/execute")
+  @HttpCode(202)
+  @ApiOperation({
+    summary: "执行 TODO",
+    description: "执行用户请求的 TODO，如新增维度、深入研究等",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "todoId", description: "TODO ID" })
+  @ApiResponse({ status: 202, description: "执行已开始" })
+  async executeTodo(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("todoId") todoId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const result = await this.todoService.executeTodo(topicId, todoId);
+    return { success: true, ...result };
+  }
+
+  /**
    * 调整 TODO 优先级
    */
   @Patch("topics/:topicId/todos/:todoId/priority")

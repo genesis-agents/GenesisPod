@@ -40,7 +40,7 @@ export function CitationLink({
   useEffect(() => {
     if (showTooltip && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
-      const tooltipWidth = 288; // w-72 = 18rem = 288px
+      const tooltipWidth = 384; // w-96 = 24rem = 384px
       const viewportWidth = window.innerWidth;
 
       // Check if tooltip would overflow on left
@@ -81,17 +81,34 @@ export function CitationLink({
   const isHighlighted =
     citationContext?.highlightedSource?.sourceId === citation.sourceId;
 
-  // Get a preview of the source content
+  // Get a preview of the source content - show more content
   const getPreview = () => {
     if (citation.quote) return citation.quote;
     if (!sourceContent) return null;
-    // Return first 150 chars
-    return sourceContent.length > 150
-      ? sourceContent.slice(0, 150) + '...'
+    // Return first 300 chars for more context
+    return sourceContent.length > 300
+      ? sourceContent.slice(0, 300) + '...'
       : sourceContent;
   };
 
   const preview = getPreview();
+
+  // Handle click on tooltip to jump to source
+  const handleTooltipClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowTooltip(false);
+
+    if (citationContext) {
+      citationContext.setHighlightedSource({
+        sourceId: citation.sourceId,
+        quote: citation.quote,
+        startOffset: citation.startOffset,
+        endOffset: citation.endOffset,
+      });
+      citationContext.scrollToSource(citation.sourceId);
+    }
+  };
 
   // Get tooltip position classes based on edge detection
   const getTooltipPositionClasses = () => {
@@ -145,7 +162,7 @@ export function CitationLink({
         <div
           ref={tooltipRef}
           className={`
-            absolute bottom-full z-50 mb-2 w-72
+            absolute bottom-full z-50 mb-2 w-96
             rounded-lg border border-gray-200 bg-white
             shadow-xl
             ${getTooltipPositionClasses()}
@@ -170,9 +187,9 @@ export function CitationLink({
             </div>
           </div>
 
-          {/* Content Preview */}
+          {/* Content Preview - show more content */}
           {preview && (
-            <div className="px-3 py-2">
+            <div className="max-h-48 overflow-y-auto px-3 py-2">
               <p className="text-xs leading-relaxed text-gray-600">
                 {citation.quote ? (
                   <span className="italic">"{preview}"</span>
@@ -183,13 +200,16 @@ export function CitationLink({
             </div>
           )}
 
-          {/* Footer */}
-          <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-1.5">
-            <span className="text-[10px] text-gray-400">
-              Click to view full source
+          {/* Footer - clickable */}
+          <button
+            onClick={handleTooltipClick}
+            className="flex w-full cursor-pointer items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-2 transition-colors hover:bg-purple-50"
+          >
+            <span className="text-xs font-medium text-purple-600">
+              点击查看完整来源
             </span>
-            <ExternalLink className="h-3 w-3 text-gray-400" />
-          </div>
+            <ExternalLink className="h-3.5 w-3.5 text-purple-600" />
+          </button>
 
           {/* Arrow */}
           <div className={`absolute top-full ${getArrowPositionClasses()}`}>

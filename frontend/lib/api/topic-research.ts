@@ -1386,6 +1386,20 @@ export async function retryTodo(
 }
 
 /**
+ * ★ 执行用户请求的 TODO
+ * 用户确认后执行 TODO 任务（如新增维度、深入研究等）
+ */
+export async function executeTodo(
+  topicId: string,
+  todoId: string
+): Promise<{ success: boolean; todo: ResearchTodo; message: string }> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/todos/${todoId}/execute`,
+    { method: 'POST' }
+  );
+}
+
+/**
  * 调整 TODO 优先级
  */
 export async function prioritizeTodo(

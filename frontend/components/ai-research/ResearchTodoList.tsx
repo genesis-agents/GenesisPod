@@ -36,6 +36,7 @@ import {
   cancelTodo,
   retryTodo,
   prioritizeTodo,
+  executeTodo,
 } from '@/lib/api/topic-research';
 
 // ==================== Types ====================
@@ -219,7 +220,7 @@ function TodoItem({
   const statusConfig = STATUS_CONFIG[todo.status];
 
   const handleAction = async (
-    action: 'pause' | 'resume' | 'cancel' | 'retry' | 'prioritize',
+    action: 'pause' | 'resume' | 'cancel' | 'retry' | 'prioritize' | 'execute',
     priority?: 'high' | 'normal' | 'low'
   ) => {
     setIsLoading(true);
@@ -242,6 +243,9 @@ function TodoItem({
           if (priority) {
             result = await prioritizeTodo(topicId, todo.id, priority);
           }
+          break;
+        case 'execute':
+          result = await executeTodo(topicId, todo.id);
           break;
       }
       if (result?.todo && onUpdated) {
@@ -376,6 +380,22 @@ function TodoItem({
                     <RotateCcw className="h-3.5 w-3.5" />
                   </button>
                 )}
+
+                {/* 开始执行 - 用户请求类 TODO */}
+                {todo.type === ResearchTodoType.USER_REQUEST &&
+                  todo.status === ResearchTodoStatus.PENDING && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAction('execute');
+                      }}
+                      className="flex items-center gap-1 rounded bg-green-500 px-2 py-0.5 text-xs text-white hover:bg-green-600"
+                      title="开始执行"
+                    >
+                      <Play className="h-3 w-3" />
+                      执行
+                    </button>
+                  )}
 
                 {/* 优先级 */}
                 {todo.userCanPrioritize &&

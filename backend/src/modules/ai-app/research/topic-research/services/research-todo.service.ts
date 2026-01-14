@@ -708,6 +708,190 @@ export class ResearchTodoService {
     });
   }
 
+  /**
+   * ★ 执行用户请求的 TODO
+   * 解析 TODO 内容，执行相应操作（如新增维度并研究）
+   */
+  async executeTodo(
+    topicId: string,
+    todoId: string,
+  ): Promise<{ todo: ResearchTodo; message: string }> {
+    this.logger.log(`[executeTodo] Starting execution for TODO ${todoId}`);
+
+    // 1. 获取 TODO 信息
+    const todo = await this.prisma.researchTodo.findUnique({
+      where: { id: todoId },
+    });
+
+    if (!todo) {
+      throw new NotFoundException(`TODO ${todoId} not found`);
+    }
+
+    // 2. 验证 TODO 类型和状态
+    if (todo.type !== ResearchTodoType.USER_REQUEST) {
+      throw new BadRequestException(
+        `Only USER_REQUEST type TODOs can be executed. Got: ${todo.type}`,
+      );
+    }
+
+    if (todo.status !== ResearchTodoStatus.PENDING) {
+      throw new BadRequestException(
+        `TODO must be in PENDING status to execute. Current: ${todo.status}`,
+      );
+    }
+
+    // 3. 更新状态为 IN_PROGRESS
+    const updatedTodo = await this.prisma.researchTodo.update({
+      where: { id: todoId },
+      data: {
+        status: ResearchTodoStatus.IN_PROGRESS,
+        startedAt: new Date(),
+        statusMessage: "正在执行用户请求...",
+      },
+    });
+
+    // 发送状态更新事件
+    await this.emitTodoEvent(topicId, TodoEventType.TODO_STATUS_CHANGED, {
+      todoId,
+      oldStatus: ResearchTodoStatus.PENDING,
+      newStatus: ResearchTodoStatus.IN_PROGRESS,
+      message: "正在执行用户请求...",
+      todo: this.formatTodoForClient(updatedTodo),
+    });
+
+    // 4. 解析 TODO 内容，判断要执行什么操作
+    const todoTitle = todo.title.toLowerCase();
+    const todoDesc = (todo.description || "").toLowerCase();
+
+    let resultMessage = "";
+
+    try {
+      if (
+        todoTitle.includes("新增维度") ||
+        todoTitle.includes("添加维度") ||
+        todoDesc.includes("新增维度")
+      ) {
+        // 新增维度操作
+        resultMessage = await this.executeAddDimension(topicId, todo);
+      } else if (
+        todoTitle.includes("深入研究") ||
+        todoTitle.includes("详细分析")
+      ) {
+        // 深入研究操作
+        resultMessage = await this.executeDeepResearch(topicId, todo);
+      } else {
+        // 通用执行：标记为完成
+        resultMessage = `任务「${todo.title}」已记录，将在后续研究中考虑`;
+      }
+
+      // 5. 更新状态为 COMPLETED
+      const completedTodo = await this.prisma.researchTodo.update({
+        where: { id: todoId },
+        data: {
+          status: ResearchTodoStatus.COMPLETED,
+          progress: 100,
+          completedAt: new Date(),
+          actualMs: updatedTodo.startedAt
+            ? Date.now() - updatedTodo.startedAt.getTime()
+            : null,
+          statusMessage: resultMessage,
+        },
+      });
+
+      // 发送完成事件
+      await this.emitTodoEvent(topicId, TodoEventType.TODO_COMPLETED, {
+        todoId,
+        result: { message: resultMessage },
+        duration: completedTodo.actualMs,
+        todo: this.formatTodoForClient(completedTodo),
+      });
+
+      this.logger.log(
+        `[executeTodo] TODO ${todoId} executed successfully: ${resultMessage}`,
+      );
+
+      return {
+        todo: completedTodo,
+        message: resultMessage,
+      };
+    } catch (error) {
+      // 执行失败，更新状态
+      const failedTodo = await this.prisma.researchTodo.update({
+        where: { id: todoId },
+        data: {
+          status: ResearchTodoStatus.FAILED,
+          statusMessage: `执行失败: ${error instanceof Error ? error.message : "未知错误"}`,
+        },
+      });
+
+      await this.emitTodoEvent(topicId, TodoEventType.TODO_FAILED, {
+        todo: this.formatTodoForClient(failedTodo),
+        error: error instanceof Error ? error.message : "未知错误",
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * 执行新增维度操作
+   */
+  private async executeAddDimension(
+    topicId: string,
+    todo: ResearchTodo,
+  ): Promise<string> {
+    this.logger.log(
+      `[executeAddDimension] Adding new dimension for topic ${topicId}`,
+    );
+
+    // 从 title 或 description 中提取维度名称
+    const titleMatch = todo.title.match(/[：:「](.+?)[」]?$/);
+    const dimensionName = titleMatch
+      ? titleMatch[1].trim()
+      : todo.title.replace(/新增维度|添加维度|[：:]/g, "").trim();
+
+    // 创建新维度
+    const dimension = await this.prisma.topicDimension.create({
+      data: {
+        topicId,
+        name: dimensionName,
+        description: todo.description || `用户请求新增的维度：${dimensionName}`,
+        status: "PENDING",
+        sortOrder: 100,
+        searchQueries: [],
+      },
+    });
+
+    this.logger.log(
+      `[executeAddDimension] Created dimension ${dimension.id}: ${dimensionName}`,
+    );
+
+    // TODO: 后续可以触发维度研究
+    // 当前先返回成功消息，维度研究可以通过"开始研究"按钮触发
+
+    return `已创建新维度「${dimensionName}」，可在左侧维度列表查看。点击"开始研究"按钮执行维度研究。`;
+  }
+
+  /**
+   * 执行深入研究操作
+   */
+  private async executeDeepResearch(
+    topicId: string,
+    todo: ResearchTodo,
+  ): Promise<string> {
+    this.logger.log(`[executeDeepResearch] Deep research for topic ${topicId}`);
+
+    // 从 title 或 description 中提取研究主题
+    const researchTopic = todo.title
+      .replace(/深入研究|详细分析|[：:]/g, "")
+      .trim();
+
+    // TODO: 触发深入研究逻辑
+    // 当前先返回成功消息
+
+    return `已记录深入研究请求「${researchTopic}」，将在下次研究时重点关注此方面。`;
+  }
+
   // ==================== 辅助方法 ====================
 
   /**

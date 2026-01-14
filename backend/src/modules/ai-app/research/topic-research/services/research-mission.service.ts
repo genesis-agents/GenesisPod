@@ -555,24 +555,41 @@ export class ResearchMissionService {
     }
 
     // 2. 构建查询条件
-    // ★ 改进：使用 OR 条件来获取：
-    //   - 该维度的特定活动 (dimensionId 匹配)
-    //   - 通用的 Leader 活动 (dimensionId 为空，但 missionId 匹配)
+    // ★ 修复：根据任务类型精确过滤活动
+    //   - 维度研究任务：只显示该维度的活动（不包含 Leader 的规划活动）
+    //   - Leader 规划任务：显示 Leader 的规划活动
+    //   - 报告撰写/质量审核任务：显示对应阶段的活动
     let whereCondition: Prisma.ResearchAgentActivityWhereInput;
 
     if (task.dimensionId) {
-      // 有 dimensionId 的任务：获取该维度的活动 + Leader 的通用活动
+      // 有 dimensionId 的任务（维度研究）：只获取该维度的特定活动
       whereCondition = {
         missionId: task.missionId,
-        OR: [
-          { dimensionId: task.dimensionId },
-          { dimensionId: null, agentRole: "leader" },
-        ],
+        dimensionId: task.dimensionId,
+      };
+    } else if (task.taskType === "leader_planning") {
+      // Leader 规划任务：只获取 Leader 的活动
+      whereCondition = {
+        missionId: task.missionId,
+        agentRole: "leader",
+      };
+    } else if (task.taskType === "report_synthesis") {
+      // 报告撰写任务：获取 synthesizer 的活动
+      whereCondition = {
+        missionId: task.missionId,
+        agentRole: "synthesizer",
+      };
+    } else if (task.taskType === "quality_review") {
+      // 质量审核任务：获取 reviewer 的活动
+      whereCondition = {
+        missionId: task.missionId,
+        agentRole: "reviewer",
       };
     } else {
-      // 没有 dimensionId 的任务：只按 missionId 查询
+      // 其他任务：按 missionId 和 agentId 查询
       whereCondition = {
         missionId: task.missionId,
+        ...(task.assignedAgent && { agentId: task.assignedAgent }),
       };
     }
 
