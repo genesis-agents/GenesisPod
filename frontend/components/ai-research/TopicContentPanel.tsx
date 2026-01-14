@@ -25,17 +25,20 @@ import { useTopicResearchStore } from '@/stores/topicResearchStore';
 import { CredibilityPanel } from './CredibilityPanel';
 // Phase TODO UX 优化组件 - 新的研究协作面板（合并原 thinking/history/collaboration）
 import { ResearchCollaborationPanel } from './ResearchCollaborationPanel';
+// 研究历史组件 - 简化版，显示会话列表 + 对比功能
+import { ResearchTimeline } from './ResearchTimeline';
 
 // 报告视图模式
 type ReportViewMode = 'continuous' | 'chapter';
 
-// Tab 类型定义 - 已简化，原 thinking/history/collaboration 合并为 research_collab
+// Tab 类型定义
 type TabType =
   | 'report'
-  | 'team'
+  | 'collaboration'
   | 'references'
   | 'credibility'
-  | 'research_collab';
+  | 'research_collab'
+  | 'history';
 
 // 研究事件类型
 export interface ResearchEvent {
@@ -457,8 +460,7 @@ export function TopicContentPanel({
   const safeEvents = Array.isArray(researchEvents) ? researchEvents : [];
   const safeThinkings = Array.isArray(agentThinkings) ? agentThinkings : [];
 
-  // Tab 配置 - 顺序: 研究协作(TODO) → 团队互动 → 洞察报告 → 可信度 → 参考文献
-  // 注：原 Agent思考 和 研究历史 Tab 合并为 研究协作 Tab
+  // Tab 配置 - 顺序: TODO LIST → 协作动态 → 洞察报告 → 研究历史 → 可信度 → 参考文献
   const tabs: {
     key: TabType;
     label: string;
@@ -467,7 +469,7 @@ export function TopicContentPanel({
   }[] = [
     {
       key: 'research_collab',
-      label: '研究协作',
+      label: 'TODO LIST',
       icon: (
         <svg
           className="h-4 w-4"
@@ -485,8 +487,8 @@ export function TopicContentPanel({
       ),
     },
     {
-      key: 'team',
-      label: '团队互动',
+      key: 'collaboration',
+      label: '协作动态',
       icon: <TeamIcon className="h-4 w-4" />,
       badge: safeEvents.length > 0 ? safeEvents.length : undefined,
     },
@@ -494,6 +496,11 @@ export function TopicContentPanel({
       key: 'report',
       label: '洞察报告',
       icon: <DocumentIcon className="h-4 w-4" />,
+    },
+    {
+      key: 'history',
+      label: '研究历史',
+      icon: <HistoryIcon className="h-4 w-4" />,
     },
     {
       key: 'credibility',
@@ -740,10 +747,11 @@ export function TopicContentPanel({
           <ResearchCollaborationPanel
             topicId={topicId}
             missionId={missionStatus?.id}
+            missionStatus={missionStatus}
             className="h-full"
           />
         )}
-        {activeTab === 'team' && (
+        {activeTab === 'collaboration' && (
           <TeamInteractionTabContent
             events={safeEvents}
             wsEvents={wsEvents}
@@ -755,6 +763,22 @@ export function TopicContentPanel({
         {activeTab === 'credibility' && report && (
           <div className="h-full overflow-y-auto p-4">
             <CredibilityPanel reportId={report.id} />
+          </div>
+        )}
+        {activeTab === 'history' && topicId && (
+          <div className="h-full overflow-y-auto">
+            <ResearchTimeline
+              topicId={topicId}
+              onSelectResearch={(history) => {
+                console.log('Selected research:', history);
+              }}
+              onCompareVersions={(from, to) => {
+                console.log('Compare versions:', from, to);
+              }}
+              onViewReport={(version) => {
+                console.log('View report version:', version);
+              }}
+            />
           </div>
         )}
         {activeTab === 'references' && (
