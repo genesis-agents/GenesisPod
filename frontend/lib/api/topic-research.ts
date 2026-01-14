@@ -443,6 +443,52 @@ export async function compareReports(
   });
 }
 
+/**
+ * 获取报告修订历史
+ */
+export interface ReportRevision {
+  id: string;
+  reportId: string;
+  revisionNumber: number;
+  content: string;
+  changeDescription: string;
+  editedBy: string;
+  editOperation: string;
+  createdAt: string;
+}
+
+export async function getReportRevisions(
+  topicId: string,
+  reportId: string
+): Promise<ReportRevision[]> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/revisions`
+  );
+}
+
+/**
+ * 回滚报告到指定版本
+ */
+export interface RollbackReportResponse {
+  report: TopicReport;
+  rolledBackFrom: number;
+  rolledBackTo: number;
+}
+
+export async function rollbackReport(
+  topicId: string,
+  reportId: string,
+  revisionNumber: number
+): Promise<RollbackReportResponse> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/rollback`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ revisionNumber }),
+    }
+  );
+}
+
 // ==================== Evidence ====================
 
 /**

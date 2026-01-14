@@ -163,6 +163,11 @@ interface TopicResearchState {
   ) => Promise<string>;
   compareReports: (topicId: string, dto: CompareReportsDto) => Promise<void>;
   setCurrentReport: (report: TopicReport | null) => void;
+  rollbackReport: (
+    topicId: string,
+    reportId: string,
+    revisionNumber: number
+  ) => Promise<void>;
 
   // Actions - Evidence
   fetchEvidence: (
@@ -722,6 +727,24 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
 
   setCurrentReport: (report) => {
     set({ currentReport: report });
+  },
+
+  rollbackReport: async (topicId, reportId, revisionNumber) => {
+    try {
+      const result = await api.rollbackReport(
+        topicId,
+        reportId,
+        revisionNumber
+      );
+      // Update current report with the rolled back content
+      set({ currentReport: result.report });
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error ? error.message : 'Failed to rollback report',
+      });
+      throw error;
+    }
   },
 
   // ==================== Evidence ====================

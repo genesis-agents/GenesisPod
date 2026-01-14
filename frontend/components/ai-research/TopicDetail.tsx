@@ -36,6 +36,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     fetchDimensions,
     fetchLatestReport,
     fetchReports,
+    fetchReport,
     fetchEvidence,
     fetchMissionStatus,
     fetchTeamInfo,
@@ -128,6 +129,18 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     [topic.id, sendLeaderInstruction]
   );
 
+  // Handle version rollback - load the selected report version
+  const handleRollbackVersion = useCallback(
+    async (reportId: string) => {
+      try {
+        await fetchReport(topic.id, reportId);
+      } catch {
+        // Error is already handled in store
+      }
+    },
+    [topic.id, fetchReport]
+  );
+
   // Convert reports to revisions format (exclude current report)
   const revisions = reports
     .filter((r) => r.id !== currentReport?.id)
@@ -156,6 +169,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
       onExportReport={handleExport}
       onBack={onBack}
       onSendLeaderInstruction={handleSendLeaderInstruction}
+      onRollbackVersion={handleRollbackVersion}
       wsEvents={wsEvents}
       wsConnected={wsConnected}
       onClearWsEvents={clearWsEvents}
