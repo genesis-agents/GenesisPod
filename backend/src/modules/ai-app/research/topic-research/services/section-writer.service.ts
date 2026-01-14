@@ -257,9 +257,10 @@ export class SectionWriterService {
 
   /**
    * 提取内容中的证据引用
+   * ★ 更新为匹配数字格式 [1], [2], [3]
    */
   private extractReferences(content: string): string[] {
-    const matches = content.match(/\[temp-\d+-\d+\]/g) || [];
+    const matches = content.match(/\[\d+\]/g) || [];
     return [...new Set(matches.map((m) => m.slice(1, -1)))];
   }
 

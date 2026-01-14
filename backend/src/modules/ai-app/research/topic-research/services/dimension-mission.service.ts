@@ -144,8 +144,9 @@ export class DimensionMissionService {
 
       // 3. Leader 规划大纲
       // 发送 Leader 思考事件 - 理解阶段
+      // ★ 修复：使用正确的 missionId，而非 dimension.id
       await this.eventEmitter.emitLeaderThinking(topic.id, {
-        missionId: dimension.id,
+        missionId: missionId || dimension.id,
         phase: "understanding",
         content: `正在理解研究主题「${topic.name}」的需求，分析维度「${dimension.name}」的研究范围...`,
         progress: 10,
@@ -187,8 +188,9 @@ export class DimensionMissionService {
 
       // 发送详细的 Leader 思考事件 - 包含理解内容
       const understanding = outline.intentUnderstanding;
+      // ★ 修复：使用正确的 missionId
       await this.eventEmitter.emitLeaderThinking(topic.id, {
-        missionId: dimension.id,
+        missionId: missionId || dimension.id,
         phase: "analyzing",
         content: `核心问题: ${understanding.coreQuestion}\n研究范围: ${understanding.scope.included.join(", ")}\n期望深度: ${understanding.expectedDepth}`,
         progress: 20,
@@ -499,7 +501,9 @@ export class DimensionMissionService {
 
   /**
    * 保存证据到数据库
-   * 返回一个映射：{ tempId -> actualId }
+   * ★ 返回 promptIndex -> actualCitationIndex 映射
+   * promptIndex 是 LLM 在 prompt 中看到的序号 (1, 2, 3...)
+   * actualCitationIndex 是证据在数据库中的实际引用编号
    */
   private async saveEvidence(
     evidenceData: EvidenceData[],
@@ -507,7 +511,7 @@ export class DimensionMissionService {
   ): Promise<{
     savedIds: string[];
     idMapping: Map<string, string>;
-    indexMapping: Map<string, number>;
+    indexMapping: Map<number, number>; // ★ 改为 promptIndex -> actualCitationIndex
   }> {
     if (evidenceData.length === 0) {
       return { savedIds: [], idMapping: new Map(), indexMapping: new Map() };
@@ -549,30 +553,41 @@ export class DimensionMissionService {
 
     // 构建 tempId -> actualId 映射
     const idMapping = new Map<string, string>();
-    // ★ 新增: 构建 tempId -> citationIndex 映射（用于替换为数字引用）
-    const indexMapping = new Map<string, number>();
+    // ★ 构建 promptIndex -> actualCitationIndex 映射
+    // promptIndex 是 LLM 看到的 [1], [2], [3]...
+    // actualCitationIndex 是数据库中的实际编号
+    const indexMapping = new Map<number, number>();
     evidenceData.forEach((e, index) => {
       idMapping.set(e.id, created[index].id);
-      indexMapping.set(e.id, created[index].citationIndex!);
+      // promptIndex = index + 1 (从1开始)
+      // actualCitationIndex = created[index].citationIndex
+      indexMapping.set(index + 1, created[index].citationIndex!);
     });
 
     return { savedIds: created.map((e) => e.id), idMapping, indexMapping };
   }
 
   /**
-   * 替换内容中的临时证据ID为数字引用格式 [n]
-   * ★ 关键修复：前端期望 [1], [2] 格式，而非 UUID 格式
+   * 替换内容中的 prompt 引用为实际的 citationIndex
+   * ★ LLM 输出 [1], [2], [3]... 需要替换为实际的数据库 citationIndex
+   * 例如：如果第一个维度有10条证据，第二个维度的 [1] 需要变成 [11]
    */
   private replaceEvidenceIds(
     content: string,
-    indexMapping: Map<string, number>,
+    indexMapping: Map<number, number>,
   ): string {
     let result = content;
-    // 替换 [temp-X-Y] 格式的引用为 [n] 数字格式
-    indexMapping.forEach((citationIndex, tempId) => {
-      const pattern = new RegExp(`\\[${tempId}\\]`, "g");
-      result = result.replace(pattern, `[${citationIndex}]`);
-    });
+    // 从大到小替换，避免 [1] 被替换后影响 [10], [11] 等
+    const sortedEntries = Array.from(indexMapping.entries()).sort(
+      (a, b) => b[0] - a[0],
+    );
+    for (const [promptIndex, actualCitationIndex] of sortedEntries) {
+      // 只有当 promptIndex 和 actualCitationIndex 不同时才需要替换
+      if (promptIndex !== actualCitationIndex) {
+        const pattern = new RegExp(`\\[${promptIndex}\\]`, "g");
+        result = result.replace(pattern, `[${actualCitationIndex}]`);
+      }
+    }
     return result;
   }
 

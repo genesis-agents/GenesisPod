@@ -555,18 +555,26 @@ export class ResearchMissionService {
     }
 
     // 2. 构建查询条件
-    // activities 通过 missionId + dimensionId + agentId 关联
-    const whereCondition: Prisma.ResearchAgentActivityWhereInput = {
-      missionId: task.missionId,
-    };
+    // ★ 改进：使用 OR 条件来获取：
+    //   - 该维度的特定活动 (dimensionId 匹配)
+    //   - 通用的 Leader 活动 (dimensionId 为空，但 missionId 匹配)
+    let whereCondition: Prisma.ResearchAgentActivityWhereInput;
 
-    // 如果任务有 dimensionId，精确匹配该维度的活动
     if (task.dimensionId) {
-      whereCondition.dimensionId = task.dimensionId;
+      // 有 dimensionId 的任务：获取该维度的活动 + Leader 的通用活动
+      whereCondition = {
+        missionId: task.missionId,
+        OR: [
+          { dimensionId: task.dimensionId },
+          { dimensionId: null, agentRole: "leader" },
+        ],
+      };
+    } else {
+      // 没有 dimensionId 的任务：只按 missionId 查询
+      whereCondition = {
+        missionId: task.missionId,
+      };
     }
-
-    // 如果任务有分配的 agent，也可以按 agent 过滤
-    // 但为了显示更全面的活动，这里只用 dimensionId 过滤
 
     // 3. 查询活动记录
     const activities = await this.prisma.researchAgentActivity.findMany({
