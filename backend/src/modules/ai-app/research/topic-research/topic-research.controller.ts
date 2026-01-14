@@ -575,6 +575,30 @@ export class TopicResearchController {
   }
 
   /**
+   * 删除报告
+   */
+  @Delete("topics/:topicId/reports/:reportId")
+  @ApiOperation({
+    summary: "删除报告",
+    description: "删除指定报告及其所有关联数据（维度分析、修订历史、批注等）",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "删除成功" })
+  @ApiResponse({ status: 404, description: "报告不存在" })
+  async deleteReport(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("reportId") reportId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.deleteReport(userId, topicId, reportId);
+  }
+
+  /**
    * 导出报告
    */
   @Post("topics/:topicId/reports/:reportId/export")

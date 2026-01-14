@@ -28,6 +28,8 @@ interface TopicTeamPanelProps {
   refreshProgress: SimpleRefreshProgress | null;
   onStartRefresh?: () => void;
   onCancelRefresh?: () => void;
+  /** 错误信息 */
+  error?: string | null;
 }
 
 // Agent 角色定义
@@ -155,6 +157,7 @@ export function TopicTeamPanel({
   refreshProgress,
   onStartRefresh,
   onCancelRefresh,
+  error,
 }: TopicTeamPanelProps) {
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
@@ -395,6 +398,17 @@ export function TopicTeamPanel({
             {isRefreshing ? '进行中' : '空闲'}
           </span>
         </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div className="mb-1 flex items-center gap-2 font-medium">
+              <span>⚠️</span>
+              <span>研究启动失败</span>
+            </div>
+            <p className="text-xs text-red-600">{error}</p>
+          </div>
+        )}
 
         {/* Action Button */}
         {isRefreshing ? (

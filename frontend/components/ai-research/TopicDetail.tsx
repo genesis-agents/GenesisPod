@@ -33,6 +33,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     agentActivities,
     isLoadingReports,
     isLoadingEvidence,
+    error,
     fetchDimensions,
     fetchLatestReport,
     fetchReports,
@@ -45,6 +46,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     cancelMission,
     exportReport,
     sendLeaderInstruction,
+    deleteReport,
   } = useTopicResearchStore();
 
   // WebSocket 实时事件
@@ -149,6 +151,21 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     [topic.id, fetchReport]
   );
 
+  // Handle delete report - delete and refresh the report list
+  const handleDeleteReport = useCallback(
+    async (reportId: string) => {
+      try {
+        await deleteReport(topic.id, reportId);
+        // Refresh reports list and fetch the latest remaining report
+        await fetchReports(topic.id);
+        await fetchLatestReport(topic.id);
+      } catch {
+        // Error is already handled in store
+      }
+    },
+    [topic.id, deleteReport, fetchReports, fetchLatestReport]
+  );
+
   // ★ 安全处理：确保 reports 是数组，防止 undefined 报错
   const safeReports = Array.isArray(reports) ? reports : [];
 
@@ -181,9 +198,11 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
       onBack={onBack}
       onSendLeaderInstruction={handleSendLeaderInstruction}
       onRollbackVersion={handleRollbackVersion}
+      onDeleteReport={handleDeleteReport}
       wsEvents={wsEvents}
       wsConnected={wsConnected}
       onClearWsEvents={clearWsEvents}
+      error={error}
     />
   );
 }

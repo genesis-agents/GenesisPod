@@ -165,6 +165,7 @@ interface TopicResearchState {
   fetchReports: (topicId: string, loadMore?: boolean) => Promise<void>;
   fetchLatestReport: (topicId: string) => Promise<void>;
   fetchReport: (topicId: string, reportId: string) => Promise<void>;
+  deleteReport: (topicId: string, reportId: string) => Promise<void>;
   exportReport: (
     topicId: string,
     reportId: string,
@@ -734,6 +735,25 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
       set({
         error:
           error instanceof Error ? error.message : 'Failed to fetch report',
+      });
+      throw error;
+    }
+  },
+
+  deleteReport: async (topicId, reportId) => {
+    try {
+      await api.deleteReport(topicId, reportId);
+      // 从列表中移除已删除的报告
+      set((state) => ({
+        reports: state.reports.filter((r) => r.id !== reportId),
+        // 如果删除的是当前报告，清空它
+        currentReport:
+          state.currentReport?.id === reportId ? null : state.currentReport,
+      }));
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error ? error.message : 'Failed to delete report',
       });
       throw error;
     }

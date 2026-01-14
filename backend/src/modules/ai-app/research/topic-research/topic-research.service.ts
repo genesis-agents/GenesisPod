@@ -1209,6 +1209,54 @@ export class TopicResearchService {
   }
 
   /**
+   * 删除报告（仅管理员/所有者）
+   */
+  async deleteReport(userId: string, topicId: string, reportId: string) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    const report = await this.reportService.getReport(reportId);
+
+    if (!report || report.topicId !== topicId) {
+      throw new NotFoundException("Report not found");
+    }
+
+    // 使用事务删除报告及其关联数据
+    await this.prisma.$transaction(async (tx) => {
+      // 1. 删除维度分析
+      await tx.dimensionAnalysis.deleteMany({
+        where: { reportId },
+      });
+
+      // 2. 删除报告修订历史
+      await tx.topicReportRevision.deleteMany({
+        where: { reportId },
+      });
+
+      // 3. 删除报告批注
+      await tx.reportAnnotation.deleteMany({
+        where: { reportId },
+      });
+
+      // 4. 删除报告变更记录
+      await tx.reportChange.deleteMany({
+        where: { reportId },
+      });
+
+      // 5. 删除报告本身
+      await tx.topicReport.delete({
+        where: { id: reportId },
+      });
+    });
+
+    this.logger.log(
+      `[deleteReport] Report ${reportId} deleted by user ${userId}`,
+    );
+
+    return { success: true, message: "Report deleted successfully" };
+  }
+
+  /**
    * 转换报告数据以适配前端接口
    * 主要将 dataPoints JSON 字段中的内容提取到顶层
    */

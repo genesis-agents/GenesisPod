@@ -20,6 +20,7 @@ import type {
 import type { MissionStatus } from '@/lib/api/topic-research';
 import { ReportEditPanel } from './ReportEditPanel';
 import { ChapterizedReportView } from './ChapterizedReportView';
+import { ReportRevisionHistory } from './ReportRevisionHistory';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
 // Phase 1-3 优化组件
 import { CredibilityPanel } from './CredibilityPanel';
@@ -132,6 +133,8 @@ interface TopicContentPanelProps {
   missionStatus?: MissionStatus | null;
   /** Topic ID for TODO integration */
   topicId?: string;
+  /** Callback to delete the current report */
+  onDeleteReport?: (reportId: string) => Promise<void>;
 }
 
 // Icons
@@ -313,6 +316,22 @@ const ListIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const TrashIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+    />
+  </svg>
+);
+
 export function TopicContentPanel({
   report,
   dimensions,
@@ -331,6 +350,7 @@ export function TopicContentPanel({
   onClearWsEvents,
   missionStatus,
   topicId,
+  onDeleteReport,
 }: TopicContentPanelProps) {
   // Get persisted team data from store
   const {
@@ -376,6 +396,24 @@ export function TopicContentPanel({
   }
 
   const [annotations, setAnnotations] = useState<ReportAnnotation[]>([]);
+
+  // Delete report state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Handle delete report with confirmation
+  const handleDeleteReport = useCallback(async () => {
+    if (!report?.id || !onDeleteReport) return;
+    setIsDeleting(true);
+    try {
+      await onDeleteReport(report.id);
+      setShowDeleteConfirm(false);
+    } catch (error) {
+      console.error('Failed to delete report:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [report?.id, onDeleteReport]);
 
   // Annotation handlers
   const handleAnnotationAdd = useCallback(
@@ -685,11 +723,69 @@ export function TopicContentPanel({
                       >
                         导出 Word
                       </button>
+                      {/* Delete option with divider */}
+                      {onDeleteReport && (
+                        <>
+                          <div className="my-1 border-t border-gray-100" />
+                          <button
+                            onClick={() => {
+                              setExportMenuOpen(false);
+                              setShowDeleteConfirm(true);
+                            }}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                            删除报告
+                          </button>
+                        </>
+                      )}
                     </div>
                   </>
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                <TrashIcon className="h-5 w-5 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                确认删除报告
+              </h3>
+            </div>
+            <p className="mb-6 text-sm text-gray-600">
+              您确定要删除此报告吗？此操作将删除报告及其所有关联数据（维度分析、修订历史、批注等），且无法撤销。
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleDeleteReport}
+                disabled={isDeleting}
+                className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <SpinnerIcon className="h-4 w-4 animate-spin" />
+                    删除中...
+                  </>
+                ) : (
+                  '确认删除'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -728,20 +824,86 @@ export function TopicContentPanel({
           />
         )}
         {activeTab === 'report' && reportViewMode === 'chapter' && (
-          <ChapterizedReportView
-            report={report}
-            dimensions={dimensions}
-            evidence={safeEvidence}
-            isLoading={isLoadingReport}
-            onEditChapter={async (chapterId, content) => {
-              // TODO: Implement chapter save
-              console.log('Save chapter:', chapterId, content);
-            }}
-            onAIEditChapter={async (chapterId, operation) => {
-              // TODO: Implement AI edit for chapter
-              console.log('AI Edit chapter:', chapterId, operation);
-            }}
-          />
+          <div className="flex h-full">
+            {/* Main chapter view */}
+            <div
+              className={`flex-1 overflow-hidden ${sidePanelType ? 'border-r border-gray-200' : ''}`}
+            >
+              <ChapterizedReportView
+                report={report}
+                dimensions={dimensions}
+                evidence={safeEvidence}
+                isLoading={isLoadingReport}
+                onEditChapter={async (chapterId, content) => {
+                  // TODO: Implement chapter save
+                  console.log('Save chapter:', chapterId, content);
+                }}
+                onAIEditChapter={async (chapterId, operation) => {
+                  // TODO: Implement AI edit for chapter
+                  console.log('AI Edit chapter:', chapterId, operation);
+                }}
+              />
+            </div>
+
+            {/* Side panel for history/annotations in chapter view */}
+            {sidePanelType === 'history' && (
+              <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
+                <div className="flex h-full flex-col">
+                  <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                    <h3 className="text-sm font-semibold text-gray-700">
+                      版本历史
+                    </h3>
+                    <button
+                      onClick={() => setSidePanelType(null)}
+                      className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                    >
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-auto">
+                    <ReportRevisionHistory
+                      revisions={revisions.map((rev) => ({
+                        id: rev.id,
+                        version: rev.version,
+                        title: rev.summary || `版本 ${rev.version}`,
+                        summary: rev.summary || '',
+                        changeType: 'edit' as const,
+                        changeDescription: rev.summary || '报告更新',
+                        author: '系统',
+                        createdAt:
+                          typeof rev.createdAt === 'string'
+                            ? rev.createdAt
+                            : (rev.createdAt as Date).toISOString(),
+                        wordCount: 0,
+                        wordCountDelta: 0,
+                      }))}
+                      currentVersion={report?.version || 1}
+                      isLoading={false}
+                      onRollback={
+                        onRollbackVersion
+                          ? async (revisionId: string) => {
+                              onRollbackVersion(revisionId);
+                            }
+                          : undefined
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         )}
         {activeTab === 'research_collab' && topicId && (
           <ResearchCollaborationPanel

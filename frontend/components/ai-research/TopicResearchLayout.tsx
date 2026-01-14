@@ -68,6 +68,10 @@ interface TopicResearchLayoutProps {
   wsEvents?: WsEvent[];
   wsConnected?: boolean;
   onClearWsEvents?: () => void;
+  /** 错误信息 */
+  error?: string | null;
+  /** Callback to delete the current report */
+  onDeleteReport?: (reportId: string) => Promise<void>;
 }
 
 // Icons
@@ -169,6 +173,8 @@ export function TopicResearchLayout({
   wsEvents,
   wsConnected,
   onClearWsEvents,
+  error,
+  onDeleteReport,
 }: TopicResearchLayoutProps) {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
 
@@ -302,6 +308,7 @@ export function TopicResearchLayout({
                   refreshProgress={refreshProgress}
                   onStartRefresh={onStartRefresh}
                   onCancelRefresh={onCancelRefresh}
+                  error={error}
                 />
               </div>
             </div>
@@ -326,6 +333,7 @@ export function TopicResearchLayout({
             wsConnected={wsConnected}
             onClearWsEvents={onClearWsEvents}
             missionStatus={missionStatus}
+            onDeleteReport={onDeleteReport}
           />
         </div>
       </div>

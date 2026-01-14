@@ -343,6 +343,18 @@ export async function getReport(
 }
 
 /**
+ * 删除报告
+ */
+export async function deleteReport(
+  topicId: string,
+  reportId: string
+): Promise<{ success: boolean; message: string }> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/reports/${reportId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
  * 导出任务响应类型
  */
 export interface ExportJobResponse {
