@@ -1417,21 +1417,21 @@ function TeamInteractionTabContent({
         progress = (data.progress as number) || 0;
         content = (data.message as string) || `任务 ${eventType.split(':')[1]}`;
       } else if (eventType.startsWith('dimension:')) {
-        agent = '研究员';
+        const dimName = (data.dimensionName as string) || '';
+        // 使用维度名称作为研究员标识，避免所有研究员都显示相同名称
+        agent = dimName ? `${dimName}研究员` : '研究员';
         agentIcon = '🔍';
         agentColor = 'text-blue-700';
         agentBgColor = 'bg-blue-100';
         agentType = 'researcher';
         msgType = 'agent';
-
-        const dimName = (data.dimensionName as string) || '';
         if (eventType === 'dimension:research_started') {
-          content = `开始研究维度「${dimName}」`;
+          content = `开始研究...`;
         } else if (eventType === 'dimension:research_progress') {
           progress = (data.progress as number) || 0;
-          content = `「${dimName}」研究进度 ${progress}%`;
+          content = `研究进度 ${progress}%`;
         } else if (eventType === 'dimension:research_completed') {
-          content = `「${dimName}」研究完成`;
+          content = `研究完成`;
           // ★ 添加研究结果预览
           const summary = (data.summary as string) || '';
           const keyFindings = (data.keyFindings as string[]) || [];
