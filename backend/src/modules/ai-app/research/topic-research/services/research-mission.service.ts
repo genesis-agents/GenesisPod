@@ -496,6 +496,47 @@ export class ResearchMissionService {
   }
 
   /**
+   * ★ 获取任务相关的 Agent 活动记录
+   * 通过 ResearchTask.id 查找关联的 ResearchAgentActivity
+   */
+  async getTaskActivities(taskId: string): Promise<{
+    task: ResearchTask;
+    activities: any[];
+  }> {
+    // 1. 获取任务信息
+    const task = await this.prisma.researchTask.findUnique({
+      where: { id: taskId },
+      include: { mission: true },
+    });
+
+    if (!task) {
+      throw new NotFoundException(`Task ${taskId} not found`);
+    }
+
+    // 2. 构建查询条件
+    // activities 通过 missionId + dimensionId + agentId 关联
+    const whereCondition: Prisma.ResearchAgentActivityWhereInput = {
+      missionId: task.missionId,
+    };
+
+    // 如果任务有 dimensionId，精确匹配该维度的活动
+    if (task.dimensionId) {
+      whereCondition.dimensionId = task.dimensionId;
+    }
+
+    // 如果任务有分配的 agent，也可以按 agent 过滤
+    // 但为了显示更全面的活动，这里只用 dimensionId 过滤
+
+    // 3. 查询活动记录
+    const activities = await this.prisma.researchAgentActivity.findMany({
+      where: whereCondition,
+      orderBy: { createdAt: "asc" },
+    });
+
+    return { task, activities };
+  }
+
+  /**
    * 更新任务状态
    */
   async updateTaskStatus(

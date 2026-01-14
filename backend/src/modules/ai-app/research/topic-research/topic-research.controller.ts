@@ -1940,6 +1940,30 @@ export class TopicResearchController {
   }
 
   /**
+   * ★ 获取任务（ResearchTask）相关的活动记录
+   * 注意：这个 endpoint 用于获取 missionStatus.tasks 中任务的活动
+   */
+  @Get("topics/:topicId/tasks/:taskId/activities")
+  @ApiOperation({
+    summary: "获取任务活动记录",
+    description: "获取 ResearchTask 关联的 Agent 活动记录",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "taskId", description: "任务ID (ResearchTask.id)" })
+  @ApiResponse({ status: 200, description: "返回任务信息和活动记录" })
+  async getTaskActivities(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("taskId") taskId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.missionService.getTaskActivities(taskId);
+  }
+
+  /**
    * 暂停 TODO
    */
   @Post("topics/:topicId/todos/:todoId/pause")

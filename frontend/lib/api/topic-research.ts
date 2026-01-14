@@ -1257,6 +1257,19 @@ export async function getTodoDetails(
 }
 
 /**
+ * ★ 获取任务（ResearchTask）相关的活动记录
+ * 用于 missionStatus.tasks 转换的任务
+ */
+export async function getTaskActivities(
+  topicId: string,
+  taskId: string
+): Promise<{ task: any; activities: AgentActivity[] }> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/tasks/${taskId}/activities`
+  );
+}
+
+/**
  * 暂停 TODO
  */
 export async function pauseTodo(
