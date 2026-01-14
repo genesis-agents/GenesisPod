@@ -1207,6 +1207,7 @@ export class ResearchMissionService {
           agentRole,
           status: "working",
           taskDescription: task.title,
+          dimensionId: task.dimensionId ?? undefined, // ★ 新增：传入维度ID
           dimensionName: task.dimensionName ?? undefined,
           progress: 0,
         },
@@ -1408,6 +1409,10 @@ export class ResearchMissionService {
         agentName,
         `${task.title} 完成`,
         missionId,
+        {
+          dimensionId: task.dimensionId ?? undefined,
+          dimensionName: task.dimensionName ?? undefined,
+        }, // ★ 传入维度信息
       );
 
       // ★ 发送任务完成事件

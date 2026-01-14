@@ -18,7 +18,11 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import type { ResearchTopic, TopicDimension } from "@prisma/client";
+import {
+  DimensionStatus,
+  type ResearchTopic,
+  type TopicDimension,
+} from "@prisma/client";
 import {
   ResearchLeaderService,
   type DimensionOutline,
@@ -104,6 +108,12 @@ export class DimensionMissionService {
     this.logger.log(
       `[executeDimensionMission] Starting mission for dimension: ${dimension.name} (${dimension.id})`,
     );
+
+    // ★ 更新维度状态为 RESEARCHING
+    await this.prisma.topicDimension.update({
+      where: { id: dimension.id },
+      data: { status: DimensionStatus.RESEARCHING },
+    });
 
     try {
       // 1. 获取搜索结果
@@ -253,7 +263,19 @@ export class DimensionMissionService {
         savedEvidenceIds,
       );
 
-      // 8. 完成
+      // 8. ★ 更新维度状态为 COMPLETED
+      await this.prisma.topicDimension.update({
+        where: { id: dimension.id },
+        data: {
+          status: DimensionStatus.COMPLETED,
+          lastResearchedAt: new Date(),
+        },
+      });
+      this.logger.log(
+        `[executeDimensionMission] Updated dimension status to COMPLETED: ${dimension.name}`,
+      );
+
+      // 9. 完成
       this.emitProgress(
         topic.id,
         dimension.id,
@@ -287,6 +309,12 @@ export class DimensionMissionService {
         `[executeDimensionMission] Mission failed for dimension: ${dimension.name}`,
         error instanceof Error ? error.stack : error,
       );
+
+      // ★ 更新维度状态为 FAILED
+      await this.prisma.topicDimension.update({
+        where: { id: dimension.id },
+        data: { status: DimensionStatus.FAILED },
+      });
 
       this.emitProgress(
         topic.id,

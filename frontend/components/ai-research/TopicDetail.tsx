@@ -94,13 +94,15 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     return () => clearInterval(interval);
   }, [topic.id, isRefreshing, fetchMissionStatus, fetchTeamInfo]);
 
-  // ★ 当任务完成时自动刷新报告
+  // ★ 当任务完成时自动刷新报告和维度
   useEffect(() => {
     if (missionStatus?.status === 'COMPLETED') {
       // 任务完成后刷新报告数据
       fetchLatestReport(topic.id);
+      // ★ 同时刷新维度状态，让章节视图显示完成标记
+      fetchDimensions(topic.id);
     }
-  }, [missionStatus?.status, topic.id, fetchLatestReport]);
+  }, [missionStatus?.status, topic.id, fetchLatestReport, fetchDimensions]);
 
   // Start Leader-driven research
   const handleStartResearch = useCallback(() => {

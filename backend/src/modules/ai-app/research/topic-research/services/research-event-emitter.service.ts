@@ -73,6 +73,7 @@ export interface AgentWorkingData {
   agentRole: "leader" | "researcher" | "reviewer" | "synthesizer";
   status: "working" | "completed" | "failed";
   taskDescription?: string;
+  dimensionId?: string; // ★ 新增：维度ID，用于精确关联任务活动
   dimensionName?: string;
   progress?: number;
 }
@@ -350,6 +351,7 @@ export class ResearchEventEmitterService {
             activityType,
             content: data.taskDescription || `${data.agentName} 正在工作`,
             progress: data.progress || 0,
+            dimensionId: data.dimensionId, // ★ 新增：保存维度ID以便精确查询
             dimensionName: data.dimensionName,
           },
         });
@@ -369,6 +371,7 @@ export class ResearchEventEmitterService {
     agentName: string,
     result?: string,
     missionId?: string,
+    options?: { dimensionId?: string; dimensionName?: string }, // ★ 新增维度信息
   ): Promise<void> {
     await this.emitToTopic(topicId, ResearchEventType.AGENT_COMPLETED, {
       agentId,
@@ -390,6 +393,8 @@ export class ResearchEventEmitterService {
             activityType: "COMPLETED",
             content: result || `${agentName} 完成工作`,
             progress: 100,
+            dimensionId: options?.dimensionId, // ★ 保存维度ID
+            dimensionName: options?.dimensionName, // ★ 保存维度名称
           },
         });
       } catch (error) {
