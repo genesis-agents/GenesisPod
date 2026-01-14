@@ -178,19 +178,53 @@ export class ResearchMissionService {
       totalTasks: 0,
     });
 
+    // ★ 关键修复：立即返回 mission，异步执行规划
+    // 原因：AI 推理可能需要 2-5 分钟，而 Next.js rewrite 代理默认 30 秒超时
+    // 前端会通过轮询 getMission 和 WebSocket 获取规划进度
+    this.executePlanningAsync(
+      mission.id,
+      topicId,
+      topic.name,
+      userPrompt,
+    ).catch((err) => {
+      this.logger.error(
+        `[createMission] Async planning failed: ${err instanceof Error ? err.message : err}`,
+      );
+    });
+
+    this.logger.log(
+      `[createMission] Mission ${mission.id} created, planning started asynchronously`,
+    );
+
+    return mission;
+  }
+
+  /**
+   * 异步执行 Leader 规划
+   * ★ 关键：从 createMission 中分离出来，避免阻塞 HTTP 响应
+   */
+  private async executePlanningAsync(
+    missionId: string,
+    topicId: string,
+    topicName: string,
+    userPrompt?: string,
+  ): Promise<void> {
+    this.logger.log(
+      `[executePlanningAsync] Starting planning for mission ${missionId}`,
+    );
+
     // ★ 发送 Leader 思考事件：理解任务
     await this.researchEventEmitter.emitLeaderThinking(topicId, {
-      missionId: mission.id,
+      missionId,
       phase: "understanding",
-      content: `正在理解研究主题「${topic.name}」的需求...`,
+      content: `正在理解研究主题「${topicName}」的需求...`,
       progress: 10,
     });
 
-    // 6. 调用 Leader 生成规划
     try {
       // ★ 发送 Leader 思考事件：分析
       await this.researchEventEmitter.emitLeaderThinking(topicId, {
-        missionId: mission.id,
+        missionId,
         phase: "analyzing",
         content: "正在分析研究范围和关键维度...",
         progress: 20,
@@ -199,7 +233,7 @@ export class ResearchMissionService {
       // ★ 发送 Leader 规划中事件
       await this.researchEventEmitter.emitLeaderPlanning(
         topicId,
-        mission.id,
+        missionId,
         "Leader 正在制定研究计划，确定研究维度和任务分配...",
       );
 
@@ -210,16 +244,16 @@ export class ResearchMissionService {
 
       // ★ 发送 Leader 思考事件：规划完成
       await this.researchEventEmitter.emitLeaderThinking(topicId, {
-        missionId: mission.id,
+        missionId,
         phase: "planning",
         content: `已规划 ${leaderPlan.dimensions.length} 个研究维度：${leaderPlan.dimensions.map((d) => d.name).join("、")}`,
         progress: 40,
       });
 
-      // 7. 记录 Leader 决策
+      // 记录 Leader 决策
       await this.prisma.leaderDecision.create({
         data: {
-          missionId: mission.id,
+          missionId,
           type: LeaderDecisionType.PLAN,
           input: { topicId, userPrompt },
           decision: leaderPlan as unknown as Prisma.InputJsonValue,
@@ -229,15 +263,15 @@ export class ResearchMissionService {
 
       // ★ 发送 Leader 思考事件：分配任务
       await this.researchEventEmitter.emitLeaderThinking(topicId, {
-        missionId: mission.id,
+        missionId,
         phase: "assigning",
         content: `正在分配 ${leaderPlan.agentAssignments.length} 个研究员执行任务...`,
         progress: 50,
       });
 
-      // 8. 将 Leader 规划的维度同步到数据库，并创建任务
+      // 将 Leader 规划的维度同步到数据库，并创建任务
       const tasks = await this.createTasksFromPlan(
-        mission.id,
+        missionId,
         topicId,
         leaderPlan,
       );
@@ -245,14 +279,14 @@ export class ResearchMissionService {
       // ★ 发送 Leader 规划完成事件
       await this.researchEventEmitter.emitLeaderPlanReady(
         topicId,
-        mission.id,
+        missionId,
         leaderPlan.dimensions.length,
         leaderPlan.agentAssignments.length,
       );
 
-      // 9. 更新 Mission
-      const updatedMission = await this.prisma.researchMission.update({
-        where: { id: mission.id },
+      // 更新 Mission
+      await this.prisma.researchMission.update({
+        where: { id: missionId },
         data: {
           leaderPlan: leaderPlan as unknown as Prisma.InputJsonValue,
           totalTasks: tasks.length,
@@ -261,9 +295,9 @@ export class ResearchMissionService {
         },
       });
 
-      // 10. 发送进度事件
+      // 发送进度事件
       this.emitProgress({
-        missionId: mission.id,
+        missionId,
         topicId,
         status: ResearchMissionStatus.EXECUTING,
         progress: 10,
@@ -274,26 +308,33 @@ export class ResearchMissionService {
       });
 
       this.logger.log(
-        `[createMission] Mission ${mission.id} created with ${tasks.length} tasks`,
+        `[executePlanningAsync] Mission ${missionId} planning completed with ${tasks.length} tasks`,
       );
 
-      // ★ 启动异步任务执行（不阻塞返回）
-      this.startExecution(mission.id, topicId).catch((err) => {
-        this.logger.error(`[createMission] Execution failed: ${err}`);
+      // ★ 启动异步任务执行
+      this.startExecution(missionId, topicId).catch((err) => {
+        this.logger.error(`[executePlanningAsync] Execution failed: ${err}`);
       });
-
-      return updatedMission;
     } catch (error) {
       // 规划失败，更新状态
       await this.prisma.researchMission.update({
-        where: { id: mission.id },
+        where: { id: missionId },
         data: {
           status: ResearchMissionStatus.FAILED,
         },
       });
 
-      this.logger.error(`[createMission] Planning failed: ${error}`);
-      throw error;
+      // ★ 发送失败事件，让前端知道规划失败
+      // 使用 emitMissionFailed 发送正确的 mission:failed 事件
+      await this.researchEventEmitter.emitMissionFailed(
+        topicId,
+        missionId,
+        error instanceof Error ? error.message : "规划失败：未知错误",
+      );
+
+      this.logger.error(
+        `[executePlanningAsync] Planning failed: ${error instanceof Error ? error.message : error}`,
+      );
     }
   }
 

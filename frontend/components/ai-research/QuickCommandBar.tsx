@@ -94,12 +94,37 @@ export function QuickCommandBar({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = useCallback(async () => {
-    if (!input.trim() || isSubmitting || disabled) return;
+    console.log('[QuickCommandBar.handleSubmit] Called:', {
+      input,
+      isSubmitting,
+      disabled,
+    });
+
+    if (!input.trim() || isSubmitting || disabled) {
+      console.log(
+        '[QuickCommandBar.handleSubmit] Early return - input:',
+        !input.trim(),
+        'submitting:',
+        isSubmitting,
+        'disabled:',
+        disabled
+      );
+      return;
+    }
 
     setIsSubmitting(true);
     try {
+      console.log(
+        '[QuickCommandBar.handleSubmit] Calling onSubmit with:',
+        input.trim()
+      );
       await onSubmit(input.trim());
       setInput('');
+      console.log(
+        '[QuickCommandBar.handleSubmit] Submit successful, input cleared'
+      );
+    } catch (error) {
+      console.error('[QuickCommandBar.handleSubmit] Submit failed:', error);
     } finally {
       setIsSubmitting(false);
     }

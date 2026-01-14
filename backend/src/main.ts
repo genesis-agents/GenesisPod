@@ -171,7 +171,15 @@ async function bootstrap() {
 
   // Railway uses PORT, fallback to BACKEND_PORT for local dev
   const port = process.env.PORT || process.env.BACKEND_PORT || 4000;
-  await app.listen(port);
+
+  // ★ 增加服务器超时以支持长时间 AI 调用
+  // Railway 平台最大超时是 15 分钟，Node.js 默认是 5 分钟
+  // 设置为 10 分钟以确保 AI 规划等长时间操作能够完成
+  const server = await app.listen(port);
+  const HTTP_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
+  server.setTimeout(HTTP_TIMEOUT);
+  server.keepAliveTimeout = HTTP_TIMEOUT;
+  server.headersTimeout = HTTP_TIMEOUT + 1000; // 必须大于 keepAliveTimeout
 
   // 根据环境显示正确的 URL
   const baseUrl = isProduction

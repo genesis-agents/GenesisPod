@@ -181,13 +181,37 @@ export function ResearchCollaborationPanel({
   // Handle user instruction submission
   const handleInstructionSubmit = useCallback(
     async (instruction: string) => {
+      console.log('[handleInstructionSubmit] Called with:', {
+        instruction,
+        activeMissionId,
+        topicId,
+      });
+
       if (!activeMissionId) {
-        console.warn('No active mission to add instruction to');
+        console.warn(
+          '[handleInstructionSubmit] No active mission to add instruction to'
+        );
+        alert('请先启动研究任务');
         return;
       }
-      await createUserRequestTodo(topicId, activeMissionId, instruction);
-      // Refresh TODOs
-      await fetchTodos(topicId, activeMissionId);
+
+      try {
+        console.log('[handleInstructionSubmit] Creating user request todo...');
+        await createUserRequestTodo(topicId, activeMissionId, instruction);
+        console.log(
+          '[handleInstructionSubmit] User request todo created successfully'
+        );
+        // Refresh TODOs
+        await fetchTodos(topicId, activeMissionId);
+      } catch (error) {
+        console.error(
+          '[handleInstructionSubmit] Failed to create user request todo:',
+          error
+        );
+        alert(
+          `创建指令失败: ${error instanceof Error ? error.message : '未知错误'}`
+        );
+      }
     },
     [topicId, activeMissionId, createUserRequestTodo, fetchTodos]
   );
