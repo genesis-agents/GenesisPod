@@ -1627,7 +1627,7 @@ function TeamInteractionTabContent({
 
   // Agent 类型配置
   const agentConfig: Record<
-    ResearchEvent['agentType'],
+    string,
     { icon: string; label: string; color: string; bgColor: string }
   > = {
     leader: {
@@ -1654,6 +1654,20 @@ function TeamInteractionTabContent({
       color: 'text-orange-700',
       bgColor: 'bg-orange-100',
     },
+  };
+
+  // ★ 默认 Agent 配置
+  const defaultAgentConfig = {
+    icon: '🤖',
+    label: 'Agent',
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-100',
+  };
+
+  // ★ 安全获取 Agent 配置
+  const getAgentConfig = (agentType: string) => {
+    const key = agentType.toLowerCase();
+    return agentConfig[key] || agentConfig[agentType] || defaultAgentConfig;
   };
 
   // 事件类型配置
@@ -2017,7 +2031,7 @@ function TeamInteractionTabContent({
 
             <div className="space-y-4">
               {safeEvents.map((event) => {
-                const agent = agentConfig[event.agentType];
+                const agent = getAgentConfig(event.agentType);
                 const eventType = eventTypeConfig[event.eventType];
 
                 return (
@@ -2503,6 +2517,24 @@ function AgentThinkingTabContent({
     },
   };
 
+  // ★ 默认 Agent 配置（用于 ThinkingTabContent）
+  const defaultThinkingAgentConfig = {
+    icon: '🤖',
+    label: 'Agent',
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-200',
+    headerBg: 'bg-gray-100',
+  };
+
+  // ★ 安全获取 Agent 配置（用于 ThinkingTabContent）
+  const getThinkingAgentConfig = (agentType: string) => {
+    const key = agentType.toLowerCase();
+    return (
+      agentConfig[key] || agentConfig[agentType] || defaultThinkingAgentConfig
+    );
+  };
+
   // 判断是否有实际内容
   const hasContent =
     safeThinkings.length > 0 ||
@@ -2804,7 +2836,7 @@ function AgentThinkingTabContent({
               {} as Record<string, AgentThinking[]>
             )
           ).map(([agentType, thinkingList]) => {
-            const config = agentConfig[agentType] || agentConfig.researcher;
+            const config = getThinkingAgentConfig(agentType);
             const isCollapsed = collapsedAgents.has(`thinking-${agentType}`);
 
             return (

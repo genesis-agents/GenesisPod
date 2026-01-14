@@ -53,6 +53,27 @@ const AGENT_DISPLAY: Record<
   synthesizer: { name: '撰写者', icon: '📝', color: 'orange' },
 };
 
+// ★ 默认显示信息，用于未知角色
+const DEFAULT_AGENT_DISPLAY = { name: 'Agent', icon: '🤖', color: 'gray' };
+
+// ★ 安全获取 Agent 显示信息
+function getAgentDisplay(role: string): {
+  name: string;
+  icon: string;
+  color: string;
+} {
+  // 尝试直接匹配
+  if (role in AGENT_DISPLAY) {
+    return AGENT_DISPLAY[role as ResearchAgentRole];
+  }
+  // 尝试小写匹配
+  const lowerRole = role.toLowerCase();
+  if (lowerRole in AGENT_DISPLAY) {
+    return AGENT_DISPLAY[lowerRole as ResearchAgentRole];
+  }
+  return DEFAULT_AGENT_DISPLAY;
+}
+
 // Agent 角色详细信息
 const AGENT_ROLE_INFO: Record<
   ResearchAgentRole,
@@ -76,6 +97,27 @@ const AGENT_ROLE_INFO: Record<
     skills: ['报告整合', '内容润色', '格式规范'],
   },
 };
+
+// ★ 默认角色详细信息
+const DEFAULT_AGENT_ROLE_INFO = {
+  description: 'AI 研究助手',
+  skills: ['研究', '分析'],
+};
+
+// ★ 安全获取角色详细信息
+function getAgentRoleInfo(role: string): {
+  description: string;
+  skills: string[];
+} {
+  if (role in AGENT_ROLE_INFO) {
+    return AGENT_ROLE_INFO[role as ResearchAgentRole];
+  }
+  const lowerRole = role.toLowerCase();
+  if (lowerRole in AGENT_ROLE_INFO) {
+    return AGENT_ROLE_INFO[lowerRole as ResearchAgentRole];
+  }
+  return DEFAULT_AGENT_ROLE_INFO;
+}
 
 // Phase display mapping
 const phaseDisplay: Record<string, string> = {
@@ -517,7 +559,7 @@ function TeamCanvasView({
       const pos = nodePositions.get(agent.id);
       if (!pos) return null;
 
-      const display = AGENT_DISPLAY[agent.role];
+      const display = getAgentDisplay(agent.role);
       const isLeader = agent.role === 'leader';
       const isWorking = agent.status === 'working';
       const isHovered = hoveredAgent === agent.id;
@@ -689,7 +731,7 @@ function TeamCanvasView({
           const pos = nodePositions.get(hoveredAgent);
           if (!agent || !pos) return null;
 
-          const display = AGENT_DISPLAY[agent.role];
+          const display = getAgentDisplay(agent.role);
           const tooltipX = (pos.x / canvasSize.width) * 100;
           const tooltipY = (pos.y / canvasSize.height) * 100;
           const showAbove = tooltipY > 50;
@@ -726,8 +768,8 @@ function TeamCanvasView({
           const agent = agents.find((a) => a.id === selectedAgent);
           if (!agent) return null;
 
-          const display = AGENT_DISPLAY[agent.role];
-          const roleInfo = AGENT_ROLE_INFO[agent.role];
+          const display = getAgentDisplay(agent.role);
+          const roleInfo = getAgentRoleInfo(agent.role);
 
           return (
             <>
