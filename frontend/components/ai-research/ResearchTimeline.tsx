@@ -881,14 +881,15 @@ export function ResearchTimeline({
     fetchData();
   }, [topicId]);
 
-  // 使用传入的数据或获取的数据
-  const histories = propHistories || fetchedHistories;
-  const activities = propActivities || fetchedActivities;
-  const messages = propMessages || fetchedMessages;
+  // 使用传入的数据或获取的数据（确保有默认空数组）
+  const histories = propHistories || fetchedHistories || [];
+  const activities = propActivities || fetchedActivities || [];
+  const messages = propMessages || fetchedMessages || [];
   const isLoading = propIsLoading || isFetching;
 
   // 按研究序号倒序排列
   const sortedHistories = useMemo(() => {
+    if (!histories || histories.length === 0) return [];
     return [...histories].sort((a, b) => b.researchNumber - a.researchNumber);
   }, [histories]);
 
@@ -905,9 +906,12 @@ export function ResearchTimeline({
 
   // 按会话分组活动和消息
   const sessionData = useMemo(() => {
+    if (!filteredHistories || filteredHistories.length === 0) return [];
+
     return filteredHistories.map((history) => {
-      // 该会话的所有活动
-      const sessionActivities = activities.filter(
+      // 该会话的所有活动（安全检查）
+      const safeActivities = activities || [];
+      const sessionActivities = safeActivities.filter(
         (a) => a.missionId === history.missionId
       );
 
@@ -921,8 +925,9 @@ export function ResearchTimeline({
         dimensionActivities.get(key)!.push(getExtendedActivity(activity));
       });
 
-      // 该会话的消息
-      const sessionMessages = messages.filter(
+      // 该会话的消息（安全检查）
+      const safeMessages = messages || [];
+      const sessionMessages = safeMessages.filter(
         (m) => m.missionId === history.missionId
       );
 

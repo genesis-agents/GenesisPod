@@ -742,13 +742,10 @@ export function TopicContentPanel({
             persistedMessages={persistedMessages}
           />
         )}
-        {activeTab === 'thinking' && (
-          <AgentThinkingTabContent
-            thinkings={safeThinkings}
-            missionStatus={missionStatus}
-            wsEvents={wsEvents}
-            persistedActivities={persistedActivities}
-          />
+        {activeTab === 'thinking' && report && (
+          <div className="h-full overflow-y-auto">
+            <ResearchTimeline topicId={report.topicId} />
+          </div>
         )}
         {activeTab === 'credibility' && report && (
           <div className="h-full overflow-y-auto p-4">
