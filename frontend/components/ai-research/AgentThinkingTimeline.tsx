@@ -521,9 +521,12 @@ export function AgentThinkingTimeline({
 }: AgentThinkingTimelineProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
+  // ★ 安全处理：确保 activities 是数组
+  const safeActivities = Array.isArray(activities) ? activities : [];
+
   // 过滤活动
   const filteredActivities = useMemo(() => {
-    let result = activities;
+    let result = safeActivities;
     if (missionId) {
       result = result.filter((a) => a.missionId === missionId);
     }
@@ -531,7 +534,7 @@ export function AgentThinkingTimeline({
       result = result.filter((a) => a.activityType !== 'COMPLETED');
     }
     return result;
-  }, [activities, missionId, showCompleted]);
+  }, [safeActivities, missionId, showCompleted]);
 
   // 按维度分组
   const groupedByDimension = useMemo(() => {

@@ -184,18 +184,23 @@ export function ReportAnnotations({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
 
+  // ★ 安全处理：确保 annotations 是数组
+  const safeAnnotations = Array.isArray(annotations) ? annotations : [];
+
   // Filter annotations
   const filteredAnnotations = useMemo(() => {
-    if (filterStatus === 'all') return annotations;
-    return annotations.filter((a) => a.status === filterStatus);
-  }, [annotations, filterStatus]);
+    if (filterStatus === 'all') return safeAnnotations;
+    return safeAnnotations.filter((a) => a.status === filterStatus);
+  }, [safeAnnotations, filterStatus]);
 
   // Group by status
   const stats = useMemo(() => {
-    const active = annotations.filter((a) => a.status === 'active').length;
-    const resolved = annotations.filter((a) => a.status === 'resolved').length;
-    return { total: annotations.length, active, resolved };
-  }, [annotations]);
+    const active = safeAnnotations.filter((a) => a.status === 'active').length;
+    const resolved = safeAnnotations.filter(
+      (a) => a.status === 'resolved'
+    ).length;
+    return { total: safeAnnotations.length, active, resolved };
+  }, [safeAnnotations]);
 
   // Toggle expanded
   const toggleExpanded = useCallback((annotationId: string) => {

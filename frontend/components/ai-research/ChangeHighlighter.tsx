@@ -68,10 +68,13 @@ export function ChangeHighlighter({
 }: ChangeHighlighterProps) {
   const [hoveredChangeId, setHoveredChangeId] = useState<string | null>(null);
 
+  // ★ 安全处理：确保 changes 是数组
+  const safeChanges = Array.isArray(changes) ? changes : [];
+
   // Filter out checked-in changes
   const activeChanges = useMemo(() => {
-    return changes.filter((change) => !change.checkedInAt);
-  }, [changes]);
+    return safeChanges.filter((change) => !change.checkedInAt);
+  }, [safeChanges]);
 
   // Build segments from content and changes
   const segments = useMemo(() => {

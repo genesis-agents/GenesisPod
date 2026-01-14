@@ -123,18 +123,21 @@ export function ReferencePanel({
   const [sortBy, setSortBy] = useState<SortType>('time');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // ★ 安全处理：确保 evidence 是数组
+  const safeEvidence = Array.isArray(evidence) ? evidence : [];
+
   // Get unique source types
   const sourceTypes = useMemo(() => {
     const types = new Set<string>();
-    evidence.forEach((e) => {
+    safeEvidence.forEach((e) => {
       if (e.sourceType) types.add(e.sourceType);
     });
     return Array.from(types);
-  }, [evidence]);
+  }, [safeEvidence]);
 
   // Filter and sort evidence
   const filteredEvidence = useMemo(() => {
-    let result = [...evidence];
+    let result = [...safeEvidence];
 
     // Apply search filter
     if (searchQuery) {

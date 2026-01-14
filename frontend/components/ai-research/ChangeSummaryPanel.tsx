@@ -112,10 +112,13 @@ export function ChangeSummaryPanel({
   onCheckinAll,
   onJumpTo,
 }: ChangeSummaryPanelProps) {
+  // ★ 安全处理：确保 changes 是数组
+  const safeChanges = Array.isArray(changes) ? changes : [];
+
   // Filter out checked-in changes
   const activeChanges = useMemo(() => {
-    return changes.filter((change) => !change.checkedInAt);
-  }, [changes]);
+    return safeChanges.filter((change) => !change.checkedInAt);
+  }, [safeChanges]);
 
   // Group changes by type
   const changesByType = useMemo(() => {
