@@ -987,7 +987,26 @@ export interface ResearchHistoryItem {
 }
 
 /**
+ * 后端返回的研究历史响应格式
+ */
+interface ResearchHistoryResponse {
+  timeline: Array<{
+    id: string;
+    type: 'mission' | 'report';
+    timestamp: string;
+    title: string;
+    description: string;
+    status?: string;
+    metadata?: Record<string, unknown>;
+  }>;
+  totalMissions: number;
+  totalReports: number;
+}
+
+/**
  * 获取研究历史时间线
+ * 注意：后端返回的是 { timeline, totalMissions, totalReports } 对象
+ * 需要转换为前端期望的 ResearchHistoryItem[] 格式
  */
 export async function getResearchHistory(
   topicId: string,
@@ -996,9 +1015,54 @@ export async function getResearchHistory(
   const params = new URLSearchParams();
   if (limit) params.append('limit', limit.toString());
   const queryString = params.toString();
-  return fetchWithAuth(
+
+  const response = await fetchWithAuth(
     `${API_PREFIX}/topics/${topicId}/research-history${queryString ? `?${queryString}` : ''}`
   );
+
+  // ★ 安全处理：后端返回对象，需要提取 timeline 数组并转换格式
+  if (!response) return [];
+
+  // 如果直接返回了数组（兼容可能的后端变更）
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  // 后端返回 { timeline, totalMissions, totalReports } 格式
+  const data = response as ResearchHistoryResponse;
+  if (!data.timeline || !Array.isArray(data.timeline)) {
+    return [];
+  }
+
+  // 转换 timeline 项为 ResearchHistoryItem 格式
+  // 注意：后端的 timeline 格式和前端 ResearchHistoryItem 不完全匹配
+  // 这里做最佳努力转换
+  let researchNumber = data.timeline.filter((t) => t.type === 'mission').length;
+
+  return data.timeline
+    .filter((item) => item.type === 'mission') // 只保留 mission 类型
+    .map((item) => {
+      const metadata = item.metadata || {};
+      return {
+        id: item.id,
+        topicId: topicId,
+        missionId: item.id,
+        researchNumber: researchNumber--, // 逆序编号
+        startedAt: item.timestamp,
+        completedAt: (metadata.completedAt as string) || undefined,
+        status: (item.status as ResearchHistoryItem['status']) || 'COMPLETED',
+        researchGoal: undefined,
+        researchStrategy: undefined,
+        dimensionsUpdated: [],
+        dimensionsKept: [],
+        wordsAdded: 0,
+        wordsRemoved: 0,
+        newSourcesCount: 0,
+        totalDurationMs: undefined,
+        reportVersionBefore: undefined,
+        reportVersionAfter: undefined,
+      };
+    });
 }
 
 // ==================== Review Workflow (Phase 3.3) ====================
