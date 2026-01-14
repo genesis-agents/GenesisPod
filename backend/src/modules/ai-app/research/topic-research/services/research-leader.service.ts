@@ -588,28 +588,50 @@ export class ResearchLeaderService {
 
     // 4. 调用 AI 获取规划
     const startTime = Date.now();
-    const response = await this.aiFacade.chat({
-      messages: [
-        {
-          role: "system",
-          content: "你是专业的研究协调专家，请输出 JSON 格式的研究规划。",
+    let response;
+    try {
+      response = await this.aiFacade.chat({
+        messages: [
+          {
+            role: "system",
+            content: "你是专业的研究协调专家，请输出 JSON 格式的研究规划。",
+          },
+          { role: "user", content: prompt },
+        ],
+        model: leaderModel.modelId,
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "extended",
         },
-        { role: "user", content: prompt },
-      ],
-      model: leaderModel.modelId,
-      taskProfile: {
-        creativity: "medium",
-        outputLength: "extended",
-      },
-    });
+      });
+    } catch (aiError) {
+      this.logger.error(
+        `[planResearch] AI call failed: ${aiError instanceof Error ? aiError.message : aiError}`,
+      );
+      throw new Error(
+        `AI 调用失败: ${aiError instanceof Error ? aiError.message : "未知错误"}`,
+      );
+    }
     const latencyMs = Date.now() - startTime;
 
-    // 5. 解析响应
+    // 5. 验证响应
+    if (!response || !response.content) {
+      this.logger.error("[planResearch] AI returned empty response");
+      throw new Error("AI 返回空响应，请稍后重试");
+    }
+
+    this.logger.log(
+      `[planResearch] AI response received in ${latencyMs}ms, length: ${response.content.length}`,
+    );
+
+    // 6. 解析响应
     const plan = this.extractJsonFromResponse<LeaderPlan>(response.content);
 
     if (!plan) {
-      this.logger.error("[planResearch] Failed to parse Leader plan");
-      throw new Error("Failed to parse Leader plan");
+      this.logger.error(
+        `[planResearch] Failed to parse Leader plan. Response preview: ${response.content.slice(0, 500)}`,
+      );
+      throw new Error("无法解析 AI 规划响应，请稍后重试");
     }
 
     this.logger.log(
@@ -946,18 +968,28 @@ export class ResearchLeaderService {
    * 从 AI 响应中提取 JSON
    */
   private extractJsonFromResponse<T>(response: string): T | null {
+    // 处理空响应
+    if (!response || response.trim().length === 0) {
+      this.logger.warn("[extractJsonFromResponse] Empty response received");
+      return null;
+    }
+
     try {
       // 尝试直接解析
       return JSON.parse(response) as T;
-    } catch {
+    } catch (directError) {
+      this.logger.debug(
+        `[extractJsonFromResponse] Direct parse failed: ${directError instanceof Error ? directError.message : directError}`,
+      );
+
       // 尝试从 markdown 代码块中提取
       const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch) {
+      if (jsonMatch && jsonMatch[1].trim()) {
         try {
           return JSON.parse(jsonMatch[1].trim()) as T;
-        } catch {
+        } catch (codeBlockError) {
           this.logger.warn(
-            "[extractJsonFromResponse] Failed to parse JSON from code block",
+            `[extractJsonFromResponse] Failed to parse JSON from code block: ${codeBlockError instanceof Error ? codeBlockError.message : codeBlockError}`,
           );
         }
       }
@@ -966,11 +998,12 @@ export class ResearchLeaderService {
       const start = response.indexOf("{");
       const end = response.lastIndexOf("}");
       if (start !== -1 && end !== -1 && end > start) {
+        const jsonSubstring = response.slice(start, end + 1);
         try {
-          return JSON.parse(response.slice(start, end + 1)) as T;
-        } catch {
+          return JSON.parse(jsonSubstring) as T;
+        } catch (substringError) {
           this.logger.warn(
-            "[extractJsonFromResponse] Failed to parse JSON substring",
+            `[extractJsonFromResponse] Failed to parse JSON substring: ${substringError instanceof Error ? substringError.message : substringError}`,
           );
         }
       }
