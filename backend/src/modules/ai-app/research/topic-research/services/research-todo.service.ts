@@ -176,6 +176,7 @@ export class ResearchTodoService {
 
   /**
    * 获取 TODO 详情（包含关联的 Agent 活动）
+   * ★ 修复：USER_REQUEST 类型的 TODO 不应显示其他任务的活动
    */
   async getTodoDetails(todoId: string): Promise<{
     todo: ResearchTodo;
@@ -183,14 +184,32 @@ export class ResearchTodoService {
   }> {
     const todo = await this.getTodoById(todoId);
 
-    // 获取关联的 Agent 活动
+    // ★ 对于 USER_REQUEST 类型的 TODO，只有在执行后才有活动记录
+    // 未执行的用户请求不应显示其他任务的活动
+    if (todo.type === "USER_REQUEST") {
+      // USER_REQUEST TODO 暂无关联活动（除非我们将来支持记录执行过程）
+      return { todo, activities: [] };
+    }
+
+    // 其他类型的 TODO：根据维度或代理过滤
+    let whereCondition: Prisma.ResearchAgentActivityWhereInput = {
+      topicId: todo.topicId,
+      missionId: todo.missionId,
+    };
+
+    if (todo.dimensionId) {
+      // 维度研究 TODO：只显示该维度的活动
+      whereCondition.dimensionId = todo.dimensionId;
+    } else if (todo.agentId) {
+      // 有明确代理的 TODO
+      whereCondition.agentId = todo.agentId;
+    } else {
+      // 没有维度也没有代理，返回空（避免返回所有活动）
+      return { todo, activities: [] };
+    }
+
     const activities = await this.prisma.researchAgentActivity.findMany({
-      where: {
-        topicId: todo.topicId,
-        missionId: todo.missionId,
-        ...(todo.dimensionId && { dimensionId: todo.dimensionId }),
-        ...(todo.agentId && { agentId: todo.agentId }),
-      },
+      where: whereCondition,
       orderBy: { createdAt: "asc" },
     });
 
