@@ -29,8 +29,10 @@ import {
 import { cn } from '@/lib/utils/common';
 import {
   leaderChat,
+  getTeamMessages,
   type LeaderChatResponse,
   type LeaderDecisionType,
+  type TeamMessage,
 } from '@/lib/api/topic-research';
 import type { MissionStatus, TaskStatus } from '@/lib/api/topic-research';
 import type {
@@ -328,32 +330,90 @@ export function ResearchCollaborationPanel({
     }
   }, [conversationMessages]);
 
-  // 优先使用 missionStatus.tasks，转换为 ResearchTodo 格式
+  // 合并 missionStatus.tasks 和 apiTodos（用户请求的TODO可能不在tasks中）
   const { todos, todosSummary } = useMemo(() => {
     const tasks = missionStatus?.tasks || [];
-    if (tasks.length > 0) {
-      const convertedTodos = tasks.map(convertTaskToTodo);
-      return {
-        todos: convertedTodos,
-        todosSummary: calculateSummary(convertedTodos),
-      };
-    }
-    // 如果没有 missionStatus.tasks，使用 API 返回的数据
-    return {
-      todos: apiTodos,
-      todosSummary: apiSummary,
-    };
-  }, [missionStatus?.tasks, apiTodos, apiSummary]);
+    const convertedTodos = tasks.map(convertTaskToTodo);
+    const taskIds = new Set(convertedTodos.map((t) => t.id));
 
-  // Load TODOs from API as fallback
+    // 合并 API 返回的 TODO（去重，补充用户请求等类型）
+    const mergedTodos = [...convertedTodos];
+    for (const apiTodo of apiTodos) {
+      if (!taskIds.has(apiTodo.id)) {
+        mergedTodos.push(apiTodo);
+      }
+    }
+
+    // 按状态和优先级排序
+    mergedTodos.sort((a, b) => {
+      // 状态优先级：进行中 > 待处理 > 已完成
+      const statusOrder: Record<string, number> = {
+        IN_PROGRESS: 0,
+        QUEUED: 1,
+        PENDING: 2,
+        PAUSED: 3,
+        COMPLETED: 4,
+        FAILED: 5,
+        CANCELLED: 6,
+      };
+      const statusDiff =
+        (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
+      if (statusDiff !== 0) return statusDiff;
+      // 同状态按优先级排序
+      return (b.priority ?? 0) - (a.priority ?? 0);
+    });
+
+    return {
+      todos: mergedTodos,
+      todosSummary: calculateSummary(mergedTodos),
+    };
+  }, [missionStatus?.tasks, apiTodos]);
+
+  // Load TODOs from API (包括用户请求创建的 TODO)
   useEffect(() => {
-    if (topicId && !missionStatus?.tasks?.length) {
+    if (topicId) {
       void fetchTodos(topicId, missionId);
     }
-  }, [topicId, missionId, missionStatus?.tasks?.length, fetchTodos]);
+  }, [topicId, missionId, fetchTodos]);
 
   // Get current mission ID
   const activeMissionId = missionId || missionStatus?.id || currentMission?.id;
+
+  // Load conversation history from API
+  useEffect(() => {
+    const loadConversationHistory = async () => {
+      if (!topicId || !activeMissionId) return;
+
+      try {
+        const messages = await getTeamMessages(topicId, {
+          missionId: activeMissionId,
+          limit: 50,
+        });
+
+        // 只转换用户消息和 Leader 响应
+        const conversationMsgs: ConversationMessage[] = messages
+          .filter(
+            (msg: TeamMessage) =>
+              msg.messageType === 'USER_MESSAGE' ||
+              msg.messageType === 'LEADER_RESPONSE'
+          )
+          .map((msg: TeamMessage) => ({
+            id: msg.id,
+            type: msg.messageType === 'USER_MESSAGE' ? 'user' : 'leader',
+            content: msg.content,
+            timestamp: new Date(msg.createdAt),
+          }));
+
+        if (conversationMsgs.length > 0) {
+          setConversationMessages(conversationMsgs);
+        }
+      } catch (error) {
+        console.error('[loadConversationHistory] Failed:', error);
+      }
+    };
+
+    void loadConversationHistory();
+  }, [topicId, activeMissionId]);
 
   // Handle user instruction submission - 使用 AI Leader 解码用户意图
   const handleInstructionSubmit = useCallback(
