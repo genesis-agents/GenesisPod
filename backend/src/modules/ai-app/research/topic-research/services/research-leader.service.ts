@@ -218,6 +218,15 @@ const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Research L
 描述：{description}
 用户指令：{userPrompt}
 
+## 已有研究维度
+{existingDimensions}
+
+**重要**：上面列出的是用户之前创建或系统已规划的维度。你必须：
+1. **保留所有已有维度**：这些维度代表用户的研究需求，必须全部包含在规划中
+2. **可以新增维度**：如果你认为还有重要的研究角度没有覆盖，可以新增
+3. **不要删除已有维度**：除非用户明确要求删除某个维度
+4. **可以优化已有维度**：如改进描述、搜索词等，但名称应保持一致
+
 ## 输出要求
 请分析用户的研究需求，输出 JSON 格式的研究规划：
 
@@ -638,13 +647,25 @@ export class ResearchLeaderService {
       throw new Error("No reasoning model available for Leader");
     }
 
-    // 3. 构建 prompt
+    // 3. 构建已有维度信息
+    let existingDimensionsText = "无已有维度（首次研究）";
+    if (topic.dimensions && topic.dimensions.length > 0) {
+      existingDimensionsText = topic.dimensions
+        .map(
+          (d, i) =>
+            `${i + 1}. **${d.name}**\n   - 描述：${d.description || "无"}\n   - 状态：${d.status}\n   - 搜索词：${(d.searchQueries as string[])?.join("、") || "待设定"}`,
+        )
+        .join("\n");
+    }
+
+    // 4. 构建 prompt
     const prompt = LEADER_PLAN_PROMPT.replace("{topic}", topic.name)
       .replace("{topicType}", topic.type)
       .replace("{description}", topic.description || "无")
-      .replace("{userPrompt}", userPrompt || "请进行全面研究");
+      .replace("{userPrompt}", userPrompt || "请进行全面研究")
+      .replace("{existingDimensions}", existingDimensionsText);
 
-    // 4. 调用 AI 获取规划
+    // 5. 调用 AI 获取规划
     const startTime = Date.now();
     let response;
     try {
@@ -672,7 +693,7 @@ export class ResearchLeaderService {
     }
     const latencyMs = Date.now() - startTime;
 
-    // 5. 验证响应
+    // 6. 验证响应
     if (!response || !response.content) {
       this.logger.error("[planResearch] AI returned empty response");
       throw new Error("AI 返回空响应，请稍后重试");
@@ -682,7 +703,7 @@ export class ResearchLeaderService {
       `[planResearch] AI response received in ${latencyMs}ms, length: ${response.content.length}`,
     );
 
-    // 6. 解析响应
+    // 7. 解析响应
     const plan = this.extractJsonFromResponse<LeaderPlan>(response.content);
 
     if (!plan) {
