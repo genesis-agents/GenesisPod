@@ -679,16 +679,26 @@ export class ResearchMissionService {
     const progressPercent =
       totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-    // 检查是否全部完成
+    // 检查任务状态
+    const failedTasks = tasks.filter(
+      (t) => t.status === ResearchTaskStatus.FAILED,
+    ).length;
     const allCompleted = completedTasks === totalTasks;
-    const anyFailed = tasks.some((t) => t.status === ResearchTaskStatus.FAILED);
+
+    // ★ 修复：只有当所有任务都是终态时才判断最终状态
+    // 终态 = COMPLETED 或 FAILED
+    const terminalTaskCount = completedTasks + failedTasks;
+    const allTerminal = terminalTaskCount === totalTasks;
 
     let status: ResearchMissionStatus | undefined;
     if (allCompleted) {
+      // 所有任务都成功完成
       status = ResearchMissionStatus.COMPLETED;
-    } else if (anyFailed) {
+    } else if (allTerminal && failedTasks > 0) {
+      // 所有任务都已结束，且有失败的任务
       status = ResearchMissionStatus.FAILED;
     }
+    // 否则保持当前状态（IN_PROGRESS）
 
     await this.prisma.researchMission.update({
       where: { id: missionId },
