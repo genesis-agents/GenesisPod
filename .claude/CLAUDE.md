@@ -127,6 +127,118 @@ import type { Resource } from "./types";
 
 ---
 
+## 文档管理规范（强制执行）
+
+> **所有 AI Agent 在创建或修改文档前必须遵循此规范**
+
+### 核心原则：按模块组织，不按文档类型组织
+
+```
+✅ 正确：同一模块的文档放在一起
+architecture/ai-engine/
+├── overview.md
+├── target-architecture.md      # 架构设计
+├── parameter-abstraction.md    # 参数抽象设计
+└── context.md                  # 上下文设计
+
+❌ 错误：按文档类型分散模块
+architecture/
+├── design/
+│   └── ai-engine-target-architecture.md   # AI Engine 文档
+├── ai-engine/
+│   └── overview.md                         # AI Engine 文档被分散了！
+```
+
+### 目录结构
+
+```
+docs/
+├── api/                        # API 接口文档
+├── architecture/               # 架构设计（按分层架构）
+│   ├── system/                # 系统架构（整体设计、集成）
+│   ├── infra/                 # 基础设施层
+│   │   ├── frontend/         # 前端架构
+│   │   ├── backend/          # 后端架构
+│   │   ├── database/         # 数据库架构
+│   │   ├── ai-llm/           # LLM 基础设施
+│   │   └── realtime/         # 实时通信
+│   ├── ai-engine/            # AI Engine 核心能力层
+│   ├── ai-teams/             # AI Teams 协作机制层
+│   ├── ai-apps/              # AI 应用层
+│   │   ├── ai-office/
+│   │   ├── ai-coding/
+│   │   └── ...
+│   └── api/                  # 对外 API 层设计
+├── features/                   # 功能文档（按分层架构）
+│   ├── ai-engine/            # AI Engine 功能
+│   ├── ai-teams/             # AI Teams 功能
+│   └── ai-apps/              # AI 应用功能
+│       ├── ai-office/
+│       ├── ai-studio/
+│       └── ...
+├── guides/                     # 开发指南（按主题）
+│   ├── deployment/
+│   ├── development/
+│   └── testing/
+├── prd/                        # 产品需求（按分层架构）
+│   ├── infra/                # 基础设施 PRD
+│   ├── ai-engine/            # AI Engine PRD
+│   ├── ai-teams/             # AI Teams PRD
+│   └── ai-apps/              # AI 应用 PRD
+│       ├── ai-office/
+│       ├── ai-studio/
+│       └── ...
+└── _archive/                   # 归档
+```
+
+**分层架构对应代码**：
+
+```
+文档层                代码路径
+─────────────────────────────────────────────────
+system              → 系统整体架构
+infra               → 基础设施
+ai-engine           → backend/src/modules/ai-engine/
+ai-teams            → ai-engine/teams + ai-app/teams
+ai-apps/ai-office   → backend/src/modules/ai-app/office/
+ai-apps/ai-studio   → backend/src/modules/ai-app/research/
+ai-apps/ai-coding   → backend/src/modules/ai-app/coding/
+ai-apps/ai-writing  → backend/src/modules/ai-app/writing/
+ai-apps/ai-ask      → backend/src/modules/ai-app/ask/
+```
+
+### 三条核心规则
+
+| 规则             | 说明                           | 示例                                |
+| ---------------- | ------------------------------ | ----------------------------------- |
+| **按模块聚合**   | 同一模块的所有文档放在同一目录 | ✅ `architecture/ai-engine/*.md`    |
+| **更新而非新建** | 已有文档直接更新，不创建版本   | ❌ `v2.md` ✅ 更新原文件            |
+| **kebab-case**   | 全小写，连字符分隔             | ❌ `AI_Studio.md` ✅ `ai-studio.md` |
+
+### 文件归属判断
+
+```
+创建文档时，按顺序问自己：
+1. 属于哪个模块？（ai-engine / ai-office / ai-teams / ...）
+2. 属于哪个顶级分类？
+   ├── 架构/技术设计？  → docs/architecture/{module}/
+   ├── 功能实现说明？   → docs/features/{module}/
+   ├── 产品需求？       → docs/prd/{module}/
+   ├── 开发/部署指南？  → docs/guides/{topic}/
+   └── API 接口？       → docs/api/
+3. 文件命名：{feature}.md 或 {aspect}.md
+```
+
+### 禁止行为
+
+- ❌ 把同一模块的文档分散到不同目录
+- ❌ 创建 `design/`、`spec/` 等按类型分类的目录
+- ❌ 创建带版本号的文件（如 `xxx-v2.md`）
+- ❌ 在非叶子目录放置大量文件（每个目录只保留 readme.md 索引）
+- ❌ 超过 3 层嵌套
+
+---
+
 ## 开发模式
 
 ### 新增功能流程
