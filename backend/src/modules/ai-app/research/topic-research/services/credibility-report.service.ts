@@ -247,17 +247,64 @@ export class CredibilityReportService {
 
   /**
    * 分类来源类型
+   * ★ 增强版：更全面地识别来源类型
    */
   private categorizeSource(
     sourceType: string | null,
     domain: string | null,
   ): keyof Omit<SourceBreakdown, "total"> {
-    // 基于 domain 判断
-    if (domain) {
-      const domainLower = domain.toLowerCase();
-      if (domainLower.includes(".gov") || domainLower.includes("government")) {
+    // 首先基于 sourceType 判断（数据源路由器已经分类）
+    if (sourceType) {
+      const typeLower = sourceType.toLowerCase();
+      // 学术来源
+      if (
+        typeLower === "academic" ||
+        typeLower === "arxiv" ||
+        typeLower === "scholar"
+      ) {
+        return "academic";
+      }
+      // 新闻来源
+      if (typeLower === "news" || typeLower === "hackernews") {
+        return "news";
+      }
+      // 政府来源
+      if (typeLower === "government" || typeLower === "local_policy") {
         return "government";
       }
+      // 行业来源
+      if (
+        typeLower === "local_report" ||
+        typeLower === "industry" ||
+        typeLower === "github"
+      ) {
+        return "industry";
+      }
+    }
+
+    // 基于 domain 进行更详细的判断
+    if (domain) {
+      const domainLower = domain.toLowerCase();
+
+      // ★ 政府来源 - 扩展识别
+      if (
+        domainLower.includes(".gov") ||
+        domainLower.includes(".gov.") ||
+        domainLower.includes("government") ||
+        domainLower.includes("whitehouse") ||
+        domainLower.includes("congress.gov") ||
+        domainLower.includes("state.gov") ||
+        domainLower.includes("treasury.gov") ||
+        domainLower.includes("federalreserve") ||
+        domainLower.includes("sec.gov") ||
+        domainLower.includes("census.gov") ||
+        domainLower.includes("bls.gov") ||
+        domainLower.includes("commerce.gov")
+      ) {
+        return "government";
+      }
+
+      // ★ 学术来源 - 扩展识别
       if (
         domainLower.includes(".edu") ||
         domainLower.includes("arxiv") ||
@@ -265,38 +312,149 @@ export class CredibilityReportService {
         domainLower.includes("nature.com") ||
         domainLower.includes("science.org") ||
         domainLower.includes("ieee.org") ||
-        domainLower.includes("acm.org")
+        domainLower.includes("acm.org") ||
+        domainLower.includes("sciencedirect") ||
+        domainLower.includes("wiley.com") ||
+        domainLower.includes("researchgate") ||
+        domainLower.includes("semanticscholar") ||
+        domainLower.includes("jstor.org") ||
+        domainLower.includes("pubmed") ||
+        domainLower.includes("ncbi.nlm.nih") ||
+        domainLower.includes("scholar.google") ||
+        domainLower.includes("ssrn.com") ||
+        domainLower.includes("academic.oup") ||
+        domainLower.includes("cambridge.org") ||
+        domainLower.includes("oxford") ||
+        domainLower.includes("mit.edu") ||
+        domainLower.includes("stanford.edu") ||
+        domainLower.includes("harvard.edu")
       ) {
         return "academic";
       }
+
+      // ★ 新闻来源 - 大幅扩展识别
       if (
         domainLower.includes("reuters") ||
         domainLower.includes("bloomberg") ||
         domainLower.includes("wsj") ||
         domainLower.includes("nytimes") ||
         domainLower.includes("bbc") ||
-        domainLower.includes("cnn")
+        domainLower.includes("cnn") ||
+        domainLower.includes("cnbc") ||
+        domainLower.includes("foxnews") ||
+        domainLower.includes("theguardian") ||
+        domainLower.includes("washingtonpost") ||
+        domainLower.includes("apnews") ||
+        domainLower.includes("news.yahoo") ||
+        domainLower.includes("news.google") ||
+        domainLower.includes("fortune") ||
+        domainLower.includes("forbes") ||
+        domainLower.includes("businessinsider") ||
+        domainLower.includes("economist") ||
+        domainLower.includes("ft.com") ||
+        domainLower.includes("politico") ||
+        domainLower.includes("axios") ||
+        domainLower.includes("thehill") ||
+        domainLower.includes("newsweek") ||
+        domainLower.includes("time.com") ||
+        domainLower.includes("usatoday") ||
+        domainLower.includes("latimes") ||
+        domainLower.includes("chicagotribune") ||
+        domainLower.includes("npr.org") ||
+        domainLower.includes("pbs.org") ||
+        domainLower.includes("abc.com") ||
+        domainLower.includes("nbcnews") ||
+        domainLower.includes("cbsnews") ||
+        domainLower.includes("sina.com") ||
+        domainLower.includes("163.com") ||
+        domainLower.includes("qq.com") ||
+        domainLower.includes("sohu.com") ||
+        domainLower.includes("ifeng.com") ||
+        domainLower.includes("caixin") ||
+        domainLower.includes("xinhua") ||
+        domainLower.includes("chinadaily") ||
+        domainLower.includes("scmp.com") ||
+        domainLower.includes("marketwatch") ||
+        domainLower.includes("seekingalpha") ||
+        domainLower.includes("investopedia")
       ) {
         return "news";
       }
+
+      // ★ 行业来源 - 扩展识别
       if (
-        domainLower.includes("medium") ||
+        domainLower.includes("github") ||
+        domainLower.includes("gitlab") ||
+        domainLower.includes("stackoverflow") ||
+        domainLower.includes("techcrunch") ||
+        domainLower.includes("wired") ||
+        domainLower.includes("arstechnica") ||
+        domainLower.includes("theverge") ||
+        domainLower.includes("venturebeat") ||
+        domainLower.includes("zdnet") ||
+        domainLower.includes("cnet") ||
+        domainLower.includes("engadget") ||
+        domainLower.includes("tomshardware") ||
+        domainLower.includes("anandtech") ||
+        domainLower.includes("gartner") ||
+        domainLower.includes("mckinsey") ||
+        domainLower.includes("bcg.com") ||
+        domainLower.includes("bain.com") ||
+        domainLower.includes("deloitte") ||
+        domainLower.includes("pwc.com") ||
+        domainLower.includes("kpmg") ||
+        domainLower.includes("accenture") ||
+        domainLower.includes("statista") ||
+        domainLower.includes("ibisworld") ||
+        domainLower.includes("idc.com") ||
+        domainLower.includes("forrester") ||
+        domainLower.includes("mordorintelligence") ||
+        domainLower.includes("grandviewresearch") ||
+        domainLower.includes("marketsandmarkets")
+      ) {
+        return "industry";
+      }
+
+      // ★ 博客来源识别
+      if (
+        domainLower.includes("medium.com") ||
         domainLower.includes("blog") ||
-        domainLower.includes("wordpress")
+        domainLower.includes("wordpress") ||
+        domainLower.includes("substack") ||
+        domainLower.includes("ghost.io") ||
+        domainLower.includes("dev.to") ||
+        domainLower.includes("hashnode") ||
+        domainLower.includes("blogger") ||
+        domainLower.includes("tumblr")
       ) {
         return "blog";
       }
     }
 
-    // 基于 sourceType 判断
-    if (sourceType) {
-      const typeLower = sourceType.toLowerCase();
-      if (typeLower === "academic") return "academic";
-      if (typeLower === "news") return "news";
-      if (typeLower === "government" || typeLower === "local_policy")
-        return "government";
-      if (typeLower === "local_report" || typeLower === "industry")
+    // ★ 对于 web 类型的通用来源，尝试基于 URL 路径推断
+    // 如果 domain 包含知名公司/组织名称，归类为行业
+    if (domain) {
+      const domainLower = domain.toLowerCase();
+      // 知名科技公司
+      if (
+        domainLower.includes("microsoft") ||
+        domainLower.includes("google") ||
+        domainLower.includes("amazon") ||
+        domainLower.includes("apple") ||
+        domainLower.includes("meta") ||
+        domainLower.includes("openai") ||
+        domainLower.includes("anthropic") ||
+        domainLower.includes("nvidia") ||
+        domainLower.includes("intel") ||
+        domainLower.includes("amd.com") ||
+        domainLower.includes("ibm.com") ||
+        domainLower.includes("oracle") ||
+        domainLower.includes("salesforce") ||
+        domainLower.includes("adobe") ||
+        domainLower.includes("tesla")
+      ) {
         return "industry";
+      }
     }
 
     return "other";

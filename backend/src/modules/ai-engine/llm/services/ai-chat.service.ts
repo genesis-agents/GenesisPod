@@ -1158,6 +1158,10 @@ export class AiChatService {
     const apiFormat = config.apiFormat || "openai";
     const supportsTemp = config.supportsTemperature ?? true;
     const isReasoning = config.isReasoning ?? false;
+    // ★ 使用数据库配置的 token 参数名，而非硬编码
+    const tokenParamName =
+      config.tokenParamName ||
+      (isReasoning ? "max_completion_tokens" : "max_tokens");
     // 优先使用配置的超时，否则使用计算的超时
     const timeout =
       config.defaultTimeoutMs || this.getTimeoutForModel(modelId, maxTokens);
@@ -1204,7 +1208,7 @@ export class AiChatService {
             maxTokens,
             effectiveTemperature,
             timeout,
-            isReasoning,
+            tokenParamName,
           );
 
         case "anthropic":
@@ -1238,6 +1242,7 @@ export class AiChatService {
             maxTokens,
             temperature,
             timeout,
+            tokenParamName,
           );
 
         default:
@@ -1248,8 +1253,9 @@ export class AiChatService {
             modelId,
             messages,
             maxTokens,
-            temperature,
+            effectiveTemperature,
             timeout,
+            tokenParamName,
           );
       }
     } catch (error: any) {
@@ -1290,7 +1296,7 @@ export class AiChatService {
 
   /**
    * 调用 OpenAI 兼容格式的 API（OpenAI, Azure, 各种代理服务）
-   * ★ 自适应：根据 isReasoning 参数决定 token 参数格式和 reasoning_effort
+   * ★ 数据库驱动：使用 tokenParamName 配置决定 token 参数名
    */
   private async callOpenAICompatibleAPI(
     apiEndpoint: string,
@@ -1300,17 +1306,14 @@ export class AiChatService {
     maxTokens: number,
     temperature?: number,
     timeout: number = 120000,
-    isReasoning: boolean = false,
+    tokenParamName: string = "max_tokens",
   ): Promise<ChatCompletionResult> {
     // ★ 关键修复：确保 apiEndpoint 有效，与 testModelConnectionWithKey 保持一致
     const effectiveEndpoint =
       apiEndpoint?.trim() || "https://api.openai.com/v1/chat/completions";
 
-    // ★ 自适应：根据 isReasoning 决定 token 参数格式
-    // 推理模型使用 max_completion_tokens，普通模型使用 max_tokens
-    const tokenParam = isReasoning
-      ? { max_completion_tokens: maxTokens }
-      : { max_tokens: maxTokens };
+    // ★ 数据库驱动：使用配置的 tokenParamName，无需硬编码判断
+    const tokenParam = { [tokenParamName]: maxTokens };
 
     // ★ 自适应：只有 o1/o3 系列需要 reasoning_effort 参数
     // GPT-5 系列虽然是推理模型，但不需要此参数（默认 none）
@@ -1612,19 +1615,20 @@ export class AiChatService {
     maxTokens: number,
     temperature?: number,
     timeout: number = 120000,
+    tokenParamName: string = "max_tokens",
   ): Promise<ChatCompletionResult> {
     // ★ 确保 apiEndpoint 有效
     const effectiveEndpoint =
       apiEndpoint?.trim() || "https://api.x.ai/v1/chat/completions";
 
-    // ★ 构建请求体 - 只包含有效的参数
+    // ★ 数据库驱动：使用配置的 tokenParamName
     const requestBody: Record<string, any> = {
       model: modelId,
       messages: messages.map((m) => ({
         role: m.role,
         content: m.content,
       })),
-      max_tokens: maxTokens,
+      [tokenParamName]: maxTokens,
     };
 
     // 只有当 temperature 有值时才包含
@@ -2142,16 +2146,13 @@ Format the summary in a clear, structured manner using markdown.`;
 
         case "openai":
         case "gpt":
-          // Use max_completion_tokens for newer models (gpt-4o, gpt-5, o1, o3)
+          // ★ 数据库驱动：使用 inferIsReasoning 推断 tokenParamName
           const effectiveOpenAIModel = modelId || "gpt-4";
-          const isNewerOpenAIModel =
-            effectiveOpenAIModel.includes("gpt-5") ||
-            effectiveOpenAIModel.includes("gpt-4o") ||
-            effectiveOpenAIModel.startsWith("o1") ||
-            effectiveOpenAIModel.startsWith("o3");
-          const openAITokenParam = isNewerOpenAIModel
-            ? { max_completion_tokens: 50 }
-            : { max_tokens: 50 };
+          const isReasoningModel = this.inferIsReasoning(effectiveOpenAIModel);
+          const openAITokenParamName = isReasoningModel
+            ? "max_completion_tokens"
+            : "max_tokens";
+          const openAITokenParam = { [openAITokenParamName]: 50 };
 
           response = await firstValueFrom(
             this.httpService.post(
@@ -2835,32 +2836,26 @@ Format the summary in a clear, structured manner using markdown.`;
             );
             return await this.callDallE3(apiKey, dallePrompt);
           }
-          // Use max_completion_tokens for newer models (gpt-4o, gpt-5, o1, o3, etc.)
-          // and max_tokens for older models (gpt-4-turbo, gpt-3.5-turbo)
+          // ★ 数据库驱动：使用 inferIsReasoning 推断 tokenParamName
           const effectiveModelId = modelId || "gpt-4-turbo-preview";
-
-          const isNewModel =
-            effectiveModelId.includes("gpt-5") ||
-            effectiveModelId.includes("gpt-4o") ||
-            effectiveModelId.startsWith("o1") ||
-            effectiveModelId.startsWith("o3");
+          const isReasoning = this.inferIsReasoning(effectiveModelId);
+          const tokenParamName = isReasoning
+            ? "max_completion_tokens"
+            : "max_tokens";
+          const tokenParam = { [tokenParamName]: maxTokens };
 
           // ★ 推理模型 (o1, o3) 需要设置 reasoning_effort 参数
           // 注意：GPT-5 不支持 reasoning_effort 参数（返回 400 错误）
           const isO1O3Model =
-            effectiveModelId.startsWith("o1") ||
-            effectiveModelId.startsWith("o3");
-
-          const tokenParam = isNewModel
-            ? { max_completion_tokens: maxTokens }
-            : { max_tokens: maxTokens };
+            effectiveModelId.toLowerCase().startsWith("o1") ||
+            effectiveModelId.toLowerCase().startsWith("o3");
 
           // 只对 o1/o3 系列模型添加 reasoning_effort 参数
           const reasoningParam = isO1O3Model ? { reasoning_effort: "low" } : {};
 
           this.logger.debug(
             `[OpenAI] Calling API with model=${effectiveModelId}, ` +
-              `${isNewModel ? "max_completion_tokens" : "max_tokens"}=${maxTokens}` +
+              `${tokenParamName}=${maxTokens}` +
               `${isO1O3Model ? ", reasoning_effort=low" : ""}`,
           );
 
@@ -4713,6 +4708,10 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
 
     try {
       if (apiFormat === "openai") {
+        // ★ 使用数据库配置的 tokenParamName
+        const tokenParamName =
+          modelConfig.tokenParamName ||
+          (modelConfig.isReasoning ? "max_completion_tokens" : "max_tokens");
         yield* this.streamOpenAICompatible(
           modelConfig.apiEndpoint,
           modelConfig.apiKey,
@@ -4720,6 +4719,7 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
           fullMessages,
           effectiveMaxTokens,
           effectiveTemperature,
+          tokenParamName,
         );
       } else if (apiFormat === "anthropic") {
         yield* this.streamAnthropic(
@@ -4751,6 +4751,7 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
 
   /**
    * OpenAI 兼容格式的 SSE 流式调用
+   * ★ 数据库驱动：使用 tokenParamName 配置决定 token 参数名
    */
   private async *streamOpenAICompatible(
     apiEndpoint: string,
@@ -4759,16 +4760,10 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
     messages: ChatMessage[],
     maxTokens: number,
     temperature?: number,
+    tokenParamName: string = "max_tokens",
   ): AsyncGenerator<{ content: string; done: boolean; error?: string }, void> {
-    const isNewerModel =
-      modelId.includes("gpt-4o") ||
-      modelId.includes("gpt-5") ||
-      modelId.startsWith("o1") ||
-      modelId.startsWith("o3");
-
-    const tokenParam = isNewerModel
-      ? { max_completion_tokens: maxTokens }
-      : { max_tokens: maxTokens };
+    // ★ 数据库驱动：使用配置的 tokenParamName，无需硬编码判断
+    const tokenParam = { [tokenParamName]: maxTokens };
 
     const modelLower = modelId.toLowerCase();
     const isO1O3Model =

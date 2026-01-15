@@ -66,12 +66,21 @@ export interface MissionStatus {
 export interface TaskStatus {
   id: string;
   title: string;
+  description?: string;
   taskType: string;
   dimensionName?: string;
   assignedAgent: string;
   status: ResearchTaskStatus;
   reviewStatus?: string;
   progress?: number;
+  /** 任务结果（包含成功数据或错误信息） */
+  result?: any;
+  /** 结果摘要 */
+  resultSummary?: string;
+  /** 开始时间 */
+  startedAt?: Date;
+  /** 完成时间 */
+  completedAt?: Date;
 }
 
 export interface MissionProgressEvent {
@@ -481,11 +490,17 @@ export class ResearchMissionService {
     const tasks: TaskStatus[] = mission.tasks.map((task) => ({
       id: task.id,
       title: task.title,
+      description: task.description,
       taskType: task.taskType,
       dimensionName: task.dimensionName ?? undefined,
       assignedAgent: task.assignedAgent,
       status: task.status,
       reviewStatus: task.reviewStatus ?? undefined,
+      // ★ 修复：返回完整的任务结果，包含成功数据或错误信息
+      result: task.result ?? undefined,
+      resultSummary: task.resultSummary ?? undefined,
+      startedAt: task.startedAt ?? undefined,
+      completedAt: task.completedAt ?? undefined,
     }));
 
     return {
@@ -517,11 +532,17 @@ export class ResearchMissionService {
     const tasks: TaskStatus[] = mission.tasks.map((task) => ({
       id: task.id,
       title: task.title,
+      description: task.description,
       taskType: task.taskType,
       dimensionName: task.dimensionName ?? undefined,
       assignedAgent: task.assignedAgent,
       status: task.status,
       reviewStatus: task.reviewStatus ?? undefined,
+      // ★ 修复：返回完整的任务结果
+      result: task.result ?? undefined,
+      resultSummary: task.resultSummary ?? undefined,
+      startedAt: task.startedAt ?? undefined,
+      completedAt: task.completedAt ?? undefined,
     }));
 
     return {
@@ -1552,10 +1573,15 @@ export class ResearchMissionService {
       (t) => t.status === ResearchTaskStatus.FAILED,
     );
 
-    const finalStatus =
-      failedTasks.length > 0
-        ? ResearchMissionStatus.FAILED
-        : ResearchMissionStatus.COMPLETED;
+    // ★ 改进的状态判断逻辑：
+    // - 如果有任何成功的任务，标记为 COMPLETED（部分成功也算成功）
+    // - 只有全部失败才标记为 FAILED
+    // 这样用户可以看到部分成功的研究结果
+    const hasAnySuccess = completedTasks.length > 0;
+    const hasAnyFailure = failedTasks.length > 0;
+    const finalStatus = hasAnySuccess
+      ? ResearchMissionStatus.COMPLETED
+      : ResearchMissionStatus.FAILED;
 
     await this.prisma.researchMission.update({
       where: { id: missionId },
@@ -1567,8 +1593,9 @@ export class ResearchMissionService {
       },
     });
 
-    // ★ 如果任务失败，清理空草稿报告
-    if (finalStatus === ResearchMissionStatus.FAILED) {
+    // ★ 只清理完全空的草稿报告（没有任何维度分析的）
+    // 部分成功的报告应该保留，让用户看到已完成的研究
+    if (!hasAnySuccess) {
       const emptyDraftReports = await this.prisma.topicReport.findMany({
         where: {
           topicId,
@@ -1583,9 +1610,27 @@ export class ResearchMissionService {
           where: { id: { in: deleteIds } },
         });
         this.logger.log(
-          `[finalizeMission] Cleaned up ${deleteIds.length} empty draft reports after failure`,
+          `[finalizeMission] Cleaned up ${deleteIds.length} empty draft reports after complete failure`,
         );
       }
+    }
+
+    // ★ 构建更详细的状态消息
+    let statusMessage: string;
+    let phase: string;
+
+    if (hasAnySuccess && !hasAnyFailure) {
+      // 完全成功
+      phase = "completed";
+      statusMessage = `研究完成，共完成 ${completedTasks.length} 个任务`;
+    } else if (hasAnySuccess && hasAnyFailure) {
+      // 部分成功
+      phase = "completed";
+      statusMessage = `研究部分完成：${completedTasks.length} 个任务成功，${failedTasks.length} 个任务失败`;
+    } else {
+      // 完全失败
+      phase = "failed";
+      statusMessage = `研究失败，${failedTasks.length} 个任务全部失败`;
     }
 
     // 发送完成事件
@@ -1594,20 +1639,14 @@ export class ResearchMissionService {
       topicId,
       status: finalStatus,
       progress: 100,
-      phase:
-        finalStatus === ResearchMissionStatus.COMPLETED
-          ? "completed"
-          : "failed",
-      message:
-        finalStatus === ResearchMissionStatus.COMPLETED
-          ? `研究完成，共完成 ${completedTasks.length} 个任务`
-          : `研究失败，${failedTasks.length} 个任务失败`,
+      phase,
+      message: statusMessage,
       completedTasks: completedTasks.length,
       totalTasks: tasks.length,
     });
 
     this.logger.log(
-      `[finalizeMission] Mission ${missionId} finalized with status: ${finalStatus}`,
+      `[finalizeMission] Mission ${missionId} finalized: ${statusMessage}`,
     );
   }
 }
