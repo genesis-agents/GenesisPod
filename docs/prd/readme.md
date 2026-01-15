@@ -1,29 +1,163 @@
 # PRD 文档目录
 
-> **最后更新**: 2026-01-11
+> **最后更新**: 2026-01-15
 > **文档规范**: `[模块]-[类型]-v[版本].md`
+> **新结构说明**: 文档已整理为 `current/` 和 `archive/` 两个目录，详见下方说明
 
 ---
 
-## 目录结构
+## 📢 重要变更通知 (2026-01-15)
+
+### 文档结构升级
+
+为提高文档可维护性，PRD 文档已重新组织：
 
 ```
 prd/
-├── ai-studio/        # AI研究工作台
-├── ai-office/        # 智能报告生成
-├── ai-slides/        # 智能幻灯片
-├── ai-group/         # 多AI协作社区
-├── ai-coding/        # AI编程助手
-├── ai-ask/           # 智能问答
-├── topic-research/   # 专题洞察 (Insight Hub) [NEW]
-├── knowledge-base/   # 知识库系统
-├── library/          # 资源库
-├── integrations/     # 第三方集成
-├── data-collection/  # 数据采集
-├── core/             # 核心系统
-├── archive/          # 归档文档
-└── readme.md         # 本索引文件
+├── current/              ← 所有当前有效 PRD (新位置)
+│   ├── ai-apps/          # AI 应用层
+│   ├── ai-teams/         # AI Teams 协作系统
+│   └── infra/            # 基础设施层
+├── archive/              ← 历史版本归档
+├── readme.md             # 本文件（向后兼容导航）
+└── current/readme.md     ← 详细索引
 ```
+
+### 术语统一
+
+| 旧术语      | 新术语             | 说明               |
+| ----------- | ------------------ | ------------------ |
+| AI Group    | **AI Teams**       | 与代码模块名称一致 |
+| Insight Hub | **Topic Research** | 明确功能定位       |
+
+### 快速导航
+
+- **📖 查看所有当前 PRD**: [current/readme.md](./current/readme.md)
+- **📦 查看归档文档**: [archive/readme.md](./archive/readme.md)
+- **🔄 整理计划**: [prd-cleanup-plan.md](./prd-cleanup-plan.md)
+- **📝 重命名映射**: [prd-renaming-map.md](./prd-renaming-map.md)
+
+---
+
+## 目录结构概览
+
+### AI 应用层 (AI Apps)
+
+| 模块           | 当前版本 | 文档位置                                                     | 开发状态 |
+| -------------- | -------- | ------------------------------------------------------------ | -------- |
+| **AI Studio**  | v4.0     | [current/ai-apps/ai-studio/](./current/ai-apps/ai-studio/)   | 开发中   |
+| **AI Office**  | v2.0     | [current/ai-apps/ai-office/](./current/ai-apps/ai-office/)   | 已完成   |
+| **AI Slides**  | v3.1     | [current/ai-apps/ai-slides/](./current/ai-apps/ai-slides/)   | 待开发   |
+| **AI Coding**  | v1.0     | [current/ai-apps/ai-coding/](./current/ai-apps/ai-coding/)   | 开发中   |
+| **AI Ask**     | v1.0     | [current/ai-apps/ai-ask/](./current/ai-apps/ai-ask/)         | 开发中   |
+| **AI Writing** | v2.0     | [current/ai-apps/ai-writing/](./current/ai-apps/ai-writing/) | 待重构   |
+
+### AI 协作系统 (AI Teams)
+
+| 模块               | 当前版本 | 文档位置                                                               | 开发状态 |
+| ------------------ | -------- | ---------------------------------------------------------------------- | -------- |
+| **AI Teams 核心**  | v2.0     | [current/ai-teams/](./current/ai-teams/)                               | 开发中   |
+| **Topic Research** | v1.0     | [current/ai-teams/topic-research/](./current/ai-teams/topic-research/) | 开发中   |
+
+> **注意**: 原 "AI Group" 已统一更名为 "AI Teams"，与代码模块保持一致。
+
+### 基础设施层 (Infra)
+
+| 模块                | 当前版本 | 文档位置                                                           | 开发状态 |
+| ------------------- | -------- | ------------------------------------------------------------------ | -------- |
+| **Core 核心系统**   | v2.0     | [current/infra/core/](./current/infra/core/)                       | 规划中   |
+| **Knowledge Base**  | v1.0     | [current/infra/knowledge-base/](./current/infra/knowledge-base/)   | 开发中   |
+| **Library 资源库**  | v2.0     | [current/infra/library/](./current/infra/library/)                 | 已完成   |
+| **Integrations**    | v2.0     | [current/infra/integrations/](./current/infra/integrations/)       | 开发中   |
+| **Data Collection** | v3.0     | [current/infra/data-collection/](./current/infra/data-collection/) | 已修复   |
+
+---
+
+## 常用文档快速链接
+
+### AI Apps
+
+#### AI Studio (AI 研究工作台)
+
+- [AI Studio PRD v4.0](./ai-apps/ai-studio/ai-studio-prd-v4.0.md) - 全新设计，对标 NotebookLM
+- [实施计划 v3.1](./ai-apps/ai-studio/ai-studio-plan-v3.1.md)
+- [任务跟踪 v3.1](./ai-apps/ai-studio/ai-studio-tasks-v3.1.md)
+
+#### AI Office (智能报告生成)
+
+- [AI Office PRD v2.0](./ai-apps/ai-office/ai-office-prd-v2.0.md) - Multi-Agent 报告生成系统
+- [UI/UX 重新设计 v5.0](./ai-apps/ai-office/ai-office-redesign-v5.0.md)
+
+#### AI Slides (智能幻灯片)
+
+- [视觉升级方案 v3.1](./ai-apps/ai-slides/ai-slides-v3.1-visual-upgrade.md)
+- [竞品差距分析](./ai-apps/ai-slides/slides-gap-analysis.md)
+- [质量问题清单](./ai-apps/ai-slides/slides-quality-issues-v1.md)
+
+#### AI Coding (AI 编程助手)
+
+- [多智能体协作编程平台 v1.0](./ai-apps/ai-coding/ai-coding-feature.md)
+- [重构方案 PRD](./ai-apps/ai-coding/ai-coding-refactor-prd-v1.0.md)
+- [可视化增强方案](./ai-apps/ai-coding/ai-coding-visualization-enhancement.md)
+
+#### AI Ask (智能问答)
+
+- [会话管理功能 v1.0](./ai-apps/ai-ask/ask-ai-session-management-v1.0.md)
+
+#### AI Writing (智能写作)
+
+- [模块重新设计 PRD](./ai-apps/ai-writing/redesign.md)
+
+### AI Teams (AI 团队协作)
+
+#### 核心功能
+
+- [AI Teams PRD v1.0](./ai-teams/ai-group-prd-v1.0.md) - 核心产品需求 (原 AI Group)
+- [AI 交互规范 v2.0](./ai-teams/ai-group-spec-v2.0.md)
+- [团队协作功能 v1.0](./ai-teams/ai-group-team-collaboration-v1.0.md)
+- [内容解析功能 v1.0](./ai-teams/ai-group-content-parsing-v1.0.md)
+- [优化方案 v1.1](./ai-teams/ai-group-optimization-v1.1.md)
+
+#### Topic Research (专题研究)
+
+- [专题洞察完整 PRD v1.0](./ai-teams/topic-research/topic-research-prd-v1.0.md)
+- [UX 增强方案 v1.0](./ai-teams/topic-research/topic-research-ux-enhancement-v1.0.md)
+- [UI 优化](./ai-teams/topic-research/ui-optimization.md)
+- [报告编辑功能](./ai-teams/topic-research/report-editing.md)
+- [Leader 交互设计](./ai-teams/topic-research/leader-interaction.md)
+
+### Infra (基础设施)
+
+#### Core (核心系统)
+
+- [DeepDive Engine 核心 PRD v2.0](./infra/core/deepdive-engine-prd-v2.0.md)
+- [积分系统 PRD v1.0](./infra/core/credits-system-prd-v1.0.md) - AI 功能计费管控
+- [管理后台存储增强](./infra/core/admin-storage-enhancement.md)
+- [自动反馈处理系统 v1.0](./infra/core/auto-feedback-resolution-v1.0.md)
+- [YouTube 字幕导出功能 v1.0](./infra/core/youtube-subtitle-prd-v1.0.md)
+- [AI 战略模拟 PRD](./infra/core/ai-strategic-simulation-prd.md)
+
+#### Knowledge Base (知识库系统)
+
+- [知识库系统设计 v1.0](./infra/knowledge-base/library-knowledge-base-system.md)
+- [知识库增强 PRD](./infra/knowledge-base/knowledge-base-enhancement-prd.md)
+- [数据源管理 PRD](./infra/knowledge-base/knowledge-base-data-sources-prd.md)
+- [UX 改进方案](./infra/knowledge-base/knowledge-ux-improvements.md)
+
+#### Library (资源库)
+
+- [资源库优化方案 v2.0](./infra/library/library-optimization-v2.md)
+
+#### Integrations (第三方集成)
+
+- [Google Drive RAG 知识库 v2.0](./infra/integrations/google-drive-rag-knowledge-base-v2.0.md)
+- [Notes 与 Notion 集成系统 v1.0](./infra/integrations/notes-notion-integration-v1.0.md)
+- [Google Drive 集成 v1.0](./infra/integrations/google-drive-integration-v1.0.md)
+
+#### Data Collection (数据采集)
+
+- [数据采集系统 PRD v3.0](./infra/data-collection/data-collection-prd-v3.0.md)
+- [批量采集监控设计 v1.0](./infra/data-collection/data-collection-monitor-design-v1.0.md)
 
 ---
 
@@ -31,7 +165,7 @@ prd/
 
 | 元素 | 说明         | 示例                                              |
 | ---- | ------------ | ------------------------------------------------- |
-| 模块 | 功能模块名称 | `ai-studio`, `ai-group`, `data-collection`        |
+| 模块 | 功能模块名称 | `ai-studio`, `ai-teams`, `data-collection`        |
 | 类型 | 文档类型     | `prd`, `spec`, `plan`, `tasks`, `audit`, `design` |
 | 版本 | 语义化版本号 | `v1.0`, `v2.0`, `v3.1`                            |
 
@@ -40,169 +174,64 @@ prd/
 - 统一使用连字符 `-` 分隔
 - 禁止使用下划线 `_`
 - 版本号必须带 `v` 前缀
-
----
-
-## AI Studio (AI研究工作台)
-
-| 文件                                                           | 版本 | 状态     | 说明                        |
-| -------------------------------------------------------------- | ---- | -------- | --------------------------- |
-| [ai-studio-prd-v4.0.md](./ai-studio/ai-studio-prd-v4.0.md)     | v4.0 | **最新** | 全新设计PRD，对标NotebookLM |
-| [ai-studio-plan-v3.1.md](./ai-studio/ai-studio-plan-v3.1.md)   | v3.1 | 当前     | 实施计划文档                |
-| [ai-studio-tasks-v3.1.md](./ai-studio/ai-studio-tasks-v3.1.md) | v3.1 | 当前     | 任务跟踪清单                |
-
----
-
-## AI Office (智能报告生成)
-
-| 文件                                                                             | 版本 | 状态     | 说明                    |
-| -------------------------------------------------------------------------------- | ---- | -------- | ----------------------- |
-| [ai-office-prd-v2.0.md](./ai-office/ai-office-prd-v2.0.md)                       | v2.0 | **最新** | Multi-Agent报告生成系统 |
-| [ai-office-redesign-v5.0.md](./ai-office/ai-office-redesign-v5.0.md)             | v5.0 | 当前     | UI/UX重新设计方案       |
-| [ai-office-optimization-v2.md](./ai-office/ai-office-optimization-v2.md)         | v2   | 参考     | 优化方案                |
-| [ai-office-slides-upgrade-v1.0.md](./ai-office/ai-office-slides-upgrade-v1.0.md) | v1.0 | 参考     | Genspark竞品对标分析    |
-
----
-
-## AI Slides (智能幻灯片)
-
-| 文件                                                                               | 版本 | 状态     | 说明                             |
-| ---------------------------------------------------------------------------------- | ---- | -------- | -------------------------------- |
-| [ai-slides-v3.1-visual-upgrade.md](./ai-slides/ai-slides-v3.1-visual-upgrade.md)   | v3.1 | **最新** | 视觉升级PRD，2周追赶Genspark方案 |
-| [ai-slides-v3-optimization-plan.md](./ai-slides/ai-slides-v3-optimization-plan.md) | v3   | 参考     | 完整8周优化方案                  |
-| [ai-slides-genspark-gap-closure.md](./ai-slides/ai-slides-genspark-gap-closure.md) | v1.0 | 参考     | 原始差距分析方案                 |
-| [slides-gap-analysis.md](./ai-slides/slides-gap-analysis.md)                       | v1.0 | 当前     | Slides差距分析                   |
-| [slides-quality-issues-v1.md](./ai-slides/slides-quality-issues-v1.md)             | v1.0 | 当前     | 质量问题清单                     |
-
----
-
-## AI Group (多AI协作社区)
-
-| 文件                                                                                  | 版本 | 状态     | 说明         |
-| ------------------------------------------------------------------------------------- | ---- | -------- | ------------ |
-| [ai-group-prd-v1.0.md](./ai-group/ai-group-prd-v1.0.md)                               | v1.0 | **最新** | 产品需求文档 |
-| [ai-group-spec-v2.0.md](./ai-group/ai-group-spec-v2.0.md)                             | v2.0 | 当前     | AI交互规范   |
-| [ai-group-team-collaboration-v1.0.md](./ai-group/ai-group-team-collaboration-v1.0.md) | v1.0 | 当前     | 团队协作功能 |
-| [ai-group-content-parsing-v1.0.md](./ai-group/ai-group-content-parsing-v1.0.md)       | v1.0 | 当前     | 内容解析功能 |
-| [ai-group-optimization-v1.1.md](./ai-group/ai-group-optimization-v1.1.md)             | v1.1 | 当前     | 优化方案     |
-| [ai-group-audit-v1.0.md](./ai-group/ai-group-audit-v1.0.md)                           | v1.0 | 参考     | 实现审计报告 |
-
----
-
-## AI Coding (AI编程助手)
-
-| 文件                                                                                         | 版本 | 状态     | 说明                    |
-| -------------------------------------------------------------------------------------------- | ---- | -------- | ----------------------- |
-| [ai-coding-feature.md](./ai-coding/ai-coding-feature.md)                                     | v1.0 | **最新** | 多智能体协作编程平台PRD |
-| [ai-coding-refactor-prd-v1.0.md](./ai-coding/ai-coding-refactor-prd-v1.0.md)                 | v1.0 | 当前     | 重构方案PRD             |
-| [ai-coding-visualization-enhancement.md](./ai-coding/ai-coding-visualization-enhancement.md) | v1.0 | 当前     | 可视化增强方案          |
-
----
-
-## AI Ask (智能问答)
-
-| 文件                                                                            | 版本 | 状态     | 说明            |
-| ------------------------------------------------------------------------------- | ---- | -------- | --------------- |
-| [ask-ai-session-management-v1.0.md](./ai-ask/ask-ai-session-management-v1.0.md) | v1.0 | **最新** | 会话管理功能PRD |
-
----
-
-## Topic Research / Insight Hub (专题洞察) [NEW]
-
-| 文件                                                                      | 版本 | 状态     | 说明                                    |
-| ------------------------------------------------------------------------- | ---- | -------- | --------------------------------------- |
-| [topic-research-prd-v1.0.md](./topic-research/topic-research-prd-v1.0.md) | v1.0 | **最新** | 专题洞察完整PRD，支持宏观/技术/企业洞察 |
-
----
-
-## Knowledge Base (知识库系统)
-
-| 文件                                                                                      | 版本 | 状态     | 说明           |
-| ----------------------------------------------------------------------------------------- | ---- | -------- | -------------- |
-| [library-knowledge-base-system.md](./knowledge-base/library-knowledge-base-system.md)     | v1.0 | **最新** | 知识库系统设计 |
-| [knowledge-base-enhancement-prd.md](./knowledge-base/knowledge-base-enhancement-prd.md)   | v1.0 | 当前     | 知识库增强PRD  |
-| [knowledge-base-data-sources-prd.md](./knowledge-base/knowledge-base-data-sources-prd.md) | v1.0 | 当前     | 数据源管理PRD  |
-| [knowledge-ux-improvements.md](./knowledge-base/knowledge-ux-improvements.md)             | v1.0 | 当前     | UX改进方案     |
-
----
-
-## Library (资源库)
-
-| 文件                                                               | 版本 | 状态     | 说明           |
-| ------------------------------------------------------------------ | ---- | -------- | -------------- |
-| [library-optimization-v2.md](./library/library-optimization-v2.md) | v2   | **最新** | 资源库优化方案 |
-
----
-
-## Integrations (第三方集成)
-
-| 文件                                                                                              | 版本 | 状态     | 说明                     |
-| ------------------------------------------------------------------------------------------------- | ---- | -------- | ------------------------ |
-| [google-drive-rag-knowledge-base-v2.0.md](./integrations/google-drive-rag-knowledge-base-v2.0.md) | v2.0 | **最新** | Google Drive RAG知识库   |
-| [google-drive-integration-v1.0.md](./integrations/google-drive-integration-v1.0.md)               | v1.0 | 当前     | Google Drive集成         |
-| [notes-notion-integration-v1.0.md](./integrations/notes-notion-integration-v1.0.md)               | v1.0 | **最新** | Notes与Notion集成系统PRD |
-
----
-
-## Data Collection (数据采集)
-
-| 文件                                                                                               | 版本 | 状态     | 说明             |
-| -------------------------------------------------------------------------------------------------- | ---- | -------- | ---------------- |
-| [data-collection-prd-v3.0.md](./data-collection/data-collection-prd-v3.0.md)                       | v3.0 | **最新** | 数据采集系统PRD  |
-| [data-collection-monitor-design-v1.0.md](./data-collection/data-collection-monitor-design-v1.0.md) | v1.0 | 当前     | 批量采集监控设计 |
-
----
-
-## Core (核心系统)
-
-| 文件                                                                        | 版本 | 状态     | 说明                        |
-| --------------------------------------------------------------------------- | ---- | -------- | --------------------------- |
-| [deepdive-engine-prd-v2.0.md](./core/deepdive-engine-prd-v2.0.md)           | v2.0 | **最新** | DeepDive Engine核心PRD      |
-| [credits-system-prd-v1.0.md](./core/credits-system-prd-v1.0.md)             | v1.0 | **最新** | 积分系统PRD，AI功能计费管控 |
-| [admin-storage-enhancement.md](./core/admin-storage-enhancement.md)         | v1.0 | 当前     | 管理后台存储增强            |
-| [auto-feedback-resolution-v1.0.md](./core/auto-feedback-resolution-v1.0.md) | v1.0 | 当前     | 自动反馈处理系统            |
-| [youtube-subtitle-prd-v1.0.md](./core/youtube-subtitle-prd-v1.0.md)         | v1.0 | 当前     | YouTube字幕导出功能PRD      |
-| [ai-strategic-simulation-prd.md](./core/ai-strategic-simulation-prd.md)     | v1.0 | 当前     | AI战略模拟PRD               |
-| [resource-to-image-generation.md](./core/resource-to-image-generation.md)   | v1.0 | 参考     | 资源转图片生成需求          |
-
----
-
-## 归档文档
-
-旧版本文档存放于 `archive/` 目录，仅供历史参考。
-
-| 文件                                                                                                           | 原版本 | 归档原因              |
-| -------------------------------------------------------------------------------------------------------------- | ------ | --------------------- |
-| [deepdive-prd-v2.0-archived.md](./archive/deepdive-prd-v2.0-archived.md)                                       | v2.0   | 已拆分为各模块独立PRD |
-| [ai-studio-prd-v3.0-archived.md](./archive/ai-studio-prd-v3.0-archived.md)                                     | v3.0   | 已升级到v4.0          |
-| [ai-studio-prd-v3.1-archived.md](./archive/ai-studio-prd-v3.1-archived.md)                                     | v3.1   | 已升级到v4.0          |
-| [data-collection-design-v2.0-archived.md](./archive/data-collection-design-v2.0-archived.md)                   | v2.0   | 已升级到v3.0          |
-| [google-drive-rag-knowledge-base-v1.0-archived.md](./archive/google-drive-rag-knowledge-base-v1.0-archived.md) | v1.0   | 已升级到v2.0          |
+- 所有文件名小写 (kebab-case)
 
 ---
 
 ## 文档更新流程
 
-1. **新建文档**: 按命名规范创建，版本从 `v1.0` 开始
-2. **小更新**: 版本号小版本递增 (v1.0 -> v1.1)
-3. **大更新**: 创建新版本文件，旧版本移入 `archive/` 并添加 `-archived` 后缀
-4. **更新索引**: 每次变更后更新本文件
+1. **新建文档**: 在 `current/` 对应目录创建，版本从 `v1.0` 开始
+2. **小更新**: 版本号小版本递增 (v1.0 → v1.1)
+3. **大更新**:
+   - 旧版本移至 `archive/` 并添加 `-archived` 后缀
+   - 在 `current/` 创建新版本
+   - 更新本索引文件
+4. **文档废弃**: 移至 `archive/` 并在归档索引中说明原因
 
 ---
 
 ## 模块状态总览
 
-| 模块            | PRD版本 | 开发状态 | 文档完整度 |
-| --------------- | ------- | -------- | ---------- |
-| AI Studio       | v4.0    | 开发中   | 90%        |
-| AI Office       | v2.0    | 已完成   | 95%        |
-| AI Slides       | v3.1    | 待开发   | 95%        |
-| AI Group        | v1.0    | 开发中   | 85%        |
-| AI Coding       | v1.0    | 开发中   | 95%        |
-| AI Ask          | v1.0    | 开发中   | 80%        |
-| Topic Research  | v1.0    | 规划中   | 95%        |
-| Knowledge Base  | v1.0    | 开发中   | 85%        |
-| Library         | v2      | 已完成   | 80%        |
-| Integrations    | v2.0    | 开发中   | 90%        |
-| Data Collection | v3.0    | 已修复   | 90%        |
-| Core            | v2.0    | 规划中   | 95%        |
+| 模块            | PRD 版本 | 开发状态 | 文档完整度 | 优先级 |
+| --------------- | -------- | -------- | ---------- | ------ |
+| AI Studio       | v4.0     | 开发中   | 90%        | P0     |
+| AI Office       | v2.0     | 已完成   | 95%        | P1     |
+| AI Slides       | v3.1     | 待开发   | 95%        | P1     |
+| AI Teams        | v2.0     | 开发中   | 90%        | P0     |
+| Topic Research  | v1.0     | 开发中   | 95%        | P0     |
+| AI Coding       | v1.0     | 开发中   | 95%        | P1     |
+| AI Ask          | v1.0     | 开发中   | 80%        | P2     |
+| AI Writing      | v2.0     | 待重构   | 60%        | P2     |
+| Knowledge Base  | v1.0     | 开发中   | 85%        | P1     |
+| Library         | v2.0     | 已完成   | 80%        | P1     |
+| Integrations    | v2.0     | 开发中   | 90%        | P1     |
+| Data Collection | v3.0     | 已修复   | 90%        | P1     |
+| Core            | v2.0     | 规划中   | 95%        | P0     |
+
+---
+
+## 归档文档
+
+历史版本文档存放于 `archive/` 目录，详见 [archive/readme.md](./archive/readme.md)
+
+---
+
+## 贡献指南
+
+### 添加新 PRD
+
+1. 在 `current/` 对应目录创建文档
+2. 遵循命名规范: `[模块]-[类型]-v[版本].md`
+3. 更新本索引文件
+4. 提交 PR 并说明变更
+
+### 更新现有 PRD
+
+1. 小更新: 直接修改文件，更新版本号和日期
+2. 大更新: 移动旧版本到 `archive/`，创建新版本
+3. 更新索引文件
+
+---
+
+**维护者**: 文档专家 Agent
+**最后审查**: 2026-01-15
