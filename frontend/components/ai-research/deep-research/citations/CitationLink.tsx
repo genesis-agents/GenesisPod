@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ExternalLink, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Citation } from './types';
 import { useCitationOptional } from './CitationContext';
+import { triggerCitationClick } from '../../citationNavigation';
 
 interface CitationLinkProps {
   citation: Citation;
@@ -61,7 +62,7 @@ export function CitationLink({
     e.stopPropagation();
 
     if (citationContext) {
-      // Set highlight and scroll to source
+      // Set highlight and scroll to source via context
       citationContext.setHighlightedSource({
         sourceId: citation.sourceId,
         quote: citation.quote,
@@ -69,6 +70,9 @@ export function CitationLink({
         endOffset: citation.endOffset,
       });
       citationContext.scrollToSource(citation.sourceId);
+    } else {
+      // Fallback: use shared navigation module
+      triggerCitationClick(citation.sourceId);
     }
   };
 
@@ -107,6 +111,9 @@ export function CitationLink({
         endOffset: citation.endOffset,
       });
       citationContext.scrollToSource(citation.sourceId);
+    } else {
+      // Fallback: use shared navigation module
+      triggerCitationClick(citation.sourceId);
     }
   };
 
