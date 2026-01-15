@@ -86,7 +86,7 @@ function convertTaskToTodo(task: TaskStatus): ResearchTodo {
 
   return {
     id: task.id,
-    topicId: '',
+    topicId: '', // ★ 空字符串表示这是从 ResearchTask 转换的，不是真正的 ResearchTodo
     missionId: '',
     type: typeMap[task.taskType] || ('DIMENSION_RESEARCH' as ResearchTodoType),
     title: task.title,
@@ -103,9 +103,11 @@ function convertTaskToTodo(task: TaskStatus): ResearchTodo {
           : 0),
     priority: 0,
     dependsOn: [],
-    userCanPause: task.status === 'EXECUTING',
-    userCanCancel: task.status === 'PENDING' || task.status === 'ASSIGNED',
-    userCanPrioritize: task.status === 'PENDING',
+    // ★ ResearchTask 不支持暂停/取消/优先级调整操作
+    // 这些功能只对真正的 ResearchTodo（用户创建的任务）有效
+    userCanPause: false,
+    userCanCancel: false,
+    userCanPrioritize: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
