@@ -11,6 +11,7 @@ import {
   Request,
   UseGuards,
   UnauthorizedException,
+  NotFoundException,
   Sse,
   MessageEvent,
 } from "@nestjs/common";
@@ -2174,15 +2175,17 @@ export class TopicResearchController {
 
   /**
    * 重试 TODO
+   * ★ 增强版：同时支持 ResearchTodo ID 和 ResearchTask ID
+   * 前端显示的任务可能来自 missionStatus.tasks（ResearchTask）或 apiTodos（ResearchTodo）
    */
   @Post("topics/:topicId/todos/:todoId/retry")
   @HttpCode(200)
   @ApiOperation({
     summary: "重试 TODO",
-    description: "重试失败的 TODO",
+    description: "重试失败的 TODO 或任务",
   })
   @ApiParam({ name: "topicId", description: "专题ID" })
-  @ApiParam({ name: "todoId", description: "TODO ID" })
+  @ApiParam({ name: "todoId", description: "TODO ID 或 Task ID" })
   @ApiResponse({ status: 200, description: "重试已排队" })
   async retryTodo(
     @Request() req: any,
@@ -2193,8 +2196,36 @@ export class TopicResearchController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
-    const todo = await this.todoService.retryTodo(todoId);
-    return { success: true, todo };
+
+    // ★ 先尝试作为 ResearchTodo 处理
+    try {
+      const todo = await this.todoService.retryTodo(todoId);
+      return { success: true, todo };
+    } catch (error) {
+      // 如果是 NotFoundException，尝试作为 ResearchTask 处理
+      if (error instanceof NotFoundException) {
+        try {
+          const task = await this.missionService.retryTask(todoId);
+          // 将 Task 转换为类似 TODO 的格式返回
+          return {
+            success: true,
+            todo: {
+              id: task.id,
+              title: task.title,
+              status: task.status === "PENDING" ? "QUEUED" : task.status,
+              type: task.taskType,
+              dimensionName: task.dimensionName,
+              progress: 0,
+              statusMessage: "等待重试",
+            },
+          };
+        } catch (taskError) {
+          // 两个都失败，抛出原始错误
+          throw error;
+        }
+      }
+      throw error;
+    }
   }
 
   /**
