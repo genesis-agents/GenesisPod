@@ -32,6 +32,14 @@ import { ResearchTimeline } from './ResearchTimeline';
 // 报告视图模式
 type ReportViewMode = 'continuous' | 'chapter';
 
+// ★ 模块级回调：用于从 CitationTooltip 触发跳转到参考文献
+let citationClickCallback: ((evidenceId: string) => void) | null = null;
+export function setCitationClickCallback(
+  callback: ((evidenceId: string) => void) | null
+) {
+  citationClickCallback = callback;
+}
+
 // Tab 类型定义
 type TabType =
   | 'report'
@@ -396,6 +404,32 @@ export function TopicContentPanel({
   }
 
   const [annotations, setAnnotations] = useState<ReportAnnotation[]>([]);
+
+  // ★ 注册引用点击回调：切换到参考文献 tab 并滚动到指定来源
+  useEffect(() => {
+    const handleCitationClick = (evidenceId: string) => {
+      // 切换到参考文献 tab
+      setActiveTab('references');
+      // 延迟滚动，等待 tab 切换完成
+      setTimeout(() => {
+        const element = document.getElementById(`evidence-${evidenceId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // 添加高亮效果
+          element.classList.add('ring-2', 'ring-purple-500', 'ring-offset-2');
+          setTimeout(() => {
+            element.classList.remove(
+              'ring-2',
+              'ring-purple-500',
+              'ring-offset-2'
+            );
+          }, 2000);
+        }
+      }, 100);
+    };
+    setCitationClickCallback(handleCitationClick);
+    return () => setCitationClickCallback(null);
+  }, []);
 
   // Delete report state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -969,20 +1003,37 @@ interface CitationTooltipProps {
 function CitationTooltip({ citationIndex, evidence }: CitationTooltipProps) {
   const [isHovered, setIsHovered] = useState(false);
 
+  // ★ 点击引用标记，跳转到参考文献面板
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (evidence && citationClickCallback) {
+      citationClickCallback(evidence.id);
+    }
+  };
+
   return (
     <span
       className="relative inline-block"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Citation badge */}
-      <sup className="cursor-pointer rounded bg-purple-100 px-1 py-0.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200">
+      {/* Citation badge - 可点击跳转 */}
+      <sup
+        onClick={handleClick}
+        className="cursor-pointer rounded bg-purple-100 px-1 py-0.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200"
+        title="点击跳转到参考文献"
+      >
         [{citationIndex}]
       </sup>
 
       {/* Tooltip */}
       {isHovered && evidence && (
-        <div className="absolute bottom-full left-1/2 z-50 mb-2 w-80 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
+        <div
+          className="absolute bottom-full left-1/2 z-50 mb-2 w-80 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 shadow-lg"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
           {/* Arrow */}
           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-8 border-transparent border-t-white" />
           <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 border-8 border-transparent border-t-gray-200" />
@@ -1001,13 +1052,12 @@ function CitationTooltip({ citationIndex, evidence }: CitationTooltipProps) {
                   {evidence.snippet}
                 </p>
               )}
-              {evidence.url && (
-                <a
-                  href={evidence.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                  onClick={(e) => e.stopPropagation()}
+              {/* 两个操作按钮 */}
+              <div className="mt-2 flex items-center gap-2">
+                {/* 跳转到参考文献面板 */}
+                <button
+                  onClick={handleClick}
+                  className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800"
                 >
                   <svg
                     className="h-3 w-3"
@@ -1019,12 +1069,37 @@ function CitationTooltip({ citationIndex, evidence }: CitationTooltipProps) {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      d="M13 7l5 5m0 0l-5 5m5-5H6"
                     />
                   </svg>
-                  点击查看原文
-                </a>
-              )}
+                  查看完整来源
+                </button>
+                {/* 打开原文链接 */}
+                {evidence.url && (
+                  <a
+                    href={evidence.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <svg
+                      className="h-3 w-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      />
+                    </svg>
+                    原文
+                  </a>
+                )}
+              </div>
               {evidence.domain && (
                 <span className="mt-1 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">
                   {evidence.domain}
@@ -1040,15 +1115,19 @@ function CitationTooltip({ citationIndex, evidence }: CitationTooltipProps) {
 
 /**
  * 将字符串内容中的引用标记替换为可交互的组件
- * 支持格式: [1], [2], [temp-1-1], [temp-2-3] 等
+ * 支持格式: [1], [2], [temp-1-1], [temp-2-3], [uuid] 等
  */
 function renderTextWithCitations(
   text: string,
   evidence: TopicEvidence[],
   keyPrefix: string = ''
 ): React.ReactNode[] {
-  // 匹配 [数字] 或 [temp-数字-数字] 格式
-  const citationPattern = /\[(\d+)\]|\[(temp-\d+-\d+)\]/g;
+  // 匹配多种引用格式:
+  // 1. [数字] - 如 [1], [2]
+  // 2. [temp-数字-数字] - 如 [temp-1-1]
+  // 3. [uuid] - 如 [3ce86537-fe31-4594-9b6e-72c93607fb4e]
+  const citationPattern =
+    /\[(\d+)\]|\[(temp-\d+-\d+)\]|\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/gi;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match;
@@ -1061,7 +1140,7 @@ function renderTextWithCitations(
   evidence.forEach((e, idx) => {
     // 按顺序映射：第一个证据对应 [1]，第二个对应 [2]
     evidenceMap.set(String(idx + 1), { index: idx + 1, evidence: e });
-    // 同时支持 temp-x-y 格式映射到证据 ID
+    // 同时支持 temp-x-y 格式和 UUID 格式映射到证据 ID
     evidenceMap.set(e.id, { index: idx + 1, evidence: e });
   });
 
@@ -1071,8 +1150,8 @@ function renderTextWithCitations(
       parts.push(text.slice(lastIndex, match.index));
     }
 
-    // 获取引用标识符
-    const citationRef = match[1] || match[2];
+    // 获取引用标识符（match[1]=数字, match[2]=temp-x-y, match[3]=uuid）
+    const citationRef = match[1] || match[2] || match[3];
     const evidenceData = evidenceMap.get(citationRef);
 
     if (evidenceData) {
@@ -3440,8 +3519,9 @@ function EvidenceTabContent({
       const content =
         (analysis.detailedContent || '') + (analysis.summary || '');
 
-      // 匹配多种引用格式: [1], [1, 2], [temp-x-y]
-      const citationPattern = /\[(\d+(?:\s*,\s*\d+)*)\]|\[(temp-\d+-\d+)\]/g;
+      // 匹配多种引用格式: [1], [1, 2], [temp-x-y], [uuid]
+      const citationPattern =
+        /\[(\d+(?:\s*,\s*\d+)*)\]|\[(temp-\d+-\d+)\]|\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/gi;
       const foundEvidenceIds = new Set<string>();
 
       let match;
@@ -3456,6 +3536,13 @@ function EvidenceTabContent({
         } else if (match[2]) {
           // temp-x-y 格式
           const evidenceId = match[2];
+          // 检查是否在当前证据列表中
+          if (safeEvidence.some((e) => e.id === evidenceId)) {
+            foundEvidenceIds.add(evidenceId);
+          }
+        } else if (match[3]) {
+          // UUID 格式
+          const evidenceId = match[3];
           // 检查是否在当前证据列表中
           if (safeEvidence.some((e) => e.id === evidenceId)) {
             foundEvidenceIds.add(evidenceId);
@@ -3600,6 +3687,7 @@ function EvidenceTabContent({
             return (
               <a
                 key={item.id}
+                id={`evidence-${item.id}`}
                 href={item.url}
                 target="_blank"
                 rel="noopener noreferrer"
