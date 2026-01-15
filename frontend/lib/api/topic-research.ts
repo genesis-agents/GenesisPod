@@ -40,6 +40,7 @@ const API_PREFIX = '/api/v1/topic-research';
 
 /**
  * 带认证的 fetch 封装
+ * ★ 修复：正确处理空响应和非 JSON 响应
  */
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const tokens = getAuthTokens();
@@ -59,13 +60,52 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    // ★ 尝试解析错误响应
+    let errorMessage = `HTTP ${response.status}`;
+    try {
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+      } else {
+        const text = await response.text();
+        if (text) errorMessage = text.slice(0, 200);
+      }
+    } catch {
+      // 忽略解析错误
+    }
+    throw new Error(errorMessage);
   }
 
-  return response.json();
+  // ★ 检查响应是否有内容
+  const contentLength = response.headers.get('content-length');
+  const contentType = response.headers.get('content-type');
+
+  // 204 No Content 或空响应
+  if (response.status === 204 || contentLength === '0') {
+    return null;
+  }
+
+  // 非 JSON 响应
+  if (contentType && !contentType.includes('application/json')) {
+    return response.text();
+  }
+
+  // ★ 安全解析 JSON
+  const text = await response.text();
+  if (!text || text.trim() === '') {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    console.warn(
+      '[fetchWithAuth] Failed to parse JSON response:',
+      text.slice(0, 100)
+    );
+    return null;
+  }
 }
 
 // ==================== Topics CRUD ====================
