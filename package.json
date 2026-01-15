@@ -51,14 +51,7 @@
     "verify:full": "npm run lint && npm run type-check && npm run test && npm run build",
     "verify:frontend": "cd frontend && npm run type-check && npm run test",
     "verify:backend": "cd backend && npm run type-check && npm run test:quick",
-    "verify:changed": "node scripts/verify-changed.js",
-    "dear": "npx ts-node scripts/orchestrator/dear.ts",
-    "task": "npx ts-node scripts/orchestrator/dear.ts",
-    "task:status": "npx ts-node scripts/orchestrator/dear.ts status",
-    "team:start": "pm2 start ecosystem.config.js --only leader-agent",
-    "team:stop": "pm2 stop leader-agent",
-    "team:logs": "pm2 logs leader-agent",
-    "team:status": "npx ts-node scripts/orchestrator/status.ts"
+    "verify:changed": "node scripts/verify-changed.js"
   },
   "devDependencies": {
     "@commitlint/cli": "^18.4.3",
