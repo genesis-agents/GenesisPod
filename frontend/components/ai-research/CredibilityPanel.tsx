@@ -43,6 +43,22 @@ import {
   type CredibilityReportData,
 } from '@/lib/api/topic-research';
 
+// Helper: safely convert any value to string for React rendering
+function safeString(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean')
+    return String(value);
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '[Object]';
+    }
+  }
+  return String(value);
+}
+
 // ==================== Types ====================
 
 export interface SourceBreakdown {
@@ -568,7 +584,9 @@ export function CredibilityPanel({
         <div className="mb-1 text-lg font-medium text-gray-900 dark:text-white">
           加载失败
         </div>
-        <div className="mb-3 text-sm text-gray-500">{fetchError}</div>
+        <div className="mb-3 text-sm text-gray-500">
+          {safeString(fetchError)}
+        </div>
         <button
           onClick={fetchData}
           className="rounded-lg bg-blue-500 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-600"

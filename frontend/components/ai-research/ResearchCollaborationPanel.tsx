@@ -42,6 +42,22 @@ import type {
   TodoSummary,
 } from '@/types/topic-research';
 
+// Helper: safely convert any value to string for React rendering
+function safeString(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean')
+    return String(value);
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '[Object]';
+    }
+  }
+  return String(value);
+}
+
 // 对话消息类型
 interface ConversationMessage {
   id: string;
@@ -243,7 +259,9 @@ function ConversationMessageItem({
               })}
             </span>
           </div>
-          <p className="mt-1 text-sm text-gray-900">{message.content}</p>
+          <p className="mt-1 text-sm text-gray-900">
+            {safeString(message.content)}
+          </p>
         </div>
       </div>
     );
@@ -285,12 +303,14 @@ function ConversationMessageItem({
         {/* 理解说明 */}
         {message.understanding && (
           <p className="mt-1 text-xs italic text-gray-500">
-            💭 {message.understanding}
+            💭 {safeString(message.understanding)}
           </p>
         )}
 
         {/* 响应内容 */}
-        <p className="mt-1 text-sm text-gray-900">{message.content}</p>
+        <p className="mt-1 text-sm text-gray-900">
+          {safeString(message.content)}
+        </p>
 
         {/* 创建的 TODO - 可点击跳转 */}
         {message.todoCreated && (
@@ -300,7 +320,7 @@ function ConversationMessageItem({
           >
             <CheckCircle2 className="h-3.5 w-3.5 text-blue-600" />
             <span className="text-blue-700">
-              已创建任务: {message.todoCreated.title}
+              已创建任务: {safeString(message.todoCreated.title)}
             </span>
             <span className="text-blue-500">查看 →</span>
           </button>
@@ -582,7 +602,7 @@ export function ResearchCollaborationPanel({
           <div className="p-4">
             {isLoadingTodos && !todos.length ? (
               <div className="flex h-32 items-center justify-center">
-                <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             ) : (
               <ResearchTodoList
@@ -597,7 +617,7 @@ export function ResearchCollaborationPanel({
         </div>
 
         {/* 输入框 - 固定在底部 */}
-        <div className="bg-background/95 supports-[backdrop-filter]:bg-background/60 shrink-0 border-t p-4 backdrop-blur">
+        <div className="shrink-0 border-t bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <QuickCommandBar
             topicId={topicId}
             missionId={activeMissionId}

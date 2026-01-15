@@ -25,6 +25,22 @@ import type { ResearchTodo, ResearchTodoStatus } from '@/types/topic-research';
 import type { AgentActivity } from '@/lib/api/topic-research';
 import { cn } from '@/lib/utils/common';
 
+// Helper: safely convert any value to string for React rendering
+function safeString(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean')
+    return String(value);
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '[Object]';
+    }
+  }
+  return String(value);
+}
+
 interface TodoDetailPanelProps {
   topicId: string;
   todoId: string;
@@ -428,11 +444,11 @@ export function TodoDetailPanel({
                           )}
                         </div>
                         <p className="whitespace-pre-wrap text-sm text-gray-700">
-                          {activity.content}
+                          {safeString(activity.content)}
                         </p>
                         {activity.dimensionName && (
                           <div className="text-xs text-muted-foreground">
-                            维度: {activity.dimensionName}
+                            维度: {safeString(activity.dimensionName)}
                           </div>
                         )}
                         {activity.metadata &&

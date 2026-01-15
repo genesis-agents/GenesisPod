@@ -1737,51 +1737,51 @@ function ProgressOverview({
   if (dimensionStatus.length === 0 && !missionStatus) return null;
 
   return (
-    <div className="mb-4 rounded-lg border border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
-      {/* 可点击的标题行 */}
-      <div
-        className="flex cursor-pointer items-center justify-between"
-        onClick={() => setDimensionsCollapsed(!dimensionsCollapsed)}
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-700">研究进度</span>
-          <svg
-            className={`h-4 w-4 text-gray-500 transition-transform ${dimensionsCollapsed ? '' : 'rotate-180'}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
-        </div>
+    <div className="rounded-lg border border-white/50 bg-white/60 p-3">
+      {/* 标题行 + 进度条 */}
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-gray-700">研究进度</span>
         <span className="text-sm text-gray-500">
           {completedCount}/{totalCount} 维度完成
         </span>
       </div>
 
-      {/* 可折叠的内容区域 */}
-      {!dimensionsCollapsed && (
-        <>
-          {/* 进度条 */}
-          <div className="mb-3 mt-3 h-2 overflow-hidden rounded-full bg-gray-200">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+      {/* 进度条 */}
+      <div className="my-2 h-1.5 overflow-hidden rounded-full bg-gray-200">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
 
-          {/* 维度状态标签 */}
-          {dimensionStatus.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+      {/* 维度状态标签 - 可折叠 */}
+      {dimensionStatus.length > 0 && (
+        <div
+          className="cursor-pointer"
+          onClick={() => setDimensionsCollapsed(!dimensionsCollapsed)}
+        >
+          <div className="mb-1 flex items-center gap-1 text-xs text-gray-500">
+            <span>维度详情</span>
+            <svg
+              className={`h-3 w-3 transition-transform ${dimensionsCollapsed ? '' : 'rotate-180'}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </div>
+          {!dimensionsCollapsed && (
+            <div className="flex flex-wrap gap-1.5">
               {dimensionStatus.map((dim) => (
                 <span
                   key={dim.name}
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
                     dim.status === 'completed'
                       ? 'bg-green-100 text-green-700'
                       : dim.status === 'in_progress'
@@ -1794,12 +1794,12 @@ function ProgressOverview({
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
                   )}
                   {dim.status === 'pending' && '○'}
-                  <span className="max-w-[80px] truncate">{dim.name}</span>
+                  <span className="max-w-[70px] truncate">{dim.name}</span>
                 </span>
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );
@@ -2093,6 +2093,8 @@ function TeamInteractionTabContent({
   const [dimensionFilter, setDimensionFilter] = useState<string>('all');
   // ★ 新增：消息列表折叠状态
   const [messagesCollapsed, setMessagesCollapsed] = useState(false);
+  // ★ 新增：工具面板折叠状态（搜索+过滤+进度详情）
+  const [toolsPanelCollapsed, setToolsPanelCollapsed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // ★ AI Writing 模式：将 WebSocket 事件和持久化消息转换为 UI 消息
@@ -2670,48 +2672,46 @@ function TeamInteractionTabContent({
 
   return (
     <div className="flex h-full flex-col">
-      {/* ★ 固定区域：状态栏 + 搜索过滤 */}
-      <div className="shrink-0 border-b bg-white p-4">
-        {/* Connection status and controls */}
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
+      {/* ★ 统一工具面板：状态 + 搜索过滤 + 研究进度 */}
+      <div className="shrink-0 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+        {/* 紧凑标题行 - 始终显示 */}
+        <div
+          className="flex cursor-pointer items-center justify-between px-4 py-2"
+          onClick={() => setToolsPanelCollapsed(!toolsPanelCollapsed)}
+        >
+          <div className="flex items-center gap-4">
+            {/* 连接状态 */}
+            <div className="flex items-center gap-1.5">
               <span
                 className={`h-2 w-2 rounded-full ${wsConnected ? 'animate-pulse bg-green-500' : 'bg-gray-300'}`}
               />
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-gray-600">
                 {wsConnected ? '实时更新中' : '未连接'}
               </span>
             </div>
+            {/* 消息数 */}
             {uiMessages.length > 0 && (
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-gray-500">
                 {uiMessages.length} 条消息
               </span>
             )}
           </div>
-          {uiMessages.length > 0 && onClearEvents && (
-            <button
-              onClick={onClearEvents}
-              className="text-xs text-gray-400 hover:text-gray-600"
-            >
-              清除消息
-            </button>
-          )}
-        </div>
-
-        {/* ★ 搜索过滤区 */}
-        <div className="mb-4 space-y-3">
-          {/* 搜索框 */}
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="搜索消息内容..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-700 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
+          <div className="flex items-center gap-3">
+            {/* 清除按钮 */}
+            {uiMessages.length > 0 && onClearEvents && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClearEvents();
+                }}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                清除消息
+              </button>
+            )}
+            {/* 折叠箭头 */}
             <svg
-              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              className={`h-4 w-4 text-gray-500 transition-transform ${toolsPanelCollapsed ? '' : 'rotate-180'}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -2720,35 +2720,62 @@ function TeamInteractionTabContent({
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                d="M19 9l-7 7-7-7"
               />
             </svg>
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            )}
           </div>
+        </div>
 
-          {/* 筛选器行 */}
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Agent 类型筛选 */}
-            <div className="flex flex-wrap gap-2">
+        {/* 可折叠内容区 */}
+        {!toolsPanelCollapsed && (
+          <div className="space-y-3 px-4 pb-3">
+            {/* 搜索框 */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="搜索消息内容..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white py-1.5 pl-8 pr-4 text-sm text-gray-700 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <svg
+                className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {/* 筛选器行 - 紧凑布局 */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Agent 类型筛选 */}
               {(
                 [
                   'all',
@@ -2761,10 +2788,10 @@ function TeamInteractionTabContent({
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
                     filter === f
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-100'
                   }`}
                 >
                   {f === 'all'
@@ -2778,48 +2805,39 @@ function TeamInteractionTabContent({
                           : '撰写员'}
                 </button>
               ))}
+
+              {/* 分隔线 + 维度筛选 */}
+              {availableDimensions.length > 0 && (
+                <>
+                  <div className="h-4 w-px bg-gray-300" />
+                  <select
+                    value={dimensionFilter}
+                    onChange={(e) => setDimensionFilter(e.target.value)}
+                    className="rounded-lg border border-gray-200 bg-white px-2 py-0.5 text-xs text-gray-700 focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="all">全部维度</option>
+                    {availableDimensions.map((dim) => (
+                      <option key={dim} value={dim}>
+                        {dim}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
             </div>
 
-            {/* 分隔线 */}
-            {availableDimensions.length > 0 && (
-              <div className="h-5 w-px bg-gray-300" />
-            )}
-
-            {/* 研究任务（维度）筛选 */}
-            {availableDimensions.length > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">研究任务:</span>
-                <select
-                  value={dimensionFilter}
-                  onChange={(e) => setDimensionFilter(e.target.value)}
-                  className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="all">全部维度</option>
-                  {availableDimensions.map((dim) => (
-                    <option key={dim} value={dim}>
-                      {dim}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          {/* 筛选结果提示 */}
-          {(searchQuery || filter !== 'all' || dimensionFilter !== 'all') && (
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <span>
-                找到 {filteredMessages.length} 条消息
-                {uiMessages.length !== filteredMessages.length && (
-                  <span className="text-gray-400">
-                    {' '}
-                    (共 {uiMessages.length} 条)
-                  </span>
-                )}
-              </span>
-              {(searchQuery ||
-                filter !== 'all' ||
-                dimensionFilter !== 'all') && (
+            {/* 筛选结果提示 */}
+            {(searchQuery || filter !== 'all' || dimensionFilter !== 'all') && (
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <span>
+                  找到 {filteredMessages.length} 条
+                  {uiMessages.length !== filteredMessages.length && (
+                    <span className="text-gray-400">
+                      {' '}
+                      (共 {uiMessages.length} 条)
+                    </span>
+                  )}
+                </span>
                 <button
                   onClick={() => {
                     setSearchQuery('');
@@ -2828,17 +2846,18 @@ function TeamInteractionTabContent({
                   }}
                   className="text-blue-500 hover:text-blue-700"
                 >
-                  清除筛选
+                  清除
                 </button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+              </div>
+            )}
 
-      {/* ★ 固定区域：进度概览 */}
-      <div className="shrink-0 border-b bg-white px-4 pb-4">
-        <ProgressOverview messages={uiMessages} missionStatus={missionStatus} />
+            {/* 研究进度（内嵌显示） */}
+            <ProgressOverview
+              messages={uiMessages}
+              missionStatus={missionStatus}
+            />
+          </div>
+        )}
       </div>
 
       {/* ★ 可滚动区域：时间线消息流 */}
@@ -3032,11 +3051,11 @@ function TeamInteractionTabContent({
                         </span>
                       </div>
                       <p className="mt-2 text-sm text-gray-700">
-                        {event.message}
+                        {safeString(event.message)}
                       </p>
                       {event.details && (
                         <div className="mt-2 rounded bg-gray-50 p-2 text-xs text-gray-500">
-                          {event.details}
+                          {safeString(event.details)}
                         </div>
                       )}
                     </div>
