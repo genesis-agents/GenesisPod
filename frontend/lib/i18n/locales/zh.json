@@ -1396,8 +1396,179 @@
     },
     "types": {
       "macro": "宏观洞察",
+      "macroDesc": "追踪行业趋势、政策变化、市场动态",
       "technology": "技术趋势",
-      "company": "企业追踪"
+      "technologyDesc": "跟踪技术发展、学术研究、开源项目",
+      "company": "企业追踪",
+      "companyDesc": "监控企业动态、竞争对手、投融资信息"
+    },
+    "createDialog": {
+      "selectType": "选择专题类型",
+      "configTopic": "创建研究专题",
+      "selectTypeHint": "选择一个专题类型开始您的研究",
+      "configHint": "配置专题信息和刷新频率",
+      "selectTemplate": "选择模板 (可选)",
+      "dimensions": "{{count}} 个研究维度",
+      "topicName": "专题名称",
+      "topicNameRequired": "专题名称 *",
+      "topicNamePlaceholder": "例如：AI 大模型行业研究",
+      "topicDesc": "专题描述 (可选)",
+      "topicDescPlaceholder": "描述您想要研究的内容和关注点...",
+      "refreshFrequency": "刷新频率",
+      "searchTimeRange": "搜索时效",
+      "searchTimeRangeHint": "限定搜索结果的时间范围",
+      "backToType": "← 返回选择类型",
+      "createFailed": "创建专题失败"
+    },
+    "frequency": {
+      "daily": "每日",
+      "dailyDesc": "每天自动刷新",
+      "weekly": "每周",
+      "weeklyDesc": "每周一自动刷新",
+      "biweekly": "双周",
+      "biweeklyDesc": "每两周刷新",
+      "monthly": "每月",
+      "monthlyDesc": "每月初自动刷新",
+      "manual": "手动",
+      "manualDesc": "仅手动触发刷新"
+    },
+    "timeRange": {
+      "all": "不限",
+      "allDesc": "搜索所有时间的内容",
+      "6months": "近半年",
+      "6monthsDesc": "最近6个月的内容",
+      "1year": "近1年",
+      "1yearDesc": "最近1年的内容",
+      "2years": "近2年",
+      "2yearsDesc": "最近2年的内容",
+      "3years": "近3年",
+      "3yearsDesc": "最近3年的内容",
+      "5years": "近5年",
+      "5yearsDesc": "最近5年的内容"
+    },
+    "contentPanel": {
+      "tabs": {
+        "report": "研究报告",
+        "collaboration": "协作动态",
+        "references": "参考文献",
+        "credibility": "可信度分析",
+        "history": "研究历史"
+      },
+      "noReport": "暂无报告",
+      "noReportHint": "点击「立即刷新」开始研究",
+      "noContent": "暂无内容",
+      "viewMode": {
+        "continuous": "连续阅读",
+        "chapter": "章节视图"
+      },
+      "export": "导出",
+      "exportPdf": "导出 PDF",
+      "exportDocx": "导出 Word"
+    },
+    "credibility": {
+      "title": "来源可信度分析",
+      "overallScore": "综合可信度",
+      "sourceDistribution": "来源分布",
+      "categories": {
+        "government": "政府/官方",
+        "academic": "学术研究",
+        "industry": "行业报告",
+        "news": "新闻媒体",
+        "blog": "博客/其他"
+      },
+      "coverage": {
+        "sufficient": "充分",
+        "moderate": "一般",
+        "insufficient": "不足"
+      }
+    },
+    "agents": {
+      "leader": "研究协调员",
+      "researcher": "研究员",
+      "reviewer": "审核员",
+      "synthesizer": "整合员"
+    },
+    "phases": {
+      "understanding": "理解阶段",
+      "searching": "搜索阶段",
+      "writing": "撰写阶段",
+      "reviewing": "审核阶段",
+      "integrating": "整合阶段",
+      "processing": "处理中"
+    },
+    "taskStatus": {
+      "pending": "待执行",
+      "assigned": "已分配",
+      "running": "执行中",
+      "completed": "已完成",
+      "needsRevision": "需修订",
+      "failed": "失败"
+    },
+    "collaboration": {
+      "searchPlaceholder": "搜索消息...",
+      "filterByAgent": "按 Agent 筛选",
+      "filterByDimension": "按研究任务筛选",
+      "allAgents": "全部 Agent",
+      "allDimensions": "全部任务",
+      "noMessages": "暂无协作消息",
+      "uncategorized": "未分类",
+      "otherActivities": "其他活动"
+    },
+    "aiEdit": {
+      "rewrite": "重写",
+      "rewriteDesc": "完全重新生成内容",
+      "polish": "润色",
+      "polishDesc": "优化语言表达",
+      "expand": "扩展",
+      "expandDesc": "增加细节和例子",
+      "compress": "压缩",
+      "compressDesc": "精简内容",
+      "style": "风格",
+      "styleDesc": "调整写作风格",
+      "customInstruction": "自定义指令",
+      "styles": {
+        "academic": "学术风格",
+        "business": "商业风格",
+        "casual": "通俗风格",
+        "technical": "技术风格"
+      }
+    },
+    "changes": {
+      "added": "新增",
+      "modified": "修改",
+      "deleted": "删除",
+      "addedContent": "新增内容",
+      "modifiedContent": "修改内容",
+      "deletedContent": "删除内容",
+      "newContent": "新内容：",
+      "afterModify": "修改后：",
+      "uncategorized": "未分类内容",
+      "confirming": "确认中...",
+      "confirmChange": "确认变更",
+      "confirmAll": "全部确认"
+    },
+    "review": {
+      "approved": "已通过",
+      "rejected": "未通过",
+      "reviewing": "审核中",
+      "skipped": "已跳过",
+      "pending": "待审核",
+      "unassigned": "待分配",
+      "publishVersion": "发布版本",
+      "publishHint": "完成审核后可发布",
+      "fetchFailed": "获取审核任务失败"
+    },
+    "graph": {
+      "dimensionResearcher": "维度研究员",
+      "qualityReview": "质量审核",
+      "reportWriting": "报告撰写",
+      "planning": "规划",
+      "review": "审核",
+      "adjust": "调整",
+      "intervene": "干预"
+    },
+    "editor": {
+      "startEditing": "开始编辑章节内容..."
     }
   }
 }

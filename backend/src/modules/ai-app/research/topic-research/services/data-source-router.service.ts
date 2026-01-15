@@ -88,10 +88,19 @@ export class DataSourceRouterService {
 
     this.logger.debug(`Search query: "${searchQuery}"`);
 
+    // ★ 从 topicConfig 中获取时间范围
+    const since = this.getSearchTimeRange(topic);
+    if (since) {
+      this.logger.debug(
+        `Using time range filter: since ${since.toISOString()}`,
+      );
+    }
+
     // 3. 并行调用所有数据源
     const searchPromises = sources.map((source) =>
       this.searchSource(source, searchQuery, {
         maxResults: 10, // 每个数据源最多返回10个结果
+        since, // ★ 传递时间范围参数
       }),
     );
 
@@ -151,6 +160,37 @@ export class DataSourceRouterService {
   }
 
   /**
+   * 从 topic 配置中获取时间范围
+   * @param topic 研究主题
+   * @returns 时间范围的起始日期，如果没有限制则返回 undefined
+   */
+  private getSearchTimeRange(topic: ResearchTopic): Date | undefined {
+    const config = topic.topicConfig as Record<string, unknown> | null;
+    if (!config?.searchTimeRange || config.searchTimeRange === "all") {
+      return undefined;
+    }
+
+    const now = new Date();
+    const timeRange = config.searchTimeRange as string;
+
+    switch (timeRange) {
+      case "6months":
+        return new Date(now.getTime() - 6 * 30 * 24 * 60 * 60 * 1000);
+      case "1year":
+        return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      case "2years":
+        return new Date(now.getTime() - 2 * 365 * 24 * 60 * 60 * 1000);
+      case "3years":
+        return new Date(now.getTime() - 3 * 365 * 24 * 60 * 60 * 1000);
+      case "5years":
+        return new Date(now.getTime() - 5 * 365 * 24 * 60 * 60 * 1000);
+      default:
+        this.logger.warn(`Unknown time range: ${timeRange}, ignoring`);
+        return undefined;
+    }
+  }
+
+  /**
    * 构建搜索查询
    */
   private buildSearchQuery(
@@ -191,7 +231,12 @@ export class DataSourceRouterService {
 
     try {
       // 使用 Promise.race 实现超时控制
-      const searchPromise = this.executeSearch(source, query, maxResults);
+      const searchPromise = this.executeSearch(
+        source,
+        query,
+        maxResults,
+        options.since,
+      );
       const timeoutPromise = new Promise<DataSourceResult[]>((_, reject) =>
         setTimeout(
           () => reject(new Error(`Search timeout: ${source}`)),
@@ -219,10 +264,11 @@ export class DataSourceRouterService {
     source: DataSourceType,
     query: string,
     maxResults: number,
+    since?: Date,
   ): Promise<DataSourceResult[]> {
     switch (source) {
       case DataSourceType.WEB:
-        return this.searchWeb(query, maxResults);
+        return this.searchWeb(query, maxResults, since);
 
       case DataSourceType.ACADEMIC:
         return this.searchAcademic(query, maxResults);
@@ -255,8 +301,9 @@ export class DataSourceRouterService {
   private async searchWeb(
     query: string,
     maxResults: number,
+    since?: Date,
   ): Promise<DataSourceResult[]> {
-    const response = await this.searchService.search(query, maxResults);
+    const response = await this.searchService.search(query, maxResults, since);
 
     if (!response.success || !response.results) {
       return [];

@@ -6,7 +6,7 @@
  * 创建研究专题的对话框
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type {
   ResearchTopic,
   CreateTopicDto,
@@ -14,6 +14,7 @@ import type {
 } from '@/types/topic-research';
 import { ResearchTopicType, RefreshFrequency } from '@/types/topic-research';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
+import { useTranslation } from '@/lib/i18n';
 
 interface CreateTopicDialogProps {
   isOpen: boolean;
@@ -39,102 +40,81 @@ const LoaderIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// Topic type configurations
-const topicTypeOptions = [
-  {
-    type: ResearchTopicType.MACRO,
-    label: '宏观洞察',
-    description: '追踪行业趋势、政策变化、市场动态',
-    icon: (
-      <svg
-        className="h-6 w-6"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
-      </svg>
-    ),
+// Topic type icons configuration
+const topicTypeIcons = {
+  [ResearchTopicType.MACRO]: (
+    <svg
+      className="h-6 w-6"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
+    </svg>
+  ),
+  [ResearchTopicType.TECHNOLOGY]: (
+    <svg
+      className="h-6 w-6"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+      />
+    </svg>
+  ),
+  [ResearchTopicType.COMPANY]: (
+    <svg
+      className="h-6 w-6"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+      />
+    </svg>
+  ),
+};
+
+const topicTypeStyles = {
+  [ResearchTopicType.MACRO]: {
     gradient: 'from-blue-500 to-cyan-600',
     borderColor: 'border-blue-500',
     bgColor: 'bg-blue-50',
   },
-  {
-    type: ResearchTopicType.TECHNOLOGY,
-    label: '技术趋势',
-    description: '跟踪技术发展、学术研究、开源项目',
-    icon: (
-      <svg
-        className="h-6 w-6"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-        />
-      </svg>
-    ),
+  [ResearchTopicType.TECHNOLOGY]: {
     gradient: 'from-purple-500 to-pink-600',
     borderColor: 'border-purple-500',
     bgColor: 'bg-purple-50',
   },
-  {
-    type: ResearchTopicType.COMPANY,
-    label: '企业追踪',
-    description: '监控企业动态、竞争对手、投融资信息',
-    icon: (
-      <svg
-        className="h-6 w-6"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-        />
-      </svg>
-    ),
+  [ResearchTopicType.COMPANY]: {
     gradient: 'from-emerald-500 to-teal-600',
     borderColor: 'border-emerald-500',
     bgColor: 'bg-emerald-50',
   },
-];
+};
 
-const frequencyOptions = [
-  { value: RefreshFrequency.DAILY, label: '每日', description: '每天自动刷新' },
-  {
-    value: RefreshFrequency.WEEKLY,
-    label: '每周',
-    description: '每周一自动刷新',
-  },
-  {
-    value: RefreshFrequency.BIWEEKLY,
-    label: '双周',
-    description: '每两周刷新',
-  },
-  {
-    value: RefreshFrequency.MONTHLY,
-    label: '每月',
-    description: '每月初自动刷新',
-  },
-  {
-    value: RefreshFrequency.MANUAL,
-    label: '手动',
-    description: '仅手动触发刷新',
-  },
-];
+// Time range value type
+type TimeRangeValue =
+  | 'all'
+  | '6months'
+  | '1year'
+  | '2years'
+  | '3years'
+  | '5years';
 
 export function CreateTopicDialog({
   isOpen,
@@ -142,6 +122,7 @@ export function CreateTopicDialog({
   onCreated,
   defaultType = ResearchTopicType.MACRO,
 }: CreateTopicDialogProps) {
+  const { t } = useTranslation();
   const {
     createTopic,
     fetchTemplates,
@@ -162,8 +143,98 @@ export function CreateTopicDialog({
   const [refreshFrequency, setRefreshFrequency] = useState<RefreshFrequency>(
     RefreshFrequency.WEEKLY
   );
+  const [searchTimeRange, setSearchTimeRange] = useState<TimeRangeValue>('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Build options with i18n
+  const topicTypeOptions = useMemo(
+    () => [
+      {
+        type: ResearchTopicType.MACRO,
+        label: t('topicResearch.types.macro'),
+        description: t('topicResearch.types.macroDesc'),
+      },
+      {
+        type: ResearchTopicType.TECHNOLOGY,
+        label: t('topicResearch.types.technology'),
+        description: t('topicResearch.types.technologyDesc'),
+      },
+      {
+        type: ResearchTopicType.COMPANY,
+        label: t('topicResearch.types.company'),
+        description: t('topicResearch.types.companyDesc'),
+      },
+    ],
+    [t]
+  );
+
+  const frequencyOptions = useMemo(
+    () => [
+      {
+        value: RefreshFrequency.DAILY,
+        label: t('topicResearch.frequency.daily'),
+        description: t('topicResearch.frequency.dailyDesc'),
+      },
+      {
+        value: RefreshFrequency.WEEKLY,
+        label: t('topicResearch.frequency.weekly'),
+        description: t('topicResearch.frequency.weeklyDesc'),
+      },
+      {
+        value: RefreshFrequency.BIWEEKLY,
+        label: t('topicResearch.frequency.biweekly'),
+        description: t('topicResearch.frequency.biweeklyDesc'),
+      },
+      {
+        value: RefreshFrequency.MONTHLY,
+        label: t('topicResearch.frequency.monthly'),
+        description: t('topicResearch.frequency.monthlyDesc'),
+      },
+      {
+        value: RefreshFrequency.MANUAL,
+        label: t('topicResearch.frequency.manual'),
+        description: t('topicResearch.frequency.manualDesc'),
+      },
+    ],
+    [t]
+  );
+
+  const timeRangeOptions = useMemo(
+    () => [
+      {
+        value: 'all' as const,
+        label: t('topicResearch.timeRange.all'),
+        description: t('topicResearch.timeRange.allDesc'),
+      },
+      {
+        value: '6months' as const,
+        label: t('topicResearch.timeRange.6months'),
+        description: t('topicResearch.timeRange.6monthsDesc'),
+      },
+      {
+        value: '1year' as const,
+        label: t('topicResearch.timeRange.1year'),
+        description: t('topicResearch.timeRange.1yearDesc'),
+      },
+      {
+        value: '2years' as const,
+        label: t('topicResearch.timeRange.2years'),
+        description: t('topicResearch.timeRange.2yearsDesc'),
+      },
+      {
+        value: '3years' as const,
+        label: t('topicResearch.timeRange.3years'),
+        description: t('topicResearch.timeRange.3yearsDesc'),
+      },
+      {
+        value: '5years' as const,
+        label: t('topicResearch.timeRange.5years'),
+        description: t('topicResearch.timeRange.5yearsDesc'),
+      },
+    ],
+    [t]
+  );
 
   // Load templates when type changes
   useEffect(() => {
@@ -181,6 +252,7 @@ export function CreateTopicDialog({
       setName('');
       setDescription('');
       setRefreshFrequency(RefreshFrequency.WEEKLY);
+      setSearchTimeRange('all');
       setError(null);
     }
   }, [isOpen, defaultType]);
@@ -211,13 +283,19 @@ export function CreateTopicDialog({
         type: selectedType,
         refreshFrequency,
         dimensions: selectedTemplate?.dimensions,
+        topicConfig:
+          searchTimeRange !== 'all' ? { searchTimeRange } : undefined,
       };
 
       const topic = await createTopic(dto);
       onCreated(topic);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '创建专题失败');
+      setError(
+        err instanceof Error
+          ? err.message
+          : t('topicResearch.createDialog.createFailed')
+      );
     } finally {
       setLoading(false);
     }
@@ -231,12 +309,14 @@ export function CreateTopicDialog({
         {/* Header */}
         <div className="border-b border-gray-200 px-6 py-4">
           <h2 className="text-xl font-semibold text-gray-900">
-            {step === 'type' ? '选择专题类型' : '创建研究专题'}
+            {step === 'type'
+              ? t('topicResearch.createDialog.selectType')
+              : t('topicResearch.createDialog.configTopic')}
           </h2>
           <p className="mt-1 text-sm text-gray-500">
             {step === 'type'
-              ? '选择一个专题类型开始您的研究'
-              : '配置专题信息和刷新频率'}
+              ? t('topicResearch.createDialog.selectTypeHint')
+              : t('topicResearch.createDialog.configHint')}
           </p>
         </div>
 
@@ -245,29 +325,32 @@ export function CreateTopicDialog({
           {step === 'type' ? (
             // Step 1: Select Type
             <div className="grid grid-cols-3 gap-4">
-              {topicTypeOptions.map((option) => (
-                <button
-                  key={option.type}
-                  onClick={() => handleTypeSelect(option.type)}
-                  className={`flex flex-col items-center rounded-xl border-2 p-6 transition-all ${
-                    selectedType === option.type
-                      ? `${option.borderColor} ${option.bgColor}`
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div
-                    className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${option.gradient} text-white shadow-md`}
+              {topicTypeOptions.map((option) => {
+                const styles = topicTypeStyles[option.type];
+                return (
+                  <button
+                    key={option.type}
+                    onClick={() => handleTypeSelect(option.type)}
+                    className={`flex flex-col items-center rounded-xl border-2 p-6 transition-all ${
+                      selectedType === option.type
+                        ? `${styles.borderColor} ${styles.bgColor}`
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
                   >
-                    {option.icon}
-                  </div>
-                  <span className="font-medium text-gray-900">
-                    {option.label}
-                  </span>
-                  <span className="mt-1 text-center text-xs text-gray-500">
-                    {option.description}
-                  </span>
-                </button>
-              ))}
+                    <div
+                      className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${styles.gradient} text-white shadow-md`}
+                    >
+                      {topicTypeIcons[option.type]}
+                    </div>
+                    <span className="font-medium text-gray-900">
+                      {option.label}
+                    </span>
+                    <span className="mt-1 text-center text-xs text-gray-500">
+                      {option.description}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           ) : (
             // Step 2: Details Form
@@ -276,7 +359,7 @@ export function CreateTopicDialog({
               {templates.length > 0 && (
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
-                    选择模板 (可选)
+                    {t('topicResearch.createDialog.selectTemplate')}
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     {isLoadingTemplates ? (
@@ -299,7 +382,9 @@ export function CreateTopicDialog({
                             {template.name}
                           </span>
                           <span className="mt-0.5 block text-xs text-gray-500">
-                            {template.dimensions.length} 个研究维度
+                            {t('topicResearch.createDialog.dimensions', {
+                              count: template.dimensions.length,
+                            })}
                           </span>
                         </button>
                       ))
@@ -311,13 +396,16 @@ export function CreateTopicDialog({
               {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  专题名称 <span className="text-red-500">*</span>
+                  {t('topicResearch.createDialog.topicName')}{' '}
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="例如：AI 大模型行业研究"
+                  placeholder={t(
+                    'topicResearch.createDialog.topicNamePlaceholder'
+                  )}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   autoFocus
                 />
@@ -326,12 +414,14 @@ export function CreateTopicDialog({
               {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  专题描述 (可选)
+                  {t('topicResearch.createDialog.topicDesc')}
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="描述您想要研究的内容和关注点..."
+                  placeholder={t(
+                    'topicResearch.createDialog.topicDescPlaceholder'
+                  )}
                   rows={3}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
@@ -340,7 +430,7 @@ export function CreateTopicDialog({
               {/* Refresh Frequency */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">
-                  刷新频率
+                  {t('topicResearch.createDialog.refreshFrequency')}
                 </label>
                 <div className="grid grid-cols-5 gap-2">
                   {frequencyOptions.map((option) => (
@@ -353,6 +443,35 @@ export function CreateTopicDialog({
                           ? 'border-blue-500 bg-blue-50 text-blue-700'
                           : 'border-gray-200 text-gray-600 hover:border-gray-300'
                       }`}
+                    >
+                      <span className="block text-sm font-medium">
+                        {option.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Time Range */}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  {t('topicResearch.createDialog.searchTimeRange')}
+                  <span className="ml-2 text-xs font-normal text-gray-400">
+                    {t('topicResearch.createDialog.searchTimeRangeHint')}
+                  </span>
+                </label>
+                <div className="grid grid-cols-6 gap-2">
+                  {timeRangeOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setSearchTimeRange(option.value)}
+                      className={`rounded-lg border px-3 py-2 text-center transition-all ${
+                        searchTimeRange === option.value
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                      title={option.description}
                     >
                       <span className="block text-sm font-medium">
                         {option.label}
@@ -380,7 +499,7 @@ export function CreateTopicDialog({
                 onClick={() => setStep('type')}
                 className="text-sm font-medium text-gray-600 hover:text-gray-900"
               >
-                ← 返回选择类型
+                {t('topicResearch.createDialog.backToType')}
               </button>
             )}
           </div>
@@ -390,7 +509,7 @@ export function CreateTopicDialog({
               onClick={onClose}
               className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
             >
-              取消
+              {t('common.cancel')}
             </button>
             {step === 'details' && (
               <button
@@ -399,7 +518,7 @@ export function CreateTopicDialog({
                 className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 {loading && <LoaderIcon className="h-4 w-4 animate-spin" />}
-                创建专题
+                {t('topicResearch.createTopic')}
               </button>
             )}
           </div>

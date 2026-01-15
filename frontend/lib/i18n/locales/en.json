@@ -1396,8 +1396,179 @@
     },
     "types": {
       "macro": "Macro Insights",
+      "macroDesc": "Track industry trends, policy changes, market dynamics",
       "technology": "Tech Trends",
-      "company": "Company Tracking"
+      "technologyDesc": "Follow tech developments, academic research, open source projects",
+      "company": "Company Tracking",
+      "companyDesc": "Monitor company activities, competitors, investments"
+    },
+    "createDialog": {
+      "selectType": "Select Topic Type",
+      "configTopic": "Create Research Topic",
+      "selectTypeHint": "Choose a topic type to start your research",
+      "configHint": "Configure topic info and refresh frequency",
+      "selectTemplate": "Select Template (optional)",
+      "dimensions": "{{count}} research dimensions",
+      "topicName": "Topic Name",
+      "topicNameRequired": "Topic Name *",
+      "topicNamePlaceholder": "e.g., AI Large Language Model Industry Research",
+      "topicDesc": "Topic Description (optional)",
+      "topicDescPlaceholder": "Describe what you want to research and focus on...",
+      "refreshFrequency": "Refresh Frequency",
+      "searchTimeRange": "Search Time Range",
+      "searchTimeRangeHint": "Limit search results to a specific time period",
+      "backToType": "← Back to type selection",
+      "createFailed": "Failed to create topic"
+    },
+    "frequency": {
+      "daily": "Daily",
+      "dailyDesc": "Auto refresh every day",
+      "weekly": "Weekly",
+      "weeklyDesc": "Auto refresh every Monday",
+      "biweekly": "Biweekly",
+      "biweeklyDesc": "Refresh every two weeks",
+      "monthly": "Monthly",
+      "monthlyDesc": "Auto refresh at the start of each month",
+      "manual": "Manual",
+      "manualDesc": "Only refresh manually"
+    },
+    "timeRange": {
+      "all": "All Time",
+      "allDesc": "Search all content regardless of date",
+      "6months": "Last 6 Months",
+      "6monthsDesc": "Content from the last 6 months",
+      "1year": "Last 1 Year",
+      "1yearDesc": "Content from the last year",
+      "2years": "Last 2 Years",
+      "2yearsDesc": "Content from the last 2 years",
+      "3years": "Last 3 Years",
+      "3yearsDesc": "Content from the last 3 years",
+      "5years": "Last 5 Years",
+      "5yearsDesc": "Content from the last 5 years"
+    },
+    "contentPanel": {
+      "tabs": {
+        "report": "Research Report",
+        "collaboration": "Collaboration",
+        "references": "References",
+        "credibility": "Credibility Analysis",
+        "history": "Research History"
+      },
+      "noReport": "No report yet",
+      "noReportHint": "Click 'Refresh Now' to start research",
+      "noContent": "No content",
+      "viewMode": {
+        "continuous": "Continuous Reading",
+        "chapter": "Chapter View"
+      },
+      "export": "Export",
+      "exportPdf": "Export PDF",
+      "exportDocx": "Export Word"
+    },
+    "credibility": {
+      "title": "Source Credibility Analysis",
+      "overallScore": "Overall Credibility",
+      "sourceDistribution": "Source Distribution",
+      "categories": {
+        "government": "Government/Official",
+        "academic": "Academic Research",
+        "industry": "Industry Reports",
+        "news": "News Media",
+        "blog": "Blog/Other"
+      },
+      "coverage": {
+        "sufficient": "Sufficient",
+        "moderate": "Moderate",
+        "insufficient": "Insufficient"
+      }
+    },
+    "agents": {
+      "leader": "Research Coordinator",
+      "researcher": "Researcher",
+      "reviewer": "Reviewer",
+      "synthesizer": "Synthesizer"
+    },
+    "phases": {
+      "understanding": "Understanding Phase",
+      "searching": "Searching Phase",
+      "writing": "Writing Phase",
+      "reviewing": "Reviewing Phase",
+      "integrating": "Integrating Phase",
+      "processing": "Processing"
+    },
+    "taskStatus": {
+      "pending": "Pending",
+      "assigned": "Assigned",
+      "running": "Running",
+      "completed": "Completed",
+      "needsRevision": "Needs Revision",
+      "failed": "Failed"
+    },
+    "collaboration": {
+      "searchPlaceholder": "Search messages...",
+      "filterByAgent": "Filter by Agent",
+      "filterByDimension": "Filter by Task",
+      "allAgents": "All Agents",
+      "allDimensions": "All Tasks",
+      "noMessages": "No collaboration messages",
+      "uncategorized": "Uncategorized",
+      "otherActivities": "Other Activities"
+    },
+    "aiEdit": {
+      "rewrite": "Rewrite",
+      "rewriteDesc": "Completely regenerate content",
+      "polish": "Polish",
+      "polishDesc": "Improve language expression",
+      "expand": "Expand",
+      "expandDesc": "Add more details and examples",
+      "compress": "Compress",
+      "compressDesc": "Simplify content",
+      "style": "Style",
+      "styleDesc": "Adjust writing style",
+      "customInstruction": "Custom Instruction",
+      "styles": {
+        "academic": "Academic Style",
+        "business": "Business Style",
+        "casual": "Casual Style",
+        "technical": "Technical Style"
+      }
+    },
+    "changes": {
+      "added": "Added",
+      "modified": "Modified",
+      "deleted": "Deleted",
+      "addedContent": "Added Content",
+      "modifiedContent": "Modified Content",
+      "deletedContent": "Deleted Content",
+      "newContent": "New Content:",
+      "afterModify": "After Modification:",
+      "uncategorized": "Uncategorized Content",
+      "confirming": "Confirming...",
+      "confirmChange": "Confirm Change",
+      "confirmAll": "Confirm All"
+    },
+    "review": {
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "reviewing": "Reviewing",
+      "skipped": "Skipped",
+      "pending": "Pending Review",
+      "unassigned": "Unassigned",
+      "publishVersion": "Publish Version",
+      "publishHint": "Complete review before publishing",
+      "fetchFailed": "Failed to fetch review tasks"
+    },
+    "graph": {
+      "dimensionResearcher": "Dimension Researcher",
+      "qualityReview": "Quality Review",
+      "reportWriting": "Report Writing",
+      "planning": "Planning",
+      "review": "Review",
+      "adjust": "Adjust",
+      "intervene": "Intervene"
+    },
+    "editor": {
+      "startEditing": "Start editing chapter content..."
     }
   }
 }

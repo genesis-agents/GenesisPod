@@ -31,8 +31,15 @@ export class SearchService {
 
   /**
    * Search for real-time information using configured search API
+   * @param query - Search query string
+   * @param maxResults - Maximum number of results to return
+   * @param since - Optional date to filter results (only return results newer than this date)
    */
-  async search(query: string, maxResults: number = 5): Promise<SearchResponse> {
+  async search(
+    query: string,
+    maxResults: number = 5,
+    since?: Date,
+  ): Promise<SearchResponse> {
     // Get search API configuration from system settings
     const searchConfig = await this.getSearchConfig();
 
@@ -53,20 +60,23 @@ export class SearchService {
             query,
             searchConfig.apiKey!,
             maxResults,
+            since,
           );
         case "serper":
           return await this.searchWithSerper(
             query,
             searchConfig.apiKey!,
             maxResults,
+            since,
           );
         case "duckduckgo":
-          return await this.searchWithDuckduckgo(query, maxResults);
+          return await this.searchWithDuckduckgo(query, maxResults, since);
         default:
           return await this.searchWithTavily(
             query,
             searchConfig.apiKey!,
             maxResults,
+            since,
           );
       }
     } catch (error: any) {
@@ -217,30 +227,43 @@ export class SearchService {
     query: string,
     apiKey: string,
     maxResults: number,
+    since?: Date,
   ): Promise<SearchResponse> {
     this.logger.debug(`Searching with Tavily: "${query}"`);
 
     // Request more results for better ranking/filtering
     const requestedResults = Math.min(maxResults * 2, 20);
 
+    // ★ Calculate days parameter for time range filtering
+    let days: number | undefined;
+    if (since) {
+      const now = new Date();
+      const diffMs = now.getTime() - since.getTime();
+      days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      this.logger.debug(`Tavily: filtering results to last ${days} days`);
+    }
+
+    const requestBody: Record<string, unknown> = {
+      api_key: apiKey,
+      query,
+      max_results: requestedResults,
+      search_depth: "advanced", // Use advanced for better quality
+      include_answer: false,
+      include_raw_content: false,
+      include_domains: [], // Allow all domains for diversity
+      exclude_domains: [], // No exclusions
+    };
+
+    // ★ Add days parameter if time range is specified
+    if (days && days > 0) {
+      requestBody.days = days;
+    }
+
     const response = await firstValueFrom(
-      this.httpService.post(
-        "https://api.tavily.com/search",
-        {
-          api_key: apiKey,
-          query,
-          max_results: requestedResults,
-          search_depth: "advanced", // Use advanced for better quality
-          include_answer: false,
-          include_raw_content: false,
-          include_domains: [], // Allow all domains for diversity
-          exclude_domains: [], // No exclusions
-        },
-        {
-          headers: { "Content-Type": "application/json" },
-          timeout: 30000,
-        },
-      ),
+      this.httpService.post("https://api.tavily.com/search", requestBody, {
+        headers: { "Content-Type": "application/json" },
+        timeout: 30000,
+      }),
     );
 
     const rawResults: SearchResult[] = (response.data.results || []).map(
@@ -547,24 +570,49 @@ export class SearchService {
     query: string,
     apiKey: string,
     maxResults: number,
+    since?: Date,
   ): Promise<SearchResponse> {
     this.logger.debug(`Searching with Serper: "${query}"`);
 
+    // ★ Calculate time range for Google search (tbs parameter)
+    let tbs: string | undefined;
+    if (since) {
+      const now = new Date();
+      const diffMs = now.getTime() - since.getTime();
+      const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+      // Google tbs parameter: qdr:d (day), qdr:w (week), qdr:m (month), qdr:y (year)
+      if (days <= 1) {
+        tbs = "qdr:d";
+      } else if (days <= 7) {
+        tbs = "qdr:w";
+      } else if (days <= 30) {
+        tbs = "qdr:m";
+      } else if (days <= 365) {
+        tbs = "qdr:y";
+      }
+      // For longer periods, no tbs parameter (all time)
+      this.logger.debug(`Serper: using time filter tbs=${tbs || "all time"}`);
+    }
+
+    const requestBody: Record<string, unknown> = {
+      q: query,
+      num: maxResults,
+    };
+
+    // ★ Add time range parameter if specified
+    if (tbs) {
+      requestBody.tbs = tbs;
+    }
+
     const response = await firstValueFrom(
-      this.httpService.post(
-        "https://google.serper.dev/search",
-        {
-          q: query,
-          num: maxResults,
+      this.httpService.post("https://google.serper.dev/search", requestBody, {
+        headers: {
+          "X-API-KEY": apiKey,
+          "Content-Type": "application/json",
         },
-        {
-          headers: {
-            "X-API-KEY": apiKey,
-            "Content-Type": "application/json",
-          },
-          timeout: 30000,
-        },
-      ),
+        timeout: 30000,
+      }),
     );
 
     const results: SearchResult[] = (response.data.organic || []).map(
@@ -586,13 +634,42 @@ export class SearchService {
   private async searchWithDuckduckgo(
     query: string,
     maxResults: number,
+    since?: Date,
   ): Promise<SearchResponse> {
     this.logger.debug(`Searching with DuckDuckGo: "${query}"`);
 
     try {
-      const searchResults = await duckDuckScrape.search(query, {
+      // ★ Calculate time filter for DuckDuckGo
+      let timeFilter: duckDuckScrape.SearchTimeType | undefined;
+      if (since) {
+        const now = new Date();
+        const diffMs = now.getTime() - since.getTime();
+        const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+        if (days <= 1) {
+          timeFilter = duckDuckScrape.SearchTimeType.DAY;
+        } else if (days <= 7) {
+          timeFilter = duckDuckScrape.SearchTimeType.WEEK;
+        } else if (days <= 30) {
+          timeFilter = duckDuckScrape.SearchTimeType.MONTH;
+        } else if (days <= 365) {
+          timeFilter = duckDuckScrape.SearchTimeType.YEAR;
+        }
+        this.logger.debug(
+          `DuckDuckGo: using time filter ${timeFilter || "all time"}`,
+        );
+      }
+
+      const searchOptions: duckDuckScrape.SearchOptions = {
         safeSearch: duckDuckScrape.SafeSearchType.MODERATE,
-      });
+      };
+
+      // ★ Add time filter if specified
+      if (timeFilter) {
+        searchOptions.time = timeFilter;
+      }
+
+      const searchResults = await duckDuckScrape.search(query, searchOptions);
 
       if (searchResults.noResults) {
         this.logger.debug("DuckDuckGo returned no results");
