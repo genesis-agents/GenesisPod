@@ -16,7 +16,7 @@ function validateEnvConfig(): void {
   const required: string[] = ["DATABASE_URL", "JWT_SECRET"];
   const recommended: string[] = [
     "ADMIN_EMAILS",
-    // STORAGE_ADMIN_KEY 已有安全默认值，不再警告
+    "STORAGE_ADMIN_KEY",
     "FRONTEND_URL",
   ];
 
