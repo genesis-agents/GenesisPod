@@ -336,7 +336,9 @@ export class AiAskService {
       }
 
       // 判断是否使用工具调用模式
-      const useTools = dto.enableTools && this.isToolCapabilityAvailable();
+      // ★ webSearch 也需要启用工具调用模式，因为搜索是通过工具实现的
+      const useTools =
+        (dto.enableTools || dto.webSearch) && this.isToolCapabilityAvailable();
 
       if (useTools) {
         // 使用 AgentOrchestrator 进行工具调用
