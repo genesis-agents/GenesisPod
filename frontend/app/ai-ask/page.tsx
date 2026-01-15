@@ -18,6 +18,7 @@ import { CollapsibleRagSources } from '@/components/ui/CollapsibleRagSources';
 import MermaidDiagram from '@/components/ui/MermaidDiagram';
 import { useThemeStore } from '@/stores/themeStore';
 import { useI18n } from '@/lib/i18n/i18n-context';
+import { sanitizeSvg } from '@/lib/utils/sanitize';
 
 // Inspirational quotes data with bilingual support
 interface Quote {
@@ -694,10 +695,8 @@ function isSvgCode(code: string, language?: string): boolean {
 
 // SVG Renderer component
 function SvgRenderer({ svgCode }: { svgCode: string }) {
-  // Sanitize SVG to prevent XSS - only allow safe SVG elements and attributes
-  const sanitizedSvg = svgCode
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
-    .replace(/on\w+\s*=/gi, 'data-removed='); // Remove event handlers
+  // Use DOMPurify for comprehensive XSS protection
+  const sanitizedSvg = sanitizeSvg(svgCode);
 
   return (
     <div className="my-4 overflow-x-auto rounded-lg border border-gray-200 bg-white p-4">

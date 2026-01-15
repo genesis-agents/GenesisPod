@@ -52,6 +52,7 @@ import type {
   SLIDES_TEAM_AGENTS,
 } from '@/types/slides-team';
 import type { PageState, GenerationProgress } from '@/types/slides';
+import { sanitizeSlideHtml } from '@/lib/utils/sanitize';
 
 // ============================================
 // Agent 图标映射
@@ -199,7 +200,7 @@ function SlidePreview({
       <div
         className="h-full w-full origin-top-left scale-[0.25] transform bg-gray-900"
         style={{ width: '400%', height: '400%' }}
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={{ __html: sanitizeSlideHtml(html) }}
       />
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
         <div className="flex items-center justify-between">
@@ -692,7 +693,9 @@ export default function SlidesPage() {
                   {/* 幻灯片内容 */}
                   <div
                     className="aspect-video w-full overflow-hidden rounded-xl bg-gray-900 shadow-2xl"
-                    dangerouslySetInnerHTML={{ __html: currentPage.html }}
+                    dangerouslySetInnerHTML={{
+                      __html: sanitizeSlideHtml(currentPage.html),
+                    }}
                   />
 
                   {/* 页码指示 */}

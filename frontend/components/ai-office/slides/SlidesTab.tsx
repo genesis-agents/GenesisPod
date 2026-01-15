@@ -80,6 +80,7 @@ import {
 } from '@/stores/slidesHistoryStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
+import { sanitizeSlideHtml } from '@/lib/utils/sanitize';
 import {
   ThemeSelector,
   SLIDE_THEMES,
@@ -3119,7 +3120,7 @@ function ThumbnailCard({
             width: '1000%',
             height: '1000%',
           }}
-          dangerouslySetInnerHTML={{ __html: page.html }}
+          dangerouslySetInnerHTML={{ __html: sanitizeSlideHtml(page.html) }}
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">

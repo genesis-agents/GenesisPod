@@ -1421,38 +1421,102 @@ export class ResearchLeaderService {
       .replace("{focusAreas}", focusAreas)
       .replace("{evidenceSummary}", evidenceSummary);
 
-    const startTime = Date.now();
-    const response = await this.aiFacade.chat({
-      messages: [
-        {
-          role: "system",
-          content:
-            "你是研究协调专家 Leader，负责规划维度分析大纲。请输出 JSON 格式。",
-        },
-        { role: "user", content: prompt },
-      ],
-      model: leaderModel.modelId,
-      taskProfile: {
-        creativity: "medium",
-        outputLength: "long", // 大纲不需要太长
-      },
-    });
-    const latencyMs = Date.now() - startTime;
+    // ★ 添加重试机制，处理 API 临时故障
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 2000;
+    let lastError: Error | null = null;
 
-    const outline = this.extractJsonFromResponse<DimensionOutline>(
-      response.content,
-    );
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const startTime = Date.now();
+        const response = await this.aiFacade.chat({
+          messages: [
+            {
+              role: "system",
+              content:
+                "你是研究协调专家 Leader，负责规划维度分析大纲。请输出 JSON 格式。",
+            },
+            { role: "user", content: prompt },
+          ],
+          model: leaderModel.modelId,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "long",
+          },
+        });
+        const latencyMs = Date.now() - startTime;
 
-    if (!outline || !outline.sections || outline.sections.length === 0) {
-      this.logger.error("[planDimensionOutline] Failed to parse outline");
-      throw new Error("Failed to parse dimension outline");
+        // ★ 关键修复：检查 API 是否返回了错误
+        if (response.isError) {
+          this.logger.warn(
+            `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: API returned error: ${response.content.slice(0, 200)}`,
+          );
+          lastError = new Error(`API error: ${response.content.slice(0, 100)}`);
+          if (attempt < MAX_RETRIES) {
+            await this.delay(RETRY_DELAY_MS * attempt);
+            continue;
+          }
+        }
+
+        // ★ 检测是否返回了 HTML 错误页面（API 故障特征）
+        if (
+          response.content.includes("<!DOCTYPE") ||
+          response.content.includes("<html")
+        ) {
+          this.logger.warn(
+            `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: API returned HTML error page, retrying...`,
+          );
+          lastError = new Error("API returned HTML error page instead of JSON");
+          if (attempt < MAX_RETRIES) {
+            await this.delay(RETRY_DELAY_MS * attempt);
+            continue;
+          }
+        }
+
+        const outline = this.extractJsonFromResponse<DimensionOutline>(
+          response.content,
+        );
+
+        if (!outline || !outline.sections || outline.sections.length === 0) {
+          this.logger.warn(
+            `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: Failed to parse JSON, retrying...`,
+          );
+          lastError = new Error("Failed to parse dimension outline JSON");
+          if (attempt < MAX_RETRIES) {
+            await this.delay(RETRY_DELAY_MS * attempt);
+            continue;
+          }
+        } else {
+          // ★ 成功
+          this.logger.log(
+            `[planDimensionOutline] Created outline with ${outline.sections.length} sections in ${latencyMs}ms (attempt ${attempt})`,
+          );
+          return outline;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES} failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
+        lastError =
+          error instanceof Error ? error : new Error("Unknown API error");
+        if (attempt < MAX_RETRIES) {
+          await this.delay(RETRY_DELAY_MS * attempt);
+        }
+      }
     }
 
-    this.logger.log(
-      `[planDimensionOutline] Created outline with ${outline.sections.length} sections in ${latencyMs}ms`,
+    // ★ 所有重试都失败
+    this.logger.error(
+      `[planDimensionOutline] All ${MAX_RETRIES} attempts failed for dimension: ${dimension.name}`,
     );
+    throw new Error(
+      `Failed to parse dimension outline after ${MAX_RETRIES} attempts: ${lastError?.message || "Unknown error"}`,
+    );
+  }
 
-    return outline;
+  /** 延迟函数 */
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**

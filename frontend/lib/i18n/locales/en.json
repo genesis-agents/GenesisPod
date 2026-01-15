@@ -47,6 +47,7 @@
     "aiExplore": "AI Explore",
     "myLibrary": "My Library",
     "aiStudio": "AI Research",
+    "aiResearch": "AI Research",
     "aiTeams": "AI Teams",
     "myTeams": "My Teams",
     "aiOffice": "AI Office",
@@ -1448,11 +1449,12 @@
     },
     "contentPanel": {
       "tabs": {
-        "report": "Research Report",
-        "collaboration": "Collaboration",
-        "references": "References",
-        "credibility": "Credibility Analysis",
-        "history": "Research History"
+        "todoList": "TODO LIST",
+        "collaboration": "Activity",
+        "report": "Insights Report",
+        "history": "History",
+        "credibility": "Credibility",
+        "references": "References"
       },
       "noReport": "No report yet",
       "noReportHint": "Click 'Refresh Now' to start research",

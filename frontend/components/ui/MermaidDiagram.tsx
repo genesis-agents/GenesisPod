@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useMermaidWorker } from '@/hooks/useMermaidWorker';
+import { sanitizeSvg } from '@/lib/utils/sanitize';
 
 interface MermaidDiagramProps {
   chart: string;
@@ -205,7 +206,7 @@ export default function MermaidDiagram({
   return (
     <div
       className={`mermaid-diagram overflow-x-auto rounded-lg bg-white p-4 ${className}`}
-      dangerouslySetInnerHTML={{ __html: svg || '' }}
+      dangerouslySetInnerHTML={{ __html: sanitizeSvg(svg || '') }}
     />
   );
 }

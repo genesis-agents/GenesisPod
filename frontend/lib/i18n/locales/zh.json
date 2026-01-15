@@ -47,6 +47,7 @@
     "aiExplore": "AI 探索",
     "myLibrary": "我的知识库",
     "aiStudio": "AI 研究",
+    "aiResearch": "AI 研究",
     "aiTeams": "AI 团队",
     "myTeams": "我的团队",
     "aiOffice": "AI 办公",
@@ -1448,11 +1449,12 @@
     },
     "contentPanel": {
       "tabs": {
-        "report": "研究报告",
+        "todoList": "TODO LIST",
         "collaboration": "协作动态",
-        "references": "参考文献",
-        "credibility": "可信度分析",
-        "history": "研究历史"
+        "report": "洞察报告",
+        "history": "研究历史",
+        "credibility": "可信度",
+        "references": "参考文献"
       },
       "noReport": "暂无报告",
       "noReportHint": "点击「立即刷新」开始研究",

@@ -12,6 +12,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { useTranslation } from '@/lib/i18n';
 import type {
   TopicReport,
   TopicDimension,
@@ -360,6 +361,8 @@ export function TopicContentPanel({
   topicId,
   onDeleteReport,
 }: TopicContentPanelProps) {
+  const { t } = useTranslation();
+
   // Get persisted team data from store
   const {
     teamMessages: persistedMessages,
@@ -548,7 +551,7 @@ export function TopicContentPanel({
   }[] = [
     {
       key: 'research_collab',
-      label: 'TODO LIST',
+      label: t('topicResearch.contentPanel.tabs.todoList'),
       icon: (
         <svg
           className="h-4 w-4"
@@ -567,28 +570,28 @@ export function TopicContentPanel({
     },
     {
       key: 'collaboration',
-      label: '协作动态',
+      label: t('topicResearch.contentPanel.tabs.collaboration'),
       icon: <TeamIcon className="h-4 w-4" />,
       badge: safeEvents.length > 0 ? safeEvents.length : undefined,
     },
     {
       key: 'report',
-      label: '洞察报告',
+      label: t('topicResearch.contentPanel.tabs.report'),
       icon: <DocumentIcon className="h-4 w-4" />,
     },
     {
       key: 'history',
-      label: '研究历史',
+      label: t('topicResearch.contentPanel.tabs.history'),
       icon: <HistoryIcon className="h-4 w-4" />,
     },
     {
       key: 'credibility',
-      label: '可信度',
+      label: t('topicResearch.contentPanel.tabs.credibility'),
       icon: <CredibilityIcon className="h-4 w-4" />,
     },
     {
       key: 'references',
-      label: '参考文献',
+      label: t('topicResearch.contentPanel.tabs.references'),
       icon: <LinkIcon className="h-4 w-4" />,
       badge: safeEvidence.length,
     },
