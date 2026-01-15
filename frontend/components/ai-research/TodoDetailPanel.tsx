@@ -69,6 +69,11 @@ export function TodoDetailPanel({
     new Set()
   );
 
+  // ★ 修复闪烁问题：使用 initialTodo.id 作为依赖，而不是整个对象
+  // 整个对象作为依赖会导致每次父组件渲染时 useEffect 都重新执行
+  const initialTodoId = initialTodo?.id;
+  const initialTodoTopicId = initialTodo?.topicId;
+
   useEffect(() => {
     // 如果已有 initialTodo，先设置基础数据
     if (initialTodo) {
@@ -83,7 +88,7 @@ export function TodoDetailPanel({
       setError(null);
 
       // 判断数据来源：apiTodos 的记录有 topicId，convertedTodos 的 topicId 为空
-      const isFromApiTodos = initialTodo?.topicId && initialTodo.topicId !== '';
+      const isFromApiTodos = initialTodoTopicId && initialTodoTopicId !== '';
 
       try {
         if (isFromApiTodos) {
@@ -97,7 +102,7 @@ export function TodoDetailPanel({
             const taskResponse = await getTaskActivities(topicId, todoId);
             setActivities(taskResponse.activities || []);
             // 如果没有 initialTodo，用返回的 task 数据
-            if (!initialTodo && taskResponse.task) {
+            if (!initialTodoId && taskResponse.task) {
               // ★ 转换 task 数据为 todo 格式
               // 状态映射
               const statusMap: Record<string, string> = {
@@ -161,7 +166,7 @@ export function TodoDetailPanel({
         }
       } catch (err) {
         // 所有尝试都失败
-        if (!initialTodo) {
+        if (!initialTodoId) {
           setError(
             err instanceof Error ? err.message : 'Failed to load details'
           );
@@ -174,7 +179,9 @@ export function TodoDetailPanel({
     };
 
     void loadDetails();
-  }, [topicId, todoId, initialTodo]);
+    // ★ 只依赖 ID，不依赖整个对象，避免无限循环
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topicId, todoId, initialTodoId, initialTodoTopicId]);
 
   const toggleActivity = (activityId: string) => {
     setExpandedActivities((prev) => {
@@ -213,7 +220,7 @@ export function TodoDetailPanel({
           className
         )}
       >
-        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -227,7 +234,7 @@ export function TodoDetailPanel({
         )}
       >
         <AlertCircle className="mb-4 h-10 w-10 text-red-500" />
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-muted-foreground">
           {error || '无法加载详情'}
         </p>
         <Button variant="outline" size="sm" onClick={onClose} className="mt-4">
@@ -258,7 +265,7 @@ export function TodoDetailPanel({
               {STATUS_LABELS[todo.status]}
             </span>
             {todo.progress > 0 && todo.progress < 100 && (
-              <span className="text-muted-foreground text-xs">
+              <span className="text-xs text-muted-foreground">
                 {todo.progress}%
               </span>
             )}
@@ -275,7 +282,7 @@ export function TodoDetailPanel({
           )}
 
           {todo.statusMessage && todo.status !== 'FAILED' && (
-            <p className="text-muted-foreground text-xs">
+            <p className="text-xs text-muted-foreground">
               {todo.statusMessage}
             </p>
           )}
@@ -296,7 +303,7 @@ export function TodoDetailPanel({
             {todo.result?.error &&
               todo.statusMessage &&
               todo.result.error !== todo.statusMessage && (
-                <p className="text-muted-foreground mt-1 text-xs">
+                <p className="mt-1 text-xs text-muted-foreground">
                   详情: {todo.statusMessage}
                 </p>
               )}
@@ -306,11 +313,11 @@ export function TodoDetailPanel({
         {/* Agent Info */}
         {todo.agentName && (
           <div className="flex items-center gap-2 text-sm">
-            <User className="text-muted-foreground h-4 w-4" />
+            <User className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">执行者:</span>
             <span className="font-medium">{todo.agentName}</span>
             {todo.agentRole && (
-              <span className="text-muted-foreground text-xs">
+              <span className="text-xs text-muted-foreground">
                 ({todo.agentRole})
               </span>
             )}
@@ -321,7 +328,7 @@ export function TodoDetailPanel({
         <div className="space-y-1 text-sm">
           {todo.startedAt && (
             <div className="flex items-center gap-2">
-              <Clock className="text-muted-foreground h-4 w-4" />
+              <Clock className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">开始时间:</span>
               <span>{formatTimestamp(todo.startedAt)}</span>
             </div>
@@ -335,7 +342,7 @@ export function TodoDetailPanel({
           )}
           {todo.actualMs && (
             <div className="flex items-center gap-2">
-              <Clock className="text-muted-foreground h-4 w-4" />
+              <Clock className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">耗时:</span>
               <span>{formatDuration(todo.actualMs)}</span>
             </div>
@@ -350,17 +357,17 @@ export function TodoDetailPanel({
               结果
             </div>
             {todo.result.sourcesFound !== undefined && (
-              <p className="text-muted-foreground text-sm">
+              <p className="text-sm text-muted-foreground">
                 找到 {todo.result.sourcesFound} 条来源
               </p>
             )}
             {todo.result.wordCount !== undefined && (
-              <p className="text-muted-foreground text-sm">
+              <p className="text-sm text-muted-foreground">
                 生成 {todo.result.wordCount} 字
               </p>
             )}
             {todo.result.keyFindings !== undefined && (
-              <p className="text-muted-foreground text-sm">
+              <p className="text-sm text-muted-foreground">
                 发现 {todo.result.keyFindings} 个关键发现
               </p>
             )}
@@ -391,7 +398,7 @@ export function TodoDetailPanel({
                       className="flex w-full items-center justify-between p-3 text-left hover:bg-gray-50"
                     >
                       <div className="flex min-w-0 items-center gap-2">
-                        <span className="text-muted-foreground shrink-0 text-xs">
+                        <span className="shrink-0 text-xs text-muted-foreground">
                           {formatTimestamp(activity.createdAt)}
                         </span>
                         <span className="truncate text-sm font-medium">
@@ -399,15 +406,15 @@ export function TodoDetailPanel({
                         </span>
                       </div>
                       {isExpanded ? (
-                        <ChevronUp className="text-muted-foreground h-4 w-4 shrink-0" />
+                        <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
                       ) : (
-                        <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0" />
+                        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                       )}
                     </button>
 
                     {isExpanded && (
                       <div className="space-y-2 px-3 pb-3">
-                        <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <span className="rounded bg-gray-100 px-1.5 py-0.5">
                             {activity.activityType}
                           </span>
@@ -424,7 +431,7 @@ export function TodoDetailPanel({
                           {activity.content}
                         </p>
                         {activity.dimensionName && (
-                          <div className="text-muted-foreground text-xs">
+                          <div className="text-xs text-muted-foreground">
                             维度: {activity.dimensionName}
                           </div>
                         )}
@@ -450,7 +457,7 @@ export function TodoDetailPanel({
 
         {/* Empty state for activities */}
         {activities.length === 0 && (
-          <div className="text-muted-foreground py-6 text-center">
+          <div className="py-6 text-center text-muted-foreground">
             <Brain className="mx-auto mb-2 h-8 w-8 opacity-50" />
             <p className="text-sm">暂无 Agent 活动记录</p>
           </div>
