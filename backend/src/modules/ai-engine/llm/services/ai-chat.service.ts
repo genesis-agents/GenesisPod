@@ -39,6 +39,7 @@ export interface ChatCompletionResult {
 
 /**
  * 数据库中的 AI 模型配置
+ * ★ 所有模型行为完全由数据库配置驱动，消除硬编码
  */
 export interface AIModelConfig {
   id: string;
@@ -52,7 +53,19 @@ export interface AIModelConfig {
   temperature: number;
   isEnabled: boolean;
   isDefault: boolean;
-  isReasoning?: boolean; // 是否为推理模型 (o1, o3, gpt-5, deepseek-r1) - 可选，兼容旧数据库
+
+  // ★ 模型能力配置 - 完全由数据库驱动
+  isReasoning?: boolean; // 是否为推理模型
+  apiFormat?: string; // API 格式: openai, anthropic, google, xai
+  supportsTemperature?: boolean; // 是否支持 temperature 参数
+  supportsStreaming?: boolean; // 是否支持流式输出
+  supportsFunctionCalling?: boolean; // 是否支持函数调用
+  supportsVision?: boolean; // 是否支持视觉输入
+  tokenParamName?: string; // token 参数名: max_tokens 或 max_completion_tokens
+  defaultTimeoutMs?: number; // 默认超时时间
+  priceInputPerMillion?: number; // 输入价格
+  priceOutputPerMillion?: number; // 输出价格
+  priority?: number; // 模型优先级
 }
 
 @Injectable()
@@ -114,6 +127,61 @@ export class AiChatService {
   // ==================== 数据库配置读取 ====================
 
   /**
+   * 从数据库模型构建 AIModelConfig
+   * ★ 统一处理所有字段，兼容新旧数据库
+   */
+  private buildModelConfig(model: any): AIModelConfig {
+    const modelAny = model as any;
+    const isReasoning =
+      modelAny.isReasoning ?? this.inferIsReasoning(model.modelId);
+
+    return {
+      id: model.id,
+      name: model.name,
+      displayName: model.displayName,
+      provider: model.provider,
+      modelId: model.modelId,
+      apiEndpoint: model.apiEndpoint,
+      apiKey: model.apiKey,
+      maxTokens: model.maxTokens,
+      temperature: model.temperature,
+      isEnabled: model.isEnabled,
+      isDefault: model.isDefault,
+
+      // ★ 模型能力配置 - 优先使用数据库值，否则根据 isReasoning 推断
+      isReasoning,
+      apiFormat: modelAny.apiFormat ?? this.inferApiFormat(model.provider),
+      supportsTemperature: modelAny.supportsTemperature ?? !isReasoning,
+      supportsStreaming: modelAny.supportsStreaming ?? true,
+      supportsFunctionCalling: modelAny.supportsFunctionCalling ?? true,
+      supportsVision: modelAny.supportsVision ?? false,
+      tokenParamName:
+        modelAny.tokenParamName ??
+        (isReasoning ? "max_completion_tokens" : "max_tokens"),
+      defaultTimeoutMs:
+        modelAny.defaultTimeoutMs ?? (isReasoning ? 300000 : 120000),
+      priceInputPerMillion: modelAny.priceInputPerMillion
+        ? Number(modelAny.priceInputPerMillion)
+        : undefined,
+      priceOutputPerMillion: modelAny.priceOutputPerMillion
+        ? Number(modelAny.priceOutputPerMillion)
+        : undefined,
+      priority: modelAny.priority ?? 50,
+    };
+  }
+
+  /**
+   * 根据 provider 推断 API 格式
+   */
+  private inferApiFormat(provider: string): string {
+    const lower = provider.toLowerCase();
+    if (lower === "anthropic" || lower === "claude") return "anthropic";
+    if (lower === "google" || lower === "gemini") return "google";
+    if (lower === "xai" || lower === "grok") return "xai";
+    return "openai"; // 默认使用 OpenAI 兼容格式
+  }
+
+  /**
    * 刷新模型配置缓存
    * 从数据库加载所有启用的 CHAT 模型配置
    */
@@ -128,23 +196,7 @@ export class AiChatService {
 
       this.modelConfigCache.clear();
       for (const model of models) {
-        // 构建配置对象，兼容数据库字段可能不存在的情况
-        const config: AIModelConfig = {
-          id: model.id,
-          name: model.name,
-          displayName: model.displayName,
-          provider: model.provider,
-          modelId: model.modelId,
-          apiEndpoint: model.apiEndpoint,
-          apiKey: model.apiKey,
-          maxTokens: model.maxTokens,
-          temperature: model.temperature,
-          isEnabled: model.isEnabled,
-          isDefault: model.isDefault,
-          // isReasoning: 优先用数据库字段，否则根据模型名称推断
-          isReasoning:
-            (model as any).isReasoning ?? this.inferIsReasoning(model.modelId),
-        };
+        const config = this.buildModelConfig(model);
         // 使用 modelId 作为主键（如 "gpt-4o", "gemini-2.0-flash"）
         this.modelConfigCache.set(model.modelId, config);
         // 同时使用 name 作为别名（如 "grok", "claude"）
@@ -249,21 +301,8 @@ export class AiChatService {
       });
 
       if (model) {
-        const config: AIModelConfig = {
-          id: model.id,
-          name: model.name,
-          displayName: model.displayName,
-          provider: model.provider,
-          modelId: model.modelId,
-          apiEndpoint: model.apiEndpoint,
-          apiKey: model.apiKey,
-          maxTokens: model.maxTokens,
-          temperature: model.temperature,
-          isEnabled: model.isEnabled,
-          isDefault: model.isDefault,
-          isReasoning:
-            (model as any).isReasoning ?? this.inferIsReasoning(model.modelId),
-        };
+        // ★ 使用统一的 buildModelConfig 方法
+        const config = this.buildModelConfig(model);
         this.modelConfigCache.set(modelId, config);
         return config;
       }
@@ -1113,7 +1152,16 @@ export class AiChatService {
     temperature?: number,
     optionStrictMode?: boolean,
   ): Promise<ChatCompletionResult> {
-    const { provider, modelId, apiEndpoint, apiKey, isReasoning } = config;
+    const { modelId, apiEndpoint, apiKey, provider } = config;
+
+    // ★ 完全使用数据库配置，无需硬编码
+    const apiFormat = config.apiFormat || "openai";
+    const supportsTemp = config.supportsTemperature ?? true;
+    const isReasoning = config.isReasoning ?? false;
+    // 优先使用配置的超时，否则使用计算的超时
+    const timeout =
+      config.defaultTimeoutMs || this.getTimeoutForModel(modelId, maxTokens);
+
     // 优先使用参数级别的 strictMode，否则使用实例级别的设置
     const useStrictMode = optionStrictMode ?? this.strictMode;
 
@@ -1131,21 +1179,18 @@ export class AiChatService {
       };
     }
 
-    // ★ 自适应：推理模型不支持 temperature 参数
-    // 完全基于数据库配置的 isReasoning 字段，无需硬编码模型名称
-    const effectiveTemperature = isReasoning ? undefined : temperature;
+    // ★ 自适应：根据数据库配置决定是否发送 temperature
+    const effectiveTemperature = supportsTemp ? temperature : undefined;
 
-    if (isReasoning && temperature !== undefined) {
+    if (!supportsTemp && temperature !== undefined) {
       this.logger.debug(
-        `[callAPIWithConfig] Model ${modelId} is reasoning model (isReasoning=true), ignoring temperature=${temperature}`,
+        `[callAPIWithConfig] Model ${modelId} does not support temperature (supportsTemperature=false), ignoring temperature=${temperature}`,
       );
     }
 
-    const apiFormat = this.getApiFormatForProvider(provider);
-    const timeout = this.getTimeoutForModel(modelId, maxTokens);
     this.logger.debug(
-      `[callAPIWithConfig] Calling ${provider} API (format: ${apiFormat}) with model: ${modelId}, ` +
-        `isReasoning: ${isReasoning}, effectiveTemp: ${effectiveTemperature}, timeout: ${timeout}ms`,
+      `[callAPIWithConfig] Calling API: model=${modelId}, format=${apiFormat}, ` +
+        `supportsTemp=${supportsTemp}, isReasoning=${isReasoning}, timeout=${timeout}ms`,
     );
 
     try {

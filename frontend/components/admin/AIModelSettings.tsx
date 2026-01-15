@@ -86,6 +86,17 @@ interface AIModel {
   // Embedding 模型专用参数
   embeddingDimensions?: number;
   maxInputTokens?: number;
+  // ★ 模型能力配置 - 消除硬编码，完全由数据库驱动
+  apiFormat?: string; // openai | anthropic | google | xai
+  supportsTemperature?: boolean;
+  supportsStreaming?: boolean;
+  supportsFunctionCalling?: boolean;
+  supportsVision?: boolean;
+  tokenParamName?: string; // max_tokens | max_completion_tokens
+  defaultTimeoutMs?: number;
+  priceInputPerMillion?: number;
+  priceOutputPerMillion?: number;
+  priority?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -525,6 +536,17 @@ export default function AIModelSettings() {
         temperature: model.temperature,
         description: model.description,
         isReasoning: model.isReasoning,
+        // ★ 新增：模型能力配置字段
+        apiFormat: model.apiFormat,
+        supportsTemperature: model.supportsTemperature,
+        supportsStreaming: model.supportsStreaming,
+        supportsFunctionCalling: model.supportsFunctionCalling,
+        supportsVision: model.supportsVision,
+        tokenParamName: model.tokenParamName,
+        defaultTimeoutMs: model.defaultTimeoutMs,
+        priceInputPerMillion: model.priceInputPerMillion,
+        priceOutputPerMillion: model.priceOutputPerMillion,
+        priority: model.priority,
       };
 
       // Only send apiKey if it was changed
@@ -959,6 +981,50 @@ export default function AIModelSettings() {
                   }`}
                 >
                   {model.isReasoning ? '是' : '否'}
+                </span>
+              </div>
+              {/* ★ 模型能力配置显示 */}
+              <div className="flex justify-between">
+                <span className="text-gray-500">API 格式:</span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                  {model.apiFormat || 'openai'}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {model.supportsTemperature !== false && (
+                  <span
+                    className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700"
+                    title="支持 temperature"
+                  >
+                    T
+                  </span>
+                )}
+                {model.supportsStreaming !== false && (
+                  <span
+                    className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700"
+                    title="支持流式"
+                  >
+                    S
+                  </span>
+                )}
+                {model.supportsFunctionCalling !== false && (
+                  <span
+                    className="rounded bg-purple-100 px-1.5 py-0.5 text-xs text-purple-700"
+                    title="支持函数调用"
+                  >
+                    F
+                  </span>
+                )}
+                {model.supportsVision && (
+                  <span
+                    className="rounded bg-pink-100 px-1.5 py-0.5 text-xs text-pink-700"
+                    title="支持视觉"
+                  >
+                    V
+                  </span>
+                )}
+                <span className="ml-auto text-xs text-gray-400">
+                  优先级: {model.priority ?? 50}
                 </span>
               </div>
             </div>
@@ -1627,6 +1693,196 @@ function EditModelModal({
             </div>
           </details>
 
+          {/* ★ 模型能力配置 - 新增部分 */}
+          <details className="rounded-lg border border-cyan-200 bg-cyan-50">
+            <summary className="cursor-pointer px-4 py-2 text-sm font-semibold text-cyan-800 hover:bg-cyan-100">
+              能力配置（自适应参数）
+            </summary>
+            <div className="space-y-3 border-t border-cyan-200 p-4">
+              {/* API 格式 */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  API 格式
+                </label>
+                <select
+                  value={formData.apiFormat || 'openai'}
+                  onChange={(e) =>
+                    setFormData({ ...formData, apiFormat: e.target.value })
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="openai">OpenAI 格式</option>
+                  <option value="anthropic">Anthropic 格式</option>
+                  <option value="google">Google 格式</option>
+                  <option value="xai">xAI 格式</option>
+                </select>
+              </div>
+
+              {/* Token 参数名称 */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Token 参数名称
+                </label>
+                <select
+                  value={formData.tokenParamName || 'max_tokens'}
+                  onChange={(e) =>
+                    setFormData({ ...formData, tokenParamName: e.target.value })
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="max_tokens">max_tokens（标准模型）</option>
+                  <option value="max_completion_tokens">
+                    max_completion_tokens（推理模型）
+                  </option>
+                </select>
+              </div>
+
+              {/* 超时时间和优先级 */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    超时时间 (ms)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.defaultTimeoutMs || 120000}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        defaultTimeoutMs: parseInt(e.target.value),
+                      })
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    优先级
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.priority ?? 50}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        priority: parseInt(e.target.value),
+                      })
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* 能力开关 */}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 p-2 hover:bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={formData.supportsTemperature !== false}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        supportsTemperature: e.target.checked,
+                      })
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                  />
+                  <span className="text-sm">支持 Temperature</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 p-2 hover:bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={formData.supportsStreaming !== false}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        supportsStreaming: e.target.checked,
+                      })
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                  />
+                  <span className="text-sm">支持流式输出</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 p-2 hover:bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={formData.supportsFunctionCalling !== false}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        supportsFunctionCalling: e.target.checked,
+                      })
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                  />
+                  <span className="text-sm">支持函数调用</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 p-2 hover:bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={formData.supportsVision === true}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        supportsVision: e.target.checked,
+                      })
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                  />
+                  <span className="text-sm">支持视觉/图像</span>
+                </label>
+              </div>
+
+              {/* 价格配置 */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    输入价格 ($/M tokens)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.priceInputPerMillion || ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        priceInputPerMillion: e.target.value
+                          ? parseFloat(e.target.value)
+                          : undefined,
+                      })
+                    }
+                    placeholder="例: 2.50"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    输出价格 ($/M tokens)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.priceOutputPerMillion || ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        priceOutputPerMillion: e.target.value
+                          ? parseFloat(e.target.value)
+                          : undefined,
+                      })
+                    }
+                    placeholder="例: 10.00"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </details>
+
           <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={onClose}
@@ -1679,6 +1935,17 @@ function AddModelModal({
     maxTokens: 4096,
     temperature: 0.7,
     description: '',
+    // ★ 新增：模型能力配置字段
+    apiFormat: 'openai' as string,
+    supportsTemperature: true,
+    supportsStreaming: true,
+    supportsFunctionCalling: true,
+    supportsVision: false,
+    tokenParamName: 'max_tokens' as string,
+    defaultTimeoutMs: 120000,
+    priceInputPerMillion: undefined as number | undefined,
+    priceOutputPerMillion: undefined as number | undefined,
+    priority: 50,
   });
   const [showApiKey, setShowApiKey] = useState(false);
   const [workerCount, setWorkerCount] = useState(1); // 默认创建1个
@@ -2017,6 +2284,196 @@ function AddModelModal({
                   rows={2}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
+              </div>
+            </div>
+          </details>
+
+          {/* ★ 模型能力配置 - 新增部分 */}
+          <details className="rounded-lg border border-cyan-200 bg-cyan-50">
+            <summary className="cursor-pointer px-4 py-2 text-sm font-semibold text-cyan-800 hover:bg-cyan-100">
+              能力配置（自适应参数）
+            </summary>
+            <div className="space-y-3 border-t border-cyan-200 p-4">
+              {/* API 格式 */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  API 格式
+                </label>
+                <select
+                  value={formData.apiFormat || 'openai'}
+                  onChange={(e) =>
+                    setFormData({ ...formData, apiFormat: e.target.value })
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="openai">OpenAI 格式</option>
+                  <option value="anthropic">Anthropic 格式</option>
+                  <option value="google">Google 格式</option>
+                  <option value="xai">xAI 格式</option>
+                </select>
+              </div>
+
+              {/* Token 参数名称 */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Token 参数名称
+                </label>
+                <select
+                  value={formData.tokenParamName || 'max_tokens'}
+                  onChange={(e) =>
+                    setFormData({ ...formData, tokenParamName: e.target.value })
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="max_tokens">max_tokens（标准模型）</option>
+                  <option value="max_completion_tokens">
+                    max_completion_tokens（推理模型）
+                  </option>
+                </select>
+              </div>
+
+              {/* 超时时间和优先级 */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    超时时间 (ms)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.defaultTimeoutMs || 120000}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        defaultTimeoutMs: parseInt(e.target.value),
+                      })
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    优先级
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.priority ?? 50}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        priority: parseInt(e.target.value),
+                      })
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* 能力开关 */}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 p-2 hover:bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={formData.supportsTemperature !== false}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        supportsTemperature: e.target.checked,
+                      })
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                  />
+                  <span className="text-sm">支持 Temperature</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 p-2 hover:bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={formData.supportsStreaming !== false}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        supportsStreaming: e.target.checked,
+                      })
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                  />
+                  <span className="text-sm">支持流式输出</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 p-2 hover:bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={formData.supportsFunctionCalling !== false}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        supportsFunctionCalling: e.target.checked,
+                      })
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                  />
+                  <span className="text-sm">支持函数调用</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 p-2 hover:bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={formData.supportsVision === true}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        supportsVision: e.target.checked,
+                      })
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                  />
+                  <span className="text-sm">支持视觉/图像</span>
+                </label>
+              </div>
+
+              {/* 价格配置 */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    输入价格 ($/M tokens)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.priceInputPerMillion || ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        priceInputPerMillion: e.target.value
+                          ? parseFloat(e.target.value)
+                          : undefined,
+                      })
+                    }
+                    placeholder="例: 2.50"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    输出价格 ($/M tokens)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.priceOutputPerMillion || ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        priceOutputPerMillion: e.target.value
+                          ? parseFloat(e.target.value)
+                          : undefined,
+                      })
+                    }
+                    placeholder="例: 10.00"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
               </div>
             </div>
           </details>

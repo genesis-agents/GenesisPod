@@ -176,6 +176,17 @@ export class AdminController {
       temperature?: number;
       description?: string;
       isReasoning?: boolean;
+      // ★ 新增：模型能力配置字段
+      apiFormat?: string;
+      supportsTemperature?: boolean;
+      supportsStreaming?: boolean;
+      supportsFunctionCalling?: boolean;
+      supportsVision?: boolean;
+      tokenParamName?: string;
+      defaultTimeoutMs?: number;
+      priceInputPerMillion?: number;
+      priceOutputPerMillion?: number;
+      priority?: number;
     },
   ) {
     this.logger.log(
@@ -232,6 +243,17 @@ export class AdminController {
       description?: string;
       isEnabled?: boolean;
       isReasoning?: boolean;
+      // ★ 新增：模型能力配置字段
+      apiFormat?: string;
+      supportsTemperature?: boolean;
+      supportsStreaming?: boolean;
+      supportsFunctionCalling?: boolean;
+      supportsVision?: boolean;
+      tokenParamName?: string;
+      defaultTimeoutMs?: number;
+      priceInputPerMillion?: number;
+      priceOutputPerMillion?: number;
+      priority?: number;
     },
   ) {
     this.logger.log(`Admin: Updating AI model ${id}, type=${body.modelType}`);

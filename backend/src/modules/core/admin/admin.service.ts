@@ -392,6 +392,17 @@ export class AdminService {
     temperature?: number;
     description?: string;
     isReasoning?: boolean;
+    // ★ 新增：模型能力配置字段
+    apiFormat?: string;
+    supportsTemperature?: boolean;
+    supportsStreaming?: boolean;
+    supportsFunctionCalling?: boolean;
+    supportsVision?: boolean;
+    tokenParamName?: string;
+    defaultTimeoutMs?: number;
+    priceInputPerMillion?: number;
+    priceOutputPerMillion?: number;
+    priority?: number;
   }) {
     // Trim apiKey to remove any whitespace from copy-paste
     const apiKey = data.apiKey?.trim() || null;
@@ -428,6 +439,24 @@ export class AdminService {
         temperature: data.temperature ?? existingByModelId.temperature,
         description: data.description,
         isReasoning: data.isReasoning ?? existingByModelId.isReasoning,
+        // ★ 新增：模型能力配置字段
+        apiFormat: data.apiFormat ?? existingByModelId.apiFormat,
+        supportsTemperature:
+          data.supportsTemperature ?? existingByModelId.supportsTemperature,
+        supportsStreaming:
+          data.supportsStreaming ?? existingByModelId.supportsStreaming,
+        supportsFunctionCalling:
+          data.supportsFunctionCalling ??
+          existingByModelId.supportsFunctionCalling,
+        supportsVision: data.supportsVision ?? existingByModelId.supportsVision,
+        tokenParamName: data.tokenParamName ?? existingByModelId.tokenParamName,
+        defaultTimeoutMs:
+          data.defaultTimeoutMs ?? existingByModelId.defaultTimeoutMs,
+        priceInputPerMillion:
+          data.priceInputPerMillion ?? existingByModelId.priceInputPerMillion,
+        priceOutputPerMillion:
+          data.priceOutputPerMillion ?? existingByModelId.priceOutputPerMillion,
+        priority: data.priority ?? existingByModelId.priority,
       };
 
       // 只有当提供了有效的 API Key（非空、非掩码格式）才更新
@@ -477,6 +506,17 @@ export class AdminService {
         isEnabled: true,
         isDefault: false,
         isReasoning: data.isReasoning ?? false,
+        // ★ 新增：模型能力配置字段
+        apiFormat: data.apiFormat ?? "openai",
+        supportsTemperature: data.supportsTemperature ?? true,
+        supportsStreaming: data.supportsStreaming ?? true,
+        supportsFunctionCalling: data.supportsFunctionCalling ?? true,
+        supportsVision: data.supportsVision ?? false,
+        tokenParamName: data.tokenParamName ?? "max_tokens",
+        defaultTimeoutMs: data.defaultTimeoutMs ?? 120000,
+        priceInputPerMillion: data.priceInputPerMillion,
+        priceOutputPerMillion: data.priceOutputPerMillion,
+        priority: data.priority ?? 50,
       },
     });
 
@@ -511,6 +551,17 @@ export class AdminService {
       description?: string;
       isEnabled?: boolean;
       isReasoning?: boolean;
+      // ★ 新增：模型能力配置字段
+      apiFormat?: string;
+      supportsTemperature?: boolean;
+      supportsStreaming?: boolean;
+      supportsFunctionCalling?: boolean;
+      supportsVision?: boolean;
+      tokenParamName?: string;
+      defaultTimeoutMs?: number;
+      priceInputPerMillion?: number;
+      priceOutputPerMillion?: number;
+      priority?: number;
     },
   ) {
     const model = await this.prisma.aIModel.findUnique({
@@ -560,6 +611,17 @@ export class AdminService {
         description: data.description,
         isEnabled: data.isEnabled,
         isReasoning: data.isReasoning,
+        // ★ 新增：模型能力配置字段
+        apiFormat: data.apiFormat,
+        supportsTemperature: data.supportsTemperature,
+        supportsStreaming: data.supportsStreaming,
+        supportsFunctionCalling: data.supportsFunctionCalling,
+        supportsVision: data.supportsVision,
+        tokenParamName: data.tokenParamName,
+        defaultTimeoutMs: data.defaultTimeoutMs,
+        priceInputPerMillion: data.priceInputPerMillion,
+        priceOutputPerMillion: data.priceOutputPerMillion,
+        priority: data.priority,
       },
     });
 
