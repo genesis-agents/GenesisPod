@@ -47,6 +47,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     exportReport,
     sendLeaderInstruction,
     deleteReport,
+    resetTopicData,
   } = useTopicResearchStore();
 
   // WebSocket 实时事件
@@ -58,6 +59,10 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
 
   // Load initial data
   useEffect(() => {
+    // ★ 切换专题时先清空旧数据，避免显示上一个专题的脏数据
+    resetTopicData();
+
+    // 加载新专题的数据
     fetchDimensions(topic.id);
     fetchLatestReport(topic.id);
     fetchReports(topic.id); // Load all report versions for version history
@@ -66,6 +71,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     fetchTeamData(topic.id); // Load persisted team messages and agent activities
   }, [
     topic.id,
+    resetTopicData,
     fetchDimensions,
     fetchLatestReport,
     fetchReports,

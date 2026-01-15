@@ -230,6 +230,8 @@ interface TopicResearchState {
   // Actions - UI
   clearError: () => void;
   resetStore: () => void;
+  /** ★ 重置当前专题相关数据（切换专题时调用，保留 topics 列表）*/
+  resetTopicData: () => void;
 }
 
 export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
@@ -1071,6 +1073,53 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
       stats: null,
       templates: [],
       isLoadingTemplates: false,
+      comparisonResult: null,
+      todos: [],
+      todosSummary: null,
+      selectedTodoId: null,
+      isLoadingTodos: false,
+      error: null,
+    });
+  },
+
+  /**
+   * ★ 重置当前专题相关数据（切换专题时调用）
+   * 保留 topics 列表和 templates，只清空当前专题的详情数据
+   * 解决切换专题时显示旧数据的问题
+   */
+  resetTopicData: () => {
+    get().stopRefreshProgressStream();
+    get().stopMissionPolling();
+    set({
+      // 保留 topics、currentTopic、isLoadingTopics（由外层管理）
+      // 保留 templates、isLoadingTemplates（全局共享）
+      // 清空当前专题相关数据
+      dimensions: [],
+      isLoadingDimensions: false,
+      reports: [],
+      currentReport: null,
+      isLoadingReports: false,
+      hasMoreReports: false,
+      reportsCursor: null,
+      evidence: [],
+      isLoadingEvidence: false,
+      evidenceTotal: 0,
+      refreshStatus: null,
+      isRefreshing: false,
+      refreshProgress: null,
+      refreshStream: null,
+      currentMission: null,
+      missionStatus: null,
+      teamInfo: null,
+      isLoadingMission: false,
+      missionPollingInterval: null,
+      teamMessages: [],
+      agentActivities: [],
+      isLoadingTeamData: false,
+      schedule: null,
+      logs: [],
+      isLoadingLogs: false,
+      stats: null,
       comparisonResult: null,
       todos: [],
       todosSummary: null,
