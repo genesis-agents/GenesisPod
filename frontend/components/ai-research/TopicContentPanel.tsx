@@ -1662,8 +1662,10 @@ function TeamInteractionTabContent({
   // ★ AI Writing 模式：将 WebSocket 事件和持久化消息转换为 UI 消息
   const uiMessages = useMemo<UIMessage[]>(() => {
     // Convert persisted messages to UI format
-    const persistedUIMessages: UIMessage[] = safePersistedMessages.map(
-      (msg) => {
+    // ★ 过滤掉用户消息 - 用户消息不应该出现在协作动态中
+    const persistedUIMessages: UIMessage[] = safePersistedMessages
+      .filter((msg) => msg.senderRole !== 'user')
+      .map((msg) => {
         let agentIcon = '💬';
         let agentColor = 'text-gray-700';
         let agentBgColor = 'bg-gray-100';
@@ -1674,12 +1676,8 @@ function TeamInteractionTabContent({
           agentColor = 'text-purple-700';
           agentBgColor = 'bg-purple-100';
           msgType = 'leader';
-        } else if (msg.senderRole === 'user') {
-          agentIcon = '👤';
-          agentColor = 'text-blue-700';
-          agentBgColor = 'bg-blue-100';
-          msgType = 'agent';
         }
+        // ★ 用户消息已被过滤，无需处理
 
         return {
           id: `persisted-${msg.id}`,
@@ -1696,8 +1694,7 @@ function TeamInteractionTabContent({
               ? { type: 'text' as const, data: msg.content }
               : undefined,
         };
-      }
-    );
+      });
 
     // Convert WebSocket events to UI format
     const wsUIMessages: UIMessage[] = safeWsEvents.map((wsEvent, idx) => {

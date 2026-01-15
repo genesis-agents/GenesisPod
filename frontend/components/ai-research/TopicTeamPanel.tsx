@@ -162,6 +162,35 @@ export function TopicTeamPanel({
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
+  // ★ 判断任务是否正在进行中 - 同时检查 isRefreshing 和 missionStatus
+  // 这修复了一个 bug：当 isRefreshing 因为某种原因没有正确同步时，
+  // 按钮仍然可以通过检查 missionStatus 来显示正确的状态
+  const isMissionActive = useMemo(() => {
+    // 如果 isRefreshing 已经是 true，直接返回
+    if (isRefreshing) return true;
+    // 检查 missionStatus 是否表示正在进行
+    if (missionStatus) {
+      // 检查 mission 状态是否是活动状态
+      if (
+        ['PLANNING', 'EXECUTING', 'REVIEWING'].includes(missionStatus.status)
+      ) {
+        return true;
+      }
+      // 检查是否有正在执行或待处理的任务
+      if (
+        missionStatus.tasks?.some(
+          (t) =>
+            t.status === 'EXECUTING' ||
+            t.status === 'PENDING' ||
+            t.status === 'ASSIGNED'
+        )
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }, [isRefreshing, missionStatus]);
+
   // 从 missionStatus 构建 agents
   const { agents, tasksByStatus, stats } = useMemo(() => {
     const tasks = missionStatus?.tasks || [];
@@ -410,8 +439,8 @@ export function TopicTeamPanel({
           </div>
         )}
 
-        {/* Action Button */}
-        {isRefreshing ? (
+        {/* Action Button - ★ 使用 isMissionActive 而非 isRefreshing 来判断状态 */}
+        {isMissionActive ? (
           <button
             onClick={onCancelRefresh}
             className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
