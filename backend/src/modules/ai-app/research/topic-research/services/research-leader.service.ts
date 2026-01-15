@@ -601,6 +601,20 @@ export class ResearchLeaderService {
    * ★ 委托给 AIEngineFacade 处理模型选择逻辑
    */
   async getReasoningModel(): Promise<LeaderModelInfo | null> {
+    this.logger.log("[getReasoningModel] ★ Starting reasoning model selection");
+
+    // ★ 诊断：先获取所有可用模型，看看 isReasoning 状态
+    const allModels = await this.aiFacade.getAvailableModelsExtended();
+    this.logger.log(
+      `[getReasoningModel] All available models: ${JSON.stringify(
+        allModels.map((m) => ({
+          id: m.id,
+          isReasoning: m.isReasoning,
+          provider: m.provider,
+        })),
+      )}`,
+    );
+
     // 使用 AIEngineFacade 的能力获取推理模型
     const modelInfo = await this.aiFacade.getReasoningModel();
 
@@ -612,6 +626,13 @@ export class ResearchLeaderService {
     this.logger.log(
       `[getReasoningModel] AI Engine selected: ${modelInfo.id} (${modelInfo.provider}, isReasoning: ${modelInfo.isReasoning})`,
     );
+
+    // ★ 警告：如果选择的不是推理模型
+    if (!modelInfo.isReasoning) {
+      this.logger.warn(
+        `[getReasoningModel] ⚠️ WARNING: Selected model ${modelInfo.id} is NOT a reasoning model! Fallback occurred.`,
+      );
+    }
 
     return {
       modelId: modelInfo.id,
