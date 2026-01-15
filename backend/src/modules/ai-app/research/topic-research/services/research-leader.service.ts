@@ -1404,11 +1404,6 @@ export class ResearchLeaderService {
       `[planDimensionOutline] Planning outline for dimension: ${dimension.name}`,
     );
 
-    const leaderModel = await this.getReasoningModel();
-    if (!leaderModel) {
-      throw new Error("No reasoning model available for Leader");
-    }
-
     const focusAreas = Array.isArray(dimension.searchQueries)
       ? (dimension.searchQueries as string[]).join(", ")
       : "无";
@@ -1428,6 +1423,15 @@ export class ResearchLeaderService {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
+        // ★ 关键修复：每次重试时重新选择模型，让熔断器自动切换到可用模型
+        const leaderModel = await this.getReasoningModel();
+        if (!leaderModel) {
+          throw new Error("No reasoning model available for Leader");
+        }
+        this.logger.log(
+          `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: Using model ${leaderModel.modelId}`,
+        );
+
         const startTime = Date.now();
         const response = await this.aiFacade.chat({
           messages: [
@@ -1448,12 +1452,20 @@ export class ResearchLeaderService {
 
         // ★ 关键修复：检查 API 是否返回了错误
         if (response.isError) {
+          const errorContent = response.content.slice(0, 200);
           this.logger.warn(
-            `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: API returned error: ${response.content.slice(0, 200)}`,
+            `[planDimensionOutline] Attempt ${attempt}/${MAX_RETRIES}: API returned error: ${errorContent}`,
           );
+          // ★ 检测配额超限错误，这类错误切换模型后可能成功
+          const isQuotaError =
+            errorContent.includes("429") ||
+            errorContent.includes("quota") ||
+            errorContent.includes("rate limit") ||
+            errorContent.includes("temporarily unavailable");
           lastError = new Error(`API error: ${response.content.slice(0, 100)}`);
           if (attempt < MAX_RETRIES) {
-            await this.delay(RETRY_DELAY_MS * attempt);
+            // 配额错误不需要等太久，快速切换到下一个模型
+            await this.delay(isQuotaError ? 500 : RETRY_DELAY_MS * attempt);
             continue;
           }
         }
