@@ -782,6 +782,7 @@ export interface MissionStatus {
 export interface TaskStatus {
   id: string;
   title: string;
+  description?: string;
   taskType: string;
   dimensionName?: string;
   assignedAgent: string;
@@ -794,6 +795,20 @@ export interface TaskStatus {
     | 'FAILED';
   reviewStatus?: string;
   progress?: number;
+  /** 任务结果（包含成功数据或错误信息） */
+  result?: {
+    error?: string;
+    sourcesFound?: number;
+    wordCount?: number;
+    keyFindings?: number;
+    [key: string]: any;
+  };
+  /** 结果摘要 */
+  resultSummary?: string;
+  /** 开始时间 */
+  startedAt?: string;
+  /** 完成时间 */
+  completedAt?: string;
 }
 
 export interface TeamInfo {

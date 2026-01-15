@@ -84,23 +84,38 @@ function convertTaskToTodo(task: TaskStatus): ResearchTodo {
     leader_planning: 'LEADER_PLANNING' as ResearchTodoType,
   };
 
+  // ★ 修复：根据状态计算真实进度
+  // COMPLETED/FAILED = 100% (已结束), EXECUTING = 30-70% 估算, PENDING = 0%
+  let progress = task.progress || 0;
+  if (!task.progress) {
+    if (task.status === 'COMPLETED' || task.status === 'FAILED') {
+      progress = 100;
+    } else if (task.status === 'EXECUTING') {
+      progress = 30; // 执行中默认 30%（会通过实时事件更新）
+    }
+  }
+
+  // ★ 修复：构建状态消息，确保失败原因清晰显示
+  let statusMessage: string | undefined;
+  if (task.status === 'FAILED') {
+    // 失败时优先显示错误信息
+    statusMessage =
+      task.result?.error || task.resultSummary || 'Task execution failed';
+  } else if (task.resultSummary) {
+    statusMessage = task.resultSummary;
+  }
+
   return {
     id: task.id,
     topicId: '', // ★ 空字符串表示这是从 ResearchTask 转换的，不是真正的 ResearchTodo
     missionId: '',
     type: typeMap[task.taskType] || ('DIMENSION_RESEARCH' as ResearchTodoType),
     title: task.title,
-    description: task.dimensionName,
+    description: task.description || task.dimensionName,
     dimensionName: task.dimensionName,
     agentName: task.assignedAgent,
     status: statusMap[task.status] || ('PENDING' as ResearchTodoStatus),
-    progress:
-      task.progress ||
-      (task.status === 'COMPLETED'
-        ? 100
-        : task.status === 'EXECUTING'
-          ? 50
-          : 0),
+    progress,
     priority: 0,
     dependsOn: [],
     // ★ ResearchTask 不支持暂停/取消/优先级调整操作
@@ -108,8 +123,14 @@ function convertTaskToTodo(task: TaskStatus): ResearchTodo {
     userCanPause: false,
     userCanCancel: false,
     userCanPrioritize: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: task.startedAt || new Date().toISOString(),
+    updatedAt: task.completedAt || new Date().toISOString(),
+    startedAt: task.startedAt,
+    completedAt: task.completedAt,
+    // ★ 新增：传递任务结果（包含成功数据或错误信息）
+    result: task.result,
+    // ★ 新增：状态消息，用于显示失败原因
+    statusMessage,
   };
 }
 

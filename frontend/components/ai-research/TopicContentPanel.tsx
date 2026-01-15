@@ -110,6 +110,8 @@ interface UIMessage {
   timestamp: Date;
   detail?: MessageDetail; // ★ 可展开的详情
   progress?: number; // 0-100 进度
+  status?: 'success' | 'error' | 'in_progress' | 'pending'; // ★ 消息状态，用于时间线颜色
+  dimensionName?: string; // ★ 研究维度名称，用于按任务过滤
 }
 
 interface TopicContentPanelProps {
@@ -880,6 +882,12 @@ export function TopicContentPanel({
                 onAIEditChapter={async (chapterId, operation) => {
                   // TODO: Implement AI edit for chapter
                   console.log('AI Edit chapter:', chapterId, operation);
+                }}
+                // ★ 右键菜单回调 - 与连续视图保持一致
+                onAIEdit={async (operation, selection) => {
+                  // TODO: Implement AI edit functionality
+                  console.log('AI Edit:', operation, selection);
+                  return 'AI edited content';
                 }}
               />
             </div>
@@ -2000,6 +2008,10 @@ function TeamInteractionTabContent({
   const [filter, setFilter] = useState<
     'all' | 'leader' | 'researcher' | 'reviewer' | 'synthesizer'
   >('all');
+  // ★ 新增：搜索关键词
+  const [searchQuery, setSearchQuery] = useState('');
+  // ★ 新增：维度筛选（研究任务）
+  const [dimensionFilter, setDimensionFilter] = useState<string>('all');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // ★ AI Writing 模式：将 WebSocket 事件和持久化消息转换为 UI 消息
@@ -2054,6 +2066,9 @@ function TeamInteractionTabContent({
       let content = '';
       let detail: MessageDetail | undefined;
       let progress: number | undefined;
+      let status: UIMessage['status'] = undefined; // ★ 消息状态
+      let dimensionName: string | undefined =
+        (data.dimensionName as string) || undefined; // ★ 研究维度名称
 
       // 根据事件类型解析
       if (eventType.startsWith('leader:')) {
@@ -2194,6 +2209,36 @@ function TeamInteractionTabContent({
           eventType.replace(/:/g, ' ');
       }
 
+      // ★ 根据事件类型推断状态（如果尚未设置）
+      if (!status) {
+        if (
+          eventType.includes('completed') ||
+          eventType.includes('complete') ||
+          eventType.includes('success') ||
+          eventType.includes('plan_ready')
+        ) {
+          status = 'success';
+        } else if (
+          eventType.includes('failed') ||
+          eventType.includes('error') ||
+          eventType.includes('failure')
+        ) {
+          status = 'error';
+        } else if (
+          eventType.includes('started') ||
+          eventType.includes('progress') ||
+          eventType.includes('thinking') ||
+          eventType.includes('planning')
+        ) {
+          status = 'in_progress';
+        }
+      }
+
+      // ★ 从 data 中检测错误状态
+      if (data.error || data.status === 'FAILED' || data.status === 'error') {
+        status = 'error';
+      }
+
       return {
         id: msgId,
         type: msgType,
@@ -2206,6 +2251,8 @@ function TeamInteractionTabContent({
         timestamp: new Date(wsEvent.timestamp),
         detail,
         progress,
+        status,
+        dimensionName,
       };
     });
 
@@ -2215,11 +2262,56 @@ function TeamInteractionTabContent({
     return allMessages;
   }, [safeWsEvents, safePersistedMessages]);
 
-  // ★ 筛选后的消息
+  // ★ 收集所有可用的维度名称
+  const availableDimensions = useMemo(() => {
+    const dimensions = new Set<string>();
+    uiMessages.forEach((msg) => {
+      if (msg.dimensionName) {
+        dimensions.add(msg.dimensionName);
+      }
+      // 也从 agent 名称中提取维度（例如 "技术趋势研究员"）
+      if (msg.agent && msg.agent.includes('研究员')) {
+        const dimName = msg.agent.replace('研究员', '').trim();
+        if (dimName) {
+          dimensions.add(dimName);
+        }
+      }
+    });
+    return Array.from(dimensions).sort();
+  }, [uiMessages]);
+
+  // ★ 筛选后的消息（支持 Agent 类型、搜索关键词、维度过滤）
   const filteredMessages = useMemo(() => {
-    if (filter === 'all') return uiMessages;
-    return uiMessages.filter((msg) => msg.agentType === filter);
-  }, [uiMessages, filter]);
+    return uiMessages.filter((msg) => {
+      // Agent 类型过滤
+      if (filter !== 'all' && msg.agentType !== filter) {
+        return false;
+      }
+      // 维度过滤
+      if (dimensionFilter !== 'all') {
+        const msgDimension =
+          msg.dimensionName ||
+          (msg.agent?.includes('研究员')
+            ? msg.agent.replace('研究员', '').trim()
+            : null);
+        if (msgDimension !== dimensionFilter) {
+          return false;
+        }
+      }
+      // 搜索关键词过滤
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        const searchableText = [msg.content, msg.agent, msg.dimensionName]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!searchableText.includes(query)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [uiMessages, filter, dimensionFilter, searchQuery]);
 
   // ★ 判断消息类型，返回合适的卡片组件
   const getMessageCard = useCallback((msg: UIMessage) => {
@@ -2522,70 +2614,232 @@ function TeamInteractionTabContent({
         {/* ★ 进度概览 */}
         <ProgressOverview messages={uiMessages} missionStatus={missionStatus} />
 
-        {/* ★ 筛选栏 */}
-        <div className="mb-4 flex flex-wrap gap-2">
-          {(
-            ['all', 'leader', 'researcher', 'reviewer', 'synthesizer'] as const
-          ).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                filter === f
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+        {/* ★ 搜索过滤区 */}
+        <div className="mb-4 space-y-3">
+          {/* 搜索框 */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="搜索消息内容..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-700 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <svg
+              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              {f === 'all'
-                ? '全部'
-                : f === 'leader'
-                  ? 'Leader'
-                  : f === 'researcher'
-                    ? '研究员'
-                    : f === 'reviewer'
-                      ? '审核员'
-                      : '撰写员'}
-            </button>
-          ))}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* 筛选器行 */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Agent 类型筛选 */}
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  'all',
+                  'leader',
+                  'researcher',
+                  'reviewer',
+                  'synthesizer',
+                ] as const
+              ).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    filter === f
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {f === 'all'
+                    ? '全部'
+                    : f === 'leader'
+                      ? 'Leader'
+                      : f === 'researcher'
+                        ? '研究员'
+                        : f === 'reviewer'
+                          ? '审核员'
+                          : '撰写员'}
+                </button>
+              ))}
+            </div>
+
+            {/* 分隔线 */}
+            {availableDimensions.length > 0 && (
+              <div className="h-5 w-px bg-gray-300" />
+            )}
+
+            {/* 研究任务（维度）筛选 */}
+            {availableDimensions.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">研究任务:</span>
+                <select
+                  value={dimensionFilter}
+                  onChange={(e) => setDimensionFilter(e.target.value)}
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="all">全部维度</option>
+                  {availableDimensions.map((dim) => (
+                    <option key={dim} value={dim}>
+                      {dim}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* 筛选结果提示 */}
+          {(searchQuery || filter !== 'all' || dimensionFilter !== 'all') && (
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <span>
+                找到 {filteredMessages.length} 条消息
+                {uiMessages.length !== filteredMessages.length && (
+                  <span className="text-gray-400">
+                    {' '}
+                    (共 {uiMessages.length} 条)
+                  </span>
+                )}
+              </span>
+              {(searchQuery ||
+                filter !== 'all' ||
+                dimensionFilter !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setFilter('all');
+                    setDimensionFilter('all');
+                  }}
+                  className="text-blue-500 hover:text-blue-700"
+                >
+                  清除筛选
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* ★ 时间线消息流 */}
+        {/* ★ 垂直时间线消息流 */}
         {filteredMessages.length > 0 && (
-          <div className="space-y-4">
-            {filteredMessages.map((msg) => {
-              const time = msg.timestamp.toLocaleTimeString('zh-CN', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-              });
+          <div className="relative">
+            {/* ★ 垂直时间线 */}
+            <div className="absolute left-[13px] top-0 h-full w-0.5 bg-gray-200" />
 
-              return (
-                <div key={msg.id} className="relative">
-                  {/* 时间戳和 Agent 标识 */}
-                  <div className="mb-2 flex items-center gap-3">
-                    <span className="text-xs text-gray-400">{time}</span>
-                    <div className="h-px flex-1 bg-gray-100" />
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${msg.agentBgColor || 'bg-gray-100'}`}
-                      >
-                        {msg.agentIcon || '🤖'}
-                      </span>
-                      <span
-                        className={`text-xs font-medium ${msg.agentColor || 'text-gray-600'}`}
-                      >
-                        {msg.agent || 'AI 团队'}
-                      </span>
+            <div className="space-y-4">
+              {filteredMessages.map((msg) => {
+                const time = msg.timestamp.toLocaleTimeString('zh-CN', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                });
+
+                // ★ 根据状态确定时间线节点颜色
+                const getNodeColor = () => {
+                  switch (msg.status) {
+                    case 'error':
+                      return 'bg-red-500 border-red-600';
+                    case 'success':
+                      return 'bg-green-500 border-green-600';
+                    case 'in_progress':
+                      return 'bg-blue-500 border-blue-600 animate-pulse';
+                    default:
+                      return 'bg-gray-400 border-gray-500';
+                  }
+                };
+
+                // ★ 失败消息的卡片边框样式
+                const getCardBorderClass = () => {
+                  if (msg.status === 'error') {
+                    return 'border-l-4 border-l-red-500';
+                  }
+                  if (msg.status === 'success') {
+                    return 'border-l-4 border-l-green-500';
+                  }
+                  return '';
+                };
+
+                return (
+                  <div key={msg.id} className="relative flex gap-4 pl-10">
+                    {/* ★ 时间线节点 */}
+                    <div
+                      className={`absolute left-[7px] top-1 h-3.5 w-3.5 rounded-full border-2 border-white shadow-sm ${getNodeColor()}`}
+                      title={
+                        msg.status === 'error'
+                          ? '失败'
+                          : msg.status === 'success'
+                            ? '成功'
+                            : msg.status === 'in_progress'
+                              ? '进行中'
+                              : ''
+                      }
+                    />
+
+                    {/* 消息内容 */}
+                    <div className={`flex-1 ${getCardBorderClass()}`}>
+                      {/* 时间戳和 Agent 标识 */}
+                      <div className="mb-2 flex items-center gap-3">
+                        <span className="text-xs text-gray-400">{time}</span>
+                        <div className="h-px flex-1 bg-gray-100" />
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${msg.agentBgColor || 'bg-gray-100'}`}
+                          >
+                            {msg.agentIcon || '🤖'}
+                          </span>
+                          <span
+                            className={`text-xs font-medium ${msg.agentColor || 'text-gray-600'}`}
+                          >
+                            {msg.agent || 'AI 团队'}
+                          </span>
+                          {/* ★ 失败状态标签 */}
+                          {msg.status === 'error' && (
+                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                              失败
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 消息卡片 */}
+                      {getMessageCard(msg)}
                     </div>
                   </div>
-
-                  {/* 消息卡片 */}
-                  {getMessageCard(msg)}
-                </div>
-              );
-            })}
-            {/* 滚动锚点 */}
-            <div ref={messagesEndRef} />
+                );
+              })}
+              {/* 滚动锚点 */}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
         )}
 

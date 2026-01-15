@@ -100,16 +100,28 @@ const BookOpenIcon = ({ className }: { className?: string }) => (
 );
 
 // Credibility level display
-function getCredibilityDisplay(level: number | null): {
+// ★ 修复：后端存储 0-100 的百分比，不是 0-1 的小数
+function getCredibilityDisplay(score: number | null): {
   label: string;
   color: string;
+  percentage: string;
 } {
-  if (level === null || level === undefined)
-    return { label: '未评估', color: 'text-gray-400' };
-  if (level >= 0.8) return { label: '高可信', color: 'text-green-600' };
-  if (level >= 0.6) return { label: '中可信', color: 'text-blue-600' };
-  if (level >= 0.4) return { label: '低可信', color: 'text-orange-600' };
-  return { label: '待验证', color: 'text-red-600' };
+  if (score === null || score === undefined)
+    return { label: '未评估', color: 'text-gray-400', percentage: '' };
+  // 后端使用 0-100 scale (70+高可信, 40-70中可信, <40低可信)
+  if (score >= 70)
+    return {
+      label: '高可信',
+      color: 'text-green-600',
+      percentage: `${score}%`,
+    };
+  if (score >= 40)
+    return {
+      label: '中可信',
+      color: 'text-yellow-600',
+      percentage: `${score}%`,
+    };
+  return { label: '低可信', color: 'text-red-600', percentage: `${score}%` };
 }
 
 export function ReferencePanel({
@@ -364,7 +376,7 @@ export function ReferencePanel({
                       )}
                       {/* Credibility */}
                       <span className={credibility.color}>
-                        {credibility.label}
+                        {credibility.percentage || credibility.label}
                       </span>
                       {/* Date */}
                       <span className="text-gray-400">

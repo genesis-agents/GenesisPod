@@ -390,6 +390,15 @@ function TodoItem({
             </p>
           )}
 
+          {/* ★ 失败信息 - 显示失败原因摘要 */}
+          {todo.status === ResearchTodoStatus.FAILED && (
+            <p className="mt-1 truncate text-xs text-red-500">
+              {todo.result?.error ||
+                todo.statusMessage ||
+                '执行失败，点击查看详情'}
+            </p>
+          )}
+
           {/* 操作按钮 */}
           <div className="mt-2 flex items-center gap-1">
             {isLoading ? (

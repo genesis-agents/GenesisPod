@@ -98,7 +98,30 @@ export function TodoDetailPanel({
             setActivities(taskResponse.activities || []);
             // 如果没有 initialTodo，用返回的 task 数据
             if (!initialTodo && taskResponse.task) {
-              // 转换 task 数据为 todo 格式
+              // ★ 转换 task 数据为 todo 格式
+              // 状态映射
+              const statusMap: Record<string, string> = {
+                COMPLETED: 'COMPLETED',
+                EXECUTING: 'IN_PROGRESS',
+                FAILED: 'FAILED',
+                PENDING: 'PENDING',
+              };
+              const mappedStatus =
+                statusMap[taskResponse.task.status] || 'PENDING';
+
+              // ★ 修复：根据状态计算真实进度
+              // COMPLETED = 100%, FAILED = 100% (已结束), EXECUTING = 使用活动计数估算, PENDING = 0%
+              let progress = 0;
+              if (taskResponse.task.status === 'COMPLETED') {
+                progress = 100;
+              } else if (taskResponse.task.status === 'FAILED') {
+                progress = 100; // 失败也是结束状态
+              } else if (taskResponse.task.status === 'EXECUTING') {
+                // 根据活动数量估算进度（如果有活动记录）
+                const activityCount = taskResponse.activities?.length || 0;
+                progress = Math.min(90, 10 + activityCount * 20); // 10-90% 范围
+              }
+
               setTodo({
                 id: taskResponse.task.id,
                 topicId: '',
@@ -108,18 +131,8 @@ export function TodoDetailPanel({
                 description: taskResponse.task.description,
                 dimensionName: taskResponse.task.dimensionName,
                 agentName: taskResponse.task.assignedAgent,
-                status:
-                  taskResponse.task.status === 'COMPLETED'
-                    ? 'COMPLETED'
-                    : taskResponse.task.status === 'EXECUTING'
-                      ? 'IN_PROGRESS'
-                      : 'PENDING',
-                progress:
-                  taskResponse.task.status === 'COMPLETED'
-                    ? 100
-                    : taskResponse.task.status === 'EXECUTING'
-                      ? 50
-                      : 0,
+                status: mappedStatus as any,
+                progress,
                 priority: taskResponse.task.priority || 0,
                 dependsOn: [],
                 userCanPause: false,
@@ -130,6 +143,13 @@ export function TodoDetailPanel({
                 startedAt: taskResponse.task.startedAt,
                 completedAt: taskResponse.task.completedAt,
                 result: taskResponse.task.result,
+                // ★ 新增：如果失败，从 result.error 或 resultSummary 获取状态消息
+                statusMessage:
+                  taskResponse.task.status === 'FAILED'
+                    ? taskResponse.task.result?.error ||
+                      taskResponse.task.resultSummary ||
+                      '任务执行失败'
+                    : taskResponse.task.resultSummary,
               } as any);
             }
           } catch (taskErr) {
@@ -254,12 +274,34 @@ export function TodoDetailPanel({
             </div>
           )}
 
-          {todo.statusMessage && (
+          {todo.statusMessage && todo.status !== 'FAILED' && (
             <p className="text-muted-foreground text-xs">
               {todo.statusMessage}
             </p>
           )}
         </div>
+
+        {/* ★ 失败原因显示 - 专门针对 FAILED 状态的醒目展示 */}
+        {todo.status === 'FAILED' && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              失败原因
+            </div>
+            <p className="mt-1 text-sm text-red-600">
+              {todo.result?.error ||
+                todo.statusMessage ||
+                '任务执行过程中发生错误，请查看详细日志'}
+            </p>
+            {todo.result?.error &&
+              todo.statusMessage &&
+              todo.result.error !== todo.statusMessage && (
+                <p className="text-muted-foreground mt-1 text-xs">
+                  详情: {todo.statusMessage}
+                </p>
+              )}
+          </div>
+        )}
 
         {/* Agent Info */}
         {todo.agentName && (

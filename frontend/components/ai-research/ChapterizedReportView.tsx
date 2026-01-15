@@ -11,7 +11,7 @@
  * - 支持引用链接 [1], [2] 可点击跳转到参考文献
  */
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -21,6 +21,8 @@ import Typography from '@tiptap/extension-typography';
 import TurndownService from 'turndown';
 import { CitedMarkdown } from './deep-research/citations';
 import type { SourceReference } from './deep-research/citations/types';
+import { TextSelectionContextMenu } from './TextSelectionContextMenu';
+import type { AIEditOperation } from './types';
 import type {
   TopicReport,
   TopicDimension,
@@ -81,6 +83,18 @@ interface ChapterizedReportViewProps {
   isLoading?: boolean;
   onEditChapter?: (chapterId: string, content: string) => void;
   onAIEditChapter?: (chapterId: string, operation: string) => Promise<void>;
+  /** AI edit callback for selected text (right-click menu) */
+  onAIEdit?: (
+    operation: AIEditOperation,
+    selectedText: string
+  ) => Promise<string>;
+  /** Add annotation callback */
+  onAddAnnotation?: (data: {
+    selectedText: string;
+    startOffset: number;
+    endOffset: number;
+    color: 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
+  }) => void;
 }
 
 // Chapter status type
@@ -230,10 +244,30 @@ export function ChapterizedReportView({
   isLoading = false,
   onEditChapter,
   onAIEditChapter,
+  onAIEdit,
+  onAddAnnotation,
 }: ChapterizedReportViewProps) {
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const [editContent, setEditContent] = useState('');
+  const [isAIProcessing, setIsAIProcessing] = useState(false);
+
+  // Ref for preview container (used by context menu)
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  // Handle AI edit from context menu
+  const handleAIEditFromMenu = useCallback(
+    async (operation: AIEditOperation, selectedText: string) => {
+      if (!onAIEdit) return;
+      setIsAIProcessing(true);
+      try {
+        await onAIEdit(operation, selectedText);
+      } finally {
+        setIsAIProcessing(false);
+      }
+    },
+    [onAIEdit]
+  );
 
   // TipTap editor for rich text mode
   const tiptapEditor = useEditor({
@@ -699,7 +733,7 @@ export function ChapterizedReportView({
               placeholder="编辑 Markdown 源码..."
             />
           ) : (
-            <div className="p-6">
+            <div ref={previewRef} className="p-6">
               {sources.length > 0 ? (
                 <CitedMarkdown
                   content={selectedChapter.content || '暂无内容'}
@@ -712,6 +746,14 @@ export function ChapterizedReportView({
                   </ReactMarkdown>
                 </article>
               )}
+
+              {/* ★ 右键菜单 - 与连续视图保持一致 */}
+              <TextSelectionContextMenu
+                containerRef={previewRef}
+                onAIEdit={onAIEdit ? handleAIEditFromMenu : undefined}
+                onAddAnnotation={onAddAnnotation}
+                isAIProcessing={isAIProcessing}
+              />
             </div>
           )}
         </div>
