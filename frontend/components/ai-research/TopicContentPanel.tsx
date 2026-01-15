@@ -2585,10 +2585,11 @@ function TeamInteractionTabContent({
   }
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="p-4">
+    <div className="flex h-full flex-col">
+      {/* ★ 固定区域：状态栏 + 搜索过滤 */}
+      <div className="shrink-0 border-b bg-white p-4">
         {/* Connection status and controls */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <span
@@ -2613,9 +2614,6 @@ function TeamInteractionTabContent({
             </button>
           )}
         </div>
-
-        {/* ★ 进度概览 */}
-        <ProgressOverview messages={uiMessages} missionStatus={missionStatus} />
 
         {/* ★ 搜索过滤区 */}
         <div className="mb-4 space-y-3">
@@ -2752,6 +2750,12 @@ function TeamInteractionTabContent({
             </div>
           )}
         </div>
+      </div>
+
+      {/* ★ 可滚动区域：进度概览 + 时间线消息流 */}
+      <div className="flex-1 overflow-y-auto p-4">
+        {/* ★ 进度概览 */}
+        <ProgressOverview messages={uiMessages} missionStatus={missionStatus} />
 
         {/* ★ 垂直时间线消息流 */}
         {filteredMessages.length > 0 && (
