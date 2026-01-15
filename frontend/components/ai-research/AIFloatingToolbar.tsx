@@ -99,6 +99,13 @@ export function AIFloatingToolbar({
 
   const toolbarRef = useRef<HTMLDivElement>(null);
 
+  // Extract primitive values from selection for stable dependencies
+  const hasSelection = selection !== null;
+  const selectionRectTop = selection?.rect.top ?? 0;
+  const selectionRectBottom = selection?.rect.bottom ?? 0;
+  const selectionRectLeft = selection?.rect.left ?? 0;
+  const selectionRectWidth = selection?.rect.width ?? 0;
+
   // Check if mobile
   const isMobile = useCallback(() => {
     return window.innerWidth < 768;
@@ -106,9 +113,8 @@ export function AIFloatingToolbar({
 
   // Calculate optimal position
   const calculatePosition = useCallback(() => {
-    if (!selection || !toolbarRef.current) return;
+    if (!hasSelection || !toolbarRef.current) return;
 
-    const rect = selection.rect;
     const toolbarHeight = toolbarRef.current.offsetHeight;
     const toolbarWidth = toolbarRef.current.offsetWidth;
 
@@ -118,54 +124,64 @@ export function AIFloatingToolbar({
     const viewportWidth = window.innerWidth;
 
     // Calculate center x position
-    let x = rect.left + scrollLeft + rect.width / 2 - toolbarWidth / 2;
+    let x =
+      selectionRectLeft +
+      scrollLeft +
+      selectionRectWidth / 2 -
+      toolbarWidth / 2;
 
     // Ensure toolbar doesn't overflow viewport horizontally
     const margin = 10;
     x = Math.max(margin, Math.min(x, viewportWidth - toolbarWidth - margin));
 
     // Calculate y position (above or below selection)
-    const spaceAbove = rect.top - scrollTop;
-    const spaceBelow = viewportHeight - (rect.bottom - scrollTop);
+    const spaceAbove = selectionRectTop - scrollTop;
+    const spaceBelow = viewportHeight - (selectionRectBottom - scrollTop);
 
     let y: number;
     let newPlacement: 'top' | 'bottom';
 
     // Prefer showing above selection
     if (spaceAbove >= toolbarHeight + 20) {
-      y = rect.top + scrollTop - toolbarHeight - 10;
+      y = selectionRectTop + scrollTop - toolbarHeight - 10;
       newPlacement = 'top';
     }
     // Show below if not enough space above
     else if (spaceBelow >= toolbarHeight + 20) {
-      y = rect.bottom + scrollTop + 10;
+      y = selectionRectBottom + scrollTop + 10;
       newPlacement = 'bottom';
     }
     // Show above even if space is limited
     else {
       y = Math.max(
         scrollTop + margin,
-        rect.top + scrollTop - toolbarHeight - 10
+        selectionRectTop + scrollTop - toolbarHeight - 10
       );
       newPlacement = 'top';
     }
 
     setPosition({ x, y });
     setPlacement(newPlacement);
-  }, [selection]);
+  }, [
+    hasSelection,
+    selectionRectTop,
+    selectionRectBottom,
+    selectionRectLeft,
+    selectionRectWidth,
+  ]);
 
   // Update position when selection changes
   useEffect(() => {
-    if (selection) {
+    if (hasSelection) {
       // Calculate after render
       requestAnimationFrame(calculatePosition);
     }
-  }, [selection, calculatePosition]);
+  }, [hasSelection, calculatePosition]);
 
   // Recalculate position on scroll/resize
   useEffect(() => {
     const handleScrollOrResize = () => {
-      if (selection) {
+      if (hasSelection) {
         calculatePosition();
       }
     };
@@ -177,7 +193,7 @@ export function AIFloatingToolbar({
       window.removeEventListener('scroll', handleScrollOrResize, true);
       window.removeEventListener('resize', handleScrollOrResize);
     };
-  }, [selection, calculatePosition]);
+  }, [hasSelection, calculatePosition]);
 
   // Handle operation click
   const handleOperationClick = useCallback(

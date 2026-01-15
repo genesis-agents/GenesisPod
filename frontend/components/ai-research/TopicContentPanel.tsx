@@ -1683,6 +1683,9 @@ function ProgressOverview({
   messages: UIMessage[];
   missionStatus?: MissionStatus | null;
 }) {
+  // 维度标签折叠状态
+  const [dimensionsCollapsed, setDimensionsCollapsed] = useState(false);
+
   // 从消息中提取维度状态
   const dimensionStatus = useMemo(() => {
     const dimensions = new Map<
@@ -1735,44 +1738,68 @@ function ProgressOverview({
 
   return (
     <div className="mb-4 rounded-lg border border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-700">研究进度</span>
+      {/* 可点击的标题行 */}
+      <div
+        className="flex cursor-pointer items-center justify-between"
+        onClick={() => setDimensionsCollapsed(!dimensionsCollapsed)}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-700">研究进度</span>
+          <svg
+            className={`h-4 w-4 text-gray-500 transition-transform ${dimensionsCollapsed ? '' : 'rotate-180'}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </div>
         <span className="text-sm text-gray-500">
           {completedCount}/{totalCount} 维度完成
         </span>
       </div>
 
-      {/* 进度条 */}
-      <div className="mb-3 h-2 overflow-hidden rounded-full bg-gray-200">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
+      {/* 可折叠的内容区域 */}
+      {!dimensionsCollapsed && (
+        <>
+          {/* 进度条 */}
+          <div className="mb-3 mt-3 h-2 overflow-hidden rounded-full bg-gray-200">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
 
-      {/* 维度状态标签 */}
-      {dimensionStatus.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {dimensionStatus.map((dim) => (
-            <span
-              key={dim.name}
-              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
-                dim.status === 'completed'
-                  ? 'bg-green-100 text-green-700'
-                  : dim.status === 'in_progress'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              {dim.status === 'completed' && '✓'}
-              {dim.status === 'in_progress' && (
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
-              )}
-              {dim.status === 'pending' && '○'}
-              <span className="max-w-[80px] truncate">{dim.name}</span>
-            </span>
-          ))}
-        </div>
+          {/* 维度状态标签 */}
+          {dimensionStatus.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {dimensionStatus.map((dim) => (
+                <span
+                  key={dim.name}
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+                    dim.status === 'completed'
+                      ? 'bg-green-100 text-green-700'
+                      : dim.status === 'in_progress'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {dim.status === 'completed' && '✓'}
+                  {dim.status === 'in_progress' && (
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
+                  )}
+                  {dim.status === 'pending' && '○'}
+                  <span className="max-w-[80px] truncate">{dim.name}</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
