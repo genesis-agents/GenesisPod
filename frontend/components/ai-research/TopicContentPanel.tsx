@@ -403,11 +403,18 @@ export function TopicContentPanel({
 
   const [annotations, setAnnotations] = useState<ReportAnnotation[]>([]);
 
+  // ★ 用于自动展开证据卡片的 ID
+  const [autoExpandEvidenceId, setAutoExpandEvidenceId] = useState<
+    string | null
+  >(null);
+
   // ★ 注册引用点击回调：切换到参考文献 tab 并滚动到指定来源
   useEffect(() => {
     const handleCitationClick = (evidenceId: string) => {
       // 切换到参考文献 tab
       setActiveTab('references');
+      // 设置自动展开的 ID
+      setAutoExpandEvidenceId(evidenceId);
       // 延迟滚动，等待 tab 切换完成
       setTimeout(() => {
         const element = document.getElementById(`evidence-${evidenceId}`);
@@ -981,6 +988,8 @@ export function TopicContentPanel({
             report={report}
             dimensions={safeDimensions}
             isLoading={isLoadingEvidence}
+            autoExpandId={autoExpandEvidenceId}
+            onAutoExpandHandled={() => setAutoExpandEvidenceId(null)}
           />
         )}
       </div>
@@ -1025,86 +1034,62 @@ function CitationTooltip({ citationIndex, evidence }: CitationTooltipProps) {
         [{citationIndex}]
       </sup>
 
-      {/* Tooltip */}
+      {/* Tooltip - 引用正文预览 */}
       {isHovered && evidence && (
         <div
-          className="absolute bottom-full left-1/2 z-50 mb-2 w-80 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 shadow-lg"
+          className="absolute bottom-full left-1/2 z-50 mb-2 w-96 -translate-x-1/2 rounded-lg border border-gray-200 bg-white shadow-xl"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
-          {/* Arrow */}
-          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-8 border-transparent border-t-white" />
-          <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 border-8 border-transparent border-t-gray-200" />
-
-          {/* Content */}
-          <div className="flex items-start gap-2">
-            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-bold text-purple-700">
+          {/* Header */}
+          <div className="flex items-start gap-2 border-b border-gray-100 p-3">
+            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-600 text-xs font-bold text-white">
               {citationIndex}
             </span>
             <div className="min-w-0 flex-1">
               <h4 className="line-clamp-2 text-sm font-medium text-gray-900">
                 {evidence.title || '未知来源'}
               </h4>
-              {evidence.snippet && (
-                <p className="mt-1 line-clamp-3 text-xs text-gray-600">
-                  {evidence.snippet}
-                </p>
-              )}
-              {/* 两个操作按钮 */}
-              <div className="mt-2 flex items-center gap-2">
-                {/* 跳转到参考文献面板 */}
-                <button
-                  onClick={handleClick}
-                  className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800"
-                >
-                  <svg
-                    className="h-3 w-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 7l5 5m0 0l-5 5m5-5H6"
-                    />
-                  </svg>
-                  查看完整来源
-                </button>
-                {/* 打开原文链接 */}
-                {evidence.url && (
-                  <a
-                    href={evidence.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <svg
-                      className="h-3 w-3"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                      />
-                    </svg>
-                    原文
-                  </a>
-                )}
-              </div>
               {evidence.domain && (
-                <span className="mt-1 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">
+                <span className="mt-0.5 inline-block text-xs text-gray-400">
                   {evidence.domain}
                 </span>
               )}
             </div>
           </div>
+
+          {/* Content - 引用正文预览（可滚动） */}
+          {evidence.snippet && (
+            <div className="max-h-48 overflow-y-auto p-3">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                {evidence.snippet}
+              </p>
+            </div>
+          )}
+
+          {/* Footer - 操作按钮 */}
+          <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-2">
+            <button
+              onClick={handleClick}
+              className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800"
+            >
+              查看完整来源 →
+            </button>
+            {evidence.url && (
+              <a
+                href={evidence.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                onClick={(e) => e.stopPropagation()}
+              >
+                打开原文 ↗
+              </a>
+            )}
+          </div>
+
+          {/* Arrow */}
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-8 border-transparent border-t-gray-50" />
         </div>
       )}
     </span>
@@ -3477,11 +3462,15 @@ function EvidenceTabContent({
   report,
   dimensions,
   isLoading,
+  autoExpandId,
+  onAutoExpandHandled,
 }: {
   evidence: TopicEvidence[];
   report: TopicReport | null;
   dimensions: TopicDimension[];
   isLoading: boolean;
+  autoExpandId?: string | null;
+  onAutoExpandHandled?: () => void;
 }) {
   // ★ 使用 Array.isArray 确保是数组
   const safeEvidence = Array.isArray(evidence) ? evidence : [];
@@ -3489,6 +3478,33 @@ function EvidenceTabContent({
     'all'
   );
   const [sortBy, setSortBy] = useState<'credibility' | 'date'>('credibility');
+  // ★ 跟踪展开的证据卡片
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // ★ 自动展开从引用点击导航过来的证据卡片
+  useEffect(() => {
+    if (autoExpandId) {
+      setExpandedIds((prev) => {
+        const next = new Set(prev);
+        next.add(autoExpandId);
+        return next;
+      });
+      // 通知父组件已处理
+      onAutoExpandHandled?.();
+    }
+  }, [autoExpandId, onAutoExpandHandled]);
 
   // 构建证据ID到引用位置的映射
   const citationLocations = useMemo(() => {
@@ -3682,79 +3698,165 @@ function EvidenceTabContent({
             // 找到该证据在原始列表中的索引，用于显示引用编号 [1], [2]
             const citationIndex =
               safeEvidence.findIndex((e) => e.id === item.id) + 1;
+            const isExpanded = expandedIds.has(item.id);
             return (
-              <a
+              <div
                 key={item.id}
                 id={`evidence-${item.id}`}
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group rounded-lg border border-gray-200 bg-white p-4 transition-all hover:border-blue-300 hover:shadow-md"
+                className="group rounded-lg border border-gray-200 bg-white transition-all hover:border-blue-300 hover:shadow-md"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start gap-2">
-                      {/* 引用编号标识 */}
-                      <span className="flex-shrink-0 rounded bg-purple-100 px-1.5 py-0.5 text-xs font-bold text-purple-700">
-                        [{citationIndex}]
-                      </span>
-                      <h4 className="line-clamp-2 font-medium text-gray-900 group-hover:text-blue-600">
-                        {item.title}
-                      </h4>
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">{item.domain}</p>
-                  </div>
-                  {item.credibilityScore !== null && (
-                    <span
-                      className={`flex-shrink-0 rounded-full px-2 py-1 text-xs font-bold ${
-                        item.credibilityScore >= 70
-                          ? 'bg-green-100 text-green-700'
-                          : item.credibilityScore >= 40
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-red-100 text-red-700'
-                      }`}
-                    >
-                      {item.credibilityScore}%
-                    </span>
-                  )}
-                </div>
-                {item.snippet && (
-                  <p className="mt-2 line-clamp-2 text-sm text-gray-600">
-                    {item.snippet}
-                  </p>
-                )}
-                {/* 引用位置 */}
-                {citationLocations.get(item.id) &&
-                  citationLocations.get(item.id)!.length > 0 && (
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span className="text-xs text-gray-500">被引用于:</span>
-                      {citationLocations.get(item.id)!.map((loc, idx) => (
-                        <span
-                          key={idx}
-                          className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600"
-                          title={`在"${loc.dimensionName}"中被引用${loc.count}次`}
-                        >
-                          {loc.dimensionName}
-                          {loc.count > 1 && (
-                            <span className="ml-0.5 opacity-70">
-                              ×{loc.count}
-                            </span>
-                          )}
+                {/* Header - 可点击展开/收起 */}
+                <div
+                  className="cursor-pointer p-4"
+                  onClick={() => toggleExpanded(item.id)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start gap-2">
+                        {/* 引用编号标识 */}
+                        <span className="flex-shrink-0 rounded bg-purple-100 px-1.5 py-0.5 text-xs font-bold text-purple-700">
+                          [{citationIndex}]
                         </span>
-                      ))}
+                        <h4 className="font-medium text-gray-900">
+                          {item.title}
+                        </h4>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {item.domain}
+                      </p>
                     </div>
-                  )}
-                <div className="mt-3 flex items-center gap-3 text-xs text-gray-400">
-                  <span className="rounded bg-gray-100 px-1.5 py-0.5">
-                    {item.sourceType || '网页'}
-                  </span>
-                  {item.publishedAt && (
-                    <span>
-                      {new Date(item.publishedAt).toLocaleDateString('zh-CN')}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {item.credibilityScore !== null && (
+                        <span
+                          className={`flex-shrink-0 rounded-full px-2 py-1 text-xs font-bold ${
+                            item.credibilityScore >= 70
+                              ? 'bg-green-100 text-green-700'
+                              : item.credibilityScore >= 40
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          {item.credibilityScore}%
+                        </span>
+                      )}
+                      {/* 展开/收起图标 */}
+                      <svg
+                        className={`h-5 w-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* 摘要预览（收起状态） */}
+                  {!isExpanded && item.snippet && (
+                    <p className="mt-2 line-clamp-2 text-sm text-gray-600">
+                      {item.snippet}
+                    </p>
                   )}
                 </div>
-              </a>
+
+                {/* 展开内容 */}
+                {isExpanded && (
+                  <div className="border-t border-gray-100">
+                    {/* 完整正文内容 */}
+                    {item.snippet && (
+                      <div className="max-h-64 overflow-y-auto bg-gray-50 p-4">
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                          {item.snippet}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* 引用位置 */}
+                    {citationLocations.get(item.id) &&
+                      citationLocations.get(item.id)!.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5 border-t border-gray-100 px-4 py-3">
+                          <span className="text-xs text-gray-500">
+                            被引用于:
+                          </span>
+                          {citationLocations.get(item.id)!.map((loc, idx) => (
+                            <span
+                              key={idx}
+                              className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600"
+                              title={`在"${loc.dimensionName}"中被引用${loc.count}次`}
+                            >
+                              {loc.dimensionName}
+                              {loc.count > 1 && (
+                                <span className="ml-0.5 opacity-70">
+                                  ×{loc.count}
+                                </span>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                    {/* Footer - 元数据和操作 */}
+                    <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
+                      <div className="flex items-center gap-3 text-xs text-gray-400">
+                        <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                          {item.sourceType || '网页'}
+                        </span>
+                        {item.publishedAt && (
+                          <span>
+                            {new Date(item.publishedAt).toLocaleDateString(
+                              'zh-CN'
+                            )}
+                          </span>
+                        )}
+                      </div>
+                      {item.url && (
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          打开原文 ↗
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 收起状态的底部信息 */}
+                {!isExpanded && (
+                  <div className="flex items-center justify-between border-t border-gray-100 px-4 py-2">
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                        {item.sourceType || '网页'}
+                      </span>
+                      {citationLocations.get(item.id) &&
+                        citationLocations.get(item.id)!.length > 0 && (
+                          <span className="text-blue-500">
+                            被引用 {citationLocations.get(item.id)!.length} 处
+                          </span>
+                        )}
+                    </div>
+                    {item.url && (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        原文 ↗
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

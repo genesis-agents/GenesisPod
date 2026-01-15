@@ -293,51 +293,59 @@ function CitationBadge({ index, evidence }: CitationBadgeProps) {
 
       {isHovered && (
         <div
-          className="absolute bottom-full left-1/2 z-50 mb-2 w-72 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 shadow-lg"
+          className="absolute bottom-full left-1/2 z-50 mb-2 w-96 -translate-x-1/2 rounded-lg border border-gray-200 bg-white shadow-xl"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
-          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-8 border-transparent border-t-white" />
-          <div className="flex items-start gap-2">
-            <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-bold text-purple-700">
+          {/* Header */}
+          <div className="flex items-start gap-2 border-b border-gray-100 p-3">
+            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-purple-600 text-xs font-bold text-white">
               {index}
             </span>
             <div className="min-w-0 flex-1">
               <h4 className="line-clamp-2 text-sm font-medium text-gray-900">
                 {evidence.title || '未知来源'}
               </h4>
-              {evidence.snippet && (
-                <p className="mt-1 line-clamp-2 text-xs text-gray-600">
-                  {evidence.snippet}
-                </p>
-              )}
-              {/* 两个操作按钮 */}
-              <div className="mt-2 flex items-center gap-2">
-                <button
-                  onClick={handleClick}
-                  className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800"
-                >
-                  查看完整来源 →
-                </button>
-                {evidence.url && (
-                  <a
-                    href={evidence.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    原文
-                  </a>
-                )}
-              </div>
               {evidence.domain && (
-                <span className="mt-1 inline-block text-xs text-gray-400">
+                <span className="mt-0.5 inline-block text-xs text-gray-400">
                   {evidence.domain}
                 </span>
               )}
             </div>
           </div>
+
+          {/* Content - 引用正文预览 */}
+          {evidence.snippet && (
+            <div className="max-h-48 overflow-y-auto p-3">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                {evidence.snippet}
+              </p>
+            </div>
+          )}
+
+          {/* Footer - 操作按钮 */}
+          <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-2">
+            <button
+              onClick={handleClick}
+              className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800"
+            >
+              查看完整来源 →
+            </button>
+            {evidence.url && (
+              <a
+                href={evidence.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                onClick={(e) => e.stopPropagation()}
+              >
+                打开原文 ↗
+              </a>
+            )}
+          </div>
+
+          {/* Arrow */}
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-8 border-transparent border-t-gray-50" />
         </div>
       )}
     </span>
