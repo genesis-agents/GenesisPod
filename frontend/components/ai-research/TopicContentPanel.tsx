@@ -959,6 +959,7 @@ export function TopicContentPanel({
             wsConnected={wsConnected}
             onClearEvents={onClearWsEvents}
             persistedMessages={persistedMessages}
+            missionStatus={missionStatus}
           />
         )}
         {activeTab === 'credibility' && report && (
@@ -1610,6 +1611,359 @@ function getAgentDetails(agentType: string): AgentDetailInfo {
   );
 }
 
+/**
+ * ★ 协作动态面板 v2.0 - 时间线消息流设计
+ *
+ * 重构要点：
+ * 1. 从"按 Agent 分组的折叠树"改为"按时间排序的智能消息流"
+ * 2. 顶部添加研究进度概览
+ * 3. 关键发现直接显示，无需展开
+ * 4. 不同消息类型使用语义化卡片
+ */
+
+// ==================== 进度概览组件 ====================
+function ProgressOverview({
+  messages,
+  missionStatus,
+}: {
+  messages: UIMessage[];
+  missionStatus?: MissionStatus | null;
+}) {
+  // 从消息中提取维度状态
+  const dimensionStatus = useMemo(() => {
+    const dimensions = new Map<
+      string,
+      { name: string; status: 'completed' | 'in_progress' | 'pending' }
+    >();
+
+    // 从 missionStatus 获取任务状态
+    if (missionStatus?.tasks) {
+      for (const task of missionStatus.tasks) {
+        if (task.dimensionName) {
+          const status =
+            task.status === 'COMPLETED'
+              ? 'completed'
+              : ['EXECUTING', 'ASSIGNED'].includes(task.status)
+                ? 'in_progress'
+                : 'pending';
+          dimensions.set(task.dimensionName, {
+            name: task.dimensionName,
+            status,
+          });
+        }
+      }
+    }
+
+    // 从消息中补充
+    for (const msg of messages) {
+      if (msg.agentType === 'researcher' && msg.agent?.includes('研究员')) {
+        const dimName = (msg.agent || '').replace('研究员', '').trim();
+        if (dimName && !dimensions.has(dimName)) {
+          const status = msg.content.includes('完成')
+            ? 'completed'
+            : 'in_progress';
+          dimensions.set(dimName, { name: dimName, status });
+        }
+      }
+    }
+
+    return Array.from(dimensions.values());
+  }, [messages, missionStatus]);
+
+  const completedCount = dimensionStatus.filter(
+    (d) => d.status === 'completed'
+  ).length;
+  const totalCount = dimensionStatus.length || missionStatus?.totalTasks || 0;
+  const progress =
+    totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+  if (dimensionStatus.length === 0 && !missionStatus) return null;
+
+  return (
+    <div className="mb-4 rounded-lg border border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-sm font-medium text-gray-700">研究进度</span>
+        <span className="text-sm text-gray-500">
+          {completedCount}/{totalCount} 维度完成
+        </span>
+      </div>
+
+      {/* 进度条 */}
+      <div className="mb-3 h-2 overflow-hidden rounded-full bg-gray-200">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      {/* 维度状态标签 */}
+      {dimensionStatus.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {dimensionStatus.map((dim) => (
+            <span
+              key={dim.name}
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+                dim.status === 'completed'
+                  ? 'bg-green-100 text-green-700'
+                  : dim.status === 'in_progress'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              {dim.status === 'completed' && '✓'}
+              {dim.status === 'in_progress' && (
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
+              )}
+              {dim.status === 'pending' && '○'}
+              <span className="max-w-[80px] truncate">{dim.name}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== 消息卡片组件 ====================
+
+// Leader 规划卡片
+function LeaderPlanCard({ msg }: { msg: UIMessage }) {
+  const planData =
+    msg.detail?.type === 'leader_plan'
+      ? (msg.detail.data as Record<string, unknown>)
+      : null;
+  const dimensions =
+    (planData?.dimensions as Array<{ name: string; description?: string }>) ||
+    [];
+
+  return (
+    <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-lg">📋</span>
+        <span className="font-medium text-purple-800">研究规划完成</span>
+      </div>
+
+      {msg.content && !msg.content.includes('规划完成') && (
+        <p className="mb-3 text-sm text-purple-700">{msg.content}</p>
+      )}
+
+      {dimensions.length > 0 && (
+        <div className="space-y-2">
+          <span className="text-xs font-medium text-purple-600">
+            研究维度：
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {dimensions.slice(0, 6).map((dim, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs shadow-sm"
+              >
+                <span className="text-blue-500">🔍</span>
+                <span className="text-gray-700">{dim.name}</span>
+              </span>
+            ))}
+            {dimensions.length > 6 && (
+              <span className="text-xs text-purple-500">
+                +{dimensions.length - 6} 更多
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 研究完成卡片（带关键发现）
+function ResearchCompleteCard({ msg }: { msg: UIMessage }) {
+  const [showMore, setShowMore] = useState(false);
+  const dimData =
+    msg.detail?.type === 'dimension_content'
+      ? (msg.detail.data as {
+          summary?: string;
+          keyFindings?: string[];
+          dimensionName?: string;
+        })
+      : null;
+
+  const keyFindings = dimData?.keyFindings || [];
+  const summary = dimData?.summary || '';
+  const dimName =
+    (msg.agent || '').replace('研究员', '').trim() ||
+    dimData?.dimensionName ||
+    '';
+
+  return (
+    <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">✅</span>
+          <span className="font-medium text-green-800">
+            {dimName ? `${dimName} 研究完成` : '研究完成'}
+          </span>
+        </div>
+        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-600">
+          100%
+        </span>
+      </div>
+
+      {/* 关键发现 - 默认展示前3条 */}
+      {keyFindings.length > 0 && (
+        <div className="mt-3">
+          <div className="mb-2 flex items-center gap-1.5">
+            <span className="text-sm">💡</span>
+            <span className="text-xs font-medium text-gray-600">关键发现</span>
+          </div>
+          <ul className="space-y-1.5">
+            {keyFindings
+              .slice(0, showMore ? keyFindings.length : 3)
+              .map((finding, idx) => (
+                <li
+                  key={idx}
+                  className="flex items-start gap-2 text-sm text-gray-700"
+                >
+                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-green-500" />
+                  <span>{finding}</span>
+                </li>
+              ))}
+          </ul>
+          {keyFindings.length > 3 && (
+            <button
+              onClick={() => setShowMore(!showMore)}
+              className="mt-2 text-xs text-green-600 hover:text-green-700"
+            >
+              {showMore ? '收起' : `展开全部 ${keyFindings.length} 条`}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 摘要 - 如果没有关键发现则显示摘要 */}
+      {!keyFindings.length && summary && (
+        <p className="mt-2 line-clamp-3 text-sm text-gray-600">{summary}</p>
+      )}
+    </div>
+  );
+}
+
+// 研究进行中卡片
+function ResearchProgressCard({ msg }: { msg: UIMessage }) {
+  const progress = msg.progress || 0;
+  const dimName = (msg.agent || '').replace('研究员', '').trim();
+
+  return (
+    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+          <span className="text-sm text-blue-700">
+            {dimName ? `${dimName} 研究中...` : msg.content}
+          </span>
+        </div>
+        {progress > 0 && (
+          <span className="text-xs text-blue-600">{progress}%</span>
+        )}
+      </div>
+      {progress > 0 && (
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-blue-200">
+          <div
+            className="h-full rounded-full bg-blue-500 transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 审核结果卡片
+function ReviewCard({ msg }: { msg: UIMessage }) {
+  const isPassed =
+    msg.content.includes('通过') || msg.content.includes('passed');
+
+  return (
+    <div
+      className={`rounded-lg border p-4 ${
+        isPassed
+          ? 'border-green-200 bg-green-50'
+          : 'border-yellow-200 bg-yellow-50'
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-lg">{isPassed ? '✅' : '⚠️'}</span>
+        <span
+          className={`font-medium ${isPassed ? 'text-green-800' : 'text-yellow-800'}`}
+        >
+          质量审核{isPassed ? '通过' : '需修订'}
+        </span>
+      </div>
+      <p className="mt-2 text-sm text-gray-600">{msg.content}</p>
+    </div>
+  );
+}
+
+// 报告完成卡片
+function ReportCard({ msg }: { msg: UIMessage }) {
+  const reportData =
+    msg.detail?.type === 'report_preview'
+      ? (msg.detail.data as { title?: string; summary?: string })
+      : null;
+
+  return (
+    <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-lg">📊</span>
+        <span className="font-medium text-orange-800">研究报告撰写完成</span>
+      </div>
+      {reportData?.title && (
+        <p className="text-sm font-medium text-gray-800">{reportData.title}</p>
+      )}
+      {reportData?.summary && (
+        <p className="mt-2 line-clamp-2 text-sm text-gray-600">
+          {reportData.summary}
+        </p>
+      )}
+      <button className="mt-3 text-xs text-orange-600 hover:text-orange-700">
+        查看完整报告 →
+      </button>
+    </div>
+  );
+}
+
+// 通用消息卡片
+function GenericMessageCard({ msg }: { msg: UIMessage }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasLongContent = msg.content.length > 150 || msg.detail;
+  const displayContent = expanded ? msg.content : msg.content.slice(0, 150);
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-3">
+      <p className="text-sm text-gray-700">
+        {displayContent}
+        {!expanded && msg.content.length > 150 && '...'}
+      </p>
+      {msg.progress !== undefined && msg.progress > 0 && (
+        <div className="mt-2 h-1 overflow-hidden rounded-full bg-gray-200">
+          <div
+            className="h-full rounded-full bg-blue-500 transition-all duration-300"
+            style={{ width: `${msg.progress}%` }}
+          />
+        </div>
+      )}
+      {hasLongContent && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="mt-2 text-xs text-gray-500 hover:text-gray-700"
+        >
+          {expanded ? '收起' : '展开'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ==================== 消息流主组件 ====================
+
 function TeamInteractionTabContent({
   events,
   leaderPlan,
@@ -1617,6 +1971,7 @@ function TeamInteractionTabContent({
   wsConnected = false,
   onClearEvents,
   persistedMessages = [],
+  missionStatus,
 }: {
   events: ResearchEvent[];
   leaderPlan?: LeaderPlanDisplay | null;
@@ -1631,6 +1986,7 @@ function TeamInteractionTabContent({
     content: string;
     createdAt: string;
   }>;
+  missionStatus?: MissionStatus | null;
 }) {
   // ★ 使用 Array.isArray 确保是数组
   const safeEvents = Array.isArray(events) ? events : [];
@@ -1640,24 +1996,11 @@ function TeamInteractionTabContent({
     : [];
 
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
-  // ★ AI Writing 模式：展开的消息ID集合
-  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
-    new Set()
-  );
+  // 筛选器状态
+  const [filter, setFilter] = useState<
+    'all' | 'leader' | 'researcher' | 'reviewer' | 'synthesizer'
+  >('all');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // ★ 切换消息展开状态
-  const toggleMessageExpand = useCallback((msgId: string) => {
-    setExpandedMessages((prev) => {
-      const next = new Set(prev);
-      if (next.has(msgId)) {
-        next.delete(msgId);
-      } else {
-        next.add(msgId);
-      }
-      return next;
-    });
-  }, []);
 
   // ★ AI Writing 模式：将 WebSocket 事件和持久化消息转换为 UI 消息
   const uiMessages = useMemo<UIMessage[]>(() => {
@@ -1872,90 +2215,50 @@ function TeamInteractionTabContent({
     return allMessages;
   }, [safeWsEvents, safePersistedMessages]);
 
-  // ★ PRD: 按 Agent 分组的树形结构数据
-  interface AgentGroup {
-    groupKey: string; // e.g., "leader", "researcher-技术趋势"
-    agentType: string;
-    agentName: string;
-    agentIcon: string;
-    agentColor: string;
-    agentBgColor: string;
-    messages: UIMessage[];
-    firstTimestamp: Date;
-    lastTimestamp: Date;
-    isCompleted: boolean;
-  }
+  // ★ 筛选后的消息
+  const filteredMessages = useMemo(() => {
+    if (filter === 'all') return uiMessages;
+    return uiMessages.filter((msg) => msg.agentType === filter);
+  }, [uiMessages, filter]);
 
-  const groupedMessages = useMemo<AgentGroup[]>(() => {
-    if (uiMessages.length === 0) return [];
-
-    const groups = new Map<string, AgentGroup>();
-
-    for (const msg of uiMessages) {
-      const agentName = msg.agent || 'AI 团队';
-      // 生成分组键：Leader 单独一组，研究员按维度分组
-      let groupKey: string;
-      if (msg.agentType === 'leader') {
-        groupKey = 'leader';
-      } else if (
-        msg.agentType === 'researcher' ||
-        agentName.includes('研究员')
-      ) {
-        // 研究员按 agent 名称分组（包含维度信息）
-        groupKey = `researcher-${agentName}`;
-      } else if (msg.agentType === 'reviewer') {
-        groupKey = 'reviewer';
-      } else if (msg.agentType === 'synthesizer') {
-        groupKey = 'synthesizer';
-      } else {
-        groupKey = `other-${agentName}`;
-      }
-
-      if (!groups.has(groupKey)) {
-        groups.set(groupKey, {
-          groupKey,
-          agentType: msg.agentType || 'system',
-          agentName: agentName,
-          agentIcon: msg.agentIcon || '🤖',
-          agentColor: msg.agentColor || 'text-gray-700',
-          agentBgColor: msg.agentBgColor || 'bg-gray-100',
-          messages: [],
-          firstTimestamp: msg.timestamp,
-          lastTimestamp: msg.timestamp,
-          isCompleted: false,
-        });
-      }
-
-      const group = groups.get(groupKey)!;
-      group.messages.push(msg);
-      if (msg.timestamp > group.lastTimestamp) {
-        group.lastTimestamp = msg.timestamp;
-      }
-      // 检查是否完成（消息内容包含"完成"）
-      if (msg.content.includes('完成') || msg.content.includes('completed')) {
-        group.isCompleted = true;
-      }
+  // ★ 判断消息类型，返回合适的卡片组件
+  const getMessageCard = useCallback((msg: UIMessage) => {
+    // Leader 规划消息
+    if (
+      msg.agentType === 'leader' &&
+      (msg.detail?.type === 'leader_plan' || msg.content.includes('规划完成'))
+    ) {
+      return <LeaderPlanCard key={msg.id} msg={msg} />;
     }
-
-    // 按首次出现时间排序
-    return Array.from(groups.values()).sort(
-      (a, b) => a.firstTimestamp.getTime() - b.firstTimestamp.getTime()
-    );
-  }, [uiMessages]);
-
-  // ★ 展开的分组集合
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-
-  const toggleGroupExpand = useCallback((groupKey: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(groupKey)) {
-        next.delete(groupKey);
-      } else {
-        next.add(groupKey);
-      }
-      return next;
-    });
+    // 研究完成消息
+    if (
+      (msg.agentType === 'researcher' || msg.agent?.includes('研究员')) &&
+      (msg.content.includes('完成') || msg.detail?.type === 'dimension_content')
+    ) {
+      return <ResearchCompleteCard key={msg.id} msg={msg} />;
+    }
+    // 研究进行中消息
+    if (
+      (msg.agentType === 'researcher' || msg.agent?.includes('研究员')) &&
+      (msg.content.includes('研究中') ||
+        msg.content.includes('进度') ||
+        msg.progress !== undefined)
+    ) {
+      return <ResearchProgressCard key={msg.id} msg={msg} />;
+    }
+    // 审核消息
+    if (msg.agentType === 'reviewer' || msg.content.includes('审核')) {
+      return <ReviewCard key={msg.id} msg={msg} />;
+    }
+    // 报告完成消息
+    if (
+      (msg.agentType === 'synthesizer' || msg.agent?.includes('撰写')) &&
+      (msg.content.includes('完成') || msg.detail?.type === 'report_preview')
+    ) {
+      return <ReportCard key={msg.id} msg={msg} />;
+    }
+    // 通用消息
+    return <GenericMessageCard key={msg.id} msg={msg} />;
   }, []);
 
   // ★ 自动滚动到底部
@@ -2216,228 +2519,68 @@ function TeamInteractionTabContent({
           )}
         </div>
 
-        {/* Leader Plan Section */}
-        {renderLeaderPlanSection()}
+        {/* ★ 进度概览 */}
+        <ProgressOverview messages={uiMessages} missionStatus={missionStatus} />
 
-        {/* ★ PRD: 按 Agent 分组的树形结构视图 */}
-        {groupedMessages.length > 0 && (
-          <div className="mb-4 space-y-3">
-            {groupedMessages.map((group) => {
-              const isGroupExpanded = expandedGroups.has(group.groupKey);
-              const startTime = group.firstTimestamp.toLocaleTimeString(
-                'zh-CN',
-                {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }
-              );
-              const latestProgress = group.messages
-                .filter((m) => m.progress !== undefined)
-                .pop()?.progress;
+        {/* ★ 筛选栏 */}
+        <div className="mb-4 flex flex-wrap gap-2">
+          {(
+            ['all', 'leader', 'researcher', 'reviewer', 'synthesizer'] as const
+          ).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                filter === f
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {f === 'all'
+                ? '全部'
+                : f === 'leader'
+                  ? 'Leader'
+                  : f === 'researcher'
+                    ? '研究员'
+                    : f === 'reviewer'
+                      ? '审核员'
+                      : '撰写员'}
+            </button>
+          ))}
+        </div>
+
+        {/* ★ 时间线消息流 */}
+        {filteredMessages.length > 0 && (
+          <div className="space-y-4">
+            {filteredMessages.map((msg) => {
+              const time = msg.timestamp.toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+              });
 
               return (
-                <div
-                  key={group.groupKey}
-                  className={`overflow-hidden rounded-lg border shadow-sm ${
-                    group.agentType === 'leader'
-                      ? 'border-purple-200'
-                      : group.agentType === 'reviewer'
-                        ? 'border-green-200'
-                        : group.agentType === 'synthesizer'
-                          ? 'border-orange-200'
-                          : 'border-blue-200'
-                  }`}
-                >
-                  {/* 分组标题 - 可点击展开/收起 */}
-                  <button
-                    onClick={() => toggleGroupExpand(group.groupKey)}
-                    className={`flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-gray-50 ${
-                      group.agentType === 'leader'
-                        ? 'bg-purple-50'
-                        : group.agentType === 'reviewer'
-                          ? 'bg-green-50'
-                          : group.agentType === 'synthesizer'
-                            ? 'bg-orange-50'
-                            : 'bg-blue-50'
-                    }`}
-                  >
-                    {/* Agent Icon */}
-                    <span
-                      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${group.agentBgColor}`}
-                    >
-                      <span className="text-sm">{group.agentIcon}</span>
-                    </span>
-
-                    {/* Agent Name & Status */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`font-medium ${group.agentColor}`}>
-                          {group.agentName}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          {startTime}
-                        </span>
-                        {group.isCompleted ? (
-                          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-600">
-                            已完成
-                          </span>
-                        ) : latestProgress !== undefined &&
-                          latestProgress > 0 ? (
-                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-600">
-                            {latestProgress}%
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="mt-0.5 truncate text-xs text-gray-500">
-                        {group.messages.length} 条活动记录
-                      </p>
+                <div key={msg.id} className="relative">
+                  {/* 时间戳和 Agent 标识 */}
+                  <div className="mb-2 flex items-center gap-3">
+                    <span className="text-xs text-gray-400">{time}</span>
+                    <div className="h-px flex-1 bg-gray-100" />
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${msg.agentBgColor || 'bg-gray-100'}`}
+                      >
+                        {msg.agentIcon || '🤖'}
+                      </span>
+                      <span
+                        className={`text-xs font-medium ${msg.agentColor || 'text-gray-600'}`}
+                      >
+                        {msg.agent || 'AI 团队'}
+                      </span>
                     </div>
+                  </div>
 
-                    {/* 展开/收起箭头 */}
-                    <svg
-                      className={`h-5 w-5 flex-shrink-0 text-gray-400 transition-transform ${isGroupExpanded ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </button>
-
-                  {/* 展开的活动树 */}
-                  {isGroupExpanded && (
-                    <div className="border-t bg-white">
-                      <div className="relative py-2 pl-6 pr-3">
-                        {/* 树形连接线 */}
-                        <div className="absolute bottom-4 left-[22px] top-2 w-px bg-gray-200" />
-
-                        {group.messages.map((msg, msgIdx) => {
-                          const isExpanded = expandedMessages.has(msg.id);
-                          const time = msg.timestamp.toLocaleTimeString(
-                            'zh-CN',
-                            {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              second: '2-digit',
-                            }
-                          );
-                          const isLast = msgIdx === group.messages.length - 1;
-
-                          return (
-                            <div
-                              key={msg.id}
-                              className="relative mb-2 last:mb-0"
-                            >
-                              {/* 树形节点圆点 */}
-                              <div
-                                className={`absolute -left-[14px] top-1.5 h-2 w-2 rounded-full ${
-                                  isLast ? 'bg-blue-500' : 'bg-gray-300'
-                                }`}
-                              />
-
-                              <div className="ml-4 rounded-lg border border-gray-100 bg-gray-50 p-2">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0 flex-1">
-                                    <span className="text-xs text-gray-400">
-                                      {time}
-                                    </span>
-                                    <p className="mt-0.5 text-sm text-gray-700">
-                                      {msg.content}
-                                    </p>
-                                    {/* 进度条 */}
-                                    {msg.progress !== undefined &&
-                                      msg.progress > 0 && (
-                                        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-gray-200">
-                                          <div
-                                            className="h-full rounded-full bg-blue-500 transition-all duration-300"
-                                            style={{
-                                              width: `${msg.progress}%`,
-                                            }}
-                                          />
-                                        </div>
-                                      )}
-                                  </div>
-
-                                  {/* 详情展开按钮 */}
-                                  {msg.detail && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleMessageExpand(msg.id);
-                                      }}
-                                      className="flex-shrink-0 rounded p-1 text-gray-400 hover:bg-white hover:text-gray-600"
-                                      title={isExpanded ? '收起' : '展开'}
-                                    >
-                                      <svg
-                                        className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M19 9l-7 7-7-7"
-                                        />
-                                      </svg>
-                                    </button>
-                                  )}
-                                </div>
-
-                                {/* 详情内容 */}
-                                {msg.detail && isExpanded && (
-                                  <div className="mt-2 rounded border-t border-gray-200 bg-white p-2">
-                                    {msg.detail.type ===
-                                      'dimension_content' && (
-                                      <DimensionContentPreview
-                                        data={
-                                          msg.detail.data as Record<
-                                            string,
-                                            unknown
-                                          >
-                                        }
-                                      />
-                                    )}
-                                    {msg.detail.type === 'report_preview' && (
-                                      <ReportPreview
-                                        data={
-                                          msg.detail.data as Record<
-                                            string,
-                                            unknown
-                                          >
-                                        }
-                                      />
-                                    )}
-                                    {msg.detail.type === 'leader_plan' && (
-                                      <LeaderPlanPreview
-                                        data={
-                                          msg.detail.data as Record<
-                                            string,
-                                            unknown
-                                          >
-                                        }
-                                      />
-                                    )}
-                                    {msg.detail.type === 'text' && (
-                                      <div className="whitespace-pre-wrap text-xs text-gray-600">
-                                        {msg.detail.data as string}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  {/* 消息卡片 */}
+                  {getMessageCard(msg)}
                 </div>
               );
             })}
