@@ -281,6 +281,11 @@ export class AIEngineFacade {
       options.modelType || AIModelType.CHAT,
     );
 
+    // ★ 调试日志：显示所有模型及其 isReasoning 状态
+    this.logger.log(
+      `[selectModel] Found ${models.length} models: ${models.map((m) => `${m.id}(reasoning=${m.isReasoning})`).join(", ")}`,
+    );
+
     if (models.length === 0) {
       this.logger.warn("[selectModel] No models available");
       return null;
@@ -292,8 +297,13 @@ export class AIEngineFacade {
     // 1. 过滤推理模型
     if (options.requireReasoning) {
       candidates = candidates.filter((m) => m.isReasoning);
+      this.logger.log(
+        `[selectModel] After reasoning filter: ${candidates.length} candidates: ${candidates.map((m) => m.id).join(", ")}`,
+      );
       if (candidates.length === 0) {
-        this.logger.warn("[selectModel] No reasoning models available");
+        this.logger.warn(
+          "[selectModel] No reasoning models available, falling back to all models",
+        );
         candidates = models; // 回退到所有模型
       }
     }
