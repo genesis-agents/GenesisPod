@@ -116,6 +116,29 @@ interface UIMessage {
   dimensionName?: string; // ★ 研究维度名称，用于按任务过滤
 }
 
+// ★ 安全字符串转换：防止对象被当作 React 子元素渲染 (React Error #31)
+function safeString(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  // 对象类型：尝试获取常见的文本字段，否则 JSON 序列化
+  if (typeof val === 'object') {
+    const obj = val as Record<string, unknown>;
+    // 尝试常见的文本字段
+    if (typeof obj.message === 'string') return obj.message;
+    if (typeof obj.content === 'string') return obj.content;
+    if (typeof obj.text === 'string') return obj.text;
+    if (typeof obj.result === 'string') return obj.result;
+    // 最后尝试 JSON 序列化
+    try {
+      return JSON.stringify(val);
+    } catch {
+      return '[Object]';
+    }
+  }
+  return String(val);
+}
+
 interface TopicContentPanelProps {
   report: TopicReport | null;
   dimensions: TopicDimension[];
@@ -1690,7 +1713,7 @@ function ProgressOverview({
       if (msg.agentType === 'researcher' && msg.agent?.includes('研究员')) {
         const dimName = (msg.agent || '').replace('研究员', '').trim();
         if (dimName && !dimensions.has(dimName)) {
-          const status = msg.content.includes('完成')
+          const status = safeString(msg.content).includes('完成')
             ? 'completed'
             : 'in_progress';
           dimensions.set(dimName, { name: dimName, status });
@@ -1774,8 +1797,10 @@ function LeaderPlanCard({ msg }: { msg: UIMessage }) {
         <span className="font-medium text-purple-800">研究规划完成</span>
       </div>
 
-      {msg.content && !msg.content.includes('规划完成') && (
-        <p className="mb-3 text-sm text-purple-700">{msg.content}</p>
+      {msg.content && !safeString(msg.content).includes('规划完成') && (
+        <p className="mb-3 text-sm text-purple-700">
+          {safeString(msg.content)}
+        </p>
       )}
 
       {dimensions.length > 0 && (
@@ -1888,7 +1913,7 @@ function ResearchProgressCard({ msg }: { msg: UIMessage }) {
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
           <span className="text-sm text-blue-700">
-            {dimName ? `${dimName} 研究中...` : msg.content}
+            {dimName ? `${dimName} 研究中...` : safeString(msg.content)}
           </span>
         </div>
         {progress > 0 && (
@@ -1909,8 +1934,10 @@ function ResearchProgressCard({ msg }: { msg: UIMessage }) {
 
 // 审核结果卡片
 function ReviewCard({ msg }: { msg: UIMessage }) {
+  // ★ 安全处理：确保 content 是字符串
+  const safeContent = safeString(msg.content);
   const isPassed =
-    msg.content.includes('通过') || msg.content.includes('passed');
+    safeContent.includes('通过') || safeContent.includes('passed');
 
   return (
     <div
@@ -1928,7 +1955,7 @@ function ReviewCard({ msg }: { msg: UIMessage }) {
           质量审核{isPassed ? '通过' : '需修订'}
         </span>
       </div>
-      <p className="mt-2 text-sm text-gray-600">{msg.content}</p>
+      <p className="mt-2 text-sm text-gray-600">{safeContent}</p>
     </div>
   );
 }
@@ -1964,14 +1991,16 @@ function ReportCard({ msg }: { msg: UIMessage }) {
 // 通用消息卡片
 function GenericMessageCard({ msg }: { msg: UIMessage }) {
   const [expanded, setExpanded] = useState(false);
-  const hasLongContent = msg.content.length > 150 || msg.detail;
-  const displayContent = expanded ? msg.content : msg.content.slice(0, 150);
+  // ★ 安全处理：确保 content 是字符串
+  const safeContent = safeString(msg.content);
+  const hasLongContent = safeContent.length > 150 || msg.detail;
+  const displayContent = expanded ? safeContent : safeContent.slice(0, 150);
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-3">
       <p className="text-sm text-gray-700">
         {displayContent}
-        {!expanded && msg.content.length > 150 && '...'}
+        {!expanded && safeContent.length > 150 && '...'}
       </p>
       {msg.progress !== undefined && msg.progress > 0 && (
         <div className="mt-2 h-1 overflow-hidden rounded-full bg-gray-200">
@@ -2067,11 +2096,11 @@ function TeamInteractionTabContent({
           agentColor,
           agentBgColor,
           agentType: msg.senderRole,
-          content: msg.content,
+          content: safeString(msg.content),
           timestamp: new Date(msg.createdAt),
           detail:
-            msg.content.length > 150
-              ? { type: 'text' as const, data: msg.content }
+            safeString(msg.content).length > 150
+              ? { type: 'text' as const, data: safeString(msg.content) }
               : undefined,
         };
       });
@@ -2114,7 +2143,7 @@ function TeamInteractionTabContent({
             detail = { type: 'text', data: thinking };
           }
         } else if (eventType === 'leader:planning') {
-          content = (data.message as string) || 'Leader 正在规划研究维度...';
+          content = safeString(data.message) || 'Leader 正在规划研究维度...';
         } else if (eventType === 'leader:plan_ready') {
           const plan = data.plan as Record<string, unknown>;
           content = `Leader 规划完成：${(plan?.dimensions as unknown[])?.length || 0} 个研究维度`;
@@ -2125,7 +2154,7 @@ function TeamInteractionTabContent({
         } else if (eventType === 'leader:response') {
           // ★ Leader 响应用户 @Leader 消息
           const responseText =
-            (data.response as string) || (data.message as string) || '';
+            safeString(data.response) || safeString(data.message) || '';
           content = responseText;
           // 长响应添加详情折叠
           if (responseText.length > 150) {
@@ -2133,7 +2162,7 @@ function TeamInteractionTabContent({
           }
         } else {
           content =
-            (data.message as string) || (data.content as string) || eventType;
+            safeString(data.message) || safeString(data.content) || eventType;
         }
       } else if (eventType.startsWith('agent:')) {
         const role = (data.agentRole as string) || 'researcher';
@@ -2156,8 +2185,8 @@ function TeamInteractionTabContent({
         }
 
         content =
-          (data.message as string) ||
-          (data.status as string) ||
+          safeString(data.message) ||
+          safeString(data.status) ||
           `${agent} 工作中`;
       } else if (eventType.startsWith('task:')) {
         agentIcon = '📋';
@@ -2165,7 +2194,7 @@ function TeamInteractionTabContent({
         agentColor = 'text-gray-700';
         msgType = 'progress';
         progress = (data.progress as number) || 0;
-        content = (data.message as string) || `任务 ${eventType.split(':')[1]}`;
+        content = safeString(data.message) || `任务 ${eventType.split(':')[1]}`;
       } else if (eventType.startsWith('dimension:')) {
         const dimName = (data.dimensionName as string) || '';
         // 使用维度名称作为研究员标识，避免所有研究员都显示相同名称
@@ -2192,7 +2221,7 @@ function TeamInteractionTabContent({
             };
           }
         } else {
-          content = (data.message as string) || eventType;
+          content = safeString(data.message) || eventType;
         }
       } else if (eventType.startsWith('report:')) {
         agent = '撰写员';
@@ -2207,8 +2236,8 @@ function TeamInteractionTabContent({
         } else if (eventType === 'report:synthesis_completed') {
           content = '研究报告撰写完成';
           // ★ 添加报告预览
-          const reportTitle = (data.title as string) || '';
-          const summary = (data.summary as string) || '';
+          const reportTitle = safeString(data.title) || '';
+          const summary = safeString(data.summary) || '';
           if (reportTitle || summary) {
             detail = {
               type: 'report_preview',
@@ -2216,7 +2245,7 @@ function TeamInteractionTabContent({
             };
           }
         } else {
-          content = (data.message as string) || eventType;
+          content = safeString(data.message) || eventType;
         }
       } else if (eventType.startsWith('mission:')) {
         agent = 'Leader';
@@ -2226,11 +2255,11 @@ function TeamInteractionTabContent({
         agentType = 'leader';
         msgType = 'system';
         progress = data.progress as number;
-        content = (data.message as string) || `任务 ${eventType.split(':')[1]}`;
+        content = safeString(data.message) || `任务 ${eventType.split(':')[1]}`;
       } else {
         content =
-          (data.message as string) ||
-          (data.content as string) ||
+          safeString(data.message) ||
+          safeString(data.content) ||
           eventType.replace(/:/g, ' ');
       }
 
@@ -2326,7 +2355,11 @@ function TeamInteractionTabContent({
       // 搜索关键词过滤
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
-        const searchableText = [msg.content, msg.agent, msg.dimensionName]
+        const searchableText = [
+          safeString(msg.content),
+          msg.agent,
+          msg.dimensionName,
+        ]
           .filter(Boolean)
           .join(' ')
           .toLowerCase();
@@ -2340,37 +2373,39 @@ function TeamInteractionTabContent({
 
   // ★ 判断消息类型，返回合适的卡片组件
   const getMessageCard = useCallback((msg: UIMessage) => {
+    // ★ 安全获取 content 字符串用于条件判断
+    const content = safeString(msg.content);
     // Leader 规划消息
     if (
       msg.agentType === 'leader' &&
-      (msg.detail?.type === 'leader_plan' || msg.content.includes('规划完成'))
+      (msg.detail?.type === 'leader_plan' || content.includes('规划完成'))
     ) {
       return <LeaderPlanCard key={msg.id} msg={msg} />;
     }
     // 研究完成消息
     if (
       (msg.agentType === 'researcher' || msg.agent?.includes('研究员')) &&
-      (msg.content.includes('完成') || msg.detail?.type === 'dimension_content')
+      (content.includes('完成') || msg.detail?.type === 'dimension_content')
     ) {
       return <ResearchCompleteCard key={msg.id} msg={msg} />;
     }
     // 研究进行中消息
     if (
       (msg.agentType === 'researcher' || msg.agent?.includes('研究员')) &&
-      (msg.content.includes('研究中') ||
-        msg.content.includes('进度') ||
+      (content.includes('研究中') ||
+        content.includes('进度') ||
         msg.progress !== undefined)
     ) {
       return <ResearchProgressCard key={msg.id} msg={msg} />;
     }
     // 审核消息
-    if (msg.agentType === 'reviewer' || msg.content.includes('审核')) {
+    if (msg.agentType === 'reviewer' || content.includes('审核')) {
       return <ReviewCard key={msg.id} msg={msg} />;
     }
     // 报告完成消息
     if (
       (msg.agentType === 'synthesizer' || msg.agent?.includes('撰写')) &&
-      (msg.content.includes('完成') || msg.detail?.type === 'report_preview')
+      (content.includes('完成') || msg.detail?.type === 'report_preview')
     ) {
       return <ReportCard key={msg.id} msg={msg} />;
     }
@@ -3193,7 +3228,7 @@ function AgentThinkingTabContent({
           agentType: 'leader',
           eventType: 'planning',
           phase: 'planning',
-          content: (data.message as string) || '正在规划研究任务...',
+          content: safeString(data.message) || '正在规划研究任务...',
           progress: data.progress as number,
           timestamp: new Date(e.timestamp),
         });
@@ -3205,9 +3240,9 @@ function AgentThinkingTabContent({
           agentType: 'researcher',
           eventType: 'start',
           phase: 'researching',
-          content: `开始研究: ${data.dimensionName || '维度研究'}`,
-          dimensionName: data.dimensionName as string,
-          agentName: data.agentName as string,
+          content: `开始研究: ${safeString(data.dimensionName) || '维度研究'}`,
+          dimensionName: safeString(data.dimensionName),
+          agentName: safeString(data.agentName),
           timestamp: new Date(e.timestamp),
         });
       } else if (e.type === 'dimension:research_progress') {
@@ -3215,11 +3250,11 @@ function AgentThinkingTabContent({
           id: `researcher-progress-${idx}`,
           agentType: 'researcher',
           eventType: 'progress',
-          phase: (data.phase as string) || 'researching',
-          content: (data.message as string) || '研究进行中...',
+          phase: safeString(data.phase) || 'researching',
+          content: safeString(data.message) || '研究进行中...',
           progress: data.progress as number,
-          dimensionName: data.dimensionName as string,
-          agentName: data.agentName as string,
+          dimensionName: safeString(data.dimensionName),
+          agentName: safeString(data.agentName),
           timestamp: new Date(e.timestamp),
         });
       } else if (e.type === 'dimension:research_completed') {
@@ -3228,26 +3263,26 @@ function AgentThinkingTabContent({
           agentType: 'researcher',
           eventType: 'complete',
           phase: 'completed',
-          content: `完成研究: ${data.dimensionName || '维度研究'}`,
-          dimensionName: data.dimensionName as string,
-          agentName: data.agentName as string,
+          content: `完成研究: ${safeString(data.dimensionName) || '维度研究'}`,
+          dimensionName: safeString(data.dimensionName),
+          agentName: safeString(data.agentName),
           timestamp: new Date(e.timestamp),
         });
       }
       // Agent 工作事件
       else if (e.type === 'agent:working') {
-        const role = (data.agentRole as string) || 'researcher';
+        const role = safeString(data.agentRole) || 'researcher';
         activities.push({
           id: `agent-working-${idx}`,
           agentType: role as AgentActivity['agentType'],
           eventType: 'working',
           phase: 'working',
           content:
-            (data.taskDescription as string) ||
-            `${data.agentName || 'Agent'} 正在工作...`,
+            safeString(data.taskDescription) ||
+            `${safeString(data.agentName) || 'Agent'} 正在工作...`,
           progress: data.progress as number,
-          dimensionName: data.dimensionName as string,
-          agentName: data.agentName as string,
+          dimensionName: safeString(data.dimensionName),
+          agentName: safeString(data.agentName),
           timestamp: new Date(e.timestamp),
         });
       }
@@ -3266,8 +3301,8 @@ function AgentThinkingTabContent({
           id: `synthesizer-progress-${idx}`,
           agentType: 'synthesizer',
           eventType: 'progress',
-          phase: (data.phase as string) || 'synthesizing',
-          content: (data.message as string) || '报告撰写中...',
+          phase: safeString(data.phase) || 'synthesizing',
+          content: safeString(data.message) || '报告撰写中...',
           progress: data.progress as number,
           timestamp: new Date(e.timestamp),
         });
@@ -3283,7 +3318,7 @@ function AgentThinkingTabContent({
       }
       // 任务事件
       else if (e.type === 'task:progress') {
-        const taskType = data.taskType as string;
+        const taskType = safeString(data.taskType);
         let agentType: AgentActivity['agentType'] = 'researcher';
         if (taskType === 'quality_review') agentType = 'reviewer';
         else if (taskType === 'report_synthesis') agentType = 'synthesizer';
@@ -3292,11 +3327,11 @@ function AgentThinkingTabContent({
           id: `task-progress-${idx}`,
           agentType,
           eventType: 'progress',
-          phase: (data.status as string) || 'executing',
+          phase: safeString(data.status) || 'executing',
           content:
-            (data.message as string) || (data.title as string) || '任务执行中',
+            safeString(data.message) || safeString(data.title) || '任务执行中',
           progress: data.progress as number,
-          dimensionName: data.dimensionName as string,
+          dimensionName: safeString(data.dimensionName),
           timestamp: new Date(e.timestamp),
         });
       }
