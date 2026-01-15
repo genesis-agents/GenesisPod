@@ -378,6 +378,7 @@ export class AIEngineFacade {
         displayName: true,
         provider: true,
         maxTokens: true,
+        isReasoning: true, // ★ 添加：从数据库读取推理模型标记
       },
     });
 
@@ -385,7 +386,9 @@ export class AIEngineFacade {
       id: m.modelId,
       name: m.displayName,
       provider: m.provider,
-      isReasoning: this.aiChatService.isReasoningModel(m.modelId),
+      // ★ 优先使用数据库配置的 isReasoning，否则用模式匹配推断
+      isReasoning:
+        m.isReasoning ?? this.aiChatService.isReasoningModel(m.modelId),
       isAvailable: this.circuitBreaker?.canExecute(`chat:${m.modelId}`) ?? true,
       maxTokens: m.maxTokens,
     }));
