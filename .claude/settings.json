@@ -29,7 +29,6 @@
       "Write(.gitignore)",
       "Write(.npmrc)"
     ],
-    "additionalDirectories": ["../docs/"],
     "defaultMode": "acceptEdits"
   },
   "env": {
