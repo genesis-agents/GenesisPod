@@ -1449,7 +1449,7 @@
     },
     "contentPanel": {
       "tabs": {
-        "todoList": "TODO LIST",
+        "todoList": "待办列表",
         "collaboration": "协作动态",
         "report": "洞察报告",
         "history": "研究历史",

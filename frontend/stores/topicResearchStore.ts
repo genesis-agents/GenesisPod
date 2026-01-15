@@ -718,12 +718,19 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
       const report = await api.getLatestReport(topicId);
       set({ currentReport: report });
     } catch (error) {
+      // ★ 404 "No reports found" 是新专题的正常情况，不应设置 error 状态
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to fetch latest report';
+      const isNoReportsError =
+        errorMessage.includes('No reports found') ||
+        errorMessage.includes('404');
+
       set({
         currentReport: null,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to fetch latest report',
+        // ★ 仅在非 404 错误时设置 error，避免新专题显示"启动失败"
+        ...(isNoReportsError ? {} : { error: errorMessage }),
       });
       // Don't throw here as missing report is not critical
     }

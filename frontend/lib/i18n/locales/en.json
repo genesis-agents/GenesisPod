@@ -1449,7 +1449,7 @@
     },
     "contentPanel": {
       "tabs": {
-        "todoList": "TODO LIST",
+        "todoList": "Tasks",
         "collaboration": "Activity",
         "report": "Insights Report",
         "history": "History",
