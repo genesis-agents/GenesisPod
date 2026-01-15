@@ -1224,6 +1224,10 @@ export class AiChatService {
     temperature?: number,
     timeout: number = 120000,
   ): Promise<ChatCompletionResult> {
+    // ★ 关键修复：确保 apiEndpoint 有效，与 testModelConnectionWithKey 保持一致
+    const effectiveEndpoint =
+      apiEndpoint?.trim() || "https://api.openai.com/v1/chat/completions";
+
     // 使用 max_completion_tokens 用于新模型
     const isNewerModel =
       modelId.includes("gpt-4o") ||
@@ -1249,27 +1253,43 @@ export class AiChatService {
       );
     }
 
+    // ★ 构建请求体 - 只包含有效的参数
+    const requestBody: Record<string, any> = {
+      model: modelId,
+      messages: messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+      ...tokenParam,
+      ...reasoningParam,
+    };
+
+    // ★ 只有当 temperature 有值时才包含，避免发送 null/undefined
+    if (temperature !== undefined && temperature !== null) {
+      requestBody.temperature = temperature;
+    }
+
+    // ★ 详细诊断日志：打印请求详情（不含敏感信息）
+    this.logger.warn(
+      `[callOpenAICompatibleAPI] ★ Request Details:\n` +
+        `  - Original endpoint: "${apiEndpoint}"\n` +
+        `  - Effective endpoint: "${effectiveEndpoint}"\n` +
+        `  - Model: ${modelId}\n` +
+        `  - Token param: ${JSON.stringify(tokenParam)}\n` +
+        `  - Temperature: ${temperature}\n` +
+        `  - Timeout: ${timeout}ms\n` +
+        `  - Messages: ${messages.length} (first: ${messages[0]?.role}, last: ${messages[messages.length - 1]?.role})\n` +
+        `  - First msg length: ${messages[0]?.content?.length || 0} chars`,
+    );
+
     const response = await firstValueFrom(
-      this.httpService.post(
-        apiEndpoint,
-        {
-          model: modelId,
-          messages: messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          ...tokenParam,
-          ...reasoningParam,
-          temperature,
+      this.httpService.post(effectiveEndpoint, requestBody, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
         },
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          timeout,
-        },
-      ),
+        timeout,
+      }),
     );
 
     const data = response.data;
@@ -1346,32 +1366,47 @@ export class AiChatService {
     temperature?: number,
     timeout: number = 120000,
   ): Promise<ChatCompletionResult> {
+    // ★ 确保 apiEndpoint 有效
+    const effectiveEndpoint =
+      apiEndpoint?.trim() || "https://api.anthropic.com/v1/messages";
+
     // Extract system message
     const systemMessage = messages.find((m) => m.role === "system");
     const otherMessages = messages.filter((m) => m.role !== "system");
 
+    // ★ 构建请求体 - 只包含有效的参数
+    const requestBody: Record<string, any> = {
+      model: modelId,
+      max_tokens: maxTokens,
+      messages: otherMessages.map((m) => ({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content: m.content,
+      })),
+    };
+
+    // 只有当 system 有内容时才包含
+    if (systemMessage?.content) {
+      requestBody.system = systemMessage.content;
+    }
+
+    // 只有当 temperature 有值时才包含
+    if (temperature !== undefined && temperature !== null) {
+      requestBody.temperature = temperature;
+    }
+
+    this.logger.warn(
+      `[callAnthropicAPI] ★ Request: endpoint="${effectiveEndpoint}", model=${modelId}, maxTokens=${maxTokens}`,
+    );
+
     const response = await firstValueFrom(
-      this.httpService.post(
-        apiEndpoint,
-        {
-          model: modelId,
-          max_tokens: maxTokens,
-          temperature,
-          system: systemMessage?.content,
-          messages: otherMessages.map((m) => ({
-            role: m.role === "assistant" ? "assistant" : "user",
-            content: m.content,
-          })),
+      this.httpService.post(effectiveEndpoint, requestBody, {
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
         },
-        {
-          headers: {
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json",
-          },
-          timeout,
-        },
-      ),
+        timeout,
+      }),
     );
 
     const data = response.data;
@@ -1395,6 +1430,10 @@ export class AiChatService {
     temperature?: number,
     timeout: number = 120000,
   ): Promise<ChatCompletionResult> {
+    // ★ 确保 apiEndpoint 有效
+    const effectiveEndpoint =
+      apiEndpoint?.trim() || "https://generativelanguage.googleapis.com/v1beta";
+
     // 直接使用数据库配置的模型 ID，不做额外验证
     // 如果模型无效，Google API 会返回明确错误，不应静默替换
     // 用户在管理后台配置的模型如果通过测试，就应该被信任
@@ -1406,20 +1445,20 @@ export class AiChatService {
     // 2. 基础 URL（如 https://generativelanguage.googleapis.com/v1beta）
     // 3. 带 /models 的 URL（如 https://generativelanguage.googleapis.com/v1beta/models）
     let apiUrl: string;
-    if (apiEndpoint.includes(":generateContent")) {
+    if (effectiveEndpoint.includes(":generateContent")) {
       // 完整 URL，直接使用
-      apiUrl = `${apiEndpoint}?key=${apiKey}`;
-    } else if (apiEndpoint.includes("/models")) {
+      apiUrl = `${effectiveEndpoint}?key=${apiKey}`;
+    } else if (effectiveEndpoint.includes("/models")) {
       // 已包含 /models，只需添加模型 ID
-      const baseUrl = apiEndpoint.endsWith("/")
-        ? apiEndpoint.slice(0, -1)
-        : apiEndpoint;
+      const baseUrl = effectiveEndpoint.endsWith("/")
+        ? effectiveEndpoint.slice(0, -1)
+        : effectiveEndpoint;
       apiUrl = `${baseUrl}/${effectiveModelId}:generateContent?key=${apiKey}`;
     } else {
       // 基础 URL，需要添加 /models/
-      const baseUrl = apiEndpoint.endsWith("/")
-        ? apiEndpoint.slice(0, -1)
-        : apiEndpoint;
+      const baseUrl = effectiveEndpoint.endsWith("/")
+        ? effectiveEndpoint.slice(0, -1)
+        : effectiveEndpoint;
       apiUrl = `${baseUrl}/models/${effectiveModelId}:generateContent?key=${apiKey}`;
     }
 
@@ -1433,14 +1472,21 @@ export class AiChatService {
       parts: [{ text: m.content }],
     }));
 
+    // ★ 构建请求体 - 只包含有效的 temperature
+    const generationConfig: Record<string, any> = {
+      maxOutputTokens: maxTokens,
+      topP: 0.95,
+      topK: 40,
+    };
+
+    // 只有当 temperature 有值时才包含
+    if (temperature !== undefined && temperature !== null) {
+      generationConfig.temperature = temperature;
+    }
+
     const requestBody: any = {
       contents,
-      generationConfig: {
-        maxOutputTokens: maxTokens,
-        temperature,
-        topP: 0.95,
-        topK: 40,
-      },
+      generationConfig,
     };
 
     if (systemMessage) {
@@ -1448,6 +1494,10 @@ export class AiChatService {
         parts: [{ text: systemMessage.content }],
       };
     }
+
+    this.logger.warn(
+      `[callGoogleAPI] ★ Request: apiUrl="${apiUrl.replace(apiKey, "***")}", model=${modelId}`,
+    );
 
     const response = await firstValueFrom(
       this.httpService.post(apiUrl, requestBody, {
@@ -1491,26 +1541,37 @@ export class AiChatService {
     temperature?: number,
     timeout: number = 120000,
   ): Promise<ChatCompletionResult> {
+    // ★ 确保 apiEndpoint 有效
+    const effectiveEndpoint =
+      apiEndpoint?.trim() || "https://api.x.ai/v1/chat/completions";
+
+    // ★ 构建请求体 - 只包含有效的参数
+    const requestBody: Record<string, any> = {
+      model: modelId,
+      messages: messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+      max_tokens: maxTokens,
+    };
+
+    // 只有当 temperature 有值时才包含
+    if (temperature !== undefined && temperature !== null) {
+      requestBody.temperature = temperature;
+    }
+
+    this.logger.warn(
+      `[callXAIAPI] ★ Request: endpoint="${effectiveEndpoint}", model=${modelId}`,
+    );
+
     const response = await firstValueFrom(
-      this.httpService.post(
-        apiEndpoint,
-        {
-          model: modelId,
-          messages: messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          max_tokens: maxTokens,
-          temperature,
+      this.httpService.post(effectiveEndpoint, requestBody, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
         },
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          timeout,
-        },
-      ),
+        timeout,
+      }),
     );
 
     const data = response.data;
