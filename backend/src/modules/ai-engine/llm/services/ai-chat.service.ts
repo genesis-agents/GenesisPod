@@ -85,12 +85,30 @@ export class AiChatService {
 
   /**
    * Check if the model supports the temperature parameter
+   * 推理模型（o1, o3, gpt-5 系列）不支持 temperature 参数
+   * 参考: https://platform.openai.com/docs/models/gpt-5.1
    */
   private isTemperatureSupported(model: string): boolean {
-    // Add logic to determine if the model supports the temperature parameter
-    // For example, some models might not support temperature adjustments
-    const unsupportedModels = ["model_without_temperature_support"];
-    return !unsupportedModels.includes(model.toLowerCase());
+    const modelLower = model.toLowerCase();
+
+    // ★ 推理模型不支持 temperature 参数
+    // o1 系列: o1-preview, o1-mini, o1-pro
+    // o3 系列: o3-mini, o3
+    // gpt-5 系列: gpt-5, gpt-5.1, gpt-5.2, gpt-5-turbo 等
+    const isReasoningModel =
+      modelLower.startsWith("o1") ||
+      modelLower.startsWith("o3") ||
+      modelLower.startsWith("gpt-5") ||
+      modelLower.includes("gpt-5");
+
+    if (isReasoningModel) {
+      this.logger.debug(
+        `[isTemperatureSupported] Model "${model}" is a reasoning model, temperature not supported`,
+      );
+      return false;
+    }
+
+    return true;
   }
 
   // ==================== 数据库配置读取 ====================
