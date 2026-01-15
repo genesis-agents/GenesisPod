@@ -294,12 +294,13 @@ function processChildren(
  * - __CITE_GROUP_1_2__ - internal marker format
  * - CITE_GROUP_6_8 - AI output format (without delimiters)
  * - [temp-X-Y] - evidence ID format from research reports
+ * - [uuid] - UUID format from older research reports
  */
 function processText(
   text: string,
   sources: SourceReference[]
 ): React.ReactNode {
-  // Build a map from evidence IDs to source indices for [temp-X-Y] format
+  // Build a map from evidence IDs to source indices for UUID and temp-X-Y formats
   const evidenceIdMap = new Map<string, number>();
   sources.forEach((source, index) => {
     evidenceIdMap.set(source.id, index + 1);
@@ -311,8 +312,9 @@ function processText(
   // 3. [资料 1] or [资料 1, 2] - Chinese reference format
   // 4. [1] or [1, 2] - standard citation format
   // 5. [temp-X-Y] - evidence ID format
+  // 6. [uuid] - UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
   const pattern =
-    /(__CITE_GROUP_[\d_]+__|CITE_GROUP_\d+(?:_\d+)*|\[资料\s*(\d+(?:\s*[,、]\s*\d+)*)\]|\[(temp-\d+-\d+)\]|\[(\d+(?:\s*,\s*\d+)*)\])/g;
+    /(__CITE_GROUP_[\d_]+__|CITE_GROUP_\d+(?:_\d+)*|\[资料\s*(\d+(?:\s*[,、]\s*\d+)*)\]|\[(temp-\d+-\d+)\]|\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]|\[(\d+(?:\s*,\s*\d+)*)\])/gi;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -351,8 +353,15 @@ function processText(
         indices = [sourceIndex];
       }
     } else if (match[4]) {
+      // [uuid] format - UUID evidence ID from older research reports
+      evidenceId = match[4];
+      const sourceIndex = evidenceIdMap.get(evidenceId);
+      if (sourceIndex) {
+        indices = [sourceIndex];
+      }
+    } else if (match[5]) {
       // Original [1] or [1, 2] format
-      indices = match[4].split(/\s*,\s*/).map((s) => parseInt(s, 10));
+      indices = match[5].split(/\s*,\s*/).map((s) => parseInt(s, 10));
     } else {
       // Fallback - should not happen
       continue;
@@ -374,6 +383,10 @@ function processText(
       .replace(/__CITE_GROUP_[\d_]+__/g, '') // Remove internal markers
       .replace(/CITE_GROUP_\d+(?:_\d+)*/g, '') // Remove AI markers
       .replace(/\[temp-\d+-\d+\]/g, '') // Remove evidence ID patterns
+      .replace(
+        /\[[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\]/gi,
+        ''
+      ) // Remove UUID patterns
       .trim();
 
     // Try to extract a meaningful phrase (between punctuation)
