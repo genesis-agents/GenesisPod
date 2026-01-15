@@ -151,13 +151,24 @@ export class AiChatService {
   private inferIsReasoning(modelId: string): boolean {
     const modelLower = modelId.toLowerCase();
     return (
+      // OpenAI reasoning models
       modelLower.includes("o1") ||
       modelLower.includes("o3") ||
       modelLower.includes("gpt-5") ||
       modelLower.includes("gpt5") ||
+      // Google/Gemini reasoning models
+      modelLower.includes("gemini-2.0-flash-thinking") ||
+      modelLower.includes("gemini-3") || // gemini-3-pro-preview, etc.
+      modelLower.includes("gemini-exp") ||
+      // DeepSeek reasoning models
       modelLower.includes("deepseek-r1") ||
       modelLower.includes("deepseek-reasoner") ||
-      modelLower.includes("reasoning")
+      // Anthropic reasoning models
+      modelLower.includes("claude-3.5-opus") ||
+      modelLower.includes("claude-4") ||
+      // Generic reasoning keyword
+      modelLower.includes("reasoning") ||
+      modelLower.includes("thinking")
     );
   }
 

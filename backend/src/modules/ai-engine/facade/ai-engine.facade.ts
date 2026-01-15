@@ -392,16 +392,26 @@ export class AIEngineFacade {
       },
     });
 
-    return models.map((m) => ({
-      id: m.modelId,
-      name: m.displayName,
-      provider: m.provider,
-      // ★ 优先使用数据库配置的 isReasoning，否则用模式匹配推断
-      isReasoning:
-        m.isReasoning ?? this.aiChatService.isReasoningModel(m.modelId),
-      isAvailable: this.circuitBreaker?.canExecute(`chat:${m.modelId}`) ?? true,
-      maxTokens: m.maxTokens,
-    }));
+    return models.map((m) => {
+      // ★ 修复：数据库 true 优先，否则用模式匹配（因为 ?? 不处理 false）
+      const dbIsReasoning = m.isReasoning === true;
+      const patternIsReasoning = this.aiChatService.isReasoningModel(m.modelId);
+      const isReasoning = dbIsReasoning || patternIsReasoning;
+
+      this.logger.debug(
+        `[getAvailableModelsExtended] Model ${m.modelId}: db=${m.isReasoning}, pattern=${patternIsReasoning}, final=${isReasoning}`,
+      );
+
+      return {
+        id: m.modelId,
+        name: m.displayName,
+        provider: m.provider,
+        isReasoning,
+        isAvailable:
+          this.circuitBreaker?.canExecute(`chat:${m.modelId}`) ?? true,
+        maxTokens: m.maxTokens,
+      };
+    });
   }
 
   /**
