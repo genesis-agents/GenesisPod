@@ -526,6 +526,19 @@ export class AiAskService {
   }
 
   /**
+   * 获取当前日期信息（用于系统提示词）
+   */
+  private getCurrentDateInfo(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+    const weekday = weekdays[now.getDay()];
+    return `当前日期：${year}年${month}月${day}日（星期${weekday}）`;
+  }
+
+  /**
    * 构建带上下文的系统提示词
    * @param contextMessages 对话历史
    * @param ragContext RAG 检索的知识库内容
@@ -538,6 +551,7 @@ export class AiAskService {
   ): string {
     const systemParts = [
       "你是一个智能助手，可以帮助用户回答问题、搜索信息和完成各种任务。",
+      this.getCurrentDateInfo(), // ★ 添加当前日期
       "请用中文回答，除非用户明确要求使用其他语言。",
       "回答要准确、简洁、有帮助。",
     ];
@@ -593,6 +607,7 @@ export class AiAskService {
   ): string {
     const parts = [
       "你是一个智能助手，可以帮助用户回答问题、搜索信息和完成各种任务。",
+      this.getCurrentDateInfo(), // ★ 添加当前日期
     ];
 
     // 如果问题与 DeepDive Engine 项目相关，添加项目上下文
