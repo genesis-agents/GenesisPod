@@ -1104,6 +1104,7 @@ export class AiChatService {
   /**
    * 使用数据库配置调用 AI API
    * 根据 provider 自动选择正确的 API 格式
+   * ★ 自适应：根据 isReasoning 字段自动决定是否发送 temperature
    */
   private async callAPIWithConfig(
     config: AIModelConfig,
@@ -1112,7 +1113,7 @@ export class AiChatService {
     temperature?: number,
     optionStrictMode?: boolean,
   ): Promise<ChatCompletionResult> {
-    const { provider, modelId, apiEndpoint, apiKey } = config;
+    const { provider, modelId, apiEndpoint, apiKey, isReasoning } = config;
     // 优先使用参数级别的 strictMode，否则使用实例级别的设置
     const useStrictMode = optionStrictMode ?? this.strictMode;
 
@@ -1130,10 +1131,21 @@ export class AiChatService {
       };
     }
 
+    // ★ 自适应：推理模型不支持 temperature 参数
+    // 完全基于数据库配置的 isReasoning 字段，无需硬编码模型名称
+    const effectiveTemperature = isReasoning ? undefined : temperature;
+
+    if (isReasoning && temperature !== undefined) {
+      this.logger.debug(
+        `[callAPIWithConfig] Model ${modelId} is reasoning model (isReasoning=true), ignoring temperature=${temperature}`,
+      );
+    }
+
     const apiFormat = this.getApiFormatForProvider(provider);
     const timeout = this.getTimeoutForModel(modelId, maxTokens);
     this.logger.debug(
-      `[callAPIWithConfig] Calling ${provider} API (format: ${apiFormat}) with model: ${modelId}, timeout: ${timeout}ms`,
+      `[callAPIWithConfig] Calling ${provider} API (format: ${apiFormat}) with model: ${modelId}, ` +
+        `isReasoning: ${isReasoning}, effectiveTemp: ${effectiveTemperature}, timeout: ${timeout}ms`,
     );
 
     try {
@@ -1145,8 +1157,9 @@ export class AiChatService {
             modelId,
             messages,
             maxTokens,
-            temperature,
+            effectiveTemperature,
             timeout,
+            isReasoning,
           );
 
         case "anthropic":
@@ -1232,6 +1245,7 @@ export class AiChatService {
 
   /**
    * 调用 OpenAI 兼容格式的 API（OpenAI, Azure, 各种代理服务）
+   * ★ 自适应：根据 isReasoning 参数决定 token 参数格式和 reasoning_effort
    */
   private async callOpenAICompatibleAPI(
     apiEndpoint: string,
@@ -1241,25 +1255,20 @@ export class AiChatService {
     maxTokens: number,
     temperature?: number,
     timeout: number = 120000,
+    isReasoning: boolean = false,
   ): Promise<ChatCompletionResult> {
     // ★ 关键修复：确保 apiEndpoint 有效，与 testModelConnectionWithKey 保持一致
     const effectiveEndpoint =
       apiEndpoint?.trim() || "https://api.openai.com/v1/chat/completions";
 
-    // 使用 max_completion_tokens 用于新模型
-    const isNewerModel =
-      modelId.includes("gpt-4o") ||
-      modelId.includes("gpt-5") ||
-      modelId.startsWith("o1") ||
-      modelId.startsWith("o3");
-
-    const tokenParam = isNewerModel
+    // ★ 自适应：根据 isReasoning 决定 token 参数格式
+    // 推理模型使用 max_completion_tokens，普通模型使用 max_tokens
+    const tokenParam = isReasoning
       ? { max_completion_tokens: maxTokens }
       : { max_tokens: maxTokens };
 
-    // ★ 推理模型 (o1, o3) 需要设置 reasoning_effort 参数
-    // 注意：GPT-5 不支持 reasoning_effort 参数（返回 400 错误）
-    // 只对明确的 o1/o3 系列模型使用此参数
+    // ★ 自适应：只有 o1/o3 系列需要 reasoning_effort 参数
+    // GPT-5 系列虽然是推理模型，但不需要此参数（默认 none）
     const modelLower = modelId.toLowerCase();
     const isO1O3Model =
       modelLower.startsWith("o1") || modelLower.startsWith("o3");
