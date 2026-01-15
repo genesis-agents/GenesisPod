@@ -1176,10 +1176,27 @@ export class AiChatService {
             timeout,
           );
       }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
+    } catch (error: any) {
+      // ★ 详细错误日志：捕获 API 响应中的错误信息
+      let errorMsg = error instanceof Error ? error.message : String(error);
+      let detailedError = "";
+
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+        const apiErrorMsg =
+          data?.error?.message || data?.message || JSON.stringify(data);
+        detailedError = `Status: ${status}, API Error: ${apiErrorMsg}`;
+        errorMsg = `${errorMsg} - ${detailedError}`;
+      }
+
       this.logger.error(
         `[callAPIWithConfig] ${provider} API error for ${modelId}: ${errorMsg}`,
+      );
+
+      // ★ 调试日志：输出请求参数（不包含敏感信息）
+      this.logger.debug(
+        `[callAPIWithConfig] Failed request params - model: ${modelId}, endpoint: ${apiEndpoint?.substring(0, 50)}...`,
       );
 
       if (useStrictMode) {

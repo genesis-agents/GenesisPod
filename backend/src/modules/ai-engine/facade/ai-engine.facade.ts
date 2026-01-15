@@ -275,19 +275,22 @@ export class AIEngineFacade {
   async selectModel(
     options: ModelSelectionOptions = {},
   ): Promise<ModelInfo | null> {
-    this.logger.debug(`[selectModel] options=${JSON.stringify(options)}`);
+    // ★ 诊断：使用 warn 级别确保日志可见
+    this.logger.warn(
+      `[selectModel] ★ Starting selection with options=${JSON.stringify(options)}`,
+    );
 
     const models = await this.getAvailableModelsExtended(
       options.modelType || AIModelType.CHAT,
     );
 
-    // ★ 调试日志：显示所有模型及其 isReasoning 状态
-    this.logger.log(
-      `[selectModel] Found ${models.length} models: ${models.map((m) => `${m.id}(reasoning=${m.isReasoning})`).join(", ")}`,
+    // ★ 诊断：显示所有模型及其 isReasoning 状态
+    this.logger.warn(
+      `[selectModel] ★ All models: ${models.map((m) => `${m.id}(reasoning=${m.isReasoning},available=${m.isAvailable})`).join(", ")}`,
     );
 
     if (models.length === 0) {
-      this.logger.warn("[selectModel] No models available");
+      this.logger.error("[selectModel] No models available!");
       return null;
     }
 
@@ -296,15 +299,17 @@ export class AIEngineFacade {
 
     // 1. 过滤推理模型
     if (options.requireReasoning) {
-      candidates = candidates.filter((m) => m.isReasoning);
-      this.logger.log(
-        `[selectModel] After reasoning filter: ${candidates.length} candidates: ${candidates.map((m) => m.id).join(", ")}`,
+      const reasoningModels = candidates.filter((m) => m.isReasoning);
+      this.logger.warn(
+        `[selectModel] ★ Reasoning filter: found ${reasoningModels.length} reasoning models: ${reasoningModels.map((m) => m.id).join(", ")}`,
       );
-      if (candidates.length === 0) {
-        this.logger.warn(
-          "[selectModel] No reasoning models available, falling back to all models",
+      if (reasoningModels.length === 0) {
+        this.logger.error(
+          "[selectModel] ★ ERROR: No reasoning models found! Check database isReasoning field. Falling back to all models.",
         );
-        candidates = models; // 回退到所有模型
+        // 保持 candidates = models，不过滤
+      } else {
+        candidates = reasoningModels;
       }
     }
 
@@ -316,6 +321,9 @@ export class AIEngineFacade {
       );
       if (preferred.length > 0) {
         candidates = preferred;
+        this.logger.debug(
+          `[selectModel] Provider filter: ${candidates.length} candidates for ${options.preferredProvider}`,
+        );
       }
     }
 
@@ -334,12 +342,16 @@ export class AIEngineFacade {
       const entityIds = candidates.map((m) => `chat:${m.id}`);
       const bestEntityId = this.circuitBreaker.selectBest(entityIds);
 
+      this.logger.warn(
+        `[selectModel] ★ Circuit breaker selection from [${entityIds.join(", ")}] => ${bestEntityId || "NONE"}`,
+      );
+
       if (bestEntityId) {
         const modelId = bestEntityId.replace("chat:", "");
         const selected = candidates.find((m) => m.id === modelId);
         if (selected) {
-          this.logger.debug(
-            `[selectModel] Selected by circuit breaker: ${modelId}`,
+          this.logger.warn(
+            `[selectModel] ★ FINAL: Selected ${modelId} by circuit breaker (isReasoning=${selected.isReasoning})`,
           );
           return selected;
         }
@@ -348,8 +360,8 @@ export class AIEngineFacade {
 
     // 5. 默认返回第一个可用的
     const selected = candidates[0] || null;
-    this.logger.log(
-      `[selectModel] ★ Final selection: ${selected?.id || "NONE"} (isReasoning=${selected?.isReasoning})`,
+    this.logger.warn(
+      `[selectModel] ★ FINAL: Default selection ${selected?.id || "NONE"} (isReasoning=${selected?.isReasoning})`,
     );
     return selected;
   }
@@ -369,10 +381,16 @@ export class AIEngineFacade {
   async getAvailableModelsExtended(
     modelType: AIModelType = AIModelType.CHAT,
   ): Promise<ModelInfo[]> {
-    this.logger.debug(`[getAvailableModelsExtended] modelType=${modelType}`);
+    // ★ 诊断：使用 warn 级别确保日志在生产环境可见
+    this.logger.warn(
+      `[getAvailableModelsExtended] ★ Querying models with modelType=${modelType}`,
+    );
 
     if (!this.prisma) {
       const modelNames = await this.aiChatService.getAvailableModelsAsync();
+      this.logger.warn(
+        `[getAvailableModelsExtended] No Prisma, using cache: ${modelNames.join(", ")}`,
+      );
       return modelNames.map((name) => ({
         id: name,
         name: name,
@@ -396,14 +414,21 @@ export class AIEngineFacade {
       },
     });
 
+    // ★ 诊断：显示查询到的所有模型
+    this.logger.warn(
+      `[getAvailableModelsExtended] ★ Found ${models.length} models from DB: ${models.map((m) => `${m.modelId}(isReasoning=${m.isReasoning})`).join(", ")}`,
+    );
+
     return models.map((m) => {
       // ★ 修复：数据库 true 优先，否则用模式匹配（因为 ?? 不处理 false）
       const dbIsReasoning = m.isReasoning === true;
       const patternIsReasoning = this.aiChatService.isReasoningModel(m.modelId);
       const isReasoning = dbIsReasoning || patternIsReasoning;
+      const isAvailable =
+        this.circuitBreaker?.canExecute(`chat:${m.modelId}`) ?? true;
 
-      this.logger.log(
-        `[getAvailableModelsExtended] Model ${m.modelId}: db=${m.isReasoning}, pattern=${patternIsReasoning}, final=${isReasoning}`,
+      this.logger.debug(
+        `[getAvailableModelsExtended] Model ${m.modelId}: db=${m.isReasoning}, pattern=${patternIsReasoning}, final=${isReasoning}, available=${isAvailable}`,
       );
 
       return {
@@ -411,8 +436,7 @@ export class AIEngineFacade {
         name: m.displayName,
         provider: m.provider,
         isReasoning,
-        isAvailable:
-          this.circuitBreaker?.canExecute(`chat:${m.modelId}`) ?? true,
+        isAvailable,
         maxTokens: m.maxTokens,
       };
     });
