@@ -1483,13 +1483,26 @@ export class ResearchMissionService {
       });
 
       // 更新任务状态为完成
+      // ★ 修复：从 result 中提取人类可读的摘要，而不是 JSON.stringify
+      let summary: string;
+      if (typeof result === "string") {
+        summary = result.substring(0, 500);
+      } else if (result?.summary) {
+        // 优先使用 result.summary 字段
+        summary = result.summary.substring(0, 500);
+      } else if (result?.content) {
+        // 其次使用 result.content 字段
+        summary = result.content.substring(0, 500);
+      } else {
+        // 最后才使用简单描述
+        summary = `研究完成`;
+      }
+
       await this.updateTaskStatus(
         task.id,
         ResearchTaskStatus.COMPLETED,
         result,
-        typeof result === "string"
-          ? result.substring(0, 500)
-          : JSON.stringify(result).substring(0, 500),
+        summary,
       );
 
       this.logger.log(`[executeTask] Task completed: ${task.title}`);
