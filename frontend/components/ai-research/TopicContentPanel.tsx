@@ -12,6 +12,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { Shield } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import type {
   TopicReport,
@@ -980,9 +981,21 @@ export function TopicContentPanel({
             missionStatus={missionStatus}
           />
         )}
-        {activeTab === 'credibility' && report && (
+        {activeTab === 'credibility' && (
           <div className="h-full overflow-y-auto p-4">
-            <CredibilityPanel topicId={topicId} reportId={report.id} />
+            {report ? (
+              <CredibilityPanel topicId={topicId} reportId={report.id} />
+            ) : (
+              <div className="flex h-64 flex-col items-center justify-center text-center">
+                <Shield className="mb-3 h-12 w-12 text-gray-300" />
+                <div className="mb-1 text-lg font-medium text-gray-900">
+                  暂无可信度报告
+                </div>
+                <div className="text-sm text-gray-500">
+                  研究完成后将自动生成可信度评估报告
+                </div>
+              </div>
+            )}
           </div>
         )}
         {activeTab === 'history' && topicId && (
@@ -2022,6 +2035,8 @@ function TeamInteractionTabContent({
   const [searchQuery, setSearchQuery] = useState('');
   // ★ 新增：维度筛选（研究任务）
   const [dimensionFilter, setDimensionFilter] = useState<string>('all');
+  // ★ 新增：消息列表折叠状态
+  const [messagesCollapsed, setMessagesCollapsed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // ★ AI Writing 模式：将 WebSocket 事件和持久化消息转换为 UI 消息
@@ -2759,18 +2774,43 @@ function TeamInteractionTabContent({
         </div>
       </div>
 
-      {/* ★ 可滚动区域：进度概览 + 时间线消息流 */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {/* ★ 进度概览 */}
+      {/* ★ 固定区域：进度概览 */}
+      <div className="shrink-0 border-b bg-white px-4 pb-4">
         <ProgressOverview messages={uiMessages} missionStatus={missionStatus} />
+      </div>
+
+      {/* ★ 可滚动区域：时间线消息流 */}
+      <div className="flex-1 overflow-y-auto">
+        {/* ★ 消息区域标题 - 可折叠 */}
+        <div
+          className="sticky top-0 z-10 flex cursor-pointer items-center justify-between border-b bg-gray-50 px-4 py-2"
+          onClick={() => setMessagesCollapsed(!messagesCollapsed)}
+        >
+          <span className="text-sm font-medium text-gray-600">
+            协作消息 ({filteredMessages.length})
+          </span>
+          <svg
+            className={`h-4 w-4 text-gray-500 transition-transform ${messagesCollapsed ? '' : 'rotate-180'}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </div>
 
         {/* ★ 垂直时间线消息流 */}
-        {filteredMessages.length > 0 && (
+        {!messagesCollapsed && filteredMessages.length > 0 && (
           <div className="relative">
             {/* ★ 垂直时间线 */}
-            <div className="absolute left-[13px] top-0 h-full w-0.5 bg-gray-200" />
+            <div className="absolute left-[29px] top-0 h-full w-0.5 bg-gray-200" />
 
-            <div className="space-y-4">
+            <div className="space-y-4 p-4">
               {filteredMessages.map((msg) => {
                 const time = msg.timestamp.toLocaleTimeString('zh-CN', {
                   hour: '2-digit',
@@ -2807,7 +2847,7 @@ function TeamInteractionTabContent({
                   <div key={msg.id} className="relative flex gap-4 pl-10">
                     {/* ★ 时间线节点 */}
                     <div
-                      className={`absolute left-[7px] top-1 h-3.5 w-3.5 rounded-full border-2 border-white shadow-sm ${getNodeColor()}`}
+                      className={`absolute left-[13px] top-1 h-3.5 w-3.5 rounded-full border-2 border-white shadow-sm ${getNodeColor()}`}
                       title={
                         msg.status === 'error'
                           ? '失败'
