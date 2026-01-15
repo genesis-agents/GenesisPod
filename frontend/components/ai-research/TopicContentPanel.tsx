@@ -32,13 +32,11 @@ import { ResearchTimeline } from './ResearchTimeline';
 // 报告视图模式
 type ReportViewMode = 'continuous' | 'chapter';
 
-// ★ 模块级回调：用于从 CitationTooltip 触发跳转到参考文献
-let citationClickCallback: ((evidenceId: string) => void) | null = null;
-export function setCitationClickCallback(
-  callback: ((evidenceId: string) => void) | null
-) {
-  citationClickCallback = callback;
-}
+// ★ 使用共享模块的引用导航回调
+import {
+  setCitationClickCallback,
+  triggerCitationClick,
+} from './citationNavigation';
 
 // Tab 类型定义
 type TabType =
@@ -1007,8 +1005,8 @@ function CitationTooltip({ citationIndex, evidence }: CitationTooltipProps) {
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (evidence && citationClickCallback) {
-      citationClickCallback(evidence.id);
+    if (evidence) {
+      triggerCitationClick(evidence.id);
     }
   };
 

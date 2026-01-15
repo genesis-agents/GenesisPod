@@ -24,6 +24,7 @@ import TurndownService from 'turndown';
 import type { TopicReport, TopicEvidence } from '@/types/topic-research';
 import { TextSelectionContextMenu } from './TextSelectionContextMenu';
 import type { AIEditOperation } from './types';
+import { triggerCitationClick } from './citationNavigation';
 
 // View modes: preview, richtext (WYSIWYG), source (raw markdown)
 type ViewMode = 'preview' | 'richtext' | 'source';
@@ -256,6 +257,7 @@ const aiEditButtons: readonly {
 interface CitationBadgeProps {
   index: number;
   evidence: {
+    id: string;
     title?: string | null;
     url?: string | null;
     snippet?: string | null;
@@ -266,18 +268,35 @@ interface CitationBadgeProps {
 function CitationBadge({ index, evidence }: CitationBadgeProps) {
   const [isHovered, setIsHovered] = useState(false);
 
+  // ★ 点击跳转到参考文献面板
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (evidence.id) {
+      triggerCitationClick(evidence.id);
+    }
+  };
+
   return (
     <span
       className="relative inline-block"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <sup className="cursor-pointer rounded bg-purple-100 px-1 py-0.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200">
+      <sup
+        onClick={handleClick}
+        className="cursor-pointer rounded bg-purple-100 px-1 py-0.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-200"
+        title="点击跳转到参考文献"
+      >
         [{index}]
       </sup>
 
       {isHovered && (
-        <div className="absolute bottom-full left-1/2 z-50 mb-2 w-72 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
+        <div
+          className="absolute bottom-full left-1/2 z-50 mb-2 w-72 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 shadow-lg"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-8 border-transparent border-t-white" />
           <div className="flex items-start gap-2">
             <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-xs font-bold text-purple-700">
@@ -292,17 +311,26 @@ function CitationBadge({ index, evidence }: CitationBadgeProps) {
                   {evidence.snippet}
                 </p>
               )}
-              {evidence.url && (
-                <a
-                  href={evidence.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
-                  onClick={(e) => e.stopPropagation()}
+              {/* 两个操作按钮 */}
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  onClick={handleClick}
+                  className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-800"
                 >
-                  查看来源 →
-                </a>
-              )}
+                  查看完整来源 →
+                </button>
+                {evidence.url && (
+                  <a
+                    href={evidence.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    原文
+                  </a>
+                )}
+              </div>
               {evidence.domain && (
                 <span className="mt-1 inline-block text-xs text-gray-400">
                   {evidence.domain}
@@ -766,13 +794,24 @@ export function ReportEditor({
     [annotations, highlightedAnnotationId, annotationColorMap]
   );
 
-  // Process text to convert citation patterns [1], [2] to interactive components
+  // Process text to convert citation patterns to interactive components
+  // Supports: [1], [2], [1, 2], [temp-x-y], [uuid]
   const processTextWithCitations = useCallback(
     (text: string): React.ReactNode => {
       if (!text || !evidence?.length) return text;
 
-      // Match [1], [2], [1, 2] patterns
-      const citationPattern = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
+      // Build evidence ID to index map for UUID lookup
+      const evidenceIdMap = new Map<string, number>();
+      evidence.forEach((ev, idx) => {
+        evidenceIdMap.set(ev.id, idx + 1);
+      });
+
+      // Match multiple formats:
+      // 1. [1], [2], [1, 2] - numeric
+      // 2. [temp-x-y] - temp ID
+      // 3. [uuid] - full UUID format
+      const citationPattern =
+        /\[(\d+(?:\s*,\s*\d+)*)\]|\[(temp-\d+-\d+)\]|\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/gi;
       const parts: React.ReactNode[] = [];
       let lastIndex = 0;
       let match: RegExpExecArray | null;
@@ -785,32 +824,56 @@ export function ReportEditor({
           parts.push(text.slice(lastIndex, match.index));
         }
 
-        // Parse indices
-        const indices = match[1].split(/\s*,\s*/).map((s) => parseInt(s, 10));
-
-        // Create citation badges with tooltip
-        indices.forEach((idx, i) => {
-          const evidenceItem = evidence[idx - 1];
-          if (evidenceItem) {
+        if (match[1]) {
+          // Numeric format [1] or [1, 2]
+          const indices = match[1].split(/\s*,\s*/).map((s) => parseInt(s, 10));
+          indices.forEach((idx, i) => {
+            const evidenceItem = evidence[idx - 1];
+            if (evidenceItem) {
+              parts.push(
+                <CitationBadge
+                  key={`cite-${match!.index}-${idx}-${i}`}
+                  index={idx}
+                  evidence={evidenceItem}
+                />
+              );
+            } else {
+              parts.push(
+                <sup
+                  key={`cite-unknown-${match!.index}-${i}`}
+                  className="rounded bg-gray-100 px-1 py-0.5 text-xs text-gray-500"
+                >
+                  [{idx}]
+                </sup>
+              );
+            }
+          });
+        } else if (match[2] || match[3]) {
+          // temp-x-y or UUID format - look up by ID
+          const evidenceId = match[2] || match[3];
+          const idx = evidenceIdMap.get(evidenceId);
+          if (idx) {
+            const evidenceItem = evidence[idx - 1];
             parts.push(
               <CitationBadge
-                key={`cite-${match!.index}-${idx}-${i}`}
+                key={`cite-${match!.index}-${evidenceId}`}
                 index={idx}
                 evidence={evidenceItem}
               />
             );
           } else {
-            // Unknown citation
+            // Unknown evidence ID - hide the raw UUID
             parts.push(
               <sup
-                key={`cite-unknown-${match!.index}-${i}`}
+                key={`cite-unknown-${match!.index}`}
                 className="rounded bg-gray-100 px-1 py-0.5 text-xs text-gray-500"
+                title={evidenceId}
               >
-                [{idx}]
+                [?]
               </sup>
             );
           }
-        });
+        }
 
         lastIndex = match.index + match[0].length;
       }
