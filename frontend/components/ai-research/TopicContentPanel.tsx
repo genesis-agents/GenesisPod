@@ -1683,8 +1683,8 @@ function ProgressOverview({
   messages: UIMessage[];
   missionStatus?: MissionStatus | null;
 }) {
-  // 维度标签折叠状态
-  const [dimensionsCollapsed, setDimensionsCollapsed] = useState(false);
+  // 维度标签折叠状态 - 默认折叠
+  const [dimensionsCollapsed, setDimensionsCollapsed] = useState(true);
 
   // 从消息中提取维度状态
   const dimensionStatus = useMemo(() => {

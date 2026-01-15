@@ -459,57 +459,63 @@ export function TopicTeamPanel({
           </div>
         )}
 
-        {/* Action Buttons - 三个任务按钮 */}
+        {/* Action Buttons - 三个任务按钮同时显示，通过 disabled 控制状态 */}
         <div className="flex gap-2">
-          {/* 开始任务 - 当没有任务或任务已完成/失败时显示 */}
-          {!isMissionActive &&
-            (!missionStatus ||
-              missionStatus.status === 'COMPLETED' ||
-              missionStatus.status === 'FAILED' ||
-              !['PAUSED', 'CANCELLED'].includes(
-                missionStatus.status || ''
-              )) && (
-              <button
-                onClick={onStartRefresh}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-              >
-                <span>▶</span>
-                开始任务
-              </button>
-            )}
+          {/* 开始任务 - 当没有活动任务且非暂停/取消状态时可点击 */}
+          <button
+            onClick={onStartRefresh}
+            disabled={
+              isMissionActive ||
+              !!(
+                missionStatus &&
+                ['PAUSED', 'CANCELLED'].includes(missionStatus.status || '')
+              )
+            }
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              isMissionActive ||
+              (missionStatus &&
+                ['PAUSED', 'CANCELLED'].includes(missionStatus.status || ''))
+                ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            <span>▶</span>
+            开始任务
+          </button>
 
-          {/* 继续任务 - 当任务被暂停或取消时显示 */}
-          {!isMissionActive &&
-            missionStatus &&
-            ['PAUSED', 'CANCELLED'].includes(missionStatus.status || '') && (
-              <>
-                <button
-                  onClick={onContinueRefresh}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
-                >
-                  <span>▶</span>
-                  继续任务
-                </button>
-                <button
-                  onClick={onStartRefresh}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                >
-                  <span>🔄</span>
-                  重新开始
-                </button>
-              </>
-            )}
+          {/* 继续任务 - 当任务被暂停或取消时可点击 */}
+          <button
+            onClick={onContinueRefresh}
+            disabled={
+              isMissionActive ||
+              !missionStatus ||
+              !['PAUSED', 'CANCELLED'].includes(missionStatus.status || '')
+            }
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              isMissionActive ||
+              !missionStatus ||
+              !['PAUSED', 'CANCELLED'].includes(missionStatus.status || '')
+                ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                : 'bg-green-600 text-white hover:bg-green-700'
+            }`}
+          >
+            <span>▶</span>
+            继续任务
+          </button>
 
-          {/* 取消任务 - 当任务正在进行时显示 */}
-          {isMissionActive && (
-            <button
-              onClick={onCancelRefresh}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
-            >
-              <span>⏹</span>
-              取消任务
-            </button>
-          )}
+          {/* 取消任务 - 当任务正在进行时可点击 */}
+          <button
+            onClick={onCancelRefresh}
+            disabled={!isMissionActive}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              !isMissionActive
+                ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                : 'border border-red-200 bg-white text-red-600 hover:bg-red-50'
+            }`}
+          >
+            <span>⏹</span>
+            取消任务
+          </button>
         </div>
       </div>
     </div>
