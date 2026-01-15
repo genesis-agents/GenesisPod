@@ -1,6 +1,16 @@
 {
   "permissions": {
-    "allow": ["Bash(npm run:*)", "Bash(npx prisma:*)", "Bash(npx tsc:*)"],
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx jest:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git branch:*)"
+    ],
     "deny": [
       "Read(./.env)",
       "Read(./.env.*)",
@@ -9,14 +19,23 @@
       "Read(./frontend/.env.*)",
       "Read(**/*credentials*)",
       "Read(**/*secret*)",
+      "Read(**/*token*)",
+      "Read(**/*password*)",
       "Read(**/*.pem)",
-      "Read(**/*.key)"
+      "Read(**/*.key)",
+      "Read(**/*.p12)",
+      "Read(**/*.pfx)",
+      "Write(.github/workflows/*)",
+      "Write(.gitignore)",
+      "Write(.npmrc)"
     ],
     "additionalDirectories": ["../docs/"],
     "defaultMode": "acceptEdits"
   },
   "env": {
-    "PRISMA_HIDE_UPDATE_MESSAGE": "true"
+    "PRISMA_HIDE_UPDATE_MESSAGE": "true",
+    "FORCE_COLOR": "1",
+    "NODE_ENV": "development"
   },
   "attribution": {
     "commit": "\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
@@ -43,6 +62,16 @@
             "type": "command",
             "command": "npm run test:quick",
             "timeout": 300000
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(git commit:*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npm run lint",
+            "timeout": 120000
           }
         ]
       }

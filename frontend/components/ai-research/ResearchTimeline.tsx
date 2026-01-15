@@ -810,18 +810,18 @@ function SessionCard({
 
             {/* 操作按钮 */}
             <div className="flex flex-wrap items-center gap-2">
-              {onSelect && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelect();
-                  }}
-                  className="flex items-center gap-1 rounded-lg bg-blue-500 px-2.5 py-1.5 text-xs text-white transition-colors hover:bg-blue-600"
-                >
-                  <Target className="h-3.5 w-3.5" />
-                  查看详情
-                </button>
-              )}
+              {/* 查看详情按钮 - 点击切换展开/收起 */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsExpanded(!isExpanded);
+                  if (onSelect) onSelect();
+                }}
+                className="flex items-center gap-1 rounded-lg bg-blue-500 px-2.5 py-1.5 text-xs text-white transition-colors hover:bg-blue-600"
+              >
+                <Target className="h-3.5 w-3.5" />
+                {isExpanded ? '收起详情' : '查看详情'}
+              </button>
 
               {onViewReport && history.reportVersionAfter && (
                 <button

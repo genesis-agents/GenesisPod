@@ -314,10 +314,10 @@ ON "my_table"("field1", "field2");
 ## 参考文档
 
 - [Prisma Migrate 官方文档](https://www.prisma.io/docs/concepts/components/prisma-migrate)
-- [项目迁移工作流文档](../../../docs/architecture/migration-workflow.md)
-- [数据库迁移重构方案](../../../docs/architecture/database-migration-refactor-plan.md)
+- [项目迁移工作流文档](../../../../docs/architecture/migration-workflow.md)
+- [数据库迁移重构方案](../../../../docs/architecture/database-migration-refactor-plan.md)
 
 ---
 
-**最后更新**: 2026-01-09
+**最后更新**: 2025-01-15
 **维护者**: Claude Code

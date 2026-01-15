@@ -44,6 +44,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     fetchTeamData,
     startLeaderPlan,
     cancelMission,
+    retryMission,
     exportReport,
     sendLeaderInstruction,
     deleteReport,
@@ -123,6 +124,15 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
     }
   }, [topic.id, cancelMission]);
 
+  // Continue/Resume research - 继续被暂停或取消的任务
+  const handleContinueResearch = useCallback(async () => {
+    try {
+      await retryMission(topic.id);
+    } catch {
+      // Error is already handled in store
+    }
+  }, [topic.id, retryMission]);
+
   const handleExport = useCallback(
     async (format: 'pdf' | 'docx') => {
       if (!currentReport) return;
@@ -201,6 +211,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
       isLoadingReport={isLoadingReports}
       isLoadingEvidence={isLoadingEvidence}
       onStartRefresh={handleStartResearch}
+      onContinueRefresh={handleContinueResearch}
       onCancelRefresh={handleCancelRefresh}
       onExportReport={handleExport}
       onBack={onBack}

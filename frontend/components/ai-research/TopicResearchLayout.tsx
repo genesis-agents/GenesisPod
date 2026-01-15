@@ -60,6 +60,7 @@ interface TopicResearchLayoutProps {
   isLoadingReport: boolean;
   isLoadingEvidence: boolean;
   onStartRefresh: () => void;
+  onContinueRefresh?: () => void;
   onCancelRefresh: () => void;
   onExportReport: (format: 'pdf' | 'docx') => void;
   onBack: () => void;
@@ -166,6 +167,7 @@ export function TopicResearchLayout({
   isLoadingReport,
   isLoadingEvidence,
   onStartRefresh,
+  onContinueRefresh,
   onCancelRefresh,
   onExportReport,
   onBack,
@@ -310,6 +312,7 @@ export function TopicResearchLayout({
                   isRefreshing={isRefreshing}
                   refreshProgress={refreshProgress}
                   onStartRefresh={onStartRefresh}
+                  onContinueRefresh={onContinueRefresh}
                   onCancelRefresh={onCancelRefresh}
                   error={error}
                 />

@@ -26,6 +26,7 @@ skills/
 ├── development/                 # 开发技能
 │   ├── api-developer/           # REST API 开发 (NestJS)
 │   ├── database-manager/        # 多数据库管理
+│   ├── database-migration/      # 数据库迁移 (Prisma)
 │   ├── frontend-expert/         # 前端开发与调试 (Next.js + React)
 │   ├── realtime-communication-expert/ # WebSocket/实时通信
 │   ├── state-management-expert/ # 状态管理 (Zustand)
@@ -57,15 +58,15 @@ skills/
 
 ## 技能统计
 
-| 分类         | 技能数量 | 主要用途                   |
-| ------------ | -------- | -------------------------- |
-| AI           | 7        | AI 应用开发、多 Agent 协作 |
-| Development  | 8        | 前后端开发、测试、Git      |
-| Quality      | 3        | 测试、代码审查、性能优化   |
-| Operations   | 4        | 部署、调试、环境配置       |
-| Data         | 2        | 数据管道、知识图谱         |
-| Architecture | 4        | 系统设计、安全、MCP        |
-| **总计**     | **28**   | -                          |
+| 分类         | 技能数量 | 主要用途                          |
+| ------------ | -------- | --------------------------------- |
+| AI           | 7        | AI 应用开发、多 Agent 协作        |
+| Development  | 9        | 前后端开发、数据库迁移、测试、Git |
+| Quality      | 3        | 测试、代码审查、性能优化          |
+| Operations   | 4        | 部署、调试、环境配置              |
+| Data         | 2        | 数据管道、知识图谱                |
+| Architecture | 4        | 系统设计、安全、MCP               |
+| **总计**     | **29**   | -                                 |
 
 ## 最近更新 (2025-01)
 

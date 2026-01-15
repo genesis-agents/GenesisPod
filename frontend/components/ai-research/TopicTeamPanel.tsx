@@ -27,6 +27,7 @@ interface TopicTeamPanelProps {
   isRefreshing: boolean;
   refreshProgress: SimpleRefreshProgress | null;
   onStartRefresh?: () => void;
+  onContinueRefresh?: () => void;
   onCancelRefresh?: () => void;
   /** 错误信息 */
   error?: string | null;
@@ -79,24 +80,28 @@ function getAgentDisplay(role: string): {
 // Agent 角色详细信息
 const AGENT_ROLE_INFO: Record<
   ResearchAgentRole,
-  { description: string; skills: string[] }
+  { description: string; skills: string[]; tools: string[] }
 > = {
   leader: {
     description:
       '负责规划研究大纲、分配任务给研究员、审核研究质量、整合最终结果',
     skills: ['大纲规划', '任务分配', '质量审核', '结果整合'],
+    tools: ['任务规划器', '进度监控', '质量评估'],
   },
   researcher: {
     description: '负责深入研究特定维度，收集证据，撰写分析内容',
     skills: ['资料收集', '深度分析', '证据引用', '内容撰写'],
+    tools: ['网络搜索', '文档分析', '知识图谱'],
   },
   reviewer: {
     description: '负责审核研究内容的准确性、完整性和一致性',
     skills: ['质量检查', '一致性审核', '准确性验证'],
+    tools: ['事实核查', '逻辑验证', '引用检查'],
   },
   synthesizer: {
     description: '负责整合各维度研究结果，撰写最终综合报告',
     skills: ['报告整合', '内容润色', '格式规范'],
+    tools: ['报告生成', '图表制作', '格式转换'],
   },
 };
 
@@ -104,12 +109,14 @@ const AGENT_ROLE_INFO: Record<
 const DEFAULT_AGENT_ROLE_INFO = {
   description: 'AI 研究助手',
   skills: ['研究', '分析'],
+  tools: ['通用工具'],
 };
 
 // ★ 安全获取角色详细信息
 function getAgentRoleInfo(role: string): {
   description: string;
   skills: string[];
+  tools: string[];
 } {
   if (role in AGENT_ROLE_INFO) {
     return AGENT_ROLE_INFO[role as ResearchAgentRole];
@@ -124,12 +131,24 @@ function getAgentRoleInfo(role: string): {
 // Phase display mapping
 const phaseDisplay: Record<string, string> = {
   idle: '待研究',
+  unknown: '待研究',
   planning: '规划中',
+  PLANNING: '规划中',
   researching: '研究中',
+  RESEARCHING: '研究中',
+  EXECUTING: '执行中',
   reviewing: '审核中',
+  REVIEWING: '审核中',
   synthesizing: '撰写中',
+  SYNTHESIZING: '撰写中',
   completed: '已完成',
+  COMPLETED: '已完成',
   failed: '失败',
+  FAILED: '失败',
+  paused: '已暂停',
+  PAUSED: '已暂停',
+  cancelled: '已取消',
+  CANCELLED: '已取消',
 };
 
 // 状态图标映射
@@ -156,6 +175,7 @@ export function TopicTeamPanel({
   isRefreshing,
   refreshProgress,
   onStartRefresh,
+  onContinueRefresh,
   onCancelRefresh,
   error,
 }: TopicTeamPanelProps) {
@@ -439,24 +459,58 @@ export function TopicTeamPanel({
           </div>
         )}
 
-        {/* Action Button - ★ 使用 isMissionActive 而非 isRefreshing 来判断状态 */}
-        {isMissionActive ? (
-          <button
-            onClick={onCancelRefresh}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
-          >
-            <span>⏹</span>
-            取消任务
-          </button>
-        ) : (
-          <button
-            onClick={onStartRefresh}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-          >
-            <span>▶</span>
-            开始研究
-          </button>
-        )}
+        {/* Action Buttons - 三个任务按钮 */}
+        <div className="flex gap-2">
+          {/* 开始任务 - 当没有任务或任务已完成/失败时显示 */}
+          {!isMissionActive &&
+            (!missionStatus ||
+              missionStatus.status === 'COMPLETED' ||
+              missionStatus.status === 'FAILED' ||
+              !['PAUSED', 'CANCELLED'].includes(
+                missionStatus.status || ''
+              )) && (
+              <button
+                onClick={onStartRefresh}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+              >
+                <span>▶</span>
+                开始任务
+              </button>
+            )}
+
+          {/* 继续任务 - 当任务被暂停或取消时显示 */}
+          {!isMissionActive &&
+            missionStatus &&
+            ['PAUSED', 'CANCELLED'].includes(missionStatus.status || '') && (
+              <>
+                <button
+                  onClick={onContinueRefresh}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
+                >
+                  <span>▶</span>
+                  继续任务
+                </button>
+                <button
+                  onClick={onStartRefresh}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  <span>🔄</span>
+                  重新开始
+                </button>
+              </>
+            )}
+
+          {/* 取消任务 - 当任务正在进行时显示 */}
+          {isMissionActive && (
+            <button
+              onClick={onCancelRefresh}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+            >
+              <span>⏹</span>
+              取消任务
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -816,23 +870,46 @@ function TeamCanvasView({
 
           return (
             <>
-              {/* 背景遮罩 */}
+              {/* 点击外部关闭 - 透明遮罩 */}
               <div
-                className="absolute inset-0 z-20 bg-black/10"
+                className="absolute inset-0 z-20"
                 onClick={() => onSelect(null)}
               />
               {/* 详情卡片 */}
-              <div className="absolute left-1/2 top-1/2 z-30 w-[260px] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white p-4 shadow-xl">
-                {/* 头部 */}
+              <div className="absolute left-1/2 top-1/2 z-30 w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
+                {/* 头部 - 名称 */}
                 <div className="mb-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-xl">{display.icon}</span>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50">
+                      <span className="text-xl">{display.icon}</span>
+                    </div>
                     <div>
                       <div className="font-semibold text-gray-800">
                         {agent.name}
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {display.name}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">
+                          {display.name}
+                        </span>
+                        <span
+                          className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                            agent.status === 'working'
+                              ? 'bg-blue-100 text-blue-700'
+                              : agent.status === 'completed'
+                                ? 'bg-green-100 text-green-700'
+                                : agent.status === 'error'
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {agent.status === 'working'
+                            ? '工作中'
+                            : agent.status === 'completed'
+                              ? '已完成'
+                              : agent.status === 'error'
+                                ? '出错'
+                                : '空闲'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -856,38 +933,34 @@ function TeamCanvasView({
                   </button>
                 </div>
 
-                {/* 状态 */}
-                <div className="mb-3 flex items-center gap-2">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      agent.status === 'working'
-                        ? 'bg-blue-100 text-blue-700'
-                        : agent.status === 'completed'
-                          ? 'bg-green-100 text-green-700'
-                          : agent.status === 'error'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {agent.status === 'working'
-                      ? '工作中'
-                      : agent.status === 'completed'
-                        ? '已完成'
-                        : agent.status === 'error'
-                          ? '出错'
-                          : '空闲'}
-                  </span>
-                  {agent.taskCount > 0 && (
-                    <span className="text-xs text-gray-500">
-                      任务: {agent.completedCount}/{agent.taskCount}
-                    </span>
-                  )}
-                </div>
+                {/* 任务进度 */}
+                {agent.taskCount > 0 && (
+                  <div className="mb-3 rounded-lg bg-gray-50 px-3 py-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">任务进度</span>
+                      <span className="font-medium text-gray-700">
+                        {agent.completedCount}/{agent.taskCount} 完成
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className={`h-full transition-all ${
+                          agent.completedCount === agent.taskCount
+                            ? 'bg-green-500'
+                            : 'bg-blue-500'
+                        }`}
+                        style={{
+                          width: `${(agent.completedCount / agent.taskCount) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* 职责描述 */}
                 <div className="mb-3">
                   <div className="mb-1 text-xs font-medium text-gray-500">
-                    职责
+                    📋 职责
                   </div>
                   <p className="text-sm text-gray-700">
                     {roleInfo.description}
@@ -895,17 +968,34 @@ function TeamCanvasView({
                 </div>
 
                 {/* 技能列表 */}
-                <div>
+                <div className="mb-3">
                   <div className="mb-1.5 text-xs font-medium text-gray-500">
-                    能力
+                    🎯 技能
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {roleInfo.skills.map((skill, i) => (
                       <span
                         key={i}
-                        className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600"
+                        className="rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700"
                       >
                         {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 工具列表 */}
+                <div>
+                  <div className="mb-1.5 text-xs font-medium text-gray-500">
+                    🔧 工具
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {roleInfo.tools.map((tool, i) => (
+                      <span
+                        key={i}
+                        className="rounded-full bg-purple-50 px-2.5 py-1 text-xs text-purple-700"
+                      >
+                        {tool}
                       </span>
                     ))}
                   </div>
