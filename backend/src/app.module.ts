@@ -16,6 +16,7 @@ import { StreamingModule } from "./common/streaming";
 import { ContentProcessingModule } from "./common/content-processing";
 import { ObservabilityModule } from "./common/observability";
 import { AuditModule } from "./common/audit";
+import { EventsModule } from "./common/events";
 // Core modules
 import { AuthModule } from "./modules/core/auth/auth.module";
 import { AdminModule } from "./modules/core/admin/admin.module";
@@ -105,6 +106,7 @@ import { WebhooksModule } from "./modules/webhooks";
     ContentProcessingModule,
     ObservabilityModule,
     AuditModule,
+    EventsModule,
 
     // Core modules
     AuthModule,
