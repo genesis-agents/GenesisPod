@@ -20,6 +20,7 @@ import type {
 import type { MissionStatus, TeamInfo } from '@/lib/api/topic-research';
 import { TopicTeamPanel } from './TopicTeamPanel';
 import { TopicContentPanel } from './TopicContentPanel';
+import { ResearchSettingsModal } from './ResearchSettingsModal';
 
 // 简化的刷新进度类型
 interface SimpleRefreshProgress {
@@ -177,6 +178,7 @@ export function TopicResearchLayout({
   onDeleteReport,
 }: TopicResearchLayoutProps) {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const gradient = topicTypeGradients[topic.type] || topicTypeGradients.MACRO;
 
@@ -242,6 +244,7 @@ export function TopicResearchLayout({
 
           {/* 设置按钮 */}
           <button
+            onClick={() => setShowSettings(true)}
             className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
             title="设置"
           >
@@ -337,6 +340,14 @@ export function TopicResearchLayout({
           />
         </div>
       </div>
+
+      {/* 设置弹窗 */}
+      <ResearchSettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        topicId={topic.id}
+        onClearMessages={onClearWsEvents}
+      />
     </div>
   );
 }

@@ -45,6 +45,9 @@ export { ReportAnnotations } from './ReportAnnotations';
 // Sharing Components
 export { TopicSharingModal } from './TopicSharingModal';
 
+// Settings Components
+export { ResearchSettingsModal } from './ResearchSettingsModal';
+
 // ==================== Deep Research ====================
 
 // Re-export all deep-research components

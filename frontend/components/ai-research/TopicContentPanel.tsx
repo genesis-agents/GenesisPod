@@ -367,7 +367,14 @@ export function TopicContentPanel({
   const {
     teamMessages: persistedMessages,
     agentActivities: persistedActivities,
+    resetTopicData,
   } = useTopicResearchStore();
+
+  // 组合清除函数：同时清除 WebSocket 消息和持久化消息
+  const handleClearAllMessages = useCallback(() => {
+    onClearWsEvents?.();
+    resetTopicData();
+  }, [onClearWsEvents, resetTopicData]);
 
   const [activeTab, setActiveTab] = useState<TabType>('research_collab');
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -968,7 +975,7 @@ export function TopicContentPanel({
             events={safeEvents}
             wsEvents={wsEvents}
             wsConnected={wsConnected}
-            onClearEvents={onClearWsEvents}
+            onClearEvents={handleClearAllMessages}
             persistedMessages={persistedMessages}
             missionStatus={missionStatus}
           />
