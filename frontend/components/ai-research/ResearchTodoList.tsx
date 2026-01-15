@@ -464,10 +464,15 @@ function TodoItem({
                         e.stopPropagation();
                         handleAction('execute');
                       }}
-                      className="flex items-center gap-1 rounded bg-green-500 px-2 py-0.5 text-xs text-white hover:bg-green-600"
+                      disabled={isLoading}
+                      className="flex items-center gap-1 rounded bg-green-500 px-2 py-0.5 text-xs text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"
                       title="开始执行"
                     >
-                      <Play className="h-3 w-3" />
+                      {isLoading ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Play className="h-3 w-3" />
+                      )}
                       执行
                     </button>
                   )}
