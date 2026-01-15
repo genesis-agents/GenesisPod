@@ -347,7 +347,11 @@ export class AIEngineFacade {
     }
 
     // 5. 默认返回第一个可用的
-    return candidates[0] || null;
+    const selected = candidates[0] || null;
+    this.logger.log(
+      `[selectModel] ★ Final selection: ${selected?.id || "NONE"} (isReasoning=${selected?.isReasoning})`,
+    );
+    return selected;
   }
 
   /**
@@ -398,7 +402,7 @@ export class AIEngineFacade {
       const patternIsReasoning = this.aiChatService.isReasoningModel(m.modelId);
       const isReasoning = dbIsReasoning || patternIsReasoning;
 
-      this.logger.debug(
+      this.logger.log(
         `[getAvailableModelsExtended] Model ${m.modelId}: db=${m.isReasoning}, pattern=${patternIsReasoning}, final=${isReasoning}`,
       );
 
