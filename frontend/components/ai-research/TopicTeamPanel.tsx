@@ -459,9 +459,9 @@ export function TopicTeamPanel({
           </div>
         )}
 
-        {/* Action Buttons - 三个任务按钮同时显示，通过 disabled 控制状态 */}
-        <div className="flex gap-2">
-          {/* 开始任务 - 当没有活动任务且非暂停/取消状态时可点击 */}
+        {/* Action Buttons - 三个任务按钮，主按钮突出，辅助按钮紧凑 */}
+        <div className="flex items-center gap-2">
+          {/* 开始任务 - 主按钮，占主要空间 */}
           <button
             onClick={onStartRefresh}
             disabled={
@@ -471,19 +471,19 @@ export function TopicTeamPanel({
                 ['PAUSED', 'CANCELLED'].includes(missionStatus.status || '')
               )
             }
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
               isMissionActive ||
               (missionStatus &&
                 ['PAUSED', 'CANCELLED'].includes(missionStatus.status || ''))
-                ? 'cursor-not-allowed bg-gray-100 text-gray-400'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+                ? 'cursor-not-allowed border border-gray-200 bg-gray-50 text-gray-400'
+                : 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
             }`}
           >
             <span>▶</span>
             开始任务
           </button>
 
-          {/* 继续任务 - 当任务被暂停或取消时可点击 */}
+          {/* 继续任务 - 辅助按钮 */}
           <button
             onClick={onContinueRefresh}
             disabled={
@@ -491,30 +491,30 @@ export function TopicTeamPanel({
               !missionStatus ||
               !['PAUSED', 'CANCELLED'].includes(missionStatus.status || '')
             }
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            className={`flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-3 py-2.5 text-sm font-medium transition-all ${
               isMissionActive ||
               !missionStatus ||
               !['PAUSED', 'CANCELLED'].includes(missionStatus.status || '')
-                ? 'cursor-not-allowed bg-gray-100 text-gray-400'
-                : 'bg-green-600 text-white hover:bg-green-700'
+                ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
+                : 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100'
             }`}
           >
             <span>▶</span>
-            继续任务
+            继续
           </button>
 
-          {/* 取消任务 - 当任务正在进行时可点击 */}
+          {/* 取消任务 - 辅助按钮 */}
           <button
             onClick={onCancelRefresh}
             disabled={!isMissionActive}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            className={`flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-3 py-2.5 text-sm font-medium transition-all ${
               !isMissionActive
-                ? 'cursor-not-allowed bg-gray-100 text-gray-400'
-                : 'border border-red-200 bg-white text-red-600 hover:bg-red-50'
+                ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
+                : 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
             }`}
           >
             <span>⏹</span>
-            取消任务
+            取消
           </button>
         </div>
       </div>
