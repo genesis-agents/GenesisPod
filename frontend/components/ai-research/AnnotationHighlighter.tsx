@@ -96,119 +96,138 @@ export function AnnotationHighlighter({
       contentLength: content?.length,
     });
 
-    // Use setTimeout with delay to ensure React has finished rendering
-    // This prevents "insertBefore" errors caused by modifying DOM during React reconciliation
-    // The 500ms delay gives React enough time to complete its full rendering cycle
-    // including any cascading state updates and re-renders
-    timeoutIdRef.current = setTimeout(() => {
-      // Check if still mounted and container exists
-      if (!isMountedRef.current || !containerRef.current) {
-        console.warn(
-          '[AnnotationHighlighter] Container ref became null or unmounted'
-        );
-        isApplyingRef.current = false;
-        return;
-      }
+    // Use queueMicrotask + setTimeout + requestAnimationFrame to ensure React has FULLY finished
+    // This triple-layer scheduling prevents "insertBefore" errors from DOM/React conflicts
+    // 1. queueMicrotask: runs after current task, but before rendering
+    // 2. setTimeout(0): defers to next event loop iteration
+    // 3. requestAnimationFrame: waits for browser paint cycle
+    queueMicrotask(() => {
+      if (!isMountedRef.current) return;
 
-      // Skip if already applying (prevents concurrent modifications)
-      if (isApplyingRef.current) {
-        console.log('[AnnotationHighlighter] Skipping - already applying');
-        return;
-      }
+      timeoutIdRef.current = setTimeout(() => {
+        if (!isMountedRef.current) return;
 
-      isApplyingRef.current = true;
+        requestAnimationFrame(() => {
+          // Check if still mounted and container exists
+          if (!isMountedRef.current || !containerRef.current) {
+            console.warn(
+              '[AnnotationHighlighter] Container ref became null or unmounted'
+            );
+            isApplyingRef.current = false;
+            return;
+          }
 
-      try {
-        // Clear existing highlights
-        clearHighlights(containerRef.current);
+          // Skip if already applying (prevents concurrent modifications)
+          if (isApplyingRef.current) {
+            console.log('[AnnotationHighlighter] Skipping - already applying');
+            return;
+          }
 
-        // Filter annotations
-        const annotationsToApply = activeOnly
-          ? annotations.filter(
-              (a) => a.status !== 'resolved' && a.status !== 'archived'
-            )
-          : annotations;
-
-        console.log('[AnnotationHighlighter] Annotations to apply:', {
-          total: annotations.length,
-          filtered: annotationsToApply.length,
-          activeOnly,
-        });
-
-        // Apply each annotation
-        let successCount = 0;
-        let failCount = 0;
-
-        annotationsToApply.forEach((annotation, index) => {
-          // Check if still mounted before each operation
-          if (!isMountedRef.current || !containerRef.current) return;
-
-          // Debug: Log each annotation attempt
-          console.log(
-            `[AnnotationHighlighter] Processing annotation ${index + 1}/${annotationsToApply.length}:`,
-            {
-              id: annotation.id,
-              selectedText:
-                annotation.selectedText?.slice(0, 50) +
-                (annotation.selectedText?.length > 50 ? '...' : ''),
-              selectedTextLength: annotation.selectedText?.length,
-              color: annotation.color,
-              hasPrefix: !!annotation.selectorPrefix,
-              hasSuffix: !!annotation.selectorSuffix,
-            }
-          );
+          isApplyingRef.current = true;
 
           try {
-            const range = findTextRange(containerRef.current!, {
-              exact: annotation.selectedText,
-              prefix: annotation.selectorPrefix,
-              suffix: annotation.selectorSuffix,
+            // Clear existing highlights - wrapped in try-catch for safety
+            try {
+              clearHighlights(containerRef.current);
+            } catch (clearErr) {
+              console.warn(
+                '[AnnotationHighlighter] Error clearing highlights, continuing:',
+                clearErr
+              );
+            }
+
+            // Filter annotations
+            const annotationsToApply = activeOnly
+              ? annotations.filter(
+                  (a) => a.status !== 'resolved' && a.status !== 'archived'
+                )
+              : annotations;
+
+            console.log('[AnnotationHighlighter] Annotations to apply:', {
+              total: annotations.length,
+              filtered: annotationsToApply.length,
+              activeOnly,
             });
 
-            if (range) {
+            // Apply each annotation
+            let successCount = 0;
+            let failCount = 0;
+
+            annotationsToApply.forEach((annotation, index) => {
+              // Check if still mounted before each operation
+              if (!isMountedRef.current || !containerRef.current) return;
+
+              // Debug: Log each annotation attempt
               console.log(
-                `[AnnotationHighlighter] ✓ Found range for annotation ${annotation.id}`
-              );
-              highlightRange(range, {
-                id: annotation.id,
-                color: annotation.color,
-                isHighlighted: annotation.id === highlightedAnnotationId,
-              });
-              successCount++;
-            } else {
-              console.warn(
-                `[AnnotationHighlighter] ✗ Could NOT find range for annotation ${annotation.id}`,
+                `[AnnotationHighlighter] Processing annotation ${index + 1}/${annotationsToApply.length}:`,
                 {
-                  searchedText: annotation.selectedText?.slice(0, 100),
-                  containerTextPreview:
-                    containerRef.current?.textContent?.slice(0, 200),
+                  id: annotation.id,
+                  selectedText:
+                    annotation.selectedText?.slice(0, 50) +
+                    (annotation.selectedText?.length > 50 ? '...' : ''),
+                  selectedTextLength: annotation.selectedText?.length,
+                  color: annotation.color,
+                  hasPrefix: !!annotation.selectorPrefix,
+                  hasSuffix: !!annotation.selectorSuffix,
                 }
               );
-              failCount++;
-            }
+
+              try {
+                const range = findTextRange(containerRef.current!, {
+                  exact: annotation.selectedText,
+                  prefix: annotation.selectorPrefix,
+                  suffix: annotation.selectorSuffix,
+                });
+
+                if (range) {
+                  console.log(
+                    `[AnnotationHighlighter] ✓ Found range for annotation ${annotation.id}`
+                  );
+                  highlightRange(range, {
+                    id: annotation.id,
+                    color: annotation.color,
+                    isHighlighted: annotation.id === highlightedAnnotationId,
+                  });
+                  successCount++;
+                } else {
+                  console.warn(
+                    `[AnnotationHighlighter] ✗ Could NOT find range for annotation ${annotation.id}`,
+                    {
+                      searchedText: annotation.selectedText?.slice(0, 100),
+                      containerTextPreview:
+                        containerRef.current?.textContent?.slice(0, 200),
+                    }
+                  );
+                  failCount++;
+                }
+              } catch (err) {
+                console.warn(
+                  `[AnnotationHighlighter] Error processing annotation ${annotation.id}:`,
+                  err
+                );
+                failCount++;
+              }
+            });
+
+            console.log(
+              '[AnnotationHighlighter] Highlight application complete:',
+              {
+                success: successCount,
+                failed: failCount,
+                total: annotationsToApply.length,
+              }
+            );
           } catch (err) {
-            console.warn(
-              `[AnnotationHighlighter] Error processing annotation ${annotation.id}:`,
+            console.error(
+              '[AnnotationHighlighter] Error applying highlights:',
               err
             );
-            failCount++;
+          } finally {
+            isApplyingRef.current = false;
           }
-        });
-
-        console.log('[AnnotationHighlighter] Highlight application complete:', {
-          success: successCount,
-          failed: failCount,
-          total: annotationsToApply.length,
-        });
-      } catch (err) {
-        console.error(
-          '[AnnotationHighlighter] Error applying highlights:',
-          err
-        );
-      } finally {
-        isApplyingRef.current = false;
-      }
-    }, 500); // 500ms delay ensures React has fully finished rendering including cascading updates
+        }); // End requestAnimationFrame
+      }, 0); // setTimeout with 0ms - defers to next event loop
+    }); // End queueMicrotask
 
     // Cleanup function: cancel pending timeout
     // IMPORTANT: Do NOT clear highlights in cleanup - this conflicts with React's DOM reconciliation
