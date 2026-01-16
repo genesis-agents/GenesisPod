@@ -11,6 +11,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import type { TopicEvidence, TopicDimension } from '@/types/topic-research';
+import { recalculateCredibilityScores } from '@/lib/api/topic-research';
 
 type FilterType = 'all' | 'dimension' | 'source' | 'time';
 type SortType = 'time' | 'credibility' | 'dimension';
@@ -20,6 +21,10 @@ interface ReferencePanelProps {
   dimensions?: TopicDimension[];
   isLoading?: boolean;
   onNavigateToReport?: (evidenceId: string) => void;
+  // ★ 新增：用于重新计算可信度
+  topicId?: string;
+  reportId?: string;
+  onRecalculateComplete?: () => void;
 }
 
 // Source type display names
@@ -99,6 +104,22 @@ const BookOpenIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const RefreshIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+    />
+  </svg>
+);
+
 // Credibility level display
 // ★ 修复：后端存储 0-100 的百分比，不是 0-1 的小数
 function getCredibilityDisplay(score: number | null): {
@@ -129,11 +150,19 @@ export function ReferencePanel({
   dimensions = [],
   isLoading = false,
   onNavigateToReport,
+  topicId,
+  reportId,
+  onRecalculateComplete,
 }: ReferencePanelProps) {
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [filterValue, setFilterValue] = useState<string>('');
   const [sortBy, setSortBy] = useState<SortType>('time');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  const [recalculateResult, setRecalculateResult] = useState<{
+    updated: number;
+    avgScore: number;
+  } | null>(null);
 
   // ★ 安全处理：确保 evidence 是数组
   const safeEvidence = Array.isArray(evidence) ? evidence : [];
@@ -208,6 +237,25 @@ export function ReferencePanel({
     },
     [onNavigateToReport]
   );
+
+  // ★ 处理重新计算可信度
+  const handleRecalculateCredibility = useCallback(async () => {
+    if (!topicId || !reportId || isRecalculating) return;
+
+    setIsRecalculating(true);
+    setRecalculateResult(null);
+
+    try {
+      const result = await recalculateCredibilityScores(topicId, reportId);
+      setRecalculateResult(result);
+      // 通知父组件刷新数据
+      onRecalculateComplete?.();
+    } catch (error) {
+      console.error('Failed to recalculate credibility scores:', error);
+    } finally {
+      setIsRecalculating(false);
+    }
+  }, [topicId, reportId, isRecalculating, onRecalculateComplete]);
 
   if (isLoading) {
     return (
@@ -337,11 +385,36 @@ export function ReferencePanel({
           </div>
         </div>
 
-        {/* Results count */}
-        <p className="mt-2 text-xs text-gray-500">
-          共 {filteredEvidence.length} 条参考文献
-          {searchQuery && ` (搜索: "${searchQuery}")`}
-        </p>
+        {/* Results count and recalculate button */}
+        <div className="mt-2 flex items-center justify-between">
+          <p className="text-xs text-gray-500">
+            共 {filteredEvidence.length} 条参考文献
+            {searchQuery && ` (搜索: "${searchQuery}")`}
+          </p>
+
+          {/* ★ 重新计算可信度按钮 */}
+          {topicId && reportId && (
+            <button
+              onClick={handleRecalculateCredibility}
+              disabled={isRecalculating}
+              className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 transition-colors hover:border-blue-400 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+              title="重新计算所有证据的可信度评分"
+            >
+              <RefreshIcon
+                className={`h-3.5 w-3.5 ${isRecalculating ? 'animate-spin' : ''}`}
+              />
+              {isRecalculating ? '计算中...' : '重算可信度'}
+            </button>
+          )}
+        </div>
+
+        {/* ★ 重新计算结果提示 */}
+        {recalculateResult && (
+          <div className="mt-2 rounded-md bg-green-50 px-3 py-2 text-xs text-green-700">
+            ✓ 已更新 {recalculateResult.updated} 条证据的可信度，平均分:{' '}
+            {recalculateResult.avgScore}%
+          </div>
+        )}
       </div>
 
       {/* Evidence list */}

@@ -40,6 +40,7 @@ import { cn } from '@/lib/utils/common';
 import {
   getCredibilityReport,
   regenerateCredibilityReport,
+  recalculateCredibilityScores,
   type CredibilityReportData,
 } from '@/lib/api/topic-research';
 
@@ -558,6 +559,13 @@ export function CredibilityPanel({
   const [isFetching, setIsFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  // ★ 重新计算证据可信度的状态
+  const [isRecalculatingEvidence, setIsRecalculatingEvidence] = useState(false);
+  const [recalculateResult, setRecalculateResult] = useState<{
+    updated: number;
+    avgScore: number;
+  } | null>(null);
+
   // 判断使用哪种模式
   const useReportIdMode = !!reportId && !!topicId;
   const credibility = useReportIdMode ? fetchedCredibility : propCredibility;
@@ -627,6 +635,25 @@ export function CredibilityPanel({
       propOnRefresh();
     }
   }, [useReportIdMode, reportId, topicId, propOnRefresh]);
+
+  // ★ 重新计算证据可信度
+  const handleRecalculateEvidence = useCallback(async () => {
+    if (!reportId || !topicId || isRecalculatingEvidence) return;
+
+    setIsRecalculatingEvidence(true);
+    setRecalculateResult(null);
+
+    try {
+      const result = await recalculateCredibilityScores(topicId, reportId);
+      setRecalculateResult(result);
+      // 重新计算后刷新可信度报告
+      await fetchData();
+    } catch (err) {
+      console.error('Failed to recalculate evidence credibility:', err);
+    } finally {
+      setIsRecalculatingEvidence(false);
+    }
+  }, [reportId, topicId, isRecalculatingEvidence, fetchData]);
 
   // 初始加载
   useEffect(() => {
@@ -701,15 +728,43 @@ export function CredibilityPanel({
           <Shield className="h-5 w-5" />
           研究可信度报告
         </h2>
-        {onRefresh && (
-          <button
-            onClick={onRefresh}
-            className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
-          >
-            重新分析
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {/* ★ 重新计算证据可信度按钮 */}
+          {reportId && topicId && (
+            <button
+              onClick={handleRecalculateEvidence}
+              disabled={isRecalculatingEvidence}
+              className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-600 transition-colors hover:border-orange-400 hover:text-orange-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+              title="重新计算所有证据的可信度评分"
+            >
+              <RefreshCw
+                className={cn(
+                  'h-3.5 w-3.5',
+                  isRecalculatingEvidence && 'animate-spin'
+                )}
+              />
+              {isRecalculatingEvidence ? '计算中...' : '重算证据'}
+            </button>
+          )}
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+            >
+              重新分析
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* ★ 重新计算结果提示 */}
+      {recalculateResult && (
+        <div className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-300">
+          <CheckCircle className="mr-1.5 inline h-4 w-4" />
+          已更新 {recalculateResult.updated} 条证据的可信度，平均分:{' '}
+          {recalculateResult.avgScore}%
+        </div>
+      )}
 
       {/* 总体评分 */}
       <div className="rounded-lg bg-gradient-to-r from-blue-50 to-purple-50 p-6 dark:from-blue-950/30 dark:to-purple-950/30">

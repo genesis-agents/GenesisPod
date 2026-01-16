@@ -582,6 +582,19 @@ export async function getEvidenceDetail(
   );
 }
 
+/**
+ * ★ 重新计算证据可信度评分
+ */
+export async function recalculateCredibilityScores(
+  topicId: string,
+  reportId: string
+): Promise<{ updated: number; avgScore: number }> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/evidence/recalculate-credibility`,
+    { method: 'POST' }
+  );
+}
+
 // ==================== Templates ====================
 
 /**
