@@ -24,6 +24,9 @@ export class ReportAnnotationService {
       selectedText?: string;
       startOffset: number;
       endOffset: number;
+      selectorPrefix?: string;
+      selectorSuffix?: string;
+      color?: string;
     },
   ) {
     const annotation = await this.prisma.reportAnnotation.create({
@@ -34,6 +37,10 @@ export class ReportAnnotationService {
         selectedText: dto.selectedText,
         startOffset: dto.startOffset,
         endOffset: dto.endOffset,
+        // TODO: 运行 prisma migrate 后启用以下字段
+        // selectorPrefix: dto.selectorPrefix,
+        // selectorSuffix: dto.selectorSuffix,
+        // color: dto.color || 'yellow',
         createdById: userId,
       },
       include: {

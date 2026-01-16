@@ -7231,19 +7231,24 @@ model ReportChange {
 /// 报告批注
 /// 用于报告审核和协作批注系统
 model ReportAnnotation {
-  id           String           @id @default(cuid())
-  reportId     String           @map("report_id")
-  content      String           @db.Text
-  type         AnnotationType
-  status       AnnotationStatus @default(OPEN)
-  selectedText String?          @map("selected_text") @db.Text
-  startOffset  Int              @map("start_offset")
-  endOffset    Int              @map("end_offset")
-  createdById  String           @map("created_by_id")
-  createdAt    DateTime         @default(now()) @map("created_at")
-  updatedAt    DateTime         @updatedAt @map("updated_at")
-  resolvedAt   DateTime?        @map("resolved_at")
-  resolvedById String?          @map("resolved_by_id")
+  id             String           @id @default(cuid())
+  reportId       String           @map("report_id")
+  content        String           @db.Text
+  type           AnnotationType
+  status         AnnotationStatus @default(OPEN)
+  selectedText   String?          @map("selected_text") @db.Text
+  startOffset    Int              @map("start_offset")
+  endOffset      Int              @map("end_offset")
+  // ========== v2: 增强文本匹配字段 ==========
+  selectorPrefix String?          @map("selector_prefix") @db.VarChar(200)
+  selectorSuffix String?          @map("selector_suffix") @db.VarChar(200)
+  color          String?          @default("yellow") @db.VarChar(20)
+  // ========================================
+  createdById    String           @map("created_by_id")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  resolvedAt     DateTime?        @map("resolved_at")
+  resolvedById   String?          @map("resolved_by_id")
 
   // ========== 关系 ==========
   report     TopicReport @relation(fields: [reportId], references: [id], onDelete: Cascade)

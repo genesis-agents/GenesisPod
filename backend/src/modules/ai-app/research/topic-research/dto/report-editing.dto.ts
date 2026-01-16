@@ -46,6 +46,21 @@ export class CreateAnnotationDto {
   @ApiProperty({ description: "结束偏移量" })
   @IsNumber()
   endOffset!: number;
+
+  @ApiPropertyOptional({ description: "选区前文上下文（用于精确定位）" })
+  @IsString()
+  @IsOptional()
+  selectorPrefix?: string;
+
+  @ApiPropertyOptional({ description: "选区后文上下文（用于精确定位）" })
+  @IsString()
+  @IsOptional()
+  selectorSuffix?: string;
+
+  @ApiPropertyOptional({ description: "高亮颜色", default: "yellow" })
+  @IsString()
+  @IsOptional()
+  color?: string;
 }
 
 export class UpdateAnnotationDto {

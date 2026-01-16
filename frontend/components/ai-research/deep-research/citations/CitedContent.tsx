@@ -448,18 +448,8 @@ function processChildren(
   return children;
 }
 
-// Annotation color map for background highlights
-const annotationColorMap: Record<string, string> = {
-  yellow: 'bg-yellow-200',
-  green: 'bg-green-200',
-  blue: 'bg-blue-200',
-  pink: 'bg-pink-200',
-  purple: 'bg-purple-200',
-};
-
 /**
  * Process text to replace citation markers with CitationLink components
- * and apply annotation highlights
  * Supports multiple formats:
  * - [1], [2], [1, 2] - standard citation format
  * - [资料 1], [资料 1, 2] - Chinese "资料" format
@@ -608,164 +598,10 @@ function processText(
     parts.push(cleanedText.slice(lastIndex));
   }
 
-  // ★ Apply annotation highlights to text parts
-  if (annotations.length > 0) {
-    const annotatedParts = parts.map((part, partIndex) => {
-      if (typeof part !== 'string') return part;
-      return applyAnnotations(
-        part,
-        annotations,
-        highlightedAnnotationId,
-        partIndex
-      );
-    });
-    return annotatedParts.length === 1 ? annotatedParts[0] : annotatedParts;
-  }
+  // Note: Annotations are now handled by AnnotationHighlighter component via DOM post-processing
+  // This enables cross-paragraph annotation highlighting that inline processing cannot handle
 
   return parts.length === 1 ? parts[0] : parts;
-}
-
-/**
- * Apply annotation highlights to a text string
- * Handles both full matches and partial matches for long annotations that span multiple elements
- */
-function applyAnnotations(
-  text: string,
-  annotations: Annotation[],
-  highlightedAnnotationId?: string | null,
-  keyPrefix: number = 0
-): React.ReactNode {
-  if (!text || annotations.length === 0) return text;
-
-  const minMatchLength = 10; // Minimum characters for a partial match
-
-  // Find all annotation matches in the text
-  const matches: {
-    start: number;
-    end: number;
-    annotation: Annotation;
-  }[] = [];
-
-  annotations.forEach((annotation) => {
-    const annotationText = annotation.selectedText;
-    let foundMatch = false;
-
-    // Try exact match first
-    let searchStart = 0;
-    while (searchStart < text.length) {
-      const index = text.indexOf(annotationText, searchStart);
-      if (index === -1) break;
-
-      matches.push({
-        start: index,
-        end: index + annotationText.length,
-        annotation,
-      });
-      foundMatch = true;
-      searchStart = index + 1;
-    }
-
-    // If no exact match, check if current text is part of annotation (middle portion)
-    if (!foundMatch && text.length >= minMatchLength) {
-      if (annotationText.includes(text)) {
-        // The entire text chunk is part of the annotation
-        matches.push({
-          start: 0,
-          end: text.length,
-          annotation,
-        });
-        foundMatch = true;
-      }
-    }
-
-    // If still no match, try to find overlapping portions
-    if (!foundMatch && annotationText.length > minMatchLength) {
-      // Check if annotation starts within this text (annotation begins here)
-      for (
-        let len = Math.min(annotationText.length - 1, text.length);
-        len >= minMatchLength;
-        len--
-      ) {
-        const annotationStart = annotationText.slice(0, len);
-        const idx = text.indexOf(annotationStart);
-        if (idx !== -1 && idx + len === text.length) {
-          // Annotation starts at end of this text chunk
-          matches.push({
-            start: idx,
-            end: text.length,
-            annotation,
-          });
-          foundMatch = true;
-          break;
-        }
-      }
-
-      // Check if annotation ends within this text (annotation ends here)
-      if (!foundMatch) {
-        for (
-          let len = Math.min(annotationText.length - 1, text.length);
-          len >= minMatchLength;
-          len--
-        ) {
-          const annotationEnd = annotationText.slice(-len);
-          const idx = text.indexOf(annotationEnd);
-          if (idx === 0) {
-            // Annotation ends at start of this text chunk
-            matches.push({
-              start: 0,
-              end: len,
-              annotation,
-            });
-            foundMatch = true;
-            break;
-          }
-        }
-      }
-    }
-  });
-
-  if (matches.length === 0) return text;
-
-  // Sort by start position
-  matches.sort((a, b) => a.start - b.start);
-
-  // Build result with highlighted spans
-  const result: React.ReactNode[] = [];
-  let lastEnd = 0;
-
-  matches.forEach((match, index) => {
-    // Add text before this match
-    if (match.start > lastEnd) {
-      result.push(text.slice(lastEnd, match.start));
-    }
-
-    // Skip overlapping matches
-    if (match.start < lastEnd) return;
-
-    const isHighlighted = match.annotation.id === highlightedAnnotationId;
-    const colorClass =
-      annotationColorMap[match.annotation.color] || 'bg-yellow-200';
-
-    result.push(
-      <mark
-        key={`ann-${keyPrefix}-${match.annotation.id}-${index}`}
-        data-annotation-id={match.annotation.id}
-        className={`${colorClass} ${isHighlighted ? 'ring-2 ring-blue-500 ring-offset-1' : ''} cursor-pointer rounded px-0.5 transition-all`}
-        title="点击查看批注"
-      >
-        {text.slice(match.start, match.end)}
-      </mark>
-    );
-
-    lastEnd = match.end;
-  });
-
-  // Add remaining text
-  if (lastEnd < text.length) {
-    result.push(text.slice(lastEnd));
-  }
-
-  return result.length === 1 ? result[0] : result;
 }
 
 /**

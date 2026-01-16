@@ -27,6 +27,10 @@ interface TextSelectionContextMenuProps {
     startOffset: number;
     endOffset: number;
     color: AnnotationColor;
+    /** Context before the selection for reliable matching */
+    selectorPrefix?: string;
+    /** Context after the selection for reliable matching */
+    selectorSuffix?: string;
   }) => void;
   /** Whether AI operations are processing */
   isAIProcessing?: boolean;
@@ -212,16 +216,34 @@ export function TextSelectionContextMenu({
   const handleAddAnnotation = useCallback(
     (color: AnnotationColor) => {
       if (onAddAnnotation && selectedText && selectionRange) {
+        // Extract context for reliable matching
+        const containerText = containerRef.current?.textContent || '';
+        const contextLength = 50;
+
+        // Get prefix (text before selection)
+        const prefix = containerText.slice(
+          Math.max(0, selectionRange.start - contextLength),
+          selectionRange.start
+        );
+
+        // Get suffix (text after selection)
+        const suffix = containerText.slice(
+          selectionRange.end,
+          Math.min(containerText.length, selectionRange.end + contextLength)
+        );
+
         onAddAnnotation({
           selectedText,
           startOffset: selectionRange.start,
           endOffset: selectionRange.end,
           color,
+          selectorPrefix: prefix,
+          selectorSuffix: suffix,
         });
         setVisible(false);
       }
     },
-    [onAddAnnotation, selectedText, selectionRange]
+    [onAddAnnotation, selectedText, selectionRange, containerRef]
   );
 
   // Handle copy

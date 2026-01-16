@@ -25,6 +25,7 @@ import type { TopicReport, TopicEvidence } from '@/types/topic-research';
 import { TextSelectionContextMenu } from './TextSelectionContextMenu';
 import type { AIEditOperation } from './types';
 import { triggerCitationClick } from './citationNavigation';
+import { AnnotationHighlighter } from './AnnotationHighlighter';
 
 // View modes: preview, richtext (WYSIWYG), source (raw markdown)
 type ViewMode = 'preview' | 'richtext' | 'source';
@@ -175,6 +176,10 @@ interface ReportAnnotation {
   endOffset: number;
   color: 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
   status: 'active' | 'resolved' | 'archived';
+  /** Context before the selection for reliable matching */
+  selectorPrefix?: string;
+  /** Context after the selection for reliable matching */
+  selectorSuffix?: string;
 }
 
 interface ReportEditorProps {
@@ -192,6 +197,10 @@ interface ReportEditorProps {
     startOffset: number;
     endOffset: number;
     color: 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
+    /** Context before the selection for reliable matching */
+    selectorPrefix?: string;
+    /** Context after the selection for reliable matching */
+    selectorSuffix?: string;
   }) => void;
   /** Annotations for highlighting in preview */
   annotations?: ReportAnnotation[];
@@ -807,117 +816,13 @@ export function ReportEditor({
     return chineseChars + englishWords;
   }, [isEditing, editContent, markdownContent]);
 
-  // Annotation color map for background highlights
-  const annotationColorMap: Record<string, string> = {
-    yellow: 'bg-yellow-200',
-    green: 'bg-green-200',
-    blue: 'bg-blue-200',
-    pink: 'bg-pink-200',
-    purple: 'bg-purple-200',
-  };
-
-  // Scroll to highlighted annotation when it changes
-  // Automatically switch to preview mode to show the annotation
+  // Automatically switch to preview mode when highlighted annotation changes
+  // Note: Actual scrolling is handled by AnnotationHighlighter component
   useEffect(() => {
-    if (highlightedAnnotationId) {
-      // Switch to preview mode to show annotations
-      if (viewMode !== 'preview') {
-        setViewMode('preview');
-      }
-
-      // Wait for DOM to update then scroll
-      const scrollToAnnotation = () => {
-        if (previewRef.current) {
-          const highlightEl = previewRef.current.querySelector(
-            `[data-annotation-id="${highlightedAnnotationId}"]`
-          );
-          if (highlightEl) {
-            highlightEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }
-      };
-
-      // Use requestAnimationFrame to wait for render
-      requestAnimationFrame(() => {
-        requestAnimationFrame(scrollToAnnotation);
-      });
+    if (highlightedAnnotationId && viewMode !== 'preview') {
+      setViewMode('preview');
     }
   }, [highlightedAnnotationId, viewMode]);
-
-  // Process text to add annotation highlights
-  const processTextWithAnnotations = useCallback(
-    (text: string): React.ReactNode => {
-      if (!text || annotations.length === 0) return text;
-
-      // Sort annotations by start position (descending) to process from end to start
-      const activeAnnotations = annotations.filter(
-        (a) => a.status === 'active'
-      );
-      if (activeAnnotations.length === 0) return text;
-
-      // Find all annotation matches in the text
-      const matches: Array<{
-        start: number;
-        end: number;
-        annotation: ReportAnnotation;
-      }> = [];
-
-      activeAnnotations.forEach((annotation) => {
-        const idx = text.indexOf(annotation.selectedText);
-        if (idx !== -1) {
-          matches.push({
-            start: idx,
-            end: idx + annotation.selectedText.length,
-            annotation,
-          });
-        }
-      });
-
-      if (matches.length === 0) return text;
-
-      // Sort by start position
-      matches.sort((a, b) => a.start - b.start);
-
-      // Build result with highlighted spans
-      const parts: React.ReactNode[] = [];
-      let lastEnd = 0;
-
-      matches.forEach((match, idx) => {
-        // Add text before this match
-        if (match.start > lastEnd) {
-          parts.push(text.slice(lastEnd, match.start));
-        }
-
-        // Skip overlapping matches
-        if (match.start < lastEnd) return;
-
-        const isHighlighted = match.annotation.id === highlightedAnnotationId;
-        const colorClass =
-          annotationColorMap[match.annotation.color] || 'bg-yellow-200';
-
-        parts.push(
-          <mark
-            key={`ann-${idx}`}
-            data-annotation-id={match.annotation.id}
-            className={`${colorClass} ${isHighlighted ? 'ring-2 ring-purple-500 ring-offset-1' : ''} rounded px-0.5 transition-all`}
-            title={`批注: ${match.annotation.selectedText.slice(0, 50)}...`}
-          >
-            {match.annotation.selectedText}
-          </mark>
-        );
-
-        lastEnd = match.end;
-      });
-
-      // Add remaining text
-      if (lastEnd < text.length) {
-        parts.push(text.slice(lastEnd));
-      }
-
-      return parts;
-    },
-    [annotations, highlightedAnnotationId, annotationColorMap]
-  );
 
   // Process text to convert citation patterns to interactive components
   // Supports: [1], [2], [1, 2], [temp-x-y], [uuid]
@@ -1013,39 +918,16 @@ export function ReportEditor({
     [evidence]
   );
 
-  // ★ Combined processing: first annotations, then citations
-  // This ensures both highlighting and citation links work together
+  // ★ Process text for citations only
+  // Note: Annotations are handled by AnnotationHighlighter via DOM post-processing
+  // This enables cross-paragraph annotation highlighting that inline processing cannot handle
   const processText = useCallback(
     (text: string): React.ReactNode => {
       if (!text) return text;
-
-      // First apply annotation highlighting
-      const annotatedResult = processTextWithAnnotations(text);
-
-      // If the result is still a string, apply citations
-      if (typeof annotatedResult === 'string') {
-        return processTextWithCitations(annotatedResult);
-      }
-
-      // If the result is an array of nodes, process string parts for citations
-      if (Array.isArray(annotatedResult)) {
-        return annotatedResult.map((part, i) => {
-          if (typeof part === 'string') {
-            const citationResult = processTextWithCitations(part);
-            // If citation processing returns an array, wrap in span with key
-            if (Array.isArray(citationResult)) {
-              return <span key={`text-${i}`}>{citationResult}</span>;
-            }
-            return citationResult;
-          }
-          return part;
-        });
-      }
-
-      // Single React node (mark element) - return as is
-      return annotatedResult;
+      // Only process citations - annotations are handled by AnnotationHighlighter
+      return processTextWithCitations(text);
     },
-    [processTextWithAnnotations, processTextWithCitations]
+    [processTextWithCitations]
   );
 
   if (isLoading) {
@@ -1317,7 +1199,15 @@ export function ReportEditor({
       {/* Content area */}
       <div className="flex-1 overflow-hidden">
         {viewMode === 'preview' && (
-          <div ref={previewRef} className="h-full overflow-auto p-6">
+          <div ref={previewRef} className="relative h-full overflow-auto p-6">
+            {/* Mode indicator */}
+            <div className="absolute right-6 top-6 z-10">
+              <span className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-700">
+                <PreviewIcon className="h-3 w-3" />
+                预览模式
+              </span>
+            </div>
+
             <article className="prose prose-gray max-w-none">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
@@ -1333,7 +1223,7 @@ export function ReportEditor({
                       {children}
                     </a>
                   ),
-                  // ★ Process text nodes for both annotations and citations
+                  // ★ Process text nodes for citations (annotations handled by AnnotationHighlighter)
                   p: ({ children, ...props }) => (
                     <p {...props}>
                       {typeof children === 'string'
@@ -1391,11 +1281,30 @@ export function ReportEditor({
               onAddAnnotation={onAddAnnotation}
               isAIProcessing={isAIProcessing}
             />
+
+            {/* DOM-based annotation highlighter for cross-paragraph support */}
+            <AnnotationHighlighter
+              containerRef={previewRef}
+              annotations={annotations || []}
+              highlightedAnnotationId={highlightedAnnotationId}
+              content={markdownContent}
+            />
           </div>
         )}
 
         {viewMode === 'richtext' && (
-          <div ref={richTextRef} className="h-full overflow-auto bg-white p-6">
+          <div
+            ref={richTextRef}
+            className="relative h-full overflow-auto border-l-4 border-amber-300 bg-amber-50/30 p-6"
+          >
+            {/* Mode indicator */}
+            <div className="absolute right-6 top-6 z-10">
+              <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-700">
+                <RichTextIcon className="h-3 w-3" />
+                编辑模式
+              </span>
+            </div>
+
             {/* Apply same prose styling as preview mode for consistent appearance */}
             <EditorContent
               editor={tiptapEditor}
