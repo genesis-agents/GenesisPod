@@ -351,7 +351,42 @@ const CodeIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-export function ChapterizedReportView({
+/**
+ * Custom comparison function for React.memo
+ *
+ * CRITICAL: This prevents re-renders when only highlightedAnnotationId changes.
+ *
+ * Why this is necessary:
+ * - AnnotationHighlighter modifies the DOM directly (adds <mark> elements)
+ * - When React re-renders, it tries to reconcile virtual DOM with actual DOM
+ * - But the actual DOM has been modified, causing "insertBefore" errors
+ * - highlightedAnnotationId changes are handled by AnnotationHighlighter via CSS classes only
+ *   (see updateHighlightedAnnotation function), so no React re-render is needed
+ */
+function arePropsEqual(
+  prevProps: ChapterizedReportViewProps,
+  nextProps: ChapterizedReportViewProps
+): boolean {
+  // If only highlightedAnnotationId changed, skip re-render
+  // AnnotationHighlighter handles this via CSS class updates, not DOM rebuild
+  if (
+    prevProps.report === nextProps.report &&
+    prevProps.dimensions === nextProps.dimensions &&
+    prevProps.evidence === nextProps.evidence &&
+    prevProps.isLoading === nextProps.isLoading &&
+    prevProps.onEditChapter === nextProps.onEditChapter &&
+    prevProps.onAIEditChapter === nextProps.onAIEditChapter &&
+    prevProps.onAIEdit === nextProps.onAIEdit &&
+    prevProps.onAddAnnotation === nextProps.onAddAnnotation &&
+    prevProps.annotations === nextProps.annotations
+    // highlightedAnnotationId intentionally NOT compared
+  ) {
+    return true; // Props are equal, skip re-render
+  }
+  return false; // Props changed, re-render needed
+}
+
+function ChapterizedReportViewInner({
   report,
   dimensions,
   evidence = [],
@@ -1022,3 +1057,15 @@ export function ChapterizedReportView({
     </div>
   );
 }
+
+/**
+ * Memoized ChapterizedReportView
+ *
+ * Uses custom comparison to prevent re-renders when only highlightedAnnotationId changes.
+ * This is critical to avoid React DOM reconciliation conflicts with AnnotationHighlighter's
+ * direct DOM manipulation.
+ */
+export const ChapterizedReportView = memo(
+  ChapterizedReportViewInner,
+  arePropsEqual
+);
