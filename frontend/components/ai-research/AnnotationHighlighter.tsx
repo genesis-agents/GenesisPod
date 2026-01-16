@@ -199,24 +199,16 @@ export function AnnotationHighlighter({
       });
     });
 
-    // Cleanup function: cancel RAF and clear highlights when dependencies change or unmount
+    // Cleanup function: cancel RAF only
+    // IMPORTANT: Do NOT clear highlights in cleanup - this conflicts with React's DOM reconciliation
+    // When React is re-rendering, calling clearHighlights modifies the DOM structure,
+    // causing "insertBefore" errors when React tries to reconcile the virtual DOM with actual DOM.
+    // The next effect execution will naturally clear and re-apply highlights.
     return () => {
       isMountedRef.current = false;
       if (rafIdRef.current) {
         cancelAnimationFrame(rafIdRef.current);
         rafIdRef.current = null;
-      }
-      // Clear highlights when unmounting or before re-applying
-      // Use try-catch to handle cases where container might be in inconsistent state
-      try {
-        if (containerRef.current) {
-          clearHighlights(containerRef.current);
-        }
-      } catch (err) {
-        console.warn(
-          '[AnnotationHighlighter] Error clearing highlights on cleanup:',
-          err
-        );
       }
       isApplyingRef.current = false;
     };
