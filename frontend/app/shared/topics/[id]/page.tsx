@@ -16,6 +16,72 @@ import type { ResearchTopic, TopicReport } from '@/types/topic-research';
 import { ResearchTopicType } from '@/types/topic-research';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useMemo } from 'react';
+
+// Helper function to extract Markdown content from fullReport JSON
+function extractReportMarkdown(fullReport: string | undefined): string {
+  if (!fullReport) return '';
+
+  // If it's already plain text/markdown, return as is
+  if (!fullReport.trim().startsWith('{')) {
+    return fullReport;
+  }
+
+  try {
+    const reportData = JSON.parse(fullReport);
+    const parts: string[] = [];
+
+    // Add preface
+    if (reportData.preface) {
+      parts.push(reportData.preface);
+    }
+
+    // Add table of contents
+    if (reportData.tableOfContents) {
+      parts.push(reportData.tableOfContents);
+    }
+
+    // Add executive summary
+    if (reportData.executiveSummary) {
+      parts.push('---\n\n# 执行摘要\n\n' + reportData.executiveSummary);
+    }
+
+    // Add sections
+    if (reportData.sections && Array.isArray(reportData.sections)) {
+      parts.push('---\n');
+      for (const section of reportData.sections) {
+        if (section.title) {
+          parts.push(`\n## ${section.sectionNumber || ''}. ${section.title}\n`);
+        }
+        if (section.coreViewpoints && Array.isArray(section.coreViewpoints)) {
+          parts.push('\n**核心观点：**\n');
+          for (const vp of section.coreViewpoints) {
+            parts.push(`- ${vp}\n`);
+          }
+        }
+        if (section.content) {
+          parts.push('\n' + section.content + '\n');
+        }
+        if (section.keyData && Array.isArray(section.keyData)) {
+          parts.push('\n**关键数据：**\n');
+          for (const kd of section.keyData) {
+            parts.push(`- ${kd.data} (来源: ${kd.source})\n`);
+          }
+        }
+      }
+    }
+
+    // Add conclusion if exists
+    if (reportData.conclusion) {
+      parts.push('\n---\n\n# 结论\n\n' + reportData.conclusion);
+    }
+
+    return parts.join('\n');
+  } catch {
+    // If JSON parsing fails, return as is
+    return fullReport;
+  }
+}
 
 // Icons
 const LoaderIcon = ({ className }: { className?: string }) => (
@@ -67,6 +133,170 @@ const topicTypeConfig: Record<
     label: '企业追踪',
   },
 };
+
+// Report Content Component with Navigation
+function ReportContent({ report }: { report: TopicReport }) {
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+
+  // Parse the report data
+  const reportData = useMemo(() => {
+    if (!report.fullReport) return null;
+    if (!report.fullReport.trim().startsWith('{')) return null;
+
+    try {
+      return JSON.parse(report.fullReport);
+    } catch {
+      return null;
+    }
+  }, [report.fullReport]);
+
+  // If no structured data, render as plain markdown
+  if (!reportData) {
+    return (
+      <article className="prose prose-gray prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-gray-700 prose-a:text-blue-600 prose-strong:text-gray-900 max-w-none">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          {report.fullReport || report.executiveSummary || '暂无报告内容'}
+        </ReactMarkdown>
+      </article>
+    );
+  }
+
+  const sections = reportData.sections || [];
+
+  return (
+    <div className="flex gap-6">
+      {/* Navigation Sidebar */}
+      <nav className="hidden w-64 flex-shrink-0 lg:block">
+        <div className="sticky top-4 space-y-1 rounded-lg bg-gray-50 p-4">
+          <h3 className="mb-3 text-sm font-semibold text-gray-900">目录</h3>
+          {reportData.preface && (
+            <button
+              onClick={() => setActiveSection('preface')}
+              className={`block w-full rounded px-3 py-1.5 text-left text-sm transition-colors ${
+                activeSection === 'preface'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              前言
+            </button>
+          )}
+          {reportData.executiveSummary && (
+            <button
+              onClick={() => setActiveSection('summary')}
+              className={`block w-full rounded px-3 py-1.5 text-left text-sm transition-colors ${
+                activeSection === 'summary'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              执行摘要
+            </button>
+          )}
+          {sections.map((section: any, index: number) => (
+            <button
+              key={index}
+              onClick={() => setActiveSection(`section-${index}`)}
+              className={`block w-full truncate rounded px-3 py-1.5 text-left text-sm transition-colors ${
+                activeSection === `section-${index}`
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              title={section.title}
+            >
+              {section.sectionNumber}. {section.title}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <article className="prose prose-gray prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-gray-700 prose-a:text-blue-600 prose-strong:text-gray-900 min-w-0 max-w-none flex-1">
+        {/* Preface */}
+        {reportData.preface && (
+          <section id="preface" className="mb-8">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {reportData.preface}
+            </ReactMarkdown>
+          </section>
+        )}
+
+        {/* Executive Summary */}
+        {reportData.executiveSummary && (
+          <section id="summary" className="mb-8 rounded-lg bg-blue-50 p-6">
+            <h2 className="text-xl font-semibold text-gray-900">执行摘要</h2>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {reportData.executiveSummary}
+            </ReactMarkdown>
+          </section>
+        )}
+
+        <hr className="my-8" />
+
+        {/* Sections */}
+        {sections.map((section: any, index: number) => (
+          <section key={index} id={`section-${index}`} className="mb-10">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {section.sectionNumber}. {section.title}
+            </h2>
+
+            {/* Core Viewpoints */}
+            {section.coreViewpoints && section.coreViewpoints.length > 0 && (
+              <div className="my-4 rounded-lg bg-amber-50 p-4">
+                <h4 className="mb-2 text-sm font-semibold text-amber-800">
+                  核心观点
+                </h4>
+                <ul className="list-inside list-disc space-y-1 text-sm text-amber-900">
+                  {section.coreViewpoints.map((vp: string, i: number) => (
+                    <li key={i}>{vp}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Content */}
+            {section.content && (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {section.content}
+              </ReactMarkdown>
+            )}
+
+            {/* Key Data */}
+            {section.keyData && section.keyData.length > 0 && (
+              <div className="my-4 rounded-lg bg-green-50 p-4">
+                <h4 className="mb-2 text-sm font-semibold text-green-800">
+                  关键数据
+                </h4>
+                <ul className="space-y-2 text-sm text-green-900">
+                  {section.keyData.map((kd: any, i: number) => (
+                    <li key={i}>
+                      <span className="font-medium">{kd.data}</span>
+                      {kd.source && (
+                        <span className="ml-2 text-green-600">
+                          (来源: {kd.source})
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        ))}
+
+        {/* Conclusion */}
+        {reportData.conclusion && (
+          <section id="conclusion" className="mt-8 rounded-lg bg-gray-100 p-6">
+            <h2 className="text-xl font-semibold text-gray-900">结论</h2>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {reportData.conclusion}
+            </ReactMarkdown>
+          </section>
+        )}
+      </article>
+    </div>
+  );
+}
 
 export default function SharedTopicPage() {
   const params = useParams();
@@ -208,11 +438,7 @@ export default function SharedTopicPage() {
             </div>
 
             {/* Report Content */}
-            <article className="prose prose-gray prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-gray-700 prose-a:text-blue-600 prose-strong:text-gray-900 max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {report.fullReport || report.executiveSummary || '暂无报告内容'}
-              </ReactMarkdown>
-            </article>
+            <ReportContent report={report} />
           </div>
         ) : (
           <div className="rounded-xl bg-white p-8 text-center shadow-sm">
