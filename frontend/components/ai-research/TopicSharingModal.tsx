@@ -354,9 +354,9 @@ export function TopicSharingModal({
     }
   };
 
-  // Copy public link
+  // Copy report reading link
   const handleCopyLink = () => {
-    const link = `${window.location.origin}/shared/topics/${topicId}`;
+    const link = `${window.location.origin}/read-report/${topicId}`;
     navigator.clipboard.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -441,17 +441,22 @@ export function TopicSharingModal({
                 </div>
               </div>
 
-              {/* Public Link (only show when public) */}
-              {visibility === 'PUBLIC' && (
+              {/* Report Reading Link (show for PUBLIC and SHARED) */}
+              {(visibility === 'PUBLIC' || visibility === 'SHARED') && (
                 <div className="mb-6">
                   <h3 className="mb-3 text-sm font-medium text-gray-700">
-                    公开链接
+                    报告阅读链接
                   </h3>
+                  <p className="mb-2 text-xs text-gray-500">
+                    {visibility === 'PUBLIC'
+                      ? '所有登录用户都可以通过此链接阅读报告'
+                      : '仅协作者可以通过此链接阅读报告'}
+                  </p>
                   <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
                     <input
                       type="text"
                       readOnly
-                      value={`${typeof window !== 'undefined' ? window.location.origin : ''}/shared/topics/${topicId}`}
+                      value={`${typeof window !== 'undefined' ? window.location.origin : ''}/read-report/${topicId}`}
                       className="flex-1 truncate bg-transparent text-sm text-gray-900 outline-none"
                     />
                     <button
