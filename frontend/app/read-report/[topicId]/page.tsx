@@ -30,22 +30,47 @@ function getTextFromChildren(children: ReactNode): string {
   return '';
 }
 
+// Interface for structured report content
+interface StructuredReport {
+  preface?: string;
+  tableOfContents?: string;
+  executiveSummary?: string;
+  sections?: Array<{
+    sectionNumber?: string;
+    title?: string;
+    content?: string;
+    coreViewpoints?: string[];
+    keyData?: Array<{ data?: string; source?: string }>;
+  }>;
+}
+
 // Helper to safely get string content from report
 function getReportContent(report: TopicReport | null): string {
   if (!report) return '';
 
   // Handle fullReport
   if (report.fullReport) {
+    // If it's already a string (plain markdown)
     if (typeof report.fullReport === 'string') {
+      // Check if it looks like JSON
+      const trimmed = report.fullReport.trim();
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          const parsed = JSON.parse(trimmed) as StructuredReport;
+          return extractMarkdownFromStructuredReport(parsed);
+        } catch {
+          // Not valid JSON, return as-is
+          return report.fullReport;
+        }
+      }
       return report.fullReport;
     }
-    // If it's an object, try to stringify or extract content
+
+    // If it's an object (structured report)
     if (typeof report.fullReport === 'object') {
-      try {
-        return JSON.stringify(report.fullReport, null, 2);
-      } catch {
-        return '';
-      }
+      return extractMarkdownFromStructuredReport(
+        report.fullReport as StructuredReport
+      );
     }
   }
 
@@ -55,6 +80,43 @@ function getReportContent(report: TopicReport | null): string {
   }
 
   return '暂无报告内容';
+}
+
+// Extract markdown content from structured report JSON
+function extractMarkdownFromStructuredReport(data: StructuredReport): string {
+  const parts: string[] = [];
+
+  // Add preface
+  if (data.preface && typeof data.preface === 'string') {
+    parts.push(data.preface);
+  }
+
+  // Add executive summary
+  if (data.executiveSummary && typeof data.executiveSummary === 'string') {
+    parts.push('## 执行摘要\n\n' + data.executiveSummary);
+  }
+
+  // Add sections
+  if (Array.isArray(data.sections)) {
+    for (const section of data.sections) {
+      if (section.content && typeof section.content === 'string') {
+        // Add section title if content doesn't start with a heading
+        if (
+          section.title &&
+          !section.content.trim().startsWith('#') &&
+          !section.content.trim().startsWith('##')
+        ) {
+          parts.push(
+            `## ${section.sectionNumber || ''}. ${section.title}\n\n${section.content}`
+          );
+        } else {
+          parts.push(section.content);
+        }
+      }
+    }
+  }
+
+  return parts.join('\n\n---\n\n');
 }
 
 // 从Markdown中提取目录
