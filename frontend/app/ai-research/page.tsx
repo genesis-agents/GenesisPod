@@ -751,13 +751,14 @@ function StudioPageContent() {
                   </p>
                 </div>
               </div>
-              <button
+              {/* ★ 暂时隐藏新建项目按钮 */}
+              {/* <button
                 onClick={() => setShowCreateDialog(true)}
                 className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-violet-700"
               >
                 <PlusIcon className="h-5 w-5" />
                 {t('aiStudio.project.newProject')}
-              </button>
+              </button> */}
             </div>
 
             {/* Tabs */}
@@ -926,8 +927,8 @@ function StudioPageContent() {
                   />
                 ))}
 
-                {/* Create New Card */}
-                <button
+                {/* ★ 暂时隐藏创建新项目卡片 */}
+                {/* <button
                   onClick={() => setShowCreateDialog(true)}
                   className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-violet-400 hover:bg-violet-50"
                 >
@@ -935,7 +936,7 @@ function StudioPageContent() {
                   <span className="mt-2 text-sm font-medium text-gray-600">
                     {t('aiStudio.empty.createNew')}
                   </span>
-                </button>
+                </button> */}
               </div>
             )}
           </>

@@ -281,13 +281,14 @@ export default function TopicResearchPage() {
                 </p>
               </div>
             </div>
-            <button
+            {/* ★ 暂时隐藏创建专题按钮 */}
+            {/* <button
               onClick={() => setShowCreateDialog(true)}
               className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
             >
               <PlusIcon className="h-5 w-5" />
               {t('topicResearch.createTopic')}
-            </button>
+            </button> */}
           </div>
 
           {/* Type Tabs */}
@@ -387,8 +388,8 @@ export default function TopicResearchPage() {
               />
             ))}
 
-            {/* Create New Card */}
-            <button
+            {/* ★ 暂时隐藏创建专题卡片 */}
+            {/* <button
               onClick={() => setShowCreateDialog(true)}
               className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-blue-400 hover:bg-blue-50"
             >
@@ -396,7 +397,7 @@ export default function TopicResearchPage() {
               <span className="mt-2 text-sm font-medium text-gray-600">
                 {t('topicResearch.createTopic')}
               </span>
-            </button>
+            </button> */}
           </div>
         )}
       </div>

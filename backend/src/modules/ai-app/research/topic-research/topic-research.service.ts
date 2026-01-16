@@ -2049,6 +2049,8 @@ export class TopicResearchService {
    * 获取公开的专题详情（无需认证）
    */
   async getSharedTopic(topicId: string) {
+    this.logger.warn(`[getSharedTopic] ★ Fetching topic ${topicId}`);
+
     // 检查专题是否存在且为公开
     const result = await this.prisma.$queryRaw<
       { id: string; visibility: string }[]
@@ -2056,13 +2058,32 @@ export class TopicResearchService {
       SELECT id, visibility FROM research_topics WHERE id = ${topicId}
     `;
 
+    this.logger.warn(
+      `[getSharedTopic] ★ Query result for ${topicId}: ${JSON.stringify(result)}`,
+    );
+
     if (!result.length) {
+      this.logger.warn(
+        `[getSharedTopic] Topic ${topicId} not found in database`,
+      );
       throw new NotFoundException("Topic not found");
     }
 
-    if (result[0].visibility !== "PUBLIC") {
+    const visibility = result[0].visibility;
+    this.logger.warn(
+      `[getSharedTopic] ★ Topic ${topicId} visibility: "${visibility}" (type: ${typeof visibility})`,
+    );
+
+    if (visibility !== "PUBLIC") {
+      this.logger.warn(
+        `[getSharedTopic] Topic ${topicId} visibility is "${visibility}", not "PUBLIC" - rejecting access`,
+      );
       throw new NotFoundException("Topic not found or not publicly accessible");
     }
+
+    this.logger.warn(
+      `[getSharedTopic] ★ Topic ${topicId} is PUBLIC, proceeding...`,
+    );
 
     // 获取专题详情（不验证用户）
     const topic = await this.prisma.researchTopic.findUnique({
