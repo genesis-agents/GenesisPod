@@ -485,13 +485,40 @@ export class TopicResearchService {
 
   /**
    * 获取专题列表
+   *
+   * 权限规则：
+   * - 私有(PRIVATE)：只有创建者可见
+   * - 团队(SHARED)：创建者 + 协作者可见
+   * - 公开(PUBLIC)：所有登录用户可见
    */
   async listTopics(userId: string, query: ListTopicsDto) {
     const { type, status, search, skip = 0, take = 20 } = query;
 
-    // 构建查询条件
+    // 获取用户作为协作者的专题ID列表
+    const collaboratorTopicIds = await this.prisma.topicCollaborator
+      .findMany({
+        where: { userId, isActive: true },
+        select: { topicId: true },
+      })
+      .then((results) => results.map((r) => r.topicId));
+
+    // 使用原始SQL获取可见的专题ID
+    // 权限规则：
+    // 1. 自己创建的（任何visibility）
+    // 2. visibility为PUBLIC的
+    // 3. 自己是协作者的（visibility为SHARED）
+    const visibleTopicIds = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM research_topics
+      WHERE "userId" = ${userId}
+         OR visibility = 'PUBLIC'
+         OR (visibility = 'SHARED' AND id = ANY(${collaboratorTopicIds}::text[]))
+    `;
+
+    const topicIds = visibleTopicIds.map((t) => t.id);
+
+    // 构建最终查询条件
     const where: any = {
-      userId,
+      id: { in: topicIds },
     };
 
     if (type) {
@@ -503,9 +530,13 @@ export class TopicResearchService {
     }
 
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
+      where.AND = [
+        {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { description: { contains: search, mode: "insensitive" } },
+          ],
+        },
       ];
     }
 
@@ -570,6 +601,11 @@ export class TopicResearchService {
 
   /**
    * 获取专题详情
+   *
+   * 权限规则：
+   * - 私有(PRIVATE)：只有创建者可见
+   * - 团队(SHARED)：创建者 + 协作者可见
+   * - 公开(PUBLIC)：所有登录用户可见
    */
   async getTopic(userId: string, topicId: string) {
     const topic = await this.prisma.researchTopic.findUnique({
@@ -602,14 +638,70 @@ export class TopicResearchService {
       throw new NotFoundException(`Topic ${topicId} not found`);
     }
 
-    // 验证用户所有权
-    if (topic.userId !== userId) {
+    // 检查访问权限
+    const hasAccess = await this.checkTopicAccess(
+      userId,
+      topicId,
+      topic.userId,
+    );
+    if (!hasAccess) {
       throw new ForbiddenException(
         "You do not have permission to access this topic",
       );
     }
 
     return topic;
+  }
+
+  /**
+   * 检查用户是否有权访问专题
+   *
+   * @returns true 如果用户有权访问
+   */
+  private async checkTopicAccess(
+    userId: string,
+    topicId: string,
+    ownerId: string,
+  ): Promise<boolean> {
+    // 1. 创建者始终有权限
+    if (userId === ownerId) {
+      return true;
+    }
+
+    // 2. 检查visibility和协作者状态
+    const result = await this.prisma.$queryRaw<
+      { visibility: string; is_collaborator: boolean }[]
+    >`
+      SELECT
+        rt.visibility,
+        EXISTS(
+          SELECT 1 FROM topic_collaborators tc
+          WHERE tc."topicId" = rt.id
+            AND tc."userId" = ${userId}
+            AND tc."isActive" = true
+        ) as is_collaborator
+      FROM research_topics rt
+      WHERE rt.id = ${topicId}
+    `;
+
+    if (!result.length) {
+      return false;
+    }
+
+    const { visibility, is_collaborator } = result[0];
+
+    // PUBLIC: 所有登录用户可见
+    if (visibility === "PUBLIC") {
+      return true;
+    }
+
+    // SHARED: 协作者可见
+    if (visibility === "SHARED" && is_collaborator) {
+      return true;
+    }
+
+    // PRIVATE: 只有创建者可见（已在上面检查过）
+    return false;
   }
 
   /**
