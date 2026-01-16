@@ -18,68 +18,28 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useMemo } from 'react';
 
-// Helper function to extract Markdown content from fullReport JSON
-function extractReportMarkdown(fullReport: string | undefined): string {
-  if (!fullReport) return '';
+// Helper function to extract JSON from fullReport (may be wrapped in markdown code block)
+function extractReportJson(fullReport: string | undefined): any | null {
+  if (!fullReport) return null;
 
-  // If it's already plain text/markdown, return as is
-  if (!fullReport.trim().startsWith('{')) {
-    return fullReport;
+  let jsonStr = fullReport.trim();
+
+  // Check if JSON is wrapped in markdown code block
+  // Format: # 1. 研究内容\n```json\n{...}\n```
+  const jsonBlockMatch = jsonStr.match(/```json\s*([\s\S]*?)\s*```/);
+  if (jsonBlockMatch) {
+    jsonStr = jsonBlockMatch[1].trim();
+  }
+
+  // If it doesn't start with {, it's not JSON
+  if (!jsonStr.startsWith('{')) {
+    return null;
   }
 
   try {
-    const reportData = JSON.parse(fullReport);
-    const parts: string[] = [];
-
-    // Add preface
-    if (reportData.preface) {
-      parts.push(reportData.preface);
-    }
-
-    // Add table of contents
-    if (reportData.tableOfContents) {
-      parts.push(reportData.tableOfContents);
-    }
-
-    // Add executive summary
-    if (reportData.executiveSummary) {
-      parts.push('---\n\n# 执行摘要\n\n' + reportData.executiveSummary);
-    }
-
-    // Add sections
-    if (reportData.sections && Array.isArray(reportData.sections)) {
-      parts.push('---\n');
-      for (const section of reportData.sections) {
-        if (section.title) {
-          parts.push(`\n## ${section.sectionNumber || ''}. ${section.title}\n`);
-        }
-        if (section.coreViewpoints && Array.isArray(section.coreViewpoints)) {
-          parts.push('\n**核心观点：**\n');
-          for (const vp of section.coreViewpoints) {
-            parts.push(`- ${vp}\n`);
-          }
-        }
-        if (section.content) {
-          parts.push('\n' + section.content + '\n');
-        }
-        if (section.keyData && Array.isArray(section.keyData)) {
-          parts.push('\n**关键数据：**\n');
-          for (const kd of section.keyData) {
-            parts.push(`- ${kd.data} (来源: ${kd.source})\n`);
-          }
-        }
-      }
-    }
-
-    // Add conclusion if exists
-    if (reportData.conclusion) {
-      parts.push('\n---\n\n# 结论\n\n' + reportData.conclusion);
-    }
-
-    return parts.join('\n');
+    return JSON.parse(jsonStr);
   } catch {
-    // If JSON parsing fails, return as is
-    return fullReport;
+    return null;
   }
 }
 
@@ -138,16 +98,9 @@ const topicTypeConfig: Record<
 function ReportContent({ report }: { report: TopicReport }) {
   const [activeSection, setActiveSection] = useState<string | null>(null);
 
-  // Parse the report data
+  // Parse the report data using the helper function
   const reportData = useMemo(() => {
-    if (!report.fullReport) return null;
-    if (!report.fullReport.trim().startsWith('{')) return null;
-
-    try {
-      return JSON.parse(report.fullReport);
-    } catch {
-      return null;
-    }
+    return extractReportJson(report.fullReport);
   }, [report.fullReport]);
 
   // If no structured data, render as plain markdown
