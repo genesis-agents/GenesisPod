@@ -816,6 +816,13 @@ export class TopicResearchService {
   }
 
   /**
+   * ★ 重新计算证据可信度评分
+   */
+  async recalculateEvidenceCredibility(reportId: string) {
+    return this.evidenceService.recalculateCredibilityScores(reportId);
+  }
+
+  /**
    * 获取研究历史时间线 (Phase 2.3)
    */
   async getResearchHistory(userId: string, topicId: string, limit?: number) {

@@ -1800,6 +1800,29 @@ export class TopicResearchController {
     );
   }
 
+  /**
+   * ★ 重新计算证据可信度评分
+   */
+  @Post("topics/:topicId/reports/:reportId/evidence/recalculate-credibility")
+  @ApiOperation({
+    summary: "重新计算证据可信度",
+    description: "重新计算报告中所有证据的可信度评分，用于修复历史数据问题",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "reportId", description: "报告ID" })
+  @ApiResponse({ status: 200, description: "返回更新统计" })
+  async recalculateEvidenceCredibility(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("reportId") reportId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.recalculateEvidenceCredibility(reportId);
+  }
+
   // ==================== Research History (Phase 2.3) ====================
 
   /**

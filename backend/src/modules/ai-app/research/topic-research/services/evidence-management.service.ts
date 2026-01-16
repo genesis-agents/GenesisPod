@@ -181,6 +181,195 @@ export class EvidenceManagementService {
   }
 
   /**
+   * ★ 重新计算报告中所有证据的可信度评分
+   * 用于修复历史数据中可信度评分不正确的问题
+   */
+  async recalculateCredibilityScores(reportId: string): Promise<{
+    updated: number;
+    avgScore: number;
+  }> {
+    this.logger.log(`Recalculating credibility scores for report: ${reportId}`);
+
+    const evidences = await this.prisma.topicEvidence.findMany({
+      where: { reportId },
+    });
+
+    if (evidences.length === 0) {
+      return { updated: 0, avgScore: 0 };
+    }
+
+    let totalScore = 0;
+
+    // 批量更新
+    await this.prisma.$transaction(
+      evidences.map((evidence) => {
+        const newScore = this.calculateCredibilityScore(evidence);
+        totalScore += newScore;
+
+        return this.prisma.topicEvidence.update({
+          where: { id: evidence.id },
+          data: { credibilityScore: newScore },
+        });
+      }),
+    );
+
+    const avgScore = Math.round(totalScore / evidences.length);
+
+    this.logger.log(
+      `Updated ${evidences.length} evidence scores, avg: ${avgScore}`,
+    );
+
+    return { updated: evidences.length, avgScore };
+  }
+
+  /**
+   * ★ 计算单个证据的可信度评分
+   * 综合考虑域名权威性、来源类型、内容深度、时效性
+   */
+  private calculateCredibilityScore(evidence: {
+    domain: string | null;
+    sourceType: string | null;
+    snippet: string | null;
+    publishedAt: Date | null;
+  }): number {
+    let score = 0;
+
+    // 1. 域名权威性评分 (最高 40 分)
+    if (evidence.domain) {
+      const domain = evidence.domain.toLowerCase();
+
+      // 最高权威 (政府、教育、顶级学术)
+      const topAuthority = [
+        ".gov",
+        ".edu",
+        ".ac.",
+        "nature.com",
+        "science.org",
+        "sciencedirect.com",
+        "springer.com",
+        "wiley.com",
+        "arxiv.org",
+        "pubmed.ncbi",
+        "ieee.org",
+        "acm.org",
+        "who.int",
+        "un.org",
+        "worldbank.org",
+        "imf.org",
+        "oecd.org",
+      ];
+
+      // 高权威 (知名媒体、智库)
+      const highAuthority = [
+        "reuters.com",
+        "bloomberg.com",
+        "wsj.com",
+        "nytimes.com",
+        "washingtonpost.com",
+        "bbc.com",
+        "economist.com",
+        "ft.com",
+        "theguardian.com",
+        "apnews.com",
+        "stanford.edu",
+        "mit.edu",
+        "harvard.edu",
+        "brookings.edu",
+        "rand.org",
+        "mckinsey.com",
+        "gartner.com",
+        "forrester.com",
+        "statista.com",
+      ];
+
+      // 中等权威 (行业媒体、知名博客)
+      const mediumAuthority = [
+        "techcrunch.com",
+        "wired.com",
+        "arstechnica.com",
+        "theverge.com",
+        "venturebeat.com",
+        "forbes.com",
+        "businessinsider.com",
+        "cnbc.com",
+        "cnn.com",
+        "medium.com",
+        "substack.com",
+        "hbr.org",
+      ];
+
+      if (topAuthority.some((auth) => domain.includes(auth))) {
+        score += 40;
+      } else if (highAuthority.some((auth) => domain.includes(auth))) {
+        score += 30;
+      } else if (mediumAuthority.some((auth) => domain.includes(auth))) {
+        score += 22;
+      } else {
+        // 普通网站基础分
+        score += 15;
+      }
+    } else {
+      score += 10; // 无域名信息给最低基础分
+    }
+
+    // 2. 来源类型评分 (最高 30 分)
+    const sourceTypeLower = (evidence.sourceType || "").toLowerCase();
+    switch (sourceTypeLower) {
+      case "academic":
+        score += 30;
+        break;
+      case "official":
+      case "government":
+        score += 28;
+        break;
+      case "news":
+        score += 22;
+        break;
+      case "report":
+      case "industry":
+        score += 20;
+        break;
+      case "web":
+        score += 15;
+        break;
+      default:
+        score += 12; // 默认给基础分
+        break;
+    }
+
+    // 3. 内容深度评分 (最高 15 分) - 基于 snippet 长度
+    const snippetLength = evidence.snippet?.length || 0;
+    if (snippetLength > 500) {
+      score += 15;
+    } else if (snippetLength > 200) {
+      score += 10;
+    } else if (snippetLength > 50) {
+      score += 5;
+    }
+
+    // 4. 时效性评分 (最高 15 分)
+    if (evidence.publishedAt) {
+      const ageInDays = Math.floor(
+        (Date.now() - new Date(evidence.publishedAt).getTime()) /
+          (1000 * 60 * 60 * 24),
+      );
+      if (ageInDays <= 30) {
+        score += 15; // 近一个月
+      } else if (ageInDays <= 180) {
+        score += 12; // 近半年
+      } else if (ageInDays <= 365) {
+        score += 8; // 近一年
+      } else if (ageInDays <= 730) {
+        score += 5; // 近两年
+      }
+      // 超过两年不加分
+    }
+
+    // 确保分数在合理范围内 (最低 20，最高 100)
+    return Math.max(20, Math.min(100, score));
+  }
+
+  /**
    * 删除孤立的证据（未关联到任何报告的证据）
    */
   async cleanupOrphanedEvidence(): Promise<number> {
