@@ -323,6 +323,11 @@ export class TopicCollaboratorService {
 
   /**
    * 检查用户是否有权访问专题
+   *
+   * 权限逻辑：
+   * - PUBLIC 专题：任何登录用户都有完全访问权限
+   * - SHARED 专题：所有者和协作者有访问权限
+   * - PRIVATE 专题：仅所有者有访问权限
    */
   async hasAccess(
     topicId: string,
@@ -343,7 +348,21 @@ export class TopicCollaboratorService {
     // 所有者有全部权限
     if (topic.userId === userId) return true;
 
-    // 检查协作者权限
+    // PUBLIC 专题：
+    // - 读取操作（无 requiredRole 或 VIEWER）：所有登录用户可访问
+    // - 写入操作（EDITOR/ADMIN）：仅所有者可操作（已在上面检查过）
+    if (topic.visibility === "PUBLIC") {
+      // 如果需要写入权限，只有所有者可以（已在上面返回了）
+      if (requiredRole && requiredRole !== CollaboratorRole.VIEWER) {
+        return false;
+      }
+      return true;
+    }
+
+    // PRIVATE 专题：只有所有者有权限（已在上面检查过）
+    if (topic.visibility === "PRIVATE") return false;
+
+    // SHARED 专题：检查协作者权限
     const collaborator = topic.collaborators[0];
     if (!collaborator) return false;
 

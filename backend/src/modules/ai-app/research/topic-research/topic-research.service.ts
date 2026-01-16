@@ -915,15 +915,18 @@ export class TopicResearchService {
    * 获取报告的可信度评估
    */
   async getCredibilityReport(userId: string, reportId: string) {
-    // 验证报告所有权
+    // 获取报告及其专题信息
     const report = await this.prisma.topicReport.findUnique({
       where: { id: reportId },
-      include: { topic: { select: { userId: true } } },
+      include: { topic: { select: { id: true, userId: true } } },
     });
 
-    if (!report || report.topic.userId !== userId) {
+    if (!report) {
       throw new NotFoundException("Report not found");
     }
+
+    // 验证专题读取权限（支持公开专题访问）
+    await this.verifyTopicReadAccess(userId, report.topic.id);
 
     return this.credibilityReportService.getOrGenerateCredibilityReport(
       reportId,
