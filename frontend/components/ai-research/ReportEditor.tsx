@@ -13,7 +13,7 @@
  * 参考 PRD: docs/prd/topic-research-report-editing.md
  */
 
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -206,6 +206,55 @@ interface ReportEditorProps {
   annotations?: ReportAnnotation[];
   /** Currently highlighted annotation ID (for navigation) */
   highlightedAnnotationId?: string | null;
+}
+
+/**
+ * Custom comparison function for React.memo
+ *
+ * CRITICAL: This prevents re-renders when parent state changes (like sidePanelType)
+ * but the actual content data hasn't changed.
+ *
+ * Why this is necessary:
+ * - AnnotationHighlighter modifies the DOM directly (adds <mark> elements)
+ * - When React re-renders, it tries to reconcile virtual DOM with actual DOM
+ * - But the actual DOM has been modified, causing "insertBefore" errors
+ *
+ * What we compare (DATA props only):
+ * - report, evidence, isLoading - core data
+ * - annotations - content comparison (parent may create new array each render)
+ *
+ * What we DON'T compare:
+ * - highlightedAnnotationId - handled by AnnotationHighlighter via CSS classes
+ * - Callback functions (onSave, onAIEdit, onAddAnnotation) - parent may use inline functions
+ */
+function areReportEditorPropsEqual(
+  prevProps: ReportEditorProps,
+  nextProps: ReportEditorProps
+): boolean {
+  // Compare DATA props only
+  if (prevProps.report !== nextProps.report) return false;
+  if (prevProps.evidence !== nextProps.evidence) return false;
+  if (prevProps.isLoading !== nextProps.isLoading) return false;
+
+  // Deep compare annotations
+  const prevAnnotations = prevProps.annotations || [];
+  const nextAnnotations = nextProps.annotations || [];
+  if (prevAnnotations.length !== nextAnnotations.length) return false;
+
+  for (let i = 0; i < prevAnnotations.length; i++) {
+    const prev = prevAnnotations[i];
+    const next = nextAnnotations[i];
+    if (
+      prev.id !== next.id ||
+      prev.selectedText !== next.selectedText ||
+      prev.color !== next.color
+    ) {
+      return false;
+    }
+  }
+
+  // All data props are equal - skip re-render
+  return true;
 }
 
 // Icons
@@ -462,7 +511,7 @@ function CitationBadge({ index, evidence }: CitationBadgeProps) {
   );
 }
 
-export function ReportEditor({
+function ReportEditorInner({
   report,
   evidence: evidenceProp,
   isLoading = false,
@@ -1415,3 +1464,12 @@ export function ReportEditor({
     </div>
   );
 }
+
+/**
+ * Memoized ReportEditor
+ *
+ * Uses custom comparison to prevent re-renders when only highlightedAnnotationId
+ * or callback references change. This is critical to avoid React DOM reconciliation
+ * conflicts with AnnotationHighlighter's direct DOM manipulation.
+ */
+export const ReportEditor = memo(ReportEditorInner, areReportEditorPropsEqual);
