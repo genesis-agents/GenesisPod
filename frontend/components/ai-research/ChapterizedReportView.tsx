@@ -354,36 +354,57 @@ const CodeIcon = ({ className }: { className?: string }) => (
 /**
  * Custom comparison function for React.memo
  *
- * CRITICAL: This prevents re-renders when only highlightedAnnotationId changes.
+ * CRITICAL: This prevents re-renders when parent state changes (like sidePanelType)
+ * but the actual content data hasn't changed.
  *
  * Why this is necessary:
  * - AnnotationHighlighter modifies the DOM directly (adds <mark> elements)
  * - When React re-renders, it tries to reconcile virtual DOM with actual DOM
  * - But the actual DOM has been modified, causing "insertBefore" errors
- * - highlightedAnnotationId changes are handled by AnnotationHighlighter via CSS classes only
- *   (see updateHighlightedAnnotation function), so no React re-render is needed
+ *
+ * What we compare (DATA props only):
+ * - report, dimensions, evidence, isLoading - core data
+ * - annotations - content comparison via JSON (parent creates new array each render)
+ *
+ * What we DON'T compare:
+ * - highlightedAnnotationId - handled by AnnotationHighlighter via CSS classes
+ * - Callback functions (onEditChapter, onAIEdit, etc.) - parent uses inline functions,
+ *   creating new references each render, but logic is the same
  */
 function arePropsEqual(
   prevProps: ChapterizedReportViewProps,
   nextProps: ChapterizedReportViewProps
 ): boolean {
-  // If only highlightedAnnotationId changed, skip re-render
-  // AnnotationHighlighter handles this via CSS class updates, not DOM rebuild
-  if (
-    prevProps.report === nextProps.report &&
-    prevProps.dimensions === nextProps.dimensions &&
-    prevProps.evidence === nextProps.evidence &&
-    prevProps.isLoading === nextProps.isLoading &&
-    prevProps.onEditChapter === nextProps.onEditChapter &&
-    prevProps.onAIEditChapter === nextProps.onAIEditChapter &&
-    prevProps.onAIEdit === nextProps.onAIEdit &&
-    prevProps.onAddAnnotation === nextProps.onAddAnnotation &&
-    prevProps.annotations === nextProps.annotations
-    // highlightedAnnotationId intentionally NOT compared
-  ) {
-    return true; // Props are equal, skip re-render
+  // Compare DATA props only, not callbacks or highlightedAnnotationId
+  // Callbacks are inline functions in parent, always new references but same logic
+
+  // Quick reference checks for data props
+  if (prevProps.report !== nextProps.report) return false;
+  if (prevProps.dimensions !== nextProps.dimensions) return false;
+  if (prevProps.evidence !== nextProps.evidence) return false;
+  if (prevProps.isLoading !== nextProps.isLoading) return false;
+
+  // Deep compare annotations (parent does .map() creating new array each time)
+  const prevAnnotations = prevProps.annotations || [];
+  const nextAnnotations = nextProps.annotations || [];
+  if (prevAnnotations.length !== nextAnnotations.length) return false;
+
+  // Compare annotation contents (not reference)
+  for (let i = 0; i < prevAnnotations.length; i++) {
+    const prev = prevAnnotations[i];
+    const next = nextAnnotations[i];
+    if (
+      prev.id !== next.id ||
+      prev.selectedText !== next.selectedText ||
+      prev.color !== next.color
+    ) {
+      return false;
+    }
   }
-  return false; // Props changed, re-render needed
+
+  // All data props are equal - skip re-render
+  // highlightedAnnotationId and callbacks intentionally NOT compared
+  return true;
 }
 
 function ChapterizedReportViewInner({
