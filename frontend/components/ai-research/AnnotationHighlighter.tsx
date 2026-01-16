@@ -73,6 +73,9 @@ export function AnnotationHighlighter({
   const isApplyingRef = useRef(false);
   const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
+  // Track previous annotations to detect additions vs full rebuilds
+  const prevAnnotationIdsRef = useRef<Set<string>>(new Set());
+  const isInitialMountRef = useRef(true);
 
   // Apply highlights when annotations or content changes
   // Uses debounced setTimeout to ensure React has finished rendering before modifying DOM
@@ -96,11 +99,53 @@ export function AnnotationHighlighter({
       contentLength: content?.length,
     });
 
+    // Detect what kind of change happened
+    const currentIds = new Set(annotations.map((a) => a.id));
+    const prevIds = prevAnnotationIdsRef.current;
+
+    // Find new annotations (in current but not in previous)
+    const newAnnotationIds = new Set<string>();
+    currentIds.forEach((id) => {
+      if (!prevIds.has(id)) newAnnotationIds.add(id);
+    });
+
+    // Find removed annotations (in previous but not in current)
+    const removedAnnotationIds = new Set<string>();
+    prevIds.forEach((id) => {
+      if (!currentIds.has(id)) removedAnnotationIds.add(id);
+    });
+
+    // Update prev ref for next comparison
+    prevAnnotationIdsRef.current = currentIds;
+
+    // Determine if this is a simple addition (1 new annotation, no removals)
+    const isSimpleAddition =
+      !isInitialMountRef.current &&
+      newAnnotationIds.size === 1 &&
+      removedAnnotationIds.size === 0;
+
+    // Mark as no longer initial mount
+    isInitialMountRef.current = false;
+
+    console.log('[AnnotationHighlighter] Change detection:', {
+      isSimpleAddition,
+      newCount: newAnnotationIds.size,
+      removedCount: removedAnnotationIds.size,
+      totalAnnotations: annotations.length,
+    });
+
+    // For simple additions, skip the heavy work - the annotation will be visible on next full refresh
+    // This prevents React DOM conflicts when adding annotations during active editing
+    if (isSimpleAddition) {
+      console.log(
+        '[AnnotationHighlighter] Skipping rebuild for simple addition - avoiding React DOM conflict'
+      );
+      // Update the prev ref but don't do DOM operations
+      return;
+    }
+
     // Use queueMicrotask + setTimeout + requestAnimationFrame to ensure React has FULLY finished
     // This triple-layer scheduling prevents "insertBefore" errors from DOM/React conflicts
-    // 1. queueMicrotask: runs after current task, but before rendering
-    // 2. setTimeout(0): defers to next event loop iteration
-    // 3. requestAnimationFrame: waits for browser paint cycle
     queueMicrotask(() => {
       if (!isMountedRef.current) return;
 
