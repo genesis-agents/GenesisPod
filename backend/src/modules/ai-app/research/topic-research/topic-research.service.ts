@@ -998,8 +998,8 @@ export class TopicResearchService {
    * 获取研究历史时间线 (Phase 2.3)
    */
   async getResearchHistory(userId: string, topicId: string, limit?: number) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限（支持公开专题访问）
+    await this.verifyTopicReadAccess(userId, topicId);
 
     // 获取所有研究任务（Mission）
     const missions = await this.prisma.researchMission.findMany({
@@ -1101,8 +1101,8 @@ export class TopicResearchService {
    * 获取刷新状态
    */
   async getRefreshStatus(userId: string, topicId: string) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限（支持公开专题访问）
+    await this.verifyTopicReadAccess(userId, topicId);
 
     const status = this.orchestrator.getRefreshStatus(topicId);
 
@@ -1180,8 +1180,8 @@ export class TopicResearchService {
    * 获取维度列表
    */
   async listDimensions(userId: string, topicId: string) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限（支持公开专题访问）
+    await this.verifyTopicReadAccess(userId, topicId);
 
     const dimensions = await this.prisma.topicDimension.findMany({
       where: { topicId },
@@ -1351,8 +1351,8 @@ export class TopicResearchService {
    * 获取报告列表
    */
   async listReports(userId: string, topicId: string, query: ListReportsDto) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限（支持公开专题访问）
+    await this.verifyTopicReadAccess(userId, topicId);
 
     return this.reportService.listReports(topicId, {
       skip: 0, // cursor-based pagination not implemented yet
@@ -1364,8 +1364,8 @@ export class TopicResearchService {
    * 获取最新报告
    */
   async getLatestReport(userId: string, topicId: string) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限（支持公开专题访问）
+    await this.verifyTopicReadAccess(userId, topicId);
 
     const report = await this.reportService.getLatestReport(topicId);
 
@@ -1381,8 +1381,8 @@ export class TopicResearchService {
    * 获取指定版本报告
    */
   async getReport(userId: string, topicId: string, reportId: string) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限（支持公开专题访问）
+    await this.verifyTopicReadAccess(userId, topicId);
 
     const report = await this.reportService.getReport(reportId);
 
@@ -1729,8 +1729,8 @@ export class TopicResearchService {
    * 获取报告修订历史
    */
   async getReportRevisions(userId: string, topicId: string, reportId: string) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限（支持公开专题访问）
+    await this.verifyTopicReadAccess(userId, topicId);
 
     const report = await this.reportService.getReport(reportId);
     if (!report || report.topicId !== topicId) {
@@ -1824,8 +1824,8 @@ export class TopicResearchService {
     reportId: string,
     query: ListEvidenceDto,
   ) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限（支持公开专题访问）
+    await this.verifyTopicReadAccess(userId, topicId);
 
     // 验证报告属于该专题
     const report = await this.reportService.getReport(reportId);
@@ -1860,8 +1860,8 @@ export class TopicResearchService {
     reportId: string,
     evidenceId: string,
   ) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限（支持公开专题访问）
+    await this.verifyTopicReadAccess(userId, topicId);
 
     // 验证报告属于该专题
     const report = await this.reportService.getReport(reportId);
@@ -1911,7 +1911,7 @@ export class TopicResearchService {
   // ==================== Helper Methods ====================
 
   /**
-   * 验证专题所有权
+   * 验证专题所有权（仅创建者可访问，用于写入操作）
    */
   private async verifyTopicOwnership(
     userId: string,
@@ -1927,6 +1927,46 @@ export class TopicResearchService {
     }
 
     if (topic.userId !== userId) {
+      throw new ForbiddenException(
+        "You do not have permission to access this topic",
+      );
+    }
+  }
+
+  /**
+   * 验证专题读取权限（支持公开专题访问，用于只读操作）
+   *
+   * 权限规则：
+   * - 创建者始终有权限
+   * - PUBLIC 专题：所有登录用户可访问
+   * - SHARED 专题：协作者可访问
+   * - PRIVATE 专题：仅创建者可访问
+   */
+  private async verifyTopicReadAccess(
+    userId: string,
+    topicId: string,
+  ): Promise<void> {
+    const topic = await this.prisma.researchTopic.findUnique({
+      where: { id: topicId },
+      select: { userId: true },
+    });
+
+    if (!topic) {
+      throw new NotFoundException(`Topic ${topicId} not found`);
+    }
+
+    // 创建者始终有权限
+    if (topic.userId === userId) {
+      return;
+    }
+
+    // 检查 visibility 和协作者状态
+    const hasAccess = await this.checkTopicAccess(
+      userId,
+      topicId,
+      topic.userId,
+    );
+    if (!hasAccess) {
       throw new ForbiddenException(
         "You do not have permission to access this topic",
       );
@@ -1955,8 +1995,8 @@ export class TopicResearchService {
    * 获取刷新计划
    */
   async getSchedule(userId: string, topicId: string) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限（支持公开专题访问）
+    await this.verifyTopicReadAccess(userId, topicId);
 
     return this.scheduler.getSchedule(topicId);
   }
@@ -1985,8 +2025,8 @@ export class TopicResearchService {
    * 获取刷新日志
    */
   async getLogs(userId: string, topicId: string, query: ListLogsDto) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限（支持公开专题访问）
+    await this.verifyTopicReadAccess(userId, topicId);
 
     const where: any = { topicId };
 
@@ -2012,8 +2052,8 @@ export class TopicResearchService {
    * 获取专题统计
    */
   async getStats(userId: string, topicId: string) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限（支持公开专题访问）
+    await this.verifyTopicReadAccess(userId, topicId);
 
     // 获取专题基本信息
     const topic = await this.prisma.researchTopic.findUnique({
@@ -2276,8 +2316,8 @@ export class TopicResearchService {
   // ==================== Report Editing ====================
 
   async getReportChanges(userId: string, topicId: string, reportId: string) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限（支持公开专题访问）
+    await this.verifyTopicReadAccess(userId, topicId);
 
     // 验证报告属于该专题
     const report = await this.reportService.getReport(reportId);
@@ -2336,8 +2376,8 @@ export class TopicResearchService {
     reportId: string,
     status?: string,
   ) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限（支持公开专题访问）
+    await this.verifyTopicReadAccess(userId, topicId);
 
     // 验证报告属于该专题
     const report = await this.reportService.getReport(reportId);
