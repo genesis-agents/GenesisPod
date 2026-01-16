@@ -352,7 +352,9 @@ export function CitedMarkdown({
         );
       },
     }),
-    [sources, annotations, highlightedAnnotationId]
+    // Note: Only sources is used as dependency
+    // annotations and highlightedAnnotationId are handled by AnnotationHighlighter via DOM post-processing
+    [sources]
   );
 
   return (
