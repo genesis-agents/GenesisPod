@@ -21,6 +21,16 @@ import type {
   TopicEvidence,
 } from '@/types/topic-research';
 import type { MissionStatus } from '@/lib/api/topic-research';
+import {
+  getAnnotations,
+  createAnnotation,
+  updateAnnotation as updateAnnotationApi,
+  deleteAnnotation as deleteAnnotationApi,
+  resolveAnnotation as resolveAnnotationApi,
+  aiEditReport,
+  type ReportAnnotation as ApiReportAnnotation,
+  type AIEditOperation as AIEditOperationType,
+} from '@/lib/api/topic-research';
 import { ReportEditPanel } from './ReportEditPanel';
 import { ChapterizedReportView } from './ChapterizedReportView';
 import { ReportRevisionHistory } from './ReportRevisionHistory';
@@ -692,7 +702,7 @@ export function TopicContentPanel({
     null | 'history' | 'annotations'
   >(null);
 
-  // Annotation state (client-side only for now)
+  // Annotation state - now persisted to backend
   type AnnotationColor = 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
   type AnnotationStatus = 'active' | 'resolved' | 'archived';
   interface ReportAnnotation {
@@ -708,6 +718,8 @@ export function TopicContentPanel({
     sectionId?: string;
     color: AnnotationColor;
     status: AnnotationStatus;
+    selectorPrefix?: string;
+    selectorSuffix?: string;
     createdAt: string;
     updatedAt: string;
     replies?: Array<{
@@ -724,6 +736,57 @@ export function TopicContentPanel({
   const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<
     string | null
   >(null);
+  const [isLoadingAnnotations, setIsLoadingAnnotations] = useState(false);
+
+  // ★ Load annotations from backend when report changes
+  useEffect(() => {
+    async function loadAnnotations() {
+      if (!topicId || !report?.id) {
+        setAnnotations([]);
+        return;
+      }
+
+      setIsLoadingAnnotations(true);
+      try {
+        const apiAnnotations = await getAnnotations(topicId, report.id);
+        // Convert API annotations to local format
+        const localAnnotations: ReportAnnotation[] = apiAnnotations.map(
+          (ann) => ({
+            id: ann.id,
+            reportId: ann.reportId,
+            userId: ann.createdById,
+            userName:
+              ann.createdBy?.fullName || ann.createdBy?.username || '用户',
+            userAvatar: ann.createdBy?.avatarUrl,
+            selectedText: ann.selectedText || '',
+            content: ann.content,
+            startOffset: ann.startOffset,
+            endOffset: ann.endOffset,
+            selectorPrefix: ann.selectorPrefix,
+            selectorSuffix: ann.selectorSuffix,
+            color: (ann.color || 'yellow') as AnnotationColor,
+            status:
+              ann.status === 'OPEN'
+                ? 'active'
+                : ann.status === 'RESOLVED'
+                  ? 'resolved'
+                  : 'archived',
+            createdAt: ann.createdAt,
+            updatedAt: ann.updatedAt,
+            replies: [],
+          })
+        );
+        setAnnotations(localAnnotations);
+      } catch (error) {
+        console.error('Failed to load annotations:', error);
+        setAnnotations([]);
+      } finally {
+        setIsLoadingAnnotations(false);
+      }
+    }
+
+    loadAnnotations();
+  }, [topicId, report?.id]);
 
   // ★ 用于自动展开证据卡片的 ID
   const [autoExpandEvidenceId, setAutoExpandEvidenceId] = useState<
@@ -776,7 +839,7 @@ export function TopicContentPanel({
     }
   }, [report?.id, onDeleteReport]);
 
-  // Annotation handlers
+  // Annotation handlers - now persisted to backend
   const handleAnnotationAdd = useCallback(
     async (
       annotation: Omit<
@@ -784,51 +847,126 @@ export function TopicContentPanel({
         'id' | 'createdAt' | 'updatedAt' | 'replies'
       >
     ) => {
-      const newAnnotation: ReportAnnotation = {
-        ...annotation,
-        id: `ann-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        replies: [],
-      };
-      setAnnotations((prev) => [...prev, newAnnotation]);
+      if (!topicId || !report?.id) {
+        console.error('Cannot add annotation: missing topicId or reportId');
+        return;
+      }
+
+      try {
+        // Call backend API to create annotation
+        const created = await createAnnotation(topicId, report.id, {
+          content: annotation.content || '',
+          type: 'COMMENT',
+          selectedText: annotation.selectedText,
+          startOffset: annotation.startOffset,
+          endOffset: annotation.endOffset,
+          selectorPrefix: annotation.selectorPrefix,
+          selectorSuffix: annotation.selectorSuffix,
+          color: annotation.color,
+        });
+
+        // Convert API response to local format and add to state
+        const newAnnotation: ReportAnnotation = {
+          id: created.id,
+          reportId: created.reportId,
+          userId: created.createdById,
+          userName:
+            created.createdBy?.fullName ||
+            created.createdBy?.username ||
+            '用户',
+          userAvatar: created.createdBy?.avatarUrl,
+          selectedText: created.selectedText || '',
+          content: created.content,
+          startOffset: created.startOffset,
+          endOffset: created.endOffset,
+          selectorPrefix: created.selectorPrefix,
+          selectorSuffix: created.selectorSuffix,
+          color: (created.color || 'yellow') as AnnotationColor,
+          status: 'active',
+          createdAt: created.createdAt,
+          updatedAt: created.updatedAt,
+          replies: [],
+        };
+        setAnnotations((prev) => [...prev, newAnnotation]);
+      } catch (error) {
+        console.error('Failed to create annotation:', error);
+        // Fallback: create local-only annotation
+        const newAnnotation: ReportAnnotation = {
+          ...annotation,
+          id: `ann-${Date.now()}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          replies: [],
+        };
+        setAnnotations((prev) => [...prev, newAnnotation]);
+      }
     },
-    []
+    [topicId, report?.id]
   );
 
   const handleAnnotationUpdate = useCallback(
     async (annotationId: string, content: string) => {
-      setAnnotations((prev) =>
-        prev.map((ann) =>
-          ann.id === annotationId
-            ? { ...ann, content, updatedAt: new Date().toISOString() }
-            : ann
-        )
-      );
+      if (!topicId || !report?.id) return;
+
+      try {
+        await updateAnnotationApi(topicId, report.id, annotationId, {
+          content,
+        });
+        setAnnotations((prev) =>
+          prev.map((ann) =>
+            ann.id === annotationId
+              ? { ...ann, content, updatedAt: new Date().toISOString() }
+              : ann
+          )
+        );
+      } catch (error) {
+        console.error('Failed to update annotation:', error);
+      }
     },
-    []
+    [topicId, report?.id]
   );
 
-  const handleAnnotationDelete = useCallback(async (annotationId: string) => {
-    setAnnotations((prev) => prev.filter((ann) => ann.id !== annotationId));
-  }, []);
+  const handleAnnotationDelete = useCallback(
+    async (annotationId: string) => {
+      if (!topicId || !report?.id) return;
 
-  const handleAnnotationResolve = useCallback(async (annotationId: string) => {
-    setAnnotations((prev) =>
-      prev.map((ann) =>
-        ann.id === annotationId
-          ? {
-              ...ann,
-              status: 'resolved' as const,
-              updatedAt: new Date().toISOString(),
-            }
-          : ann
-      )
-    );
-  }, []);
+      try {
+        await deleteAnnotationApi(topicId, report.id, annotationId);
+        setAnnotations((prev) => prev.filter((ann) => ann.id !== annotationId));
+      } catch (error) {
+        console.error('Failed to delete annotation:', error);
+      }
+    },
+    [topicId, report?.id]
+  );
+
+  const handleAnnotationResolve = useCallback(
+    async (annotationId: string) => {
+      if (!topicId || !report?.id) return;
+
+      try {
+        await resolveAnnotationApi(topicId, report.id, annotationId);
+        setAnnotations((prev) =>
+          prev.map((ann) =>
+            ann.id === annotationId
+              ? {
+                  ...ann,
+                  status: 'resolved' as const,
+                  updatedAt: new Date().toISOString(),
+                }
+              : ann
+          )
+        );
+      } catch (error) {
+        console.error('Failed to resolve annotation:', error);
+      }
+    },
+    [topicId, report?.id]
+  );
 
   const handleAnnotationReply = useCallback(
     async (annotationId: string, content: string) => {
+      // Note: Backend doesn't have reply functionality yet, so this is still local-only
       setAnnotations((prev) =>
         prev.map((ann) =>
           ann.id === annotationId
@@ -850,7 +988,7 @@ export function TopicContentPanel({
         )
       );
     },
-    []
+    [user?.id, user?.username, user?.email]
   );
 
   // Safe array fallbacks (★ 使用 Array.isArray 确保是数组)
@@ -1188,9 +1326,20 @@ export function TopicContentPanel({
               console.log('Save report:', content);
             }}
             onAIEdit={async (operation, selection) => {
-              // TODO: Implement AI edit functionality
-              console.log('AI Edit:', operation, selection);
-              return 'AI edited content';
+              if (!topicId || !report?.id) {
+                console.error('Cannot AI edit: missing topicId or reportId');
+                return '';
+              }
+              try {
+                const result = await aiEditReport(topicId, report.id, {
+                  operation: operation as AIEditOperationType,
+                  selectedText: selection?.text || undefined,
+                });
+                return result.editedContent || '';
+              } catch (error) {
+                console.error('AI edit failed:', error);
+                return '';
+              }
             }}
             onRollback={async (revisionId: string) => {
               // Use existing rollback handler
@@ -1226,9 +1375,22 @@ export function TopicContentPanel({
                   }}
                   // ★ 右键菜单回调 - 与连续视图保持一致
                   onAIEdit={async (operation, selection) => {
-                    // TODO: Implement AI edit functionality
-                    console.log('AI Edit:', operation, selection);
-                    return 'AI edited content';
+                    if (!topicId || !report?.id) {
+                      console.error(
+                        'Cannot AI edit: missing topicId or reportId'
+                      );
+                      return '';
+                    }
+                    try {
+                      const result = await aiEditReport(topicId, report.id, {
+                        operation: operation as AIEditOperationType,
+                        selectedText: selection || undefined,
+                      });
+                      return result.editedContent || '';
+                    } catch (error) {
+                      console.error('AI edit failed:', error);
+                      return '';
+                    }
                   }}
                   // ★ 添加批注回调
                   onAddAnnotation={(data) => {

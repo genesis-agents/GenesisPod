@@ -1611,3 +1611,246 @@ export async function getSharedTopicLatestReport(
   }
   return response.json();
 }
+
+// ==================== Report Annotations ====================
+
+/**
+ * 批注类型枚举
+ */
+export type AnnotationType = 'COMMENT' | 'SUGGESTION' | 'ISSUE' | 'REFERENCE';
+
+/**
+ * 批注状态枚举
+ */
+export type AnnotationStatus = 'OPEN' | 'RESOLVED' | 'DISMISSED';
+
+/**
+ * 报告批注数据结构
+ */
+export interface ReportAnnotation {
+  id: string;
+  reportId: string;
+  content: string;
+  type: AnnotationType;
+  selectedText?: string;
+  startOffset: number;
+  endOffset: number;
+  selectorPrefix?: string;
+  selectorSuffix?: string;
+  color?: string;
+  status: AnnotationStatus;
+  createdById: string;
+  resolvedById?: string;
+  resolvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: {
+    id: string;
+    username?: string;
+    fullName?: string;
+    avatarUrl?: string;
+  };
+  resolvedBy?: {
+    id: string;
+    username?: string;
+    fullName?: string;
+  };
+}
+
+/**
+ * 创建批注 DTO
+ */
+export interface CreateAnnotationDto {
+  content: string;
+  type: AnnotationType;
+  selectedText?: string;
+  startOffset: number;
+  endOffset: number;
+  selectorPrefix?: string;
+  selectorSuffix?: string;
+  color?: string;
+}
+
+/**
+ * 更新批注 DTO
+ */
+export interface UpdateAnnotationDto {
+  content?: string;
+  status?: AnnotationStatus;
+}
+
+/**
+ * 获取报告的所有批注
+ */
+export async function getAnnotations(
+  topicId: string,
+  reportId: string,
+  status?: AnnotationStatus
+): Promise<ReportAnnotation[]> {
+  const params = new URLSearchParams();
+  if (status) params.append('status', status);
+  const queryString = params.toString();
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/annotations${queryString ? `?${queryString}` : ''}`
+  );
+}
+
+/**
+ * 创建批注
+ */
+export async function createAnnotation(
+  topicId: string,
+  reportId: string,
+  dto: CreateAnnotationDto
+): Promise<ReportAnnotation> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/annotations`,
+    {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    }
+  );
+}
+
+/**
+ * 更新批注
+ */
+export async function updateAnnotation(
+  topicId: string,
+  reportId: string,
+  annotationId: string,
+  dto: UpdateAnnotationDto
+): Promise<ReportAnnotation> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/annotations/${annotationId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(dto),
+    }
+  );
+}
+
+/**
+ * 删除批注
+ */
+export async function deleteAnnotation(
+  topicId: string,
+  reportId: string,
+  annotationId: string
+): Promise<{ success: boolean }> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/annotations/${annotationId}`,
+    {
+      method: 'DELETE',
+    }
+  );
+}
+
+/**
+ * 解决批注
+ */
+export async function resolveAnnotation(
+  topicId: string,
+  reportId: string,
+  annotationId: string
+): Promise<ReportAnnotation> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/annotations/${annotationId}/resolve`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
+/**
+ * 批量解决批注
+ */
+export async function resolveAllAnnotations(
+  topicId: string,
+  reportId: string,
+  annotationIds?: string[]
+): Promise<number> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/annotations/resolve-all`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ annotationIds }),
+    }
+  );
+}
+
+/**
+ * 获取批注统计
+ */
+export async function getAnnotationStats(
+  topicId: string,
+  reportId: string
+): Promise<{
+  total: number;
+  byStatus: {
+    open: number;
+    resolved: number;
+    dismissed: number;
+  };
+  byType: {
+    comment: number;
+    suggestion: number;
+    issue: number;
+    reference: number;
+  };
+}> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/annotations/stats`
+  );
+}
+
+// ==================== AI Edit Report ====================
+
+/**
+ * AI 编辑操作类型
+ */
+export type AIEditOperation =
+  | 'rewrite'
+  | 'polish'
+  | 'expand'
+  | 'compress'
+  | 'style';
+
+/**
+ * AI 编辑请求 DTO
+ */
+export interface AIEditReportDto {
+  operation: AIEditOperation;
+  selectedText?: string;
+  fullContent?: string;
+  context?: string;
+  styleGuide?: string;
+}
+
+/**
+ * AI 编辑响应
+ */
+export interface AIEditReportResponse {
+  success: boolean;
+  editedContent: string;
+  operation: AIEditOperation;
+  originalText?: string;
+  changeDescription?: string;
+}
+
+/**
+ * AI 编辑报告
+ */
+export async function aiEditReport(
+  topicId: string,
+  reportId: string,
+  dto: AIEditReportDto
+): Promise<AIEditReportResponse> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/reports/${reportId}/ai-edit`,
+    {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    }
+  );
+}

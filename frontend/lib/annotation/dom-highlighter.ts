@@ -80,8 +80,55 @@ function highlightSingleNodeRange(
 }
 
 /**
+ * Safely wrap a text node portion in a mark element
+ * Uses a technique that doesn't rely on Range.insertNode to avoid DOM mutation issues
+ */
+function wrapTextNodePortion(
+  textNode: Text,
+  startOffset: number,
+  endOffset: number,
+  annotation: AnnotationData
+): HTMLElement | null {
+  try {
+    const parent = textNode.parentNode;
+    if (!parent) return null;
+
+    const fullText = textNode.textContent || '';
+    const beforeText = fullText.slice(0, startOffset);
+    const highlightText = fullText.slice(startOffset, endOffset);
+    const afterText = fullText.slice(endOffset);
+
+    // Create the mark element
+    const mark = createMarkElement(annotation);
+    mark.textContent = highlightText;
+
+    // Create new text nodes for before/after
+    const fragment = document.createDocumentFragment();
+
+    if (beforeText) {
+      fragment.appendChild(document.createTextNode(beforeText));
+    }
+    fragment.appendChild(mark);
+    if (afterText) {
+      fragment.appendChild(document.createTextNode(afterText));
+    }
+
+    // Replace the original text node with our fragment
+    parent.replaceChild(fragment, textNode);
+
+    return mark;
+  } catch (e) {
+    console.warn('Failed to wrap text node:', e);
+    return null;
+  }
+}
+
+/**
  * Highlight a range that spans multiple nodes
  * This is more complex and requires splitting text nodes
+ *
+ * IMPORTANT: We process nodes in reverse order to avoid DOM mutation issues
+ * when modifying earlier nodes would shift positions of later nodes.
  */
 function highlightMultiNodeRange(
   range: Range,
@@ -89,29 +136,47 @@ function highlightMultiNodeRange(
 ): HTMLElement[] {
   const marks: HTMLElement[] = [];
 
+  // Store boundary information before modifying DOM
+  const startContainer = range.startContainer;
+  const endContainer = range.endContainer;
+  const startOffset = range.startOffset;
+  const endOffset = range.endOffset;
+
   // Get all text nodes in the range
-  const textNodes: Text[] = [];
+  interface TextNodeInfo {
+    node: Text;
+    isStart: boolean;
+    isEnd: boolean;
+    highlightStart: number;
+    highlightEnd: number;
+  }
+
+  const textNodeInfos: TextNodeInfo[] = [];
   const treeWalker = document.createTreeWalker(
     range.commonAncestorContainer,
     NodeFilter.SHOW_TEXT,
     {
       acceptNode: (node) => {
         // Check if node is within the range
-        const nodeRange = document.createRange();
-        nodeRange.selectNode(node);
+        try {
+          const nodeRange = document.createRange();
+          nodeRange.selectNode(node);
 
-        // Node is in range if it's not completely before or after
-        const comparison1 = range.compareBoundaryPoints(
-          Range.START_TO_END,
-          nodeRange
-        );
-        const comparison2 = range.compareBoundaryPoints(
-          Range.END_TO_START,
-          nodeRange
-        );
+          // Node is in range if it's not completely before or after
+          const comparison1 = range.compareBoundaryPoints(
+            Range.START_TO_END,
+            nodeRange
+          );
+          const comparison2 = range.compareBoundaryPoints(
+            Range.END_TO_START,
+            nodeRange
+          );
 
-        if (comparison1 > 0 && comparison2 < 0) {
-          return NodeFilter.FILTER_ACCEPT;
+          if (comparison1 > 0 && comparison2 < 0) {
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        } catch {
+          // Range comparison failed, skip this node
         }
         return NodeFilter.FILTER_REJECT;
       },
@@ -120,45 +185,39 @@ function highlightMultiNodeRange(
 
   let node: Text | null;
   while ((node = treeWalker.nextNode() as Text | null)) {
-    textNodes.push(node);
+    const isStart = node === startContainer;
+    const isEnd = node === endContainer;
+    const textLength = node.textContent?.length || 0;
+
+    textNodeInfos.push({
+      node,
+      isStart,
+      isEnd,
+      highlightStart: isStart ? startOffset : 0,
+      highlightEnd: isEnd ? endOffset : textLength,
+    });
   }
 
-  // Process each text node
-  for (const textNode of textNodes) {
-    const isStartNode = textNode === range.startContainer;
-    const isEndNode = textNode === range.endContainer;
-    const textLength = textNode.textContent?.length || 0;
-
-    let startOffset = 0;
-    let endOffset = textLength;
-
-    if (isStartNode) {
-      startOffset = range.startOffset;
-    }
-    if (isEndNode) {
-      endOffset = range.endOffset;
-    }
+  // Process nodes in REVERSE order to avoid DOM mutation issues
+  // When we modify a node, it doesn't affect the position of previous nodes
+  for (let i = textNodeInfos.length - 1; i >= 0; i--) {
+    const info = textNodeInfos[i];
 
     // Skip if nothing to highlight
-    if (startOffset >= endOffset) continue;
+    if (info.highlightStart >= info.highlightEnd) continue;
 
-    // Create a range for just this portion
-    const nodeRange = document.createRange();
-    nodeRange.setStart(textNode, startOffset);
-    nodeRange.setEnd(textNode, endOffset);
+    // Check if node still has a parent (it might have been removed)
+    if (!info.node.parentNode) continue;
 
-    // Try to wrap this portion
-    try {
-      const mark = createMarkElement(annotation);
-      nodeRange.surroundContents(mark);
-      marks.push(mark);
-    } catch {
-      // If surroundContents fails, try manual wrapping
-      const fragment = nodeRange.extractContents();
-      const mark = createMarkElement(annotation);
-      mark.appendChild(fragment);
-      nodeRange.insertNode(mark);
-      marks.push(mark);
+    const mark = wrapTextNodePortion(
+      info.node,
+      info.highlightStart,
+      info.highlightEnd,
+      annotation
+    );
+
+    if (mark) {
+      marks.unshift(mark); // Add to beginning to maintain order
     }
   }
 
