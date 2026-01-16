@@ -545,26 +545,18 @@ export function ReportEditPanel({
         )}
       </div>
 
-      {/* Status bar */}
-      <div className="border-t border-gray-200 bg-white px-4 py-2">
-        <div className="flex items-center justify-between text-xs text-gray-500">
-          <div className="flex items-center gap-4">
-            <span>版本 v{stats.version}</span>
-            {stats.revisions > 0 && <span>{stats.revisions} 个历史版本</span>}
-            {stats.annotations > 0 && (
-              <span>
-                {stats.annotations} 个批注
-                {stats.activeAnnotations > 0 &&
-                  ` (${stats.activeAnnotations} 待处理)`}
+      {/* Status bar - 简洁版 */}
+      <div className="border-t border-gray-200 bg-white px-4 py-1.5">
+        <div className="flex items-center justify-between text-xs text-gray-400">
+          <div className="flex items-center gap-3">
+            <span>v{stats.version}</span>
+            {stats.activeAnnotations > 0 && (
+              <span className="text-amber-500">
+                {stats.activeAnnotations} 待处理
               </span>
             )}
           </div>
-          <div className="flex items-center gap-4">
-            <span>
-              快捷键: Ctrl+1/2 切换模式 | Ctrl+H 历史 | Ctrl+M 批注 | Ctrl+S
-              保存
-            </span>
-          </div>
+          <span>Ctrl+H 历史 · Ctrl+S 保存</span>
         </div>
       </div>
     </div>

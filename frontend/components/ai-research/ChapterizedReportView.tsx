@@ -76,6 +76,15 @@ function markdownToHtml(markdown: string): string {
   return html;
 }
 
+// Annotation type for highlighting
+interface ReportAnnotation {
+  id: string;
+  selectedText: string;
+  startOffset: number;
+  endOffset: number;
+  color: 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
+}
+
 interface ChapterizedReportViewProps {
   report: TopicReport | null;
   dimensions: TopicDimension[];
@@ -95,6 +104,10 @@ interface ChapterizedReportViewProps {
     endOffset: number;
     color: 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
   }) => void;
+  /** Annotations for highlighting in preview */
+  annotations?: ReportAnnotation[];
+  /** Currently highlighted annotation ID (for navigation) */
+  highlightedAnnotationId?: string | null;
 }
 
 // Chapter status type
@@ -246,11 +259,25 @@ export function ChapterizedReportView({
   onAIEditChapter,
   onAIEdit,
   onAddAnnotation,
+  annotations = [],
+  highlightedAnnotationId,
 }: ChapterizedReportViewProps) {
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const [editContent, setEditContent] = useState('');
   const [isAIProcessing, setIsAIProcessing] = useState(false);
+
+  // Annotation color map for background highlights
+  const annotationColorMap: Record<string, string> = useMemo(
+    () => ({
+      yellow: 'bg-yellow-200',
+      green: 'bg-green-200',
+      blue: 'bg-blue-200',
+      pink: 'bg-pink-200',
+      purple: 'bg-purple-200',
+    }),
+    []
+  );
 
   // Ref for preview container (used by context menu)
   const previewRef = useRef<HTMLDivElement>(null);
@@ -310,6 +337,94 @@ export function ChapterizedReportView({
       abstract: ev.snippet || null,
     }));
   }, [evidence]);
+
+  // ★ Scroll to highlighted annotation when it changes
+  useEffect(() => {
+    if (highlightedAnnotationId && previewRef.current) {
+      const highlightEl = previewRef.current.querySelector(
+        `[data-annotation-id="${highlightedAnnotationId}"]`
+      );
+      if (highlightEl) {
+        highlightEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [highlightedAnnotationId]);
+
+  // ★ Process text to add annotation highlights
+  const processTextWithAnnotations = useCallback(
+    (text: string): React.ReactNode => {
+      if (!text || annotations.length === 0) return text;
+
+      // Find all annotation matches in the text
+      const matches: {
+        start: number;
+        end: number;
+        annotation: ReportAnnotation;
+      }[] = [];
+
+      annotations.forEach((annotation) => {
+        // Find all occurrences of the selected text
+        let searchStart = 0;
+        while (searchStart < text.length) {
+          const index = text.indexOf(annotation.selectedText, searchStart);
+          if (index === -1) break;
+
+          matches.push({
+            start: index,
+            end: index + annotation.selectedText.length,
+            annotation,
+          });
+          searchStart = index + 1;
+        }
+      });
+
+      if (matches.length === 0) return text;
+
+      // Sort by start position
+      matches.sort((a, b) => a.start - b.start);
+
+      // Build result with highlighted spans
+      const parts: React.ReactNode[] = [];
+      let lastEnd = 0;
+
+      matches.forEach((match, index) => {
+        // Add text before this match
+        if (match.start > lastEnd) {
+          parts.push(text.slice(lastEnd, match.start));
+        }
+
+        // Skip overlapping matches
+        if (match.start < lastEnd) return;
+
+        const isHighlighted = match.annotation.id === highlightedAnnotationId;
+        const colorClass =
+          annotationColorMap[match.annotation.color] || 'bg-yellow-200';
+
+        parts.push(
+          <span
+            key={`annotation-${match.annotation.id}-${index}`}
+            data-annotation-id={match.annotation.id}
+            className={`cursor-pointer rounded px-0.5 transition-all ${colorClass} ${
+              isHighlighted ? 'ring-2 ring-blue-500 ring-offset-1' : ''
+            }`}
+            title="点击查看批注"
+          >
+            {text.slice(match.start, match.end)}
+          </span>
+        );
+
+        lastEnd = match.end;
+      });
+
+      // Add remaining text
+      if (lastEnd < text.length) {
+        parts.push(text.slice(lastEnd));
+      }
+
+      return parts;
+    },
+    [annotations, highlightedAnnotationId, annotationColorMap]
+  );
 
   // Build chapters from report and dimensions
   const chapters = useMemo<Chapter[]>(() => {

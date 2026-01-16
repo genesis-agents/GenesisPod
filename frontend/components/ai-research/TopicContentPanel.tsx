@@ -23,6 +23,7 @@ import type { MissionStatus } from '@/lib/api/topic-research';
 import { ReportEditPanel } from './ReportEditPanel';
 import { ChapterizedReportView } from './ChapterizedReportView';
 import { ReportRevisionHistory } from './ReportRevisionHistory';
+import { ReportAnnotations } from './ReportAnnotations';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
 // Phase 1-3 优化组件
 import { CredibilityPanel } from './CredibilityPanel';
@@ -403,6 +404,278 @@ export function TopicContentPanel({
   const [activeTab, setActiveTab] = useState<TabType>('research_collab');
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [versionMenuOpen, setVersionMenuOpen] = useState(false);
+  // Toast 提示状态
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error';
+  } | null>(null);
+
+  // ★ 前端导出功能（参考 AI Writing 实现）
+  // 生成报告的 Markdown 内容（从 dimensionAnalyses 和 highlights 组合）
+  const getReportTextContent = useCallback(
+    (includeReferences = true) => {
+      if (!report) return '';
+
+      const parts: string[] = [];
+
+      // 标题
+      if (report.title) {
+        parts.push(`# ${report.title}\n\n`);
+      }
+
+      // 摘要
+      if (report.summary) {
+        parts.push(`## 摘要\n\n${report.summary}\n\n`);
+      }
+
+      // 核心发现
+      if (report.highlights && report.highlights.length > 0) {
+        const validHighlights = report.highlights.filter(
+          (h) => h.content && h.content.trim().length > 20
+        );
+        if (validHighlights.length > 0) {
+          parts.push(`## 核心发现\n\n`);
+          validHighlights.forEach((h, idx) => {
+            if (h.title) {
+              parts.push(`### ${idx + 1}. ${h.title}\n\n${h.content}\n\n`);
+            } else {
+              parts.push(`${h.content}\n\n`);
+            }
+          });
+        }
+      }
+
+      // 维度分析
+      if (report.dimensionAnalyses && report.dimensionAnalyses.length > 0) {
+        report.dimensionAnalyses.forEach((analysis) => {
+          const content = analysis.detailedContent || analysis.summary;
+          if (content && content.trim().length > 20) {
+            const title =
+              analysis.dimension?.name || `维度 ${analysis.dimensionId}`;
+            parts.push(`## ${title}\n\n${content}\n\n`);
+          }
+        });
+      }
+
+      // 参考文献
+      if (includeReferences && evidence && evidence.length > 0) {
+        parts.push(`## 参考文献\n\n`);
+        evidence.forEach((ev, idx) => {
+          const title = ev.title || '未命名来源';
+          const url = ev.url || '';
+          if (url) {
+            parts.push(`${idx + 1}. [${title}](${url})\n`);
+          } else {
+            parts.push(`${idx + 1}. ${title}\n`);
+          }
+        });
+        parts.push('\n');
+      }
+
+      return parts.join('');
+    },
+    [report, evidence]
+  );
+
+  // 导出为 Markdown
+  const handleExportMarkdown = useCallback(() => {
+    if (!report) return;
+    const content = getReportTextContent();
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${report.title || '研究报告'}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExportMenuOpen(false);
+    setToast({ message: '已导出 Markdown 文件', type: 'success' });
+  }, [report, getReportTextContent]);
+
+  // 导出为纯文本
+  const handleExportTxt = useCallback(() => {
+    if (!report) return;
+    const content = getReportTextContent();
+    // 移除 Markdown 标记
+    const plainText = content
+      .replace(/^#+\s*/gm, '')
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/\*(.+?)\*/g, '$1')
+      .replace(/`(.+?)`/g, '$1')
+      .replace(/\[(.+?)\]\(.+?\)/g, '$1');
+    const blob = new Blob([plainText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${report.title || '研究报告'}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExportMenuOpen(false);
+    setToast({ message: '已导出纯文本文件', type: 'success' });
+  }, [report, getReportTextContent]);
+
+  // 导出为 HTML（支持点击链接跳转）
+  const handleExportHtml = useCallback(() => {
+    if (!report) return;
+    const content = getReportTextContent();
+    // 转换 Markdown 为 HTML
+    let htmlContent = content;
+    // 标题转换
+    htmlContent = htmlContent.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+    htmlContent = htmlContent.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    htmlContent = htmlContent.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    htmlContent = htmlContent.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+    // 粗体和斜体
+    htmlContent = htmlContent.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    htmlContent = htmlContent.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    // 链接（保留可点击）
+    htmlContent = htmlContent.replace(
+      /\[(.+?)\]\((.+?)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+    );
+    // 列表
+    htmlContent = htmlContent.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
+    htmlContent = htmlContent.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+    // 段落
+    htmlContent = htmlContent
+      .split('\n\n')
+      .map((p) => (p.trim() && !p.startsWith('<') ? `<p>${p}</p>` : p))
+      .join('\n');
+
+    const htmlDocument = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${report.title || '研究报告'}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 40px 20px; line-height: 1.8; color: #333; }
+    h1 { color: #1a1a1a; border-bottom: 2px solid #3b82f6; padding-bottom: 0.3em; }
+    h2 { color: #2563eb; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.2em; margin-top: 1.5em; }
+    h3 { color: #3b82f6; margin-top: 1.2em; }
+    h4 { color: #6b7280; margin-top: 1em; }
+    a { color: #2563eb; text-decoration: none; border-bottom: 1px solid transparent; }
+    a:hover { border-bottom-color: #2563eb; }
+    ul { margin-left: 1.5em; }
+    li { margin-bottom: 0.5em; }
+    p { margin-bottom: 1em; text-align: justify; }
+    blockquote { border-left: 4px solid #3b82f6; padding-left: 1em; margin: 1em 0; color: #6b7280; font-style: italic; }
+    code { background: #f3f4f6; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+    .footer { margin-top: 3em; padding-top: 1em; border-top: 1px solid #e5e7eb; text-align: center; color: #9ca3af; font-size: 0.9em; }
+    @media print { body { padding: 20px; } .footer { page-break-before: avoid; } }
+  </style>
+</head>
+<body>
+  <h1>${report.title || '研究报告'}</h1>
+  ${htmlContent}
+  <div class="footer">
+    <p>由 AI Research 生成 · DeepDive Engine · ${new Date().toLocaleDateString('zh-CN')}</p>
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([htmlDocument], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${report.title || '研究报告'}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExportMenuOpen(false);
+    setToast({ message: '已导出 HTML 文件', type: 'success' });
+  }, [report, getReportTextContent]);
+
+  // 打印/导出 PDF
+  const handleExportPdf = useCallback(() => {
+    if (!report) return;
+    const content = getReportTextContent();
+    // 转换 Markdown 为 HTML
+    let htmlContent = content;
+    htmlContent = htmlContent.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+    htmlContent = htmlContent.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    htmlContent = htmlContent.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    htmlContent = htmlContent.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+    htmlContent = htmlContent.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    htmlContent = htmlContent.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    htmlContent = htmlContent.replace(
+      /\[(.+?)\]\((.+?)\)/g,
+      '<a href="$2" target="_blank">$1</a>'
+    );
+    htmlContent = htmlContent.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
+    htmlContent = htmlContent.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+    htmlContent = htmlContent
+      .split('\n\n')
+      .map((p) => (p.trim() && !p.startsWith('<') ? `<p>${p}</p>` : p))
+      .join('\n');
+
+    // 在新窗口打开打印预览
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      setToast({ message: '请允许弹出窗口以导出 PDF', type: 'error' });
+      return;
+    }
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>${report.title || '研究报告'} - 打印预览</title>
+  <style>
+    body { font-family: "SimSun", "Songti SC", serif; max-width: 210mm; margin: 0 auto; padding: 20mm; line-height: 1.8; color: #000; }
+    h1 { font-size: 24pt; text-align: center; margin-bottom: 1em; }
+    h2 { font-size: 18pt; margin-top: 1.5em; border-bottom: 1px solid #000; }
+    h3 { font-size: 14pt; margin-top: 1.2em; }
+    h4 { font-size: 12pt; margin-top: 1em; }
+    p { text-indent: 2em; margin-bottom: 0.8em; text-align: justify; }
+    ul { margin-left: 2em; }
+    li { margin-bottom: 0.5em; }
+    a { color: #000; text-decoration: underline; }
+    .print-btn { position: fixed; top: 10px; right: 10px; padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; z-index: 1000; }
+    .print-btn:hover { background: #2563eb; }
+    @media print { .print-btn { display: none; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">🖨️ 打印 / 导出 PDF</button>
+  <h1>${report.title || '研究报告'}</h1>
+  ${htmlContent}
+</body>
+</html>`);
+
+    printWindow.document.close();
+    setExportMenuOpen(false);
+  }, [report, getReportTextContent]);
+
+  // 复制分享链接
+  const handleShareLink = useCallback(async () => {
+    if (!report || !topicId) {
+      setToast({ message: '无法生成分享链接', type: 'error' });
+      return;
+    }
+    const shareUrl = `${window.location.origin}/ai-research/${topicId}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setToast({ message: '分享链接已复制到剪贴板', type: 'success' });
+    } catch {
+      // 降级方案
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+      input.value = shareUrl;
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      setToast({ message: '分享链接已复制到剪贴板', type: 'success' });
+    }
+    setExportMenuOpen(false);
+  }, [report, topicId]);
+
+  // 自动隐藏 toast
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
   const [reportViewMode, setReportViewMode] =
     useState<ReportViewMode>('continuous');
   const [sidePanelType, setSidePanelType] = useState<
@@ -438,6 +711,9 @@ export function TopicContentPanel({
   }
 
   const [annotations, setAnnotations] = useState<ReportAnnotation[]>([]);
+  const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<
+    string | null
+  >(null);
 
   // ★ 用于自动展开证据卡片的 ID
   const [autoExpandEvidenceId, setAutoExpandEvidenceId] = useState<
@@ -779,35 +1055,53 @@ export function TopicContentPanel({
                       className="fixed inset-0 z-10"
                       onClick={() => setExportMenuOpen(false)}
                     />
-                    <div className="absolute right-0 top-full z-20 mt-1 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                    <div className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
                       <button
-                        onClick={() => {
-                          onExportReport?.('pdf');
-                          setExportMenuOpen(false);
-                        }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={handleExportMarkdown}
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                       >
-                        导出 PDF
+                        <span className="text-base">📝</span>
+                        Markdown (.md)
                       </button>
                       <button
-                        onClick={() => {
-                          onExportReport?.('docx');
-                          setExportMenuOpen(false);
-                        }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={handleExportTxt}
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
                       >
-                        导出 Word
+                        <span className="text-base">📄</span>
+                        纯文本 (.txt)
+                      </button>
+                      <button
+                        onClick={handleExportHtml}
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <span className="text-base">🌐</span>
+                        网页 (.html)
+                      </button>
+                      <button
+                        onClick={handleExportPdf}
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <span className="text-base">📑</span>
+                        打印 / PDF
+                      </button>
+                      <div className="border-t border-gray-100" />
+                      <button
+                        onClick={handleShareLink}
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <span className="text-base">🔗</span>
+                        复制分享链接
                       </button>
                       {/* Delete option with divider */}
                       {onDeleteReport && (
                         <>
-                          <div className="my-1 border-t border-gray-100" />
+                          <div className="border-t border-gray-100" />
                           <button
                             onClick={() => {
                               setExportMenuOpen(false);
                               setShowDeleteConfirm(true);
                             }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                            className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
                           >
                             <TrashIcon className="h-4 w-4" />
                             删除报告
@@ -899,91 +1193,175 @@ export function TopicContentPanel({
           />
         )}
         {activeTab === 'report' && reportViewMode === 'chapter' && (
-          <div className="flex h-full">
-            {/* Main chapter view */}
-            <div
-              className={`flex-1 overflow-hidden ${sidePanelType ? 'border-r border-gray-200' : ''}`}
-            >
-              <ChapterizedReportView
-                report={report}
-                dimensions={dimensions}
-                evidence={safeEvidence}
-                isLoading={isLoadingReport}
-                onEditChapter={async (chapterId, content) => {
-                  // TODO: Implement chapter save
-                  console.log('Save chapter:', chapterId, content);
-                }}
-                onAIEditChapter={async (chapterId, operation) => {
-                  // TODO: Implement AI edit for chapter
-                  console.log('AI Edit chapter:', chapterId, operation);
-                }}
-                // ★ 右键菜单回调 - 与连续视图保持一致
-                onAIEdit={async (operation, selection) => {
-                  // TODO: Implement AI edit functionality
-                  console.log('AI Edit:', operation, selection);
-                  return 'AI edited content';
-                }}
-              />
-            </div>
+          <div className="flex h-full flex-col">
+            {/* Main content area */}
+            <div className="flex flex-1 overflow-hidden">
+              {/* Main chapter view */}
+              <div
+                className={`flex-1 overflow-hidden ${sidePanelType ? 'border-r border-gray-200' : ''}`}
+              >
+                <ChapterizedReportView
+                  report={report}
+                  dimensions={dimensions}
+                  evidence={safeEvidence}
+                  isLoading={isLoadingReport}
+                  onEditChapter={async (chapterId, content) => {
+                    // TODO: Implement chapter save
+                    console.log('Save chapter:', chapterId, content);
+                  }}
+                  onAIEditChapter={async (chapterId, operation) => {
+                    // TODO: Implement AI edit for chapter
+                    console.log('AI Edit chapter:', chapterId, operation);
+                  }}
+                  // ★ 右键菜单回调 - 与连续视图保持一致
+                  onAIEdit={async (operation, selection) => {
+                    // TODO: Implement AI edit functionality
+                    console.log('AI Edit:', operation, selection);
+                    return 'AI edited content';
+                  }}
+                  // ★ 添加批注回调
+                  onAddAnnotation={(data) => {
+                    handleAnnotationAdd({
+                      reportId: report?.id || '',
+                      userId: 'current-user',
+                      userName: '当前用户',
+                      selectedText: data.selectedText,
+                      content: '',
+                      startOffset: data.startOffset,
+                      endOffset: data.endOffset,
+                      color: data.color,
+                      status: 'active',
+                    });
+                  }}
+                  // ★ 批注高亮
+                  annotations={annotations.map((a) => ({
+                    id: a.id,
+                    selectedText: a.selectedText,
+                    startOffset: a.startOffset,
+                    endOffset: a.endOffset,
+                    color: a.color,
+                  }))}
+                  highlightedAnnotationId={highlightedAnnotationId}
+                />
+              </div>
 
-            {/* Side panel for history/annotations in chapter view */}
-            {sidePanelType === 'history' && (
-              <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
-                <div className="flex h-full flex-col">
-                  <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-                    <h3 className="text-sm font-semibold text-gray-700">
-                      版本历史
-                    </h3>
-                    <button
-                      onClick={() => setSidePanelType(null)}
-                      className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                    >
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+              {/* Side panel for history/annotations in chapter view */}
+              {sidePanelType === 'history' && (
+                <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
+                  <div className="flex h-full flex-col">
+                    <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                      <h3 className="text-sm font-semibold text-gray-700">
+                        版本历史
+                      </h3>
+                      <button
+                        onClick={() => setSidePanelType(null)}
+                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="flex-1 overflow-auto">
-                    <ReportRevisionHistory
-                      revisions={revisions.map((rev) => ({
-                        id: rev.id,
-                        version: rev.version,
-                        title: rev.summary || `版本 ${rev.version}`,
-                        summary: rev.summary || '',
-                        changeType: 'edit' as const,
-                        changeDescription: rev.summary || '报告更新',
-                        author: '系统',
-                        createdAt:
-                          typeof rev.createdAt === 'string'
-                            ? rev.createdAt
-                            : (rev.createdAt as Date).toISOString(),
-                        wordCount: 0,
-                        wordCountDelta: 0,
-                      }))}
-                      currentVersion={report?.version || 1}
-                      isLoading={false}
-                      onRollback={
-                        onRollbackVersion
-                          ? async (revisionId: string) => {
-                              onRollbackVersion(revisionId);
-                            }
-                          : undefined
-                      }
-                    />
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-auto">
+                      <ReportRevisionHistory
+                        revisions={revisions.map((rev) => ({
+                          id: rev.id,
+                          version: rev.version,
+                          title: rev.summary || `版本 ${rev.version}`,
+                          summary: rev.summary || '',
+                          changeType: 'edit' as const,
+                          changeDescription: rev.summary || '报告更新',
+                          author: '系统',
+                          createdAt:
+                            typeof rev.createdAt === 'string'
+                              ? rev.createdAt
+                              : (rev.createdAt as Date).toISOString(),
+                          wordCount: 0,
+                          wordCountDelta: 0,
+                        }))}
+                        currentVersion={report?.version || 1}
+                        isLoading={false}
+                        onRollback={
+                          onRollbackVersion
+                            ? async (revisionId: string) => {
+                                onRollbackVersion(revisionId);
+                              }
+                            : undefined
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
+              )}
+
+              {/* ★ Annotations side panel for chapter view */}
+              {sidePanelType === 'annotations' && (
+                <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
+                  <div className="flex h-full flex-col">
+                    <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                      <h3 className="text-sm font-semibold text-gray-700">
+                        批注
+                      </h3>
+                      <button
+                        onClick={() => setSidePanelType(null)}
+                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      >
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-auto">
+                      <ReportAnnotations
+                        annotations={annotations}
+                        currentUserId="current-user"
+                        isLoading={false}
+                        onUpdate={handleAnnotationUpdate}
+                        onDelete={handleAnnotationDelete}
+                        onResolve={handleAnnotationResolve}
+                        onReply={handleAnnotationReply}
+                        onNavigate={(annotationId: string) => {
+                          // ★ 设置高亮批注ID，触发滚动到原文
+                          setHighlightedAnnotationId(annotationId);
+                          // 3秒后取消高亮
+                          setTimeout(() => {
+                            setHighlightedAnnotationId(null);
+                          }, 3000);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer - 简洁版本信息 */}
+            <div className="border-t border-gray-200 bg-white px-4 py-1.5">
+              <div className="flex items-center justify-between text-xs text-gray-400">
+                <span>v{report?.version || 0}</span>
+                <span>Ctrl+H 历史</span>
               </div>
-            )}
+            </div>
           </div>
         )}
         {activeTab === 'research_collab' && topicId && (
@@ -1048,6 +1426,19 @@ export function TopicContentPanel({
           />
         )}
       </div>
+
+      {/* Toast 提示 */}
+      {toast && (
+        <div
+          className={`fixed bottom-4 right-4 z-50 rounded-lg px-4 py-3 shadow-lg ${
+            toast.type === 'success'
+              ? 'bg-green-500 text-white'
+              : 'bg-red-500 text-white'
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }

@@ -828,15 +828,16 @@ export class DimensionMissionService {
       } else if (mediumAuthority.some((auth) => domain.includes(auth))) {
         score += 20;
       } else {
-        // 普通网站基础分
-        score += 10;
+        // 普通网站基础分（提高以避免全部低可信）
+        score += 20;
       }
     } else {
-      score += 5; // 无域名信息给最低分
+      score += 15; // 无域名信息给基础分
     }
 
     // 2. 来源类型评分 (最高 30 分)
-    switch (evidence.sourceType) {
+    const sourceTypeLower = (evidence.sourceType || "").toLowerCase();
+    switch (sourceTypeLower) {
       case "academic":
         score += 30;
         break;
@@ -850,8 +851,10 @@ export class DimensionMissionService {
         score += 18;
         break;
       case "web":
+        score += 18; // 提高 web 类型分数
+        break;
       default:
-        score += 10;
+        score += 15; // 默认给基础分
         break;
     }
 

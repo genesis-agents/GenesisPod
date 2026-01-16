@@ -439,12 +439,22 @@ export function TopicTeamPanel({
                 ? 'bg-green-100 text-green-700'
                 : currentPhase === 'failed'
                   ? 'bg-red-100 text-red-700'
-                  : isRefreshing
+                  : isMissionActive
                     ? 'bg-blue-100 text-blue-700'
-                    : 'bg-gray-100 text-gray-600'
+                    : missionStatus &&
+                        ['PAUSED', 'CANCELLED'].includes(
+                          missionStatus.status || ''
+                        )
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-gray-100 text-gray-600'
             }`}
           >
-            {isRefreshing ? '进行中' : '空闲'}
+            {isMissionActive
+              ? '进行中'
+              : missionStatus &&
+                  ['PAUSED', 'CANCELLED'].includes(missionStatus.status || '')
+                ? '已暂停'
+                : '空闲'}
           </span>
         </div>
 
@@ -459,58 +469,44 @@ export function TopicTeamPanel({
           </div>
         )}
 
-        {/* Action Buttons - 三个任务按钮，主按钮突出，辅助按钮紧凑 */}
-        <div className="flex items-center gap-2">
-          {/* 开始任务 - 主按钮，占主要空间 */}
+        {/* Action Buttons - 三个等宽按钮：开始/更新/取消 */}
+        <div className="grid grid-cols-3 gap-2">
+          {/* 开始按钮 - 从头开始新研究 */}
           <button
             onClick={onStartRefresh}
-            disabled={
-              isMissionActive ||
-              !!(
-                missionStatus &&
-                ['PAUSED', 'CANCELLED'].includes(missionStatus.status || '')
-              )
-            }
-            className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
-              isMissionActive ||
-              (missionStatus &&
-                ['PAUSED', 'CANCELLED'].includes(missionStatus.status || ''))
-                ? 'cursor-not-allowed border border-gray-200 bg-gray-50 text-gray-400'
+            disabled={isMissionActive}
+            className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+              isMissionActive
+                ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
                 : 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
             }`}
           >
             <span>▶</span>
-            开始任务
+            开始
           </button>
 
-          {/* 继续任务 - 辅助按钮 */}
+          {/* 更新按钮 - 在现有基础上更新 */}
           <button
             onClick={onContinueRefresh}
-            disabled={
-              isMissionActive ||
-              !missionStatus ||
-              !['PAUSED', 'CANCELLED'].includes(missionStatus.status || '')
-            }
-            className={`flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-3 py-2.5 text-sm font-medium transition-all ${
-              isMissionActive ||
-              !missionStatus ||
-              !['PAUSED', 'CANCELLED'].includes(missionStatus.status || '')
-                ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
-                : 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100'
+            disabled={isMissionActive || !missionStatus}
+            className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+              isMissionActive || !missionStatus
+                ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
+                : 'bg-green-600 text-white shadow-sm hover:bg-green-700'
             }`}
           >
-            <span>▶</span>
-            继续
+            <span>🔄</span>
+            更新
           </button>
 
-          {/* 取消任务 - 辅助按钮 */}
+          {/* 取消按钮 - 停止当前任务 */}
           <button
             onClick={onCancelRefresh}
             disabled={!isMissionActive}
-            className={`flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-3 py-2.5 text-sm font-medium transition-all ${
+            className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
               !isMissionActive
-                ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
-                : 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
+                ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
+                : 'border border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
             }`}
           >
             <span>⏹</span>
