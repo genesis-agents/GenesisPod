@@ -312,35 +312,96 @@ function SourceDistributionBar({ breakdown }: { breakdown: SourceBreakdown }) {
 
 /**
  * 时效性分布
+ * ★ 显示所有时间段，包括 unknown（日期未知）
  */
 function TimelinessDistribution({ breakdown }: { breakdown: TimeBreakdown }) {
   const total = breakdown.total || 1;
-  const periods = [
+
+  // ★ 计算 unknown 数量（如果后端没传，根据 total 推算）
+  const unknownCount =
+    breakdown.unknown ??
+    Math.max(
+      0,
+      total -
+        (breakdown.within1Month || 0) -
+        (breakdown.within3Months || 0) -
+        (breakdown.within6Months || 0) -
+        (breakdown.within1Year || 0) -
+        (breakdown.older || 0)
+    );
+
+  // ★ 完整的时间段列表
+  const allPeriods = [
     {
       key: '1m',
       label: '1个月内',
-      count: breakdown.within1Month,
+      count: breakdown.within1Month || 0,
       color: 'bg-green-500',
     },
     {
       key: '3m',
       label: '1-3个月',
-      count: breakdown.within3Months,
+      count: breakdown.within3Months || 0,
       color: 'bg-blue-500',
     },
     {
       key: '6m',
       label: '3-6个月',
-      count: breakdown.within6Months,
+      count: breakdown.within6Months || 0,
       color: 'bg-yellow-500',
     },
     {
+      key: '1y',
+      label: '6-12个月',
+      count: breakdown.within1Year || 0,
+      color: 'bg-orange-400',
+    },
+    {
       key: 'older',
-      label: '6个月以上',
-      count: breakdown.older,
+      label: '1年以上',
+      count: breakdown.older || 0,
       color: 'bg-gray-400',
     },
+    {
+      key: 'unknown',
+      label: '日期未知',
+      count: unknownCount,
+      color: 'bg-gray-300',
+    },
   ];
+
+  // ★ 只显示有数据的时间段
+  const periods = allPeriods.filter((p) => p.count > 0);
+
+  // ★ 如果所有已知时间段都为 0，显示提示
+  if (periods.length === 0) {
+    return (
+      <div className="py-4 text-center text-sm text-gray-500">
+        暂无时效性数据
+      </div>
+    );
+  }
+
+  // ★ 如果只有 unknown，显示特殊提示
+  if (periods.length === 1 && periods[0].key === 'unknown') {
+    return (
+      <div className="space-y-2">
+        <div className="rounded-lg bg-yellow-50 p-3 text-sm text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
+          <AlertTriangle className="mr-1.5 inline h-4 w-4" />
+          所有来源的发布日期未知，无法评估时效性
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-20 text-xs text-gray-500">日期未知</div>
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+            <div className="h-full w-full bg-gray-300" />
+          </div>
+          <div className="w-16 text-right text-xs text-gray-600 dark:text-gray-400">
+            {unknownCount} (100%)
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">

@@ -215,18 +215,48 @@ const phaseConfig: Record<
 // ==================== Sub Components ====================
 
 /**
+ * 检查活动是否有有意义的内容可展示
+ */
+function hasMeaningfulContent(activity: ExtendedAgentActivity): boolean {
+  // 有思考内容
+  if (activity.thinkingContent && activity.thinkingContent.trim().length > 0) {
+    return true;
+  }
+  // 有搜索结果
+  if (activity.searchResults && activity.searchResults.total > 0) {
+    return true;
+  }
+  // 有撰写进度
+  if (
+    activity.writingProgress?.sections &&
+    activity.writingProgress.sections.length > 0
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * 思考阶段时间线（单个研究员的思考过程）
+ * ★ 只显示有有意义内容的阶段，跳过空阶段
  */
 function ThinkingPhasesTimeline({
   activities,
 }: {
   activities: ExtendedAgentActivity[];
 }) {
-  if (activities.length === 0) return null;
+  // ★ 过滤出有有意义内容的活动
+  const meaningfulActivities = activities.filter(hasMeaningfulContent);
+
+  if (meaningfulActivities.length === 0) {
+    return (
+      <div className="text-xs italic text-gray-400">暂无详细研究过程记录</div>
+    );
+  }
 
   return (
-    <div className="mt-2 space-y-2 border-l-2 border-gray-200 pl-3 dark:border-gray-700">
-      {activities.map((activity) => {
+    <div className="space-y-2 border-l-2 border-gray-200 pl-3 dark:border-gray-700">
+      {meaningfulActivities.map((activity) => {
         const phase = activity.thinkingPhase;
         const phaseInfo = phase ? phaseConfig[phase] : null;
         const Icon = phaseInfo?.icon || Brain;
@@ -251,7 +281,7 @@ function ThinkingPhasesTimeline({
                 <div className="flex items-center gap-1">
                   <Icon className={cn('h-3 w-3', phaseInfo?.color)} />
                   <span className="font-medium text-gray-900 dark:text-white">
-                    {phaseInfo?.label || activity.phase || '进行中'}
+                    {phaseInfo?.label || '研究'}
                   </span>
                 </div>
                 {activity.durationMs && (
@@ -269,12 +299,15 @@ function ThinkingPhasesTimeline({
               )}
 
               {/* 搜索结果统计 */}
-              {phase === 'searching' && activity.searchResults && (
+              {activity.searchResults && activity.searchResults.total > 0 && (
                 <div className="mt-1 flex items-center gap-2 text-gray-500">
                   <Database className="h-3 w-3" />
                   <span>
-                    检索 {activity.searchResults.total} 条，筛选{' '}
-                    {activity.searchResults.filtered} 条
+                    检索 {activity.searchResults.total} 条
+                    {activity.searchResults.filtered > 0 &&
+                      activity.searchResults.filtered <
+                        activity.searchResults.total &&
+                      `，筛选 ${activity.searchResults.filtered} 条`}
                   </span>
                   {Array.isArray(activity.searchResults.sources) &&
                     activity.searchResults.sources.length > 0 && (
@@ -291,9 +324,9 @@ function ThinkingPhasesTimeline({
               )}
 
               {/* 撰写进度 */}
-              {phase === 'writing' &&
-                activity.writingProgress &&
-                Array.isArray(activity.writingProgress.sections) && (
+              {activity.writingProgress &&
+                Array.isArray(activity.writingProgress.sections) &&
+                activity.writingProgress.sections.length > 0 && (
                   <div className="mt-1 space-y-0.5">
                     {activity.writingProgress.sections.map((section, idx) => (
                       <div
@@ -329,7 +362,53 @@ function ThinkingPhasesTimeline({
 }
 
 /**
- * 研究员卡片（按维度）
+ * 从活动中提取有意义的摘要
+ */
+function extractMeaningfulSummary(activities: ExtendedAgentActivity[]): {
+  sourcesFound: number;
+  sourcesFiltered: number;
+  keyInsight: string | null;
+  sectionsWritten: number;
+} {
+  let sourcesFound = 0;
+  let sourcesFiltered = 0;
+  let keyInsight: string | null = null;
+  let sectionsWritten = 0;
+
+  for (const activity of activities) {
+    // 搜索结果统计
+    if (activity.searchResults) {
+      sourcesFound += activity.searchResults.total || 0;
+      sourcesFiltered += activity.searchResults.filtered || 0;
+    }
+
+    // 撰写进度
+    if (activity.writingProgress?.sections) {
+      sectionsWritten += activity.writingProgress.sections.filter(
+        (s) => s.status === 'completed'
+      ).length;
+    }
+
+    // 提取关键洞察（从思考内容中提取第一个有意义的句子）
+    if (!keyInsight && activity.thinkingContent) {
+      const content = activity.thinkingContent.trim();
+      if (content.length > 10 && content.length < 200) {
+        keyInsight = content;
+      } else if (content.length >= 200) {
+        // 截取第一句话
+        const firstSentence = content.match(/^[^。！？.!?]+[。！？.!?]/);
+        if (firstSentence) {
+          keyInsight = firstSentence[0];
+        }
+      }
+    }
+  }
+
+  return { sourcesFound, sourcesFiltered, keyInsight, sectionsWritten };
+}
+
+/**
+ * 研究员卡片（按维度）- 显示有意义的研究成果摘要
  */
 function ResearcherCard({
   dimensionName,
@@ -357,6 +436,9 @@ function ResearcherCard({
     0
   );
 
+  // ★ 提取有意义的摘要信息
+  const summary = extractMeaningfulSummary(activities);
+
   return (
     <div
       className={cn(
@@ -366,49 +448,36 @@ function ResearcherCard({
         status === 'in_progress' && 'border-blue-200 dark:border-blue-800'
       )}
     >
-      {/* 头部 */}
+      {/* 头部 - 显示维度名称和状态 */}
       <div
         className="flex cursor-pointer items-center gap-2 p-2.5"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div
           className={cn(
-            'flex h-7 w-7 items-center justify-center rounded-full',
+            'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full',
             status === 'completed' && 'bg-green-100 dark:bg-green-900',
             status === 'failed' && 'bg-red-100 dark:bg-red-900',
             status === 'in_progress' && 'bg-blue-100 dark:bg-blue-900'
           )}
         >
-          <BookOpen
-            className={cn(
-              'h-3.5 w-3.5',
-              status === 'completed' && 'text-green-600 dark:text-green-400',
-              status === 'failed' && 'text-red-600 dark:text-red-400',
-              status === 'in_progress' && 'text-blue-600 dark:text-blue-400'
-            )}
-          />
+          {status === 'completed' ? (
+            <CheckCircle className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+          ) : status === 'failed' ? (
+            <XCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+          ) : (
+            <Clock className="h-3.5 w-3.5 animate-pulse text-blue-600 dark:text-blue-400" />
+          )}
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium text-gray-900 dark:text-white">
-            {dimensionName}
-          </div>
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            {totalDuration > 0 && (
-              <span className="flex items-center gap-0.5">
-                <Clock className="h-3 w-3" />
-                {formatDuration(totalDuration)}
-              </span>
-            )}
-            {citations > 0 && (
-              <span className="flex items-center gap-0.5">
-                <Award className="h-3 w-3" />
-                {citations}条引用
-              </span>
-            )}
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-medium text-gray-900 dark:text-white">
+              {dimensionName}
+            </span>
             <span
               className={cn(
-                'rounded px-1 py-0.5',
+                'flex-shrink-0 rounded px-1.5 py-0.5 text-xs',
                 status === 'completed' &&
                   'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
                 status === 'failed' &&
@@ -417,21 +486,71 @@ function ResearcherCard({
                   'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
               )}
             >
-              {completedActivities.length}/{activities.length} 阶段完成
+              {status === 'completed'
+                ? '已完成'
+                : status === 'failed'
+                  ? '失败'
+                  : '研究中'}
             </span>
           </div>
+
+          {/* ★ 显示有意义的摘要而非阶段计数 */}
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
+            {summary.sourcesFound > 0 && (
+              <span className="flex items-center gap-0.5">
+                <Database className="h-3 w-3" />
+                找到 {summary.sourcesFound} 条资料
+                {summary.sourcesFiltered > 0 &&
+                  summary.sourcesFiltered < summary.sourcesFound && (
+                    <span className="text-gray-400">
+                      ，筛选 {summary.sourcesFiltered} 条
+                    </span>
+                  )}
+              </span>
+            )}
+            {citations > 0 && (
+              <span className="flex items-center gap-0.5">
+                <Award className="h-3 w-3" />
+                {citations} 条引用
+              </span>
+            )}
+            {summary.sectionsWritten > 0 && (
+              <span className="flex items-center gap-0.5">
+                <FileText className="h-3 w-3" />
+                撰写 {summary.sectionsWritten} 个章节
+              </span>
+            )}
+            {totalDuration > 0 && (
+              <span className="flex items-center gap-0.5 text-gray-400">
+                <Clock className="h-3 w-3" />
+                {formatDuration(totalDuration)}
+              </span>
+            )}
+          </div>
+
+          {/* ★ 显示关键洞察（如果有） */}
+          {summary.keyInsight && (
+            <div className="mt-1 line-clamp-2 text-xs text-gray-600 dark:text-gray-400">
+              <Lightbulb className="mr-1 inline h-3 w-3 text-yellow-500" />
+              {summary.keyInsight}
+            </div>
+          )}
         </div>
 
-        {isExpanded ? (
-          <ChevronDown className="h-4 w-4 text-gray-400" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-gray-400" />
+        {activities.length > 0 && (
+          <ChevronRight
+            className={cn(
+              'h-4 w-4 flex-shrink-0 text-gray-400 transition-transform',
+              isExpanded && 'rotate-90'
+            )}
+          />
         )}
       </div>
 
-      {/* 展开：思考阶段时间线 */}
-      {isExpanded && (
+      {/* 展开：详细过程（默认隐藏，仅供需要查看技术细节的用户） */}
+      {isExpanded && activities.length > 0 && (
         <div className="border-t border-gray-100 p-2.5 dark:border-gray-700">
+          <div className="mb-2 text-xs text-gray-400">详细研究过程：</div>
           <ThinkingPhasesTimeline activities={activities} />
         </div>
       )}

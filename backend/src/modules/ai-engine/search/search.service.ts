@@ -620,11 +620,19 @@ export class SearchService {
         title: r.title,
         url: r.link,
         content: r.snippet,
+        domain: this.extractDomain(r.link),
+        // ★ Serper returns date in organic results
+        publishedDate: r.date || undefined,
       }),
     );
 
-    this.logger.debug(`Serper returned ${results.length} results`);
-    return { success: true, results };
+    // ★ Apply ranking for consistency with other providers
+    const rankedResults = this.rankSearchResults(results, query, maxResults);
+
+    this.logger.debug(
+      `Serper returned ${results.length} results, ranked to ${rankedResults.length}`,
+    );
+    return { success: true, results: rankedResults };
   }
 
   /**
