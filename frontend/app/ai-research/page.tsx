@@ -631,6 +631,8 @@ function StudioPageContent() {
   const tabParam = searchParams?.get('tab');
   // ★ 读取分享链接中的 topicId 参数
   const topicIdParam = searchParams?.get('topicId');
+  // ★ 读取分享链接中的 view 参数（用于直接跳转到报告视图）
+  const viewParam = searchParams?.get('view');
 
   const [activeTab, setActiveTab] = useState<'fast' | 'deep' | 'topic'>(() => {
     if (tabParam === 'deep') {
@@ -874,6 +876,7 @@ function StudioPageContent() {
             onShowCreateDialog={setShowTopicCreateDialog}
             onDetailViewChange={setIsTopicDetailView}
             initialTopicId={topicIdParam}
+            initialView={viewParam}
           />
         ) : (
           /* Fast/Deep Research Projects Grid */

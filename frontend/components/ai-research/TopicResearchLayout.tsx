@@ -74,6 +74,8 @@ interface TopicResearchLayoutProps {
   error?: string | null;
   /** Callback to delete the current report */
   onDeleteReport?: (reportId: string) => Promise<void>;
+  /** ★ 初始视图（用于分享链接直接跳转到报告） */
+  initialView?: string | null;
 }
 
 // Icons
@@ -178,6 +180,7 @@ export function TopicResearchLayout({
   onClearWsEvents,
   error,
   onDeleteReport,
+  initialView,
 }: TopicResearchLayoutProps) {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -340,6 +343,7 @@ export function TopicResearchLayout({
             onClearWsEvents={onClearWsEvents}
             missionStatus={missionStatus}
             onDeleteReport={onDeleteReport}
+            initialView={initialView}
           />
         </div>
       </div>

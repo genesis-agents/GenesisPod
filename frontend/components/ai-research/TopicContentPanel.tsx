@@ -169,6 +169,8 @@ interface TopicContentPanelProps {
   topicId?: string;
   /** Callback to delete the current report */
   onDeleteReport?: (reportId: string) => Promise<void>;
+  /** ★ 初始视图（用于分享链接直接跳转到报告） */
+  initialView?: string | null;
 }
 
 // Icons
@@ -385,6 +387,7 @@ export function TopicContentPanel({
   missionStatus,
   topicId,
   onDeleteReport,
+  initialView,
 }: TopicContentPanelProps) {
   const { t } = useTranslation();
 
@@ -401,7 +404,11 @@ export function TopicContentPanel({
     resetTopicData();
   }, [onClearWsEvents, resetTopicData]);
 
-  const [activeTab, setActiveTab] = useState<TabType>('research_collab');
+  // ★ 根据 initialView 设置初始 Tab（用于分享链接直接跳转到报告）
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    if (initialView === 'report') return 'report';
+    return 'research_collab';
+  });
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [versionMenuOpen, setVersionMenuOpen] = useState(false);
   // Toast 提示状态
@@ -652,8 +659,8 @@ export function TopicContentPanel({
       setToast({ message: '无法生成分享链接', type: 'error' });
       return;
     }
-    // ★ 使用查询参数格式，避免与 [projectId] 路由冲突
-    const shareUrl = `${window.location.origin}/ai-research?tab=topic&topicId=${topicId}`;
+    // ★ 使用查询参数格式，包含 view=report 直接跳转到报告页面
+    const shareUrl = `${window.location.origin}/ai-research?tab=topic&topicId=${topicId}&view=report`;
     try {
       await navigator.clipboard.writeText(shareUrl);
       setToast({ message: '分享链接已复制到剪贴板', type: 'success' });

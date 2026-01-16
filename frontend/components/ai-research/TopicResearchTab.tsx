@@ -73,6 +73,8 @@ interface TopicResearchTabProps {
   onDetailViewChange?: (isDetailView: boolean) => void;
   /** ★ 初始选中的主题ID（用于分享链接跳转） */
   initialTopicId?: string | null;
+  /** ★ 初始视图（用于分享链接直接跳转到报告） */
+  initialView?: string | null;
 }
 
 export function TopicResearchTab({
@@ -82,6 +84,7 @@ export function TopicResearchTab({
   onShowCreateDialog,
   onDetailViewChange,
   initialTopicId,
+  initialView,
 }: TopicResearchTabProps) {
   const { t } = useTranslation();
   const {
@@ -167,6 +170,7 @@ export function TopicResearchTab({
           setSelectedTopic(null);
           loadTopics();
         }}
+        initialView={initialView}
       />
     );
   }

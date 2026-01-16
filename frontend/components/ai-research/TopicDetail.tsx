@@ -17,9 +17,11 @@ import { TopicResearchLayout } from './TopicResearchLayout';
 interface TopicDetailProps {
   topic: ResearchTopic;
   onBack: () => void;
+  /** ★ 初始视图（用于分享链接直接跳转到报告） */
+  initialView?: string | null;
 }
 
-export function TopicDetail({ topic, onBack }: TopicDetailProps) {
+export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
   const {
     dimensions,
     currentReport,
@@ -222,6 +224,7 @@ export function TopicDetail({ topic, onBack }: TopicDetailProps) {
       wsConnected={wsConnected}
       onClearWsEvents={clearWsEvents}
       error={error}
+      initialView={initialView}
     />
   );
 }
