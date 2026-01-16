@@ -29,18 +29,35 @@ const ANNOTATION_MARK_CLASS = 'annotation-mark';
 
 /**
  * Clear all annotation highlights from a container
+ * Uses a safe approach that handles DOM inconsistencies
  */
 export function clearHighlights(container: HTMLElement): void {
   const marks = container.querySelectorAll(`mark.${ANNOTATION_MARK_CLASS}`);
 
-  marks.forEach((mark) => {
-    // Replace mark with its text content
-    const parent = mark.parentNode;
-    if (parent) {
-      const textNode = document.createTextNode(mark.textContent || '');
-      parent.replaceChild(textNode, mark);
-      // Normalize to merge adjacent text nodes
-      parent.normalize();
+  // Convert NodeList to Array to avoid issues with live collections during DOM modification
+  const marksArray = Array.from(marks);
+
+  marksArray.forEach((mark) => {
+    try {
+      // Replace mark with its text content
+      const parent = mark.parentNode;
+      if (parent && parent.contains(mark)) {
+        const textNode = document.createTextNode(mark.textContent || '');
+        parent.replaceChild(textNode, mark);
+        // Normalize to merge adjacent text nodes
+        parent.normalize();
+      }
+    } catch (err) {
+      // If DOM operation fails, just remove the mark element
+      console.warn(
+        '[clearHighlights] Error replacing mark, attempting removal:',
+        err
+      );
+      try {
+        mark.remove();
+      } catch {
+        // Ignore - mark might already be removed
+      }
     }
   });
 }

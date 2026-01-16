@@ -71,9 +71,12 @@ export function AnnotationHighlighter({
 }: AnnotationHighlighterProps) {
   const lastHighlightedRef = useRef<string | null>(null);
   const isApplyingRef = useRef(false);
+  const rafIdRef = useRef<number | null>(null);
+  const isMountedRef = useRef(true);
 
   // Apply highlights when annotations or content changes
   useEffect(() => {
+    isMountedRef.current = true;
     const container = containerRef.current;
     if (!container || isApplyingRef.current) return;
 
@@ -89,90 +92,134 @@ export function AnnotationHighlighter({
     });
 
     // Use requestAnimationFrame to ensure DOM is ready
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (!containerRef.current) {
-          console.warn('[AnnotationHighlighter] Container ref became null');
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = requestAnimationFrame(() => {
+        // Check if still mounted and container exists
+        if (!isMountedRef.current || !containerRef.current) {
+          console.warn(
+            '[AnnotationHighlighter] Container ref became null or unmounted'
+          );
           isApplyingRef.current = false;
           return;
         }
 
-        // Clear existing highlights
-        clearHighlights(containerRef.current);
+        try {
+          // Clear existing highlights
+          clearHighlights(containerRef.current);
 
-        // Filter annotations
-        const annotationsToApply = activeOnly
-          ? annotations.filter(
-              (a) => a.status !== 'resolved' && a.status !== 'archived'
-            )
-          : annotations;
+          // Filter annotations
+          const annotationsToApply = activeOnly
+            ? annotations.filter(
+                (a) => a.status !== 'resolved' && a.status !== 'archived'
+              )
+            : annotations;
 
-        console.log('[AnnotationHighlighter] Annotations to apply:', {
-          total: annotations.length,
-          filtered: annotationsToApply.length,
-          activeOnly,
-        });
-
-        // Apply each annotation
-        let successCount = 0;
-        let failCount = 0;
-
-        annotationsToApply.forEach((annotation, index) => {
-          // Debug: Log each annotation attempt
-          console.log(
-            `[AnnotationHighlighter] Processing annotation ${index + 1}/${annotationsToApply.length}:`,
-            {
-              id: annotation.id,
-              selectedText:
-                annotation.selectedText?.slice(0, 50) +
-                (annotation.selectedText?.length > 50 ? '...' : ''),
-              selectedTextLength: annotation.selectedText?.length,
-              color: annotation.color,
-              hasPrefix: !!annotation.selectorPrefix,
-              hasSuffix: !!annotation.selectorSuffix,
-            }
-          );
-
-          const range = findTextRange(containerRef.current!, {
-            exact: annotation.selectedText,
-            prefix: annotation.selectorPrefix,
-            suffix: annotation.selectorSuffix,
+          console.log('[AnnotationHighlighter] Annotations to apply:', {
+            total: annotations.length,
+            filtered: annotationsToApply.length,
+            activeOnly,
           });
 
-          if (range) {
+          // Apply each annotation
+          let successCount = 0;
+          let failCount = 0;
+
+          annotationsToApply.forEach((annotation, index) => {
+            // Check if still mounted before each operation
+            if (!isMountedRef.current || !containerRef.current) return;
+
+            // Debug: Log each annotation attempt
             console.log(
-              `[AnnotationHighlighter] ✓ Found range for annotation ${annotation.id}`
-            );
-            highlightRange(range, {
-              id: annotation.id,
-              color: annotation.color,
-              isHighlighted: annotation.id === highlightedAnnotationId,
-            });
-            successCount++;
-          } else {
-            console.warn(
-              `[AnnotationHighlighter] ✗ Could NOT find range for annotation ${annotation.id}`,
+              `[AnnotationHighlighter] Processing annotation ${index + 1}/${annotationsToApply.length}:`,
               {
-                searchedText: annotation.selectedText?.slice(0, 100),
-                containerTextPreview: containerRef.current?.textContent?.slice(
-                  0,
-                  200
-                ),
+                id: annotation.id,
+                selectedText:
+                  annotation.selectedText?.slice(0, 50) +
+                  (annotation.selectedText?.length > 50 ? '...' : ''),
+                selectedTextLength: annotation.selectedText?.length,
+                color: annotation.color,
+                hasPrefix: !!annotation.selectorPrefix,
+                hasSuffix: !!annotation.selectorSuffix,
               }
             );
-            failCount++;
-          }
-        });
 
-        console.log('[AnnotationHighlighter] Highlight application complete:', {
-          success: successCount,
-          failed: failCount,
-          total: annotationsToApply.length,
-        });
+            try {
+              const range = findTextRange(containerRef.current!, {
+                exact: annotation.selectedText,
+                prefix: annotation.selectorPrefix,
+                suffix: annotation.selectorSuffix,
+              });
 
-        isApplyingRef.current = false;
+              if (range) {
+                console.log(
+                  `[AnnotationHighlighter] ✓ Found range for annotation ${annotation.id}`
+                );
+                highlightRange(range, {
+                  id: annotation.id,
+                  color: annotation.color,
+                  isHighlighted: annotation.id === highlightedAnnotationId,
+                });
+                successCount++;
+              } else {
+                console.warn(
+                  `[AnnotationHighlighter] ✗ Could NOT find range for annotation ${annotation.id}`,
+                  {
+                    searchedText: annotation.selectedText?.slice(0, 100),
+                    containerTextPreview:
+                      containerRef.current?.textContent?.slice(0, 200),
+                  }
+                );
+                failCount++;
+              }
+            } catch (err) {
+              console.warn(
+                `[AnnotationHighlighter] Error processing annotation ${annotation.id}:`,
+                err
+              );
+              failCount++;
+            }
+          });
+
+          console.log(
+            '[AnnotationHighlighter] Highlight application complete:',
+            {
+              success: successCount,
+              failed: failCount,
+              total: annotationsToApply.length,
+            }
+          );
+        } catch (err) {
+          console.error(
+            '[AnnotationHighlighter] Error applying highlights:',
+            err
+          );
+        } finally {
+          isApplyingRef.current = false;
+        }
       });
     });
+
+    // Cleanup function: cancel RAF and clear highlights when dependencies change or unmount
+    return () => {
+      isMountedRef.current = false;
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+      // Clear highlights when unmounting or before re-applying
+      // Use try-catch to handle cases where container might be in inconsistent state
+      try {
+        if (containerRef.current) {
+          clearHighlights(containerRef.current);
+        }
+      } catch (err) {
+        console.warn(
+          '[AnnotationHighlighter] Error clearing highlights on cleanup:',
+          err
+        );
+      }
+      isApplyingRef.current = false;
+    };
   }, [annotations, content, containerRef, activeOnly, highlightedAnnotationId]);
 
   // Handle click events on annotation marks
@@ -213,25 +260,46 @@ export function AnnotationHighlighter({
 
     if (!highlightedAnnotationId) {
       // Clear highlight state
-      updateHighlightedAnnotation(container, null);
+      try {
+        updateHighlightedAnnotation(container, null);
+      } catch (err) {
+        console.warn(
+          '[AnnotationHighlighter] Error clearing highlight state:',
+          err
+        );
+      }
       return;
     }
 
     // Wait for highlights to be applied, then scroll
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
+    let scrollRafId: number | null = null;
+    scrollRafId = requestAnimationFrame(() => {
+      scrollRafId = requestAnimationFrame(() => {
         if (!containerRef.current) return;
 
-        // Update highlight state
-        updateHighlightedAnnotation(
-          containerRef.current,
-          highlightedAnnotationId
-        );
+        try {
+          // Update highlight state
+          updateHighlightedAnnotation(
+            containerRef.current,
+            highlightedAnnotationId
+          );
 
-        // Scroll to the annotation
-        scrollToAnnotation(containerRef.current, highlightedAnnotationId);
+          // Scroll to the annotation
+          scrollToAnnotation(containerRef.current, highlightedAnnotationId);
+        } catch (err) {
+          console.warn(
+            '[AnnotationHighlighter] Error scrolling to annotation:',
+            err
+          );
+        }
       });
     });
+
+    return () => {
+      if (scrollRafId) {
+        cancelAnimationFrame(scrollRafId);
+      }
+    };
   }, [highlightedAnnotationId, containerRef]);
 
   // This component doesn't render anything - it only applies side effects
