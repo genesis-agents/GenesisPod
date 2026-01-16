@@ -2,9 +2,10 @@
 
 ## 文档信息
 
-- **版本**: 1.0
+- **版本**: 1.1
 - **作者**: PM Agent
 - **创建日期**: 2026-01-16
+- **最后更新**: 2026-01-16
 - **状态**: 已确认
 - **模块**: AI Research (Insights Report)
 
@@ -617,7 +618,45 @@ for (let i = textNodeInfos.length - 1; i >= 0; i--) {
 }
 ```
 
-#### 8.1.3 引用标记干扰
+#### 8.1.3 React 协调冲突 (已解决)
+
+**问题**: 添加批注时崩溃 `"Failed to execute 'insertBefore' on 'Node'"`
+
+**根因分析**:
+
+1. `AnnotationHighlighter` 通过直接操作 DOM 添加 `<mark>` 元素
+2. 当 `annotations` 状态更新时，React 重新渲染 `ReportEditor`
+3. React 尝试协调 (reconcile) `ReactMarkdown` 的虚拟 DOM 与实际 DOM
+4. 实际 DOM 已被 `<mark>` 元素修改，与虚拟 DOM 不匹配
+5. React 协调失败，抛出 `insertBefore` 错误
+
+**解决方案** (2026-01-16):
+
+在 `ReportEditor.tsx` 中使用 `useMemo` 缓存 ReactMarkdown 的 JSX 元素：
+
+```typescript
+const memoizedMarkdownContent = useMemo(
+  () => (
+    <article className="prose prose-gray max-w-none">
+      <ReactMarkdown ...>
+        {markdownContent}
+      </ReactMarkdown>
+    </article>
+  ),
+  [markdownContent, processText] // 不依赖 annotations
+);
+```
+
+**工作原理**:
+
+1. 当 annotations 改变时，ReportEditor 重新渲染
+2. `useMemo` 返回相同的 JSX 元素引用（因为 markdownContent 未变）
+3. React 检测到相同引用，跳过子元素的协调过程
+4. `AnnotationHighlighter` 的 effect 安全地修改 DOM
+
+**代码位置**: `frontend/components/ai-research/ReportEditor.tsx:982-1050`
+
+#### 8.1.4 引用标记干扰
 
 **问题**: 报告中的引用标记 [1] 可能影响文本匹配
 
@@ -705,21 +744,23 @@ type AnnotationStatus = "active" | "resolved" | "archived";
 
 ## 10. 任务拆分
 
-| ID    | 任务                           | 类型 | 预估 | 依赖  | 状态        |
-| ----- | ------------------------------ | ---- | ---- | ----- | ----------- |
-| T-001 | 文本选择和上下文菜单           | 前端 | 1d   | -     | Done        |
-| T-002 | 批注颜色选择器                 | 前端 | 0.5d | T-001 | Done        |
-| T-003 | 文本定位算法 (text-finder)     | 前端 | 1.5d | -     | Done        |
-| T-004 | DOM 高亮渲染 (dom-highlighter) | 前端 | 1d   | T-003 | Done        |
-| T-005 | 跨段落高亮支持                 | 前端 | 1d   | T-004 | In Progress |
-| T-006 | 批注列表面板                   | 前端 | 1d   | -     | Done        |
-| T-007 | 批注 CRUD API                  | 后端 | 1d   | -     | Done        |
-| T-008 | 批注状态管理                   | 前端 | 0.5d | T-006 | Done        |
-| T-009 | 跳转定位动画                   | 前端 | 0.5d | T-004 | Done        |
-| T-010 | 批注回复功能                   | 全栈 | 1d   | T-007 | Done        |
-| T-011 | 第一段高亮 Bug 修复            | 前端 | 0.5d | T-004 | In Progress |
-| T-012 | 筛选功能优化                   | 前端 | 0.5d | T-006 | Pending     |
-| T-013 | 性能优化                       | 前端 | 1d   | All   | Pending     |
+| ID    | 任务                           | 类型 | 预估 | 依赖  | 状态    |
+| ----- | ------------------------------ | ---- | ---- | ----- | ------- |
+| T-001 | 文本选择和上下文菜单           | 前端 | 1d   | -     | Done    |
+| T-002 | 批注颜色选择器                 | 前端 | 0.5d | T-001 | Done    |
+| T-003 | 文本定位算法 (text-finder)     | 前端 | 1.5d | -     | Done    |
+| T-004 | DOM 高亮渲染 (dom-highlighter) | 前端 | 1d   | T-003 | Done    |
+| T-005 | 跨段落高亮支持                 | 前端 | 1d   | T-004 | Done    |
+| T-006 | 批注列表面板                   | 前端 | 1d   | -     | Done    |
+| T-007 | 批注 CRUD API                  | 后端 | 1d   | -     | Done    |
+| T-008 | 批注状态管理                   | 前端 | 0.5d | T-006 | Done    |
+| T-009 | 跳转定位动画                   | 前端 | 0.5d | T-004 | Done    |
+| T-010 | 批注回复功能                   | 全栈 | 1d   | T-007 | Done    |
+| T-011 | 第一段高亮 Bug 修复            | 前端 | 0.5d | T-004 | Done    |
+| T-012 | 筛选功能优化                   | 前端 | 0.5d | T-006 | Pending |
+| T-013 | 性能优化                       | 前端 | 1d   | All   | Pending |
+| T-014 | 模糊匹配算法优化               | 前端 | 0.5d | T-003 | Done    |
+| T-015 | React 协调冲突修复             | 前端 | 0.5d | T-004 | Done    |
 
 ---
 
@@ -744,9 +785,10 @@ type AnnotationStatus = "active" | "resolved" | "archived";
 
 ### 11.3 变更记录
 
-| 版本 | 日期       | 变更内容 | 作者     |
-| ---- | ---------- | -------- | -------- |
-| 1.0  | 2026-01-16 | 初始版本 | PM Agent |
+| 版本 | 日期       | 变更内容                                                    | 作者        |
+| ---- | ---------- | ----------------------------------------------------------- | ----------- |
+| 1.0  | 2026-01-16 | 初始版本                                                    | PM Agent    |
+| 1.1  | 2026-01-16 | 添加 React 协调冲突解决方案、更新任务状态、新增 T-014/T-015 | Claude Code |
 
 ---
 
