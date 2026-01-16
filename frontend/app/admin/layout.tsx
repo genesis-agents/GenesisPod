@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslation } from '@/lib/i18n';
 
 export default function AdminLayout({
   children,
@@ -22,6 +23,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { t } = useTranslation();
 
   // Admin tabs ordered by management best practices:
   // 1. Overview (Dashboard) - first for quick status check
@@ -31,64 +33,54 @@ export default function AdminLayout({
   // 5. Infrastructure (Storage) - system resources last
   const tabs = [
     {
-      name: 'Dashboard',
+      key: 'dashboard',
       href: '/admin/dashboard',
       icon: LayoutDashboard,
-      description: 'System overview and key metrics',
     },
     {
-      name: 'AI Models',
+      key: 'aiModels',
       href: '/admin/ai-models',
       icon: Bot,
-      description: 'AI model configuration',
     },
     {
-      name: 'AI Teams',
+      key: 'aiTeams',
       href: '/admin/ai-teams',
       icon: UsersRound,
-      description: 'AI team templates configuration',
     },
     {
-      name: 'Capabilities',
+      key: 'capabilities',
       href: '/admin/capabilities',
       icon: Wrench,
-      description: 'Tools, Skills and MCP management',
     },
     {
-      name: 'External API',
+      key: 'externalApi',
       href: '/admin/external-api',
       icon: Plug,
-      description: 'Search and third-party API configuration',
     },
     {
-      name: 'Collection',
+      key: 'collection',
       href: '/admin/collection',
       icon: Database,
-      description: 'Data sources and collection rules',
     },
     {
-      name: 'Whitelists',
+      key: 'whitelists',
       href: '/admin/whitelists',
       icon: Shield,
-      description: 'Source whitelist management',
     },
     {
-      name: 'Users',
+      key: 'users',
       href: '/admin/users',
       icon: Users,
-      description: 'User accounts and permissions',
     },
     {
-      name: 'Storage',
+      key: 'storage',
       href: '/admin/storage',
       icon: HardDrive,
-      description: 'Database storage management',
     },
     {
-      name: 'Settings',
+      key: 'settings',
       href: '/admin/settings',
       icon: Settings,
-      description: 'System configuration',
     },
   ];
 
@@ -110,11 +102,9 @@ export default function AdminLayout({
               </div>
               <div>
                 <h1 className="text-lg font-semibold text-gray-900">
-                  Admin Console
+                  {t('admin.console')}
                 </h1>
-                <p className="text-sm text-gray-500">
-                  System management and configuration
-                </p>
+                <p className="text-sm text-gray-500">{t('admin.subtitle')}</p>
               </div>
             </div>
           </div>
@@ -134,7 +124,7 @@ export default function AdminLayout({
                       key={tab.href}
                       href={tab.href}
                       className="group relative flex-shrink-0 px-4 py-3.5 transition-all"
-                      title={tab.description}
+                      title={t(`admin.tabDescriptions.${tab.key}`)}
                     >
                       <div className="flex items-center gap-2">
                         <Icon
@@ -151,7 +141,7 @@ export default function AdminLayout({
                               : 'text-gray-700 group-hover:text-gray-900'
                           }`}
                         >
-                          {tab.name}
+                          {t(`admin.tabs.${tab.key}`)}
                         </span>
                       </div>
 

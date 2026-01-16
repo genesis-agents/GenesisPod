@@ -15,6 +15,7 @@ import type {
 import { ResearchTopicType, RefreshFrequency } from '@/types/topic-research';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
 import { useTranslation } from '@/lib/i18n';
+import { KnowledgeBaseSelector } from '@/components/shared/selectors';
 
 interface CreateTopicDialogProps {
   isOpen: boolean;
@@ -143,7 +144,11 @@ export function CreateTopicDialog({
   const [refreshFrequency, setRefreshFrequency] = useState<RefreshFrequency>(
     RefreshFrequency.WEEKLY
   );
-  const [searchTimeRange, setSearchTimeRange] = useState<TimeRangeValue>('all');
+  const [searchTimeRange, setSearchTimeRange] =
+    useState<TimeRangeValue>('6months');
+  const [selectedKnowledgeBases, setSelectedKnowledgeBases] = useState<
+    string[]
+  >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -252,7 +257,8 @@ export function CreateTopicDialog({
       setName('');
       setDescription('');
       setRefreshFrequency(RefreshFrequency.WEEKLY);
-      setSearchTimeRange('all');
+      setSearchTimeRange('6months');
+      setSelectedKnowledgeBases([]);
       setError(null);
     }
   }, [isOpen, defaultType]);
@@ -277,6 +283,15 @@ export function CreateTopicDialog({
     setError(null);
 
     try {
+      // Build topicConfig with searchTimeRange and knowledgeBaseIds
+      const topicConfig: Record<string, unknown> = {};
+      if (searchTimeRange !== 'all') {
+        topicConfig.searchTimeRange = searchTimeRange;
+      }
+      if (selectedKnowledgeBases.length > 0) {
+        topicConfig.knowledgeBaseIds = selectedKnowledgeBases;
+      }
+
       const dto: CreateTopicDto = {
         name: name.trim(),
         description: description.trim() || undefined,
@@ -284,7 +299,7 @@ export function CreateTopicDialog({
         refreshFrequency,
         dimensions: selectedTemplate?.dimensions,
         topicConfig:
-          searchTimeRange !== 'all' ? { searchTimeRange } : undefined,
+          Object.keys(topicConfig).length > 0 ? topicConfig : undefined,
       };
 
       const topic = await createTopic(dto);
@@ -479,6 +494,26 @@ export function CreateTopicDialog({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Knowledge Base Selector */}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  {t('topicResearch.createDialog.knowledgeBase')}
+                  <span className="ml-2 text-xs font-normal text-gray-400">
+                    {t('topicResearch.createDialog.knowledgeBaseHint')}
+                  </span>
+                </label>
+                <KnowledgeBaseSelector
+                  selectedIds={selectedKnowledgeBases}
+                  onSelectionChange={setSelectedKnowledgeBases}
+                  multiple={true}
+                  maxSelections={5}
+                  placeholder={t(
+                    'topicResearch.createDialog.knowledgeBasePlaceholder'
+                  )}
+                  disabled={loading}
+                />
               </div>
 
               {error && (

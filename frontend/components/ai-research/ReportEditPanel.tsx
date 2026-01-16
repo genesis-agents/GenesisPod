@@ -76,6 +76,7 @@ interface ReportEditPanelProps {
   revisions?: ReportRevision[];
   annotations?: ReportAnnotation[];
   currentUserId?: string;
+  currentUserName?: string;
   isLoading?: boolean;
   // Toolbar control
   hideToolbar?: boolean;
@@ -187,6 +188,7 @@ export function ReportEditPanel({
   revisions = [],
   annotations = [],
   currentUserId,
+  currentUserName,
   isLoading = false,
   hideToolbar = false,
   sidePanelType: externalSidePanelType,
@@ -267,7 +269,7 @@ export function ReportEditPanel({
       > = {
         reportId: report.id,
         userId: currentUserId || 'anonymous',
-        userName: '当前用户',
+        userName: currentUserName || '匿名用户',
         selectedText: data.selectedText,
         content: '', // Empty content, user will fill in the annotation panel
         startOffset: data.startOffset,
@@ -280,7 +282,7 @@ export function ReportEditPanel({
       // Open annotation panel to let user add content
       setSidePanelType('annotations');
     },
-    [onAnnotationAdd, report, currentUserId]
+    [onAnnotationAdd, report, currentUserId, currentUserName]
   );
 
   // Keyboard shortcuts

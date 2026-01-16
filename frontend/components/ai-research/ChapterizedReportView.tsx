@@ -281,6 +281,8 @@ export function ChapterizedReportView({
 
   // Ref for preview container (used by context menu)
   const previewRef = useRef<HTMLDivElement>(null);
+  // Ref for edit container (used by context menu in edit mode)
+  const editContainerRef = useRef<HTMLDivElement>(null);
 
   // Handle AI edit from context menu
   const handleAIEditFromMenu = useCallback(
@@ -837,8 +839,15 @@ export function ChapterizedReportView({
         {/* Chapter Content - Full Screen */}
         <div className="flex-1 overflow-auto">
           {viewMode === 'edit' ? (
-            <div className="h-full bg-white">
+            <div ref={editContainerRef} className="h-full bg-white">
               <EditorContent editor={tiptapEditor} className="h-full" />
+              {/* ★ 右键菜单 - 编辑模式 */}
+              <TextSelectionContextMenu
+                containerRef={editContainerRef}
+                onAIEdit={onAIEdit ? handleAIEditFromMenu : undefined}
+                onAddAnnotation={onAddAnnotation}
+                isAIProcessing={isAIProcessing}
+              />
             </div>
           ) : viewMode === 'source' ? (
             <textarea
@@ -853,6 +862,8 @@ export function ChapterizedReportView({
                 <CitedMarkdown
                   content={selectedChapter.content || '暂无内容'}
                   sources={sources}
+                  annotations={annotations}
+                  highlightedAnnotationId={highlightedAnnotationId}
                 />
               ) : (
                 <article className="prose prose-sm prose-gray max-w-none">

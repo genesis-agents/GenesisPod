@@ -60,16 +60,29 @@ export function CitedContent({
 /**
  * Renders markdown content with embedded citations
  */
+// Annotation type for highlighting
+interface Annotation {
+  id: string;
+  selectedText: string;
+  color: 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
+}
+
 interface CitedMarkdownProps {
   content: string;
   sources: SourceReference[];
   className?: string;
+  /** Annotations for highlighting text */
+  annotations?: Annotation[];
+  /** Currently highlighted annotation ID (for navigation) */
+  highlightedAnnotationId?: string | null;
 }
 
 export function CitedMarkdown({
   content,
   sources,
   className = '',
+  annotations = [],
+  highlightedAnnotationId,
 }: CitedMarkdownProps) {
   // Pre-process content to replace citation patterns with placeholder markers
   // that won't be affected by markdown parsing
@@ -125,61 +138,192 @@ export function CitedMarkdown({
     return { processedContent: processed, citationMap: map };
   }, [content, sources]);
 
-  // Custom component to render citation markers
-  // Override all common markdown elements to ensure citations are processed everywhere
+  // Custom component to render citation markers and annotation highlights
+  // Override all common markdown elements to ensure citations/annotations are processed everywhere
   const components = useMemo(
     () => ({
       // Block elements
       p: ({ children, ...props }: any) => {
-        return <p {...props}>{processChildren(children, sources)}</p>;
+        return (
+          <p {...props}>
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
+          </p>
+        );
       },
       li: ({ children, ...props }: any) => {
-        return <li {...props}>{processChildren(children, sources)}</li>;
+        return (
+          <li {...props}>
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
+          </li>
+        );
       },
       td: ({ children, ...props }: any) => {
-        return <td {...props}>{processChildren(children, sources)}</td>;
+        return (
+          <td {...props}>
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
+          </td>
+        );
       },
       th: ({ children, ...props }: any) => {
-        return <th {...props}>{processChildren(children, sources)}</th>;
+        return (
+          <th {...props}>
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
+          </th>
+        );
       },
       blockquote: ({ children, ...props }: any) => {
         return (
           <blockquote {...props}>
-            {processChildren(children, sources)}
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
           </blockquote>
         );
       },
       // Headings
       h1: ({ children, ...props }: any) => {
-        return <h1 {...props}>{processChildren(children, sources)}</h1>;
+        return (
+          <h1 {...props}>
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
+          </h1>
+        );
       },
       h2: ({ children, ...props }: any) => {
-        return <h2 {...props}>{processChildren(children, sources)}</h2>;
+        return (
+          <h2 {...props}>
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
+          </h2>
+        );
       },
       h3: ({ children, ...props }: any) => {
-        return <h3 {...props}>{processChildren(children, sources)}</h3>;
+        return (
+          <h3 {...props}>
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
+          </h3>
+        );
       },
       h4: ({ children, ...props }: any) => {
-        return <h4 {...props}>{processChildren(children, sources)}</h4>;
+        return (
+          <h4 {...props}>
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
+          </h4>
+        );
       },
       h5: ({ children, ...props }: any) => {
-        return <h5 {...props}>{processChildren(children, sources)}</h5>;
+        return (
+          <h5 {...props}>
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
+          </h5>
+        );
       },
       h6: ({ children, ...props }: any) => {
-        return <h6 {...props}>{processChildren(children, sources)}</h6>;
+        return (
+          <h6 {...props}>
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
+          </h6>
+        );
       },
       // Inline elements
       strong: ({ children, ...props }: any) => {
-        return <strong {...props}>{processChildren(children, sources)}</strong>;
+        return (
+          <strong {...props}>
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
+          </strong>
+        );
       },
       em: ({ children, ...props }: any) => {
-        return <em {...props}>{processChildren(children, sources)}</em>;
+        return (
+          <em {...props}>
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
+          </em>
+        );
       },
       a: ({ children, ...props }: any) => {
-        return <a {...props}>{processChildren(children, sources)}</a>;
+        return (
+          <a {...props}>
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
+          </a>
+        );
       },
       span: ({ children, ...props }: any) => {
-        return <span {...props}>{processChildren(children, sources)}</span>;
+        return (
+          <span {...props}>
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
+          </span>
+        );
       },
       code: ({ children, className, ...props }: any) => {
         // Detect inline code: no language class and no newlines
@@ -198,12 +342,17 @@ export function CitedMarkdown({
         }
         return (
           <code className={className} {...props}>
-            {processChildren(children, sources)}
+            {processChildren(
+              children,
+              sources,
+              annotations,
+              highlightedAnnotationId
+            )}
           </code>
         );
       },
     }),
-    [sources]
+    [sources, annotations, highlightedAnnotationId]
   );
 
   return (
@@ -235,16 +384,19 @@ export function CitedMarkdown({
 
 /**
  * Process children to replace citation markers with CitationLink components
- * Recursively processes nested React elements to handle citations in any context
+ * and apply annotation highlights
+ * Recursively processes nested React elements to handle citations/annotations in any context
  */
 function processChildren(
   children: React.ReactNode,
-  sources: SourceReference[]
+  sources: SourceReference[],
+  annotations: Annotation[] = [],
+  highlightedAnnotationId?: string | null
 ): React.ReactNode {
   if (!children) return children;
 
   if (typeof children === 'string') {
-    return processText(children, sources);
+    return processText(children, sources, annotations, highlightedAnnotationId);
   }
 
   if (typeof children === 'number') {
@@ -256,7 +408,7 @@ function processChildren(
       if (typeof child === 'string') {
         return (
           <React.Fragment key={index}>
-            {processText(child, sources)}
+            {processText(child, sources, annotations, highlightedAnnotationId)}
           </React.Fragment>
         );
       }
@@ -266,7 +418,12 @@ function processChildren(
         return React.cloneElement(
           child as React.ReactElement<{ children?: React.ReactNode }>,
           { key: index },
-          processChildren(childProps.children, sources)
+          processChildren(
+            childProps.children,
+            sources,
+            annotations,
+            highlightedAnnotationId
+          )
         );
       }
       return child;
@@ -279,15 +436,30 @@ function processChildren(
     return React.cloneElement(
       children as React.ReactElement<{ children?: React.ReactNode }>,
       {},
-      processChildren(childProps.children, sources)
+      processChildren(
+        childProps.children,
+        sources,
+        annotations,
+        highlightedAnnotationId
+      )
     );
   }
 
   return children;
 }
 
+// Annotation color map for background highlights
+const annotationColorMap: Record<string, string> = {
+  yellow: 'bg-yellow-200',
+  green: 'bg-green-200',
+  blue: 'bg-blue-200',
+  pink: 'bg-pink-200',
+  purple: 'bg-purple-200',
+};
+
 /**
  * Process text to replace citation markers with CitationLink components
+ * and apply annotation highlights
  * Supports multiple formats:
  * - [1], [2], [1, 2] - standard citation format
  * - [资料 1], [资料 1, 2] - Chinese "资料" format
@@ -298,7 +470,9 @@ function processChildren(
  */
 function processText(
   text: string,
-  sources: SourceReference[]
+  sources: SourceReference[],
+  annotations: Annotation[] = [],
+  highlightedAnnotationId?: string | null
 ): React.ReactNode {
   // ★ 预处理：清理引用相关的孤立下划线
   // AI 有时会生成 [32]____[39] 或 [33]__[38] 或 [33] [35]__ 这样的格式
@@ -434,7 +608,99 @@ function processText(
     parts.push(cleanedText.slice(lastIndex));
   }
 
+  // ★ Apply annotation highlights to text parts
+  if (annotations.length > 0) {
+    const annotatedParts = parts.map((part, partIndex) => {
+      if (typeof part !== 'string') return part;
+      return applyAnnotations(
+        part,
+        annotations,
+        highlightedAnnotationId,
+        partIndex
+      );
+    });
+    return annotatedParts.length === 1 ? annotatedParts[0] : annotatedParts;
+  }
+
   return parts.length === 1 ? parts[0] : parts;
+}
+
+/**
+ * Apply annotation highlights to a text string
+ */
+function applyAnnotations(
+  text: string,
+  annotations: Annotation[],
+  highlightedAnnotationId?: string | null,
+  keyPrefix: number = 0
+): React.ReactNode {
+  if (!text || annotations.length === 0) return text;
+
+  // Find all annotation matches in the text
+  const matches: {
+    start: number;
+    end: number;
+    annotation: Annotation;
+  }[] = [];
+
+  annotations.forEach((annotation) => {
+    // Find all occurrences of the selected text
+    let searchStart = 0;
+    while (searchStart < text.length) {
+      const index = text.indexOf(annotation.selectedText, searchStart);
+      if (index === -1) break;
+
+      matches.push({
+        start: index,
+        end: index + annotation.selectedText.length,
+        annotation,
+      });
+      searchStart = index + 1;
+    }
+  });
+
+  if (matches.length === 0) return text;
+
+  // Sort by start position
+  matches.sort((a, b) => a.start - b.start);
+
+  // Build result with highlighted spans
+  const result: React.ReactNode[] = [];
+  let lastEnd = 0;
+
+  matches.forEach((match, index) => {
+    // Add text before this match
+    if (match.start > lastEnd) {
+      result.push(text.slice(lastEnd, match.start));
+    }
+
+    // Skip overlapping matches
+    if (match.start < lastEnd) return;
+
+    const isHighlighted = match.annotation.id === highlightedAnnotationId;
+    const colorClass =
+      annotationColorMap[match.annotation.color] || 'bg-yellow-200';
+
+    result.push(
+      <mark
+        key={`ann-${keyPrefix}-${match.annotation.id}-${index}`}
+        data-annotation-id={match.annotation.id}
+        className={`${colorClass} ${isHighlighted ? 'ring-2 ring-blue-500 ring-offset-1' : ''} cursor-pointer rounded px-0.5 transition-all`}
+        title="点击查看批注"
+      >
+        {text.slice(match.start, match.end)}
+      </mark>
+    );
+
+    lastEnd = match.end;
+  });
+
+  // Add remaining text
+  if (lastEnd < text.length) {
+    result.push(text.slice(lastEnd));
+  }
+
+  return result.length === 1 ? result[0] : result;
 }
 
 /**

@@ -10,6 +10,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/button';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
+import { KnowledgeBaseSelector } from '@/components/shared/selectors';
 import {
   Settings,
   Trash2,
@@ -17,6 +18,10 @@ import {
   RefreshCw,
   Users,
   Clock,
+  BookOpen,
+  Eye,
+  Lock,
+  Globe,
 } from 'lucide-react';
 
 interface ResearchSettingsModalProps {
@@ -26,14 +31,45 @@ interface ResearchSettingsModalProps {
   onClearMessages?: () => void;
 }
 
+type VisibilityType = 'private' | 'team' | 'public';
+
 export function ResearchSettingsModal({
   open,
   onClose,
   topicId,
   onClearMessages,
 }: ResearchSettingsModalProps) {
-  const { teamMessages, resetTopicData } = useTopicResearchStore();
+  const { teamMessages, resetTopicData, currentTopic } =
+    useTopicResearchStore();
   const [isClearing, setIsClearing] = useState(false);
+  const [selectedKnowledgeBases, setSelectedKnowledgeBases] = useState<
+    string[]
+  >([]);
+  const [visibility, setVisibility] = useState<VisibilityType>('private');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // Initialize from currentTopic
+  useEffect(() => {
+    if (currentTopic) {
+      // Set visibility from topic
+      if (currentTopic.visibility) {
+        setVisibility(currentTopic.visibility as VisibilityType);
+      }
+      // Knowledge base IDs would need to be loaded from backend or stored elsewhere
+    }
+  }, [currentTopic]);
+
+  // Save knowledge base and visibility settings
+  const handleSaveSettings = useCallback(async () => {
+    setIsSavingSettings(true);
+    try {
+      // TODO: Call API to update topic config
+      // await updateTopicConfig(topicId, { knowledgeBaseIds: selectedKnowledgeBases, visibility });
+      console.log('Saving settings:', { selectedKnowledgeBases, visibility });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  }, [selectedKnowledgeBases, visibility]);
 
   // 清除所有消息（WebSocket + 持久化）
   const handleClearAllMessages = useCallback(async () => {
@@ -99,6 +135,85 @@ export function ResearchSettingsModal({
               </>
             )}
           </Button>
+        </div>
+
+        {/* 知识库配置 */}
+        <div className="rounded-lg border border-gray-200 p-4">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100">
+              <BookOpen className="h-5 w-5 text-indigo-600" />
+            </div>
+            <div>
+              <h4 className="font-medium text-gray-900">关联知识库</h4>
+              <p className="text-sm text-gray-500">
+                选择研究时优先使用的知识库
+              </p>
+            </div>
+          </div>
+          <KnowledgeBaseSelector
+            selectedIds={selectedKnowledgeBases}
+            onSelectionChange={setSelectedKnowledgeBases}
+            multiple={true}
+            maxSelections={5}
+            placeholder="选择关联的知识库 (可选)"
+          />
+        </div>
+
+        {/* 可见性设置 */}
+        <div className="rounded-lg border border-gray-200 p-4">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-100">
+              <Eye className="h-5 w-5 text-cyan-600" />
+            </div>
+            <div>
+              <h4 className="font-medium text-gray-900">可见性设置</h4>
+              <p className="text-sm text-gray-500">控制谁可以访问此研究专题</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
+              <input
+                type="radio"
+                name="visibility"
+                checked={visibility === 'private'}
+                onChange={() => setVisibility('private')}
+                className="h-4 w-4 text-blue-600"
+              />
+              <Lock className="h-4 w-4 text-gray-500" />
+              <div>
+                <span className="text-sm font-medium text-gray-900">私有</span>
+                <p className="text-xs text-gray-500">仅自己可见</p>
+              </div>
+            </label>
+            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
+              <input
+                type="radio"
+                name="visibility"
+                checked={visibility === 'team'}
+                onChange={() => setVisibility('team')}
+                className="h-4 w-4 text-blue-600"
+              />
+              <Users className="h-4 w-4 text-gray-500" />
+              <div>
+                <span className="text-sm font-medium text-gray-900">团队</span>
+                <p className="text-xs text-gray-500">团队成员可见</p>
+              </div>
+            </label>
+            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
+              <input
+                type="radio"
+                name="visibility"
+                checked={visibility === 'public'}
+                onChange={() => setVisibility('public')}
+                className="h-4 w-4 text-blue-600"
+              />
+              <Globe className="h-4 w-4 text-gray-500" />
+              <div>
+                <span className="text-sm font-medium text-gray-900">公开</span>
+                <p className="text-xs text-gray-500">所有人可见</p>
+              </div>
+            </label>
+          </div>
         </div>
 
         {/* 导出设置 */}

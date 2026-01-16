@@ -14,6 +14,7 @@ import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Shield } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
+import { useAuth } from '@/contexts/AuthContext';
 import type {
   TopicReport,
   TopicDimension,
@@ -390,6 +391,7 @@ export function TopicContentPanel({
   initialView,
 }: TopicContentPanelProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
 
   // Get persisted team data from store
   const {
@@ -836,8 +838,8 @@ export function TopicContentPanel({
                   ...(ann.replies || []),
                   {
                     id: `reply-${Date.now()}`,
-                    userId: 'current-user',
-                    userName: '当前用户',
+                    userId: user?.id || 'anonymous',
+                    userName: user?.username || user?.email || '匿名用户',
                     content,
                     createdAt: new Date().toISOString(),
                   },
@@ -1175,7 +1177,8 @@ export function TopicContentPanel({
             evidence={safeEvidence}
             revisions={revisions}
             annotations={annotations}
-            currentUserId="current-user"
+            currentUserId={user?.id || 'anonymous'}
+            currentUserName={user?.username || user?.email || '匿名用户'}
             isLoading={isLoadingReport}
             hideToolbar={true}
             sidePanelType={sidePanelType}
@@ -1231,8 +1234,8 @@ export function TopicContentPanel({
                   onAddAnnotation={(data) => {
                     handleAnnotationAdd({
                       reportId: report?.id || '',
-                      userId: 'current-user',
-                      userName: '当前用户',
+                      userId: user?.id || 'anonymous',
+                      userName: user?.username || user?.email || '匿名用户',
                       selectedText: data.selectedText,
                       content: '',
                       startOffset: data.startOffset,

@@ -382,11 +382,11 @@ function CreateProjectDialog({
               onSelectionChange={setSelectedKnowledgeBases}
               multiple={true}
               maxSelections={5}
-              placeholder="选择关联的知识库 (可选)"
+              placeholder={t('aiStudio.project.knowledgeBasePlaceholder')}
               disabled={loading}
             />
             <p className="mt-1 text-xs text-gray-500">
-              关联知识库后，AI 研究将优先使用知识库中的内容
+              {t('aiStudio.project.knowledgeBaseHint')}
             </p>
           </div>
 
@@ -818,7 +818,7 @@ function StudioPageContent() {
             ) : error ? (
               <div className="rounded-xl bg-red-50 p-6 text-center">
                 <p className="text-red-600">
-                  {typeof error === 'string' ? error : '加载失败，请重试'}
+                  {typeof error === 'string' ? error : t('common.loadError')}
                 </p>
                 <button
                   onClick={loadProjects}

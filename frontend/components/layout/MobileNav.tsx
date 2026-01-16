@@ -106,7 +106,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
   const aiToolsItems = [
     {
       href: '/ai-store',
-      label: t('nav.aiStore'),
+      label: t('nav.aiTools'),
       icon: 'store',
       activeClass: 'bg-cyan-50',
       prefix: true,

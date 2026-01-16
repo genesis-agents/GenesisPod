@@ -29,6 +29,7 @@ import {
   HistoryRecord,
   HistoryStats,
 } from '@/lib/api/data-collection';
+import { useTranslation } from '@/lib/i18n';
 
 // Type for system metrics response
 interface SystemMetrics {
@@ -55,6 +56,7 @@ interface FormattedStats {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   // Overview state
@@ -191,28 +193,28 @@ export default function DashboardPage() {
         return (
           <span className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
             <Activity className="h-3 w-3 animate-pulse" />
-            Running
+            {t('admin.status.running')}
           </span>
         );
       case 'COMPLETED':
         return (
           <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
             <CheckCircle2 className="h-3 w-3" />
-            Completed
+            {t('admin.status.completed')}
           </span>
         );
       case 'FAILED':
         return (
           <span className="flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
             <XCircle className="h-3 w-3" />
-            Failed
+            {t('admin.status.failed')}
           </span>
         );
       default:
         return (
           <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
             <Clock className="h-3 w-3" />
-            Pending
+            {t('admin.status.pending')}
           </span>
         );
     }
@@ -223,7 +225,9 @@ export default function DashboardPage() {
       <div className="flex h-96 items-center justify-center p-8">
         <div className="text-center">
           <Activity className="mx-auto h-8 w-8 animate-spin text-blue-600" />
-          <p className="mt-2 text-sm text-gray-500">Loading dashboard...</p>
+          <p className="mt-2 text-sm text-gray-500">
+            {t('admin.dashboard.loading')}
+          </p>
         </div>
       </div>
     );
@@ -246,17 +250,17 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">
-            Data Collection Dashboard
+            {t('admin.dashboard.title')}
           </h1>
           <p className="text-sm text-gray-500">
-            Monitor and manage your data collection tasks
+            {t('admin.dashboard.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           {activeTab === 'live' && (
             <div className="mr-2 flex items-center gap-2 text-sm text-gray-500">
               <Radio className="h-4 w-4 animate-pulse text-green-500" />
-              Live
+              {t('admin.dashboard.live')}
             </div>
           )}
         </div>
@@ -273,7 +277,7 @@ export default function DashboardPage() {
           }`}
         >
           <LayoutDashboard className="h-4 w-4" />
-          Overview
+          {t('admin.dashboard.overview')}
         </button>
         <button
           onClick={() => setActiveTab('live')}
@@ -284,7 +288,7 @@ export default function DashboardPage() {
           }`}
         >
           <Radio className="h-4 w-4" />
-          Live Monitor
+          {t('admin.dashboard.liveMonitor')}
           {runningTasks.length > 0 && (
             <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-xs text-white">
               {runningTasks.length}
@@ -300,7 +304,7 @@ export default function DashboardPage() {
           }`}
         >
           <ClipboardList className="h-4 w-4" />
-          History
+          {t('admin.dashboard.history')}
         </button>
       </div>
 
@@ -312,14 +316,18 @@ export default function DashboardPage() {
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Collected Today</p>
+                  <p className="text-sm text-gray-500">
+                    {t('admin.dashboard.collectedToday')}
+                  </p>
                   <p className="mt-1 text-2xl font-bold text-gray-900">
                     {stats.todayCollected}
                   </p>
                   <div className="mt-2 flex items-center gap-1 text-sm">
                     <TrendingUp className="h-4 w-4 text-emerald-500" />
                     <span className="font-medium text-emerald-600">+12.5%</span>
-                    <span className="text-gray-500">vs yesterday</span>
+                    <span className="text-gray-500">
+                      {t('admin.dashboard.vsYesterday')}
+                    </span>
                   </div>
                 </div>
                 <div className="rounded-lg bg-blue-100 p-2">
@@ -331,14 +339,18 @@ export default function DashboardPage() {
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Success Rate</p>
+                  <p className="text-sm text-gray-500">
+                    {t('admin.dashboard.successRate')}
+                  </p>
                   <p className="mt-1 text-2xl font-bold text-gray-900">
                     {stats.successRate.toFixed(1)}%
                   </p>
                   <div className="mt-2 flex items-center gap-1 text-sm">
                     <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                     <span className="font-medium text-emerald-600">
-                      {stats.todaySuccess} succeeded
+                      {t('admin.dashboard.succeeded', {
+                        count: stats.todaySuccess,
+                      })}
                     </span>
                   </div>
                 </div>
@@ -351,14 +363,18 @@ export default function DashboardPage() {
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Active Tasks</p>
+                  <p className="text-sm text-gray-500">
+                    {t('admin.dashboard.activeTasks')}
+                  </p>
                   <p className="mt-1 text-2xl font-bold text-gray-900">
                     {stats.runningTasks}
                   </p>
                   <div className="mt-2 flex items-center gap-1 text-sm">
                     <Activity className="h-4 w-4 text-blue-500" />
                     <span className="font-medium text-blue-600">
-                      {stats.totalTasks} total tasks
+                      {t('admin.dashboard.totalTasksCount', {
+                        count: stats.totalTasks,
+                      })}
                     </span>
                   </div>
                 </div>
@@ -371,14 +387,18 @@ export default function DashboardPage() {
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Avg Quality</p>
+                  <p className="text-sm text-gray-500">
+                    {t('admin.dashboard.avgQuality')}
+                  </p>
                   <p className="mt-1 text-2xl font-bold text-gray-900">
                     {stats.avgQuality.toFixed(1)}
                   </p>
                   <div className="mt-2 flex items-center gap-1 text-sm">
                     <TrendingUp className="h-4 w-4 text-emerald-500" />
                     <span className="font-medium text-emerald-600">+3.2%</span>
-                    <span className="text-gray-500">this week</span>
+                    <span className="text-gray-500">
+                      {t('admin.dashboard.thisWeek')}
+                    </span>
                   </div>
                 </div>
                 <div className="rounded-lg bg-amber-100 p-2">
@@ -391,15 +411,17 @@ export default function DashboardPage() {
           {/* Recent Tasks */}
           <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="border-b border-gray-100 px-6 py-4">
-              <h3 className="font-semibold text-gray-900">Recent Tasks</h3>
+              <h3 className="font-semibold text-gray-900">
+                {t('admin.dashboard.recentTasks')}
+              </h3>
               <p className="text-sm text-gray-500">
-                Latest collection activity
+                {t('admin.dashboard.latestActivity')}
               </p>
             </div>
             <div className="divide-y divide-gray-100">
               {recentTasks.length === 0 ? (
                 <div className="px-6 py-8 text-center text-sm text-gray-500">
-                  No recent tasks found
+                  {t('admin.dashboard.noRecentTasks')}
                 </div>
               ) : (
                 recentTasks.slice(0, 5).map((task) => (
@@ -456,10 +478,10 @@ export default function DashboardPage() {
             >
               <Database className="mx-auto h-8 w-8 text-gray-400" />
               <h4 className="mt-2 font-medium text-gray-900">
-                Add Data Source
+                {t('admin.dashboard.addDataSource')}
               </h4>
               <p className="text-sm text-gray-500">
-                Configure a new data source
+                {t('admin.dashboard.configureSource')}
               </p>
             </button>
             <button
@@ -467,9 +489,11 @@ export default function DashboardPage() {
               className="rounded-xl border-2 border-dashed border-gray-200 p-6 text-center transition-all hover:cursor-pointer hover:border-emerald-300 hover:bg-emerald-50/50"
             >
               <Activity className="mx-auto h-8 w-8 text-gray-400" />
-              <h4 className="mt-2 font-medium text-gray-900">Create Task</h4>
+              <h4 className="mt-2 font-medium text-gray-900">
+                {t('admin.dashboard.createTask')}
+              </h4>
               <p className="text-sm text-gray-500">
-                Start a new collection task
+                {t('admin.dashboard.startNewTask')}
               </p>
             </button>
             <button
@@ -477,9 +501,11 @@ export default function DashboardPage() {
               className="rounded-xl border-2 border-dashed border-gray-200 p-6 text-center transition-all hover:cursor-pointer hover:border-violet-300 hover:bg-violet-50/50"
             >
               <Clock className="mx-auto h-8 w-8 text-gray-400" />
-              <h4 className="mt-2 font-medium text-gray-900">Schedule Job</h4>
+              <h4 className="mt-2 font-medium text-gray-900">
+                {t('admin.dashboard.scheduleJob')}
+              </h4>
               <p className="text-sm text-gray-500">
-                Set up automated collection
+                {t('admin.dashboard.setupAutomated')}
               </p>
             </button>
           </div>
@@ -494,12 +520,16 @@ export default function DashboardPage() {
               <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">CPU Usage</p>
+                    <p className="text-sm text-gray-500">
+                      {t('admin.dashboard.cpuUsage')}
+                    </p>
                     <p className="mt-1 text-2xl font-bold text-gray-900">
                       {metrics.cpu?.usage?.toFixed(1) || 0}%
                     </p>
                     <p className="mt-1 text-xs text-gray-500">
-                      {metrics.cpu?.cores || 0} cores
+                      {t('admin.dashboard.cores', {
+                        count: metrics.cpu?.cores || 0,
+                      })}
                     </p>
                   </div>
                   <div className="rounded-lg bg-blue-100 p-2">
@@ -511,7 +541,9 @@ export default function DashboardPage() {
               <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">Memory Usage</p>
+                    <p className="text-sm text-gray-500">
+                      {t('admin.dashboard.memoryUsage')}
+                    </p>
                     <p className="mt-1 text-2xl font-bold text-gray-900">
                       {metrics.memory?.percentage?.toFixed(1) || 0}%
                     </p>
@@ -541,12 +573,14 @@ export default function DashboardPage() {
               <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">Active / Queued</p>
+                    <p className="text-sm text-gray-500">
+                      {t('admin.dashboard.activeQueued')}
+                    </p>
                     <p className="mt-1 text-2xl font-bold text-gray-900">
                       {metrics.activeTasks || 0} / {metrics.queuedTasks || 0}
                     </p>
                     <p className="mt-1 text-xs text-gray-500">
-                      Collection tasks
+                      {t('admin.dashboard.collectionTasks')}
                     </p>
                   </div>
                   <div className="rounded-lg bg-emerald-100 p-2">
@@ -560,10 +594,17 @@ export default function DashboardPage() {
           {/* Running Tasks */}
           <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="border-b border-gray-100 px-6 py-4">
-              <h3 className="font-semibold text-gray-900">Running Tasks</h3>
+              <h3 className="font-semibold text-gray-900">
+                {t('admin.dashboard.runningTasks')}
+              </h3>
               <p className="text-sm text-gray-500">
-                {runningTasks.length} task{runningTasks.length !== 1 ? 's' : ''}{' '}
-                currently running
+                {runningTasks.length === 1
+                  ? t('admin.dashboard.tasksRunning', {
+                      count: runningTasks.length,
+                    })
+                  : t('admin.dashboard.tasksRunningPlural', {
+                      count: runningTasks.length,
+                    })}
               </p>
             </div>
 
@@ -571,10 +612,10 @@ export default function DashboardPage() {
               <div className="px-6 py-12 text-center">
                 <Activity className="mx-auto h-12 w-12 text-gray-300" />
                 <h3 className="mt-4 text-sm font-medium text-gray-900">
-                  No running tasks
+                  {t('admin.dashboard.noRunningTasks')}
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  Tasks will appear here when they start
+                  {t('admin.dashboard.tasksAppearHere')}
                 </p>
               </div>
             ) : (
@@ -646,7 +687,7 @@ export default function DashboardPage() {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                Day
+                {t('admin.dashboard.day')}
               </button>
               <button
                 onClick={() => setPeriod('week')}
@@ -656,7 +697,7 @@ export default function DashboardPage() {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                Week
+                {t('admin.dashboard.week')}
               </button>
               <button
                 onClick={() => setPeriod('month')}
@@ -666,7 +707,7 @@ export default function DashboardPage() {
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                Month
+                {t('admin.dashboard.month')}
               </button>
             </div>
           </div>
@@ -675,46 +716,61 @@ export default function DashboardPage() {
           {historyStats && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                <p className="text-sm text-gray-500">Total Tasks</p>
+                <p className="text-sm text-gray-500">
+                  {t('admin.dashboard.totalTasks')}
+                </p>
                 <p className="mt-1 text-2xl font-bold text-gray-900">
                   {historyStats.totalTasks}
                 </p>
                 <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
                   <CheckCircle className="h-3 w-3 text-emerald-500" />
-                  <span>{historyStats.completedTasks} completed</span>
+                  <span>
+                    {historyStats.completedTasks}{' '}
+                    {t('admin.status.completed').toLowerCase()}
+                  </span>
                 </div>
               </div>
 
               <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                <p className="text-sm text-gray-500">Total Collected</p>
+                <p className="text-sm text-gray-500">
+                  {t('admin.dashboard.totalCollected')}
+                </p>
                 <p className="mt-1 text-2xl font-bold text-gray-900">
                   {historyStats.totalCollected.toLocaleString()}
                 </p>
                 <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
                   <Copy className="h-3 w-3" />
-                  <span>{historyStats.totalDuplicates} duplicates</span>
+                  <span>
+                    {t('admin.dashboard.duplicates', {
+                      count: historyStats.totalDuplicates,
+                    })}
+                  </span>
                 </div>
               </div>
 
               <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                <p className="text-sm text-gray-500">Success Rate</p>
+                <p className="text-sm text-gray-500">
+                  {t('admin.dashboard.successRate')}
+                </p>
                 <p className="mt-1 text-2xl font-bold text-gray-900">
                   {historyStats.successRate.toFixed(1)}%
                 </p>
                 <div className="mt-2 flex items-center gap-1 text-xs text-emerald-600">
                   <TrendingUp className="h-3 w-3" />
-                  <span>Trending up</span>
+                  <span>{t('admin.dashboard.trendingUp')}</span>
                 </div>
               </div>
 
               <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                <p className="text-sm text-gray-500">Avg Duration</p>
+                <p className="text-sm text-gray-500">
+                  {t('admin.dashboard.avgDuration')}
+                </p>
                 <p className="mt-1 text-2xl font-bold text-gray-900">
                   {formatDuration(Math.round(historyStats.avgDuration))}
                 </p>
                 <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
                   <Clock className="h-3 w-3" />
-                  <span>Per task</span>
+                  <span>{t('admin.dashboard.perTask')}</span>
                 </div>
               </div>
             </div>
@@ -723,18 +779,22 @@ export default function DashboardPage() {
           {/* History List */}
           <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="border-b border-gray-100 px-6 py-4">
-              <h3 className="font-semibold text-gray-900">Task History</h3>
-              <p className="text-sm text-gray-500">{history.length} records</p>
+              <h3 className="font-semibold text-gray-900">
+                {t('admin.dashboard.taskHistory')}
+              </h3>
+              <p className="text-sm text-gray-500">
+                {t('admin.dashboard.records', { count: history.length })}
+              </p>
             </div>
 
             {history.length === 0 ? (
               <div className="px-6 py-12 text-center">
                 <HistoryIcon className="mx-auto h-12 w-12 text-gray-300" />
                 <h3 className="mt-4 text-sm font-medium text-gray-900">
-                  No history found
+                  {t('admin.dashboard.noHistory')}
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  Completed tasks will appear here
+                  {t('admin.dashboard.completedTasksAppear')}
                 </p>
               </div>
             ) : (
