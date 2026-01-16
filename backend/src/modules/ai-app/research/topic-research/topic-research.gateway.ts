@@ -27,7 +27,25 @@ import { ResearchEventEmitterService } from "./services/research-event-emitter.s
 @WebSocketGateway({
   namespace: "/topic-research",
   cors: {
-    origin: "*",
+    origin: (
+      origin: string,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      // 允许所有 localhost 端口（开发环境）
+      const isLocalhost =
+        !origin ||
+        /^http:\/\/localhost:\d+$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
+
+      // 允许 Railway 域名（生产环境）
+      const isRailway = origin?.includes(".railway.app");
+
+      if (isLocalhost || isRailway) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
     credentials: true,
   },
 })
