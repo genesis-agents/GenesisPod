@@ -300,6 +300,13 @@ function processText(
   text: string,
   sources: SourceReference[]
 ): React.ReactNode {
+  // ★ 预处理：清理引用之间的下划线分隔符
+  // AI 有时会生成 [32]___[39] 或 [33]__[38] 这样的格式
+  let cleanedText = text
+    .replace(/\]_{1,3}\[/g, '][') // 清理 ]___[ 或 ]__[ 或 ]_[ 为 ][
+    .replace(/\]_{1,3}\s*\[/g, '][') // 清理 ]___ [ 带空格的情况
+    .replace(/\]\s*_{1,3}\[/g, ']['); // 清理 ] ___[ 带空格的情况
+
   // Build a map from evidence IDs to source indices for UUID and temp-X-Y formats
   const evidenceIdMap = new Map<string, number>();
   sources.forEach((source, index) => {
@@ -321,10 +328,10 @@ function processText(
 
   pattern.lastIndex = 0;
 
-  while ((match = pattern.exec(text)) !== null) {
+  while ((match = pattern.exec(cleanedText)) !== null) {
     // Add text before match
     if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
+      parts.push(cleanedText.slice(lastIndex, match.index));
     }
 
     // Parse indices based on format
@@ -371,10 +378,10 @@ function processText(
     // Get the sentence or phrase around the citation for better matching
     const contextStart = Math.max(0, match.index - 100);
     const contextEnd = Math.min(
-      text.length,
+      cleanedText.length,
       match.index + match[0].length + 100
     );
-    let surroundingContext = text.slice(contextStart, contextEnd);
+    let surroundingContext = cleanedText.slice(contextStart, contextEnd);
 
     // Clean the context - remove citation markers and trim to sentence boundaries
     surroundingContext = surroundingContext
@@ -420,8 +427,8 @@ function processText(
   }
 
   // Add remaining text
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
+  if (lastIndex < cleanedText.length) {
+    parts.push(cleanedText.slice(lastIndex));
   }
 
   return parts.length === 1 ? parts[0] : parts;

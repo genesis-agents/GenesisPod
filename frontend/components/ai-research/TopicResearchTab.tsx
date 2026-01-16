@@ -71,6 +71,8 @@ interface TopicResearchTabProps {
   showCreateDialog: boolean;
   onShowCreateDialog: (show: boolean) => void;
   onDetailViewChange?: (isDetailView: boolean) => void;
+  /** ★ 初始选中的主题ID（用于分享链接跳转） */
+  initialTopicId?: string | null;
 }
 
 export function TopicResearchTab({
@@ -79,6 +81,7 @@ export function TopicResearchTab({
   showCreateDialog,
   onShowCreateDialog,
   onDetailViewChange,
+  initialTopicId,
 }: TopicResearchTabProps) {
   const { t } = useTranslation();
   const {
@@ -119,6 +122,16 @@ export function TopicResearchTab({
   useEffect(() => {
     loadTopics();
   }, [loadTopics]);
+
+  // ★ 处理初始主题ID（分享链接跳转）
+  useEffect(() => {
+    if (initialTopicId && topicsList.length > 0 && !selectedTopic) {
+      const topic = topicsList.find((t) => t.id === initialTopicId);
+      if (topic) {
+        setSelectedTopic(topic);
+      }
+    }
+  }, [initialTopicId, topicsList, selectedTopic]);
 
   // Handle topic created
   const handleTopicCreated = (topic: ResearchTopic) => {

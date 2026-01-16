@@ -629,6 +629,8 @@ function StudioPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get('tab');
+  // ★ 读取分享链接中的 topicId 参数
+  const topicIdParam = searchParams?.get('topicId');
 
   const [activeTab, setActiveTab] = useState<'fast' | 'deep' | 'topic'>(() => {
     if (tabParam === 'deep') {
@@ -871,6 +873,7 @@ function StudioPageContent() {
             showCreateDialog={showTopicCreateDialog}
             onShowCreateDialog={setShowTopicCreateDialog}
             onDetailViewChange={setIsTopicDetailView}
+            initialTopicId={topicIdParam}
           />
         ) : (
           /* Fast/Deep Research Projects Grid */
