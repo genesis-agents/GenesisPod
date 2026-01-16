@@ -193,12 +193,14 @@ export function QuickCommandBar({
                   onClick={() => handleCommandSelect(command)}
                   className="flex items-start gap-2 py-2"
                 >
-                  <span className="text-muted-foreground mt-0.5">
+                  <span className="mt-0.5 text-muted-foreground">
                     {command.icon}
                   </span>
                   <div className="flex flex-col">
-                    <span className="font-medium">{command.label}</span>
-                    <span className="text-muted-foreground text-xs">
+                    <span className="font-medium text-gray-900">
+                      {command.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
                       {command.description}
                     </span>
                   </div>
@@ -220,10 +222,10 @@ export function QuickCommandBar({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled || isSubmitting}
-            className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring h-9 w-full rounded-md border px-3 pr-16 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-9 w-full rounded-md border border-input bg-background px-3 pr-16 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           />
-          <div className="text-muted-foreground pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs">
-            <kbd className="bg-muted rounded px-1.5 py-0.5 text-[10px]">
+          <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+            <kbd className="rounded bg-muted px-1.5 py-0.5 text-[10px]">
               Ctrl+K
             </kbd>
           </div>
@@ -254,7 +256,7 @@ export function QuickCommandBar({
             size="sm"
             onClick={() => handleCommandSelect(command)}
             disabled={disabled}
-            className="text-muted-foreground hover:text-foreground h-7 text-xs"
+            className="h-7 text-xs text-muted-foreground hover:text-foreground"
           >
             {command.icon}
             <span className="ml-1">{command.label}</span>

@@ -240,7 +240,7 @@ function StudyGuideContent({ data }: { data: any }) {
             <div className="space-y-3">
               {section.questions.map((q: any, j: number) => (
                 <div key={j} className="rounded-lg bg-gray-50 p-3">
-                  <p className="font-medium">{q.question}</p>
+                  <p className="font-medium text-gray-900">{q.question}</p>
                   <p className="mt-1 text-sm text-gray-600">{q.answer}</p>
                 </div>
               ))}
@@ -298,7 +298,7 @@ function BriefingDocContent({ data }: { data: any }) {
           <div className="space-y-2">
             {data.recommendations.map((r: any, i: number) => (
               <div key={i} className="border-l-4 border-green-400 py-2 pl-4">
-                <p className="font-medium">{r.action}</p>
+                <p className="font-medium text-gray-900">{r.action}</p>
                 <p className="text-sm text-gray-500">{r.rationale}</p>
               </div>
             ))}
@@ -370,7 +370,9 @@ function TrendReportContent({ data }: { data: any }) {
             {data.trends.map((trend: any, i: number) => (
               <div key={i} className="rounded-lg border p-4">
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="font-semibold">{trend.name}</span>
+                  <span className="font-semibold text-gray-900">
+                    {trend.name}
+                  </span>
                   <span
                     className={`rounded px-2 py-0.5 text-xs ${
                       trend.direction === 'rising'
@@ -399,7 +401,7 @@ function TrendReportContent({ data }: { data: any }) {
                 key={i}
                 className="border-l-4 border-yellow-400 bg-yellow-50 p-3"
               >
-                <p className="font-medium">{p.prediction}</p>
+                <p className="font-medium text-gray-900">{p.prediction}</p>
                 <p className="text-sm text-gray-500">
                   {p.timeframe} • {p.probability} probability
                 </p>
@@ -456,7 +458,7 @@ function ComparisonContent({ data }: { data: any }) {
 
       {data.summary && (
         <div className="rounded-lg bg-purple-50 p-4">
-          <h3 className="mb-2 font-semibold">Summary</h3>
+          <h3 className="mb-2 font-semibold text-gray-900">Summary</h3>
           <p className="text-gray-700">{data.summary.rationale}</p>
         </div>
       )}
@@ -489,7 +491,7 @@ function KnowledgeGraphContent({ data }: { data: any }) {
                         : 'bg-gray-500'
                 }`}
               />
-              <span className="font-medium">{node.label}</span>
+              <span className="font-medium text-gray-900">{node.label}</span>
             </div>
             {node.description && (
               <p className="mt-1 text-xs text-gray-500">{node.description}</p>
@@ -594,7 +596,7 @@ function FlashcardsContent({ data }: { data: any }) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">{data.title}</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{data.title}</h3>
           <button
             onClick={() => setViewMode('study')}
             className="rounded-lg bg-purple-600 px-4 py-2 text-sm text-white hover:bg-purple-700"
@@ -662,7 +664,7 @@ function FlashcardsContent({ data }: { data: any }) {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">{data.title}</h3>
+        <h3 className="text-lg font-semibold text-gray-900">{data.title}</h3>
         <div className="flex items-center gap-2">
           <button
             onClick={resetProgress}
@@ -915,7 +917,7 @@ function QuizContent({ data }: { data: any }) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">{data.title}</h3>
+        <h3 className="text-lg font-semibold text-gray-900">{data.title}</h3>
         <span className="text-sm text-gray-500">
           Question {currentIndex + 1} of {questions.length}
         </span>
@@ -1185,7 +1187,7 @@ function MindMapContent({ data }: { data: any }) {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">{data.title}</h3>
+        <h3 className="text-lg font-semibold text-gray-900">{data.title}</h3>
         <div className="flex items-center gap-2">
           <button
             onClick={expandAll}

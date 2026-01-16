@@ -171,7 +171,7 @@ function CollaboratorList({
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="truncate text-sm font-medium">
+                <span className="truncate text-sm font-medium text-gray-900">
                   {c.userName}
                 </span>
                 {getRoleBadge(c.role)}
@@ -257,7 +257,7 @@ function ReviewTaskList({
             <div className="flex items-center gap-3">
               {getStatusIcon(task)}
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">
+                <div className="truncate text-sm font-medium text-gray-900">
                   {task.sectionName}
                 </div>
                 <div className="text-xs text-gray-500">

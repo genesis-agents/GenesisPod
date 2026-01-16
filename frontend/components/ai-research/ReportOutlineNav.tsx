@@ -259,7 +259,9 @@ function OutlineItemComponent({
         )}
         {!hasChildren && <span className="w-3" />}
 
-        <span className="flex-1 truncate text-sm">{item.title}</span>
+        <span className="flex-1 truncate text-sm text-gray-900">
+          {item.title}
+        </span>
 
         <span className="flex-shrink-0 text-xs text-gray-400 opacity-0 transition-opacity group-hover:opacity-100">
           {item.wordCount}字

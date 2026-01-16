@@ -1903,7 +1903,9 @@ function ReportTabContent({
                     />
                   </svg>
                 ) : (
-                  <span className="text-sm font-medium">{idx + 1}</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    {idx + 1}
+                  </span>
                 )}
               </div>
 

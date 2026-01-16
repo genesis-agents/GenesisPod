@@ -270,7 +270,9 @@ export function TodoDetailPanel({
     <div className={cn('flex h-full flex-col border-l bg-white', className)}>
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-3">
-        <h3 className="truncate pr-4 text-sm font-semibold">{todo.title}</h3>
+        <h3 className="truncate pr-4 text-sm font-semibold text-gray-900">
+          {todo.title}
+        </h3>
         <Button variant="ghost" size="sm" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
@@ -341,7 +343,7 @@ export function TodoDetailPanel({
           <div className="flex items-center gap-2 text-sm">
             <User className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">执行者:</span>
-            <span className="font-medium">{todo.agentName}</span>
+            <span className="font-medium text-gray-900">{todo.agentName}</span>
             {todo.agentRole && (
               <span className="text-xs text-muted-foreground">
                 ({todo.agentRole})
@@ -431,7 +433,7 @@ export function TodoDetailPanel({
                         <span className="shrink-0 text-xs text-muted-foreground">
                           {formatTimestamp(activity.createdAt)}
                         </span>
-                        <span className="truncate text-sm font-medium">
+                        <span className="truncate text-sm font-medium text-gray-900">
                           {activity.agentName || activity.agentRole}
                         </span>
                       </div>

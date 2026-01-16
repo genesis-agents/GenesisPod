@@ -356,7 +356,9 @@ function TodoItem({
                 autoFocus
               />
             ) : (
-              <span className="truncate text-sm font-medium">{todo.title}</span>
+              <span className="truncate text-sm font-medium text-gray-900">
+                {todo.title}
+              </span>
             )}
             {todo.progress > 0 && todo.progress < 100 && (
               <span className="text-xs text-gray-500">{todo.progress}%</span>
