@@ -509,7 +509,7 @@ export class TopicResearchService {
     // 3. 自己是协作者的（visibility为SHARED）
     const visibleTopicIds = await this.prisma.$queryRaw<{ id: string }[]>`
       SELECT id FROM research_topics
-      WHERE "userId" = ${userId}
+      WHERE "user_id" = ${userId}
          OR visibility = 'PUBLIC'
          OR (visibility = 'SHARED' AND id = ANY(${collaboratorTopicIds}::text[]))
     `;
@@ -676,9 +676,9 @@ export class TopicResearchService {
         rt.visibility,
         EXISTS(
           SELECT 1 FROM topic_collaborators tc
-          WHERE tc."topicId" = rt.id
-            AND tc."userId" = ${userId}
-            AND tc."isActive" = true
+          WHERE tc."topic_id" = rt.id
+            AND tc."user_id" = ${userId}
+            AND tc."is_active" = true
         ) as is_collaborator
       FROM research_topics rt
       WHERE rt.id = ${topicId}
