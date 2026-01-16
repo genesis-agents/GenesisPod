@@ -65,12 +65,16 @@ export enum ReportStatus {
 /**
  * 研究专题
  */
+// 专题可见性
+export type TopicVisibility = 'PRIVATE' | 'SHARED' | 'PUBLIC';
+
 export interface ResearchTopic {
   id: string;
   name: string;
   description: string | null;
   type: ResearchTopicType;
   status: ResearchTopicStatus;
+  visibility?: TopicVisibility; // 可见性：私有/共享/公开
   icon: string | null;
   color: string | null;
   refreshFrequency: RefreshFrequency;

@@ -38,6 +38,13 @@ const DEFAULT_RULES = [
     baseCredits: 1000,
     name: "深度研究",
   },
+  // Topic Research (专题研究)
+  {
+    moduleType: "topic-research",
+    operationType: "refresh",
+    baseCredits: 2000,
+    name: "专题研究刷新",
+  },
   // AI Teams
   {
     moduleType: "ai-teams",

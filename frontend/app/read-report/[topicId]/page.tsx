@@ -35,12 +35,26 @@ interface StructuredReport {
   preface?: string;
   tableOfContents?: string;
   executiveSummary?: string;
+  conclusion?: string;
   sections?: Array<{
     sectionNumber?: string;
     title?: string;
     content?: string;
     coreViewpoints?: string[];
     keyData?: Array<{ data?: string; source?: string }>;
+    figureReferences?: Array<{
+      id?: string;
+      description?: string;
+      suggestedType?: string;
+    }>;
+  }>;
+  appendices?: Array<{ title?: string; content?: string }>;
+  references?: Array<{
+    index?: number;
+    title?: string;
+    url?: string;
+    accessDate?: string;
+    domain?: string;
   }>;
 }
 
@@ -50,19 +64,41 @@ function getReportContent(report: TopicReport | null): string {
 
   // Handle fullReport
   if (report.fullReport) {
-    // If it's already a string (plain markdown)
+    // If it's already a string
     if (typeof report.fullReport === 'string') {
-      // Check if it looks like JSON
       const trimmed = report.fullReport.trim();
-      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+
+      // Check if it looks like JSON (starts with { and contains expected keys)
+      if (trimmed.startsWith('{')) {
         try {
           const parsed = JSON.parse(trimmed) as StructuredReport;
-          return extractMarkdownFromStructuredReport(parsed);
+          // Verify it has expected structure
+          if (
+            parsed.preface ||
+            parsed.executiveSummary ||
+            parsed.sections ||
+            parsed.conclusion
+          ) {
+            return extractMarkdownFromStructuredReport(parsed);
+          }
         } catch {
-          // Not valid JSON, return as-is
-          return report.fullReport;
+          // Not valid JSON, check if it contains embedded JSON
+          const embeddedJson = extractEmbeddedJson(trimmed);
+          if (embeddedJson) {
+            return extractMarkdownFromStructuredReport(embeddedJson);
+          }
         }
       }
+
+      // Check if it's Markdown with embedded JSON blocks
+      if (trimmed.includes('```json')) {
+        const cleaned = cleanMarkdownWithJson(trimmed);
+        if (cleaned !== trimmed) {
+          return cleaned;
+        }
+      }
+
+      // Return as-is if it looks like valid Markdown
       return report.fullReport;
     }
 
@@ -74,12 +110,153 @@ function getReportContent(report: TopicReport | null): string {
     }
   }
 
-  // Fallback to executiveSummary
+  // Fallback to executiveSummary + dimensionAnalyses
+  const parts: string[] = [];
+
   if (report.executiveSummary && typeof report.executiveSummary === 'string') {
-    return report.executiveSummary;
+    parts.push('# 执行摘要\n\n' + report.executiveSummary);
+  }
+
+  // Try to use dimensionAnalyses as fallback content
+  if (report.dimensionAnalyses && Array.isArray(report.dimensionAnalyses)) {
+    for (const analysis of report.dimensionAnalyses) {
+      const analysisParts: string[] = [];
+      const dimensionName = (analysis.dimension?.name as string) || '研究维度';
+
+      analysisParts.push(`# ${dimensionName}`);
+
+      if (analysis.summary && typeof analysis.summary === 'string') {
+        analysisParts.push('\n## 摘要\n\n' + analysis.summary);
+      }
+
+      // Key findings
+      if (
+        Array.isArray(analysis.keyFindings) &&
+        analysis.keyFindings.length > 0
+      ) {
+        analysisParts.push('\n## 关键发现\n');
+        analysis.keyFindings.forEach(
+          (finding: { finding?: string; significance?: string }) => {
+            if (finding.finding) {
+              analysisParts.push(
+                `- **[${finding.significance?.toUpperCase() || 'MEDIUM'}]** ${finding.finding}`
+              );
+            }
+          }
+        );
+      }
+
+      // Trends
+      if (Array.isArray(analysis.trends) && analysis.trends.length > 0) {
+        analysisParts.push('\n## 趋势分析\n');
+        analysis.trends.forEach(
+          (trend: {
+            trend?: string;
+            direction?: string;
+            timeframe?: string;
+          }) => {
+            if (trend.trend) {
+              analysisParts.push(
+                `- **${trend.trend}** (${trend.direction || '未知方向'}, ${trend.timeframe || ''})`
+              );
+            }
+          }
+        );
+      }
+
+      // Challenges
+      if (
+        Array.isArray(analysis.challenges) &&
+        analysis.challenges.length > 0
+      ) {
+        analysisParts.push('\n## 挑战\n');
+        analysis.challenges.forEach(
+          (challenge: { challenge?: string; impact?: string }) => {
+            if (challenge.challenge) {
+              analysisParts.push(
+                `- **${challenge.challenge}**${challenge.impact ? `: ${challenge.impact}` : ''}`
+              );
+            }
+          }
+        );
+      }
+
+      // Opportunities
+      if (
+        Array.isArray(analysis.opportunities) &&
+        analysis.opportunities.length > 0
+      ) {
+        analysisParts.push('\n## 机会\n');
+        analysis.opportunities.forEach(
+          (opp: { opportunity?: string; potential?: string }) => {
+            if (opp.opportunity) {
+              analysisParts.push(
+                `- **${opp.opportunity}**${opp.potential ? `: ${opp.potential}` : ''}`
+              );
+            }
+          }
+        );
+      }
+
+      // Detailed content
+      if (
+        analysis.detailedContent &&
+        typeof analysis.detailedContent === 'string'
+      ) {
+        analysisParts.push('\n## 详细内容\n\n' + analysis.detailedContent);
+      }
+
+      if (analysisParts.length > 1) {
+        parts.push(analysisParts.join('\n'));
+      }
+    }
+  }
+
+  if (parts.length > 0) {
+    return parts.join('\n\n---\n\n');
   }
 
   return '暂无报告内容';
+}
+
+// Try to extract JSON from content that might have mixed markdown/json
+function extractEmbeddedJson(content: string): StructuredReport | null {
+  // Try to find JSON in code blocks
+  const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
+  if (codeBlockMatch) {
+    try {
+      return JSON.parse(codeBlockMatch[1]) as StructuredReport;
+    } catch {
+      // Continue
+    }
+  }
+
+  // Try to find a JSON object with expected keys
+  const jsonMatch = content.match(
+    /\{[\s\S]*"(?:preface|sections|executiveSummary)"[\s\S]*\}/
+  );
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]) as StructuredReport;
+    } catch {
+      // Continue
+    }
+  }
+
+  return null;
+}
+
+// Clean Markdown that contains JSON code blocks
+function cleanMarkdownWithJson(content: string): string {
+  // Replace JSON code blocks with extracted content
+  return content.replace(/```json\s*([\s\S]+?)\s*```/g, (_match, jsonStr) => {
+    try {
+      const parsed = JSON.parse(jsonStr) as StructuredReport;
+      return extractMarkdownFromStructuredReport(parsed);
+    } catch {
+      return ''; // Remove invalid JSON blocks
+    }
+  });
 }
 
 // Extract markdown content from structured report JSON
@@ -88,35 +265,117 @@ function extractMarkdownFromStructuredReport(data: StructuredReport): string {
 
   // Add preface
   if (data.preface && typeof data.preface === 'string') {
-    parts.push(data.preface);
+    parts.push('# 前言\n\n' + data.preface);
   }
 
   // Add executive summary
   if (data.executiveSummary && typeof data.executiveSummary === 'string') {
-    parts.push('## 执行摘要\n\n' + data.executiveSummary);
+    parts.push('# 执行摘要\n\n' + data.executiveSummary);
   }
 
   // Add sections
   if (Array.isArray(data.sections)) {
     for (const section of data.sections) {
+      const sectionParts: string[] = [];
+
+      // Section title
+      const sectionNum = section.sectionNumber || '';
+      const sectionTitle = section.title || '章节';
+      sectionParts.push(
+        `# ${sectionNum}${sectionNum ? '. ' : ''}${sectionTitle}`
+      );
+
+      // Core viewpoints
+      if (
+        Array.isArray(section.coreViewpoints) &&
+        section.coreViewpoints.length > 0
+      ) {
+        sectionParts.push('\n🎯 **核心观点：**\n');
+        section.coreViewpoints.forEach((vp) => {
+          if (typeof vp === 'string') {
+            sectionParts.push(`- ${vp}`);
+          }
+        });
+        sectionParts.push('');
+      }
+
+      // Section content
       if (section.content && typeof section.content === 'string') {
-        // Add section title if content doesn't start with a heading
+        // Don't duplicate heading if content starts with one
         if (
-          section.title &&
-          !section.content.trim().startsWith('#') &&
-          !section.content.trim().startsWith('##')
+          section.content.trim().startsWith('#') &&
+          section.content.includes(sectionTitle)
         ) {
-          parts.push(
-            `## ${section.sectionNumber || ''}. ${section.title}\n\n${section.content}`
-          );
-        } else {
-          parts.push(section.content);
+          sectionParts.length = 0; // Clear previous parts
         }
+        sectionParts.push(section.content);
+      }
+
+      // Key data
+      if (Array.isArray(section.keyData) && section.keyData.length > 0) {
+        sectionParts.push('\n**关键数据：**\n');
+        section.keyData.forEach((kd) => {
+          if (kd.data) {
+            sectionParts.push(
+              `- ${kd.data}${kd.source ? ` (来源: ${kd.source})` : ''}`
+            );
+          }
+        });
+        sectionParts.push('');
+      }
+
+      // Figure references
+      if (
+        Array.isArray(section.figureReferences) &&
+        section.figureReferences.length > 0
+      ) {
+        section.figureReferences.forEach((fig) => {
+          if (fig.id && fig.description) {
+            sectionParts.push(
+              `\n[${fig.id}: ${fig.description}]${fig.suggestedType ? ` (${fig.suggestedType})` : ''}\n`
+            );
+          }
+        });
+      }
+
+      if (sectionParts.length > 0) {
+        parts.push(sectionParts.join('\n'));
       }
     }
   }
 
-  return parts.join('\n\n---\n\n');
+  // Add conclusion
+  if (data.conclusion && typeof data.conclusion === 'string') {
+    parts.push('# 结束语\n\n' + data.conclusion);
+  }
+
+  // Add appendices
+  if (Array.isArray(data.appendices) && data.appendices.length > 0) {
+    parts.push('\n# 附录\n');
+    data.appendices.forEach((appendix, i) => {
+      if (appendix.title || appendix.content) {
+        parts.push(`\n## 附录${i + 1}：${appendix.title || '补充内容'}\n`);
+        if (appendix.content) {
+          parts.push(appendix.content);
+        }
+      }
+    });
+  }
+
+  // Add references
+  if (Array.isArray(data.references) && data.references.length > 0) {
+    parts.push('\n# 参考文献\n');
+    data.references.forEach((ref) => {
+      if (ref.title && ref.url) {
+        parts.push(
+          `[${ref.index || ''}] ${ref.title}. ${ref.domain || ''}. ${ref.url}${ref.accessDate ? `. 访问日期: ${ref.accessDate}` : ''}`
+        );
+      }
+    });
+  }
+
+  const result = parts.join('\n\n');
+  return result || '暂无报告内容';
 }
 
 // 从Markdown中提取目录

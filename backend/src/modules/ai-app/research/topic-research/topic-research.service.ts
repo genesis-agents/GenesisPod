@@ -49,6 +49,7 @@ import {
 import { AIEngineFacade } from "../../../ai-engine/facade";
 import { REPORT_EDITING_SYSTEM_PROMPT, buildEditPrompt } from "./prompts";
 import { ExportOrchestratorService } from "../../../../common/export/services/export-orchestrator.service";
+import { CreditsService } from "../../../credits/credits.service";
 import { ExportFormat } from "@prisma/client";
 
 // 导入维度模板
@@ -417,6 +418,7 @@ export class TopicResearchService {
     private readonly researchStrategyService: ResearchStrategyService,
     private readonly agentActivityService: AgentActivityService,
     private readonly credibilityReportService: CredibilityReportService,
+    private readonly creditsService: CreditsService,
   ) {}
 
   // ==================== Topics CRUD ====================
@@ -788,6 +790,21 @@ export class TopicResearchService {
   ) {
     // 验证专题所有权
     const topic = await this.getTopic(userId, topicId);
+
+    // 扣除积分（专题研究消耗大量 AI tokens）
+    try {
+      await this.creditsService.consumeCredits({
+        userId,
+        moduleType: "topic-research",
+        operationType: "refresh",
+        referenceId: topicId,
+        description: `专题研究刷新: ${topic.name}`,
+      });
+      this.logger.log(`Deducted credits for topic research: ${topicId}`);
+    } catch (error) {
+      this.logger.error(`Failed to deduct credits: ${error}`);
+      throw error; // 积分不足则阻止执行
+    }
 
     // 根据刷新类型决定是否增量刷新
     const isIncremental = dto.type === "INCREMENTAL";

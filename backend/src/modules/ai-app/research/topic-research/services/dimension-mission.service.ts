@@ -628,6 +628,18 @@ export class DimensionMissionService {
   }
 
   /**
+   * 从 URL 中提取域名
+   */
+  private extractDomainFromUrl(url: string): string | null {
+    try {
+      const parsed = new URL(url);
+      return parsed.hostname;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * 准备证据数据
    */
   private prepareEvidenceData(searchItems: DataSourceResult[]): EvidenceData[] {
@@ -635,7 +647,8 @@ export class DimensionMissionService {
       id: `temp-${index}-${Date.now()}`,
       title: item.title,
       url: item.url,
-      domain: item.domain || null,
+      // 优先使用 item.domain，如果没有则从 URL 提取
+      domain: item.domain || this.extractDomainFromUrl(item.url),
       snippet: item.snippet || null,
       sourceType: item.sourceType,
       publishedAt: item.publishedAt || null,

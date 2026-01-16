@@ -181,8 +181,21 @@ export class EvidenceManagementService {
   }
 
   /**
+   * 从 URL 中提取域名
+   */
+  private extractDomainFromUrl(url: string): string | null {
+    try {
+      const parsed = new URL(url);
+      return parsed.hostname;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * ★ 重新计算报告中所有证据的可信度评分
    * 用于修复历史数据中可信度评分不正确的问题
+   * 同时修复缺失的 domain 字段
    */
   async recalculateCredibilityScores(reportId: string): Promise<{
     updated: number;
@@ -200,15 +213,25 @@ export class EvidenceManagementService {
 
     let totalScore = 0;
 
-    // 批量更新
+    // 批量更新 - 同时修复缺失的 domain 并重新计算分数
     await this.prisma.$transaction(
       evidences.map((evidence) => {
-        const newScore = this.calculateCredibilityScore(evidence);
+        // 如果 domain 为空，尝试从 URL 提取
+        const domain =
+          evidence.domain || this.extractDomainFromUrl(evidence.url);
+
+        // 使用修复后的数据计算分数
+        const evidenceWithDomain = { ...evidence, domain };
+        const newScore = this.calculateCredibilityScore(evidenceWithDomain);
         totalScore += newScore;
 
         return this.prisma.topicEvidence.update({
           where: { id: evidence.id },
-          data: { credibilityScore: newScore },
+          data: {
+            credibilityScore: newScore,
+            // 同时更新 domain 如果之前为空
+            ...(evidence.domain === null && domain ? { domain } : {}),
+          },
         });
       }),
     );

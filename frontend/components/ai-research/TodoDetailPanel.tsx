@@ -386,17 +386,17 @@ export function TodoDetailPanel({
             </div>
             {todo.result.sourcesFound !== undefined && (
               <p className="text-sm text-muted-foreground">
-                找到 {todo.result.sourcesFound} 条来源
+                找到 {safeString(todo.result.sourcesFound)} 条来源
               </p>
             )}
             {todo.result.wordCount !== undefined && (
               <p className="text-sm text-muted-foreground">
-                生成 {todo.result.wordCount} 字
+                生成 {safeString(todo.result.wordCount)} 字
               </p>
             )}
             {todo.result.keyFindings !== undefined && (
               <p className="text-sm text-muted-foreground">
-                发现 {todo.result.keyFindings} 个关键发现
+                发现 {safeString(todo.result.keyFindings)} 个关键发现
               </p>
             )}
             {todo.result.error && (
@@ -434,7 +434,7 @@ export function TodoDetailPanel({
                           {formatTimestamp(activity.createdAt)}
                         </span>
                         <span className="truncate text-sm font-medium text-gray-900">
-                          {activity.agentName || activity.agentRole}
+                          {safeString(activity.agentName || activity.agentRole)}
                         </span>
                       </div>
                       {isExpanded ? (
@@ -448,15 +448,15 @@ export function TodoDetailPanel({
                       <div className="space-y-2 px-3 pb-3">
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <span className="rounded bg-gray-100 px-1.5 py-0.5">
-                            {activity.activityType}
+                            {safeString(activity.activityType)}
                           </span>
                           {activity.phase && (
                             <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-600">
-                              {activity.phase}
+                              {safeString(activity.phase)}
                             </span>
                           )}
                           {activity.progress !== undefined && (
-                            <span>{activity.progress}%</span>
+                            <span>{safeString(activity.progress)}%</span>
                           )}
                         </div>
                         <p className="whitespace-pre-wrap text-sm text-gray-700">

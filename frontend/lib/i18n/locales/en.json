@@ -290,8 +290,8 @@
     "searchPlaceholder": "Search topics, resources..."
   },
   "aiStudio": {
-    "title": "AI Studio",
-    "subtitle": "Upload materials and let AI help you research and analyze",
+    "title": "AI Research",
+    "subtitle": "Research topics with AI-powered deep analysis",
     "research": "Deep Research",
     "chat": "Chat",
     "artifacts": "Artifacts",
