@@ -10,6 +10,19 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { getAuthTokens } from '@/lib/utils/auth';
+
+// Helper function to get headers with auth token
+function getAuthHeaders(): HeadersInit {
+  const tokens = getAuthTokens();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (tokens?.accessToken) {
+    headers['Authorization'] = `Bearer ${tokens.accessToken}`;
+  }
+  return headers;
+}
 
 // Types
 export type TopicVisibility = 'PRIVATE' | 'SHARED' | 'PUBLIC';
@@ -208,8 +221,12 @@ export function TopicSharingModal({
 
     try {
       const [sharingRes, collaboratorsRes] = await Promise.all([
-        fetch(`/api/v1/topic-research/topics/${topicId}/sharing`),
-        fetch(`/api/v1/topic-research/topics/${topicId}/collaborators`),
+        fetch(`/api/v1/topic-research/topics/${topicId}/sharing`, {
+          headers: getAuthHeaders(),
+        }),
+        fetch(`/api/v1/topic-research/topics/${topicId}/collaborators`, {
+          headers: getAuthHeaders(),
+        }),
       ]);
 
       if (sharingRes.ok) {
@@ -242,7 +259,7 @@ export function TopicSharingModal({
         `/api/v1/topic-research/topics/${topicId}/visibility`,
         {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ visibility: newVisibility }),
         }
       );
@@ -270,7 +287,7 @@ export function TopicSharingModal({
         `/api/v1/topic-research/topics/${topicId}/collaborators`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ email: newEmail, role: newRole }),
         }
       );
@@ -300,7 +317,7 @@ export function TopicSharingModal({
         `/api/v1/topic-research/topics/${topicId}/collaborators/${collaboratorId}`,
         {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ role }),
         }
       );
@@ -323,7 +340,7 @@ export function TopicSharingModal({
     try {
       const res = await fetch(
         `/api/v1/topic-research/topics/${topicId}/collaborators/${collaboratorId}`,
-        { method: 'DELETE' }
+        { method: 'DELETE', headers: getAuthHeaders() }
       );
 
       if (!res.ok) {
