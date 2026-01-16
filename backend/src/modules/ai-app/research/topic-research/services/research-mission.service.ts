@@ -28,6 +28,8 @@ import {
 import { DimensionMissionService } from "./dimension-mission.service";
 import { ReportSynthesisService } from "./report-synthesis.service";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
+import { TopicCollaboratorService } from "./topic-collaborator.service";
+import { CollaboratorRole } from "../dto/collaborator.dto";
 
 // ==================== Constants ====================
 
@@ -123,6 +125,7 @@ export class ResearchMissionService {
     private readonly dimensionMissionService: DimensionMissionService,
     private readonly reportSynthesisService: ReportSynthesisService,
     private readonly researchEventEmitter: ResearchEventEmitterService,
+    private readonly collaboratorService: TopicCollaboratorService,
   ) {}
 
   /**
@@ -995,15 +998,24 @@ export class ResearchMissionService {
   ): Promise<ResearchMission> {
     const mission = await this.prisma.researchMission.findUnique({
       where: { id: missionId },
-      include: { topic: { select: { userId: true } } },
+      include: { topic: { select: { userId: true, id: true } } },
     });
 
     if (!mission) {
       throw new NotFoundException(`Mission ${missionId} not found`);
     }
 
-    // 验证用户权限
-    if (mission.topic.userId !== userId) {
+    // 验证用户权限（使用统一的权限检查）
+    // PUBLIC 专题：任何登录用户都可以取消
+    // SHARED 专题：协作者可以取消
+    // PRIVATE 专题：仅所有者可以取消
+    const hasAccess = await this.collaboratorService.hasAccess(
+      mission.topic.id,
+      userId,
+      CollaboratorRole.EDITOR, // 取消任务需要 EDITOR 权限
+    );
+
+    if (!hasAccess) {
       throw new ForbiddenException(
         "You do not have permission to cancel this mission",
       );

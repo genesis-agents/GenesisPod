@@ -188,7 +188,7 @@ export function formatEvidenceForPrompt(
 - 引用格式: [${i + 1}]
 - 标题: ${e.title}
 - 来源: ${e.domain || "未知"} (${e.sourceType || "未知类型"})
-- 发布日期: ${e.publishedAt ? e.publishedAt.toISOString().split("T")[0] : "未知"}
+- 发布日期: ${e.publishedAt && !isNaN(e.publishedAt.getTime()) ? e.publishedAt.toISOString().split("T")[0] : "未知"}
 - 可信度: ${e.credibilityScore !== null ? `${e.credibilityScore}/100` : "未评分"}
 - URL: ${e.url}
 
