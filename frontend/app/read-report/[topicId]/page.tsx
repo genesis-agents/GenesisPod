@@ -7,13 +7,55 @@
  * 需要登录，根据专题visibility权限访问
  */
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { getTopic, getLatestReport } from '@/lib/api/topic-research';
 import type { ResearchTopic, TopicReport } from '@/types/topic-research';
+
+// Helper to safely extract text from React children
+function getTextFromChildren(children: ReactNode): string {
+  if (typeof children === 'string') return children;
+  if (typeof children === 'number') return String(children);
+  if (Array.isArray(children)) {
+    return children.map(getTextFromChildren).join('');
+  }
+  if (children && typeof children === 'object' && 'props' in children) {
+    return getTextFromChildren(
+      (children as { props: { children?: ReactNode } }).props.children
+    );
+  }
+  return '';
+}
+
+// Helper to safely get string content from report
+function getReportContent(report: TopicReport | null): string {
+  if (!report) return '';
+
+  // Handle fullReport
+  if (report.fullReport) {
+    if (typeof report.fullReport === 'string') {
+      return report.fullReport;
+    }
+    // If it's an object, try to stringify or extract content
+    if (typeof report.fullReport === 'object') {
+      try {
+        return JSON.stringify(report.fullReport, null, 2);
+      } catch {
+        return '';
+      }
+    }
+  }
+
+  // Fallback to executiveSummary
+  if (report.executiveSummary && typeof report.executiveSummary === 'string') {
+    return report.executiveSummary;
+  }
+
+  return '暂无报告内容';
+}
 
 // 从Markdown中提取目录
 interface TocItem {
@@ -56,11 +98,14 @@ export default function ReportReadingPage() {
   const [readProgress, setReadProgress] = useState(0);
   const [activeSection, setActiveSection] = useState<string | null>(null);
 
+  // 获取报告内容
+  const reportContent = useMemo(() => getReportContent(report), [report]);
+
   // 从报告内容提取目录
   const toc = useMemo(() => {
-    if (!report?.fullReport) return [];
-    return extractTocFromMarkdown(report.fullReport);
-  }, [report?.fullReport]);
+    if (!reportContent) return [];
+    return extractTocFromMarkdown(reportContent);
+  }, [reportContent]);
 
   // Track scroll position
   const handleScroll = useCallback(() => {
@@ -167,21 +212,6 @@ export default function ReportReadingPage() {
     );
   }
 
-  // 处理Markdown，为标题添加data-section-id
-  const processedContent = useMemo(() => {
-    if (!report?.fullReport) return '';
-    let content = report.fullReport;
-    let index = 0;
-    return content.replace(/^(#{1,3})\s+(.+)$/gm, (match, hashes, title) => {
-      const id = `section-${index}-${title
-        .toLowerCase()
-        .replace(/[^\w\u4e00-\u9fa5]+/g, '-')
-        .slice(0, 30)}`;
-      index++;
-      return `<div data-section-id="${id}"></div>\n\n${match}`;
-    });
-  }, [report?.fullReport]);
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       {/* Header */}
@@ -286,7 +316,7 @@ export default function ReportReadingPage() {
                 components={{
                   // 为标题添加data-section-id
                   h1: ({ children, ...props }) => {
-                    const text = String(children);
+                    const text = getTextFromChildren(children);
                     const id = `section-h1-${text
                       .toLowerCase()
                       .replace(/[^\w\u4e00-\u9fa5]+/g, '-')
@@ -298,7 +328,7 @@ export default function ReportReadingPage() {
                     );
                   },
                   h2: ({ children, ...props }) => {
-                    const text = String(children);
+                    const text = getTextFromChildren(children);
                     const id = `section-h2-${text
                       .toLowerCase()
                       .replace(/[^\w\u4e00-\u9fa5]+/g, '-')
@@ -310,7 +340,7 @@ export default function ReportReadingPage() {
                     );
                   },
                   h3: ({ children, ...props }) => {
-                    const text = String(children);
+                    const text = getTextFromChildren(children);
                     const id = `section-h3-${text
                       .toLowerCase()
                       .replace(/[^\w\u4e00-\u9fa5]+/g, '-')
@@ -323,7 +353,7 @@ export default function ReportReadingPage() {
                   },
                 }}
               >
-                {report.fullReport || report.executiveSummary || '暂无报告内容'}
+                {reportContent}
               </ReactMarkdown>
             </div>
           </article>
