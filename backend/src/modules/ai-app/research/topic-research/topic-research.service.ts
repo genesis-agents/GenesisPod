@@ -677,7 +677,7 @@ export class TopicResearchService {
       SELECT
         rt.visibility,
         EXISTS(
-          SELECT 1 FROM topic_collaborators tc
+          SELECT 1 FROM research_topic_collaborators tc
           WHERE tc."topic_id" = rt.id
             AND tc."user_id" = ${userId}
             AND tc."is_active" = true
