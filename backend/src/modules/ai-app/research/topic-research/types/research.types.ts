@@ -124,8 +124,8 @@ export interface EvidenceData {
   snippet: string | null;
   /** 来源类型 */
   sourceType: string | null;
-  /** 发布时间 */
-  publishedAt: Date | null;
+  /** 发布时间（可能是 Date 对象或 ISO 字符串） */
+  publishedAt: Date | string | null;
   /** 可信度评分 */
   credibilityScore: number | null;
 }

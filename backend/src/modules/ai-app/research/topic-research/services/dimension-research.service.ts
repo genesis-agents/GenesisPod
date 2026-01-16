@@ -417,9 +417,18 @@ export class DimensionResearchService {
   /**
    * 获取时效性分数 (0-100)
    */
-  private getRecencyScore(publishedAt: Date): number {
+  private getRecencyScore(publishedAt: Date | string): number {
+    // 确保是 Date 对象
+    const date =
+      publishedAt instanceof Date ? publishedAt : new Date(publishedAt);
+
+    // 检查是否为有效日期
+    if (isNaN(date.getTime())) {
+      return 50; // 无法解析日期时返回中等分数
+    }
+
     const daysSince = Math.floor(
-      (Date.now() - publishedAt.getTime()) / (1000 * 60 * 60 * 24),
+      (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24),
     );
 
     if (daysSince <= 30) return 100; // 1 个月内

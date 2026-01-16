@@ -166,6 +166,30 @@ export const DIMENSION_RESEARCH_USER_PROMPT_TEMPLATE = `请对以下维度进行
 请以 JSON 格式输出你的分析结果。`;
 
 /**
+ * 安全格式化日期为 YYYY-MM-DD 格式
+ * 处理 Date 对象、日期字符串、null 等各种情况
+ */
+function safeFormatDate(dateValue: Date | string | null | undefined): string {
+  if (!dateValue) {
+    return "未知";
+  }
+
+  try {
+    // 如果是字符串，尝试解析为 Date
+    const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+
+    // 检查是否为有效日期
+    if (isNaN(date.getTime())) {
+      return "未知";
+    }
+
+    return date.toISOString().split("T")[0];
+  } catch {
+    return "未知";
+  }
+}
+
+/**
  * 格式化证据列表为提示词格式
  * ★ 使用数字引用格式 [1], [2]，便于 LLM 直接使用
  */
@@ -177,7 +201,7 @@ export function formatEvidenceForPrompt(
     domain: string | null;
     snippet: string | null;
     sourceType: string | null;
-    publishedAt: Date | null;
+    publishedAt: Date | string | null;
     credibilityScore: number | null;
   }>,
 ): string {
@@ -188,7 +212,7 @@ export function formatEvidenceForPrompt(
 - 引用格式: [${i + 1}]
 - 标题: ${e.title}
 - 来源: ${e.domain || "未知"} (${e.sourceType || "未知类型"})
-- 发布日期: ${e.publishedAt && !isNaN(e.publishedAt.getTime()) ? e.publishedAt.toISOString().split("T")[0] : "未知"}
+- 发布日期: ${safeFormatDate(e.publishedAt)}
 - 可信度: ${e.credibilityScore !== null ? `${e.credibilityScore}/100` : "未评分"}
 - URL: ${e.url}
 
