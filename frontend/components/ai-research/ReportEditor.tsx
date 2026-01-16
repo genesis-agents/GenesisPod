@@ -25,7 +25,11 @@ import type { TopicReport, TopicEvidence } from '@/types/topic-research';
 import { TextSelectionContextMenu } from './TextSelectionContextMenu';
 import type { AIEditOperation } from './types';
 import { triggerCitationClick } from './citationNavigation';
-import { AnnotationHighlighter } from './AnnotationHighlighter';
+import {
+  splitTextIntoSegments,
+  type Annotation as PreprocessorAnnotation,
+} from '@/lib/annotation';
+import { AnnotatedText, useScrollToAnnotation } from './AnnotatedText';
 
 // View modes: preview, richtext (WYSIWYG), source (raw markdown)
 type ViewMode = 'preview' | 'richtext' | 'source';
@@ -211,30 +215,30 @@ interface ReportEditorProps {
 /**
  * Custom comparison function for React.memo
  *
- * CRITICAL: This prevents re-renders when parent state changes (like sidePanelType)
+ * Prevents unnecessary re-renders when parent state changes (like sidePanelType)
  * but the actual content data hasn't changed.
  *
- * Why this is necessary:
- * - AnnotationHighlighter modifies the DOM directly (adds <mark> elements)
- * - When React re-renders, it tries to reconcile virtual DOM with actual DOM
- * - But the actual DOM has been modified, causing "insertBefore" errors
- *
- * What we compare (DATA props only):
+ * With React Controlled Highlighting, we now render annotations inline via React.
+ * This means we need to compare:
  * - report, evidence, isLoading - core data
- * - annotations - content comparison (parent may create new array each render)
+ * - annotations - content for highlighting
+ * - highlightedAnnotationId - for scroll-to and highlight state
  *
  * What we DON'T compare:
- * - highlightedAnnotationId - handled by AnnotationHighlighter via CSS classes
  * - Callback functions (onSave, onAIEdit, onAddAnnotation) - parent may use inline functions
  */
 function areReportEditorPropsEqual(
   prevProps: ReportEditorProps,
   nextProps: ReportEditorProps
 ): boolean {
-  // Compare DATA props only
+  // Compare core data props
   if (prevProps.report !== nextProps.report) return false;
   if (prevProps.evidence !== nextProps.evidence) return false;
   if (prevProps.isLoading !== nextProps.isLoading) return false;
+
+  // Compare highlightedAnnotationId (needed for React Controlled Highlighting)
+  if (prevProps.highlightedAnnotationId !== nextProps.highlightedAnnotationId)
+    return false;
 
   // Deep compare annotations
   const prevAnnotations = prevProps.annotations || [];
@@ -247,7 +251,8 @@ function areReportEditorPropsEqual(
     if (
       prev.id !== next.id ||
       prev.selectedText !== next.selectedText ||
-      prev.color !== next.color
+      prev.color !== next.color ||
+      prev.status !== next.status
     ) {
       return false;
     }
@@ -866,7 +871,6 @@ function ReportEditorInner({
   }, [isEditing, editContent, markdownContent]);
 
   // Automatically switch to preview mode when highlighted annotation changes
-  // Note: Actual scrolling is handled by AnnotationHighlighter component
   useEffect(() => {
     if (highlightedAnnotationId && viewMode !== 'preview') {
       setViewMode('preview');
@@ -967,21 +971,80 @@ function ReportEditorInner({
     [evidence]
   );
 
-  // ★ Process text for citations only
-  // Note: Annotations are handled by AnnotationHighlighter via DOM post-processing
-  // This enables cross-paragraph annotation highlighting that inline processing cannot handle
-  const processText = useCallback(
-    (text: string): React.ReactNode => {
-      if (!text) return text;
-      // Only process citations - annotations are handled by AnnotationHighlighter
-      return processTextWithCitations(text);
-    },
-    [processTextWithCitations]
+  // Convert ReportAnnotation to PreprocessorAnnotation
+  const preprocessorAnnotations: PreprocessorAnnotation[] = useMemo(
+    () =>
+      (annotations || []).map((a) => ({
+        id: a.id,
+        selectedText: a.selectedText,
+        startOffset: a.startOffset,
+        endOffset: a.endOffset,
+        selectorPrefix: a.selectorPrefix,
+        selectorSuffix: a.selectorSuffix,
+        color: a.color,
+        status: a.status,
+      })),
+    [annotations]
   );
 
-  // ★ Memoize ReactMarkdown content to prevent re-renders when annotations change
-  // This is critical to avoid React reconciliation conflicts with AnnotationHighlighter's DOM modifications
-  // When annotations change, we DON'T want React to re-render the markdown - AnnotationHighlighter handles it via DOM
+  // Hook for scrolling to annotations
+  const scrollToAnnotation = useScrollToAnnotation();
+
+  // Handle annotation click - scroll to annotation panel
+  const handleAnnotationClick = useCallback((annotationId: string) => {
+    // Dispatch custom event for annotation panel to handle
+    window.dispatchEvent(
+      new CustomEvent('annotation-click', { detail: { annotationId } })
+    );
+  }, []);
+
+  // ★ Process text with both annotations AND citations (React Controlled Highlighting)
+  // This replaces the DOM-based AnnotationHighlighter approach to avoid React reconciliation conflicts
+  const processText = useCallback(
+    (text: string, keyPrefix: string = ''): React.ReactNode => {
+      if (!text) return text;
+
+      // First, split text into annotated segments
+      const segments = splitTextIntoSegments(text, preprocessorAnnotations);
+
+      // If no annotations found, just process citations
+      if (segments.length === 1 && !segments[0].annotationId) {
+        return processTextWithCitations(text);
+      }
+
+      // Render segments with annotation highlights
+      // Pass processTextWithCitations as renderText to handle citations within segments
+      return (
+        <AnnotatedText
+          segments={segments}
+          highlightedId={highlightedAnnotationId}
+          onAnnotationClick={handleAnnotationClick}
+          renderText={processTextWithCitations}
+        />
+      );
+    },
+    [
+      preprocessorAnnotations,
+      highlightedAnnotationId,
+      handleAnnotationClick,
+      processTextWithCitations,
+    ]
+  );
+
+  // Handle scroll to annotation when highlightedAnnotationId changes
+  useEffect(() => {
+    if (highlightedAnnotationId && previewRef.current) {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        scrollToAnnotation(highlightedAnnotationId, previewRef.current!);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedAnnotationId, scrollToAnnotation]);
+
+  // ★ ReactMarkdown content with React Controlled Highlighting
+  // Annotations are now rendered inline via processText → AnnotatedText component
+  // This eliminates DOM manipulation conflicts that caused React error #310
   const memoizedMarkdownContent = useMemo(
     () => (
       <article className="prose prose-gray max-w-none">
@@ -999,7 +1062,7 @@ function ReportEditorInner({
                 {children}
               </a>
             ),
-            // ★ Process text nodes for citations (annotations handled by AnnotationHighlighter)
+            // ★ Process text nodes for both citations AND annotations (React Controlled)
             p: ({ children, ...props }) => (
               <p {...props}>
                 {typeof children === 'string'
@@ -1331,7 +1394,7 @@ function ReportEditorInner({
               </span>
             </div>
 
-            {/* Use memoized content to prevent React reconciliation conflicts with AnnotationHighlighter */}
+            {/* Markdown content with React Controlled annotation highlighting */}
             {memoizedMarkdownContent}
 
             {/* Context menu for preview mode */}
@@ -1340,14 +1403,6 @@ function ReportEditorInner({
               onAIEdit={onAIEdit ? handleAIEditFromMenu : undefined}
               onAddAnnotation={onAddAnnotation}
               isAIProcessing={isAIProcessing}
-            />
-
-            {/* DOM-based annotation highlighter for cross-paragraph support */}
-            <AnnotationHighlighter
-              containerRef={previewRef}
-              annotations={annotations || []}
-              highlightedAnnotationId={highlightedAnnotationId}
-              content={markdownContent}
             />
           </div>
         )}

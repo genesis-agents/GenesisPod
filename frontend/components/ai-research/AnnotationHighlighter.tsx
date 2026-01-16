@@ -1,11 +1,24 @@
 'use client';
 
 /**
- * AnnotationHighlighter Component
+ * @deprecated This component is deprecated and will be removed in a future version.
  *
- * A React component that applies annotation highlights to DOM content
- * after it has been rendered. This approach solves the problem of
- * annotations spanning multiple paragraphs/elements.
+ * AnnotationHighlighter uses DOM post-processing to add <mark> elements,
+ * which causes conflicts with React's DOM reconciliation, leading to
+ * React error #310 ("Failed to execute 'insertBefore' on 'Node'").
+ *
+ * **Use instead:**
+ * - `AnnotatedText` component from `./AnnotatedText.tsx`
+ * - `splitTextIntoSegments` from `@/lib/annotation/annotation-preprocessor`
+ *
+ * These use "React Controlled Highlighting" which renders annotations
+ * inline during React's render cycle, avoiding DOM conflicts.
+ *
+ * ---
+ *
+ * Original Description:
+ * AnnotationHighlighter Component - A React component that applies annotation
+ * highlights to DOM content after it has been rendered.
  *
  * Features:
  * - Applies highlights after content renders (DOM-based approach)
@@ -134,15 +147,15 @@ export function AnnotationHighlighter({
       totalAnnotations: annotations.length,
     });
 
-    // For simple additions, skip the heavy work - the annotation will be visible on next full refresh
-    // This prevents React DOM conflicts when adding annotations during active editing
-    if (isSimpleAddition) {
-      console.log(
-        '[AnnotationHighlighter] Skipping rebuild for simple addition - avoiding React DOM conflict'
-      );
-      // Update the prev ref but don't do DOM operations
-      return;
-    }
+    // Determine delay based on change type
+    // For simple additions, use a longer delay to let React fully stabilize
+    // This prevents DOM conflicts while still applying the highlight
+    const baseDelay = isSimpleAddition ? 300 : 50;
+
+    console.log('[AnnotationHighlighter] Scheduling highlight with delay:', {
+      isSimpleAddition,
+      baseDelay,
+    });
 
     // Use queueMicrotask + setTimeout + requestAnimationFrame to ensure React has FULLY finished
     // This triple-layer scheduling prevents "insertBefore" errors from DOM/React conflicts

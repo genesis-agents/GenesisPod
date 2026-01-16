@@ -22,7 +22,11 @@ import TurndownService from 'turndown';
 import { CitedMarkdown } from './deep-research/citations';
 import type { SourceReference } from './deep-research/citations/types';
 import { TextSelectionContextMenu } from './TextSelectionContextMenu';
-import { AnnotationHighlighter } from './AnnotationHighlighter';
+import {
+  splitTextIntoSegments,
+  type Annotation as PreprocessorAnnotation,
+} from '@/lib/annotation';
+import { AnnotatedText, useScrollToAnnotation } from './AnnotatedText';
 import type { AIEditOperation } from './types';
 import type {
   TopicReport,
@@ -354,35 +358,31 @@ const CodeIcon = ({ className }: { className?: string }) => (
 /**
  * Custom comparison function for React.memo
  *
- * CRITICAL: This prevents re-renders when parent state changes (like sidePanelType)
+ * Prevents unnecessary re-renders when parent state changes (like sidePanelType)
  * but the actual content data hasn't changed.
  *
- * Why this is necessary:
- * - AnnotationHighlighter modifies the DOM directly (adds <mark> elements)
- * - When React re-renders, it tries to reconcile virtual DOM with actual DOM
- * - But the actual DOM has been modified, causing "insertBefore" errors
- *
- * What we compare (DATA props only):
+ * With React Controlled Highlighting, we now render annotations inline via React.
+ * This means we need to compare:
  * - report, dimensions, evidence, isLoading - core data
- * - annotations - content comparison via JSON (parent creates new array each render)
+ * - annotations - content for highlighting
+ * - highlightedAnnotationId - for scroll-to and highlight state
  *
  * What we DON'T compare:
- * - highlightedAnnotationId - handled by AnnotationHighlighter via CSS classes
- * - Callback functions (onEditChapter, onAIEdit, etc.) - parent uses inline functions,
- *   creating new references each render, but logic is the same
+ * - Callback functions (onEditChapter, onAIEdit, etc.) - parent uses inline functions
  */
 function arePropsEqual(
   prevProps: ChapterizedReportViewProps,
   nextProps: ChapterizedReportViewProps
 ): boolean {
-  // Compare DATA props only, not callbacks or highlightedAnnotationId
-  // Callbacks are inline functions in parent, always new references but same logic
-
-  // Quick reference checks for data props
+  // Compare core data props
   if (prevProps.report !== nextProps.report) return false;
   if (prevProps.dimensions !== nextProps.dimensions) return false;
   if (prevProps.evidence !== nextProps.evidence) return false;
   if (prevProps.isLoading !== nextProps.isLoading) return false;
+
+  // Compare highlightedAnnotationId (needed for React Controlled Highlighting)
+  if (prevProps.highlightedAnnotationId !== nextProps.highlightedAnnotationId)
+    return false;
 
   // Deep compare annotations (parent does .map() creating new array each time)
   const prevAnnotations = prevProps.annotations || [];
@@ -396,14 +396,14 @@ function arePropsEqual(
     if (
       prev.id !== next.id ||
       prev.selectedText !== next.selectedText ||
-      prev.color !== next.color
+      prev.color !== next.color ||
+      prev.status !== next.status
     ) {
       return false;
     }
   }
 
   // All data props are equal - skip re-render
-  // highlightedAnnotationId and callbacks intentionally NOT compared
   return true;
 }
 
@@ -424,7 +424,7 @@ function ChapterizedReportViewInner({
   const [editContent, setEditContent] = useState('');
   const [isAIProcessing, setIsAIProcessing] = useState(false);
 
-  // Ref for preview container (used by context menu and AnnotationHighlighter)
+  // Ref for preview container (used by context menu and annotation highlighting)
   const previewRef = useRef<HTMLDivElement>(null);
   // Ref for edit container (used by context menu in edit mode)
   const editContainerRef = useRef<HTMLDivElement>(null);
@@ -484,6 +484,55 @@ function ChapterizedReportViewInner({
       abstract: ev.snippet || null,
     }));
   }, [evidence]);
+
+  // Convert ReportAnnotation to PreprocessorAnnotation for React Controlled Highlighting
+  const preprocessorAnnotations: PreprocessorAnnotation[] = useMemo(
+    () =>
+      (annotations || []).map((a) => ({
+        id: a.id,
+        selectedText: a.selectedText,
+        startOffset: a.startOffset,
+        endOffset: a.endOffset,
+        selectorPrefix: a.selectorPrefix,
+        selectorSuffix: a.selectorSuffix,
+        color: a.color,
+        status: a.status,
+      })),
+    [annotations]
+  );
+
+  // Hook for scrolling to annotations
+  const scrollToAnnotation = useScrollToAnnotation();
+
+  // Handle annotation click - dispatch event for annotation panel
+  const handleAnnotationClick = useCallback((annotationId: string) => {
+    window.dispatchEvent(
+      new CustomEvent('annotation-click', { detail: { annotationId } })
+    );
+  }, []);
+
+  // Process text with annotation highlighting (React Controlled approach)
+  const processTextWithAnnotations = useCallback(
+    (text: string): React.ReactNode => {
+      if (!text || preprocessorAnnotations.length === 0) return text;
+
+      const segments = splitTextIntoSegments(text, preprocessorAnnotations);
+
+      // If no annotations found, return plain text
+      if (segments.length === 1 && !segments[0].annotationId) {
+        return text;
+      }
+
+      return (
+        <AnnotatedText
+          segments={segments}
+          highlightedId={highlightedAnnotationId}
+          onAnnotationClick={handleAnnotationClick}
+        />
+      );
+    },
+    [preprocessorAnnotations, highlightedAnnotationId, handleAnnotationClick]
+  );
 
   // Build chapters from report and dimensions
   const chapters = useMemo<Chapter[]>(() => {
@@ -592,7 +641,6 @@ function ChapterizedReportViewInner({
 
   // ★ Navigate to highlighted annotation when it changes
   // Auto-select the chapter containing the annotation and switch to preview mode
-  // Note: Actual scrolling is handled by AnnotationHighlighter component
   useEffect(() => {
     if (!highlightedAnnotationId) return;
 
@@ -626,6 +674,16 @@ function ChapterizedReportViewInner({
     selectedChapter?.id,
     viewMode,
   ]);
+
+  // Handle scroll to annotation when highlightedAnnotationId changes (React Controlled)
+  useEffect(() => {
+    if (highlightedAnnotationId && previewRef.current) {
+      const timer = setTimeout(() => {
+        scrollToAnnotation(highlightedAnnotationId, previewRef.current!);
+      }, 150); // Slightly longer delay to ensure chapter switch completes
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedAnnotationId, scrollToAnnotation]);
 
   // Open chapter for viewing/editing
   const openChapter = useCallback((chapter: Chapter) => {
@@ -955,30 +1013,74 @@ function ChapterizedReportViewInner({
               placeholder="编辑 Markdown 源码..."
             />
           ) : (
-            // Stable content wrapper - key only changes when content changes
-            // This prevents React reconciliation conflicts with DOM modifications
-            <div
-              key={`preview-${selectedChapter?.id || 'none'}-${annotations?.length || 0}`}
-              ref={previewRef}
-              className="p-6"
-            >
-              {/* Memoized content - does NOT depend on highlightedAnnotationId */}
-              {/* This prevents re-renders when only the highlight state changes */}
-              {useMemo(
-                () =>
-                  sources.length > 0 ? (
-                    <CitedMarkdown
-                      content={selectedChapter.content || '暂无内容'}
-                      sources={sources}
-                    />
-                  ) : (
-                    <article className="prose prose-sm prose-gray max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {selectedChapter.content || '暂无内容'}
-                      </ReactMarkdown>
-                    </article>
-                  ),
-                [selectedChapter.content, sources]
+            // Preview mode with React Controlled annotation highlighting
+            <div ref={previewRef} className="p-6">
+              {sources.length > 0 ? (
+                // CitedMarkdown handles citations - annotations processed separately
+                <CitedMarkdown
+                  content={selectedChapter.content || '暂无内容'}
+                  sources={sources}
+                />
+              ) : (
+                // Plain markdown with annotation highlighting
+                <article className="prose prose-sm prose-gray max-w-none">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      // Process text nodes for annotations
+                      p: ({ children, ...props }) => (
+                        <p {...props}>
+                          {typeof children === 'string'
+                            ? processTextWithAnnotations(children)
+                            : Array.isArray(children)
+                              ? children.map((child, i) =>
+                                  typeof child === 'string' ? (
+                                    <span key={i}>
+                                      {processTextWithAnnotations(child)}
+                                    </span>
+                                  ) : (
+                                    child
+                                  )
+                                )
+                              : children}
+                        </p>
+                      ),
+                      li: ({ children, ...props }) => (
+                        <li {...props}>
+                          {typeof children === 'string'
+                            ? processTextWithAnnotations(children)
+                            : Array.isArray(children)
+                              ? children.map((child, i) =>
+                                  typeof child === 'string' ? (
+                                    <span key={i}>
+                                      {processTextWithAnnotations(child)}
+                                    </span>
+                                  ) : (
+                                    child
+                                  )
+                                )
+                              : children}
+                        </li>
+                      ),
+                      strong: ({ children, ...props }) => (
+                        <strong {...props}>
+                          {typeof children === 'string'
+                            ? processTextWithAnnotations(children)
+                            : children}
+                        </strong>
+                      ),
+                      em: ({ children, ...props }) => (
+                        <em {...props}>
+                          {typeof children === 'string'
+                            ? processTextWithAnnotations(children)
+                            : children}
+                        </em>
+                      ),
+                    }}
+                  >
+                    {selectedChapter.content || '暂无内容'}
+                  </ReactMarkdown>
+                </article>
               )}
 
               {/* ★ 右键菜单 - 与连续视图保持一致 */}
@@ -987,15 +1089,6 @@ function ChapterizedReportViewInner({
                 onAIEdit={onAIEdit ? handleAIEditFromMenu : undefined}
                 onAddAnnotation={onAddAnnotation}
                 isAIProcessing={isAIProcessing}
-              />
-
-              {/* DOM-based annotation highlighter for cross-paragraph support */}
-              {/* Receives highlightedAnnotationId but only updates CSS classes, not DOM structure */}
-              <AnnotationHighlighter
-                containerRef={previewRef}
-                annotations={annotations || []}
-                highlightedAnnotationId={highlightedAnnotationId}
-                content={selectedChapter.content || ''}
               />
             </div>
           )}
@@ -1082,9 +1175,9 @@ function ChapterizedReportViewInner({
 /**
  * Memoized ChapterizedReportView
  *
- * Uses custom comparison to prevent re-renders when only highlightedAnnotationId changes.
- * This is critical to avoid React DOM reconciliation conflicts with AnnotationHighlighter's
- * direct DOM manipulation.
+ * Uses custom comparison to prevent unnecessary re-renders.
+ * With React Controlled Highlighting, annotations are rendered inline via React,
+ * eliminating DOM manipulation conflicts that caused React error #310.
  */
 export const ChapterizedReportView = memo(
   ChapterizedReportViewInner,

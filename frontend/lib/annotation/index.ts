@@ -21,3 +21,17 @@ export {
   getAnnotationIds,
   type AnnotationData,
 } from './dom-highlighter';
+
+// New React Controlled Highlighting approach
+export {
+  normalizeWhitespace as normalizeAnnotationWhitespace,
+  findAnnotationMatches,
+  splitTextIntoSegments,
+  processTextNode,
+  hasAnnotationsInText,
+  getMatchingAnnotationIds,
+  type Annotation,
+  type AnnotatedSegment,
+  type AnnotationMatch,
+  type AnnotationColor,
+} from './annotation-preprocessor';
