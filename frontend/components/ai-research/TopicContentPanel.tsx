@@ -854,18 +854,17 @@ export function TopicContentPanel({
 
       try {
         // Call backend API to create annotation
+        // Note: selectorPrefix, selectorSuffix, color not yet in DB - saved locally only
         const created = await createAnnotation(topicId, report.id, {
           content: annotation.content || '',
           type: 'COMMENT',
           selectedText: annotation.selectedText,
           startOffset: annotation.startOffset,
           endOffset: annotation.endOffset,
-          selectorPrefix: annotation.selectorPrefix,
-          selectorSuffix: annotation.selectorSuffix,
-          color: annotation.color,
         });
 
         // Convert API response to local format and add to state
+        // Keep local fields (selectorPrefix, selectorSuffix, color) from input
         const newAnnotation: ReportAnnotation = {
           id: created.id,
           reportId: created.reportId,
@@ -879,9 +878,9 @@ export function TopicContentPanel({
           content: created.content,
           startOffset: created.startOffset,
           endOffset: created.endOffset,
-          selectorPrefix: created.selectorPrefix,
-          selectorSuffix: created.selectorSuffix,
-          color: (created.color || 'yellow') as AnnotationColor,
+          selectorPrefix: annotation.selectorPrefix,
+          selectorSuffix: annotation.selectorSuffix,
+          color: annotation.color || 'yellow',
           status: 'active',
           createdAt: created.createdAt,
           updatedAt: created.updatedAt,

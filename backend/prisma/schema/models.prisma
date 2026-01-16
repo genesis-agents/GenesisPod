@@ -7239,11 +7239,6 @@ model ReportAnnotation {
   selectedText   String?          @map("selected_text") @db.Text
   startOffset    Int              @map("start_offset")
   endOffset      Int              @map("end_offset")
-  // ========== v2: 增强文本匹配字段 ==========
-  selectorPrefix String?          @map("selector_prefix") @db.VarChar(200)
-  selectorSuffix String?          @map("selector_suffix") @db.VarChar(200)
-  color          String?          @default("yellow") @db.VarChar(20)
-  // ========================================
   createdById    String           @map("created_by_id")
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")

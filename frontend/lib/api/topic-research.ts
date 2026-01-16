@@ -1659,6 +1659,8 @@ export interface ReportAnnotation {
 
 /**
  * 创建批注 DTO
+ * Note: selectorPrefix, selectorSuffix, color fields are for future use
+ * Backend currently doesn't support them - they're stored locally only
  */
 export interface CreateAnnotationDto {
   content: string;
@@ -1666,9 +1668,10 @@ export interface CreateAnnotationDto {
   selectedText?: string;
   startOffset: number;
   endOffset: number;
-  selectorPrefix?: string;
-  selectorSuffix?: string;
-  color?: string;
+  // Future fields (not yet in database):
+  // selectorPrefix?: string;
+  // selectorSuffix?: string;
+  // color?: string;
 }
 
 /**

@@ -63,6 +63,23 @@ function createMarkElement(annotation: AnnotationData): HTMLElement {
 }
 
 /**
+ * Check if a node is inside an annotation mark element
+ */
+function isInsideAnnotationMark(node: Node): boolean {
+  let current: Node | null = node.parentNode;
+  while (current) {
+    if (
+      current.nodeType === Node.ELEMENT_NODE &&
+      (current as Element).classList?.contains(ANNOTATION_MARK_CLASS)
+    ) {
+      return true;
+    }
+    current = current.parentNode;
+  }
+  return false;
+}
+
+/**
  * Highlight a range that is contained within a single text node
  */
 function highlightSingleNodeRange(
@@ -70,11 +87,18 @@ function highlightSingleNodeRange(
   annotation: AnnotationData
 ): HTMLElement | null {
   try {
+    // Skip if already inside an annotation mark (avoid nested annotations)
+    if (isInsideAnnotationMark(range.startContainer)) {
+      console.warn('Skipping highlight: text is already inside an annotation');
+      return null;
+    }
+
     const mark = createMarkElement(annotation);
     range.surroundContents(mark);
     return mark;
-  } catch {
+  } catch (e) {
     // surroundContents can fail if range partially selects non-text nodes
+    console.warn('surroundContents failed:', e);
     return null;
   }
 }
@@ -93,7 +117,28 @@ function wrapTextNodePortion(
     const parent = textNode.parentNode;
     if (!parent) return null;
 
+    // Skip if already inside an annotation mark (avoid nested annotations)
+    if (isInsideAnnotationMark(textNode)) {
+      console.warn('Skipping wrap: text node is already inside an annotation');
+      return null;
+    }
+
     const fullText = textNode.textContent || '';
+
+    // Validate offsets
+    if (
+      startOffset < 0 ||
+      endOffset > fullText.length ||
+      startOffset >= endOffset
+    ) {
+      console.warn('Invalid offsets for wrap:', {
+        startOffset,
+        endOffset,
+        textLength: fullText.length,
+      });
+      return null;
+    }
+
     const beforeText = fullText.slice(0, startOffset);
     const highlightText = fullText.slice(startOffset, endOffset);
     const afterText = fullText.slice(endOffset);
@@ -136,89 +181,112 @@ function highlightMultiNodeRange(
 ): HTMLElement[] {
   const marks: HTMLElement[] = [];
 
-  // Store boundary information before modifying DOM
-  const startContainer = range.startContainer;
-  const endContainer = range.endContainer;
-  const startOffset = range.startOffset;
-  const endOffset = range.endOffset;
+  try {
+    // Store boundary information before modifying DOM
+    const startContainer = range.startContainer;
+    const endContainer = range.endContainer;
+    const startOffset = range.startOffset;
+    const endOffset = range.endOffset;
 
-  // Get all text nodes in the range
-  interface TextNodeInfo {
-    node: Text;
-    isStart: boolean;
-    isEnd: boolean;
-    highlightStart: number;
-    highlightEnd: number;
-  }
-
-  const textNodeInfos: TextNodeInfo[] = [];
-  const treeWalker = document.createTreeWalker(
-    range.commonAncestorContainer,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode: (node) => {
-        // Check if node is within the range
-        try {
-          const nodeRange = document.createRange();
-          nodeRange.selectNode(node);
-
-          // Node is in range if it's not completely before or after
-          const comparison1 = range.compareBoundaryPoints(
-            Range.START_TO_END,
-            nodeRange
-          );
-          const comparison2 = range.compareBoundaryPoints(
-            Range.END_TO_START,
-            nodeRange
-          );
-
-          if (comparison1 > 0 && comparison2 < 0) {
-            return NodeFilter.FILTER_ACCEPT;
-          }
-        } catch {
-          // Range comparison failed, skip this node
-        }
-        return NodeFilter.FILTER_REJECT;
-      },
+    // Validate containers
+    if (!startContainer || !endContainer) {
+      console.warn('Invalid range containers');
+      return marks;
     }
-  );
 
-  let node: Text | null;
-  while ((node = treeWalker.nextNode() as Text | null)) {
-    const isStart = node === startContainer;
-    const isEnd = node === endContainer;
-    const textLength = node.textContent?.length || 0;
+    // Get all text nodes in the range
+    interface TextNodeInfo {
+      node: Text;
+      isStart: boolean;
+      isEnd: boolean;
+      highlightStart: number;
+      highlightEnd: number;
+    }
 
-    textNodeInfos.push({
-      node,
-      isStart,
-      isEnd,
-      highlightStart: isStart ? startOffset : 0,
-      highlightEnd: isEnd ? endOffset : textLength,
-    });
-  }
+    const textNodeInfos: TextNodeInfo[] = [];
 
-  // Process nodes in REVERSE order to avoid DOM mutation issues
-  // When we modify a node, it doesn't affect the position of previous nodes
-  for (let i = textNodeInfos.length - 1; i >= 0; i--) {
-    const info = textNodeInfos[i];
+    // Get the common ancestor - if it doesn't exist, bail out
+    const commonAncestor = range.commonAncestorContainer;
+    if (!commonAncestor) {
+      console.warn('No common ancestor for range');
+      return marks;
+    }
 
-    // Skip if nothing to highlight
-    if (info.highlightStart >= info.highlightEnd) continue;
+    const treeWalker = document.createTreeWalker(
+      commonAncestor,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: (node) => {
+          // Skip nodes that are already inside annotation marks
+          if (isInsideAnnotationMark(node)) {
+            return NodeFilter.FILTER_REJECT;
+          }
 
-    // Check if node still has a parent (it might have been removed)
-    if (!info.node.parentNode) continue;
+          // Check if node is within the range
+          try {
+            const nodeRange = document.createRange();
+            nodeRange.selectNode(node);
 
-    const mark = wrapTextNodePortion(
-      info.node,
-      info.highlightStart,
-      info.highlightEnd,
-      annotation
+            // Node is in range if it's not completely before or after
+            const comparison1 = range.compareBoundaryPoints(
+              Range.START_TO_END,
+              nodeRange
+            );
+            const comparison2 = range.compareBoundaryPoints(
+              Range.END_TO_START,
+              nodeRange
+            );
+
+            if (comparison1 > 0 && comparison2 < 0) {
+              return NodeFilter.FILTER_ACCEPT;
+            }
+          } catch {
+            // Range comparison failed, skip this node
+          }
+          return NodeFilter.FILTER_REJECT;
+        },
+      }
     );
 
-    if (mark) {
-      marks.unshift(mark); // Add to beginning to maintain order
+    let node: Text | null;
+    while ((node = treeWalker.nextNode() as Text | null)) {
+      const isStart = node === startContainer;
+      const isEnd = node === endContainer;
+      const textLength = node.textContent?.length || 0;
+
+      textNodeInfos.push({
+        node,
+        isStart,
+        isEnd,
+        highlightStart: isStart ? startOffset : 0,
+        highlightEnd: isEnd ? endOffset : textLength,
+      });
     }
+
+    // Process nodes in REVERSE order to avoid DOM mutation issues
+    // When we modify a node, it doesn't affect the position of previous nodes
+    for (let i = textNodeInfos.length - 1; i >= 0; i--) {
+      const info = textNodeInfos[i];
+
+      // Skip if nothing to highlight
+      if (info.highlightStart >= info.highlightEnd) continue;
+
+      // Check if node still has a parent (it might have been removed)
+      if (!info.node.parentNode) continue;
+
+      const mark = wrapTextNodePortion(
+        info.node,
+        info.highlightStart,
+        info.highlightEnd,
+        annotation
+      );
+
+      if (mark) {
+        marks.unshift(mark); // Add to beginning to maintain order
+      }
+    }
+  } catch (e) {
+    console.error('Error in highlightMultiNodeRange:', e);
   }
 
   return marks;
@@ -235,19 +303,36 @@ export function highlightRange(
   range: Range,
   annotation: AnnotationData
 ): HTMLElement[] {
-  if (range.collapsed) return [];
+  try {
+    if (range.collapsed) return [];
 
-  // Check if range is within a single text node
-  if (
-    range.startContainer === range.endContainer &&
-    range.startContainer.nodeType === Node.TEXT_NODE
-  ) {
-    const mark = highlightSingleNodeRange(range, annotation);
-    return mark ? [mark] : [];
+    // Validate range before proceeding
+    if (!range.startContainer || !range.endContainer) {
+      console.warn('Invalid range: missing start or end container');
+      return [];
+    }
+
+    // Check if start/end containers are still in the DOM
+    if (!range.startContainer.parentNode || !range.endContainer.parentNode) {
+      console.warn('Range containers are not in DOM');
+      return [];
+    }
+
+    // Check if range is within a single text node
+    if (
+      range.startContainer === range.endContainer &&
+      range.startContainer.nodeType === Node.TEXT_NODE
+    ) {
+      const mark = highlightSingleNodeRange(range, annotation);
+      return mark ? [mark] : [];
+    }
+
+    // Range spans multiple nodes
+    return highlightMultiNodeRange(range, annotation);
+  } catch (e) {
+    console.error('Error highlighting range:', e);
+    return [];
   }
-
-  // Range spans multiple nodes
-  return highlightMultiNodeRange(range, annotation);
 }
 
 /**
