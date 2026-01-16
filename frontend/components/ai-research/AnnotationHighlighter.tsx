@@ -98,7 +98,8 @@ export function AnnotationHighlighter({
 
     // Use setTimeout with delay to ensure React has finished rendering
     // This prevents "insertBefore" errors caused by modifying DOM during React reconciliation
-    // The 150ms delay gives React enough time to complete its rendering cycle
+    // The 500ms delay gives React enough time to complete its full rendering cycle
+    // including any cascading state updates and re-renders
     timeoutIdRef.current = setTimeout(() => {
       // Check if still mounted and container exists
       if (!isMountedRef.current || !containerRef.current) {
@@ -207,7 +208,7 @@ export function AnnotationHighlighter({
       } finally {
         isApplyingRef.current = false;
       }
-    }, 150); // 150ms delay ensures React has finished rendering
+    }, 500); // 500ms delay ensures React has fully finished rendering including cascading updates
 
     // Cleanup function: cancel pending timeout
     // IMPORTANT: Do NOT clear highlights in cleanup - this conflicts with React's DOM reconciliation
