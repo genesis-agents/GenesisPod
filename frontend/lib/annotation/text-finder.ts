@@ -295,23 +295,65 @@ export function findTextRange(
   container: HTMLElement,
   selector: TextSelector
 ): Range | null {
-  if (!container || !selector.exact) return null;
+  if (!container || !selector.exact) {
+    console.warn('[findTextRange] Invalid input:', {
+      hasContainer: !!container,
+      hasExact: !!selector.exact,
+    });
+    return null;
+  }
 
   // Build map of all text nodes
   const { nodeMap, fullText } = buildTextNodeMap(container);
 
-  if (!fullText || nodeMap.length === 0) return null;
+  if (!fullText || nodeMap.length === 0) {
+    console.warn('[findTextRange] No text content found in container:', {
+      fullTextLength: fullText?.length,
+      nodeMapLength: nodeMap.length,
+      containerTagName: container.tagName,
+      containerChildrenCount: container.children.length,
+    });
+    return null;
+  }
 
   // Build position mapping for normalization
   const { normalizedText, originalPositions } = buildPositionMap(fullText);
 
+  // Debug: Log normalization info
+  console.log('[findTextRange] Text analysis:', {
+    fullTextLength: fullText.length,
+    normalizedTextLength: normalizedText.length,
+    selectorExactLength: selector.exact.length,
+    selectorExactPreview: selector.exact.slice(0, 50),
+  });
+
   // Find the text
+  const normalizedExact = normalizeWhitespace(selector.exact);
   const normalizedMatchIndex = findTextWithContext(normalizedText, selector);
 
-  if (normalizedMatchIndex === -1) return null;
+  console.log('[findTextRange] Search result:', {
+    normalizedExactLength: normalizedExact.length,
+    normalizedExactPreview: normalizedExact.slice(0, 50),
+    matchIndex: normalizedMatchIndex,
+    found: normalizedMatchIndex !== -1,
+  });
+
+  if (normalizedMatchIndex === -1) {
+    // Debug: Try to understand why the match failed
+    const simpleIndex = normalizedText.indexOf(normalizedExact);
+    console.warn('[findTextRange] Text not found. Debug info:', {
+      simpleSearchResult: simpleIndex,
+      normalizedTextPreview: normalizedText.slice(0, 200),
+      searchingFor: normalizedExact.slice(0, 100),
+      // Check if there's a partial match
+      firstWordsMatch: normalizedText.includes(
+        normalizedExact.split(' ').slice(0, 3).join(' ')
+      ),
+    });
+    return null;
+  }
 
   // Convert positions back to original
-  const normalizedExact = normalizeWhitespace(selector.exact);
   const originalStart = normalizedToOriginalPosition(
     normalizedMatchIndex,
     originalPositions,
@@ -324,7 +366,17 @@ export function findTextRange(
   );
 
   // Create the DOM Range
-  return createRangeFromPositions(nodeMap, originalStart, originalEnd);
+  const range = createRangeFromPositions(nodeMap, originalStart, originalEnd);
+
+  if (!range) {
+    console.warn('[findTextRange] Failed to create range from positions:', {
+      originalStart,
+      originalEnd,
+      nodeMapLength: nodeMap.length,
+    });
+  }
+
+  return range;
 }
 
 /**
