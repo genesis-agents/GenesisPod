@@ -979,6 +979,80 @@ function ReportEditorInner({
     [processTextWithCitations]
   );
 
+  // ★ Memoize ReactMarkdown content to prevent re-renders when annotations change
+  // This is critical to avoid React reconciliation conflicts with AnnotationHighlighter's DOM modifications
+  // When annotations change, we DON'T want React to re-render the markdown - AnnotationHighlighter handles it via DOM
+  const memoizedMarkdownContent = useMemo(
+    () => (
+      <article className="prose prose-gray max-w-none">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            // Custom link component to open in new tab
+            a: ({ href, children }) => (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                {children}
+              </a>
+            ),
+            // ★ Process text nodes for citations (annotations handled by AnnotationHighlighter)
+            p: ({ children, ...props }) => (
+              <p {...props}>
+                {typeof children === 'string'
+                  ? processText(children)
+                  : Array.isArray(children)
+                    ? children.map((child, i) =>
+                        typeof child === 'string' ? (
+                          <span key={i}>{processText(child)}</span>
+                        ) : (
+                          child
+                        )
+                      )
+                    : children}
+              </p>
+            ),
+            li: ({ children, ...props }) => (
+              <li {...props}>
+                {typeof children === 'string'
+                  ? processText(children)
+                  : Array.isArray(children)
+                    ? children.map((child, i) =>
+                        typeof child === 'string' ? (
+                          <span key={i}>{processText(child)}</span>
+                        ) : (
+                          child
+                        )
+                      )
+                    : children}
+              </li>
+            ),
+            strong: ({ children, ...props }) => (
+              <strong {...props}>
+                {typeof children === 'string'
+                  ? processText(children)
+                  : children}
+              </strong>
+            ),
+            em: ({ children, ...props }) => (
+              <em {...props}>
+                {typeof children === 'string'
+                  ? processText(children)
+                  : children}
+              </em>
+            ),
+          }}
+        >
+          {markdownContent}
+        </ReactMarkdown>
+      </article>
+    ),
+    [markdownContent, processText]
+  );
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -1257,71 +1331,8 @@ function ReportEditorInner({
               </span>
             </div>
 
-            <article className="prose prose-gray max-w-none">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  // Custom link component to open in new tab
-                  a: ({ href, children }) => (
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      {children}
-                    </a>
-                  ),
-                  // ★ Process text nodes for citations (annotations handled by AnnotationHighlighter)
-                  p: ({ children, ...props }) => (
-                    <p {...props}>
-                      {typeof children === 'string'
-                        ? processText(children)
-                        : Array.isArray(children)
-                          ? children.map((child, i) =>
-                              typeof child === 'string' ? (
-                                <span key={i}>{processText(child)}</span>
-                              ) : (
-                                child
-                              )
-                            )
-                          : children}
-                    </p>
-                  ),
-                  li: ({ children, ...props }) => (
-                    <li {...props}>
-                      {typeof children === 'string'
-                        ? processText(children)
-                        : Array.isArray(children)
-                          ? children.map((child, i) =>
-                              typeof child === 'string' ? (
-                                <span key={i}>{processText(child)}</span>
-                              ) : (
-                                child
-                              )
-                            )
-                          : children}
-                    </li>
-                  ),
-                  strong: ({ children, ...props }) => (
-                    <strong {...props}>
-                      {typeof children === 'string'
-                        ? processText(children)
-                        : children}
-                    </strong>
-                  ),
-                  em: ({ children, ...props }) => (
-                    <em {...props}>
-                      {typeof children === 'string'
-                        ? processText(children)
-                        : children}
-                    </em>
-                  ),
-                }}
-              >
-                {markdownContent}
-              </ReactMarkdown>
-            </article>
+            {/* Use memoized content to prevent React reconciliation conflicts with AnnotationHighlighter */}
+            {memoizedMarkdownContent}
 
             {/* Context menu for preview mode */}
             <TextSelectionContextMenu
