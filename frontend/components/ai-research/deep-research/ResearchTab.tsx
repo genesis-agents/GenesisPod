@@ -272,7 +272,7 @@ export function ResearchTab({
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleStartResearch()}
                 placeholder={t('aiStudio.deepResearch.inputPlaceholder')}
-                className="w-full rounded-2xl border-2 border-gray-200 py-4 pl-12 pr-32 text-lg outline-none transition-all focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+                className="w-full rounded-2xl border-2 border-gray-200 bg-white py-4 pl-12 pr-32 text-lg text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
               />
               <button
                 onClick={handleStartResearch}
@@ -512,7 +512,7 @@ export function ResearchTab({
                 onChange={(e) => setFollowUpQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleFollowUp()}
                 placeholder={t('aiStudio.deepResearch.followUpPlaceholder')}
-                className="w-full rounded-xl border border-gray-300 py-3 pl-12 pr-4 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+                className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-12 pr-4 text-gray-900 outline-none placeholder:text-gray-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
               />
             </div>
             <button

@@ -299,7 +299,7 @@ function ReviewTaskList({
                 <div className="flex gap-2">
                   {task.status === 'PENDING' && isOwner && (
                     <select
-                      className="rounded border px-2 py-1 text-xs"
+                      className="rounded border bg-white px-2 py-1 text-xs text-gray-900"
                       onChange={(e) => onAssign?.(task.id, e.target.value)}
                       value=""
                     >

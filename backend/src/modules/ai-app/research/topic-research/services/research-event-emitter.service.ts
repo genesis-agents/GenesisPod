@@ -216,6 +216,19 @@ export class ResearchEventEmitterService {
 
     // ★ 保存到数据库
     try {
+      // ★ 先验证 topic 是否存在，避免 foreign key 错误
+      const topicExists = await this.prisma.researchTopic.findUnique({
+        where: { id: topicId },
+        select: { id: true },
+      });
+
+      if (!topicExists) {
+        this.logger.warn(
+          `[emitLeaderThinking] Topic ${topicId} not found, skipping activity persistence`,
+        );
+        return;
+      }
+
       await this.prisma.researchAgentActivity.create({
         data: {
           topicId,
@@ -230,7 +243,15 @@ export class ResearchEventEmitterService {
         },
       });
     } catch (error) {
-      this.logger.error(`Failed to persist Leader thinking: ${error}`);
+      // ★ 只在非 foreign key 错误时记录，避免日志刷屏
+      const errorStr = String(error);
+      if (errorStr.includes("Foreign key constraint")) {
+        this.logger.debug(
+          `[emitLeaderThinking] Skipping persistence - topic may have been deleted`,
+        );
+      } else {
+        this.logger.error(`Failed to persist Leader thinking: ${error}`);
+      }
     }
   }
 
@@ -340,6 +361,19 @@ export class ResearchEventEmitterService {
     // ★ 保存到数据库
     if (missionId) {
       try {
+        // ★ 先验证 topic 是否存在，避免 foreign key 错误
+        const topicExists = await this.prisma.researchTopic.findUnique({
+          where: { id: topicId },
+          select: { id: true },
+        });
+
+        if (!topicExists) {
+          this.logger.debug(
+            `[emitAgentWorking] Topic ${topicId} not found, skipping activity persistence`,
+          );
+          return;
+        }
+
         const activityType = this.mapAgentStatusToActivityType(data.status);
         await this.prisma.researchAgentActivity.create({
           data: {
@@ -356,7 +390,14 @@ export class ResearchEventEmitterService {
           },
         });
       } catch (error) {
-        this.logger.error(`Failed to persist Agent working: ${error}`);
+        const errorStr = String(error);
+        if (errorStr.includes("Foreign key constraint")) {
+          this.logger.debug(
+            `[emitAgentWorking] Skipping persistence - related record may have been deleted`,
+          );
+        } else {
+          this.logger.error(`Failed to persist Agent working: ${error}`);
+        }
       }
     }
   }
@@ -383,6 +424,19 @@ export class ResearchEventEmitterService {
     // ★ 保存到数据库
     if (missionId) {
       try {
+        // ★ 先验证 topic 是否存在，避免 foreign key 错误
+        const topicExists = await this.prisma.researchTopic.findUnique({
+          where: { id: topicId },
+          select: { id: true },
+        });
+
+        if (!topicExists) {
+          this.logger.debug(
+            `[emitAgentCompleted] Topic ${topicId} not found, skipping activity persistence`,
+          );
+          return;
+        }
+
         await this.prisma.researchAgentActivity.create({
           data: {
             topicId,
@@ -398,7 +452,14 @@ export class ResearchEventEmitterService {
           },
         });
       } catch (error) {
-        this.logger.error(`Failed to persist Agent completed: ${error}`);
+        const errorStr = String(error);
+        if (errorStr.includes("Foreign key constraint")) {
+          this.logger.debug(
+            `[emitAgentCompleted] Skipping persistence - related record may have been deleted`,
+          );
+        } else {
+          this.logger.error(`Failed to persist Agent completed: ${error}`);
+        }
       }
     }
   }

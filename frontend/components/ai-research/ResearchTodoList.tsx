@@ -352,7 +352,7 @@ function TodoItem({
                     setEditTitle(todo.title);
                   }
                 }}
-                className="flex-1 rounded border px-2 py-0.5 text-sm"
+                className="flex-1 rounded border bg-white px-2 py-0.5 text-sm text-gray-900"
                 autoFocus
               />
             ) : (

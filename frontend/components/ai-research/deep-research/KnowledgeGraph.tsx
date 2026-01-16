@@ -293,7 +293,7 @@ export default function KnowledgeGraph({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="搜索节点..."
-            className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm shadow-sm focus:border-blue-500 focus:outline-none"
+            className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none"
           />
         </div>
 
@@ -305,7 +305,7 @@ export default function KnowledgeGraph({
             onChange={(e) =>
               setSelectedType(e.target.value as GraphNode['type'] | 'all')
             }
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none"
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none"
           >
             <option value="all">全部类型</option>
             {Object.entries(NODE_TYPE_LABELS).map(([type, label]) => (

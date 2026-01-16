@@ -291,7 +291,7 @@ export function ReferencePanel({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="搜索参考文献..."
-            className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm focus:border-blue-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-100"
+            className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-100"
           />
           <svg
             className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
@@ -318,7 +318,7 @@ export function ReferencePanel({
                 setFilterType(e.target.value as FilterType);
                 setFilterValue('');
               }}
-              className="rounded border border-gray-200 bg-white py-1 pl-2 pr-6 text-sm focus:border-blue-400 focus:outline-none"
+              className="rounded border border-gray-200 bg-white py-1 pl-2 pr-6 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
             >
               <option value="all">全部</option>
               <option value="dimension">按维度</option>
@@ -330,7 +330,7 @@ export function ReferencePanel({
               <select
                 value={filterValue}
                 onChange={(e) => setFilterValue(e.target.value)}
-                className="rounded border border-gray-200 bg-white py-1 pl-2 pr-6 text-sm focus:border-blue-400 focus:outline-none"
+                className="rounded border border-gray-200 bg-white py-1 pl-2 pr-6 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
               >
                 <option value="">选择维度</option>
                 {dimensions.map((dim) => (
@@ -345,7 +345,7 @@ export function ReferencePanel({
               <select
                 value={filterValue}
                 onChange={(e) => setFilterValue(e.target.value)}
-                className="rounded border border-gray-200 bg-white py-1 pl-2 pr-6 text-sm focus:border-blue-400 focus:outline-none"
+                className="rounded border border-gray-200 bg-white py-1 pl-2 pr-6 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
               >
                 <option value="">选择来源</option>
                 {sourceTypes.map((type) => (
@@ -360,7 +360,7 @@ export function ReferencePanel({
               <select
                 value={filterValue}
                 onChange={(e) => setFilterValue(e.target.value)}
-                className="rounded border border-gray-200 bg-white py-1 pl-2 pr-6 text-sm focus:border-blue-400 focus:outline-none"
+                className="rounded border border-gray-200 bg-white py-1 pl-2 pr-6 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
               >
                 <option value="">选择时间</option>
                 <option value="7">最近7天</option>
@@ -376,7 +376,7 @@ export function ReferencePanel({
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortType)}
-              className="rounded border border-gray-200 bg-white py-1 pl-2 pr-6 text-sm focus:border-blue-400 focus:outline-none"
+              className="rounded border border-gray-200 bg-white py-1 pl-2 pr-6 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
             >
               <option value="time">时间</option>
               <option value="credibility">可信度</option>

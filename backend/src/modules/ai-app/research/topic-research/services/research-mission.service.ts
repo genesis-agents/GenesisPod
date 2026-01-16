@@ -325,25 +325,45 @@ export class ResearchMissionService {
         this.logger.error(`[executePlanningAsync] Execution failed: ${err}`);
       });
     } catch (error) {
+      const errorMsg =
+        error instanceof Error ? error.message : "规划失败：未知错误";
+
       // 规划失败，更新状态
-      await this.prisma.researchMission.update({
-        where: { id: missionId },
-        data: {
-          status: ResearchMissionStatus.FAILED,
-        },
-      });
+      // ★ 使用 try-catch 包裹更新操作，避免 mission 已被删除时报错
+      try {
+        // ★ 先检查 mission 是否仍存在
+        const missionExists = await this.prisma.researchMission.findUnique({
+          where: { id: missionId },
+          select: { id: true },
+        });
+
+        if (missionExists) {
+          await this.prisma.researchMission.update({
+            where: { id: missionId },
+            data: {
+              status: ResearchMissionStatus.FAILED,
+            },
+          });
+        } else {
+          this.logger.debug(
+            `[executePlanningAsync] Mission ${missionId} no longer exists, skipping status update`,
+          );
+        }
+      } catch (updateError) {
+        this.logger.debug(
+          `[executePlanningAsync] Could not update mission status: ${updateError}`,
+        );
+      }
 
       // ★ 发送失败事件，让前端知道规划失败
       // 使用 emitMissionFailed 发送正确的 mission:failed 事件
       await this.researchEventEmitter.emitMissionFailed(
         topicId,
         missionId,
-        error instanceof Error ? error.message : "规划失败：未知错误",
+        errorMsg,
       );
 
-      this.logger.error(
-        `[executePlanningAsync] Planning failed: ${error instanceof Error ? error.message : error}`,
-      );
+      this.logger.error(`[executePlanningAsync] Planning failed: ${errorMsg}`);
     }
   }
 

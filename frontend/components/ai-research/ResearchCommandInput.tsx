@@ -133,7 +133,7 @@ export function ResearchCommandInput({
             }}
             placeholder="输入 @Leader 给协调员发送指令..."
             rows={2}
-            className="w-full resize-none rounded-lg border border-gray-200 p-3 pr-10 text-sm placeholder-gray-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100 disabled:bg-gray-50 disabled:text-gray-400"
+            className="w-full resize-none rounded-lg border border-gray-200 bg-white p-3 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100 disabled:bg-gray-50 disabled:text-gray-400"
             disabled={disabled || isLoading}
           />
 

@@ -4565,7 +4565,7 @@ function EvidenceTabContent({
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value as typeof filter)}
-            className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm"
+            className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
           >
             <option value="all">全部</option>
             <option value="high">高可信</option>
@@ -4575,7 +4575,7 @@ function EvidenceTabContent({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-            className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm"
+            className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
           >
             <option value="credibility">按可信度</option>
             <option value="date">按日期</option>

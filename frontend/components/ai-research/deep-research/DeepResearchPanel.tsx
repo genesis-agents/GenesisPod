@@ -107,7 +107,7 @@ export function DeepResearchPanel({
               onKeyDown={(e) => e.key === 'Enter' && handleStartResearch()}
               placeholder="输入研究主题，开始深度研究..."
               disabled={isSearching}
-              className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 disabled:bg-gray-50"
+              className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 disabled:bg-gray-50"
             />
           </div>
           {isSearching ? (

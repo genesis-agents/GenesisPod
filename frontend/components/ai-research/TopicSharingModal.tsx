@@ -435,7 +435,7 @@ export function TopicSharingModal({
                       type="text"
                       readOnly
                       value={`${typeof window !== 'undefined' ? window.location.origin : ''}/shared/topics/${topicId}`}
-                      className="flex-1 truncate bg-transparent text-sm text-gray-600 outline-none"
+                      className="flex-1 truncate bg-transparent text-sm text-gray-900 outline-none"
                     />
                     <button
                       onClick={handleCopyLink}
@@ -462,14 +462,14 @@ export function TopicSharingModal({
                       placeholder="输入邮箱地址"
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
-                      className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                      className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-blue-500"
                     />
                     <select
                       value={newRole}
                       onChange={(e) =>
                         setNewRole(e.target.value as CollaboratorRole)
                       }
-                      className="rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500"
                     >
                       {roleOptions.map((role) => (
                         <option key={role.value} value={role.value}>
@@ -527,7 +527,7 @@ export function TopicSharingModal({
                                   e.target.value as CollaboratorRole
                                 )
                               }
-                              className="rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-500"
+                              className="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-900 outline-none focus:border-blue-500"
                             >
                               {roleOptions.map((role) => (
                                 <option key={role.value} value={role.value}>
