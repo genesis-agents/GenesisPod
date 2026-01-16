@@ -212,7 +212,10 @@ export function AnnotationHighlighter({
       }
       isApplyingRef.current = false;
     };
-  }, [annotations, content, containerRef, activeOnly, highlightedAnnotationId]);
+    // Note: highlightedAnnotationId intentionally NOT included in dependencies
+    // The second effect handles highlight state changes via CSS classes only
+    // Including it here would cause unnecessary DOM rebuilds that conflict with React reconciliation
+  }, [annotations, content, containerRef, activeOnly]);
 
   // Handle click events on annotation marks
   useEffect(() => {

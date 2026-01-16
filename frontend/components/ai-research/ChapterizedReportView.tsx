@@ -11,7 +11,7 @@
  * - 支持引用链接 [1], [2] 可点击跳转到参考文献
  */
 
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useEditor, EditorContent } from '@tiptap/react';
