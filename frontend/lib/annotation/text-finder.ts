@@ -167,8 +167,29 @@ function normalizedToOriginalPosition(
 }
 
 /**
+ * Remove citation markers from text for fuzzy matching
+ * Handles: [1], [1, 2], [资料 1], __CITE_GROUP_1__, etc.
+ */
+function removeCitationMarkers(text: string): string {
+  return (
+    text
+      // Remove citation markers like [1], [1, 2], [资料 1]
+      .replace(/\[(\d+(?:\s*[,、]\s*\d+)*)\]/g, '')
+      .replace(/\[资料\s*\d+(?:\s*[,、]\s*\d+)*\]/g, '')
+      // Remove internal markers like __CITE_GROUP_1_2__
+      .replace(/__CITE_GROUP_[\d_]+__/g, '')
+      // Remove CITE_GROUP_1_2 format
+      .replace(/CITE_GROUP_\d+(?:_\d+)*/g, '')
+      // Clean up resulting double spaces
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
+}
+
+/**
  * Find text with context matching
  * Searches for the exact text, using prefix/suffix to disambiguate if multiple matches exist
+ * Includes fuzzy matching fallback for better resilience
  */
 function findTextWithContext(
   normalizedText: string,
@@ -178,16 +199,68 @@ function findTextWithContext(
 
   if (!normalizedExact) return -1;
 
-  // Find all occurrences
-  const matches: number[] = [];
-  let searchStart = 0;
-  let index: number;
+  // Strategy 1: Try exact match
+  let matches = findAllMatches(normalizedText, normalizedExact);
 
-  while (
-    (index = normalizedText.indexOf(normalizedExact, searchStart)) !== -1
-  ) {
-    matches.push(index);
-    searchStart = index + 1;
+  // Strategy 2: If no matches, try with citation markers removed
+  if (matches.length === 0) {
+    const textWithoutCitations = removeCitationMarkers(normalizedText);
+    const exactWithoutCitations = removeCitationMarkers(normalizedExact);
+
+    if (exactWithoutCitations.length > 10) {
+      // Only if meaningful text remains
+      const citationFreeMatches = findAllMatches(
+        textWithoutCitations,
+        exactWithoutCitations
+      );
+      if (citationFreeMatches.length > 0) {
+        console.log(
+          '[findTextWithContext] Found match after removing citations'
+        );
+        // Map the position back to the original text (approximate)
+        // Find the first words in the original text
+        const firstWords = exactWithoutCitations
+          .split(' ')
+          .slice(0, 5)
+          .join(' ');
+        const originalIndex = normalizedText.indexOf(firstWords);
+        if (originalIndex !== -1) {
+          return originalIndex;
+        }
+        // Fallback: use the citation-free position (may be slightly off)
+        return citationFreeMatches[0];
+      }
+    }
+  }
+
+  // Strategy 3: If still no matches, try fuzzy substring matching
+  if (matches.length === 0) {
+    // Try matching just the first 50 characters (enough to be unique)
+    const shortExact = normalizedExact.slice(0, 50);
+    if (shortExact.length >= 20) {
+      const shortIndex = normalizedText.indexOf(shortExact);
+      if (shortIndex !== -1) {
+        console.log(
+          '[findTextWithContext] Found partial match using first 50 chars'
+        );
+        return shortIndex;
+      }
+    }
+
+    // Try matching first few words (at least 5 words or 30 chars)
+    const words = normalizedExact.split(' ');
+    if (words.length >= 3) {
+      const firstThreeWords = words.slice(0, 3).join(' ');
+      if (firstThreeWords.length >= 10) {
+        const wordIndex = normalizedText.indexOf(firstThreeWords);
+        if (wordIndex !== -1) {
+          console.log(
+            '[findTextWithContext] Found partial match using first 3 words'
+          );
+          return wordIndex;
+        }
+      }
+    }
   }
 
   if (matches.length === 0) return -1;
@@ -242,6 +315,22 @@ function findTextWithContext(
 
   // No context provided, return first match
   return matches[0];
+}
+
+/**
+ * Helper: Find all occurrences of a substring
+ */
+function findAllMatches(text: string, searchStr: string): number[] {
+  const matches: number[] = [];
+  let searchStart = 0;
+  let index: number;
+
+  while ((index = text.indexOf(searchStr, searchStart)) !== -1) {
+    matches.push(index);
+    searchStart = index + 1;
+  }
+
+  return matches;
 }
 
 /**
