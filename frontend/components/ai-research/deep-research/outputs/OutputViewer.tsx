@@ -78,7 +78,9 @@ export function OutputViewer({
       <div className="flex flex-col items-center justify-center py-12">
         <AlertCircle className="h-8 w-8 text-red-500" />
         <p className="mt-4 text-sm text-red-600">
-          {output.error || 'Generation failed'}
+          {typeof output.error === 'string'
+            ? output.error
+            : 'Generation failed'}
         </p>
         <button
           onClick={onRegenerate}

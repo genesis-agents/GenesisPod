@@ -364,7 +364,11 @@ function TodoItem({
           </div>
 
           {/* 错误消息 */}
-          {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+          {error && (
+            <p className="mt-1 text-xs text-red-500">
+              {typeof error === 'string' ? error : '操作失败'}
+            </p>
+          )}
 
           {/* 状态消息 */}
           {!error && todo.statusMessage && (

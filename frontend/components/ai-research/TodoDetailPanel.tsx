@@ -251,7 +251,7 @@ export function TodoDetailPanel({
       >
         <AlertCircle className="mb-4 h-10 w-10 text-red-500" />
         <p className="text-sm text-muted-foreground">
-          {error || '无法加载详情'}
+          {typeof error === 'string' ? error : '无法加载详情'}
         </p>
         <Button variant="outline" size="sm" onClick={onClose} className="mt-4">
           关闭
@@ -388,7 +388,11 @@ export function TodoDetailPanel({
               </p>
             )}
             {todo.result.error && (
-              <p className="text-sm text-red-600">{todo.result.error}</p>
+              <p className="text-sm text-red-600">
+                {typeof todo.result.error === 'string'
+                  ? todo.result.error
+                  : '执行出错'}
+              </p>
             )}
           </div>
         )}

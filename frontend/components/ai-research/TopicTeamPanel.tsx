@@ -465,7 +465,9 @@ export function TopicTeamPanel({
               <span>⚠️</span>
               <span>研究启动失败</span>
             </div>
-            <p className="text-xs text-red-600">{error}</p>
+            <p className="text-xs text-red-600">
+              {typeof error === 'string' ? error : '研究启动失败'}
+            </p>
           </div>
         )}
 

@@ -209,7 +209,7 @@ export function ThinkingChainPanel({
               <div className="border-t bg-red-50 px-4 py-3">
                 <div className="flex items-center gap-2 text-sm text-red-700">
                   <AlertCircle className="h-4 w-4" />
-                  {state.error}
+                  {typeof state.error === 'string' ? state.error : '发生错误'}
                 </div>
               </div>
             )}

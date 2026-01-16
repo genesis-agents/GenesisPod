@@ -654,7 +654,9 @@ export function CollaborationPanel({
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <AlertCircle className="mx-auto mb-2 h-8 w-8 text-red-500" />
-          <p className="mb-2 text-sm text-red-600">{error}</p>
+          <p className="mb-2 text-sm text-red-600">
+            {typeof error === 'string' ? error : '加载失败'}
+          </p>
           <button
             onClick={handleRefresh}
             className="text-sm text-blue-600 hover:underline"

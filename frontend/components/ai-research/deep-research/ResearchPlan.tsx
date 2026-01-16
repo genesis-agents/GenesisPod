@@ -343,7 +343,7 @@ export default function ResearchPlan({
                   {/* Error */}
                   {step.status === 'error' && step.error && (
                     <div className="mt-3 rounded-md bg-red-50 p-2 text-sm text-red-700">
-                      {step.error}
+                      {typeof step.error === 'string' ? step.error : '执行失败'}
                     </div>
                   )}
                 </div>

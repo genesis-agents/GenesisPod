@@ -483,7 +483,7 @@ export function CreateTopicDialog({
 
               {error && (
                 <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-                  {error}
+                  {typeof error === 'string' ? error : '操作失败，请重试'}
                 </div>
               )}
             </form>

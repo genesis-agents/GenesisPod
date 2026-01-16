@@ -302,7 +302,7 @@ export function AudioPlayer({
       {error && (
         <div className="flex items-center justify-center py-4 text-red-500">
           <AlertCircle className="mr-2 h-5 w-5" />
-          {error}
+          {typeof error === 'string' ? error : '加载失败'}
         </div>
       )}
 
