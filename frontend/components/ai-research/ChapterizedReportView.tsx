@@ -899,7 +899,13 @@ export function ChapterizedReportView({
               placeholder="编辑 Markdown 源码..."
             />
           ) : (
-            <div ref={previewRef} className="p-6">
+            // Key forces React to recreate DOM when annotations change,
+            // preventing conflicts between DOM manipulation and React reconciliation
+            <div
+              key={`preview-${selectedChapter?.id || 'none'}-${annotations?.length || 0}`}
+              ref={previewRef}
+              className="p-6"
+            >
               {sources.length > 0 ? (
                 <CitedMarkdown
                   content={selectedChapter.content || '暂无内容'}
