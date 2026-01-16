@@ -545,11 +545,20 @@ export interface ResearchTodo {
 
 /**
  * TODO 结果
+ * 支持两种格式：
+ * 1. 简单统计（keyFindings 为数字）
+ * 2. 完整分析数据（包含 summary, keyFindings 数组, trends 等）
  */
 export interface TodoResult {
   sourcesFound?: number;
   wordCount?: number;
-  keyFindings?: number;
+  // keyFindings 可以是数量(number)或完整的发现列表
+  keyFindings?: number | KeyFinding[];
+  // 完整分析数据
+  summary?: string;
+  trends?: Trend[];
+  challenges?: Challenge[];
+  opportunities?: Opportunity[];
   error?: string;
 }
 

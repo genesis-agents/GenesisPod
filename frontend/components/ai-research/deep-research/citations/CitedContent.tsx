@@ -300,12 +300,15 @@ function processText(
   text: string,
   sources: SourceReference[]
 ): React.ReactNode {
-  // ★ 预处理：清理引用之间的下划线分隔符
-  // AI 有时会生成 [32]____[39] 或 [33]__[38] 这样的格式（任意数量下划线）
+  // ★ 预处理：清理引用相关的孤立下划线
+  // AI 有时会生成 [32]____[39] 或 [33]__[38] 或 [33] [35]__ 这样的格式
   let cleanedText = text
     .replace(/\]_+\[/g, '][') // 清理 ]____[ 任意数量下划线
     .replace(/\]_+\s*\[/g, '][') // 清理 ]____ [ 带空格的情况
-    .replace(/\]\s*_+\[/g, ']['); // 清理 ] ____[ 带空格的情况
+    .replace(/\]\s*_+\[/g, '][') // 清理 ] ____[ 带空格的情况
+    .replace(/(\[\d+(?:\s*,\s*\d+)*\])\s*_+(?=\s|[。.!?！？,，;；]|$)/g, '$1') // 清理引用后的孤立下划线 [33]__
+    .replace(/_+\s*([。.!?！？])/g, '$1') // 清理标点前的孤立下划线
+    .replace(/_+$/g, ''); // 清理行尾的孤立下划线
 
   // Build a map from evidence IDs to source indices for UUID and temp-X-Y formats
   const evidenceIdMap = new Map<string, number>();

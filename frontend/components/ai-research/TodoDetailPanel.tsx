@@ -379,26 +379,137 @@ export function TodoDetailPanel({
 
         {/* Result */}
         {todo.result && (
-          <div className="space-y-1 rounded-lg bg-gray-50 p-3">
+          <div className="space-y-3 rounded-lg bg-gray-50 p-3">
             <div className="flex items-center gap-2 text-sm font-medium">
               <FileText className="h-4 w-4" />
               结果
             </div>
-            {todo.result.sourcesFound !== undefined && (
-              <p className="text-sm text-muted-foreground">
-                找到 {safeString(todo.result.sourcesFound)} 条来源
-              </p>
+
+            {/* Basic stats */}
+            <div className="flex flex-wrap gap-3 text-sm">
+              {todo.result.sourcesFound !== undefined && (
+                <div className="rounded-md bg-blue-50 px-2 py-1">
+                  <span className="text-blue-600">
+                    {safeString(todo.result.sourcesFound)} 条来源
+                  </span>
+                </div>
+              )}
+              {todo.result.wordCount !== undefined && (
+                <div className="rounded-md bg-green-50 px-2 py-1">
+                  <span className="text-green-600">
+                    {safeString(todo.result.wordCount)} 字
+                  </span>
+                </div>
+              )}
+              {/* Show count if keyFindings is array */}
+              {Array.isArray(todo.result.keyFindings) && (
+                <div className="rounded-md bg-purple-50 px-2 py-1">
+                  <span className="text-purple-600">
+                    {todo.result.keyFindings.length} 个关键发现
+                  </span>
+                </div>
+              )}
+              {typeof todo.result.keyFindings === 'number' && (
+                <div className="rounded-md bg-purple-50 px-2 py-1">
+                  <span className="text-purple-600">
+                    {todo.result.keyFindings} 个关键发现
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Summary */}
+            {todo.result.summary && typeof todo.result.summary === 'string' && (
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-gray-500">摘要</div>
+                <p className="text-sm text-gray-700">{todo.result.summary}</p>
+              </div>
             )}
-            {todo.result.wordCount !== undefined && (
-              <p className="text-sm text-muted-foreground">
-                生成 {safeString(todo.result.wordCount)} 字
-              </p>
-            )}
-            {todo.result.keyFindings !== undefined && (
-              <p className="text-sm text-muted-foreground">
-                发现 {safeString(todo.result.keyFindings)} 个关键发现
-              </p>
-            )}
+
+            {/* Key Findings - formatted */}
+            {Array.isArray(todo.result.keyFindings) &&
+              todo.result.keyFindings.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-gray-500">
+                    关键发现
+                  </div>
+                  <ul className="space-y-1">
+                    {todo.result.keyFindings.slice(0, 5).map(
+                      (
+                        finding: {
+                          finding?: string;
+                          significance?: string;
+                        },
+                        idx: number
+                      ) => (
+                        <li
+                          key={idx}
+                          className="flex items-start gap-2 text-sm"
+                        >
+                          <span
+                            className={cn(
+                              'mt-0.5 shrink-0 rounded px-1 py-0.5 text-xs',
+                              finding.significance === 'high'
+                                ? 'bg-red-100 text-red-700'
+                                : finding.significance === 'low'
+                                  ? 'bg-gray-100 text-gray-600'
+                                  : 'bg-yellow-100 text-yellow-700'
+                            )}
+                          >
+                            {finding.significance === 'high'
+                              ? '高'
+                              : finding.significance === 'low'
+                                ? '低'
+                                : '中'}
+                          </span>
+                          <span className="text-gray-700">
+                            {finding.finding || '未知发现'}
+                          </span>
+                        </li>
+                      )
+                    )}
+                    {todo.result.keyFindings.length > 5 && (
+                      <li className="text-xs text-muted-foreground">
+                        ...还有 {todo.result.keyFindings.length - 5} 个发现
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+            {/* Trends - formatted */}
+            {Array.isArray(todo.result.trends) &&
+              todo.result.trends.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-gray-500">
+                    趋势分析
+                  </div>
+                  <ul className="space-y-1">
+                    {todo.result.trends.slice(0, 3).map(
+                      (
+                        trend: {
+                          trend?: string;
+                          direction?: string;
+                          timeframe?: string;
+                        },
+                        idx: number
+                      ) => (
+                        <li key={idx} className="text-sm text-gray-700">
+                          <span className="font-medium">{trend.trend}</span>
+                          {trend.direction && (
+                            <span className="ml-1 text-xs text-muted-foreground">
+                              ({trend.direction}
+                              {trend.timeframe ? `, ${trend.timeframe}` : ''})
+                            </span>
+                          )}
+                        </li>
+                      )
+                    )}
+                  </ul>
+                </div>
+              )}
+
+            {/* Error */}
             {todo.result.error && (
               <p className="text-sm text-red-600">
                 {typeof todo.result.error === 'string'

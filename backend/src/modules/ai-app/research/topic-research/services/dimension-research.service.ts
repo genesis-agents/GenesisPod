@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
+import { sanitizeObjectContent } from "@/common/utils/sanitize-content.utils";
 import { AIModelType, DimensionStatus } from "@prisma/client";
 import type { ResearchTopic, TopicDimension } from "@prisma/client";
 import type {
@@ -264,6 +265,7 @@ export class DimensionResearchService {
 
   /**
    * 验证并标准化响应
+   * ★ 同时清理 AI 生成内容中的格式问题（如引用后的孤立下划线）
    */
   private validateAndNormalizeResponse(
     parsed: unknown,
@@ -276,7 +278,7 @@ export class DimensionResearchService {
     }
 
     // 标准化字段
-    return {
+    const normalized: AIDimensionAnalysisResponse = {
       dimensionAnalysis: {
         summary: response.dimensionAnalysis.summary || "",
         keyFindings: response.dimensionAnalysis.keyFindings || [],
@@ -296,6 +298,9 @@ export class DimensionResearchService {
         lowCredibility: 0,
       },
     };
+
+    // ★ 清理 AI 生成内容中的格式问题（如引用后的孤立下划线 [1]__）
+    return sanitizeObjectContent(normalized);
   }
 
   /**

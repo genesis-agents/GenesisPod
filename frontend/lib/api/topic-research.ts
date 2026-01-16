@@ -1163,6 +1163,32 @@ export async function getResearchHistory(
   // 这里做最佳努力转换
   let researchNumber = data.timeline.filter((t) => t.type === 'mission').length;
 
+  // ★ 后端状态映射到前端状态
+  // 后端: PLANNING, EXECUTING, REVIEWING, COMPLETED, FAILED, CANCELLED
+  // 前端: COMPLETED, FAILED, CANCELLED, IN_PROGRESS
+  const mapStatus = (
+    backendStatus: string | undefined
+  ): ResearchHistoryItem['status'] => {
+    if (!backendStatus) return 'COMPLETED'; // 默认已完成
+    const statusUpper = backendStatus.toUpperCase();
+    switch (statusUpper) {
+      case 'COMPLETED':
+        return 'COMPLETED';
+      case 'FAILED':
+        return 'FAILED';
+      case 'CANCELLED':
+        return 'CANCELLED';
+      case 'PLANNING':
+      case 'EXECUTING':
+      case 'REVIEWING':
+      case 'IN_PROGRESS':
+        return 'IN_PROGRESS';
+      default:
+        // 其他状态默认为进行中
+        return 'IN_PROGRESS';
+    }
+  };
+
   return data.timeline
     .filter((item) => item.type === 'mission') // 只保留 mission 类型
     .map((item) => {
@@ -1171,6 +1197,10 @@ export async function getResearchHistory(
       const dimensionsUpdated = Array.isArray(metadata.dimensionsUpdated)
         ? (metadata.dimensionsUpdated as string[])
         : [];
+      // ★ 提取更多有用信息
+      const completedTasks = (metadata.completedTasks as number) || 0;
+      const totalTasks = (metadata.totalTasks as number) || 0;
+
       return {
         id: item.id,
         topicId: topicId,
@@ -1178,17 +1208,23 @@ export async function getResearchHistory(
         researchNumber: researchNumber--, // 逆序编号
         startedAt: item.timestamp,
         completedAt: (metadata.completedAt as string) || undefined,
-        status: (item.status as ResearchHistoryItem['status']) || 'COMPLETED',
-        researchGoal: undefined,
+        status: mapStatus(item.status), // ★ 使用状态映射
+        researchGoal: item.description || undefined, // 使用 description 作为目标摘要
         researchStrategy: undefined,
         dimensionsUpdated, // ★ 使用从 metadata 提取的数据
         dimensionsKept: [],
         wordsAdded: 0,
         wordsRemoved: 0,
-        newSourcesCount: (metadata.totalTasks as number) || 0,
+        newSourcesCount: completedTasks, // ★ 使用已完成任务数作为近似来源数
         totalDurationMs: undefined,
         reportVersionBefore: undefined,
         reportVersionAfter: undefined,
+        // ★ 扩展字段供显示使用
+        _metadata: {
+          completedTasks,
+          totalTasks,
+          title: item.title,
+        },
       };
     });
 }

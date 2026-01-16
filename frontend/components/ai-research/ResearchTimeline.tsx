@@ -621,6 +621,7 @@ function LeaderPlanSection({
 
 /**
  * 维度研究进展部分
+ * ★ 即使没有详细活动记录，也显示已更新的维度列表
  */
 function DimensionProgressSection({
   dimensionActivities,
@@ -629,7 +630,10 @@ function DimensionProgressSection({
   dimensionActivities: Map<string, ExtendedAgentActivity[]>;
   dimensionsUpdated: string[];
 }) {
-  if (dimensionActivities.size === 0) return null;
+  // 如果没有活动记录但有更新的维度，显示简化版本
+  if (dimensionActivities.size === 0 && dimensionsUpdated.length === 0) {
+    return null;
+  }
 
   return (
     <div className="space-y-2">
@@ -640,18 +644,40 @@ function DimensionProgressSection({
           ({dimensionsUpdated.length} 个维度更新)
         </span>
       </div>
-      <div className="space-y-2">
-        {Array.from(dimensionActivities.entries()).map(
-          ([dimensionName, activities]) => (
-            <ResearcherCard
-              key={dimensionName}
-              dimensionName={dimensionName}
-              activities={activities}
-              citations={0} // TODO: 从实际数据获取引用数
-            />
-          )
-        )}
-      </div>
+
+      {dimensionActivities.size > 0 ? (
+        // 有详细活动记录时显示卡片
+        <div className="space-y-2">
+          {Array.from(dimensionActivities.entries()).map(
+            ([dimensionName, activities]) => (
+              <ResearcherCard
+                key={dimensionName}
+                dimensionName={dimensionName}
+                activities={activities}
+                citations={0}
+              />
+            )
+          )}
+        </div>
+      ) : (
+        // ★ 没有详细活动记录时，显示简化的维度列表
+        <div className="space-y-1.5">
+          {dimensionsUpdated.map((dimName, idx) => (
+            <div
+              key={idx}
+              className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-2 dark:border-green-800 dark:bg-green-950/30"
+            >
+              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                {dimName}
+              </span>
+              <span className="ml-auto rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700 dark:bg-green-900 dark:text-green-300">
+                已完成
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
