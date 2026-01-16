@@ -887,7 +887,9 @@ function StudioPageContent() {
               </div>
             ) : error ? (
               <div className="rounded-xl bg-red-50 p-6 text-center">
-                <p className="text-red-600">{error}</p>
+                <p className="text-red-600">
+                  {typeof error === 'string' ? error : '加载失败，请重试'}
+                </p>
                 <button
                   onClick={loadProjects}
                   className="mt-4 text-sm text-purple-600 hover:underline"
