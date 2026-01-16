@@ -25,8 +25,8 @@ function extractReportJson(fullReport: string | undefined): any | null {
   let jsonStr = fullReport.trim();
 
   // Check if JSON is wrapped in markdown code block
-  // Format: # 1. 研究内容\n```json\n{...}\n```
-  const jsonBlockMatch = jsonStr.match(/```json\s*([\s\S]*?)\s*```/);
+  // Format: # 1. 研究内容\n```json\n{...}\n``` or without closing ```
+  const jsonBlockMatch = jsonStr.match(/```json\s*([\s\S]*?)(?:\s*```|$)/);
   if (jsonBlockMatch) {
     jsonStr = jsonBlockMatch[1].trim();
   }
@@ -39,8 +39,76 @@ function extractReportJson(fullReport: string | undefined): any | null {
   try {
     return JSON.parse(jsonStr);
   } catch {
+    // JSON might be truncated, try to repair it
+    try {
+      // Find the last complete section by looking for the last complete object
+      const repaired = repairTruncatedJson(jsonStr);
+      if (repaired) {
+        return JSON.parse(repaired);
+      }
+    } catch {
+      // If repair fails, return null
+    }
     return null;
   }
+}
+
+// Try to repair truncated JSON by closing open brackets
+function repairTruncatedJson(jsonStr: string): string | null {
+  // Count open brackets
+  let braceCount = 0;
+  let bracketCount = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = 0; i < jsonStr.length; i++) {
+    const char = jsonStr[i];
+
+    if (escape) {
+      escape = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escape = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === '{') braceCount++;
+    if (char === '}') braceCount--;
+    if (char === '[') bracketCount++;
+    if (char === ']') bracketCount--;
+  }
+
+  // If we're in a string, try to close it
+  let repaired = jsonStr;
+  if (inString) {
+    repaired += '"';
+  }
+
+  // Remove trailing incomplete data (like partial strings or numbers)
+  repaired = repaired.replace(/,\s*"[^"]*$/, ''); // Remove incomplete key
+  repaired = repaired.replace(/:\s*"[^"]*$/, ': ""'); // Complete incomplete string value
+  repaired = repaired.replace(/,\s*$/, ''); // Remove trailing comma
+
+  // Close open brackets
+  while (bracketCount > 0) {
+    repaired += ']';
+    bracketCount--;
+  }
+  while (braceCount > 0) {
+    repaired += '}';
+    braceCount--;
+  }
+
+  return repaired;
 }
 
 // Icons
