@@ -373,7 +373,9 @@ function TodoItem({
           {/* 状态消息 */}
           {!error && todo.statusMessage && (
             <p className="mt-1 truncate text-xs text-gray-500">
-              {todo.statusMessage}
+              {typeof todo.statusMessage === 'string'
+                ? todo.statusMessage
+                : '处理中...'}
             </p>
           )}
 
@@ -397,9 +399,11 @@ function TodoItem({
           {/* ★ 失败信息 - 显示失败原因摘要 */}
           {todo.status === ResearchTodoStatus.FAILED && (
             <p className="mt-1 truncate text-xs text-red-500">
-              {todo.result?.error ||
-                todo.statusMessage ||
-                '执行失败，点击查看详情'}
+              {typeof todo.result?.error === 'string'
+                ? todo.result.error
+                : typeof todo.statusMessage === 'string'
+                  ? todo.statusMessage
+                  : '执行失败，点击查看详情'}
             </p>
           )}
 

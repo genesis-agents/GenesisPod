@@ -299,7 +299,9 @@ export function TodoDetailPanel({
 
           {todo.statusMessage && todo.status !== 'FAILED' && (
             <p className="text-xs text-muted-foreground">
-              {todo.statusMessage}
+              {typeof todo.statusMessage === 'string'
+                ? todo.statusMessage
+                : '处理中...'}
             </p>
           )}
         </div>
@@ -312,12 +314,14 @@ export function TodoDetailPanel({
               失败原因
             </div>
             <p className="mt-1 text-sm text-red-600">
-              {todo.result?.error ||
-                todo.statusMessage ||
-                '任务执行过程中发生错误，请查看详细日志'}
+              {typeof todo.result?.error === 'string'
+                ? todo.result.error
+                : typeof todo.statusMessage === 'string'
+                  ? todo.statusMessage
+                  : '任务执行过程中发生错误，请查看详细日志'}
             </p>
-            {todo.result?.error &&
-              todo.statusMessage &&
+            {typeof todo.result?.error === 'string' &&
+              typeof todo.statusMessage === 'string' &&
               todo.result.error !== todo.statusMessage && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   详情: {todo.statusMessage}
