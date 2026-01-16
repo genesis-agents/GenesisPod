@@ -510,7 +510,7 @@ export class TopicResearchService {
     }
 
     // 并行执行查询和计数
-    const [topics, total] = await Promise.all([
+    const [rawTopics, total] = await Promise.all([
       this.prisma.researchTopic.findMany({
         where,
         skip,
@@ -526,6 +526,16 @@ export class TopicResearchService {
               sortOrder: true,
             },
           },
+          // ★ 包含最新报告以获取 totalSources 和 lastRefreshAt
+          reports: {
+            orderBy: { generatedAt: "desc" },
+            take: 1,
+            select: {
+              id: true,
+              totalSources: true,
+              generatedAt: true,
+            },
+          },
           _count: {
             select: {
               reports: true,
@@ -536,6 +546,19 @@ export class TopicResearchService {
       }),
       this.prisma.researchTopic.count({ where }),
     ]);
+
+    // ★ 映射数据，确保 totalReports/totalSources/lastRefreshAt 从实际数据计算
+    const topics = rawTopics.map((topic) => {
+      const latestReport = topic.reports?.[0];
+      return {
+        ...topic,
+        totalReports: topic._count?.reports || 0,
+        totalSources: latestReport?.totalSources || topic.totalSources || 0,
+        lastRefreshAt: latestReport?.generatedAt || topic.lastRefreshAt,
+        // 移除 reports 数组，避免返回多余数据
+        reports: undefined,
+      };
+    });
 
     return {
       topics,
@@ -820,6 +843,46 @@ export class TopicResearchService {
    */
   async recalculateEvidenceCredibility(reportId: string) {
     return this.evidenceService.recalculateCredibilityScores(reportId);
+  }
+
+  /**
+   * ★ 重新计算专题统计数据
+   * 用于修复历史数据中 totalReports/totalSources/lastRefreshAt 不正确的问题
+   */
+  async recalculateTopicStats(userId: string, topicId: string) {
+    // 验证专题所有权
+    await this.verifyTopicOwnership(userId, topicId);
+
+    // 获取报告统计
+    const reportStats = await this.prisma.topicReport.aggregate({
+      where: { topicId },
+      _count: { id: true },
+      _max: { generatedAt: true },
+    });
+
+    // 获取最新报告的 totalSources
+    const latestReport = await this.prisma.topicReport.findFirst({
+      where: { topicId },
+      orderBy: { generatedAt: "desc" },
+      select: { totalSources: true },
+    });
+
+    // 更新专题统计
+    const updatedTopic = await this.prisma.researchTopic.update({
+      where: { id: topicId },
+      data: {
+        totalReports: reportStats._count.id || 0,
+        totalSources: latestReport?.totalSources || 0,
+        lastRefreshAt: reportStats._max.generatedAt,
+      },
+    });
+
+    this.logger.log(
+      `Recalculated stats for topic ${topicId}: ` +
+        `reports=${updatedTopic.totalReports}, sources=${updatedTopic.totalSources}`,
+    );
+
+    return updatedTopic;
   }
 
   /**

@@ -237,13 +237,14 @@ export class TopicTeamOrchestratorService {
         report.id,
       );
 
-      // 6. 更新专题状态
+      // 6. 更新专题状态和统计数据
       await this.prisma.researchTopic.update({
         where: { id: topicId },
         data: {
           status: ResearchTopicStatus.ACTIVE,
           lastRefreshAt: new Date(),
           totalReports: { increment: 1 },
+          totalSources: finalReport.totalSources || 0,
         },
       });
 

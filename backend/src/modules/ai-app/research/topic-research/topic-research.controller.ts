@@ -1823,6 +1823,28 @@ export class TopicResearchController {
     return this.topicResearchService.recalculateEvidenceCredibility(reportId);
   }
 
+  /**
+   * ★ 重新计算专题统计数据
+   */
+  @Post("topics/:topicId/recalculate-stats")
+  @ApiOperation({
+    summary: "重新计算专题统计数据",
+    description:
+      "重新计算专题的 totalReports、totalSources 和 lastRefreshAt，用于修复历史数据问题",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "返回更新后的专题" })
+  async recalculateTopicStats(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    return this.topicResearchService.recalculateTopicStats(userId, topicId);
+  }
+
   // ==================== Research History (Phase 2.3) ====================
 
   /**

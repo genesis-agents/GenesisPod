@@ -1527,3 +1527,15 @@ export async function createUserRequestTodo(
     }
   );
 }
+
+/**
+ * ★ 重新计算专题统计数据
+ * 用于修复历史数据中 totalReports/totalSources/lastRefreshAt 不正确的问题
+ */
+export async function recalculateTopicStats(
+  topicId: string
+): Promise<ResearchTopic> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/recalculate-stats`, {
+    method: 'POST',
+  });
+}
