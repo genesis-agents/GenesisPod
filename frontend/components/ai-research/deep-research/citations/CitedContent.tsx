@@ -301,11 +301,11 @@ function processText(
   sources: SourceReference[]
 ): React.ReactNode {
   // ★ 预处理：清理引用之间的下划线分隔符
-  // AI 有时会生成 [32]___[39] 或 [33]__[38] 这样的格式
+  // AI 有时会生成 [32]____[39] 或 [33]__[38] 这样的格式（任意数量下划线）
   let cleanedText = text
-    .replace(/\]_{1,3}\[/g, '][') // 清理 ]___[ 或 ]__[ 或 ]_[ 为 ][
-    .replace(/\]_{1,3}\s*\[/g, '][') // 清理 ]___ [ 带空格的情况
-    .replace(/\]\s*_{1,3}\[/g, ']['); // 清理 ] ___[ 带空格的情况
+    .replace(/\]_+\[/g, '][') // 清理 ]____[ 任意数量下划线
+    .replace(/\]_+\s*\[/g, '][') // 清理 ]____ [ 带空格的情况
+    .replace(/\]\s*_+\[/g, ']['); // 清理 ] ____[ 带空格的情况
 
   // Build a map from evidence IDs to source indices for UUID and temp-X-Y formats
   const evidenceIdMap = new Map<string, number>();
