@@ -899,26 +899,30 @@ export function ChapterizedReportView({
               placeholder="编辑 Markdown 源码..."
             />
           ) : (
-            // Key forces React to recreate DOM when annotations change,
-            // preventing conflicts between DOM manipulation and React reconciliation
+            // Stable content wrapper - key only changes when content changes
+            // This prevents React reconciliation conflicts with DOM modifications
             <div
               key={`preview-${selectedChapter?.id || 'none'}-${annotations?.length || 0}`}
               ref={previewRef}
               className="p-6"
             >
-              {sources.length > 0 ? (
-                <CitedMarkdown
-                  content={selectedChapter.content || '暂无内容'}
-                  sources={sources}
-                  annotations={annotations}
-                  highlightedAnnotationId={highlightedAnnotationId}
-                />
-              ) : (
-                <article className="prose prose-sm prose-gray max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {selectedChapter.content || '暂无内容'}
-                  </ReactMarkdown>
-                </article>
+              {/* Memoized content - does NOT depend on highlightedAnnotationId */}
+              {/* This prevents re-renders when only the highlight state changes */}
+              {useMemo(
+                () =>
+                  sources.length > 0 ? (
+                    <CitedMarkdown
+                      content={selectedChapter.content || '暂无内容'}
+                      sources={sources}
+                    />
+                  ) : (
+                    <article className="prose prose-sm prose-gray max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {selectedChapter.content || '暂无内容'}
+                      </ReactMarkdown>
+                    </article>
+                  ),
+                [selectedChapter.content, sources]
               )}
 
               {/* ★ 右键菜单 - 与连续视图保持一致 */}
@@ -930,6 +934,7 @@ export function ChapterizedReportView({
               />
 
               {/* DOM-based annotation highlighter for cross-paragraph support */}
+              {/* Receives highlightedAnnotationId but only updates CSS classes, not DOM structure */}
               <AnnotationHighlighter
                 containerRef={previewRef}
                 annotations={annotations || []}
