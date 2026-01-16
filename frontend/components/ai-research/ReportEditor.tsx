@@ -20,6 +20,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
+import Highlight from '@tiptap/extension-highlight';
 import TurndownService from 'turndown';
 import type { TopicReport, TopicEvidence } from '@/types/topic-research';
 import { TextSelectionContextMenu } from './TextSelectionContextMenu';
@@ -27,7 +28,10 @@ import type { AIEditOperation } from './types';
 import { triggerCitationClick } from './citationNavigation';
 import {
   splitTextIntoSegments,
+  findAnnotationMatches,
+  normalizeWhitespace,
   type Annotation as PreprocessorAnnotation,
+  type AnnotationColor,
 } from '@/lib/annotation';
 import { AnnotatedText, useScrollToAnnotation } from './AnnotatedText';
 
@@ -170,6 +174,129 @@ function processInlineMarkdown(text: string): string {
         '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
       )
   );
+}
+
+// Color mapping for annotation highlights (matches AnnotatedText component)
+const ANNOTATION_COLOR_CLASSES: Record<AnnotationColor, string> = {
+  yellow: 'bg-yellow-200',
+  green: 'bg-green-200',
+  blue: 'bg-blue-200',
+  pink: 'bg-pink-200',
+  purple: 'bg-purple-200',
+};
+
+/**
+ * Apply annotation highlights to HTML content for TipTap editor
+ * Inserts <mark> tags with data attributes and CSS classes
+ */
+function applyAnnotationHighlightsToHtml(
+  html: string,
+  annotations: PreprocessorAnnotation[]
+): string {
+  if (!annotations || annotations.length === 0) {
+    return html;
+  }
+
+  // Extract text content from HTML for matching
+  const tempDiv =
+    typeof document !== 'undefined' ? document.createElement('div') : null;
+  if (!tempDiv) return html; // SSR fallback
+
+  tempDiv.innerHTML = html;
+  const textContent = tempDiv.textContent || '';
+
+  // Find annotation matches in text content
+  const matches = findAnnotationMatches(textContent, annotations);
+  if (matches.length === 0) {
+    return html;
+  }
+
+  // Process each text node in the HTML
+  const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT, null);
+  const textNodes: Text[] = [];
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    textNodes.push(node as Text);
+  }
+
+  // Build a map of text positions to annotation matches
+  let globalOffset = 0;
+  for (const textNode of textNodes) {
+    const nodeText = textNode.textContent || '';
+    const normalizedNodeText = normalizeWhitespace(nodeText);
+    const nodeLength = normalizedNodeText.length;
+
+    // Check each match to see if it falls within this text node
+    for (const match of matches) {
+      // Calculate if this match overlaps with this text node
+      const matchStart = match.startIndex;
+      const matchEnd = match.endIndex;
+      const nodeStart = globalOffset;
+      const nodeEnd = globalOffset + nodeLength;
+
+      // Check for overlap
+      if (matchStart < nodeEnd && matchEnd > nodeStart) {
+        // Calculate the local positions within this text node
+        const localStart = Math.max(0, matchStart - nodeStart);
+        const localEnd = Math.min(nodeLength, matchEnd - nodeStart);
+
+        // Find the actual character positions in the original text
+        const originalText = textNode.textContent || '';
+        let charCount = 0;
+        let actualStart = 0;
+        let actualEnd = originalText.length;
+
+        // Map normalized positions to original positions
+        for (let i = 0; i < originalText.length && charCount <= localEnd; i++) {
+          if (
+            !/\s/.test(originalText[i]) ||
+            (i > 0 && !/\s/.test(originalText[i - 1]))
+          ) {
+            if (charCount === localStart) actualStart = i;
+            charCount++;
+            if (charCount === localEnd) {
+              actualEnd = i + 1;
+              break;
+            }
+          }
+        }
+
+        // Create the highlighted span
+        const before = originalText.slice(0, actualStart);
+        const highlighted = originalText.slice(actualStart, actualEnd);
+        const after = originalText.slice(actualEnd);
+
+        if (highlighted) {
+          const annotation = annotations.find(
+            (a) => a.id === match.annotationId
+          );
+          const colorClass = annotation
+            ? ANNOTATION_COLOR_CLASSES[annotation.color] || 'bg-yellow-200'
+            : 'bg-yellow-200';
+
+          // Create mark element
+          const mark = document.createElement('mark');
+          mark.className = `${colorClass} px-0.5 rounded annotation-highlight`;
+          mark.setAttribute('data-annotation-id', match.annotationId);
+          mark.textContent = highlighted;
+
+          // Create document fragment
+          const fragment = document.createDocumentFragment();
+          if (before) fragment.appendChild(document.createTextNode(before));
+          fragment.appendChild(mark);
+          if (after) fragment.appendChild(document.createTextNode(after));
+
+          // Replace the text node
+          textNode.parentNode?.replaceChild(fragment, textNode);
+          break; // Only apply first match per text node to avoid complexity
+        }
+      }
+    }
+
+    globalOffset += nodeLength + 1; // +1 for normalized space between nodes
+  }
+
+  return tempDiv.innerHTML;
 }
 
 // Annotation type for highlighting
@@ -546,6 +673,12 @@ function ReportEditorInner({
         placeholder: '开始编辑报告...',
       }),
       Typography,
+      Highlight.configure({
+        multicolor: true,
+        HTMLAttributes: {
+          class: 'annotation-highlight',
+        },
+      }),
     ],
     content: '',
     editable: true,
@@ -744,13 +877,37 @@ function ReportEditorInner({
     setEditContent(markdownContent);
   }, [markdownContent]);
 
-  // Update TipTap editor when switching to richtext mode
+  // Convert annotations to PreprocessorAnnotation format for TipTap highlighting
+  const tiptapAnnotations: PreprocessorAnnotation[] = useMemo(
+    () =>
+      (annotations || []).map((a) => ({
+        id: a.id,
+        selectedText: a.selectedText,
+        startOffset: a.startOffset,
+        endOffset: a.endOffset,
+        selectorPrefix: a.selectorPrefix,
+        selectorSuffix: a.selectorSuffix,
+        color: a.color,
+        status: a.status,
+      })),
+    [annotations]
+  );
+
+  // Update TipTap editor when switching to richtext mode or annotations change
+  // Note: editContent is intentionally excluded from deps to avoid re-render loops
+  // (TipTap is the source of truth for content when in richtext mode)
   useEffect(() => {
     if (viewMode === 'richtext' && tiptapEditor) {
       const html = markdownToHtml(editContent);
-      tiptapEditor.commands.setContent(html);
+      // Apply annotation highlights to the HTML before setting content
+      const highlightedHtml = applyAnnotationHighlightsToHtml(
+        html,
+        tiptapAnnotations
+      );
+      tiptapEditor.commands.setContent(highlightedHtml);
     }
-  }, [viewMode, tiptapEditor]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, tiptapEditor, tiptapAnnotations]);
 
   // Sync TipTap content when editContent changes from source mode
   useEffect(() => {

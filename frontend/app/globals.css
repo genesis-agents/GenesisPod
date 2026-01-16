@@ -871,11 +871,24 @@ body {
 }
 
 /* Annotation mark base styles */
-mark.annotation-mark {
+mark.annotation-mark,
+mark.annotation-highlight {
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-mark.annotation-mark:hover {
+mark.annotation-mark:hover,
+mark.annotation-highlight:hover {
   filter: brightness(0.95);
+}
+
+/* TipTap editor annotation highlight styles */
+.ProseMirror mark.annotation-highlight {
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* Ensure annotation colors work in TipTap */
+.ProseMirror mark[data-annotation-id] {
+  cursor: pointer;
 }
