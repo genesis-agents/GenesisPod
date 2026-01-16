@@ -208,8 +208,8 @@ export function TopicSharingModal({
 
     try {
       const [sharingRes, collaboratorsRes] = await Promise.all([
-        fetch(`/api/topic-research/topics/${topicId}/sharing`),
-        fetch(`/api/topic-research/topics/${topicId}/collaborators`),
+        fetch(`/api/v1/topic-research/topics/${topicId}/sharing`),
+        fetch(`/api/v1/topic-research/topics/${topicId}/collaborators`),
       ]);
 
       if (sharingRes.ok) {
@@ -239,7 +239,7 @@ export function TopicSharingModal({
 
     try {
       const res = await fetch(
-        `/api/topic-research/topics/${topicId}/visibility`,
+        `/api/v1/topic-research/topics/${topicId}/visibility`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -267,7 +267,7 @@ export function TopicSharingModal({
 
     try {
       const res = await fetch(
-        `/api/topic-research/topics/${topicId}/collaborators`,
+        `/api/v1/topic-research/topics/${topicId}/collaborators`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -297,7 +297,7 @@ export function TopicSharingModal({
   ) => {
     try {
       const res = await fetch(
-        `/api/topic-research/topics/${topicId}/collaborators/${collaboratorId}`,
+        `/api/v1/topic-research/topics/${topicId}/collaborators/${collaboratorId}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -322,7 +322,7 @@ export function TopicSharingModal({
   const handleRemoveCollaborator = async (collaboratorId: string) => {
     try {
       const res = await fetch(
-        `/api/topic-research/topics/${topicId}/collaborators/${collaboratorId}`,
+        `/api/v1/topic-research/topics/${topicId}/collaborators/${collaboratorId}`,
         { method: 'DELETE' }
       );
 
