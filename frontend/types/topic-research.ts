@@ -114,6 +114,8 @@ export interface TopicReport {
   version: number;
   title: string | null;
   summary: string | null;
+  executiveSummary?: string; // 执行摘要
+  fullReport?: string; // 完整报告（Markdown）
   highlights: ReportHighlight[] | null;
   totalSources: number;
   status: ReportStatus;

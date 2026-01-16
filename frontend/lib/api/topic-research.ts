@@ -1539,3 +1539,39 @@ export async function recalculateTopicStats(
     method: 'POST',
   });
 }
+
+// ==================== Public Shared Access (No Auth Required) ====================
+
+/**
+ * 获取公开的专题详情（无需认证）
+ */
+export async function getSharedTopic(topicId: string): Promise<ResearchTopic> {
+  const response = await fetch(
+    `${API_BASE}${API_PREFIX}/shared/topics/${topicId}`
+  );
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ message: 'Failed to fetch shared topic' }));
+    throw new Error(error.message || 'Failed to fetch shared topic');
+  }
+  return response.json();
+}
+
+/**
+ * 获取公开专题的最新报告（无需认证）
+ */
+export async function getSharedTopicLatestReport(
+  topicId: string
+): Promise<TopicReport> {
+  const response = await fetch(
+    `${API_BASE}${API_PREFIX}/shared/topics/${topicId}/reports/latest`
+  );
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ message: 'Failed to fetch shared report' }));
+    throw new Error(error.message || 'Failed to fetch shared report');
+  }
+  return response.json();
+}

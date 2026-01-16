@@ -113,14 +113,20 @@ function getExtendedActivity(activity: AgentActivity): ExtendedAgentActivity {
   };
 }
 
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '--';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '--';
+    return date.toLocaleDateString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '--';
+  }
 }
 
 function formatDuration(ms: number): string {

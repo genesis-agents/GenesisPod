@@ -211,13 +211,19 @@ export function TodoDetailPanel({
     });
   };
 
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
+  const formatTimestamp = (timestamp: string | null | undefined) => {
+    if (!timestamp) return '--:--:--';
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return '--:--:--';
+      return date.toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    } catch {
+      return '--:--:--';
+    }
   };
 
   const formatDuration = (ms: number) => {

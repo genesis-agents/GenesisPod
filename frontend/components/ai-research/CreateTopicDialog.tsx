@@ -406,7 +406,7 @@ export function CreateTopicDialog({
                   placeholder={t(
                     'topicResearch.createDialog.topicNamePlaceholder'
                   )}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   autoFocus
                 />
               </div>
@@ -423,7 +423,7 @@ export function CreateTopicDialog({
                     'topicResearch.createDialog.topicDescPlaceholder'
                   )}
                   rows={3}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 

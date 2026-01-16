@@ -2043,6 +2043,106 @@ export class TopicResearchService {
     };
   }
 
+  // ==================== Public Shared Access ====================
+
+  /**
+   * 获取公开的专题详情（无需认证）
+   */
+  async getSharedTopic(topicId: string) {
+    // 检查专题是否存在且为公开
+    const result = await this.prisma.$queryRaw<
+      { id: string; visibility: string }[]
+    >`
+      SELECT id, visibility FROM research_topics WHERE id = ${topicId}
+    `;
+
+    if (!result.length) {
+      throw new NotFoundException("Topic not found");
+    }
+
+    if (result[0].visibility !== "PUBLIC") {
+      throw new NotFoundException("Topic not found or not publicly accessible");
+    }
+
+    // 获取专题详情（不验证用户）
+    const topic = await this.prisma.researchTopic.findUnique({
+      where: { id: topicId },
+      include: {
+        dimensions: {
+          orderBy: { sortOrder: "asc" },
+        },
+      },
+    });
+
+    if (!topic) {
+      throw new NotFoundException("Topic not found");
+    }
+
+    // 获取报告统计
+    const [reportCount, latestReport] = await Promise.all([
+      this.prisma.topicReport.count({ where: { topicId } }),
+      this.prisma.topicReport.findFirst({
+        where: { topicId },
+        orderBy: { generatedAt: "desc" },
+        select: {
+          id: true,
+          version: true,
+          totalSources: true,
+          generatedAt: true,
+        },
+      }),
+    ]);
+
+    return {
+      ...topic,
+      totalReports: reportCount,
+      totalSources: latestReport?.totalSources || topic.totalSources || 0,
+      lastRefreshAt: latestReport?.generatedAt || topic.lastRefreshAt,
+    };
+  }
+
+  /**
+   * 获取公开专题的最新报告（无需认证）
+   */
+  async getSharedTopicLatestReport(topicId: string) {
+    // 检查专题是否存在且为公开
+    const result = await this.prisma.$queryRaw<
+      { id: string; visibility: string }[]
+    >`
+      SELECT id, visibility FROM research_topics WHERE id = ${topicId}
+    `;
+
+    if (!result.length) {
+      throw new NotFoundException("Topic not found");
+    }
+
+    if (result[0].visibility !== "PUBLIC") {
+      throw new NotFoundException("Topic not found or not publicly accessible");
+    }
+
+    // 获取最新报告
+    const report = await this.prisma.topicReport.findFirst({
+      where: { topicId },
+      orderBy: { generatedAt: "desc" },
+      include: {
+        topic: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            description: true,
+          },
+        },
+      },
+    });
+
+    if (!report) {
+      throw new NotFoundException("No reports found for this topic");
+    }
+
+    return report;
+  }
+
   // ==================== Report Editing ====================
 
   async getReportChanges(userId: string, topicId: string, reportId: string) {

@@ -64,6 +64,7 @@ import {
   UpdateTopicVisibilityDto,
 } from "./dto/collaborator.dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { Public } from "../../../../common/decorators/public.decorator";
 import { ResearchMissionService } from "./services/research-mission.service";
 import { ResearchLeaderService } from "./services/research-leader.service";
 import { TopicCollaboratorService } from "./services/topic-collaborator.service";
@@ -85,6 +86,40 @@ export class TopicResearchController {
     private readonly reviewWorkflowService: ReviewWorkflowService,
     private readonly todoService: ResearchTodoService,
   ) {}
+
+  // ==================== Public Endpoints ====================
+
+  /**
+   * 获取公开专题（无需认证）
+   */
+  @Public()
+  @Get("shared/topics/:id")
+  @ApiOperation({
+    summary: "获取公开专题",
+    description: "获取设置为公开可见的研究专题详情（无需登录）",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "返回专题详情" })
+  @ApiResponse({ status: 404, description: "专题不存在或不公开" })
+  async getSharedTopic(@Param("id") id: string) {
+    return this.topicResearchService.getSharedTopic(id);
+  }
+
+  /**
+   * 获取公开专题的最新报告（无需认证）
+   */
+  @Public()
+  @Get("shared/topics/:id/reports/latest")
+  @ApiOperation({
+    summary: "获取公开专题最新报告",
+    description: "获取设置为公开可见的研究专题的最新报告（无需登录）",
+  })
+  @ApiParam({ name: "id", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "返回最新报告" })
+  @ApiResponse({ status: 404, description: "专题不存在或不公开" })
+  async getSharedTopicLatestReport(@Param("id") id: string) {
+    return this.topicResearchService.getSharedTopicLatestReport(id);
+  }
 
   // ==================== Topics CRUD ====================
 
