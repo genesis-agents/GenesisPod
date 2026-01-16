@@ -64,22 +64,67 @@ function getReportContent(report: TopicReport | null): string {
 
   // Handle fullReport
   if (report.fullReport) {
-    // If it's already a string
+    // If it's an object (structured report) - check this FIRST
+    if (typeof report.fullReport === 'object' && report.fullReport !== null) {
+      const obj = report.fullReport as Record<string, unknown>;
+      // Check if it's a structured report object
+      if (
+        obj.preface ||
+        obj.executiveSummary ||
+        obj.sections ||
+        obj.conclusion
+      ) {
+        return extractMarkdownFromStructuredReport(obj as StructuredReport);
+      }
+      // Handle nested fullReport case: { fullReport: { ... } }
+      if (obj.fullReport && typeof obj.fullReport === 'object') {
+        return extractMarkdownFromStructuredReport(
+          obj.fullReport as StructuredReport
+        );
+      }
+    }
+
+    // If it's a string
     if (typeof report.fullReport === 'string') {
       const trimmed = report.fullReport.trim();
 
-      // Check if it looks like JSON (starts with { and contains expected keys)
-      if (trimmed.startsWith('{')) {
+      // Check if it looks like JSON (starts with { or [)
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
         try {
-          const parsed = JSON.parse(trimmed) as StructuredReport;
-          // Verify it has expected structure
-          if (
-            parsed.preface ||
-            parsed.executiveSummary ||
-            parsed.sections ||
-            parsed.conclusion
-          ) {
-            return extractMarkdownFromStructuredReport(parsed);
+          const parsed = JSON.parse(trimmed);
+
+          // If parsed is an array, handle it
+          if (Array.isArray(parsed)) {
+            // It might be an array of sections
+            if (parsed.length > 0 && parsed[0].title) {
+              return extractMarkdownFromStructuredReport({ sections: parsed });
+            }
+          }
+
+          // If parsed is an object
+          if (typeof parsed === 'object' && parsed !== null) {
+            // Check for nested fullReport
+            if (parsed.fullReport) {
+              const nested =
+                typeof parsed.fullReport === 'string'
+                  ? JSON.parse(parsed.fullReport)
+                  : parsed.fullReport;
+              return extractMarkdownFromStructuredReport(
+                nested as StructuredReport
+              );
+            }
+            // Verify it has expected structure and extract
+            if (
+              parsed.preface ||
+              parsed.executiveSummary ||
+              parsed.sections ||
+              parsed.conclusion ||
+              parsed.tableOfContents
+            ) {
+              return extractMarkdownFromStructuredReport(
+                parsed as StructuredReport
+              );
+            }
           }
         } catch {
           // Not valid JSON, check if it contains embedded JSON
@@ -98,15 +143,28 @@ function getReportContent(report: TopicReport | null): string {
         }
       }
 
-      // Return as-is if it looks like valid Markdown
-      return report.fullReport;
-    }
+      // Return as-is if it looks like valid Markdown (starts with # or has markdown patterns)
+      if (
+        trimmed.startsWith('#') ||
+        trimmed.includes('\n#') ||
+        trimmed.includes('**')
+      ) {
+        return report.fullReport;
+      }
 
-    // If it's an object (structured report)
-    if (typeof report.fullReport === 'object') {
-      return extractMarkdownFromStructuredReport(
-        report.fullReport as StructuredReport
-      );
+      // Last attempt: try to parse the whole thing as JSON even if it doesn't start with {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (typeof parsed === 'object' && parsed !== null) {
+          return extractMarkdownFromStructuredReport(
+            parsed as StructuredReport
+          );
+        }
+      } catch {
+        // Not JSON, return as-is
+      }
+
+      return report.fullReport;
     }
   }
 
@@ -259,18 +317,32 @@ function cleanMarkdownWithJson(content: string): string {
   });
 }
 
+// Helper to check if content already starts with a heading
+function startsWithHeading(content: string): boolean {
+  return content.trim().startsWith('#');
+}
+
 // Extract markdown content from structured report JSON
 function extractMarkdownFromStructuredReport(data: StructuredReport): string {
   const parts: string[] = [];
 
   // Add preface
   if (data.preface && typeof data.preface === 'string') {
-    parts.push('# 前言\n\n' + data.preface);
+    // Check if preface already has a heading
+    if (startsWithHeading(data.preface)) {
+      parts.push(data.preface);
+    } else {
+      parts.push('# 前言\n\n' + data.preface);
+    }
   }
 
   // Add executive summary
   if (data.executiveSummary && typeof data.executiveSummary === 'string') {
-    parts.push('# 执行摘要\n\n' + data.executiveSummary);
+    if (startsWithHeading(data.executiveSummary)) {
+      parts.push(data.executiveSummary);
+    } else {
+      parts.push('# 执行摘要\n\n' + data.executiveSummary);
+    }
   }
 
   // Add sections
@@ -278,15 +350,22 @@ function extractMarkdownFromStructuredReport(data: StructuredReport): string {
     for (const section of data.sections) {
       const sectionParts: string[] = [];
 
-      // Section title
-      const sectionNum = section.sectionNumber || '';
-      const sectionTitle = section.title || '章节';
-      sectionParts.push(
-        `# ${sectionNum}${sectionNum ? '. ' : ''}${sectionTitle}`
-      );
+      // Section content - check if it already has a heading
+      const hasContentHeading =
+        section.content && startsWithHeading(section.content);
 
-      // Core viewpoints
+      // Section title - only add if content doesn't start with heading
+      if (!hasContentHeading) {
+        const sectionNum = section.sectionNumber || '';
+        const sectionTitle = section.title || '章节';
+        sectionParts.push(
+          `# ${sectionNum}${sectionNum ? '. ' : ''}${sectionTitle}`
+        );
+      }
+
+      // Core viewpoints - add before content if content doesn't have heading
       if (
+        !hasContentHeading &&
         Array.isArray(section.coreViewpoints) &&
         section.coreViewpoints.length > 0
       ) {
@@ -301,13 +380,6 @@ function extractMarkdownFromStructuredReport(data: StructuredReport): string {
 
       // Section content
       if (section.content && typeof section.content === 'string') {
-        // Don't duplicate heading if content starts with one
-        if (
-          section.content.trim().startsWith('#') &&
-          section.content.includes(sectionTitle)
-        ) {
-          sectionParts.length = 0; // Clear previous parts
-        }
         sectionParts.push(section.content);
       }
 
@@ -346,7 +418,11 @@ function extractMarkdownFromStructuredReport(data: StructuredReport): string {
 
   // Add conclusion
   if (data.conclusion && typeof data.conclusion === 'string') {
-    parts.push('# 结束语\n\n' + data.conclusion);
+    if (startsWithHeading(data.conclusion)) {
+      parts.push(data.conclusion);
+    } else {
+      parts.push('# 结束语\n\n' + data.conclusion);
+    }
   }
 
   // Add appendices

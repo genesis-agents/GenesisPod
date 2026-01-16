@@ -348,77 +348,6 @@ function CreateProjectDialog({
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          {/* Research Type Selector */}
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
-              {t('aiStudio.researchType.label')}
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setResearchType('FAST')}
-                className={`flex flex-col items-center rounded-lg border-2 p-4 transition-all ${
-                  researchType === 'FAST'
-                    ? 'border-violet-500 bg-violet-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <svg
-                  className={`mb-2 h-6 w-6 ${researchType === 'FAST' ? 'text-violet-600' : 'text-gray-400'}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-                <span
-                  className={`text-sm font-medium ${researchType === 'FAST' ? 'text-violet-700' : 'text-gray-700'}`}
-                >
-                  {t('aiStudio.researchType.fast')}
-                </span>
-                <span className="mt-1 text-center text-xs text-gray-500">
-                  {t('aiStudio.researchType.fastDesc')}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setResearchType('DEEP')}
-                className={`flex flex-col items-center rounded-lg border-2 p-4 transition-all ${
-                  researchType === 'DEEP'
-                    ? 'border-purple-500 bg-purple-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <svg
-                  className={`mb-2 h-6 w-6 ${researchType === 'DEEP' ? 'text-purple-600' : 'text-gray-400'}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
-                  />
-                </svg>
-                <span
-                  className={`text-sm font-medium ${researchType === 'DEEP' ? 'text-purple-700' : 'text-gray-700'}`}
-                >
-                  {t('aiStudio.researchType.deep')}
-                </span>
-                <span className="mt-1 text-center text-xs text-gray-500">
-                  {t('aiStudio.researchType.deepDesc')}
-                </span>
-              </button>
-            </div>
-          </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700">
               {t('aiStudio.project.name')}
@@ -927,16 +856,22 @@ function StudioPageContent() {
                   />
                 ))}
 
-                {/* ★ 暂时隐藏创建新项目卡片 */}
-                {/* <button
+                {/* Create New Project Card */}
+                <button
                   onClick={() => setShowCreateDialog(true)}
-                  className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors hover:border-violet-400 hover:bg-violet-50"
+                  className={`flex min-h-[180px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 transition-colors ${
+                    activeTab === 'fast'
+                      ? 'hover:border-violet-400 hover:bg-violet-50'
+                      : 'hover:border-purple-400 hover:bg-purple-50'
+                  }`}
                 >
-                  <PlusIcon className="h-10 w-10 text-gray-400" />
+                  <PlusIcon
+                    className={`h-10 w-10 ${activeTab === 'fast' ? 'text-violet-400' : 'text-purple-400'}`}
+                  />
                   <span className="mt-2 text-sm font-medium text-gray-600">
                     {t('aiStudio.empty.createNew')}
                   </span>
-                </button> */}
+                </button>
               </div>
             )}
           </>

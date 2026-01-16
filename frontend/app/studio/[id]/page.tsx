@@ -6,5 +6,5 @@ interface Props {
 
 export default async function StudioRedirect({ params }: Props) {
   const { id } = await params;
-  redirect(`/ai-studio/${id}`);
+  redirect(`/ai-research/${id}`);
 }
