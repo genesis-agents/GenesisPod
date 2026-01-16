@@ -336,7 +336,7 @@ export function CreateTopicDialog({
         </div>
 
         {/* Content */}
-        <div className="px-6 py-4">
+        <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
           {step === 'type' ? (
             // Step 1: Select Type
             <div className="grid grid-cols-3 gap-4">

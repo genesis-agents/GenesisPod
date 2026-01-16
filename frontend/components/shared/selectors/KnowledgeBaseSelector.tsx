@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Database,
   Check,
@@ -49,6 +50,30 @@ export default function KnowledgeBaseSelector({
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Track if component is mounted (for portal)
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Update dropdown position when opening
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+  }, [isOpen]);
 
   const displayPlaceholder = placeholder || t('knowledgeBase.select');
 
@@ -350,6 +375,7 @@ export default function KnowledgeBaseSelector({
       )}
 
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled || (multiple && selectedIds.length >= maxSelections)}
@@ -374,13 +400,21 @@ export default function KnowledgeBaseSelector({
         />
       </button>
 
-      {isOpen && (
-        <div className="relative">
-          <div className="absolute left-0 top-0 z-50 w-full">
+      {isOpen &&
+        mounted &&
+        createPortal(
+          <div
+            className="kb-selector fixed z-[9999]"
+            style={{
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+            }}
+          >
             {renderDropdownContent()}
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

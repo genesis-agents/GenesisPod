@@ -36,44 +36,135 @@ const turndownService = new TurndownService({
   codeBlockStyle: 'fenced',
 });
 
-// Simple markdown to HTML converter (for TipTap)
+// Comprehensive markdown to HTML converter (for TipTap)
 function markdownToHtml(markdown: string): string {
-  // First normalize multiple consecutive newlines to double newlines
+  // First normalize and clean the markdown
   let normalized = markdown
     .replace(/\r\n/g, '\n') // Normalize Windows line endings
+    .replace(/\\#/g, '#') // Remove escaped hash symbols (common from AI output)
+    .replace(/\\-/g, '-') // Remove escaped dashes
+    .replace(/\\\*/g, '*') // Remove escaped asterisks
+    .replace(/\\\[/g, '[') // Remove escaped brackets
+    .replace(/\\\]/g, ']')
     .replace(/\n{3,}/g, '\n\n') // Collapse 3+ newlines to 2
     .trim();
 
-  let html = normalized
-    // Headers
-    .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-    // Bold and italic
-    .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    // Links
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-    // Horizontal rule
-    .replace(/^---$/gm, '<hr>')
-    // Lists
-    .replace(/^- (.*)$/gm, '<li>$1</li>')
-    .replace(/^(\d+)\. (.*)$/gm, '<li>$2</li>')
-    // Line breaks - double newlines become paragraph breaks
-    .replace(/\n\n/g, '</p><p>')
-    // Single newlines become soft breaks (not <br> to avoid excessive spacing)
-    .replace(/\n/g, ' ');
+  // Process line by line for better control
+  const lines = normalized.split('\n');
+  const processedLines: string[] = [];
+  let inList = false;
+  let listType: 'ul' | 'ol' | null = null;
 
-  // Wrap in paragraphs if not already wrapped
-  if (!html.startsWith('<')) {
-    html = '<p>' + html + '</p>';
+  for (const line of lines) {
+    let processed = line;
+
+    // Headers (h1-h6) - must be at start of line
+    const headerMatch = processed.match(/^(#{1,6})\s+(.+)$/);
+    if (headerMatch) {
+      const level = headerMatch[1].length;
+      const content = headerMatch[2];
+      // Close any open list
+      if (inList) {
+        processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
+        inList = false;
+        listType = null;
+      }
+      processedLines.push(
+        `<h${level}>${processInlineMarkdown(content)}</h${level}>`
+      );
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^-{3,}$/.test(processed.trim()) || /^\*{3,}$/.test(processed.trim())) {
+      if (inList) {
+        processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
+        inList = false;
+        listType = null;
+      }
+      processedLines.push('<hr>');
+      continue;
+    }
+
+    // Unordered list item
+    const ulMatch = processed.match(/^[-*]\s+(.+)$/);
+    if (ulMatch) {
+      if (!inList || listType !== 'ul') {
+        if (inList) processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
+        processedLines.push('<ul>');
+        inList = true;
+        listType = 'ul';
+      }
+      processedLines.push(`<li>${processInlineMarkdown(ulMatch[1])}</li>`);
+      continue;
+    }
+
+    // Ordered list item
+    const olMatch = processed.match(/^\d+\.\s+(.+)$/);
+    if (olMatch) {
+      if (!inList || listType !== 'ol') {
+        if (inList) processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
+        processedLines.push('<ol>');
+        inList = true;
+        listType = 'ol';
+      }
+      processedLines.push(`<li>${processInlineMarkdown(olMatch[1])}</li>`);
+      continue;
+    }
+
+    // Close list if we hit a non-list line
+    if (inList && processed.trim()) {
+      processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
+      inList = false;
+      listType = null;
+    }
+
+    // Empty line
+    if (!processed.trim()) {
+      processedLines.push('');
+      continue;
+    }
+
+    // Regular paragraph
+    processedLines.push(`<p>${processInlineMarkdown(processed)}</p>`);
   }
 
-  // Clean up empty paragraphs
-  html = html.replace(/<p>\s*<\/p>/g, '');
+  // Close any remaining list
+  if (inList) {
+    processedLines.push(listType === 'ul' ? '</ul>' : '</ol>');
+  }
 
-  return html;
+  // Join and clean up
+  let html = processedLines
+    .join('\n')
+    .replace(/<\/p>\n<p>/g, '</p><p>') // Remove newlines between paragraphs
+    .replace(/<p>\s*<\/p>/g, '') // Remove empty paragraphs
+    .replace(/\n+/g, ''); // Remove remaining newlines
+
+  return html || '<p></p>';
+}
+
+// Process inline markdown (bold, italic, links, code)
+function processInlineMarkdown(text: string): string {
+  return (
+    text
+      // Code (inline) - must come before bold/italic to preserve backticks
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      // Bold and italic combined
+      .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+      .replace(/___(.+?)___/g, '<strong><em>$1</em></strong>')
+      // Bold
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/__(.+?)__/g, '<strong>$1</strong>')
+      // Italic
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/_(.+?)_/g, '<em>$1</em>')
+      // Links [text](url)
+      .replace(
+        /\[([^\]]+)\]\(([^)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+      )
+  );
 }
 
 // Annotation type for highlighting
@@ -726,16 +817,32 @@ export function ReportEditor({
   };
 
   // Scroll to highlighted annotation when it changes
+  // Automatically switch to preview mode to show the annotation
   useEffect(() => {
-    if (highlightedAnnotationId && previewRef.current) {
-      const highlightEl = previewRef.current.querySelector(
-        `[data-annotation-id="${highlightedAnnotationId}"]`
-      );
-      if (highlightEl) {
-        highlightEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (highlightedAnnotationId) {
+      // Switch to preview mode to show annotations
+      if (viewMode !== 'preview') {
+        setViewMode('preview');
       }
+
+      // Wait for DOM to update then scroll
+      const scrollToAnnotation = () => {
+        if (previewRef.current) {
+          const highlightEl = previewRef.current.querySelector(
+            `[data-annotation-id="${highlightedAnnotationId}"]`
+          );
+          if (highlightEl) {
+            highlightEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      };
+
+      // Use requestAnimationFrame to wait for render
+      requestAnimationFrame(() => {
+        requestAnimationFrame(scrollToAnnotation);
+      });
     }
-  }, [highlightedAnnotationId]);
+  }, [highlightedAnnotationId, viewMode]);
 
   // Process text to add annotation highlights
   const processTextWithAnnotations = useCallback(
@@ -1288,8 +1395,12 @@ export function ReportEditor({
         )}
 
         {viewMode === 'richtext' && (
-          <div ref={richTextRef} className="h-full overflow-auto bg-white">
-            <EditorContent editor={tiptapEditor} className="h-full" />
+          <div ref={richTextRef} className="h-full overflow-auto bg-white p-6">
+            {/* Apply same prose styling as preview mode for consistent appearance */}
+            <EditorContent
+              editor={tiptapEditor}
+              className="prose prose-gray prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h4:text-base prose-h5:text-sm prose-h6:text-sm prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:text-purple-600 prose-code:bg-purple-50 prose-code:px-1 prose-code:rounded max-w-none"
+            />
 
             {/* Context menu for richtext mode */}
             <TextSelectionContextMenu

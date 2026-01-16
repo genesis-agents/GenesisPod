@@ -627,6 +627,7 @@ function processText(
 
 /**
  * Apply annotation highlights to a text string
+ * Handles both full matches and partial matches for long annotations that span multiple elements
  */
 function applyAnnotations(
   text: string,
@@ -636,6 +637,8 @@ function applyAnnotations(
 ): React.ReactNode {
   if (!text || annotations.length === 0) return text;
 
+  const minMatchLength = 10; // Minimum characters for a partial match
+
   // Find all annotation matches in the text
   const matches: {
     start: number;
@@ -644,18 +647,80 @@ function applyAnnotations(
   }[] = [];
 
   annotations.forEach((annotation) => {
-    // Find all occurrences of the selected text
+    const annotationText = annotation.selectedText;
+    let foundMatch = false;
+
+    // Try exact match first
     let searchStart = 0;
     while (searchStart < text.length) {
-      const index = text.indexOf(annotation.selectedText, searchStart);
+      const index = text.indexOf(annotationText, searchStart);
       if (index === -1) break;
 
       matches.push({
         start: index,
-        end: index + annotation.selectedText.length,
+        end: index + annotationText.length,
         annotation,
       });
+      foundMatch = true;
       searchStart = index + 1;
+    }
+
+    // If no exact match, check if current text is part of annotation (middle portion)
+    if (!foundMatch && text.length >= minMatchLength) {
+      if (annotationText.includes(text)) {
+        // The entire text chunk is part of the annotation
+        matches.push({
+          start: 0,
+          end: text.length,
+          annotation,
+        });
+        foundMatch = true;
+      }
+    }
+
+    // If still no match, try to find overlapping portions
+    if (!foundMatch && annotationText.length > minMatchLength) {
+      // Check if annotation starts within this text (annotation begins here)
+      for (
+        let len = Math.min(annotationText.length - 1, text.length);
+        len >= minMatchLength;
+        len--
+      ) {
+        const annotationStart = annotationText.slice(0, len);
+        const idx = text.indexOf(annotationStart);
+        if (idx !== -1 && idx + len === text.length) {
+          // Annotation starts at end of this text chunk
+          matches.push({
+            start: idx,
+            end: text.length,
+            annotation,
+          });
+          foundMatch = true;
+          break;
+        }
+      }
+
+      // Check if annotation ends within this text (annotation ends here)
+      if (!foundMatch) {
+        for (
+          let len = Math.min(annotationText.length - 1, text.length);
+          len >= minMatchLength;
+          len--
+        ) {
+          const annotationEnd = annotationText.slice(-len);
+          const idx = text.indexOf(annotationEnd);
+          if (idx === 0) {
+            // Annotation ends at start of this text chunk
+            matches.push({
+              start: 0,
+              end: len,
+              annotation,
+            });
+            foundMatch = true;
+            break;
+          }
+        }
+      }
     }
   });
 
