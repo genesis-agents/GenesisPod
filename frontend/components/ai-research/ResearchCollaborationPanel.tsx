@@ -603,24 +603,51 @@ export function ResearchCollaborationPanel({
     return todos.find((t) => t.id === selectedTodoId);
   }, [selectedTodoId, todos]);
 
+  // ★ 根据折叠状态计算任务区的 flex 样式
+  const getTasksFlexStyle = () => {
+    if (isTasksCollapsed) {
+      // 任务区折叠：固定高度 88px (标题栏 48px + 进度条 40px)
+      return 'flex-none h-[88px]';
+    }
+    if (isConversationCollapsed) {
+      // 对话区折叠：任务区向下扩展填充
+      return 'flex-1 min-h-[200px]';
+    }
+    // 都展开：任务区占 40%
+    return 'flex-none h-[40%] min-h-[200px]';
+  };
+
+  // ★ 根据折叠状态计算对话区的 flex 样式
+  const getConversationFlexStyle = () => {
+    if (isConversationCollapsed) {
+      // 对话区折叠：固定高度 88px (标题栏 48px + 提示文字 40px)
+      return 'flex-none h-[88px]';
+    }
+    // 对话区展开：始终填充剩余空间
+    return 'flex-1 min-h-[200px]';
+  };
+
   return (
     <div className={cn('flex h-full', className)}>
       {/* Main Content Area - 双区域布局 */}
       <div
         className={cn(
           'flex flex-col gap-3 p-3 transition-all duration-300',
-          selectedTodoId ? 'w-1/2' : 'w-full'
+          selectedTodoId ? 'w-1/2' : 'w-full',
+          // 两者都折叠时，内容居中显示
+          isTasksCollapsed && isConversationCollapsed && 'justify-center'
         )}
       >
         {/* ★ 任务区 - 上半部分（可折叠） */}
         <div
           className={cn(
-            'flex flex-col rounded-lg border bg-white transition-all duration-300',
-            isTasksCollapsed ? 'h-auto' : 'h-[40%] min-h-[200px]'
+            'flex flex-col overflow-hidden rounded-lg border bg-white transition-all duration-300',
+            getTasksFlexStyle()
           )}
         >
+          {/* 标题栏 - 固定高度 48px */}
           <div
-            className="flex shrink-0 cursor-pointer items-center gap-2 border-b px-4 py-3 hover:bg-gray-50"
+            className="flex h-12 shrink-0 cursor-pointer items-center gap-2 border-b px-4 hover:bg-gray-50"
             onClick={() => setIsTasksCollapsed(!isTasksCollapsed)}
           >
             <ListTodo className="h-4 w-4 text-blue-600" />
@@ -630,13 +657,17 @@ export function ResearchCollaborationPanel({
                 {todosSummary.completed}/{todos.length}
               </span>
             )}
-            <div className="ml-auto flex items-center gap-2">
-              <ChevronUp className="h-4 w-4 text-gray-400" />
+            <div className="ml-auto">
+              {isTasksCollapsed ? (
+                <ChevronDown className="h-4 w-4 text-gray-400" />
+              ) : (
+                <ChevronUp className="h-4 w-4 text-gray-400" />
+              )}
             </div>
           </div>
-          {/* 折叠时显示紧凑进度条（向上折叠） */}
+          {/* 折叠时：紧凑进度条 - 固定高度 40px */}
           {isTasksCollapsed ? (
-            <div className="flex items-center gap-3 px-4 py-2">
+            <div className="flex h-10 shrink-0 items-center gap-3 px-4">
               <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
                 <div
                   className="h-full bg-blue-500 transition-all duration-500"
@@ -679,12 +710,13 @@ export function ResearchCollaborationPanel({
         {/* ★ 对话区 - 下半部分（可折叠） */}
         <div
           className={cn(
-            'flex flex-col rounded-lg border bg-white transition-all duration-300',
-            isConversationCollapsed ? 'h-auto' : 'min-h-[200px] flex-1'
+            'flex flex-col overflow-hidden rounded-lg border bg-white transition-all duration-300',
+            getConversationFlexStyle()
           )}
         >
+          {/* 标题栏 - 固定高度 48px */}
           <div
-            className="flex shrink-0 cursor-pointer items-center gap-2 border-b px-4 py-3 hover:bg-gray-50"
+            className="flex h-12 shrink-0 cursor-pointer items-center gap-2 border-b px-4 hover:bg-gray-50"
             onClick={() => setIsConversationCollapsed(!isConversationCollapsed)}
           >
             <MessageSquare className="h-4 w-4 text-purple-600" />
@@ -694,13 +726,17 @@ export function ResearchCollaborationPanel({
                 {conversationMessages.length}
               </span>
             )}
-            <div className="ml-auto flex items-center gap-2">
-              <ChevronDown className="h-4 w-4 text-gray-400" />
+            <div className="ml-auto">
+              {isConversationCollapsed ? (
+                <ChevronUp className="h-4 w-4 text-gray-400" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-gray-400" />
+              )}
             </div>
           </div>
-          {/* 折叠时显示简短提示（向下折叠） */}
+          {/* 折叠时：提示文字 - 固定高度 40px */}
           {isConversationCollapsed ? (
-            <div className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500">
+            <div className="flex h-10 shrink-0 items-center gap-2 px-4 text-sm text-gray-500">
               <Brain className="h-4 w-4 text-purple-400" />
               <span>输入研究指令与 Leader 对话...</span>
             </div>
