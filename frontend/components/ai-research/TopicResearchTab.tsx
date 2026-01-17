@@ -4,15 +4,16 @@
  * Topic Research Tab Component
  *
  * 专题研究 TAB 组件，用于内嵌在 AI Studio 页面中
+ * ★ v8.0: 使用独立路由 /ai-research/topic/[topicId] 而非本地状态切换
+ *         这样浏览器刷新能正确保持在详情页
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
 import { TopicCard } from './TopicCard';
 import { CreateTopicDialog } from './CreateTopicDialog';
-import { TopicDetail } from './TopicDetail';
 import { TopicSharingModal } from './TopicSharingModal';
 import type { ResearchTopic } from '@/types/topic-research';
 import { ResearchTopicType } from '@/types/topic-research';
@@ -71,26 +72,21 @@ interface TopicResearchTabProps {
   searchQuery: string;
   showCreateDialog: boolean;
   onShowCreateDialog: (show: boolean) => void;
-  onDetailViewChange?: (isDetailView: boolean) => void;
-  /** ★ 初始选中的主题ID（用于分享链接跳转） */
-  initialTopicId?: string | null;
-  /** ★ 初始视图（用于分享链接直接跳转到报告） */
-  initialView?: string | null;
 }
 
+/**
+ * ★ Topic Research 列表组件
+ * 点击卡片时导航到独立路由 /ai-research/topic/[topicId]
+ * 这样浏览器刷新能正确保持在详情页
+ */
 export function TopicResearchTab({
   activeType,
   searchQuery,
   showCreateDialog,
   onShowCreateDialog,
-  onDetailViewChange,
-  initialTopicId,
-  initialView,
 }: TopicResearchTabProps) {
   const { t } = useTranslation();
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const {
     topics,
@@ -102,39 +98,7 @@ export function TopicResearchTab({
     clearError,
   } = useTopicResearchStore();
 
-  const [selectedTopic, setSelectedTopic] = useState<ResearchTopic | null>(
-    null
-  );
   const [sharingTopic, setSharingTopic] = useState<ResearchTopic | null>(null);
-
-  // ★ 选择专题时更新 URL，确保刷新后能恢复状态
-  const selectTopic = useCallback(
-    (topic: ResearchTopic | null) => {
-      setSelectedTopic(topic);
-
-      // 更新 URL 参数
-      const params = new URLSearchParams(searchParams?.toString() || '');
-      if (topic) {
-        params.set('topicId', topic.id);
-      } else {
-        params.delete('topicId');
-        params.delete('view'); // 返回时也清除 view 参数
-      }
-
-      const newUrl = params.toString()
-        ? `${pathname}?${params.toString()}`
-        : pathname;
-
-      // 使用 replace 避免产生多余的历史记录
-      router.replace(newUrl, { scroll: false });
-    },
-    [pathname, searchParams, router]
-  );
-
-  // Notify parent when detail view changes
-  useEffect(() => {
-    onDetailViewChange?.(selectedTopic !== null);
-  }, [selectedTopic, onDetailViewChange]);
 
   // Ensure topics is always an array
   const topicsList = Array.isArray(topics) ? topics : [];
@@ -155,20 +119,18 @@ export function TopicResearchTab({
     loadTopics();
   }, [loadTopics]);
 
-  // ★ 处理初始主题ID（分享链接跳转）
-  useEffect(() => {
-    if (initialTopicId && topicsList.length > 0 && !selectedTopic) {
-      const topic = topicsList.find((t) => t.id === initialTopicId);
-      if (topic) {
-        setSelectedTopic(topic);
-      }
-    }
-  }, [initialTopicId, topicsList, selectedTopic]);
+  // ★ 点击专题卡片 - 导航到独立路由
+  const handleTopicClick = useCallback(
+    (topic: ResearchTopic) => {
+      router.push(`/ai-research/topic/${topic.id}`);
+    },
+    [router]
+  );
 
-  // Handle topic created
+  // Handle topic created - 导航到新创建的专题
   const handleTopicCreated = (topic: ResearchTopic) => {
-    selectTopic(topic);
     onShowCreateDialog(false);
+    router.push(`/ai-research/topic/${topic.id}`);
   };
 
   // Handle refresh
@@ -189,20 +151,6 @@ export function TopicResearchTab({
       // Error is already handled in store
     }
   };
-
-  // If a topic is selected, show detail view
-  if (selectedTopic) {
-    return (
-      <TopicDetail
-        topic={selectedTopic}
-        onBack={() => {
-          selectTopic(null);
-          loadTopics();
-        }}
-        initialView={initialView}
-      />
-    );
-  }
 
   return (
     <>
@@ -259,7 +207,7 @@ export function TopicResearchTab({
             <TopicCard
               key={topic.id}
               topic={topic}
-              onClick={() => selectTopic(topic)}
+              onClick={() => handleTopicClick(topic)}
               onRefresh={() => handleRefresh(topic.id)}
               onDelete={() => handleDelete(topic.id)}
               onShare={() => setSharingTopic(topic)}

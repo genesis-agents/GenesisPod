@@ -558,18 +558,11 @@ function StudioPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get('tab');
-  // ★ 读取分享链接中的 topicId 参数
-  const topicIdParam = searchParams?.get('topicId');
-  // ★ 读取分享链接中的 view 参数（用于直接跳转到报告视图）
-  const viewParam = searchParams?.get('view');
 
+  // ★ Tab 切换逻辑简化：Topic 详情页现在使用独立路由 /ai-research/topic/[topicId]
   const [activeTab, setActiveTab] = useState<'fast' | 'deep' | 'topic'>(() => {
-    if (tabParam === 'deep') {
-      return 'deep';
-    }
-    if (tabParam === 'topic') {
-      return 'topic';
-    }
+    if (tabParam === 'deep') return 'deep';
+    if (tabParam === 'topic') return 'topic';
     return 'fast';
   });
   const [projects, setProjects] = useState<ResearchProject[]>([]);
@@ -582,7 +575,6 @@ function StudioPageContent() {
   const [topicActiveType, setTopicActiveType] =
     useState<ResearchTopicType | null>(null);
   const [showTopicCreateDialog, setShowTopicCreateDialog] = useState(false);
-  const [isTopicDetailView, setIsTopicDetailView] = useState(false);
 
   // Update activeTab when URL parameter changes
   useEffect(() => {
@@ -650,153 +642,151 @@ function StudioPageContent() {
 
   return (
     <div className="h-full overflow-auto bg-gray-50">
-      {/* Header - Hidden when viewing topic detail */}
-      {!isTopicDetailView && (
-        <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
-          <div className="px-8 py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">
-                  <svg
-                    className="h-7 w-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    {t('aiStudio.title')}
-                  </h1>
-                  <p className="text-sm text-gray-500">
-                    {t('aiStudio.subtitle')}
-                  </p>
-                </div>
+      {/* Header */}
+      <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
+        <div className="px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">
+                <svg
+                  className="h-7 w-7 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                  />
+                </svg>
               </div>
-              {/* ★ 暂时隐藏新建项目按钮 */}
-              {/* <button
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {t('aiStudio.title')}
+                </h1>
+                <p className="text-sm text-gray-500">
+                  {t('aiStudio.subtitle')}
+                </p>
+              </div>
+            </div>
+            {/* ★ 暂时隐藏新建项目按钮 */}
+            {/* <button
                 onClick={() => setShowCreateDialog(true)}
                 className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-violet-700"
               >
                 <PlusIcon className="h-5 w-5" />
                 {t('aiStudio.project.newProject')}
               </button> */}
-            </div>
+          </div>
 
-            {/* Tabs */}
-            <div className="mt-6 flex items-center gap-6 border-b border-gray-200">
-              <button
-                onClick={() => setActiveTab('fast')}
-                className={`relative pb-3 text-sm font-medium transition-colors ${
-                  activeTab === 'fast'
-                    ? 'text-violet-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 10V3L4 14h7v7l9-11h-7z"
-                    />
-                  </svg>
-                  {t('aiStudio.tabs.fastResearch')}
-                </div>
-                {activeTab === 'fast' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-600" />
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab('deep')}
-                className={`relative pb-3 text-sm font-medium transition-colors ${
-                  activeTab === 'deep'
-                    ? 'text-purple-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
-                    />
-                  </svg>
-                  {t('aiStudio.tabs.deepResearch')}
-                </div>
-                {activeTab === 'deep' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600" />
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab('topic')}
-                className={`relative pb-3 text-sm font-medium transition-colors ${
-                  activeTab === 'topic'
-                    ? 'text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                  {t('topicResearch.title')}
-                </div>
-                {activeTab === 'topic' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-                )}
-              </button>
-            </div>
-
-            {/* Search Bar */}
-            <div className="mt-6">
-              <div className="relative">
-                <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t('aiStudio.search.placeholder')}
-                  className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
-                />
+          {/* Tabs */}
+          <div className="mt-6 flex items-center gap-6 border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('fast')}
+              className={`relative pb-3 text-sm font-medium transition-colors ${
+                activeTab === 'fast'
+                  ? 'text-violet-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+                {t('aiStudio.tabs.fastResearch')}
               </div>
+              {activeTab === 'fast' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-600" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('deep')}
+              className={`relative pb-3 text-sm font-medium transition-colors ${
+                activeTab === 'deep'
+                  ? 'text-purple-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+                  />
+                </svg>
+                {t('aiStudio.tabs.deepResearch')}
+              </div>
+              {activeTab === 'deep' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('topic')}
+              className={`relative pb-3 text-sm font-medium transition-colors ${
+                activeTab === 'topic'
+                  ? 'text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                {t('topicResearch.title')}
+              </div>
+              {activeTab === 'topic' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+              )}
+            </button>
+          </div>
+
+          {/* Search Bar */}
+          <div className="mt-6">
+            <div className="relative">
+              <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t('aiStudio.search.placeholder')}
+                className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+              />
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Content */}
-      <div className={isTopicDetailView ? 'h-full' : 'px-8 py-6'}>
+      <div className="px-8 py-6">
         {activeTab === 'topic' ? (
           /* Topic Research Tab Content */
           <TopicResearchTab
@@ -804,9 +794,6 @@ function StudioPageContent() {
             searchQuery={searchQuery}
             showCreateDialog={showTopicCreateDialog}
             onShowCreateDialog={setShowTopicCreateDialog}
-            onDetailViewChange={setIsTopicDetailView}
-            initialTopicId={topicIdParam}
-            initialView={viewParam}
           />
         ) : (
           /* Fast/Deep Research Projects Grid */
