@@ -1378,6 +1378,7 @@
     }
   },
   "aiAsk": {
+    "webSearch": "Web Search",
     "ragSources": {
       "title": "Knowledge Base Sources",
       "topN": "TOP {{count}}",

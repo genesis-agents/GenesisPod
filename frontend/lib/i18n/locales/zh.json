@@ -1378,6 +1378,7 @@
     }
   },
   "aiAsk": {
+    "webSearch": "联网搜索",
     "ragSources": {
       "title": "知识库来源",
       "topN": "TOP {{count}}",
