@@ -183,6 +183,18 @@
     "personalKb": "个人知识库",
     "team": "团队",
     "teamKb": "团队知识库",
+    "createPersonal": "创建个人知识库",
+    "createTeam": "创建团队知识库",
+    "personalKbDesc": "个人知识库仅自己可见",
+    "teamKbDesc": "团队知识库可与成员共享",
+    "personalNamePlaceholder": "例如：工作资料库",
+    "teamNamePlaceholder": "例如：产品团队知识库",
+    "descriptionPlaceholder": "描述这个知识库的用途",
+    "addContentHint": "💡 提示：",
+    "addContentAfterCreate": "创建后，可通过「添加内容」功能上传文件、导入 URL、同步 Google Drive 等数据源",
+    "errors": {
+      "nameRequired": "请输入知识库名称"
+    },
     "createFirst": "创建你的第一个知识库",
     "createFirstDesc": "知识库可以存储你的文档、笔记和资料，支持 AI 智能检索和问答。",
     "createKnowledgeBase": "创建知识库",
@@ -205,7 +217,7 @@
     "create": "创建"
   },
   "dataSources": {
-    "title": "数据源管理",
+    "title": "数据源",
     "overview": "概览",
     "overviewTitle": "数据源概览",
     "overviewDesc": "管理你的数据源连接，这些数据可以导入到知识库",

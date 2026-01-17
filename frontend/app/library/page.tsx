@@ -1736,7 +1736,7 @@ function LibraryPageContent() {
         </div>
 
         {/* Main content area */}
-        <div className="px-8 py-6">
+        <div className="px-8 py-3">
           {/* AI Organize Panel - Show for bookmarks, notes, images sub-tabs */}
           {activeTab === 'data-sources' &&
             (currentDataSourceSubTab === 'bookmarks' ||

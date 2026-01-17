@@ -762,7 +762,7 @@ export default function DataSourcesTab({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Sub-tab Navigation with underline indicator */}
       <div className="relative border-b border-gray-200">
         <div className="scrollbar-hide flex items-center gap-1 overflow-x-auto">

@@ -180,9 +180,21 @@
       "ERROR": "Error"
     },
     "personal": "Personal",
-    "personalKb": "Personal KB",
+    "personalKb": "Personal",
     "team": "Team",
-    "teamKb": "Team KB",
+    "teamKb": "Team",
+    "createPersonal": "Create Personal Knowledge Base",
+    "createTeam": "Create Team Knowledge Base",
+    "personalKbDesc": "Personal knowledge base is only visible to you",
+    "teamKbDesc": "Team knowledge base can be shared with members",
+    "personalNamePlaceholder": "e.g., Work Documents",
+    "teamNamePlaceholder": "e.g., Product Team Knowledge Base",
+    "descriptionPlaceholder": "Describe the purpose of this knowledge base",
+    "addContentHint": "💡 Tip:",
+    "addContentAfterCreate": "After creation, you can add files, import URLs, sync Google Drive and more via 'Add Content'",
+    "errors": {
+      "nameRequired": "Please enter a knowledge base name"
+    },
     "createFirst": "Create your first knowledge base",
     "createFirstDesc": "Knowledge bases store your documents, notes and materials, supporting AI intelligent retrieval and Q&A.",
     "createKnowledgeBase": "Create Knowledge Base",
@@ -205,7 +217,7 @@
     "create": "Create"
   },
   "dataSources": {
-    "title": "Data Sources",
+    "title": "Sources",
     "overview": "Overview",
     "overviewTitle": "Data Sources Overview",
     "overviewDesc": "Manage your data source connections, these can be imported into knowledge bases",
