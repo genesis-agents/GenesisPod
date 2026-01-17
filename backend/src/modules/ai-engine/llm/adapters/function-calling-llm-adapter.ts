@@ -630,8 +630,34 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
 
   /**
    * 解析 Google 响应
+   *
+   * ★ 支持两种格式：
+   * - 简化格式: AiChatService.chat() 返回的 { content, model, tokensUsed }
+   * - 原始格式: Gemini API 原始响应 { candidates: [...] }
    */
   private parseGoogleResponse(result: any): LLMResponse {
+    // ★ 处理 AiChatService.chat() 返回的简化格式
+    if (result.content !== undefined) {
+      const totalTokens =
+        "tokensUsed" in result
+          ? result.tokensUsed
+          : result.usage?.totalTokens || 0;
+
+      return {
+        content: result.content,
+        usage: totalTokens
+          ? {
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens,
+            }
+          : undefined,
+        model: result.model,
+        finishReason: "stop",
+      };
+    }
+
+    // 原始 Gemini API 响应格式
     const candidate = result.candidates?.[0];
     const content = candidate?.content?.parts?.[0]?.text || null;
 

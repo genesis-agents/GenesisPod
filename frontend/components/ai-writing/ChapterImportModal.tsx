@@ -16,6 +16,7 @@ import {
   confirmImport,
   getImportStatus,
   getImportHistory,
+  createVolume,
   type ImportSource,
   type ChapterPatternType,
   type ConflictStrategy,
@@ -63,6 +64,10 @@ export default function ChapterImportModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 本地卷列表（可能包含自动创建的卷）
+  const [localVolumes, setLocalVolumes] = useState(volumes);
+  const [isCreatingVolume, setIsCreatingVolume] = useState(false);
+
   // 输入状态
   const [source, setSource] = useState<ImportSource>('PASTE');
   const [content, setContent] = useState('');
@@ -96,6 +101,48 @@ export default function ChapterImportModal({
 
   // 历史记录
   const [history, setHistory] = useState<ImportHistoryItem[]>([]);
+
+  // ★ 当没有卷时，自动创建默认卷
+  useEffect(() => {
+    const autoCreateDefaultVolume = async () => {
+      if (
+        volumes.length === 0 &&
+        !isCreatingVolume &&
+        localVolumes.length === 0
+      ) {
+        setIsCreatingVolume(true);
+        try {
+          const newVolume = await createVolume(projectId, {
+            title: '正文',
+            volumeNumber: 1,
+          });
+          setLocalVolumes([
+            {
+              id: newVolume.id,
+              title: newVolume.title,
+              volumeNumber: newVolume.volumeNumber,
+            },
+          ]);
+          setTargetVolumeId(newVolume.id);
+        } catch (err) {
+          setError('自动创建默认卷失败，请手动创建卷后再导入');
+        } finally {
+          setIsCreatingVolume(false);
+        }
+      }
+    };
+    autoCreateDefaultVolume();
+  }, [volumes, projectId, isCreatingVolume, localVolumes.length]);
+
+  // ★ 同步外部 volumes 变化
+  useEffect(() => {
+    if (volumes.length > 0) {
+      setLocalVolumes(volumes);
+      if (!targetVolumeId) {
+        setTargetVolumeId(volumes[0].id);
+      }
+    }
+  }, [volumes, targetVolumeId]);
 
   // 解析导入内容
   const handleParse = async () => {
