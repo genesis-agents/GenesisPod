@@ -34,6 +34,7 @@ interface ResourceSelectPanelProps {
 
 /**
  * ResourceSelectPanel - Select resources from Explore to import to KB
+ * Uses search-based discovery instead of pagination
  */
 export default function ResourceSelectPanel({
   knowledgeBaseId,
@@ -50,16 +51,16 @@ export default function ResourceSelectPanel({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Fetch resources from Explore (same API as AI Explore page)
+  // Fetch resources from Explore - search-based approach
   const fetchResources = async () => {
     setLoading(true);
     setError(null);
+
     try {
       const params = new URLSearchParams();
-      // Use same pagination params as Explore page
+      // Fetch reasonable amount - user can search for specific items
       params.set('take', '50');
       params.set('skip', '0');
-      // Sort by newest first
       params.set('sortBy', 'createdAt');
       params.set('sortOrder', 'desc');
 
@@ -79,7 +80,6 @@ export default function ResourceSelectPanel({
       }
 
       const data = await response.json();
-      // Handle both array response and {data: []} response format
       const resourceList = Array.isArray(data) ? data : data.data || [];
       setResources(resourceList);
     } catch (err) {
@@ -244,25 +244,33 @@ export default function ResourceSelectPanel({
   return (
     <div className="space-y-4">
       {/* Search and Controls */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search resources..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by title or keyword..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <button
+            onClick={fetchResources}
+            disabled={loading}
+            className="rounded-lg border border-gray-200 p-2 text-gray-600 hover:bg-gray-50"
+            title="Refresh"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
-        <button
-          onClick={fetchResources}
-          disabled={loading}
-          className="rounded-lg border border-gray-200 p-2 text-gray-600 hover:bg-gray-50"
-          title="Refresh"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
+        {/* Search hint */}
+        <p className="text-xs text-gray-500">
+          {searchQuery
+            ? `Showing results for "${searchQuery}"`
+            : 'Showing recent 50 resources. Use search to find specific items.'}
+        </p>
       </div>
 
       {/* Resource List */}
