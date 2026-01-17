@@ -50,13 +50,19 @@ export default function ResourceSelectPanel({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Fetch resources from Explore
+  // Fetch resources from Explore (same API as AI Explore page)
   const fetchResources = async () => {
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams();
-      params.set('limit', '50');
+      // Use same pagination params as Explore page
+      params.set('take', '50');
+      params.set('skip', '0');
+      // Sort by newest first
+      params.set('sortBy', 'createdAt');
+      params.set('sortOrder', 'desc');
+
       if (searchQuery) {
         params.set('search', searchQuery);
       }
@@ -73,7 +79,9 @@ export default function ResourceSelectPanel({
       }
 
       const data = await response.json();
-      setResources(data.items || []);
+      // Handle both array response and {data: []} response format
+      const resourceList = Array.isArray(data) ? data : data.data || [];
+      setResources(resourceList);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load resources');
     } finally {
@@ -166,12 +174,17 @@ export default function ResourceSelectPanel({
   };
 
   const getResourceMimeType = (type: string): string => {
-    switch (type?.toLowerCase()) {
-      case 'pdf':
+    const t = type?.toUpperCase();
+    switch (t) {
+      case 'PAPER':
+      case 'PDF':
+      case 'REPORT':
+      case 'POLICY':
         return 'application/pdf';
-      case 'video':
+      case 'YOUTUBE_VIDEO':
+      case 'VIDEO':
         return 'video/mp4';
-      case 'image':
+      case 'IMAGE':
         return 'image/png';
       default:
         return 'text/plain';
@@ -179,15 +192,45 @@ export default function ResourceSelectPanel({
   };
 
   const getResourceIcon = (type: string) => {
-    switch (type?.toLowerCase()) {
-      case 'pdf':
+    const t = type?.toUpperCase();
+    switch (t) {
+      case 'PAPER':
+      case 'PDF':
+      case 'REPORT':
+      case 'POLICY':
         return <FileText className="h-5 w-5 text-red-500" />;
-      case 'video':
+      case 'YOUTUBE_VIDEO':
+      case 'VIDEO':
         return <FileVideo className="h-5 w-5 text-purple-500" />;
-      case 'image':
+      case 'IMAGE':
         return <FileImage className="h-5 w-5 text-green-500" />;
+      case 'BLOG':
+      case 'NEWS':
+        return <FileText className="h-5 w-5 text-blue-500" />;
       default:
         return <File className="h-5 w-5 text-gray-500" />;
+    }
+  };
+
+  const getTypeLabel = (type: string): string => {
+    const t = type?.toUpperCase();
+    switch (t) {
+      case 'YOUTUBE_VIDEO':
+        return 'YouTube';
+      case 'PAPER':
+        return 'Paper';
+      case 'BLOG':
+        return 'Blog';
+      case 'REPORT':
+        return 'Report';
+      case 'POLICY':
+        return 'Policy';
+      case 'NEWS':
+        return 'News';
+      case 'PDF':
+        return 'PDF';
+      default:
+        return type || 'Unknown';
     }
   };
 
@@ -303,8 +346,9 @@ export default function ResourceSelectPanel({
                       {resource.title}
                     </p>
                     <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <span className="uppercase">{resource.type}</span>
-                      <span>-</span>
+                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium">
+                        {getTypeLabel(resource.type)}
+                      </span>
                       <span>{formatDate(resource.createdAt)}</span>
                     </div>
                   </div>
