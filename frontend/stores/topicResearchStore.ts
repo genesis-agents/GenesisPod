@@ -670,14 +670,16 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
   cancelMission: async (topicId) => {
     try {
       await api.cancelMission(topicId);
-      // Stop polling and reset state
+      // Stop polling and reset refresh state
       get().stopMissionPolling();
       set({
         isRefreshing: false,
         refreshProgress: null,
-        missionStatus: null,
         currentMission: null,
+        // ★ Don't set missionStatus: null - re-fetch instead to enable Update button
       });
+      // ★ Re-fetch to get the cancelled mission status
+      await get().fetchMissionStatus(topicId);
     } catch (error) {
       set({
         error:

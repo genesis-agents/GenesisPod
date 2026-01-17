@@ -831,13 +831,32 @@ export class AdminService {
 
   /**
    * 获取搜索API配置
+   * ★ 支持多 Key 格式，返回 keyCount 便于 UI 展示
    */
   async getSearchConfig() {
     const provider = await this.getSetting("search.provider");
     const perplexityKey = await this.getSetting("search.perplexity.apiKey");
-    const tavilyKey = await this.getSetting("search.tavily.apiKey");
-    const serperKey = await this.getSetting("search.serper.apiKey");
     const enabled = await this.getSetting("search.enabled");
+
+    // ★ 读取多 Key 配置（新格式）
+    const tavilyKeys = await this.getSetting("search.tavily.apiKeys");
+    const serperKeys = await this.getSetting("search.serper.apiKeys");
+
+    // ★ 兼容读取旧格式（单 Key）
+    const tavilyKeyLegacy = await this.getSetting("search.tavily.apiKey");
+    const serperKeyLegacy = await this.getSetting("search.serper.apiKey");
+
+    // 合并新旧格式的 Key
+    const tavilyKeyList = Array.isArray(tavilyKeys)
+      ? tavilyKeys
+      : tavilyKeyLegacy
+        ? [tavilyKeyLegacy]
+        : [];
+    const serperKeyList = Array.isArray(serperKeys)
+      ? serperKeys
+      : serperKeyLegacy
+        ? [serperKeyLegacy]
+        : [];
 
     return {
       provider: provider || "tavily",
@@ -847,12 +866,14 @@ export class AdminService {
         hasApiKey: !!perplexityKey,
       },
       tavily: {
-        apiKey: tavilyKey ? "***configured***" : null,
-        hasApiKey: !!tavilyKey,
+        apiKey: tavilyKeyList.length > 0 ? "***configured***" : null,
+        hasApiKey: tavilyKeyList.length > 0,
+        keyCount: tavilyKeyList.length, // ★ 返回 Key 数量
       },
       serper: {
-        apiKey: serperKey ? "***configured***" : null,
-        hasApiKey: !!serperKey,
+        apiKey: serperKeyList.length > 0 ? "***configured***" : null,
+        hasApiKey: serperKeyList.length > 0,
+        keyCount: serperKeyList.length, // ★ 返回 Key 数量
       },
       // DuckDuckGo doesn't require API key - always available
       duckduckgo: {
@@ -865,13 +886,17 @@ export class AdminService {
 
   /**
    * 更新搜索API配置
+   * ★ 支持多 Key 配置：tavilyApiKeys / serperApiKeys
+   * ★ 兼容旧格式：tavilyApiKey / serperApiKey
    */
   async updateSearchConfig(config: {
     provider?: string;
     enabled?: boolean;
     perplexityApiKey?: string;
-    tavilyApiKey?: string;
-    serperApiKey?: string;
+    tavilyApiKey?: string; // 旧格式（单个 Key）
+    serperApiKey?: string; // 旧格式（单个 Key）
+    tavilyApiKeys?: string[]; // 新格式（多个 Key）
+    serperApiKeys?: string[]; // 新格式（多个 Key）
   }) {
     const updates: Array<{
       key: string;
@@ -913,28 +938,56 @@ export class AdminService {
       });
     }
 
-    if (
+    // ★ Tavily: 优先使用新格式（多 Key），否则使用旧格式（单 Key）
+    if (config.tavilyApiKeys && Array.isArray(config.tavilyApiKeys)) {
+      const validKeys = config.tavilyApiKeys
+        .filter((k) => k && k !== "***configured***" && k.trim() !== "")
+        .map((k) => k.trim());
+      if (validKeys.length > 0) {
+        updates.push({
+          key: "search.tavily.apiKeys",
+          value: validKeys,
+          description: "Tavily API Keys (multiple for failover)",
+          category: "search",
+        });
+      }
+    } else if (
       config.tavilyApiKey &&
       config.tavilyApiKey !== "***configured***" &&
       config.tavilyApiKey.trim() !== ""
     ) {
+      // 旧格式兼容：转换为数组存储
       updates.push({
-        key: "search.tavily.apiKey",
-        value: config.tavilyApiKey.trim(),
-        description: "Tavily API Key",
+        key: "search.tavily.apiKeys",
+        value: [config.tavilyApiKey.trim()],
+        description: "Tavily API Keys",
         category: "search",
       });
     }
 
-    if (
+    // ★ Serper: 同样支持多 Key
+    if (config.serperApiKeys && Array.isArray(config.serperApiKeys)) {
+      const validKeys = config.serperApiKeys
+        .filter((k) => k && k !== "***configured***" && k.trim() !== "")
+        .map((k) => k.trim());
+      if (validKeys.length > 0) {
+        updates.push({
+          key: "search.serper.apiKeys",
+          value: validKeys,
+          description: "Serper API Keys (multiple for failover)",
+          category: "search",
+        });
+      }
+    } else if (
       config.serperApiKey &&
       config.serperApiKey !== "***configured***" &&
       config.serperApiKey.trim() !== ""
     ) {
+      // 旧格式兼容：转换为数组存储
       updates.push({
-        key: "search.serper.apiKey",
-        value: config.serperApiKey.trim(),
-        description: "Serper API Key",
+        key: "search.serper.apiKeys",
+        value: [config.serperApiKey.trim()],
+        description: "Serper API Keys",
         category: "search",
       });
     }

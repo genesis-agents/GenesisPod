@@ -21,14 +21,16 @@ import {
   Eye,
   EyeOff,
   Youtube,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 
 interface SearchConfig {
   provider: string;
   enabled: boolean;
   perplexity: { apiKey: string | null; hasApiKey: boolean };
-  tavily: { apiKey: string | null; hasApiKey: boolean };
-  serper: { apiKey: string | null; hasApiKey: boolean };
+  tavily: { apiKey: string | null; hasApiKey: boolean; keyCount?: number };
+  serper: { apiKey: string | null; hasApiKey: boolean; keyCount?: number };
   duckduckgo: {
     apiKey: string | null;
     hasApiKey: boolean;
@@ -416,11 +418,13 @@ export default function ExternalAPISettings() {
     serper: { apiKey: null, hasApiKey: false },
     duckduckgo: { apiKey: null, hasApiKey: true, noKeyRequired: true },
   });
+  // 单 Key（perplexity）+ 多 Key（tavily, serper）
   const [searchApiKeys, setSearchApiKeys] = useState<Record<string, string>>({
     perplexity: '',
-    tavily: '',
-    serper: '',
   });
+  // ★ 多 Key 支持
+  const [tavilyApiKeys, setTavilyApiKeys] = useState<string[]>(['']);
+  const [serperApiKeys, setSerperApiKeys] = useState<string[]>(['']);
 
   // Extraction config state
   const [extractionConfig, setExtractionConfig] = useState<ExtractionConfig>({
@@ -615,6 +619,10 @@ export default function ExternalAPISettings() {
     setSaving(true);
     setMessage(null);
 
+    // ★ 过滤有效的 API Keys
+    const validTavilyKeys = tavilyApiKeys.filter((k) => k.trim() !== '');
+    const validSerperKeys = serperApiKeys.filter((k) => k.trim() !== '');
+
     try {
       const res = await fetch(`${config.apiUrl}/admin/search-config`, {
         method: 'PATCH',
@@ -627,15 +635,20 @@ export default function ExternalAPISettings() {
           provider: searchConfig.provider,
           enabled: searchConfig.enabled,
           perplexityApiKey: searchApiKeys.perplexity || undefined,
-          tavilyApiKey: searchApiKeys.tavily || undefined,
-          serperApiKey: searchApiKeys.serper || undefined,
+          // ★ 使用新的多 Key 格式
+          tavilyApiKeys:
+            validTavilyKeys.length > 0 ? validTavilyKeys : undefined,
+          serperApiKeys:
+            validSerperKeys.length > 0 ? validSerperKeys : undefined,
         }),
       });
 
       if (res.ok) {
         const data = await res.json();
         setSearchConfig(data);
-        setSearchApiKeys({ perplexity: '', tavily: '', serper: '' });
+        setSearchApiKeys({ perplexity: '' });
+        setTavilyApiKeys(['']);
+        setSerperApiKeys(['']);
         setMessage({ type: 'success', text: '搜索配置保存成功' });
         setTimeout(() => setMessage(null), 3000);
       } else {
@@ -1594,6 +1607,21 @@ export default function ExternalAPISettings() {
                         <span className="flex items-center gap-1.5 text-sm font-medium text-green-600">
                           <CheckCircle className="h-4 w-4" />
                           已配置
+                          {/* ★ 显示 Key 数量 */}
+                          {provider.id === 'tavily' &&
+                            searchConfig.tavily.keyCount !== undefined &&
+                            searchConfig.tavily.keyCount > 1 && (
+                              <span className="ml-1 text-xs text-gray-500">
+                                ({searchConfig.tavily.keyCount} keys)
+                              </span>
+                            )}
+                          {provider.id === 'serper' &&
+                            searchConfig.serper.keyCount !== undefined &&
+                            searchConfig.serper.keyCount > 1 && (
+                              <span className="ml-1 text-xs text-gray-500">
+                                ({searchConfig.serper.keyCount} keys)
+                              </span>
+                            )}
                         </span>
                       ) : (
                         <span className="flex items-center gap-1.5 text-sm font-medium text-gray-400">
@@ -1611,7 +1639,111 @@ export default function ExternalAPISettings() {
                       <div className="rounded-lg bg-green-50 p-3 text-center text-sm text-green-700">
                         无需配置 API Key，可直接使用
                       </div>
+                    ) : provider.id === 'tavily' || provider.id === 'serper' ? (
+                      /* ★ 多 Key 输入（Tavily / Serper） */
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">
+                            支持多个 API Key（自动轮换）
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (provider.id === 'tavily') {
+                                setTavilyApiKeys((prev) => [...prev, '']);
+                              } else {
+                                setSerperApiKeys((prev) => [...prev, '']);
+                              }
+                            }}
+                            className="flex items-center gap-1 rounded px-2 py-1 text-xs text-purple-600 hover:bg-purple-50"
+                          >
+                            <Plus className="h-3 w-3" />
+                            添加 Key
+                          </button>
+                        </div>
+                        {(provider.id === 'tavily'
+                          ? tavilyApiKeys
+                          : serperApiKeys
+                        ).map((key, index) => (
+                          <div key={index} className="flex gap-2">
+                            <div className="relative flex-1">
+                              <input
+                                type={
+                                  visibleApiKeys[
+                                    `search-${provider.id}-${index}`
+                                  ]
+                                    ? 'text'
+                                    : 'password'
+                                }
+                                value={key}
+                                onChange={(e) => {
+                                  if (provider.id === 'tavily') {
+                                    setTavilyApiKeys((prev) => {
+                                      const newKeys = [...prev];
+                                      newKeys[index] = e.target.value;
+                                      return newKeys;
+                                    });
+                                  } else {
+                                    setSerperApiKeys((prev) => {
+                                      const newKeys = [...prev];
+                                      newKeys[index] = e.target.value;
+                                      return newKeys;
+                                    });
+                                  }
+                                }}
+                                placeholder={
+                                  isConfigured && index === 0
+                                    ? '••••••••••••••••'
+                                    : `API Key ${index + 1}`
+                                }
+                                className="font-mono w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  toggleApiKeyVisibility(
+                                    `search-${provider.id}-${index}`
+                                  )
+                                }
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                              >
+                                {visibleApiKeys[
+                                  `search-${provider.id}-${index}`
+                                ] ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
+                            {(provider.id === 'tavily'
+                              ? tavilyApiKeys
+                              : serperApiKeys
+                            ).length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (provider.id === 'tavily') {
+                                    setTavilyApiKeys((prev) =>
+                                      prev.filter((_, i) => i !== index)
+                                    );
+                                  } else {
+                                    setSerperApiKeys((prev) =>
+                                      prev.filter((_, i) => i !== index)
+                                    );
+                                  }
+                                }}
+                                className="rounded-lg border border-gray-300 p-2 text-gray-400 hover:border-red-300 hover:bg-red-50 hover:text-red-500"
+                                title="删除此 Key"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     ) : (
+                      /* 单 Key 输入（Perplexity） */
                       <div className="space-y-2">
                         <div className="relative">
                           <input
@@ -1620,7 +1752,7 @@ export default function ExternalAPISettings() {
                                 ? 'text'
                                 : 'password'
                             }
-                            value={searchApiKeys[provider.id]}
+                            value={searchApiKeys[provider.id] || ''}
                             onChange={(e) =>
                               setSearchApiKeys((prev) => ({
                                 ...prev,

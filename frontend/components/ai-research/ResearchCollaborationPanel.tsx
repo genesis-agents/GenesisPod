@@ -25,6 +25,7 @@ import {
   CheckCircle2,
   HelpCircle,
   MessageCircle,
+  ListTodo,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import {
@@ -611,20 +612,32 @@ export function ResearchCollaborationPanel({
 
   return (
     <div className={cn('flex h-full', className)}>
-      {/* Main Content Area - 单列布局 */}
+      {/* Main Content Area - 双区域布局 */}
       <div
         className={cn(
-          'flex flex-col transition-all duration-300',
+          'flex flex-col gap-3 p-3 transition-all duration-300',
           selectedTodoId ? 'w-1/2' : 'w-full'
         )}
       >
-        {/* 可滚动区域: TODO List + 对话消息 (★ 调整顺序：任务列表置顶) */}
-        <div className="flex-1 overflow-y-auto">
-          {/* ★ TODO List - 置顶显示 */}
-          <div className="border-b p-4">
+        {/* ★ 任务区 - 上半部分 */}
+        <div className="flex h-[40%] min-h-[200px] flex-col rounded-lg border bg-white">
+          <div className="flex shrink-0 items-center gap-2 border-b px-4 py-3">
+            <ListTodo className="h-4 w-4 text-blue-600" />
+            <span className="text-sm font-medium">任务列表</span>
+            {todos.length > 0 && (
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                {todosSummary.completed}/{todos.length}
+              </span>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
             {isLoadingTodos && !todos.length ? (
               <div className="flex h-32 items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : todos.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                暂无任务
               </div>
             ) : (
               <ResearchTodoList
@@ -636,16 +649,25 @@ export function ResearchCollaborationPanel({
               />
             )}
           </div>
+        </div>
 
-          {/* ★ 对话消息区 - 移到下方 */}
-          {conversationMessages.length > 0 && (
-            <div className="px-4 py-2">
-              <div className="mb-2 flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-purple-600" />
-                <span className="text-xs font-medium text-gray-500">
-                  与 Leader 对话
-                </span>
+        {/* ★ 对话区 - 下半部分 */}
+        <div className="flex min-h-[200px] flex-1 flex-col rounded-lg border bg-white">
+          <div className="flex shrink-0 items-center gap-2 border-b px-4 py-3">
+            <MessageSquare className="h-4 w-4 text-purple-600" />
+            <span className="text-sm font-medium">与 Leader 对话</span>
+            {conversationMessages.length > 0 && (
+              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
+                {conversationMessages.length}
+              </span>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {conversationMessages.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                暂无对话
               </div>
+            ) : (
               <div className="divide-y">
                 {conversationMessages.map((msg) => (
                   <ConversationMessageItem
@@ -664,12 +686,12 @@ export function ResearchCollaborationPanel({
                 )}
                 <div ref={conversationEndRef} />
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* 输入框 - 固定在底部 */}
-        <div className="shrink-0 border-t bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="shrink-0">
           <QuickCommandBar
             topicId={topicId}
             missionId={activeMissionId}

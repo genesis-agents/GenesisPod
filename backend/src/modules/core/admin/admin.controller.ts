@@ -576,8 +576,10 @@ export class AdminController {
       provider?: string;
       enabled?: boolean;
       perplexityApiKey?: string;
-      tavilyApiKey?: string;
-      serperApiKey?: string;
+      tavilyApiKey?: string; // 兼容旧格式（单个 Key）
+      serperApiKey?: string; // 兼容旧格式（单个 Key）
+      tavilyApiKeys?: string[]; // 新格式（多个 Key）
+      serperApiKeys?: string[]; // 新格式（多个 Key）
     },
   ) {
     this.logger.log("Admin: Updating search config");
