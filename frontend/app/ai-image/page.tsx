@@ -457,7 +457,7 @@ export default function AIImagePage() {
                   />
                 </svg>
                 <span className="mt-2 text-sm font-medium text-gray-600">
-                  创作新图
+                  {t('aiImage.createNew')}
                 </span>
               </button>
             </div>
