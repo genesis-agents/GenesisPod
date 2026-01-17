@@ -898,12 +898,84 @@
     "kanban": "Kanban",
     "newProject": "New Project"
   },
-  "aiWriting": {
-    "title": "AI Writing",
-    "subtitle": "Professional Long-Form Novel Creation with Consistency Guarantee",
+  "aiImage": {
+    "title": "AI Image",
+    "subtitle": "{{count}} AI experts collaborate to generate stunning images",
+    "searchPlaceholder": "Search images...",
+    "startCreating": "Start Creating",
+    "createNew": "Create New Image",
+    "editImage": "Edit Image",
+    "createDescription": "Describe your idea, AI team will collaborate to generate",
+    "back": "Back",
     "signIn": {
       "title": "Please Sign In",
-      "description": "Access to AI Writing requires login to manage your writing projects."
+      "description": "Sign in to use AI Image"
+    },
+    "empty": {
+      "title": "No images yet",
+      "description": "Describe your idea, AI team will collaborate to generate images"
+    },
+    "noResults": {
+      "title": "No matching images found",
+      "description": "Try other keywords"
+    },
+    "team": {
+      "title": "AI Image Team",
+      "styleAnalyst": "Style Analyst",
+      "promptExpert": "Prompt Expert",
+      "imageGenerator": "Image Generator"
+    },
+    "actions": {
+      "bookmark": "Bookmark",
+      "unbookmark": "Remove Bookmark",
+      "delete": "Delete",
+      "confirmDelete": "Are you sure you want to delete this image?"
+    },
+    "time": {
+      "justNow": "Just now",
+      "minutesAgo": "{{count}} minutes ago",
+      "hoursAgo": "{{count}} hours ago",
+      "daysAgo": "{{count}} days ago"
+    },
+    "styles": {
+      "auto": "Auto",
+      "realistic": "Realistic",
+      "cinematic": "Cinematic",
+      "portrait": "Portrait",
+      "artistic": "Artistic",
+      "anime": "Anime",
+      "cartoon": "Cartoon",
+      "watercolor": "Watercolor",
+      "oilPainting": "Oil Painting",
+      "sketch": "Sketch",
+      "pixel": "Pixel Art",
+      "lowPoly": "Low Poly",
+      "isometric": "Isometric",
+      "minimalist": "Minimalist",
+      "scifi": "Sci-Fi",
+      "fantasy": "Fantasy",
+      "horror": "Horror",
+      "vintage": "Vintage"
+    },
+    "streaming": {
+      "teamCollaboration": "Visual Design Team Collaboration"
+    },
+    "insights": {
+      "metrics": "metrics",
+      "cards": "cards",
+      "stages": "stages",
+      "rankings": "rankings",
+      "blocksAndMetrics": "{{blocks}} blocks · {{metrics}} metrics",
+      "capacityExceeded": "Exceeds {{type}} capacity ({{max}})"
+    }
+  },
+  "aiWriting": {
+    "title": "AI Writing",
+    "subtitle": "{{count}} AI experts collaborate to help you create",
+    "searchPlaceholder": "Search works...",
+    "signIn": {
+      "title": "Please Sign In",
+      "description": "Sign in to start AI Writing"
     },
     "newProject": "New Project",
     "myProjects": "My Projects",
@@ -928,6 +1000,8 @@
       "create": "Create Project"
     },
     "genres": {
+      "novel": "Novel",
+      "shortStory": "Short Story",
       "fantasy": "Fantasy",
       "scifi": "Sci-Fi",
       "romance": "Romance",
@@ -936,6 +1010,21 @@
       "historical": "Historical",
       "urban": "Urban",
       "other": "Other"
+    },
+    "wordCounts": {
+      "10k": "10K words",
+      "30k": "30K words",
+      "50k": "50K words",
+      "100k": "100K words",
+      "200k": "200K words",
+      "500k": "500K+ words",
+      "1000k": "1M+ words"
+    },
+    "styleCategories": {
+      "chineseMartialArts": "Chinese Martial Arts Masters",
+      "chineseWebNovel": "Chinese Web Novel Styles",
+      "foreign": "Foreign Classic Styles",
+      "custom": "Other Styles"
     },
     "status": {
       "planning": "Planning",
@@ -947,9 +1036,51 @@
       "inProgress": "In Progress"
     },
     "empty": {
-      "noProjects": "No writing projects yet",
-      "noProjectsDesc": "Create your first writing project to start your novel",
-      "createFirst": "Create First Project"
+      "noProjects": "No works yet",
+      "noProjectsDesc": "Describe your idea, AI writing team will collaborate to complete",
+      "createFirst": "Start Creating"
+    },
+    "noResults": {
+      "title": "No matching works found",
+      "description": "Try other keywords"
+    },
+    "team": {
+      "title": "AI Writing Team"
+    },
+    "time": {
+      "justNow": "Just now",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago"
+    },
+    "actions": {
+      "edit": "Edit work",
+      "delete": "Delete work",
+      "confirmDelete": "Are you sure you want to delete this work?"
+    },
+    "createDialog": {
+      "title": "Start Creating",
+      "whatToWrite": "What do you want to write? *",
+      "placeholder": "Describe your story idea...\n\nExample: A programmer travels to the Three Kingdoms era and changes history with modern knowledge",
+      "optionalSettings": "Optional settings",
+      "genre": "Genre",
+      "estimatedWords": "Estimated words",
+      "writingStyle": "Writing style",
+      "autoRecommend": "Auto recommend (based on genre)",
+      "cancel": "Cancel",
+      "creating": "Creating..."
+    },
+    "editDialog": {
+      "title": "Edit Work",
+      "workName": "Work name *",
+      "workDescription": "Work description",
+      "targetWords": "Target words",
+      "saving": "Saving...",
+      "save": "Save"
+    },
+    "unit": {
+      "words": "words",
+      "characters": "characters"
     },
     "bible": {
       "title": "Story Bible",

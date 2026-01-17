@@ -898,12 +898,84 @@
     "kanban": "看板",
     "newProject": "新建项目"
   },
-  "aiWriting": {
-    "title": "AI 写作",
-    "subtitle": "专业长篇小说创作，保障内容一致性",
+  "aiImage": {
+    "title": "AI 绘图",
+    "subtitle": "{{count}} 位 AI 专家协作，帮你生成精美图像",
+    "searchPlaceholder": "搜索图片...",
+    "startCreating": "开始创作",
+    "createNew": "创作新图",
+    "editImage": "编辑图片",
+    "createDescription": "描述你的想法，AI 团队将协作生成",
+    "back": "返回",
     "signIn": {
       "title": "请先登录",
-      "description": "进入 AI 写作需要登录来管理您的写作项目。"
+      "description": "登录后即可使用 AI 绘图"
+    },
+    "empty": {
+      "title": "还没有图片",
+      "description": "描述你的想法，AI 团队将协作生成图像"
+    },
+    "noResults": {
+      "title": "没有找到匹配的图片",
+      "description": "尝试其他关键词搜索"
+    },
+    "team": {
+      "title": "AI 绘图团队",
+      "styleAnalyst": "风格分析师",
+      "promptExpert": "提示词专家",
+      "imageGenerator": "图像生成"
+    },
+    "actions": {
+      "bookmark": "收藏",
+      "unbookmark": "取消收藏",
+      "delete": "删除",
+      "confirmDelete": "确定要删除这张图片吗？"
+    },
+    "time": {
+      "justNow": "刚刚",
+      "minutesAgo": "{{count}}分钟前",
+      "hoursAgo": "{{count}}小时前",
+      "daysAgo": "{{count}}天前"
+    },
+    "styles": {
+      "auto": "自动",
+      "realistic": "照片写实",
+      "cinematic": "电影风格",
+      "portrait": "人像摄影",
+      "artistic": "艺术绘画",
+      "anime": "日系动漫",
+      "cartoon": "卡通插画",
+      "watercolor": "水彩画",
+      "oilPainting": "油画",
+      "sketch": "素描",
+      "pixel": "像素艺术",
+      "lowPoly": "低多边形",
+      "isometric": "等轴视角",
+      "minimalist": "极简风格",
+      "scifi": "科幻未来",
+      "fantasy": "奇幻魔幻",
+      "horror": "暗黑恐怖",
+      "vintage": "复古怀旧"
+    },
+    "streaming": {
+      "teamCollaboration": "Visual Design Team 协作"
+    },
+    "insights": {
+      "metrics": "指标",
+      "cards": "卡片",
+      "stages": "阶段",
+      "rankings": "排名项",
+      "blocksAndMetrics": "{{blocks}} 个区块 · {{metrics}} 个指标",
+      "capacityExceeded": "超出{{type}}容量({{max}})"
+    }
+  },
+  "aiWriting": {
+    "title": "AI 写作",
+    "subtitle": "{{count}} 位 AI 专家协作，帮你完成创作",
+    "searchPlaceholder": "搜索作品...",
+    "signIn": {
+      "title": "请先登录",
+      "description": "登录后即可开始 AI 写作"
     },
     "newProject": "新建项目",
     "myProjects": "我的项目",
@@ -928,7 +1000,9 @@
       "create": "创建项目"
     },
     "genres": {
-      "fantasy": "玄幻",
+      "novel": "长篇小说",
+      "shortStory": "短篇小说",
+      "fantasy": "奇幻",
       "scifi": "科幻",
       "romance": "言情",
       "mystery": "悬疑",
@@ -936,6 +1010,21 @@
       "historical": "历史",
       "urban": "都市",
       "other": "其他"
+    },
+    "wordCounts": {
+      "10k": "1万字",
+      "30k": "3万字",
+      "50k": "5万字",
+      "100k": "10万字",
+      "200k": "20万字",
+      "500k": "50万字+",
+      "1000k": "100万字+"
+    },
+    "styleCategories": {
+      "chineseMartialArts": "中国武侠名家",
+      "chineseWebNovel": "中国网文流派",
+      "foreign": "外国经典风格",
+      "custom": "其他风格"
     },
     "status": {
       "planning": "规划中",
@@ -947,9 +1036,51 @@
       "inProgress": "进行中"
     },
     "empty": {
-      "noProjects": "暂无写作项目",
-      "noProjectsDesc": "创建您的第一个写作项目，开始您的小说创作",
-      "createFirst": "创建第一个项目"
+      "noProjects": "还没有作品",
+      "noProjectsDesc": "描述你的想法，AI 写作团队将协作完成",
+      "createFirst": "开始创作"
+    },
+    "noResults": {
+      "title": "没有找到匹配的作品",
+      "description": "尝试其他关键词搜索"
+    },
+    "team": {
+      "title": "AI 写作团队"
+    },
+    "time": {
+      "justNow": "刚刚",
+      "minutesAgo": "{{count}}分钟前",
+      "hoursAgo": "{{count}}小时前",
+      "daysAgo": "{{count}}天前"
+    },
+    "actions": {
+      "edit": "编辑作品",
+      "delete": "删除作品",
+      "confirmDelete": "确定要删除这个作品吗？"
+    },
+    "createDialog": {
+      "title": "开始创作",
+      "whatToWrite": "你想写什么？ *",
+      "placeholder": "描述你的故事想法...\n\n例如：一个程序员穿越到三国时代，用现代知识改变历史的故事",
+      "optionalSettings": "可选设置",
+      "genre": "类型",
+      "estimatedWords": "预计字数",
+      "writingStyle": "写作风格",
+      "autoRecommend": "自动推荐（根据类型）",
+      "cancel": "取消",
+      "creating": "创建中..."
+    },
+    "editDialog": {
+      "title": "编辑作品",
+      "workName": "作品名称 *",
+      "workDescription": "作品简介",
+      "targetWords": "目标字数",
+      "saving": "保存中...",
+      "save": "保存"
+    },
+    "unit": {
+      "words": "字",
+      "characters": "字符"
     },
     "bible": {
       "title": "设定圣经",

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/lib/i18n';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
@@ -12,19 +13,19 @@ const AI_TEAM_PREVIEW = [
   {
     id: 'analyst',
     icon: '🎨',
-    name: '风格分析师',
+    nameKey: 'aiImage.team.styleAnalyst',
     color: 'from-pink-500 to-rose-600',
   },
   {
     id: 'prompt',
     icon: '✍️',
-    name: '提示词专家',
+    nameKey: 'aiImage.team.promptExpert',
     color: 'from-purple-500 to-violet-600',
   },
   {
     id: 'generator',
     icon: '🖼️',
-    name: '图像生成',
+    nameKey: 'aiImage.team.imageGenerator',
     color: 'from-blue-500 to-cyan-600',
   },
 ];
@@ -43,6 +44,7 @@ interface GeneratedImage {
 export default function AIImagePage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
+  const { t } = useTranslation();
 
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [isLoadingImages, setIsLoadingImages] = useState(true);
@@ -79,7 +81,7 @@ export default function AIImagePage() {
 
   const handleDelete = async (e: React.MouseEvent, imageId: string) => {
     e.stopPropagation();
-    if (!confirm('确定要删除这张图片吗？')) return;
+    if (!confirm(t('aiImage.actions.confirmDelete'))) return;
 
     try {
       const response = await fetch(
@@ -134,10 +136,10 @@ export default function AIImagePage() {
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
 
-    if (minutes < 1) return '刚刚';
-    if (minutes < 60) return `${minutes}分钟前`;
-    if (hours < 24) return `${hours}小时前`;
-    if (days < 7) return `${days}天前`;
+    if (minutes < 1) return t('aiImage.time.justNow');
+    if (minutes < 60) return t('aiImage.time.minutesAgo', { count: minutes });
+    if (hours < 24) return t('aiImage.time.hoursAgo', { count: hours });
+    if (days < 7) return t('aiImage.time.daysAgo', { count: days });
     return date.toLocaleDateString();
   };
 
@@ -177,8 +179,10 @@ export default function AIImagePage() {
               d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
             />
           </svg>
-          <h2 className="text-xl font-semibold text-gray-700">请先登录</h2>
-          <p className="text-gray-500">登录后即可使用 AI 绘图</p>
+          <h2 className="text-xl font-semibold text-gray-700">
+            {t('aiImage.signIn.title')}
+          </h2>
+          <p className="text-gray-500">{t('aiImage.signIn.description')}</p>
         </div>
       </AppShell>
     );
@@ -208,9 +212,11 @@ export default function AIImagePage() {
                   </svg>
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">AI 绘图</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    {t('aiImage.title')}
+                  </h1>
                   <p className="text-sm text-gray-500">
-                    3 位 AI 专家协作，帮你生成精美图像
+                    {t('aiImage.subtitle', { count: 3 })}
                   </p>
                 </div>
               </div>
@@ -231,7 +237,7 @@ export default function AIImagePage() {
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
-                开始创作
+                {t('aiImage.startCreating')}
               </button>
             </div>
 
@@ -253,7 +259,7 @@ export default function AIImagePage() {
                 </svg>
                 <input
                   type="text"
-                  placeholder="搜索图片..."
+                  placeholder={t('aiImage.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20"
@@ -286,16 +292,16 @@ export default function AIImagePage() {
                 />
               </svg>
               <h3 className="mt-4 text-lg font-medium text-gray-700">
-                还没有图片
+                {t('aiImage.empty.title')}
               </h3>
               <p className="mt-2 text-sm text-gray-500">
-                描述你的想法，AI 团队将协作生成图像
+                {t('aiImage.empty.description')}
               </p>
 
               {/* AI Team Preview */}
               <div className="mt-6 rounded-xl bg-pink-50 p-4">
                 <p className="mb-3 text-center text-xs font-medium text-pink-700">
-                  AI 绘图团队
+                  {t('aiImage.team.title')}
                 </p>
                 <div className="flex items-center justify-center gap-4">
                   {AI_TEAM_PREVIEW.map((agent) => (
@@ -306,7 +312,7 @@ export default function AIImagePage() {
                         {agent.icon}
                       </span>
                       <span className="mt-1.5 text-xs text-gray-500">
-                        {agent.name}
+                        {t(agent.nameKey)}
                       </span>
                     </div>
                   ))}
@@ -317,7 +323,7 @@ export default function AIImagePage() {
                 onClick={() => router.push('/ai-image/create')}
                 className="mt-6 rounded-lg bg-pink-600 px-4 py-2 text-sm font-medium text-white hover:bg-pink-700"
               >
-                开始创作
+                {t('aiImage.startCreating')}
               </button>
             </div>
           ) : filteredImages.length === 0 && searchQuery ? (
@@ -337,9 +343,11 @@ export default function AIImagePage() {
                 />
               </svg>
               <h3 className="mt-4 text-lg font-medium text-gray-700">
-                没有找到匹配的图片
+                {t('aiImage.noResults.title')}
               </h3>
-              <p className="mt-2 text-sm text-gray-500">尝试其他关键词搜索</p>
+              <p className="mt-2 text-sm text-gray-500">
+                {t('aiImage.noResults.description')}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -370,7 +378,11 @@ export default function AIImagePage() {
                               ? 'bg-pink-500 text-white'
                               : 'bg-white/90 text-gray-600 hover:bg-white hover:text-pink-600'
                           }`}
-                          title={image.isBookmarked ? '取消收藏' : '收藏'}
+                          title={
+                            image.isBookmarked
+                              ? t('aiImage.actions.unbookmark')
+                              : t('aiImage.actions.bookmark')
+                          }
                         >
                           <svg
                             className="h-4 w-4"
@@ -389,7 +401,7 @@ export default function AIImagePage() {
                         <button
                           onClick={(e) => handleDelete(e, image.id)}
                           className="rounded-lg bg-white/90 p-1.5 text-gray-600 shadow-sm hover:bg-white hover:text-red-600"
-                          title="删除"
+                          title={t('aiImage.actions.delete')}
                         >
                           <svg
                             className="h-4 w-4"
