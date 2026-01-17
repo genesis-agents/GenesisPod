@@ -27,6 +27,8 @@ import {
   HelpCircle,
   MessageCircle,
   ListTodo,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { cn, safeString } from '@/lib/utils/common';
 import {
@@ -346,6 +348,9 @@ export function ResearchCollaborationPanel({
   >([]);
   const [isProcessingInput, setIsProcessingInput] = useState(false);
   const conversationEndRef = useRef<HTMLDivElement>(null);
+  // 折叠状态
+  const [isTasksCollapsed, setIsTasksCollapsed] = useState(false);
+  const [isConversationCollapsed, setIsConversationCollapsed] = useState(false);
 
   const {
     todos: apiTodos,
@@ -607,9 +612,17 @@ export function ResearchCollaborationPanel({
           selectedTodoId ? 'w-1/2' : 'w-full'
         )}
       >
-        {/* ★ 任务区 - 上半部分 */}
-        <div className="flex h-[40%] min-h-[200px] flex-col rounded-lg border bg-white">
-          <div className="flex shrink-0 items-center gap-2 border-b px-4 py-3">
+        {/* ★ 任务区 - 上半部分（可折叠） */}
+        <div
+          className={cn(
+            'flex flex-col rounded-lg border bg-white transition-all duration-300',
+            isTasksCollapsed ? 'h-auto' : 'h-[40%] min-h-[200px]'
+          )}
+        >
+          <div
+            className="flex shrink-0 cursor-pointer items-center gap-2 border-b px-4 py-3 hover:bg-gray-50"
+            onClick={() => setIsTasksCollapsed(!isTasksCollapsed)}
+          >
             <ListTodo className="h-4 w-4 text-blue-600" />
             <span className="text-sm font-medium">任务列表</span>
             {todos.length > 0 && (
@@ -617,31 +630,67 @@ export function ResearchCollaborationPanel({
                 {todosSummary.completed}/{todos.length}
               </span>
             )}
+            <div className="ml-auto flex items-center gap-2">
+              {isTasksCollapsed ? (
+                <ChevronDown className="h-4 w-4 text-gray-400" />
+              ) : (
+                <ChevronUp className="h-4 w-4 text-gray-400" />
+              )}
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4">
-            {isLoadingTodos && !todos.length ? (
-              <div className="flex h-32 items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          {/* 折叠时显示紧凑进度条 */}
+          {isTasksCollapsed ? (
+            <div className="flex items-center gap-3 px-4 py-2">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className="h-full bg-blue-500 transition-all duration-500"
+                  style={{ width: `${todosSummary.overallProgress}%` }}
+                />
               </div>
-            ) : todos.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                暂无任务
-              </div>
-            ) : (
-              <ResearchTodoList
-                topicId={topicId}
-                todos={todos}
-                summary={todosSummary}
-                selectedTodoId={selectedTodoId}
-                onTodoSelect={handleSelectTodo}
-              />
-            )}
-          </div>
+              <span className="shrink-0 text-xs text-gray-500">
+                {todosSummary.overallProgress}%
+              </span>
+              {todosSummary.inProgress > 0 && (
+                <span className="flex shrink-0 items-center gap-1 text-xs text-blue-500">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  进行中 {todosSummary.inProgress}
+                </span>
+              )}
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto p-4">
+              {isLoadingTodos && !todos.length ? (
+                <div className="flex h-32 items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : todos.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  暂无任务
+                </div>
+              ) : (
+                <ResearchTodoList
+                  topicId={topicId}
+                  todos={todos}
+                  summary={todosSummary}
+                  selectedTodoId={selectedTodoId}
+                  onTodoSelect={handleSelectTodo}
+                />
+              )}
+            </div>
+          )}
         </div>
 
-        {/* ★ 对话区 - 下半部分 */}
-        <div className="flex min-h-[200px] flex-1 flex-col rounded-lg border bg-white">
-          <div className="flex shrink-0 items-center gap-2 border-b px-4 py-3">
+        {/* ★ 对话区 - 下半部分（可折叠） */}
+        <div
+          className={cn(
+            'flex flex-col rounded-lg border bg-white transition-all duration-300',
+            isConversationCollapsed ? 'h-auto' : 'min-h-[200px] flex-1'
+          )}
+        >
+          <div
+            className="flex shrink-0 cursor-pointer items-center gap-2 border-b px-4 py-3 hover:bg-gray-50"
+            onClick={() => setIsConversationCollapsed(!isConversationCollapsed)}
+          >
             <MessageSquare className="h-4 w-4 text-purple-600" />
             <span className="text-sm font-medium">与 Leader 对话</span>
             {conversationMessages.length > 0 && (
@@ -649,33 +698,48 @@ export function ResearchCollaborationPanel({
                 {conversationMessages.length}
               </span>
             )}
+            <div className="ml-auto flex items-center gap-2">
+              {isConversationCollapsed ? (
+                <ChevronDown className="h-4 w-4 text-gray-400" />
+              ) : (
+                <ChevronUp className="h-4 w-4 text-gray-400" />
+              )}
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4">
-            {conversationMessages.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                暂无对话
-              </div>
-            ) : (
-              <div className="divide-y">
-                {conversationMessages.map((msg) => (
-                  <ConversationMessageItem
-                    key={msg.id}
-                    message={msg}
-                    onClarifyOptionClick={handleClarifyOptionClick}
-                    onTodoClick={handleTodoClick}
-                  />
-                ))}
-                {/* 正在处理指示器 */}
-                {isProcessingInput && (
-                  <div className="flex items-center gap-2 py-3 text-gray-500">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">Leader 正在思考...</span>
-                  </div>
-                )}
-                <div ref={conversationEndRef} />
-              </div>
-            )}
-          </div>
+          {/* 折叠时显示简短提示 */}
+          {isConversationCollapsed ? (
+            <div className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500">
+              <Brain className="h-4 w-4 text-purple-400" />
+              <span>输入研究指令与 Leader 对话...</span>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto p-4">
+              {conversationMessages.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  暂无对话
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {conversationMessages.map((msg) => (
+                    <ConversationMessageItem
+                      key={msg.id}
+                      message={msg}
+                      onClarifyOptionClick={handleClarifyOptionClick}
+                      onTodoClick={handleTodoClick}
+                    />
+                  ))}
+                  {/* 正在处理指示器 */}
+                  {isProcessingInput && (
+                    <div className="flex items-center gap-2 py-3 text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm">Leader 正在思考...</span>
+                    </div>
+                  )}
+                  <div ref={conversationEndRef} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 输入框 - 固定在底部 */}
