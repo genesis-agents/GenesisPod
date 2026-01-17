@@ -486,12 +486,19 @@ export default function ChapterImportModal({
                     value={targetVolumeId}
                     onChange={(e) => setTargetVolumeId(e.target.value)}
                     className="w-full rounded border border-gray-200 px-3 py-2 text-sm"
+                    disabled={isCreatingVolume}
                   >
-                    {volumes.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        第{v.volumeNumber}卷 {v.title}
-                      </option>
-                    ))}
+                    {isCreatingVolume ? (
+                      <option value="">创建默认卷中...</option>
+                    ) : localVolumes.length === 0 ? (
+                      <option value="">暂无可用卷</option>
+                    ) : (
+                      localVolumes.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          第{v.volumeNumber}卷 {v.title}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
 
