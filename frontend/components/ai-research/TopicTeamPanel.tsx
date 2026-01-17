@@ -415,10 +415,23 @@ export function TopicTeamPanel({
         </div>
       </div>
 
-      {/* ★ Task List - 置顶显示，按状态排序 */}
-      <div className="flex-1 overflow-y-auto border-b border-gray-100">
+      {/* SVG Team Visualization */}
+      <div className="relative border-b border-gray-100">
+        <TeamCanvasView
+          agents={agents}
+          currentPhase={currentPhase}
+          isRefreshing={isRefreshing}
+          hoveredAgent={hoveredAgent}
+          onHover={setHoveredAgent}
+          selectedAgent={selectedAgent}
+          onSelect={setSelectedAgent}
+        />
+      </div>
+
+      {/* Task List - 按状态排序 */}
+      <div className="flex-1 overflow-y-auto">
         {!hasMission ? (
-          <div className="flex flex-col items-center justify-center px-4 py-6 text-center">
+          <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
             <div className="mb-3 text-3xl">👑</div>
             <p className="text-sm font-medium text-gray-700">
               等待 Leader 规划
@@ -451,19 +464,6 @@ export function TopicTeamPanel({
             ))}
           </div>
         )}
-      </div>
-
-      {/* SVG Team Visualization - 移至任务清单下方 */}
-      <div className="relative flex-shrink-0">
-        <TeamCanvasView
-          agents={agents}
-          currentPhase={currentPhase}
-          isRefreshing={isRefreshing}
-          hoveredAgent={hoveredAgent}
-          onHover={setHoveredAgent}
-          selectedAgent={selectedAgent}
-          onSelect={setSelectedAgent}
-        />
       </div>
 
       {/* Bottom Status Bar */}

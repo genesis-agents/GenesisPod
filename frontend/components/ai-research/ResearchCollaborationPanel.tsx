@@ -566,11 +566,28 @@ export function ResearchCollaborationPanel({
           selectedTodoId ? 'w-1/2' : 'w-full'
         )}
       >
-        {/* 可滚动区域: 对话消息 + TODO List */}
+        {/* 可滚动区域: TODO List + 对话消息 (★ 调整顺序：任务列表置顶) */}
         <div className="flex-1 overflow-y-auto">
-          {/* 对话消息区 */}
+          {/* ★ TODO List - 置顶显示 */}
+          <div className="border-b p-4">
+            {isLoadingTodos && !todos.length ? (
+              <div className="flex h-32 items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <ResearchTodoList
+                topicId={topicId}
+                todos={todos}
+                summary={todosSummary}
+                selectedTodoId={selectedTodoId}
+                onTodoSelect={handleSelectTodo}
+              />
+            )}
+          </div>
+
+          {/* ★ 对话消息区 - 移到下方 */}
           {conversationMessages.length > 0 && (
-            <div className="border-b px-4 py-2">
+            <div className="px-4 py-2">
               <div className="mb-2 flex items-center gap-2">
                 <MessageSquare className="h-4 w-4 text-purple-600" />
                 <span className="text-xs font-medium text-gray-500">
@@ -597,23 +614,6 @@ export function ResearchCollaborationPanel({
               </div>
             </div>
           )}
-
-          {/* TODO List */}
-          <div className="p-4">
-            {isLoadingTodos && !todos.length ? (
-              <div className="flex h-32 items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <ResearchTodoList
-                topicId={topicId}
-                todos={todos}
-                summary={todosSummary}
-                selectedTodoId={selectedTodoId}
-                onTodoSelect={handleSelectTodo}
-              />
-            )}
-          </div>
         </div>
 
         {/* 输入框 - 固定在底部 */}

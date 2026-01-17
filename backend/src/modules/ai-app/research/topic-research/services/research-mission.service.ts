@@ -1550,6 +1550,23 @@ export class ResearchMissionService {
         }, // ★ 传入维度信息
       );
 
+      // ★ 在更新状态前检查任务是否已被取消
+      const currentTask = await this.prisma.researchTask.findUnique({
+        where: { id: task.id },
+        select: { status: true },
+      });
+
+      // 如果任务已被取消（状态被设置为 FAILED 且 resultSummary 包含"取消"），跳过更新
+      if (
+        currentTask?.status === ResearchTaskStatus.FAILED ||
+        currentTask?.status === ResearchTaskStatus.COMPLETED
+      ) {
+        this.logger.log(
+          `[executeTask] Task ${task.id} status already changed to ${currentTask.status}, skipping update`,
+        );
+        return;
+      }
+
       // ★ 发送任务完成事件
       await this.researchEventEmitter.emitTaskCompleted(topic.id, {
         taskId: task.id,
