@@ -5,11 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, Suspense } from 'react';
 import ImageGenerator from '@/components/ai-image/ImageGenerator';
 import AppShell from '@/components/layout/AppShell';
+import { useTranslation } from '@/lib/i18n';
 
 function AIImageCreateContent() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useTranslation();
   const initialImageId = searchParams.get('id') || undefined;
 
   useEffect(() => {
@@ -42,7 +44,7 @@ function AIImageCreateContent() {
               <button
                 onClick={() => router.push('/ai-image')}
                 className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                title="返回"
+                title={t('aiImage.back')}
               >
                 <svg
                   className="h-5 w-5"
@@ -75,10 +77,12 @@ function AIImageCreateContent() {
               </div>
               <div>
                 <h1 className="text-lg font-semibold text-gray-900">
-                  {initialImageId ? '编辑图片' : '创作新图'}
+                  {initialImageId
+                    ? t('aiImage.editImage')
+                    : t('aiImage.createNew')}
                 </h1>
                 <p className="text-xs text-gray-500">
-                  描述你的想法，AI 团队将协作生成
+                  {t('aiImage.createDescription')}
                 </p>
               </div>
             </div>
