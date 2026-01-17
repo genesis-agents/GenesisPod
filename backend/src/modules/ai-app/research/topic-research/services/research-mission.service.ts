@@ -1022,11 +1022,29 @@ export class ResearchMissionService {
       );
     }
 
-    // 幂等处理：如果已经取消，直接返回当前状态
+    // 幂等处理：如果已经取消，仍需确保 ResearchTodo 状态一致
     if (mission.status === ResearchMissionStatus.CANCELLED) {
       this.logger.log(
-        `[cancelMission] Mission ${missionId} already cancelled, returning current state`,
+        `[cancelMission] Mission ${missionId} already cancelled, ensuring todo status consistency`,
       );
+      // ★ 确保 ResearchTodo 也被更新（修复旧代码遗留的数据）
+      await this.prisma.researchTodo.updateMany({
+        where: {
+          missionId,
+          status: {
+            in: [
+              ResearchTodoStatus.PENDING,
+              ResearchTodoStatus.QUEUED,
+              ResearchTodoStatus.IN_PROGRESS,
+            ],
+          },
+        },
+        data: {
+          status: ResearchTodoStatus.CANCELLED,
+          statusMessage: "任务已被用户取消",
+          completedAt: new Date(),
+        },
+      });
       return mission;
     }
 
