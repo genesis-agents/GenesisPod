@@ -11,7 +11,6 @@ import {
   Layers,
   CheckCircle,
   Clock,
-  Zap,
   Database,
   Plus,
   Pencil,
@@ -20,11 +19,11 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  Trash2,
+  Check,
 } from 'lucide-react';
 import {
   useKnowledgeBaseDetail,
-  type KnowledgeBase,
-  type KnowledgeBaseStats,
   type KnowledgeBaseDocument,
 } from '@/hooks/domain/useKnowledgeBase';
 
@@ -40,6 +39,7 @@ interface KnowledgeBaseDetailDialogProps {
 /**
  * 知识库详情弹窗
  * 显示知识库的概览信息、统计数据和文档列表
+ * 编辑模式可以删除文档
  */
 export default function KnowledgeBaseDetailDialog({
   knowledgeBaseId,
@@ -49,6 +49,8 @@ export default function KnowledgeBaseDetailDialog({
   onSearchTest,
   onViewDocuments,
 }: KnowledgeBaseDetailDialogProps) {
+  // Note: onEdit is available for parent components to trigger edit mode
+  void onEdit; // suppress unused variable warning if not used internally
   const {
     knowledgeBase,
     stats,
@@ -58,12 +60,18 @@ export default function KnowledgeBaseDetailDialog({
     processing,
     syncGoogleDrive,
     processDocuments,
+    deleteDocument,
+    deletingDocument,
     error,
   } = useKnowledgeBaseDetail(knowledgeBaseId);
 
   // 文档列表分页状态
   const [showAllDocs, setShowAllDocs] = useState(false);
   const DOCS_PER_PAGE = 5;
+
+  // 编辑模式状态
+  const [editMode, setEditMode] = useState(false);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
   // 关闭时按 ESC
   useEffect(() => {
@@ -308,13 +316,26 @@ export default function KnowledgeBaseDetailDialog({
                     {syncing ? '同步中...' : '同步'}
                   </button>
                 )}
-                {onEdit && (
+                {documents && documents.length > 0 && (
                   <button
-                    onClick={onEdit}
-                    className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    onClick={() => setEditMode(!editMode)}
+                    className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                      editMode
+                        ? 'border-blue-300 bg-blue-50 text-blue-700'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
                   >
-                    <Pencil className="h-4 w-4" />
-                    编辑
+                    {editMode ? (
+                      <>
+                        <Check className="h-4 w-4" />
+                        完成
+                      </>
+                    ) : (
+                      <>
+                        <Pencil className="h-4 w-4" />
+                        管理
+                      </>
+                    )}
                   </button>
                 )}
                 {onAddDocuments && (
@@ -406,16 +427,18 @@ export default function KnowledgeBaseDetailDialog({
                           </div>
                           {/* Status Badge + Actions */}
                           <div className="flex flex-shrink-0 items-center gap-2">
-                            <span
-                              className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
-                                doc.isVectorized
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-amber-100 text-amber-700'
-                              }`}
-                            >
-                              {doc.isVectorized ? '已向量化' : '待处理'}
-                            </span>
-                            {doc.sourceUrl && (
+                            {!editMode && (
+                              <span
+                                className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
+                                  doc.isVectorized
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-amber-100 text-amber-700'
+                                }`}
+                              >
+                                {doc.isVectorized ? '已向量化' : '待处理'}
+                              </span>
+                            )}
+                            {doc.sourceUrl && !editMode && (
                               <a
                                 href={doc.sourceUrl}
                                 target="_blank"
@@ -427,6 +450,39 @@ export default function KnowledgeBaseDetailDialog({
                                 <ExternalLink className="h-4 w-4" />
                               </a>
                             )}
+                            {/* 编辑模式：删除按钮 */}
+                            {editMode &&
+                              (deletingDocId === doc.id ? (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-gray-500">
+                                    确认删除？
+                                  </span>
+                                  <button
+                                    onClick={async () => {
+                                      await deleteDocument(doc.id);
+                                      setDeletingDocId(null);
+                                    }}
+                                    disabled={deletingDocument}
+                                    className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                                  >
+                                    {deletingDocument ? '删除中...' : '确认'}
+                                  </button>
+                                  <button
+                                    onClick={() => setDeletingDocId(null)}
+                                    className="rounded px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+                                  >
+                                    取消
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setDeletingDocId(doc.id)}
+                                  className="rounded p-1.5 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
+                                  title="删除文档"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              ))}
                           </div>
                         </div>
                       </div>

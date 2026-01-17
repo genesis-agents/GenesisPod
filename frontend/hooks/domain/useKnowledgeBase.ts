@@ -251,6 +251,9 @@ export function useKnowledgeBaseDetail(id: string | null) {
     AddDocumentDto
   >(id ? `/rag/knowledge-bases/${id}/documents` : '');
 
+  // 删除文档状态
+  const [deletingDocument, setDeletingDocument] = useState(false);
+
   return {
     knowledgeBase: id ? knowledgeBase : undefined,
     stats: id ? stats : undefined,
@@ -293,6 +296,17 @@ export function useKnowledgeBaseDetail(id: string | null) {
       await fetchStats();
       await fetchDocuments();
       return result;
+    },
+    deletingDocument,
+    deleteDocument: async (documentId: string) => {
+      setDeletingDocument(true);
+      try {
+        await apiClient.delete(`/rag/documents/${documentId}`);
+        await fetchStats();
+        await fetchDocuments();
+      } finally {
+        setDeletingDocument(false);
+      }
     },
   };
 }

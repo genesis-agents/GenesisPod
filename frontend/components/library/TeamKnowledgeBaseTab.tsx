@@ -540,28 +540,7 @@ export default function TeamKnowledgeBaseTab({
           knowledgeBase={editingKbDetail.knowledgeBase}
           onClose={() => setEditingKbId(null)}
           onUpdate={async (data) => {
-            console.log('[TeamKB] Updating KB with data:', data);
             await editingKbDetail.updateKnowledgeBase(data);
-
-            // Check if GOOGLE_DRIVE is in sourceTypes AND has files/folders
-            const hasGoogleDriveSource = data.sourceTypes?.includes(
-              'GOOGLE_DRIVE' as any
-            );
-            const hasGoogleDriveData =
-              (data.googleDriveFolderIds &&
-                data.googleDriveFolderIds.length > 0) ||
-              (data.googleDriveFileIds && data.googleDriveFileIds.length > 0);
-
-            if (hasGoogleDriveSource && hasGoogleDriveData) {
-              console.log('[TeamKB] Starting Google Drive sync...');
-              try {
-                const syncResult = await editingKbDetail.syncGoogleDrive();
-                console.log('[TeamKB] Sync completed:', syncResult);
-              } catch (err) {
-                console.error('[TeamKB] Sync failed:', err);
-              }
-            }
-
             await refreshList();
             setEditingKbId(null);
           }}
@@ -640,11 +619,6 @@ export default function TeamKnowledgeBaseTab({
         <KnowledgeBaseDetailDialog
           knowledgeBaseId={showDetailKbId}
           onClose={() => setShowDetailKbId(null)}
-          onEdit={() => {
-            const kbId = showDetailKbId;
-            setShowDetailKbId(null);
-            setEditingKbId(kbId);
-          }}
           onAddDocuments={() => {
             const kb = teamKBs.find((k) => k.id === showDetailKbId);
             if (kb) {

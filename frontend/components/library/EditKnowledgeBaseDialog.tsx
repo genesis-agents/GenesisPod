@@ -1,83 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import {
-  Database,
-  X,
-  Upload,
-  Link as LinkIcon,
-  Bookmark,
-  StickyNote,
-  Image as ImageIcon,
-} from 'lucide-react';
-import type {
-  KnowledgeBase,
-  KnowledgeBaseSourceType,
-} from '@/hooks/domain/useKnowledgeBase';
-import GoogleDriveFolderPicker from './GoogleDriveFolderPicker';
-
-// 数据源类型配置
-const DATA_SOURCE_OPTIONS = [
-  {
-    value: 'MANUAL',
-    label: '手动上传',
-    description: '上传本地文档文件',
-    icon: Upload,
-    color: 'bg-blue-50 text-blue-600',
-  },
-  {
-    value: 'GOOGLE_DRIVE',
-    label: 'Google Drive',
-    description: '从 Google Drive 同步文件',
-    icon: Database,
-    color: 'bg-green-50 text-green-600',
-  },
-  {
-    value: 'URL',
-    label: 'URL 抓取',
-    description: '从网页 URL 抓取内容',
-    icon: LinkIcon,
-    color: 'bg-purple-50 text-purple-600',
-  },
-  {
-    value: 'BOOKMARK',
-    label: '平台书签',
-    description: '从你保存的书签导入',
-    icon: Bookmark,
-    color: 'bg-orange-50 text-orange-600',
-  },
-  {
-    value: 'NOTE',
-    label: '平台笔记',
-    description: '从你创建的笔记导入',
-    icon: StickyNote,
-    color: 'bg-yellow-50 text-yellow-600',
-  },
-  {
-    value: 'IMAGE',
-    label: '图片 OCR',
-    description: '从图片中提取文字',
-    icon: ImageIcon,
-    color: 'bg-pink-50 text-pink-600',
-  },
-] as const;
+import { useState } from 'react';
+import { Database, X } from 'lucide-react';
+import type { KnowledgeBase } from '@/hooks/domain/useKnowledgeBase';
+import { useTranslation } from '@/lib/i18n';
 
 interface EditKnowledgeBaseDialogProps {
   knowledgeBase: KnowledgeBase;
   onClose: () => void;
-  onUpdate: (data: {
-    name?: string;
-    description?: string;
-    sourceTypes?: KnowledgeBaseSourceType[];
-    googleDriveFolderIds?: string[];
-    googleDriveFileIds?: string[];
-  }) => Promise<void>;
+  onUpdate: (data: { name?: string; description?: string }) => Promise<void>;
   updating: boolean;
 }
 
 /**
  * 编辑知识库对话框
- * 支持修改名称、描述和数据源类型
+ * 简化版本：仅支持修改名称和描述
+ * 数据源管理通过「添加内容」功能进行
  */
 export default function EditKnowledgeBaseDialog({
   knowledgeBase,
@@ -85,98 +23,55 @@ export default function EditKnowledgeBaseDialog({
   onUpdate,
   updating,
 }: EditKnowledgeBaseDialogProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState(knowledgeBase.name);
   const [description, setDescription] = useState(
     knowledgeBase.description || ''
   );
-
-  // 初始化 sourceTypes：优先使用 sourceTypes，否则使用 sourceType
-  const initialSourceTypes = knowledgeBase.sourceTypes?.length
-    ? knowledgeBase.sourceTypes
-    : [knowledgeBase.sourceType];
-  const [sourceTypes, setSourceTypes] = useState<string[]>(initialSourceTypes);
-
-  const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>(
-    knowledgeBase.googleDriveFolderIds || []
-  );
-  const [selectedFolderNames, setSelectedFolderNames] = useState<string[]>([]);
-  const [selectedFileIds, setSelectedFileIds] = useState<string[]>(
-    knowledgeBase.googleDriveFileIds || []
-  );
-  const [selectedFileNames, setSelectedFileNames] = useState<string[]>([]);
-
-  const handleFolderSelectionChange = (
-    folderIds: string[],
-    folderNames: string[],
-    fileIds?: string[],
-    fileNames?: string[]
-  ) => {
-    setSelectedFolderIds(folderIds);
-    setSelectedFolderNames(folderNames);
-    if (fileIds !== undefined) {
-      setSelectedFileIds(fileIds);
-    }
-    if (fileNames !== undefined) {
-      setSelectedFileNames(fileNames);
-    }
-  };
-
-  // 切换数据源类型（多选）
-  const toggleSourceType = (type: string) => {
-    setSourceTypes((prev) => {
-      if (prev.includes(type)) {
-        // 至少保留一个
-        if (prev.length === 1) return prev;
-        const newTypes = prev.filter((t) => t !== type);
-        // 如果移除了 GOOGLE_DRIVE，清空文件夹和文件选择
-        if (type === 'GOOGLE_DRIVE') {
-          setSelectedFolderIds([]);
-          setSelectedFolderNames([]);
-          setSelectedFileIds([]);
-          setSelectedFileNames([]);
-        }
-        return newTypes;
-      } else {
-        return [...prev, type];
-      }
-    });
-  };
+  const [nameError, setNameError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // 始终传递完整的数组（包括空数组），这样后端才能正确更新
-    await onUpdate({
-      name: name !== knowledgeBase.name ? name : undefined,
-      description:
-        description !== (knowledgeBase.description || '')
-          ? description || undefined
-          : undefined,
-      sourceTypes: sourceTypes as KnowledgeBaseSourceType[],
-      // 修复: 始终传递数组，即使是空数组，这样后端才会更新字段
-      googleDriveFolderIds: sourceTypes.includes('GOOGLE_DRIVE')
-        ? selectedFolderIds
-        : [], // 不使用 GOOGLE_DRIVE 时清空
-      googleDriveFileIds: sourceTypes.includes('GOOGLE_DRIVE')
-        ? selectedFileIds
-        : [], // 不使用 GOOGLE_DRIVE 时清空
-    });
-    // 注意: onClose 由父组件在刷新完成后调用，不在这里调用
+
+    // Validate name
+    if (!name.trim()) {
+      setNameError(
+        t('knowledgeBase.errors.nameRequired') || '请输入知识库名称'
+      );
+      return;
+    }
+    setNameError(null);
+
+    // Only send changed fields
+    const updates: { name?: string; description?: string } = {};
+    if (name !== knowledgeBase.name) {
+      updates.name = name;
+    }
+    if (description !== (knowledgeBase.description || '')) {
+      updates.description = description || undefined;
+    }
+
+    // Only update if there are changes
+    if (Object.keys(updates).length > 0) {
+      await onUpdate(updates);
+    } else {
+      onClose();
+    }
   };
 
-  // 检查表单是否可以提交 - 需要选择至少一个文件夹或文件
-  const hasGoogleDriveSelection =
-    selectedFolderIds.length > 0 || selectedFileIds.length > 0;
-  const canSubmit =
-    name.trim() &&
-    !updating &&
-    sourceTypes.length > 0 &&
-    (!sourceTypes.includes('GOOGLE_DRIVE') || hasGoogleDriveSelection);
+  // Clear error when name changes
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
+    if (e.target.value.trim()) {
+      setNameError(null);
+    }
+  };
 
   const isTeam = knowledgeBase.type === 'TEAM';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white shadow-xl">
+      <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
         {/* Header */}
         <div
           className={`flex items-center justify-between border-b px-6 py-4 ${
@@ -197,9 +92,11 @@ export default function EditKnowledgeBaseDialog({
             </div>
             <div>
               <h2 className="text-lg font-semibold text-gray-900">
-                编辑知识库
+                {t('knowledgeBase.edit') || '编辑知识库'}
               </h2>
-              <p className="text-xs text-gray-500">修改知识库配置和数据源</p>
+              <p className="text-xs text-gray-500">
+                {t('knowledgeBase.editDesc') || '修改知识库基本信息'}
+              </p>
             </div>
           </div>
           <button
@@ -215,148 +112,58 @@ export default function EditKnowledgeBaseDialog({
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              知识库名称 <span className="text-red-500">*</span>
+              {t('knowledgeBase.name')} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder={isTeam ? '例如：产品团队知识库' : '例如：工作资料库'}
+              onChange={handleNameChange}
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                nameError
+                  ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                  : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+              }`}
+              placeholder={
+                isTeam
+                  ? t('knowledgeBase.teamNamePlaceholder') ||
+                    '例如：产品团队知识库'
+                  : t('knowledgeBase.personalNamePlaceholder') ||
+                    '例如：工作资料库'
+              }
+              autoFocus
             />
+            {nameError && (
+              <p className="mt-1 text-sm text-red-500">{nameError}</p>
+            )}
           </div>
 
           {/* Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              描述 <span className="text-gray-400">(可选)</span>
+              {t('knowledgeBase.descriptionOptional')}
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={2}
+              rows={3}
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="描述这个知识库的用途"
+              placeholder={
+                t('knowledgeBase.descriptionPlaceholder') ||
+                '描述这个知识库的用途'
+              }
             />
           </div>
 
-          {/* Data Source Selection - Multi-select */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              数据来源 <span className="text-red-500">*</span>
-              <span className="ml-2 text-xs font-normal text-gray-400">
-                (可多选)
+          {/* Hint */}
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <p className="text-sm text-gray-600">
+              <span className="font-medium">
+                {t('knowledgeBase.manageDataSourceHint') || '💡 提示：'}
               </span>
-            </label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {DATA_SOURCE_OPTIONS.map((option) => {
-                const Icon = option.icon;
-                const isSelected = sourceTypes.includes(option.value);
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => toggleSourceType(option.value)}
-                    className={`flex items-start gap-3 rounded-lg border-2 p-3 text-left transition-all ${
-                      isSelected
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {/* Checkbox indicator */}
-                    <div
-                      className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 ${
-                        isSelected
-                          ? 'border-blue-500 bg-blue-500'
-                          : 'border-gray-300 bg-white'
-                      }`}
-                    >
-                      {isSelected && (
-                        <svg
-                          className="h-3 w-3 text-white"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      )}
-                    </div>
-                    <div
-                      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${option.color}`}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p
-                        className={`text-sm font-medium ${
-                          isSelected ? 'text-blue-700' : 'text-gray-900'
-                        }`}
-                      >
-                        {option.label}
-                      </p>
-                      <p className="truncate text-xs text-gray-500">
-                        {option.description}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+              {t('knowledgeBase.useAddContentForDataSource') ||
+                '如需添加或管理数据源，请使用「添加内容」功能'}
+            </p>
           </div>
-
-          {/* Google Drive Folder Picker */}
-          {sourceTypes.includes('GOOGLE_DRIVE') && (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                选择要同步的文件夹或文件
-                <span className="ml-1 text-xs text-gray-500">
-                  (单击选择，双击进入)
-                </span>
-              </label>
-              <GoogleDriveFolderPicker
-                key={`edit-gdrive-picker-${knowledgeBase.id}`}
-                selectedFolderIds={selectedFolderIds}
-                selectedFileIds={selectedFileIds}
-                onSelectionChange={handleFolderSelectionChange}
-                disabled={updating}
-              />
-              {!hasGoogleDriveSelection && (
-                <p className="mt-2 text-xs text-amber-600">
-                  请至少选择一个文件夹或文件
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* URL Import Info */}
-          {sourceTypes.includes('URL') && (
-            <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
-              <p className="text-sm text-purple-800">
-                <span className="font-medium">URL 抓取：</span>
-                保存后，可以通过「添加内容」按钮导入网页内容
-              </p>
-            </div>
-          )}
-
-          {/* Platform Data Import Info */}
-          {sourceTypes.some((t) =>
-            ['BOOKMARK', 'NOTE', 'IMAGE'].includes(t)
-          ) && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-              <p className="text-sm text-blue-800">
-                <span className="font-medium">平台数据导入：</span>
-                保存后，可以通过「添加内容」按钮导入
-                {sourceTypes.includes('BOOKMARK') && ' 书签'}
-                {sourceTypes.includes('NOTE') && ' 笔记'}
-                {sourceTypes.includes('IMAGE') && ' 图片'}
-              </p>
-            </div>
-          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
@@ -365,18 +172,20 @@ export default function EditKnowledgeBaseDialog({
               onClick={onClose}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
-              取消
+              {t('knowledgeBase.cancel') || '取消'}
             </button>
             <button
               type="submit"
-              disabled={!canSubmit}
+              disabled={updating || !name.trim()}
               className={`rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${
                 isTeam
                   ? 'bg-purple-600 hover:bg-purple-700'
                   : 'bg-blue-600 hover:bg-blue-700'
               }`}
             >
-              {updating ? '保存中...' : '保存修改'}
+              {updating
+                ? t('knowledgeBase.saving') || '保存中...'
+                : t('knowledgeBase.save') || '保存'}
             </button>
           </div>
         </form>

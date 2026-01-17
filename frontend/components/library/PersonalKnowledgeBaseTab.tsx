@@ -508,30 +508,7 @@ export default function PersonalKnowledgeBaseTab({
             knowledgeBase={editingKbDetail.knowledgeBase}
             onClose={() => setEditingKbId(null)}
             onUpdate={async (data) => {
-              console.log('[PersonalKB] Updating KB with data:', data);
               await editingKbDetail.updateKnowledgeBase(data);
-
-              // For Google Drive files, use sync to actually import the files
-              // Check if GOOGLE_DRIVE is in sourceTypes AND has files/folders
-              const hasGoogleDriveSource = data.sourceTypes?.includes(
-                'GOOGLE_DRIVE' as any
-              );
-              const hasGoogleDriveData =
-                (data.googleDriveFolderIds &&
-                  data.googleDriveFolderIds.length > 0) ||
-                (data.googleDriveFileIds && data.googleDriveFileIds.length > 0);
-
-              if (hasGoogleDriveSource && hasGoogleDriveData) {
-                console.log('[PersonalKB] Starting Google Drive sync...');
-                try {
-                  const syncResult = await editingKbDetail.syncGoogleDrive();
-                  console.log('[PersonalKB] Sync completed:', syncResult);
-                } catch (err) {
-                  console.error('[PersonalKB] Sync failed:', err);
-                  // Still continue to refresh UI even if sync fails
-                }
-              }
-
               await refreshList();
               setEditingKbId(null);
             }}
@@ -613,11 +590,6 @@ export default function PersonalKnowledgeBaseTab({
         <KnowledgeBaseDetailDialog
           knowledgeBaseId={showDetailKbId}
           onClose={() => setShowDetailKbId(null)}
-          onEdit={() => {
-            const kbId = showDetailKbId;
-            setShowDetailKbId(null); // 先关闭详情弹窗
-            setEditingKbId(kbId);
-          }}
           onAddDocuments={() => {
             const kb = personalKBs.find((k) => k.id === showDetailKbId);
             if (kb) {
