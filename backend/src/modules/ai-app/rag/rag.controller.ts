@@ -280,16 +280,33 @@ export class RAGController {
               actualResource.aiSummary ||
               "";
 
-            // If still no content, try to fetch from URL
-            if (!content && actualResource.sourceUrl) {
+            // If content is empty OR too short (< 500 chars), try to fetch full content from URL
+            // This ensures we get the complete article for proper vectorization,
+            // not just a short summary or abstract
+            const MIN_CONTENT_LENGTH = 500;
+            if (
+              (!content || content.length < MIN_CONTENT_LENGTH) &&
+              actualResource.sourceUrl
+            ) {
               try {
+                console.log(
+                  `[RAG] Content too short (${content.length} chars), fetching from URL: ${actualResource.sourceUrl}`,
+                );
                 const fetched = await this.urlFetchService.fetchUrl(
                   actualResource.sourceUrl,
                 );
-                content = fetched.content || "";
-              } catch {
-                // Fallback to a descriptive placeholder if fetch fails
-                content = `Content from ${actualResource.sourceUrl}`;
+                if (
+                  fetched.content &&
+                  fetched.content.length > content.length
+                ) {
+                  content = fetched.content;
+                  console.log(`[RAG] Fetched ${content.length} chars from URL`);
+                }
+              } catch (err) {
+                console.warn(
+                  `[RAG] Failed to fetch URL content: ${err instanceof Error ? err.message : err}`,
+                );
+                // Keep the existing short content as fallback
               }
             }
           }
