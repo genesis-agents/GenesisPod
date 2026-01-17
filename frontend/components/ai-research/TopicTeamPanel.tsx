@@ -193,21 +193,24 @@ export function TopicTeamPanel({
     if (isRefreshing) return true;
     // 检查 missionStatus 是否表示正在进行
     if (missionStatus) {
+      // ★ 如果任务已完成/取消/错误，直接返回 false
+      // 不再检查子任务状态，避免已完成的任务显示为"进行中"
+      if (
+        ['COMPLETED', 'CANCELLED', 'ERROR', 'FAILED'].includes(
+          missionStatus.status
+        )
+      ) {
+        return false;
+      }
       // 检查 mission 状态是否是活动状态
       if (
         ['PLANNING', 'EXECUTING', 'REVIEWING'].includes(missionStatus.status)
       ) {
         return true;
       }
-      // 检查是否有正在执行或待处理的任务
-      if (
-        missionStatus.tasks?.some(
-          (t) =>
-            t.status === 'EXECUTING' ||
-            t.status === 'PENDING' ||
-            t.status === 'ASSIGNED'
-        )
-      ) {
+      // 只在非终止状态下检查子任务
+      // 检查是否有正在执行的任务（不包括 PENDING/ASSIGNED，因为这些可能是未开始的任务）
+      if (missionStatus.tasks?.some((t) => t.status === 'EXECUTING')) {
         return true;
       }
     }

@@ -823,7 +823,22 @@ export interface AgentAssignment {
 
 export interface MissionStatus {
   id: string;
-  status: 'PLANNING' | 'EXECUTING' | 'REVIEWING' | 'COMPLETED' | 'FAILED';
+  /**
+   * Mission status state machine:
+   * - PLANNING: Leader 正在规划任务
+   * - EXECUTING: 研究员正在执行任务
+   * - REVIEWING: 审核员正在审核结果
+   * - COMPLETED: 任务已完成（终止状态）
+   * - FAILED: 任务失败（终止状态）
+   * - CANCELLED: 任务被取消（终止状态）
+   */
+  status:
+    | 'PLANNING'
+    | 'EXECUTING'
+    | 'REVIEWING'
+    | 'COMPLETED'
+    | 'FAILED'
+    | 'CANCELLED';
   progress: number;
   totalTasks: number;
   completedTasks: number;
@@ -839,13 +854,24 @@ export interface TaskStatus {
   taskType: string;
   dimensionName?: string;
   assignedAgent: string;
+  /**
+   * Task status state machine:
+   * - PENDING: 待分配
+   * - ASSIGNED: 已分配给 Agent
+   * - EXECUTING: 正在执行
+   * - COMPLETED: 已完成（终止状态）
+   * - NEEDS_REVISION: 需要修订（审核未通过）
+   * - FAILED: 失败（终止状态）
+   * - CANCELLED: 被取消（终止状态）
+   */
   status:
     | 'PENDING'
     | 'ASSIGNED'
     | 'EXECUTING'
     | 'COMPLETED'
     | 'NEEDS_REVISION'
-    | 'FAILED';
+    | 'FAILED'
+    | 'CANCELLED';
   reviewStatus?: string;
   progress?: number;
   /** 任务结果（包含成功数据或错误信息） */
