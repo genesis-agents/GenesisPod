@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
 import { TopicCard } from './TopicCard';
@@ -87,6 +88,10 @@ export function TopicResearchTab({
   initialView,
 }: TopicResearchTabProps) {
   const { t } = useTranslation();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const {
     topics,
     isLoadingTopics,
@@ -101,6 +106,30 @@ export function TopicResearchTab({
     null
   );
   const [sharingTopic, setSharingTopic] = useState<ResearchTopic | null>(null);
+
+  // ★ 选择专题时更新 URL，确保刷新后能恢复状态
+  const selectTopic = useCallback(
+    (topic: ResearchTopic | null) => {
+      setSelectedTopic(topic);
+
+      // 更新 URL 参数
+      const params = new URLSearchParams(searchParams?.toString() || '');
+      if (topic) {
+        params.set('topicId', topic.id);
+      } else {
+        params.delete('topicId');
+        params.delete('view'); // 返回时也清除 view 参数
+      }
+
+      const newUrl = params.toString()
+        ? `${pathname}?${params.toString()}`
+        : pathname;
+
+      // 使用 replace 避免产生多余的历史记录
+      router.replace(newUrl, { scroll: false });
+    },
+    [pathname, searchParams, router]
+  );
 
   // Notify parent when detail view changes
   useEffect(() => {
@@ -138,7 +167,7 @@ export function TopicResearchTab({
 
   // Handle topic created
   const handleTopicCreated = (topic: ResearchTopic) => {
-    setSelectedTopic(topic);
+    selectTopic(topic);
     onShowCreateDialog(false);
   };
 
@@ -167,7 +196,7 @@ export function TopicResearchTab({
       <TopicDetail
         topic={selectedTopic}
         onBack={() => {
-          setSelectedTopic(null);
+          selectTopic(null);
           loadTopics();
         }}
         initialView={initialView}
@@ -230,7 +259,7 @@ export function TopicResearchTab({
             <TopicCard
               key={topic.id}
               topic={topic}
-              onClick={() => setSelectedTopic(topic)}
+              onClick={() => selectTopic(topic)}
               onRefresh={() => handleRefresh(topic.id)}
               onDelete={() => handleDelete(topic.id)}
               onShare={() => setSharingTopic(topic)}
