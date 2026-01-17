@@ -2,6 +2,7 @@
 
 import React, { useRef } from 'react';
 import type { SearchSuggestion } from './types';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 interface SearchBarProps {
   searchQuery: string;
@@ -30,6 +31,7 @@ export function SearchBar({
   acceptedFileTypes = '*',
   onFileChange,
 }: SearchBarProps) {
+  const { t } = useI18n();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
@@ -58,7 +60,7 @@ export function SearchBar({
           <input
             ref={searchInputRef}
             type="text"
-            placeholder="Ask or search anything..."
+            placeholder={t('explore.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             onKeyDown={onSearch}

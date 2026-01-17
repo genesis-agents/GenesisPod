@@ -6,6 +6,7 @@ import ResourceThumbnail from './ResourceThumbnail';
 import { InsightChip } from './InsightBadge';
 import { getSourceName, getSourceBadgeColor } from './resourceHelpers';
 import type { Resource } from './types';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 interface ResourceCardProps {
   resource: Resource;
@@ -32,6 +33,7 @@ export function ResourceCard({
   onToast,
   isAdmin = false,
 }: ResourceCardProps) {
+  const { t } = useI18n();
   const sourceName = getSourceName(resource);
 
   return (
@@ -64,7 +66,7 @@ export function ResourceCard({
             {sourceName && (
               <span
                 className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${getSourceBadgeColor(sourceName, resource.type)}`}
-                title={`Source: ${sourceName}`}
+                title={`${t('explore.card.source')}: ${sourceName}`}
               >
                 <span className="max-w-[120px] truncate">{sourceName}</span>
               </span>
@@ -119,19 +121,26 @@ export function ResourceCard({
               <span className="text-gray-500">
                 {resource.sourceUrl && (
                   <>
-                    <span className="font-medium">Source:</span>{' '}
+                    <span className="font-medium">
+                      {t('explore.card.source')}:
+                    </span>{' '}
                     {new URL(resource.sourceUrl).hostname.replace('www.', '')}
                   </>
                 )}
                 {resource.authors && resource.authors.length > 0 && (
                   <>
                     {resource.sourceUrl && ' • '}
-                    <span className="font-medium">By:</span>{' '}
+                    <span className="font-medium">
+                      {t('explore.card.by')}:
+                    </span>{' '}
                     {resource.authors
                       .slice(0, 3)
-                      .map((a) => a.name || a.username || 'Unknown')
+                      .map(
+                        (a) => a.name || a.username || t('explore.card.unknown')
+                      )
                       .join(', ')}
-                    {resource.authors.length > 3 && ' et al.'}
+                    {resource.authors.length > 3 &&
+                      ` ${t('explore.card.etAl')}`}
                   </>
                 )}
               </span>
@@ -165,7 +174,9 @@ export function ResourceCard({
                   d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
                 />
               </svg>
-              {isBookmarked ? 'Bookmarked' : 'Bookmark'}
+              {isBookmarked
+                ? t('explore.card.bookmarked')
+                : t('explore.card.bookmark')}
             </button>
 
             {/* Upvote Button */}
@@ -230,7 +241,7 @@ export function ResourceCard({
                     d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                   />
                 </svg>
-                Delete
+                {t('explore.card.delete')}
               </button>
             )}
           </div>

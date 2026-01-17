@@ -288,7 +288,57 @@
     "trending": "热门趋势",
     "recommended": "为你推荐",
     "categories": "分类",
-    "searchPlaceholder": "搜索主题、资源..."
+    "searchPlaceholder": "搜索任何内容...",
+    "tabs": {
+      "youtube": "YouTube",
+      "papers": "论文",
+      "blogs": "博客",
+      "reports": "报告",
+      "policy": "政策",
+      "news": "新闻"
+    },
+    "sort": {
+      "trending": "热门",
+      "latest": "最新",
+      "quality": "精选"
+    },
+    "import": {
+      "title": "导入 URL 或文件",
+      "fromUrl": "从 URL 导入",
+      "fromUrlDesc": "从网页链接导入",
+      "uploadFile": "上传文件",
+      "uploadFileDesc": "PDF、HTML 文档"
+    },
+    "filters": {
+      "advanced": "高级筛选"
+    },
+    "card": {
+      "bookmark": "收藏",
+      "bookmarked": "已收藏",
+      "delete": "删除",
+      "source": "来源",
+      "by": "作者",
+      "unknown": "未知",
+      "etAl": "等"
+    },
+    "view": {
+      "reader": "阅读模式",
+      "original": "原始页面",
+      "info": "信息"
+    },
+    "quickActions": {
+      "title": "快速操作",
+      "summary": "摘要",
+      "insights": "要点",
+      "methods": "方法"
+    },
+    "insights": {
+      "title": "AI 洞察",
+      "showLess": "收起",
+      "showMore": "显示更多",
+      "moreInsights": "更多洞察",
+      "keyInsight": "关键洞察"
+    }
   },
   "aiStudio": {
     "title": "AI 研究",

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Sparkles, ChevronDown, ChevronUp, Lightbulb } from 'lucide-react';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 interface AIInsight {
   title: string;
@@ -32,6 +33,7 @@ export function InsightBadge({
   maxVisible = 2,
   className = '',
 }: InsightBadgeProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
 
   if (!insights || insights.length === 0) {
@@ -49,7 +51,9 @@ export function InsightBadge({
       {/* Header */}
       <div className="mb-1.5 flex items-center gap-1.5">
         <Sparkles className="h-3.5 w-3.5 text-purple-500" />
-        <span className="text-xs font-medium text-purple-700">AI Insights</span>
+        <span className="text-xs font-medium text-purple-700">
+          {t('explore.insights.title')}
+        </span>
         <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-xs text-purple-600">
           {insights.length}
         </span>
@@ -91,12 +95,12 @@ export function InsightBadge({
           {expanded ? (
             <>
               <ChevronUp className="h-3 w-3" />
-              Show less
+              {t('explore.insights.showLess')}
             </>
           ) : (
             <>
               <ChevronDown className="h-3 w-3" />
-              Show {insights.length - maxVisible} more
+              {t('explore.insights.showMore')} ({insights.length - maxVisible})
             </>
           )}
         </button>
@@ -107,6 +111,8 @@ export function InsightBadge({
 
 // Compact inline version for tight spaces
 export function InsightChip({ insights }: { insights: AIInsight[] }) {
+  const { t } = useI18n();
+
   if (!insights || insights.length === 0) {
     return null;
   }
@@ -117,11 +123,11 @@ export function InsightChip({ insights }: { insights: AIInsight[] }) {
     <div className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs">
       <Lightbulb className="h-3 w-3 text-purple-500" />
       <span className="text-purple-700">
-        {insights.length} insight{insights.length > 1 ? 's' : ''}
+        {insights.length} {t('explore.insights.moreInsights')}
       </span>
       {highCount > 0 && (
         <span className="rounded-full bg-red-100 px-1.5 text-red-600">
-          {highCount} key
+          {highCount} {t('explore.insights.keyInsight')}
         </span>
       )}
     </div>

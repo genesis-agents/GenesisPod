@@ -288,7 +288,57 @@
     "trending": "Trending",
     "recommended": "Recommended for You",
     "categories": "Categories",
-    "searchPlaceholder": "Search topics, resources..."
+    "searchPlaceholder": "Ask or search anything...",
+    "tabs": {
+      "youtube": "YouTube",
+      "papers": "Papers",
+      "blogs": "Blogs",
+      "reports": "Reports",
+      "policy": "Policy",
+      "news": "News"
+    },
+    "sort": {
+      "trending": "Trending",
+      "latest": "Latest",
+      "quality": "Quality"
+    },
+    "import": {
+      "title": "Import URL or file",
+      "fromUrl": "From URL",
+      "fromUrlDesc": "Import from a web link",
+      "uploadFile": "Upload File",
+      "uploadFileDesc": "PDF, HTML documents"
+    },
+    "filters": {
+      "advanced": "Advanced filters"
+    },
+    "card": {
+      "bookmark": "Bookmark",
+      "bookmarked": "Bookmarked",
+      "delete": "Delete",
+      "source": "Source",
+      "by": "By",
+      "unknown": "Unknown",
+      "etAl": "et al."
+    },
+    "view": {
+      "reader": "Reader",
+      "original": "Original",
+      "info": "Info"
+    },
+    "quickActions": {
+      "title": "Quick Actions:",
+      "summary": "Summary",
+      "insights": "Insights",
+      "methods": "Methods"
+    },
+    "insights": {
+      "title": "AI Insights",
+      "showLess": "Show less",
+      "showMore": "Show more",
+      "moreInsights": "more insights",
+      "keyInsight": "key insight"
+    }
   },
   "aiStudio": {
     "title": "AI Research",

@@ -16,6 +16,7 @@ import {
   Link2,
   FileUp,
 } from 'lucide-react';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 export type TabType =
   | 'papers'
@@ -131,10 +132,21 @@ export default function ResponsiveNav({
   onSortChange,
   className = '',
 }: ResponsiveNavProps) {
+  const { t } = useI18n();
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showImportMenu, setShowImportMenu] = useState(false);
   const importMenuRef = useRef<HTMLDivElement>(null);
   const sortMenuRef = useRef<HTMLDivElement>(null);
+
+  // Tab label mapping for i18n
+  const tabLabels: Record<TabType, string> = {
+    youtube: t('explore.tabs.youtube'),
+    papers: t('explore.tabs.papers'),
+    blogs: t('explore.tabs.blogs'),
+    reports: t('explore.tabs.reports'),
+    policy: t('explore.tabs.policy'),
+    news: t('explore.tabs.news'),
+  };
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -183,7 +195,7 @@ export default function ResponsiveNav({
               `}
             >
               <Icon className="h-3 w-3 flex-shrink-0 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="hidden sm:inline">{tabLabels[tab.id]}</span>
             </button>
           );
         })}
@@ -196,7 +208,7 @@ export default function ResponsiveNav({
           <button
             onClick={() => setShowImportMenu(!showImportMenu)}
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 sm:h-10 sm:w-10"
-            title="Import URL or file"
+            title={t('explore.import.title')}
             aria-label="Import"
           >
             <Plus className="h-4 w-4 flex-shrink-0" />
@@ -215,9 +227,11 @@ export default function ResponsiveNav({
                 >
                   <Link2 className="h-4 w-4 text-blue-600" />
                   <div className="text-left">
-                    <p className="font-medium text-gray-900">From URL</p>
+                    <p className="font-medium text-gray-900">
+                      {t('explore.import.fromUrl')}
+                    </p>
                     <p className="text-xs text-gray-500">
-                      Import from a web link
+                      {t('explore.import.fromUrlDesc')}
                     </p>
                   </div>
                 </button>
@@ -230,8 +244,12 @@ export default function ResponsiveNav({
                 >
                   <FileUp className="h-4 w-4 text-green-600" />
                   <div className="text-left">
-                    <p className="font-medium text-gray-900">Upload File</p>
-                    <p className="text-xs text-gray-500">PDF, HTML documents</p>
+                    <p className="font-medium text-gray-900">
+                      {t('explore.import.uploadFile')}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {t('explore.import.uploadFileDesc')}
+                    </p>
                   </div>
                 </button>
               </div>
@@ -247,7 +265,7 @@ export default function ResponsiveNav({
               ? 'border-blue-300 bg-blue-50 text-blue-700'
               : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
           }`}
-          title="Advanced filters"
+          title={t('explore.filters.advanced')}
           aria-label="Filter"
         >
           <Filter className="h-4 w-4 flex-shrink-0" />
@@ -266,10 +284,10 @@ export default function ResponsiveNav({
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 sm:h-10 sm:w-10"
             title={
               sortBy === 'trendingScore'
-                ? 'Trending'
+                ? t('explore.sort.trending')
                 : sortBy === 'publishedAt'
-                  ? 'Latest'
-                  : 'Quality'
+                  ? t('explore.sort.latest')
+                  : t('explore.sort.quality')
             }
             aria-label="Sort"
           >
@@ -300,7 +318,7 @@ export default function ResponsiveNav({
                   }`}
                 >
                   <TrendingUp className="h-4 w-4" />
-                  <span>Trending</span>
+                  <span>{t('explore.sort.trending')}</span>
                 </button>
                 <button
                   onClick={() => {
@@ -314,7 +332,7 @@ export default function ResponsiveNav({
                   }`}
                 >
                   <Clock className="h-4 w-4" />
-                  <span>Latest</span>
+                  <span>{t('explore.sort.latest')}</span>
                 </button>
                 <button
                   onClick={() => {
@@ -328,7 +346,7 @@ export default function ResponsiveNav({
                   }`}
                 >
                   <Star className="h-4 w-4" />
-                  <span>Quality</span>
+                  <span>{t('explore.sort.quality')}</span>
                 </button>
               </div>
             </div>
