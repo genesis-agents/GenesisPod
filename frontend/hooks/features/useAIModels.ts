@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { config } from '@/lib/utils/config';
 
 // AI模型类型 - 与后端 Prisma schema 保持一致
@@ -30,6 +30,30 @@ export interface AIModel {
 let cachedModels: AIModel[] | null = null;
 let cacheTimestamp: number = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
+
+/**
+ * 去重模型列表 - 按 modelId 去重，每个实际模型只保留一个
+ * 优先保留标记为默认的模型
+ */
+function deduplicateModels(models: AIModel[]): AIModel[] {
+  const modelMap = new Map<string, AIModel>();
+
+  for (const model of models) {
+    const key = model.modelId; // 按实际模型 ID 去重
+    const existing = modelMap.get(key);
+
+    if (!existing) {
+      // 第一次遇到这个 modelId，直接添加
+      modelMap.set(key, model);
+    } else if (model.isDefault && !existing.isDefault) {
+      // 如果当前模型是默认的而已有的不是，替换
+      modelMap.set(key, model);
+    }
+    // 否则保留已有的
+  }
+
+  return Array.from(modelMap.values());
+}
 
 /**
  * 获取已启用的 AI 模型列表 Hook
@@ -93,7 +117,10 @@ export function useAIModels() {
     fetchModels();
   }, []);
 
-  return { models, loading, error };
+  // 对模型列表进行去重，避免显示重复的模型配置
+  const uniqueModels = useMemo(() => deduplicateModels(models), [models]);
+
+  return { models: uniqueModels, loading, error };
 }
 
 /**
