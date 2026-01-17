@@ -1055,12 +1055,16 @@ export class ResearchMissionService {
       );
     }
 
-    // ★ 取消所有未完成的任务（PENDING 或 EXECUTING 状态）
+    // ★ 取消所有未完成的任务（PENDING、ASSIGNED 或 EXECUTING 状态）
     const cancelledTasksResult = await this.prisma.researchTask.updateMany({
       where: {
         missionId,
         status: {
-          in: [ResearchTaskStatus.PENDING, ResearchTaskStatus.EXECUTING],
+          in: [
+            ResearchTaskStatus.PENDING,
+            ResearchTaskStatus.ASSIGNED,
+            ResearchTaskStatus.EXECUTING,
+          ],
         },
       },
       data: {
