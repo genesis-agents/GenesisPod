@@ -251,6 +251,92 @@ export class RAGController {
       };
     }
 
+    // Handle platform_resource type - fetch actual content from Resource table
+    const hasPlatformResource = dto.resources.some(
+      (r) => r.sourceType === "platform_resource",
+    );
+
+    if (hasPlatformResource) {
+      const platformResourceIds = dto.resources
+        .filter((r) => r.sourceType === "platform_resource")
+        .map((r) => r.sourceId);
+
+      // Fetch the actual Resource records to get their content
+      const platformResources =
+        await this.knowledgeBaseService.getResourcesByIds(platformResourceIds);
+      const resourceMap = new Map(platformResources.map((r) => [r.id, r]));
+
+      const results = [];
+      for (const resource of dto.resources) {
+        if (resource.sourceType === "platform_resource") {
+          const actualResource = resourceMap.get(resource.sourceId);
+
+          // Build content from available fields (priority: content > abstract > aiSummary)
+          let content = "";
+          if (actualResource) {
+            content =
+              actualResource.content ||
+              actualResource.abstract ||
+              actualResource.aiSummary ||
+              "";
+
+            // If still no content, try to fetch from URL
+            if (!content && actualResource.sourceUrl) {
+              try {
+                const fetched = await this.urlFetchService.fetchUrl(
+                  actualResource.sourceUrl,
+                );
+                content = fetched.content || "";
+              } catch {
+                // Fallback to a descriptive placeholder if fetch fails
+                content = `Content from ${actualResource.sourceUrl}`;
+              }
+            }
+          }
+
+          // If still no content, use a minimal placeholder
+          if (!content) {
+            content = `Resource: ${resource.title}`;
+          }
+
+          const doc = await this.knowledgeBaseService.addDocument(id, {
+            title: resource.title,
+            content,
+            sourceType: resource.sourceType,
+            sourceId: resource.sourceId,
+            sourceUrl: resource.sourceUrl || actualResource?.sourceUrl,
+            mimeType: resource.mimeType,
+            metadata: {
+              originalResourceId: resource.sourceId,
+              resourceType: actualResource?.type,
+            },
+          });
+          results.push(doc);
+        } else {
+          // Other source types still use placeholder behavior
+          const doc = await this.knowledgeBaseService.addDocument(id, {
+            title: resource.title,
+            content: `[Pending content fetch from ${resource.sourceType}]`,
+            sourceType: resource.sourceType,
+            sourceId: resource.sourceId,
+            sourceUrl: resource.sourceUrl,
+            mimeType: resource.mimeType,
+            metadata: {
+              pendingFetch: true,
+              externalSource: resource.sourceType,
+            },
+          });
+          results.push(doc);
+        }
+      }
+
+      return {
+        success: true,
+        count: results.length,
+        documents: results,
+      };
+    }
+
     // For other source types, create placeholder documents (legacy behavior)
     const results = [];
     for (const resource of dto.resources) {

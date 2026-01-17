@@ -152,6 +152,83 @@ export class KnowledgeBaseService {
   }
 
   /**
+   * Get Resources by IDs for platform_resource import
+   * Fetches content fields needed for KB document creation
+   * For YouTube videos, also fetches transcript from cache
+   */
+  async getResourcesByIds(resourceIds: string[]) {
+    if (!resourceIds.length) return [];
+
+    const resources = await this.prisma.resource.findMany({
+      where: {
+        id: { in: resourceIds },
+      },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        abstract: true,
+        aiSummary: true,
+        sourceUrl: true,
+        type: true,
+      },
+    });
+
+    // For YouTube videos, try to get transcript content
+    const youtubeResources = resources.filter(
+      (r) => r.type === "YOUTUBE_VIDEO",
+    );
+    if (youtubeResources.length > 0) {
+      const videoIds = youtubeResources
+        .map((r) => this.extractYoutubeVideoId(r.sourceUrl))
+        .filter(Boolean) as string[];
+
+      if (videoIds.length > 0) {
+        const transcripts = await this.prisma.youTubeTranscriptCache.findMany({
+          where: { videoId: { in: videoIds } },
+          select: { videoId: true, transcript: true },
+        });
+
+        const transcriptMap = new Map(
+          transcripts.map((t: { videoId: string; transcript: unknown }) => [
+            t.videoId,
+            t.transcript,
+          ]),
+        );
+
+        // Merge transcript content into resources
+        for (const resource of resources) {
+          if (resource.type === "YOUTUBE_VIDEO" && !resource.content) {
+            const videoId = this.extractYoutubeVideoId(resource.sourceUrl);
+            if (videoId && transcriptMap.has(videoId)) {
+              const transcript = transcriptMap.get(videoId);
+              if (Array.isArray(transcript)) {
+                // Convert transcript segments to text
+                resource.content = transcript
+                  .map((seg: any) => seg.text || "")
+                  .join(" ");
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return resources;
+  }
+
+  /**
+   * Extract YouTube video ID from URL
+   */
+  private extractYoutubeVideoId(url: string | null): string | null {
+    if (!url) return null;
+    const match = url.match(
+      /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    );
+    return match ? match[1] : null;
+  }
+
+  /**
    * List knowledge bases for user (includes both owned and member-of)
    * Uses Prisma ORM to automatically handle type conversions
    */
