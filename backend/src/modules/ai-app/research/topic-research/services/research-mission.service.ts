@@ -166,7 +166,7 @@ export class ResearchMissionService {
     });
 
     if (existingMission) {
-      // ★ 检查是否为"僵尸"任务：所有子任务都已失败或不存在活跃任务
+      // ★ 检查是否有活跃任务（PENDING/ASSIGNED/EXECUTING）
       const activeTasks = existingMission.tasks.filter(
         (t) =>
           t.status === ResearchTaskStatus.PENDING ||
@@ -174,21 +174,18 @@ export class ResearchMissionService {
           t.status === ResearchTaskStatus.EXECUTING,
       );
 
-      const allTasksFailed =
-        existingMission.tasks.length > 0 &&
-        existingMission.tasks.every(
-          (t) =>
-            t.status === ResearchTaskStatus.FAILED ||
-            t.status === ResearchTaskStatus.COMPLETED,
-        );
+      this.logger.log(
+        `[createMission] Found existing mission ${existingMission.id}, ` +
+          `total tasks: ${existingMission.tasks.length}, active tasks: ${activeTasks.length}, ` +
+          `task statuses: ${JSON.stringify(existingMission.tasks.map((t) => t.status))}`,
+      );
 
-      // 如果没有活跃任务，且（所有任务都失败 或 任务为空），则自动取消旧任务
-      if (
-        activeTasks.length === 0 &&
-        (allTasksFailed || existingMission.tasks.length === 0)
-      ) {
+      // ★ 简化逻辑：如果没有活跃任务，自动取消旧任务
+      // 活跃任务 = PENDING/ASSIGNED/EXECUTING
+      // 非活跃 = COMPLETED/FAILED/NEEDS_REVISION 或空任务列表
+      if (activeTasks.length === 0) {
         this.logger.warn(
-          `[startMission] Found stale mission ${existingMission.id} with no active tasks, auto-cancelling...`,
+          `[createMission] Mission ${existingMission.id} has no active tasks, auto-cancelling...`,
         );
 
         // 自动取消旧任务
@@ -197,15 +194,14 @@ export class ResearchMissionService {
           data: { status: ResearchMissionStatus.CANCELLED },
         });
 
-        // 同步更新 ResearchTodo
+        // 同步更新 ResearchTodo（将所有未完成的状态都标记为取消）
         await this.prisma.researchTodo.updateMany({
           where: {
             missionId: existingMission.id,
             status: {
-              in: [
-                ResearchTodoStatus.PENDING,
-                ResearchTodoStatus.QUEUED,
-                ResearchTodoStatus.IN_PROGRESS,
+              notIn: [
+                ResearchTodoStatus.COMPLETED,
+                ResearchTodoStatus.CANCELLED,
               ],
             },
           },
@@ -217,10 +213,13 @@ export class ResearchMissionService {
         });
 
         this.logger.log(
-          `[startMission] Auto-cancelled stale mission ${existingMission.id}`,
+          `[createMission] Auto-cancelled stale mission ${existingMission.id}`,
         );
       } else {
         // 有活跃任务，不允许启动新任务
+        this.logger.warn(
+          `[createMission] Cannot start new mission: ${activeTasks.length} active tasks in mission ${existingMission.id}`,
+        );
         throw new Error(
           `A mission is already in progress for topic ${topicId}`,
         );
