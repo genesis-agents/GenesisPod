@@ -8,15 +8,33 @@ import {
   StickyNote,
   Image as ImageIcon,
   Plus,
+  Upload,
+  HardDrive,
 } from 'lucide-react';
 import UrlImportPanel from './UrlImportPanel';
 import BookmarkSelectPanel from './BookmarkSelectPanel';
 import NoteSelectPanel from './NoteSelectPanel';
 import OcrUploadPanel from './OcrUploadPanel';
+import FileUploadPanel from './FileUploadPanel';
+import GoogleDriveImportPanel from './GoogleDriveImportPanel';
 
-type TabType = 'url' | 'bookmark' | 'note' | 'ocr';
+type TabType = 'upload' | 'gdrive' | 'url' | 'bookmark' | 'note' | 'ocr';
 
 const TABS = [
+  {
+    id: 'upload' as TabType,
+    label: '手动上传',
+    icon: Upload,
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+  },
+  {
+    id: 'gdrive' as TabType,
+    label: 'Google Drive',
+    icon: HardDrive,
+    color: 'text-green-600',
+    bgColor: 'bg-green-50',
+  },
   {
     id: 'url' as TabType,
     label: 'URL 抓取',
@@ -64,7 +82,7 @@ export default function AddDocumentsDialog({
   onClose,
   onDocumentsAdded,
 }: AddDocumentsDialogProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('url');
+  const [activeTab, setActiveTab] = useState<TabType>('upload');
   const [totalImported, setTotalImported] = useState(0);
 
   const handleImportComplete = (count: number) => {
@@ -96,30 +114,44 @@ export default function AddDocumentsDialog({
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 px-6">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-                  isActive
-                    ? `border-blue-500 text-blue-600`
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                }`}
-              >
-                <Icon className={`h-4 w-4 ${isActive ? tab.color : ''}`} />
-                {tab.label}
-              </button>
-            );
-          })}
+        {/* Tabs - Scrollable on mobile */}
+        <div className="scrollbar-hide overflow-x-auto border-b border-gray-200 px-6">
+          <div className="flex min-w-max">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+                    isActive
+                      ? `border-blue-500 text-blue-600`
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  }`}
+                >
+                  <Icon className={`h-4 w-4 ${isActive ? tab.color : ''}`} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Content */}
         <div className="p-6">
+          {activeTab === 'upload' && (
+            <FileUploadPanel
+              knowledgeBaseId={knowledgeBaseId}
+              onImportComplete={handleImportComplete}
+            />
+          )}
+          {activeTab === 'gdrive' && (
+            <GoogleDriveImportPanel
+              knowledgeBaseId={knowledgeBaseId}
+              onImportComplete={handleImportComplete}
+            />
+          )}
           {activeTab === 'url' && (
             <UrlImportPanel
               knowledgeBaseId={knowledgeBaseId}

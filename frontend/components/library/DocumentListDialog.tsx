@@ -188,7 +188,8 @@ export default function DocumentListDialog({
                     key={doc.id}
                     className="group rounded-xl border border-gray-100 bg-white p-4 transition-all hover:border-indigo-200 hover:shadow-md"
                   >
-                    <div className="flex items-start gap-4">
+                    {/* Row 1: Status Icon + Title + Status Badge */}
+                    <div className="flex items-start gap-3">
                       {/* Status Icon */}
                       <div
                         className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${status.bgColor}`}
@@ -196,24 +197,24 @@ export default function DocumentListDialog({
                         {status.icon}
                       </div>
 
-                      {/* Document Info */}
+                      {/* Title and Status */}
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-start justify-between gap-3">
                           <h3
-                            className="truncate font-medium text-gray-900"
+                            className="line-clamp-2 flex-1 text-sm font-medium leading-5 text-gray-900"
                             title={doc.title}
                           >
                             {doc.title}
                           </h3>
                           <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.bgColor} ${status.color}`}
+                            className={`flex-shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${status.bgColor} ${status.color}`}
                           >
                             {status.label}
                           </span>
                         </div>
 
-                        {/* Meta Info Row */}
-                        <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+                        {/* Row 2: Meta Info */}
+                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
                           {/* Source */}
                           <span className="flex items-center gap-1">
                             {getSourceIcon(doc.sourceType)}
@@ -245,26 +246,24 @@ export default function DocumentListDialog({
                             </span>
                           )}
                         </div>
-
-                        {/* Source URL */}
-                        {doc.sourceUrl && (
-                          <div className="mt-2">
-                            <a
-                              href={doc.sourceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 truncate text-xs text-blue-600 hover:text-blue-700 hover:underline"
-                              title={doc.sourceUrl}
-                            >
-                              <Link2 className="h-3 w-3" />
-                              {doc.sourceUrl.length > 50
-                                ? doc.sourceUrl.slice(0, 50) + '...'
-                                : doc.sourceUrl}
-                            </a>
-                          </div>
-                        )}
                       </div>
                     </div>
+
+                    {/* Row 3: Source URL (if exists) */}
+                    {doc.sourceUrl && (
+                      <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2">
+                        <a
+                          href={doc.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700"
+                          title={doc.sourceUrl}
+                        >
+                          <Link2 className="h-3.5 w-3.5 flex-shrink-0" />
+                          <span className="truncate">{doc.sourceUrl}</span>
+                        </a>
+                      </div>
+                    )}
                   </div>
                 );
               })}

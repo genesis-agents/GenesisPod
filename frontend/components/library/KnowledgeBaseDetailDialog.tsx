@@ -330,62 +330,104 @@ export default function KnowledgeBaseDetailDialog({
 
               {/* Documents Section */}
               {documents && documents.length > 0 && (
-                <div className="space-y-3 border-t border-gray-100 pt-4">
+                <div className="space-y-4 border-t border-gray-100 pt-5">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-medium text-gray-900">
-                      文档列表 ({documents.length})
+                    <h3 className="flex items-center gap-2 font-semibold text-gray-900">
+                      <FileText className="h-4 w-4 text-gray-500" />
+                      文档列表
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                        {documents.length}
+                      </span>
                     </h3>
                     {onViewDocuments && (
                       <button
                         onClick={() => onViewDocuments(documents)}
-                        className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
+                        className="flex items-center gap-1 text-sm text-blue-600 transition-colors hover:text-blue-700"
                       >
                         查看全部详情
+                        <ExternalLink className="h-3.5 w-3.5" />
                       </button>
                     )}
                   </div>
                   <div
-                    className={`space-y-2 ${showAllDocs ? 'max-h-80' : 'max-h-48'} overflow-y-auto`}
+                    className={`space-y-2 ${showAllDocs ? 'max-h-96' : 'max-h-64'} overflow-y-auto pr-1`}
                   >
                     {(showAllDocs
                       ? documents
                       : documents.slice(0, DOCS_PER_PAGE)
-                    ).map((doc) => (
+                    ).map((doc, index) => (
                       <div
                         key={doc.id}
-                        className="group flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2.5 transition-colors hover:bg-gray-100"
+                        className="group rounded-lg border border-gray-100 bg-white p-3 transition-all hover:border-blue-200 hover:shadow-sm"
                       >
-                        <div className="flex min-w-0 flex-1 items-center gap-2">
-                          <FileText className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                          <span
-                            className="truncate text-sm text-gray-700"
-                            title={doc.title}
-                          >
-                            {doc.title}
-                          </span>
-                        </div>
-                        <div className="flex flex-shrink-0 items-center gap-2">
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                              doc.isVectorized
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-gray-100 text-gray-600'
-                            }`}
-                          >
-                            {doc.isVectorized ? '已向量化' : '待处理'}
-                          </span>
-                          {doc.sourceUrl && (
-                            <a
-                              href={doc.sourceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="rounded p-1 text-gray-400 opacity-0 transition-all hover:bg-blue-50 hover:text-blue-600 group-hover:opacity-100"
-                              title="打开源链接"
-                              onClick={(e) => e.stopPropagation()}
+                        {/* Document Header - Title + Status */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                            <div
+                              className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded ${
+                                doc.isVectorized
+                                  ? 'bg-green-100'
+                                  : 'bg-gray-100'
+                              }`}
                             >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          )}
+                              <FileText
+                                className={`h-3.5 w-3.5 ${
+                                  doc.isVectorized
+                                    ? 'text-green-600'
+                                    : 'text-gray-500'
+                                }`}
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p
+                                className="line-clamp-2 text-sm font-medium text-gray-900"
+                                title={doc.title}
+                              >
+                                {doc.title}
+                              </p>
+                              {/* Meta info */}
+                              <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+                                <span className="flex items-center gap-1">
+                                  {getSourceTypeIcon(
+                                    doc.sourceType || 'MANUAL'
+                                  )}
+                                  {getSourceTypeLabel(
+                                    doc.sourceType || 'MANUAL'
+                                  )}
+                                </span>
+                                {doc.chunkCount > 0 && (
+                                  <span className="flex items-center gap-1">
+                                    <Layers className="h-3 w-3" />
+                                    {doc.chunkCount} 分块
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {/* Status Badge + Actions */}
+                          <div className="flex flex-shrink-0 items-center gap-2">
+                            <span
+                              className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
+                                doc.isVectorized
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-amber-100 text-amber-700'
+                              }`}
+                            >
+                              {doc.isVectorized ? '已向量化' : '待处理'}
+                            </span>
+                            {doc.sourceUrl && (
+                              <a
+                                href={doc.sourceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="rounded p-1 text-gray-400 transition-all hover:bg-blue-50 hover:text-blue-600"
+                                title="打开源链接"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -393,17 +435,17 @@ export default function KnowledgeBaseDetailDialog({
                   {documents.length > DOCS_PER_PAGE && (
                     <button
                       onClick={() => setShowAllDocs(!showAllDocs)}
-                      className="flex w-full items-center justify-center gap-1 rounded-lg border border-gray-200 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 py-2.5 text-sm font-medium text-gray-600 transition-all hover:bg-gray-100"
                     >
                       {showAllDocs ? (
                         <>
                           <ChevronUp className="h-4 w-4" />
-                          收起 (显示前 {DOCS_PER_PAGE} 个)
+                          收起列表
                         </>
                       ) : (
                         <>
                           <ChevronDown className="h-4 w-4" />
-                          显示全部 {documents.length} 个文档
+                          展开全部 ({documents.length - DOCS_PER_PAGE} 个更多)
                         </>
                       )}
                     </button>
