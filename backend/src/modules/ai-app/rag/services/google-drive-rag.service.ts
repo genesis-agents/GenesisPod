@@ -450,10 +450,24 @@ export class GoogleDriveRAGService {
         fileId: file.id,
         alt: "media",
       },
-      { responseType: "arraybuffer" },
+      { responseType: "stream" },
     );
 
-    const buffer = Buffer.from(response.data as ArrayBuffer);
+    // Collect stream data into buffer
+    const chunks: Buffer[] = [];
+    const stream = response.data as NodeJS.ReadableStream;
+
+    await new Promise<void>((resolve, reject) => {
+      stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+      stream.on("end", () => resolve());
+      stream.on("error", (err: Error) => reject(err));
+    });
+
+    const buffer = Buffer.concat(chunks);
+
+    this.logger.debug(
+      `Downloaded file ${file.name}: ${buffer.length} bytes, first 4 bytes: ${buffer.slice(0, 4).toString("hex")}`,
+    );
 
     // Handle different file types
     if (
