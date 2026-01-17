@@ -1,8 +1,10 @@
 /**
  * AI Engine - SKILL.md Type Definitions
  *
- * SKILL.md 格式的类型定义，兼容 Claude Code Skills 格式
- * 支持 YAML frontmatter + Markdown 内容
+ * SKILL.md 格式的类型定义，完全兼容 Claude Code Skills 官方格式
+ * 同时支持我们的扩展字段，实现最大兼容性和扩展性
+ *
+ * @see https://code.claude.com/docs/en/skills.md
  */
 
 /**
@@ -22,16 +24,118 @@ export type SkillDomain =
   | string; // 允许自定义领域
 
 /**
+ * Skill 上下文模式（Claude Code 官方）
+ */
+export type SkillContextMode = "fork" | "shared";
+
+/**
+ * Skill Agent 类型（Claude Code 官方）
+ */
+export type SkillAgentType = "general-purpose" | "code" | "research" | string;
+
+/**
+ * Skill 钩子定义（Claude Code 官方）
+ */
+export interface SkillHooks {
+  /** 工具调用前钩子 */
+  PreToolUse?: string[];
+  /** 工具调用后钩子 */
+  PostToolUse?: string[];
+  /** 停止时钩子 */
+  Stop?: string[];
+}
+
+/**
  * SKILL.md 文件的 Frontmatter 元数据
+ *
+ * 完全兼容 Claude Code 官方字段，同时支持我们的扩展
+ *
+ * ## Claude Code 官方字段
+ * - name: 必需，小写+连字符
+ * - description: 必需，触发条件描述
+ * - allowed-tools: 可选，限制可用工具
+ * - model: 可选，指定模型
+ * - context: 可选，fork = 隔离上下文
+ * - agent: 可选，配合 context 使用
+ * - hooks: 可选，生命周期钩子
+ * - user-invocable: 可选，是否显示在菜单
+ *
+ * ## 我们的扩展字段
+ * - id: 别名，等同于 name
+ * - version: 版本号
+ * - domain: 领域分类
+ * - tags: 标签
+ * - taskTypes: 任务类型匹配
+ * - priority: 优先级
  */
 export interface SkillMdFrontmatter {
-  /** 唯一标识符 */
-  id: string;
+  // ========== Claude Code 官方字段 ==========
 
-  /** 显示名称 */
+  /**
+   * Skill 名称（Claude Code 官方必需字段）
+   * 小写字母、数字、连字符，最大 64 字符
+   * 应与目录名匹配
+   */
   name: string;
 
-  /** 版本号 */
+  /**
+   * Skill 描述（Claude Code 官方必需字段）
+   * 描述能力和触发条件，最大 1024 字符
+   * 这是 Claude 自动选择使用 Skill 的关键
+   */
+  description: string;
+
+  /**
+   * 限制可用的工具（Claude Code 官方可选字段）
+   * 例如: ['Read', 'Grep', 'Glob'] 表示只读操作
+   * 支持 YAML 数组或逗号分隔字符串
+   */
+  allowedTools?: string[];
+
+  /**
+   * 指定模型（Claude Code 官方可选字段）
+   * 若省略则使用当前对话模型
+   */
+  model?: string;
+
+  /**
+   * 上下文模式（Claude Code 官方可选字段）
+   * 'fork' = 在隔离的子 Agent 上下文中运行
+   */
+  context?: SkillContextMode;
+
+  /**
+   * Agent 类型（Claude Code 官方可选字段）
+   * 与 context: fork 一起使用
+   */
+  agent?: SkillAgentType;
+
+  /**
+   * 生命周期钩子（Claude Code 官方可选字段）
+   */
+  hooks?: SkillHooks;
+
+  /**
+   * 是否在斜线菜单中显示（Claude Code 官方可选字段）
+   * 默认 true
+   */
+  userInvocable?: boolean;
+
+  /**
+   * 阻止 Claude 通过 Skill 工具调用（Claude Code 官方可选字段）
+   * 但允许自动发现
+   */
+  disableModelInvocation?: boolean;
+
+  // ========== 我们的扩展字段 ==========
+
+  /**
+   * 唯一标识符（我们的扩展，等同于 name）
+   * 为了向后兼容保留，解析时 id = id || name
+   */
+  id: string;
+
+  /** 版本号（语义化版本） */
   version: string;
 
   /** 所属领域 */
@@ -40,10 +144,16 @@ export interface SkillMdFrontmatter {
   /** 标签列表 */
   tags: string[];
 
-  /** 适用的任务类型 */
+  /**
+   * 适用的任务类型
+   * 用于精确匹配，'*' 表示匹配所有任务
+   */
   taskTypes: string[];
 
-  /** 优先级（数字越大越优先） */
+  /**
+   * 优先级（数字越大越优先）
+   * 默认 5，范围 0-100
+   */
   priority: number;
 
   /** 作者 */
@@ -55,9 +165,6 @@ export interface SkillMdFrontmatter {
   /** 远程 URL（当 source 为 skillsmp 或 custom-url 时） */
   sourceUrl?: string;
 
-  /** 描述 */
-  description?: string;
-
   /** 依赖的其他 Skills */
   dependencies?: string[];
 
@@ -67,7 +174,47 @@ export interface SkillMdFrontmatter {
   /** 是否启用 */
   enabled?: boolean;
 
-  /** Token 预算（估算的 token 消耗） */
+  /**
+   * Token 预算（估算的 token 消耗）
+   * 用于优化加载策略
+   */
+  tokenBudget?: number;
+}
+
+/**
+ * 原始 Frontmatter（解析时使用，支持 Claude Code 字段别名）
+ * 同时支持 kebab-case（Claude Code 官方）和 camelCase（我们的扩展）
+ */
+export interface RawSkillMdFrontmatter {
+  // Claude Code 官方字段（kebab-case）
+  name?: string;
+  description?: string;
+  "allowed-tools"?: string[] | string;
+  model?: string;
+  context?: SkillContextMode;
+  agent?: SkillAgentType;
+  hooks?: SkillHooks;
+  "user-invocable"?: boolean;
+  "disable-model-invocation"?: boolean;
+
+  // Claude Code 字段的 camelCase 别名（用于我们的 SKILL.md 格式）
+  allowedTools?: string[] | string;
+  userInvocable?: boolean;
+  disableModelInvocation?: boolean;
+
+  // 我们的扩展字段
+  id?: string;
+  version?: string;
+  domain?: SkillDomain;
+  tags?: string[];
+  taskTypes?: string[];
+  priority?: number;
+  author?: string;
+  source?: SkillSource;
+  sourceUrl?: string;
+  dependencies?: string[];
+  updatedAt?: string;
+  enabled?: boolean;
   tokenBudget?: number;
 }
 
@@ -205,6 +352,9 @@ export interface GetSkillsOptions {
 
   /** 是否包含远程 Skills */
   includeRemote?: boolean;
+
+  /** Description 模糊匹配查询（Claude Code 风格） */
+  query?: string;
 }
 
 /**
@@ -279,4 +429,36 @@ export interface ChatWithSkillsResponse {
 
   /** Skills System Prompt 的 Token 消耗 */
   skillsTokensUsed: number;
+
+  /** Skills 应用元数据（扩展） */
+  skillsMetadata?: {
+    /** 可用 Skills 总数 */
+    totalAvailable: number;
+    /** 实际使用的 Skills 数 */
+    totalUsed: number;
+    /** 被跳过的 Skills（因 Token 限制） */
+    skipped: string[];
+    /** 是否被裁剪 */
+    wasTrimmed: boolean;
+  };
+}
+
+/**
+ * Skill 来源接口（扩展性设计）
+ */
+export interface SkillSourceProvider {
+  /** 来源名称 */
+  name: string;
+
+  /** 优先级（数字越大越优先） */
+  priority: number;
+
+  /** 加载所有 Skills */
+  loadSkills(): Promise<SkillMdDefinition[]>;
+
+  /** 按 ID 获取 Skill */
+  getSkillById?(id: string): Promise<SkillMdDefinition | null>;
+
+  /** 监听变化（热重载） */
+  watchChanges?(callback: () => void): void;
 }

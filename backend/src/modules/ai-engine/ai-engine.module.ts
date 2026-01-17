@@ -113,6 +113,12 @@ import { AiCoreService, AiCoreController } from "./api";
 // Facade (统一入口)
 import { AIEngineFacade } from "./facade";
 
+// Skills SKILL.md System (★ 新增)
+import { SkillLoaderService } from "./skills/loader/skill-loader.service";
+import { SkillCacheService } from "./skills/loader/skill-cache.service";
+import { SkillPromptBuilder } from "./skills/builder/skill-prompt-builder.service";
+import { SkillsMPClientService } from "./skills/ecosystem/skillsmp-client.service";
+
 /**
  * 工具管道工厂
  */
@@ -340,6 +346,12 @@ const conversationMemoryFactory = {
 
     // === Facade (统一入口) ===
     AIEngineFacade,
+
+    // === Skills SKILL.md System (★ 新增) ===
+    SkillCacheService,
+    SkillLoaderService,
+    SkillPromptBuilder,
+    SkillsMPClientService,
   ],
   exports: [
     // === Registries ===
@@ -428,6 +440,12 @@ const conversationMemoryFactory = {
 
     // === Facade (统一入口) ===
     AIEngineFacade,
+
+    // === Skills SKILL.md System (★ 新增) ===
+    SkillCacheService,
+    SkillLoaderService,
+    SkillPromptBuilder,
+    SkillsMPClientService,
   ],
 })
 export class AiEngineModule implements OnModuleInit {

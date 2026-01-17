@@ -311,9 +311,49 @@ export class SkillLoaderService implements OnModuleInit {
 
   /**
    * 添加自定义 Skill 目录
+   *
+   * 安全措施：验证路径是否在允许的范围内，防止路径遍历攻击
    */
   addSkillDirectory(config: SkillDirectoryConfig): void {
+    // 安全检查：验证路径是否在允许的基础目录内
+    const normalizedPath = path.normalize(config.path);
+    const resolvedPath = path.resolve(normalizedPath);
+
+    // 允许的基础目录列表
+    const allowedBaseDirs = [
+      path.resolve(this.baseSkillsDir), // ai-app 目录
+      path.resolve(__dirname, "../../../../"), // 项目根目录
+    ];
+
+    const isAllowed = allowedBaseDirs.some((baseDir) =>
+      resolvedPath.startsWith(baseDir),
+    );
+
+    if (!isAllowed) {
+      this.logger.warn(
+        `[Security] Rejected skill directory outside allowed paths: ${config.path}`,
+      );
+      throw new Error(
+        `Skill directory must be within allowed paths. Rejected: ${config.path}`,
+      );
+    }
+
+    // 检查路径中是否包含可疑的路径遍历模式
+    if (
+      config.path.includes("..") ||
+      normalizedPath.includes("..") ||
+      /[<>:"|?*]/.test(config.path)
+    ) {
+      this.logger.warn(
+        `[Security] Rejected skill directory with suspicious pattern: ${config.path}`,
+      );
+      throw new Error(
+        `Invalid skill directory path: contains suspicious patterns`,
+      );
+    }
+
     this.skillDirectories.push(config);
+    this.logger.debug(`Added skill directory: ${config.path}`);
   }
 
   /**

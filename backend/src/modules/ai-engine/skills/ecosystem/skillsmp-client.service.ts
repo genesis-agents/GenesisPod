@@ -134,8 +134,16 @@ export class SkillsMPClientService {
     }
   }
 
+  /** 最大 Skill 内容大小（100KB） */
+  private readonly MAX_SKILL_SIZE = 100 * 1024;
+
   /**
    * 获取 Skill 详情
+   *
+   * 安全措施：
+   * - 验证内容大小限制
+   * - 验证 Skill ID 一致性
+   * - 验证内容格式有效性
    */
   async getSkill(skillId: string): Promise<SkillMdDefinition | null> {
     if (!this.enabled) {
@@ -154,12 +162,47 @@ export class SkillsMPClientService {
         `/skills/${skillId}`,
       );
 
+      // 安全检查 1: 验证内容大小
+      if (response.content.length > this.MAX_SKILL_SIZE) {
+        this.logger.warn(
+          `[Security] Skill content exceeds size limit: ${skillId} (${response.content.length} > ${this.MAX_SKILL_SIZE})`,
+        );
+        throw new Error(
+          `Skill content exceeds size limit: ${response.content.length} > ${this.MAX_SKILL_SIZE}`,
+        );
+      }
+
+      // 安全检查 2: 验证内容不为空
+      if (!response.content || response.content.trim().length === 0) {
+        this.logger.warn(`[Security] Empty skill content: ${skillId}`);
+        throw new Error(`Empty skill content for: ${skillId}`);
+      }
+
       // 解析 Skill 内容
       const skill = parseSkillMd(response.content);
+
+      // 安全检查 3: 验证 Skill ID 一致性
+      if (skill.metadata.id !== skillId && skill.metadata.name !== skillId) {
+        this.logger.warn(
+          `[Security] Skill ID mismatch: expected ${skillId}, got ${skill.metadata.id}/${skill.metadata.name}`,
+        );
+        throw new Error(
+          `Skill ID mismatch: expected ${skillId}, got ${skill.metadata.id}`,
+        );
+      }
+
+      // 安全检查 4: 验证必需字段存在
+      if (!skill.metadata.name || !skill.metadata.description) {
+        this.logger.warn(
+          `[Security] Skill missing required fields: ${skillId}`,
+        );
+        throw new Error(`Skill missing required fields: ${skillId}`);
+      }
 
       // 缓存结果
       await this.cacheService.set(skillId, skill);
 
+      this.logger.debug(`Successfully fetched and validated skill: ${skillId}`);
       return skill;
     } catch (error) {
       this.logger.error(
