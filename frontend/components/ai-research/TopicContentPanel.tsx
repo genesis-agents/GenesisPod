@@ -1174,7 +1174,7 @@ export function TopicContentPanel({
               ref={reportContentRef}
               className={`flex-1 overflow-auto ${sidePanelType ? 'border-r border-gray-200' : ''}`}
             >
-              <div className="mx-auto max-w-4xl px-8 py-6">
+              <div className="mx-auto max-w-6xl px-8 py-6">
                 <div className="rounded-lg bg-white p-8 shadow-sm">
                   {reportViewMode === 'continuous' && report && (
                     <ReportEditPanel
@@ -1277,7 +1277,7 @@ export function TopicContentPanel({
 
             {/* 侧边栏 - 历史/批注 */}
             {sidePanelType && (
-              <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
+              <div className="w-[400px] flex-shrink-0 overflow-hidden bg-white">
                 {sidePanelType === 'history' && (
                   <div className="flex h-full flex-col">
                     <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
