@@ -81,7 +81,8 @@ export interface ResearchTopic {
   lastRefreshAt: string | null;
   totalReports: number;
   totalSources: number;
-  createdById: string;
+  userId?: string; // ★ 后端实际返回的字段名
+  createdById?: string; // ★ 兼容旧代码
   createdAt: string;
   updatedAt: string;
   // Relations

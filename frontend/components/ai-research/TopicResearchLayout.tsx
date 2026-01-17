@@ -193,12 +193,13 @@ export function TopicResearchLayout({
   // TODO: 未来可以扩展为检查协作者角色 (EDITOR/ADMIN)
   const canEdit = useMemo(() => {
     if (!user?.id) return false;
-    // 创建者有完全权限
-    if (topic.createdById === user.id) return true;
+    // 创建者有完全权限（兼容 userId 和 createdById 两种字段名）
+    const ownerId = topic.userId || topic.createdById;
+    if (ownerId === user.id) return true;
     // 公开专题的非创建者只有只读权限
     // SHARED 专题需要检查协作者角色，但简化起见先只允许创建者操作
     return false;
-  }, [user?.id, topic.createdById]);
+  }, [user?.id, topic.userId, topic.createdById]);
 
   const handleExport = useCallback(
     (format: 'pdf' | 'docx') => {
