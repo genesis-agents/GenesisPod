@@ -12,7 +12,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Shield } from 'lucide-react';
+import { Shield, Maximize2, X } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import type {
@@ -702,6 +702,52 @@ export function TopicContentPanel({
     null | 'history' | 'annotations'
   >(null);
 
+  // ★ 最大化模式状态
+  const [isMaximized, setIsMaximized] = useState(false);
+  const scrollPositionRef = useRef(0);
+  const reportContentRef = useRef<HTMLDivElement>(null);
+
+  // ★ 进入最大化模式
+  const enterMaximized = useCallback(() => {
+    scrollPositionRef.current = reportContentRef.current?.scrollTop || 0;
+    setIsMaximized(true);
+  }, []);
+
+  // ★ 退出最大化模式
+  const exitMaximized = useCallback(() => {
+    setIsMaximized(false);
+    // 恢复滚动位置
+    requestAnimationFrame(() => {
+      reportContentRef.current?.scrollTo(0, scrollPositionRef.current);
+    });
+  }, []);
+
+  // ★ 最大化快捷键支持
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 避免在输入框中触发
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      )
+        return;
+
+      // F 键进入最大化（仅在报告 Tab 激活时）
+      if (e.key === 'f' && !isMaximized && activeTab === 'report') {
+        e.preventDefault();
+        enterMaximized();
+      }
+      // Esc 键退出最大化
+      if (e.key === 'Escape' && isMaximized) {
+        e.preventDefault();
+        exitMaximized();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isMaximized, activeTab, enterMaximized, exitMaximized]);
+
   // Annotation state - now persisted to backend
   type AnnotationColor = 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
   type AnnotationStatus = 'active' | 'resolved' | 'archived';
@@ -1052,396 +1098,218 @@ export function TopicContentPanel({
   ];
 
   return (
-    <div className="flex h-full flex-col bg-white">
-      {/* Tab Header - 只包含 Tab，不包含工具栏 */}
-      <div className="flex overflow-x-auto border-b border-gray-200 px-4">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-              activeTab === tab.key
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-          >
-            {tab.icon}
-            <span>{tab.label}</span>
-            {tab.badge !== undefined && tab.badge > 0 && (
-              <span
-                className={`rounded-full px-1.5 py-0.5 text-xs ${activeTab === tab.key ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}
-              >
-                {tab.badge}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* 报告工具栏 - 仅在报告 Tab 时显示，合并为一行 */}
-      {activeTab === 'report' && (
-        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-4 py-2.5">
-          {/* 左侧：视图模式 + 版本信息 */}
-          <div className="flex items-center gap-3">
-            {/* 视图模式切换 */}
-            <div className="flex rounded-lg border border-gray-200 bg-white p-0.5">
+    <>
+      {/* ★ 最大化视图 - 全屏覆盖层 */}
+      {isMaximized && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-gray-50">
+          {/* 顶部工具栏 */}
+          <header className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 py-3 shadow-sm">
+            {/* 左侧：返回按钮 + 视图切换 */}
+            <div className="flex items-center gap-4">
               <button
-                onClick={() => setReportViewMode('continuous')}
-                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                  reportViewMode === 'continuous'
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-                title="连续视图"
+                onClick={exitMaximized}
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-gray-600 transition-colors hover:bg-gray-100"
+                title={t('topicResearch.exitMaximize') + ' (Esc)'}
               >
-                <ListIcon className="h-3.5 w-3.5" />
-                <span>连续</span>
-              </button>
-              <button
-                onClick={() => setReportViewMode('chapter')}
-                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                  reportViewMode === 'chapter'
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-                title="章节视图"
-              >
-                <DocumentIcon className="h-3.5 w-3.5" />
-                <span>章节</span>
-              </button>
-            </div>
-            {report && (
-              <span className="text-xs text-gray-400">
-                v{report.version} · {report.totalSources}源
-              </span>
-            )}
-          </div>
-
-          {/* 中间：报告标题 */}
-          <div className="flex-1 text-center">
-            <h3 className="text-sm font-semibold text-gray-800">
-              {report?.title || '洞察报告'}
-            </h3>
-          </div>
-
-          {/* 右侧：操作按钮 */}
-          <div className="flex items-center gap-2">
-            {/* 历史按钮 */}
-            <button
-              onClick={() =>
-                setSidePanelType(sidePanelType === 'history' ? null : 'history')
-              }
-              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                sidePanelType === 'history'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-              title="版本历史"
-            >
-              <HistoryIcon className="h-3.5 w-3.5" />
-              <span>历史</span>
-              {revisions.length > 0 && (
-                <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs">
-                  {revisions.length}
+                <X className="h-5 w-5" />
+                <span className="text-sm font-medium">
+                  {t('topicResearch.exitMaximize')}
                 </span>
-              )}
-            </button>
+              </button>
 
-            {/* 批注按钮 */}
-            <button
-              onClick={() =>
-                setSidePanelType(
-                  sidePanelType === 'annotations' ? null : 'annotations'
-                )
-              }
-              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                sidePanelType === 'annotations'
-                  ? 'bg-purple-100 text-purple-700'
-                  : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-              title="批注"
-            >
-              <AnnotationIcon className="h-3.5 w-3.5" />
-              <span>批注</span>
-              {annotations.filter((a) => a.status === 'active').length > 0 && (
-                <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs text-white">
-                  {annotations.filter((a) => a.status === 'active').length}
-                </span>
-              )}
-            </button>
-
-            {/* 分隔线 */}
-            <div className="mx-1 h-4 w-px bg-gray-300" />
-
-            {/* 导出下拉菜单 */}
-            {report && (
-              <div className="relative">
+              {/* 视图模式切换 */}
+              <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
                 <button
-                  onClick={() => setExportMenuOpen(!exportMenuOpen)}
-                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                  onClick={() => setReportViewMode('continuous')}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    reportViewMode === 'continuous'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
                 >
-                  <DownloadIcon className="h-3.5 w-3.5" />
-                  <span>导出</span>
-                  <svg
-                    className="h-3 w-3 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  <ListIcon className="h-3.5 w-3.5" />
+                  <span>{t('topicResearch.continuousView')}</span>
                 </button>
-                {exportMenuOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setExportMenuOpen(false)}
+                <button
+                  onClick={() => setReportViewMode('chapter')}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    reportViewMode === 'chapter'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <DocumentIcon className="h-3.5 w-3.5" />
+                  <span>{t('topicResearch.chapterView')}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 中间：报告标题 */}
+            <div className="absolute left-1/2 -translate-x-1/2">
+              <h2 className="text-base font-semibold text-gray-800">
+                {report?.title || t('topicResearch.insightReport')}
+              </h2>
+            </div>
+
+            {/* 右侧：操作按钮 */}
+            <div className="flex items-center gap-2">
+              {/* 历史按钮 */}
+              <button
+                onClick={() =>
+                  setSidePanelType(
+                    sidePanelType === 'history' ? null : 'history'
+                  )
+                }
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                  sidePanelType === 'history'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <HistoryIcon className="h-3.5 w-3.5" />
+                <span>{t('topicResearch.history')}</span>
+              </button>
+
+              {/* 批注按钮 */}
+              <button
+                onClick={() =>
+                  setSidePanelType(
+                    sidePanelType === 'annotations' ? null : 'annotations'
+                  )
+                }
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                  sidePanelType === 'annotations'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <AnnotationIcon className="h-3.5 w-3.5" />
+                <span>{t('topicResearch.annotations')}</span>
+              </button>
+            </div>
+          </header>
+
+          {/* 内容区域 */}
+          <main className="flex flex-1 overflow-hidden">
+            {/* 报告内容 - 居中显示 */}
+            <div
+              ref={reportContentRef}
+              className={`flex-1 overflow-auto ${sidePanelType ? 'border-r border-gray-200' : ''}`}
+            >
+              <div className="mx-auto max-w-4xl px-8 py-6">
+                <div className="rounded-lg bg-white p-8 shadow-sm">
+                  {reportViewMode === 'continuous' && report && (
+                    <ReportEditPanel
+                      report={report}
+                      evidence={safeEvidence}
+                      revisions={revisions}
+                      annotations={annotations}
+                      currentUserId={user?.id}
+                      currentUserName={user?.username || user?.email || '用户'}
+                      isLoading={isLoadingReport}
+                      hideToolbar={true}
+                      sidePanelType={sidePanelType}
+                      onSidePanelChange={setSidePanelType}
+                      onAIEdit={async (operation, selection) => {
+                        if (!topicId || !report?.id) return '';
+                        try {
+                          const result = await aiEditReport(
+                            topicId,
+                            report.id,
+                            {
+                              operation: operation as AIEditOperationType,
+                              selectedText: selection?.text || undefined,
+                            }
+                          );
+                          return result.editedContent || '';
+                        } catch (error) {
+                          console.error('AI edit failed:', error);
+                          return '';
+                        }
+                      }}
+                      onRollback={
+                        onRollbackVersion
+                          ? async (revisionId: string) => {
+                              onRollbackVersion(revisionId);
+                            }
+                          : undefined
+                      }
+                      onAnnotationAdd={handleAnnotationAdd}
+                      onAnnotationUpdate={handleAnnotationUpdate}
+                      onAnnotationDelete={handleAnnotationDelete}
+                      onAnnotationResolve={handleAnnotationResolve}
+                      onAnnotationReply={handleAnnotationReply}
                     />
-                    <div className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
-                      <button
-                        onClick={handleExportMarkdown}
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                      >
-                        <span className="text-base">📝</span>
-                        Markdown (.md)
-                      </button>
-                      <button
-                        onClick={handleExportTxt}
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                      >
-                        <span className="text-base">📄</span>
-                        纯文本 (.txt)
-                      </button>
-                      <button
-                        onClick={handleExportHtml}
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                      >
-                        <span className="text-base">🌐</span>
-                        网页 (.html)
-                      </button>
-                      <button
-                        onClick={handleExportPdf}
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                      >
-                        <span className="text-base">📑</span>
-                        打印 / PDF
-                      </button>
-                      <div className="border-t border-gray-100" />
-                      <button
-                        onClick={handleShareLink}
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                      >
-                        <span className="text-base">🔗</span>
-                        复制分享链接
-                      </button>
-                      {/* Delete option with divider */}
-                      {onDeleteReport && (
-                        <>
-                          <div className="border-t border-gray-100" />
-                          <button
-                            onClick={() => {
-                              setExportMenuOpen(false);
-                              setShowDeleteConfirm(true);
-                            }}
-                            className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                            删除报告
-                          </button>
-                        </>
-                      )}
+                  )}
+                  {reportViewMode === 'chapter' && report && (
+                    <ChapterizedReportView
+                      report={report}
+                      dimensions={dimensions}
+                      evidence={safeEvidence}
+                      isLoading={isLoadingReport}
+                      onAIEdit={async (operation, selection) => {
+                        if (!topicId || !report?.id) return '';
+                        try {
+                          const result = await aiEditReport(
+                            topicId,
+                            report.id,
+                            {
+                              operation: operation as AIEditOperationType,
+                              selectedText: selection || undefined,
+                            }
+                          );
+                          return result.editedContent || '';
+                        } catch (error) {
+                          console.error('AI edit failed:', error);
+                          return '';
+                        }
+                      }}
+                      onAddAnnotation={(data) => {
+                        handleAnnotationAdd({
+                          reportId: report?.id || '',
+                          userId: user?.id || 'anonymous',
+                          userName: user?.username || user?.email || '匿名用户',
+                          selectedText: data.selectedText,
+                          content: '',
+                          startOffset: data.startOffset,
+                          endOffset: data.endOffset,
+                          color: data.color,
+                          status: 'active',
+                        });
+                      }}
+                      annotations={annotations.map((a) => ({
+                        id: a.id,
+                        selectedText: a.selectedText,
+                        startOffset: a.startOffset,
+                        endOffset: a.endOffset,
+                        color: a.color,
+                      }))}
+                      highlightedAnnotationId={highlightedAnnotationId}
+                    />
+                  )}
+                  {!report && (
+                    <div className="py-20 text-center text-gray-500">
+                      {t('topicResearch.noReport')}
                     </div>
-                  </>
-                )}
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Delete confirmation modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                <TrashIcon className="h-5 w-5 text-red-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                确认删除报告
-              </h3>
             </div>
-            <p className="mb-6 text-sm text-gray-600">
-              您确定要删除此报告吗？此操作将删除报告及其所有关联数据（维度分析、修订历史、批注等），且无法撤销。
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={isDeleting}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleDeleteReport}
-                disabled={isDeleting}
-                className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                {isDeleting ? (
-                  <>
-                    <SpinnerIcon className="h-4 w-4 animate-spin" />
-                    删除中...
-                  </>
-                ) : (
-                  '确认删除'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Tab Content */}
-      <div className="flex-1 overflow-hidden">
-        {activeTab === 'report' && reportViewMode === 'continuous' && (
-          <ReportEditPanel
-            report={report}
-            evidence={safeEvidence}
-            revisions={revisions}
-            annotations={annotations}
-            currentUserId={user?.id || 'anonymous'}
-            currentUserName={user?.username || user?.email || '匿名用户'}
-            isLoading={isLoadingReport}
-            hideToolbar={true}
-            sidePanelType={sidePanelType}
-            onSidePanelChange={setSidePanelType}
-            onSave={async (content: string) => {
-              // TODO: Implement save functionality
-              console.log('Save report:', content);
-            }}
-            onAIEdit={async (operation, selection) => {
-              if (!topicId || !report?.id) {
-                console.error('Cannot AI edit: missing topicId or reportId');
-                return '';
-              }
-              try {
-                const result = await aiEditReport(topicId, report.id, {
-                  operation: operation as AIEditOperationType,
-                  selectedText: selection?.text || undefined,
-                });
-                return result.editedContent || '';
-              } catch (error) {
-                console.error('AI edit failed:', error);
-                return '';
-              }
-            }}
-            onRollback={async (revisionId: string) => {
-              // Use existing rollback handler
-              onRollbackVersion?.(revisionId);
-            }}
-            onAnnotationAdd={handleAnnotationAdd}
-            onAnnotationUpdate={handleAnnotationUpdate}
-            onAnnotationDelete={handleAnnotationDelete}
-            onAnnotationResolve={handleAnnotationResolve}
-            onAnnotationReply={handleAnnotationReply}
-          />
-        )}
-        {activeTab === 'report' && reportViewMode === 'chapter' && (
-          <div className="flex h-full flex-col">
-            {/* Main content area */}
-            <div className="flex flex-1 overflow-hidden">
-              {/* Main chapter view */}
-              <div
-                className={`flex-1 overflow-hidden ${sidePanelType ? 'border-r border-gray-200' : ''}`}
-              >
-                <ChapterizedReportView
-                  report={report}
-                  dimensions={dimensions}
-                  evidence={safeEvidence}
-                  isLoading={isLoadingReport}
-                  onEditChapter={async (chapterId, content) => {
-                    // TODO: Implement chapter save
-                    console.log('Save chapter:', chapterId, content);
-                  }}
-                  onAIEditChapter={async (chapterId, operation) => {
-                    // TODO: Implement AI edit for chapter
-                    console.log('AI Edit chapter:', chapterId, operation);
-                  }}
-                  // ★ 右键菜单回调 - 与连续视图保持一致
-                  onAIEdit={async (operation, selection) => {
-                    if (!topicId || !report?.id) {
-                      console.error(
-                        'Cannot AI edit: missing topicId or reportId'
-                      );
-                      return '';
-                    }
-                    try {
-                      const result = await aiEditReport(topicId, report.id, {
-                        operation: operation as AIEditOperationType,
-                        selectedText: selection || undefined,
-                      });
-                      return result.editedContent || '';
-                    } catch (error) {
-                      console.error('AI edit failed:', error);
-                      return '';
-                    }
-                  }}
-                  // ★ 添加批注回调
-                  onAddAnnotation={(data) => {
-                    handleAnnotationAdd({
-                      reportId: report?.id || '',
-                      userId: user?.id || 'anonymous',
-                      userName: user?.username || user?.email || '匿名用户',
-                      selectedText: data.selectedText,
-                      content: '',
-                      startOffset: data.startOffset,
-                      endOffset: data.endOffset,
-                      color: data.color,
-                      status: 'active',
-                    });
-                  }}
-                  // ★ 批注高亮
-                  annotations={annotations.map((a) => ({
-                    id: a.id,
-                    selectedText: a.selectedText,
-                    startOffset: a.startOffset,
-                    endOffset: a.endOffset,
-                    color: a.color,
-                  }))}
-                  highlightedAnnotationId={highlightedAnnotationId}
-                />
-              </div>
-
-              {/* Side panel for history/annotations in chapter view */}
-              {sidePanelType === 'history' && (
-                <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
+            {/* 侧边栏 - 历史/批注 */}
+            {sidePanelType && (
+              <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
+                {sidePanelType === 'history' && (
                   <div className="flex h-full flex-col">
                     <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
                       <h3 className="text-sm font-semibold text-gray-700">
-                        版本历史
+                        {t('topicResearch.history')}
                       </h3>
                       <button
                         onClick={() => setSidePanelType(null)}
                         className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                       >
-                        <svg
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
+                        <X className="h-4 w-4" />
                       </button>
                     </div>
                     <div className="flex-1 overflow-auto">
@@ -1473,145 +1341,624 @@ export function TopicContentPanel({
                       />
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* ★ Annotations side panel for chapter view */}
-              {sidePanelType === 'annotations' && (
-                <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
+                )}
+                {sidePanelType === 'annotations' && (
                   <div className="flex h-full flex-col">
                     <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
                       <h3 className="text-sm font-semibold text-gray-700">
-                        批注
+                        {t('topicResearch.annotations')}
                       </h3>
                       <button
                         onClick={() => setSidePanelType(null)}
                         className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                       >
-                        <svg
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
+                        <X className="h-4 w-4" />
                       </button>
                     </div>
                     <div className="flex-1 overflow-auto">
                       <ReportAnnotations
                         annotations={annotations}
-                        currentUserId="current-user"
-                        isLoading={false}
+                        currentUserId={user?.id}
                         onUpdate={handleAnnotationUpdate}
                         onDelete={handleAnnotationDelete}
                         onResolve={handleAnnotationResolve}
                         onReply={handleAnnotationReply}
-                        onNavigate={(annotationId: string) => {
-                          // ★ 设置高亮批注ID，触发滚动到原文
-                          setHighlightedAnnotationId(annotationId);
-                          // 3秒后取消高亮
-                          setTimeout(() => {
-                            setHighlightedAnnotationId(null);
-                          }, 3000);
+                        onNavigate={(annotationId) => {
+                          const annotationEl = document.querySelector(
+                            `[data-annotation-id="${annotationId}"]`
+                          );
+                          if (annotationEl) {
+                            annotationEl.scrollIntoView({
+                              behavior: 'smooth',
+                              block: 'center',
+                            });
+                          }
                         }}
                       />
                     </div>
                   </div>
-                </div>
+                )}
+              </div>
+            )}
+          </main>
+        </div>
+      )}
+
+      {/* 常规视图 */}
+      <div className="flex h-full flex-col bg-white">
+        {/* Tab Header - 只包含 Tab，不包含工具栏 */}
+        <div className="flex overflow-x-auto border-b border-gray-200 px-4">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+                activeTab === tab.key
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+              {tab.badge !== undefined && tab.badge > 0 && (
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-xs ${activeTab === tab.key ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}
+                >
+                  {tab.badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* 报告工具栏 - 仅在报告 Tab 时显示，合并为一行 */}
+        {activeTab === 'report' && (
+          <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-4 py-2.5">
+            {/* 左侧：视图模式 + 版本信息 */}
+            <div className="flex items-center gap-3">
+              {/* 视图模式切换 */}
+              <div className="flex rounded-lg border border-gray-200 bg-white p-0.5">
+                <button
+                  onClick={() => setReportViewMode('continuous')}
+                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    reportViewMode === 'continuous'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  title="连续视图"
+                >
+                  <ListIcon className="h-3.5 w-3.5" />
+                  <span>连续</span>
+                </button>
+                <button
+                  onClick={() => setReportViewMode('chapter')}
+                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    reportViewMode === 'chapter'
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  title="章节视图"
+                >
+                  <DocumentIcon className="h-3.5 w-3.5" />
+                  <span>章节</span>
+                </button>
+              </div>
+              {report && (
+                <span className="text-xs text-gray-400">
+                  v{report.version} · {report.totalSources}源
+                </span>
               )}
             </div>
 
-            {/* Footer - 简洁版本信息 */}
-            <div className="border-t border-gray-200 bg-white px-4 py-1.5">
-              <div className="flex items-center justify-between text-xs text-gray-400">
-                <span>v{report?.version || 0}</span>
-                <span>Ctrl+H 历史</span>
+            {/* 中间：报告标题 */}
+            <div className="flex-1 text-center">
+              <h3 className="text-sm font-semibold text-gray-800">
+                {report?.title || '洞察报告'}
+              </h3>
+            </div>
+
+            {/* 右侧：操作按钮 */}
+            <div className="flex items-center gap-2">
+              {/* 历史按钮 */}
+              <button
+                onClick={() =>
+                  setSidePanelType(
+                    sidePanelType === 'history' ? null : 'history'
+                  )
+                }
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                  sidePanelType === 'history'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+                title="版本历史"
+              >
+                <HistoryIcon className="h-3.5 w-3.5" />
+                <span>历史</span>
+                {revisions.length > 0 && (
+                  <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs">
+                    {revisions.length}
+                  </span>
+                )}
+              </button>
+
+              {/* 批注按钮 */}
+              <button
+                onClick={() =>
+                  setSidePanelType(
+                    sidePanelType === 'annotations' ? null : 'annotations'
+                  )
+                }
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                  sidePanelType === 'annotations'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+                title="批注"
+              >
+                <AnnotationIcon className="h-3.5 w-3.5" />
+                <span>批注</span>
+                {annotations.filter((a) => a.status === 'active').length >
+                  0 && (
+                  <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs text-white">
+                    {annotations.filter((a) => a.status === 'active').length}
+                  </span>
+                )}
+              </button>
+
+              {/* 分隔线 */}
+              <div className="mx-1 h-4 w-px bg-gray-300" />
+
+              {/* ★ 最大化按钮 - 桌面端显示 */}
+              <button
+                onClick={enterMaximized}
+                className="hidden items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 md:flex"
+                title={t('topicResearch.maximize') + ' (F)'}
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+                <span>{t('topicResearch.maximize')}</span>
+              </button>
+
+              {/* 导出下拉菜单 */}
+              {report && (
+                <div className="relative">
+                  <button
+                    onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                  >
+                    <DownloadIcon className="h-3.5 w-3.5" />
+                    <span>导出</span>
+                    <svg
+                      className="h-3 w-3 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+                  {exportMenuOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setExportMenuOpen(false)}
+                      />
+                      <div className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                        <button
+                          onClick={handleExportMarkdown}
+                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <span className="text-base">📝</span>
+                          Markdown (.md)
+                        </button>
+                        <button
+                          onClick={handleExportTxt}
+                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <span className="text-base">📄</span>
+                          纯文本 (.txt)
+                        </button>
+                        <button
+                          onClick={handleExportHtml}
+                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <span className="text-base">🌐</span>
+                          网页 (.html)
+                        </button>
+                        <button
+                          onClick={handleExportPdf}
+                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <span className="text-base">📑</span>
+                          打印 / PDF
+                        </button>
+                        <div className="border-t border-gray-100" />
+                        <button
+                          onClick={handleShareLink}
+                          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <span className="text-base">🔗</span>
+                          复制分享链接
+                        </button>
+                        {/* Delete option with divider */}
+                        {onDeleteReport && (
+                          <>
+                            <div className="border-t border-gray-100" />
+                            <button
+                              onClick={() => {
+                                setExportMenuOpen(false);
+                                setShowDeleteConfirm(true);
+                              }}
+                              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                              删除报告
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Delete confirmation modal */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                  <TrashIcon className="h-5 w-5 text-red-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  确认删除报告
+                </h3>
+              </div>
+              <p className="mb-6 text-sm text-gray-600">
+                您确定要删除此报告吗？此操作将删除报告及其所有关联数据（维度分析、修订历史、批注等），且无法撤销。
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={isDeleting}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleDeleteReport}
+                  disabled={isDeleting}
+                  className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <>
+                      <SpinnerIcon className="h-4 w-4 animate-spin" />
+                      删除中...
+                    </>
+                  ) : (
+                    '确认删除'
+                  )}
+                </button>
               </div>
             </div>
           </div>
         )}
-        {activeTab === 'research_collab' && topicId && (
-          <ResearchCollaborationPanel
-            topicId={topicId}
-            missionId={missionStatus?.id}
-            missionStatus={missionStatus}
-            className="h-full"
-          />
-        )}
-        {activeTab === 'collaboration' && (
-          <TeamInteractionTabContent
-            events={safeEvents}
-            wsEvents={wsEvents}
-            wsConnected={wsConnected}
-            onClearEvents={handleClearAllMessages}
-            persistedMessages={persistedMessages}
-            missionStatus={missionStatus}
-          />
-        )}
-        {activeTab === 'credibility' && (
-          <div className="h-full overflow-y-auto p-4">
-            {report ? (
-              <CredibilityPanel topicId={topicId} reportId={report.id} />
-            ) : (
-              <div className="flex h-64 flex-col items-center justify-center text-center">
-                <Shield className="mb-3 h-12 w-12 text-gray-300" />
-                <div className="mb-1 text-lg font-medium text-gray-900">
-                  暂无可信度报告
+
+        {/* Tab Content */}
+        <div className="flex-1 overflow-hidden">
+          {activeTab === 'report' && reportViewMode === 'continuous' && (
+            <ReportEditPanel
+              report={report}
+              evidence={safeEvidence}
+              revisions={revisions}
+              annotations={annotations}
+              currentUserId={user?.id || 'anonymous'}
+              currentUserName={user?.username || user?.email || '匿名用户'}
+              isLoading={isLoadingReport}
+              hideToolbar={true}
+              sidePanelType={sidePanelType}
+              onSidePanelChange={setSidePanelType}
+              onSave={async (content: string) => {
+                // TODO: Implement save functionality
+                console.log('Save report:', content);
+              }}
+              onAIEdit={async (operation, selection) => {
+                if (!topicId || !report?.id) {
+                  console.error('Cannot AI edit: missing topicId or reportId');
+                  return '';
+                }
+                try {
+                  const result = await aiEditReport(topicId, report.id, {
+                    operation: operation as AIEditOperationType,
+                    selectedText: selection?.text || undefined,
+                  });
+                  return result.editedContent || '';
+                } catch (error) {
+                  console.error('AI edit failed:', error);
+                  return '';
+                }
+              }}
+              onRollback={async (revisionId: string) => {
+                // Use existing rollback handler
+                onRollbackVersion?.(revisionId);
+              }}
+              onAnnotationAdd={handleAnnotationAdd}
+              onAnnotationUpdate={handleAnnotationUpdate}
+              onAnnotationDelete={handleAnnotationDelete}
+              onAnnotationResolve={handleAnnotationResolve}
+              onAnnotationReply={handleAnnotationReply}
+            />
+          )}
+          {activeTab === 'report' && reportViewMode === 'chapter' && (
+            <div className="flex h-full flex-col">
+              {/* Main content area */}
+              <div className="flex flex-1 overflow-hidden">
+                {/* Main chapter view */}
+                <div
+                  className={`flex-1 overflow-hidden ${sidePanelType ? 'border-r border-gray-200' : ''}`}
+                >
+                  <ChapterizedReportView
+                    report={report}
+                    dimensions={dimensions}
+                    evidence={safeEvidence}
+                    isLoading={isLoadingReport}
+                    onEditChapter={async (chapterId, content) => {
+                      // TODO: Implement chapter save
+                      console.log('Save chapter:', chapterId, content);
+                    }}
+                    onAIEditChapter={async (chapterId, operation) => {
+                      // TODO: Implement AI edit for chapter
+                      console.log('AI Edit chapter:', chapterId, operation);
+                    }}
+                    // ★ 右键菜单回调 - 与连续视图保持一致
+                    onAIEdit={async (operation, selection) => {
+                      if (!topicId || !report?.id) {
+                        console.error(
+                          'Cannot AI edit: missing topicId or reportId'
+                        );
+                        return '';
+                      }
+                      try {
+                        const result = await aiEditReport(topicId, report.id, {
+                          operation: operation as AIEditOperationType,
+                          selectedText: selection || undefined,
+                        });
+                        return result.editedContent || '';
+                      } catch (error) {
+                        console.error('AI edit failed:', error);
+                        return '';
+                      }
+                    }}
+                    // ★ 添加批注回调
+                    onAddAnnotation={(data) => {
+                      handleAnnotationAdd({
+                        reportId: report?.id || '',
+                        userId: user?.id || 'anonymous',
+                        userName: user?.username || user?.email || '匿名用户',
+                        selectedText: data.selectedText,
+                        content: '',
+                        startOffset: data.startOffset,
+                        endOffset: data.endOffset,
+                        color: data.color,
+                        status: 'active',
+                      });
+                    }}
+                    // ★ 批注高亮
+                    annotations={annotations.map((a) => ({
+                      id: a.id,
+                      selectedText: a.selectedText,
+                      startOffset: a.startOffset,
+                      endOffset: a.endOffset,
+                      color: a.color,
+                    }))}
+                    highlightedAnnotationId={highlightedAnnotationId}
+                  />
                 </div>
-                <div className="text-sm text-gray-500">
-                  研究完成后将自动生成可信度评估报告
+
+                {/* Side panel for history/annotations in chapter view */}
+                {sidePanelType === 'history' && (
+                  <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
+                    <div className="flex h-full flex-col">
+                      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                        <h3 className="text-sm font-semibold text-gray-700">
+                          版本历史
+                        </h3>
+                        <button
+                          onClick={() => setSidePanelType(null)}
+                          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="flex-1 overflow-auto">
+                        <ReportRevisionHistory
+                          revisions={revisions.map((rev) => ({
+                            id: rev.id,
+                            version: rev.version,
+                            title: rev.summary || `版本 ${rev.version}`,
+                            summary: rev.summary || '',
+                            changeType: 'edit' as const,
+                            changeDescription: rev.summary || '报告更新',
+                            author: '系统',
+                            createdAt:
+                              typeof rev.createdAt === 'string'
+                                ? rev.createdAt
+                                : (rev.createdAt as Date).toISOString(),
+                            wordCount: 0,
+                            wordCountDelta: 0,
+                          }))}
+                          currentVersion={report?.version || 1}
+                          isLoading={false}
+                          onRollback={
+                            onRollbackVersion
+                              ? async (revisionId: string) => {
+                                  onRollbackVersion(revisionId);
+                                }
+                              : undefined
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ★ Annotations side panel for chapter view */}
+                {sidePanelType === 'annotations' && (
+                  <div className="w-80 flex-shrink-0 overflow-hidden bg-white">
+                    <div className="flex h-full flex-col">
+                      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                        <h3 className="text-sm font-semibold text-gray-700">
+                          批注
+                        </h3>
+                        <button
+                          onClick={() => setSidePanelType(null)}
+                          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="flex-1 overflow-auto">
+                        <ReportAnnotations
+                          annotations={annotations}
+                          currentUserId="current-user"
+                          isLoading={false}
+                          onUpdate={handleAnnotationUpdate}
+                          onDelete={handleAnnotationDelete}
+                          onResolve={handleAnnotationResolve}
+                          onReply={handleAnnotationReply}
+                          onNavigate={(annotationId: string) => {
+                            // ★ 设置高亮批注ID，触发滚动到原文
+                            setHighlightedAnnotationId(annotationId);
+                            // 3秒后取消高亮
+                            setTimeout(() => {
+                              setHighlightedAnnotationId(null);
+                            }, 3000);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer - 简洁版本信息 */}
+              <div className="border-t border-gray-200 bg-white px-4 py-1.5">
+                <div className="flex items-center justify-between text-xs text-gray-400">
+                  <span>v{report?.version || 0}</span>
+                  <span>Ctrl+H 历史</span>
                 </div>
               </div>
-            )}
-          </div>
-        )}
-        {activeTab === 'history' && topicId && (
-          <div className="h-full overflow-y-auto">
-            <ResearchTimeline
+            </div>
+          )}
+          {activeTab === 'research_collab' && topicId && (
+            <ResearchCollaborationPanel
               topicId={topicId}
-              onSelectResearch={(history) => {
-                console.log('Selected research:', history);
-              }}
-              onCompareVersions={(from, to) => {
-                console.log('Compare versions:', from, to);
-              }}
-              onViewReport={(version) => {
-                console.log('View report version:', version);
-              }}
+              missionId={missionStatus?.id}
+              missionStatus={missionStatus}
+              className="h-full"
             />
+          )}
+          {activeTab === 'collaboration' && (
+            <TeamInteractionTabContent
+              events={safeEvents}
+              wsEvents={wsEvents}
+              wsConnected={wsConnected}
+              onClearEvents={handleClearAllMessages}
+              persistedMessages={persistedMessages}
+              missionStatus={missionStatus}
+            />
+          )}
+          {activeTab === 'credibility' && (
+            <div className="h-full overflow-y-auto p-4">
+              {report ? (
+                <CredibilityPanel topicId={topicId} reportId={report.id} />
+              ) : (
+                <div className="flex h-64 flex-col items-center justify-center text-center">
+                  <Shield className="mb-3 h-12 w-12 text-gray-300" />
+                  <div className="mb-1 text-lg font-medium text-gray-900">
+                    暂无可信度报告
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    研究完成后将自动生成可信度评估报告
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {activeTab === 'history' && topicId && (
+            <div className="h-full overflow-y-auto">
+              <ResearchTimeline
+                topicId={topicId}
+                onSelectResearch={(history) => {
+                  console.log('Selected research:', history);
+                }}
+                onCompareVersions={(from, to) => {
+                  console.log('Compare versions:', from, to);
+                }}
+                onViewReport={(version) => {
+                  console.log('View report version:', version);
+                }}
+              />
+            </div>
+          )}
+          {activeTab === 'references' && (
+            <EvidenceTabContent
+              evidence={safeEvidence}
+              report={report}
+              dimensions={safeDimensions}
+              isLoading={isLoadingEvidence}
+              autoExpandId={autoExpandEvidenceId}
+              onAutoExpandHandled={() => setAutoExpandEvidenceId(null)}
+            />
+          )}
+        </div>
+
+        {/* Toast 提示 */}
+        {toast && (
+          <div
+            className={`fixed bottom-4 right-4 z-50 rounded-lg px-4 py-3 shadow-lg ${
+              toast.type === 'success'
+                ? 'bg-green-500 text-white'
+                : 'bg-red-500 text-white'
+            }`}
+          >
+            {toast.message}
           </div>
-        )}
-        {activeTab === 'references' && (
-          <EvidenceTabContent
-            evidence={safeEvidence}
-            report={report}
-            dimensions={safeDimensions}
-            isLoading={isLoadingEvidence}
-            autoExpandId={autoExpandEvidenceId}
-            onAutoExpandHandled={() => setAutoExpandEvidenceId(null)}
-          />
         )}
       </div>
-
-      {/* Toast 提示 */}
-      {toast && (
-        <div
-          className={`fixed bottom-4 right-4 z-50 rounded-lg px-4 py-3 shadow-lg ${
-            toast.type === 'success'
-              ? 'bg-green-500 text-white'
-              : 'bg-red-500 text-white'
-          }`}
-        >
-          {toast.message}
-        </div>
-      )}
-    </div>
+    </>
   );
 }
 

@@ -1853,6 +1853,14 @@
       "uncategorized": "Uncategorized",
       "otherActivities": "Other Activities"
     },
+    "maximize": "Fullscreen",
+    "exitMaximize": "Exit Fullscreen",
+    "continuousView": "Continuous View",
+    "chapterView": "Chapter View",
+    "history": "Revision History",
+    "annotations": "Annotations",
+    "insightReport": "Insight Report",
+    "noReport": "No Report",
     "aiEdit": {
       "rewrite": "Rewrite",
       "rewriteDesc": "Completely regenerate content",

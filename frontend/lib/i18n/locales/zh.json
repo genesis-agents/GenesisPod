@@ -1847,6 +1847,14 @@
       "uncategorized": "未分类",
       "otherActivities": "其他活动"
     },
+    "maximize": "全屏阅读",
+    "exitMaximize": "退出全屏",
+    "continuousView": "连续阅读",
+    "chapterView": "章节视图",
+    "history": "版本历史",
+    "annotations": "批注",
+    "insightReport": "洞察报告",
+    "noReport": "暂无报告",
     "aiEdit": {
       "rewrite": "重写",
       "rewriteDesc": "完全重新生成内容",
