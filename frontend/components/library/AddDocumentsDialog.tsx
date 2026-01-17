@@ -22,11 +22,13 @@ import NoteSelectPanel from './NoteSelectPanel';
 import OcrUploadPanel from './OcrUploadPanel';
 import ResourceSelectPanel from './ResourceSelectPanel';
 import GoogleDriveImportPanel from './GoogleDriveImportPanel';
+import NotionImportPanel from './NotionImportPanel';
 
 type PanelType =
   | 'main'
   | 'resources'
   | 'gdrive'
+  | 'notion'
   | 'url'
   | 'bookmark'
   | 'note'
@@ -41,6 +43,14 @@ const EXTERNAL_SOURCES = [
     icon: HardDrive,
     color: 'text-green-600',
     bgColor: 'bg-green-100',
+  },
+  {
+    id: 'notion' as PanelType,
+    label: 'Notion',
+    description: 'Import pages from your Notion workspace',
+    icon: FileText,
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-100',
   },
 ];
 
@@ -121,6 +131,8 @@ export default function AddDocumentsDialog({
         return 'Explore Resources';
       case 'gdrive':
         return 'Google Drive';
+      case 'notion':
+        return 'Notion';
       case 'url':
         return 'URL Fetch';
       case 'bookmark':
@@ -212,6 +224,13 @@ export default function AddDocumentsDialog({
       case 'gdrive':
         return (
           <GoogleDriveImportPanel
+            knowledgeBaseId={knowledgeBaseId}
+            onImportComplete={handleImportComplete}
+          />
+        );
+      case 'notion':
+        return (
+          <NotionImportPanel
             knowledgeBaseId={knowledgeBaseId}
             onImportComplete={handleImportComplete}
           />
