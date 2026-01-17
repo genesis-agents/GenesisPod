@@ -44,6 +44,7 @@ export enum ResearchEventType {
   TASK_FAILED = "task:failed",
 
   // 维度研究事件
+  DIMENSION_CREATED = "dimension:created",
   DIMENSION_RESEARCH_STARTED = "dimension:research_started",
   DIMENSION_RESEARCH_PROGRESS = "dimension:research_progress",
   DIMENSION_RESEARCH_COMPLETED = "dimension:research_completed",

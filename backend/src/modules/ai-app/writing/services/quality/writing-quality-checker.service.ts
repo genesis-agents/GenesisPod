@@ -21,8 +21,6 @@ import { ExpressionMemoryService } from "./expression-memory.service";
 import { CharacterPersonalityService } from "./character-personality.service";
 import { NarrativeCraftService } from "./narrative-craft.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { TaskProfile } from "@/modules/ai-engine/llm/types";
-import { AIModelType } from "@prisma/client";
 
 // ==================== 类型定义 ====================
 
@@ -1013,7 +1011,7 @@ export class WritingQualityCheckerService {
   private async fixDialogueIssues(
     content: string,
     issues: WritingQualityIssue[],
-    _context: ChapterContext,
+    context: ChapterContext,
   ): Promise<string> {
     if (issues.length === 0) return content;
 
@@ -1021,42 +1019,34 @@ export class WritingQualityCheckerService {
       `[QualityChecker] Fixing ${issues.length} dialogue issues with LLM`,
     );
 
-    const systemPrompt = `你是专业的小说编辑，负责修复对话质量问题。
-
-## 任务
-修复以下对话问题，保持原文风格和情节，只改进对话部分。
-
-## 常见问题及修复方法
-1. 千人一面：根据角色性格区分说话方式
-2. 信息灌输：通过冲突、疑问自然引出信息
-3. 口头禅：减少重复用词，增加表达多样性
-4. 节奏问题：在长对话间插入动作描写
-
-## 输出要求
-- 只输出修改后的完整文本
-- 不要添加任何解释或标记`;
-
-    const userPrompt = `## 需要修复的问题
-${issues.map((i, idx) => `${idx + 1}. ${i.message}\n   上下文: ${i.context}\n   建议: ${i.suggestion}`).join("\n\n")}
-
-## 原文
-${content}
-
-请修复以上问题：`;
-
-    const taskProfile: TaskProfile = {
-      creativity: "medium",
-      outputLength: "standard",
-    };
+    // 构建问题列表
+    const issuesList = issues
+      .map(
+        (i, idx) =>
+          `${idx + 1}. ${i.message}\n   上下文: ${i.context}\n   建议: ${i.suggestion}`,
+      )
+      .join("\n\n");
 
     try {
-      const response = await this.aiFacade.chat({
+      // ★ P3 迁移：使用 chatWithSkills 统一入口
+      const response = await this.aiFacade.chatWithSkills({
         messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
+          {
+            role: "user",
+            content: `请修复以下对话问题，保持原文风格和情节，只改进对话部分。\n\n## 原文\n${content}`,
+          },
         ],
-        modelType: AIModelType.CHAT,
-        taskProfile,
+        taskType: "dialogue-fix",
+        domain: "writing",
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "long",
+        },
+        skillContext: {
+          characters: context.characters?.join("、") || undefined,
+          historicalPeriod: context.historicalPeriod || undefined,
+          issuesList,
+        },
       });
 
       return response.content?.trim() || content;

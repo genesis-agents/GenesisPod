@@ -15,7 +15,6 @@ import {
   AiEditOperation,
 } from "../../dto/chapter-revision.dto";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { AIModelType } from "@prisma/client";
 
 @Injectable()
 export class ChapterRevisionService {
@@ -560,28 +559,33 @@ export class ChapterRevisionService {
     selection: { startOffset: number; endOffset: number; originalText: string },
     userFeedback: string,
   ): Promise<{ content: string; description: string }> {
-    const prompt = `你是一位专业的小说编辑。请根据用户的要求，重写以下选中的段落。
+    const contextBefore = fullContent.substring(
+      Math.max(0, selection.startOffset - 200),
+      selection.startOffset,
+    );
+    const contextAfter = fullContent.substring(
+      selection.endOffset,
+      selection.endOffset + 200,
+    );
 
-**原文上下文**：
-${fullContent.substring(Math.max(0, selection.startOffset - 200), selection.startOffset)}
-
-**需要重写的段落**：
-${selection.originalText}
-
-**后续内容**：
-${fullContent.substring(selection.endOffset, selection.endOffset + 200)}
-
-**用户修改要求**：
-${userFeedback}
-
-请直接输出重写后的段落内容，保持与上下文的连贯性。不要输出任何解释或说明。`;
-
-    const response = await this.aiFacade.chat({
-      messages: [{ role: "user", content: prompt }],
-      modelType: AIModelType.CHAT,
+    const response = await this.aiFacade.chatWithSkills({
+      messages: [
+        {
+          role: "user",
+          content: `请重写以下段落：\n\n${selection.originalText}`,
+        },
+      ],
+      taskType: "rewrite",
+      domain: "writing",
       taskProfile: {
         creativity: "high",
         outputLength: "medium",
+      },
+      skillContext: {
+        originalText: selection.originalText,
+        userFeedback,
+        contextBefore,
+        contextAfter,
       },
     });
 
@@ -610,22 +614,22 @@ ${userFeedback}
       heavy: "重度润色：大幅改善文字质量，重新组织段落结构，提升整体可读性",
     };
 
-    const prompt = `你是一位专业的小说编辑。请对以下章节内容进行${levelDescriptions[level]}。
-
-**原文内容**：
-${content}
-
-**用户额外要求**：
-${userFeedback || "无"}
-
-请直接输出润色后的完整章节内容。不要输出任何解释或说明。`;
-
-    const response = await this.aiFacade.chat({
-      messages: [{ role: "user", content: prompt }],
-      modelType: AIModelType.CHAT,
+    const response = await this.aiFacade.chatWithSkills({
+      messages: [
+        {
+          role: "user",
+          content: `请对以下章节内容进行${levelDescriptions[level]}：\n\n${content}`,
+        },
+      ],
+      taskType: "polish",
+      domain: "writing",
       taskProfile: {
         creativity: level === "heavy" ? "high" : "medium",
         outputLength: "long",
+      },
+      skillContext: {
+        originalText: content,
+        userFeedback: userFeedback || "无",
       },
     });
 
@@ -640,28 +644,33 @@ ${userFeedback || "无"}
     selection: { startOffset: number; endOffset: number; originalText: string },
     userFeedback: string,
   ): Promise<{ content: string; description: string }> {
-    const prompt = `你是一位专业的小说作家。请根据用户的要求，扩写以下选中的段落，增加更多细节和描写。
+    const contextBefore = fullContent.substring(
+      Math.max(0, selection.startOffset - 200),
+      selection.startOffset,
+    );
+    const contextAfter = fullContent.substring(
+      selection.endOffset,
+      selection.endOffset + 200,
+    );
 
-**原文上下文**：
-${fullContent.substring(Math.max(0, selection.startOffset - 200), selection.startOffset)}
-
-**需要扩写的段落**：
-${selection.originalText}
-
-**后续内容**：
-${fullContent.substring(selection.endOffset, selection.endOffset + 200)}
-
-**用户扩写要求**：
-${userFeedback}
-
-请直接输出扩写后的段落内容，保持与上下文的连贯性。不要输出任何解释或说明。`;
-
-    const response = await this.aiFacade.chat({
-      messages: [{ role: "user", content: prompt }],
-      modelType: AIModelType.CHAT,
+    const response = await this.aiFacade.chatWithSkills({
+      messages: [
+        {
+          role: "user",
+          content: `请扩写以下段落，增加更多细节和描写：\n\n${selection.originalText}`,
+        },
+      ],
+      taskType: "expand",
+      domain: "writing",
       taskProfile: {
         creativity: "high",
         outputLength: "long",
+      },
+      skillContext: {
+        originalText: selection.originalText,
+        userFeedback,
+        contextBefore,
+        contextAfter,
       },
     });
 
@@ -683,28 +692,33 @@ ${userFeedback}
     selection: { startOffset: number; endOffset: number; originalText: string },
     userFeedback: string,
   ): Promise<{ content: string; description: string }> {
-    const prompt = `你是一位专业的小说编辑。请根据用户的要求，精简以下选中的段落，保留核心内容。
+    const contextBefore = fullContent.substring(
+      Math.max(0, selection.startOffset - 200),
+      selection.startOffset,
+    );
+    const contextAfter = fullContent.substring(
+      selection.endOffset,
+      selection.endOffset + 200,
+    );
 
-**原文上下文**：
-${fullContent.substring(Math.max(0, selection.startOffset - 200), selection.startOffset)}
-
-**需要精简的段落**：
-${selection.originalText}
-
-**后续内容**：
-${fullContent.substring(selection.endOffset, selection.endOffset + 200)}
-
-**用户精简要求**：
-${userFeedback}
-
-请直接输出精简后的段落内容，保持与上下文的连贯性。不要输出任何解释或说明。`;
-
-    const response = await this.aiFacade.chat({
-      messages: [{ role: "user", content: prompt }],
-      modelType: AIModelType.CHAT,
+    const response = await this.aiFacade.chatWithSkills({
+      messages: [
+        {
+          role: "user",
+          content: `请精简以下段落，保留核心内容：\n\n${selection.originalText}`,
+        },
+      ],
+      taskType: "condense",
+      domain: "writing",
       taskProfile: {
         creativity: "low",
         outputLength: "short",
+      },
+      skillContext: {
+        originalText: selection.originalText,
+        userFeedback,
+        contextBefore,
+        contextAfter,
       },
     });
 
@@ -737,25 +751,24 @@ ${userFeedback}
     if (targetStyle.sentenceLength)
       styleDesc.push(`句式长度：${targetStyle.sentenceLength}`);
 
-    const prompt = `你是一位专业的小说编辑。请对以下章节内容进行风格调整。
+    const targetStyleText = styleDesc.join("\n") || "根据用户要求调整";
 
-**目标风格**：
-${styleDesc.join("\n") || "根据用户要求调整"}
-
-**原文内容**：
-${content}
-
-**用户额外要求**：
-${userFeedback || "无"}
-
-请直接输出调整风格后的完整章节内容。不要输出任何解释或说明。`;
-
-    const response = await this.aiFacade.chat({
-      messages: [{ role: "user", content: prompt }],
-      modelType: AIModelType.CHAT,
+    const response = await this.aiFacade.chatWithSkills({
+      messages: [
+        {
+          role: "user",
+          content: `请对以下章节内容进行风格调整，目标风格：${targetStyleText}\n\n${content}`,
+        },
+      ],
+      taskType: "style-fix",
+      domain: "writing",
       taskProfile: {
         creativity: "medium",
         outputLength: "long",
+      },
+      skillContext: {
+        originalText: content,
+        userFeedback: userFeedback || "无",
       },
     });
 

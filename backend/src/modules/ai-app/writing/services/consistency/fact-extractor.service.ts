@@ -16,9 +16,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { AIModelType } from "@prisma/client";
 import { ChapterWritingContext } from "../../interfaces/writing-context.interface";
-import { TaskProfile } from "../../../../ai-engine/llm/types";
 
 // ==================== 事实类型定义 ====================
 
@@ -91,144 +89,6 @@ interface ChapterFactMetadata {
   factsUpdatedAt?: string;
 }
 
-// ==================== 提示词模板 ====================
-
-/**
- * 事实提取提示词
- */
-const FACT_EXTRACTION_PROMPT = `你是一个专业的小说事实提取助手。请从给定的章节内容中提取关键事实。
-
-## 事实类型
-
-1. **CHARACTER_STATE**：角色状态
-   - 位置：角色在哪里
-   - 情绪：角色的情绪状态
-   - 健康：角色的健康状况、受伤等
-   - 能力：角色获得或失去的能力
-
-2. **PLOT_EVENT**：情节事件
-   - 发生的重要事件
-   - 决策和选择
-   - 冲突和转折
-
-3. **WORLD_FACT**：世界事实
-   - 世界观规则的确立
-   - 场景描述
-   - 设定的揭示
-
-4. **TIMELINE**：时间线
-   - 明确的时间点
-   - 时间流逝
-
-5. **OBJECT**：物品
-   - 重要道具出现
-   - 物品状态变化
-   - 物品转移
-
-6. **RELATIONSHIP**：关系
-   - 角色关系变化
-   - 联盟/敌对关系确立
-
-## 提取要求
-
-- 只提取**确定发生**的事实，不要提取推测、假设、对话中的虚构内容
-- 每个事实必须有**明确的文本证据**
-- 事实描述要**具体、准确**
-- 置信度评估：非常确定=0.9-1.0，比较确定=0.7-0.9，一般=0.5-0.7
-- 提取 10-20 个最重要的事实即可
-
-## 输出格式
-
-请以 JSON 数组格式输出，每个事实包含：
-
-\`\`\`json
-[
-  {
-    "type": "CHARACTER_STATE",
-    "subject": "主角",
-    "predicate": "受重伤",
-    "object": "",
-    "confidence": 0.95,
-    "evidence": "原文引用片段（20-50字）",
-    "storyTime": "第三天黄昏"
-  }
-]
-\`\`\`
-
----
-
-## 章节信息
-
-- 章节编号：{{chapterNumber}}
-- 章节标题：{{chapterTitle}}
-
-## 章节内容
-
-{{content}}
-
----
-
-请提取事实：`;
-
-/**
- * 冲突检测提示词
- */
-const CONFLICT_DETECTION_PROMPT = `你是一个专业的小说一致性检查助手。请检测新事实与已有事实之间是否存在冲突。
-
-## 冲突类型
-
-1. **CONTRADICTION**：直接矛盾
-   - 事实 A 说角色在北京，事实 B 说同一时间角色在上海
-
-2. **INCONSISTENCY**：不一致
-   - 事实 A 说角色受重伤，事实 B 说角色行动自如（没有明确的恢复过程）
-
-3. **TIMELINE_ERROR**：时间线错误
-   - 事件发生顺序不合理
-   - 时间倒流
-
-## 检测要求
-
-- 只标记**明确的冲突**，不要过度敏感
-- 考虑**故事时间流逝**，允许合理的状态变化
-- 如果有合理解释，不算冲突
-
-## 输出格式
-
-如果有冲突，输出 JSON 数组：
-
-\`\`\`json
-[
-  {
-    "conflictType": "CONTRADICTION",
-    "description": "角色位置矛盾：第3章在北京，第5章同一天在上海",
-    "severity": "CRITICAL"
-  }
-]
-\`\`\`
-
-如果没有冲突，输出：
-
-\`\`\`json
-[]
-\`\`\`
-
----
-
-## 已有事实
-
-{{existingFacts}}
-
----
-
-## 新事实
-
-{{newFacts}}
-
----
-
-请检测冲突：`;
-
 // ==================== Service 实现 ====================
 
 @Injectable()
@@ -257,25 +117,24 @@ export class FactExtractorService {
     }
 
     try {
-      // 构建提示词
-      const prompt = FACT_EXTRACTION_PROMPT.replace(
-        "{{chapterNumber}}",
-        context.chapter.chapterNumber.toString(),
-      )
-        .replace("{{chapterTitle}}", context.chapter.title)
-        .replace("{{content}}", chapterContent);
-
-      // 调用 LLM 提取事实
-      // 使用 TaskProfile 语义化描述任务特征
-      const taskProfile: TaskProfile = {
-        creativity: "low", // 事实提取需要准确性而非创造性 (原 temperature: 0.3)
-        outputLength: "short", // 事实提取输出较短 (原 maxTokens: 2000)
-      };
-
-      const response = await this.aiFacade.chat({
-        modelType: AIModelType.CHAT, // 需要高能力模型进行准确提取
-        messages: [{ role: "user", content: prompt }],
-        taskProfile,
+      // 调用 Skills 提取事实
+      const response = await this.aiFacade.chatWithSkills({
+        messages: [
+          {
+            role: "user",
+            content: `请从以下章节内容中提取关键事实：\n\n${chapterContent}`,
+          },
+        ],
+        taskType: "fact-extraction",
+        domain: "writing",
+        taskProfile: {
+          creativity: "low",
+          outputLength: "short",
+        },
+        skillContext: {
+          chapterNumber: context.chapter.chapterNumber.toString(),
+          chapterTitle: context.chapter.title,
+        },
       });
 
       // 解析 JSON 响应
@@ -474,23 +333,23 @@ export class FactExtractorService {
         return [];
       }
 
-      // 构建提示词
-      const prompt = CONFLICT_DETECTION_PROMPT.replace(
-        "{{existingFacts}}",
-        JSON.stringify(previousFacts, null, 2),
-      ).replace("{{newFacts}}", JSON.stringify(newFacts, null, 2));
-
-      // 调用 LLM 检测冲突
-      // 使用 TaskProfile 语义化描述任务特征
-      const taskProfile: TaskProfile = {
-        creativity: "deterministic", // 冲突检测需要严格判断 (原 temperature: 0.2)
-        outputLength: "short", // 冲突检测输出较短 (原 maxTokens: 1500)
-      };
-
-      const response = await this.aiFacade.chat({
-        modelType: AIModelType.CHAT, // 需要高能力模型进行准确判断
-        messages: [{ role: "user", content: prompt }],
-        taskProfile,
+      // 调用 Skills 检测冲突
+      const response = await this.aiFacade.chatWithSkills({
+        messages: [
+          {
+            role: "user",
+            content: `请检测以下新事实与已有事实之间的冲突：\n\n新事实：\n${JSON.stringify(newFacts, null, 2)}`,
+          },
+        ],
+        taskType: "conflict-detection",
+        domain: "writing",
+        taskProfile: {
+          creativity: "deterministic",
+          outputLength: "short",
+        },
+        skillContext: {
+          existingFacts: JSON.stringify(previousFacts, null, 2),
+        },
       });
 
       // 解析 JSON 响应

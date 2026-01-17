@@ -463,7 +463,8 @@ export class DimensionResearchService {
             domain: evidence.domain,
             snippet: evidence.snippet,
             sourceType: evidence.sourceType,
-            publishedAt: evidence.publishedAt,
+            // ★ 验证日期有效性，无效日期设为 null
+            publishedAt: this.validateDate(evidence.publishedAt),
             credibilityScore: evidence.credibilityScore,
             reportId,
           },
@@ -477,6 +478,21 @@ export class DimensionResearchService {
     );
 
     return created;
+  }
+
+  /**
+   * 验证日期有效性
+   * ★ 修复：避免 Invalid Date 导致 Prisma 验证错误
+   */
+  private validateDate(date: Date | string | null | undefined): Date | null {
+    if (!date) {
+      return null;
+    }
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) {
+      return null;
+    }
+    return d;
   }
 
   /**

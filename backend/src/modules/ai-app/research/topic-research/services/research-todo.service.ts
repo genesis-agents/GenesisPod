@@ -24,12 +24,14 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   ResearchTodoStatus,
   ResearchTodoType,
+  ResearchTaskStatus,
   Prisma,
   DimensionStatus,
 } from "@prisma/client";
 import type { ResearchTodo, ResearchMission } from "@prisma/client";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
 import { DimensionMissionService } from "./dimension-mission.service";
+import { TASK_PRIORITY } from "./research-mission.service";
 
 // ==================== Types ====================
 
@@ -861,12 +863,20 @@ export class ResearchTodoService {
     let resultMessage = "";
 
     try {
-      if (
+      // ★ 判断是否需要新增维度/章节
+      const isAddDimension =
         todoTitle.includes("新增维度") ||
         todoTitle.includes("添加维度") ||
-        todoDesc.includes("新增维度")
-      ) {
-        // 新增维度操作
+        todoTitle.includes("新增章节") ||
+        todoTitle.includes("添加章节") ||
+        todoTitle.includes("独立章节") ||
+        todoDesc.includes("新增维度") ||
+        todoDesc.includes("新增章节") ||
+        // 匹配 "研究: xxx" 格式（Leader 创建的研究任务）
+        /^研究[:：]/.test(todoTitle);
+
+      if (isAddDimension) {
+        // 新增维度/章节操作
         resultMessage = await this.executeAddDimension(topicId, todo);
       } else if (
         todoTitle.includes("深入研究") ||
@@ -930,7 +940,7 @@ export class ResearchTodoService {
 
   /**
    * 执行新增维度操作
-   * ★ 增强版：创建维度后自动触发 AI 研究
+   * ★ 增强版：创建 Dimension + Task 后自动触发 AI 研究
    */
   private async executeAddDimension(
     topicId: string,
@@ -977,6 +987,39 @@ export class ResearchTodoService {
       `[executeAddDimension] Created dimension ${dimension.id}: ${dimensionName}`,
     );
 
+    // ★ 同时创建 ResearchTask 记录，用于 Mission 进度追踪
+    let task = null;
+    if (todo.missionId) {
+      task = await this.prisma.researchTask.create({
+        data: {
+          missionId: todo.missionId,
+          title: `研究: ${dimensionName}`,
+          description:
+            todo.description || `用户请求的新维度研究：${dimensionName}`,
+          taskType: "dimension_research",
+          dimensionName: dimensionName,
+          dimensionId: dimension.id,
+          assignedAgent: "researcher_dynamic",
+          assignedAgentType: "dimension_researcher",
+          priority: TASK_PRIORITY.DIMENSION_RESEARCH_DYNAMIC,
+          status: ResearchTaskStatus.EXECUTING,
+          startedAt: new Date(),
+        },
+      });
+
+      // 更新 Mission 的 totalTasks 计数
+      await this.prisma.researchMission.update({
+        where: { id: todo.missionId },
+        data: {
+          totalTasks: { increment: 1 },
+        },
+      });
+
+      this.logger.log(
+        `[executeAddDimension] Created ResearchTask ${task.id} for dimension ${dimensionName}`,
+      );
+    }
+
     // ★ 自动触发维度研究
     try {
       // 更新 TODO 进度
@@ -998,17 +1041,62 @@ export class ResearchTodoService {
         );
 
       if (missionResult.success) {
+        // ★ 更新 Task 状态为完成
+        if (task) {
+          await this.prisma.researchTask.update({
+            where: { id: task.id },
+            data: {
+              status: ResearchTaskStatus.COMPLETED,
+              completedAt: new Date(),
+              result:
+                missionResult.analysisResult as unknown as Prisma.InputJsonValue,
+              resultSummary: `研究完成，找到 ${missionResult.evidenceIds.length} 个证据`,
+            },
+          });
+          // 更新 Mission 的 completedTasks 计数
+          await this.prisma.researchMission.update({
+            where: { id: todo.missionId! },
+            data: {
+              completedTasks: { increment: 1 },
+            },
+          });
+        }
+
         this.logger.log(
           `[executeAddDimension] Dimension research completed successfully for ${dimensionName}`,
         );
         return `已创建新维度「${dimensionName}」并完成 AI 研究。找到 ${missionResult.evidenceIds.length} 个证据来源。`;
       } else {
+        // ★ 更新 Task 状态为失败
+        if (task) {
+          await this.prisma.researchTask.update({
+            where: { id: task.id },
+            data: {
+              status: ResearchTaskStatus.FAILED,
+              completedAt: new Date(),
+              resultSummary: `研究失败: ${missionResult.error || "未知错误"}`,
+            },
+          });
+        }
+
         this.logger.warn(
           `[executeAddDimension] Dimension research failed: ${missionResult.error}`,
         );
         return `已创建新维度「${dimensionName}」，但研究过程中出现问题: ${missionResult.error || "未知错误"}。您可以稍后手动触发研究。`;
       }
     } catch (error) {
+      // ★ 更新 Task 状态为失败
+      if (task) {
+        await this.prisma.researchTask.update({
+          where: { id: task.id },
+          data: {
+            status: ResearchTaskStatus.FAILED,
+            completedAt: new Date(),
+            resultSummary: `研究失败: ${error instanceof Error ? error.message : "未知错误"}`,
+          },
+        });
+      }
+
       // 研究失败不影响维度创建
       this.logger.error(
         `[executeAddDimension] Failed to execute dimension research: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -1019,7 +1107,7 @@ export class ResearchTodoService {
 
   /**
    * 执行深入研究操作
-   * ★ 增强版：创建专题维度并自动触发 AI 研究
+   * ★ 增强版：创建 Dimension + Task 后自动触发 AI 研究
    */
   private async executeDeepResearch(
     topicId: string,
@@ -1066,6 +1154,39 @@ export class ResearchTodoService {
       `[executeDeepResearch] Created deep research dimension ${dimension.id}: ${dimensionName}`,
     );
 
+    // ★ 同时创建 ResearchTask 记录，用于 Mission 进度追踪
+    let task = null;
+    if (todo.missionId) {
+      task = await this.prisma.researchTask.create({
+        data: {
+          missionId: todo.missionId,
+          title: `研究: ${dimensionName}`,
+          description:
+            todo.description || `用户请求的深入研究：${researchTopic}`,
+          taskType: "dimension_research",
+          dimensionName: dimensionName,
+          dimensionId: dimension.id,
+          assignedAgent: "researcher_dynamic",
+          assignedAgentType: "dimension_researcher",
+          priority: TASK_PRIORITY.DIMENSION_RESEARCH_DYNAMIC,
+          status: ResearchTaskStatus.EXECUTING,
+          startedAt: new Date(),
+        },
+      });
+
+      // 更新 Mission 的 totalTasks 计数
+      await this.prisma.researchMission.update({
+        where: { id: todo.missionId },
+        data: {
+          totalTasks: { increment: 1 },
+        },
+      });
+
+      this.logger.log(
+        `[executeDeepResearch] Created ResearchTask ${task.id} for deep research ${dimensionName}`,
+      );
+    }
+
     // ★ 自动触发维度研究
     try {
       // 更新 TODO 进度
@@ -1087,17 +1208,62 @@ export class ResearchTodoService {
         );
 
       if (missionResult.success) {
+        // ★ 更新 Task 状态为完成
+        if (task) {
+          await this.prisma.researchTask.update({
+            where: { id: task.id },
+            data: {
+              status: ResearchTaskStatus.COMPLETED,
+              completedAt: new Date(),
+              result:
+                missionResult.analysisResult as unknown as Prisma.InputJsonValue,
+              resultSummary: `深入研究完成，找到 ${missionResult.evidenceIds.length} 个证据`,
+            },
+          });
+          // 更新 Mission 的 completedTasks 计数
+          await this.prisma.researchMission.update({
+            where: { id: todo.missionId! },
+            data: {
+              completedTasks: { increment: 1 },
+            },
+          });
+        }
+
         this.logger.log(
           `[executeDeepResearch] Deep research completed successfully for ${researchTopic}`,
         );
         return `已完成对「${researchTopic}」的深入研究。找到 ${missionResult.evidenceIds.length} 个证据来源，研究内容已添加到报告中。`;
       } else {
+        // ★ 更新 Task 状态为失败
+        if (task) {
+          await this.prisma.researchTask.update({
+            where: { id: task.id },
+            data: {
+              status: ResearchTaskStatus.FAILED,
+              completedAt: new Date(),
+              resultSummary: `研究失败: ${missionResult.error || "未知错误"}`,
+            },
+          });
+        }
+
         this.logger.warn(
           `[executeDeepResearch] Deep research failed: ${missionResult.error}`,
         );
         return `深入研究「${researchTopic}」过程中出现问题: ${missionResult.error || "未知错误"}。您可以稍后在维度列表中手动触发研究。`;
       }
     } catch (error) {
+      // ★ 更新 Task 状态为失败
+      if (task) {
+        await this.prisma.researchTask.update({
+          where: { id: task.id },
+          data: {
+            status: ResearchTaskStatus.FAILED,
+            completedAt: new Date(),
+            resultSummary: `研究失败: ${error instanceof Error ? error.message : "未知错误"}`,
+          },
+        });
+      }
+
       // 研究失败不影响维度创建
       this.logger.error(
         `[executeDeepResearch] Failed to execute deep research: ${error instanceof Error ? error.message : "Unknown error"}`,

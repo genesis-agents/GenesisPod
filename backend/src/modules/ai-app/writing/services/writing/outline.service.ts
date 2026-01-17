@@ -2,8 +2,6 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AIEngineFacade } from "../../../../ai-engine/facade";
 import { StoryBibleService } from "../bible/story-bible.service";
-import { TaskProfile } from "../../../../ai-engine/llm/types";
-import { AIModelType } from "@prisma/client";
 
 export interface ChapterOutline {
   chapterNumber: number;
@@ -87,76 +85,54 @@ export class OutlineService {
       )
       .join("\n\n");
 
-    // 4. 构建大纲生成提示词
-    const outlinePrompt = `请为以下小说生成第${volumeNumber}卷的详细章节大纲。
-
-【小说信息】
-标题：${project.name}
+    // 4. 构建大纲生成上下文
+    const projectInfo = `标题：${project.name}
 简介：${project.description || "无"}
 类型：${project.genre || "通用"}
-目标字数：${project.targetWords?.toLocaleString() || "未设定"} 字
+目标字数：${project.targetWords?.toLocaleString() || "未设定"} 字`;
 
-【世界观设定】
-${bibleSnapshot.premise || "无"}
+    const worldSetting = `${bibleSnapshot.premise || "无"}
 基调：${bibleSnapshot.tone || "未设定"}
-主题：${bibleSnapshot.theme || "未设定"}
+主题：${bibleSnapshot.theme || "未设定"}`;
 
-【主要角色】
-${
-  bibleSnapshot.characters
-    ?.slice(0, 5)
-    .map((c: Record<string, unknown>) => {
-      const personality = c.personality as Record<string, unknown> | null;
-      const traits = personality?.traits as string[] | undefined;
-      return `- ${c.name} (${c.role}): ${traits?.join("、") || "性格待定"}`;
-    })
-    .join("\n") || "无"
-}
+    const characters =
+      bibleSnapshot.characters
+        ?.slice(0, 5)
+        .map((c: Record<string, unknown>) => {
+          const personality = c.personality as Record<string, unknown> | null;
+          const traits = personality?.traits as string[] | undefined;
+          return `- ${c.name} (${c.role}): ${traits?.join("、") || "性格待定"}`;
+        })
+        .join("\n") || "无";
 
-${previousOutlineContext ? `【前几卷大纲】\n${previousOutlineContext}\n` : ""}
-
-【生成要求】
-1. 生成 ${chapterCount} 个章节的大纲
+    const requirements = `1. 生成 ${chapterCount} 个章节的大纲
 2. 每章大纲包含：标题、主要情节、关键转折点、涉及角色
 3. 情节要有递进，避免重复
 4. 角色要有成长和变化
-5. 设置悬念和伏笔
-
-请以 JSON 格式输出：
-{
-  "volumeTitle": "卷标题",
-  "theme": "本卷主题",
-  "chapters": [
-    {
-      "chapterNumber": 1,
-      "title": "章节标题（不含'第X章'前缀）",
-      "plot": "主要情节（100-200字）",
-      "keyPoint": "关键转折点",
-      "characters": ["角色1", "角色2"],
-      "location": "主要场景"
-    }
-  ]
-}`;
+5. 设置悬念和伏笔`;
 
     try {
-      // 使用 TaskProfile 语义化描述任务特征
-      const taskProfile: TaskProfile = {
-        creativity: "medium", // 大纲创作需要平衡创造性和结构性 (原 temperature: 0.7)
-        outputLength: "long", // 大纲需要详细输出 (原 maxTokens: 8000)
-      };
-
-      // ★ P3 迁移：使用 AIEngineFacade 统一入口
-      const response = await this.aiFacade.chat({
+      // ★ P3 迁移：使用 chatWithSkills 统一入口
+      const response = await this.aiFacade.chatWithSkills({
         messages: [
           {
-            role: "system",
-            content:
-              "你是专业的小说架构师，擅长设计引人入胜的故事结构。请生成详细、合理、有吸引力的章节大纲。以 JSON 格式输出。",
+            role: "user",
+            content: `请为小说生成第${volumeNumber}卷的详细章节大纲。`,
           },
-          { role: "user", content: outlinePrompt },
         ],
-        modelType: AIModelType.CHAT, // 使用语义化模型类型
-        taskProfile, // 语义化任务配置
+        taskType: "outline-generation",
+        domain: "writing",
+        taskProfile: {
+          creativity: "medium", // 大纲创作需要平衡创造性和结构性
+          outputLength: "long", // 大纲需要详细输出
+        },
+        skillContext: {
+          projectInfo,
+          worldSetting,
+          characters,
+          previousOutline: previousOutlineContext || undefined,
+          requirements,
+        },
       });
 
       // 5. 解析 AI 响应

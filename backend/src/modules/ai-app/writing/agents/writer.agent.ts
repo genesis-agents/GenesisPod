@@ -36,8 +36,6 @@ import { PacingControlService } from "../services/quality/pacing-control.service
 import { DialogueConstraintsService } from "../services/quality/dialogue-constraints.service";
 import { CharacterConsistencyService } from "../services/quality/character-consistency.service";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { TaskProfile } from "@/modules/ai-engine/llm/types";
-import { AIModelType } from "@prisma/client";
 import {
   generateStylePrompt,
   getRandomTechniques,
@@ -299,20 +297,18 @@ export class WriterAgent extends BaseAgent<WriterInput, WriterOutput> {
       `[Writer] Target: ${targetWords} words, maxTokens: ${calculatedMaxTokens}`,
     );
 
-    // 使用 TaskProfile 语义化描述任务需求
-    const taskProfile: TaskProfile = {
-      creativity: "high", // 创作需要更高的创造性 (原 temperature: 0.8)
-      outputLength: targetWords >= 5000 ? "extended" : "long", // 根据目标字数选择输出长度
-    };
-
-    // ★ P3 迁移：使用 AIEngineFacade 统一入口
-    const response = await this.aiFacade.chat({
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      modelType: AIModelType.CHAT,
-      taskProfile,
+    // ★ P3 迁移：使用 chatWithSkills 统一入口
+    const response = await this.aiFacade.chatWithSkills({
+      messages: [{ role: "user", content: userPrompt }],
+      taskType: "chapter-writing",
+      domain: "writing",
+      taskProfile: {
+        creativity: "high", // 创作需要更高的创造性
+        outputLength: targetWords >= 5000 ? "extended" : "long", // 根据目标字数选择输出长度
+      },
+      skillContext: {
+        systemPrompt, // 传递完整的系统提示词
+      },
     });
 
     let content = response.content || "";
@@ -359,14 +355,19 @@ ${content.slice(-500)}
 请直接输出续写内容（从接续处开始，不要重复上文）：`;
 
       try {
-        // ★ P3 迁移：使用 AIEngineFacade 统一入口
-        const continuationResponse = await this.aiFacade.chat({
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: continuationPrompt },
-          ],
-          modelType: AIModelType.CHAT,
-          taskProfile,
+        // ★ P3 迁移：使用 chatWithSkills 统一入口
+        const continuationResponse = await this.aiFacade.chatWithSkills({
+          messages: [{ role: "user", content: continuationPrompt }],
+          taskType: "chapter-continuation",
+          domain: "writing",
+          taskProfile: {
+            creativity: "high",
+            outputLength: targetWords >= 5000 ? "extended" : "long",
+          },
+          skillContext: {
+            systemPrompt,
+            continuationContext: `续写任务：从上文自然衔接，补充约 ${targetWords - wordCount} 字的内容`,
+          },
         });
 
         let continuation = continuationResponse.content?.trim();
