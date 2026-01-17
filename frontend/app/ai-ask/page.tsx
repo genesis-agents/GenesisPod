@@ -890,7 +890,6 @@ export default function AskPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [showModelSelector, setShowModelSelector] = useState(false);
-  const [showTools, setShowTools] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [selectedKnowledgeBases, setSelectedKnowledgeBases] = useState<
     string[]
@@ -916,7 +915,6 @@ export default function AskPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
-  const toolsRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1046,12 +1044,6 @@ export default function AskPage() {
         !modelSelectorRef.current.contains(event.target as Node)
       ) {
         setShowModelSelector(false);
-      }
-      if (
-        toolsRef.current &&
-        !toolsRef.current.contains(event.target as Node)
-      ) {
-        setShowTools(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1655,7 +1647,7 @@ export default function AskPage() {
                 {token && (
                   <>
                     <div className="relative">
-                      <div className="rounded-3xl border border-gray-200/80 bg-white shadow-lg shadow-purple-500/10 transition-all focus-within:border-purple-400 focus-within:shadow-xl focus-within:shadow-purple-500/20">
+                      <div className="rounded-3xl border border-gray-100 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all focus-within:border-purple-300 focus-within:shadow-[0_8px_40px_rgba(139,92,246,0.2)] hover:shadow-[0_8px_40px_rgb(0,0,0,0.16)]">
                         <textarea
                           ref={inputRef}
                           value={input}
@@ -1669,125 +1661,6 @@ export default function AskPage() {
 
                         <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
                           <div className="flex items-center gap-2">
-                            {/* Tools Button */}
-                            <div className="relative" ref={toolsRef}>
-                              <button
-                                type="button"
-                                onClick={() => setShowTools(!showTools)}
-                                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                                  showTools
-                                    ? 'bg-purple-100 text-purple-700'
-                                    : 'text-gray-500 hover:bg-gray-100'
-                                }`}
-                              >
-                                <svg
-                                  className="h-4 w-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-                                  />
-                                </svg>
-                                Tools
-                              </button>
-
-                              {showTools && (
-                                <div className="absolute bottom-full left-0 z-50 mb-2 max-h-96 w-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
-                                  {/* AI Office Agents */}
-                                  <div className="px-3 pb-1 text-xs font-medium text-gray-400">
-                                    AI Office
-                                  </div>
-                                  <button
-                                    type="button"
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setShowTools(false);
-                                      router.push('/ai-office?tab=slides');
-                                    }}
-                                  >
-                                    <span className="text-base">📊</span>
-                                    <span className="flex-1">AI Slides</span>
-                                    <span className="text-xs text-gray-400">
-                                      PPT
-                                    </span>
-                                  </button>
-
-                                  {/* Divider */}
-                                  <div className="my-2 border-t border-gray-100" />
-
-                                  {/* AI Teams */}
-                                  <div className="px-3 pb-1 text-xs font-medium text-gray-400">
-                                    Collaboration
-                                  </div>
-                                  <button
-                                    type="button"
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setShowTools(false);
-                                      router.push('/ai-teams');
-                                    }}
-                                  >
-                                    <span className="text-base">👥</span>
-                                    <span className="flex-1">AI Teams</span>
-                                    <span className="text-xs text-gray-400">
-                                      Multi-Agent
-                                    </span>
-                                  </button>
-
-                                  {/* Divider */}
-                                  <div className="my-2 border-t border-gray-100" />
-
-                                  {/* Creative */}
-                                  <div className="px-3 pb-1 text-xs font-medium text-gray-400">
-                                    Creative
-                                  </div>
-                                  <button
-                                    type="button"
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setShowTools(false);
-                                      router.push('/studio?tab=create');
-                                    }}
-                                  >
-                                    <span className="text-base">🖼️</span>
-                                    <span className="flex-1">
-                                      Image Generation
-                                    </span>
-                                    <span className="text-xs text-gray-400">
-                                      DALL-E
-                                    </span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setShowTools(false);
-                                      router.push('/ai-studio');
-                                    }}
-                                  >
-                                    <span className="text-base">🎬</span>
-                                    <span className="flex-1">AI Studio</span>
-                                    <span className="text-xs text-gray-400">
-                                      Projects
-                                    </span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-
                             {/* Model Selector */}
                             <div className="relative" ref={modelSelectorRef}>
                               <button
@@ -1921,7 +1794,7 @@ export default function AskPage() {
                                   d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
                                 />
                               </svg>
-                              <span>Search</span>
+                              <span>Web Search</span>
                               {webSearchEnabled && (
                                 <svg
                                   className="h-3.5 w-3.5"
@@ -2279,10 +2152,10 @@ export default function AskPage() {
               <div className="pointer-events-auto mx-auto max-w-4xl">
                 <form onSubmit={handleSubmit}>
                   <div
-                    className={`rounded-2xl border bg-white shadow-lg transition-all focus-within:border-purple-300 focus-within:shadow-xl ${
+                    className={`rounded-2xl border bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all focus-within:border-purple-300 focus-within:shadow-[0_8px_40px_rgba(139,92,246,0.2)] hover:shadow-[0_8px_40px_rgb(0,0,0,0.16)] ${
                       isDragging
                         ? 'border-purple-500 ring-2 ring-purple-200'
-                        : 'border-gray-200'
+                        : 'border-gray-100'
                     }`}
                     onDrop={handleDrop}
                     onDragOver={handleDragOver}
@@ -2476,123 +2349,6 @@ export default function AskPage() {
                     />
                     <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
                       <div className="flex items-center gap-2">
-                        {/* Tools with dropdown */}
-                        <div className="relative" ref={toolsRef}>
-                          <button
-                            type="button"
-                            onClick={() => setShowTools(!showTools)}
-                            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                              showTools
-                                ? 'bg-purple-100 text-purple-700'
-                                : 'text-gray-500 hover:bg-gray-100'
-                            }`}
-                          >
-                            <svg
-                              className="h-4 w-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-                              />
-                            </svg>
-                            Tools
-                          </button>
-
-                          {showTools && (
-                            <div className="absolute bottom-full left-0 z-50 mb-2 max-h-96 w-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
-                              {/* AI Office Agents */}
-                              <div className="px-3 pb-1 text-xs font-medium text-gray-400">
-                                AI Office
-                              </div>
-                              <button
-                                type="button"
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setShowTools(false);
-                                  router.push('/ai-office?tab=slides');
-                                }}
-                              >
-                                <span className="text-base">📊</span>
-                                <span className="flex-1">AI Slides</span>
-                                <span className="text-xs text-gray-400">
-                                  PPT
-                                </span>
-                              </button>
-
-                              {/* Divider */}
-                              <div className="my-2 border-t border-gray-100" />
-
-                              {/* AI Teams */}
-                              <div className="px-3 pb-1 text-xs font-medium text-gray-400">
-                                Collaboration
-                              </div>
-                              <button
-                                type="button"
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setShowTools(false);
-                                  router.push('/ai-teams');
-                                }}
-                              >
-                                <span className="text-base">👥</span>
-                                <span className="flex-1">AI Teams</span>
-                                <span className="text-xs text-gray-400">
-                                  Multi-Agent
-                                </span>
-                              </button>
-
-                              {/* Divider */}
-                              <div className="my-2 border-t border-gray-100" />
-
-                              {/* Creative */}
-                              <div className="px-3 pb-1 text-xs font-medium text-gray-400">
-                                Creative
-                              </div>
-                              <button
-                                type="button"
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setShowTools(false);
-                                  router.push('/studio?tab=create');
-                                }}
-                              >
-                                <span className="text-base">🖼️</span>
-                                <span className="flex-1">Image Generation</span>
-                                <span className="text-xs text-gray-400">
-                                  DALL-E
-                                </span>
-                              </button>
-                              <button
-                                type="button"
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setShowTools(false);
-                                  router.push('/ai-studio');
-                                }}
-                              >
-                                <span className="text-base">🎬</span>
-                                <span className="flex-1">AI Studio</span>
-                                <span className="text-xs text-gray-400">
-                                  Projects
-                                </span>
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
                         {/* Model selector with dropdown */}
                         <div className="relative" ref={modelSelectorRef}>
                           <button
@@ -2743,7 +2499,7 @@ export default function AskPage() {
                               d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
                             />
                           </svg>
-                          <span>Search</span>
+                          <span>Web Search</span>
                           {webSearchEnabled && (
                             <svg
                               className="h-3.5 w-3.5"
