@@ -50,15 +50,28 @@ export default function ResourceSelectPanel({
   } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedType, setSelectedType] = useState<string | null>(null);
 
-  // Fetch resources from Explore - search-based approach
+  // Resource type filters - matching AI Explore
+  const TYPE_FILTERS = [
+    { value: null, label: 'All', icon: '📚' },
+    { value: 'YOUTUBE_VIDEO', label: 'YouTube', icon: '🎬' },
+    { value: 'PAPER', label: 'Papers', icon: '📄' },
+    { value: 'BLOG', label: 'Blog', icon: '✍️' },
+    { value: 'NEWS', label: 'News', icon: '📰' },
+    { value: 'REPORT', label: 'Reports', icon: '📊' },
+    { value: 'POLICY', label: 'Policy', icon: '📜' },
+    { value: 'PDF', label: 'PDF', icon: '📑' },
+  ];
+
+  // Fetch resources from Explore - search-based approach with type filter
   const fetchResources = async () => {
     setLoading(true);
     setError(null);
 
     try {
       const params = new URLSearchParams();
-      // Fetch reasonable amount - user can search for specific items
+      // Fetch reasonable amount - user can search/filter for specific items
       params.set('take', '50');
       params.set('skip', '0');
       params.set('sortBy', 'createdAt');
@@ -66,6 +79,10 @@ export default function ResourceSelectPanel({
 
       if (searchQuery) {
         params.set('search', searchQuery);
+      }
+
+      if (selectedType) {
+        params.set('type', selectedType);
       }
 
       const response = await fetch(`${config.apiUrl}/resources?${params}`, {
@@ -93,13 +110,13 @@ export default function ResourceSelectPanel({
     fetchResources();
   }, []);
 
-  // Handle search with debounce
+  // Handle search and type filter with debounce
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchResources();
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, selectedType]);
 
   const toggleSelect = (id: string) => {
     const newSelected = new Set(selectedIds);
@@ -243,6 +260,24 @@ export default function ResourceSelectPanel({
 
   return (
     <div className="space-y-4">
+      {/* Type Filter Tags */}
+      <div className="flex flex-wrap gap-2">
+        {TYPE_FILTERS.map((filter) => (
+          <button
+            key={filter.label}
+            onClick={() => setSelectedType(filter.value)}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+              selectedType === filter.value
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <span>{filter.icon}</span>
+            {filter.label}
+          </button>
+        ))}
+      </div>
+
       {/* Search and Controls */}
       <div className="space-y-2">
         <div className="flex items-center gap-3">
@@ -267,9 +302,11 @@ export default function ResourceSelectPanel({
         </div>
         {/* Search hint */}
         <p className="text-xs text-gray-500">
-          {searchQuery
-            ? `Showing results for "${searchQuery}"`
-            : 'Showing recent 50 resources. Use search to find specific items.'}
+          {selectedType
+            ? `Filtering by ${TYPE_FILTERS.find((f) => f.value === selectedType)?.label || selectedType}`
+            : searchQuery
+              ? `Showing results for "${searchQuery}"`
+              : 'Showing recent 50 resources. Use filters or search to find specific items.'}
         </p>
       </div>
 

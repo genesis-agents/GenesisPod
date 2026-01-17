@@ -141,24 +141,65 @@ export default function TeamKnowledgeBaseTab({
   };
 
   const getStatusBadge = (kb: KnowledgeBase) => {
-    const smartStatus = getSmartStatus(kb);
-    const colorClasses: Record<string, { text: string; dot: string }> = {
-      gray: { text: 'text-gray-500', dot: 'bg-gray-400' },
-      purple: { text: 'text-purple-600', dot: 'bg-purple-500 animate-pulse' },
-      green: { text: 'text-green-600', dot: 'bg-green-500' },
-      yellow: { text: 'text-amber-600', dot: 'bg-amber-500' },
-      red: { text: 'text-red-600', dot: 'bg-red-500' },
+    const statusMap: Record<
+      string,
+      { label: string; bg: string; text: string; dot: string }
+    > = {
+      PENDING: {
+        label: '待处理',
+        bg: 'bg-gray-100',
+        text: 'text-gray-600',
+        dot: 'bg-gray-400',
+      },
+      PROCESSING: {
+        label: '处理中',
+        bg: 'bg-purple-50',
+        text: 'text-purple-600',
+        dot: 'bg-purple-500 animate-pulse',
+      },
+      READY: {
+        label: '就绪',
+        bg: 'bg-emerald-50',
+        text: 'text-emerald-600',
+        dot: 'bg-emerald-500',
+      },
+      UPDATING: {
+        label: '更新中',
+        bg: 'bg-amber-50',
+        text: 'text-amber-600',
+        dot: 'bg-amber-500 animate-pulse',
+      },
+      ERROR: {
+        label: '错误',
+        bg: 'bg-red-50',
+        text: 'text-red-600',
+        dot: 'bg-red-500',
+      },
     };
-    const colors = colorClasses[smartStatus.color] || colorClasses.gray;
+    const status = statusMap[kb.status] || statusMap.PENDING;
 
     return (
       <span
-        className={`flex items-center gap-1.5 whitespace-nowrap text-xs font-medium ${colors.text}`}
+        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${status.bg} ${status.text}`}
       >
-        <span className={`h-2 w-2 rounded-full ${colors.dot}`} />
-        {smartStatus.label}
+        <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
+        {status.label}
       </span>
     );
+  };
+
+  // 获取图标背景渐变色
+  const getIconGradient = (sourceType: string) => {
+    const gradients: Record<string, string> = {
+      GOOGLE_DRIVE: 'from-green-400 to-emerald-500',
+      MANUAL: 'from-purple-400 to-violet-500',
+      URL: 'from-pink-400 to-rose-500',
+      NOTION: 'from-gray-600 to-gray-800',
+      BOOKMARK: 'from-orange-400 to-amber-500',
+      NOTE: 'from-cyan-400 to-teal-500',
+      IMAGE: 'from-indigo-400 to-blue-500',
+    };
+    return gradients[sourceType] || 'from-purple-400 to-violet-500';
   };
 
   const getSourceTypeIcon = (type: KnowledgeBase['sourceType']) => {
@@ -320,27 +361,29 @@ export default function TeamKnowledgeBaseTab({
         </div>
       )}
 
-      {/* Knowledge Base Grid */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* Knowledge Base Grid - Modern card design */}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
         {teamKBs.map((kb) => (
           <div
             key={kb.id}
-            className={`group relative rounded-xl bg-white p-5 transition-all hover:bg-gray-50 ${
-              selectedIds.has(kb.id) ? 'ring-2 ring-purple-500' : ''
+            className={`group relative overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
+              selectedIds.has(kb.id)
+                ? 'border-purple-400 ring-2 ring-purple-100'
+                : 'border-gray-100 hover:border-gray-200'
             }`}
           >
             {/* Selection Checkbox */}
-            <div className="absolute left-3 top-3 z-10">
+            <div className="absolute left-4 top-4 z-10">
               <button
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   toggleSelect(kb.id);
                 }}
-                className={`flex h-5 w-5 items-center justify-center rounded border transition-all ${
+                className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-all ${
                   selectedIds.has(kb.id)
                     ? 'border-purple-500 bg-purple-500 text-white'
-                    : 'border-gray-300 bg-white opacity-0 group-hover:opacity-100'
+                    : 'border-gray-300 bg-white/80 opacity-0 backdrop-blur-sm group-hover:opacity-100'
                 }`}
               >
                 {selectedIds.has(kb.id) && (
@@ -356,19 +399,7 @@ export default function TeamKnowledgeBaseTab({
             </div>
 
             {/* Action Menu */}
-            <div className="absolute right-3 top-3 z-10 flex items-center gap-1">
-              {/* 查看详情按钮 */}
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowDetailKbId(kb.id);
-                }}
-                className="rounded-lg p-1.5 text-gray-400 opacity-0 transition-all hover:bg-purple-50 hover:text-purple-600 group-hover:opacity-100"
-                title="查看详情"
-              >
-                <Eye className="h-4 w-4" />
-              </button>
+            <div className="absolute right-4 top-4 z-10 flex items-center gap-1">
               <div className="relative">
                 <button
                   onClick={(e) => {
@@ -376,13 +407,13 @@ export default function TeamKnowledgeBaseTab({
                     e.stopPropagation();
                     setActiveMenuId(activeMenuId === kb.id ? null : kb.id);
                   }}
-                  className="rounded-lg p-1.5 text-gray-400 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-600 group-hover:opacity-100"
+                  className="rounded-lg bg-white/80 p-1.5 text-gray-400 opacity-0 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-gray-600 group-hover:opacity-100"
                 >
                   <MoreVertical className="h-4 w-4" />
                 </button>
 
                 {activeMenuId === kb.id && (
-                  <div className="absolute right-0 top-full z-20 mt-1 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                  <div className="absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl">
                     <button
                       onClick={(e) => {
                         e.preventDefault();
@@ -390,7 +421,7 @@ export default function TeamKnowledgeBaseTab({
                         setEditingKbId(kb.id);
                         setActiveMenuId(null);
                       }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
                     >
                       <Pencil className="h-4 w-4" />
                       编辑
@@ -402,7 +433,7 @@ export default function TeamKnowledgeBaseTab({
                         setManagingMembersKbId(kb.id);
                         setActiveMenuId(null);
                       }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
                     >
                       <UserPlus className="h-4 w-4" />
                       成员管理
@@ -414,7 +445,7 @@ export default function TeamKnowledgeBaseTab({
                         setDeletingKbId(kb.id);
                         setActiveMenuId(null);
                       }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-red-600 transition-colors hover:bg-red-50"
                     >
                       <Trash2 className="h-4 w-4" />
                       删除
@@ -428,46 +459,63 @@ export default function TeamKnowledgeBaseTab({
               onClick={() => setShowDetailKbId(kb.id)}
               className="block w-full text-left"
             >
-              <div className="flex items-start justify-between pr-8">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 text-lg">
-                    {getSourceTypeIcon(kb.sourceType)}
+              {/* Card Header with Icon */}
+              <div className="p-5 pb-0">
+                <div className="flex items-start gap-4">
+                  {/* Large Gradient Icon */}
+                  <div
+                    className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${getIconGradient(kb.sourceType)} text-2xl shadow-md transition-transform duration-300 group-hover:scale-105`}
+                  >
+                    <span className="drop-shadow-sm">
+                      {getSourceTypeIcon(kb.sourceType)}
+                    </span>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 group-hover:text-purple-600">
+                  <div className="min-w-0 flex-1 pt-1">
+                    <h3 className="truncate text-base font-semibold text-gray-900 transition-colors group-hover:text-purple-600">
                       {kb.name}
                     </h3>
-                    <p className="truncate text-xs text-gray-500">
+                    <p className="mt-0.5 truncate text-sm text-gray-500">
                       {(kb.sourceTypes?.length
                         ? kb.sourceTypes
                         : [kb.sourceType]
                       )
                         .map((t) => getSourceTypeLabel(t))
-                        .join(', ')}
+                        .join(' · ')}
                     </p>
                   </div>
                 </div>
-                {getStatusBadge(kb)}
               </div>
 
-              {kb.description && (
-                <p className="mt-3 line-clamp-2 text-sm text-gray-600">
-                  {kb.description}
-                </p>
-              )}
+              {/* Description */}
+              <div className="px-5 py-3">
+                {kb.description ? (
+                  <p className="line-clamp-2 text-sm leading-relaxed text-gray-600">
+                    {kb.description}
+                  </p>
+                ) : (
+                  <p className="text-sm italic text-gray-400">暂无描述</p>
+                )}
+              </div>
 
-              <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
-                <div className="flex items-center gap-3 text-xs text-gray-500">
-                  <span className="flex items-center gap-1">
-                    <FileText className="h-3.5 w-3.5" />
-                    {kb._count?.documents ?? 0} 文档
+              {/* Card Footer */}
+              <div className="flex items-center justify-between border-t border-gray-100 bg-purple-50/30 px-5 py-3">
+                <div className="flex items-center gap-3 text-sm text-gray-600">
+                  <span className="flex items-center gap-1.5">
+                    <FileText className="h-4 w-4 text-gray-400" />
+                    <span className="font-medium">
+                      {kb._count?.documents ?? 0}
+                    </span>
+                    <span className="text-gray-400">文档</span>
                   </span>
-                  <span className="flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5" />
+                  <span className="flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-600">
+                    <Users className="h-3 w-3" />
                     团队
                   </span>
                 </div>
-                <ChevronRight className="h-4 w-4 text-gray-400" />
+                <div className="flex items-center gap-2">
+                  {getStatusBadge(kb)}
+                  <Eye className="h-4 w-4 text-gray-300 transition-colors group-hover:text-purple-500" />
+                </div>
               </div>
             </button>
           </div>

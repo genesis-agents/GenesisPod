@@ -171,6 +171,57 @@ export class AiFileOrganizerService {
     return Array.from(allTags);
   }
 
+  // Valid ResourceType enum values from Prisma schema
+  private readonly VALID_RESOURCE_TYPES = [
+    "PAPER",
+    "BLOG",
+    "REPORT",
+    "YOUTUBE_VIDEO",
+    "NEWS",
+    "PROJECT",
+    "EVENT",
+    "RSS",
+    "POLICY",
+  ];
+
+  // Map AI-suggested categories to valid ResourceType values
+  private mapCategoryToResourceType(category: string): string | null {
+    const categoryMap: Record<string, string> = {
+      // Direct mappings
+      paper: "PAPER",
+      blog: "BLOG",
+      report: "REPORT",
+      news: "NEWS",
+      policy: "POLICY",
+      video: "YOUTUBE_VIDEO",
+      youtube: "YOUTUBE_VIDEO",
+      // Indirect mappings
+      article: "BLOG",
+      document: "REPORT",
+      research: "PAPER",
+      study: "PAPER",
+      analysis: "REPORT",
+      presentation: "REPORT",
+      spreadsheet: "REPORT",
+    };
+
+    const normalizedCategory = category.toLowerCase().trim();
+
+    // Check direct mapping
+    if (categoryMap[normalizedCategory]) {
+      return categoryMap[normalizedCategory];
+    }
+
+    // Check if it's already a valid type (case-insensitive)
+    const upperCategory = normalizedCategory.toUpperCase();
+    if (this.VALID_RESOURCE_TYPES.includes(upperCategory)) {
+      return upperCategory;
+    }
+
+    // No valid mapping found
+    return null;
+  }
+
   /**
    * 应用整理建议到资源
    */
@@ -185,7 +236,16 @@ export class AiFileOrganizerService {
       const topCategory = suggestion.categories.reduce((a, b) =>
         a.confidence > b.confidence ? a : b,
       );
-      updates.type = topCategory.category;
+
+      // Map to valid ResourceType - only update if valid mapping exists
+      const mappedType = this.mapCategoryToResourceType(topCategory.category);
+      if (mappedType) {
+        updates.type = mappedType;
+      } else {
+        this.logger.warn(
+          `Skipping type update: "${topCategory.category}" is not a valid ResourceType`,
+        );
+      }
     }
 
     if (suggestion.tags && suggestion.tags.length > 0) {
@@ -319,42 +379,44 @@ Be concise and accurate. Focus on the most relevant categories and tags.`;
   }
 
   private getDefaultSuggestion(file: FileInfo): OrganizationSuggestion {
-    // 基于文件扩展名的默认分类
+    // 基于文件扩展名的默认分类 - 使用有效的 ResourceType 值
     const ext = file.name.split(".").pop()?.toLowerCase() || "";
     const categoryMap: Record<string, string> = {
-      pdf: "document",
-      doc: "document",
-      docx: "document",
-      txt: "note",
-      md: "note",
-      jpg: "image",
-      jpeg: "image",
-      png: "image",
-      gif: "image",
-      mp4: "video",
-      mp3: "audio",
-      xlsx: "spreadsheet",
-      xls: "spreadsheet",
-      pptx: "presentation",
-      ppt: "presentation",
-      js: "code",
-      ts: "code",
-      py: "code",
-      java: "code",
+      // Documents -> REPORT (closest match)
+      pdf: "REPORT",
+      doc: "REPORT",
+      docx: "REPORT",
+      // Text files -> BLOG
+      txt: "BLOG",
+      md: "BLOG",
+      // Video -> YOUTUBE_VIDEO
+      mp4: "YOUTUBE_VIDEO",
+      mov: "YOUTUBE_VIDEO",
+      avi: "YOUTUBE_VIDEO",
+      // Spreadsheets/Presentations -> REPORT
+      xlsx: "REPORT",
+      xls: "REPORT",
+      pptx: "REPORT",
+      ppt: "REPORT",
+      // Research papers
+      tex: "PAPER",
     };
 
-    const category = categoryMap[ext] || "file";
+    // Get mapped category or null if no valid mapping
+    const category = categoryMap[ext] || null;
 
     return {
       fileId: file.id,
       fileName: file.name,
-      categories: [
-        {
-          category,
-          confidence: 0.5,
-          reason: `Based on file extension .${ext}`,
-        },
-      ],
+      categories: category
+        ? [
+            {
+              category,
+              confidence: 0.5,
+              reason: `Based on file extension .${ext}`,
+            },
+          ]
+        : [], // Empty array if no valid category mapping
       tags: [],
       suggestedFolder: null,
       summary: "",
