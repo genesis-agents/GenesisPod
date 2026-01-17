@@ -18,7 +18,15 @@ export interface SearchResponse {
   success: boolean;
   results: SearchResult[];
   error?: string;
+  /** 实际使用的搜索提供商 */
+  provider?: string;
 }
+
+/** 需要触发自动降级的 HTTP 状态码 */
+const FAILOVER_STATUS_CODES = [401, 429, 432, 500, 502, 503, 504];
+
+/** 搜索提供商优先级顺序 */
+type SearchProvider = "tavily" | "serper" | "duckduckgo";
 
 @Injectable()
 export class SearchService {
@@ -30,7 +38,19 @@ export class SearchService {
   ) {}
 
   /**
+   * 判断错误是否需要触发降级
+   */
+  private shouldFailover(error: any): boolean {
+    const statusCode = error.response?.status;
+    // 网络超时、连接失败、或特定状态码都应该降级
+    if (!statusCode) return true; // 网络错误
+    return FAILOVER_STATUS_CODES.includes(statusCode);
+  }
+
+  /**
    * Search for real-time information using configured search API
+   * ★ 支持自动降级：主 Provider 失败时自动切换到备用 Provider
+   *
    * @param query - Search query string
    * @param maxResults - Maximum number of results to return
    * @param since - Optional date to filter results (only return results newer than this date)
@@ -43,91 +63,166 @@ export class SearchService {
     // Get search API configuration from system settings
     const searchConfig = await this.getSearchConfig();
 
-    // DuckDuckGo doesn't require API key
-    if (!searchConfig.apiKey && searchConfig.provider !== "duckduckgo") {
-      this.logger.warn("Search API key not configured");
-      return {
-        success: false,
-        results: [],
-        error: "Search API not configured",
-      };
+    // 构建降级链：配置的 Provider → 备用 Provider → DuckDuckGo
+    const failoverChain = this.buildFailoverChain(searchConfig);
+
+    let lastError: any = null;
+
+    for (const provider of failoverChain) {
+      try {
+        const result = await this.executeSearch(
+          provider,
+          query,
+          maxResults,
+          since,
+          searchConfig,
+        );
+
+        if (result.success) {
+          return { ...result, provider };
+        }
+
+        // 搜索返回失败但没有抛出异常（如无结果），继续尝试下一个
+        this.logger.warn(
+          `[Search] ${provider} returned unsuccessful: ${result.error}`,
+        );
+        lastError = new Error(result.error);
+      } catch (error: any) {
+        lastError = error;
+        const statusCode = error.response?.status;
+        const errorMessage =
+          error.response?.data?.message ||
+          error.response?.data?.error ||
+          error.message;
+
+        this.logger.warn(
+          `[Search] ${provider} failed (HTTP ${statusCode || "network"}): ${errorMessage}`,
+        );
+
+        // 判断是否需要降级
+        if (this.shouldFailover(error)) {
+          this.logger.log(
+            `[Search] Failing over from ${provider} to next provider...`,
+          );
+          continue; // 尝试下一个 Provider
+        }
+
+        // 非降级错误（如 400 Bad Request），直接返回错误
+        return {
+          success: false,
+          results: [],
+          error: errorMessage,
+          provider,
+        };
+      }
     }
 
-    try {
-      switch (searchConfig.provider) {
-        case "tavily":
-          return await this.searchWithTavily(
-            query,
-            searchConfig.apiKey!,
-            maxResults,
-            since,
-          );
-        case "serper":
-          return await this.searchWithSerper(
-            query,
-            searchConfig.apiKey!,
-            maxResults,
-            since,
-          );
-        case "duckduckgo":
-          return await this.searchWithDuckduckgo(query, maxResults, since);
-        default:
-          return await this.searchWithTavily(
-            query,
-            searchConfig.apiKey!,
-            maxResults,
-            since,
-          );
-      }
-    } catch (error: any) {
-      // Extract detailed error information
-      const statusCode = error.response?.status;
-      const errorData = error.response?.data;
-      const errorMessage =
-        errorData?.message || errorData?.error || error.message;
+    // 所有 Provider 都失败了
+    const finalError =
+      lastError?.response?.data?.message ||
+      lastError?.message ||
+      "All search providers failed";
+    this.logger.error(
+      `[Search] All providers exhausted. Final error: ${finalError}`,
+    );
 
-      // Log detailed error for debugging
-      if (statusCode === 432) {
-        this.logger.error(
-          `Search failed: Tavily API quota exceeded or rate limited (HTTP 432). ` +
-            `Consider upgrading plan or reducing request frequency.`,
-        );
-      } else if (statusCode === 401) {
-        this.logger.error(
-          `Search failed: Invalid or expired API key (HTTP 401). ` +
-            `Please check TAVILY_API_KEY configuration.`,
-        );
-      } else if (statusCode === 429) {
-        this.logger.error(
-          `Search failed: Rate limit exceeded (HTTP 429). ` +
-            `Please wait before making more requests.`,
-        );
-      } else {
-        this.logger.error(
-          `Search failed: ${errorMessage} (HTTP ${statusCode || "unknown"})`,
-        );
-      }
+    return {
+      success: false,
+      results: [],
+      error: finalError,
+    };
+  }
 
-      return {
-        success: false,
-        results: [],
-        error:
-          statusCode === 432
-            ? "Search API quota exceeded. Please try again later."
-            : statusCode === 401
-              ? "Search API key invalid. Please check configuration."
-              : errorMessage,
-      };
+  /**
+   * 构建降级链
+   * 优先级：用户配置的 Provider → 备用付费 Provider → DuckDuckGo（免费兜底）
+   */
+  private buildFailoverChain(searchConfig: {
+    provider: string;
+    apiKey: string | null;
+    tavilyKey?: string | null;
+    serperKey?: string | null;
+  }): SearchProvider[] {
+    const chain: SearchProvider[] = [];
+    const tavilyKey =
+      searchConfig.tavilyKey ||
+      (searchConfig.provider === "tavily" ? searchConfig.apiKey : null);
+    const serperKey =
+      searchConfig.serperKey ||
+      (searchConfig.provider === "serper" ? searchConfig.apiKey : null);
+
+    // 1. 用户配置的首选 Provider
+    if (searchConfig.provider === "tavily" && tavilyKey) {
+      chain.push("tavily");
+    } else if (searchConfig.provider === "serper" && serperKey) {
+      chain.push("serper");
+    } else if (searchConfig.provider === "duckduckgo") {
+      chain.push("duckduckgo");
+    }
+
+    // 2. 备用付费 Provider
+    if (!chain.includes("tavily") && tavilyKey) {
+      chain.push("tavily");
+    }
+    if (!chain.includes("serper") && serperKey) {
+      chain.push("serper");
+    }
+
+    // 3. DuckDuckGo 作为最终兜底（免费，无需 API Key）
+    if (!chain.includes("duckduckgo")) {
+      chain.push("duckduckgo");
+    }
+
+    this.logger.debug(`[Search] Failover chain: ${chain.join(" → ")}`);
+    return chain;
+  }
+
+  /**
+   * 执行搜索
+   */
+  private async executeSearch(
+    provider: SearchProvider,
+    query: string,
+    maxResults: number,
+    since: Date | undefined,
+    searchConfig: {
+      apiKey: string | null;
+      tavilyKey?: string | null;
+      serperKey?: string | null;
+    },
+  ): Promise<SearchResponse> {
+    switch (provider) {
+      case "tavily": {
+        const apiKey = searchConfig.tavilyKey || searchConfig.apiKey;
+        if (!apiKey) {
+          throw new Error("Tavily API key not configured");
+        }
+        return await this.searchWithTavily(query, apiKey, maxResults, since);
+      }
+      case "serper": {
+        const apiKey = searchConfig.serperKey || searchConfig.apiKey;
+        if (!apiKey) {
+          throw new Error("Serper API key not configured");
+        }
+        return await this.searchWithSerper(query, apiKey, maxResults, since);
+      }
+      case "duckduckgo":
+        return await this.searchWithDuckduckgo(query, maxResults, since);
+      default:
+        throw new Error(`Unknown search provider: ${provider}`);
     }
   }
 
   /**
    * Get search API configuration from database, fallback to environment variables
+   * ★ 返回所有可用的 API Key 以支持自动降级
    */
   private async getSearchConfig(): Promise<{
     provider: string;
     apiKey: string | null;
     enabled: boolean;
+    tavilyKey: string | null;
+    serperKey: string | null;
   }> {
     // Environment variable keys
     const tavilyEnvKey = process.env.TAVILY_API_KEY;
@@ -162,45 +257,43 @@ export class SearchService {
         settingsMap["search.enabled"] === false ||
         settingsMap["search.enabled"] === "false"
       ) {
-        return { provider: "tavily", apiKey: null, enabled: false };
+        return {
+          provider: "tavily",
+          apiKey: null,
+          enabled: false,
+          tavilyKey: null,
+          serperKey: null,
+        };
       }
 
       // Get provider from database (user's configured default)
       const provider = settingsMap["search.provider"] || "tavily";
 
-      // Get API key based on provider - check DB first, then env vars
+      // ★ 获取所有可用的 API Key（用于降级链）
+      const tavilyKey =
+        settingsMap["search.tavily.apiKey"] || tavilyEnvKey || null;
+      const serperKey =
+        settingsMap["search.serper.apiKey"] || serperEnvKey || null;
+
+      // Get API key based on configured provider
       let apiKey: string | null = null;
       if (provider === "tavily") {
-        apiKey = settingsMap["search.tavily.apiKey"] || tavilyEnvKey || null;
+        apiKey = tavilyKey;
       } else if (provider === "serper") {
-        apiKey = settingsMap["search.serper.apiKey"] || serperEnvKey || null;
+        apiKey = serperKey;
       }
 
-      // Return with the user's configured provider
-      if (apiKey) {
-        this.logger.debug(
-          `Using search provider: ${provider} (configured in settings)`,
-        );
-        return { provider, apiKey, enabled: true };
-      }
+      this.logger.debug(
+        `[Search] Config: provider=${provider}, tavily=${tavilyKey ? "configured" : "none"}, serper=${serperKey ? "configured" : "none"}`,
+      );
 
-      // If configured provider has no API key, try the alternative
-      // But log a warning since user explicitly chose the provider
-      if (provider === "serper" && tavilyEnvKey) {
-        this.logger.warn(
-          `Serper is configured as default but no API key found. Falling back to Tavily.`,
-        );
-        return { provider: "tavily", apiKey: tavilyEnvKey, enabled: true };
-      }
-      if (provider === "tavily" && serperEnvKey) {
-        this.logger.warn(
-          `Tavily is configured as default but no API key found. Falling back to Serper.`,
-        );
-        return { provider: "serper", apiKey: serperEnvKey, enabled: true };
-      }
-
-      // No API keys available
-      return { provider, apiKey: null, enabled: true };
+      return {
+        provider,
+        apiKey,
+        enabled: true,
+        tavilyKey,
+        serperKey,
+      };
     } catch (error) {
       this.logger.warn(
         "Failed to get search config from database, using env vars",
@@ -208,15 +301,17 @@ export class SearchService {
     }
 
     // Fallback to environment variables when DB access fails
-    // Still respect common config: serper first if available, then tavily
-    if (serperEnvKey) {
-      return { provider: "serper", apiKey: serperEnvKey, enabled: true };
-    }
-    if (tavilyEnvKey) {
-      return { provider: "tavily", apiKey: tavilyEnvKey, enabled: true };
-    }
-
-    return { provider: "tavily", apiKey: null, enabled: true };
+    return {
+      provider: tavilyEnvKey
+        ? "tavily"
+        : serperEnvKey
+          ? "serper"
+          : "duckduckgo",
+      apiKey: tavilyEnvKey || serperEnvKey || null,
+      enabled: true,
+      tavilyKey: tavilyEnvKey || null,
+      serperKey: serperEnvKey || null,
+    };
   }
 
   /**

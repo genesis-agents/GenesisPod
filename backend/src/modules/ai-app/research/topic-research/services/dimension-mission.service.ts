@@ -206,7 +206,7 @@ export class DimensionMissionService {
 
       this.emitProgress(
         topic.id,
-        dimension.id,
+        dimension.name,
         {
           stage: "planning",
           sectionsTotal: 0,
@@ -285,7 +285,7 @@ export class DimensionMissionService {
       // 4. Agent 写作各章节
       this.emitProgress(
         topic.id,
-        dimension.id,
+        dimension.name,
         {
           stage: "writing",
           sectionsTotal: outline.sections.length,
@@ -348,7 +348,7 @@ export class DimensionMissionService {
       // 5. Leader 整合结果
       this.emitProgress(
         topic.id,
-        dimension.id,
+        dimension.name,
         {
           stage: "integrating",
           sectionsTotal: outline.sections.length,
@@ -440,7 +440,7 @@ export class DimensionMissionService {
       // 9. 完成
       this.emitProgress(
         topic.id,
-        dimension.id,
+        dimension.name,
         {
           stage: "completed",
           sectionsTotal: outline.sections.length,
@@ -480,7 +480,7 @@ export class DimensionMissionService {
 
       this.emitProgress(
         topic.id,
-        dimension.id,
+        dimension.name,
         {
           stage: "failed",
           sectionsTotal: 0,
@@ -586,7 +586,7 @@ export class DimensionMissionService {
         // 发送进度
         this.emitProgress(
           topicId,
-          dimension.id,
+          dimension.name,
           {
             stage: "reviewing",
             sectionsTotal: outline.sections.length,

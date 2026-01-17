@@ -163,6 +163,23 @@ const TYPE_ICONS: Record<ResearchTodoType, string> = {
   [ResearchTodoType.USER_REQUEST]: '💬',
 };
 
+// ==================== Helper Functions ====================
+
+/**
+ * 根据进度百分比返回当前阶段描述
+ * 进度阶段：
+ * - 0-10%: 收集中
+ * - 10-30%: 规划中
+ * - 30-80%: 撰写中
+ * - 80-100%: 整合中
+ */
+function getProgressStage(progress: number): string {
+  if (progress < 10) return '收集中';
+  if (progress < 30) return '规划中';
+  if (progress < 80) return '撰写中';
+  return '整合中';
+}
+
 // ==================== Components ====================
 
 /**
@@ -361,7 +378,12 @@ function TodoItem({
               </span>
             )}
             {todo.progress > 0 && todo.progress < 100 && (
-              <span className="text-xs text-gray-500">{todo.progress}%</span>
+              <span className="text-xs text-gray-500">
+                {todo.progress}%
+                <span className="ml-1 text-blue-500/70">
+                  {getProgressStage(todo.progress)}
+                </span>
+              </span>
             )}
           </div>
 

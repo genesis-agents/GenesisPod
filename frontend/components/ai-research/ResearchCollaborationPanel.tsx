@@ -379,12 +379,64 @@ export function ResearchCollaborationPanel({
     const convertedTodos = tasks.map(convertTaskToTodo);
     const taskIds = new Set(convertedTodos.map((t) => t.id));
 
+    // ★ 收集已有任务的维度名称和标题，用于去重 USER_REQUEST
+    // 当用户请求新增维度时，会创建 USER_REQUEST todo，然后 executeAddDimension 又创建 ResearchTask
+    // 两者描述同一个维度但 ID 不同，需要基于 dimensionName 或 title 去重
+    const taskDimensionNames = new Set<string>();
+    const taskTitlePrefixes = new Set<string>();
+
+    for (const todo of convertedTodos) {
+      if (todo.dimensionName) {
+        taskDimensionNames.add(todo.dimensionName.toLowerCase().trim());
+      }
+      // 也收集 "研究: XXX" 格式的标题（去掉前缀后的部分）
+      const titleMatch = todo.title.match(/^研究[：:]\s*(.+)$/);
+      if (titleMatch) {
+        taskTitlePrefixes.add(titleMatch[1].toLowerCase().trim());
+      }
+    }
+
     // 合并 API 返回的 TODO（去重，补充用户请求等类型）
     const mergedTodos = [...convertedTodos];
     for (const apiTodo of apiTodos) {
-      if (!taskIds.has(apiTodo.id)) {
-        mergedTodos.push(apiTodo);
+      // 基本 ID 去重
+      if (taskIds.has(apiTodo.id)) {
+        continue;
       }
+
+      // ★ USER_REQUEST 类型的 TODO：如果已存在同名的 DIMENSION_RESEARCH 任务，则跳过
+      // 这避免了"研究：XX维度"同时显示 USER_REQUEST 和 DIMENSION_RESEARCH 两条记录
+      if (apiTodo.type === 'USER_REQUEST') {
+        let shouldSkip = false;
+
+        // 方法1: 基于 dimensionName 匹配
+        if (apiTodo.dimensionName) {
+          const normalizedName = apiTodo.dimensionName.toLowerCase().trim();
+          if (taskDimensionNames.has(normalizedName)) {
+            shouldSkip = true;
+          }
+        }
+
+        // 方法2: 基于标题匹配（如 "研究：XX" 与 "研究: XX"）
+        if (!shouldSkip) {
+          const todoTitleMatch = apiTodo.title.match(/^研究[：:]\s*(.+)$/);
+          if (todoTitleMatch) {
+            const normalizedTitle = todoTitleMatch[1].toLowerCase().trim();
+            if (
+              taskTitlePrefixes.has(normalizedTitle) ||
+              taskDimensionNames.has(normalizedTitle)
+            ) {
+              shouldSkip = true;
+            }
+          }
+        }
+
+        if (shouldSkip) {
+          continue;
+        }
+      }
+
+      mergedTodos.push(apiTodo);
     }
 
     // 按状态和优先级排序
