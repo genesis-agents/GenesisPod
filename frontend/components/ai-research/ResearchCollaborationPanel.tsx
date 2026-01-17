@@ -631,14 +631,10 @@ export function ResearchCollaborationPanel({
               </span>
             )}
             <div className="ml-auto flex items-center gap-2">
-              {isTasksCollapsed ? (
-                <ChevronDown className="h-4 w-4 text-gray-400" />
-              ) : (
-                <ChevronUp className="h-4 w-4 text-gray-400" />
-              )}
+              <ChevronUp className="h-4 w-4 text-gray-400" />
             </div>
           </div>
-          {/* 折叠时显示紧凑进度条 */}
+          {/* 折叠时显示紧凑进度条（向上折叠） */}
           {isTasksCollapsed ? (
             <div className="flex items-center gap-3 px-4 py-2">
               <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
@@ -699,14 +695,10 @@ export function ResearchCollaborationPanel({
               </span>
             )}
             <div className="ml-auto flex items-center gap-2">
-              {isConversationCollapsed ? (
-                <ChevronDown className="h-4 w-4 text-gray-400" />
-              ) : (
-                <ChevronUp className="h-4 w-4 text-gray-400" />
-              )}
+              <ChevronDown className="h-4 w-4 text-gray-400" />
             </div>
           </div>
-          {/* 折叠时显示简短提示 */}
+          {/* 折叠时显示简短提示（向下折叠） */}
           {isConversationCollapsed ? (
             <div className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500">
               <Brain className="h-4 w-4 text-purple-400" />
