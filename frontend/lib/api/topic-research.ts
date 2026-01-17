@@ -1857,3 +1857,79 @@ export async function aiEditReport(
     }
   );
 }
+
+// ==================== Collaborators ====================
+
+/**
+ * 协作者角色
+ */
+export type CollaboratorRole = 'VIEWER' | 'EDITOR' | 'ADMIN';
+
+/**
+ * 协作者信息
+ */
+export interface Collaborator {
+  id: string;
+  userId: string;
+  email: string;
+  username?: string;
+  avatarUrl?: string;
+  role: CollaboratorRole;
+  invitedAt: string;
+  isActive: boolean;
+}
+
+/**
+ * 协作者列表响应
+ */
+export interface CollaboratorsResponse {
+  topicId: string;
+  owner: {
+    id: string;
+    email: string;
+    username?: string;
+    avatarUrl?: string;
+  };
+  collaborators: Collaborator[];
+  totalCount: number;
+}
+
+/**
+ * 获取专题的协作者列表
+ */
+export async function getCollaborators(
+  topicId: string
+): Promise<CollaboratorsResponse> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/collaborators`);
+}
+
+/**
+ * 检查当前用户是否有编辑权限
+ * @returns 如果是所有者或 EDITOR/ADMIN 协作者返回 true
+ */
+export async function checkEditPermission(
+  topicId: string,
+  currentUserId: string
+): Promise<boolean> {
+  try {
+    const data = await getCollaborators(topicId);
+    // 所有者有编辑权限
+    if (data.owner.id === currentUserId) {
+      return true;
+    }
+    // 检查是否是 EDITOR 或 ADMIN 协作者
+    const userCollaborator = data.collaborators.find(
+      (c) => c.userId === currentUserId && c.isActive
+    );
+    if (
+      userCollaborator &&
+      ['EDITOR', 'ADMIN'].includes(userCollaborator.role)
+    ) {
+      return true;
+    }
+    return false;
+  } catch {
+    // 如果无法获取协作者信息，默认无权限
+    return false;
+  }
+}
