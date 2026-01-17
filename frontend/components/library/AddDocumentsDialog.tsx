@@ -8,60 +8,85 @@ import {
   StickyNote,
   Image as ImageIcon,
   Plus,
-  Upload,
+  FileText,
   HardDrive,
+  ArrowLeft,
+  ChevronRight,
+  Database,
+  Globe,
+  Layers,
 } from 'lucide-react';
 import UrlImportPanel from './UrlImportPanel';
 import BookmarkSelectPanel from './BookmarkSelectPanel';
 import NoteSelectPanel from './NoteSelectPanel';
 import OcrUploadPanel from './OcrUploadPanel';
-import FileUploadPanel from './FileUploadPanel';
+import ResourceSelectPanel from './ResourceSelectPanel';
 import GoogleDriveImportPanel from './GoogleDriveImportPanel';
 
-type TabType = 'upload' | 'gdrive' | 'url' | 'bookmark' | 'note' | 'ocr';
+type PanelType =
+  | 'main'
+  | 'resources'
+  | 'gdrive'
+  | 'url'
+  | 'bookmark'
+  | 'note'
+  | 'ocr';
 
-const TABS = [
+// Source configurations - easy to extend
+const EXTERNAL_SOURCES = [
   {
-    id: 'upload' as TabType,
-    label: '手动上传',
-    icon: Upload,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-  },
-  {
-    id: 'gdrive' as TabType,
+    id: 'gdrive' as PanelType,
     label: 'Google Drive',
+    description: 'Import files from your Google Drive',
     icon: HardDrive,
     color: 'text-green-600',
-    bgColor: 'bg-green-50',
+    bgColor: 'bg-green-100',
+  },
+];
+
+const PLATFORM_SOURCES = [
+  {
+    id: 'resources' as PanelType,
+    label: 'Explore Resources',
+    description: 'Select from your uploaded PDFs and documents',
+    icon: FileText,
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-100',
   },
   {
-    id: 'url' as TabType,
-    label: 'URL 抓取',
-    icon: LinkIcon,
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-50',
-  },
-  {
-    id: 'bookmark' as TabType,
-    label: '平台书签',
+    id: 'bookmark' as PanelType,
+    label: 'Bookmarks',
+    description: 'Import your saved bookmarks',
     icon: Bookmark,
     color: 'text-orange-600',
-    bgColor: 'bg-orange-50',
+    bgColor: 'bg-orange-100',
   },
   {
-    id: 'note' as TabType,
-    label: '平台笔记',
+    id: 'note' as PanelType,
+    label: 'Notes',
+    description: 'Import your platform notes',
     icon: StickyNote,
     color: 'text-yellow-600',
-    bgColor: 'bg-yellow-50',
+    bgColor: 'bg-yellow-100',
+  },
+];
+
+const OTHER_METHODS = [
+  {
+    id: 'url' as PanelType,
+    label: 'URL Fetch',
+    description: 'Import content from web URLs',
+    icon: LinkIcon,
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-100',
   },
   {
-    id: 'ocr' as TabType,
-    label: '图片 OCR',
+    id: 'ocr' as PanelType,
+    label: 'Image OCR',
+    description: 'Extract text from images',
     icon: ImageIcon,
     color: 'text-pink-600',
-    bgColor: 'bg-pink-50',
+    bgColor: 'bg-pink-100',
   },
 ];
 
@@ -74,7 +99,7 @@ interface AddDocumentsDialogProps {
 
 /**
  * Add Documents Dialog
- * Allows users to add content to a knowledge base from various sources
+ * Scalable architecture for importing content from various sources
  */
 export default function AddDocumentsDialog({
   knowledgeBaseId,
@@ -82,7 +107,7 @@ export default function AddDocumentsDialog({
   onClose,
   onDocumentsAdded,
 }: AddDocumentsDialogProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('upload');
+  const [activePanel, setActivePanel] = useState<PanelType>('main');
   const [totalImported, setTotalImported] = useState(0);
 
   const handleImportComplete = (count: number) => {
@@ -90,19 +115,165 @@ export default function AddDocumentsDialog({
     onDocumentsAdded?.();
   };
 
+  const getPanelTitle = () => {
+    switch (activePanel) {
+      case 'resources':
+        return 'Explore Resources';
+      case 'gdrive':
+        return 'Google Drive';
+      case 'url':
+        return 'URL Fetch';
+      case 'bookmark':
+        return 'Bookmarks';
+      case 'note':
+        return 'Notes';
+      case 'ocr':
+        return 'Image OCR';
+      default:
+        return 'Add Content';
+    }
+  };
+
+  const renderSourceCard = (source: {
+    id: PanelType;
+    label: string;
+    description: string;
+    icon: React.ElementType;
+    color: string;
+    bgColor: string;
+  }) => {
+    const Icon = source.icon;
+    return (
+      <button
+        key={source.id}
+        onClick={() => setActivePanel(source.id)}
+        className="group flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 text-left transition-all hover:border-blue-300 hover:bg-blue-50 hover:shadow-sm"
+      >
+        <div
+          className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${source.bgColor}`}
+        >
+          <Icon className={`h-5 w-5 ${source.color}`} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-gray-900">{source.label}</p>
+          <p className="truncate text-xs text-gray-500">{source.description}</p>
+        </div>
+        <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5" />
+      </button>
+    );
+  };
+
+  const renderMainPanel = () => (
+    <div className="space-y-5">
+      {/* External Sources */}
+      {EXTERNAL_SOURCES.length > 0 && (
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+            <Globe className="h-3.5 w-3.5" />
+            External Sources
+          </div>
+          <div className="space-y-2">
+            {EXTERNAL_SOURCES.map(renderSourceCard)}
+          </div>
+        </div>
+      )}
+
+      {/* Platform Content */}
+      <div>
+        <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+          <Database className="h-3.5 w-3.5" />
+          Platform Content
+        </div>
+        <div className="space-y-2">
+          {PLATFORM_SOURCES.map(renderSourceCard)}
+        </div>
+      </div>
+
+      {/* Other Methods */}
+      <div>
+        <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+          <Layers className="h-3.5 w-3.5" />
+          Other Methods
+        </div>
+        <div className="space-y-2">{OTHER_METHODS.map(renderSourceCard)}</div>
+      </div>
+    </div>
+  );
+
+  const renderActivePanel = () => {
+    switch (activePanel) {
+      case 'resources':
+        return (
+          <ResourceSelectPanel
+            knowledgeBaseId={knowledgeBaseId}
+            onImportComplete={handleImportComplete}
+          />
+        );
+      case 'gdrive':
+        return (
+          <GoogleDriveImportPanel
+            knowledgeBaseId={knowledgeBaseId}
+            onImportComplete={handleImportComplete}
+          />
+        );
+      case 'url':
+        return (
+          <UrlImportPanel
+            knowledgeBaseId={knowledgeBaseId}
+            onImportComplete={handleImportComplete}
+          />
+        );
+      case 'bookmark':
+        return (
+          <BookmarkSelectPanel
+            knowledgeBaseId={knowledgeBaseId}
+            onImportComplete={handleImportComplete}
+          />
+        );
+      case 'note':
+        return (
+          <NoteSelectPanel
+            knowledgeBaseId={knowledgeBaseId}
+            onImportComplete={handleImportComplete}
+          />
+        );
+      case 'ocr':
+        return (
+          <OcrUploadPanel
+            knowledgeBaseId={knowledgeBaseId}
+            onImportComplete={handleImportComplete}
+          />
+        );
+      default:
+        return renderMainPanel();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
+      <div className="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-              <Plus className="h-5 w-5 text-blue-600" />
+            {activePanel !== 'main' && (
+              <button
+                onClick={() => setActivePanel('main')}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            )}
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100">
+              <Plus className="h-4 w-4 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">添加内容</h2>
+              <h2 className="text-base font-semibold text-gray-900">
+                {getPanelTitle()}
+              </h2>
               <p className="text-xs text-gray-500">
-                向「{knowledgeBaseName}」添加文档
+                {activePanel === 'main'
+                  ? `Add to "${knowledgeBaseName}"`
+                  : 'Select content to import'}
               </p>
             </div>
           </div>
@@ -114,76 +285,15 @@ export default function AddDocumentsDialog({
           </button>
         </div>
 
-        {/* Tabs - Scrollable on mobile */}
-        <div className="scrollbar-hide overflow-x-auto border-b border-gray-200 px-6">
-          <div className="flex min-w-max">
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-                    isActive
-                      ? `border-blue-500 text-blue-600`
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  }`}
-                >
-                  <Icon className={`h-4 w-4 ${isActive ? tab.color : ''}`} />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         {/* Content */}
-        <div className="p-6">
-          {activeTab === 'upload' && (
-            <FileUploadPanel
-              knowledgeBaseId={knowledgeBaseId}
-              onImportComplete={handleImportComplete}
-            />
-          )}
-          {activeTab === 'gdrive' && (
-            <GoogleDriveImportPanel
-              knowledgeBaseId={knowledgeBaseId}
-              onImportComplete={handleImportComplete}
-            />
-          )}
-          {activeTab === 'url' && (
-            <UrlImportPanel
-              knowledgeBaseId={knowledgeBaseId}
-              onImportComplete={handleImportComplete}
-            />
-          )}
-          {activeTab === 'bookmark' && (
-            <BookmarkSelectPanel
-              knowledgeBaseId={knowledgeBaseId}
-              onImportComplete={handleImportComplete}
-            />
-          )}
-          {activeTab === 'note' && (
-            <NoteSelectPanel
-              knowledgeBaseId={knowledgeBaseId}
-              onImportComplete={handleImportComplete}
-            />
-          )}
-          {activeTab === 'ocr' && (
-            <OcrUploadPanel
-              knowledgeBaseId={knowledgeBaseId}
-              onImportComplete={handleImportComplete}
-            />
-          )}
-        </div>
+        <div className="flex-1 overflow-y-auto p-5">{renderActivePanel()}</div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4">
+        <div className="flex items-center justify-between border-t border-gray-100 px-5 py-3">
           <div className="text-sm text-gray-500">
             {totalImported > 0 && (
               <span className="text-green-600">
-                本次已导入 {totalImported} 个文档
+                Imported {totalImported} documents
               </span>
             )}
           </div>
@@ -191,7 +301,7 @@ export default function AddDocumentsDialog({
             onClick={onClose}
             className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
           >
-            完成
+            Done
           </button>
         </div>
       </div>

@@ -1,0 +1,356 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import {
+  FileText,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  Search,
+  Check,
+  RefreshCw,
+  FileImage,
+  FileVideo,
+  File,
+  ExternalLink,
+} from 'lucide-react';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
+
+interface Resource {
+  id: string;
+  title: string;
+  type: string;
+  sourceUrl?: string;
+  thumbnail?: string;
+  status: string;
+  createdAt: string;
+}
+
+interface ResourceSelectPanelProps {
+  knowledgeBaseId: string;
+  onImportComplete?: (count: number) => void;
+}
+
+/**
+ * ResourceSelectPanel - Select resources from Explore to import to KB
+ */
+export default function ResourceSelectPanel({
+  knowledgeBaseId,
+  onImportComplete,
+}: ResourceSelectPanelProps) {
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<{
+    count: number;
+    message: string;
+  } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Fetch resources from Explore
+  const fetchResources = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      params.set('limit', '50');
+      if (searchQuery) {
+        params.set('search', searchQuery);
+      }
+
+      const response = await fetch(`${config.apiUrl}/resources?${params}`, {
+        headers: {
+          ...getAuthHeader(),
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch resources');
+      }
+
+      const data = await response.json();
+      setResources(data.items || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load resources');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchResources();
+  }, []);
+
+  // Handle search with debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchResources();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const toggleSelect = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const selectAll = () => {
+    if (selectedIds.size === resources.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(resources.map((r) => r.id)));
+    }
+  };
+
+  const handleImport = async () => {
+    if (selectedIds.size === 0) {
+      setError('Please select at least one resource');
+      return;
+    }
+
+    setImporting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      // Build resources array for the API
+      const selectedResources = resources.filter((r) => selectedIds.has(r.id));
+      const resourceData = selectedResources.map((r) => ({
+        sourceType: 'platform_resource',
+        sourceId: r.id,
+        title: r.title,
+        sourceUrl: r.sourceUrl || '',
+        mimeType: getResourceMimeType(r.type),
+      }));
+
+      const response = await fetch(
+        `${config.apiUrl}/rag/knowledge-bases/${knowledgeBaseId}/add-resources`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          },
+          credentials: 'include',
+          body: JSON.stringify({ resources: resourceData }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Import failed');
+      }
+
+      setSuccess({
+        count: selectedIds.size,
+        message: `Successfully imported ${selectedIds.size} resources`,
+      });
+
+      // Clear selection
+      setSelectedIds(new Set());
+      onImportComplete?.(selectedIds.size);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Import failed');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const getResourceMimeType = (type: string): string => {
+    switch (type?.toLowerCase()) {
+      case 'pdf':
+        return 'application/pdf';
+      case 'video':
+        return 'video/mp4';
+      case 'image':
+        return 'image/png';
+      default:
+        return 'text/plain';
+    }
+  };
+
+  const getResourceIcon = (type: string) => {
+    switch (type?.toLowerCase()) {
+      case 'pdf':
+        return <FileText className="h-5 w-5 text-red-500" />;
+      case 'video':
+        return <FileVideo className="h-5 w-5 text-purple-500" />;
+      case 'image':
+        return <FileImage className="h-5 w-5 text-green-500" />;
+      default:
+        return <File className="h-5 w-5 text-gray-500" />;
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('zh-CN', {
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Search and Controls */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search resources..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <button
+          onClick={fetchResources}
+          disabled={loading}
+          className="rounded-lg border border-gray-200 p-2 text-gray-600 hover:bg-gray-50"
+          title="Refresh"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+
+      {/* Resource List */}
+      <div className="max-h-72 overflow-y-auto rounded-lg border border-gray-200">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+            <span className="ml-2 text-sm text-gray-500">Loading...</span>
+          </div>
+        ) : resources.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+            <FileText className="h-10 w-10" />
+            <p className="mt-2 text-sm">No resources found</p>
+            <a
+              href="/explore"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+            >
+              Go to Explore to add resources
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </div>
+        ) : (
+          <>
+            {/* Select All Header */}
+            <div className="sticky top-0 flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-2">
+              <button
+                onClick={selectAll}
+                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+              >
+                <div
+                  className={`flex h-4 w-4 items-center justify-center rounded border ${
+                    selectedIds.size === resources.length
+                      ? 'border-blue-600 bg-blue-600'
+                      : 'border-gray-300'
+                  }`}
+                >
+                  {selectedIds.size === resources.length && (
+                    <Check className="h-3 w-3 text-white" />
+                  )}
+                </div>
+                Select All ({resources.length})
+              </button>
+              <span className="text-xs text-gray-500">
+                {selectedIds.size} selected
+              </span>
+            </div>
+
+            {/* Resource Items */}
+            <div className="divide-y divide-gray-100">
+              {resources.map((resource) => (
+                <div
+                  key={resource.id}
+                  onClick={() => toggleSelect(resource.id)}
+                  className={`flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50 ${
+                    selectedIds.has(resource.id) ? 'bg-blue-50' : ''
+                  }`}
+                >
+                  {/* Checkbox */}
+                  <div
+                    className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border ${
+                      selectedIds.has(resource.id)
+                        ? 'border-blue-600 bg-blue-600'
+                        : 'border-gray-300'
+                    }`}
+                  >
+                    {selectedIds.has(resource.id) && (
+                      <Check className="h-3.5 w-3.5 text-white" />
+                    )}
+                  </div>
+
+                  {/* Icon */}
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100">
+                    {getResourceIcon(resource.type)}
+                  </div>
+
+                  {/* Info */}
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-1 text-sm font-medium text-gray-900">
+                      {resource.title}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span className="uppercase">{resource.type}</span>
+                      <span>-</span>
+                      <span>{formatDate(resource.createdAt)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">
+          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          <span className="text-sm">{error}</span>
+        </div>
+      )}
+
+      {/* Success Message */}
+      {success && (
+        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-green-700">
+          <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
+          <span className="text-sm">{success.message}</span>
+        </div>
+      )}
+
+      {/* Import Button */}
+      <div className="flex items-center justify-end">
+        <button
+          onClick={handleImport}
+          disabled={selectedIds.size === 0 || importing}
+          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+        >
+          {importing ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Importing...
+            </>
+          ) : (
+            <>
+              <FileText className="h-4 w-4" />
+              Import {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
