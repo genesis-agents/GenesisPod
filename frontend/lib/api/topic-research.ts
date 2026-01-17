@@ -903,6 +903,8 @@ export interface AgentInfo {
   status: 'idle' | 'working' | 'completed' | 'failed';
   currentTask?: string;
   assignedDimensions?: string[];
+  /** ★ Agent 使用的 AI 模型名称 */
+  model?: string;
 }
 
 export interface LeaderDecision {

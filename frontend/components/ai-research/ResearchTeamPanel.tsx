@@ -43,6 +43,8 @@ interface AgentNodeInfo {
   currentTask?: string;
   completedTasks?: number;
   totalTasks?: number;
+  /** ★ Agent 使用的 AI 模型名称 */
+  model?: string;
 }
 
 // Agent 颜色配置
@@ -132,6 +134,8 @@ export function ResearchTeamPanel({
       color: agentColors.leader,
       description: leaderInfo.description,
       skills: leaderInfo.skills,
+      // ★ Leader 的模型来自 teamInfo.leaderModel
+      model: teamInfo?.leaderModel || undefined,
     });
 
     // 从 teamInfo 获取 agents，或者使用默认配置
@@ -170,6 +174,8 @@ export function ResearchTeamPanel({
           : researcherInfo.description,
         skills: researcherInfo.skills,
         currentTask: dimensionName,
+        // ★ 从 API 返回的 agent 信息获取模型
+        model: researcher?.model,
       });
     }
 
@@ -188,6 +194,8 @@ export function ResearchTeamPanel({
       color: agentColors.quality_reviewer,
       description: reviewerInfo.description,
       skills: reviewerInfo.skills,
+      // ★ 从 API 返回的 agent 信息获取模型
+      model: reviewer?.model,
     });
 
     // 报告撰写 - 右下
@@ -205,6 +213,8 @@ export function ResearchTeamPanel({
       color: agentColors.report_writer,
       description: writerInfo.description,
       skills: writerInfo.skills,
+      // ★ 从 API 返回的 agent 信息获取模型
+      model: writer?.model,
     });
 
     return { nodes, canvasWidth, canvasHeight, centerX, centerY };
@@ -663,6 +673,16 @@ function AgentDetailModal({
                   </span>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* ★ AI 模型 */}
+          {agent.model && (
+            <div className="mb-3">
+              <p className="text-xs text-gray-500">AI 模型:</p>
+              <p className="mt-1 text-sm font-medium text-purple-600">
+                🤖 {agent.model}
+              </p>
             </div>
           )}
 

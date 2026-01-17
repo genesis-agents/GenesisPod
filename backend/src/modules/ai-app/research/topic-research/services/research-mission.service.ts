@@ -20,6 +20,7 @@ import {
   ResearchTodoStatus,
   LeaderDecisionType,
   Prisma,
+  AIModelType,
 } from "@prisma/client";
 import type { ResearchMission, ResearchTask } from "@prisma/client";
 import {
@@ -859,6 +860,7 @@ export class ResearchMissionService {
 
   /**
    * 获取当前团队组成
+   * ★ 查询数据库获取各 Agent 使用的模型名称
    */
   async getTeamInfo(missionId: string): Promise<TeamInfo> {
     const mission = await this.prisma.researchMission.findUnique({
@@ -870,17 +872,23 @@ export class ResearchMissionService {
       throw new NotFoundException(`Mission ${missionId} not found`);
     }
 
+    // ★ 查询各类型的默认模型（用于显示 Agent 使用的模型）
+    const modelTypeMap = await this.getDefaultModelNames();
+
     // 从任务中提取 Agent 信息
     const agentMap = new Map<string, AgentInfo>();
 
     for (const task of mission.tasks) {
       if (!agentMap.has(task.assignedAgent)) {
+        const agentType = task.assignedAgentType || "unknown";
         agentMap.set(task.assignedAgent, {
           id: task.assignedAgent,
-          type: task.assignedAgentType || "unknown",
+          type: agentType,
           role: this.getAgentRole(task.assignedAgentType),
           status: "idle",
           assignedDimensions: [],
+          // ★ 根据 Agent 类型设置模型名称
+          model: this.getModelForAgentType(agentType, modelTypeMap),
         });
       }
 
@@ -909,6 +917,44 @@ export class ResearchMissionService {
       leaderModel: mission.leaderModelName || "unknown",
       agents: Array.from(agentMap.values()),
     };
+  }
+
+  /**
+   * ★ 查询各模型类型的默认模型名称
+   */
+  private async getDefaultModelNames(): Promise<Map<AIModelType, string>> {
+    const models = await this.prisma.aIModel.findMany({
+      where: {
+        isEnabled: true,
+        isDefault: true,
+      },
+      select: {
+        modelType: true,
+        displayName: true,
+        modelId: true,
+      },
+    });
+
+    const map = new Map<AIModelType, string>();
+    for (const model of models) {
+      // 使用 displayName 优先，否则使用 modelId
+      map.set(model.modelType, model.displayName || model.modelId);
+    }
+    return map;
+  }
+
+  /**
+   * ★ 根据 Agent 类型获取对应的模型名称
+   * 所有 worker agent 使用 CHAT 类型模型
+   * Leader 的模型名称存储在 mission.leaderModelName 中
+   */
+  private getModelForAgentType(
+    _agentType: string,
+    modelMap: Map<AIModelType, string>,
+  ): string {
+    // 所有 worker agent 都使用 CHAT 模型
+    // Leader 的模型在 TeamInfo.leaderModel 中单独返回
+    return modelMap.get(AIModelType.CHAT) || "Chat Model";
   }
 
   /**
