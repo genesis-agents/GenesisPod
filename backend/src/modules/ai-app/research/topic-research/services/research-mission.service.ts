@@ -166,64 +166,47 @@ export class ResearchMissionService {
     });
 
     if (existingMission) {
-      // ★ 检查是否有活跃任务（PENDING/ASSIGNED/EXECUTING）
-      const activeTasks = existingMission.tasks.filter(
-        (t) =>
-          t.status === ResearchTaskStatus.PENDING ||
-          t.status === ResearchTaskStatus.ASSIGNED ||
-          t.status === ResearchTaskStatus.EXECUTING,
+      // ★ 用户主动点击"开始研究"，无条件取消旧任务，启动新的
+      this.logger.warn(
+        `[createMission] Found existing mission ${existingMission.id} (status: ${existingMission.status}), ` +
+          `auto-cancelling to start fresh...`,
       );
+
+      // 取消旧 Mission
+      await this.prisma.researchMission.update({
+        where: { id: existingMission.id },
+        data: { status: ResearchMissionStatus.CANCELLED },
+      });
+
+      // 取消旧 Mission 的所有 Task
+      await this.prisma.researchTask.updateMany({
+        where: {
+          missionId: existingMission.id,
+          status: {
+            notIn: [ResearchTaskStatus.COMPLETED, ResearchTaskStatus.FAILED],
+          },
+        },
+        data: { status: ResearchTaskStatus.FAILED },
+      });
+
+      // 取消旧 Mission 的所有 Todo
+      await this.prisma.researchTodo.updateMany({
+        where: {
+          missionId: existingMission.id,
+          status: {
+            notIn: [ResearchTodoStatus.COMPLETED, ResearchTodoStatus.CANCELLED],
+          },
+        },
+        data: {
+          status: ResearchTodoStatus.CANCELLED,
+          statusMessage: "用户启动了新研究",
+          completedAt: new Date(),
+        },
+      });
 
       this.logger.log(
-        `[createMission] Found existing mission ${existingMission.id}, ` +
-          `total tasks: ${existingMission.tasks.length}, active tasks: ${activeTasks.length}, ` +
-          `task statuses: ${JSON.stringify(existingMission.tasks.map((t) => t.status))}`,
+        `[createMission] Auto-cancelled old mission ${existingMission.id}`,
       );
-
-      // ★ 简化逻辑：如果没有活跃任务，自动取消旧任务
-      // 活跃任务 = PENDING/ASSIGNED/EXECUTING
-      // 非活跃 = COMPLETED/FAILED/NEEDS_REVISION 或空任务列表
-      if (activeTasks.length === 0) {
-        this.logger.warn(
-          `[createMission] Mission ${existingMission.id} has no active tasks, auto-cancelling...`,
-        );
-
-        // 自动取消旧任务
-        await this.prisma.researchMission.update({
-          where: { id: existingMission.id },
-          data: { status: ResearchMissionStatus.CANCELLED },
-        });
-
-        // 同步更新 ResearchTodo（将所有未完成的状态都标记为取消）
-        await this.prisma.researchTodo.updateMany({
-          where: {
-            missionId: existingMission.id,
-            status: {
-              notIn: [
-                ResearchTodoStatus.COMPLETED,
-                ResearchTodoStatus.CANCELLED,
-              ],
-            },
-          },
-          data: {
-            status: ResearchTodoStatus.CANCELLED,
-            statusMessage: "旧任务已自动清理",
-            completedAt: new Date(),
-          },
-        });
-
-        this.logger.log(
-          `[createMission] Auto-cancelled stale mission ${existingMission.id}`,
-        );
-      } else {
-        // 有活跃任务，不允许启动新任务
-        this.logger.warn(
-          `[createMission] Cannot start new mission: ${activeTasks.length} active tasks in mission ${existingMission.id}`,
-        );
-        throw new Error(
-          `A mission is already in progress for topic ${topicId}`,
-        );
-      }
     }
 
     // 3. 获取 Leader 模型信息
