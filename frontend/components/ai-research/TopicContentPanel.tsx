@@ -51,6 +51,7 @@ import {
   setCitationClickCallback,
   triggerCitationClick,
 } from './citationNavigation';
+import { safeString } from '@/lib/utils/common';
 
 // Tab 类型定义
 type TabType =
@@ -126,29 +127,6 @@ interface UIMessage {
   progress?: number; // 0-100 进度
   status?: 'success' | 'error' | 'in_progress' | 'pending'; // ★ 消息状态，用于时间线颜色
   dimensionName?: string; // ★ 研究维度名称，用于按任务过滤
-}
-
-// ★ 安全字符串转换：防止对象被当作 React 子元素渲染 (React Error #31)
-function safeString(val: unknown): string {
-  if (val === null || val === undefined) return '';
-  if (typeof val === 'string') return val;
-  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
-  // 对象类型：尝试获取常见的文本字段，否则 JSON 序列化
-  if (typeof val === 'object') {
-    const obj = val as Record<string, unknown>;
-    // 尝试常见的文本字段
-    if (typeof obj.message === 'string') return obj.message;
-    if (typeof obj.content === 'string') return obj.content;
-    if (typeof obj.text === 'string') return obj.text;
-    if (typeof obj.result === 'string') return obj.result;
-    // 最后尝试 JSON 序列化
-    try {
-      return JSON.stringify(val);
-    } catch {
-      return '[Object]';
-    }
-  }
-  return String(val);
 }
 
 interface TopicContentPanelProps {
@@ -1208,6 +1186,7 @@ export function TopicContentPanel({
                       currentUserName={user?.username || user?.email || '用户'}
                       isLoading={isLoadingReport}
                       hideToolbar={true}
+                      disableSidePanel={true}
                       sidePanelType={sidePanelType}
                       onSidePanelChange={setSidePanelType}
                       onAIEdit={async (operation, selection) => {

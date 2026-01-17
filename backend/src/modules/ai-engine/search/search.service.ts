@@ -1,8 +1,14 @@
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import * as duckDuckScrape from "duck-duck-scrape";
+import * as crypto from "crypto";
 
 export interface SearchResult {
   title: string;
@@ -37,6 +43,12 @@ interface KeyHealth {
 /** Key 冷却时间（毫秒）- 失败后多久重试 */
 const KEY_COOLDOWN_MS = 5 * 60 * 1000; // 5 分钟
 
+/** 健康记录过期时间（毫秒）- 24 小时后清理 */
+const KEY_HEALTH_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** 清理间隔（毫秒）- 每小时清理一次 */
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+
 /** 搜索配置（支持多 Key） */
 interface SearchConfig {
   provider: string;
@@ -46,14 +58,25 @@ interface SearchConfig {
 }
 
 @Injectable()
-export class SearchService {
+export class SearchService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SearchService.name);
 
   /**
    * API Key 健康状态追踪
-   * Key: "provider:apiKey" → Value: { failedAt, errorCode }
+   * Key: SHA-256 hash of "provider:apiKey" → Value: { failedAt, errorCode }
+   * ★ 使用哈希避免 API Key 泄露
    */
   private keyHealthMap = new Map<string, KeyHealth>();
+
+  /**
+   * Round-Robin 索引追踪
+   * Key: provider → Value: next key index
+   * ★ 避免并发请求都使用同一 Key
+   */
+  private keyIndexMap = new Map<SearchProvider, number>();
+
+  /** 清理定时器 */
+  private cleanupTimer: NodeJS.Timeout | null = null;
 
   constructor(
     private readonly httpService: HttpService,
@@ -61,44 +84,119 @@ export class SearchService {
   ) {}
 
   /**
+   * 模块初始化时启动清理定时器
+   */
+  onModuleInit() {
+    this.cleanupTimer = setInterval(() => {
+      this.cleanupExpiredHealthRecords();
+    }, CLEANUP_INTERVAL_MS);
+    this.logger.log("[Search] Health record cleanup timer started");
+  }
+
+  /**
+   * 模块销毁时清理定时器
+   */
+  onModuleDestroy() {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+      this.logger.log("[Search] Health record cleanup timer stopped");
+    }
+  }
+
+  /**
+   * 清理过期的健康记录，防止内存泄漏
+   */
+  private cleanupExpiredHealthRecords(): void {
+    const now = Date.now();
+    let cleanedCount = 0;
+
+    for (const [key, health] of this.keyHealthMap.entries()) {
+      if (now - health.failedAt > KEY_HEALTH_TTL_MS) {
+        this.keyHealthMap.delete(key);
+        cleanedCount++;
+      }
+    }
+
+    if (cleanedCount > 0) {
+      this.logger.debug(
+        `[Search] Cleaned up ${cleanedCount} expired health records`,
+      );
+    }
+  }
+
+  /**
+   * 获取 Key 的哈希值（避免明文存储）
+   * ★ 安全：API Key 不会出现在 Map 键或日志中
+   */
+  private getKeyHash(provider: SearchProvider, key: string): string {
+    return crypto
+      .createHash("sha256")
+      .update(`${provider}:${key}`)
+      .digest("hex")
+      .substring(0, 16); // 只取前 16 位，足够唯一标识
+  }
+
+  /**
+   * 获取 Key 的掩码显示（用于日志）
+   * ★ 安全：只显示长度，不暴露任何字符
+   */
+  private getMaskedKey(key: string): string {
+    return `[${key.length}chars]`;
+  }
+
+  /**
    * 获取健康的 API Key
-   * 优先返回未失败的 Key，或者冷却期已过的 Key
+   * ★ 使用 Round-Robin 分散并发请求到不同的 Key
+   * ★ 使用哈希存储健康状态，避免 Key 泄露
+   * ★ 原子性索引递增，避免并发请求使用同一 Key
    */
   private getHealthyKey(
     provider: SearchProvider,
     keys: string[],
   ): string | null {
-    if (keys.length === 0) return null;
+    // 过滤空 Key
+    const validKeys = keys.filter((k) => k && k.trim() !== "");
+    if (validKeys.length === 0) return null;
 
     const now = Date.now();
+
+    // ★ 原子性获取并递增索引（避免并发请求获取相同 Key）
+    // 即使在同步代码中，也要确保 get-and-increment 紧密相邻
+    const startIndex = this.keyIndexMap.get(provider) || 0;
+    this.keyIndexMap.set(provider, (startIndex + 1) % validKeys.length);
+
+    // Round-Robin: 从当前索引开始尝试
+    for (let i = 0; i < validKeys.length; i++) {
+      const index = (startIndex + i) % validKeys.length;
+      const key = validKeys[index];
+      const healthKey = this.getKeyHash(provider, key);
+      const health = this.keyHealthMap.get(healthKey);
+
+      // Key 从未失败过，或冷却期已过
+      if (!health || now - health.failedAt >= KEY_COOLDOWN_MS) {
+        if (health) {
+          this.logger.debug(
+            `[Search] Key ${this.getMaskedKey(key)} cooldown expired, retrying`,
+          );
+        }
+        return key;
+      }
+    }
+
+    // 所有 Key 都在冷却期，返回最早失败的
     let fallbackKey: string | null = null;
     let oldestFailedAt = Infinity;
 
-    for (const key of keys) {
-      const healthKey = `${provider}:${key}`;
+    for (const key of validKeys) {
+      const healthKey = this.getKeyHash(provider, key);
       const health = this.keyHealthMap.get(healthKey);
-
-      // Key 从未失败过，直接使用
-      if (!health) {
-        return key;
-      }
-
-      // Key 冷却期已过，可以重试
-      if (now - health.failedAt >= KEY_COOLDOWN_MS) {
-        this.logger.debug(
-          `[Search] Key ${key.slice(0, 8)}... cooldown expired, retrying`,
-        );
-        return key;
-      }
-
-      // 记录最早失败的 Key 作为备选
-      if (health.failedAt < oldestFailedAt) {
+      if (health && health.failedAt < oldestFailedAt) {
         oldestFailedAt = health.failedAt;
         fallbackKey = key;
       }
     }
 
-    // 所有 Key 都在冷却期，返回最早失败的（可能已经恢复）
     if (fallbackKey) {
       this.logger.warn(
         `[Search] All ${provider} keys in cooldown, using oldest failed key`,
@@ -109,19 +207,20 @@ export class SearchService {
 
   /**
    * 标记 Key 失败
+   * ★ 使用哈希存储，不暴露 Key 内容
    */
   private markKeyFailed(
     provider: SearchProvider,
     key: string,
     errorCode: number,
   ): void {
-    const healthKey = `${provider}:${key}`;
+    const healthKey = this.getKeyHash(provider, key);
     this.keyHealthMap.set(healthKey, {
       failedAt: Date.now(),
       errorCode,
     });
     this.logger.warn(
-      `[Search] Marked ${provider} key ${key.slice(0, 8)}... as failed (HTTP ${errorCode})`,
+      `[Search] Marked ${provider} key ${this.getMaskedKey(key)} as failed (HTTP ${errorCode})`,
     );
   }
 
@@ -129,11 +228,11 @@ export class SearchService {
    * 清除 Key 的失败状态（成功时调用）
    */
   private clearKeyFailure(provider: SearchProvider, key: string): void {
-    const healthKey = `${provider}:${key}`;
+    const healthKey = this.getKeyHash(provider, key);
     if (this.keyHealthMap.has(healthKey)) {
       this.keyHealthMap.delete(healthKey);
       this.logger.debug(
-        `[Search] Cleared failure status for ${provider} key ${key.slice(0, 8)}...`,
+        `[Search] Cleared failure status for ${provider} key ${this.getMaskedKey(key)}`,
       );
     }
   }
@@ -217,18 +316,21 @@ export class SearchService {
         lastError = new Error(result.error);
       } catch (error: any) {
         lastError = error;
-        const statusCode = error.response?.status || 0;
+        // ★ 使用 undefined 而非 0 来区分"无响应"和"有响应但状态码异常"
+        const statusCode: number | undefined = error.response?.status;
         const errorMessage =
           error.response?.data?.message ||
           error.response?.data?.error ||
           error.message;
 
         this.logger.warn(
-          `[Search] ${provider} failed (HTTP ${statusCode || "network"}): ${errorMessage}`,
+          `[Search] ${provider} failed (${statusCode !== undefined ? `HTTP ${statusCode}` : "network error"}): ${errorMessage}`,
         );
 
-        // 标记当前 Key 失败
-        if (currentKey && statusCode) {
+        // ★ 标记当前 Key 失败
+        // - 有 HTTP 状态码时（包括 0）：标记失败，进入冷却期
+        // - 网络错误（无状态码）：不标记失败，可能是临时网络问题
+        if (currentKey && statusCode !== undefined) {
           this.markKeyFailed(provider, currentKey, statusCode);
         }
 

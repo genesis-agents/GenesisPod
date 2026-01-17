@@ -36,29 +36,13 @@ import {
   AlertCircle,
   RefreshCw,
 } from 'lucide-react';
-import { cn } from '@/lib/utils/common';
+import { cn, safeString } from '@/lib/utils/common';
 import {
   getCredibilityReport,
   regenerateCredibilityReport,
   recalculateCredibilityScores,
   type CredibilityReportData,
 } from '@/lib/api/topic-research';
-
-// Helper: safely convert any value to string for React rendering
-function safeString(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean')
-    return String(value);
-  if (typeof value === 'object') {
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return '[Object]';
-    }
-  }
-  return String(value);
-}
 
 // ==================== Types ====================
 

@@ -450,15 +450,124 @@ function processChildren(
   return children;
 }
 
+// ============================================================================
+// Citation Processing - Refactored into smaller functions
+// ============================================================================
+
+/**
+ * Citation pattern regex - matches multiple citation formats:
+ * 1. __CITE_GROUP_1_2__ - internal marker with delimiters
+ * 2. CITE_GROUP_6_8 - AI output format without delimiters
+ * 3. [资料 1] or [资料 1, 2] - Chinese reference format
+ * 4. [1] or [1, 2] - standard citation format
+ * 5. [temp-X-Y] - evidence ID format
+ * 6. [uuid] - UUID format
+ */
+const CITATION_PATTERN =
+  /(__CITE_GROUP_[\d_]+__|CITE_GROUP_\d+(?:_\d+)*|\[资料\s*(\d+(?:\s*[,、]\s*\d+)*)\]|\[(temp-\d+-\d+)\]|\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]|\[(\d+(?:\s*,\s*\d+)*)\])/gi;
+
+/**
+ * Clean citation-related stray underscores from AI-generated text
+ * AI sometimes generates formats like: [32]____[39], [33]__[38], [33] [35]__
+ */
+function cleanCitationMarkers(text: string): string {
+  return text
+    .replace(/\]_+\[/g, '][')
+    .replace(/\]_+\s*\[/g, '][')
+    .replace(/\]\s*_+\[/g, '][')
+    .replace(/(\[\d+(?:\s*,\s*\d+)*\])\s*_+(?=\s|[。.!?！？,，;；]|$)/g, '$1')
+    .replace(/_+\s*([。.!?！？])/g, '$1')
+    .replace(/_+$/g, '');
+}
+
+/**
+ * Build evidence ID to source index mapping
+ */
+function buildEvidenceIdMap(sources: SourceReference[]): Map<string, number> {
+  const map = new Map<string, number>();
+  sources.forEach((source, index) => {
+    map.set(source.id, index + 1);
+  });
+  return map;
+}
+
+/**
+ * Parse citation indices from regex match
+ */
+function parseIndicesFromMatch(
+  match: RegExpExecArray,
+  evidenceIdMap: Map<string, number>
+): number[] {
+  // __CITE_GROUP_1_2__ format
+  if (match[0].startsWith('__CITE_GROUP_')) {
+    const indicesStr = match[0].replace('__CITE_GROUP_', '').replace('__', '');
+    return indicesStr.split('_').map((s) => parseInt(s, 10));
+  }
+
+  // CITE_GROUP_6_8 format (AI output)
+  if (match[0].startsWith('CITE_GROUP_')) {
+    const indicesStr = match[0].replace('CITE_GROUP_', '');
+    return indicesStr.split('_').map((s) => parseInt(s, 10));
+  }
+
+  // [资料 1] or [资料 1, 2] format
+  if (match[2]) {
+    return match[2].split(/\s*[,、]\s*/).map((s) => parseInt(s, 10));
+  }
+
+  // [temp-X-Y] format
+  if (match[3]) {
+    const sourceIndex = evidenceIdMap.get(match[3]);
+    return sourceIndex ? [sourceIndex] : [];
+  }
+
+  // [uuid] format
+  if (match[4]) {
+    const sourceIndex = evidenceIdMap.get(match[4]);
+    return sourceIndex ? [sourceIndex] : [];
+  }
+
+  // [1] or [1, 2] format
+  if (match[5]) {
+    return match[5].split(/\s*,\s*/).map((s) => parseInt(s, 10));
+  }
+
+  return [];
+}
+
+/**
+ * Extract quote context around a citation for highlighting
+ */
+function extractCitationContext(
+  text: string,
+  matchIndex: number,
+  matchLength: number
+): string {
+  const contextStart = Math.max(0, matchIndex - 100);
+  const contextEnd = Math.min(text.length, matchIndex + matchLength + 100);
+  let context = text.slice(contextStart, contextEnd);
+
+  // Remove all citation markers from context
+  context = context
+    .replace(/\[[\d,\s]+\]/g, '')
+    .replace(/\[资料\s*[\d,、\s]+\]/g, '')
+    .replace(/__CITE_GROUP_[\d_]+__/g, '')
+    .replace(/CITE_GROUP_\d+(?:_\d+)*/g, '')
+    .replace(/\[temp-\d+-\d+\]/g, '')
+    .replace(
+      /\[[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\]/gi,
+      ''
+    )
+    .trim();
+
+  // Extract meaningful phrase between punctuation
+  const sentenceMatch = context.match(/[^。！？.!?]*[^。！？.!?]/);
+  return sentenceMatch ? sentenceMatch[0].trim() : context.slice(0, 80);
+}
+
 /**
  * Process text to replace citation markers with CitationLink components
- * Supports multiple formats:
- * - [1], [2], [1, 2] - standard citation format
- * - [资料 1], [资料 1, 2] - Chinese "资料" format
- * - __CITE_GROUP_1_2__ - internal marker format
- * - CITE_GROUP_6_8 - AI output format (without delimiters)
- * - [temp-X-Y] - evidence ID format from research reports
- * - [uuid] - UUID format from older research reports
+ * and apply annotation highlighting
  */
 function processText(
   text: string,
@@ -466,114 +575,42 @@ function processText(
   annotations: Annotation[] = [],
   highlightedAnnotationId?: string | null
 ): React.ReactNode {
-  // ★ 预处理：清理引用相关的孤立下划线
-  // AI 有时会生成 [32]____[39] 或 [33]__[38] 或 [33] [35]__ 这样的格式
-  let cleanedText = text
-    .replace(/\]_+\[/g, '][') // 清理 ]____[ 任意数量下划线
-    .replace(/\]_+\s*\[/g, '][') // 清理 ]____ [ 带空格的情况
-    .replace(/\]\s*_+\[/g, '][') // 清理 ] ____[ 带空格的情况
-    .replace(/(\[\d+(?:\s*,\s*\d+)*\])\s*_+(?=\s|[。.!?！？,，;；]|$)/g, '$1') // 清理引用后的孤立下划线 [33]__
-    .replace(/_+\s*([。.!?！？])/g, '$1') // 清理标点前的孤立下划线
-    .replace(/_+$/g, ''); // 清理行尾的孤立下划线
+  // Step 1: Clean stray underscores
+  const cleanedText = cleanCitationMarkers(text);
 
-  // Build a map from evidence IDs to source indices for UUID and temp-X-Y formats
-  const evidenceIdMap = new Map<string, number>();
-  sources.forEach((source, index) => {
-    evidenceIdMap.set(source.id, index + 1);
-  });
+  // Step 2: Build evidence ID map
+  const evidenceIdMap = buildEvidenceIdMap(sources);
 
-  // Match multiple citation formats:
-  // 1. __CITE_GROUP_1_2__ - internal marker with delimiters
-  // 2. CITE_GROUP_6_8 - AI output format without delimiters
-  // 3. [资料 1] or [资料 1, 2] - Chinese reference format
-  // 4. [1] or [1, 2] - standard citation format
-  // 5. [temp-X-Y] - evidence ID format
-  // 6. [uuid] - UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-  const pattern =
-    /(__CITE_GROUP_[\d_]+__|CITE_GROUP_\d+(?:_\d+)*|\[资料\s*(\d+(?:\s*[,、]\s*\d+)*)\]|\[(temp-\d+-\d+)\]|\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]|\[(\d+(?:\s*,\s*\d+)*)\])/gi;
+  // Step 3: Extract citations and build parts array
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  pattern.lastIndex = 0;
+  // Reset regex state for each call
+  CITATION_PATTERN.lastIndex = 0;
 
-  while ((match = pattern.exec(cleanedText)) !== null) {
+  while ((match = CITATION_PATTERN.exec(cleanedText)) !== null) {
     // Add text before match
     if (match.index > lastIndex) {
       parts.push(cleanedText.slice(lastIndex, match.index));
     }
 
-    // Parse indices based on format
-    let indices: number[] = [];
-    let evidenceId: string | null = null;
-
-    if (match[0].startsWith('__CITE_GROUP_')) {
-      // Extract indices from __CITE_GROUP_1_2__ marker
-      const indicesStr = match[0]
-        .replace('__CITE_GROUP_', '')
-        .replace('__', '');
-      indices = indicesStr.split('_').map((s) => parseInt(s, 10));
-    } else if (match[0].startsWith('CITE_GROUP_')) {
-      // Extract indices from CITE_GROUP_6_8 format (AI output)
-      const indicesStr = match[0].replace('CITE_GROUP_', '');
-      indices = indicesStr.split('_').map((s) => parseInt(s, 10));
-    } else if (match[2]) {
-      // [资料 1] or [资料 1, 2] format - Chinese reference style
-      // Split by comma (,) or Chinese comma (、)
-      indices = match[2].split(/\s*[,、]\s*/).map((s) => parseInt(s, 10));
-    } else if (match[3]) {
-      // [temp-X-Y] format - evidence ID from research reports
-      evidenceId = match[3];
-      const sourceIndex = evidenceIdMap.get(evidenceId);
-      if (sourceIndex) {
-        indices = [sourceIndex];
-      }
-    } else if (match[4]) {
-      // [uuid] format - UUID evidence ID from older research reports
-      evidenceId = match[4];
-      const sourceIndex = evidenceIdMap.get(evidenceId);
-      if (sourceIndex) {
-        indices = [sourceIndex];
-      }
-    } else if (match[5]) {
-      // Original [1] or [1, 2] format
-      indices = match[5].split(/\s*,\s*/).map((s) => parseInt(s, 10));
-    } else {
-      // Fallback - should not happen
+    // Parse citation indices
+    const indices = parseIndicesFromMatch(match, evidenceIdMap);
+    if (indices.length === 0) {
+      lastIndex = match.index + match[0].length;
       continue;
     }
 
-    // Extract surrounding context for quote-based highlighting
-    // Get the sentence or phrase around the citation for better matching
-    const contextStart = Math.max(0, match.index - 100);
-    const contextEnd = Math.min(
-      cleanedText.length,
-      match.index + match[0].length + 100
+    // Extract context quote
+    const quote = extractCitationContext(
+      cleanedText,
+      match.index,
+      match[0].length
     );
-    let surroundingContext = cleanedText.slice(contextStart, contextEnd);
-
-    // Clean the context - remove citation markers and trim to sentence boundaries
-    surroundingContext = surroundingContext
-      .replace(/\[[\d,\s]+\]/g, '') // Remove [1], [1, 2] patterns
-      .replace(/\[资料\s*[\d,、\s]+\]/g, '') // Remove Chinese patterns
-      .replace(/__CITE_GROUP_[\d_]+__/g, '') // Remove internal markers
-      .replace(/CITE_GROUP_\d+(?:_\d+)*/g, '') // Remove AI markers
-      .replace(/\[temp-\d+-\d+\]/g, '') // Remove evidence ID patterns
-      .replace(
-        /\[[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\]/gi,
-        ''
-      ) // Remove UUID patterns
-      .trim();
-
-    // Try to extract a meaningful phrase (between punctuation)
-    const sentenceMatch = surroundingContext.match(/[^。！？.!?]*[^。！？.!?]/);
-    const quote = sentenceMatch
-      ? sentenceMatch[0].trim()
-      : surroundingContext.slice(0, 80);
 
     // Create citation links
-    for (let i = 0; i < indices.length; i++) {
-      const sourceIndex = indices[i];
+    for (const sourceIndex of indices) {
       const source = sources[sourceIndex - 1];
       if (source) {
         parts.push(
@@ -584,7 +621,7 @@ function processText(
               sourceIndex,
               sourceId: source.id,
               sourceTitle: source.title,
-              quote: quote.length > 10 ? quote : undefined, // Only use if meaningful
+              quote: quote.length > 10 ? quote : undefined,
             }}
             className="mx-0.5"
           />
@@ -600,10 +637,261 @@ function processText(
     parts.push(cleanedText.slice(lastIndex));
   }
 
-  // Note: Annotations are now handled by AnnotationHighlighter component via DOM post-processing
-  // This enables cross-paragraph annotation highlighting that inline processing cannot handle
+  // Step 4: Apply annotation highlighting
+  if (annotations.length > 0) {
+    const highlightedParts: React.ReactNode[] = [];
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (typeof part === 'string') {
+        highlightedParts.push(
+          ...applyAnnotationHighlights(
+            part,
+            annotations,
+            highlightedAnnotationId,
+            i
+          )
+        );
+      } else {
+        highlightedParts.push(part);
+      }
+    }
+    return highlightedParts.length === 1
+      ? highlightedParts[0]
+      : highlightedParts;
+  }
 
   return parts.length === 1 ? parts[0] : parts;
+}
+
+/**
+ * Apply annotation highlights to text
+ * Uses fuzzy matching to handle cross-paragraph selections
+ */
+function applyAnnotationHighlights(
+  text: string,
+  annotations: Annotation[],
+  highlightedAnnotationId?: string | null,
+  keyPrefix: number = 0
+): React.ReactNode[] {
+  if (!text || annotations.length === 0) {
+    return [text];
+  }
+
+  // Normalize text for matching (collapse whitespace)
+  const normalizeForMatch = (str: string) => str.replace(/\s+/g, ' ').trim();
+
+  // Find all annotation matches in this text
+  const matches: Array<{
+    start: number;
+    end: number;
+    annotation: Annotation;
+  }> = [];
+
+  for (const annotation of annotations) {
+    const normalizedTarget = normalizeForMatch(annotation.selectedText);
+    const normalizedText = normalizeForMatch(text);
+
+    // Try exact match first
+    let matchIndex = normalizedText.indexOf(normalizedTarget);
+    if (matchIndex !== -1) {
+      // Map back to original text positions
+      const originalStart = findOriginalPosition(text, matchIndex);
+      const originalEnd = findOriginalPosition(
+        text,
+        matchIndex + normalizedTarget.length
+      );
+      matches.push({
+        start: originalStart,
+        end: originalEnd,
+        annotation,
+      });
+      continue;
+    }
+
+    // For cross-paragraph annotations, try to match first/last parts
+    // This handles cases where selectedText spans multiple paragraphs
+    const lines = annotation.selectedText.split('\n');
+    if (lines.length > 1) {
+      // Try matching the first line (paragraph ending)
+      const firstLine = normalizeForMatch(lines[0]);
+      if (firstLine.length >= 15) {
+        // Only try if substantial
+        const firstLineIndex = normalizedText.indexOf(firstLine);
+        if (
+          firstLineIndex !== -1 &&
+          normalizedText.indexOf(firstLine) ===
+            normalizedText.lastIndexOf(firstLine)
+        ) {
+          const originalStart = findOriginalPosition(text, firstLineIndex);
+          const originalEnd = findOriginalPosition(
+            text,
+            firstLineIndex + firstLine.length
+          );
+          matches.push({
+            start: originalStart,
+            end: originalEnd,
+            annotation,
+          });
+          continue;
+        }
+      }
+
+      // Try matching the last line (paragraph beginning)
+      const lastLine = normalizeForMatch(lines[lines.length - 1]);
+      if (lastLine.length >= 15) {
+        const lastLineIndex = normalizedText.indexOf(lastLine);
+        if (
+          lastLineIndex !== -1 &&
+          normalizedText.indexOf(lastLine) ===
+            normalizedText.lastIndexOf(lastLine)
+        ) {
+          const originalStart = findOriginalPosition(text, lastLineIndex);
+          const originalEnd = findOriginalPosition(
+            text,
+            lastLineIndex + lastLine.length
+          );
+          matches.push({
+            start: originalStart,
+            end: originalEnd,
+            annotation,
+          });
+          continue;
+        }
+      }
+    }
+
+    // Try partial match (first 50 chars or first 3 words)
+    const shortTarget = normalizedTarget.slice(0, 50);
+    if (shortTarget.length >= 20) {
+      const shortIndex = normalizedText.indexOf(shortTarget);
+      if (shortIndex !== -1) {
+        const originalStart = findOriginalPosition(text, shortIndex);
+        // Try to find reasonable end
+        const endTarget = normalizedTarget.slice(-30);
+        const potentialEnd = normalizedText.indexOf(
+          endTarget,
+          shortIndex + shortTarget.length - 10
+        );
+        const originalEnd =
+          potentialEnd !== -1
+            ? findOriginalPosition(text, potentialEnd + endTarget.length)
+            : Math.min(
+                originalStart + annotation.selectedText.length,
+                text.length
+              );
+        matches.push({
+          start: originalStart,
+          end: originalEnd,
+          annotation,
+        });
+      }
+    }
+  }
+
+  // Sort by start position
+  matches.sort((a, b) => a.start - b.start);
+
+  // Remove overlapping matches (keep first)
+  const nonOverlapping = matches.filter((match, i) => {
+    if (i === 0) return true;
+    const prev = matches[i - 1];
+    return match.start >= prev.end;
+  });
+
+  if (nonOverlapping.length === 0) {
+    return [text];
+  }
+
+  // Build result with highlights
+  const result: React.ReactNode[] = [];
+  let currentPos = 0;
+
+  for (const match of nonOverlapping) {
+    // Add text before match
+    if (match.start > currentPos) {
+      result.push(text.slice(currentPos, match.start));
+    }
+
+    // Add highlighted text
+    const highlightedText = text.slice(match.start, match.end);
+    const isHighlighted = match.annotation.id === highlightedAnnotationId;
+    const colorMap: Record<string, string> = {
+      yellow: isHighlighted
+        ? 'bg-yellow-300 ring-2 ring-yellow-500'
+        : 'bg-yellow-100 hover:bg-yellow-200',
+      green: isHighlighted
+        ? 'bg-green-300 ring-2 ring-green-500'
+        : 'bg-green-100 hover:bg-green-200',
+      blue: isHighlighted
+        ? 'bg-blue-300 ring-2 ring-blue-500'
+        : 'bg-blue-100 hover:bg-blue-200',
+      pink: isHighlighted
+        ? 'bg-pink-300 ring-2 ring-pink-500'
+        : 'bg-pink-100 hover:bg-pink-200',
+      purple: isHighlighted
+        ? 'bg-purple-300 ring-2 ring-purple-500'
+        : 'bg-purple-100 hover:bg-purple-200',
+    };
+
+    result.push(
+      <mark
+        key={`${keyPrefix}-${match.annotation.id}-${match.start}`}
+        data-annotation-id={match.annotation.id}
+        className={`cursor-pointer rounded-sm px-0.5 transition-colors ${colorMap[match.annotation.color] || colorMap.yellow}`}
+        onClick={() => {
+          window.dispatchEvent(
+            new CustomEvent('annotation-click', {
+              detail: { annotationId: match.annotation.id },
+            })
+          );
+        }}
+      >
+        {highlightedText}
+      </mark>
+    );
+
+    currentPos = match.end;
+  }
+
+  // Add remaining text
+  if (currentPos < text.length) {
+    result.push(text.slice(currentPos));
+  }
+
+  return result;
+}
+
+/**
+ * Find position in original text that corresponds to normalized position
+ */
+function findOriginalPosition(
+  originalText: string,
+  normalizedPos: number
+): number {
+  let origPos = 0;
+  let normPos = 0;
+  let lastNonSpace = false;
+
+  while (origPos < originalText.length && normPos < normalizedPos) {
+    const char = originalText[origPos];
+    const isSpace = /\s/.test(char);
+
+    if (isSpace) {
+      if (!lastNonSpace || normPos === 0) {
+        // Skip leading/consecutive whitespace
+        origPos++;
+        continue;
+      }
+      normPos++;
+      lastNonSpace = false;
+    } else {
+      normPos++;
+      lastNonSpace = true;
+    }
+    origPos++;
+  }
+
+  return origPos;
 }
 
 /**

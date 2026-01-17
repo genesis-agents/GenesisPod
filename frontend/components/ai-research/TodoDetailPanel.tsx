@@ -23,23 +23,7 @@ import { Button } from '@/components/ui/button';
 import { getTodoDetails, getTaskActivities } from '@/lib/api/topic-research';
 import type { ResearchTodo, ResearchTodoStatus } from '@/types/topic-research';
 import type { AgentActivity } from '@/lib/api/topic-research';
-import { cn } from '@/lib/utils/common';
-
-// Helper: safely convert any value to string for React rendering
-function safeString(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean')
-    return String(value);
-  if (typeof value === 'object') {
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return '[Object]';
-    }
-  }
-  return String(value);
-}
+import { cn, safeString } from '@/lib/utils/common';
 
 interface TodoDetailPanelProps {
   topicId: string;

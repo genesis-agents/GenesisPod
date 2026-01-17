@@ -80,6 +80,8 @@ interface ReportEditPanelProps {
   isLoading?: boolean;
   // Toolbar control
   hideToolbar?: boolean;
+  // Disable internal side panel when parent handles it (e.g., fullscreen mode)
+  disableSidePanel?: boolean;
   // Side panel control from parent
   sidePanelType?: SidePanelType;
   onSidePanelChange?: (type: SidePanelType) => void;
@@ -191,6 +193,7 @@ export function ReportEditPanel({
   currentUserName,
   isLoading = false,
   hideToolbar = false,
+  disableSidePanel = false,
   sidePanelType: externalSidePanelType,
   onSidePanelChange,
   onSave,
@@ -311,13 +314,13 @@ export function ReportEditPanel({
       // Ctrl+S: Save (if in edit mode)
       else if (e.ctrlKey && e.key === 's' && viewMode === 'edit') {
         e.preventDefault();
-        handleSave();
+        // Note: onSave is handled by ReportEditor component internally
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode]);
+  }, [viewMode, toggleSidePanel]);
 
   // Handle save
   const handleSave = useCallback(async () => {
@@ -498,8 +501,8 @@ export function ReportEditPanel({
           />
         </div>
 
-        {/* Side panel */}
-        {sidePanelType && (
+        {/* Side panel - disabled when parent handles it (e.g., fullscreen mode) */}
+        {sidePanelType && !disableSidePanel && (
           <div className="w-96 flex-shrink-0 border-l border-gray-200 bg-white">
             <div className="flex h-full flex-col">
               {/* Panel header */}

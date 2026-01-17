@@ -384,23 +384,21 @@ function arePropsEqual(
   if (prevProps.highlightedAnnotationId !== nextProps.highlightedAnnotationId)
     return false;
 
-  // Deep compare annotations (parent does .map() creating new array each time)
+  // Optimized annotations comparison using fingerprint
+  // Instead of O(n) deep comparison, generate a lightweight fingerprint string
   const prevAnnotations = prevProps.annotations || [];
   const nextAnnotations = nextProps.annotations || [];
+
+  // Quick length check first
   if (prevAnnotations.length !== nextAnnotations.length) return false;
 
-  // Compare annotation contents (not reference)
-  for (let i = 0; i < prevAnnotations.length; i++) {
-    const prev = prevAnnotations[i];
-    const next = nextAnnotations[i];
-    if (
-      prev.id !== next.id ||
-      prev.selectedText !== next.selectedText ||
-      prev.color !== next.color ||
-      prev.status !== next.status
-    ) {
-      return false;
-    }
+  // Generate fingerprint: "id:color:status|id:color:status|..."
+  // This is O(n) but with minimal operations per item
+  const getFingerprint = (annotations: typeof prevAnnotations) =>
+    annotations.map((a) => `${a.id}:${a.color}:${a.status || ''}`).join('|');
+
+  if (getFingerprint(prevAnnotations) !== getFingerprint(nextAnnotations)) {
+    return false;
   }
 
   // All data props are equal - skip re-render
@@ -1016,10 +1014,16 @@ function ChapterizedReportViewInner({
             // Preview mode with React Controlled annotation highlighting
             <div ref={previewRef} className="p-6">
               {sources.length > 0 ? (
-                // CitedMarkdown handles citations - annotations processed separately
+                // CitedMarkdown handles both citations and annotations
                 <CitedMarkdown
                   content={selectedChapter.content || '暂无内容'}
                   sources={sources}
+                  annotations={preprocessorAnnotations.map((a) => ({
+                    id: a.id,
+                    selectedText: a.selectedText,
+                    color: a.color,
+                  }))}
+                  highlightedAnnotationId={highlightedAnnotationId}
                 />
               ) : (
                 // Plain markdown with annotation highlighting
