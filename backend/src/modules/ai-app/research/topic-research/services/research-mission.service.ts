@@ -1314,6 +1314,37 @@ export class ResearchMissionService {
   ): Promise<void> {
     this.logger.log(`[executeTask] Executing task: ${task.title} (${task.id})`);
 
+    // ★ 前置检查：任务开始前检查是否已被取消（防止竞态条件覆盖 FAILED 状态）
+    const [currentTask, currentMission] = await Promise.all([
+      this.prisma.researchTask.findUnique({
+        where: { id: task.id },
+        select: { status: true },
+      }),
+      this.prisma.researchMission.findUnique({
+        where: { id: missionId },
+        select: { status: true },
+      }),
+    ]);
+
+    // 如果任务已被取消（状态为 FAILED）或任务不存在，直接返回
+    if (!currentTask || currentTask.status === ResearchTaskStatus.FAILED) {
+      this.logger.log(
+        `[executeTask] Task ${task.id} was cancelled or not found, skipping execution`,
+      );
+      return;
+    }
+
+    // 如果 Mission 已被取消，直接返回
+    if (
+      !currentMission ||
+      currentMission.status === ResearchMissionStatus.CANCELLED
+    ) {
+      this.logger.log(
+        `[executeTask] Mission ${missionId} was cancelled, skipping task ${task.id}`,
+      );
+      return;
+    }
+
     // 确定 Agent 角色
     const agentRole = this.getAgentRoleFromTaskType(task.taskType);
     const agentName = this.getAgentNameFromTaskType(task.taskType);
@@ -1550,19 +1581,33 @@ export class ResearchMissionService {
         }, // ★ 传入维度信息
       );
 
-      // ★ 在更新状态前检查任务是否已被取消
-      const currentTask = await this.prisma.researchTask.findUnique({
-        where: { id: task.id },
-        select: { status: true },
-      });
+      // ★ 在更新状态前检查任务和 Mission 是否已被取消
+      const [currentTaskStatus, currentMissionStatus] = await Promise.all([
+        this.prisma.researchTask.findUnique({
+          where: { id: task.id },
+          select: { status: true },
+        }),
+        this.prisma.researchMission.findUnique({
+          where: { id: missionId },
+          select: { status: true },
+        }),
+      ]);
 
-      // 如果任务已被取消（状态被设置为 FAILED 且 resultSummary 包含"取消"），跳过更新
+      // 如果任务已被取消（状态被设置为 FAILED），跳过更新
       if (
-        currentTask?.status === ResearchTaskStatus.FAILED ||
-        currentTask?.status === ResearchTaskStatus.COMPLETED
+        currentTaskStatus?.status === ResearchTaskStatus.FAILED ||
+        currentTaskStatus?.status === ResearchTaskStatus.COMPLETED
       ) {
         this.logger.log(
-          `[executeTask] Task ${task.id} status already changed to ${currentTask.status}, skipping update`,
+          `[executeTask] Task ${task.id} status already changed to ${currentTaskStatus.status}, skipping update`,
+        );
+        return;
+      }
+
+      // 如果 Mission 已被取消，跳过更新
+      if (currentMissionStatus?.status === ResearchMissionStatus.CANCELLED) {
+        this.logger.log(
+          `[executeTask] Mission ${missionId} was cancelled during execution, skipping task ${task.id} completion`,
         );
         return;
       }
