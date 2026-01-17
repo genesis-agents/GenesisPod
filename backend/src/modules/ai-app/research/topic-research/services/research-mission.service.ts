@@ -921,9 +921,11 @@ export class ResearchMissionService {
 
   /**
    * ★ 查询各模型类型的默认模型名称
+   * 优先查询 isDefault=true 的模型，如果没有则使用第一个启用的模型
    */
   private async getDefaultModelNames(): Promise<Map<AIModelType, string>> {
-    const models = await this.prisma.aIModel.findMany({
+    // 1. 先查询标记为默认的模型
+    const defaultModels = await this.prisma.aIModel.findMany({
       where: {
         isEnabled: true,
         isDefault: true,
@@ -936,10 +938,31 @@ export class ResearchMissionService {
     });
 
     const map = new Map<AIModelType, string>();
-    for (const model of models) {
-      // 使用 displayName 优先，否则使用 modelId
+    for (const model of defaultModels) {
       map.set(model.modelType, model.displayName || model.modelId);
     }
+
+    // 2. 如果 CHAT 类型没有默认模型，查询第一个启用的 CHAT 模型
+    if (!map.has(AIModelType.CHAT)) {
+      const firstChatModel = await this.prisma.aIModel.findFirst({
+        where: {
+          isEnabled: true,
+          modelType: AIModelType.CHAT,
+        },
+        select: {
+          displayName: true,
+          modelId: true,
+        },
+        orderBy: { createdAt: "asc" },
+      });
+      if (firstChatModel) {
+        map.set(
+          AIModelType.CHAT,
+          firstChatModel.displayName || firstChatModel.modelId,
+        );
+      }
+    }
+
     return map;
   }
 
