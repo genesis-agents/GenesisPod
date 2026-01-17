@@ -7,6 +7,9 @@
  * - 基础技能类
  * - 技能注册表
  * - 输出管理器（统一 Skill 输出 Key 规范）
+ * - SKILL.md 加载器（Claude Code 风格）
+ * - Prompt 构建器
+ * - SkillsMP 生态系统集成
  */
 
 // Abstractions
@@ -20,3 +23,15 @@ export * from "./registry";
 
 // Output Manager - 统一 Skill 输出 Key 管理规范
 export * from "./output-manager";
+
+// SKILL.md Types
+export * from "./types/skill-md.types";
+
+// Loader - SKILL.md 加载和解析
+export * from "./loader";
+
+// Builder - System Prompt 组装
+export * from "./builder";
+
+// Ecosystem - SkillsMP 集成
+export * from "./ecosystem";

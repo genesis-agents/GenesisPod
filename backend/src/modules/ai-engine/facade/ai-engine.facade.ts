@@ -27,6 +27,13 @@ import {
 import { AgentExecutorService } from "../orchestration/services/agent-executor.service";
 import { ToolRegistry } from "../tools/registry/tool-registry";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { SkillLoaderService } from "../skills/loader/skill-loader.service";
+import { SkillPromptBuilder } from "../skills/builder/skill-prompt-builder.service";
+import type {
+  ChatWithSkillsRequest,
+  ChatWithSkillsResponse,
+  SkillDomain,
+} from "../skills/types/skill-md.types";
 import type {
   ChatRequest,
   ChatResponse,
@@ -83,6 +90,8 @@ export class AIEngineFacade {
     @Optional() private readonly longTermMemory?: LongTermMemoryService,
     @Optional() private readonly agentExecutor?: AgentExecutorService,
     @Optional() private readonly toolRegistry?: ToolRegistry,
+    @Optional() private readonly skillLoader?: SkillLoaderService,
+    @Optional() private readonly skillPromptBuilder?: SkillPromptBuilder,
   ) {
     this.logger.log("AIEngineFacade initialized");
   }
@@ -181,6 +190,91 @@ export class AIEngineFacade {
       // 减少负载计数
       this.circuitBreaker?.decrementLoad(entityId);
     }
+  }
+
+  /**
+   * ★ 新增：带 Skills 的对话
+   *
+   * 根据任务类型自动加载对应的 SKILL.md 文件，组装 System Prompt
+   * 实现 Token 优化（按需加载，节省 60-70% System Prompt Token）
+   */
+  async chatWithSkills(
+    request: ChatWithSkillsRequest,
+  ): Promise<ChatWithSkillsResponse> {
+    this.logger.debug(
+      `[chatWithSkills] taskType=${request.taskType}, domain=${request.domain}`,
+    );
+
+    // 检查 Skills 服务是否可用
+    if (!this.skillLoader || !this.skillPromptBuilder) {
+      this.logger.warn("[chatWithSkills] Skills services not available");
+      // 降级到普通 chat
+      const result = await this.chat({
+        messages: request.messages,
+        modelType: request.modelType as AIModelType,
+        model: request.model,
+        taskProfile: request.taskProfile,
+        maxTokens: request.maxTokens,
+        temperature: request.temperature,
+        strictMode: request.strictMode,
+      });
+
+      return {
+        content: result.content,
+        model: result.model,
+        tokensUsed: result.tokensUsed,
+        isError: result.isError,
+        usedSkills: [],
+        skillsTokensUsed: 0,
+      };
+    }
+
+    // 1. 加载匹配的 Skills
+    const skills = await this.skillLoader.getSkillsForTask({
+      taskType: request.taskType,
+      domain: request.domain as SkillDomain,
+      additionalSkillIds: request.additionalSkills,
+      maxTokenBudget: 4000, // 默认 Skills Token 预算
+    });
+
+    // 2. 组装 System Prompt
+    const buildResult = this.skillPromptBuilder.buildSystemPrompt(skills, {
+      context: request.skillContext,
+      maxTokens: 4000,
+      includeMetadata: false,
+    });
+
+    this.logger.debug(
+      `[chatWithSkills] Loaded ${skills.length} skills, estimated ${buildResult.estimatedTokens} tokens`,
+    );
+
+    // 3. 构建消息列表（Skills System Prompt + 原始消息）
+    const messagesWithSkills = [
+      ...(buildResult.prompt
+        ? [{ role: "system" as const, content: buildResult.prompt }]
+        : []),
+      ...request.messages,
+    ];
+
+    // 4. 调用底层 chat 方法
+    const result = await this.chat({
+      messages: messagesWithSkills,
+      modelType: request.modelType as AIModelType,
+      model: request.model,
+      taskProfile: request.taskProfile,
+      maxTokens: request.maxTokens,
+      temperature: request.temperature,
+      strictMode: request.strictMode,
+    });
+
+    return {
+      content: result.content,
+      model: result.model,
+      tokensUsed: result.tokensUsed,
+      isError: result.isError,
+      usedSkills: buildResult.usedSkills,
+      skillsTokensUsed: buildResult.estimatedTokens,
+    };
   }
 
   /**

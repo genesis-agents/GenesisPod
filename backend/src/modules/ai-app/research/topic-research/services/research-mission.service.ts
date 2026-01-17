@@ -1022,13 +1022,35 @@ export class ResearchMissionService {
       );
     }
 
-    // 幂等处理：如果已经取消，仍需确保 ResearchTodo 状态一致
+    // 幂等处理：如果已经取消，仍需确保 ResearchTask 和 ResearchTodo 状态一致
     if (mission.status === ResearchMissionStatus.CANCELLED) {
       this.logger.log(
-        `[cancelMission] Mission ${missionId} already cancelled, ensuring todo status consistency`,
+        `[cancelMission] Mission ${missionId} already cancelled, ensuring task & todo status consistency`,
       );
+      // ★ 确保 ResearchTask 也被更新（修复旧代码遗留的数据）
+      const fixedTasksResult = await this.prisma.researchTask.updateMany({
+        where: {
+          missionId,
+          status: {
+            in: [
+              ResearchTaskStatus.PENDING,
+              ResearchTaskStatus.ASSIGNED,
+              ResearchTaskStatus.EXECUTING,
+            ],
+          },
+        },
+        data: {
+          status: ResearchTaskStatus.FAILED,
+          resultSummary: "任务已被用户取消",
+          completedAt: new Date(),
+        },
+      });
+      this.logger.log(
+        `[cancelMission] Fixed ${fixedTasksResult.count} stale tasks in idempotent cancel`,
+      );
+
       // ★ 确保 ResearchTodo 也被更新（修复旧代码遗留的数据）
-      await this.prisma.researchTodo.updateMany({
+      const fixedTodosResult = await this.prisma.researchTodo.updateMany({
         where: {
           missionId,
           status: {
@@ -1045,6 +1067,10 @@ export class ResearchMissionService {
           completedAt: new Date(),
         },
       });
+      this.logger.log(
+        `[cancelMission] Fixed ${fixedTodosResult.count} stale todos in idempotent cancel`,
+      );
+
       return mission;
     }
 
