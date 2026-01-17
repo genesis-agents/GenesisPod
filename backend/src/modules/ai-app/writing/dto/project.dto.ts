@@ -1,5 +1,12 @@
-import { IsString, IsOptional, IsNumber, IsEnum, Min, Max } from "class-validator";
-import { WritingProjectStatus } from "@prisma/client";
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsEnum,
+  Min,
+  Max,
+} from "class-validator";
+import { WritingProjectStatus, ContentVisibility } from "@prisma/client";
 
 export class CreateProjectDto {
   @IsString()
@@ -38,6 +45,10 @@ export class CreateProjectDto {
   @Min(1)
   @Max(5)
   maxParallelWriters?: number;
+
+  @IsOptional()
+  @IsEnum(ContentVisibility)
+  visibility?: ContentVisibility;
 }
 
 export class UpdateProjectDto {
@@ -83,4 +94,8 @@ export class UpdateProjectDto {
   @Min(1)
   @Max(5)
   maxParallelWriters?: number;
+
+  @IsOptional()
+  @IsEnum(ContentVisibility)
+  visibility?: ContentVisibility;
 }

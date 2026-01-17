@@ -399,6 +399,19 @@ export class AiImageController {
     return this.aiImageService.removeBookmark(id, req.user?.id);
   }
 
+  @Post(":id/visibility")
+  @UseGuards(JwtAuthGuard)
+  async updateVisibility(
+    @Param("id") id: string,
+    @Body("visibility") visibility: "PRIVATE" | "PUBLIC",
+    @Request() req: any,
+  ) {
+    this.logger.log(
+      `Updating visibility for image ${id} to ${visibility} by user ${req.user?.id}`,
+    );
+    return this.aiImageService.updateVisibility(id, visibility, req.user?.id);
+  }
+
   /**
    * 手动触发清理旧图片
    * 保留最新的20张未收藏图片，删除其余的

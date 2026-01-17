@@ -99,7 +99,10 @@ function HomeContent() {
   const aiOfficeStore = useResourceStore();
   const { models: allAiModels } = useAIModels();
   const aiModels = allAiModels.filter(
-    (m) => m.modelType === 'CHAT' || m.modelType === 'MULTIMODAL'
+    (m) =>
+      m.modelType === 'CHAT' ||
+      m.modelType === 'CHAT_FAST' ||
+      m.modelType === 'MULTIMODAL'
   );
 
   // Resource management hook

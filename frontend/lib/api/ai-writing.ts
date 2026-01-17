@@ -20,6 +20,7 @@ export interface WritingProject {
   currentWords: number;
   status: 'PLANNING' | 'OUTLINING' | 'WRITING' | 'REVISING' | 'COMPLETED';
   writingStyle?: string;
+  visibility?: 'PRIVATE' | 'PUBLIC';
   createdAt: string;
   updatedAt: string;
 }
@@ -166,6 +167,7 @@ export interface UpdateProjectDto {
   targetWords?: number;
   status?: string;
   writingStyle?: string;
+  visibility?: 'PRIVATE' | 'PUBLIC';
 }
 
 export interface ConversationMessage {

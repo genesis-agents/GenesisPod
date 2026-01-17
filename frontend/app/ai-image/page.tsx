@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import ShareModal from '@/components/common/ShareModal';
 
 // AI Image Team - Preview (3 core agents)
 const AI_TEAM_PREVIEW = [
@@ -39,6 +40,7 @@ interface GeneratedImage {
   width: number;
   height: number;
   isBookmarked?: boolean;
+  visibility?: 'PRIVATE' | 'PUBLIC';
 }
 
 export default function AIImagePage() {
@@ -49,6 +51,7 @@ export default function AIImagePage() {
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [isLoadingImages, setIsLoadingImages] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [shareImage, setShareImage] = useState<GeneratedImage | null>(null);
 
   // Fetch image history
   const fetchHistory = useCallback(async () => {
@@ -126,6 +129,42 @@ export default function AIImagePage() {
     } catch (err) {
       console.error('Failed to toggle bookmark:', err);
     }
+  };
+
+  const handleToggleVisibility = async (
+    e: React.MouseEvent,
+    image: GeneratedImage
+  ) => {
+    e.stopPropagation();
+    const newVisibility = image.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
+
+    try {
+      const response = await fetch(
+        `${config.apiBaseUrl}/api/v1/ai-image/${image.id}/visibility`,
+        {
+          method: 'POST',
+          headers: {
+            ...getAuthHeader(),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ visibility: newVisibility }),
+        }
+      );
+      if (response.ok) {
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === image.id ? { ...img, visibility: newVisibility } : img
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Failed to toggle visibility:', err);
+    }
+  };
+
+  const handleShare = (e: React.MouseEvent, image: GeneratedImage) => {
+    e.stopPropagation();
+    setShareImage(image);
   };
 
   const formatTime = (dateStr: string) => {
@@ -372,6 +411,70 @@ export default function AIImagePage() {
                       {/* Overlay with actions */}
                       <div className="absolute inset-0 flex items-start justify-end gap-1 bg-gradient-to-b from-black/40 via-transparent to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
                         <button
+                          onClick={(e) => handleToggleVisibility(e, image)}
+                          className={`rounded-lg p-1.5 shadow-sm transition-colors ${
+                            image.visibility === 'PUBLIC'
+                              ? 'bg-green-500 text-white'
+                              : 'bg-white/90 text-gray-600 hover:bg-white hover:text-gray-800'
+                          }`}
+                          title={
+                            image.visibility === 'PUBLIC'
+                              ? t('aiImage.visibility.public')
+                              : t('aiImage.visibility.private')
+                          }
+                        >
+                          {image.visibility === 'PUBLIC' ? (
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                          ) : (
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                        {image.visibility === 'PUBLIC' && (
+                          <button
+                            onClick={(e) => handleShare(e, image)}
+                            className="rounded-lg bg-white/90 p-1.5 text-gray-600 shadow-sm hover:bg-white hover:text-blue-600"
+                            title={t('share.shareImage')}
+                          >
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                              />
+                            </svg>
+                          </button>
+                        )}
+                        <button
                           onClick={(e) => handleToggleBookmark(e, image)}
                           className={`rounded-lg p-1.5 shadow-sm transition-colors ${
                             image.isBookmarked
@@ -464,6 +567,18 @@ export default function AIImagePage() {
           )}
         </div>
       </main>
+
+      {/* Share Modal */}
+      {shareImage && (
+        <ShareModal
+          isOpen={!!shareImage}
+          onClose={() => setShareImage(null)}
+          shareUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}/share/image/${shareImage.id}`}
+          title={shareImage.prompt}
+          description={shareImage.enhancedPrompt}
+          imageUrl={shareImage.imageUrl}
+        />
+      )}
     </AppShell>
   );
 }

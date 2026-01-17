@@ -278,6 +278,46 @@ export class ImageStorageService {
   }
 
   /**
+   * Update visibility
+   */
+  async updateVisibility(
+    id: string,
+    visibility: "PRIVATE" | "PUBLIC",
+    userId?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const image = await this.prisma.generatedImage.findUnique({
+        where: { id },
+      });
+
+      if (!image) {
+        return { success: false, message: "Image not found" };
+      }
+
+      // Only the owner can change visibility
+      if (image.userId !== userId) {
+        return {
+          success: false,
+          message: "Not authorized to change visibility",
+        };
+      }
+
+      await this.prisma.generatedImage.update({
+        where: { id },
+        data: { visibility },
+      });
+
+      this.logger.log(
+        `Updated visibility for image: ${id} to ${visibility} by user: ${userId}`,
+      );
+      return { success: true, message: `Visibility updated to ${visibility}` };
+    } catch (error) {
+      this.logger.error(`Failed to update visibility for image ${id}:`, error);
+      return { success: false, message: "Failed to update visibility" };
+    }
+  }
+
+  /**
    * Cleanup old images for a user
    * Keep latest MAX_IMAGES_PER_USER images, delete the rest
    * Note: Bookmarked images are not deleted

@@ -8,6 +8,7 @@ import { useTranslation } from '@/lib/i18n';
 import { useAIWritingStore } from '@/stores/aiWritingStore';
 import { getStylePresets, type WritingStylePreset } from '@/lib/api/ai-writing';
 import { WRITING_AGENT_REGISTRY } from '@/lib/ai-writing/agent-config';
+import ShareModal from '@/components/common/ShareModal';
 
 // AI Writing Team - Preview (5 core agents) - 使用统一配置
 const AI_TEAM_PREVIEW = Object.values(WRITING_AGENT_REGISTRY)
@@ -132,6 +133,11 @@ export default function AIWritingPage() {
   });
   const [isEditing, setIsEditing] = useState(false);
 
+  // Share modal state
+  const [shareProject, setShareProject] = useState<(typeof projects)[0] | null>(
+    null
+  );
+
   useEffect(() => {
     if (user) {
       void fetchProjects();
@@ -190,9 +196,24 @@ export default function AIWritingPage() {
 
   const handleDelete = async (e: React.MouseEvent, projectId: string) => {
     e.stopPropagation();
-    if (confirm('确定要删除这个作品吗？')) {
+    if (confirm(t('aiWriting.actions.confirmDelete'))) {
       await deleteProject(projectId);
     }
+  };
+
+  const handleToggleVisibility = async (
+    e: React.MouseEvent,
+    project: (typeof projects)[0]
+  ) => {
+    e.stopPropagation();
+    const newVisibility =
+      project.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
+    await updateProject(project.id, { visibility: newVisibility });
+  };
+
+  const handleShare = (e: React.MouseEvent, project: (typeof projects)[0]) => {
+    e.stopPropagation();
+    setShareProject(project);
   };
 
   const handleEdit = (e: React.MouseEvent, project: (typeof projects)[0]) => {
@@ -454,12 +475,76 @@ export default function AIWritingPage() {
                     onClick={() => router.push(`/ai-writing/${project.id}`)}
                     className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-amber-300 hover:shadow-md"
                   >
-                    {/* Edit & Delete Buttons */}
+                    {/* Visibility & Edit & Delete Buttons */}
                     <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        onClick={(e) => handleToggleVisibility(e, project)}
+                        className={`rounded-lg bg-white p-1.5 shadow-sm transition-colors ${
+                          project.visibility === 'PUBLIC'
+                            ? 'text-green-500 hover:bg-green-50 hover:text-green-600'
+                            : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
+                        }`}
+                        title={
+                          project.visibility === 'PUBLIC'
+                            ? t('aiWriting.visibility.public')
+                            : t('aiWriting.visibility.private')
+                        }
+                      >
+                        {project.visibility === 'PUBLIC' ? (
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                        ) : (
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                      {project.visibility === 'PUBLIC' && (
+                        <button
+                          onClick={(e) => handleShare(e, project)}
+                          className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-blue-50 hover:text-blue-600"
+                          title={t('share.shareWriting')}
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                            />
+                          </svg>
+                        </button>
+                      )}
                       <button
                         onClick={(e) => handleEdit(e, project)}
                         className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-blue-50 hover:text-blue-600"
-                        title="编辑作品"
+                        title={t('aiWriting.actions.edit')}
                       >
                         <svg
                           className="h-4 w-4"
@@ -478,7 +563,7 @@ export default function AIWritingPage() {
                       <button
                         onClick={(e) => handleDelete(e, project.id)}
                         className="rounded-lg bg-white p-1.5 text-gray-400 shadow-sm hover:bg-red-50 hover:text-red-600"
-                        title="删除作品"
+                        title={t('aiWriting.actions.delete')}
                       >
                         <svg
                           className="h-4 w-4"
@@ -526,7 +611,8 @@ export default function AIWritingPage() {
                       <div className="mb-1.5 flex items-center justify-between text-xs">
                         <span className="text-gray-500">
                           {project.currentWords.toLocaleString()} /{' '}
-                          {project.targetWords.toLocaleString()} 字
+                          {project.targetWords.toLocaleString()}{' '}
+                          {t('aiWriting.unit.words')}
                         </span>
                         <span className="font-medium text-amber-600">
                           {progress}%
@@ -572,7 +658,7 @@ export default function AIWritingPage() {
                   />
                 </svg>
                 <span className="mt-2 text-sm font-medium text-gray-600">
-                  开始创作
+                  {t('aiWriting.createDialog.title')}
                 </span>
               </button>
             </div>
@@ -586,7 +672,9 @@ export default function AIWritingPage() {
           <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
             {/* Header */}
             <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">开始创作</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {t('aiWriting.createDialog.title')}
+              </h2>
               <button
                 onClick={() => setShowCreateDialog(false)}
                 className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
@@ -956,6 +1044,17 @@ export default function AIWritingPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Share Modal */}
+      {shareProject && (
+        <ShareModal
+          isOpen={!!shareProject}
+          onClose={() => setShareProject(null)}
+          shareUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}/share/writing/${shareProject.id}`}
+          title={shareProject.name}
+          description={shareProject.description}
+        />
       )}
     </AppShell>
   );

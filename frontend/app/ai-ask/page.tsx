@@ -1017,8 +1017,11 @@ export default function AskPage() {
     });
   }, []);
 
-  // Filter only CHAT models for the selector
-  const chatModels = models.filter((m) => m.modelType === 'CHAT');
+  // Filter CHAT and CHAT_FAST models for the selector
+  // CHAT_FAST includes models like Gemini Flash, GPT-4o-mini, Claude Haiku
+  const chatModels = models.filter(
+    (m) => m.modelType === 'CHAT' || m.modelType === 'CHAT_FAST'
+  );
 
   // Set default model when models load
   useEffect(() => {

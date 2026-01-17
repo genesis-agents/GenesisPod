@@ -40,6 +40,23 @@
     "tryAgain": "重试",
     "learnMore": "了解更多"
   },
+  "share": {
+    "title": "分享",
+    "shareLink": "分享链接",
+    "shareTo": "分享到",
+    "copy": "复制",
+    "copied": "已复制！",
+    "copyLink": "复制链接",
+    "wechat": "微信",
+    "wechatTip": "请使用微信扫描二维码分享",
+    "weibo": "微博",
+    "twitter": "X (推特)",
+    "facebook": "脸书",
+    "linkedin": "领英",
+    "publicNote": "只有公开的内容才能被分享。私有内容的链接对他人不可见。",
+    "shareImage": "分享图片",
+    "shareWriting": "分享作品"
+  },
   "nav": {
     "home": "首页",
     "library": "资源库",
@@ -931,6 +948,12 @@
       "delete": "删除",
       "confirmDelete": "确定要删除这张图片吗？"
     },
+    "visibility": {
+      "private": "私有 - 仅自己可见",
+      "public": "公开 - 所有人可见",
+      "toggleToPublic": "设为公开",
+      "toggleToPrivate": "设为私有"
+    },
     "time": {
       "justNow": "刚刚",
       "minutesAgo": "{{count}}分钟前",
@@ -1057,6 +1080,12 @@
       "edit": "编辑作品",
       "delete": "删除作品",
       "confirmDelete": "确定要删除这个作品吗？"
+    },
+    "visibility": {
+      "private": "私有 - 仅自己可见",
+      "public": "公开 - 所有人可见",
+      "toggleToPublic": "设为公开",
+      "toggleToPrivate": "设为私有"
     },
     "createDialog": {
       "title": "开始创作",

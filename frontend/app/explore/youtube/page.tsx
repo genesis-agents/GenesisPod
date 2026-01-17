@@ -190,10 +190,13 @@ function YouTubeTLDWContent() {
   // Auth context for API calls
   const { accessToken } = useAuth();
 
-  // 动态获取 AI 模型列表，只显示 CHAT/MULTIMODAL 类型的模型
+  // 动态获取 AI 模型列表，显示 CHAT/CHAT_FAST/MULTIMODAL 类型的模型
   const { models: allAiModels } = useAIModels();
   const aiModels = allAiModels.filter(
-    (m) => m.modelType === 'CHAT' || m.modelType === 'MULTIMODAL'
+    (m) =>
+      m.modelType === 'CHAT' ||
+      m.modelType === 'CHAT_FAST' ||
+      m.modelType === 'MULTIMODAL'
   );
 
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);

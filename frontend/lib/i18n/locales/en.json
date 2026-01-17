@@ -40,6 +40,23 @@
     "tryAgain": "Try Again",
     "learnMore": "Learn More"
   },
+  "share": {
+    "title": "Share",
+    "shareLink": "Share Link",
+    "shareTo": "Share to",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "copyLink": "Copy Link",
+    "wechat": "WeChat",
+    "wechatTip": "Please scan the QR code with WeChat to share",
+    "weibo": "Weibo",
+    "twitter": "X (Twitter)",
+    "facebook": "Facebook",
+    "linkedin": "LinkedIn",
+    "publicNote": "Only public content can be shared. Private content links will not work for others.",
+    "shareImage": "Share Image",
+    "shareWriting": "Share Writing"
+  },
   "nav": {
     "home": "Home",
     "library": "Library",
@@ -931,6 +948,12 @@
       "delete": "Delete",
       "confirmDelete": "Are you sure you want to delete this image?"
     },
+    "visibility": {
+      "private": "Private - Only you can see",
+      "public": "Public - Everyone can see",
+      "toggleToPublic": "Make public",
+      "toggleToPrivate": "Make private"
+    },
     "time": {
       "justNow": "Just now",
       "minutesAgo": "{{count}} minutes ago",
@@ -1057,6 +1080,12 @@
       "edit": "Edit work",
       "delete": "Delete work",
       "confirmDelete": "Are you sure you want to delete this work?"
+    },
+    "visibility": {
+      "private": "Private - Only you can see",
+      "public": "Public - Everyone can see",
+      "toggleToPublic": "Make public",
+      "toggleToPrivate": "Make private"
     },
     "createDialog": {
       "title": "Start Creating",

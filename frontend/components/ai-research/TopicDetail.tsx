@@ -147,14 +147,21 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
     }
   }, [topic.id, cancelMission]);
 
-  // Continue/Resume research - 继续被暂停或取消的任务
+  // Continue/Resume research - 继续被暂停/取消的任务，或更新已完成的研究
+  // ★ 修复：COMPLETED 任务应该启动新研究，FAILED 任务才 retry
   const handleContinueResearch = useCallback(async () => {
     try {
-      await retryMission(topic.id);
+      // 如果任务已完成，启动新的研究（相当于"更新"已有研究）
+      if (missionStatus?.status === 'COMPLETED') {
+        await startLeaderPlan(topic.id);
+      } else {
+        // FAILED 或其他状态，使用 retry 重试失败的任务
+        await retryMission(topic.id);
+      }
     } catch {
       // Error is already handled in store
     }
-  }, [topic.id, retryMission]);
+  }, [topic.id, missionStatus?.status, startLeaderPlan, retryMission]);
 
   const handleExport = useCallback(
     async (format: 'pdf' | 'docx') => {

@@ -160,9 +160,12 @@ function HomeContent() {
   }, [isResizingPanel]);
 
   const { models: allAiModels } = useAIModels();
-  // 只显示 CHAT 类型的模型（或 MULTIMODAL，因为它们也支持文本聊天）
+  // 显示 CHAT、CHAT_FAST 和 MULTIMODAL 类型的模型（都支持文本聊天）
   const aiModels = allAiModels.filter(
-    (m) => m.modelType === 'CHAT' || m.modelType === 'MULTIMODAL'
+    (m) =>
+      m.modelType === 'CHAT' ||
+      m.modelType === 'CHAT_FAST' ||
+      m.modelType === 'MULTIMODAL'
   );
   const [aiModel, setAiModel] = useState(''); // 将在 aiModels 加载后设置默认值
   const [isStreaming, setIsStreaming] = useState(false);

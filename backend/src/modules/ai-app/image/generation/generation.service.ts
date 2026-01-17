@@ -1004,6 +1004,14 @@ export class AiImageService {
     return this.imageStorageService.removeBookmark(id, userId);
   }
 
+  async updateVisibility(
+    id: string,
+    visibility: "PRIVATE" | "PUBLIC",
+    userId?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    return this.imageStorageService.updateVisibility(id, visibility, userId);
+  }
+
   async cleanupOldImages(userId: string | null): Promise<number> {
     return this.imageStorageService.cleanupOldImages(userId);
   }

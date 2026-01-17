@@ -2631,12 +2631,16 @@ model GeneratedImage {
   // Bookmark status
   isBookmarked Boolean @default(false) @map("is_bookmarked")
 
+  // Visibility
+  visibility ContentVisibility @default(PRIVATE) // 可见性：私有/公开
+
   // Metadata
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])
   @@index([createdAt])
   @@index([isBookmarked])
+  @@index([visibility])
   @@map("generated_images")
 }
 
@@ -5462,6 +5466,7 @@ model WritingProject {
   targetWords  Int                  @default(100000) @map("target_words") // 目标字数
   currentWords Int                  @default(0) @map("current_words") // 当前字数
   status       WritingProjectStatus @default(PLANNING)
+  visibility   ContentVisibility    @default(PRIVATE) // 可见性：私有/公开
 
   // 写作配置
   writingStyle   String? @map("writing_style") @db.VarChar(100) // 写作风格
@@ -6763,6 +6768,12 @@ model ResearchTopic {
 enum TopicVisibility {
   PRIVATE // 私有：仅所有者可见
   SHARED // 共享：所有者和协作者可见
+  PUBLIC // 公开：所有人可见
+}
+
+/// 内容可见性（通用）
+enum ContentVisibility {
+  PRIVATE // 私有：仅所有者可见
   PUBLIC // 公开：所有人可见
 }
 
