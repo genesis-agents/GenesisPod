@@ -10,7 +10,7 @@
  * 设计参考 AI Writing 布局模式
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import type {
   ResearchTopic,
   TopicDimension,
@@ -18,6 +18,7 @@ import type {
   TopicEvidence,
 } from '@/types/topic-research';
 import type { MissionStatus, TeamInfo } from '@/lib/api/topic-research';
+import { useAuth } from '@/contexts/AuthContext';
 import { TopicTeamPanel } from './TopicTeamPanel';
 import { TopicContentPanel } from './TopicContentPanel';
 import { ResearchSettingsModal } from './ResearchSettingsModal';
@@ -184,8 +185,20 @@ export function TopicResearchLayout({
 }: TopicResearchLayoutProps) {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const { user } = useAuth();
 
   const gradient = topicTypeGradients[topic.type] || topicTypeGradients.MACRO;
+
+  // ★ 权限检查：只有创建者才能运行/取消/重试任务
+  // TODO: 未来可以扩展为检查协作者角色 (EDITOR/ADMIN)
+  const canEdit = useMemo(() => {
+    if (!user?.id) return false;
+    // 创建者有完全权限
+    if (topic.createdById === user.id) return true;
+    // 公开专题的非创建者只有只读权限
+    // SHARED 专题需要检查协作者角色，但简化起见先只允许创建者操作
+    return false;
+  }, [user?.id, topic.createdById]);
 
   const handleExport = useCallback(
     (format: 'pdf' | 'docx') => {
@@ -318,6 +331,7 @@ export function TopicResearchLayout({
                   onContinueRefresh={onContinueRefresh}
                   onCancelRefresh={onCancelRefresh}
                   error={error}
+                  canEdit={canEdit}
                 />
               </div>
             </div>

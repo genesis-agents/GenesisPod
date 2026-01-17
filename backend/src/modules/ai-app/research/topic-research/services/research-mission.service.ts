@@ -1036,6 +1036,25 @@ export class ResearchMissionService {
       );
     }
 
+    // ★ 取消所有未完成的任务（PENDING 或 EXECUTING 状态）
+    const cancelledTasksResult = await this.prisma.researchTask.updateMany({
+      where: {
+        missionId,
+        status: {
+          in: [ResearchTaskStatus.PENDING, ResearchTaskStatus.EXECUTING],
+        },
+      },
+      data: {
+        status: ResearchTaskStatus.FAILED,
+        resultSummary: "任务已被用户取消",
+        completedAt: new Date(),
+      },
+    });
+
+    this.logger.log(
+      `[cancelMission] Cancelled ${cancelledTasksResult.count} pending/executing tasks`,
+    );
+
     // ★ 清理该任务创建的空草稿报告（没有 dimensionAnalyses 的报告）
     const topicId = mission.topicId;
     const emptyDraftReports = await this.prisma.topicReport.findMany({
@@ -1055,6 +1074,18 @@ export class ResearchMissionService {
         `[cancelMission] Cleaned up ${deleteIds.length} empty draft reports`,
       );
     }
+
+    // ★ 发送取消事件通知前端
+    this.emitProgress({
+      missionId,
+      topicId,
+      status: ResearchMissionStatus.CANCELLED,
+      progress: 0,
+      phase: "cancelled",
+      message: "研究任务已取消",
+      completedTasks: 0,
+      totalTasks: mission.totalTasks,
+    });
 
     return this.prisma.researchMission.update({
       where: { id: missionId },
@@ -1213,6 +1244,22 @@ export class ResearchMissionService {
 
     while (iteration < maxIterations) {
       iteration++;
+
+      // ★ 检查 Mission 是否已被取消
+      const currentMission = await this.prisma.researchMission.findUnique({
+        where: { id: missionId },
+        select: { status: true },
+      });
+
+      if (
+        !currentMission ||
+        currentMission.status === ResearchMissionStatus.CANCELLED
+      ) {
+        this.logger.log(
+          `[startExecution] Mission ${missionId} was cancelled, stopping execution`,
+        );
+        return; // 直接返回，不调用 finalizeMission
+      }
 
       // 获取可执行的任务
       const executableTasks = await this.getExecutableTasks(missionId);
@@ -1617,6 +1664,19 @@ export class ResearchMissionService {
     missionId: string,
     topicId: string,
   ): Promise<void> {
+    // ★ 先检查 Mission 当前状态，如果已被取消则不覆盖
+    const currentMission = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+      select: { status: true },
+    });
+
+    if (currentMission?.status === ResearchMissionStatus.CANCELLED) {
+      this.logger.log(
+        `[finalizeMission] Mission ${missionId} was cancelled, skipping finalization`,
+      );
+      return;
+    }
+
     const tasks = await this.prisma.researchTask.findMany({
       where: { missionId },
     });

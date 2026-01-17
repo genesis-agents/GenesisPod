@@ -113,6 +113,27 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
     }
   }, [missionStatus?.status, topic.id, fetchLatestReport, fetchDimensions]);
 
+  // ★ 监听 WebSocket 事件，当 TODO 完成时刷新维度列表和任务状态
+  useEffect(() => {
+    if (wsEvents.length === 0) return;
+
+    // 检查最新的事件
+    const latestEvent = wsEvents[wsEvents.length - 1];
+
+    // 当有新维度创建时（TODO 完成且类型为 ADD_DIMENSION 或 DEEP_RESEARCH）
+    if (latestEvent.type === 'todo:completed') {
+      // 刷新维度列表以显示新创建的维度
+      fetchDimensions(topic.id);
+      // 刷新任务状态
+      fetchMissionStatus(topic.id);
+    }
+
+    // 当有新任务创建时刷新任务状态
+    if (latestEvent.type === 'todo:created') {
+      fetchMissionStatus(topic.id);
+    }
+  }, [wsEvents, topic.id, fetchDimensions, fetchMissionStatus]);
+
   // Start Leader-driven research
   const handleStartResearch = useCallback(() => {
     startLeaderPlan(topic.id);

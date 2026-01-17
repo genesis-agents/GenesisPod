@@ -12,6 +12,7 @@ import {
   UseGuards,
   UnauthorizedException,
   NotFoundException,
+  ForbiddenException,
   Sse,
   MessageEvent,
 } from "@nestjs/common";
@@ -62,6 +63,7 @@ import {
   AddCollaboratorDto,
   UpdateCollaboratorRoleDto,
   UpdateTopicVisibilityDto,
+  CollaboratorRole,
 } from "./dto/collaborator.dto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { Public } from "../../../../common/decorators/public.decorator";
@@ -1257,6 +1259,15 @@ export class TopicResearchController {
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
+    // ★ 权限检查：只有创建者或 EDITOR/ADMIN 角色才能启动研究
+    const hasPermission = await this.collaboratorService.hasAccess(
+      id,
+      userId,
+      CollaboratorRole.EDITOR,
+    );
+    if (!hasPermission) {
+      throw new ForbiddenException("无权启动研究任务，需要编辑权限");
+    }
     return this.missionService.createMission({
       topicId: id,
       userPrompt: dto.userPrompt,
@@ -1350,7 +1361,7 @@ export class TopicResearchController {
       missionId,
     );
 
-    // 3. 如果决定创建 TODO，则创建
+    // 3. 如果决定创建 TODO，则创建并自动执行
     let createdTodo = null;
     if (
       decodeResult.decisionType === "CREATE_TODO" &&
@@ -1369,6 +1380,13 @@ export class TopicResearchController {
           id: todo.id,
           title: todo.title,
         };
+
+        // ★ 自动执行新创建的 TODO（异步，不阻塞响应）
+        this.todoService.executeTodo(topicId, todo.id).catch((error) => {
+          console.error(
+            `[decodeInput] Auto-execute TODO failed: ${error instanceof Error ? error.message : error}`,
+          );
+        });
       } catch (error) {
         // 继续返回响应，但标记 TODO 创建失败
         console.error(`Failed to create TODO: ${error}`);
@@ -1460,6 +1478,15 @@ export class TopicResearchController {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
+    }
+    // ★ 权限检查：只有创建者或 EDITOR/ADMIN 角色才能重试任务
+    const hasPermission = await this.collaboratorService.hasAccess(
+      id,
+      userId,
+      CollaboratorRole.EDITOR,
+    );
+    if (!hasPermission) {
+      throw new ForbiddenException("无权重试研究任务，需要编辑权限");
     }
     const mission = await this.missionService.getMissionByTopicId(id);
     if (!mission) {
@@ -1609,6 +1636,15 @@ export class TopicResearchController {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
+    }
+    // ★ 权限检查：只有创建者或 EDITOR/ADMIN 角色才能取消任务
+    const hasPermission = await this.collaboratorService.hasAccess(
+      id,
+      userId,
+      CollaboratorRole.EDITOR,
+    );
+    if (!hasPermission) {
+      throw new ForbiddenException("无权取消研究任务，需要编辑权限");
     }
     const mission = await this.missionService.getMissionByTopicId(id);
     if (!mission) {

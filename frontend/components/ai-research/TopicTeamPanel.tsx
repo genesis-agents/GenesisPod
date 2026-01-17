@@ -31,6 +31,8 @@ interface TopicTeamPanelProps {
   onCancelRefresh?: () => void;
   /** 错误信息 */
   error?: string | null;
+  /** ★ 是否有编辑权限（只有创建者/管理员才能运行任务） */
+  canEdit?: boolean;
 }
 
 // Agent 角色定义
@@ -178,6 +180,7 @@ export function TopicTeamPanel({
   onContinueRefresh,
   onCancelRefresh,
   error,
+  canEdit = true,
 }: TopicTeamPanelProps) {
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
@@ -314,8 +317,44 @@ export function TopicTeamPanel({
     };
   }, [missionStatus, isRefreshing]);
 
-  const currentPhase =
+  // ★ 统一状态计算：综合考虑 currentPhase 和 isMissionActive，确保上下一致
+  const rawPhase =
     missionStatus?.currentPhase || refreshProgress?.phase || 'idle';
+
+  // ★ 修复状态不一致：如果有任务正在执行但 currentPhase 显示为 idle/unknown，强制显示为 researching
+  const currentPhase = useMemo(() => {
+    // 如果后端返回的 phase 是明确的状态，直接使用
+    if (
+      [
+        'planning',
+        'PLANNING',
+        'researching',
+        'RESEARCHING',
+        'EXECUTING',
+        'reviewing',
+        'REVIEWING',
+        'completed',
+        'COMPLETED',
+        'failed',
+        'FAILED',
+      ].includes(rawPhase)
+    ) {
+      return rawPhase;
+    }
+    // 如果 isMissionActive 为 true，但 phase 是 idle/unknown，强制显示为 researching
+    if (isMissionActive) {
+      return 'researching';
+    }
+    // 检查 missionStatus.status 是否为活动状态
+    if (
+      missionStatus?.status &&
+      ['PLANNING', 'EXECUTING', 'REVIEWING'].includes(missionStatus.status)
+    ) {
+      return missionStatus.status.toLowerCase();
+    }
+    return rawPhase;
+  }, [rawPhase, isMissionActive, missionStatus?.status]);
+
   const hasMission = !!missionStatus && (missionStatus.tasks?.length || 0) > 0;
 
   return (
@@ -376,23 +415,10 @@ export function TopicTeamPanel({
         </div>
       </div>
 
-      {/* SVG Team Visualization */}
-      <div className="relative border-b border-gray-100">
-        <TeamCanvasView
-          agents={agents}
-          currentPhase={currentPhase}
-          isRefreshing={isRefreshing}
-          hoveredAgent={hoveredAgent}
-          onHover={setHoveredAgent}
-          selectedAgent={selectedAgent}
-          onSelect={setSelectedAgent}
-        />
-      </div>
-
-      {/* Task List - Sorted by Status */}
-      <div className="flex-1 overflow-y-auto">
+      {/* ★ Task List - 置顶显示，按状态排序 */}
+      <div className="flex-1 overflow-y-auto border-b border-gray-100">
         {!hasMission ? (
-          <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
+          <div className="flex flex-col items-center justify-center px-4 py-6 text-center">
             <div className="mb-3 text-3xl">👑</div>
             <p className="text-sm font-medium text-gray-700">
               等待 Leader 规划
@@ -427,19 +453,41 @@ export function TopicTeamPanel({
         )}
       </div>
 
+      {/* SVG Team Visualization - 移至任务清单下方 */}
+      <div className="relative flex-shrink-0">
+        <TeamCanvasView
+          agents={agents}
+          currentPhase={currentPhase}
+          isRefreshing={isRefreshing}
+          hoveredAgent={hoveredAgent}
+          onHover={setHoveredAgent}
+          selectedAgent={selectedAgent}
+          onSelect={setSelectedAgent}
+        />
+      </div>
+
       {/* Bottom Status Bar */}
       <div className="border-t border-gray-100 px-4 py-2">
         <div className="mb-2 flex items-center justify-between text-xs">
           <span className="text-gray-500">
             阶段: {phaseDisplay[currentPhase] || currentPhase}
           </span>
+          {/* ★ 统一使用 currentPhase 显示状态，与上方保持一致 */}
           <span
             className={`rounded-full px-2 py-0.5 ${
               currentPhase === 'completed'
                 ? 'bg-green-100 text-green-700'
                 : currentPhase === 'failed'
                   ? 'bg-red-100 text-red-700'
-                  : isMissionActive
+                  : [
+                        'planning',
+                        'PLANNING',
+                        'researching',
+                        'RESEARCHING',
+                        'EXECUTING',
+                        'reviewing',
+                        'REVIEWING',
+                      ].includes(currentPhase)
                     ? 'bg-blue-100 text-blue-700'
                     : missionStatus &&
                         ['PAUSED', 'CANCELLED'].includes(
@@ -449,12 +497,24 @@ export function TopicTeamPanel({
                       : 'bg-gray-100 text-gray-600'
             }`}
           >
-            {isMissionActive
+            {[
+              'planning',
+              'PLANNING',
+              'researching',
+              'RESEARCHING',
+              'EXECUTING',
+              'reviewing',
+              'REVIEWING',
+            ].includes(currentPhase)
               ? '进行中'
               : missionStatus &&
                   ['PAUSED', 'CANCELLED'].includes(missionStatus.status || '')
                 ? '已暂停'
-                : '空闲'}
+                : currentPhase === 'completed'
+                  ? '已完成'
+                  : currentPhase === 'failed'
+                    ? '失败'
+                    : '空闲'}
           </span>
         </div>
 
@@ -472,13 +532,21 @@ export function TopicTeamPanel({
         )}
 
         {/* Action Buttons - 三个等宽按钮：开始/更新/取消 */}
+        {/* ★ 权限提示：没有编辑权限时显示提示 */}
+        {!canEdit && (
+          <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            <span className="font-medium">只读模式</span> -
+            只有创建者才能运行研究任务
+          </div>
+        )}
         <div className="grid grid-cols-3 gap-2">
           {/* 开始按钮 - 从头开始新研究 */}
           <button
             onClick={onStartRefresh}
-            disabled={isMissionActive}
+            disabled={isMissionActive || !canEdit}
+            title={!canEdit ? '需要编辑权限' : undefined}
             className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
-              isMissionActive
+              isMissionActive || !canEdit
                 ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
                 : 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
             }`}
@@ -490,9 +558,10 @@ export function TopicTeamPanel({
           {/* 更新按钮 - 在现有基础上更新 */}
           <button
             onClick={onContinueRefresh}
-            disabled={isMissionActive || !missionStatus}
+            disabled={isMissionActive || !missionStatus || !canEdit}
+            title={!canEdit ? '需要编辑权限' : undefined}
             className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
-              isMissionActive || !missionStatus
+              isMissionActive || !missionStatus || !canEdit
                 ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
                 : 'bg-green-600 text-white shadow-sm hover:bg-green-700'
             }`}
@@ -504,9 +573,10 @@ export function TopicTeamPanel({
           {/* 取消按钮 - 停止当前任务 */}
           <button
             onClick={onCancelRefresh}
-            disabled={!isMissionActive}
+            disabled={!isMissionActive || !canEdit}
+            title={!canEdit ? '需要编辑权限' : undefined}
             className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
-              !isMissionActive
+              !isMissionActive || !canEdit
                 ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
                 : 'border border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
             }`}

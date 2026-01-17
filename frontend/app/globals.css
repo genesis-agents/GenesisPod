@@ -67,13 +67,15 @@
   --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@media (prefers-color-scheme: dark) {
+/* ★ 禁用浏览器深色模式偏好，应用始终使用浅色主题 */
+/* 原因：应用未实现完整深色模式，深色偏好会导致白底白字 */
+/* @media (prefers-color-scheme: dark) {
   :root {
     --foreground-rgb: 255, 255, 255;
     --background-start-rgb: 0, 0, 0;
     --background-end-rgb: 0, 0, 0;
   }
-}
+} */
 
 /* Reset & Base Styles */
 *,
@@ -87,6 +89,8 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  /* ★ 强制浅色模式：应用未实现完整深色模式，确保在所有浏览器设置下正确显示 */
+  color-scheme: light only;
   /* Adaptive scaling for different screen sizes */
   font-size: 16px; /* Base for large screens */
 }
