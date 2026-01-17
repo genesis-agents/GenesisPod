@@ -106,25 +106,45 @@ export class SkillLoaderService implements OnModuleInit {
 
   /**
    * 从目录加载 Skills
+   *
+   * 支持两种命名约定：
+   * 1. Claude Code 官方：skill-name/SKILL.md
+   * 2. 我们的扩展：skill-name.skill.md
    */
   private async loadSkillsFromDirectory(
     config: SkillDirectoryConfig,
   ): Promise<SkillMdDefinition[]> {
-    const pattern = config.recursive
-      ? path.join(config.path, "**/*.skill.md")
-      : path.join(config.path, "*.skill.md");
+    const patterns: string[] = [];
 
-    // 使用 glob 查找所有 .skill.md 文件
-    const files = await glob(pattern.replace(/\\/g, "/"));
+    if (config.recursive) {
+      // 递归模式：支持两种命名
+      patterns.push(
+        path.join(config.path, "**/*.skill.md"), // 我们的格式
+        path.join(config.path, "**/SKILL.md"), // Claude Code 格式
+      );
+    } else {
+      // 非递归模式
+      patterns.push(
+        path.join(config.path, "*.skill.md"), // 我们的格式
+        path.join(config.path, "*/SKILL.md"), // Claude Code 格式（子目录）
+      );
+    }
 
-    if (files.length === 0) {
+    // 使用 glob 查找所有匹配文件
+    const allFiles = new Set<string>();
+    for (const pattern of patterns) {
+      const files = await glob(pattern.replace(/\\/g, "/"));
+      files.forEach((f) => allFiles.add(f));
+    }
+
+    if (allFiles.size === 0) {
       this.logger.debug(`No SKILL.md files found in ${config.path}`);
       return [];
     }
 
     const skills: SkillMdDefinition[] = [];
 
-    for (const filePath of files) {
+    for (const filePath of allFiles) {
       try {
         const content = await fs.readFile(filePath, "utf-8");
         const skill = parseSkillMd(content, filePath);
@@ -312,37 +332,22 @@ export class SkillLoaderService implements OnModuleInit {
   /**
    * 添加自定义 Skill 目录
    *
-   * 安全措施：验证路径是否在允许的范围内，防止路径遍历攻击
+   * 安全措施：
+   * 1. 使用 fs.realpath 解析符号链接
+   * 2. 验证路径在白名单目录内（带路径分隔符防止前缀攻击）
+   * 3. 验证目标是目录而非文件
+   * 4. 检查可疑路径模式
    */
-  addSkillDirectory(config: SkillDirectoryConfig): void {
-    // 安全检查：验证路径是否在允许的基础目录内
+  async addSkillDirectory(config: SkillDirectoryConfig): Promise<void> {
+    // 1. 规范化路径
     const normalizedPath = path.normalize(config.path);
     const resolvedPath = path.resolve(normalizedPath);
 
-    // 允许的基础目录列表
-    const allowedBaseDirs = [
-      path.resolve(this.baseSkillsDir), // ai-app 目录
-      path.resolve(__dirname, "../../../../"), // 项目根目录
-    ];
-
-    const isAllowed = allowedBaseDirs.some((baseDir) =>
-      resolvedPath.startsWith(baseDir),
-    );
-
-    if (!isAllowed) {
-      this.logger.warn(
-        `[Security] Rejected skill directory outside allowed paths: ${config.path}`,
-      );
-      throw new Error(
-        `Skill directory must be within allowed paths. Rejected: ${config.path}`,
-      );
-    }
-
-    // 检查路径中是否包含可疑的路径遍历模式
+    // 2. 检查路径中是否包含可疑的路径遍历模式（在 realpath 前检查）
     if (
       config.path.includes("..") ||
       normalizedPath.includes("..") ||
-      /[<>:"|?*]/.test(config.path)
+      /[<>"|?*]/.test(config.path) // 移除 : 因为 Windows 路径包含它
     ) {
       this.logger.warn(
         `[Security] Rejected skill directory with suspicious pattern: ${config.path}`,
@@ -352,8 +357,76 @@ export class SkillLoaderService implements OnModuleInit {
       );
     }
 
-    this.skillDirectories.push(config);
-    this.logger.debug(`Added skill directory: ${config.path}`);
+    // 3. 使用 realpath 解析符号链接，获取真实路径
+    let realPath: string;
+    try {
+      realPath = await fs.realpath(resolvedPath);
+    } catch (error) {
+      // 路径不存在或无法访问
+      this.logger.warn(
+        `[Security] Skill directory does not exist or not accessible: ${config.path}`,
+      );
+      throw new Error(
+        `Skill directory does not exist or is not accessible: ${config.path}`,
+      );
+    }
+
+    // 4. 验证是目录而非文件
+    try {
+      const stat = await fs.stat(realPath);
+      if (!stat.isDirectory()) {
+        this.logger.warn(
+          `[Security] Skill path is not a directory: ${config.path}`,
+        );
+        throw new Error(`Skill path must be a directory: ${config.path}`);
+      }
+    } catch (error) {
+      if ((error as Error).message.includes("must be a directory")) {
+        throw error;
+      }
+      throw new Error(`Cannot access skill directory: ${config.path}`);
+    }
+
+    // 5. 获取允许的基础目录的真实路径
+    const allowedBaseDirs: string[] = [];
+    try {
+      const baseSkillsRealPath = await fs.realpath(
+        path.resolve(this.baseSkillsDir),
+      );
+      allowedBaseDirs.push(baseSkillsRealPath);
+    } catch {
+      // 忽略不存在的目录
+    }
+    try {
+      const projectRootRealPath = await fs.realpath(
+        path.resolve(__dirname, "../../../../"),
+      );
+      allowedBaseDirs.push(projectRootRealPath);
+    } catch {
+      // 忽略不存在的目录
+    }
+
+    // 6. 白名单检查（使用路径分隔符防止 /app 匹配 /app-evil）
+    const isAllowed = allowedBaseDirs.some(
+      (baseDir) =>
+        realPath === baseDir || realPath.startsWith(baseDir + path.sep),
+    );
+
+    if (!isAllowed) {
+      this.logger.warn(
+        `[Security] Rejected skill directory outside allowed paths: ${config.path} -> ${realPath}`,
+      );
+      throw new Error(
+        `Skill directory must be within allowed paths. Rejected: ${config.path}`,
+      );
+    }
+
+    // 7. 使用真实路径添加到配置
+    this.skillDirectories.push({
+      ...config,
+      path: realPath,
+    });
+    this.logger.debug(`Added skill directory: ${realPath}`);
   }
 
   /**

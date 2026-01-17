@@ -69,6 +69,24 @@ export class SkillsMPClientService {
   /** 是否启用（某些环境可能禁用远程访问） */
   private enabled: boolean = true;
 
+  /** 最大 Skill 内容大小（100KB） */
+  private readonly MAX_SKILL_SIZE = 100 * 1024;
+
+  /** 危险的内容模式（XSS 防护） */
+  private readonly DANGEROUS_PATTERNS: RegExp[] = [
+    /<script[^>]*>[\s\S]*?<\/script>/gi,
+    /javascript:/gi,
+    /on\w+\s*=/gi, // onclick, onerror 等
+    /<iframe/gi,
+    /<embed/gi,
+    /<object/gi,
+    /data:\s*text\/html/gi,
+  ];
+
+  /** 重试配置 */
+  private readonly BASE_DELAY_MS = 1000;
+  private readonly MAX_DELAY_MS = 30000;
+
   constructor(private readonly cacheService: SkillCacheService) {
     this.config = { ...DEFAULT_CONFIG };
   }
@@ -134,14 +152,13 @@ export class SkillsMPClientService {
     }
   }
 
-  /** 最大 Skill 内容大小（100KB） */
-  private readonly MAX_SKILL_SIZE = 100 * 1024;
-
   /**
    * 获取 Skill 详情
    *
    * 安全措施：
    * - 验证内容大小限制
+   * - 验证字符编码和清理危险字符
+   * - 扫描 XSS 攻击模式
    * - 验证 Skill ID 一致性
    * - 验证内容格式有效性
    */
@@ -178,10 +195,14 @@ export class SkillsMPClientService {
         throw new Error(`Empty skill content for: ${skillId}`);
       }
 
-      // 解析 Skill 内容
-      const skill = parseSkillMd(response.content);
+      // 安全检查 3: 清理内容并扫描危险模式
+      const sanitizedContent = this.sanitizeContent(response.content);
+      this.scanForDangerousPatterns(sanitizedContent, skillId);
 
-      // 安全检查 3: 验证 Skill ID 一致性
+      // 解析 Skill 内容
+      const skill = parseSkillMd(sanitizedContent);
+
+      // 安全检查 4: 验证 Skill ID 一致性
       if (skill.metadata.id !== skillId && skill.metadata.name !== skillId) {
         this.logger.warn(
           `[Security] Skill ID mismatch: expected ${skillId}, got ${skill.metadata.id}/${skill.metadata.name}`,
@@ -191,7 +212,7 @@ export class SkillsMPClientService {
         );
       }
 
-      // 安全检查 4: 验证必需字段存在
+      // 安全检查 5: 验证必需字段存在
       if (!skill.metadata.name || !skill.metadata.description) {
         this.logger.warn(
           `[Security] Skill missing required fields: ${skillId}`,
@@ -209,6 +230,44 @@ export class SkillsMPClientService {
         `Failed to get skill ${skillId} from SkillsMP: ${(error as Error).message}`,
       );
       return null;
+    }
+  }
+
+  /**
+   * 清理内容（移除 BOM、控制字符、过长行）
+   */
+  private sanitizeContent(content: string): string {
+    // 1. 移除 BOM
+    let sanitized = content.replace(/^\uFEFF/, "");
+
+    // 2. 移除危险的控制字符（保留换行、制表符）
+    sanitized = sanitized.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, "");
+
+    // 3. 限制单行长度（防止 ReDoS 攻击）
+    const lines = sanitized
+      .split("\n")
+      .map((line) =>
+        line.length > 10000 ? line.slice(0, 10000) + "..." : line,
+      );
+
+    return lines.join("\n");
+  }
+
+  /**
+   * 扫描危险模式（XSS 防护）
+   */
+  private scanForDangerousPatterns(content: string, skillId: string): void {
+    for (const pattern of this.DANGEROUS_PATTERNS) {
+      // 重置正则表达式状态
+      pattern.lastIndex = 0;
+      if (pattern.test(content)) {
+        this.logger.warn(
+          `[Security] Skill contains dangerous pattern: ${skillId} (matched: ${pattern.source})`,
+        );
+        throw new Error(
+          `Skill content contains potentially dangerous code: ${skillId}`,
+        );
+      }
     }
   }
 
@@ -313,7 +372,12 @@ export class SkillsMPClientService {
   }
 
   /**
-   * 带重试的 fetch 请求
+   * 带重试的 fetch 请求（指数退避 + 抖动）
+   *
+   * 安全措施：
+   * - 指数退避：1s, 2s, 4s, 8s... (上限 30s)
+   * - 随机抖动：防止"雷鸣羊群"问题
+   * - 智能重试：只重试 5xx、429、408 错误
    */
   private async fetchWithRetry<T>(
     endpoint: string,
@@ -348,26 +412,63 @@ export class SkillsMPClientService {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          const shouldRetry = this.shouldRetryStatus(response.status);
+          const errorMsg = `HTTP ${response.status}: ${response.statusText}`;
+
+          if (!shouldRetry) {
+            // 4xx 客户端错误（除 429, 408），不重试
+            throw new Error(`${errorMsg} (non-retryable)`);
+          }
+
+          // 5xx 或可重试错误
+          throw new Error(errorMsg);
         }
 
         return (await response.json()) as T;
       } catch (error) {
         lastError = error as Error;
-        this.logger.debug(
-          `SkillsMP request failed (attempt ${attempt + 1}): ${lastError.message}`,
-        );
 
-        // 等待后重试
+        // 不可重试的错误，直接抛出
+        if (lastError.message.includes("non-retryable")) {
+          throw lastError;
+        }
+
+        // 计算指数退避延迟 + 随机抖动
         if (attempt < this.config.maxRetries - 1) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, 1000 * (attempt + 1)),
+          const exponentialDelay = Math.min(
+            this.BASE_DELAY_MS * Math.pow(2, attempt),
+            this.MAX_DELAY_MS,
+          );
+          const jitter = Math.random() * exponentialDelay * 0.3; // 30% 抖动
+          const delay = Math.round(exponentialDelay + jitter);
+
+          this.logger.debug(
+            `SkillsMP request failed (attempt ${attempt + 1}/${this.config.maxRetries}): ${lastError.message}, retrying in ${delay}ms`,
+          );
+
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          this.logger.error(
+            `SkillsMP request failed after ${this.config.maxRetries} attempts: ${lastError.message}`,
           );
         }
       }
     }
 
     throw lastError || new Error("Unknown error");
+  }
+
+  /**
+   * 判断 HTTP 状态码是否应该重试
+   */
+  private shouldRetryStatus(status: number): boolean {
+    // 重试：5xx 服务器错误、429 限流、408 超时
+    if (status >= 500) return true;
+    if (status === 429) return true; // Too Many Requests
+    if (status === 408) return true; // Request Timeout
+
+    // 不重试：其他 4xx 客户端错误
+    return false;
   }
 
   /**

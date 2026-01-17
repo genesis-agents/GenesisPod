@@ -127,6 +127,13 @@ export interface SkillMdFrontmatter {
    */
   disableModelInvocation?: boolean;
 
+  /**
+   * 参数提示（Claude Code 官方可选字段）
+   * 在斜线菜单中显示的参数格式提示
+   * 例如: "[file] [options]", "[PR number]"
+   */
+  argumentHint?: string;
+
   // ========== 我们的扩展字段 ==========
 
   /**
@@ -196,11 +203,13 @@ export interface RawSkillMdFrontmatter {
   hooks?: SkillHooks;
   "user-invocable"?: boolean;
   "disable-model-invocation"?: boolean;
+  "argument-hint"?: string;
 
   // Claude Code 字段的 camelCase 别名（用于我们的 SKILL.md 格式）
   allowedTools?: string[] | string;
   userInvocable?: boolean;
   disableModelInvocation?: boolean;
+  argumentHint?: string;
 
   // 我们的扩展字段
   id?: string;

@@ -158,10 +158,73 @@ export class ResearchMissionService {
           ],
         },
       },
+      include: {
+        tasks: {
+          select: { status: true },
+        },
+      },
     });
 
     if (existingMission) {
-      throw new Error(`A mission is already in progress for topic ${topicId}`);
+      // ★ 检查是否为"僵尸"任务：所有子任务都已失败或不存在活跃任务
+      const activeTasks = existingMission.tasks.filter(
+        (t) =>
+          t.status === ResearchTaskStatus.PENDING ||
+          t.status === ResearchTaskStatus.ASSIGNED ||
+          t.status === ResearchTaskStatus.EXECUTING,
+      );
+
+      const allTasksFailed =
+        existingMission.tasks.length > 0 &&
+        existingMission.tasks.every(
+          (t) =>
+            t.status === ResearchTaskStatus.FAILED ||
+            t.status === ResearchTaskStatus.COMPLETED,
+        );
+
+      // 如果没有活跃任务，且（所有任务都失败 或 任务为空），则自动取消旧任务
+      if (
+        activeTasks.length === 0 &&
+        (allTasksFailed || existingMission.tasks.length === 0)
+      ) {
+        this.logger.warn(
+          `[startMission] Found stale mission ${existingMission.id} with no active tasks, auto-cancelling...`,
+        );
+
+        // 自动取消旧任务
+        await this.prisma.researchMission.update({
+          where: { id: existingMission.id },
+          data: { status: ResearchMissionStatus.CANCELLED },
+        });
+
+        // 同步更新 ResearchTodo
+        await this.prisma.researchTodo.updateMany({
+          where: {
+            missionId: existingMission.id,
+            status: {
+              in: [
+                ResearchTodoStatus.PENDING,
+                ResearchTodoStatus.QUEUED,
+                ResearchTodoStatus.IN_PROGRESS,
+              ],
+            },
+          },
+          data: {
+            status: ResearchTodoStatus.CANCELLED,
+            statusMessage: "旧任务已自动清理",
+            completedAt: new Date(),
+          },
+        });
+
+        this.logger.log(
+          `[startMission] Auto-cancelled stale mission ${existingMission.id}`,
+        );
+      } else {
+        // 有活跃任务，不允许启动新任务
+        throw new Error(
+          `A mission is already in progress for topic ${topicId}`,
+        );
+      }
     }
 
     // 3. 获取 Leader 模型信息

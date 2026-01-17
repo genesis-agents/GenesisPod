@@ -107,6 +107,9 @@ function normalizeFrontmatter(
   const disableModelInvocation =
     raw.disableModelInvocation ?? raw["disable-model-invocation"];
 
+  // argument-hint -> argumentHint
+  const argumentHint = raw.argumentHint ?? raw["argument-hint"];
+
   // id 和 name 互为别名（兼容 Claude Code）
   const id = raw.id || raw.name;
   const name = raw.name || raw.id;
@@ -135,6 +138,7 @@ function normalizeFrontmatter(
     hooks: raw.hooks,
     userInvocable: userInvocable ?? true,
     disableModelInvocation: disableModelInvocation ?? false,
+    argumentHint,
 
     // 我们的扩展字段
     id: id || name!,
