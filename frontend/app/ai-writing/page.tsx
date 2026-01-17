@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslation } from '@/lib/i18n';
 import { useAIWritingStore } from '@/stores/aiWritingStore';
 import { getStylePresets, type WritingStylePreset } from '@/lib/api/ai-writing';
 import { WRITING_AGENT_REGISTRY } from '@/lib/ai-writing/agent-config';
@@ -93,6 +94,7 @@ function getProjectGradient(projectId: string) {
 export default function AIWritingPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
+  const { t } = useTranslation();
   const {
     projects,
     isLoadingProjects,
@@ -286,8 +288,10 @@ export default function AIWritingPage() {
               d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
             />
           </svg>
-          <h2 className="text-xl font-semibold text-gray-700">请先登录</h2>
-          <p className="text-gray-500">登录后即可开始 AI 写作</p>
+          <h2 className="text-xl font-semibold text-gray-700">
+            {t('aiWriting.signIn.title')}
+          </h2>
+          <p className="text-gray-500">{t('aiWriting.signIn.description')}</p>
         </div>
       </AppShell>
     );
@@ -317,9 +321,11 @@ export default function AIWritingPage() {
                   </svg>
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">AI 写作</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    {t('aiWriting.title')}
+                  </h1>
                   <p className="text-sm text-gray-500">
-                    5 位 AI 专家协作，帮你完成创作
+                    {t('aiWriting.subtitle', { count: 5 })}
                   </p>
                 </div>
               </div>
@@ -362,7 +368,7 @@ export default function AIWritingPage() {
                 </svg>
                 <input
                   type="text"
-                  placeholder="搜索作品..."
+                  placeholder={t('aiWriting.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
@@ -395,10 +401,10 @@ export default function AIWritingPage() {
                 />
               </svg>
               <h3 className="mt-4 text-lg font-medium text-gray-700">
-                还没有作品
+                {t('aiWriting.empty.noProjects')}
               </h3>
               <p className="mt-2 text-sm text-gray-500">
-                描述你的想法，AI 写作团队将协作完成
+                {t('aiWriting.empty.noProjectsDesc')}
               </p>
               <button
                 onClick={() => setShowCreateDialog(true)}
@@ -424,9 +430,11 @@ export default function AIWritingPage() {
                 />
               </svg>
               <h3 className="mt-4 text-lg font-medium text-gray-700">
-                没有找到匹配的作品
+                {t('aiWriting.noResults.title')}
               </h3>
-              <p className="mt-2 text-sm text-gray-500">尝试其他关键词搜索</p>
+              <p className="mt-2 text-sm text-gray-500">
+                {t('aiWriting.noResults.description')}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
