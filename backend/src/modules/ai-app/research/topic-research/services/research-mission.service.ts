@@ -17,6 +17,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   ResearchMissionStatus,
   ResearchTaskStatus,
+  ResearchTodoStatus,
   LeaderDecisionType,
   Prisma,
 } from "@prisma/client";
@@ -1053,6 +1054,29 @@ export class ResearchMissionService {
 
     this.logger.log(
       `[cancelMission] Cancelled ${cancelledTasksResult.count} pending/executing tasks`,
+    );
+
+    // ★ 同步更新 ResearchTodo 表（前端显示的任务列表来自这里）
+    const cancelledTodosResult = await this.prisma.researchTodo.updateMany({
+      where: {
+        missionId,
+        status: {
+          in: [
+            ResearchTodoStatus.PENDING,
+            ResearchTodoStatus.QUEUED,
+            ResearchTodoStatus.IN_PROGRESS,
+          ],
+        },
+      },
+      data: {
+        status: ResearchTodoStatus.CANCELLED,
+        statusMessage: "任务已被用户取消",
+        completedAt: new Date(),
+      },
+    });
+
+    this.logger.log(
+      `[cancelMission] Cancelled ${cancelledTodosResult.count} pending/queued/in_progress todos`,
     );
 
     // ★ 清理该任务创建的空草稿报告（没有 dimensionAnalyses 的报告）
