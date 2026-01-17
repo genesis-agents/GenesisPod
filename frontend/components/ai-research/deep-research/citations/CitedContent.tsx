@@ -784,7 +784,98 @@ function applyAnnotationHighlights(
           end: originalEnd,
           annotation,
         });
+        continue;
       }
+    }
+
+    // Strategy: Last 50 characters match (for cross-paragraph annotations)
+    if (normalizedTarget.length >= 50) {
+      const lastPart = normalizedTarget.slice(-50);
+      const lastIndex = normalizedText.indexOf(lastPart);
+      if (lastIndex !== -1) {
+        const estimatedNormStart = Math.max(
+          0,
+          lastIndex - (normalizedTarget.length - 50)
+        );
+        const originalStart = findOriginalPosition(text, estimatedNormStart);
+        const originalEnd = findOriginalPosition(
+          text,
+          lastIndex + lastPart.length
+        );
+        matches.push({
+          start: originalStart,
+          end: originalEnd,
+          annotation,
+        });
+        continue;
+      }
+    }
+
+    // Strategy: Middle portion match (for annotations that may have been truncated)
+    if (normalizedTarget.length >= 60) {
+      const middleStart = Math.floor(normalizedTarget.length / 3);
+      const middlePart = normalizedTarget.slice(middleStart, middleStart + 40);
+      if (middlePart.length >= 30) {
+        const middleIndex = normalizedText.indexOf(middlePart);
+        if (middleIndex !== -1) {
+          const estimatedNormStart = Math.max(0, middleIndex - middleStart);
+          const originalStart = findOriginalPosition(text, estimatedNormStart);
+          const originalEnd = findOriginalPosition(
+            text,
+            Math.min(
+              estimatedNormStart + normalizedTarget.length,
+              normalizedText.length
+            )
+          );
+          matches.push({
+            start: originalStart,
+            end: originalEnd,
+            annotation,
+          });
+          continue;
+        }
+      }
+    }
+
+    // Strategy: Unique phrase match (find longest unique phrase)
+    for (let phraseLen = 30; phraseLen >= 15; phraseLen -= 5) {
+      let found = false;
+      for (
+        let offset = 0;
+        offset <= normalizedTarget.length - phraseLen && !found;
+        offset += 10
+      ) {
+        const phrase = normalizedTarget.slice(offset, offset + phraseLen);
+        const firstOccurrence = normalizedText.indexOf(phrase);
+        if (firstOccurrence !== -1) {
+          // Check if this is the only occurrence (unique)
+          const secondOccurrence = normalizedText.indexOf(
+            phrase,
+            firstOccurrence + 1
+          );
+          if (secondOccurrence === -1) {
+            const estimatedNormStart = Math.max(0, firstOccurrence - offset);
+            const originalStart = findOriginalPosition(
+              text,
+              estimatedNormStart
+            );
+            const originalEnd = findOriginalPosition(
+              text,
+              Math.min(
+                estimatedNormStart + normalizedTarget.length,
+                normalizedText.length
+              )
+            );
+            matches.push({
+              start: originalStart,
+              end: originalEnd,
+              annotation,
+            });
+            found = true;
+          }
+        }
+      }
+      if (found) break;
     }
   }
 

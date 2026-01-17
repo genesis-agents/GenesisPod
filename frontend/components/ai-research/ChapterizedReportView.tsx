@@ -1152,10 +1152,12 @@ function ChapterizedReportViewInner({
                     </div>
                   )}
 
-                  {/* Content Preview */}
+                  {/* Content Preview with annotation highlights */}
                   {chapter.content && (
                     <div className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs text-gray-500">
-                      {chapter.content.slice(0, 200)}
+                      {processTextWithAnnotations(
+                        chapter.content.slice(0, 200)
+                      )}
                       {chapter.content.length > 200 ? '...' : ''}
                     </div>
                   )}

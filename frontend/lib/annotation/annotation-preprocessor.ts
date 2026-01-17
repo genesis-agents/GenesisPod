@@ -176,6 +176,111 @@ function findAnnotationPosition(
     }
   }
 
+  // Strategy 6: Last 50 characters match (for cross-paragraph annotations)
+  if (normalizedTarget.length >= 50) {
+    const lastPart = normalizedTarget.slice(-50);
+    const lastIndex = normalizedContent.indexOf(lastPart);
+    if (lastIndex !== -1) {
+      // Calculate approximate start based on target length
+      const estimatedStart = Math.max(
+        0,
+        lastIndex - (normalizedTarget.length - 50)
+      );
+      return {
+        start: estimatedStart,
+        end: lastIndex + lastPart.length,
+      };
+    }
+  }
+
+  // Strategy 7: Middle portion match (for annotations that may have been truncated)
+  if (normalizedTarget.length >= 60) {
+    const middleStart = Math.floor(normalizedTarget.length / 3);
+    const middlePart = normalizedTarget.slice(middleStart, middleStart + 40);
+    if (middlePart.length >= 30) {
+      const middleIndex = normalizedContent.indexOf(middlePart);
+      if (middleIndex !== -1) {
+        const estimatedStart = Math.max(0, middleIndex - middleStart);
+        return {
+          start: estimatedStart,
+          end: Math.min(
+            estimatedStart + normalizedTarget.length,
+            normalizedContent.length
+          ),
+        };
+      }
+    }
+  }
+
+  // Strategy 8: Match first line/sentence (for multi-line annotations)
+  const firstLine = normalizedTarget
+    .split(/[。\.\n]/)
+    .find((s) => s.length > 10);
+  if (firstLine && firstLine.length >= 15) {
+    const firstLineNorm = normalizeWhitespace(firstLine);
+    const lineIndex = normalizedContent.indexOf(firstLineNorm);
+    if (lineIndex !== -1) {
+      return {
+        start: lineIndex,
+        end: Math.min(
+          lineIndex + normalizedTarget.length,
+          normalizedContent.length
+        ),
+      };
+    }
+  }
+
+  // Strategy 9: Match last line/sentence (for multi-line annotations)
+  const sentences = normalizedTarget
+    .split(/[。\.\n]/)
+    .filter((s) => s.length > 10);
+  if (sentences.length > 1) {
+    const lastSentence = sentences[sentences.length - 1];
+    if (lastSentence && lastSentence.length >= 15) {
+      const lastSentenceNorm = normalizeWhitespace(lastSentence);
+      const sentenceIndex = normalizedContent.indexOf(lastSentenceNorm);
+      if (sentenceIndex !== -1) {
+        const estimatedStart = Math.max(
+          0,
+          sentenceIndex - (normalizedTarget.length - lastSentence.length)
+        );
+        return {
+          start: estimatedStart,
+          end: sentenceIndex + lastSentenceNorm.length,
+        };
+      }
+    }
+  }
+
+  // Strategy 10: Unique phrase match (find longest unique phrase)
+  for (let phraseLen = 30; phraseLen >= 15; phraseLen -= 5) {
+    for (
+      let offset = 0;
+      offset <= normalizedTarget.length - phraseLen;
+      offset += 10
+    ) {
+      const phrase = normalizedTarget.slice(offset, offset + phraseLen);
+      const firstOccurrence = normalizedContent.indexOf(phrase);
+      if (firstOccurrence !== -1) {
+        // Check if this is the only occurrence (unique)
+        const secondOccurrence = normalizedContent.indexOf(
+          phrase,
+          firstOccurrence + 1
+        );
+        if (secondOccurrence === -1) {
+          const estimatedStart = Math.max(0, firstOccurrence - offset);
+          return {
+            start: estimatedStart,
+            end: Math.min(
+              estimatedStart + normalizedTarget.length,
+              normalizedContent.length
+            ),
+          };
+        }
+      }
+    }
+  }
+
   return null;
 }
 
