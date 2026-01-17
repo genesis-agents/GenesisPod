@@ -9,6 +9,7 @@ import { KnowledgeBaseService } from "./knowledge-base.service";
 import { KnowledgeBaseStatus } from "@prisma/client";
 import { google, drive_v3 } from "googleapis";
 import { SyncResult, GoogleDriveFile } from "../interfaces/rag.interfaces";
+import * as mammoth from "mammoth";
 
 // Supported MIME types for document processing
 const SUPPORTED_MIME_TYPES: Record<string, string> = {
@@ -498,13 +499,11 @@ export class GoogleDriveRAGService {
    * Extract text from DOCX
    */
   private async extractDocxContent(buffer: Buffer): Promise<string> {
-    // Use mammoth library if available
     try {
-      const mammoth = require("mammoth");
       const result = await mammoth.extractRawText({ buffer });
       return result.value;
     } catch (error) {
-      this.logger.warn("mammoth not available, returning empty string");
+      this.logger.warn(`Failed to extract DOCX content: ${error}`);
       return "";
     }
   }
