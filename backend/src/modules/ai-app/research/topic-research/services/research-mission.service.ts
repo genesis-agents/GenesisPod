@@ -1404,15 +1404,17 @@ export class ResearchMissionService {
         continue;
       }
 
-      // 并行执行可执行的任务
+      // ★ 限制并发执行任务数量，避免 API 限流
+      // 同时最多执行 3 个任务（搜索 API + LLM API 都有限流）
+      const MAX_CONCURRENT_TASKS = 3;
       this.logger.log(
-        `[startExecution] Executing ${executableTasks.length} tasks in parallel`,
+        `[startExecution] Executing ${executableTasks.length} tasks with max concurrency ${MAX_CONCURRENT_TASKS}`,
       );
 
-      await Promise.all(
-        executableTasks.map((task) =>
-          this.executeTask(task, topic, missionId, draftReport.id),
-        ),
+      await this.executeTasksWithConcurrencyLimit(
+        executableTasks,
+        MAX_CONCURRENT_TASKS,
+        (task) => this.executeTask(task, topic, missionId, draftReport.id),
       );
     }
 
@@ -1942,5 +1944,45 @@ export class ResearchMissionService {
     this.logger.log(
       `[finalizeMission] Mission ${missionId} finalized: ${statusMessage}`,
     );
+  }
+
+  /**
+   * 限制并发执行任务
+   * ★ 解决 API 限流问题：同时最多执行 maxConcurrent 个任务
+   *
+   * @param tasks 要执行的任务列表
+   * @param maxConcurrent 最大并发数
+   * @param executor 任务执行函数
+   */
+  private async executeTasksWithConcurrencyLimit<T, R>(
+    tasks: T[],
+    maxConcurrent: number,
+    executor: (task: T) => Promise<R>,
+  ): Promise<R[]> {
+    const results: R[] = [];
+    const executing: Promise<void>[] = [];
+
+    for (const task of tasks) {
+      // 创建任务 Promise
+      const promise = executor(task).then((result) => {
+        results.push(result);
+      });
+
+      // 包装为可追踪的 Promise
+      const trackedPromise = promise.then(() => {
+        executing.splice(executing.indexOf(trackedPromise), 1);
+      });
+      executing.push(trackedPromise);
+
+      // 当达到最大并发数时，等待任一任务完成
+      if (executing.length >= maxConcurrent) {
+        await Promise.race(executing);
+      }
+    }
+
+    // 等待所有剩余任务完成
+    await Promise.all(executing);
+
+    return results;
   }
 }

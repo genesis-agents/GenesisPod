@@ -131,7 +131,7 @@ export class DimensionMissionService {
       // 1. 获取搜索结果
       this.emitProgress(
         topic.id,
-        dimension.id,
+        dimension.name,
         {
           stage: "planning",
           sectionsTotal: 0,
@@ -139,6 +139,7 @@ export class DimensionMissionService {
           message: "正在收集资料...",
         },
         missionId,
+        5, // 阶段进度：5%
       );
 
       // ★ 记录搜索阶段开始
@@ -949,21 +950,34 @@ export class DimensionMissionService {
 
   /**
    * 发送进度事件
+   * @param dimensionName - 维度名称（用于前端显示）
+   * @param stageProgress - 当前阶段的进度百分比（可选，如果提供则使用此值）
    */
   private emitProgress(
     topicId: string,
-    _dimensionId: string,
+    dimensionName: string,
     progress: MissionProgress,
     missionId?: string,
+    stageProgress?: number,
   ): void {
+    // 计算进度：优先使用 stageProgress，否则根据 section 完成比例计算
+    let calculatedProgress: number;
+    if (stageProgress !== undefined) {
+      calculatedProgress = stageProgress;
+    } else if (progress.sectionsTotal > 0) {
+      // 写作阶段：30% - 80% 之间根据 section 完成比例
+      const sectionRatio = progress.sectionsCompleted / progress.sectionsTotal;
+      calculatedProgress = Math.round(30 + sectionRatio * 50);
+    } else {
+      // 规划阶段默认 10%
+      calculatedProgress = 10;
+    }
+
     // 使用维度研究进度事件
     this.eventEmitter.emitDimensionResearchProgress(
       topicId,
-      progress.currentSection || "维度研究",
-      Math.round(
-        (progress.sectionsCompleted / Math.max(progress.sectionsTotal, 1)) *
-          100,
-      ),
+      dimensionName,
+      calculatedProgress,
       progress.message,
       missionId,
     );

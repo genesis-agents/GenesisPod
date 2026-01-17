@@ -1088,6 +1088,22 @@ function TeamCanvasView({
 // ============================================
 // Task Item - 简洁单行显示
 // ============================================
+
+/**
+ * 根据进度百分比返回当前阶段描述
+ * 进度阶段：
+ * - 0-10%: 收集资料
+ * - 10-30%: 规划分析
+ * - 30-80%: 撰写中
+ * - 80-100%: 整合中
+ */
+function getProgressStage(progress: number): string {
+  if (progress < 10) return '收集中';
+  if (progress < 30) return '规划中';
+  if (progress < 80) return '撰写中';
+  return '整合中';
+}
+
 function TaskItem({ task }: { task: TaskStatus }) {
   const icon = statusIcons[task.status] || '⏳';
   const colorClass = statusColors[task.status] || statusColors.PENDING;
@@ -1118,6 +1134,9 @@ function TaskItem({ task }: { task: TaskStatus }) {
           className={`rounded-full px-1.5 py-0.5 text-[10px] ${colorClass}`}
         >
           {task.progress}%
+          <span className="ml-1 text-blue-500/70">
+            {getProgressStage(task.progress)}
+          </span>
         </span>
       ) : (
         <span

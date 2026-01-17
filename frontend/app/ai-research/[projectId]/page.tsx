@@ -3323,7 +3323,7 @@ export default function ProjectDetailPage() {
         <AlertCircle className="h-12 w-12 text-red-500" />
         <p className="mt-4 text-gray-600">{error || 'Project not found'}</p>
         <button
-          onClick={() => router.push('/studio')}
+          onClick={() => router.push('/ai-research')}
           className="mt-4 text-purple-600 hover:underline"
         >
           Back to projects
@@ -3351,7 +3351,7 @@ export default function ProjectDetailPage() {
           <div className="flex items-center justify-between px-4 py-2">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => router.push('/studio')}
+                onClick={() => router.push('/ai-research')}
                 className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
               >
                 <ArrowLeft className="h-5 w-5" />

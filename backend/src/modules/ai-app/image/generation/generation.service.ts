@@ -979,6 +979,10 @@ export class AiImageService {
     return this.imageStorageService.getImage(id);
   }
 
+  async getPublicImage(id: string) {
+    return this.imageStorageService.getPublicImage(id);
+  }
+
   async deleteImage(
     id: string,
     userId?: string,

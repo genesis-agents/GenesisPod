@@ -111,12 +111,6 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
       activeClass: 'bg-cyan-50',
       prefix: true,
     },
-    {
-      href: '/labs',
-      label: t('nav.aiLabs'),
-      icon: 'flask',
-      activeClass: 'bg-pink-50',
-    },
   ];
 
   const bottomNavItems = [

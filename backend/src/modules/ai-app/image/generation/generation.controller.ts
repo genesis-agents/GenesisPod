@@ -341,6 +341,19 @@ export class AiImageController {
   }
 
   /**
+   * Get public image for sharing (no auth required)
+   * Only returns PUBLIC visibility images
+   */
+  @Get("public/:id")
+  async getPublicImage(@Param("id") id: string) {
+    const image = await this.aiImageService.getPublicImage(id);
+    if (!image) {
+      return { success: false, message: "Image not found or not public" };
+    }
+    return image;
+  }
+
+  /**
    * 管理员查看图片统计（必须放在 :id 路由之前）
    */
   @Get("stats")

@@ -623,7 +623,7 @@ function StudioPageContent() {
   const handleProjectCreated = (project: ResearchProject) => {
     setProjects((prev) => [project, ...prev]);
     // 直接跳转到新项目
-    router.push(`/studio/${project.id}`);
+    router.push(`/ai-research/${project.id}`);
   };
 
   // 处理项目归档
@@ -850,7 +850,7 @@ function StudioPageContent() {
                   <ProjectCard
                     key={project.id}
                     project={project}
-                    onClick={() => router.push(`/studio/${project.id}`)}
+                    onClick={() => router.push(`/ai-research/${project.id}`)}
                     onArchive={() => handleArchive(project.id)}
                     onDelete={() => handleDelete(project.id)}
                   />

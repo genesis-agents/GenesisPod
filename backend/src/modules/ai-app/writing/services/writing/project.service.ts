@@ -235,6 +235,57 @@ export class ProjectService {
     });
   }
 
+  /**
+   * Get public project (for sharing - no auth required)
+   * Only returns project if visibility is PUBLIC
+   */
+  async findPublic(id: string) {
+    const project = await this.prisma.writingProject.findFirst({
+      where: {
+        id,
+        visibility: "PUBLIC",
+      },
+      include: {
+        owner: {
+          select: {
+            username: true,
+          },
+        },
+        volumes: {
+          include: {
+            chapters: {
+              select: {
+                id: true,
+                chapterNumber: true,
+                title: true,
+                content: true,
+                wordCount: true,
+              },
+              orderBy: { chapterNumber: "asc" },
+            },
+          },
+          orderBy: { volumeNumber: "asc" },
+        },
+      },
+    });
+
+    if (!project) {
+      return null;
+    }
+
+    return {
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      genre: project.genre,
+      currentWords: project.currentWords,
+      targetWords: project.targetWords,
+      createdAt: project.createdAt.toISOString(),
+      userName: project.owner?.username || undefined,
+      volumes: project.volumes,
+    };
+  }
+
   private async verifyOwnership(projectId: string, userId: string) {
     const project = await this.prisma.writingProject.findFirst({
       where: { id: projectId, ownerId: userId },

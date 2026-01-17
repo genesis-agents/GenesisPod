@@ -38,7 +38,8 @@
     "showLess": "收起",
     "noResults": "未找到结果",
     "tryAgain": "重试",
-    "learnMore": "了解更多"
+    "learnMore": "了解更多",
+    "backToHome": "返回首页"
   },
   "share": {
     "title": "分享",
@@ -55,7 +56,16 @@
     "linkedin": "领英",
     "publicNote": "只有公开的内容才能被分享。私有内容的链接对他人不可见。",
     "shareImage": "分享图片",
-    "shareWriting": "分享作品"
+    "shareWriting": "分享作品",
+    "imageNotAccessible": "无法访问此图片",
+    "imageNotPublic": "该图片不存在或未设置为公开",
+    "writingNotAccessible": "无法访问此作品",
+    "writingNotPublic": "该作品不存在或未设置为公开",
+    "createdBy": "创建者",
+    "createdAt": "创建于",
+    "promptUsed": "使用的提示词",
+    "enhancedPrompt": "优化后的提示词",
+    "poweredBy": "由 DeepDive Engine 生成"
   },
   "nav": {
     "home": "首页",

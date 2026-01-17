@@ -671,8 +671,8 @@ export function TopicContentPanel({
       setToast({ message: '无法生成分享链接', type: 'error' });
       return;
     }
-    // 使用报告阅读页面（参考 AI Writing 的 /read/[id] 布局）
-    const shareUrl = `${window.location.origin}/read-report/${topicId}`;
+    // 使用公开分享页面
+    const shareUrl = `${window.location.origin}/share/topic/${topicId}`;
     try {
       await navigator.clipboard.writeText(shareUrl);
       setToast({ message: '分享链接已复制到剪贴板', type: 'success' });

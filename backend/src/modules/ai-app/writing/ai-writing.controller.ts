@@ -485,54 +485,17 @@ export class AiWritingController {
 
   /**
    * 公开阅读接口 - 获取项目内容（无需登录）
+   * 只返回 visibility 为 PUBLIC 的项目
    */
   @Public()
   @Get("public/:projectId")
   async getPublicProject(@Param("projectId") projectId: string) {
     this.logger.log(`Public access to project ${projectId}`);
 
-    // 查询项目（暂时不检查公开状态，后续可以添加 isPublic 字段）
-    const project = await this.prisma.writingProject.findUnique({
-      where: { id: projectId },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        genre: true,
-        targetWords: true,
-        currentWords: true,
-        status: true,
-        storyBible: {
-          select: {
-            premise: true,
-            theme: true,
-            tone: true,
-            worldType: true,
-          },
-        },
-        volumes: {
-          select: {
-            id: true,
-            title: true,
-            volumeNumber: true,
-            chapters: {
-              select: {
-                id: true,
-                title: true,
-                content: true,
-                chapterNumber: true,
-                wordCount: true,
-              },
-              orderBy: { chapterNumber: "asc" },
-            },
-          },
-          orderBy: { volumeNumber: "asc" },
-        },
-      },
-    });
+    const project = await this.projectService.findPublic(projectId);
 
     if (!project) {
-      return { error: "Project not found", statusCode: 404 };
+      return { success: false, message: "Project not found or not public" };
     }
 
     return project;

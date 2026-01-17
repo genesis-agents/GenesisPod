@@ -1771,7 +1771,7 @@ export default function WritingProjectPage() {
   const handleShareLink = async () => {
     if (!currentProject) return;
     // 生成公开分享链接
-    const shareUrl = `${window.location.origin}/read/${projectId}`;
+    const shareUrl = `${window.location.origin}/share/writing/${projectId}`;
     try {
       await navigator.clipboard.writeText(shareUrl);
       setToast({ message: '分享链接已复制到剪贴板', type: 'success' });

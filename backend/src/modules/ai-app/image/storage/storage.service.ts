@@ -133,6 +133,48 @@ export class ImageStorageService {
   }
 
   /**
+   * Get public image (for sharing - no auth required)
+   * Only returns image if visibility is PUBLIC
+   */
+  async getPublicImage(id: string): Promise<{
+    id: string;
+    imageUrl: string;
+    prompt: string;
+    enhancedPrompt?: string;
+    width: number;
+    height: number;
+    createdAt: string;
+    userName?: string;
+  } | null> {
+    const image = await this.prisma.generatedImage.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            username: true,
+          },
+        },
+      },
+    });
+
+    // Only return if image exists and is PUBLIC
+    if (!image || image.visibility !== "PUBLIC") {
+      return null;
+    }
+
+    return {
+      id: image.id,
+      imageUrl: image.imageUrl,
+      prompt: image.prompt,
+      enhancedPrompt: image.enhancedPrompt || undefined,
+      width: image.width,
+      height: image.height,
+      createdAt: image.createdAt.toISOString(),
+      userName: image.user?.username || undefined,
+    };
+  }
+
+  /**
    * Delete image
    */
   async deleteImage(

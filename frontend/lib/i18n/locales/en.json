@@ -38,7 +38,8 @@
     "showLess": "Show Less",
     "noResults": "No results found",
     "tryAgain": "Try Again",
-    "learnMore": "Learn More"
+    "learnMore": "Learn More",
+    "backToHome": "Back to Home"
   },
   "share": {
     "title": "Share",
@@ -55,7 +56,16 @@
     "linkedin": "LinkedIn",
     "publicNote": "Only public content can be shared. Private content links will not work for others.",
     "shareImage": "Share Image",
-    "shareWriting": "Share Writing"
+    "shareWriting": "Share Writing",
+    "imageNotAccessible": "Unable to access this image",
+    "imageNotPublic": "This image does not exist or is not public",
+    "writingNotAccessible": "Unable to access this work",
+    "writingNotPublic": "This work does not exist or is not public",
+    "createdBy": "Created by",
+    "createdAt": "Created",
+    "promptUsed": "Prompt Used",
+    "enhancedPrompt": "Enhanced Prompt",
+    "poweredBy": "Powered by DeepDive Engine"
   },
   "nav": {
     "home": "Home",
@@ -1087,6 +1097,12 @@
       "toggleToPublic": "Make public",
       "toggleToPrivate": "Make private"
     },
+    "words": "words",
+    "volume": "Volume",
+    "chapter": "Chapter",
+    "tableOfContents": "Table of Contents",
+    "noContent": "No content yet",
+    "selectChapter": "Select a chapter to read",
     "createDialog": {
       "title": "Start Creating",
       "whatToWrite": "What do you want to write? *",

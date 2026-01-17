@@ -77,7 +77,7 @@ const INITIAL_NOTIFICATIONS: Omit<Notification, 'id' | 'timestamp'>[] = [
     message:
       'Welcome to DeepDive! Explore AI-powered research tools including AI Office, AI Teams, and more.',
     read: false,
-    actionUrl: '/whats-new',
+    actionUrl: '/',
     persistent: true,
   },
   {
@@ -87,14 +87,6 @@ const INITIAL_NOTIFICATIONS: Omit<Notification, 'id' | 'timestamp'>[] = [
       'Create professional documents, presentations, and reports with AI assistance.',
     read: false,
     actionUrl: '/ai-office',
-  },
-  {
-    type: 'feature',
-    title: 'Labs: Experimental Features',
-    message:
-      'Enable or disable AI features in Labs to customize your experience.',
-    read: false,
-    actionUrl: '/labs',
   },
 ];
 
