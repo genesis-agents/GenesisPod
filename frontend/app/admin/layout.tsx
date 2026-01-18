@@ -9,14 +9,15 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AppShell hideSidebar>
-      <div className="flex h-full w-full flex-col overflow-hidden">
-        {/* Tab 导航 */}
+    <AppShell>
+      {/* Main Content Area - Full height flex column */}
+      <main className="flex h-full flex-1 flex-col overflow-hidden">
+        {/* Admin Tab Navigation */}
         <AdminTabNav />
 
-        {/* 主内容区域 */}
+        {/* Page Content */}
         <div className="flex-1 overflow-auto">{children}</div>
-      </div>
+      </main>
     </AppShell>
   );
 }
