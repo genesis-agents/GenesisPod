@@ -289,18 +289,24 @@ export class SkillsApiService {
       this.logger.log("Starting SkillsMP sync...");
 
       // Fetch skills from SkillsMP API
+      // API requires 'q' parameter for search
       const response = await fetch(
-        "https://skillsmp.com/api/v1/skills/search?sortBy=downloads&sortOrder=desc&limit=100",
+        "https://skillsmp.com/api/v1/skills/search?q=*&limit=100",
         {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
+            "User-Agent": "DeepDive-Engine/1.0",
           },
         },
       );
 
       if (!response.ok) {
-        throw new Error(`SkillsMP API error: ${response.status}`);
+        const errorText = await response.text();
+        this.logger.error(`SkillsMP API response: ${errorText}`);
+        throw new Error(
+          `SkillsMP API error: ${response.status} - ${errorText}`,
+        );
       }
 
       const data = await response.json();
