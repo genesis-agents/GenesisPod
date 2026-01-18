@@ -87,7 +87,7 @@
     "aiCoding": "AI 编程",
     "aiTools": "AI 工具",
     "aiSkills": "AI Skills",
-    "aiMarketplace": "AI 市场",
+    "aiStore": "AI Store",
     "aiImage": "AI 绘图",
     "aiSimulation": "AI 决策",
     "aiWriting": "AI 写作",
@@ -1326,8 +1326,8 @@
       "button": "访问 SkillsMP"
     }
   },
-  "aiMarketplace": {
-    "title": "AI 市场",
+  "aiStore": {
+    "title": "AI Store",
     "subtitle": "发现 AI 工具和 Agent 技能",
     "tabs": {
       "tools": "AI 工具",
@@ -1513,7 +1513,9 @@
       "systemSettings": "系统设置",
       "site": "站点配置",
       "email": "邮件配置",
-      "storage": "存储配置"
+      "storage": "存储配置",
+      "externalServices": "外部服务",
+      "externalApi": "外部 API"
     },
     "sidebar": {
       "collapse": "收起侧边栏",

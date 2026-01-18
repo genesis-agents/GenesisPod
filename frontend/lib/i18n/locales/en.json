@@ -87,7 +87,7 @@
     "aiCoding": "AI Coding",
     "aiTools": "AI Tools",
     "aiSkills": "AI Skills",
-    "aiMarketplace": "AI Marketplace",
+    "aiStore": "AI Store",
     "aiImage": "AI Image",
     "aiSimulation": "AI Decision",
     "aiWriting": "AI Writing",
@@ -1332,8 +1332,8 @@
       "button": "Visit SkillsMP"
     }
   },
-  "aiMarketplace": {
-    "title": "AI Marketplace",
+  "aiStore": {
+    "title": "AI Store",
     "subtitle": "Discover AI tools and agent skills",
     "tabs": {
       "tools": "AI Tools",
