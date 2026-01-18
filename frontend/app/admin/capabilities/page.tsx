@@ -1,7 +1,5 @@
-'use client';
-
-import AICapabilitiesSettings from '@/components/admin/AICapabilitiesSettings';
+import { redirect } from 'next/navigation';
 
 export default function CapabilitiesPage() {
-  return <AICapabilitiesSettings />;
+  redirect('/admin/ai/capabilities');
 }

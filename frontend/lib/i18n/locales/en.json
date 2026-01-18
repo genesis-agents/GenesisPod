@@ -1386,7 +1386,11 @@
       "secrets": "API keys and credentials management",
       "collection": "Data sources and collection rules",
       "whitelists": "Source whitelist management",
+      "quality": "Data quality rules and validation",
       "users": "User accounts and permissions",
+      "security": "Security settings and access control",
+      "site": "Site settings and branding",
+      "email": "Email provider configuration",
       "storage": "Database storage management",
       "settings": "System configuration"
     },
@@ -1474,6 +1478,31 @@
       "resendHint": "Get your API key from resend.com",
       "configured": "Configured",
       "notConfigured": "Not Configured"
+    },
+    "nav": {
+      "overview": "Overview",
+      "dashboard": "Dashboard",
+      "aiConfig": "AI Configuration",
+      "models": "Models",
+      "teams": "Teams",
+      "capabilities": "Capabilities",
+      "externalServices": "External Services",
+      "dataManagement": "Data Management",
+      "collection": "Collection Sources",
+      "whitelists": "Whitelists",
+      "quality": "Quality Rules",
+      "accessControl": "Access Control",
+      "users": "Users",
+      "secrets": "Secrets",
+      "security": "Security",
+      "systemSettings": "System Settings",
+      "site": "Site",
+      "email": "Email",
+      "storage": "Storage"
+    },
+    "sidebar": {
+      "collapse": "Collapse sidebar",
+      "expand": "Expand sidebar"
     }
   },
   "auth": {

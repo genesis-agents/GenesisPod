@@ -1,7 +1,5 @@
-'use client';
-
-import ExternalAPISettings from '@/components/admin/ExternalAPISettings';
+import { redirect } from 'next/navigation';
 
 export default function ExternalAPIPage() {
-  return <ExternalAPISettings />;
+  redirect('/admin/ai/external-services');
 }

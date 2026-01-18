@@ -1,7 +1,5 @@
-'use client';
-
-import AITeamsSettings from '@/components/admin/AITeamsSettings';
+import { redirect } from 'next/navigation';
 
 export default function AITeamsPage() {
-  return <AITeamsSettings />;
+  redirect('/admin/ai/teams');
 }

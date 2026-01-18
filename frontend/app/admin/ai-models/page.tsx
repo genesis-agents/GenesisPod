@@ -1,7 +1,5 @@
-'use client';
-
-import AIModelSettings from '@/components/admin/AIModelSettings';
+import { redirect } from 'next/navigation';
 
 export default function AIModelsPage() {
-  return <AIModelSettings />;
+  redirect('/admin/ai/models');
 }

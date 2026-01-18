@@ -1,7 +1,5 @@
-'use client';
-
-import WhitelistManagement from '@/components/admin/WhitelistManagement';
+import { redirect } from 'next/navigation';
 
 export default function WhitelistsPage() {
-  return <WhitelistManagement />;
+  redirect('/admin/data/whitelists');
 }
