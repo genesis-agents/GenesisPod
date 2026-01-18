@@ -16,7 +16,7 @@ export class StartupMigrationService implements OnModuleInit {
   }
 
   private async runMigrations() {
-    this.logger.log("🔄 Running startup migrations...");
+    this.logger.log("[Migration] Running startup migrations...");
 
     try {
       // Migration 1: Add metadata column to writing_chapters
@@ -25,9 +25,9 @@ export class StartupMigrationService implements OnModuleInit {
       // Migration 2: Create story_bible_audit_logs table and enums
       await this.createStoryBibleAuditLogs();
 
-      this.logger.log("✅ Startup migrations completed");
+      this.logger.log("[Migration] Startup migrations completed");
     } catch (error) {
-      this.logger.error("❌ Startup migration failed:", error);
+      this.logger.error("[Migration] Startup migration failed:", error);
       // 不阻止应用启动，只记录错误
     }
   }
@@ -45,12 +45,14 @@ export class StartupMigrationService implements OnModuleInit {
           ALTER TABLE "writing_chapters"
           ADD COLUMN "metadata" JSONB DEFAULT '{}'
         `);
-        this.logger.log("✅ Added metadata column to writing_chapters");
+        this.logger.log(
+          "[Migration] Added metadata column to writing_chapters",
+        );
       } else {
-        this.logger.debug("ℹ️ metadata column already exists");
+        this.logger.debug("[Migration] metadata column already exists");
       }
     } catch (error) {
-      this.logger.warn("⚠️ Failed to add metadata column:", error);
+      this.logger.warn("[Migration] Failed to add metadata column:", error);
     }
   }
 
@@ -66,7 +68,7 @@ export class StartupMigrationService implements OnModuleInit {
         await this.prisma.$executeRawUnsafe(`
           CREATE TYPE "StoryBibleChangeType" AS ENUM ('CREATE', 'UPDATE', 'DELETE')
         `);
-        this.logger.log("✅ Created StoryBibleChangeType enum");
+        this.logger.log("[Migration] Created StoryBibleChangeType enum");
       }
 
       const entityEnumExists = await this.prisma.$queryRaw<{ count: bigint }[]>`
@@ -79,7 +81,7 @@ export class StartupMigrationService implements OnModuleInit {
             'BIBLE', 'CHARACTER', 'WORLD_SETTING', 'TIMELINE', 'TERMINOLOGY', 'FACTION'
           )
         `);
-        this.logger.log("✅ Created StoryBibleEntityType enum");
+        this.logger.log("[Migration] Created StoryBibleEntityType enum");
       }
 
       // 检查表是否存在
@@ -126,12 +128,16 @@ export class StartupMigrationService implements OnModuleInit {
             ON "story_bible_audit_logs"("bible_id", "created_at" DESC)
         `);
 
-        this.logger.log("✅ Created story_bible_audit_logs table with indexes");
+        this.logger.log(
+          "[Migration] Created story_bible_audit_logs table with indexes",
+        );
       } else {
-        this.logger.debug("ℹ️ story_bible_audit_logs table already exists");
+        this.logger.debug(
+          "[Migration] story_bible_audit_logs table already exists",
+        );
       }
     } catch (error) {
-      this.logger.warn("⚠️ Failed to create audit logs:", error);
+      this.logger.warn("[Migration] Failed to create audit logs:", error);
     }
   }
 }

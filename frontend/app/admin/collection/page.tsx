@@ -19,6 +19,7 @@ import {
   Calendar,
   CheckCircle,
   ExternalLink,
+  Lightbulb,
 } from 'lucide-react';
 import {
   getDataSources,
@@ -78,6 +79,11 @@ const CATEGORY_COLORS = {
     text: 'text-orange-600',
     icon: 'text-orange-600',
   },
+  AI_SKILLS: {
+    bg: 'bg-violet-100',
+    text: 'text-violet-600',
+    icon: 'text-violet-600',
+  },
 } as const;
 
 const CATEGORIES = [
@@ -116,6 +122,12 @@ const CATEGORIES = [
     name: 'News',
     icon: Newspaper,
     description: 'Industry news',
+  },
+  {
+    id: 'AI_SKILLS' as const,
+    name: 'AI Skills',
+    icon: Lightbulb,
+    description: 'Agent skills from SkillsMP',
   },
 ] as const;
 
@@ -235,6 +247,33 @@ const SOURCE_TEMPLATES: Record<
       name: '404 Media',
       url: 'https://www.404media.co/rss',
       type: 'RSS',
+    },
+  ],
+  AI_SKILLS: [
+    {
+      name: 'SkillsMP - All Skills',
+      url: 'https://skillsmp.com/api/v1/skills/search',
+      type: 'API',
+    },
+    {
+      name: 'SkillsMP - Development',
+      url: 'https://skillsmp.com/api/v1/skills/search?category=development',
+      type: 'API',
+    },
+    {
+      name: 'SkillsMP - Testing',
+      url: 'https://skillsmp.com/api/v1/skills/search?category=testing',
+      type: 'API',
+    },
+    {
+      name: 'SkillsMP - Documentation',
+      url: 'https://skillsmp.com/api/v1/skills/search?category=documentation',
+      type: 'API',
+    },
+    {
+      name: 'SkillsMP - AI Agents',
+      url: 'https://skillsmp.com/api/v1/skills/search?category=ai-agents',
+      type: 'API',
     },
   ],
 };

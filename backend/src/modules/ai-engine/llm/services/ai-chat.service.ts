@@ -1344,17 +1344,9 @@ export class AiChatService {
       requestBody.temperature = temperature;
     }
 
-    // ★ 详细诊断日志：打印请求详情（不含敏感信息）
-    this.logger.warn(
-      `[callOpenAICompatibleAPI] ★ Request Details:\n` +
-        `  - Original endpoint: "${apiEndpoint}"\n` +
-        `  - Effective endpoint: "${effectiveEndpoint}"\n` +
-        `  - Model: ${modelId}\n` +
-        `  - Token param: ${JSON.stringify(tokenParam)}\n` +
-        `  - Temperature: ${temperature}\n` +
-        `  - Timeout: ${timeout}ms\n` +
-        `  - Messages: ${messages.length} (first: ${messages[0]?.role}, last: ${messages[messages.length - 1]?.role})\n` +
-        `  - First msg length: ${messages[0]?.content?.length || 0} chars`,
+    this.logger.debug(
+      `[callOpenAICompatibleAPI] model=${modelId}, endpoint=${effectiveEndpoint.substring(0, 50)}..., ` +
+        `tokens=${maxTokens}, temp=${temperature}, msgs=${messages.length}`,
     );
 
     const response = await firstValueFrom(
@@ -1469,8 +1461,8 @@ export class AiChatService {
       requestBody.temperature = temperature;
     }
 
-    this.logger.warn(
-      `[callAnthropicAPI] ★ Request: endpoint="${effectiveEndpoint}", model=${modelId}, maxTokens=${maxTokens}`,
+    this.logger.debug(
+      `[callAnthropicAPI] model=${modelId}, maxTokens=${maxTokens}`,
     );
 
     const response = await firstValueFrom(
@@ -1570,8 +1562,8 @@ export class AiChatService {
       };
     }
 
-    this.logger.warn(
-      `[callGoogleAPI] ★ Request: apiUrl="${apiUrl.replace(apiKey, "***")}", model=${modelId}`,
+    this.logger.debug(
+      `[callGoogleAPI] model=${modelId}, maxTokens=${maxTokens}`,
     );
 
     const response = await firstValueFrom(
@@ -1636,9 +1628,7 @@ export class AiChatService {
       requestBody.temperature = temperature;
     }
 
-    this.logger.warn(
-      `[callXAIAPI] ★ Request: endpoint="${effectiveEndpoint}", model=${modelId}`,
-    );
+    this.logger.debug(`[callXAIAPI] model=${modelId}, maxTokens=${maxTokens}`);
 
     const response = await firstValueFrom(
       this.httpService.post(effectiveEndpoint, requestBody, {

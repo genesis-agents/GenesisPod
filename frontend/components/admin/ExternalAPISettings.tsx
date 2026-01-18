@@ -68,6 +68,15 @@ interface TTSConfig {
   google: { apiKey: string | null; hasApiKey: boolean };
 }
 
+// SkillsMP API configuration
+interface SkillsMPConfig {
+  enabled: boolean;
+  apiKey: string | null;
+  hasApiKey: boolean;
+  lastSync?: string;
+  syncInterval: 'daily' | 'weekly' | 'manual';
+}
+
 // YouTube transcript provider configurations
 const YOUTUBE_PROVIDERS = [
   {
@@ -117,6 +126,23 @@ const TTS_PROVIDERS = [
     freeQuota: '400万字符/月免费',
   },
 ] as const;
+
+// SkillsMP provider configuration
+const SKILLSMP_PROVIDER = {
+  id: 'skillsmp',
+  name: 'SkillsMP',
+  description:
+    'Agent Skills Marketplace - 66,000+ skills for Claude Code, Codex & ChatGPT',
+  features: ['AI语义搜索', 'SKILL.md标准', '每日自动同步', '分类浏览'],
+  color: 'from-violet-500 to-purple-600',
+  bgColor: 'bg-violet-50',
+  textColor: 'text-violet-600',
+  url: 'https://skillsmp.com',
+  signupUrl: 'https://skillsmp.com/docs/api',
+  placeholder: 'sk_live_...',
+  pricing: '免费/付费计划',
+  freeQuota: '基础搜索免费',
+} as const;
 
 // Search provider configurations
 const SEARCH_PROVIDERS = [
@@ -463,6 +489,15 @@ export default function ExternalAPISettings() {
     google: '',
   });
 
+  // SkillsMP config state
+  const [skillsmpConfig, setSkillsmpConfig] = useState<SkillsMPConfig>({
+    enabled: true,
+    apiKey: null,
+    hasApiKey: false,
+    syncInterval: 'daily',
+  });
+  const [skillsmpApiKey, setSkillsmpApiKey] = useState('');
+
   // Simulation APIs state
   const [simulationAPICategories, setSimulationAPICategories] = useState<
     SimulationAPICategory[]
@@ -484,7 +519,7 @@ export default function ExternalAPISettings() {
     text: string;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'search' | 'extraction' | 'simulation' | 'youtube' | 'tts'
+    'search' | 'extraction' | 'simulation' | 'youtube' | 'tts' | 'skillsmp'
   >('search');
   const [visibleApiKeys, setVisibleApiKeys] = useState<Record<string, boolean>>(
     {}
@@ -497,29 +532,39 @@ export default function ExternalAPISettings() {
   const loadConfigs = useCallback(async () => {
     setLoading(true);
     try {
-      const [searchRes, extractionRes, providersRes, youtubeRes, ttsRes] =
-        await Promise.all([
-          fetch(`${config.apiUrl}/admin/search-config`, {
-            headers: { ...getAuthHeader() },
-            credentials: 'include',
-          }),
-          fetch(`${config.apiUrl}/admin/extraction-config`, {
-            headers: { ...getAuthHeader() },
-            credentials: 'include',
-          }),
-          fetch(`${config.apiUrl}/admin/external-providers`, {
-            headers: { ...getAuthHeader() },
-            credentials: 'include',
-          }),
-          fetch(`${config.apiUrl}/admin/youtube-config`, {
-            headers: { ...getAuthHeader() },
-            credentials: 'include',
-          }),
-          fetch(`${config.apiUrl}/admin/tts-config`, {
-            headers: { ...getAuthHeader() },
-            credentials: 'include',
-          }),
-        ]);
+      const [
+        searchRes,
+        extractionRes,
+        providersRes,
+        youtubeRes,
+        ttsRes,
+        skillsmpRes,
+      ] = await Promise.all([
+        fetch(`${config.apiUrl}/admin/search-config`, {
+          headers: { ...getAuthHeader() },
+          credentials: 'include',
+        }),
+        fetch(`${config.apiUrl}/admin/extraction-config`, {
+          headers: { ...getAuthHeader() },
+          credentials: 'include',
+        }),
+        fetch(`${config.apiUrl}/admin/external-providers`, {
+          headers: { ...getAuthHeader() },
+          credentials: 'include',
+        }),
+        fetch(`${config.apiUrl}/admin/youtube-config`, {
+          headers: { ...getAuthHeader() },
+          credentials: 'include',
+        }),
+        fetch(`${config.apiUrl}/admin/tts-config`, {
+          headers: { ...getAuthHeader() },
+          credentials: 'include',
+        }),
+        fetch(`${config.apiUrl}/admin/skillsmp-config`, {
+          headers: { ...getAuthHeader() },
+          credentials: 'include',
+        }),
+      ]);
 
       if (searchRes.ok) {
         const data = await searchRes.json();
@@ -539,6 +584,11 @@ export default function ExternalAPISettings() {
       if (ttsRes.ok) {
         const data = await ttsRes.json();
         setTtsConfig(data);
+      }
+
+      if (skillsmpRes.ok) {
+        const data = await skillsmpRes.json();
+        setSkillsmpConfig(data);
       }
 
       if (providersRes.ok) {
@@ -1491,6 +1541,17 @@ export default function ExternalAPISettings() {
         >
           <Sparkles className="h-4 w-4" />
           语音合成 TTS
+        </button>
+        <button
+          onClick={() => setActiveTab('skillsmp')}
+          className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
+            activeTab === 'skillsmp'
+              ? 'border-violet-600 text-violet-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Zap className="h-4 w-4" />
+          AI Skills (SkillsMP)
         </button>
       </div>
 
@@ -3063,6 +3124,395 @@ export default function ExternalAPISettings() {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* SkillsMP Tab */}
+      {activeTab === 'skillsmp' && (
+        <div className="space-y-6">
+          {/* Global Toggle */}
+          <div className="rounded-xl border border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50 p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg">
+                  <Zap className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">
+                    SkillsMP Integration
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Agent Skills Marketplace - 同步 66,000+ 技能到本地
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() =>
+                  setSkillsmpConfig((prev) => ({
+                    ...prev,
+                    enabled: !prev.enabled,
+                  }))
+                }
+                className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${
+                  skillsmpConfig.enabled ? 'bg-violet-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
+                    skillsmpConfig.enabled ? 'translate-x-8' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* SkillsMP Provider Card */}
+          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+            <div
+              className={`relative overflow-hidden rounded-xl border-2 bg-white shadow-sm transition-all hover:shadow-md ${
+                skillsmpConfig.hasApiKey
+                  ? 'border-violet-500 ring-2 ring-violet-500/20'
+                  : 'border-gray-200'
+              }`}
+            >
+              {/* Header */}
+              <div
+                className={`bg-gradient-to-r ${SKILLSMP_PROVIDER.color} p-4`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20">
+                      <Zap className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white">
+                        {SKILLSMP_PROVIDER.name}
+                      </h3>
+                      <p className="text-xs text-white/80">
+                        {SKILLSMP_PROVIDER.description}
+                      </p>
+                    </div>
+                  </div>
+                  {skillsmpConfig.hasApiKey && (
+                    <CheckCircle className="h-5 w-5 text-white" />
+                  )}
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="space-y-4 p-4">
+                {/* Features */}
+                <div className="flex flex-wrap gap-2">
+                  {SKILLSMP_PROVIDER.features.map((feature) => (
+                    <span
+                      key={feature}
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${SKILLSMP_PROVIDER.bgColor} ${SKILLSMP_PROVIDER.textColor}`}
+                    >
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Pricing */}
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <Wallet className="h-3.5 w-3.5" />
+                    {SKILLSMP_PROVIDER.pricing}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Zap className="h-3.5 w-3.5" />
+                    {SKILLSMP_PROVIDER.freeQuota}
+                  </span>
+                </div>
+
+                {/* API Key Input */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">
+                    API Key
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={visibleApiKeys['skillsmp'] ? 'text' : 'password'}
+                      value={skillsmpApiKey}
+                      onChange={(e) => setSkillsmpApiKey(e.target.value)}
+                      placeholder={SKILLSMP_PROVIDER.placeholder}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-20 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                    />
+                    <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+                      <button
+                        onClick={() => toggleApiKeyVisibility('skillsmp')}
+                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      >
+                        {visibleApiKeys['skillsmp'] ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <a
+                      href={SKILLSMP_PROVIDER.signupUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-violet-600 hover:underline"
+                    >
+                      获取 API Key
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                    {skillsmpConfig.hasApiKey && (
+                      <span className="flex items-center gap-1 text-xs text-green-600">
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        已配置
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sync Interval */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">
+                    同步频率
+                  </label>
+                  <select
+                    value={skillsmpConfig.syncInterval}
+                    onChange={(e) =>
+                      setSkillsmpConfig((prev) => ({
+                        ...prev,
+                        syncInterval: e.target.value as
+                          | 'daily'
+                          | 'weekly'
+                          | 'manual',
+                      }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                  >
+                    <option value="daily">每天自动同步</option>
+                    <option value="weekly">每周自动同步</option>
+                    <option value="manual">手动同步</option>
+                  </select>
+                </div>
+
+                {/* Last Sync Info */}
+                {skillsmpConfig.lastSync && (
+                  <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                    <span className="font-medium">上次同步：</span>
+                    {new Date(skillsmpConfig.lastSync).toLocaleString()}
+                  </div>
+                )}
+
+                {/* Test Result */}
+                {testResults['skillsmp'] && (
+                  <div
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${
+                      testResults['skillsmp'].success
+                        ? 'bg-green-50 text-green-600'
+                        : 'bg-red-50 text-red-600'
+                    }`}
+                  >
+                    {testResults['skillsmp'].success ? (
+                      <CheckCircle className="h-4 w-4" />
+                    ) : (
+                      <XCircle className="h-4 w-4" />
+                    )}
+                    {testResults['skillsmp'].message}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      setTesting('skillsmp');
+                      try {
+                        const res = await fetch(
+                          `${config.apiUrl}/admin/skillsmp-config/test`,
+                          {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              ...getAuthHeader(),
+                            },
+                            credentials: 'include',
+                            body: JSON.stringify({ apiKey: skillsmpApiKey }),
+                          }
+                        );
+                        const data = await res.json();
+                        setTestResults((prev) => ({
+                          ...prev,
+                          skillsmp: {
+                            success: data.success,
+                            message:
+                              data.message ||
+                              (data.success ? '连接成功' : '连接失败'),
+                          },
+                        }));
+                      } catch {
+                        setTestResults((prev) => ({
+                          ...prev,
+                          skillsmp: { success: false, message: '测试请求失败' },
+                        }));
+                      }
+                      setTesting(null);
+                    }}
+                    disabled={testing === 'skillsmp' || !skillsmpApiKey}
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${SKILLSMP_PROVIDER.bgColor} ${SKILLSMP_PROVIDER.textColor} border-current hover:opacity-80 disabled:opacity-50`}
+                  >
+                    {testing === 'skillsmp' ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Zap className="h-4 w-4" />
+                    )}
+                    测试连接
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setTesting('skillsmp-sync');
+                      try {
+                        const res = await fetch(
+                          `${config.apiUrl}/admin/skillsmp-config/sync`,
+                          {
+                            method: 'POST',
+                            headers: {
+                              ...getAuthHeader(),
+                            },
+                            credentials: 'include',
+                          }
+                        );
+                        const data = await res.json();
+                        if (data.success) {
+                          setSkillsmpConfig((prev) => ({
+                            ...prev,
+                            lastSync: new Date().toISOString(),
+                          }));
+                          setMessage({ type: 'success', text: '同步成功' });
+                        } else {
+                          setMessage({
+                            type: 'error',
+                            text: data.message || '同步失败',
+                          });
+                        }
+                      } catch {
+                        setMessage({ type: 'error', text: '同步请求失败' });
+                      }
+                      setTesting(null);
+                    }}
+                    disabled={
+                      testing === 'skillsmp-sync' || !skillsmpConfig.hasApiKey
+                    }
+                    className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {testing === 'skillsmp-sync' ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                    立即同步
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Info Card */}
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100">
+                  <Zap className="h-5 w-5 text-violet-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    什么是 SkillsMP？
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                    <strong>SkillsMP</strong> 是 Agent Skills 市场，包含 66,000+
+                    开源技能。
+                    <br />
+                    <br />
+                    这些技能可以增强 Claude Code、Codex CLI、ChatGPT 等 AI
+                    工具的能力。 所有技能都使用开放的 <strong>
+                      SKILL.md
+                    </strong>{' '}
+                    标准。
+                    <br />
+                    <br />
+                    配置 API Key 后，系统将自动同步最新的热门技能到{' '}
+                    <strong>AI Skills</strong> 页面供浏览和使用。
+                  </p>
+                  <div className="mt-3 flex items-center gap-3">
+                    <a
+                      href="https://skillsmp.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-violet-600 hover:underline"
+                    >
+                      访问 SkillsMP
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                    <a
+                      href="https://skillsmp.com/docs/api"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-violet-600 hover:underline"
+                    >
+                      API 文档
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Save Button */}
+          <div className="flex justify-end">
+            <button
+              onClick={async () => {
+                setSaving(true);
+                try {
+                  const res = await fetch(
+                    `${config.apiUrl}/admin/skillsmp-config`,
+                    {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeader(),
+                      },
+                      credentials: 'include',
+                      body: JSON.stringify({
+                        enabled: skillsmpConfig.enabled,
+                        apiKey: skillsmpApiKey || undefined,
+                        syncInterval: skillsmpConfig.syncInterval,
+                      }),
+                    }
+                  );
+                  if (res.ok) {
+                    const data = await res.json();
+                    setSkillsmpConfig(data);
+                    setSkillsmpApiKey('');
+                    setMessage({
+                      type: 'success',
+                      text: 'SkillsMP 配置已保存',
+                    });
+                  } else {
+                    setMessage({ type: 'error', text: '保存失败' });
+                  }
+                } catch {
+                  setMessage({ type: 'error', text: '保存请求失败' });
+                }
+                setSaving(false);
+              }}
+              disabled={saving}
+              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/20 hover:from-violet-700 hover:to-purple-700 disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              保存 SkillsMP 配置
+            </button>
           </div>
         </div>
       )}

@@ -1024,6 +1024,203 @@ export class AdminController {
     }
   }
 
+  // ============ SkillsMP Configuration ============
+
+  /**
+   * 获取SkillsMP配置
+   * GET /api/v1/admin/skillsmp-config
+   */
+  @Get("skillsmp-config")
+  async getSkillsmpConfig() {
+    this.logger.log("Admin: Getting SkillsMP config");
+
+    const enabled =
+      (await this.adminService.getSetting("skillsmp.enabled")) ?? true;
+    const apiKey = await this.adminService.getSetting("skillsmp.apiKey");
+    const hasApiKey = !!apiKey;
+    const lastSync = await this.adminService.getSetting("skillsmp.lastSync");
+    const syncInterval =
+      (await this.adminService.getSetting("skillsmp.syncInterval")) ?? "daily";
+
+    return {
+      enabled,
+      apiKey: null, // Never expose API key
+      hasApiKey,
+      lastSync: lastSync || null,
+      syncInterval,
+    };
+  }
+
+  /**
+   * 更新SkillsMP配置
+   * PUT /api/v1/admin/skillsmp-config
+   */
+  @Put("skillsmp-config")
+  async updateSkillsmpConfig(
+    @Body()
+    body: {
+      enabled?: boolean;
+      apiKey?: string;
+      syncInterval?: "daily" | "weekly" | "manual";
+    },
+  ) {
+    this.logger.log("Admin: Updating SkillsMP config");
+
+    if (body.enabled !== undefined) {
+      await this.adminService.setSetting("skillsmp.enabled", body.enabled);
+    }
+
+    if (body.apiKey) {
+      await this.adminService.setSetting("skillsmp.apiKey", body.apiKey);
+    }
+
+    if (body.syncInterval) {
+      await this.adminService.setSetting(
+        "skillsmp.syncInterval",
+        body.syncInterval,
+      );
+    }
+
+    // Return updated config
+    return this.getSkillsmpConfig();
+  }
+
+  /**
+   * 测试SkillsMP API连接
+   * POST /api/v1/admin/skillsmp-config/test
+   */
+  @Post("skillsmp-config/test")
+  async testSkillsmpConnection(
+    @Body()
+    body: {
+      apiKey: string;
+    },
+  ) {
+    this.logger.log("Admin: Testing SkillsMP API connection");
+
+    try {
+      // Test SkillsMP API - search for a simple query
+      const response = await fetch(
+        "https://skillsmp.com/api/v1/skills/search?q=test&limit=1",
+        {
+          headers: {
+            Authorization: `Bearer ${body.apiKey}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          success: true,
+          message: `SkillsMP API 连接成功，共有 ${data.total || "60,000+"} 个技能`,
+        };
+      } else if (response.status === 401) {
+        return {
+          success: false,
+          message: "API Key 无效，请检查是否正确",
+        };
+      } else {
+        return {
+          success: false,
+          message: `SkillsMP API 错误: HTTP ${response.status}`,
+        };
+      }
+    } catch (error: any) {
+      this.logger.error(`SkillsMP API test failed: ${error.message}`);
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  /**
+   * 手动触发SkillsMP同步
+   * POST /api/v1/admin/skillsmp-config/sync
+   */
+  @Post("skillsmp-config/sync")
+  async syncSkillsmp() {
+    this.logger.log("Admin: Triggering SkillsMP sync");
+
+    try {
+      const apiKey = await this.adminService.getSetting("skillsmp.apiKey");
+
+      if (!apiKey) {
+        return {
+          success: false,
+          message: "未配置 API Key，无法同步",
+        };
+      }
+
+      // Fetch popular skills from SkillsMP
+      const response = await fetch(
+        "https://skillsmp.com/api/v1/skills/search?sortBy=downloads&sortOrder=desc&limit=50",
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message: `同步失败: HTTP ${response.status}`,
+        };
+      }
+
+      const data = await response.json();
+
+      // Store synced data
+      await this.adminService.setSetting(
+        "skillsmp.syncedSkills",
+        data.skills || [],
+      );
+      await this.adminService.setSetting(
+        "skillsmp.lastSync",
+        new Date().toISOString(),
+      );
+      await this.adminService.setSetting(
+        "skillsmp.totalSkills",
+        data.total || 0,
+      );
+
+      return {
+        success: true,
+        message: `同步成功，获取了 ${data.skills?.length || 0} 个技能`,
+        lastSync: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      this.logger.error(`SkillsMP sync failed: ${error.message}`);
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  /**
+   * 获取同步的SkillsMP数据
+   * GET /api/v1/admin/skillsmp-config/skills
+   */
+  @Get("skillsmp-config/skills")
+  async getSkillsmpSkills() {
+    const skills =
+      (await this.adminService.getSetting("skillsmp.syncedSkills")) ?? [];
+    const totalSkills =
+      (await this.adminService.getSetting("skillsmp.totalSkills")) ?? 66541;
+    const lastSync = await this.adminService.getSetting("skillsmp.lastSync");
+
+    return {
+      skills,
+      totalSkills,
+      lastSync: lastSync || null,
+    };
+  }
+
   // ============ External Data Providers ============
 
   /**

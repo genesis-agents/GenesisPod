@@ -23,6 +23,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
+    "db:studio:railway": "dotenv -e .env.railway -- prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
     "templates:seed": "ts-node -r tsconfig-paths/register src/scripts/seed-report-templates.ts",
     "thumbnails:generate": "ts-node -r tsconfig-paths/register src/scripts/generate-thumbnails.ts",

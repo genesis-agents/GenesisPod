@@ -56,10 +56,12 @@ function validateEnvConfig(): void {
 async function bootstrap() {
   // 验证环境配置
   validateEnvConfig();
-  // 根据环境配置日志级别 - 生产环境只输出警告和错误
+  // 根据环境配置日志级别
+  // 生产环境输出 error, warn, log（不含 debug/verbose）
+  // 开发环境输出全部级别
   const isProduction = process.env.NODE_ENV === "production";
   const logLevels: LogLevel[] = isProduction
-    ? ["error", "warn"]
+    ? ["error", "warn", "log"]
     : ["error", "warn", "log", "debug", "verbose"];
 
   const app = await NestFactory.create(AppModule, {

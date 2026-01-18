@@ -147,12 +147,18 @@ export class AIEngineFacade {
       // 记录成功
       if (!result.isError) {
         this.circuitBreaker?.recordSuccess(entityId, duration);
+        this.logger.log(
+          `[chat] Completed in ${duration}ms, model=${result.model}, tokens=${result.usage?.totalTokens || 0}`,
+        );
       } else {
         // API 返回错误内容（非严格模式）
         this.circuitBreaker?.recordFailure(
           entityId,
           TaskCompletionType.API_ERROR,
           result.content.slice(0, 100),
+        );
+        this.logger.warn(
+          `[chat] API returned error after ${duration}ms: ${result.content.slice(0, 100)}`,
         );
       }
 
@@ -369,18 +375,16 @@ export class AIEngineFacade {
   async selectModel(
     options: ModelSelectionOptions = {},
   ): Promise<ModelInfo | null> {
-    // ★ 诊断：使用 warn 级别确保日志可见
-    this.logger.warn(
-      `[selectModel] ★ Starting selection with options=${JSON.stringify(options)}`,
+    this.logger.log(
+      `[selectModel] Starting selection with options=${JSON.stringify(options)}`,
     );
 
     const models = await this.getAvailableModelsExtended(
       options.modelType || AIModelType.CHAT,
     );
 
-    // ★ 诊断：显示所有模型及其 isReasoning 状态
-    this.logger.warn(
-      `[selectModel] ★ All models: ${models.map((m) => `${m.id}(reasoning=${m.isReasoning},available=${m.isAvailable})`).join(", ")}`,
+    this.logger.log(
+      `[selectModel] Found ${models.length} models: ${models.map((m) => `${m.id}(reasoning=${m.isReasoning})`).join(", ")}`,
     );
 
     if (models.length === 0) {
@@ -394,12 +398,12 @@ export class AIEngineFacade {
     // 1. 过滤推理模型
     if (options.requireReasoning) {
       const reasoningModels = candidates.filter((m) => m.isReasoning);
-      this.logger.warn(
-        `[selectModel] ★ Reasoning filter: found ${reasoningModels.length} reasoning models: ${reasoningModels.map((m) => m.id).join(", ")}`,
+      this.logger.log(
+        `[selectModel] Reasoning filter: found ${reasoningModels.length} reasoning models`,
       );
       if (reasoningModels.length === 0) {
-        this.logger.error(
-          "[selectModel] ★ ERROR: No reasoning models found! Check database isReasoning field. Falling back to all models.",
+        this.logger.warn(
+          "[selectModel] No reasoning models found, falling back to all models",
         );
         // 保持 candidates = models，不过滤
       } else {
@@ -436,16 +440,12 @@ export class AIEngineFacade {
       const entityIds = candidates.map((m) => `chat:${m.id}`);
       const bestEntityId = this.circuitBreaker.selectBest(entityIds);
 
-      this.logger.warn(
-        `[selectModel] ★ Circuit breaker selection from [${entityIds.join(", ")}] => ${bestEntityId || "NONE"}`,
-      );
-
       if (bestEntityId) {
         const modelId = bestEntityId.replace("chat:", "");
         const selected = candidates.find((m) => m.id === modelId);
         if (selected) {
-          this.logger.warn(
-            `[selectModel] ★ FINAL: Selected ${modelId} by circuit breaker (isReasoning=${selected.isReasoning})`,
+          this.logger.log(
+            `[selectModel] Selected ${modelId} via circuit breaker`,
           );
           return selected;
         }
@@ -454,9 +454,7 @@ export class AIEngineFacade {
 
     // 5. 默认返回第一个可用的
     const selected = candidates[0] || null;
-    this.logger.warn(
-      `[selectModel] ★ FINAL: Default selection ${selected?.id || "NONE"} (isReasoning=${selected?.isReasoning})`,
-    );
+    this.logger.log(`[selectModel] Selected ${selected?.id || "NONE"}`);
     return selected;
   }
 
@@ -475,15 +473,14 @@ export class AIEngineFacade {
   async getAvailableModelsExtended(
     modelType: AIModelType = AIModelType.CHAT,
   ): Promise<ModelInfo[]> {
-    // ★ 诊断：使用 warn 级别确保日志在生产环境可见
-    this.logger.warn(
-      `[getAvailableModelsExtended] ★ Querying models with modelType=${modelType}`,
+    this.logger.debug(
+      `[getAvailableModelsExtended] Querying models with modelType=${modelType}`,
     );
 
     if (!this.prisma) {
       const modelNames = await this.aiChatService.getAvailableModelsAsync();
-      this.logger.warn(
-        `[getAvailableModelsExtended] No Prisma, using cache: ${modelNames.join(", ")}`,
+      this.logger.log(
+        `[getAvailableModelsExtended] Using cache: ${modelNames.length} models`,
       );
       return modelNames.map((name) => ({
         id: name,
@@ -504,13 +501,12 @@ export class AIEngineFacade {
         displayName: true,
         provider: true,
         maxTokens: true,
-        isReasoning: true, // ★ 添加：从数据库读取推理模型标记
+        isReasoning: true,
       },
     });
 
-    // ★ 诊断：显示查询到的所有模型
-    this.logger.warn(
-      `[getAvailableModelsExtended] ★ Found ${models.length} models from DB: ${models.map((m) => `${m.modelId}(isReasoning=${m.isReasoning})`).join(", ")}`,
+    this.logger.log(
+      `[getAvailableModelsExtended] Found ${models.length} models from DB`,
     );
 
     return models.map((m) => {

@@ -83,6 +83,7 @@
     "aiAsk": "AI Ask",
     "aiCoding": "AI Coding",
     "aiTools": "AI Tools",
+    "aiSkills": "AI Skills",
     "aiImage": "AI Image",
     "aiSimulation": "AI Decision",
     "aiWriting": "AI Writing",
@@ -1288,6 +1289,43 @@
       "writing": "Writing & Content",
       "data": "Data & Analytics",
       "productivity": "Productivity"
+    }
+  },
+  "aiSkills": {
+    "title": "AI Skills",
+    "subtitle": "Discover agent skills for Claude Code, Codex CLI & ChatGPT",
+    "search": {
+      "placeholder": "Search skills, tags or authors..."
+    },
+    "sort": {
+      "byStars": "Sort by Stars",
+      "byDownloads": "Sort by Downloads",
+      "byName": "Sort by Name"
+    },
+    "featured": "Featured Skills",
+    "featuredBadge": "Featured",
+    "skills": "skills",
+    "lastSync": "Last sync",
+    "view": "View",
+    "empty": {
+      "title": "No matching skills found",
+      "description": "Try adjusting your search terms or selecting a different category"
+    },
+    "categories": {
+      "all": "All Skills",
+      "tools": "Tools & Automation",
+      "development": "Development",
+      "testing": "Testing & QA",
+      "documentation": "Documentation",
+      "database": "Database & Data",
+      "devops": "DevOps & Infra",
+      "security": "Security",
+      "ai-agents": "AI Agents"
+    },
+    "attribution": {
+      "title": "Powered by SkillsMP",
+      "description": "Browse 63,000+ agent skills from the open SKILL.md standard",
+      "button": "Visit SkillsMP"
     }
   },
   "labs": {

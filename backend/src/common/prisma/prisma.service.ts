@@ -15,7 +15,7 @@ export class PrismaService
 
   async onModuleInit() {
     await this.$connect();
-    this.logger.log("✅ Prisma connected to database");
+    this.logger.log("[Prisma] Prisma connected to database");
 
     // Ensure resource_upvotes table exists (migration fallback)
     await this.ensureResourceUpvotesTable();
@@ -92,7 +92,7 @@ export class PrismaService
           FOREIGN KEY ("resource_id") REFERENCES "resources"("id") ON DELETE CASCADE ON UPDATE CASCADE
         `;
 
-        this.logger.log("✅ resource_upvotes table created successfully");
+        this.logger.log("[Prisma] resource_upvotes table created successfully");
       } else {
         this.logger.debug("resource_upvotes table already exists");
       }
@@ -128,7 +128,7 @@ export class PrismaService
           ALTER TABLE "ai_coding_projects"
           ADD COLUMN "team_initialized" BOOLEAN NOT NULL DEFAULT false
         `);
-        this.logger.log("✅ team_initialized column added");
+        this.logger.log("[Prisma] team_initialized column added");
       }
 
       // Check and add current_mission_id column
@@ -149,7 +149,7 @@ export class PrismaService
           ALTER TABLE "ai_coding_projects"
           ADD COLUMN "current_mission_id" UUID
         `);
-        this.logger.log("✅ current_mission_id column added");
+        this.logger.log("[Prisma] current_mission_id column added");
       }
     } catch (error: unknown) {
       const errorMessage =
@@ -179,7 +179,7 @@ export class PrismaService
           ALTER TABLE "system_settings"
           ADD COLUMN "encrypted" BOOLEAN NOT NULL DEFAULT false
         `);
-        this.logger.log("✅ encrypted column added");
+        this.logger.log("[Prisma] encrypted column added");
       }
     } catch (error: unknown) {
       const errorMessage =
@@ -211,7 +211,7 @@ export class PrismaService
           ALTER TABLE "writing_chapters"
           ADD COLUMN "metadata" JSONB DEFAULT '{}'
         `);
-        this.logger.log("✅ writing_chapters.metadata column added");
+        this.logger.log("[Prisma] writing_chapters.metadata column added");
       } else {
         this.logger.debug("writing_chapters.metadata column already exists");
       }
@@ -219,7 +219,7 @@ export class PrismaService
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `❌ Failed to ensure AI Writing columns: ${errorMessage}`,
+        `[Prisma] Failed to ensure AI Writing columns: ${errorMessage}`,
       );
     }
   }

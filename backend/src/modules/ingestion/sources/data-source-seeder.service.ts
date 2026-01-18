@@ -533,7 +533,7 @@ export class DataSourceSeederService implements OnModuleInit {
       },
     });
 
-    this.logger.log(`✅ Created YouTube source: ${channel.name}`);
+    this.logger.log(`[Seeder] Created YouTube source: ${channel.name}`);
     return "created";
   }
 
@@ -574,7 +574,7 @@ export class DataSourceSeederService implements OnModuleInit {
       },
     });
 
-    this.logger.log(`✅ Created Blog source: ${blog.name}`);
+    this.logger.log(`[Seeder] Created Blog source: ${blog.name}`);
     return "created";
   }
 
@@ -615,7 +615,7 @@ export class DataSourceSeederService implements OnModuleInit {
       },
     });
 
-    this.logger.log(`✅ Created Report source: ${report.name}`);
+    this.logger.log(`[Seeder] Created Report source: ${report.name}`);
     return "created";
   }
 
@@ -656,7 +656,7 @@ export class DataSourceSeederService implements OnModuleInit {
       },
     });
 
-    this.logger.log(`✅ Created Paper source: ${paper.name}`);
+    this.logger.log(`[Seeder] Created Paper source: ${paper.name}`);
     return "created";
   }
 
@@ -697,7 +697,7 @@ export class DataSourceSeederService implements OnModuleInit {
       },
     });
 
-    this.logger.log(`✅ Created News source: ${news.name}`);
+    this.logger.log(`[Seeder] Created News source: ${news.name}`);
     return "created";
   }
 
@@ -739,7 +739,7 @@ export class DataSourceSeederService implements OnModuleInit {
       },
     });
 
-    this.logger.log(`✅ Created Policy source: ${policy.name}`);
+    this.logger.log(`[Seeder] Created Policy source: ${policy.name}`);
     return "created";
   }
 }

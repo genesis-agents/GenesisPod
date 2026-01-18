@@ -2201,7 +2201,7 @@ export class TopicResearchService {
    * 获取公开的专题详情（无需认证）
    */
   async getSharedTopic(topicId: string) {
-    this.logger.warn(`[getSharedTopic] ★ Fetching topic ${topicId}`);
+    this.logger.debug(`[getSharedTopic] Fetching topic ${topicId}`);
 
     // 检查专题是否存在且为公开
     const result = await this.prisma.$queryRaw<
@@ -2210,32 +2210,24 @@ export class TopicResearchService {
       SELECT id, visibility FROM research_topics WHERE id = ${topicId}
     `;
 
-    this.logger.warn(
-      `[getSharedTopic] ★ Query result for ${topicId}: ${JSON.stringify(result)}`,
-    );
-
     if (!result.length) {
-      this.logger.warn(
-        `[getSharedTopic] Topic ${topicId} not found in database`,
-      );
+      this.logger.log(`[getSharedTopic] Topic ${topicId} not found`);
       throw new NotFoundException("Topic not found");
     }
 
     const visibility = result[0].visibility;
-    this.logger.warn(
-      `[getSharedTopic] ★ Topic ${topicId} visibility: "${visibility}" (type: ${typeof visibility})`,
+    this.logger.debug(
+      `[getSharedTopic] Topic ${topicId} visibility: ${visibility}`,
     );
 
     if (visibility !== "PUBLIC") {
-      this.logger.warn(
-        `[getSharedTopic] Topic ${topicId} visibility is "${visibility}", not "PUBLIC" - rejecting access`,
+      this.logger.log(
+        `[getSharedTopic] Topic ${topicId} is not public, rejecting access`,
       );
       throw new NotFoundException("Topic not found or not publicly accessible");
     }
 
-    this.logger.warn(
-      `[getSharedTopic] ★ Topic ${topicId} is PUBLIC, proceeding...`,
-    );
+    this.logger.debug(`[getSharedTopic] Topic ${topicId} is public`);
 
     // 获取专题详情（不验证用户）
     const topic = await this.prisma.researchTopic.findUnique({

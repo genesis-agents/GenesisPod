@@ -194,14 +194,14 @@ export class TaskDecomposerService implements ITaskDecomposerService {
         matchStats,
         availableMemberNames.map((m) => m.agentName || m.displayName),
       );
-      this.logger.error(`[parseTaskBreakdown] ❌ ${errorMsg}`);
+      this.logger.error(`[parseTaskBreakdown] ${errorMsg}`);
       throw new BadRequestException(errorMsg);
     }
 
     // 如果解析失败，创建一个默认任务
     if (tasks.length === 0 && teamMembers.length > 0) {
       this.logger.warn(
-        `[parseTaskBreakdown] ⚠️ No tasks parsed, creating default task for first member`,
+        `[parseTaskBreakdown] No tasks parsed, creating default task for first member`,
       );
       const firstMember =
         teamMembers.find((m) => !m.isLeader) || teamMembers[0];
