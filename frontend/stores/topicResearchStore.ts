@@ -238,6 +238,21 @@ interface TopicResearchState {
   resetTopicData: () => void;
 }
 
+/**
+ * ★ 辅助函数：检查错误是否为 "Report not found" 类型
+ * 对于新专题，没有报告是正常情况，不应显示为错误
+ */
+function isReportNotFoundError(error: unknown): boolean {
+  const errorMessage =
+    error instanceof Error ? error.message : String(error || '');
+  return (
+    errorMessage.includes('No reports found') ||
+    errorMessage.includes('Report not found') ||
+    errorMessage.includes('404') ||
+    errorMessage.includes('No active mission')
+  );
+}
+
 export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
   // Initial state
   topics: [],
@@ -636,12 +651,15 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
         }
       }
     } catch (error) {
-      set({
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to fetch mission status',
-      });
+      // ★ 新专题没有 mission 是正常情况，不设置 error
+      if (!isReportNotFoundError(error)) {
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Failed to fetch mission status',
+        });
+      }
     }
   },
 
@@ -650,10 +668,15 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
       const teamInfo = await api.getTeam(topicId);
       set({ teamInfo });
     } catch (error) {
-      set({
-        error:
-          error instanceof Error ? error.message : 'Failed to fetch team info',
-      });
+      // ★ 新专题没有 team 是正常情况，不设置 error
+      if (!isReportNotFoundError(error)) {
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Failed to fetch team info',
+        });
+      }
     }
   },
 
@@ -728,12 +751,21 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
         isLoadingReports: false,
       }));
     } catch (error) {
+      // ★ 即使获取报告列表失败，也不应该因为 "Report not found" 类型错误显示"启动失败"
       set({
         isLoadingReports: false,
-        error:
-          error instanceof Error ? error.message : 'Failed to fetch reports',
+        ...(isReportNotFoundError(error)
+          ? {}
+          : {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to fetch reports',
+            }),
       });
-      throw error;
+      if (!isReportNotFoundError(error)) {
+        throw error;
+      }
     }
   },
 
@@ -742,21 +774,18 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
       const report = await api.getLatestReport(topicId);
       set({ currentReport: report });
     } catch (error) {
-      // ★ 404 "No reports found" / "Report not found" 是新专题的正常情况，不应设置 error 状态
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Failed to fetch latest report';
-      // ★ 扩展检查：包含 "Report not found" 和 "No reports found"
-      const isNoReportsError =
-        errorMessage.includes('No reports found') ||
-        errorMessage.includes('Report not found') ||
-        errorMessage.includes('404');
-
+      // ★ 新专题没有报告是正常情况，不应设置 error 状态
       set({
         currentReport: null,
-        // ★ 仅在非 404 错误时设置 error，避免新专题显示"启动失败"
-        ...(isNoReportsError ? {} : { error: errorMessage }),
+        // ★ 使用辅助函数过滤 "Report not found" 类型错误
+        ...(isReportNotFoundError(error)
+          ? {}
+          : {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to fetch latest report',
+            }),
       });
       // Don't throw here as missing report is not critical
     }
