@@ -153,7 +153,7 @@ export class ResearchMissionHealthService
     }
 
     this.isRunning = true;
-    this.logger.debug("Starting health check...");
+    this.logger.log("Starting health check...");
 
     try {
       const result: HealthCheckResult = {
@@ -187,7 +187,7 @@ export class ResearchMissionHealthService
       result.totalMissions = activeMissions.length;
 
       if (activeMissions.length === 0) {
-        this.logger.debug("No active missions found");
+        this.logger.log("Health check: No active missions found");
         return result;
       }
 
@@ -212,7 +212,7 @@ export class ResearchMissionHealthService
             `${result.recoveredMissions} recovered, ${result.failedMissions} marked as failed`,
         );
       } else {
-        this.logger.debug(
+        this.logger.log(
           `Health check completed: ${result.totalMissions} active missions, all healthy`,
         );
       }
