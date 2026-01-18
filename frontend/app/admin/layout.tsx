@@ -1,43 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import AppShell from '@/components/layout/AppShell';
-import { AdminSidebar } from '@/components/admin/layout';
-
-const SIDEBAR_COLLAPSED_KEY = 'admin-sidebar-collapsed';
+import { AdminTabNav } from '@/components/admin/layout';
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
-  // Load sidebar state from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-    if (saved !== null) {
-      setSidebarCollapsed(saved === 'true');
-    }
-  }, []);
-
-  // Save sidebar state to localStorage
-  const handleCollapsedChange = (collapsed: boolean) => {
-    setSidebarCollapsed(collapsed);
-    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
-  };
-
   return (
     <AppShell hideSidebar>
-      <div className="flex h-full w-full overflow-hidden">
-        {/* Admin Sidebar */}
-        <AdminSidebar
-          collapsed={sidebarCollapsed}
-          onCollapsedChange={handleCollapsedChange}
-        />
+      <div className="flex h-full w-full flex-col overflow-hidden">
+        {/* Tab 导航 */}
+        <AdminTabNav />
 
-        {/* Main Content */}
-        <div className="flex-1 overflow-hidden">{children}</div>
+        {/* 主内容区域 */}
+        <div className="flex-1 overflow-auto">{children}</div>
       </div>
     </AppShell>
   );
