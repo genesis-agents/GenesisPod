@@ -1352,6 +1352,12 @@
     "title": "管理后台",
     "console": "管理控制台",
     "backToSite": "返回主站",
+    "overview": {
+      "title": "仪表板",
+      "subtitle": "系统概览和快速导航",
+      "welcome": "欢迎使用管理控制台",
+      "welcomeDescription": "在这里管理系统设置、AI 配置、数据采集和访问控制。"
+    },
     "subtitle": "系统管理与配置",
     "users": "用户管理",
     "settings": "系统设置",

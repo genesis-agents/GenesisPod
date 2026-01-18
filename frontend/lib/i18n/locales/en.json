@@ -1358,6 +1358,12 @@
     "title": "Admin Dashboard",
     "console": "Admin Console",
     "backToSite": "Back to Site",
+    "overview": {
+      "title": "Dashboard",
+      "subtitle": "System overview and quick navigation",
+      "welcome": "Welcome to Admin Console",
+      "welcomeDescription": "Manage your system settings, AI configurations, data collection, and access control from here."
+    },
     "subtitle": "System management and configuration",
     "users": "Users",
     "settings": "Settings",
