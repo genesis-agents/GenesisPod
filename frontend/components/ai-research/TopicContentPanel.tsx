@@ -1883,6 +1883,7 @@ export function TopicContentPanel({
               topicId={topicId}
               missionId={missionStatus?.id}
               missionStatus={missionStatus}
+              wsEvents={wsEvents}
               className="h-full"
             />
           )}

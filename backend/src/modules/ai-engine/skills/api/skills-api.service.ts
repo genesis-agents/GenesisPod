@@ -350,63 +350,85 @@ export class SkillsApiService {
 
           if (!response) {
             this.logger.warn(
-              `SkillsMP: all endpoints failed at offset ${offset}`,
+              `SkillsMP: all endpoints threw exceptions at offset ${offset}`,
             );
             hasMore = false;
             break;
           }
 
-          if (response.ok) {
-            if (offset === 0 && usedEndpoint) {
-              this.logger.log(
-                `SkillsMP using endpoint: ${usedEndpoint.split("?")[0]}`,
-              );
+          // ★ 修复：处理所有端点都返回非 200 状态的情况
+          if (!response.ok) {
+            // 尝试读取错误信息
+            let errorBody = "";
+            try {
+              errorBody = await response.text();
+            } catch {
+              // ignore
             }
-            const data = await response.json();
-            const skills = extractSkills(data);
+            const errorMsg =
+              `SkillsMP API 请求失败: ${response.status} ${response.statusText}. ` +
+              `请检查 API Key 是否有效，或联系 SkillsMP 支持确认 API 端点。`;
+            this.logger.error(errorMsg);
+            this.logger.debug(`Response body: ${errorBody.substring(0, 500)}`);
 
-            // Capture total count from pagination
-            if (totalFromApi === 0) {
-              totalFromApi =
-                data.data?.pagination?.total ||
-                data.meta?.total ||
-                data.total ||
-                0;
-              this.logger.log(
-                `SkillsMP total skills in platform: ${totalFromApi}`,
-              );
-            }
-
-            if (skills.length === 0) {
-              hasMore = false;
-              break;
-            }
-
-            // Deduplicate and add skills
-            for (const skill of skills) {
-              const id =
-                skill.id || skill.name?.toLowerCase().replace(/\s+/g, "-");
-              if (id && !seenIds.has(id)) {
-                seenIds.add(id);
-                allSkills.push(skill);
-              }
-            }
-
-            this.logger.log(
-              `SkillsMP page ${Math.floor(offset / pageSize) + 1}: fetched ${skills.length} skills, total collected: ${allSkills.length}`,
-            );
-
-            offset += pageSize;
-
-            // Stop if we've reached the total or fetched less than page size
-            if (skills.length < pageSize || allSkills.length >= totalFromApi) {
-              hasMore = false;
-            }
-
-            // Rate limiting: small delay between requests
-            await new Promise((resolve) => setTimeout(resolve, 100));
+            // 返回明确的错误信息给用户
+            return {
+              success: false,
+              message: errorMsg,
+              skillsCount: 0,
+            };
           }
-          // Note: Non-ok response is already handled above with endpoint fallback
+
+          if (offset === 0 && usedEndpoint) {
+            this.logger.log(
+              `SkillsMP using endpoint: ${usedEndpoint.split("?")[0]}`,
+            );
+          }
+
+          // 此时 response.ok 一定为 true（非 ok 情况已在上面提前返回）
+          const data = await response.json();
+          const skills = extractSkills(data);
+
+          // Capture total count from pagination
+          if (totalFromApi === 0) {
+            totalFromApi =
+              data.data?.pagination?.total ||
+              data.meta?.total ||
+              data.total ||
+              0;
+            this.logger.log(
+              `SkillsMP total skills in platform: ${totalFromApi}`,
+            );
+          }
+
+          if (skills.length === 0) {
+            hasMore = false;
+            break;
+          }
+
+          // Deduplicate and add skills
+          for (const skill of skills) {
+            const id =
+              skill.id || skill.name?.toLowerCase().replace(/\s+/g, "-");
+            if (id && !seenIds.has(id)) {
+              seenIds.add(id);
+              allSkills.push(skill);
+            }
+          }
+
+          this.logger.log(
+            `SkillsMP page ${Math.floor(offset / pageSize) + 1}: fetched ${skills.length} skills, total collected: ${allSkills.length}`,
+          );
+
+          offset += pageSize;
+
+          // Stop if we've reached the total or fetched less than page size
+          if (skills.length < pageSize || allSkills.length >= totalFromApi) {
+            hasMore = false;
+          }
+
+          // Rate limiting: small delay between requests
+          await new Promise((resolve) => setTimeout(resolve, 100));
         } catch (pageError) {
           this.logger.warn(
             `SkillsMP pagination error at offset ${offset}: ${pageError}`,

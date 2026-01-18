@@ -46,6 +46,13 @@ import type {
   TodoSummary,
 } from '@/types/topic-research';
 
+// WebSocket 事件类型
+interface WsEvent {
+  type: string;
+  data: unknown;
+  timestamp: string;
+}
+
 // 对话消息类型
 interface ConversationMessage {
   id: string;
@@ -63,6 +70,7 @@ interface ResearchCollaborationPanelProps {
   topicId: string;
   missionId?: string;
   missionStatus?: MissionStatus | null;
+  wsEvents?: WsEvent[];
   className?: string;
 }
 
@@ -341,6 +349,7 @@ export function ResearchCollaborationPanel({
   topicId,
   missionId,
   missionStatus,
+  wsEvents = [],
   className,
 }: ResearchCollaborationPanelProps) {
   const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null);
@@ -368,10 +377,45 @@ export function ResearchCollaborationPanel({
     }
   }, [conversationMessages]);
 
+  // ★ 从 WebSocket 事件中提取实时进度
+  const taskProgressMap = useMemo(() => {
+    const progressMap = new Map<string, number>();
+    if (!wsEvents || wsEvents.length === 0) return progressMap;
+
+    // 遍历所有事件，收集最新的进度（后面的事件会覆盖前面的）
+    for (const event of wsEvents) {
+      if (
+        event.type === 'task:progress' ||
+        event.type === 'task:started' ||
+        event.type === 'task:completed' ||
+        event.type === 'dimension:research_progress'
+      ) {
+        const data = event.data as {
+          taskId?: string;
+          progress?: number;
+          dimensionName?: string;
+        };
+        if (data.taskId && typeof data.progress === 'number') {
+          progressMap.set(data.taskId, data.progress);
+        }
+      }
+    }
+    return progressMap;
+  }, [wsEvents]);
+
   // 合并 missionStatus.tasks 和 apiTodos（用户请求的TODO可能不在tasks中）
   const { todos, todosSummary } = useMemo(() => {
     const tasks = missionStatus?.tasks || [];
-    const convertedTodos = tasks.map(convertTaskToTodo);
+    // ★ 转换任务时应用实时进度
+    const convertedTodos = tasks.map((task) => {
+      const todo = convertTaskToTodo(task);
+      // 如果有实时进度数据，使用实时进度
+      const realtimeProgress = taskProgressMap.get(task.id);
+      if (realtimeProgress !== undefined && realtimeProgress > todo.progress) {
+        todo.progress = realtimeProgress;
+      }
+      return todo;
+    });
     const taskIds = new Set(convertedTodos.map((t) => t.id));
 
     // ★ 收集已有任务的维度名称和标题，用于去重 USER_REQUEST
@@ -457,7 +501,7 @@ export function ResearchCollaborationPanel({
       todos: mergedTodos,
       todosSummary: calculateSummary(mergedTodos),
     };
-  }, [missionStatus?.tasks, apiTodos]);
+  }, [missionStatus?.tasks, apiTodos, taskProgressMap]);
 
   // Load TODOs from API (包括用户请求创建的 TODO)
   useEffect(() => {
