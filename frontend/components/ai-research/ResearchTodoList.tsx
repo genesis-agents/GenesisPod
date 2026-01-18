@@ -453,12 +453,18 @@ export function ResearchTodoList({
                         {TYPE_ICONS[todo.type]}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium text-gray-900">
+                        <div
+                          className="truncate text-sm font-medium text-gray-900"
+                          title={todo.title}
+                        >
                           {todo.title}
                         </div>
                         {todo.dimensionName &&
                           todo.dimensionName !== todo.title && (
-                            <div className="truncate text-xs text-gray-400">
+                            <div
+                              className="truncate text-xs text-gray-400"
+                              title={todo.dimensionName}
+                            >
                               {todo.dimensionName}
                             </div>
                           )}
@@ -475,14 +481,20 @@ export function ResearchTodoList({
                   </td>
 
                   {/* 负责人 */}
-                  <td className="truncate px-2 py-2 text-xs text-gray-600">
+                  <td
+                    className="truncate px-2 py-2 text-xs text-gray-600"
+                    title={agentName}
+                  >
                     {agentName}
                   </td>
 
                   {/* 模型 */}
                   <td className="px-2 py-2">
                     {modelId ? (
-                      <span className="font-mono inline-block max-w-full truncate rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] text-indigo-600">
+                      <span
+                        className="font-mono inline-block max-w-full truncate rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] text-indigo-600"
+                        title={modelId}
+                      >
                         {modelId}
                       </span>
                     ) : (
