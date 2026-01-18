@@ -313,16 +313,31 @@ export class SkillsApiService {
             this.logger.log(
               `SkillsMP search '${term}': response keys=${Object.keys(data).join(",")}`,
             );
-            // Try multiple possible property names for skills array
-            const skills =
-              data.skills ||
-              data.results ||
-              data.data ||
-              data.items ||
-              (Array.isArray(data) ? data : []);
+            // API returns { success, data, meta } - skills may be in data directly or nested
+            let skills: any[] = [];
+            if (Array.isArray(data.data)) {
+              skills = data.data;
+            } else if (data.data && Array.isArray(data.data.skills)) {
+              skills = data.data.skills;
+            } else if (data.data && Array.isArray(data.data.items)) {
+              skills = data.data.items;
+            } else if (Array.isArray(data.skills)) {
+              skills = data.skills;
+            } else if (Array.isArray(data.results)) {
+              skills = data.results;
+            }
             this.logger.log(
               `SkillsMP search '${term}': ${skills.length} skills found`,
             );
+            if (
+              data.data &&
+              typeof data.data === "object" &&
+              !Array.isArray(data.data)
+            ) {
+              this.logger.log(
+                `SkillsMP data.data keys: ${Object.keys(data.data).join(",")}`,
+              );
+            }
             for (const skill of skills) {
               const id =
                 skill.id || skill.name?.toLowerCase().replace(/\s+/g, "-");
