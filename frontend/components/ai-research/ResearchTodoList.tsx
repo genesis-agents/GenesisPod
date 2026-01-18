@@ -19,6 +19,7 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   RotateCcw,
   ArrowUp,
   ArrowDown,
@@ -718,34 +719,64 @@ export function ResearchTodoList({
     );
   }
 
+  // 整体进度折叠状态（默认折叠）
+  const [isProgressCollapsed, setIsProgressCollapsed] = useState(true);
+
   return (
     <div className="space-y-2">
-      {/* 整体进度 */}
+      {/* 整体进度（可折叠，默认折叠） */}
       {summary && (
-        <div className="mb-4 rounded-lg bg-gray-50 p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">整体进度</span>
-            <span className="text-sm text-gray-500">
-              {summary.overallProgress}%
-            </span>
+        <div className="mb-4 rounded-lg bg-gray-50">
+          {/* 标题栏 - 可点击折叠/展开 */}
+          <div
+            className="flex cursor-pointer items-center justify-between p-3 hover:bg-gray-100"
+            onClick={() => setIsProgressCollapsed(!isProgressCollapsed)}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">
+                整体进度
+              </span>
+              {isProgressCollapsed && (
+                <span className="text-xs text-gray-500">
+                  完成 {summary.completed}/{summary.total}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">
+                {summary.overallProgress}%
+              </span>
+              {isProgressCollapsed ? (
+                <ChevronDown className="h-4 w-4 text-gray-400" />
+              ) : (
+                <ChevronUp className="h-4 w-4 text-gray-400" />
+              )}
+            </div>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-            <div
-              className="h-full bg-blue-500 transition-all duration-500"
-              style={{ width: `${summary.overallProgress}%` }}
-            />
-          </div>
-          <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
-            <span>
-              完成 {summary.completed}/{summary.total}
-            </span>
-            {summary.inProgress > 0 && (
-              <span className="text-blue-500">进行中 {summary.inProgress}</span>
-            )}
-            {summary.failed > 0 && (
-              <span className="text-red-500">失败 {summary.failed}</span>
-            )}
-          </div>
+          {/* 展开时显示详细内容 */}
+          {!isProgressCollapsed && (
+            <div className="border-t border-gray-200 p-3 pt-2">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className="h-full bg-blue-500 transition-all duration-500"
+                  style={{ width: `${summary.overallProgress}%` }}
+                />
+              </div>
+              <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
+                <span>
+                  完成 {summary.completed}/{summary.total}
+                </span>
+                {summary.inProgress > 0 && (
+                  <span className="text-blue-500">
+                    进行中 {summary.inProgress}
+                  </span>
+                )}
+                {summary.failed > 0 && (
+                  <span className="text-red-500">失败 {summary.failed}</span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

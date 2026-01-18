@@ -348,8 +348,8 @@ export function ResearchCollaborationPanel({
   >([]);
   const [isProcessingInput, setIsProcessingInput] = useState(false);
   const conversationEndRef = useRef<HTMLDivElement>(null);
-  // 折叠状态（任务区默认折叠）
-  const [isTasksCollapsed, setIsTasksCollapsed] = useState(true);
+  // 折叠状态（任务区默认展开，内部"整体进度"默认折叠）
+  const [isTasksCollapsed, setIsTasksCollapsed] = useState(false);
   const [isConversationCollapsed, setIsConversationCollapsed] = useState(false);
 
   const {
@@ -705,9 +705,9 @@ export function ResearchCollaborationPanel({
           )}
         </div>
 
-        {/* ★ 弹性间隔：两者都折叠时，将对话区推到中间 */}
+        {/* ★ 弹性间隔：两者都折叠时，将对话区的顶部推到容器中间 */}
         {isTasksCollapsed && isConversationCollapsed && (
-          <div className="flex-1" />
+          <div style={{ height: 'calc(50% - 88px - 6px)' }} />
         )}
 
         {/* ★ 对话区 - 下半部分（可折叠） */}
