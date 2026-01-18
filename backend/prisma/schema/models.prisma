@@ -145,6 +145,18 @@ model User {
   reportAnnotationsResolved ReportAnnotation[] @relation("ReportAnnotationResolver")
   reviewTasksAssigned       ReviewTask[]       @relation("ReviewTaskAssignee") // 审核任务 (Phase 3.3)
 
+  // 通知系统
+  notifications          Notification[]          @relation("UserNotifications")
+  notificationPreference NotificationPreference? @relation("UserNotificationPreference")
+
+  // 团队邀请系统
+  sentInvitations     TopicInvitation[] @relation("TopicInvitationInviter")
+  receivedInvitations TopicInvitation[] @relation("TopicInvitationInvitee")
+
+  // 反馈系统
+  feedbackReplies   FeedbackReply[] @relation("FeedbackReplyUser")
+  assignedFeedbacks Feedback[]      @relation("FeedbackAssignee")
+
   @@map("users")
 }
 
@@ -1530,6 +1542,7 @@ model Topic {
   joinRequests   TopicJoinRequest[]
   knowledgeBases TopicKnowledgeBase[] // 关联的知识库
   voteProposals  VoteProposal[] // 投票提案
+  invitations    TopicInvitation[] // 邀请列表
 
   @@index([createdById])
   @@index([type])
@@ -2388,13 +2401,13 @@ model AIModel {
   // 推理模型需要特殊处理：设置 reasoning_effort 参数，避免推理 token 消耗全部输出预算
 
   // ★ 模型能力配置 - 消除硬编码，完全由数据库驱动
-  apiFormat            String  @default("openai") @map("api_format") @db.VarChar(20) // openai, anthropic, google, xai
-  supportsTemperature  Boolean @default(true) @map("supports_temperature") // 推理模型通常不支持
-  supportsStreaming    Boolean @default(true) @map("supports_streaming")
+  apiFormat               String  @default("openai") @map("api_format") @db.VarChar(20) // openai, anthropic, google, xai
+  supportsTemperature     Boolean @default(true) @map("supports_temperature") // 推理模型通常不支持
+  supportsStreaming       Boolean @default(true) @map("supports_streaming")
   supportsFunctionCalling Boolean @default(true) @map("supports_function_calling")
-  supportsVision       Boolean @default(false) @map("supports_vision")
-  tokenParamName       String  @default("max_tokens") @map("token_param_name") @db.VarChar(30) // max_tokens 或 max_completion_tokens
-  defaultTimeoutMs     Int     @default(120000) @map("default_timeout_ms") // 推理模型需要更长时间
+  supportsVision          Boolean @default(false) @map("supports_vision")
+  tokenParamName          String  @default("max_tokens") @map("token_param_name") @db.VarChar(30) // max_tokens 或 max_completion_tokens
+  defaultTimeoutMs        Int     @default(120000) @map("default_timeout_ms") // 推理模型需要更长时间
 
   // 价格配置（每百万 token）
   priceInputPerMillion  Decimal? @map("price_input_per_million") @db.Decimal(10, 4)
@@ -3172,11 +3185,27 @@ model Feedback {
   // 附件存储 - JSON数组: [{filename, url, size, mimeType}]
   attachments Json?          @default("[]")
 
+  // 新增：优先级和分配
+  priority   FeedbackPriority @default(NORMAL)
+  assignedTo String?          @map("assigned_to") // 分配给的管理员ID
+  assignedAt DateTime?        @map("assigned_at")
+  tags       String[]         @default([]) // 分类标签
+  source     String           @default("web") @db.VarChar(20) // web, mobile, email, api
+
+  // 回复计数（冗余字段，提升查询性能）
+  replyCount Int @default(0) @map("reply_count")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // 关系
+  replies  FeedbackReply[] @relation("FeedbackReplies")
+  assignee User?           @relation("FeedbackAssignee", fields: [assignedTo], references: [id], onDelete: SetNull)
+
   @@index([type])
   @@index([status])
+  @@index([priority])
+  @@index([assignedTo])
   @@index([createdAt(sort: Desc)])
   @@map("feedbacks")
 }
@@ -6743,15 +6772,15 @@ model ResearchTopic {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // ========== 关系 ==========
-  user          User                @relation("UserResearchTopics", fields: [userId], references: [id], onDelete: Cascade)
-  dimensions    TopicDimension[]
-  reports       TopicReport[]
-  schedules     TopicSchedule[]
-  refreshLogs   TopicRefreshLog[]
-  missions      ResearchMission[] // Leader 驱动的研究任务
-  collaborators TopicCollaborator[] // 协作者列表
-  teamMessages  ResearchTeamMessage[] // 团队互动消息
-  agentActivities ResearchAgentActivity[] // Agent 活动记录
+  user               User                    @relation("UserResearchTopics", fields: [userId], references: [id], onDelete: Cascade)
+  dimensions         TopicDimension[]
+  reports            TopicReport[]
+  schedules          TopicSchedule[]
+  refreshLogs        TopicRefreshLog[]
+  missions           ResearchMission[] // Leader 驱动的研究任务
+  collaborators      TopicCollaborator[] // 协作者列表
+  teamMessages       ResearchTeamMessage[] // 团队互动消息
+  agentActivities    ResearchAgentActivity[] // Agent 活动记录
   dimensionFreshness DimensionFreshness[] // 维度新鲜度 (Phase 3.1)
   researchHistories  ResearchHistory[] // 研究历史 (Phase 2.3)
   researchTodos      ResearchTodo[] // 研究 TODO 列表 (UX Enhancement)
@@ -6840,7 +6869,7 @@ model TopicDimension {
   lastResearchedAt DateTime?       @map("last_researched_at")
 
   // ========== 关系 ==========
-  topic     ResearchTopic        @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  topic     ResearchTopic       @relation(fields: [topicId], references: [id], onDelete: Cascade)
   analyses  DimensionAnalysis[]
   freshness DimensionFreshness? // 新鲜度检测 (Phase 3.1)
 
@@ -7243,19 +7272,19 @@ model ReportChange {
 /// 报告批注
 /// 用于报告审核和协作批注系统
 model ReportAnnotation {
-  id             String           @id @default(cuid())
-  reportId       String           @map("report_id")
-  content        String           @db.Text
-  type           AnnotationType
-  status         AnnotationStatus @default(OPEN)
-  selectedText   String?          @map("selected_text") @db.Text
-  startOffset    Int              @map("start_offset")
-  endOffset      Int              @map("end_offset")
-  createdById    String           @map("created_by_id")
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-  resolvedAt     DateTime?        @map("resolved_at")
-  resolvedById   String?          @map("resolved_by_id")
+  id           String           @id @default(cuid())
+  reportId     String           @map("report_id")
+  content      String           @db.Text
+  type         AnnotationType
+  status       AnnotationStatus @default(OPEN)
+  selectedText String?          @map("selected_text") @db.Text
+  startOffset  Int              @map("start_offset")
+  endOffset    Int              @map("end_offset")
+  createdById  String           @map("created_by_id")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  resolvedAt   DateTime?        @map("resolved_at")
+  resolvedById String?          @map("resolved_by_id")
 
   // ========== 关系 ==========
   report     TopicReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
@@ -7343,7 +7372,7 @@ model ResearchAgentActivity {
 
   // ========== 活动信息 ==========
   activityType AgentActivityType @map("activity_type")
-  phase        String?           // 阶段：understanding, analyzing, planning, executing
+  phase        String? // 阶段：understanding, analyzing, planning, executing
   content      String            @db.Text // 活动内容/思考内容
   progress     Int               @default(0) // 进度 0-100
 
@@ -7428,11 +7457,11 @@ model DimensionFreshness {
   dimensionId String @unique @map("dimension_id")
 
   // ========== 新鲜度指标 ==========
-  lastAnalyzedAt    DateTime @map("last_analyzed_at")
-  sourcesCount      Int      @map("sources_count")
-  newSourcesCount   Int      @map("new_sources_count") // 新增来源数
-  staleSourcesCount Int      @map("stale_sources_count") // 过时来源数
-  updatedSourcesCount Int    @map("updated_sources_count") // 有更新的来源数
+  lastAnalyzedAt      DateTime @map("last_analyzed_at")
+  sourcesCount        Int      @map("sources_count")
+  newSourcesCount     Int      @map("new_sources_count") // 新增来源数
+  staleSourcesCount   Int      @map("stale_sources_count") // 过时来源数
+  updatedSourcesCount Int      @map("updated_sources_count") // 有更新的来源数
 
   // ========== 推荐操作 ==========
   recommendation  String // KEEP | UPDATE | REFRESH
@@ -7457,13 +7486,13 @@ model DimensionFreshness {
 /// 协作审核任务 (Phase 3.3)
 /// 支持团队协作审核报告
 model ReviewTask {
-  id        String @id @default(cuid())
-  reportId  String @map("report_id")
+  id        String  @id @default(cuid())
+  reportId  String  @map("report_id")
   sectionId String? @map("section_id")
 
   // ========== 章节信息 ==========
-  sectionName  String  @map("section_name")
-  sectionOrder Int     @default(0) @map("section_order")
+  sectionName  String @map("section_name")
+  sectionOrder Int    @default(0) @map("section_order")
 
   // ========== 分配信息 ==========
   assigneeId   String?   @map("assignee_id")
@@ -7479,7 +7508,7 @@ model ReviewTask {
   // ========== 审核结果 ==========
   approved Boolean?
   score    Float? // 质量评分 0-100
-  comments String? @db.Text
+  comments String?  @db.Text
 
   // ========== 时间戳 ==========
   createdAt DateTime @default(now()) @map("created_at")
@@ -7510,22 +7539,22 @@ model ResearchHistory {
   missionId String @map("mission_id")
 
   // ========== 研究信息 ==========
-  researchNumber Int      @map("research_number") // 第几次研究
-  startedAt      DateTime @map("started_at")
+  researchNumber Int       @map("research_number") // 第几次研究
+  startedAt      DateTime  @map("started_at")
   completedAt    DateTime? @map("completed_at")
-  status         String   // COMPLETED | FAILED | CANCELLED
+  status         String // COMPLETED | FAILED | CANCELLED
 
   // ========== 研究目标 ==========
-  researchGoal    String? @map("research_goal") @db.Text
+  researchGoal     String? @map("research_goal") @db.Text
   researchStrategy String? @map("research_strategy") @db.Text
 
   // ========== 研究结果摘要 ==========
-  dimensionsUpdated   String[] @map("dimensions_updated") // 更新的维度列表
-  dimensionsKept      String[] @map("dimensions_kept") // 保留的维度列表
-  wordsAdded          Int      @default(0) @map("words_added")
-  wordsRemoved        Int      @default(0) @map("words_removed")
-  newSourcesCount     Int      @default(0) @map("new_sources_count")
-  totalDurationMs     Int?     @map("total_duration_ms")
+  dimensionsUpdated String[] @map("dimensions_updated") // 更新的维度列表
+  dimensionsKept    String[] @map("dimensions_kept") // 保留的维度列表
+  wordsAdded        Int      @default(0) @map("words_added")
+  wordsRemoved      Int      @default(0) @map("words_removed")
+  newSourcesCount   Int      @default(0) @map("new_sources_count")
+  totalDurationMs   Int?     @map("total_duration_ms")
 
   // ========== 关联报告版本 ==========
   reportVersionBefore Int? @map("report_version_before")
@@ -7571,8 +7600,8 @@ model ResearchTodo {
 
   // ========== 任务基本信息 ==========
   type        ResearchTodoType
-  title       String              @db.VarChar(200)
-  description String?             @db.Text
+  title       String           @db.VarChar(200)
+  description String?          @db.Text
 
   // ========== 关联信息 ==========
   dimensionId   String? @map("dimension_id")
@@ -7592,10 +7621,10 @@ model ResearchTodo {
   dependsOn String[] @default([]) @map("depends_on") // 依赖的任务 ID 列表
 
   // ========== 执行时间 ==========
-  startedAt     DateTime? @map("started_at")
-  completedAt   DateTime? @map("completed_at")
-  estimatedMs   Int?      @map("estimated_ms") // 预估耗时（毫秒）
-  actualMs      Int?      @map("actual_ms") // 实际耗时（毫秒）
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  estimatedMs Int?      @map("estimated_ms") // 预估耗时（毫秒）
+  actualMs    Int?      @map("actual_ms") // 实际耗时（毫秒）
 
   // ========== 结果信息 ==========
   result Json? // { sourcesFound?, wordCount?, keyFindings?, error? }
@@ -7658,18 +7687,18 @@ model Secret {
   keyVersion     Int    @default(1) @map("key_version") // 加密密钥版本号，用于密钥轮转
 
   // 元数据
-  provider String?  @db.VarChar(50) // openai, anthropic, tavily 等
-  isActive Boolean  @default(true) @map("is_active")
+  provider String? @db.VarChar(50) // openai, anthropic, tavily 等
+  isActive Boolean @default(true) @map("is_active")
 
   // 过期管理
-  expiresAt      DateTime? @map("expires_at") // 过期时间
-  lastRotatedAt  DateTime? @map("last_rotated_at") // 最后轮转时间
+  expiresAt     DateTime? @map("expires_at") // 过期时间
+  lastRotatedAt DateTime? @map("last_rotated_at") // 最后轮转时间
 
   // 审计
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  createdBy String?   @map("created_by") @db.VarChar(100)
-  updatedBy String?   @map("updated_by") @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.VarChar(100)
+  updatedBy String?  @map("updated_by") @db.VarChar(100)
 
   // 软删除
   deletedAt DateTime? @map("deleted_at")
@@ -7739,4 +7768,203 @@ model SecretAccessLog {
   @@index([userId, timestamp])
   @@index([action, timestamp])
   @@map("secret_access_logs")
+}
+
+// ============ 通知系统 (Notification System) ============
+
+/// 通知类型
+enum NotificationType {
+  // 系统通知
+  SYSTEM // 系统公告
+  UPDATE // 版本更新
+  TIP // 使用提示
+
+  // 团队/协作通知
+  JOIN_REQUEST // 有人申请加入团队
+  JOIN_APPROVED // 申请被批准
+  JOIN_REJECTED // 申请被拒绝
+  INVITATION // 被邀请加入团队
+  INVITATION_EXPIRED // 邀请过期
+
+  // 研究/任务通知
+  RESEARCH_COMPLETED // 研究任务完成
+  TASK_ASSIGNED // 任务分配
+  MENTION // @提及
+
+  // 积分通知
+  CREDITS_LOW // 积分不足警告
+  CREDITS_RECEIVED // 收到积分
+
+  // 反馈通知
+  FEEDBACK_REPLIED // 反馈收到回复
+  FEEDBACK_STATUS_CHANGED // 反馈状态变更
+}
+
+/// 用户通知
+/// 支持多种通知类型，包含操作按钮和元数据
+model Notification {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+
+  // 通知内容
+  type    NotificationType
+  title   String           @db.VarChar(200)
+  message String           @db.Text
+  iconUrl String?          @map("icon_url") @db.VarChar(500) // 通知图标
+
+  // 操作
+  actionUrl   String? @map("action_url") @db.VarChar(500) // 点击跳转链接
+  actionLabel String? @map("action_label") @db.VarChar(50) // 操作按钮文字
+
+  // 相关实体（用于关联查询）
+  relatedType String? @map("related_type") @db.VarChar(50) // topic, research, feedback, user
+  relatedId   String? @map("related_id")
+
+  // 状态
+  read   Boolean   @default(false)
+  readAt DateTime? @map("read_at")
+
+  // 元数据（模板变量，如 {user: "张三", team: "研究小组"}）
+  metadata Json? @default("{}")
+
+  // 过期时间
+  expiresAt DateTime? @map("expires_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // 关系
+  user User @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt(sort: Desc)])
+  @@index([userId, type])
+  @@index([relatedType, relatedId])
+  @@index([expiresAt])
+  @@map("notifications")
+}
+
+/// 用户通知偏好设置
+model NotificationPreference {
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+
+  // 通知渠道开关
+  emailEnabled Boolean @default(true) @map("email_enabled")
+  pushEnabled  Boolean @default(true) @map("push_enabled")
+  soundEnabled Boolean @default(true) @map("sound_enabled")
+
+  // 各类型通知开关（JSON）
+  // { system: true, joinRequest: true, research: true, credits: true, feedback: true }
+  typeSettings Json @default("{}") @map("type_settings")
+
+  // 免打扰时段
+  quietHoursStart String? @map("quiet_hours_start") @db.VarChar(5) // HH:mm
+  quietHoursEnd   String? @map("quiet_hours_end") @db.VarChar(5) // HH:mm
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  user User @relation("UserNotificationPreference", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+// ============ 团队邀请系统 (Invitation System) ============
+
+/// 邀请状态
+enum InvitationStatus {
+  PENDING // 待接受
+  ACCEPTED // 已接受
+  DECLINED // 已拒绝
+  EXPIRED // 已过期
+  CANCELLED // 已取消
+}
+
+/// Topic 邀请
+/// 管理员/Owner 邀请用户加入团队
+model TopicInvitation {
+  id String @id @default(uuid())
+
+  topicId String @map("topic_id")
+  topic   Topic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  // 邀请人
+  inviterId String @map("inviter_id")
+  inviter   User   @relation("TopicInvitationInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+
+  // 被邀请人（通过用户ID或邮箱）
+  inviteeId    String? @map("invitee_id")
+  invitee      User?   @relation("TopicInvitationInvitee", fields: [inviteeId], references: [id], onDelete: SetNull)
+  inviteeEmail String? @map("invitee_email") @db.VarChar(255) // 邮箱邀请
+
+  // 邀请码（用于链接邀请）
+  inviteCode String? @unique @map("invite_code") @db.VarChar(32)
+
+  // 邀请角色
+  role TopicRole @default(MEMBER)
+
+  // 邀请消息
+  message String? @db.Text
+
+  // 状态
+  status InvitationStatus @default(PENDING)
+
+  // 过期时间（默认7天）
+  expiresAt DateTime @map("expires_at")
+
+  // 响应信息
+  respondedAt DateTime? @map("responded_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([topicId])
+  @@index([inviterId])
+  @@index([inviteeId])
+  @@index([inviteeEmail])
+  @@index([inviteCode])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("topic_invitations")
+}
+
+// ============ 反馈回复系统 (Feedback Reply System) ============
+
+/// 反馈优先级
+enum FeedbackPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+/// 反馈回复
+/// 支持用户和管理员之间的对话
+model FeedbackReply {
+  id         String @id @default(uuid())
+  feedbackId String @map("feedback_id")
+
+  // 回复者（可以是用户或管理员）
+  userId  String? @map("user_id")
+  isAdmin Boolean @default(false) @map("is_admin")
+
+  // 回复内容
+  content String @db.Text
+
+  // 附件
+  attachments Json? @default("[]")
+
+  // 内部备注（仅管理员可见）
+  internalNote Boolean @default(false) @map("internal_note")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  feedback Feedback @relation("FeedbackReplies", fields: [feedbackId], references: [id], onDelete: Cascade)
+  user     User?    @relation("FeedbackReplyUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([feedbackId, createdAt])
+  @@index([userId])
+  @@map("feedback_replies")
 }

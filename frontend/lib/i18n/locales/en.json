@@ -1745,6 +1745,34 @@
       }
     }
   },
+  "notifications": {
+    "title": "Notifications",
+    "noNew": "No new notifications",
+    "markRead": "Mark as read",
+    "markAllRead": "Mark all as read",
+    "viewAll": "View all notifications",
+    "types": {
+      "system": "System",
+      "update": "Update",
+      "tip": "Tip",
+      "joinRequest": "Join Request",
+      "joinApproved": "Request Approved",
+      "joinRejected": "Request Rejected",
+      "invitation": "Invitation",
+      "invitationExpired": "Invitation Expired",
+      "researchCompleted": "Research Completed",
+      "taskAssigned": "Task Assigned",
+      "mention": "Mention",
+      "creditsLow": "Low Credits",
+      "creditsReceived": "Credits Received",
+      "feedbackReplied": "Feedback Reply",
+      "feedbackStatusChanged": "Feedback Status Changed"
+    },
+    "error": {
+      "markReadFailed": "Failed to mark notification as read",
+      "markAllReadFailed": "Failed to mark all notifications as read"
+    }
+  },
   "errors": {
     "somethingWentWrong": "Something went wrong",
     "pageNotFound": "Page not found",

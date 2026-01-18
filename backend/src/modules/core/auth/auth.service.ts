@@ -280,7 +280,18 @@ export class AuthService {
    */
   async updateProfile(
     userId: string,
-    updateData: { username?: string; bio?: string; interests?: string[] },
+    updateData: {
+      username?: string;
+      fullName?: string;
+      bio?: string;
+      avatarUrl?: string;
+      interests?: string[];
+      preferences?: {
+        language?: string;
+        timezone?: string;
+        theme?: "light" | "dark" | "system";
+      };
+    },
   ) {
     // 如果要更新username，检查是否已存在
     if (updateData.username) {
@@ -315,22 +326,42 @@ export class AuthService {
       }
     }
 
+    // 处理preferences更新（合并现有偏好）
+    let preferencesUpdate = undefined;
+    if (updateData.preferences) {
+      const currentUser = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { preferences: true },
+      });
+      const currentPrefs =
+        (currentUser?.preferences as Record<string, unknown>) || {};
+      preferencesUpdate = {
+        ...currentPrefs,
+        ...updateData.preferences,
+      };
+    }
+
     // 更新用户基本信息（不包括interests，因为已单独处理）
-    const { interests: _, ...updateFields } = updateData;
+    const { interests: _, preferences: __, ...basicFields } = updateData;
     const user = await this.prisma.user.update({
       where: { id: userId },
-      data: updateFields,
+      data: {
+        ...basicFields,
+        ...(preferencesUpdate && { preferences: preferencesUpdate }),
+      },
       select: {
         id: true,
         email: true,
         username: true,
+        fullName: true,
         bio: true,
+        avatarUrl: true,
+        preferences: true,
         interests: {
           select: {
             tag: true,
           },
         },
-        avatarUrl: true,
         createdAt: true,
       },
     });

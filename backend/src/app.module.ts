@@ -22,6 +22,7 @@ import { AuthModule } from "./modules/core/auth/auth.module";
 import { AdminModule } from "./modules/core/admin/admin.module";
 import { EmailModule } from "./modules/core/email/email.module";
 import { FeedbackModule } from "./modules/core/feedback/feedback.module";
+import { NotificationModule } from "./modules/core/notifications/notification.module";
 import { SettingsModule } from "./modules/core/settings/settings.module";
 import { StorageModule } from "./modules/core/storage/storage.module";
 import { CreditsModule } from "./modules/credits/credits.module";
@@ -113,6 +114,7 @@ import { WebhooksModule } from "./modules/webhooks";
     AdminModule,
     EmailModule,
     FeedbackModule,
+    NotificationModule,
     SettingsModule,
     StorageModule,
     CreditsModule,

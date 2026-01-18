@@ -1739,6 +1739,34 @@
       }
     }
   },
+  "notifications": {
+    "title": "通知",
+    "noNew": "暂无新通知",
+    "markRead": "标记已读",
+    "markAllRead": "全部已读",
+    "viewAll": "查看全部通知",
+    "types": {
+      "system": "系统通知",
+      "update": "更新通知",
+      "tip": "提示",
+      "joinRequest": "加入申请",
+      "joinApproved": "申请已通过",
+      "joinRejected": "申请被拒绝",
+      "invitation": "邀请",
+      "invitationExpired": "邀请已过期",
+      "researchCompleted": "研究完成",
+      "taskAssigned": "任务分配",
+      "mention": "@提及",
+      "creditsLow": "积分不足",
+      "creditsReceived": "积分到账",
+      "feedbackReplied": "反馈回复",
+      "feedbackStatusChanged": "反馈状态更新"
+    },
+    "error": {
+      "markReadFailed": "标记已读失败",
+      "markAllReadFailed": "全部标记已读失败"
+    }
+  },
   "errors": {
     "somethingWentWrong": "出了点问题",
     "pageNotFound": "页面未找到",

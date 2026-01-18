@@ -375,4 +375,164 @@ export class FeedbackService {
       ),
     };
   }
+
+  // ==================== Feedback Reply Methods ====================
+
+  /**
+   * Add a reply to feedback
+   */
+  async addReply(
+    feedbackId: string,
+    params: {
+      userId?: string;
+      content: string;
+      isAdmin: boolean;
+      internalNote?: boolean;
+      attachments?: StoredAttachment[];
+    },
+  ) {
+    const {
+      userId,
+      content,
+      isAdmin,
+      internalNote = false,
+      attachments = [],
+    } = params;
+
+    // Verify feedback exists
+    const feedback = await this.getFeedbackById(feedbackId);
+    if (!feedback) {
+      throw new Error("Feedback not found");
+    }
+
+    // Create reply using raw SQL
+    const result = await this.prisma.$queryRaw<{ id: string }[]>`
+      INSERT INTO "feedback_replies" (
+        "id", "feedback_id", "user_id", "content", "is_admin",
+        "internal_note", "attachments", "created_at", "updated_at"
+      ) VALUES (
+        gen_random_uuid(),
+        ${feedbackId}::uuid,
+        ${userId || null}::uuid,
+        ${content},
+        ${isAdmin},
+        ${internalNote},
+        ${JSON.stringify(attachments)}::jsonb,
+        NOW(),
+        NOW()
+      )
+      RETURNING id
+    `;
+
+    const replyId = result[0]?.id;
+    this.logger.log(`Reply added to feedback ${feedbackId}: ${replyId}`);
+
+    // Update reply count on feedback
+    await this.prisma.$queryRaw`
+      UPDATE "feedbacks"
+      SET "reply_count" = "reply_count" + 1, "updated_at" = NOW()
+      WHERE "id" = ${feedbackId}::uuid
+    `;
+
+    // Emit event for notification
+    this.eventEmitter.emit("feedback.replied", {
+      feedbackId,
+      replyId,
+      isAdmin,
+      userId,
+    });
+
+    return { replyId };
+  }
+
+  /**
+   * Get replies for a feedback
+   */
+  async getReplies(
+    feedbackId: string,
+    options?: {
+      includeInternal?: boolean;
+      limit?: number;
+      offset?: number;
+    },
+  ) {
+    const { includeInternal = false, limit = 50, offset = 0 } = options || {};
+
+    let whereClause = `WHERE "feedback_id" = '${feedbackId}'::uuid`;
+    if (!includeInternal) {
+      whereClause += ` AND "internal_note" = false`;
+    }
+
+    const replies = await this.prisma.$queryRawUnsafe<unknown[]>(`
+      SELECT
+        r.*,
+        u."username" as user_username,
+        u."full_name" as user_full_name,
+        u."avatar_url" as user_avatar_url
+      FROM "feedback_replies" r
+      LEFT JOIN "users" u ON r."user_id" = u."id"
+      ${whereClause}
+      ORDER BY r."created_at" ASC
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+
+    const countResult = await this.prisma.$queryRawUnsafe<{ count: bigint }[]>(`
+      SELECT COUNT(*) as count FROM "feedback_replies" ${whereClause}
+    `);
+
+    return {
+      replies,
+      total: Number(countResult[0]?.count || 0),
+      limit,
+      offset,
+    };
+  }
+
+  /**
+   * Update feedback priority (admin)
+   */
+  async updateFeedbackPriority(
+    id: string,
+    priority: "LOW" | "NORMAL" | "HIGH" | "CRITICAL",
+  ) {
+    const result = await this.prisma.$queryRaw<unknown[]>`
+      UPDATE "feedbacks"
+      SET "priority" = ${priority}::"FeedbackPriority", "updated_at" = NOW()
+      WHERE "id" = ${id}::uuid
+      RETURNING *
+    `;
+    return result[0] || null;
+  }
+
+  /**
+   * Assign feedback to admin (admin)
+   */
+  async assignFeedback(id: string, assignedTo: string | null) {
+    const result = await this.prisma.$queryRaw<unknown[]>`
+      UPDATE "feedbacks"
+      SET
+        "assigned_to" = ${assignedTo}::uuid,
+        "assigned_at" = ${assignedTo ? "NOW()" : null}::timestamp,
+        "updated_at" = NOW()
+      WHERE "id" = ${id}::uuid
+      RETURNING *
+    `;
+    return result[0] || null;
+  }
+
+  /**
+   * Batch update feedback status (admin)
+   */
+  async batchUpdateStatus(ids: string[], status: FeedbackStatusEnum) {
+    const result = await this.prisma.$queryRaw<{ count: bigint }[]>`
+      WITH updated AS (
+        UPDATE "feedbacks"
+        SET "status" = ${status}::"FeedbackStatus", "updated_at" = NOW()
+        WHERE "id" = ANY(${ids}::uuid[])
+        RETURNING 1
+      )
+      SELECT COUNT(*) as count FROM updated
+    `;
+    return { count: Number(result[0]?.count || 0) };
+  }
 }

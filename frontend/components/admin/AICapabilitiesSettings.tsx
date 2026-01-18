@@ -769,8 +769,8 @@ export default function AICapabilitiesSettings() {
       toolCategory === 'all' || tool.category === toolCategory;
     const matchesSearch =
       !toolSearch ||
-      tool.name.toLowerCase().includes(toolSearch.toLowerCase()) ||
-      tool.description.toLowerCase().includes(toolSearch.toLowerCase());
+      (tool.name || '').toLowerCase().includes(toolSearch.toLowerCase()) ||
+      (tool.description || '').toLowerCase().includes(toolSearch.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
@@ -778,8 +778,10 @@ export default function AICapabilitiesSettings() {
     const matchesLayer = skillLayer === 'all' || skill.layer === skillLayer;
     const matchesSearch =
       !skillSearch ||
-      skill.name.toLowerCase().includes(skillSearch.toLowerCase()) ||
-      skill.description.toLowerCase().includes(skillSearch.toLowerCase());
+      (skill.name || '').toLowerCase().includes(skillSearch.toLowerCase()) ||
+      (skill.description || '')
+        .toLowerCase()
+        .includes(skillSearch.toLowerCase());
     return matchesLayer && matchesSearch;
   });
 
