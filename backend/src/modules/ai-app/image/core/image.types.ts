@@ -121,6 +121,7 @@ export interface GeneratedImageResult {
   extractedContent?: string;
   textModelUsed?: string;
   imageModelUsed?: string;
+  isBookmarked?: boolean;
   error?: string;
 }
 

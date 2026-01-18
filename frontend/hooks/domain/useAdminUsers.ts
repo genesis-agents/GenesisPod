@@ -18,19 +18,19 @@ export function useAdminUsers() {
     loading: listLoading,
     error: listError,
     execute: refreshUsers,
-  } = useApiGet<{ users: User[]; total: number }>('/api/admin/users', {
+  } = useApiGet<{ users: User[]; total: number }>('/admin/users', {
     immediate: true,
   });
 
   const { loading: updateLoading, execute: updateUserApi } = useApiPut<
     User,
     Partial<User>
-  >('/api/admin/users');
+  >('/admin/users');
 
   const { loading: deleteLoading, execute: deleteUserApi } = useApiDelete<
     void,
     { id: string }
-  >('/api/admin/users');
+  >('/admin/users');
 
   const updateUser = useCallback(
     async (id: string, data: Partial<User>) => {

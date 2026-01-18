@@ -9,6 +9,49 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { R2StorageService } from "../../../core/storage/r2-storage.service";
 import { GeneratedImageResult } from "../core/image.types";
 
+/**
+ * 检查预签名 URL 是否即将过期（提前 1 天刷新）
+ * B2/R2 预签名 URL 格式包含 X-Amz-Expires 参数
+ */
+function isPresignedUrlExpiringSoon(url: string): boolean {
+  try {
+    // 检查是否是 B2/R2 预签名 URL
+    if (
+      !url.includes("backblazeb2.com") &&
+      !url.includes("r2.cloudflarestorage.com")
+    ) {
+      return false;
+    }
+
+    const urlObj = new URL(url);
+    const amzDate = urlObj.searchParams.get("X-Amz-Date");
+    const amzExpires = urlObj.searchParams.get("X-Amz-Expires");
+
+    if (!amzDate || !amzExpires) {
+      return true; // 无法解析，视为需要刷新
+    }
+
+    // 解析 X-Amz-Date 格式: 20260110T120000Z
+    const year = parseInt(amzDate.slice(0, 4));
+    const month = parseInt(amzDate.slice(4, 6)) - 1;
+    const day = parseInt(amzDate.slice(6, 8));
+    const hour = parseInt(amzDate.slice(9, 11));
+    const minute = parseInt(amzDate.slice(11, 13));
+    const second = parseInt(amzDate.slice(13, 15));
+
+    const signedAt = new Date(Date.UTC(year, month, day, hour, minute, second));
+    const expiresInSeconds = parseInt(amzExpires);
+    const expiresAt = new Date(signedAt.getTime() + expiresInSeconds * 1000);
+
+    // 提前 1 天刷新
+    const refreshThreshold = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    return expiresAt < refreshThreshold;
+  } catch {
+    return true; // 解析失败，视为需要刷新
+  }
+}
+
 @Injectable()
 export class ImageStorageService {
   private readonly logger = new Logger(ImageStorageService.name);
@@ -58,6 +101,8 @@ export class ImageStorageService {
    * Get user generation history
    * Logged in: return user's own images + legacy images
    * Not logged in: return nothing
+   *
+   * ★ 自动刷新过期的预签名 URL
    */
   async getHistory(userId?: string): Promise<GeneratedImageResult[]> {
     this.logger.log(`[getHistory] userId: ${userId || "not provided"}`);
@@ -95,20 +140,50 @@ export class ImageStorageService {
       `[getHistory] Found ${bookmarkedImages.length} bookmarked + ${unbookmarkedImages.length} unbookmarked = ${allImages.length} images`,
     );
 
-    return allImages.map((img) => ({
-      id: img.id,
-      imageUrl: img.imageUrl,
-      prompt: img.prompt,
-      enhancedPrompt: img.enhancedPrompt || undefined,
-      width: img.width,
-      height: img.height,
-      isBookmarked: img.isBookmarked || false,
-      createdAt: img.createdAt.toISOString(),
-      textModelUsed: img.textModelUsed || undefined,
-      imageModelUsed: img.imageModelUsed || undefined,
-      processingSteps: (img.processingSteps as any) || undefined,
-      promptInsights: (img.promptInsights as any) || undefined,
-    }));
+    // ★ 检查并刷新过期的预签名 URL
+    const results: GeneratedImageResult[] = [];
+    for (const img of allImages) {
+      let imageUrl = img.imageUrl;
+
+      // 检查是否需要刷新 URL
+      if (isPresignedUrlExpiringSoon(imageUrl)) {
+        this.logger.log(
+          `[getHistory] Refreshing expired URL for image: ${img.id}`,
+        );
+        const newUrl = await this.r2Storage.refreshImageUrl(imageUrl);
+        if (newUrl) {
+          imageUrl = newUrl;
+          // 更新数据库中的 URL（异步，不阻塞返回）
+          this.prisma.generatedImage
+            .update({
+              where: { id: img.id },
+              data: { imageUrl: newUrl },
+            })
+            .catch((err) =>
+              this.logger.warn(
+                `Failed to update URL in DB for ${img.id}: ${err.message}`,
+              ),
+            );
+        }
+      }
+
+      results.push({
+        id: img.id,
+        imageUrl,
+        prompt: img.prompt,
+        enhancedPrompt: img.enhancedPrompt || undefined,
+        width: img.width,
+        height: img.height,
+        isBookmarked: img.isBookmarked || false,
+        createdAt: img.createdAt.toISOString(),
+        textModelUsed: img.textModelUsed || undefined,
+        imageModelUsed: img.imageModelUsed || undefined,
+        processingSteps: (img.processingSteps as any) || undefined,
+        promptInsights: (img.promptInsights as any) || undefined,
+      });
+    }
+
+    return results;
   }
 
   /**
