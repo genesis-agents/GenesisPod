@@ -373,27 +373,27 @@ export function ResearchTodoList({
         )}
       </div>
 
-      {/* 单一扁平表格 */}
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[650px]">
+      {/* 单一扁平表格 - 自适应宽度 */}
+      <div className="overflow-hidden">
+        <table className="w-full table-fixed">
           <thead className="border-b border-gray-200 bg-gray-50/80">
             <tr>
-              <th className="w-12 px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="w-10 whitespace-nowrap px-2 py-2.5 text-center text-xs font-medium text-gray-500">
                 #
               </th>
-              <th className="min-w-[200px] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-medium text-gray-500">
                 任务名称
               </th>
-              <th className="w-[150px] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="w-[18%] whitespace-nowrap px-2 py-2.5 text-left text-xs font-medium text-gray-500">
                 负责人
               </th>
-              <th className="w-[130px] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="w-[15%] whitespace-nowrap px-2 py-2.5 text-left text-xs font-medium text-gray-500">
                 模型
               </th>
-              <th className="w-[100px] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="w-[12%] whitespace-nowrap px-2 py-2.5 text-left text-xs font-medium text-gray-500">
                 状态
               </th>
-              <th className="w-[70px] px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="w-10 whitespace-nowrap px-2 py-2.5 text-center text-xs font-medium text-gray-500">
                 操作
               </th>
             </tr>
@@ -442,63 +442,47 @@ export function ResearchTodoList({
                   )}
                 >
                   {/* 序号 */}
-                  <td className="px-3 py-3 text-center">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-500">
-                      {index + 1}
-                    </span>
+                  <td className="px-2 py-2 text-center text-xs text-gray-400">
+                    {index + 1}
                   </td>
 
                   {/* 任务名称 */}
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 text-lg">
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="flex-shrink-0 text-sm">
                         {TYPE_ICONS[todo.type]}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-medium text-gray-900">
-                            {todo.title}
-                          </span>
-                          {/* 依赖关系指示器 */}
-                          {(hasDependencies || blockingCount > 0) && (
-                            <span
-                              className="flex flex-shrink-0 items-center gap-0.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500"
-                              title={
-                                hasDependencies
-                                  ? `依赖 ${todo.dependsOn?.length} 个任务`
-                                  : `阻塞 ${blockingCount} 个任务`
-                              }
-                            >
-                              <Link2 className="h-3 w-3" />
-                              {blockingCount > 0 && (
-                                <span className="font-medium text-orange-600">
-                                  →{blockingCount}
-                                </span>
-                              )}
-                            </span>
-                          )}
+                        <div className="truncate text-sm font-medium text-gray-900">
+                          {todo.title}
                         </div>
                         {todo.dimensionName &&
                           todo.dimensionName !== todo.title && (
-                            <div className="mt-0.5 truncate text-xs text-gray-500">
+                            <div className="truncate text-xs text-gray-400">
                               {todo.dimensionName}
                             </div>
                           )}
                       </div>
+                      {blockingCount > 0 && (
+                        <span
+                          className="flex-shrink-0 text-orange-500"
+                          title={`阻塞 ${blockingCount} 个任务`}
+                        >
+                          <Link2 className="h-3 w-3" />
+                        </span>
+                      )}
                     </div>
                   </td>
 
                   {/* 负责人 */}
-                  <td className="px-4 py-3">
-                    <span className="truncate text-sm text-gray-700">
-                      {agentName}
-                    </span>
+                  <td className="truncate px-2 py-2 text-xs text-gray-600">
+                    {agentName}
                   </td>
 
                   {/* 模型 */}
-                  <td className="px-4 py-3">
+                  <td className="px-2 py-2">
                     {modelId ? (
-                      <span className="font-mono inline-block max-w-full truncate rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                      <span className="font-mono inline-block max-w-full truncate rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] text-indigo-600">
                         {modelId}
                       </span>
                     ) : (
@@ -507,7 +491,7 @@ export function ResearchTodoList({
                   </td>
 
                   {/* 状态 */}
-                  <td className="px-4 py-3">
+                  <td className="px-2 py-2">
                     <StatusBadge
                       status={todo.status}
                       progress={todo.progress}
@@ -515,7 +499,7 @@ export function ResearchTodoList({
                   </td>
 
                   {/* 操作 */}
-                  <td className="px-3 py-3 text-center">
+                  <td className="px-2 py-2 text-center">
                     <ActionButtons
                       todo={todo}
                       topicId={topicId}
