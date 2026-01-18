@@ -289,37 +289,55 @@ export class SkillsApiService {
       this.logger.log("Starting SkillsMP sync...");
 
       // Fetch skills from SkillsMP API
-      // API requires 'q' parameter for search
-      const response = await fetch(
-        "https://skillsmp.com/api/v1/skills/search?q=*&limit=100",
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            "User-Agent": "DeepDive-Engine/1.0",
-          },
-        },
-      );
+      // Use broad search terms to get popular skills
+      const searchTerms = ["claude", "agent", "mcp", "tool", "api"];
+      const allSkills: any[] = [];
+      const seenIds = new Set<string>();
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        this.logger.error(`SkillsMP API response: ${errorText}`);
-        throw new Error(
-          `SkillsMP API error: ${response.status} - ${errorText}`,
-        );
+      for (const term of searchTerms) {
+        try {
+          const response = await fetch(
+            `https://skillsmp.com/api/v1/skills/search?q=${term}&limit=20`,
+            {
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+                "User-Agent": "DeepDive-Engine/1.0",
+              },
+            },
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            this.logger.log(
+              `SkillsMP search '${term}': ${data.skills?.length || 0} results`,
+            );
+            // Deduplicate by skill ID or name
+            const skills = data.skills || data.results || [];
+            for (const skill of skills) {
+              const id =
+                skill.id || skill.name?.toLowerCase().replace(/\s+/g, "-");
+              if (id && !seenIds.has(id)) {
+                seenIds.add(id);
+                allSkills.push(skill);
+              }
+            }
+          }
+        } catch (searchError) {
+          this.logger.warn(`SkillsMP search '${term}' failed: ${searchError}`);
+        }
       }
 
-      const data = await response.json();
+      this.logger.log(
+        `SkillsMP total unique skills collected: ${allSkills.length}`,
+      );
 
       // Transform and store skills
-      const skills = this.transformSkillsData(data.skills || []);
+      const skills = this.transformSkillsData(allSkills);
 
       await this.setSetting("skillsmp.syncedSkills", skills);
       await this.setSetting("skillsmp.lastSync", new Date().toISOString());
-      await this.setSetting(
-        "skillsmp.totalSkills",
-        data.total || skills.length,
-      );
+      await this.setSetting("skillsmp.totalSkills", skills.length);
 
       // Fetch and store timeline data if available
       try {

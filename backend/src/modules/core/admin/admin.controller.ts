@@ -1033,22 +1033,7 @@ export class AdminController {
   @Get("skillsmp-config")
   async getSkillsmpConfig() {
     this.logger.log("Admin: Getting SkillsMP config");
-
-    const enabled =
-      (await this.adminService.getSetting("skillsmp.enabled")) ?? true;
-    const apiKey = await this.adminService.getSetting("skillsmp.apiKey");
-    const hasApiKey = !!apiKey;
-    const lastSync = await this.adminService.getSetting("skillsmp.lastSync");
-    const syncInterval =
-      (await this.adminService.getSetting("skillsmp.syncInterval")) ?? "daily";
-
-    return {
-      enabled,
-      apiKey: null, // Never expose API key
-      hasApiKey,
-      lastSync: lastSync || null,
-      syncInterval,
-    };
+    return this.adminService.getSkillsmpConfig();
   }
 
   /**
@@ -1065,24 +1050,7 @@ export class AdminController {
     },
   ) {
     this.logger.log("Admin: Updating SkillsMP config");
-
-    if (body.enabled !== undefined) {
-      await this.adminService.setSetting("skillsmp.enabled", body.enabled);
-    }
-
-    if (body.apiKey) {
-      await this.adminService.setSetting("skillsmp.apiKey", body.apiKey);
-    }
-
-    if (body.syncInterval) {
-      await this.adminService.setSetting(
-        "skillsmp.syncInterval",
-        body.syncInterval,
-      );
-    }
-
-    // Return updated config
-    return this.getSkillsmpConfig();
+    return this.adminService.updateSkillsmpConfig(body);
   }
 
   /**
@@ -1145,7 +1113,7 @@ export class AdminController {
     this.logger.log("Admin: Triggering SkillsMP sync");
 
     try {
-      const apiKey = await this.adminService.getSetting("skillsmp.apiKey");
+      const apiKey = await this.adminService.getSkillsmpApiKey();
 
       if (!apiKey) {
         return {
@@ -1154,47 +1122,58 @@ export class AdminController {
         };
       }
 
-      // Fetch popular skills from SkillsMP
-      // API requires 'q' parameter for search
-      const response = await fetch(
-        "https://skillsmp.com/api/v1/skills/search?q=*&limit=100",
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            "User-Agent": "DeepDive-Engine/1.0",
-          },
-        },
-      );
+      // Fetch popular skills from SkillsMP using multiple search terms
+      const searchTerms = ["claude", "agent", "mcp", "tool", "api"];
+      const allSkills: any[] = [];
+      const seenIds = new Set<string>();
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        this.logger.error(`SkillsMP API response: ${errorText}`);
-        return {
-          success: false,
-          message: `同步失败: HTTP ${response.status} - ${errorText}`,
-        };
+      for (const term of searchTerms) {
+        try {
+          const response = await fetch(
+            `https://skillsmp.com/api/v1/skills/search?q=${term}&limit=20`,
+            {
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+                "User-Agent": "DeepDive-Engine/1.0",
+              },
+            },
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            this.logger.log(
+              `SkillsMP search '${term}': ${data.skills?.length || 0} results`,
+            );
+            const skills = data.skills || data.results || [];
+            for (const skill of skills) {
+              const id =
+                skill.id || skill.name?.toLowerCase().replace(/\s+/g, "-");
+              if (id && !seenIds.has(id)) {
+                seenIds.add(id);
+                allSkills.push(skill);
+              }
+            }
+          }
+        } catch (searchError) {
+          this.logger.warn(`SkillsMP search '${term}' failed`);
+        }
       }
 
-      const data = await response.json();
-
       // Store synced data
-      await this.adminService.setSetting(
-        "skillsmp.syncedSkills",
-        data.skills || [],
-      );
+      await this.adminService.setSetting("skillsmp.syncedSkills", allSkills);
       await this.adminService.setSetting(
         "skillsmp.lastSync",
         new Date().toISOString(),
       );
       await this.adminService.setSetting(
         "skillsmp.totalSkills",
-        data.total || 0,
+        allSkills.length,
       );
 
       return {
         success: true,
-        message: `同步成功，获取了 ${data.skills?.length || 0} 个技能`,
+        message: `同步成功，获取了 ${allSkills.length} 个技能`,
         lastSync: new Date().toISOString(),
       };
     } catch (error: any) {

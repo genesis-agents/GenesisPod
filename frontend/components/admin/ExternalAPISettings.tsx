@@ -589,6 +589,10 @@ export default function ExternalAPISettings() {
       if (skillsmpRes.ok) {
         const data = await skillsmpRes.json();
         setSkillsmpConfig(data);
+        // Populate API key input with masked value if configured
+        if (data.apiKey) {
+          setSkillsmpApiKey(data.apiKey);
+        }
       }
 
       if (providersRes.ok) {
@@ -3490,7 +3494,10 @@ export default function ExternalAPISettings() {
                   if (res.ok) {
                     const data = await res.json();
                     setSkillsmpConfig(data);
-                    setSkillsmpApiKey('');
+                    // Update API key input with masked value from response
+                    if (data.apiKey) {
+                      setSkillsmpApiKey(data.apiKey);
+                    }
                     setMessage({
                       type: 'success',
                       text: 'SkillsMP 配置已保存',

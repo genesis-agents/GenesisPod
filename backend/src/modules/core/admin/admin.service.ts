@@ -1309,6 +1309,58 @@ export class AdminService {
     return this.getSetting(`tts.${provider}.apiKey`);
   }
 
+  // ============ SkillsMP Configuration ============
+
+  /**
+   * 获取 SkillsMP 配置
+   */
+  async getSkillsmpConfig() {
+    const enabled = (await this.getSetting("skillsmp.enabled")) ?? true;
+    const apiKey = await this.getSetting("skillsmp.apiKey");
+    const lastSync = await this.getSetting("skillsmp.lastSync");
+    const syncInterval =
+      (await this.getSetting("skillsmp.syncInterval")) ?? "daily";
+
+    return {
+      enabled,
+      apiKey: apiKey ? this.maskApiKey(apiKey) : null,
+      hasApiKey: !!apiKey,
+      lastSync: lastSync || null,
+      syncInterval,
+    };
+  }
+
+  /**
+   * 更新 SkillsMP 配置
+   */
+  async updateSkillsmpConfig(config: {
+    enabled?: boolean;
+    apiKey?: string;
+    syncInterval?: "daily" | "weekly" | "manual";
+  }) {
+    if (config.enabled !== undefined) {
+      await this.setSetting("skillsmp.enabled", config.enabled);
+    }
+
+    // Only update API key if provided and not a masked value
+    if (config.apiKey && !config.apiKey.includes("****")) {
+      await this.setSetting("skillsmp.apiKey", config.apiKey);
+    }
+
+    if (config.syncInterval) {
+      await this.setSetting("skillsmp.syncInterval", config.syncInterval);
+    }
+
+    return this.getSkillsmpConfig();
+  }
+
+  /**
+   * 获取 SkillsMP API Key（内部使用，返回实际值）
+   */
+  async getSkillsmpApiKey(): Promise<string | null> {
+    return this.getSetting("skillsmp.apiKey");
+  }
+
   // ============ External Data Providers Configuration ============
 
   async getExternalProvidersConfig(): Promise<
