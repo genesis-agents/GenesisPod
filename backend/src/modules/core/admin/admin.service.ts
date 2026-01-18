@@ -136,6 +136,10 @@ export class AdminService {
         _count: { notes: number; comments: number; collections: number };
       }) => ({
         ...user,
+        // Map username to name for frontend compatibility
+        name: user.username,
+        // Map isActive boolean to status string for frontend compatibility
+        status: user.isActive ? "active" : "inactive",
         isAdmin: user.role === "ADMIN" || this.adminEmails.includes(user.email),
         credits: user.creditAccount
           ? {

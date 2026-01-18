@@ -392,20 +392,6 @@ export default function AITeamsSettings({
     <div className="flex h-full min-h-[500px]">
       {/* Left: Team List */}
       <div className="w-72 flex-shrink-0 border-r border-gray-200 bg-gray-50">
-        <div className="flex items-center justify-between border-b border-gray-200 p-4">
-          <h2 className="font-semibold text-gray-900">AI 团队模板</h2>
-          <button
-            onClick={() => {
-              setEditingTeam(null);
-              setShowTeamForm(true);
-            }}
-            className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            <Plus className="h-4 w-4" />
-            新建
-          </button>
-        </div>
-
         <div className="space-y-1 p-2">
           {filteredTeams.map((team) => (
             <button

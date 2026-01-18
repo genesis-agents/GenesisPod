@@ -1497,6 +1497,7 @@
       "teams": "Teams",
       "skills": "Skills",
       "tools": "Tools",
+      "capabilities": "Skills",
       "dataManagement": "Data Management",
       "collection": "Collection Sources",
       "whitelists": "Whitelists",

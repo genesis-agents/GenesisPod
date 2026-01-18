@@ -25,6 +25,8 @@ import {
   CheckCircle,
   ExternalLink,
 } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
+import { AdminPageLayout } from '@/components/admin/layout';
 import {
   getDataSources,
   updateDataSource,
@@ -245,6 +247,7 @@ const SOURCE_TEMPLATES: Record<
 
 export default function ConfigPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [sources, setSources] = useState<DataSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -684,7 +687,22 @@ export default function ConfigPage() {
   }
 
   return (
-    <div className="space-y-6 p-8">
+    <AdminPageLayout
+      title={t('admin.nav.collection')}
+      description={t('admin.tabDescriptions.collection')}
+      icon={Database}
+      domain="data"
+      actions={
+        <button
+          onClick={handleFixRssUrls}
+          disabled={isFixingRss}
+          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Settings className="h-5 w-5" />
+          {isFixingRss ? 'Fixing...' : 'Fix RSS URLs'}
+        </button>
+      }
+    >
       {/* Notification Banner */}
       {notification && (
         <div
@@ -707,28 +725,6 @@ export default function ConfigPage() {
           </div>
         </div>
       )}
-
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">
-            Data Collection Configuration
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Manage {sources.length} data sources across{' '}
-            {groupedSources.filter((g) => g.sources.length > 0).length}{' '}
-            categories
-          </p>
-        </div>
-        <button
-          onClick={handleFixRssUrls}
-          disabled={isFixingRss}
-          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Settings className="h-4 w-4" />
-          {isFixingRss ? 'Fixing...' : 'Fix RSS URLs'}
-        </button>
-      </div>
 
       {/* Category Cards Grid - 3x2 Layout for symmetry */}
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -1677,6 +1673,6 @@ export default function ConfigPage() {
           sources={sources.filter((s) => s.category === batchCategory.id)}
         />
       )}
-    </div>
+    </AdminPageLayout>
   );
 }

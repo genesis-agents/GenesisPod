@@ -84,7 +84,8 @@ export default function UsersSettings({
   };
 
   const getRoleBadgeColor = (role: string) => {
-    switch (role) {
+    const normalizedRole = role?.toLowerCase();
+    switch (normalizedRole) {
       case 'admin':
         return 'bg-red-100 text-red-700';
       case 'editor':
@@ -174,20 +175,20 @@ export default function UsersSettings({
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <span
-                      className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getRoleBadgeColor(
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize ${getRoleBadgeColor(
                         user.role
                       )}`}
                     >
-                      {user.role}
+                      {user.role?.toLowerCase() || 'user'}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <span
-                      className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getStatusBadgeColor(
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize ${getStatusBadgeColor(
                         user.status
                       )}`}
                     >
-                      {user.status}
+                      {user.status || 'active'}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">

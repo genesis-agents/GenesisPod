@@ -796,25 +796,6 @@ export default function AICapabilitiesSettings() {
   return (
     <div className="h-full overflow-auto">
       <div className="p-8">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              AI Agent 能力管理
-            </h2>
-            <p className="text-sm text-gray-500">
-              配置 Tools、Skills 和 MCP 服务器
-            </p>
-          </div>
-          <button
-            onClick={loadData}
-            className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            <RefreshCw className="h-4 w-4" />
-            刷新
-          </button>
-        </div>
-
         {/* Message Alert */}
         {message && (
           <div

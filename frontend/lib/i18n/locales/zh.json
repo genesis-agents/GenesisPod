@@ -1491,6 +1491,7 @@
       "teams": "团队模板",
       "skills": "技能配置",
       "tools": "工具",
+      "capabilities": "技能配置",
       "dataManagement": "数据管理",
       "collection": "采集源",
       "whitelists": "白名单",

@@ -4,12 +4,22 @@ import { useCallback } from 'react';
 export interface User {
   id: string;
   email: string;
-  name: string;
+  name: string | null;
+  username: string | null;
   avatar?: string;
-  role: 'user' | 'admin';
+  avatarUrl?: string;
+  role: 'USER' | 'ADMIN' | 'user' | 'admin';
   status: 'active' | 'inactive' | 'banned';
+  isActive?: boolean;
+  isAdmin?: boolean;
   createdAt: string;
   lastLoginAt?: string;
+  credits?: {
+    balance: number;
+    totalEarned: number;
+    totalSpent: number;
+    isFrozen: boolean;
+  } | null;
 }
 
 export function useAdminUsers() {
