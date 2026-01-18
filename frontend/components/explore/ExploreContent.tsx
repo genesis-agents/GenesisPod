@@ -683,8 +683,16 @@ function HomeContent() {
       }
     }
 
-    // ★ 使用独立路由而非本地状态切换，浏览器刷新能正确保持在详情页
-    router.push(`/explore/resource/${resource.id}`);
+    setSelectedResource(resource);
+    setViewMode('detail');
+    // Clear previous AI data and article content
+    setAiMessages([]);
+    setAiSummary(null);
+    setAiInsights([]);
+    setArticleTextContent('');
+    // Auto-generate summary and insights
+    generateSummary(resource);
+    generateInsights(resource);
   };
 
   const handleBackToList = () => {

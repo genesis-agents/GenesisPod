@@ -1779,7 +1779,7 @@ export default function AskPage() {
                               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
                                 webSearchEnabled
                                   ? 'bg-blue-50 text-blue-600'
-                                  : 'text-gray-400 hover:bg-gray-100'
+                                  : 'text-gray-500 hover:bg-gray-100'
                               }`}
                               title={
                                 webSearchEnabled
@@ -2486,7 +2486,7 @@ export default function AskPage() {
                           className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
                             webSearchEnabled
                               ? 'bg-blue-50 text-blue-600'
-                              : 'text-gray-400 hover:bg-gray-100'
+                              : 'text-gray-500 hover:bg-gray-100'
                           }`}
                           title={
                             webSearchEnabled
