@@ -290,14 +290,26 @@ export class SkillsApiService {
 
       // Fetch skills from SkillsMP API
       // Use broad search terms to get popular skills
-      const searchTerms = ["claude", "agent", "mcp", "tool", "api"];
+      const searchTerms = [
+        "claude",
+        "agent",
+        "mcp",
+        "tool",
+        "api",
+        "code",
+        "dev",
+        "ai",
+        "automation",
+        "database",
+      ];
       const allSkills: any[] = [];
       const seenIds = new Set<string>();
+      let totalFromApi = 0;
 
       for (const term of searchTerms) {
         try {
           const response = await fetch(
-            `https://skillsmp.com/api/v1/skills/search?q=${term}&limit=20`,
+            `https://skillsmp.com/api/v1/skills/search?q=${term}&limit=50`,
             {
               headers: {
                 Authorization: `Bearer ${apiKey}`,
@@ -329,13 +341,11 @@ export class SkillsApiService {
             this.logger.log(
               `SkillsMP search '${term}': ${skills.length} skills found`,
             );
-            if (
-              data.data &&
-              typeof data.data === "object" &&
-              !Array.isArray(data.data)
-            ) {
+            // Capture total count from pagination
+            if (data.data?.pagination?.total && totalFromApi === 0) {
+              totalFromApi = data.data.pagination.total;
               this.logger.log(
-                `SkillsMP data.data keys: ${Object.keys(data.data).join(",")}`,
+                `SkillsMP total skills in platform: ${totalFromApi}`,
               );
             }
             for (const skill of skills) {
@@ -361,7 +371,11 @@ export class SkillsApiService {
 
       await this.setSetting("skillsmp.syncedSkills", skills);
       await this.setSetting("skillsmp.lastSync", new Date().toISOString());
-      await this.setSetting("skillsmp.totalSkills", skills.length);
+      // Store total from API (platform total), not just synced count
+      await this.setSetting(
+        "skillsmp.totalSkills",
+        totalFromApi || skills.length,
+      );
 
       // Fetch and store timeline data if available
       try {
