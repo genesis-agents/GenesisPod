@@ -20,6 +20,7 @@ import {
   type ResearchHistoryItem,
   type AgentActivity,
   type TeamMessage,
+  type DimensionResult,
 } from '@/lib/api/topic-research';
 import {
   Calendar,
@@ -620,20 +621,141 @@ function LeaderPlanSection({
 }
 
 /**
+ * 维度研究结果卡片 - 显示关键发现和摘要
+ */
+function DimensionResultCard({ result }: { result: DimensionResult }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const { dimensionName, result: dimResult, resultSummary } = result;
+
+  // 提取关键发现
+  const keyFindings = Array.isArray(dimResult?.keyFindings)
+    ? dimResult.keyFindings
+    : [];
+  const summary = dimResult?.summary || resultSummary;
+  const sourcesFound = dimResult?.sourcesFound;
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
+      <div
+        className="flex cursor-pointer items-center gap-2 p-2.5"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-medium text-gray-700 dark:text-gray-300">
+              {dimensionName}
+            </span>
+            <span className="flex-shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700 dark:bg-green-900 dark:text-green-300">
+              已完成
+            </span>
+          </div>
+          {/* 简要信息 */}
+          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+            {keyFindings.length > 0 && (
+              <span className="flex items-center gap-0.5">
+                <Lightbulb className="h-3 w-3 text-yellow-500" />
+                {keyFindings.length} 个关键发现
+              </span>
+            )}
+            {sourcesFound !== undefined && sourcesFound > 0 && (
+              <span className="flex items-center gap-0.5">
+                <Database className="h-3 w-3" />
+                {sourcesFound} 条来源
+              </span>
+            )}
+          </div>
+        </div>
+        {(summary || keyFindings.length > 0) && (
+          <ChevronRight
+            className={cn(
+              'h-4 w-4 flex-shrink-0 text-gray-400 transition-transform',
+              isExpanded && 'rotate-90'
+            )}
+          />
+        )}
+      </div>
+
+      {/* 展开内容：摘要和关键发现 */}
+      {isExpanded && (summary || keyFindings.length > 0) && (
+        <div className="space-y-2 border-t border-green-200 p-2.5 dark:border-green-800">
+          {/* 摘要 */}
+          {summary && (
+            <div className="text-xs text-gray-600 dark:text-gray-400">
+              <span className="font-medium text-gray-700 dark:text-gray-300">
+                摘要：
+              </span>
+              {summary}
+            </div>
+          )}
+
+          {/* 关键发现列表 */}
+          {keyFindings.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                关键发现：
+              </div>
+              <ul className="space-y-1">
+                {keyFindings.slice(0, 5).map((finding, idx) => (
+                  <li
+                    key={idx}
+                    className="flex items-start gap-1.5 text-xs text-gray-600 dark:text-gray-400"
+                  >
+                    <span className="mt-0.5 text-blue-500">+</span>
+                    <span>
+                      {typeof finding === 'string'
+                        ? finding
+                        : finding.finding || '未知发现'}
+                    </span>
+                  </li>
+                ))}
+                {keyFindings.length > 5 && (
+                  <li className="text-xs text-gray-400">
+                    ...还有 {keyFindings.length - 5} 个发现
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * 维度研究进展部分
- * ★ 即使没有详细活动记录，也显示已更新的维度列表
+ * ★ 即使没有详细活动记录，也显示已更新的维度列表和研究结果
  */
 function DimensionProgressSection({
   dimensionActivities,
   dimensionsUpdated,
+  dimensionResults,
 }: {
   dimensionActivities: Map<string, ExtendedAgentActivity[]>;
   dimensionsUpdated: string[];
+  dimensionResults?: DimensionResult[];
 }) {
-  // 如果没有活动记录但有更新的维度，显示简化版本
-  if (dimensionActivities.size === 0 && dimensionsUpdated.length === 0) {
+  // 如果没有任何数据可显示，不渲染
+  const hasDimensionActivities = dimensionActivities.size > 0;
+  const hasDimensionResults = dimensionResults && dimensionResults.length > 0;
+  const hasDimensionsUpdated = dimensionsUpdated.length > 0;
+
+  if (
+    !hasDimensionActivities &&
+    !hasDimensionResults &&
+    !hasDimensionsUpdated
+  ) {
     return null;
   }
+
+  // ★ 计算实际显示的维度数量
+  const displayCount =
+    dimensionActivities.size > 0
+      ? dimensionActivities.size
+      : dimensionResults && dimensionResults.length > 0
+        ? dimensionResults.length
+        : dimensionsUpdated.length;
 
   return (
     <div className="space-y-2">
@@ -641,7 +763,7 @@ function DimensionProgressSection({
         <Layers className="h-4 w-4" />
         <span>维度研究进展</span>
         <span className="text-xs text-gray-500">
-          ({dimensionsUpdated.length} 个维度更新)
+          ({displayCount} 个维度更新)
         </span>
       </div>
 
@@ -659,8 +781,15 @@ function DimensionProgressSection({
             )
           )}
         </div>
+      ) : dimensionResults && dimensionResults.length > 0 ? (
+        // ★ 有研究结果时，显示带关键发现的卡片
+        <div className="space-y-1.5">
+          {dimensionResults.map((result, idx) => (
+            <DimensionResultCard key={idx} result={result} />
+          ))}
+        </div>
       ) : (
-        // ★ 没有详细活动记录时，显示简化的维度列表
+        // ★ 没有研究结果时，显示简化的维度列表
         <div className="space-y-1.5">
           {dimensionsUpdated.map((dimName, idx) => (
             <div
@@ -951,6 +1080,7 @@ function SessionCard({
                   ? history.dimensionsUpdated
                   : []
               }
+              dimensionResults={history.dimensionResults}
             />
 
             {/* 团队互动 */}

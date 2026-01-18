@@ -1018,6 +1018,8 @@ export class TopicResearchService {
             status: true,
             createdAt: true,
             completedAt: true,
+            result: true, // ★ 包含研究结果（关键发现、摘要等）
+            resultSummary: true, // ★ 包含结果摘要
           },
         },
       },
@@ -1047,8 +1049,9 @@ export class TopicResearchService {
       metadata?: Record<string, unknown>;
     }> = [];
 
-    // 添加 Mission 记录
-    for (const mission of missions) {
+    // 添加 Mission 记录（使用索引避免 indexOf 的 O(n²) 性能问题）
+    for (let i = 0; i < missions.length; i++) {
+      const mission = missions[i];
       const completedTasks = mission.tasks.filter(
         (t) => t.status === "COMPLETED",
       );
@@ -1059,11 +1062,32 @@ export class TopicResearchService {
         .filter((t) => t.dimensionName)
         .map((t) => t.dimensionName!);
 
+      // ★ 提取每个维度的研究结果（关键发现、摘要等）
+      // 只包含有实际内容的结果（有 summary、keyFindings 或 resultSummary）
+      const dimensionResults = completedTasks
+        .filter((t) => {
+          if (!t.dimensionName) return false;
+          // 检查是否有实际内容
+          const result = t.result as Record<string, unknown> | null;
+          const hasResultContent =
+            result &&
+            (result.summary ||
+              result.keyFindings ||
+              result.sourcesFound ||
+              result.wordCount);
+          return hasResultContent || t.resultSummary;
+        })
+        .map((t) => ({
+          dimensionName: t.dimensionName!,
+          result: t.result,
+          resultSummary: t.resultSummary,
+        }));
+
       timeline.push({
         id: mission.id,
         type: "mission",
         timestamp: mission.createdAt,
-        title: `研究任务 #${missions.indexOf(mission) + 1}`,
+        title: `研究任务 #${i + 1}`,
         description: `完成 ${completedTasks.length}/${totalTasks} 个维度研究`,
         status: mission.status,
         metadata: {
@@ -1071,6 +1095,7 @@ export class TopicResearchService {
           totalTasks,
           completedAt: mission.completedAt,
           dimensionsUpdated, // ★ 已更新的维度名称列表
+          dimensionResults, // ★ 每个维度的研究结果
         },
       });
     }

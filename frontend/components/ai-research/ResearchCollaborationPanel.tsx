@@ -378,9 +378,12 @@ export function ResearchCollaborationPanel({
   }, [conversationMessages]);
 
   // ★ 从 WebSocket 事件中提取实时进度
-  const taskProgressMap = useMemo(() => {
-    const progressMap = new Map<string, number>();
-    if (!wsEvents || wsEvents.length === 0) return progressMap;
+  // 同时支持 taskId 和 dimensionName 两种匹配方式
+  const { taskProgressMap, dimensionProgressMap } = useMemo(() => {
+    const taskMap = new Map<string, number>();
+    const dimensionMap = new Map<string, number>();
+    if (!wsEvents || wsEvents.length === 0)
+      return { taskProgressMap: taskMap, dimensionProgressMap: dimensionMap };
 
     // 遍历所有事件，收集最新的进度（后面的事件会覆盖前面的）
     for (const event of wsEvents) {
@@ -395,12 +398,21 @@ export function ResearchCollaborationPanel({
           progress?: number;
           dimensionName?: string;
         };
+        // 按 taskId 存储
         if (data.taskId && typeof data.progress === 'number') {
-          progressMap.set(data.taskId, data.progress);
+          taskMap.set(data.taskId, data.progress);
+        }
+        // ★ 同时按 dimensionName 存储（关键修复）
+        if (data.dimensionName && typeof data.progress === 'number') {
+          // 使用小写的 dimensionName 作为 key，确保匹配不区分大小写
+          dimensionMap.set(
+            data.dimensionName.toLowerCase().trim(),
+            data.progress
+          );
         }
       }
     }
-    return progressMap;
+    return { taskProgressMap: taskMap, dimensionProgressMap: dimensionMap };
   }, [wsEvents]);
 
   // 合并 missionStatus.tasks 和 apiTodos（用户请求的TODO可能不在tasks中）
@@ -410,7 +422,15 @@ export function ResearchCollaborationPanel({
     const convertedTodos = tasks.map((task) => {
       const todo = convertTaskToTodo(task);
       // 如果有实时进度数据，使用实时进度
-      const realtimeProgress = taskProgressMap.get(task.id);
+      // 1. 首先尝试按 taskId 匹配
+      let realtimeProgress = taskProgressMap.get(task.id);
+      // 2. 如果没有匹配到，尝试按 dimensionName 匹配（关键修复）
+      if (realtimeProgress === undefined && task.dimensionName) {
+        realtimeProgress = dimensionProgressMap.get(
+          task.dimensionName.toLowerCase().trim()
+        );
+      }
+      // 3. 应用实时进度（只有当实时进度更大时才更新）
       if (realtimeProgress !== undefined && realtimeProgress > todo.progress) {
         todo.progress = realtimeProgress;
       }
@@ -501,7 +521,7 @@ export function ResearchCollaborationPanel({
       todos: mergedTodos,
       todosSummary: calculateSummary(mergedTodos),
     };
-  }, [missionStatus?.tasks, apiTodos, taskProgressMap]);
+  }, [missionStatus?.tasks, apiTodos, taskProgressMap, dimensionProgressMap]);
 
   // Load TODOs from API (包括用户请求创建的 TODO)
   useEffect(() => {

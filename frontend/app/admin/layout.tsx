@@ -12,6 +12,7 @@ import {
   Settings,
   UsersRound,
   Wrench,
+  Key,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -56,6 +57,11 @@ export default function AdminLayout({
       key: 'externalApi',
       href: '/admin/external-api',
       icon: Plug,
+    },
+    {
+      key: 'secrets',
+      href: '/admin/secrets',
+      icon: Key,
     },
     {
       key: 'collection',

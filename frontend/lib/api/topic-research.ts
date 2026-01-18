@@ -1125,6 +1125,19 @@ export async function regenerateCredibilityReport(
 /**
  * 研究历史记录
  */
+// 维度研究结果
+export interface DimensionResult {
+  dimensionName: string;
+  result?: {
+    summary?: string;
+    keyFindings?: Array<{ finding: string; significance?: string }> | number;
+    sourcesFound?: number;
+    wordCount?: number;
+    [key: string]: unknown;
+  };
+  resultSummary?: string;
+}
+
 export interface ResearchHistoryItem {
   id: string;
   topicId: string;
@@ -1143,6 +1156,14 @@ export interface ResearchHistoryItem {
   totalDurationMs?: number;
   reportVersionBefore?: number;
   reportVersionAfter?: number;
+  // ★ 每个维度的研究结果
+  dimensionResults?: DimensionResult[];
+  // ★ 扩展元数据（用于显示）
+  _metadata?: {
+    completedTasks: number;
+    totalTasks: number;
+    title: string;
+  };
 }
 
 /**
@@ -1235,6 +1256,10 @@ export async function getResearchHistory(
       // ★ 提取更多有用信息
       const completedTasks = (metadata.completedTasks as number) || 0;
       const totalTasks = (metadata.totalTasks as number) || 0;
+      // ★ 提取每个维度的研究结果（关键发现、摘要等）
+      const dimensionResults = Array.isArray(metadata.dimensionResults)
+        ? (metadata.dimensionResults as DimensionResult[])
+        : [];
 
       return {
         id: item.id,
@@ -1254,6 +1279,7 @@ export async function getResearchHistory(
         totalDurationMs: undefined,
         reportVersionBefore: undefined,
         reportVersionAfter: undefined,
+        dimensionResults, // ★ 每个维度的研究结果
         // ★ 扩展字段供显示使用
         _metadata: {
           completedTasks,

@@ -7619,3 +7619,124 @@ model ResearchTodo {
   @@index([status, priority(sort: Desc)])
   @@map("research_todos")
 }
+
+// ============ Secret Manager 密钥管理 ============
+
+/// Secret 分类
+enum SecretCategory {
+  AI_MODEL // AI 模型 API Key
+  SEARCH // 搜索 API (Tavily, Serper, Perplexity)
+  EXTRACTION // 内容提取 API (Jina, Firecrawl)
+  YOUTUBE // YouTube 字幕 API
+  TTS // 语音合成 API
+  SKILLSMP // SkillsMP API
+  OTHER // 其他
+}
+
+/// Secret 访问操作类型
+enum SecretAction {
+  VIEW // 查看密钥值
+  CREATE // 创建密钥
+  UPDATE // 更新密钥
+  DELETE // 删除密钥
+  REFERENCE // 引用密钥
+  ACCESS_DENIED // 访问被拒绝
+}
+
+/// 集中式密钥存储
+/// 所有敏感 API Key 统一加密存储，其他配置通过 secretRef 引用
+model Secret {
+  id          String         @id @default(cuid())
+  name        String         @unique @db.VarChar(100) // 唯一标识，如 "openai-api-key"
+  displayName String         @map("display_name") @db.VarChar(200) // 显示名称
+  category    SecretCategory @default(OTHER)
+  description String?        @db.Text
+
+  // ★ 加密存储 (AES-256-CBC)
+  encryptedValue String @map("encrypted_value") @db.Text // 密文
+  iv             String @db.VarChar(32) // 初始化向量 (hex, 16 bytes = 32 hex chars)
+  keyVersion     Int    @default(1) @map("key_version") // 加密密钥版本号，用于密钥轮转
+
+  // 元数据
+  provider String?  @db.VarChar(50) // openai, anthropic, tavily 等
+  isActive Boolean  @default(true) @map("is_active")
+
+  // 过期管理
+  expiresAt      DateTime? @map("expires_at") // 过期时间
+  lastRotatedAt  DateTime? @map("last_rotated_at") // 最后轮转时间
+
+  // 审计
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") @db.VarChar(100)
+  updatedBy String?   @map("updated_by") @db.VarChar(100)
+
+  // 软删除
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy String?   @map("deleted_by") @db.VarChar(100)
+
+  // 访问记录
+  lastAccessedAt DateTime? @map("last_accessed_at")
+  accessCount    Int       @default(0) @map("access_count")
+
+  // 关联
+  accessLogs SecretAccessLog[]
+
+  // 索引
+  @@index([category])
+  @@index([provider])
+  @@index([isActive])
+  @@index([keyVersion])
+  @@index([expiresAt])
+  @@index([deletedAt])
+  // 复合索引优化常见查询
+  @@index([category, isActive])
+  @@index([provider, isActive])
+  @@index([isActive, updatedAt])
+  @@map("secrets")
+}
+
+/// Secret 访问日志
+/// 记录密钥的访问和修改历史，用于安全审计
+/// ★ 使用 SetNull 避免级联删除导致审计证据丢失
+model SecretAccessLog {
+  id       String  @id @default(cuid())
+  secretId String? @map("secret_id") // 可选，支持记录已删除密钥的日志
+
+  // ★ 使用枚举确保类型安全
+  action       SecretAction
+  actionStatus String       @default("success") @map("action_status") @db.VarChar(20) // success, failed, denied
+
+  // 删除时备份密钥元数据
+  secretName String? @map("secret_name") @db.VarChar(100)
+
+  // 变更审计 (仅 update/delete 时记录)
+  oldValueHash String? @map("old_value_hash") @db.VarChar(64) // SHA-256 hash
+  newValueHash String? @map("new_value_hash") @db.VarChar(64)
+
+  // 操作者信息
+  userId    String? @map("user_id") @db.VarChar(100)
+  userEmail String? @map("user_email") @db.VarChar(200)
+  ipAddress String? @map("ip_address") @db.VarChar(50)
+  userAgent String? @map("user_agent") @db.Text
+
+  // 错误信息 (仅失败时)
+  errorMessage String? @map("error_message") @db.Text
+
+  timestamp DateTime @default(now())
+
+  // ★ 使用 SetNull 而非 Cascade，避免删除密钥时丢失审计日志
+  secret Secret? @relation(fields: [secretId], references: [id], onDelete: SetNull)
+
+  // 索引
+  @@index([secretId])
+  @@index([timestamp])
+  @@index([action])
+  @@index([actionStatus])
+  @@index([secretName])
+  // 复合索引优化审计查询
+  @@index([secretId, timestamp])
+  @@index([userId, timestamp])
+  @@index([action, timestamp])
+  @@map("secret_access_logs")
+}

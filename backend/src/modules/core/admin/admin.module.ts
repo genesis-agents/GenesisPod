@@ -10,9 +10,10 @@ import { CapabilitiesAdminController } from "./capabilities-admin.controller";
 import { CapabilitiesAdminService } from "./capabilities-admin.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
+import { SecretsModule } from "../secrets/secrets.module";
 
 @Module({
-  imports: [PrismaModule, AiEngineModule],
+  imports: [PrismaModule, AiEngineModule, SecretsModule],
   controllers: [
     AdminController,
     AITeamsAdminController,
