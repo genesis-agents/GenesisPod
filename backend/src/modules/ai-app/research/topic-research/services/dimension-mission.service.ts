@@ -112,8 +112,12 @@ export class DimensionMissionService {
     reportId?: string,
     missionId?: string,
   ): Promise<DimensionMissionResult> {
+    // ★ 统一日志前缀，便于区分不同维度的 Agent
+    const dimId = dimension.id.slice(0, 8);
+    const logPrefix = `[Dimension:${dimension.name}:${dimId}]`;
+
     this.logger.log(
-      `[executeDimensionMission] Starting mission for dimension: ${dimension.name} (${dimension.id})`,
+      `${logPrefix} Starting mission (topicId=${topic.id.slice(0, 8)})`,
     );
 
     // ★ 更新维度状态为 RESEARCHING
@@ -123,7 +127,7 @@ export class DimensionMissionService {
     });
 
     // ★ Agent 信息定义
-    const leaderAgentId = "leader-" + dimension.id.slice(0, 8);
+    const leaderAgentId = "leader-" + dimId;
     const leaderAgentName = "研究组长";
     const effectiveMissionId = missionId || dimension.id;
 
@@ -165,7 +169,7 @@ export class DimensionMissionService {
       );
 
       this.logger.log(
-        `[executeDimensionMission] Found ${searchResult.items.length} sources`,
+        `${logPrefix} Search completed: ${searchResult.items.length} sources found`,
       );
 
       // ★ 记录搜索完成并保存搜索结果
@@ -244,7 +248,7 @@ export class DimensionMissionService {
       );
 
       this.logger.log(
-        `[executeDimensionMission] Outline created with ${outline.sections.length} sections`,
+        `${logPrefix} Outline planned: ${outline.sections.length} sections`,
       );
 
       // ★ 记录规划完成
@@ -433,9 +437,7 @@ export class DimensionMissionService {
           lastResearchedAt: new Date(),
         },
       });
-      this.logger.log(
-        `[executeDimensionMission] Updated dimension status to COMPLETED: ${dimension.name}`,
-      );
+      this.logger.log(`${logPrefix} Status updated to COMPLETED`);
 
       // 9. 完成
       this.emitProgress(
@@ -450,9 +452,7 @@ export class DimensionMissionService {
         missionId,
       );
 
-      this.logger.log(
-        `[executeDimensionMission] Mission completed for dimension: ${dimension.name}`,
-      );
+      this.logger.log(`${logPrefix} Mission completed successfully`);
 
       return {
         success: true,
@@ -468,7 +468,7 @@ export class DimensionMissionService {
         error instanceof Error ? error.message : String(error);
 
       this.logger.error(
-        `[executeDimensionMission] Mission failed for dimension: ${dimension.name}`,
+        `${logPrefix} Mission FAILED: ${errorMessage}`,
         error instanceof Error ? error.stack : error,
       );
 
@@ -517,11 +517,13 @@ export class DimensionMissionService {
     const sectionResults: SectionWriteResult[] = [];
     const sectionMap = new Map<string, SectionWriteResult>();
 
+    // ★ 统一日志前缀
+    const dimId = dimension.id.slice(0, 8);
+    const logPrefix = `[Dimension:${dimension.name}:${dimId}]`;
+
     // 按并行组执行
     for (const group of outline.executionPlan.parallelGroups) {
-      this.logger.log(
-        `[writeSectionsWithReview] Processing group: ${group.join(", ")}`,
-      );
+      this.logger.log(`${logPrefix} Writing group: ${group.join(", ")}`);
 
       // 获取当前组的章节
       const groupSections = outline.sections.filter((s) =>
@@ -558,14 +560,14 @@ export class DimensionMissionService {
 
           if (review.approved) {
             this.logger.log(
-              `[writeSectionsWithReview] Section ${section.title} approved (score: ${review.score})`,
+              `${logPrefix} Section "${section.title}" approved (score: ${review.score})`,
             );
             break;
           }
 
           // 需要修订
           this.logger.log(
-            `[writeSectionsWithReview] Section ${section.title} needs revision (score: ${review.score})`,
+            `${logPrefix} Section "${section.title}" revision needed (score: ${review.score})`,
           );
 
           result = await this.sectionWriter.reviseSection({

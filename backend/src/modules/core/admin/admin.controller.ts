@@ -1155,20 +1155,24 @@ export class AdminController {
       }
 
       // Fetch popular skills from SkillsMP
+      // API requires 'q' parameter for search
       const response = await fetch(
-        "https://skillsmp.com/api/v1/skills/search?sortBy=downloads&sortOrder=desc&limit=50",
+        "https://skillsmp.com/api/v1/skills/search?q=*&limit=100",
         {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
+            "User-Agent": "DeepDive-Engine/1.0",
           },
         },
       );
 
       if (!response.ok) {
+        const errorText = await response.text();
+        this.logger.error(`SkillsMP API response: ${errorText}`);
         return {
           success: false,
-          message: `同步失败: HTTP ${response.status}`,
+          message: `同步失败: HTTP ${response.status} - ${errorText}`,
         };
       }
 

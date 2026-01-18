@@ -25,11 +25,11 @@ import { ResearchEventEmitterService } from "./research-event-emitter.service";
  * Health check configuration
  */
 const HEALTH_CHECK_CONFIG = {
-  /** Check interval: 5 minutes */
-  checkIntervalMs: 5 * 60 * 1000,
+  /** Check interval: 2 minutes (reduced for faster detection) */
+  checkIntervalMs: 2 * 60 * 1000,
 
-  /** Stuck threshold: 30 minutes without progress */
-  stuckThresholdMs: 30 * 60 * 1000,
+  /** Stuck threshold: 5 minutes without progress (reduced from 30 min) */
+  stuckThresholdMs: 5 * 60 * 1000,
 
   /** Maximum execution time: 2 hours */
   maxExecutionTimeMs: 2 * 60 * 60 * 1000,
