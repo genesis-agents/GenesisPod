@@ -100,8 +100,8 @@ export interface MissionProgressEvent {
 }
 
 export interface TeamInfo {
-  leaderId: string;
-  leaderModel: string;
+  leaderId: string | null;
+  leaderModel: string | null;
   agents: AgentInfo[];
 }
 
@@ -914,7 +914,8 @@ export class ResearchMissionService {
 
     return {
       leaderId: "leader",
-      leaderModel: mission.leaderModelName || "unknown",
+      // ★ 优先返回实际模型ID，用户需要看到具体使用哪个模型
+      leaderModel: mission.leaderModelId || mission.leaderModelName || null,
       agents: Array.from(agentMap.values()),
     };
   }

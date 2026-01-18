@@ -527,7 +527,7 @@ export class AIEngineFacade {
 
       return {
         id: m.modelId,
-        name: m.displayName,
+        name: m.displayName || m.modelId, // ★ 回退到 modelId 确保总有显示名称
         provider: m.provider,
         isReasoning,
         isAvailable,
