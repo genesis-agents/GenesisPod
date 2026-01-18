@@ -498,6 +498,7 @@ export function ReportEditPanel({
             }
             annotations={annotations}
             highlightedAnnotationId={highlightedAnnotationId}
+            showAnnotationHighlights={sidePanelType === 'annotations'}
           />
         </div>
 

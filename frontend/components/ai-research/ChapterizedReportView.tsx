@@ -213,6 +213,12 @@ interface ChapterizedReportViewProps {
   annotations?: ReportAnnotation[];
   /** Currently highlighted annotation ID (for navigation) */
   highlightedAnnotationId?: string | null;
+  /**
+   * Whether to show annotation highlights in the content.
+   * When false, annotations are still available for adding but not displayed as highlights.
+   * Default: true (show highlights)
+   */
+  showAnnotationHighlights?: boolean;
 }
 
 // Chapter status type
@@ -384,6 +390,10 @@ function arePropsEqual(
   if (prevProps.highlightedAnnotationId !== nextProps.highlightedAnnotationId)
     return false;
 
+  // Compare showAnnotationHighlights
+  if (prevProps.showAnnotationHighlights !== nextProps.showAnnotationHighlights)
+    return false;
+
   // Optimized annotations comparison using fingerprint
   // Instead of O(n) deep comparison, generate a lightweight fingerprint string
   const prevAnnotations = prevProps.annotations || [];
@@ -416,6 +426,7 @@ function ChapterizedReportViewInner({
   onAddAnnotation,
   annotations = [],
   highlightedAnnotationId,
+  showAnnotationHighlights = true,
 }: ChapterizedReportViewProps) {
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
@@ -484,19 +495,22 @@ function ChapterizedReportViewInner({
   }, [evidence]);
 
   // Convert ReportAnnotation to PreprocessorAnnotation for React Controlled Highlighting
+  // Only include annotations if showAnnotationHighlights is true
   const preprocessorAnnotations: PreprocessorAnnotation[] = useMemo(
     () =>
-      (annotations || []).map((a) => ({
-        id: a.id,
-        selectedText: a.selectedText,
-        startOffset: a.startOffset,
-        endOffset: a.endOffset,
-        selectorPrefix: a.selectorPrefix,
-        selectorSuffix: a.selectorSuffix,
-        color: a.color,
-        status: a.status,
-      })),
-    [annotations]
+      showAnnotationHighlights
+        ? (annotations || []).map((a) => ({
+            id: a.id,
+            selectedText: a.selectedText,
+            startOffset: a.startOffset,
+            endOffset: a.endOffset,
+            selectorPrefix: a.selectorPrefix,
+            selectorSuffix: a.selectorSuffix,
+            color: a.color,
+            status: a.status,
+          }))
+        : [],
+    [annotations, showAnnotationHighlights]
   );
 
   // Hook for scrolling to annotations
