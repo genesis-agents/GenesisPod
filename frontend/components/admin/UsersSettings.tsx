@@ -27,8 +27,10 @@ export default function UsersSettings() {
     () =>
       users.filter(
         (user) =>
-          user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.name.toLowerCase().includes(searchQuery.toLowerCase())
+          (user.email || '')
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          (user.name || '').toLowerCase().includes(searchQuery.toLowerCase())
       ),
     [users, searchQuery]
   );
@@ -148,15 +150,17 @@ export default function UsersSettings() {
                         <div className="flex items-center">
                           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100">
                             <span className="text-sm font-medium text-violet-600">
-                              {user.name.charAt(0).toUpperCase()}
+                              {(user.name || user.email || '?')
+                                .charAt(0)
+                                .toUpperCase()}
                             </span>
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {user.name}
+                              {user.name || user.email || 'Unknown User'}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {user.email}
+                              {user.email || '-'}
                             </div>
                           </div>
                         </div>
