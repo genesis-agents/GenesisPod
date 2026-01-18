@@ -859,6 +859,8 @@ export interface TaskStatus {
   taskType: string;
   dimensionName?: string;
   assignedAgent: string;
+  /** ★ Agent 使用的 AI 模型 ID */
+  modelId?: string;
   /**
    * Task status state machine:
    * - PENDING: 待分配

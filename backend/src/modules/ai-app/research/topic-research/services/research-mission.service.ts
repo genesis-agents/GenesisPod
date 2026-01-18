@@ -79,6 +79,8 @@ export interface TaskStatus {
   taskType: string;
   dimensionName?: string;
   assignedAgent: string;
+  /** ★ Agent 使用的 AI 模型 ID */
+  modelId?: string;
   status: ResearchTaskStatus;
   reviewStatus?: string;
   progress?: number;
@@ -693,6 +695,7 @@ export class ResearchMissionService {
           dimensionId: dbDimensionId, // ★ 关联真实的数据库维度 ID
           assignedAgent: assignment?.agentId || "researcher_default",
           assignedAgentType: "dimension_researcher",
+          modelId: assignment?.modelId, // ★ 保存 Agent 使用的模型 ID
           priority: dimension.priority,
           status: ResearchTaskStatus.PENDING,
         },
@@ -761,6 +764,7 @@ export class ResearchMissionService {
       taskType: task.taskType,
       dimensionName: task.dimensionName ?? undefined,
       assignedAgent: task.assignedAgent,
+      modelId: task.modelId ?? undefined, // ★ 返回 Agent 使用的模型 ID
       status: task.status,
       reviewStatus: task.reviewStatus ?? undefined,
       // ★ 修复：返回完整的任务结果，包含成功数据或错误信息
@@ -803,6 +807,7 @@ export class ResearchMissionService {
       taskType: task.taskType,
       dimensionName: task.dimensionName ?? undefined,
       assignedAgent: task.assignedAgent,
+      modelId: task.modelId ?? undefined, // ★ 返回 Agent 使用的模型 ID
       status: task.status,
       reviewStatus: task.reviewStatus ?? undefined,
       // ★ 修复：返回完整的任务结果

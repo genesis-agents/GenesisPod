@@ -7122,6 +7122,7 @@ model ResearchTask {
   // ========== Agent 分配 ==========
   assignedAgent     String  @map("assigned_agent") // 分配的 Agent ID/名称
   assignedAgentType String? @map("assigned_agent_type") // Agent 类型
+  modelId           String? @map("model_id") @db.VarChar(100) // ★ Agent 使用的 AI 模型 ID
   priority          Int     @default(0)
 
   // ========== 依赖关系 ==========

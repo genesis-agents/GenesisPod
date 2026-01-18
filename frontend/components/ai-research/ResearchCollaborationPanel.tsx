@@ -118,6 +118,7 @@ function convertTaskToTodo(task: TaskStatus): ResearchTodo {
     description: task.description || task.dimensionName,
     dimensionName: task.dimensionName,
     agentName: task.assignedAgent,
+    modelId: task.modelId, // ★ 传递 Agent 使用的模型 ID
     status: statusMap[task.status] || ('PENDING' as ResearchTodoStatus),
     progress,
     priority: 0,
