@@ -1527,8 +1527,8 @@ export class ResearchMissionService {
       }
 
       // ★ 限制并发执行任务数量，避免 API 限流
-      // 同时最多执行 3 个任务（搜索 API + LLM API 都有限流）
-      const MAX_CONCURRENT_TASKS = 3;
+      // 同时最多执行 5 个任务（搜索 API + LLM API 都有限流）
+      const MAX_CONCURRENT_TASKS = 5; // ★ 最大并行研究员数量
       this.logger.log(
         `[startExecution] Executing ${executableTasks.length} tasks with max concurrency ${MAX_CONCURRENT_TASKS}`,
       );

@@ -266,7 +266,7 @@ const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Research L
     }
   ],
   "executionStrategy": {
-    "parallelism": 3,
+    "parallelism": 5,
     "priorityOrder": ["dimension_id1", "dimension_id2"],
     "estimatedTime": "约 10-15 分钟"
   },
