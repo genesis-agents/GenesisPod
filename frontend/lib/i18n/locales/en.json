@@ -1102,12 +1102,6 @@
       "toggleToPublic": "Make public",
       "toggleToPrivate": "Make private"
     },
-    "words": "words",
-    "volume": "Volume",
-    "chapter": "Chapter",
-    "tableOfContents": "Table of Contents",
-    "noContent": "No content yet",
-    "selectChapter": "Select a chapter to read",
     "createDialog": {
       "title": "Start Creating",
       "whatToWrite": "What do you want to write? *",
