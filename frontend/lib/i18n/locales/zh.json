@@ -39,7 +39,10 @@
     "noResults": "未找到结果",
     "tryAgain": "重试",
     "learnMore": "了解更多",
-    "backToHome": "返回首页"
+    "backToHome": "返回首页",
+    "profile": "个人资料",
+    "balance": "余额",
+    "credits": "积分"
   },
   "share": {
     "title": "分享",
@@ -1486,8 +1489,8 @@
       "aiConfig": "AI 配置",
       "models": "模型管理",
       "teams": "团队模板",
-      "capabilities": "能力配置",
-      "externalServices": "外部服务",
+      "skills": "技能配置",
+      "tools": "工具",
       "dataManagement": "数据管理",
       "collection": "采集源",
       "whitelists": "白名单",
@@ -1816,7 +1819,25 @@
     "creditsRules": "积分规则",
     "baseCredits": "基础积分",
     "perOperation": "每次操作",
-    "usageByModule": "按模块使用量"
+    "usageByModule": "按模块使用量",
+    "moreWays": "更多方式",
+    "comingSoonWays": "即将推出更多获取积分的方式...",
+    "transactionTypes": {
+      "consume": "消费",
+      "grant": "发放",
+      "checkin": "签到",
+      "refund": "退款",
+      "gift": "赠送",
+      "bonus": "奖励"
+    },
+    "modules": {
+      "ai-ask": "AI 对话",
+      "ai-studio": "深度研究",
+      "ai-teams": "AI 团队",
+      "ai-office": "AI 办公",
+      "ai-image": "AI 绘图",
+      "ai-writing": "AI 写作"
+    }
   },
   "topicResearch": {
     "title": "专题研究",

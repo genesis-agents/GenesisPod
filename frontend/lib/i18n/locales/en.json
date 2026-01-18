@@ -39,7 +39,10 @@
     "noResults": "No results found",
     "tryAgain": "Try Again",
     "learnMore": "Learn More",
-    "backToHome": "Back to Home"
+    "backToHome": "Back to Home",
+    "profile": "Profile",
+    "balance": "Balance",
+    "credits": "Credits"
   },
   "share": {
     "title": "Share",
@@ -1492,8 +1495,8 @@
       "aiConfig": "AI Configuration",
       "models": "Models",
       "teams": "Teams",
-      "capabilities": "Capabilities",
-      "externalServices": "External Services",
+      "skills": "Skills",
+      "tools": "Tools",
       "dataManagement": "Data Management",
       "collection": "Collection Sources",
       "whitelists": "Whitelists",
@@ -1822,7 +1825,25 @@
     "creditsRules": "Credit Rules",
     "baseCredits": "Base Credits",
     "perOperation": "per operation",
-    "usageByModule": "Usage by Module"
+    "usageByModule": "Usage by Module",
+    "moreWays": "More Ways",
+    "comingSoonWays": "More ways to earn credits coming soon...",
+    "transactionTypes": {
+      "consume": "Usage",
+      "grant": "Grant",
+      "checkin": "Check-in",
+      "refund": "Refund",
+      "gift": "Gift",
+      "bonus": "Bonus"
+    },
+    "modules": {
+      "ai-ask": "AI Chat",
+      "ai-studio": "Deep Research",
+      "ai-teams": "AI Teams",
+      "ai-office": "AI Office",
+      "ai-image": "AI Image",
+      "ai-writing": "AI Writing"
+    }
   },
   "topicResearch": {
     "title": "Topic Research",

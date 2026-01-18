@@ -233,23 +233,35 @@ export class FeedbackService {
   async getAllFeedback(options?: {
     status?: FeedbackStatusEnum;
     type?: FeedbackTypeEnum;
+    priority?: "LOW" | "NORMAL" | "HIGH" | "CRITICAL";
     limit?: number;
     offset?: number;
   }) {
-    const { status, type, limit = 50, offset = 0 } = options || {};
+    const { status, type, priority, limit = 50, offset = 0 } = options || {};
 
     // Build where clause parts
     const whereParts: string[] = [];
     if (status) whereParts.push(`"status" = '${status}'::"FeedbackStatus"`);
     if (type) whereParts.push(`"type" = '${type}'::"FeedbackType"`);
+    if (priority)
+      whereParts.push(`"priority" = '${priority}'::"FeedbackPriority"`);
 
     const whereClause =
       whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
 
+    // Sort by priority (CRITICAL > HIGH > NORMAL > LOW), then by created_at
     const feedbacks = await this.prisma.$queryRawUnsafe<unknown[]>(`
       SELECT * FROM "feedbacks"
       ${whereClause}
-      ORDER BY "created_at" DESC
+      ORDER BY
+        CASE "priority"
+          WHEN 'CRITICAL' THEN 1
+          WHEN 'HIGH' THEN 2
+          WHEN 'NORMAL' THEN 3
+          WHEN 'LOW' THEN 4
+          ELSE 5
+        END,
+        "created_at" DESC
       LIMIT ${limit} OFFSET ${offset}
     `);
 

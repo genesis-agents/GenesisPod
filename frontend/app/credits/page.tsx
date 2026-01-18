@@ -223,17 +223,17 @@ export default function CreditsPage() {
               {safeRules.slice(0, 8).map((rule) => (
                 <div
                   key={`${rule.moduleType}-${rule.operationType}`}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3"
+                  className="flex items-center justify-between gap-4 rounded-lg bg-gray-50 px-4 py-3"
                 >
-                  <div>
-                    <span className="font-medium text-gray-700">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-gray-700">
                       {rule.name}
-                    </span>
-                    <span className="ml-2 text-sm text-gray-500">
+                    </p>
+                    <p className="truncate text-xs text-gray-500">
                       {rule.moduleType} / {rule.operationType}
-                    </span>
+                    </p>
                   </div>
-                  <div className="text-right">
+                  <div className="flex-shrink-0 text-right">
                     <span className="font-semibold text-blue-600">
                       {rule.baseCredits}
                     </span>
@@ -256,10 +256,10 @@ export default function CreditsPage() {
                 {safeTransactions.map((tx) => (
                   <div
                     key={tx.id}
-                    className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-b-0"
+                    className="flex items-center justify-between gap-4 border-b border-gray-100 pb-3 last:border-b-0"
                   >
-                    <div>
-                      <p className="font-medium text-gray-700">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-gray-700">
                         {tx.description}
                       </p>
                       <p className="text-sm text-gray-500">
@@ -267,7 +267,7 @@ export default function CreditsPage() {
                       </p>
                     </div>
                     <span
-                      className={`font-semibold ${
+                      className={`flex-shrink-0 font-semibold ${
                         tx.amount > 0 ? 'text-green-600' : 'text-gray-700'
                       }`}
                     >
@@ -360,9 +360,11 @@ export default function CreditsPage() {
                   />
                 </svg>
               </div>
-              <h3 className="font-medium text-gray-900">更多方式</h3>
+              <h3 className="font-medium text-gray-900">
+                {t('credits.moreWays')}
+              </h3>
               <p className="text-sm text-gray-500">
-                即将推出更多获取积分的方式...
+                {t('credits.comingSoonWays')}
               </p>
             </div>
           </div>

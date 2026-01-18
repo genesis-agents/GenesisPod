@@ -28,6 +28,7 @@ type FeedbackStatusEnum =
   | "RESOLVED"
   | "CLOSED";
 type FeedbackTypeEnum = "BUG" | "FEATURE" | "IMPROVEMENT" | "OTHER";
+type FeedbackPriorityEnum = "LOW" | "NORMAL" | "HIGH" | "CRITICAL";
 
 @Controller("feedback")
 export class FeedbackController {
@@ -107,12 +108,14 @@ export class FeedbackController {
   async getAllFeedback(
     @Query("status") status?: FeedbackStatusEnum,
     @Query("type") type?: FeedbackTypeEnum,
+    @Query("priority") priority?: FeedbackPriorityEnum,
     @Query("limit") limit?: string,
     @Query("offset") offset?: string,
   ) {
     return this.feedbackService.getAllFeedback({
       status,
       type,
+      priority,
       limit: limit ? parseInt(limit, 10) : undefined,
       offset: offset ? parseInt(offset, 10) : undefined,
     });
@@ -150,6 +153,52 @@ export class FeedbackController {
     @Body("adminNotes") adminNotes?: string,
   ) {
     return this.feedbackService.updateFeedbackStatus(id, status, adminNotes);
+  }
+
+  /**
+   * Update feedback priority (admin only)
+   * PATCH /api/v1/feedback/:id/priority
+   */
+  @Patch(":id/priority")
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async updateFeedbackPriority(
+    @Param("id") id: string,
+    @Body("priority") priority: "LOW" | "NORMAL" | "HIGH" | "CRITICAL",
+  ) {
+    this.logger.log(`Updating feedback ${id} priority to ${priority}`);
+    return this.feedbackService.updateFeedbackPriority(id, priority);
+  }
+
+  /**
+   * Assign feedback to admin (admin only)
+   * PATCH /api/v1/feedback/:id/assign
+   */
+  @Patch(":id/assign")
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async assignFeedback(
+    @Param("id") id: string,
+    @Body("assignedTo") assignedTo: string | null,
+  ) {
+    this.logger.log(
+      `Assigning feedback ${id} to ${assignedTo || "unassigned"}`,
+    );
+    return this.feedbackService.assignFeedback(id, assignedTo);
+  }
+
+  /**
+   * Batch update feedback status (admin only)
+   * PATCH /api/v1/feedback/batch/status
+   */
+  @Patch("batch/status")
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async batchUpdateStatus(
+    @Body("ids") ids: string[],
+    @Body("status") status: FeedbackStatusEnum,
+  ) {
+    this.logger.log(
+      `Batch updating ${ids.length} feedbacks to status ${status}`,
+    );
+    return this.feedbackService.batchUpdateStatus(ids, status);
   }
 
   /**

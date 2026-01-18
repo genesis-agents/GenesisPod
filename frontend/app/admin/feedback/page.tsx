@@ -8,6 +8,7 @@ interface Feedback {
   id: string;
   type: 'BUG' | 'FEATURE' | 'IMPROVEMENT' | 'OTHER';
   status: 'PENDING' | 'REVIEWED' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
   title: string;
   description: string;
   user_email: string | null;
@@ -15,6 +16,7 @@ interface Feedback {
   page_url: string | null;
   user_id: string | null;
   admin_notes: string | null;
+  assigned_to: string | null;
   attachments: Array<{
     filename: string;
     url: string;
@@ -61,6 +63,20 @@ const STATUS_LABELS: Record<string, string> = {
   CLOSED: 'Closed',
 };
 
+const PRIORITY_COLORS: Record<string, string> = {
+  CRITICAL: 'bg-red-600 text-white',
+  HIGH: 'bg-orange-100 text-orange-800',
+  NORMAL: 'bg-gray-100 text-gray-700',
+  LOW: 'bg-slate-100 text-slate-600',
+};
+
+const PRIORITY_LABELS: Record<string, string> = {
+  CRITICAL: '🔴 Critical',
+  HIGH: '🟠 High',
+  NORMAL: 'Normal',
+  LOW: 'Low',
+};
+
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
@@ -85,8 +101,10 @@ export default function FeedbackPage() {
   );
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('');
+  const [filterPriority, setFilterPriority] = useState<string>('');
   const [adminNotes, setAdminNotes] = useState('');
   const [newStatus, setNewStatus] = useState('');
+  const [newPriority, setNewPriority] = useState('');
   const [updating, setUpdating] = useState(false);
 
   const fetchFeedbacks = useCallback(async () => {
@@ -95,6 +113,7 @@ export default function FeedbackPage() {
       const params = new URLSearchParams();
       if (filterStatus) params.append('status', filterStatus);
       if (filterType) params.append('type', filterType);
+      if (filterPriority) params.append('priority', filterPriority);
 
       const response = await fetch(
         `${config.apiUrl}/feedback?${params.toString()}`,
@@ -109,7 +128,7 @@ export default function FeedbackPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterStatus, filterType]);
+  }, [filterStatus, filterType, filterPriority]);
 
   const fetchStats = async () => {
     try {
@@ -167,6 +186,7 @@ export default function FeedbackPage() {
   const openDetail = (feedback: Feedback) => {
     setSelectedFeedback(feedback);
     setNewStatus(feedback.status);
+    setNewPriority(feedback.priority || 'NORMAL');
     setAdminNotes(feedback.admin_notes || '');
   };
 
