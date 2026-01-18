@@ -3,6 +3,7 @@
 import { type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { type AdminDomain, ADMIN_COLORS } from '@/lib/admin/styles';
+import BackToOverviewButton from './BackToOverviewButton';
 
 interface AdminPageLayoutProps {
   title: string;
@@ -13,6 +14,7 @@ interface AdminPageLayoutProps {
   children: React.ReactNode;
   className?: string;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | '6xl' | '7xl' | 'full';
+  showBackButton?: boolean;
 }
 
 const maxWidthClasses = {
@@ -36,6 +38,7 @@ export default function AdminPageLayout({
   children,
   className,
   maxWidth = '7xl',
+  showBackButton = true,
 }: AdminPageLayoutProps) {
   const colors = domain ? ADMIN_COLORS[domain] : null;
 
@@ -44,6 +47,12 @@ export default function AdminPageLayout({
       {/* Header */}
       <header className="border-b border-gray-100 bg-white/80 px-6 py-4 backdrop-blur-sm">
         <div className={cn('mx-auto', maxWidthClasses[maxWidth])}>
+          {/* Back Button */}
+          {showBackButton && (
+            <div className="mb-3">
+              <BackToOverviewButton />
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {Icon && (

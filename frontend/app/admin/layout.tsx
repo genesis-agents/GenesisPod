@@ -1,7 +1,6 @@
 'use client';
 
 import AppShell from '@/components/layout/AppShell';
-import { AdminTabNav } from '@/components/admin/layout';
 
 export default function AdminLayout({
   children,
@@ -10,12 +9,9 @@ export default function AdminLayout({
 }) {
   return (
     <AppShell>
-      {/* Main Content Area - Full height flex column */}
+      {/* Main Content Area - Full width, no Admin sidebar/tabs */}
       <main className="flex h-full flex-1 flex-col overflow-hidden">
-        {/* Admin Tab Navigation */}
-        <AdminTabNav />
-
-        {/* Page Content */}
+        {/* Page Content - Full width */}
         <div className="flex-1 overflow-auto">{children}</div>
       </main>
     </AppShell>

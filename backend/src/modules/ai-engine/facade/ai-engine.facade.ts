@@ -207,13 +207,18 @@ export class AIEngineFacade {
   async chatWithSkills(
     request: ChatWithSkillsRequest,
   ): Promise<ChatWithSkillsResponse> {
-    this.logger.debug(
-      `[chatWithSkills] taskType=${request.taskType}, domain=${request.domain}`,
+    this.logger.log(
+      `[Skills] ════════════════════════════════════════════════════════`,
+    );
+    this.logger.log(
+      `[Skills] 🚀 chatWithSkills START: taskType="${request.taskType}", domain="${request.domain}"`,
     );
 
     // 检查 Skills 服务是否可用
     if (!this.skillLoader || !this.skillPromptBuilder) {
-      this.logger.warn("[chatWithSkills] Skills services not available");
+      this.logger.warn(
+        "[Skills] ⚠️ Skills services not available, falling back to plain chat",
+      );
       // 降级到普通 chat
       const result = await this.chat({
         messages: request.messages,
@@ -236,6 +241,7 @@ export class AIEngineFacade {
     }
 
     // 1. 加载匹配的 Skills
+    this.logger.log(`[Skills] Step 1: Loading skills for task...`);
     const skills = await this.skillLoader.getSkillsForTask({
       taskType: request.taskType,
       domain: request.domain as SkillDomain,
@@ -244,15 +250,12 @@ export class AIEngineFacade {
     });
 
     // 2. 组装 System Prompt
+    this.logger.log(`[Skills] Step 2: Building System Prompt...`);
     const buildResult = this.skillPromptBuilder.buildSystemPrompt(skills, {
       context: request.skillContext,
       maxTokens: 4000,
       includeMetadata: false,
     });
-
-    this.logger.debug(
-      `[chatWithSkills] Loaded ${skills.length} skills, estimated ${buildResult.estimatedTokens} tokens`,
-    );
 
     // 3. 构建消息列表（Skills System Prompt + 原始消息）
     const messagesWithSkills = [
@@ -263,6 +266,9 @@ export class AIEngineFacade {
     ];
 
     // 4. 调用底层 chat 方法
+    this.logger.log(
+      `[Skills] Step 3: Calling LLM with ${messagesWithSkills.length} messages...`,
+    );
     const result = await this.chat({
       messages: messagesWithSkills,
       modelType: request.modelType as AIModelType,
@@ -272,6 +278,17 @@ export class AIEngineFacade {
       temperature: request.temperature,
       strictMode: request.strictMode,
     });
+
+    // 5. 输出完成报告
+    this.logger.log(
+      `[Skills] ✅ chatWithSkills COMPLETE: ${buildResult.usedSkills.length} skills, ${buildResult.estimatedTokens} skill tokens, ${result.tokensUsed} total tokens`,
+    );
+    this.logger.log(
+      `[Skills]   └─ Skills used: [${buildResult.usedSkills.join(", ")}]`,
+    );
+    this.logger.log(
+      `[Skills] ════════════════════════════════════════════════════════`,
+    );
 
     return {
       content: result.content,

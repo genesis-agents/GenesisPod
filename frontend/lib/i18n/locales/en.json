@@ -1510,6 +1510,25 @@
     "sidebar": {
       "collapse": "Collapse sidebar",
       "expand": "Expand sidebar"
+    },
+    "architecture": {
+      "title": "System Architecture",
+      "subtitle": "Click on configurable cards to manage settings",
+      "backToOverview": "Back to Architecture",
+      "layers": {
+        "api": "Layer 4: API Layer",
+        "apiDesc": "Access & Security",
+        "aiApps": "Layer 3: AI Apps",
+        "aiAppsDesc": "Business Applications (read-only, configured via AI Engine)",
+        "aiEngine": "Layer 2: AI Engine",
+        "aiEngineDesc": "Core Capabilities",
+        "infrastructure": "Layer 1: Infrastructure",
+        "infrastructureDesc": "Foundation Services"
+      },
+      "legend": {
+        "clickable": "Configurable",
+        "readOnly": "Read-only"
+      }
     }
   },
   "auth": {

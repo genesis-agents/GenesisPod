@@ -74,10 +74,11 @@ export class SkillLoaderService implements OnModuleInit {
    * 加载所有本地 Skills
    */
   async loadAllLocalSkills(): Promise<void> {
-    this.logger.log("Loading all local SKILL.md files...");
+    this.logger.log("[Skills] 🔄 Loading all local SKILL.md files...");
 
     let totalLoaded = 0;
     let totalFailed = 0;
+    const loadedByDomain: Record<string, string[]> = {};
 
     for (const config of this.skillDirectories) {
       try {
@@ -85,6 +86,12 @@ export class SkillLoaderService implements OnModuleInit {
         for (const skill of skills) {
           this.localSkills.set(skill.metadata.id, skill);
           totalLoaded++;
+
+          // 按领域分组记录
+          if (!loadedByDomain[skill.metadata.domain]) {
+            loadedByDomain[skill.metadata.domain] = [];
+          }
+          loadedByDomain[skill.metadata.domain].push(skill.metadata.id);
         }
       } catch (error) {
         // 目录不存在是正常情况，只记录 debug
@@ -99,9 +106,17 @@ export class SkillLoaderService implements OnModuleInit {
       }
     }
 
+    // 输出详细的加载报告
     this.logger.log(
-      `Loaded ${totalLoaded} local Skills (${totalFailed} directories failed)`,
+      `[Skills] ✅ Loaded ${totalLoaded} local Skills (${totalFailed} directories failed)`,
     );
+
+    // 按领域输出详细信息
+    for (const [domain, skillIds] of Object.entries(loadedByDomain)) {
+      this.logger.log(
+        `[Skills]   └─ ${domain}: ${skillIds.length} skills [${skillIds.join(", ")}]`,
+      );
+    }
   }
 
   /**
@@ -221,11 +236,19 @@ export class SkillLoaderService implements OnModuleInit {
   ): Promise<SkillMdDefinition[]> {
     const { taskType, domain, additionalSkillIds, maxTokenBudget } = options;
 
+    this.logger.log(
+      `[Skills] 🔍 getSkillsForTask: taskType="${taskType}", domain="${domain}", budget=${maxTokenBudget || "unlimited"}`,
+    );
+
     const matchedSkills: SkillMdDefinition[] = [];
+    const skippedSkills: string[] = [];
     let currentTokens = 0;
 
     // 1. 获取领域内所有启用的 Skills
     const domainSkills = await this.loadLocalSkills(domain);
+    this.logger.log(
+      `[Skills]   └─ Domain "${domain}" has ${domainSkills.length} enabled skills`,
+    );
 
     // 2. 筛选匹配任务类型的 Skills
     for (const skill of domainSkills) {
@@ -240,9 +263,7 @@ export class SkillLoaderService implements OnModuleInit {
           const skillTokens =
             skill.metadata.tokenBudget || estimateTokens(skill.content);
           if (currentTokens + skillTokens > maxTokenBudget) {
-            this.logger.debug(
-              `Skipping skill ${skill.metadata.id}: exceeds token budget`,
-            );
+            skippedSkills.push(`${skill.metadata.id}(${skillTokens}t)`);
             continue;
           }
           currentTokens += skillTokens;
@@ -254,6 +275,10 @@ export class SkillLoaderService implements OnModuleInit {
 
     // 3. 添加额外指定的 Skills
     if (additionalSkillIds && additionalSkillIds.length > 0) {
+      this.logger.log(
+        `[Skills]   └─ Adding ${additionalSkillIds.length} additional skills: [${additionalSkillIds.join(", ")}]`,
+      );
+
       for (const skillId of additionalSkillIds) {
         // 避免重复添加
         if (matchedSkills.some((s) => s.metadata.id === skillId)) {
@@ -267,9 +292,7 @@ export class SkillLoaderService implements OnModuleInit {
             const skillTokens =
               skill.metadata.tokenBudget || estimateTokens(skill.content);
             if (currentTokens + skillTokens > maxTokenBudget) {
-              this.logger.debug(
-                `Skipping additional skill ${skillId}: exceeds token budget`,
-              );
+              skippedSkills.push(`${skillId}(${skillTokens}t)`);
               continue;
             }
             currentTokens += skillTokens;
@@ -277,14 +300,25 @@ export class SkillLoaderService implements OnModuleInit {
 
           matchedSkills.push(skill);
         } else {
-          this.logger.warn(`Additional skill not found: ${skillId}`);
+          this.logger.warn(
+            `[Skills] ⚠️ Additional skill not found: ${skillId}`,
+          );
         }
       }
     }
 
-    this.logger.debug(
-      `getSkillsForTask: taskType=${taskType}, domain=${domain}, matched=${matchedSkills.length}, tokens=${currentTokens}`,
+    // 4. 输出匹配结果
+    const matchedIds = matchedSkills.map((s) => s.metadata.id);
+    this.logger.log(
+      `[Skills] ✅ Matched ${matchedSkills.length} skills, ~${currentTokens} tokens`,
     );
+    this.logger.log(`[Skills]   └─ Using: [${matchedIds.join(", ")}]`);
+
+    if (skippedSkills.length > 0) {
+      this.logger.log(
+        `[Skills]   └─ Skipped (budget): [${skippedSkills.join(", ")}]`,
+      );
+    }
 
     return matchedSkills;
   }

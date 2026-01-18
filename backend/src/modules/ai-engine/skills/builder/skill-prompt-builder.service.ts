@@ -67,8 +67,13 @@ export class SkillPromptBuilder {
       separator = this.DEFAULT_SEPARATOR,
     } = options;
 
+    this.logger.log(
+      `[Skills] 🔨 Building System Prompt from ${skills.length} skills (maxTokens=${maxTokens})`,
+    );
+
     const usedSkills: string[] = [];
     const skippedSkills: string[] = [];
+    const skillDetails: string[] = [];
     const parts: string[] = [];
     let currentTokens = 0;
     let wasTrimmed = false;
@@ -76,6 +81,9 @@ export class SkillPromptBuilder {
     for (const skill of skills) {
       // 跳过禁用的 Skills
       if (skill.metadata.enabled === false) {
+        this.logger.debug(
+          `[Skills]   └─ Skipping disabled skill: ${skill.metadata.id}`,
+        );
         continue;
       }
 
@@ -96,13 +104,14 @@ export class SkillPromptBuilder {
           // 至少保留 200 tokens 才裁剪
           content = this.trimToTokenLimit(content, remainingTokens);
           wasTrimmed = true;
+          const trimmedTokens = estimateTokens(content);
+          skillDetails.push(`${skill.metadata.id}(${trimmedTokens}t,trimmed)`);
         } else {
           skippedSkills.push(skill.metadata.id);
-          this.logger.debug(
-            `Skipped skill ${skill.metadata.id}: exceeds token budget`,
-          );
           continue;
         }
+      } else {
+        skillDetails.push(`${skill.metadata.id}(${skillTokens}t)`);
       }
 
       parts.push(content);
@@ -112,10 +121,17 @@ export class SkillPromptBuilder {
 
     const prompt = parts.join(separator);
 
-    this.logger.debug(
-      `Built prompt with ${usedSkills.length} skills, ${currentTokens} tokens` +
-        (skippedSkills.length > 0 ? `, skipped ${skippedSkills.length}` : ""),
+    // 输出构建报告
+    this.logger.log(
+      `[Skills] ✅ Built prompt: ${usedSkills.length} skills, ${currentTokens} tokens${wasTrimmed ? " (trimmed)" : ""}`,
     );
+    this.logger.log(`[Skills]   └─ Included: [${skillDetails.join(", ")}]`);
+
+    if (skippedSkills.length > 0) {
+      this.logger.log(
+        `[Skills]   └─ Skipped (budget): [${skippedSkills.join(", ")}]`,
+      );
+    }
 
     return {
       prompt,

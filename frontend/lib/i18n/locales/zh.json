@@ -1504,6 +1504,25 @@
     "sidebar": {
       "collapse": "收起侧边栏",
       "expand": "展开侧边栏"
+    },
+    "architecture": {
+      "title": "系统架构图",
+      "subtitle": "点击可配置的卡片进入管理设置",
+      "backToOverview": "返回架构图",
+      "layers": {
+        "api": "第四层：API 层",
+        "apiDesc": "访问与安全",
+        "aiApps": "第三层：AI 应用",
+        "aiAppsDesc": "业务应用（只读，通过 AI Engine 层配置）",
+        "aiEngine": "第二层：AI 引擎",
+        "aiEngineDesc": "核心能力",
+        "infrastructure": "第一层：基础设施",
+        "infrastructureDesc": "基础服务"
+      },
+      "legend": {
+        "clickable": "可配置",
+        "readOnly": "只读"
+      }
     }
   },
   "auth": {
