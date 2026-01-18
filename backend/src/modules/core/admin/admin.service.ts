@@ -260,6 +260,177 @@ export class AdminService {
   }
 
   /**
+   * 更新用户信息
+   */
+  async updateUser(
+    userId: string,
+    data: {
+      username?: string;
+      role?: "USER" | "ADMIN";
+      status?: "active" | "inactive" | "banned";
+    },
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+
+    const updateData: any = {};
+    if (data.username !== undefined) updateData.username = data.username;
+    if (data.role !== undefined) updateData.role = data.role;
+    if (data.status !== undefined) {
+      updateData.isActive = data.status === "active";
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        role: true,
+        isActive: true,
+      },
+    });
+
+    this.logger.log(`User ${userId} updated`);
+    return updatedUser;
+  }
+
+  /**
+   * 删除用户
+   */
+  async deleteUser(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+
+    // Delete user's related data first
+    await this.prisma.$transaction([
+      // Delete credit account if exists
+      this.prisma.creditAccount.deleteMany({ where: { userId } }),
+      // Delete user
+      this.prisma.user.delete({ where: { id: userId } }),
+    ]);
+
+    this.logger.log(`User ${userId} deleted`);
+    return { success: true, message: "User deleted successfully" };
+  }
+
+  // ============ Credits Management ============
+
+  /**
+   * 获取用户积分详情
+   */
+  async getUserCredits(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        creditAccount: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+
+    return {
+      userId,
+      email: user.email,
+      username: user.username,
+      credits: user.creditAccount
+        ? {
+            balance: user.creditAccount.balance,
+            totalEarned: user.creditAccount.totalEarned,
+            totalSpent: user.creditAccount.totalSpent,
+            isFrozen: user.creditAccount.isFrozen,
+          }
+        : null,
+    };
+  }
+
+  /**
+   * 发放积分
+   */
+  async grantCredits(userId: string, amount: number, reason?: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { creditAccount: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+
+    // Create or update credit account
+    const creditAccount = await this.prisma.creditAccount.upsert({
+      where: { userId },
+      create: {
+        userId,
+        balance: amount,
+        totalEarned: amount,
+        totalSpent: 0,
+        isFrozen: false,
+      },
+      update: {
+        balance: { increment: amount },
+        totalEarned: { increment: amount },
+      },
+    });
+
+    this.logger.log(
+      `Granted ${amount} credits to user ${userId}. Reason: ${reason || "Admin grant"}`,
+    );
+
+    return {
+      success: true,
+      message: `Successfully granted ${amount} credits`,
+      newBalance: creditAccount.balance,
+    };
+  }
+
+  /**
+   * 冻结/解冻用户积分账户
+   */
+  async toggleCreditFreeze(userId: string, freeze: boolean, reason?: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { creditAccount: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+
+    if (!user.creditAccount) {
+      throw new NotFoundException(`User ${userId} has no credit account`);
+    }
+
+    const creditAccount = await this.prisma.creditAccount.update({
+      where: { userId },
+      data: { isFrozen: freeze },
+    });
+
+    this.logger.log(
+      `${freeze ? "Froze" : "Unfroze"} credits for user ${userId}. Reason: ${reason || "Admin action"}`,
+    );
+
+    return {
+      success: true,
+      message: `Successfully ${freeze ? "froze" : "unfroze"} account`,
+      isFrozen: creditAccount.isFrozen,
+    };
+  }
+
+  /**
    * 获取系统统计信息
    */
   async getSystemStats() {

@@ -107,6 +107,74 @@ export class AdminController {
     return this.adminService.toggleUserStatus(id, isActive);
   }
 
+  /**
+   * 更新用户信息
+   * PUT /api/v1/admin/users/:id
+   */
+  @Put("users/:id")
+  async updateUser(
+    @Param("id") id: string,
+    @Body()
+    body: {
+      username?: string;
+      role?: "USER" | "ADMIN";
+      status?: "active" | "inactive" | "banned";
+    },
+  ) {
+    this.logger.log(`Admin: Updating user ${id}`);
+    return this.adminService.updateUser(id, body);
+  }
+
+  /**
+   * 删除用户
+   * DELETE /api/v1/admin/users/:id
+   */
+  @Delete("users/:id")
+  async deleteUser(@Param("id") id: string) {
+    this.logger.log(`Admin: Deleting user ${id}`);
+    return this.adminService.deleteUser(id);
+  }
+
+  // ============ Credits Management ============
+
+  /**
+   * 获取用户积分详情
+   * GET /api/v1/admin/users/:id/credits
+   */
+  @Get("users/:id/credits")
+  async getUserCredits(@Param("id") id: string) {
+    this.logger.log(`Admin: Fetching credits for user ${id}`);
+    return this.adminService.getUserCredits(id);
+  }
+
+  /**
+   * 发放积分
+   * POST /api/v1/admin/users/:id/credits/grant
+   */
+  @Post("users/:id/credits/grant")
+  async grantCredits(
+    @Param("id") id: string,
+    @Body() body: { amount: number; reason?: string },
+  ) {
+    this.logger.log(`Admin: Granting ${body.amount} credits to user ${id}`);
+    return this.adminService.grantCredits(id, body.amount, body.reason);
+  }
+
+  /**
+   * 冻结/解冻账户
+   * POST /api/v1/admin/users/:id/credits/freeze
+   */
+  @Post("users/:id/credits/freeze")
+  async toggleCreditFreeze(
+    @Param("id") id: string,
+    @Body() body: { freeze: boolean; reason?: string },
+  ) {
+    this.logger.log(
+      `Admin: ${body.freeze ? "Freezing" : "Unfreezing"} credits for user ${id}`,
+    );
+    return this.adminService.toggleCreditFreeze(id, body.freeze, body.reason);
+  }
+
   // ============ AI Model Management ============
 
   /**

@@ -2,10 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import {
-  type ArchitectureCard as CardType,
-  CARD_COLOR_SCHEMES,
-} from '@/lib/admin/architecture';
+import { type ArchitectureCard as CardType } from '@/lib/admin/architecture';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils/common';
 
@@ -16,49 +13,38 @@ interface ArchitectureCardProps {
 export default function ArchitectureCard({ card }: ArchitectureCardProps) {
   const { t } = useTranslation();
   const Icon = card.icon;
-  const colorScheme = card.color
-    ? CARD_COLOR_SCHEMES[card.color]
-    : CARD_COLOR_SCHEMES.slate;
 
   const cardContent = (
     <div
       className={cn(
-        'group relative flex items-center gap-3 rounded-xl border px-4 py-3 transition-all duration-300',
-        colorScheme.bg,
-        colorScheme.border,
+        'group flex items-center gap-2.5 rounded-md border px-3 py-2.5 transition-all duration-150',
         card.clickable
           ? [
-              'cursor-pointer',
-              'shadow-sm',
-              colorScheme.bgHover,
-              colorScheme.borderHover,
-              'hover:shadow-lg',
-              'hover:-translate-y-1',
-              'hover:scale-[1.02]',
-              'active:scale-[0.98]',
+              'cursor-pointer border-gray-200 bg-white',
+              'hover:border-gray-300 hover:shadow-sm',
             ]
-          : ['cursor-default', 'opacity-75']
+          : ['cursor-default border-gray-100 bg-gray-50/50']
       )}
     >
-      {/* Icon with gradient background */}
+      {/* Icon */}
       <div
         className={cn(
-          'relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg shadow-md transition-all duration-300',
-          colorScheme.iconBg,
-          card.clickable && 'group-hover:scale-110 group-hover:shadow-lg'
+          'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md',
+          card.clickable
+            ? 'bg-gray-100 text-gray-600'
+            : 'bg-gray-100/50 text-gray-400'
         )}
       >
-        <Icon className={cn('h-4.5 w-4.5', colorScheme.iconColor)} />
-        {/* Shine effect */}
-        <div className="absolute inset-0 rounded-lg bg-gradient-to-tr from-white/20 to-transparent" />
+        <Icon className="h-4 w-4" />
       </div>
 
       {/* Label */}
       <span
         className={cn(
-          'text-sm font-semibold tracking-tight transition-colors',
-          colorScheme.text,
-          card.clickable && 'group-hover:text-gray-900'
+          'flex-1 truncate text-sm',
+          card.clickable
+            ? 'font-medium text-gray-700 group-hover:text-gray-900'
+            : 'text-gray-500'
         )}
       >
         {t(card.i18nKey)}
@@ -68,20 +54,8 @@ export default function ArchitectureCard({ card }: ArchitectureCardProps) {
       {card.clickable && (
         <ArrowRight
           className={cn(
-            'ml-auto h-4 w-4 flex-shrink-0 transition-all duration-300',
-            'text-gray-300 opacity-0',
-            'group-hover:translate-x-1 group-hover:text-gray-500 group-hover:opacity-100'
-          )}
-        />
-      )}
-
-      {/* Subtle glow effect on hover */}
-      {card.clickable && (
-        <div
-          className={cn(
-            'absolute inset-0 -z-10 rounded-xl opacity-0 blur-xl transition-opacity duration-300',
-            'group-hover:opacity-30',
-            colorScheme.iconBg
+            'h-3.5 w-3.5 flex-shrink-0 text-gray-300 transition-all duration-150',
+            'group-hover:translate-x-0.5 group-hover:text-gray-500'
           )}
         />
       )}
@@ -90,11 +64,11 @@ export default function ArchitectureCard({ card }: ArchitectureCardProps) {
 
   if (card.clickable && card.href) {
     return (
-      <Link href={card.href} className="block min-w-[160px] flex-1">
+      <Link href={card.href} className="block">
         {cardContent}
       </Link>
     );
   }
 
-  return <div className="min-w-[120px] flex-1">{cardContent}</div>;
+  return <div>{cardContent}</div>;
 }

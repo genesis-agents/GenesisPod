@@ -1489,74 +1489,43 @@ export default function ExternalAPISettings() {
         </div>
       )}
 
-      {/* Tab Navigation */}
-      <div className="flex border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab('search')}
-          className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'search'
-              ? 'border-purple-600 text-purple-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
+      {/* Category Dropdown Selector */}
+      <div className="flex items-center gap-4 border-b border-gray-200 px-4 py-3">
+        <label className="text-sm font-medium text-gray-700">Category:</label>
+        <select
+          value={activeTab}
+          onChange={(e) =>
+            setActiveTab(
+              e.target.value as
+                | 'search'
+                | 'extraction'
+                | 'simulation'
+                | 'youtube'
+                | 'tts'
+                | 'skillsmp'
+            )
+          }
+          className="min-w-[200px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
         >
-          <Search className="h-4 w-4" />
-          搜索 API
-        </button>
-        <button
-          onClick={() => setActiveTab('extraction')}
-          className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'extraction'
-              ? 'border-purple-600 text-purple-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <FileText className="h-4 w-4" />
-          内容提取 API
-        </button>
-        <button
-          onClick={() => setActiveTab('simulation')}
-          className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'simulation'
-              ? 'border-purple-600 text-purple-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <TrendingUp className="h-4 w-4" />
-          推演数据源 API
-        </button>
-        <button
-          onClick={() => setActiveTab('youtube')}
-          className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'youtube'
-              ? 'border-purple-600 text-purple-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <Youtube className="h-4 w-4" />
-          YouTube 字幕 API
-        </button>
-        <button
-          onClick={() => setActiveTab('tts')}
-          className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'tts'
-              ? 'border-purple-600 text-purple-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <Sparkles className="h-4 w-4" />
-          语音合成 TTS
-        </button>
-        <button
-          onClick={() => setActiveTab('skillsmp')}
-          className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'skillsmp'
-              ? 'border-violet-600 text-violet-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <Zap className="h-4 w-4" />
-          AI Skills (SkillsMP)
-        </button>
+          <option value="search">Web Search API</option>
+          <option value="extraction">Content Extraction API</option>
+          <option value="simulation">Simulation Data Sources</option>
+          <option value="youtube">YouTube Transcript API</option>
+          <option value="tts">Text-to-Speech (TTS)</option>
+          <option value="skillsmp">AI Skills (SkillsMP)</option>
+        </select>
+        <span className="text-xs text-gray-500">
+          {activeTab === 'search' &&
+            'Configure web search providers for AI research'}
+          {activeTab === 'extraction' &&
+            'Configure content extraction from URLs'}
+          {activeTab === 'simulation' &&
+            'Configure external data sources for simulation'}
+          {activeTab === 'youtube' && 'Configure YouTube transcript extraction'}
+          {activeTab === 'tts' && 'Configure text-to-speech synthesis'}
+          {activeTab === 'skillsmp' &&
+            'Connect to SkillsMP marketplace for AI skills'}
+        </span>
       </div>
 
       {/* Search API Tab */}

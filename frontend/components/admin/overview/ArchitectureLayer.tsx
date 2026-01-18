@@ -1,9 +1,9 @@
 'use client';
 
-import { ChevronDown, Layers } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import {
   type ArchitectureLayer as LayerType,
-  LAYER_COLORS,
+  LAYER_STYLES,
 } from '@/lib/admin/architecture';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils/common';
@@ -11,152 +11,95 @@ import ArchitectureCard from './ArchitectureCard';
 
 interface ArchitectureLayerProps {
   layer: LayerType;
-  layerIndex: number;
-  totalLayers: number;
   showArrow?: boolean;
 }
 
-// Layer badge gradient colors
-const LAYER_BADGE_COLORS = {
-  0: 'from-amber-500 to-orange-600',
-  1: 'from-violet-500 to-purple-600',
-  2: 'from-blue-500 to-indigo-600',
-  3: 'from-emerald-500 to-teal-600',
-} as const;
-
-// Layer shadow colors
-const LAYER_SHADOWS = {
-  0: 'shadow-amber-500/20 hover:shadow-amber-500/30',
-  1: 'shadow-violet-500/20 hover:shadow-violet-500/30',
-  2: 'shadow-blue-500/20 hover:shadow-blue-500/30',
-  3: 'shadow-emerald-500/20 hover:shadow-emerald-500/30',
-} as const;
-
 export default function ArchitectureLayer({
   layer,
-  layerIndex,
-  totalLayers,
   showArrow = true,
 }: ArchitectureLayerProps) {
   const { t } = useTranslation();
-  const colors = LAYER_COLORS[layer.color];
-  const badgeGradient =
-    LAYER_BADGE_COLORS[layerIndex as keyof typeof LAYER_BADGE_COLORS] ||
-    LAYER_BADGE_COLORS[0];
-  const layerShadow =
-    LAYER_SHADOWS[layerIndex as keyof typeof LAYER_SHADOWS] || LAYER_SHADOWS[0];
+  const styles = LAYER_STYLES[layer.level];
 
-  // Calculate z-index for stacking effect (top layer has highest z-index)
-  const zIndex = totalLayers - layerIndex;
+  // Count cards
+  const cardCount = layer.cards
+    ? layer.cards.length
+    : layer.groups
+      ? layer.groups.reduce((acc, g) => acc + g.cards.length, 0)
+      : 0;
 
   return (
-    <div className="relative" style={{ zIndex }}>
-      {/* Layer Container with premium 3D effect */}
-      <div
-        className={cn(
-          'relative rounded-2xl border-2 shadow-xl transition-all duration-500',
-          'bg-gradient-to-br backdrop-blur-sm',
-          colors.bg,
-          colors.border,
-          layerShadow,
-          'hover:scale-[1.005]'
-        )}
-      >
-        {/* Decorative gradient overlay */}
-        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-white/50 via-transparent to-transparent" />
-
-        {/* Layer Header with gradient */}
-        <div
-          className={cn(
-            'relative flex items-center justify-between rounded-t-xl border-b-2 px-6 py-5',
-            'bg-gradient-to-r',
-            colors.headerBg,
-            colors.headerBorder
-          )}
-        >
-          {/* Left side: Badge + Title */}
-          <div className="flex items-center gap-4">
-            {/* Layer number badge with premium gradient */}
-            <div
+    <div className="relative">
+      {/* Layer Container - Clean, minimal design */}
+      <div className="rounded-lg border border-gray-200 bg-white">
+        {/* Layer Header */}
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+          <div className="flex items-center gap-3">
+            {/* Level badge */}
+            <span
               className={cn(
-                'relative flex h-10 w-10 items-center justify-center rounded-xl shadow-lg',
-                'bg-gradient-to-br',
-                badgeGradient
+                'rounded-md px-2 py-1 text-xs font-medium',
+                styles.badge
               )}
             >
-              <span className="text-sm font-bold text-white">
-                L{totalLayers - layerIndex}
-              </span>
-              {/* Shine effect */}
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-white/30 to-transparent" />
-            </div>
+              L{layer.level}
+            </span>
 
             {/* Title and description */}
             <div>
-              <h3
-                className={cn(
-                  'text-base font-bold tracking-tight',
-                  colors.headerText
-                )}
-              >
+              <h3 className="text-sm font-medium text-gray-900">
                 {t(layer.titleKey)}
               </h3>
               {layer.subtitleKey && (
-                <p className="mt-0.5 text-sm text-gray-500">
+                <p className="mt-0.5 text-xs text-gray-500">
                   {t(layer.subtitleKey)}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Right side: Card count badge */}
-          <div className="flex items-center gap-2 rounded-full bg-white/60 px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm backdrop-blur-sm">
-            <Layers className="h-3.5 w-3.5" />
-            <span>{layer.cards.length} modules</span>
-          </div>
+          {/* Card count */}
+          <span className="text-xs text-gray-400">{cardCount} modules</span>
         </div>
 
-        {/* Cards Grid with improved layout */}
-        <div className="relative p-6">
-          <div
-            className={cn(
-              'grid gap-3',
-              // Responsive grid based on card count
-              layer.cards.length <= 4
-                ? 'grid-cols-2 md:grid-cols-4'
-                : layer.cards.length <= 6
-                  ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-6'
-                  : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'
-            )}
-          >
-            {layer.cards.map((card) => (
-              <ArchitectureCard key={card.id} card={card} />
-            ))}
-          </div>
-        </div>
-
-        {/* Bottom decorative line */}
-        <div
-          className={cn(
-            'absolute bottom-0 left-6 right-6 h-0.5 rounded-full opacity-30',
-            'bg-gradient-to-r',
-            badgeGradient
+        {/* Cards Grid */}
+        <div className="p-5">
+          {/* Regular cards */}
+          {layer.cards && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
+              {layer.cards.map((card) => (
+                <ArchitectureCard key={card.id} card={card} />
+              ))}
+            </div>
           )}
-        />
+
+          {/* Grouped cards (for AI Apps layer) */}
+          {layer.groups && (
+            <div className="space-y-4">
+              {layer.groups.map((group) => (
+                <div key={group.id}>
+                  {/* Group title */}
+                  <div className="mb-2 text-xs font-medium text-gray-400">
+                    {t(group.titleKey)}
+                  </div>
+                  {/* Group cards */}
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                    {group.cards.map((card) => (
+                      <ArchitectureCard key={card.id} card={card} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Connection Arrow with animated gradient */}
+      {/* Connection Arrow */}
       {showArrow && (
-        <div className="relative flex justify-center py-4">
-          {/* Animated gradient line */}
-          <div className="absolute left-1/2 top-0 h-full w-1 -translate-x-1/2 rounded-full bg-gradient-to-b from-gray-300 via-gray-200 to-gray-300" />
-
-          {/* Arrow circle with pulse effect */}
-          <div className="relative z-10">
-            <div className="absolute inset-0 animate-ping rounded-full bg-gray-300/50" />
-            <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg ring-2 ring-gray-100">
-              <ChevronDown className="h-5 w-5 text-gray-500" />
-            </div>
+        <div className="flex justify-center py-3">
+          <div className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white">
+            <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
           </div>
         </div>
       )}

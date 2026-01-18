@@ -87,6 +87,7 @@
     "aiCoding": "AI Coding",
     "aiTools": "AI Tools",
     "aiSkills": "AI Skills",
+    "aiMarketplace": "AI Marketplace",
     "aiImage": "AI Image",
     "aiSimulation": "AI Decision",
     "aiWriting": "AI Writing",
@@ -1331,6 +1332,14 @@
       "button": "Visit SkillsMP"
     }
   },
+  "aiMarketplace": {
+    "title": "AI Marketplace",
+    "subtitle": "Discover AI tools and agent skills",
+    "tabs": {
+      "tools": "AI Tools",
+      "skills": "Agent Skills"
+    }
+  },
   "labs": {
     "title": "Labs",
     "subtitle": "Customize your AI experience",
@@ -1397,6 +1406,7 @@
       "collection": "Data sources and collection rules",
       "whitelists": "Source whitelist management",
       "quality": "Data quality rules and validation",
+      "dataManagement": "Data import, cleaning and management",
       "users": "User accounts and permissions",
       "security": "Security settings and access control",
       "site": "Site settings and branding",
@@ -1520,10 +1530,8 @@
       "subtitle": "Click on configurable cards to manage settings",
       "backToOverview": "Back to Architecture",
       "layers": {
-        "api": "Layer 4: API Layer",
-        "apiDesc": "Access & Security",
         "aiApps": "Layer 3: AI Apps",
-        "aiAppsDesc": "Business Applications (read-only, configured via AI Engine)",
+        "aiAppsDesc": "Business Applications (read-only, access via sidebar)",
         "aiEngine": "Layer 2: AI Engine",
         "aiEngineDesc": "Core Capabilities",
         "infrastructure": "Layer 1: Infrastructure",

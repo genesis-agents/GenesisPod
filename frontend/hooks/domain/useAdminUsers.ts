@@ -1,5 +1,5 @@
 import { useApiGet, useApiPost, useApiPut, useApiDelete } from '../core';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 export interface User {
   id: string;
@@ -23,6 +23,8 @@ export interface User {
 }
 
 export function useAdminUsers() {
+  const [creditsLoading, setCreditsLoading] = useState(false);
+
   const {
     data,
     loading: listLoading,
@@ -69,17 +71,69 @@ export function useAdminUsers() {
     [updateUser]
   );
 
+  // Credits management functions
+  const grantCredits = useCallback(
+    async (userId: string, amount: number, reason?: string) => {
+      setCreditsLoading(true);
+      try {
+        const response = await fetch(
+          `/api/v1/admin/users/${userId}/credits/grant`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount, reason }),
+          }
+        );
+        const result = await response.json();
+        if (result.success) {
+          await refreshUsers();
+        }
+        return result;
+      } finally {
+        setCreditsLoading(false);
+      }
+    },
+    [refreshUsers]
+  );
+
+  const toggleCreditFreeze = useCallback(
+    async (userId: string, freeze: boolean, reason?: string) => {
+      setCreditsLoading(true);
+      try {
+        const response = await fetch(
+          `/api/v1/admin/users/${userId}/credits/freeze`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ freeze, reason }),
+          }
+        );
+        const result = await response.json();
+        if (result.success) {
+          await refreshUsers();
+        }
+        return result;
+      } finally {
+        setCreditsLoading(false);
+      }
+    },
+    [refreshUsers]
+  );
+
   return {
     users: data?.users ?? [],
     total: data?.total ?? 0,
-    loading: listLoading || updateLoading || deleteLoading,
+    loading: listLoading || updateLoading || deleteLoading || creditsLoading,
     error: listError,
     refreshUsers,
     updateUser,
     deleteUser,
     banUser,
     activateUser,
+    grantCredits,
+    toggleCreditFreeze,
     isUpdating: updateLoading,
     isDeleting: deleteLoading,
+    isCreditsLoading: creditsLoading,
   };
 }
