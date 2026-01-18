@@ -165,4 +165,33 @@ export class SettingsController {
     await this.settingsService.refreshCache();
     return { success: true, message: "Settings cache refreshed" };
   }
+
+  // ========== Encryption Diagnostics ==========
+
+  /**
+   * 诊断加密设置问题
+   * 返回无法解密的设置列表
+   */
+  @Get("encryption/diagnose")
+  async diagnoseEncryption() {
+    this.logger.log("Diagnosing encryption issues");
+    return this.settingsService.diagnoseEncryptionIssues(false);
+  }
+
+  /**
+   * 修复加密设置问题
+   * 清除无法解密的设置值（需要用户重新配置）
+   */
+  @Post("encryption/fix")
+  async fixEncryption() {
+    this.logger.log("Fixing encryption issues - clearing corrupted values");
+    const result = await this.settingsService.diagnoseEncryptionIssues(true);
+    return {
+      ...result,
+      message:
+        result.fixed.length > 0
+          ? `已清除 ${result.fixed.length} 个无法解密的设置，请重新配置: ${result.fixed.join(", ")}`
+          : "没有发现需要修复的加密问题",
+    };
+  }
 }

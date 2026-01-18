@@ -90,6 +90,16 @@ export class SettingsService implements OnModuleInit {
 
   async onModuleInit() {
     await this.refreshCache();
+    // ★ 启动时诊断加密问题，便于快速发现密钥不匹配的情况
+    const diagnosis = await this.diagnoseEncryptionIssues(false);
+    if (diagnosis.failed.length > 0) {
+      this.logger.warn(
+        `⚠️ Encryption key mismatch detected! ${diagnosis.failed.length} settings cannot be decrypted: ${diagnosis.failed.join(", ")}`,
+      );
+      this.logger.warn(
+        `To fix: Call POST /api/v1/admin/settings/encryption/fix to clear corrupted values, then reconfigure these settings.`,
+      );
+    }
   }
 
   async refreshCache(): Promise<void> {
@@ -645,5 +655,79 @@ export class SettingsService implements OnModuleInit {
       this.logger.error(`Decryption failed: ${(error as Error).message}`);
       return null;
     }
+  }
+
+  /**
+   * ★ 诊断并修复无法解密的设置
+   * 识别因密钥不匹配而无法解密的设置，可选择清除这些值
+   */
+  async diagnoseEncryptionIssues(fix = false): Promise<{
+    total: number;
+    encrypted: number;
+    failed: string[];
+    fixed: string[];
+  }> {
+    const settings = await this.prisma.systemSetting.findMany({
+      where: { encrypted: true },
+    });
+
+    const failed: string[] = [];
+    const fixed: string[] = [];
+
+    for (const setting of settings) {
+      try {
+        const parts = setting.value?.split(":");
+        if (!parts || parts.length !== 2) {
+          // 格式不正确，可能未正确加密
+          failed.push(setting.key);
+          continue;
+        }
+
+        const iv = Buffer.from(parts[0], "hex");
+        const encrypted = parts[1];
+        const decipher = crypto.createDecipheriv(
+          "aes-256-cbc",
+          Buffer.from(this.encryptionKey),
+          iv,
+        );
+        decipher.update(encrypted, "hex", "utf8");
+        decipher.final("utf8");
+        // 解密成功，无需处理
+      } catch {
+        failed.push(setting.key);
+
+        // 如果需要修复，清除无法解密的值
+        if (fix) {
+          await this.prisma.systemSetting.update({
+            where: { key: setting.key },
+            data: { value: null, encrypted: false },
+          });
+          fixed.push(setting.key);
+          this.logger.warn(
+            `Cleared corrupted encrypted setting: ${setting.key}`,
+          );
+        }
+      }
+    }
+
+    const allSettings = await this.prisma.systemSetting.count();
+
+    if (failed.length > 0) {
+      this.logger.warn(
+        `Found ${failed.length} settings with decryption issues: ${failed.join(", ")}`,
+      );
+    }
+
+    // 刷新缓存
+    if (fix && fixed.length > 0) {
+      await this.refreshCache();
+    }
+
+    return {
+      total: allSettings,
+      encrypted: settings.length,
+      failed,
+      fixed,
+    };
   }
 }
