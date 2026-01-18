@@ -507,6 +507,24 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
               : null,
           });
 
+          // ★ Health check: detect stuck missions
+          if (isActive) {
+            try {
+              const healthResult = await api.getMissionHealth(topicId);
+              if (healthResult.health && !healthResult.health.isHealthy) {
+                // Mission is unhealthy - log issues and stop polling
+                console.warn(
+                  'Mission health issues detected:',
+                  healthResult.health.issues
+                );
+                // The backend will auto-mark it as failed, so we'll pick up the new status in next poll
+              }
+            } catch (healthError) {
+              // Health check failed, continue with normal polling
+              console.debug('Health check failed:', healthError);
+            }
+          }
+
           // Stop polling if mission is done
           if (!isActive) {
             get().stopMissionPolling();

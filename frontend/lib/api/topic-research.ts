@@ -1961,3 +1961,93 @@ export async function checkEditPermission(
     return false;
   }
 }
+
+// ==================== Health Check API ====================
+
+/**
+ * Mission 健康状态
+ */
+export interface MissionHealthStatus {
+  missionId: string;
+  isHealthy: boolean;
+  status: string;
+  progress: number;
+  startedAt: string | null;
+  lastActivityAt: string | null;
+  stuckDurationMs: number;
+  estimatedRecoveryPossible: boolean;
+  issues: string[];
+}
+
+/**
+ * 可恢复的 Mission 信息
+ */
+export interface ResumableMissionInfo {
+  missionId: string;
+  topicId: string;
+  topicName: string;
+  status: string;
+  progress: number;
+  completedTasks: number;
+  totalTasks: number;
+  lastActivityAt: string;
+  canResume: boolean;
+  resumeReason: string;
+}
+
+/**
+ * 获取专题当前 Mission 的健康状态
+ */
+export async function getMissionHealth(
+  topicId: string
+): Promise<{ health: MissionHealthStatus | null; message?: string }> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/health`);
+}
+
+/**
+ * 获取指定 Mission 的健康状态
+ */
+export async function getMissionHealthById(
+  topicId: string,
+  missionId: string
+): Promise<{ health: MissionHealthStatus }> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/missions/${missionId}/health`
+  );
+}
+
+/**
+ * 检查 Mission 是否可恢复
+ */
+export async function canResumeMission(
+  topicId: string,
+  missionId: string
+): Promise<{ canResume: boolean; reason: string }> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/missions/${missionId}/can-resume`
+  );
+}
+
+/**
+ * 恢复失败的 Mission
+ */
+export async function resumeMission(
+  topicId: string,
+  missionId: string
+): Promise<{ success: boolean; message: string }> {
+  return fetchWithAuth(
+    `${API_PREFIX}/topics/${topicId}/missions/${missionId}/resume`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
+/**
+ * 获取所有可恢复的 Mission 列表
+ */
+export async function getResumableMissions(): Promise<{
+  missions: ResumableMissionInfo[];
+}> {
+  return fetchWithAuth(`${API_PREFIX}/resumable-missions`);
+}

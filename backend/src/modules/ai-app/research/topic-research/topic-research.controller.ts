@@ -73,6 +73,8 @@ import { TopicCollaboratorService } from "./services/topic-collaborator.service"
 import { ResearchEventEmitterService } from "./services/research-event-emitter.service";
 import { ReviewWorkflowService } from "./services/review-workflow.service";
 import { ResearchTodoService } from "./services/research-todo.service";
+import { ResearchMissionHealthService } from "./services/research-mission-health.service";
+import { ResearchCheckpointService } from "./services/research-checkpoint.service";
 
 @ApiTags("Topic Research")
 @ApiBearerAuth("access-token")
@@ -87,6 +89,8 @@ export class TopicResearchController {
     private readonly eventEmitterService: ResearchEventEmitterService,
     private readonly reviewWorkflowService: ReviewWorkflowService,
     private readonly todoService: ResearchTodoService,
+    private readonly healthService: ResearchMissionHealthService,
+    private readonly checkpointService: ResearchCheckpointService,
   ) {}
 
   // ==================== Public Endpoints ====================
@@ -2501,5 +2505,156 @@ export class TopicResearchController {
     }
     await this.todoService.deleteTodo(todoId);
     return { success: true };
+  }
+
+  // ==================== Health Check & Recovery ====================
+
+  /**
+   * 获取 Mission 健康状态
+   */
+  @Get("topics/:topicId/missions/:missionId/health")
+  @ApiOperation({
+    summary: "获取 Mission 健康状态",
+    description: "检查研究任务的健康状态，包括是否卡死、执行时间等",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "missionId", description: "Mission ID" })
+  @ApiResponse({ status: 200, description: "返回健康状态" })
+  async getMissionHealth(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("missionId") missionId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const health = await this.healthService.getMissionHealthStatus(missionId);
+    return { success: true, health };
+  }
+
+  /**
+   * 获取专题当前 Mission 的健康状态
+   */
+  @Get("topics/:topicId/health")
+  @ApiOperation({
+    summary: "获取专题当前 Mission 的健康状态",
+    description: "获取专题最新研究任务的健康状态",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiResponse({ status: 200, description: "返回健康状态" })
+  async getTopicMissionHealth(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+
+    // 获取当前 Mission
+    const mission = await this.missionService.getMissionByTopicId(topicId);
+    if (!mission) {
+      return { success: true, health: null, message: "没有正在进行的研究任务" };
+    }
+
+    const health = await this.healthService.getMissionHealthStatus(mission.id);
+    return { success: true, health };
+  }
+
+  /**
+   * 检查 Mission 是否可恢复
+   */
+  @Get("topics/:topicId/missions/:missionId/can-resume")
+  @ApiOperation({
+    summary: "检查 Mission 是否可恢复",
+    description: "检查失败或取消的研究任务是否可以恢复继续执行",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "missionId", description: "Mission ID" })
+  @ApiResponse({ status: 200, description: "返回是否可恢复" })
+  async canResumeMission(
+    @Request() req: any,
+    @Param("topicId") _topicId: string,
+    @Param("missionId") missionId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const result = await this.checkpointService.canResume(missionId);
+    return { success: true, ...result };
+  }
+
+  /**
+   * 恢复失败的 Mission
+   */
+  @Post("topics/:topicId/missions/:missionId/resume")
+  @ApiOperation({
+    summary: "恢复失败的 Mission",
+    description: "恢复失败或取消的研究任务，继续执行未完成的部分",
+  })
+  @ApiParam({ name: "topicId", description: "专题ID" })
+  @ApiParam({ name: "missionId", description: "Mission ID" })
+  @ApiResponse({ status: 200, description: "恢复成功" })
+  async resumeMission(
+    @Request() req: any,
+    @Param("topicId") topicId: string,
+    @Param("missionId") missionId: string,
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+
+    // 权限检查
+    const hasPermission = await this.collaboratorService.hasAccess(
+      topicId,
+      userId,
+      CollaboratorRole.EDITOR,
+    );
+    if (!hasPermission) {
+      throw new ForbiddenException("无权恢复研究任务，需要编辑权限");
+    }
+
+    const result = await this.checkpointService.resumeMission(missionId);
+    return result;
+  }
+
+  /**
+   * 获取可恢复的 Mission 列表
+   */
+  @Get("resumable-missions")
+  @ApiOperation({
+    summary: "获取可恢复的 Mission 列表",
+    description: "获取当前用户所有可恢复的失败/取消研究任务",
+  })
+  @ApiResponse({ status: 200, description: "返回可恢复任务列表" })
+  async getResumableMissions(@Request() req: any) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    const missions = await this.checkpointService.getResumableMissions(userId);
+    return { success: true, missions };
+  }
+
+  /**
+   * 手动触发健康检查
+   */
+  @Post("admin/health-check")
+  @ApiOperation({
+    summary: "手动触发健康检查",
+    description: "管理员手动触发所有活跃任务的健康检查",
+  })
+  @ApiResponse({ status: 200, description: "健康检查完成" })
+  async triggerHealthCheck(@Request() req: any) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException("User not authenticated");
+    }
+    // TODO: Add admin role check
+    const result = await this.healthService.forceHealthCheck();
+    return { success: true, result };
   }
 }

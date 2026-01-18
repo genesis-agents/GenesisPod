@@ -875,6 +875,17 @@ export class ResearchMissionService {
     // ★ 查询各类型的默认模型（用于显示 Agent 使用的模型）
     const modelTypeMap = await this.getDefaultModelNames();
 
+    // ★ 获取 Leader 模型：优先使用存储的，否则动态获取当前推理模型
+    let leaderModel = mission.leaderModelId || mission.leaderModelName;
+    if (!leaderModel) {
+      // 旧数据没有存储模型ID，动态获取当前使用的推理模型
+      const currentModel = await this.leaderService.getReasoningModel();
+      leaderModel = currentModel?.modelId || currentModel?.modelName || null;
+      this.logger.log(
+        `[getTeamInfo] Mission ${missionId} has no stored model, using current: ${leaderModel}`,
+      );
+    }
+
     // 从任务中提取 Agent 信息
     const agentMap = new Map<string, AgentInfo>();
 
@@ -914,8 +925,7 @@ export class ResearchMissionService {
 
     return {
       leaderId: "leader",
-      // ★ 优先返回实际模型ID，用户需要看到具体使用哪个模型
-      leaderModel: mission.leaderModelId || mission.leaderModelName || null,
+      leaderModel, // ★ 使用上面获取的模型（存储的或动态获取的）
       agents: Array.from(agentMap.values()),
     };
   }
@@ -975,10 +985,10 @@ export class ResearchMissionService {
   private getModelForAgentType(
     _agentType: string,
     modelMap: Map<AIModelType, string>,
-  ): string {
+  ): string | undefined {
     // 所有 worker agent 都使用 CHAT 模型
     // Leader 的模型在 TeamInfo.leaderModel 中单独返回
-    return modelMap.get(AIModelType.CHAT) || "Chat Model";
+    return modelMap.get(AIModelType.CHAT);
   }
 
   /**

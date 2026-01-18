@@ -24,6 +24,8 @@ export { ResearchStrategyService } from "./research-strategy.service";
 export { CredibilityReportService } from "./credibility-report.service";
 export { ReviewWorkflowService } from "./review-workflow.service";
 export { ResearchTodoService } from "./research-todo.service";
+export { ResearchMissionHealthService } from "./research-mission-health.service";
+export { ResearchCheckpointService } from "./research-checkpoint.service";
 
 // Re-export types
 export type {
@@ -71,3 +73,12 @@ export {
   type TodoSummary,
   type TodoResult,
 } from "./research-todo.service";
+export type {
+  HealthCheckResult,
+  MissionHealthDetail,
+  MissionHealthStatus,
+} from "./research-mission-health.service";
+export type {
+  ResearchCheckpoint,
+  ResumableMissionInfo,
+} from "./research-checkpoint.service";
