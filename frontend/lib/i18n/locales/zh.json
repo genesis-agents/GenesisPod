@@ -1253,8 +1253,12 @@
     }
   },
   "aiStore": {
-    "title": "AI 工具",
-    "subtitle": "发现和探索最佳AI工具与应用",
+    "title": "AI Store",
+    "subtitle": "发现 AI 工具和 Agent 技能",
+    "tabs": {
+      "tools": "AI 工具",
+      "skills": "Agent 技能"
+    },
     "search": {
       "placeholder": "搜索AI工具、功能或标签..."
     },
@@ -1324,14 +1328,6 @@
       "title": "由 SkillsMP 提供支持",
       "description": "浏览 63,000+ 基于开放 SKILL.md 标准的 Agent Skills",
       "button": "访问 SkillsMP"
-    }
-  },
-  "aiStore": {
-    "title": "AI Store",
-    "subtitle": "发现 AI 工具和 Agent 技能",
-    "tabs": {
-      "tools": "AI 工具",
-      "skills": "Agent 技能"
     }
   },
   "labs": {

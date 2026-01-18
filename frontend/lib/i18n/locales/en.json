@@ -1259,8 +1259,12 @@
     }
   },
   "aiStore": {
-    "title": "AI Tools",
-    "subtitle": "Discover and explore the best AI tools and applications",
+    "title": "AI Store",
+    "subtitle": "Discover AI tools and agent skills",
+    "tabs": {
+      "tools": "AI Tools",
+      "skills": "Agent Skills"
+    },
     "search": {
       "placeholder": "Search AI tools, features or tags..."
     },
@@ -1330,14 +1334,6 @@
       "title": "Powered by SkillsMP",
       "description": "Browse 63,000+ agent skills from the open SKILL.md standard",
       "button": "Visit SkillsMP"
-    }
-  },
-  "aiStore": {
-    "title": "AI Store",
-    "subtitle": "Discover AI tools and agent skills",
-    "tabs": {
-      "tools": "AI Tools",
-      "skills": "Agent Skills"
     }
   },
   "labs": {
