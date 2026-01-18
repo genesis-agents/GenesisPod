@@ -409,16 +409,24 @@ export function splitTextIntoSegments(
       text.length
     );
 
-    // Add non-annotated segment before this match
-    if (originalStart > currentPos) {
-      const beforeText = text.slice(currentPos, originalStart);
+    // Skip if this match is completely within already processed text (overlapping annotation)
+    if (originalEnd <= currentPos) {
+      continue;
+    }
+
+    // Calculate effective start position to avoid duplicating text in overlaps
+    const effectiveStart = Math.max(originalStart, currentPos);
+
+    // Add non-annotated segment before this match (only if there's a gap)
+    if (effectiveStart > currentPos) {
+      const beforeText = text.slice(currentPos, effectiveStart);
       if (beforeText) {
         segments.push({ text: beforeText });
       }
     }
 
-    // Add annotated segment
-    const annotatedText = text.slice(originalStart, originalEnd);
+    // Add annotated segment (from effective start to avoid duplicates)
+    const annotatedText = text.slice(effectiveStart, originalEnd);
     if (annotatedText) {
       segments.push({
         text: annotatedText,
@@ -428,7 +436,7 @@ export function splitTextIntoSegments(
       });
     }
 
-    currentPos = Math.max(currentPos, originalEnd);
+    currentPos = originalEnd;
   }
 
   // Add remaining non-annotated text

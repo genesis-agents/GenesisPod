@@ -50,11 +50,15 @@ function markdownToHtml(markdown: string): string {
   // First normalize and clean the markdown
   let normalized = markdown
     .replace(/\r\n/g, '\n') // Normalize Windows line endings
+    // Fix accumulated backslashes before periods (from Turndown escaping round-trips)
+    // Pattern: number followed by one or more \\ then period → number + period
+    .replace(/(\d)\\+\./g, '$1.') // Remove all backslashes between digit and period
     .replace(/\\#/g, '#') // Remove escaped hash symbols (common from AI output)
     .replace(/\\-/g, '-') // Remove escaped dashes
     .replace(/\\\*/g, '*') // Remove escaped asterisks
     .replace(/\\\[/g, '[') // Remove escaped brackets
     .replace(/\\\]/g, ']')
+    .replace(/\\\./g, '.') // Remove escaped periods
     .replace(/\n{3,}/g, '\n\n') // Collapse 3+ newlines to 2
     .trim();
 
