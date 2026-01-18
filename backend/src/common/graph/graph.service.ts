@@ -994,7 +994,7 @@ export class GraphService {
     // PostgreSQL 方案不需要显式构建图谱
     // 数据已经在 Resource 表的 JSON 字段中
     this.logger.log(
-      `✅ PostgreSQL graph: No explicit build needed, data already indexed`,
+      `[Graph] PostgreSQL graph: No explicit build needed, data already indexed`,
     );
   }
 
@@ -1007,7 +1007,7 @@ export class GraphService {
   }> {
     const resourceCount = await this.prisma.resource.count();
     this.logger.log(
-      `✅ PostgreSQL graph: ${resourceCount} resources already indexed`,
+      `[Graph] PostgreSQL graph: ${resourceCount} resources already indexed`,
     );
     return { success: resourceCount, failed: 0 };
   }

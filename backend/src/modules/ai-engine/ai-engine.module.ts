@@ -119,6 +119,9 @@ import { SkillCacheService } from "./skills/loader/skill-cache.service";
 import { SkillPromptBuilder } from "./skills/builder/skill-prompt-builder.service";
 import { SkillsMPClientService } from "./skills/ecosystem/skillsmp-client.service";
 
+// Skills Public API
+import { SkillsController, SkillsApiService } from "./skills/api";
+
 /**
  * 工具管道工厂
  */
@@ -267,7 +270,7 @@ const conversationMemoryFactory = {
     TeamsModule,
     LongContentModule,
   ],
-  controllers: [AgentsController, AiCoreController],
+  controllers: [AgentsController, AiCoreController, SkillsController],
   providers: [
     // === Registries ===
     ToolRegistry,
@@ -352,6 +355,7 @@ const conversationMemoryFactory = {
     SkillLoaderService,
     SkillPromptBuilder,
     SkillsMPClientService,
+    SkillsApiService,
   ],
   exports: [
     // === Registries ===

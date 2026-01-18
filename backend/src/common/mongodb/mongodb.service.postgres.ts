@@ -15,7 +15,7 @@ export class MongoDBService {
   // No-op lifecycle methods (PostgreSQL via Prisma handles connections)
   async onModuleInit() {
     this.logger.log(
-      "✅ PostgreSQL RawData service ready (MongoDB compatibility mode)",
+      "[MongoDB] PostgreSQL RawData service ready (compatibility mode)",
     );
   }
 

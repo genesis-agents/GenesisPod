@@ -13,7 +13,7 @@ export class Neo4jService {
 
   async onModuleInit() {
     this.logger.log(
-      "✅ PostgreSQL Graph service ready (Neo4j compatibility mode)",
+      "[Neo4j] PostgreSQL Graph service ready (compatibility mode)",
     );
   }
 
