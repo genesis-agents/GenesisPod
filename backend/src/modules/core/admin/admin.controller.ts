@@ -1080,6 +1080,21 @@ export class AdminController {
 
       if (response.ok) {
         const data = await response.json();
+        // Log the actual response structure
+        this.logger.log(
+          `SkillsMP API test response: keys=${Object.keys(data).join(",")}`,
+        );
+        // Log sample data if available
+        const skillsArray =
+          data.skills || data.results || data.data || data.items || [];
+        this.logger.log(
+          `SkillsMP API test: found ${skillsArray.length} skills in response`,
+        );
+        if (skillsArray.length > 0) {
+          this.logger.log(
+            `SkillsMP sample skill keys: ${Object.keys(skillsArray[0]).join(",")}`,
+          );
+        }
         return {
           success: true,
           message: `SkillsMP API 连接成功，共有 ${data.total || "60,000+"} 个技能`,
