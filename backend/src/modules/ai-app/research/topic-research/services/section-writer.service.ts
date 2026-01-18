@@ -36,6 +36,8 @@ export interface SectionWriteInput {
   section: SectionPlan;
   evidenceData: EvidenceData[];
   previousSections?: Array<{ title: string; content: string }>;
+  /** ★ 指定使用的模型ID（用于实现 Agent 多元化） */
+  modelId?: string;
 }
 
 /**
@@ -47,6 +49,8 @@ export interface SectionRevisionInput {
   reviewFeedback: string;
   revisionInstructions: string;
   evidenceData: EvidenceData[];
+  /** ★ 指定使用的模型ID（用于实现 Agent 多元化） */
+  modelId?: string;
 }
 
 @Injectable()
@@ -62,10 +66,10 @@ export class SectionWriterService {
    * @returns 章节写作结果
    */
   async writeSection(input: SectionWriteInput): Promise<SectionWriteResult> {
-    const { section, evidenceData, previousSections } = input;
+    const { section, evidenceData, previousSections, modelId } = input;
 
     this.logger.log(
-      `[writeSection] Writing section: ${section.title} (${section.targetWords} words)`,
+      `[writeSection] Writing section: ${section.title} (${section.targetWords} words)${modelId ? `, model: ${modelId}` : ""}`,
     );
 
     // 格式化证据列表
@@ -108,6 +112,7 @@ export class SectionWriterService {
     );
 
     // 调用 AI 写作
+    // ★ 支持指定模型实现 Agent 多元化
     const startTime = Date.now();
     const response = await this.aiFacade.chat({
       messages: [
@@ -115,6 +120,7 @@ export class SectionWriterService {
         { role: "user", content: userPrompt },
       ],
       modelType: AIModelType.CHAT,
+      model: modelId, // ★ 使用指定模型（如果提供）
       taskProfile: {
         creativity: "medium",
         outputLength: "long", // 支持 800-1500 字的章节
@@ -157,9 +163,12 @@ export class SectionWriterService {
       reviewFeedback,
       revisionInstructions,
       evidenceData,
+      modelId,
     } = input;
 
-    this.logger.log(`[reviseSection] Revising section: ${section.title}`);
+    this.logger.log(
+      `[reviseSection] Revising section: ${section.title}${modelId ? `, model: ${modelId}` : ""}`,
+    );
 
     // 格式化证据列表
     const evidenceFormatted = formatEvidenceForPrompt(evidenceData);
@@ -182,6 +191,7 @@ export class SectionWriterService {
     );
 
     // 调用 AI 修订
+    // ★ 支持指定模型实现 Agent 多元化
     const startTime = Date.now();
     const response = await this.aiFacade.chat({
       messages: [
@@ -189,6 +199,7 @@ export class SectionWriterService {
         { role: "user", content: userPrompt },
       ],
       modelType: AIModelType.CHAT,
+      model: modelId, // ★ 使用指定模型（如果提供）
       taskProfile: {
         creativity: "low", // 修订时降低创造性，保持一致性
         outputLength: "long", // 支持 800-1500 字的章节

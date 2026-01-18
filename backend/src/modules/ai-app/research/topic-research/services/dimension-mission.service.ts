@@ -104,6 +104,7 @@ export class DimensionMissionService {
    * @param dimension 研究维度
    * @param reportId 报告ID（可选，用于关联证据）
    * @param missionId 任务ID（可选，用于持久化团队消息）
+   * @param modelId ★ Leader 分配给此维度研究员的模型 ID（实现多元化）
    * @returns Mission 执行结果
    */
   async executeDimensionMission(
@@ -111,13 +112,14 @@ export class DimensionMissionService {
     dimension: TopicDimension,
     reportId?: string,
     missionId?: string,
+    modelId?: string,
   ): Promise<DimensionMissionResult> {
     // ★ 统一日志前缀，便于区分不同维度的 Agent
     const dimId = dimension.id.slice(0, 8);
     const logPrefix = `[Dimension:${dimension.name}:${dimId}]`;
 
     this.logger.log(
-      `${logPrefix} Starting mission (topicId=${topic.id.slice(0, 8)})`,
+      `${logPrefix} Starting mission (topicId=${topic.id.slice(0, 8)})${modelId ? `, model: ${modelId}` : ""}`,
     );
 
     // ★ 更新维度状态为 RESEARCHING
@@ -322,6 +324,7 @@ export class DimensionMissionService {
         outline,
         evidenceData,
         missionId,
+        modelId, // ★ 传递 Leader 分配的模型
       );
 
       // ★ 记录写作完成
@@ -513,6 +516,7 @@ export class DimensionMissionService {
     outline: DimensionOutline,
     evidenceData: EvidenceData[],
     missionId?: string,
+    modelId?: string, // ★ Leader 分配的模型
   ): Promise<SectionWriteResult[]> {
     const sectionResults: SectionWriteResult[] = [];
     const sectionMap = new Map<string, SectionWriteResult>();
@@ -523,7 +527,9 @@ export class DimensionMissionService {
 
     // 按并行组执行
     for (const group of outline.executionPlan.parallelGroups) {
-      this.logger.log(`${logPrefix} Writing group: ${group.join(", ")}`);
+      this.logger.log(
+        `${logPrefix} Writing group: ${group.join(", ")}${modelId ? ` with model: ${modelId}` : ""}`,
+      );
 
       // 获取当前组的章节
       const groupSections = outline.sections.filter((s) =>
@@ -539,6 +545,7 @@ export class DimensionMissionService {
           sectionMap,
           outline,
         ),
+        modelId, // ★ 传递模型
       }));
 
       const groupResults =
@@ -562,12 +569,30 @@ export class DimensionMissionService {
             this.logger.log(
               `${logPrefix} Section "${section.title}" approved (score: ${review.score})`,
             );
+            // ★ 记录审核通过到 Activity
+            await this.agentActivity.recordReviewActivity(
+              topicId,
+              missionId || dimension.id,
+              dimension.id,
+              dimension.name,
+              `章节「${section.title}」审核通过 (评分: ${review.score}/100)`,
+              true,
+            );
             break;
           }
 
           // 需要修订
           this.logger.log(
             `${logPrefix} Section "${section.title}" revision needed (score: ${review.score})`,
+          );
+          // ★ 记录审核不通过到 Activity
+          await this.agentActivity.recordReviewActivity(
+            topicId,
+            missionId || dimension.id,
+            dimension.id,
+            dimension.name,
+            `章节「${section.title}」需要修订 (评分: ${review.score}/100)：${review.feedback}`,
+            false,
           );
 
           result = await this.sectionWriter.reviseSection({
@@ -576,6 +601,7 @@ export class DimensionMissionService {
             reviewFeedback: review.feedback,
             revisionInstructions: review.revisionInstructions || "",
             evidenceData,
+            modelId, // ★ 修订时使用同一模型
           });
 
           revisionCount++;
@@ -954,14 +980,16 @@ export class DimensionMissionService {
    * 发送进度事件
    * @param dimensionName - 维度名称（用于前端显示）
    * @param stageProgress - 当前阶段的进度百分比（可选，如果提供则使用此值）
+   *
+   * ★ 同时更新 mission.updatedAt 作为心跳，防止被健康检测误判为卡死
    */
-  private emitProgress(
+  private async emitProgress(
     topicId: string,
     dimensionName: string,
     progress: MissionProgress,
     missionId?: string,
     stageProgress?: number,
-  ): void {
+  ): Promise<void> {
     // 计算进度：优先使用 stageProgress，否则根据 section 完成比例计算
     let calculatedProgress: number;
     if (stageProgress !== undefined) {
@@ -983,5 +1011,17 @@ export class DimensionMissionService {
       progress.message,
       missionId,
     );
+
+    // ★ 心跳更新：更新关联的 mission.updatedAt，防止被健康检测误判为卡死
+    if (missionId) {
+      try {
+        await this.prisma.researchMission.update({
+          where: { id: missionId },
+          data: { updatedAt: new Date() },
+        });
+      } catch {
+        // 忽略更新失败（mission 可能已被删除或取消）
+      }
+    }
   }
 }

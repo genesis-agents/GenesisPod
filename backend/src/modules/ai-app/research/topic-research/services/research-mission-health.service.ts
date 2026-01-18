@@ -25,11 +25,11 @@ import { ResearchEventEmitterService } from "./research-event-emitter.service";
  * Health check configuration
  */
 const HEALTH_CHECK_CONFIG = {
-  /** Check interval: 2 minutes (reduced for faster detection) */
-  checkIntervalMs: 2 * 60 * 1000,
+  /** Check interval: 5 minutes (same as AI Writing) */
+  checkIntervalMs: 5 * 60 * 1000,
 
-  /** Stuck threshold: 5 minutes without progress (reduced from 30 min) */
-  stuckThresholdMs: 5 * 60 * 1000,
+  /** Stuck threshold: 30 minutes without progress (same as AI Writing) */
+  stuckThresholdMs: 30 * 60 * 1000,
 
   /** Maximum execution time: 2 hours */
   maxExecutionTimeMs: 2 * 60 * 60 * 1000,
@@ -166,6 +166,7 @@ export class ResearchMissionHealthService
       };
 
       // Find all active missions (PLANNING, EXECUTING, REVIEWING)
+      // ★ 同时获取更多信息用于智能判断
       const activeMissions = await this.prisma.researchMission.findMany({
         where: {
           status: {
@@ -179,7 +180,7 @@ export class ResearchMissionHealthService
         include: {
           tasks: {
             orderBy: { updatedAt: "desc" },
-            take: 1,
+            take: 5, // 获取最近 5 个任务，用于判断是否有活跃任务
           },
         },
       });
@@ -225,6 +226,11 @@ export class ResearchMissionHealthService
 
   /**
    * Check health of a single mission
+   *
+   * ★ 智能检测逻辑：
+   * 1. 超过最大执行时间（2小时）→ 标记失败
+   * 2. 超过卡死阈值（30分钟）但有正在执行的任务 → 只警告，不标记失败
+   * 3. 超过卡死阈值且没有正在执行的任务 → 标记失败
    */
   private async checkMissionHealth(
     mission: any,
@@ -244,13 +250,12 @@ export class ResearchMissionHealthService
     const lastActivity = detail.lastActivityAt || mission.createdAt;
     detail.stuckDurationMs = now.getTime() - new Date(lastActivity).getTime();
 
-    // Check if mission has exceeded max execution time
+    // Check if mission has exceeded max execution time (2 hours)
     const executionTime = mission.startedAt
       ? now.getTime() - new Date(mission.startedAt).getTime()
       : detail.stuckDurationMs;
 
     if (executionTime > HEALTH_CHECK_CONFIG.maxExecutionTimeMs) {
-      // Mark as failed due to timeout
       await this.markMissionFailed(
         mission,
         `研究任务执行超时（超过 ${Math.round(HEALTH_CHECK_CONFIG.maxExecutionTimeMs / 1000 / 60)} 分钟）`,
@@ -260,15 +265,30 @@ export class ResearchMissionHealthService
       return detail;
     }
 
-    // Check if mission is stuck
+    // ★ 智能卡死检测：检查是否有正在执行的任务
     if (detail.stuckDurationMs > HEALTH_CHECK_CONFIG.stuckThresholdMs) {
-      // Mission is stuck - mark as failed
-      await this.markMissionFailed(
-        mission,
-        `研究任务卡死（${Math.round(detail.stuckDurationMs / 1000 / 60)} 分钟无进展）`,
+      // 检查是否有 EXECUTING 状态的任务
+      const hasExecutingTasks = mission.tasks?.some(
+        (task: any) => task.status === ResearchTaskStatus.EXECUTING,
       );
-      detail.action = "marked_failed";
-      detail.reason = "No progress for extended period";
+
+      if (hasExecutingTasks) {
+        // 有任务正在执行，可能是长时间的 AI 调用，只记录警告
+        this.logger.warn(
+          `Mission ${mission.id} has been inactive for ${Math.round(detail.stuckDurationMs / 1000 / 60)} minutes, ` +
+            `but has executing tasks - not marking as failed`,
+        );
+        detail.reason = "Has executing tasks - monitoring only";
+        // 不标记失败，让任务继续执行
+      } else {
+        // 没有正在执行的任务，真的卡住了
+        await this.markMissionFailed(
+          mission,
+          `研究任务卡死（${Math.round(detail.stuckDurationMs / 1000 / 60)} 分钟无进展且无执行中任务）`,
+        );
+        detail.action = "marked_failed";
+        detail.reason = "No progress and no executing tasks";
+      }
       return detail;
     }
 

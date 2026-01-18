@@ -53,6 +53,8 @@ export interface AgentAssignment {
   agentType: "dimension_researcher" | "quality_reviewer" | "report_writer";
   assignedDimensions?: string[];
   role: string;
+  /** ★ Leader 为此 Agent 选择的模型 ID（实现多元化） */
+  modelId?: string;
 }
 
 export interface ReviewDecision {
@@ -211,12 +213,25 @@ const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Research L
 - 自主决定研究维度（不要使用预设模板）
 - 为每个维度设计搜索策略
 - 分配 Agent 执行任务
+- **为每个 Agent 选择合适的 AI 模型**（实现研究多元化）
 
 ## 用户研究请求
 主题：{topic}
 类型：{topicType}
 描述：{description}
 用户指令：{userPrompt}
+
+## 可用 AI 模型
+{availableModels}
+
+**模型选择指南**：
+- 为不同研究员选择不同模型，确保观点多元化
+- 技术/数据分析类维度：优先选择 GPT 系列
+- 创意/洞察类维度：优先选择 Claude 系列
+- 实时信息/新闻类维度：优先选择 Grok 系列（擅长实时信息）
+- 中文内容/国内市场类维度：优先选择 DeepSeek、Qwen（通义千问）、GLM 等国产模型
+- 快速/基础类维度：可选择 Gemini Flash、DeepSeek-Chat
+- **重要**：尽量让研究员使用不同的模型，避免所有人都用同一个
 
 ## 已有研究维度
 {existingDimensions}
@@ -259,26 +274,30 @@ const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Research L
       "agentName": "市场趋势研究员",
       "agentType": "dimension_researcher",
       "assignedDimensions": ["dimension_id1"],
-      "role": "负责市场趋势维度的深度研究"
+      "role": "负责市场趋势维度的深度研究",
+      "modelId": "gpt-4o"
     },
     {
       "agentId": "researcher_tech_analysis",
       "agentName": "技术分析研究员",
       "agentType": "dimension_researcher",
       "assignedDimensions": ["dimension_id2"],
-      "role": "负责技术分析维度的深度研究"
+      "role": "负责技术分析维度的深度研究",
+      "modelId": "claude-3-5-sonnet"
     },
     {
       "agentId": "reviewer_quality",
       "agentName": "质量审核专家",
       "agentType": "quality_reviewer",
-      "role": "负责审核所有研究结果的质量"
+      "role": "负责审核所有研究结果的质量",
+      "modelId": "gemini-2.0-flash"
     },
     {
       "agentId": "writer_report",
       "agentName": "报告撰写专家",
       "agentType": "report_writer",
-      "role": "负责整合研究结果并撰写最终报告"
+      "role": "负责整合研究结果并撰写最终报告",
+      "modelId": "gpt-4o"
     }
   ]
 }
@@ -661,7 +680,22 @@ export class ResearchLeaderService {
       throw new Error("No reasoning model available for Leader");
     }
 
-    // 3. 构建已有维度信息
+    // 3. 获取可用的 CHAT 模型列表（供 Leader 为 Agent 分配）
+    const availableModels = await this.aiFacade.getAvailableModelsExtended();
+    const availableModelsText =
+      availableModels.length > 0
+        ? availableModels
+            .map(
+              (m) =>
+                `- ${m.id}（${m.provider}${m.name !== m.id ? `，${m.name}` : ""}）`,
+            )
+            .join("\n")
+        : "- 使用默认模型";
+    this.logger.log(
+      `[planResearch] Available models for agents: ${availableModels.map((m) => m.id).join(", ")}`,
+    );
+
+    // 4. 构建已有维度信息
     let existingDimensionsText = "无已有维度（首次研究）";
     if (topic.dimensions && topic.dimensions.length > 0) {
       existingDimensionsText = topic.dimensions
@@ -672,14 +706,15 @@ export class ResearchLeaderService {
         .join("\n");
     }
 
-    // 4. 构建 prompt
+    // 5. 构建 prompt
     const prompt = LEADER_PLAN_PROMPT.replace("{topic}", topic.name)
       .replace("{topicType}", topic.type)
       .replace("{description}", topic.description || "无")
       .replace("{userPrompt}", userPrompt || "请进行全面研究")
+      .replace("{availableModels}", availableModelsText)
       .replace("{existingDimensions}", existingDimensionsText);
 
-    // 5. 调用 AI 获取规划
+    // 6. 调用 AI 获取规划
     const startTime = Date.now();
     let response;
     try {

@@ -21,6 +21,7 @@ import {
   LeaderDecisionType,
   Prisma,
   AIModelType,
+  AgentActivityType,
 } from "@prisma/client";
 import type { ResearchMission, ResearchTask } from "@prisma/client";
 import {
@@ -31,6 +32,7 @@ import { DimensionMissionService } from "./dimension-mission.service";
 import { ReportSynthesisService } from "./report-synthesis.service";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
 import { TopicCollaboratorService } from "./topic-collaborator.service";
+import { AgentActivityService } from "./agent-activity.service";
 import { CollaboratorRole } from "../dto/collaborator.dto";
 
 // ==================== Constants ====================
@@ -130,6 +132,7 @@ export class ResearchMissionService {
     private readonly reportSynthesisService: ReportSynthesisService,
     private readonly researchEventEmitter: ResearchEventEmitterService,
     private readonly collaboratorService: TopicCollaboratorService,
+    private readonly agentActivity: AgentActivityService,
   ) {}
 
   /**
@@ -320,6 +323,21 @@ export class ResearchMissionService {
           decision: leaderPlan as unknown as Prisma.InputJsonValue,
           reasoning: `规划了 ${leaderPlan.dimensions.length} 个研究维度，分配了 ${leaderPlan.agentAssignments.length} 个 Agent`,
         },
+      });
+
+      // ★ 记录 Leader 团队组建活动到 Activity（持久化）
+      await this.agentActivity.recordActivity({
+        topicId,
+        missionId,
+        agentId: "leader",
+        agentName: "研究组长",
+        agentRole: "leader",
+        activityType: AgentActivityType.PLANNING,
+        phase: "team_building",
+        content: `组建研究团队：规划了 ${leaderPlan.dimensions.length} 个研究维度，分配了 ${leaderPlan.agentAssignments.length} 个研究员`,
+        progress: 50,
+        thinkingPhase: "understanding",
+        thinkingContent: `研究维度：${leaderPlan.dimensions.map((d) => d.name).join("、")}\n研究员分配：${leaderPlan.agentAssignments.map((a) => `${a.agentName || a.agentId}${a.modelId ? ` [${a.modelId}]` : ""}`).join("、")}`,
       });
 
       // ★ 发送 Leader 思考事件：分配任务
@@ -1444,6 +1462,12 @@ export class ResearchMissionService {
     while (iteration < maxIterations) {
       iteration++;
 
+      // ★ 心跳更新：每次循环都更新 mission.updatedAt，防止被健康检测误判为卡死
+      await this.prisma.researchMission.update({
+        where: { id: missionId },
+        data: { updatedAt: new Date() },
+      });
+
       // ★ 检查 Mission 是否已被取消
       const currentMission = await this.prisma.researchMission.findUnique({
         where: { id: missionId },
@@ -1516,6 +1540,7 @@ export class ResearchMissionService {
     this.logger.log(`[executeTask] Executing task: ${task.title} (${task.id})`);
 
     // ★ 前置检查：任务开始前检查是否已被取消（防止竞态条件覆盖 FAILED 状态）
+    // ★ 同时获取 leaderPlan 以查找 Agent 分配的模型
     const [currentTask, currentMission] = await Promise.all([
       this.prisma.researchTask.findUnique({
         where: { id: task.id },
@@ -1523,7 +1548,7 @@ export class ResearchMissionService {
       }),
       this.prisma.researchMission.findUnique({
         where: { id: missionId },
-        select: { status: true },
+        select: { status: true, leaderPlan: true },
       }),
     ]);
 
@@ -1550,6 +1575,13 @@ export class ResearchMissionService {
     const agentRole = this.getAgentRoleFromTaskType(task.taskType);
     const agentName = this.getAgentNameFromTaskType(task.taskType);
 
+    // ★ 从 leaderPlan 中查找此 Agent 分配的模型（用于 Activity 显示）
+    const leaderPlan = currentMission?.leaderPlan as LeaderPlan | null;
+    const agentAssignment = leaderPlan?.agentAssignments?.find(
+      (a) => a.agentId === task.assignedAgent,
+    );
+    const assignedModelId = agentAssignment?.modelId;
+
     try {
       // 更新任务状态为执行中
       await this.updateTaskStatus(task.id, ResearchTaskStatus.EXECUTING);
@@ -1574,9 +1606,10 @@ export class ResearchMissionService {
           agentRole,
           status: "working",
           taskDescription: task.title,
-          dimensionId: task.dimensionId ?? undefined, // ★ 新增：传入维度ID
+          dimensionId: task.dimensionId ?? undefined,
           dimensionName: task.dimensionName ?? undefined,
           progress: 0,
+          modelId: assignedModelId, // ★ 传递模型 ID 用于显示
         },
         missionId,
       );
@@ -1608,7 +1641,7 @@ export class ResearchMissionService {
 
           if (dimension) {
             this.logger.log(
-              `[executeTask] Found dimension: ${dimension.name} (${dimension.id})`,
+              `[executeTask] Found dimension: ${dimension.name} (${dimension.id})${assignedModelId ? `, model: ${assignedModelId}` : ""}`,
             );
 
             // ★ 发送进度事件：正在采集数据
@@ -1627,6 +1660,7 @@ export class ResearchMissionService {
                 dimension,
                 reportId, // ★ 传入 reportId 以便关联证据
                 missionId, // ★ 传入 missionId 以便持久化团队消息
+                assignedModelId, // ★ 传入 Leader 分配的模型
               );
 
             if (!missionResult.success) {

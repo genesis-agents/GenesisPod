@@ -12,7 +12,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import type { AgentActivityType } from "@prisma/client";
+import { AgentActivityType } from "@prisma/client";
 
 /**
  * 思考阶段类型
@@ -527,5 +527,50 @@ export class AgentActivityService {
       totalDuration,
       averageDuration: durationCount > 0 ? totalDuration / durationCount : 0,
     };
+  }
+
+  /**
+   * ★ 记录 Leader 审核结果到 Activity
+   *
+   * @param topicId 研究专题 ID
+   * @param missionId 任务 ID
+   * @param dimensionId 维度 ID
+   * @param dimensionName 维度名称
+   * @param content 审核内容描述
+   * @param approved 是否通过
+   */
+  async recordReviewActivity(
+    topicId: string,
+    missionId: string,
+    dimensionId: string,
+    dimensionName: string,
+    content: string,
+    approved: boolean,
+  ): Promise<void> {
+    try {
+      await this.prisma.researchAgentActivity.create({
+        data: {
+          topicId,
+          missionId,
+          dimensionId,
+          dimensionName,
+          agentId: "leader",
+          agentName: "研究组长",
+          agentRole: "leader",
+          activityType: AgentActivityType.REVIEWING,
+          phase: "reviewing",
+          content,
+          progress: approved ? 100 : 50,
+          thinkingPhase: "reviewing",
+          thinkingContent: approved ? "审核通过" : "需要修订",
+        },
+      });
+    } catch (error) {
+      // 忽略外键约束错误（topic 可能已被删除）
+      const errorStr = String(error);
+      if (!errorStr.includes("Foreign key constraint")) {
+        this.logger.error(`Failed to record review activity: ${error}`);
+      }
+    }
   }
 }

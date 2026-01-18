@@ -77,6 +77,8 @@ export interface AgentWorkingData {
   dimensionId?: string; // ★ 新增：维度ID，用于精确关联任务活动
   dimensionName?: string;
   progress?: number;
+  /** ★ Agent 使用的模型 ID（实现多元化显示） */
+  modelId?: string;
 }
 
 /**
@@ -376,15 +378,19 @@ export class ResearchEventEmitterService {
         }
 
         const activityType = this.mapAgentStatusToActivityType(data.status);
+        // ★ 在 Agent 名称后显示模型 ID（如果有）
+        const agentDisplayName = data.modelId
+          ? `${data.agentName} [${data.modelId}]`
+          : data.agentName;
         await this.prisma.researchAgentActivity.create({
           data: {
             topicId,
             missionId,
             agentId: data.agentId,
-            agentName: data.agentName,
+            agentName: agentDisplayName,
             agentRole: data.agentRole,
             activityType,
-            content: data.taskDescription || `${data.agentName} 正在工作`,
+            content: data.taskDescription || `${agentDisplayName} 正在工作`,
             progress: data.progress || 0,
             dimensionId: data.dimensionId, // ★ 新增：保存维度ID以便精确查询
             dimensionName: data.dimensionName,

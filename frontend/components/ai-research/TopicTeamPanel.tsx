@@ -1129,16 +1129,16 @@ function TeamCanvasView({
 
 /**
  * 根据进度百分比返回当前阶段描述
- * 进度阶段：
- * - 0-20%: 收集资料
- * - 20-50%: 研究分析
- * - 50-80%: 撰写中
- * - 80-100%: 整合中
+ * 进度阶段（匹配后端 dimension-mission.service.ts 的进度计算）：
+ * - 0-10%: 收集中 (搜索资料)
+ * - 10-30%: 规划中 (Leader 规划大纲)
+ * - 30-80%: 研究中 (研究员撰写章节)
+ * - 80-100%: 整合中 (Leader 整合报告)
  */
 function getProgressStage(progress: number): string {
-  if (progress < 20) return '收集中';
-  if (progress < 50) return '研究中';
-  if (progress < 80) return '撰写中';
+  if (progress < 10) return '收集中';
+  if (progress < 30) return '规划中';
+  if (progress < 80) return '研究中';
   return '整合中';
 }
 
