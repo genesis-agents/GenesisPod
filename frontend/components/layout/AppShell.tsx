@@ -6,6 +6,7 @@ import MobileNav from './MobileNav';
 interface AppShellProps {
   children: React.ReactNode;
   className?: string;
+  hideSidebar?: boolean;
 }
 
 /**
@@ -13,19 +14,23 @@ interface AppShellProps {
  *
  * Includes:
  * - MobileNav (visible on mobile, hidden on md+)
- * - Sidebar (hidden on mobile, visible on md+)
+ * - Sidebar (hidden on mobile, visible on md+) - can be hidden with hideSidebar prop
  * - Main content area with proper spacing
  */
-export default function AppShell({ children, className = '' }: AppShellProps) {
+export default function AppShell({
+  children,
+  className = '',
+  hideSidebar = false,
+}: AppShellProps) {
   return (
     <>
       {/* Mobile Navigation - Only visible on small screens */}
-      <MobileNav />
+      {!hideSidebar && <MobileNav />}
 
       {/* Main Layout Container */}
       <div className={`flex h-screen bg-gray-50 ${className}`}>
-        {/* Desktop Sidebar - Hidden on mobile */}
-        <Sidebar />
+        {/* Desktop Sidebar - Hidden on mobile, or when hideSidebar is true */}
+        {!hideSidebar && <Sidebar />}
 
         {/* Main Content */}
         {children}

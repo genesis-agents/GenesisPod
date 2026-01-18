@@ -28,9 +28,9 @@ export default function AdminLayout({
   };
 
   return (
-    <AppShell>
-      <div className="flex h-full overflow-hidden">
-        {/* Sidebar */}
+    <AppShell hideSidebar>
+      <div className="flex h-full w-full overflow-hidden">
+        {/* Admin Sidebar */}
         <AdminSidebar
           collapsed={sidebarCollapsed}
           onCollapsedChange={handleCollapsedChange}
