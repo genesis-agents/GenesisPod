@@ -311,18 +311,57 @@ export class SkillsApiService {
       // Paginate through all skills
       while (hasMore) {
         try {
-          const response = await fetch(
-            `https://skillsmp.com/api/v1/skills/search?q=&limit=${pageSize}&offset=${offset}`,
-            {
-              headers: {
-                Authorization: `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-                "User-Agent": "DeepDive-Engine/1.0",
-              },
-            },
-          );
+          // ★ 使用不同的 API 端点尝试获取数据
+          // 1. 首先尝试 list 端点（不需要 search query）
+          // 2. 如果失败，尝试带通配符的 search
+          const endpoints = [
+            `https://skillsmp.com/api/v1/skills?limit=${pageSize}&offset=${offset}`,
+            `https://skillsmp.com/api/v1/skills/list?limit=${pageSize}&offset=${offset}`,
+            `https://skillsmp.com/api/v1/skills/search?limit=${pageSize}&offset=${offset}`,
+          ];
+
+          let response: Response | null = null;
+          let usedEndpoint = "";
+
+          for (const endpoint of endpoints) {
+            try {
+              response = await fetch(endpoint, {
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                  "User-Agent": "DeepDive-Engine/1.0",
+                  Accept: "application/json",
+                },
+              });
+
+              if (response.ok) {
+                usedEndpoint = endpoint;
+                break;
+              } else if (offset === 0) {
+                // 只在第一次请求时记录失败的端点
+                this.logger.debug(
+                  `SkillsMP endpoint ${endpoint.split("?")[0]} returned ${response.status}`,
+                );
+              }
+            } catch (endpointError) {
+              // 继续尝试下一个端点
+            }
+          }
+
+          if (!response) {
+            this.logger.warn(
+              `SkillsMP: all endpoints failed at offset ${offset}`,
+            );
+            hasMore = false;
+            break;
+          }
 
           if (response.ok) {
+            if (offset === 0 && usedEndpoint) {
+              this.logger.log(
+                `SkillsMP using endpoint: ${usedEndpoint.split("?")[0]}`,
+              );
+            }
             const data = await response.json();
             const skills = extractSkills(data);
 
@@ -366,12 +405,8 @@ export class SkillsApiService {
 
             // Rate limiting: small delay between requests
             await new Promise((resolve) => setTimeout(resolve, 100));
-          } else {
-            this.logger.warn(
-              `SkillsMP pagination failed at offset ${offset}: ${response.status}`,
-            );
-            hasMore = false;
           }
+          // Note: Non-ok response is already handled above with endpoint fallback
         } catch (pageError) {
           this.logger.warn(
             `SkillsMP pagination error at offset ${offset}: ${pageError}`,

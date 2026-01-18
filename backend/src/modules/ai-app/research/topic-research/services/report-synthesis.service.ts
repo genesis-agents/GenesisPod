@@ -355,6 +355,20 @@ export class ReportSynthesisService {
 
     this.logger.debug("Calling AI for comprehensive report synthesis");
 
+    // ★ 根据维度数量动态计算所需 tokens
+    // 每个维度大约需要 2000-3000 tokens 的输出空间
+    const dimensionCount = dimensionInputs.length;
+    const baseTokens = 16000; // extended 的基础值
+    const tokensPerDimension = 2500;
+    const estimatedTokens = Math.min(
+      baseTokens + dimensionCount * tokensPerDimension,
+      64000, // 大多数模型的上限
+    );
+
+    this.logger.log(
+      `[generateStructuredReport] Requesting ${estimatedTokens} tokens for ${dimensionCount} dimensions`,
+    );
+
     // 调用 AI 生成报告
     const response = await this.aiFacade.chat({
       messages: [
@@ -364,8 +378,10 @@ export class ReportSynthesisService {
       modelType: AIModelType.CHAT, // 使用标准聊天模型进行深度分析
       taskProfile: {
         creativity: "medium",
-        outputLength: "extended", // 长报告需要更多 tokens
+        outputLength: "extended", // 基础配置
       },
+      // ★ 直接指定 maxTokens 覆盖 taskProfile 的值（用于大型报告）
+      maxTokens: estimatedTokens,
     });
 
     // 解析 AI 响应
