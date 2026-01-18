@@ -1097,10 +1097,21 @@ function TeamCanvasView({
                     <span className="font-mono text-sm font-medium text-indigo-700">
                       {agent.role === 'leader'
                         ? teamInfo?.leaderModel || '未指定'
-                        : teamInfo?.agents?.find(
-                            (a) =>
-                              a.role.toLowerCase() === agent.role.toLowerCase()
-                          )?.model || '未指定'}
+                        : (() => {
+                            // 根据前端角色匹配后端 Agent 类型
+                            // 后端 type: dimension_researcher, quality_reviewer, report_writer
+                            // 前端 role: researcher, reviewer, synthesizer
+                            const typeMapping: Record<string, string> = {
+                              researcher: 'researcher',
+                              reviewer: 'reviewer',
+                              synthesizer: 'writer',
+                            };
+                            const targetType = typeMapping[agent.role];
+                            const matchedAgent = teamInfo?.agents?.find((a) =>
+                              a.type?.toLowerCase().includes(targetType)
+                            );
+                            return matchedAgent?.model || '未指定';
+                          })()}
                     </span>
                   </div>
                 </div>
@@ -1119,14 +1130,14 @@ function TeamCanvasView({
 /**
  * 根据进度百分比返回当前阶段描述
  * 进度阶段：
- * - 0-10%: 收集资料
- * - 10-30%: 规划分析
- * - 30-80%: 撰写中
+ * - 0-20%: 收集资料
+ * - 20-50%: 研究分析
+ * - 50-80%: 撰写中
  * - 80-100%: 整合中
  */
 function getProgressStage(progress: number): string {
-  if (progress < 10) return '收集中';
-  if (progress < 30) return '规划中';
+  if (progress < 20) return '收集中';
+  if (progress < 50) return '研究中';
   if (progress < 80) return '撰写中';
   return '整合中';
 }
