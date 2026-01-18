@@ -224,14 +224,16 @@ const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Research L
 ## 可用 AI 模型
 {availableModels}
 
-**模型选择指南**：
+**模型选择指南（必读）**：
+- ⚠️ **必须为每个研究员分配 modelId**：这是必填字段，不能省略！
 - 为不同研究员选择不同模型，确保观点多元化
 - 技术/数据分析类维度：优先选择 GPT 系列
 - 创意/洞察类维度：优先选择 Claude 系列
 - 实时信息/新闻类维度：优先选择 Grok 系列（擅长实时信息）
 - 中文内容/国内市场类维度：优先选择 DeepSeek、Qwen（通义千问）、GLM 等国产模型
 - 快速/基础类维度：可选择 Gemini Flash、DeepSeek-Chat
-- **重要**：尽量让研究员使用不同的模型，避免所有人都用同一个
+- **关键要求**：尽量让研究员使用不同的模型，避免所有人都用同一个
+- modelId 必须从上面的"可用 AI 模型"列表中选择
 
 ## 已有研究维度
 {existingDimensions}
@@ -309,7 +311,8 @@ const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Research L
 3. 数据源选择要与维度内容匹配
 4. 确保研究全面但聚焦
 5. **Agent ID 必须唯一**：使用 "researcher_维度关键词" 格式，如 "researcher_market_trends"
-6. **Agent Name 必须有区分度**：每个研究员的名称要体现其负责的维度，如 "市场趋势研究员"`;
+6. **Agent Name 必须有区分度**：每个研究员的名称要体现其负责的维度，如 "市场趋势研究员"
+7. ⚠️ **modelId 是必填字段**：每个 dimension_researcher 必须分配一个 modelId，从可用模型列表中选择`;
 
 const LEADER_REVIEW_PROMPT = `你是研究团队的 Leader，负责审核研究成果质量。
 
@@ -762,8 +765,37 @@ export class ResearchLeaderService {
       throw new Error("无法解析 AI 规划响应，请稍后重试");
     }
 
+    // ★ 后处理：如果 Leader 没有为 Agent 分配 modelId，自动轮询分配
+    if (availableModels.length > 0 && plan.agentAssignments) {
+      let modelIndex = 0;
+      const researcherAssignments = plan.agentAssignments.filter(
+        (a) => a.agentType === "dimension_researcher",
+      );
+
+      for (const assignment of researcherAssignments) {
+        if (!assignment.modelId) {
+          // 轮询分配模型，实现多元化
+          const model = availableModels[modelIndex % availableModels.length];
+          assignment.modelId = model.id;
+          this.logger.log(
+            `[planResearch] Auto-assigned model ${model.id} to ${assignment.agentName || assignment.agentId}`,
+          );
+          modelIndex++;
+        }
+      }
+    }
+
     this.logger.log(
       `[planResearch] Plan created with ${plan.dimensions.length} dimensions in ${latencyMs}ms`,
+    );
+
+    // ★ 打印 Agent 模型分配情况
+    const assignmentSummary = plan.agentAssignments
+      ?.filter((a) => a.agentType === "dimension_researcher")
+      .map((a) => `${a.agentName || a.agentId}: ${a.modelId || "未分配"}`)
+      .join(", ");
+    this.logger.log(
+      `[planResearch] Agent model assignments: ${assignmentSummary}`,
     );
 
     return plan;

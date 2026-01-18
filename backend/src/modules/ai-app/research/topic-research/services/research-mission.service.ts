@@ -340,11 +340,27 @@ export class ResearchMissionService {
         thinkingContent: `研究维度：${leaderPlan.dimensions.map((d) => d.name).join("、")}\n研究员分配：${leaderPlan.agentAssignments.map((a) => `${a.agentName || a.agentId}${a.modelId ? ` [${a.modelId}]` : ""}`).join("、")}`,
       });
 
-      // ★ 发送 Leader 思考事件：分配任务
+      // ★ 发送 Leader 思考事件：分配任务（结构化显示模型分配）
+      const researcherAssignments = leaderPlan.agentAssignments.filter(
+        (a) => a.agentType === "dimension_researcher",
+      );
+      // 按模型分组统计
+      const modelGroups = new Map<string, string[]>();
+      for (const a of researcherAssignments) {
+        const modelId = a.modelId || "默认模型";
+        if (!modelGroups.has(modelId)) {
+          modelGroups.set(modelId, []);
+        }
+        modelGroups.get(modelId)!.push(a.agentName || a.agentId);
+      }
+      // 格式化输出：按模型分组
+      const groupedAssignments = Array.from(modelGroups.entries())
+        .map(([model, agents]) => `【${model}】${agents.join("、")}`)
+        .join("\n");
       await this.researchEventEmitter.emitLeaderThinking(topicId, {
         missionId,
         phase: "assigning",
-        content: `正在分配 ${leaderPlan.agentAssignments.length} 个研究员执行任务...`,
+        content: `团队组建完成（${researcherAssignments.length}人）：\n${groupedAssignments}`,
         progress: 50,
       });
 

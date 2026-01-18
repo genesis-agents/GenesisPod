@@ -1142,10 +1142,20 @@ export class AdminController {
 
           if (response.ok) {
             const data = await response.json();
+            // Log actual response structure for debugging
             this.logger.log(
-              `SkillsMP search '${term}': ${data.skills?.length || 0} results`,
+              `SkillsMP search '${term}': response keys=${Object.keys(data).join(",")}`,
             );
-            const skills = data.skills || data.results || [];
+            // Try multiple possible property names for skills array
+            const skills =
+              data.skills ||
+              data.results ||
+              data.data ||
+              data.items ||
+              (Array.isArray(data) ? data : []);
+            this.logger.log(
+              `SkillsMP search '${term}': ${skills.length} skills found`,
+            );
             for (const skill of skills) {
               const id =
                 skill.id || skill.name?.toLowerCase().replace(/\s+/g, "-");
