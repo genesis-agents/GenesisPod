@@ -676,15 +676,13 @@ function AgentDetailModal({
             </div>
           )}
 
-          {/* ★ AI 模型 */}
-          {agent.model && (
-            <div className="mb-3">
-              <p className="text-xs text-gray-500">AI 模型:</p>
-              <p className="mt-1 text-sm font-medium text-purple-600">
-                🤖 {agent.model}
-              </p>
-            </div>
-          )}
+          {/* ★ AI 模型 - 始终显示，帮助用户了解使用哪个模型 */}
+          <div className="mb-3">
+            <p className="text-xs text-gray-500">🤖 AI 模型</p>
+            <p className="mt-1 text-sm font-medium text-purple-600">
+              {agent.model || '未指定'}
+            </p>
+          </div>
 
           {/* 当前任务 */}
           {agent.currentTask && (
