@@ -265,24 +265,36 @@ export const ARCHITECTURE_LAYERS: ArchitectureLayer[] = [
   infrastructureLayer,
 ];
 
-// Layer styling configurations - clean, minimal design
+// Layer styling configurations - enhanced visual design
 export const LAYER_STYLES = {
   3: {
-    // AI Apps - Purple accent
+    // AI Apps - Purple theme (top layer)
     badge: 'bg-violet-100 text-violet-700',
-    border: 'border-violet-200/50',
+    border: 'border-violet-200',
     accent: 'text-violet-600',
+    bg: 'bg-gradient-to-br from-violet-50/80 to-purple-50/50',
+    accentBar: 'bg-gradient-to-b from-violet-500 to-purple-600',
+    iconBg: 'bg-violet-100 text-violet-600',
+    hoverBorder: 'hover:border-violet-300',
   },
   2: {
-    // AI Engine - Blue accent
+    // AI Engine - Blue theme (middle layer)
     badge: 'bg-blue-100 text-blue-700',
-    border: 'border-blue-200/50',
+    border: 'border-blue-200',
     accent: 'text-blue-600',
+    bg: 'bg-gradient-to-br from-blue-50/80 to-cyan-50/50',
+    accentBar: 'bg-gradient-to-b from-blue-500 to-cyan-600',
+    iconBg: 'bg-blue-100 text-blue-600',
+    hoverBorder: 'hover:border-blue-300',
   },
   1: {
-    // Infrastructure - Green accent
+    // Infrastructure - Green theme (bottom layer)
     badge: 'bg-emerald-100 text-emerald-700',
-    border: 'border-emerald-200/50',
+    border: 'border-emerald-200',
     accent: 'text-emerald-600',
+    bg: 'bg-gradient-to-br from-emerald-50/80 to-teal-50/50',
+    accentBar: 'bg-gradient-to-b from-emerald-500 to-teal-600',
+    iconBg: 'bg-emerald-100 text-emerald-600',
+    hoverBorder: 'hover:border-emerald-300',
   },
 } as const;
