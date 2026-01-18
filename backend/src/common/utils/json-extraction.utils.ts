@@ -55,7 +55,7 @@ export function extractJsonFromAIResponse<T = unknown>(
     // Continue to next method
   }
 
-  // Method 2: Extract from ```json code block
+  // Method 2: Extract from ```json code block (with closing ```)
   const jsonBlockMatch = content.match(/```json\s*([\s\S]+?)\s*```/);
   if (jsonBlockMatch) {
     try {
@@ -65,6 +65,37 @@ export function extractJsonFromAIResponse<T = unknown>(
       }
     } catch {
       // Continue to next method
+    }
+  }
+
+  // Method 2.5: Extract from ```json code block (without closing ``` - truncated response)
+  // ★ 新增：处理被截断的 JSON 响应（没有结束的 ```）
+  const unclosedJsonBlockMatch = content.match(/```json\s*([\s\S]+)$/);
+  if (unclosedJsonBlockMatch && !jsonBlockMatch) {
+    const jsonContent = unclosedJsonBlockMatch[1].trim();
+    // 先尝试直接解析（可能是完整的 JSON 只是没有 ```）
+    try {
+      const parsed = JSON.parse(jsonContent) as T;
+      if (!requiredKey || hasKey(parsed, requiredKey)) {
+        return { success: true, data: parsed, method: "unclosedJsonBlock" };
+      }
+    } catch {
+      // 尝试修复截断的 JSON
+      const repaired = tryRepairTruncatedJson(jsonContent);
+      if (repaired) {
+        try {
+          const parsed = JSON.parse(repaired) as T;
+          if (!requiredKey || hasKey(parsed, requiredKey)) {
+            return {
+              success: true,
+              data: parsed,
+              method: "unclosedJsonBlockRepaired",
+            };
+          }
+        } catch {
+          // Continue to next method
+        }
+      }
     }
   }
 
@@ -151,9 +182,16 @@ function hasKey(obj: unknown, key: string): boolean {
 function tryRepairTruncatedJson(content: string): string | null {
   // Extract potential JSON from code block first
   let jsonContent = content;
-  const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]+?)(?:```|$)/);
-  if (codeBlockMatch) {
-    jsonContent = codeBlockMatch[1];
+
+  // ★ 改进：优先使用贪婪匹配来处理没有结束 ``` 的情况
+  const closedBlockMatch = content.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
+  const unclosedBlockMatch = content.match(/```(?:json)?\s*([\s\S]+)$/);
+
+  if (closedBlockMatch) {
+    jsonContent = closedBlockMatch[1];
+  } else if (unclosedBlockMatch) {
+    // 没有结束的 ```，使用贪婪匹配获取全部内容
+    jsonContent = unclosedBlockMatch[1];
   }
 
   // Find where JSON starts
