@@ -740,7 +740,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
               window.location.href = '/notifications';
             }
           }}
-          className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm ${
+          className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
             isActive('/notifications')
               ? 'bg-pink-50 text-gray-900'
               : 'text-gray-700 hover:bg-gray-50'
@@ -780,7 +780,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
               window.location.href = '/feedback';
             }
           }}
-          className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm ${
+          className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
             isActive('/feedback')
               ? 'bg-pink-50 text-gray-900'
               : 'text-gray-700 hover:bg-gray-50'
