@@ -96,15 +96,14 @@ function convertTaskToTodo(task: TaskStatus): ResearchTodo {
     leader_planning: 'LEADER_PLANNING' as ResearchTodoType,
   };
 
-  // ★ 修复：根据状态计算真实进度
-  // COMPLETED/FAILED = 100% (已结束), EXECUTING = 30-70% 估算, PENDING = 0%
+  // ★ 修复：进度数据优先从 WebSocket 实时事件获取
+  // 这里只设置基础值，实际进度会在 useMemo 中通过 WebSocket 事件覆盖
   let progress = task.progress || 0;
   if (!task.progress) {
     if (task.status === 'COMPLETED' || task.status === 'FAILED') {
       progress = 100;
-    } else if (task.status === 'EXECUTING') {
-      progress = 30; // 执行中默认 30%（会通过实时事件更新）
     }
+    // EXECUTING 状态的进度由 WebSocket 实时事件提供，不设置硬编码默认值
   }
 
   // ★ 修复：构建状态消息，确保失败原因清晰显示
@@ -430,8 +429,8 @@ export function ResearchCollaborationPanel({
           task.dimensionName.toLowerCase().trim()
         );
       }
-      // 3. 应用实时进度（只有当实时进度更大时才更新）
-      if (realtimeProgress !== undefined && realtimeProgress > todo.progress) {
+      // 3. 应用实时进度（始终使用 WebSocket 的实时数据覆盖）
+      if (realtimeProgress !== undefined) {
         todo.progress = realtimeProgress;
       }
       return todo;
