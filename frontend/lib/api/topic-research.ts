@@ -1611,6 +1611,26 @@ export async function recalculateTopicStats(
   });
 }
 
+// ==================== Topic Visibility ====================
+
+/**
+ * 专题可见性类型
+ */
+export type TopicVisibility = 'PRIVATE' | 'SHARED' | 'PUBLIC';
+
+/**
+ * 更新专题可见性
+ */
+export async function updateTopicVisibility(
+  topicId: string,
+  visibility: TopicVisibility
+): Promise<{ success: boolean; visibility: TopicVisibility }> {
+  return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/visibility`, {
+    method: 'PATCH',
+    body: JSON.stringify({ visibility }),
+  });
+}
+
 // ==================== Public Shared Access (No Auth Required) ====================
 
 /**

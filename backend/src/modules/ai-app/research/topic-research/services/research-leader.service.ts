@@ -685,17 +685,21 @@ export class ResearchLeaderService {
 
     // 3. 获取可用的 CHAT 模型列表（供 Leader 为 Agent 分配）
     const availableModels = await this.aiFacade.getAvailableModelsExtended();
+    // ★ 对重复的 modelId 去重，避免 AI 看到 #2, #3 等后缀后构造无效的 modelId
+    const uniqueModels = availableModels.filter(
+      (m, i, arr) => arr.findIndex((x) => x.id === m.id) === i,
+    );
     const availableModelsText =
-      availableModels.length > 0
-        ? availableModels
+      uniqueModels.length > 0
+        ? uniqueModels
             .map(
               (m) =>
-                `- ${m.id}（${m.provider}${m.name !== m.id ? `，${m.name}` : ""}）`,
+                `- ${m.id}（${m.provider}${m.name !== m.id && !m.name.includes("#") ? `，${m.name}` : ""}）`,
             )
             .join("\n")
         : "- 使用默认模型";
     this.logger.log(
-      `[planResearch] Available models for agents: ${availableModels.map((m) => m.id).join(", ")}`,
+      `[planResearch] Available models for agents: ${uniqueModels.map((m) => m.id).join(", ")} (${availableModels.length} total, ${uniqueModels.length} unique)`,
     );
 
     // 4. 构建已有维度信息
@@ -1705,14 +1709,15 @@ export class ResearchLeaderService {
       `[integrateDimensionResults] Integrating ${sectionResults.length} sections for ${dimension.name}`,
     );
 
-    // 如果只有一个章节，直接返回
+    // 如果只有一个章节，直接返回（但仍提取关键发现）
     if (sectionResults.length === 1) {
       const content = sectionResults[0].content;
+      const keyFindings = this.extractKeyFindingsFromContent(content);
       return {
         content: `# ${dimension.name}\n\n${content}`,
         metadata: {
           summary: content.substring(0, 200),
-          keyFindings: [],
+          keyFindings,
           confidenceLevel: "medium",
         },
         evidenceUsed: this.extractEvidenceIds(content),
@@ -1727,14 +1732,15 @@ export class ResearchLeaderService {
       .map((s, i) => `### ${i + 1}. ${s.title}\n\n${s.content}`)
       .join("\n\n---\n\n");
 
-    // 如果没有推理模型，使用简单拼接
+    // 如果没有推理模型，使用简单拼接（但仍提取关键发现）
     if (!leaderModel) {
       const content = `# ${dimension.name}\n\n${sectionsContent}`;
+      const keyFindings = this.extractKeyFindingsFromContent(content);
       return {
         content,
         metadata: {
           summary: `关于"${dimension.name}"的分析报告。`,
-          keyFindings: [],
+          keyFindings,
           confidenceLevel: "medium",
         },
         evidenceUsed: this.extractEvidenceIds(content),
@@ -1769,13 +1775,14 @@ export class ResearchLeaderService {
     );
 
     if (!result) {
-      // 整合失败，使用简单拼接
+      // 整合失败，使用简单拼接（但仍提取关键发现）
       const content = `# ${dimension.name}\n\n${sectionsContent}`;
+      const keyFindings = this.extractKeyFindingsFromContent(content);
       return {
         content,
         metadata: {
           summary: `关于"${dimension.name}"的分析报告。`,
-          keyFindings: [],
+          keyFindings,
           confidenceLevel: "medium",
         },
         evidenceUsed: this.extractEvidenceIds(content),
@@ -1783,8 +1790,27 @@ export class ResearchLeaderService {
       };
     }
 
+    // ★ 如果 AI 返回的 keyFindings 为空，尝试从内容中提取
+    if (
+      !result.metadata?.keyFindings ||
+      result.metadata.keyFindings.length === 0
+    ) {
+      const extractedFindings = this.extractKeyFindingsFromContent(
+        result.content || sectionsContent,
+      );
+      if (extractedFindings.length > 0) {
+        result.metadata = {
+          ...result.metadata,
+          keyFindings: extractedFindings,
+        };
+        this.logger.log(
+          `[integrateDimensionResults] AI returned empty keyFindings, extracted ${extractedFindings.length} from content`,
+        );
+      }
+    }
+
     this.logger.log(
-      `[integrateDimensionResults] Integrated ${sectionResults.length} sections, ${result.totalWords} words`,
+      `[integrateDimensionResults] Integrated ${sectionResults.length} sections, ${result.totalWords} words, ${result.metadata?.keyFindings?.length || 0} keyFindings`,
     );
 
     return result;
@@ -1796,5 +1822,62 @@ export class ResearchLeaderService {
   private extractEvidenceIds(content: string): string[] {
     const matches = content.match(/\[temp-\d+-\d+\]/g) || [];
     return [...new Set(matches.map((m) => m.slice(1, -1)))];
+  }
+
+  /**
+   * 从内容中自动提取关键发现
+   * 用于 fallback 场景（单章节、无推理模型、整合失败等）
+   * 策略：
+   * 1. 查找带有特定标记的句子（如"关键"、"重要"、"核心"等）
+   * 2. 查找 Markdown 标题后的第一句话
+   * 3. 提取带引用的观点
+   */
+  private extractKeyFindingsFromContent(content: string): string[] {
+    const findings: string[] = [];
+
+    // 1. 查找明确标注的关键发现（如"关键发现："后面的内容）
+    const markedFindingsMatch = content.match(
+      /(?:关键发现|核心观点|主要结论|重要发现)[：:]\s*([^\n]+)/g,
+    );
+    if (markedFindingsMatch) {
+      for (const match of markedFindingsMatch) {
+        const finding = match
+          .replace(/(?:关键发现|核心观点|主要结论|重要发现)[：:]\s*/, "")
+          .trim();
+        if (finding.length > 10 && finding.length < 200) {
+          findings.push(finding);
+        }
+      }
+    }
+
+    // 2. 从列表项中提取（Markdown 列表）
+    const listItemMatches = content.match(/^[-*]\s+.{20,150}(?:。|$)/gm);
+    if (listItemMatches && findings.length < 5) {
+      for (const item of listItemMatches.slice(0, 5 - findings.length)) {
+        const finding = item.replace(/^[-*]\s+/, "").trim();
+        if (!findings.includes(finding)) {
+          findings.push(finding);
+        }
+      }
+    }
+
+    // 3. 从标题下方第一句话提取（Markdown 标题）
+    const headerMatches = content.match(
+      /^#{2,4}\s+[^\n]+\n+([^#\n][^\n]{20,150})/gm,
+    );
+    if (headerMatches && findings.length < 5) {
+      for (const match of headerMatches.slice(0, 3)) {
+        const lines = match.split("\n").filter((l) => l.trim());
+        if (lines.length > 1) {
+          const sentence = lines[1].trim().replace(/^[-*]\s+/, "");
+          if (sentence.length > 20 && !findings.includes(sentence)) {
+            findings.push(sentence);
+          }
+        }
+      }
+    }
+
+    // 去重并限制数量
+    return [...new Set(findings)].slice(0, 5);
   }
 }

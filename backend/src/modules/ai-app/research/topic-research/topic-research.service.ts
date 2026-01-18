@@ -2285,7 +2285,7 @@ export class TopicResearchService {
       throw new NotFoundException("Topic not found or not publicly accessible");
     }
 
-    // 获取最新报告
+    // 获取最新报告（包含维度分析数据用于渲染内容）
     const report = await this.prisma.topicReport.findFirst({
       where: { topicId },
       orderBy: { generatedAt: "desc" },
@@ -2298,6 +2298,23 @@ export class TopicResearchService {
             description: true,
           },
         },
+        // ★ 包含维度分析，用于生成分享页面内容
+        dimensionAnalyses: {
+          include: {
+            dimension: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+              },
+            },
+          },
+          orderBy: {
+            dimension: {
+              sortOrder: "asc",
+            },
+          },
+        },
       },
     });
 
@@ -2305,7 +2322,8 @@ export class TopicResearchService {
       throw new NotFoundException("No reports found for this topic");
     }
 
-    return report;
+    // 转换报告数据，提取 dataPoints 中的字段到顶层
+    return this.transformReportForFrontend(report);
   }
 
   // ==================== Report Editing ====================

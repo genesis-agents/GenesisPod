@@ -288,28 +288,31 @@ export class SkillsApiService {
 
       this.logger.log("Starting SkillsMP sync...");
 
-      // Fetch skills from SkillsMP API
-      // Use broad search terms to get popular skills
-      const searchTerms = [
-        "claude",
-        "agent",
-        "mcp",
-        "tool",
-        "api",
-        "code",
-        "dev",
-        "ai",
-        "automation",
-        "database",
-      ];
+      // ★ Fetch ALL skills from SkillsMP API using pagination
       const allSkills: any[] = [];
       const seenIds = new Set<string>();
       let totalFromApi = 0;
+      const pageSize = 100; // Max per page
+      let offset = 0;
+      let hasMore = true;
 
-      for (const term of searchTerms) {
+      // Helper function to extract skills from response
+      const extractSkills = (data: any): any[] => {
+        if (Array.isArray(data.data)) return data.data;
+        if (data.data?.skills && Array.isArray(data.data.skills))
+          return data.data.skills;
+        if (data.data?.items && Array.isArray(data.data.items))
+          return data.data.items;
+        if (Array.isArray(data.skills)) return data.skills;
+        if (Array.isArray(data.results)) return data.results;
+        return [];
+      };
+
+      // Paginate through all skills
+      while (hasMore) {
         try {
           const response = await fetch(
-            `https://skillsmp.com/api/v1/skills/search?q=${term}&limit=50`,
+            `https://skillsmp.com/api/v1/skills/search?q=&limit=${pageSize}&offset=${offset}`,
             {
               headers: {
                 Authorization: `Bearer ${apiKey}`,
@@ -321,33 +324,26 @@ export class SkillsApiService {
 
           if (response.ok) {
             const data = await response.json();
-            // Log actual response structure for debugging
-            this.logger.log(
-              `SkillsMP search '${term}': response keys=${Object.keys(data).join(",")}`,
-            );
-            // API returns { success, data, meta } - skills may be in data directly or nested
-            let skills: any[] = [];
-            if (Array.isArray(data.data)) {
-              skills = data.data;
-            } else if (data.data && Array.isArray(data.data.skills)) {
-              skills = data.data.skills;
-            } else if (data.data && Array.isArray(data.data.items)) {
-              skills = data.data.items;
-            } else if (Array.isArray(data.skills)) {
-              skills = data.skills;
-            } else if (Array.isArray(data.results)) {
-              skills = data.results;
-            }
-            this.logger.log(
-              `SkillsMP search '${term}': ${skills.length} skills found`,
-            );
+            const skills = extractSkills(data);
+
             // Capture total count from pagination
-            if (data.data?.pagination?.total && totalFromApi === 0) {
-              totalFromApi = data.data.pagination.total;
+            if (totalFromApi === 0) {
+              totalFromApi =
+                data.data?.pagination?.total ||
+                data.meta?.total ||
+                data.total ||
+                0;
               this.logger.log(
                 `SkillsMP total skills in platform: ${totalFromApi}`,
               );
             }
+
+            if (skills.length === 0) {
+              hasMore = false;
+              break;
+            }
+
+            // Deduplicate and add skills
             for (const skill of skills) {
               const id =
                 skill.id || skill.name?.toLowerCase().replace(/\s+/g, "-");
@@ -356,9 +352,31 @@ export class SkillsApiService {
                 allSkills.push(skill);
               }
             }
+
+            this.logger.log(
+              `SkillsMP page ${Math.floor(offset / pageSize) + 1}: fetched ${skills.length} skills, total collected: ${allSkills.length}`,
+            );
+
+            offset += pageSize;
+
+            // Stop if we've reached the total or fetched less than page size
+            if (skills.length < pageSize || allSkills.length >= totalFromApi) {
+              hasMore = false;
+            }
+
+            // Rate limiting: small delay between requests
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          } else {
+            this.logger.warn(
+              `SkillsMP pagination failed at offset ${offset}: ${response.status}`,
+            );
+            hasMore = false;
           }
-        } catch (searchError) {
-          this.logger.warn(`SkillsMP search '${term}' failed: ${searchError}`);
+        } catch (pageError) {
+          this.logger.warn(
+            `SkillsMP pagination error at offset ${offset}: ${pageError}`,
+          );
+          hasMore = false;
         }
       }
 

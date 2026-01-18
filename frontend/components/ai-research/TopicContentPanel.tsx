@@ -28,6 +28,7 @@ import {
   deleteAnnotation as deleteAnnotationApi,
   resolveAnnotation as resolveAnnotationApi,
   aiEditReport,
+  updateTopicVisibility,
   type ReportAnnotation as ApiReportAnnotation,
   type AIEditOperation as AIEditOperationType,
 } from '@/lib/api/topic-research';
@@ -644,25 +645,41 @@ export function TopicContentPanel({
   }, [report, getReportTextContent]);
 
   // 复制分享链接 - 指向报告阅读页面（左侧目录+右侧内容布局）
+  // ★ 会自动将专题设置为公开，使分享链接可访问
   const handleShareLink = useCallback(async () => {
     if (!report || !topicId) {
       setToast({ message: '无法生成分享链接', type: 'error' });
       return;
     }
-    // 使用公开分享页面
-    const shareUrl = `${window.location.origin}/share/topic/${topicId}`;
+
     try {
-      await navigator.clipboard.writeText(shareUrl);
-      setToast({ message: '分享链接已复制到剪贴板', type: 'success' });
-    } catch {
-      // 降级方案
-      const input = document.createElement('input');
-      document.body.appendChild(input);
-      input.value = shareUrl;
-      input.select();
-      document.execCommand('copy');
-      document.body.removeChild(input);
-      setToast({ message: '分享链接已复制到剪贴板', type: 'success' });
+      // ★ 先将专题设置为公开，确保分享链接可访问
+      await updateTopicVisibility(topicId, 'PUBLIC');
+
+      // 使用公开分享页面
+      const shareUrl = `${window.location.origin}/share/topic/${topicId}`;
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setToast({
+          message: '分享链接已复制（专题已设为公开）',
+          type: 'success',
+        });
+      } catch {
+        // 降级方案
+        const input = document.createElement('input');
+        document.body.appendChild(input);
+        input.value = shareUrl;
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        setToast({
+          message: '分享链接已复制（专题已设为公开）',
+          type: 'success',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to set topic public:', err);
+      setToast({ message: '设置公开失败，请重试', type: 'error' });
     }
     setExportMenuOpen(false);
   }, [report, topicId]);

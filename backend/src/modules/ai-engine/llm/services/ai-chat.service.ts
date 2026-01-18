@@ -277,13 +277,27 @@ export class AiChatService {
       await this.refreshModelConfigCache();
     }
 
-    // 1. 精确匹配（区分大小写）
+    // ★ 预处理：去掉可能的 #N 后缀（AI 可能误生成的无效后缀）
+    const normalizedModelId = modelId.replace(/#\d+$/, "");
+    if (normalizedModelId !== modelId) {
+      this.logger.debug(
+        `[getModelConfig] Normalized modelId: "${modelId}" -> "${normalizedModelId}"`,
+      );
+    }
+
+    // 1. 精确匹配（区分大小写）- 先尝试原始 ID，再尝试规范化后的 ID
     if (this.modelConfigCache.has(modelId)) {
       return this.modelConfigCache.get(modelId)!;
     }
+    if (
+      normalizedModelId !== modelId &&
+      this.modelConfigCache.has(normalizedModelId)
+    ) {
+      return this.modelConfigCache.get(normalizedModelId)!;
+    }
 
     // 2. 精确匹配（不区分大小写）
-    const modelLower = modelId.toLowerCase();
+    const modelLower = normalizedModelId.toLowerCase();
     for (const [key, config] of this.modelConfigCache.entries()) {
       if (key.toLowerCase() === modelLower) {
         return config;
@@ -294,7 +308,7 @@ export class AiChatService {
     try {
       const model = await this.prisma.aIModel.findFirst({
         where: {
-          modelId: { equals: modelId, mode: "insensitive" },
+          modelId: { equals: normalizedModelId, mode: "insensitive" },
           modelType: "CHAT",
           isEnabled: true,
         },
@@ -303,7 +317,7 @@ export class AiChatService {
       if (model) {
         // ★ 使用统一的 buildModelConfig 方法
         const config = this.buildModelConfig(model);
-        this.modelConfigCache.set(modelId, config);
+        this.modelConfigCache.set(normalizedModelId, config);
         return config;
       }
     } catch (error) {
