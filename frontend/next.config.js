@@ -40,6 +40,21 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  async redirects() {
+    return [
+      // Redirect deleted admin pages to new locations
+      {
+        source: '/admin/settings',
+        destination: '/admin/system/site',
+        permanent: true,
+      },
+      {
+        source: '/admin/data-management',
+        destination: '/admin/data/collection',
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     // Ensure URLs have protocol prefix
     const ensureProtocol = (url) => {
