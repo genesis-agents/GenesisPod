@@ -378,22 +378,22 @@ export function ResearchTodoList({
         <table className="w-full table-fixed">
           <thead className="border-b border-gray-200 bg-gray-50/80">
             <tr>
-              <th className="w-10 whitespace-nowrap px-2 py-2.5 text-center text-xs font-medium text-gray-500">
+              <th className="w-8 whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 #
               </th>
-              <th className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-medium text-gray-500">
+              <th className="w-[32%] whitespace-nowrap px-3 py-2.5 text-center text-xs font-semibold text-gray-600">
                 任务名称
               </th>
-              <th className="w-[18%] whitespace-nowrap px-2 py-2.5 text-left text-xs font-medium text-gray-500">
+              <th className="w-[22%] whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 负责人
               </th>
-              <th className="w-[15%] whitespace-nowrap px-2 py-2.5 text-left text-xs font-medium text-gray-500">
+              <th className="w-[18%] whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 模型
               </th>
-              <th className="w-[12%] whitespace-nowrap px-2 py-2.5 text-left text-xs font-medium text-gray-500">
+              <th className="w-[15%] whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 状态
               </th>
-              <th className="w-10 whitespace-nowrap px-2 py-2.5 text-center text-xs font-medium text-gray-500">
+              <th className="w-12 whitespace-nowrap px-2 py-2.5 text-center text-xs font-semibold text-gray-600">
                 操作
               </th>
             </tr>
