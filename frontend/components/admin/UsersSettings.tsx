@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Users,
   UserPlus,
@@ -12,8 +12,9 @@ import {
   Lock,
   Unlock,
   Plus,
+  X,
 } from 'lucide-react';
-import { useAdminUsers } from '@/hooks/domain';
+import { useAdminUsers, type User, type CreateUserData } from '@/hooks/domain';
 import { LoadingState, ErrorState, useConfirm } from '@/components/ui';
 
 // Export components for use in page layout
@@ -54,6 +55,277 @@ interface UsersSettingsProps {
   searchQuery: string;
   showAddModal: boolean;
   setShowAddModal: (show: boolean) => void;
+}
+
+// Add User Modal
+function AddUserModal({
+  isOpen,
+  onClose,
+  onCreate,
+  isLoading,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreate: (data: CreateUserData) => Promise<void>;
+  isLoading: boolean;
+}) {
+  const [formData, setFormData] = useState<CreateUserData>({
+    email: '',
+    username: '',
+    role: 'USER',
+    password: '',
+  });
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async () => {
+    if (!formData.email) return;
+    await onCreate(formData);
+    setFormData({ email: '', username: '', role: 'USER', password: '' });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">Add New User</h2>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+              placeholder="user@example.com"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Username
+            </label>
+            <input
+              type="text"
+              value={formData.username}
+              onChange={(e) =>
+                setFormData({ ...formData, username: e.target.value })
+              }
+              placeholder="johndoe"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Role
+            </label>
+            <select
+              value={formData.role}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  role: e.target.value as 'USER' | 'ADMIN',
+                })
+              }
+              className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            >
+              <option value="USER">User</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Password
+            </label>
+            <input
+              type="password"
+              value={formData.password}
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.target.value })
+              }
+              placeholder="Leave empty for auto-generated"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              If left empty, user will receive an email to set password
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!formData.email || isLoading}
+            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isLoading ? 'Creating...' : 'Create User'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Edit User Modal
+function EditUserModal({
+  isOpen,
+  onClose,
+  onSave,
+  user,
+  isLoading,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (id: string, data: Partial<User>) => Promise<void>;
+  user: User | null;
+  isLoading: boolean;
+}) {
+  const [formData, setFormData] = useState({
+    username: '',
+    role: 'USER' as 'USER' | 'ADMIN' | 'user' | 'admin',
+    status: 'active' as 'active' | 'inactive' | 'banned',
+  });
+
+  // Reset form when user changes
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        username: user.username || '',
+        role: user.role,
+        status: user.status,
+      });
+    }
+  }, [user]);
+
+  if (!isOpen || !user) return null;
+
+  const handleSubmit = async () => {
+    await onSave(user.id, formData);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">Edit User</h2>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Email
+            </label>
+            <input
+              type="email"
+              value={user.email}
+              disabled
+              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Username
+            </label>
+            <input
+              type="text"
+              value={formData.username}
+              onChange={(e) =>
+                setFormData({ ...formData, username: e.target.value })
+              }
+              placeholder="johndoe"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                Role
+              </label>
+              <select
+                value={formData.role}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    role: e.target.value as 'USER' | 'ADMIN',
+                  })
+                }
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              >
+                <option value="USER">User</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                Status
+              </label>
+              <select
+                value={formData.status}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    status: e.target.value as 'active' | 'inactive' | 'banned',
+                  })
+                }
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="banned">Banned</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={isLoading}
+            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isLoading ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // Grant Credits Modal
@@ -137,7 +409,11 @@ export default function UsersSettings({
     loading,
     error,
     refreshUsers,
+    createUser,
+    updateUser,
     deleteUser,
+    isCreating,
+    isUpdating,
     isDeleting,
     grantCredits,
     toggleCreditFreeze,
@@ -148,6 +424,8 @@ export default function UsersSettings({
     id: string;
     name: string;
   } | null>(null);
+
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   const { confirm, dialog } = useConfirm({
     title: 'Confirm Delete',
@@ -243,6 +521,25 @@ export default function UsersSettings({
         onClose={() => setGrantModalUser(null)}
         onGrant={handleGrantCredits}
         userName={grantModalUser?.name || 'User'}
+      />
+
+      <AddUserModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onCreate={async (data) => {
+          await createUser(data);
+        }}
+        isLoading={isCreating}
+      />
+
+      <EditUserModal
+        isOpen={!!editingUser}
+        onClose={() => setEditingUser(null)}
+        onSave={async (id, data) => {
+          await updateUser(id, data);
+        }}
+        user={editingUser}
+        isLoading={isUpdating}
       />
 
       {/* Users Table */}
@@ -395,7 +692,10 @@ export default function UsersSettings({
                         </button>
                       )}
                       {/* Edit */}
-                      <button className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                      <button
+                        onClick={() => setEditingUser(user)}
+                        className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      >
                         <Edit className="h-4 w-4" />
                       </button>
                       {/* Delete */}

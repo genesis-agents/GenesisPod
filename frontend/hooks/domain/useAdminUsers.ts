@@ -22,8 +22,16 @@ export interface User {
   } | null;
 }
 
+export interface CreateUserData {
+  email: string;
+  username?: string;
+  role?: 'USER' | 'ADMIN';
+  password?: string;
+}
+
 export function useAdminUsers() {
   const [creditsLoading, setCreditsLoading] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
 
   const {
     data,
@@ -43,6 +51,27 @@ export function useAdminUsers() {
     void,
     { id: string }
   >('/admin/users');
+
+  const createUser = useCallback(
+    async (data: CreateUserData) => {
+      setCreateLoading(true);
+      try {
+        const response = await fetch('/api/v1/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const result = await response.json();
+        if (result.success || result.id) {
+          await refreshUsers();
+        }
+        return result;
+      } finally {
+        setCreateLoading(false);
+      }
+    },
+    [refreshUsers]
+  );
 
   const updateUser = useCallback(
     async (id: string, data: Partial<User>) => {
@@ -123,15 +152,22 @@ export function useAdminUsers() {
   return {
     users: data?.users ?? [],
     total: data?.total ?? 0,
-    loading: listLoading || updateLoading || deleteLoading || creditsLoading,
+    loading:
+      listLoading ||
+      updateLoading ||
+      deleteLoading ||
+      creditsLoading ||
+      createLoading,
     error: listError,
     refreshUsers,
+    createUser,
     updateUser,
     deleteUser,
     banUser,
     activateUser,
     grantCredits,
     toggleCreditFreeze,
+    isCreating: createLoading,
     isUpdating: updateLoading,
     isDeleting: deleteLoading,
     isCreditsLoading: creditsLoading,

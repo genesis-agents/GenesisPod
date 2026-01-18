@@ -1,8 +1,8 @@
 'use client';
 
 import { AdminPageLayout } from '@/components/admin/layout';
-import { DataManagementDashboard } from '@/components/admin/data-management/DataManagementDashboard';
-import { Layers } from 'lucide-react';
+import DatabaseManagement from '@/components/admin/DatabaseManagement';
+import { Database } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 
 export default function Page() {
@@ -11,10 +11,10 @@ export default function Page() {
     <AdminPageLayout
       title={t('admin.nav.dataManagement')}
       description={t('admin.tabDescriptions.dataManagement')}
-      icon={Layers}
+      icon={Database}
       domain="data"
     >
-      <DataManagementDashboard />
+      <DatabaseManagement />
     </AdminPageLayout>
   );
 }

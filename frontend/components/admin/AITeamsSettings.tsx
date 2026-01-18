@@ -7,11 +7,13 @@ import {
   Trash2,
   Users,
   Crown,
-  ChevronRight,
   Loader2,
   AlertCircle,
   UserPlus,
   Sparkles,
+  X,
+  ArrowLeft,
+  Settings,
 } from 'lucide-react';
 import * as api from '@/lib/api/admin-ai-teams';
 import type {
@@ -58,114 +60,353 @@ function TeamFormModal({ team, onClose, onSave }: TeamFormModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-        <h2 className="mb-4 text-lg font-semibold">
-          {team ? '编辑团队' : '创建团队'}
-        </h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {team ? 'Edit Team' : 'Create Team'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <form
+          onSubmit={handleSubmit}
+          className="flex-1 space-y-4 overflow-y-auto px-6 py-4"
+        >
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                内部标识 *
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                Internal ID *
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 placeholder="writing-team"
                 required
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                显示名称 *
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                Display Name *
               </label>
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                placeholder="写作团队"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Writing Team"
                 required
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              描述
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Description
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               rows={3}
-              placeholder="团队的功能描述..."
+              placeholder="Team description..."
             />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                图标
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                Icon
               </label>
               <input
                 type="text"
                 value={icon}
                 onChange={(e) => setIcon(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 placeholder="emoji"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                主题色
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                Color
               </label>
               <input
                 type="color"
                 value={color}
                 onChange={(e) => setColor(e.target.value)}
-                className="h-10 w-full rounded-lg border border-gray-300"
+                className="h-[42px] w-full rounded-lg border border-gray-300"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                分类
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                Category
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
-                <option value="writing">写作</option>
-                <option value="research">研究</option>
-                <option value="coding">编程</option>
-                <option value="design">设计</option>
+                <option value="writing">Writing</option>
+                <option value="research">Research</option>
+                <option value="coding">Coding</option>
+                <option value="design">Design</option>
               </select>
             </div>
           </div>
+        </form>
 
-          <div className="flex justify-end gap-3 pt-4">
+        {/* Footer */}
+        <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              const form = document.querySelector('form');
+              if (form) form.requestSubmit();
+            }}
+            disabled={saving || !name || !displayName}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {team ? 'Save' : 'Create'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== Team Detail Panel ====================
+
+interface TeamDetailPanelProps {
+  team: AITeamTemplate;
+  onBack: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onMemberSave: (
+    data: api.CreateTeamMemberDto | api.UpdateTeamMemberDto
+  ) => Promise<void>;
+  onMemberDelete: (member: AITeamMemberTemplate) => Promise<void>;
+  onGenerateConfig: () => Promise<void>;
+  generatingConfig: boolean;
+}
+
+function TeamDetailPanel({
+  team,
+  onBack,
+  onEdit,
+  onDelete,
+  onMemberSave,
+  onMemberDelete,
+  onGenerateConfig,
+  generatingConfig,
+}: TeamDetailPanelProps) {
+  const [showMemberEditor, setShowMemberEditor] = useState(false);
+  const [editingMember, setEditingMember] =
+    useState<AITeamMemberTemplate | null>(null);
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Teams
+        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <Pencil className="h-4 w-4" />
+            Edit
+          </button>
+          {!team.isSystem && (
             <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              onClick={onDelete}
+              className="flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
             >
-              取消
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Team Info Card */}
+      <div className="rounded-xl border-2 border-gray-200 bg-white p-6">
+        <div className="flex items-start gap-4">
+          <div
+            className="flex h-16 w-16 items-center justify-center rounded-xl text-3xl"
+            style={{ backgroundColor: team.color || '#E5E7EB' }}
+          >
+            {team.icon || '👥'}
+          </div>
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {team.displayName}
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              {team.description || 'No description'}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                {team.category || 'Uncategorized'}
+              </span>
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  team.status === 'ACTIVE'
+                    ? 'bg-green-100 text-green-700'
+                    : team.status === 'DRAFT'
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {team.status === 'ACTIVE'
+                  ? 'Active'
+                  : team.status === 'DRAFT'
+                    ? 'Draft'
+                    : 'Archived'}
+              </span>
+              {team.isSystem && (
+                <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                  System
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Team Members */}
+      <div className="rounded-xl border border-gray-200 bg-white">
+        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-gray-500" />
+            <h3 className="font-semibold text-gray-900">Team Members</h3>
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+              {team.members?.length || 0}
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={onGenerateConfig}
+              disabled={generatingConfig}
+              className="flex items-center gap-1.5 rounded-lg border border-purple-300 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50"
+            >
+              {generatingConfig ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              AI Generate
             </button>
             <button
-              type="submit"
-              disabled={saving || !name || !displayName}
-              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              onClick={() => {
+                setEditingMember(null);
+                setShowMemberEditor(true);
+              }}
+              className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
             >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              {team ? '保存' : '创建'}
+              <UserPlus className="h-4 w-4" />
+              Add Member
             </button>
           </div>
-        </form>
+        </div>
+
+        {/* Members List */}
+        <div className="divide-y divide-gray-100">
+          {team.members?.map((member) => (
+            <div
+              key={member.id}
+              className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-xl">
+                {member.avatar || member.displayName[0]}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-gray-900">
+                    {member.displayName}
+                  </span>
+                  {member.isLeader && (
+                    <Crown className="h-4 w-4 text-yellow-500" />
+                  )}
+                </div>
+                <div className="text-sm text-gray-500">
+                  {member.roleDescription || member.roleId}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-gray-500">
+                {member.workStyle && (
+                  <span className="rounded bg-gray-100 px-2 py-0.5 text-xs">
+                    {member.workStyle}
+                  </span>
+                )}
+                <span>{member.capabilities?.length || 0} tools</span>
+              </div>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => {
+                    setEditingMember(member);
+                    setShowMemberEditor(true);
+                  }}
+                  className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => onMemberDelete(member)}
+                  className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {(!team.members || team.members.length === 0) && (
+            <div className="py-12 text-center text-sm text-gray-500">
+              No members yet. Click "Add Member" or "AI Generate" to add team
+              members.
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Member Editor Modal */}
+      {showMemberEditor && (
+        <AITeamMemberEditor
+          member={editingMember}
+          onClose={() => {
+            setShowMemberEditor(false);
+            setEditingMember(null);
+          }}
+          onSave={async (data) => {
+            await onMemberSave(data);
+            setShowMemberEditor(false);
+            setEditingMember(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -188,14 +429,11 @@ export default function AITeamsSettings({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Modals - sync with parent if provided
+  // Modals
   const [internalShowTeamForm, setInternalShowTeamForm] = useState(false);
   const showTeamForm = showCreateModal ?? internalShowTeamForm;
   const setShowTeamForm = setShowCreateModal ?? setInternalShowTeamForm;
   const [editingTeam, setEditingTeam] = useState<AITeamTemplate | null>(null);
-  const [showMemberEditor, setShowMemberEditor] = useState(false);
-  const [editingMember, setEditingMember] =
-    useState<AITeamMemberTemplate | null>(null);
   const [generatingConfig, setGeneratingConfig] = useState(false);
 
   // Load teams
@@ -205,16 +443,12 @@ export default function AITeamsSettings({
       setError(null);
       const result = await api.getTeams({ includeMembers: true });
       setTeams(result.items);
-      // Auto-select first team if none selected
-      if (!selectedTeam && result.items.length > 0) {
-        setSelectedTeam(result.items[0]);
-      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [selectedTeam]);
+  }, []);
 
   useEffect(() => {
     loadTeams();
@@ -238,26 +472,24 @@ export default function AITeamsSettings({
 
   const handleDeleteTeam = async (team: AITeamTemplate) => {
     if (team.isSystem) {
-      alert('系统预设团队不能删除');
+      alert('System teams cannot be deleted');
       return;
     }
-    if (!confirm(`确定要删除团队 "${team.displayName}" 吗？`)) return;
+    if (!confirm(`Delete team "${team.displayName}"?`)) return;
 
     await api.deleteTeam(team.id);
     setTeams((prev) => prev.filter((t) => t.id !== team.id));
-    if (selectedTeam?.id === team.id) {
-      setSelectedTeam(teams.find((t) => t.id !== team.id) || null);
-    }
+    setSelectedTeam(null);
   };
 
   // Member CRUD
   const handleSaveMember = async (
-    memberData: api.CreateTeamMemberDto | api.UpdateTeamMemberDto
+    memberData: api.CreateTeamMemberDto | api.UpdateTeamMemberDto,
+    editingMember: AITeamMemberTemplate | null
   ) => {
     if (!selectedTeam) return;
 
     if (editingMember) {
-      // Update existing member
       const updated = await api.updateMember(
         editingMember.id,
         memberData as api.UpdateTeamMemberDto
@@ -271,7 +503,6 @@ export default function AITeamsSettings({
       setSelectedTeam(newTeam);
       setTeams((prev) => prev.map((t) => (t.id === newTeam.id ? newTeam : t)));
     } else {
-      // Add new member
       const newMember = await api.addMember(
         selectedTeam.id,
         memberData as api.CreateTeamMemberDto
@@ -283,13 +514,10 @@ export default function AITeamsSettings({
       setSelectedTeam(newTeam);
       setTeams((prev) => prev.map((t) => (t.id === newTeam.id ? newTeam : t)));
     }
-
-    setShowMemberEditor(false);
-    setEditingMember(null);
   };
 
   const handleDeleteMember = async (member: AITeamMemberTemplate) => {
-    if (!confirm(`确定要删除成员 "${member.displayName}" 吗？`)) return;
+    if (!confirm(`Delete member "${member.displayName}"?`)) return;
 
     await api.deleteMember(member.id);
     if (selectedTeam) {
@@ -310,7 +538,7 @@ export default function AITeamsSettings({
     if (existingCount > 0) {
       if (
         !confirm(
-          `当前团队已有 ${existingCount} 名成员。AI 将生成新的成员配置并添加到团队中，是否继续？`
+          `Team has ${existingCount} members. AI will generate and add new members. Continue?`
         )
       )
         return;
@@ -324,7 +552,6 @@ export default function AITeamsSettings({
         category: selectedTeam.category,
       });
 
-      // Add generated members to the team
       const addedMembers: AITeamMemberTemplate[] = [];
       for (const memberConfig of result.members) {
         const newMember = await api.addMember(selectedTeam.id, {
@@ -343,7 +570,6 @@ export default function AITeamsSettings({
         addedMembers.push(newMember);
       }
 
-      // Update local state with new members
       const newTeam = {
         ...selectedTeam,
         members: [...(selectedTeam.members || []), ...addedMembers],
@@ -351,15 +577,15 @@ export default function AITeamsSettings({
       setSelectedTeam(newTeam);
       setTeams((prev) => prev.map((t) => (t.id === newTeam.id ? newTeam : t)));
 
-      alert(`成功添加 ${addedMembers.length} 名 AI 推荐成员！`);
+      alert(`Added ${addedMembers.length} AI-generated members!`);
     } catch (err) {
-      alert(`AI 配置生成失败: ${(err as Error).message}`);
+      alert(`AI generation failed: ${(err as Error).message}`);
     } finally {
       setGeneratingConfig(false);
     }
   };
 
-  // Render
+  // Loading state
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -368,9 +594,10 @@ export default function AITeamsSettings({
     );
   }
 
+  // Error state
   if (error) {
     return (
-      <div className="m-8 rounded-lg border border-red-200 bg-red-50 p-4">
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4">
         <div className="flex items-center gap-2 text-red-700">
           <AlertCircle className="h-5 w-5" />
           <span>{error}</span>
@@ -379,7 +606,7 @@ export default function AITeamsSettings({
     );
   }
 
-  // Filter teams by search query
+  // Filter teams
   const filteredTeams = teams.filter(
     (team) =>
       !searchQuery ||
@@ -388,214 +615,173 @@ export default function AITeamsSettings({
       team.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Detail view
+  if (selectedTeam) {
+    return (
+      <>
+        <TeamDetailPanel
+          team={selectedTeam}
+          onBack={() => setSelectedTeam(null)}
+          onEdit={() => {
+            setEditingTeam(selectedTeam);
+            setShowTeamForm(true);
+          }}
+          onDelete={() => handleDeleteTeam(selectedTeam)}
+          onMemberSave={(data) => handleSaveMember(data, null)}
+          onMemberDelete={handleDeleteMember}
+          onGenerateConfig={handleGenerateConfig}
+          generatingConfig={generatingConfig}
+        />
+
+        {showTeamForm && (
+          <TeamFormModal
+            team={editingTeam}
+            onClose={() => {
+              setShowTeamForm(false);
+              setEditingTeam(null);
+            }}
+            onSave={editingTeam ? handleUpdateTeam : handleCreateTeam}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Card grid view
   return (
-    <div className="flex h-full min-h-[500px]">
-      {/* Left: Team List */}
-      <div className="w-72 flex-shrink-0 border-r border-gray-200 bg-gray-50">
-        <div className="space-y-1 p-2">
-          {filteredTeams.map((team) => (
-            <button
-              key={team.id}
-              onClick={() => setSelectedTeam(team)}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
-                selectedTeam?.id === team.id
-                  ? 'bg-blue-100 text-blue-900'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <span
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-lg"
-                style={{ backgroundColor: team.color || '#E5E7EB' }}
-              >
-                {team.icon || ''}
-              </span>
-              <div className="flex-1 truncate">
-                <div className="font-medium">{team.displayName}</div>
-                <div className="text-xs text-gray-500">
-                  {team.members?.length || 0} 成员
-                </div>
-              </div>
-              <ChevronRight className="h-4 w-4 text-gray-400" />
-            </button>
-          ))}
-
-          {filteredTeams.length === 0 && (
-            <div className="py-8 text-center text-sm text-gray-500">
-              {searchQuery ? '未找到匹配的团队' : '暂无团队模板'}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Right: Team Details */}
-      <div className="flex-1 overflow-auto">
-        {selectedTeam ? (
-          <div className="p-6">
-            {/* Team Header */}
-            <div className="mb-6 flex items-start justify-between">
-              <div className="flex items-center gap-4">
-                <span
-                  className="flex h-14 w-14 items-center justify-center rounded-xl text-2xl"
-                  style={{ backgroundColor: selectedTeam.color || '#E5E7EB' }}
+    <>
+      {/* Teams Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {filteredTeams.map((team) => (
+          <div
+            key={team.id}
+            onClick={() => setSelectedTeam(team)}
+            className="cursor-pointer rounded-xl border-2 border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+          >
+            {/* Header */}
+            <div className="mb-4 flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl"
+                  style={{ backgroundColor: team.color || '#E5E7EB' }}
                 >
-                  {selectedTeam.icon || ''}
-                </span>
+                  {team.icon || '👥'}
+                </div>
                 <div>
-                  <h1 className="text-xl font-semibold text-gray-900">
-                    {selectedTeam.displayName}
-                  </h1>
-                  <p className="text-sm text-gray-500">
-                    {selectedTeam.description || '暂无描述'}
-                  </p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                      {selectedTeam.category || '未分类'}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${
-                        selectedTeam.status === 'ACTIVE'
-                          ? 'bg-green-100 text-green-700'
-                          : selectedTeam.status === 'DRAFT'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {selectedTeam.status === 'ACTIVE'
-                        ? '启用'
-                        : selectedTeam.status === 'DRAFT'
-                          ? '草稿'
-                          : '归档'}
-                    </span>
-                    {selectedTeam.isSystem && (
-                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
-                        系统预设
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-gray-900">
+                      {team.displayName}
+                    </h3>
+                    {team.isSystem && (
+                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                        System
                       </span>
                     )}
                   </div>
+                  <p className="text-sm text-gray-500">
+                    {team.category || 'Uncategorized'}
+                  </p>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setEditingTeam(selectedTeam);
-                    setShowTeamForm(true);
-                  }}
-                  className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  <Pencil className="h-4 w-4" />
-                  编辑
-                </button>
-                {!selectedTeam.isSystem && (
-                  <button
-                    onClick={() => handleDeleteTeam(selectedTeam)}
-                    className="flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    删除
-                  </button>
-                )}
               </div>
             </div>
 
-            {/* Team Members */}
-            <div className="rounded-xl border border-gray-200 bg-white">
-              <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-gray-500" />
-                  <h2 className="font-medium text-gray-900">团队成员</h2>
-                  <span className="text-sm text-gray-500">
-                    ({selectedTeam.members?.length || 0})
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleGenerateConfig}
-                    disabled={generatingConfig}
-                    className="flex items-center gap-1.5 rounded-lg border border-purple-300 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50"
-                  >
-                    {generatingConfig ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-4 w-4" />
-                    )}
-                    {generatingConfig ? 'AI 配置中...' : 'AI 智能配置'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingMember(null);
-                      setShowMemberEditor(true);
-                    }}
-                    className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    添加成员
-                  </button>
-                </div>
-              </div>
+            {/* Description */}
+            <p className="mb-4 line-clamp-2 text-sm text-gray-600">
+              {team.description || 'No description'}
+            </p>
 
-              <div className="divide-y divide-gray-100">
-                {selectedTeam.members?.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-lg">
+            {/* Info */}
+            <div className="mb-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Members:</span>
+                <span className="font-medium text-gray-700">
+                  {team.members?.length || 0}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Status:</span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    team.status === 'ACTIVE'
+                      ? 'bg-green-100 text-green-700'
+                      : team.status === 'DRAFT'
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {team.status === 'ACTIVE'
+                    ? 'Active'
+                    : team.status === 'DRAFT'
+                      ? 'Draft'
+                      : 'Archived'}
+                </span>
+              </div>
+            </div>
+
+            {/* Member Avatars */}
+            {team.members && team.members.length > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="flex -space-x-2">
+                  {team.members.slice(0, 5).map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-sm"
+                      title={member.displayName}
+                    >
                       {member.avatar || member.displayName[0]}
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">
-                          {member.displayName}
-                        </span>
-                        {member.isLeader && (
-                          <Crown className="h-4 w-4 text-yellow-500" />
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {member.roleDescription || member.roleId}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      {member.workStyle && (
-                        <span className="rounded bg-gray-100 px-2 py-0.5">
-                          {member.workStyle}
-                        </span>
-                      )}
-                      <span>{member.capabilities?.length || 0} 工具</span>
-                      <span>{member.expertiseAreas?.length || 0} 技能</span>
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => {
-                          setEditingMember(member);
-                          setShowMemberEditor(true);
-                        }}
-                        className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteMember(member)}
-                        className="rounded p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-                {(!selectedTeam.members ||
-                  selectedTeam.members.length === 0) && (
-                  <div className="py-8 text-center text-sm text-gray-500">
-                    暂无成员，点击上方按钮添加
-                  </div>
+                  ))}
+                </div>
+                {team.members.length > 5 && (
+                  <span className="ml-2 text-xs text-gray-500">
+                    +{team.members.length - 5} more
+                  </span>
                 )}
               </div>
+            )}
+
+            {/* Actions */}
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedTeam(team);
+                }}
+                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+              >
+                <Settings className="h-4 w-4" />
+                Manage
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingTeam(team);
+                  setShowTeamForm(true);
+                }}
+                className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-gray-600 transition-colors hover:bg-gray-100"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              {!team.isSystem && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteTeam(team);
+                  }}
+                  className="rounded-lg border border-red-200 bg-red-50 p-2 text-red-600 transition-colors hover:bg-red-100"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
-        ) : (
-          <div className="flex h-full items-center justify-center text-gray-500">
-            选择左侧的团队查看详情
+        ))}
+
+        {filteredTeams.length === 0 && (
+          <div className="col-span-full py-12 text-center text-gray-500">
+            {searchQuery
+              ? 'No teams match your search'
+              : 'No teams yet. Click "Add Team" to create one.'}
           </div>
         )}
       </div>
@@ -611,18 +797,6 @@ export default function AITeamsSettings({
           onSave={editingTeam ? handleUpdateTeam : handleCreateTeam}
         />
       )}
-
-      {/* Member Editor Modal */}
-      {showMemberEditor && selectedTeam && (
-        <AITeamMemberEditor
-          member={editingMember}
-          onClose={() => {
-            setShowMemberEditor(false);
-            setEditingMember(null);
-          }}
-          onSave={handleSaveMember}
-        />
-      )}
-    </div>
+    </>
   );
 }
