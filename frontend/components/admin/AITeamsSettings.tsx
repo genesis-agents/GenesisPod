@@ -172,14 +172,26 @@ function TeamFormModal({ team, onClose, onSave }: TeamFormModalProps) {
 
 // ==================== Main Component ====================
 
-export default function AITeamsSettings() {
+interface AITeamsSettingsProps {
+  showCreateModal?: boolean;
+  setShowCreateModal?: (show: boolean) => void;
+  searchQuery?: string;
+}
+
+export default function AITeamsSettings({
+  showCreateModal,
+  setShowCreateModal,
+  searchQuery = '',
+}: AITeamsSettingsProps) {
   const [teams, setTeams] = useState<AITeamTemplate[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<AITeamTemplate | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Modals
-  const [showTeamForm, setShowTeamForm] = useState(false);
+  // Modals - sync with parent if provided
+  const [internalShowTeamForm, setInternalShowTeamForm] = useState(false);
+  const showTeamForm = showCreateModal ?? internalShowTeamForm;
+  const setShowTeamForm = setShowCreateModal ?? setInternalShowTeamForm;
   const [editingTeam, setEditingTeam] = useState<AITeamTemplate | null>(null);
   const [showMemberEditor, setShowMemberEditor] = useState(false);
   const [editingMember, setEditingMember] =
@@ -367,10 +379,19 @@ export default function AITeamsSettings() {
     );
   }
 
+  // Filter teams by search query
+  const filteredTeams = teams.filter(
+    (team) =>
+      !searchQuery ||
+      team.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      team.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="flex h-full">
+    <div className="flex h-full min-h-[500px]">
       {/* Left: Team List */}
-      <div className="w-72 border-r border-gray-200 bg-gray-50">
+      <div className="w-72 flex-shrink-0 border-r border-gray-200 bg-gray-50">
         <div className="flex items-center justify-between border-b border-gray-200 p-4">
           <h2 className="font-semibold text-gray-900">AI 团队模板</h2>
           <button
@@ -378,7 +399,7 @@ export default function AITeamsSettings() {
               setEditingTeam(null);
               setShowTeamForm(true);
             }}
-            className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+            className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
           >
             <Plus className="h-4 w-4" />
             新建
@@ -386,7 +407,7 @@ export default function AITeamsSettings() {
         </div>
 
         <div className="space-y-1 p-2">
-          {teams.map((team) => (
+          {filteredTeams.map((team) => (
             <button
               key={team.id}
               onClick={() => setSelectedTeam(team)}
@@ -412,9 +433,9 @@ export default function AITeamsSettings() {
             </button>
           ))}
 
-          {teams.length === 0 && (
+          {filteredTeams.length === 0 && (
             <div className="py-8 text-center text-sm text-gray-500">
-              暂无团队模板
+              {searchQuery ? '未找到匹配的团队' : '暂无团队模板'}
             </div>
           )}
         </div>

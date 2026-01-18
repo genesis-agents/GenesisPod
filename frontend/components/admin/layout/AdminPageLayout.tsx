@@ -1,9 +1,9 @@
 'use client';
 
-import { type LucideIcon } from 'lucide-react';
+import { type LucideIcon, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 import { cn } from '@/lib/utils/common';
 import { type AdminDomain, ADMIN_COLORS } from '@/lib/admin/styles';
-import BackToOverviewButton from './BackToOverviewButton';
 
 interface AdminPageLayoutProps {
   title: string;
@@ -11,6 +11,7 @@ interface AdminPageLayoutProps {
   icon?: LucideIcon;
   domain?: AdminDomain;
   actions?: React.ReactNode;
+  searchBar?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | '6xl' | '7xl' | 'full';
@@ -35,6 +36,7 @@ export default function AdminPageLayout({
   icon: Icon,
   domain,
   actions,
+  searchBar,
   children,
   className,
   maxWidth = '7xl',
@@ -44,46 +46,57 @@ export default function AdminPageLayout({
 
   return (
     <div className="flex h-full flex-col bg-gray-50/50">
-      {/* Header */}
-      <header className="border-b border-gray-100 bg-white/80 px-6 py-4 backdrop-blur-sm">
-        <div className={cn('mx-auto', maxWidthClasses[maxWidth])}>
-          {/* Back Button */}
-          {showBackButton && (
-            <div className="mb-3">
-              <BackToOverviewButton />
-            </div>
-          )}
+      {/* Sticky Header - AI Writing Style */}
+      <header className="sticky top-0 z-10 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
+        <div className={cn('mx-auto px-6 py-5', maxWidthClasses[maxWidth])}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            {/* Left: Back + Icon + Title */}
+            <div className="flex items-center gap-4">
+              {/* Back Button */}
+              {showBackButton && (
+                <Link
+                  href="/admin/overview"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Link>
+              )}
+              {/* Icon */}
               {Icon && (
                 <div
                   className={cn(
-                    'flex h-10 w-10 items-center justify-center rounded-xl shadow-sm',
+                    'flex h-14 w-14 items-center justify-center rounded-2xl shadow-lg',
                     colors
                       ? `bg-gradient-to-br ${colors.gradient} shadow-${colors.primary}-500/25`
                       : 'bg-gradient-to-br from-gray-500 to-gray-600 shadow-gray-500/25'
                   )}
                 >
-                  <Icon className="h-5 w-5 text-white" />
+                  <Icon className="h-7 w-7 text-white" />
                 </div>
               )}
+              {/* Title */}
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
+                <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
                 {description && (
                   <p className="mt-0.5 text-sm text-gray-500">{description}</p>
                 )}
               </div>
             </div>
+
+            {/* Right: Actions */}
             {actions && (
               <div className="flex items-center gap-2">{actions}</div>
             )}
           </div>
+
+          {/* Search Bar (optional) */}
+          {searchBar && <div className="mt-4">{searchBar}</div>}
         </div>
       </header>
 
       {/* Content */}
-      <main className={cn('flex-1 overflow-auto p-6', className)}>
-        <div className={cn('mx-auto', maxWidthClasses[maxWidth])}>
+      <main className={cn('flex-1 overflow-auto', className)}>
+        <div className={cn('mx-auto px-6 py-6', maxWidthClasses[maxWidth])}>
           {children}
         </div>
       </main>

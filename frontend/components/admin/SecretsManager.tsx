@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
@@ -73,57 +73,74 @@ const CATEGORY_CONFIG: Record<
     label: 'AI Models',
     color: 'text-blue-600',
     bgColor: 'bg-blue-50',
-    icon: '🤖',
+    icon: 'ðŸ¤–',
   },
   SEARCH: {
     label: 'Search APIs',
     color: 'text-purple-600',
     bgColor: 'bg-purple-50',
-    icon: '🔍',
+    icon: 'ðŸ”',
   },
   EXTRACTION: {
     label: 'Extraction APIs',
     color: 'text-green-600',
     bgColor: 'bg-green-50',
-    icon: '📄',
+    icon: 'ðŸ“„',
   },
   YOUTUBE: {
     label: 'YouTube APIs',
     color: 'text-red-600',
     bgColor: 'bg-red-50',
-    icon: '▶️',
+    icon: 'â–¶ï¸',
   },
   TTS: {
     label: 'TTS APIs',
     color: 'text-indigo-600',
     bgColor: 'bg-indigo-50',
-    icon: '🔊',
+    icon: 'ðŸ”Š',
   },
   SKILLSMP: {
     label: 'SkillsMP',
     color: 'text-violet-600',
     bgColor: 'bg-violet-50',
-    icon: '⚡',
+    icon: 'âš¡',
   },
   OTHER: {
     label: 'Other',
     color: 'text-gray-600',
     bgColor: 'bg-gray-50',
-    icon: '🔑',
+    icon: 'ðŸ”‘',
   },
 };
 
-export default function SecretsManager() {
+interface SecretsManagerProps {
+  searchQuery?: string;
+  selectedCategory?: string;
+  showCreateModal?: boolean;
+  setShowCreateModal?: (show: boolean) => void;
+  refreshKey?: number;
+}
+
+export default function SecretsManager({
+  searchQuery: propSearchQuery = '',
+  selectedCategory: propCategory = 'ALL',
+  showCreateModal: propShowCreate,
+  setShowCreateModal: propSetShowCreate,
+  refreshKey = 0,
+}: SecretsManagerProps) {
   const [secrets, setSecrets] = useState<Secret[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<
-    SecretCategory | 'ALL'
-  >('ALL');
 
-  // Modal states
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  // Use props when provided
+  const searchQuery = propSearchQuery;
+  const selectedCategory = (propCategory || 'ALL') as SecretCategory | 'ALL';
+
+  // Modal states - sync with parent
+  const [internalShowCreate, setInternalShowCreate] = useState(false);
+  const showCreateModal =
+    propShowCreate !== undefined ? propShowCreate : internalShowCreate;
+  const setShowCreateModal = propSetShowCreate || setInternalShowCreate;
   const [showEditModal, setShowEditModal] = useState(false);
   const [showLogsModal, setShowLogsModal] = useState(false);
   const [showValueModal, setShowValueModal] = useState(false);
@@ -444,423 +461,339 @@ export default function SecretsManager() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
-      <div className="mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/25">
-              <Key className="h-6 w-6 text-white" />
-            </div>
+    <>
+      {/* Migration Result */}
+      {migrationResult && (
+        <div className="mb-6 rounded-lg bg-blue-50 p-4">
+          <div className="flex items-start gap-3">
+            <CheckCircle className="mt-0.5 h-5 w-5 text-blue-600" />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Secrets Manager
-              </h1>
-              <p className="text-sm text-gray-500">
-                Centralized API key and credential management
+              <h4 className="font-medium text-blue-900">Migration Complete</h4>
+              <p className="text-sm text-blue-700">
+                Imported: {migrationResult.imported}, Skipped:{' '}
+                {migrationResult.skipped}
+                {migrationResult.errors.length > 0 && (
+                  <span className="text-red-600">
+                    , Errors: {migrationResult.errors.length}
+                  </span>
+                )}
+              </p>
+              {migrationResult.errors.length > 0 && (
+                <ul className="mt-2 text-xs text-red-600">
+                  {migrationResult.errors.slice(0, 5).map((err, i) => (
+                    <li key={i}>{err}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <button
+              onClick={() => setMigrationResult(null)}
+              className="ml-auto text-blue-400 hover:text-blue-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Filters now in header */}
+
+      {/* Error */}
+      {error && (
+        <div className="mb-6 rounded-lg bg-red-50 p-4 text-red-600">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            <span>{error}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+        </div>
+      )}
+
+      {/* Secrets List */}
+      {!loading && (
+        <div className="space-y-6">
+          {Object.entries(groupedSecrets).map(([category, categorySecrets]) => {
+            const categoryConfig = CATEGORY_CONFIG[category as SecretCategory];
+            return (
+              <div
+                key={category}
+                className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+              >
+                <div
+                  className={`flex items-center gap-2 px-6 py-3 ${categoryConfig.bgColor}`}
+                >
+                  <span className="text-lg">{categoryConfig.icon}</span>
+                  <h2 className={`font-semibold ${categoryConfig.color}`}>
+                    {categoryConfig.label}
+                  </h2>
+                  <span className="ml-auto rounded-full bg-white/50 px-2 py-0.5 text-xs text-gray-600">
+                    {categorySecrets.length} secret
+                    {categorySecrets.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {categorySecrets.map((secret) => (
+                    <div
+                      key={secret.id}
+                      className="flex items-center justify-between px-6 py-4 hover:bg-gray-50"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900">
+                            {secret.displayName}
+                          </span>
+                          {!secret.isActive && (
+                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                              Inactive
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
+                          <span className="font-mono text-xs">
+                            {secret.name}
+                          </span>
+                          {secret.provider && (
+                            <span className="text-xs">
+                              Provider: {secret.provider}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-600">
+                          {secret.maskedValue}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleRevealValue(secret)}
+                            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                            title="View value"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => openEditModal(secret)}
+                            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                            title="Edit"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleViewLogs(secret)}
+                            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                            title="View logs"
+                          >
+                            <History className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(secret.name)}
+                            className="rounded-lg p-2 text-gray-400 hover:bg-red-100 hover:text-red-600"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {filteredSecrets.length === 0 && (
+            <div className="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center">
+              <Key className="mx-auto h-12 w-12 text-gray-300" />
+              <h3 className="mt-4 text-lg font-medium text-gray-900">
+                No secrets found
+              </h3>
+              <p className="mt-2 text-sm text-gray-500">
+                {searchQuery
+                  ? 'Try adjusting your search query'
+                  : 'Create your first secret to get started'}
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleMigrate}
-              disabled={migrating}
-              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-              title="Import existing API keys from AI Models and System Settings"
-            >
-              {migrating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+          )}
+        </div>
+      )}
+
+      {/* Create Modal */}
+      {showCreateModal && (
+        <Modal
+          title="Create New Secret"
+          onClose={() => setShowCreateModal(false)}
+        >
+          <SecretForm
+            formData={formData}
+            setFormData={setFormData}
+            onSubmit={handleCreate}
+            onCancel={() => setShowCreateModal(false)}
+            saving={saving}
+            error={formError}
+            isEdit={false}
+          />
+        </Modal>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && selectedSecret && (
+        <Modal
+          title={`Edit Secret: ${selectedSecret.displayName}`}
+          onClose={() => setShowEditModal(false)}
+        >
+          <SecretForm
+            formData={formData}
+            setFormData={setFormData}
+            onSubmit={handleUpdate}
+            onCancel={() => setShowEditModal(false)}
+            saving={saving}
+            error={formError}
+            isEdit={true}
+          />
+        </Modal>
+      )}
+
+      {/* Value Modal */}
+      {showValueModal && selectedSecret && (
+        <Modal
+          title={`Secret: ${selectedSecret.displayName}`}
+          onClose={() => {
+            setShowValueModal(false);
+            setRevealedValue(null);
+          }}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Name
+              </label>
+              <p className="font-mono mt-1 text-sm text-gray-600">
+                {selectedSecret.name}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Value
+              </label>
+              {revealedValue === null ? (
+                <div className="mt-1 flex items-center gap-2 text-gray-400">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading...
+                </div>
               ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-              Import Existing
-            </button>
-            <button
-              onClick={() => {
-                resetForm();
-                setShowCreateModal(true);
-              }}
-              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-xl"
-            >
-              <Plus className="h-4 w-4" />
-              New Secret
-            </button>
-          </div>
-        </div>
-
-        {/* Migration Result */}
-        {migrationResult && (
-          <div className="mb-6 rounded-lg bg-blue-50 p-4">
-            <div className="flex items-start gap-3">
-              <CheckCircle className="mt-0.5 h-5 w-5 text-blue-600" />
-              <div>
-                <h4 className="font-medium text-blue-900">
-                  Migration Complete
-                </h4>
-                <p className="text-sm text-blue-700">
-                  Imported: {migrationResult.imported}, Skipped:{' '}
-                  {migrationResult.skipped}
-                  {migrationResult.errors.length > 0 && (
-                    <span className="text-red-600">
-                      , Errors: {migrationResult.errors.length}
-                    </span>
-                  )}
-                </p>
-                {migrationResult.errors.length > 0 && (
-                  <ul className="mt-2 text-xs text-red-600">
-                    {migrationResult.errors.slice(0, 5).map((err, i) => (
-                      <li key={i}>{err}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <button
-                onClick={() => setMigrationResult(null)}
-                className="ml-auto text-blue-400 hover:text-blue-600"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Filters */}
-        <div className="mb-6 flex items-center gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search secrets..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-            />
-          </div>
-          <select
-            value={selectedCategory}
-            onChange={(e) =>
-              setSelectedCategory(e.target.value as SecretCategory | 'ALL')
-            }
-            className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-          >
-            <option value="ALL">All Categories</option>
-            {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
-              <option key={key} value={key}>
-                {config.icon} {config.label}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={fetchSecrets}
-            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="mb-6 rounded-lg bg-red-50 p-4 text-red-600">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              <span>{error}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Loading */}
-        {loading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
-          </div>
-        )}
-
-        {/* Secrets List */}
-        {!loading && (
-          <div className="space-y-6">
-            {Object.entries(groupedSecrets).map(
-              ([category, categorySecrets]) => {
-                const categoryConfig =
-                  CATEGORY_CONFIG[category as SecretCategory];
-                return (
-                  <div
-                    key={category}
-                    className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
-                  >
-                    <div
-                      className={`flex items-center gap-2 px-6 py-3 ${categoryConfig.bgColor}`}
-                    >
-                      <span className="text-lg">{categoryConfig.icon}</span>
-                      <h2 className={`font-semibold ${categoryConfig.color}`}>
-                        {categoryConfig.label}
-                      </h2>
-                      <span className="ml-auto rounded-full bg-white/50 px-2 py-0.5 text-xs text-gray-600">
-                        {categorySecrets.length} secret
-                        {categorySecrets.length !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    <div className="divide-y divide-gray-100">
-                      {categorySecrets.map((secret) => (
-                        <div
-                          key={secret.id}
-                          className="flex items-center justify-between px-6 py-4 hover:bg-gray-50"
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-900">
-                                {secret.displayName}
-                              </span>
-                              {!secret.isActive && (
-                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                                  Inactive
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
-                              <span className="font-mono text-xs">
-                                {secret.name}
-                              </span>
-                              {secret.provider && (
-                                <span className="text-xs">
-                                  Provider: {secret.provider}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="font-mono rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-600">
-                              {secret.maskedValue}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => handleRevealValue(secret)}
-                                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                                title="View value"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => openEditModal(secret)}
-                                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                                title="Edit"
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleViewLogs(secret)}
-                                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                                title="View logs"
-                              >
-                                <History className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(secret.name)}
-                                className="rounded-lg p-2 text-gray-400 hover:bg-red-100 hover:text-red-600"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              }
-            )}
-
-            {filteredSecrets.length === 0 && (
-              <div className="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center">
-                <Key className="mx-auto h-12 w-12 text-gray-300" />
-                <h3 className="mt-4 text-lg font-medium text-gray-900">
-                  No secrets found
-                </h3>
-                <p className="mt-2 text-sm text-gray-500">
-                  {searchQuery
-                    ? 'Try adjusting your search query'
-                    : 'Create your first secret to get started'}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Create Modal */}
-        {showCreateModal && (
-          <Modal
-            title="Create New Secret"
-            onClose={() => setShowCreateModal(false)}
-          >
-            <SecretForm
-              formData={formData}
-              setFormData={setFormData}
-              onSubmit={handleCreate}
-              onCancel={() => setShowCreateModal(false)}
-              saving={saving}
-              error={formError}
-              isEdit={false}
-            />
-          </Modal>
-        )}
-
-        {/* Edit Modal */}
-        {showEditModal && selectedSecret && (
-          <Modal
-            title={`Edit Secret: ${selectedSecret.displayName}`}
-            onClose={() => setShowEditModal(false)}
-          >
-            <SecretForm
-              formData={formData}
-              setFormData={setFormData}
-              onSubmit={handleUpdate}
-              onCancel={() => setShowEditModal(false)}
-              saving={saving}
-              error={formError}
-              isEdit={true}
-            />
-          </Modal>
-        )}
-
-        {/* Value Modal */}
-        {showValueModal && selectedSecret && (
-          <Modal
-            title={`Secret: ${selectedSecret.displayName}`}
-            onClose={() => {
-              setShowValueModal(false);
-              setRevealedValue(null);
-            }}
-          >
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Name
-                </label>
-                <p className="font-mono mt-1 text-sm text-gray-600">
-                  {selectedSecret.name}
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Value
-                </label>
-                {revealedValue === null ? (
-                  <div className="mt-1 flex items-center gap-2 text-gray-400">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading...
-                  </div>
-                ) : (
-                  <div className="mt-1 rounded-lg bg-gray-100 p-3">
-                    <code className="break-all text-sm text-gray-800">
-                      {revealedValue}
-                    </code>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Last Accessed
-                </label>
-                <p className="mt-1 flex items-center gap-2 text-sm text-gray-600">
-                  <Clock className="h-4 w-4" />
-                  {formatDate(selectedSecret.lastAccessedAt)}
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Access Count
-                </label>
-                <p className="mt-1 text-sm text-gray-600">
-                  {selectedSecret.accessCount} times
-                </p>
-              </div>
-              {references.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Referenced By
-                  </label>
-                  <ul className="mt-2 space-y-1">
-                    {references.map((ref, idx) => (
-                      <li
-                        key={idx}
-                        className="flex items-center gap-2 text-sm text-gray-600"
-                      >
-                        <Link2 className="h-3 w-3" />
-                        {ref.type === 'ai_model'
-                          ? 'AI Model'
-                          : 'External API'}: {ref.name}
-                      </li>
-                    ))}
-                  </ul>
+                <div className="mt-1 rounded-lg bg-gray-100 p-3">
+                  <code className="break-all text-sm text-gray-800">
+                    {revealedValue}
+                  </code>
                 </div>
               )}
             </div>
-          </Modal>
-        )}
-
-        {/* Logs Modal */}
-        {showLogsModal && selectedSecret && (
-          <Modal
-            title={`Access Logs: ${selectedSecret.displayName}`}
-            onClose={() => setShowLogsModal(false)}
-          >
-            <div className="max-h-96 overflow-y-auto">
-              {accessLogs.length === 0 ? (
-                <p className="text-center text-gray-500">
-                  No access logs found
-                </p>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">
-                        Action
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">
-                        User
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">
-                        Time
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {accessLogs.map((log) => (
-                      <tr key={log.id}>
-                        <td className="px-3 py-2">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                              log.action === 'view'
-                                ? 'bg-blue-100 text-blue-700'
-                                : log.action === 'create'
-                                  ? 'bg-green-100 text-green-700'
-                                  : log.action === 'update'
-                                    ? 'bg-amber-100 text-amber-700'
-                                    : log.action === 'delete'
-                                      ? 'bg-red-100 text-red-700'
-                                      : 'bg-gray-100 text-gray-700'
-                            }`}
-                          >
-                            {log.action}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-gray-600">
-                          {log.userEmail || log.userId || 'Unknown'}
-                        </td>
-                        <td className="px-3 py-2 text-gray-500">
-                          {formatDate(log.timestamp)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Last Accessed
+              </label>
+              <p className="mt-1 flex items-center gap-2 text-sm text-gray-600">
+                <Clock className="h-4 w-4" />
+                {formatDate(selectedSecret.lastAccessedAt)}
+              </p>
             </div>
-          </Modal>
-        )}
-      </div>
-    </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Access Count
+              </label>
+              <p className="mt-1 text-sm text-gray-600">
+                {selectedSecret.accessCount} times
+              </p>
+            </div>
+            {references.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Referenced By
+                </label>
+                <ul className="mt-2 space-y-1">
+                  {references.map((ref, idx) => (
+                    <li
+                      key={idx}
+                      className="flex items-center gap-2 text-sm text-gray-600"
+                    >
+                      <Link2 className="h-3 w-3" />
+                      {ref.type === 'ai_model'
+                        ? 'AI Model'
+                        : 'External API'}: {ref.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Logs Modal */}
+      {showLogsModal && selectedSecret && (
+        <Modal
+          title={`Access Logs: ${selectedSecret.displayName}`}
+          onClose={() => setShowLogsModal(false)}
+        >
+          <div className="max-h-96 overflow-y-auto">
+            {accessLogs.length === 0 ? (
+              <p className="text-center text-gray-500">No access logs found</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">
+                      Action
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">
+                      User
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">
+                      Time
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {accessLogs.map((log) => (
+                    <tr key={log.id}>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            log.action === 'view'
+                              ? 'bg-blue-100 text-blue-700'
+                              : log.action === 'create'
+                                ? 'bg-green-100 text-green-700'
+                                : log.action === 'update'
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : log.action === 'delete'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-gray-600">
+                        {log.userEmail || log.userId || 'Unknown'}
+                      </td>
+                      <td className="px-3 py-2 text-gray-500">
+                        {formatDate(log.timestamp)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
 

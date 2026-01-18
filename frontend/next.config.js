@@ -53,6 +53,17 @@ const nextConfig = {
         destination: '/admin/data/collection',
         permanent: true,
       },
+      // Renamed routes for cleaner naming
+      {
+        source: '/admin/ai/tools',
+        destination: '/admin/ai/external-services',
+        permanent: false,
+      },
+      {
+        source: '/admin/ai/skills',
+        destination: '/admin/ai/capabilities',
+        permanent: false,
+      },
     ];
   },
   async rewrites() {
