@@ -167,7 +167,7 @@ export function TopicResearchLayout({
   isRefreshing,
   refreshProgress,
   missionStatus,
-  teamInfo: _teamInfo,
+  teamInfo,
   isLoadingReport,
   isLoadingEvidence,
   onStartRefresh,
@@ -343,6 +343,7 @@ export function TopicResearchLayout({
                   onCancelRefresh={onCancelRefresh}
                   error={error}
                   canEdit={canEdit}
+                  teamInfo={teamInfo}
                 />
               </div>
             </div>

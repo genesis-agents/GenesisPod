@@ -10,7 +10,11 @@
  */
 
 import { useMemo, useState } from 'react';
-import type { MissionStatus, TaskStatus } from '@/lib/api/topic-research';
+import type {
+  MissionStatus,
+  TaskStatus,
+  TeamInfo,
+} from '@/lib/api/topic-research';
 
 interface SimpleRefreshProgress {
   phase: string;
@@ -33,6 +37,8 @@ interface TopicTeamPanelProps {
   error?: string | null;
   /** ★ 是否有编辑权限（只有创建者/管理员才能运行任务） */
   canEdit?: boolean;
+  /** ★ 团队信息（包含 Agent 使用的 AI 模型） */
+  teamInfo?: TeamInfo | null;
 }
 
 // Agent 角色定义
@@ -181,6 +187,7 @@ export function TopicTeamPanel({
   onCancelRefresh,
   error,
   canEdit = true,
+  teamInfo,
 }: TopicTeamPanelProps) {
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
@@ -428,6 +435,7 @@ export function TopicTeamPanel({
           onHover={setHoveredAgent}
           selectedAgent={selectedAgent}
           onSelect={setSelectedAgent}
+          teamInfo={teamInfo}
         />
       </div>
 
@@ -604,6 +612,7 @@ function TeamCanvasView({
   onHover,
   selectedAgent,
   onSelect,
+  teamInfo,
 }: {
   agents: ResearchAgent[];
   currentPhase: string;
@@ -612,6 +621,7 @@ function TeamCanvasView({
   onHover: (id: string | null) => void;
   selectedAgent: string | null;
   onSelect: (id: string | null) => void;
+  teamInfo?: TeamInfo | null;
 }) {
   const canvasSize = { width: 320, height: 200 };
 
@@ -1062,7 +1072,7 @@ function TeamCanvasView({
                 </div>
 
                 {/* 工具列表 */}
-                <div>
+                <div className="mb-3">
                   <div className="mb-1.5 text-xs font-medium text-gray-500">
                     🔧 工具
                   </div>
@@ -1075,6 +1085,23 @@ function TeamCanvasView({
                         {tool}
                       </span>
                     ))}
+                  </div>
+                </div>
+
+                {/* ★ AI 模型 - 显示 Agent 使用的模型 */}
+                <div>
+                  <div className="mb-1.5 text-xs font-medium text-gray-500">
+                    🤖 AI 模型
+                  </div>
+                  <div className="rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 px-3 py-2">
+                    <span className="font-mono text-sm font-medium text-indigo-700">
+                      {agent.role === 'leader'
+                        ? teamInfo?.leaderModel || '未指定'
+                        : teamInfo?.agents?.find(
+                            (a) =>
+                              a.role.toLowerCase() === agent.role.toLowerCase()
+                          )?.model || '未指定'}
+                    </span>
                   </div>
                 </div>
               </div>
