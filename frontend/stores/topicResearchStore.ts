@@ -144,7 +144,11 @@ interface TopicResearchState {
   stopRefreshProgressStream: () => void;
 
   // Actions - Leader/Mission
-  startLeaderPlan: (topicId: string, userPrompt?: string) => Promise<void>;
+  startLeaderPlan: (
+    topicId: string,
+    userPrompt?: string,
+    mode?: 'fresh' | 'incremental'
+  ) => Promise<void>;
   fetchMissionStatus: (topicId: string) => Promise<void>;
   fetchTeamInfo: (topicId: string) => Promise<void>;
   sendLeaderInstruction: (
@@ -581,10 +585,10 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
     }
   },
 
-  startLeaderPlan: async (topicId, userPrompt) => {
+  startLeaderPlan: async (topicId, userPrompt, mode = 'fresh') => {
     set({ isRefreshing: true, isLoadingMission: true, error: null });
     try {
-      const mission = await api.leaderPlan(topicId, { userPrompt });
+      const mission = await api.leaderPlan(topicId, { userPrompt, mode });
       set({ currentMission: mission, isLoadingMission: false });
       // Start polling for mission status
       get().fetchMissionStatus(topicId);

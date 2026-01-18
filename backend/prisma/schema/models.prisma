@@ -7579,6 +7579,7 @@ model ResearchTodo {
   agentId       String? @map("agent_id")
   agentName     String? @map("agent_name")
   agentRole     String? @map("agent_role") // leader, researcher, reviewer, synthesizer
+  modelId       String? @map("model_id") @db.VarChar(100) // ★ Agent 使用的 AI 模型 ID
 
   // ========== 状态与进度 ==========
   status        ResearchTodoStatus @default(PENDING)

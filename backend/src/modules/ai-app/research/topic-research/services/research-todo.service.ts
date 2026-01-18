@@ -46,6 +46,8 @@ export interface CreateTodoInput {
   agentId?: string;
   agentName?: string;
   agentRole?: string;
+  /** ★ Agent 使用的 AI 模型 ID */
+  modelId?: string;
   priority?: number;
   dependsOn?: string[];
   estimatedMs?: number;
@@ -128,6 +130,7 @@ export class ResearchTodoService {
         agentId: input.agentId,
         agentName: input.agentName,
         agentRole: input.agentRole,
+        modelId: input.modelId, // ★ 保存 Agent 使用的模型 ID
         priority: input.priority ?? 0,
         dependsOn: input.dependsOn ?? [],
         estimatedMs: input.estimatedMs,
@@ -654,10 +657,20 @@ export class ResearchTodoService {
 
     // 2. 为每个维度创建研究 TODO
     const dimensions = leaderPlan?.dimensions || [];
+    const agentAssignments = leaderPlan?.agentAssignments || [];
     const dimensionTodoIds: string[] = [];
 
     for (let i = 0; i < dimensions.length; i++) {
       const dim = dimensions[i];
+      const dimId = dim.id || dim.dimensionId;
+
+      // ★ 查找此维度对应的 Agent 分配，获取 modelId
+      const assignment = agentAssignments.find(
+        (a: { agentType: string; assignedDimensions?: string[] }) =>
+          a.agentType === "dimension_researcher" &&
+          a.assignedDimensions?.includes(dimId),
+      );
+
       const dimensionTodo = await this.createTodo({
         topicId,
         missionId,
@@ -665,11 +678,12 @@ export class ResearchTodoService {
         title: `${dim.name || dim.dimensionName}维度研究`,
         description:
           dim.description || `研究 ${dim.name || dim.dimensionName} 相关内容`,
-        dimensionId: dim.id || dim.dimensionId,
+        dimensionId: dimId,
         dimensionName: dim.name || dim.dimensionName,
-        agentId: `researcher-${i + 1}`,
-        agentName: `研究员 ${i + 1}`,
+        agentId: assignment?.agentId || `researcher-${i + 1}`,
+        agentName: assignment?.agentName || `研究员 ${i + 1}`,
         agentRole: "researcher",
+        modelId: assignment?.modelId, // ★ 保存分配的模型 ID
         priority: 500 - i,
         dependsOn: [leaderTodo.id],
         estimatedMs: 120000, // 预估 2 分钟

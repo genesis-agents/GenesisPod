@@ -28,6 +28,7 @@ import {
   ResearchLeaderService,
   type LeaderPlan,
 } from "./research-leader.service";
+import type { ResearchMode } from "../dto/leader.dto";
 import { DimensionMissionService } from "./dimension-mission.service";
 import { ReportSynthesisService } from "./report-synthesis.service";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
@@ -56,6 +57,8 @@ export interface CreateMissionInput {
   topicId: string;
   userPrompt?: string;
   userContext?: Record<string, any>;
+  /** ★ 研究模式：fresh=全新开始，incremental=增量更新（保留已完成任务） */
+  mode?: ResearchMode;
 }
 
 export interface MissionStatus {
@@ -101,6 +104,23 @@ export interface MissionProgressEvent {
   totalTasks: number;
 }
 
+/**
+ * 已完成的任务数据（用于增量模式复制）
+ */
+export interface CompletedTaskData {
+  dimensionName: string;
+  dimensionId: string | null;
+  title: string;
+  description: string;
+  assignedAgent: string;
+  assignedAgentType: string | null;
+  priority: number;
+  result: Prisma.JsonValue | null;
+  resultSummary: string | null;
+  startedAt: Date | null;
+  completedAt: Date | null;
+}
+
 export interface TeamInfo {
   leaderId: string | null;
   leaderModel: string | null;
@@ -140,8 +160,11 @@ export class ResearchMissionService {
    * 调用 Leader 进行规划，创建任务列表
    */
   async createMission(input: CreateMissionInput): Promise<ResearchMission> {
-    const { topicId, userPrompt, userContext } = input;
-    this.logger.log(`[createMission] Creating mission for topic ${topicId}`);
+    const { topicId, userPrompt, userContext, mode = "fresh" } = input;
+    const isIncremental = mode === "incremental";
+    this.logger.log(
+      `[createMission] Creating mission for topic ${topicId}, mode: ${mode}`,
+    );
 
     // 1. 验证专题存在
     const topic = await this.prisma.researchTopic.findUnique({
@@ -150,6 +173,49 @@ export class ResearchMissionService {
 
     if (!topic) {
       throw new NotFoundException(`Topic ${topicId} not found`);
+    }
+
+    // ★ 增量模式：查找已完成的维度任务（用于继承）
+    // 需要收集完整的任务数据，以便复制到新 Mission
+    let completedTasks: CompletedTaskData[] = [];
+    let completedDimensionNames: string[] = [];
+
+    if (isIncremental) {
+      // 查找此 Topic 最近的 Mission，获取已完成的维度任务（完整数据）
+      const latestMission = await this.prisma.researchMission.findFirst({
+        where: { topicId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          tasks: {
+            where: {
+              taskType: "dimension_research",
+              status: ResearchTaskStatus.COMPLETED,
+            },
+          },
+        },
+      });
+
+      if (latestMission?.tasks) {
+        completedTasks = latestMission.tasks
+          .filter((t) => t.dimensionName)
+          .map((t) => ({
+            dimensionName: t.dimensionName!,
+            dimensionId: t.dimensionId,
+            title: t.title,
+            description: t.description,
+            assignedAgent: t.assignedAgent,
+            assignedAgentType: t.assignedAgentType,
+            priority: t.priority,
+            result: t.result,
+            resultSummary: t.resultSummary,
+            startedAt: t.startedAt,
+            completedAt: t.completedAt,
+          }));
+        completedDimensionNames = completedTasks.map((t) => t.dimensionName);
+        this.logger.log(
+          `[createMission] Incremental mode: found ${completedTasks.length} completed tasks: ${completedDimensionNames.join(", ")}`,
+        );
+      }
     }
 
     // 2. 检查是否有正在进行的 Mission
@@ -166,16 +232,54 @@ export class ResearchMissionService {
       },
       include: {
         tasks: {
-          select: { status: true },
+          where: {
+            taskType: "dimension_research",
+          },
         },
       },
     });
 
     if (existingMission) {
-      // ★ 用户主动点击"开始研究"，无条件取消旧任务，启动新的
+      // ★ 根据模式决定如何处理旧 Mission
+      if (isIncremental) {
+        // 增量模式：收集已完成的任务（完整数据）
+        const existingCompletedTasks = existingMission.tasks
+          .filter(
+            (t) => t.status === ResearchTaskStatus.COMPLETED && t.dimensionName,
+          )
+          .map((t) => ({
+            dimensionName: t.dimensionName!,
+            dimensionId: t.dimensionId,
+            title: t.title,
+            description: t.description,
+            assignedAgent: t.assignedAgent,
+            assignedAgentType: t.assignedAgentType,
+            priority: t.priority,
+            result: t.result,
+            resultSummary: t.resultSummary,
+            startedAt: t.startedAt,
+            completedAt: t.completedAt,
+          }));
+
+        // 合并已完成的任务（去重：以 dimensionName 为键）
+        const existingNames = new Set(
+          completedTasks.map((t) => t.dimensionName),
+        );
+        for (const task of existingCompletedTasks) {
+          if (!existingNames.has(task.dimensionName)) {
+            completedTasks.push(task);
+            existingNames.add(task.dimensionName);
+          }
+        }
+        completedDimensionNames = completedTasks.map((t) => t.dimensionName);
+        this.logger.log(
+          `[createMission] Incremental: merged ${existingCompletedTasks.length} completed from active mission, total: ${completedTasks.length}`,
+        );
+      }
+
       this.logger.warn(
         `[createMission] Found existing mission ${existingMission.id} (status: ${existingMission.status}), ` +
-          `auto-cancelling to start fresh...`,
+          `cancelling to start ${isIncremental ? "incremental update" : "fresh"}...`,
       );
 
       // 取消旧 Mission
@@ -184,7 +288,7 @@ export class ResearchMissionService {
         data: { status: ResearchMissionStatus.CANCELLED },
       });
 
-      // 取消旧 Mission 的所有 Task
+      // 取消旧 Mission 的所有未完成 Task
       await this.prisma.researchTask.updateMany({
         where: {
           missionId: existingMission.id,
@@ -195,7 +299,7 @@ export class ResearchMissionService {
         data: { status: ResearchTaskStatus.FAILED },
       });
 
-      // 取消旧 Mission 的所有 Todo
+      // 取消旧 Mission 的所有待处理 Todo
       await this.prisma.researchTodo.updateMany({
         where: {
           missionId: existingMission.id,
@@ -205,13 +309,15 @@ export class ResearchMissionService {
         },
         data: {
           status: ResearchTodoStatus.CANCELLED,
-          statusMessage: "用户启动了新研究",
+          statusMessage: isIncremental
+            ? "用户启动了增量更新"
+            : "用户启动了新研究",
           completedAt: new Date(),
         },
       });
 
       this.logger.log(
-        `[createMission] Auto-cancelled old mission ${existingMission.id}`,
+        `[createMission] Cancelled old mission ${existingMission.id}`,
       );
     }
 
@@ -250,6 +356,7 @@ export class ResearchMissionService {
       topicId,
       topic.name,
       userPrompt,
+      completedTasks, // ★ 增量模式：传递已完成的任务（完整数据）
     ).catch((err) => {
       this.logger.error(
         `[createMission] Async planning failed: ${err instanceof Error ? err.message : err}`,
@@ -272,9 +379,13 @@ export class ResearchMissionService {
     topicId: string,
     topicName: string,
     userPrompt?: string,
+    completedTasks: CompletedTaskData[] = [], // ★ 增量模式：已完成的任务（完整数据）
   ): Promise<void> {
     this.logger.log(
-      `[executePlanningAsync] Starting planning for mission ${missionId}`,
+      `[executePlanningAsync] Starting planning for mission ${missionId}` +
+        (completedTasks.length > 0
+          ? `, incremental mode with ${completedTasks.length} completed tasks`
+          : ""),
     );
 
     // ★ 发送 Leader 思考事件：理解任务
@@ -365,10 +476,12 @@ export class ResearchMissionService {
       });
 
       // 将 Leader 规划的维度同步到数据库，并创建任务
+      // ★ 增量模式：先复制已完成的任务，再创建新任务
       const tasks = await this.createTasksFromPlan(
         missionId,
         topicId,
         leaderPlan,
+        completedTasks,
       );
 
       // ★ 发送 Leader 规划完成事件
@@ -456,13 +569,16 @@ export class ResearchMissionService {
   /**
    * 根据 Leader 规划创建任务
    * ★ 重要：会将 Leader 规划的维度同步到 TopicDimension 表
+   * @param completedTasks 增量模式下已完成的任务（完整数据），会复制到新 Mission
    */
   private async createTasksFromPlan(
     missionId: string,
     topicId: string,
     plan: LeaderPlan,
+    completedTasks: CompletedTaskData[] = [],
   ): Promise<ResearchTask[]> {
     const tasks: ResearchTask[] = [];
+    const completedSet = new Set(completedTasks.map((t) => t.dimensionName));
 
     // ★ 首先：将 Leader 规划的维度同步到数据库
     // 这确保执行时 topic.dimensions 能正确加载
@@ -512,8 +628,53 @@ export class ResearchMissionService {
       }
     }
 
-    // 1. 为每个维度创建研究任务
+    // ★ 增量模式：首先复制已完成的任务到新 Mission
+    if (completedTasks.length > 0) {
+      this.logger.log(
+        `[createTasksFromPlan] Incremental mode: copying ${completedTasks.length} completed tasks: ${[...completedSet].join(", ")}`,
+      );
+
+      for (const completedTask of completedTasks) {
+        // 查找对应的数据库维度 ID
+        const dbDim = await this.prisma.topicDimension.findFirst({
+          where: { topicId, name: completedTask.dimensionName },
+        });
+
+        const copiedTask = await this.prisma.researchTask.create({
+          data: {
+            missionId,
+            title: completedTask.title,
+            description: completedTask.description,
+            taskType: "dimension_research",
+            dimensionName: completedTask.dimensionName,
+            dimensionId: dbDim?.id || completedTask.dimensionId,
+            assignedAgent: completedTask.assignedAgent,
+            assignedAgentType: completedTask.assignedAgentType,
+            priority: completedTask.priority,
+            status: ResearchTaskStatus.COMPLETED, // ★ 标记为已完成
+            result: completedTask.result ?? undefined,
+            resultSummary: completedTask.resultSummary,
+            startedAt: completedTask.startedAt,
+            completedAt: completedTask.completedAt,
+          },
+        });
+        tasks.push(copiedTask);
+        this.logger.log(
+          `[createTasksFromPlan] Copied completed task: ${completedTask.dimensionName}`,
+        );
+      }
+    }
+
+    // 1. 为每个维度创建研究任务（跳过已完成的）
     for (const dimension of plan.dimensions) {
+      // ★ 增量模式：跳过已完成的维度（已在上面复制）
+      if (completedSet.has(dimension.name)) {
+        this.logger.log(
+          `[createTasksFromPlan] Skipping dimension (already copied): ${dimension.name}`,
+        );
+        continue;
+      }
+
       const assignment = plan.agentAssignments.find(
         (a) =>
           a.agentType === "dimension_researcher" &&

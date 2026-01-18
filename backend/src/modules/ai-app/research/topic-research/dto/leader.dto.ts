@@ -1,5 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsString, IsOptional, IsObject, MaxLength } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsObject,
+  MaxLength,
+  IsIn,
+} from "class-validator";
+
+/**
+ * 研究启动模式
+ * - fresh: 全新开始，取消所有旧任务
+ * - incremental: 增量更新，保留已完成的任务
+ */
+export type ResearchMode = "fresh" | "incremental";
 
 /**
  * Leader 规划请求 DTO
@@ -21,6 +34,17 @@ export class LeaderPlanDto {
   @IsOptional()
   @IsObject()
   userContext?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description:
+      "研究启动模式：fresh=全新开始（取消旧任务），incremental=增量更新（保留已完成任务）",
+    example: "incremental",
+    enum: ["fresh", "incremental"],
+    default: "fresh",
+  })
+  @IsOptional()
+  @IsIn(["fresh", "incremental"])
+  mode?: ResearchMode;
 }
 
 /**

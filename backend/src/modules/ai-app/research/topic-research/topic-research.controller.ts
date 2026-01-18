@@ -1276,6 +1276,7 @@ export class TopicResearchController {
       topicId: id,
       userPrompt: dto.userPrompt,
       userContext: dto.userContext,
+      mode: dto.mode || "fresh", // ★ 传递研究模式，默认为全新开始
     });
   }
 

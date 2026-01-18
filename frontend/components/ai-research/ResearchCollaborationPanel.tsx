@@ -348,9 +348,9 @@ export function ResearchCollaborationPanel({
   >([]);
   const [isProcessingInput, setIsProcessingInput] = useState(false);
   const conversationEndRef = useRef<HTMLDivElement>(null);
-  // 折叠状态（任务区默认展开，内部"整体进度"默认折叠）
+  // 折叠状态（任务区默认展开，对话区默认折叠）
   const [isTasksCollapsed, setIsTasksCollapsed] = useState(false);
-  const [isConversationCollapsed, setIsConversationCollapsed] = useState(false);
+  const [isConversationCollapsed, setIsConversationCollapsed] = useState(true);
 
   const {
     todos: apiTodos,

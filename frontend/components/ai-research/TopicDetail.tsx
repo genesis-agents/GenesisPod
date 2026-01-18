@@ -147,12 +147,11 @@ export function TopicDetail({ topic, onBack, initialView }: TopicDetailProps) {
     }
   }, [topic.id, cancelMission]);
 
-  // ★ "更新"按钮 - 启动新的研究
-  // 无论当前任务状态如何，都启动全新研究（这是用户期望的行为）
-  // retryMission 仅用于重试特定失败任务，不适合"更新"场景
+  // ★ "更新"按钮 - 启动增量更新研究
+  // 使用 incremental 模式：保留已完成的任务，只研究未完成的维度
   const handleContinueResearch = useCallback(async () => {
     try {
-      await startLeaderPlan(topic.id);
+      await startLeaderPlan(topic.id, undefined, 'incremental');
     } catch {
       // Error is already handled in store
     }

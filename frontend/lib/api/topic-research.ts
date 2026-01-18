@@ -695,10 +695,15 @@ export async function getStats(topicId: string): Promise<TopicStats> {
 
 /**
  * Leader 生成研究规划
+ * @param mode - 'fresh' 全新开始（取消旧任务），'incremental' 增量更新（保留已完成任务）
  */
 export async function leaderPlan(
   topicId: string,
-  options?: { userPrompt?: string; userContext?: Record<string, unknown> }
+  options?: {
+    userPrompt?: string;
+    userContext?: Record<string, unknown>;
+    mode?: 'fresh' | 'incremental';
+  }
 ): Promise<ResearchMission> {
   return fetchWithAuth(`${API_PREFIX}/topics/${topicId}/leader/plan`, {
     method: 'POST',
