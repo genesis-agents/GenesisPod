@@ -31,8 +31,8 @@ const HEALTH_CHECK_CONFIG = {
   /** Stuck threshold: 30 minutes without progress (same as AI Writing) */
   stuckThresholdMs: 30 * 60 * 1000,
 
-  /** Maximum execution time: 2 hours */
-  maxExecutionTimeMs: 2 * 60 * 60 * 1000,
+  /** Maximum execution time: 6 hours (safety net for very long research tasks) */
+  maxExecutionTimeMs: 6 * 60 * 60 * 1000,
 
   /** Max retries before giving up */
   maxRetries: 3,

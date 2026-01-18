@@ -699,14 +699,17 @@ export class ResearchEventEmitterService {
     topicId: string,
     options?: { limit?: number; missionId?: string },
   ) {
-    return this.prisma.researchTeamMessage.findMany({
+    // ★ 先按 desc 获取最新的消息，然后反转顺序使其按时间正序排列
+    const messages = await this.prisma.researchTeamMessage.findMany({
       where: {
         topicId,
         ...(options?.missionId ? { missionId: options.missionId } : {}),
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
       take: options?.limit || 100,
     });
+    // 反转为时间正序，便于前端显示
+    return messages.reverse();
   }
 
   /**
@@ -716,7 +719,8 @@ export class ResearchEventEmitterService {
     topicId: string,
     options?: { limit?: number; missionId?: string; agentRole?: string },
   ) {
-    return this.prisma.researchAgentActivity.findMany({
+    // ★ 先按 desc 获取最新的活动，然后反转顺序使其按时间正序排列
+    const activities = await this.prisma.researchAgentActivity.findMany({
       where: {
         topicId,
         ...(options?.missionId ? { missionId: options.missionId } : {}),
@@ -725,6 +729,8 @@ export class ResearchEventEmitterService {
       orderBy: { createdAt: "desc" },
       take: options?.limit || 200,
     });
+    // 反转为时间正序，便于前端显示
+    return activities.reverse();
   }
 
   /**

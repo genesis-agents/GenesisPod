@@ -894,6 +894,9 @@ export class ResearchLeaderService {
       `[handleUserMessage] Processing @Leader message for topic ${topicId}`,
     );
 
+    // ★ 保存用户消息到数据库（对话历史）
+    await this.eventEmitter.saveUserMessage(topicId, missionId, userMessage);
+
     // 0. 使用 AI Engine 的意图检测服务进行快速预检测
     const intentResult = this.intentDetectionService.detectIntent(userMessage);
     this.logger.log(

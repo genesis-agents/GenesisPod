@@ -1876,6 +1876,7 @@ export function TopicContentPanel({
               wsConnected={wsConnected}
               onClearEvents={handleClearAllMessages}
               persistedMessages={persistedMessages}
+              persistedActivities={persistedActivities}
               missionStatus={missionStatus}
             />
           )}
@@ -2953,6 +2954,7 @@ function TeamInteractionTabContent({
   wsConnected = false,
   onClearEvents,
   persistedMessages = [],
+  persistedActivities = [],
   missionStatus,
 }: {
   events: ResearchEvent[];
@@ -2968,6 +2970,17 @@ function TeamInteractionTabContent({
     content: string;
     createdAt: string;
   }>;
+  persistedActivities?: Array<{
+    id: string;
+    agentId?: string;
+    agentName: string;
+    agentRole: string;
+    activityType: string;
+    content: string;
+    progress?: number;
+    dimensionName?: string;
+    createdAt: string;
+  }>;
   missionStatus?: MissionStatus | null;
 }) {
   // ★ 使用 Array.isArray 确保是数组
@@ -2975,6 +2988,9 @@ function TeamInteractionTabContent({
   const safeWsEvents = Array.isArray(wsEvents) ? wsEvents : [];
   const safePersistedMessages = Array.isArray(persistedMessages)
     ? persistedMessages
+    : [];
+  const safePersistedActivities = Array.isArray(persistedActivities)
+    ? persistedActivities
     : [];
 
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
@@ -3025,6 +3041,63 @@ function TeamInteractionTabContent({
           detail:
             safeString(msg.content).length > 150
               ? { type: 'text' as const, data: safeString(msg.content) }
+              : undefined,
+        };
+      });
+
+    // ★ Convert persisted agent activities to UI format
+    const persistedActivityUIMessages: UIMessage[] =
+      safePersistedActivities.map((activity) => {
+        let agentIcon = '🔬';
+        let agentColor = 'text-blue-700';
+        let agentBgColor = 'bg-blue-100';
+        let msgType: UIMessage['type'] = 'agent';
+
+        // 根据角色设置图标和颜色
+        if (activity.agentRole === 'leader') {
+          agentIcon = '👑';
+          agentColor = 'text-purple-700';
+          agentBgColor = 'bg-purple-100';
+          msgType = 'leader';
+        } else if (activity.agentRole === 'reviewer') {
+          agentIcon = '✅';
+          agentColor = 'text-green-700';
+          agentBgColor = 'bg-green-100';
+        } else if (activity.agentRole === 'synthesizer') {
+          agentIcon = '📝';
+          agentColor = 'text-orange-700';
+          agentBgColor = 'bg-orange-100';
+        }
+
+        // 根据活动类型设置状态
+        let status: UIMessage['status'] = undefined;
+        if (activity.activityType === 'COMPLETED') {
+          status = 'success';
+        } else if (activity.activityType === 'FAILED') {
+          status = 'error';
+        } else if (
+          activity.activityType === 'RESEARCHING' ||
+          activity.activityType === 'THINKING'
+        ) {
+          status = 'in_progress';
+        }
+
+        return {
+          id: `activity-${activity.id}`,
+          type: msgType,
+          agent: activity.agentName,
+          agentIcon,
+          agentColor,
+          agentBgColor,
+          agentType: activity.agentRole,
+          content: safeString(activity.content),
+          timestamp: new Date(activity.createdAt),
+          progress: activity.progress,
+          status,
+          dimensionName: activity.dimensionName,
+          detail:
+            safeString(activity.content).length > 150
+              ? { type: 'text' as const, data: safeString(activity.content) }
               : undefined,
         };
       });
@@ -3235,10 +3308,14 @@ function TeamInteractionTabContent({
     });
 
     // Combine and sort by timestamp (persisted first, then real-time)
-    const allMessages = [...persistedUIMessages, ...wsUIMessages];
+    const allMessages = [
+      ...persistedUIMessages,
+      ...persistedActivityUIMessages,
+      ...wsUIMessages,
+    ];
     allMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
     return allMessages;
-  }, [safeWsEvents, safePersistedMessages]);
+  }, [safeWsEvents, safePersistedMessages, safePersistedActivities]);
 
   // ★ 收集所有可用的维度名称
   const availableDimensions = useMemo(() => {
