@@ -250,7 +250,8 @@ export function TopicTeamPanel({
     ];
 
     // 添加研究员（根据维度任务数量）
-    const researcherCount = Math.max(1, Math.min(dimensionTasks.length, 4));
+    // ★ 最大支持 6 个研究员并行，匹配后端 MAX_CONCURRENT_TASKS=5
+    const researcherCount = Math.max(1, Math.min(dimensionTasks.length, 6));
     for (let i = 0; i < researcherCount; i++) {
       const assignedTasks = dimensionTasks.filter(
         (_, idx) => idx % researcherCount === i
