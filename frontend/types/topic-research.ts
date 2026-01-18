@@ -527,6 +527,8 @@ export interface ResearchTodo {
   agentId?: string;
   agentName?: string;
   agentRole?: string;
+  /** ★ Agent 使用的 AI 模型 ID */
+  modelId?: string;
   status: ResearchTodoStatus;
   progress: number;
   statusMessage?: string;
