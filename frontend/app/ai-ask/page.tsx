@@ -12,6 +12,9 @@ import SessionSidebar from '@/components/ai-ask/SessionSidebar';
 import MessageContextMenu from '@/components/ai-ask/MessageContextMenu';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import { CollapsibleBlockquote } from '@/components/ui/CollapsibleBlockquote';
 import { CollapsibleMessage } from '@/components/ui/CollapsibleMessage';
 import { CollapsibleRagSources } from '@/components/ui/CollapsibleRagSources';
@@ -1959,7 +1962,8 @@ export default function AskPage() {
                           <CollapsibleMessage maxHeight={600}>
                             <div className="prose prose-sm max-w-none">
                               <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
+                                remarkPlugins={[remarkGfm, remarkMath]}
+                                rehypePlugins={[rehypeKatex]}
                                 components={{
                                   blockquote: CollapsibleBlockquote,
                                   code: CodeBlock,
@@ -2101,7 +2105,8 @@ export default function AskPage() {
                               <CollapsibleMessage maxHeight={400}>
                                 <div className="prose prose-sm max-w-none">
                                   <ReactMarkdown
-                                    remarkPlugins={[remarkGfm]}
+                                    remarkPlugins={[remarkGfm, remarkMath]}
+                                    rehypePlugins={[rehypeKatex]}
                                     components={{
                                       blockquote: CollapsibleBlockquote,
                                       code: CodeBlock,
