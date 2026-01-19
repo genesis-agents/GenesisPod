@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
   FileText,
@@ -8,7 +9,6 @@ import {
   RefreshCw,
   Search,
   Filter,
-  MoreHorizontal,
   Eye,
   Edit3,
   Trash2,
@@ -16,9 +16,11 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  AlertCircle,
   Link,
   Sparkles,
+  ArrowLeft,
+  Globe,
+  Loader2,
 } from 'lucide-react';
 
 // Types matching backend
@@ -73,6 +75,7 @@ const STATUS_CONFIG: Record<
 
 export default function ContentsTab() {
   const { t } = useTranslation();
+  const router = useRouter();
   const [contents, setContents] = useState<SocialContent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,6 +84,45 @@ export default function ContentsTab() {
   );
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedSource, setSelectedSource] = useState<SourceType | null>(null);
+  const [modalStep, setModalStep] = useState<1 | 2>(1);
+  const [externalUrl, setExternalUrl] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const resetModal = () => {
+    setShowCreateModal(false);
+    setSelectedSource(null);
+    setModalStep(1);
+    setExternalUrl('');
+    setIsProcessing(false);
+  };
+
+  const handleContinue = () => {
+    if (!selectedSource) return;
+
+    if (selectedSource === 'EXTERNAL_URL') {
+      setModalStep(2);
+    } else {
+      // For other sources, navigate to a picker page
+      router.push(`/ai-social/create?source=${selectedSource}`);
+      resetModal();
+    }
+  };
+
+  const handleProcessUrl = async () => {
+    if (!externalUrl.trim()) return;
+
+    setIsProcessing(true);
+    try {
+      // Navigate to create page with URL
+      router.push(
+        `/ai-social/create?source=EXTERNAL_URL&url=${encodeURIComponent(externalUrl)}`
+      );
+      resetModal();
+    } catch (error) {
+      console.error('Error processing URL:', error);
+      setIsProcessing(false);
+    }
+  };
 
   const handleRefresh = async () => {
     setIsLoading(true);
@@ -302,97 +344,161 @@ export default function ContentsTab() {
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <div className="mb-6 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-100">
-                <Sparkles className="h-5 w-5 text-rose-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {t('aiSocial.contents.createTitle')}
-                </h3>
-                <p className="text-sm text-gray-500">
-                  {t('aiSocial.contents.createDescription')}
-                </p>
-              </div>
-            </div>
+            {/* Step 1: Source Selection */}
+            {modalStep === 1 && (
+              <>
+                <div className="mb-6 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-100">
+                    <Sparkles className="h-5 w-5 text-rose-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {t('aiSocial.contents.createTitle')}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {t('aiSocial.contents.createDescription')}
+                    </p>
+                  </div>
+                </div>
 
-            {/* Source Selection */}
-            <div className="mb-6 space-y-3">
-              <label className="text-sm font-medium text-gray-700">
-                {t('aiSocial.contents.selectSource')}
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                {(
-                  [
-                    'EXTERNAL_URL',
-                    'AI_EXPLORE',
-                    'AI_RESEARCH',
-                    'AI_OFFICE',
-                    'AI_WRITING',
-                  ] as SourceType[]
-                ).map((source) => (
-                  <button
-                    key={source}
-                    type="button"
-                    onClick={() => setSelectedSource(source)}
-                    className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
-                      selectedSource === source
-                        ? 'border-rose-500 bg-rose-50 ring-1 ring-rose-500'
-                        : 'border-gray-200 hover:border-rose-300 hover:bg-rose-50'
-                    }`}
-                  >
-                    <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                        selectedSource === source
-                          ? 'bg-rose-100'
-                          : 'bg-gray-100'
-                      }`}
-                    >
-                      <FileText
-                        className={`h-4 w-4 ${
+                {/* Source Selection */}
+                <div className="mb-6 space-y-3">
+                  <label className="text-sm font-medium text-gray-700">
+                    {t('aiSocial.contents.selectSource')}
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(
+                      [
+                        'EXTERNAL_URL',
+                        'AI_EXPLORE',
+                        'AI_RESEARCH',
+                        'AI_OFFICE',
+                        'AI_WRITING',
+                      ] as SourceType[]
+                    ).map((source) => (
+                      <button
+                        key={source}
+                        type="button"
+                        onClick={() => setSelectedSource(source)}
+                        className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
                           selectedSource === source
-                            ? 'text-rose-600'
-                            : 'text-gray-600'
+                            ? 'border-rose-500 bg-rose-50 ring-1 ring-rose-500'
+                            : 'border-gray-200 hover:border-rose-300 hover:bg-rose-50'
                         }`}
-                      />
-                    </div>
-                    <span
-                      className={`text-sm font-medium ${
-                        selectedSource === source
-                          ? 'text-rose-700'
-                          : 'text-gray-900'
-                      }`}
-                    >
-                      {t(`aiSocial.sources.${source.toLowerCase()}`)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
+                      >
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                            selectedSource === source
+                              ? 'bg-rose-100'
+                              : 'bg-gray-100'
+                          }`}
+                        >
+                          <FileText
+                            className={`h-4 w-4 ${
+                              selectedSource === source
+                                ? 'text-rose-600'
+                                : 'text-gray-600'
+                            }`}
+                          />
+                        </div>
+                        <span
+                          className={`text-sm font-medium ${
+                            selectedSource === source
+                              ? 'text-rose-700'
+                              : 'text-gray-900'
+                          }`}
+                        >
+                          {t(`aiSocial.sources.${source.toLowerCase()}`)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            {/* Actions */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowCreateModal(false);
-                  setSelectedSource(null);
-                }}
-                className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={() => {
-                  // TODO: Navigate to content creation flow with selectedSource
-                  setShowCreateModal(false);
-                  setSelectedSource(null);
-                }}
-                disabled={!selectedSource}
-                className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {t('common.continue')}
-              </button>
-            </div>
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={resetModal}
+                    className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    onClick={handleContinue}
+                    disabled={!selectedSource}
+                    className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {t('common.continue')}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Step 2: External URL Input */}
+            {modalStep === 2 && selectedSource === 'EXTERNAL_URL' && (
+              <>
+                <div className="mb-6 flex items-center gap-3">
+                  <button
+                    onClick={() => setModalStep(1)}
+                    className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200"
+                  >
+                    <ArrowLeft className="h-5 w-5 text-gray-600" />
+                  </button>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {t('aiSocial.sources.external_url')}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {t('aiSocial.modal.enterUrl')}
+                    </p>
+                  </div>
+                </div>
+
+                {/* URL Input */}
+                <div className="mb-6 space-y-3">
+                  <label className="text-sm font-medium text-gray-700">
+                    {t('aiSocial.modal.urlLabel')}
+                  </label>
+                  <div className="relative">
+                    <Globe className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="url"
+                      value={externalUrl}
+                      onChange={(e) => setExternalUrl(e.target.value)}
+                      placeholder="https://example.com/article"
+                      className="w-full rounded-lg border border-gray-200 py-3 pl-11 pr-4 text-sm focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {t('aiSocial.modal.urlHint')}
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={resetModal}
+                    className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    onClick={handleProcessUrl}
+                    disabled={!externalUrl.trim() || isProcessing}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {t('aiSocial.modal.processing')}
+                      </>
+                    ) : (
+                      t('aiSocial.modal.processUrl')
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -1350,6 +1350,25 @@
       "ai_office": "AI Office",
       "ai_writing": "AI Writing"
     },
+    "modal": {
+      "enterUrl": "Enter article URL, AI will automatically extract and transform content",
+      "urlLabel": "Article URL",
+      "urlHint": "Supports articles from major platforms like Medium, Substack, news sites, etc.",
+      "processing": "Processing...",
+      "processUrl": "Extract Content"
+    },
+    "create": {
+      "title": "Create Social Content",
+      "subtitle": "AI will help transform your content for social platforms",
+      "processing": "Processing content...",
+      "selectPlatform": "Select Target Platform",
+      "preview": "Content Preview",
+      "publish": "Publish",
+      "saveDraft": "Save as Draft",
+      "back": "Back",
+      "noSource": "No content source specified",
+      "goBack": "Go back to select source"
+    },
     "ai": {
       "processUrl": "Process URL",
       "processSource": "Process Source",
