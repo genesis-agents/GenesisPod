@@ -4,6 +4,20 @@
 
 本文档提供内容增强功能的完整部署指南，包括环境配置、数据库迁移、服务部署和监控设置。
 
+---
+
+## 🆕 多环境部署 (规划中)
+
+> 商用发布前的多环境体系建设，确保开发不影响生产。
+
+| 文档                                                                     | 描述                 | 状态      |
+| ------------------------------------------------------------------------ | -------------------- | --------- |
+| [multi-environment-architecture.md](./multi-environment-architecture.md) | 三环境架构总览       | ⏳ 待实施 |
+| [environment-setup-guide.md](./environment-setup-guide.md)               | Railway 环境配置指南 | ⏳ 待实施 |
+| [release-workflow.md](./release-workflow.md)                             | 发布流程与 CI/CD     | ⏳ 待实施 |
+
+---
+
 ## 部署架构
 
 ```

@@ -2603,10 +2603,29 @@ function ProgressOverview({
       { name: string; status: 'completed' | 'in_progress' | 'pending' }
     >();
 
+    // ★ 验证维度名称是否有效（过滤掉 AI 错误返回的模型ID）
+    const isValidDimensionName = (name: string | null | undefined): boolean => {
+      if (!name || typeof name !== 'string') return false;
+      const trimmed = name.trim();
+      if (trimmed.length === 0 || trimmed.length > 100) return false;
+      // 过滤掉明显是模型ID的名称（如 gemini-3..., gpt-4o..., claude-3..., grok-...）
+      const modelIdPatterns = [
+        /^gemini-/i,
+        /^gpt-/i,
+        /^claude-/i,
+        /^grok-/i,
+        /^deepseek/i,
+        /^qwen/i,
+        /^glm-/i,
+        /^\[.*\]$/, // 数组序列化格式
+      ];
+      return !modelIdPatterns.some((pattern) => pattern.test(trimmed));
+    };
+
     // 从 missionStatus 获取任务状态
     if (missionStatus?.tasks) {
       for (const task of missionStatus.tasks) {
-        if (task.dimensionName) {
+        if (task.dimensionName && isValidDimensionName(task.dimensionName)) {
           const status =
             task.status === 'COMPLETED'
               ? 'completed'
