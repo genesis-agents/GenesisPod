@@ -1366,7 +1366,7 @@ export class TopicResearchController {
       missionId,
     );
 
-    // 3. 如果决定创建 TODO，则创建并自动执行
+    // 3. 如果决定创建 TODO，则创建并加入任务队列（不立即执行）
     let createdTodo = null;
     if (
       decodeResult.decisionType === "CREATE_TODO" &&
@@ -1374,23 +1374,37 @@ export class TopicResearchController {
       missionId
     ) {
       try {
+        // ★ v7.2: Leader 先选择合适的 Agent，再创建 TODO
+        const agentAssignment = await this.leaderService.selectAgentForTask(
+          topicId,
+          missionId,
+          decodeResult.todoTitle,
+          decodeResult.todoDescription,
+        );
+
         const todo = await this.todoService.createTodo({
           topicId,
           missionId,
           type: "USER_REQUEST",
           title: decodeResult.todoTitle,
           description: decodeResult.todoDescription,
+          // ★ 使用 Leader 分配的 Agent 信息
+          agentId: agentAssignment.agentId,
+          agentName: agentAssignment.agentName,
+          agentRole: agentAssignment.role,
+          modelId: agentAssignment.modelId,
         });
         createdTodo = {
           id: todo.id,
           title: todo.title,
+          assignedAgent: agentAssignment.agentName,
         };
 
-        // ★ 自动执行新创建的 TODO（异步，不阻塞响应）
-        this.todoService.executeTodo(topicId, todo.id).catch((error) => {
-          console.error(
-            `[decodeInput] Auto-execute TODO failed: ${error instanceof Error ? error.message : error}`,
-          );
+        // ★ v7.2: 不再立即执行，而是将任务加入队列
+        // 任务将通过 Mission 的调度器统一处理
+        // 异步调度新创建的 TODO（不阻塞响应）
+        this.todoService.scheduleTodo(topicId, todo.id).catch((err: Error) => {
+          console.error(`[leaderChat] Schedule TODO failed: ${err.message}`);
         });
       } catch (error) {
         // 继续返回响应，但标记 TODO 创建失败

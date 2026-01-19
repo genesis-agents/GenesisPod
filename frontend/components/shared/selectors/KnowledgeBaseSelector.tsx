@@ -54,6 +54,7 @@ export default function KnowledgeBaseSelector({
     top: 0,
     left: 0,
     width: 0,
+    openUpward: false,
   });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -67,10 +68,16 @@ export default function KnowledgeBaseSelector({
   useEffect(() => {
     if (isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
+      const dropdownHeight = 320; // Approximate max height of dropdown
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const openUpward = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
+
       setDropdownPosition({
-        top: rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
+        top: openUpward ? rect.top - 4 : rect.bottom + 4,
+        left: rect.left,
         width: rect.width,
+        openUpward,
       });
     }
   }, [isOpen]);
@@ -406,7 +413,9 @@ export default function KnowledgeBaseSelector({
           <div
             className="kb-selector fixed z-[9999]"
             style={{
-              top: dropdownPosition.top,
+              ...(dropdownPosition.openUpward
+                ? { bottom: window.innerHeight - dropdownPosition.top }
+                : { top: dropdownPosition.top }),
               left: dropdownPosition.left,
               width: dropdownPosition.width,
             }}

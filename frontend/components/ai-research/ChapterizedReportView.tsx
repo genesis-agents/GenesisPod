@@ -1045,7 +1045,7 @@ function ChapterizedReportViewInner({
                 />
               ) : (
                 // Plain markdown with annotation highlighting
-                <article className="prose prose-sm prose-gray max-w-none">
+                <article className="prose prose-gray max-w-none">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
@@ -1123,8 +1123,8 @@ function ChapterizedReportViewInner({
   return (
     <div className="flex h-full flex-col">
       {/* Stats Header */}
-      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-        <div className="text-sm text-gray-500">
+      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-4">
+        <div className="text-base text-gray-600">
           共 {stats.total} 章 · {stats.completed} 已完成 ·{' '}
           {stats.totalWords.toLocaleString()} 字
         </div>
@@ -1159,20 +1159,20 @@ function ChapterizedReportViewInner({
 
                 {/* Chapter Info */}
                 <div className="min-w-0 flex-1">
-                  <div className="font-medium text-gray-800">
+                  <div className="text-base font-medium text-gray-800">
                     第{chapter.chapterNumber}章 {chapter.title}
                   </div>
 
                   {/* Outline/Summary */}
                   {chapter.outline && chapter.outline !== chapter.title && (
-                    <div className="mt-1 line-clamp-2 text-xs text-gray-400">
+                    <div className="mt-1 line-clamp-2 text-sm text-gray-400">
                       {chapter.outline}
                     </div>
                   )}
 
                   {/* Content Preview with annotation highlights */}
                   {chapter.content && (
-                    <div className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs text-gray-500">
+                    <div className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm text-gray-500">
                       {processTextWithAnnotations(
                         chapter.content.slice(0, 200)
                       )}

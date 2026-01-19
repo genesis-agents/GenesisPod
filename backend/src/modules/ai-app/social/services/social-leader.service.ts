@@ -15,6 +15,17 @@ import {
 // Prisma client accessor for models not yet migrated
 type PrismaAny = any;
 
+// Helper to safely truncate strings for database fields
+function truncateString(
+  str: string | undefined | null,
+  maxLength: number,
+): string {
+  if (!str) return "";
+  if (str.length <= maxLength) return str;
+  // Truncate and add ellipsis, leaving room for "..."
+  return str.substring(0, maxLength - 3) + "...";
+}
+
 @Injectable()
 export class SocialLeaderService {
   private readonly logger = new Logger(SocialLeaderService.name);
@@ -59,16 +70,16 @@ export class SocialLeaderService {
       transformedContent.content,
     );
 
-    // 4. 创建内容记录
+    // 4. 创建内容记录 (truncate fields to fit database constraints)
     const content = await this.db.socialContent.create({
       data: {
         userId,
         contentType: dto.targetType,
         sourceType: SocialContentSourceType.EXTERNAL_URL,
         sourceUrl: dto.url,
-        title: transformedContent.title,
+        title: truncateString(transformedContent.title, 200),
         content: transformedContent.content,
-        digest: transformedContent.digest,
+        digest: truncateString(transformedContent.digest, 200) || null,
         coverImageUrl: fetchedContent.coverImage,
         images: fetchedContent.images || [],
         tags: transformedContent.tags || [],
@@ -115,7 +126,7 @@ export class SocialLeaderService {
       transformedContent.content,
     );
 
-    // 4. 创建内容记录
+    // 4. 创建内容记录 (truncate fields to fit database constraints)
     const content = await this.db.socialContent.create({
       data: {
         userId,
@@ -123,9 +134,9 @@ export class SocialLeaderService {
         sourceType: dto.sourceType,
         sourceId: dto.sourceId,
         sourceUrl: sourceContent.url,
-        title: transformedContent.title,
+        title: truncateString(transformedContent.title, 200),
         content: transformedContent.content,
-        digest: transformedContent.digest,
+        digest: truncateString(transformedContent.digest, 200) || null,
         coverImageUrl: sourceContent.coverImage,
         images: sourceContent.images || [],
         tags: transformedContent.tags || [],

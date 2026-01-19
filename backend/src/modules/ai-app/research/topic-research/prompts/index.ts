@@ -26,4 +26,6 @@ export {
   TARGET_STYLE_NAMES,
   getStylePrompt,
   buildEditPrompt,
+  buildEnhancedEditPrompt,
+  type EnhancedEditPromptOptions,
 } from "./report-editing.prompt";

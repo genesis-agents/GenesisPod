@@ -1088,7 +1088,7 @@ export function TopicContentPanel({
       key: 'references',
       label: t('topicResearch.contentPanel.tabs.references'),
       icon: <LinkIcon className="h-4 w-4" />,
-      badge: safeEvidence.length,
+      badge: report?.totalSources || safeEvidence.length,
     },
   ];
 

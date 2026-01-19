@@ -62,7 +62,7 @@ interface ConversationMessage {
   // Leader 响应特有字段
   decisionType?: LeaderDecisionType;
   understanding?: string;
-  todoCreated?: { id: string; title: string };
+  todoCreated?: { id: string; title: string; assignedAgent?: string };
   clarifyOptions?: string[];
 }
 
@@ -320,6 +320,11 @@ function ConversationMessageItem({
             <CheckCircle2 className="h-3.5 w-3.5 text-blue-600" />
             <span className="text-blue-700">
               已创建任务: {safeString(message.todoCreated.title)}
+              {message.todoCreated.assignedAgent && (
+                <span className="ml-1 text-blue-500">
+                  → {message.todoCreated.assignedAgent}
+                </span>
+              )}
             </span>
             <span className="text-blue-500">查看 →</span>
           </button>

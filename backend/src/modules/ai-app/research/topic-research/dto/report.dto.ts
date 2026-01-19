@@ -44,6 +44,10 @@ export class UpdateReportContentDto {
 
 /**
  * AI 编辑报告 DTO
+ *
+ * 支持两种模式:
+ * 1. 新模式: 使用 selectedText + context 字段（前端 AIEditInputModal）
+ * 2. 旧模式: 使用 selection + customInstruction 字段（兼容旧API）
  */
 export class AIEditReportDto {
   @ApiProperty({
@@ -55,17 +59,71 @@ export class AIEditReportDto {
   @IsNotEmpty()
   operation!: "rewrite" | "polish" | "expand" | "compress" | "style";
 
+  // ==================== 新模式字段 ====================
+
   @ApiPropertyOptional({
-    description: "选中的文本（仅编辑选中部分）",
+    description: "选中的文本（新模式）",
     example: "本研究聚焦于...",
+  })
+  @IsOptional()
+  @IsString()
+  selectedText?: string;
+
+  @ApiPropertyOptional({
+    description: "用户编辑指令/上下文（新模式）",
+    example: "让语气更正式，添加数据支撑",
+  })
+  @IsOptional()
+  @IsString()
+  context?: string;
+
+  @ApiPropertyOptional({
+    description: "完整章节内容（新模式，用于AI理解上下文）",
+    example: "# 章节标题\n\n完整的章节内容...",
+  })
+  @IsOptional()
+  @IsString()
+  fullContent?: string;
+
+  @ApiPropertyOptional({
+    description: "风格指南（新模式）",
+    example: "使用学术写作风格",
+  })
+  @IsOptional()
+  @IsString()
+  styleGuide?: string;
+
+  @ApiPropertyOptional({
+    description: "选中文本前的上下文（用于精确定位）",
+    example: "在这个研究中，",
+  })
+  @IsOptional()
+  @IsString()
+  selectorPrefix?: string;
+
+  @ApiPropertyOptional({
+    description: "选中文本后的上下文（用于精确定位）",
+    example: "这表明了...",
+  })
+  @IsOptional()
+  @IsString()
+  selectorSuffix?: string;
+
+  // ==================== 旧模式字段（兼容） ====================
+
+  @ApiPropertyOptional({
+    description: "选中的文本（旧模式，兼容）",
+    example: "本研究聚焦于...",
+    deprecated: true,
   })
   @IsOptional()
   @IsString()
   selection?: string;
 
   @ApiPropertyOptional({
-    description: "额外的用户指令",
+    description: "额外的用户指令（旧模式，兼容）",
     example: "更加专业化，使用学术风格",
+    deprecated: true,
   })
   @IsOptional()
   @IsString()

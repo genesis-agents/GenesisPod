@@ -1298,6 +1298,140 @@ export class ResearchLeaderService {
   }
 
   /**
+   * ★ v7.2: 为用户请求的任务选择合适的 Agent
+   *
+   * 功能：
+   * 1. 从当前 Mission 的已有 Agent 中选择合适的
+   * 2. 如果没有合适的，动态创建新 Agent
+   * 3. 返回 Agent 分配信息（包含模型）
+   *
+   * @param topicId 专题 ID
+   * @param missionId 任务 ID
+   * @param taskTitle 任务标题
+   * @param taskDescription 任务描述
+   * @returns Agent 分配信息
+   */
+  async selectAgentForTask(
+    _topicId: string,
+    missionId: string,
+    taskTitle: string,
+    taskDescription?: string,
+  ): Promise<AgentAssignment> {
+    this.logger.log(
+      `[selectAgentForTask] Selecting agent for task: "${taskTitle}"`,
+    );
+
+    // 1. 获取当前 Mission 的任务列表，了解已有 Agent
+    const mission = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+      include: {
+        tasks: {
+          where: { assignedAgentType: "dimension_researcher" },
+          select: {
+            assignedAgent: true,
+            assignedAgentType: true,
+            modelId: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    // 2. 获取可用模型列表（优先用于对话的模型）
+    const availableModels = await this.aiFacade.getAvailableModelsExtended();
+    // 过滤掉推理模型（用于研究任务的应是普通对话模型）
+    const chatModels = availableModels.filter((m) => !m.isReasoning);
+
+    // 3. 统计已有 Agent 的工作负载
+    const agentWorkload = new Map<string, number>();
+    const agentModels = new Map<string, string>();
+
+    if (mission?.tasks) {
+      for (const task of mission.tasks) {
+        const agentId = task.assignedAgent;
+        const currentLoad = agentWorkload.get(agentId) || 0;
+        agentWorkload.set(agentId, currentLoad + 1);
+        if (task.modelId) {
+          agentModels.set(agentId, task.modelId);
+        }
+      }
+    }
+
+    // 4. 选择策略：优先选择工作负载最少的已有 Agent
+    let selectedAgentId: string;
+    let selectedModelId: string;
+    let agentName: string;
+
+    // 确保有可用模型（如果没有 chat 模型，使用所有可用模型）
+    const modelsToUse = chatModels.length > 0 ? chatModels : availableModels;
+    const defaultModel = modelsToUse[0]?.id || "gpt-4o";
+
+    if (agentWorkload.size > 0) {
+      // 找出工作负载最少的 Agent
+      let minLoad = Infinity;
+      let minLoadAgent = "";
+
+      for (const [agentId, load] of agentWorkload.entries()) {
+        if (load < minLoad) {
+          minLoad = load;
+          minLoadAgent = agentId;
+        }
+      }
+
+      selectedAgentId = minLoadAgent;
+      selectedModelId = agentModels.get(minLoadAgent) || defaultModel;
+
+      // 从 agentId 提取 Agent 编号用于命名
+      // 格式如: researcher_1, researcher_market_trends 等
+      const idMatch = selectedAgentId.match(/(\d+)$/);
+      const agentNum = idMatch ? idMatch[1] : String(agentWorkload.size);
+      agentName = `研究员 ${agentNum}`;
+
+      this.logger.log(
+        `[selectAgentForTask] Selected existing agent: ${selectedAgentId} (load: ${minLoad}) with model: ${selectedModelId}`,
+      );
+    } else {
+      // 没有已有 Agent，创建新的
+      const timestamp = Date.now();
+      selectedAgentId = `researcher_user_${timestamp}`;
+
+      // 随机选择模型实现多元化（确保有模型可选）
+      if (modelsToUse.length > 0) {
+        const modelIndex = Math.floor(Math.random() * modelsToUse.length);
+        selectedModelId = modelsToUse[modelIndex].id;
+      } else {
+        selectedModelId = "gpt-4o";
+      }
+      agentName = "新研究员";
+
+      this.logger.log(
+        `[selectAgentForTask] Created new agent: ${selectedAgentId} with model: ${selectedModelId}`,
+      );
+    }
+
+    // 5. 记录 Leader 决策（使用 ADJUST 类型表示动态调整任务分配）
+    await this.recordDecision(
+      missionId,
+      LeaderDecisionType.ADJUST,
+      { taskTitle, taskDescription },
+      {
+        agentId: selectedAgentId,
+        agentName,
+        modelId: selectedModelId,
+      },
+      `Leader 为任务「${taskTitle}」选择了 ${agentName}（${selectedModelId}）`,
+    );
+
+    return {
+      agentId: selectedAgentId,
+      agentName,
+      agentType: "dimension_researcher",
+      role: "用户请求研究员",
+      modelId: selectedModelId,
+    };
+  }
+
+  /**
    * 快速意图解码（无需调用 AI）
    * 处理简单、明确的用户输入
    */

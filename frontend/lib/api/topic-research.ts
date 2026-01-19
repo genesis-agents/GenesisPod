@@ -1028,6 +1028,8 @@ export interface LeaderChatResponse {
   todo?: {
     id: string;
     title: string;
+    /** ★ v7.2: Leader 分配的 Agent 名称 */
+    assignedAgent?: string;
   };
   clarifyQuestion?: string;
   clarifyOptions?: string[];
@@ -1909,6 +1911,10 @@ export interface AIEditReportDto {
   fullContent?: string;
   context?: string;
   styleGuide?: string;
+  /** Context before selection for reliable matching */
+  selectorPrefix?: string;
+  /** Context after selection for reliable matching */
+  selectorSuffix?: string;
 }
 
 /**

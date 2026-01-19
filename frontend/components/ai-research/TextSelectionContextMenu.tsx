@@ -16,10 +16,30 @@ import type { AIEditOperation } from './types';
 // Annotation color options
 type AnnotationColor = 'yellow' | 'green' | 'blue' | 'pink' | 'purple';
 
+// Selection info for AI edit
+export interface SelectionInfo {
+  text: string;
+  startOffset: number;
+  endOffset: number;
+  /** Context before the selection for reliable matching */
+  selectorPrefix?: string;
+  /** Context after the selection for reliable matching */
+  selectorSuffix?: string;
+}
+
 interface TextSelectionContextMenuProps {
   /** Container element reference */
   containerRef: React.RefObject<HTMLDivElement | null>;
-  /** AI edit callback */
+  /**
+   * AI edit callback - triggers when user clicks "AI Edit"
+   * Opens the AI Edit modal with the selected text
+   * (New API - preferred)
+   */
+  onOpenAIEdit?: (selection: SelectionInfo) => void;
+  /**
+   * Legacy AI edit callback with preset operations
+   * @deprecated Use onOpenAIEdit instead for the new modal-based flow
+   */
   onAIEdit?: (operation: AIEditOperation, selectedText: string) => void;
   /** Add annotation callback */
   onAddAnnotation?: (data: {
@@ -49,7 +69,7 @@ const ANNOTATION_COLORS: {
   { color: 'purple', label: '紫色', bgClass: 'bg-purple-400' },
 ];
 
-// AI operation configs
+// AI operation configs for legacy mode
 const AI_OPERATIONS: {
   operation: AIEditOperation;
   icon: string;
@@ -63,6 +83,7 @@ const AI_OPERATIONS: {
 
 export function TextSelectionContextMenu({
   containerRef,
+  onOpenAIEdit,
   onAIEdit,
   onAddAnnotation,
   isAIProcessing = false,
@@ -79,6 +100,9 @@ export function TextSelectionContextMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const annotationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const aiMenuTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Determine which AI edit mode to use
+  const useLegacyMode = !onOpenAIEdit && onAIEdit;
 
   // Handle context menu (right-click)
   const handleContextMenu = useCallback(
@@ -201,7 +225,37 @@ export function TextSelectionContextMenu({
     handleKeyDown,
   ]);
 
-  // Handle AI operation
+  // Handle opening AI edit modal
+  const handleOpenAIEdit = useCallback(() => {
+    if (onOpenAIEdit && selectedText && selectionRange) {
+      // Extract context for reliable matching
+      const containerText = containerRef.current?.textContent || '';
+      const contextLength = 50;
+
+      // Get prefix (text before selection)
+      const prefix = containerText.slice(
+        Math.max(0, selectionRange.start - contextLength),
+        selectionRange.start
+      );
+
+      // Get suffix (text after selection)
+      const suffix = containerText.slice(
+        selectionRange.end,
+        Math.min(containerText.length, selectionRange.end + contextLength)
+      );
+
+      onOpenAIEdit({
+        text: selectedText,
+        startOffset: selectionRange.start,
+        endOffset: selectionRange.end,
+        selectorPrefix: prefix,
+        selectorSuffix: suffix,
+      });
+      setVisible(false);
+    }
+  }, [onOpenAIEdit, selectedText, selectionRange, containerRef]);
+
+  // Handle AI operation (legacy mode with preset operations submenu)
   const handleAIOperation = useCallback(
     (operation: AIEditOperation) => {
       if (onAIEdit && selectedText) {
@@ -392,8 +446,35 @@ export function TextSelectionContextMenu({
           </div>
         )}
 
-        {/* AI Edit */}
-        {onAIEdit && (
+        {/* AI Edit - New mode: Single entry that opens the AI Edit modal */}
+        {onOpenAIEdit && (
+          <button
+            onClick={handleOpenAIEdit}
+            disabled={isAIProcessing}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+              />
+            </svg>
+            AI 编辑
+            {isAIProcessing && (
+              <div className="ml-auto h-3 w-3 animate-spin rounded-full border border-purple-600 border-t-transparent" />
+            )}
+          </button>
+        )}
+
+        {/* AI Edit - Legacy mode: Submenu with preset operations */}
+        {useLegacyMode && (
           <div
             className="relative"
             onMouseEnter={() => {

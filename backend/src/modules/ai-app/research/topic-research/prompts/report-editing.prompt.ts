@@ -2,13 +2,22 @@
  * Report Editing Prompts
  *
  * AI 编辑报告的提示词模板
+ *
+ * 支持两种模式:
+ * 1. 新模式 (buildEnhancedEditPrompt): 带完整上下文的增强提示词
+ * 2. 旧模式 (buildEditPrompt): 简单提示词（向后兼容）
  */
 
 /**
  * 报告编辑系统提示词
  */
-export const REPORT_EDITING_SYSTEM_PROMPT =
-  "你是一位专业的研究报告编辑。请根据用户的要求编辑报告内容。只输出编辑后的内容，不要添加任何解释或前言。";
+export const REPORT_EDITING_SYSTEM_PROMPT = `你是一位专业的研究报告编辑。请根据用户的要求编辑报告内容。
+
+重要规则：
+1. 只输出编辑后的内容，不要添加任何解释、前言或后记
+2. 保持原有的 Markdown 格式
+3. 如果提供了上下文信息，确保编辑后的内容与上下文保持连贯
+4. 不要改变不相关的内容`;
 
 /**
  * 编辑操作提示词映射
@@ -39,7 +48,82 @@ export function getStylePrompt(targetStyle: string): string {
 }
 
 /**
- * 构建完整的编辑提示词
+ * 增强编辑提示词选项
+ */
+export interface EnhancedEditPromptOptions {
+  /** 用户的编辑指令 */
+  userInstruction?: string;
+  /** 目标风格（仅 style 操作） */
+  targetStyle?: string;
+  /** 完整章节内容（用于 AI 理解上下文） */
+  fullContent?: string;
+  /** 风格指南 */
+  styleGuide?: string;
+  // 旧模式兼容
+  customInstruction?: string;
+}
+
+/**
+ * 构建增强的编辑提示词（新模式）
+ *
+ * 包含上下文信息以帮助 AI 更好地理解编辑需求
+ */
+export function buildEnhancedEditPrompt(
+  operation: "rewrite" | "polish" | "expand" | "compress" | "style",
+  selectedText: string,
+  options?: EnhancedEditPromptOptions,
+): string {
+  const parts: string[] = [];
+
+  // 1. 添加上下文（如果有）
+  if (options?.fullContent) {
+    parts.push("## 完整章节内容（供参考）");
+    // 限制上下文长度
+    const truncatedContent = options.fullContent.slice(0, 3000);
+    parts.push(truncatedContent);
+    if (options.fullContent.length > 3000) {
+      parts.push("...(内容已截断)");
+    }
+    parts.push("");
+  }
+
+  // 2. 待编辑文本
+  parts.push("## 待编辑文本");
+  parts.push(selectedText);
+  parts.push("");
+
+  // 3. 编辑要求
+  parts.push("## 编辑要求");
+
+  // 操作类型
+  let operationDesc: string;
+  if (operation === "style" && options?.targetStyle) {
+    operationDesc = getStylePrompt(options.targetStyle);
+  } else {
+    operationDesc = REPORT_EDIT_OPERATION_PROMPTS[operation] || "编辑";
+  }
+  parts.push(`- 操作: ${operationDesc}`);
+
+  // 用户指令（优先使用新字段，兼容旧字段）
+  const userInstruction =
+    options?.userInstruction || options?.customInstruction;
+  if (userInstruction) {
+    parts.push(`- 用户指令: ${userInstruction}`);
+  }
+
+  // 风格指南
+  if (options?.styleGuide) {
+    parts.push(`- 风格要求: ${options.styleGuide}`);
+  }
+
+  parts.push("");
+  parts.push("请直接输出编辑后的文本，保持原有格式，不要包含任何解释。");
+
+  return parts.join("\n");
+}
+
+/**
+ * 构建完整的编辑提示词（旧模式，向后兼容）
  */
 export function buildEditPrompt(
   operation: "rewrite" | "polish" | "expand" | "compress" | "style",

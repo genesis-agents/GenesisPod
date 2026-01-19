@@ -47,7 +47,11 @@ import {
   CredibilityReportService,
 } from "./services";
 import { AIEngineFacade } from "../../../ai-engine/facade";
-import { REPORT_EDITING_SYSTEM_PROMPT, buildEditPrompt } from "./prompts";
+import {
+  REPORT_EDITING_SYSTEM_PROMPT,
+  buildEditPrompt,
+  buildEnhancedEditPrompt,
+} from "./prompts";
 import { ExportOrchestratorService } from "../../../../common/export/services/export-orchestrator.service";
 import { CreditsService } from "../../../credits/credits.service";
 import { ExportFormat } from "@prisma/client";
@@ -1652,6 +1656,10 @@ export class TopicResearchService {
 
   /**
    * AI 编辑报告
+   *
+   * 支持两种模式:
+   * 1. 新模式: 使用 selectedText + context + fullContent（前端 AIEditInputModal）
+   * 2. 旧模式: 使用 selection + customInstruction（兼容旧 API）
    */
   async aiEditReport(
     userId: string,
@@ -1659,6 +1667,15 @@ export class TopicResearchService {
     reportId: string,
     dto: {
       operation: "rewrite" | "polish" | "expand" | "compress" | "style";
+      // 新模式字段
+      selectedText?: string;
+      context?: string;
+      fullContent?: string;
+      styleGuide?: string;
+      // 上下文定位字段（用于精确替换）
+      selectorPrefix?: string;
+      selectorSuffix?: string;
+      // 旧模式字段（兼容）
       selection?: string;
       customInstruction?: string;
       targetStyle?: "academic" | "business" | "casual" | "technical";
@@ -1672,12 +1689,29 @@ export class TopicResearchService {
       throw new NotFoundException("Report not found");
     }
 
+    // 确定使用新模式还是旧模式
+    const useNewMode = Boolean(dto.selectedText);
+
+    // 获取待编辑的文本（兼容两种模式）
+    const textToEdit = dto.selectedText || dto.selection || report.fullReport;
+
     // 构建 AI 编辑 prompt
-    const contentToEdit = dto.selection || report.fullReport;
-    const prompt = buildEditPrompt(dto.operation, contentToEdit, {
-      targetStyle: dto.targetStyle,
-      customInstruction: dto.customInstruction,
-    });
+    let prompt: string;
+    if (useNewMode) {
+      // 新模式：使用增强提示词
+      prompt = buildEnhancedEditPrompt(dto.operation, textToEdit, {
+        userInstruction: dto.context,
+        fullContent: dto.fullContent,
+        styleGuide: dto.styleGuide,
+        targetStyle: dto.targetStyle,
+      });
+    } else {
+      // 旧模式：使用简单提示词（向后兼容）
+      prompt = buildEditPrompt(dto.operation, textToEdit, {
+        targetStyle: dto.targetStyle,
+        customInstruction: dto.customInstruction,
+      });
+    }
 
     // 调用 AI 服务进行编辑
     const aiResponse = await this.aiFacade.chat({
@@ -1698,15 +1732,47 @@ export class TopicResearchService {
     const editedContent = aiResponse.content || "";
 
     // 计算新报告内容
+    const selectionToReplace = dto.selectedText || dto.selection;
     let newFullReport = report.fullReport;
-    if (dto.selection) {
-      // 仅替换第一次出现的选中部分（避免 replace 替换所有匹配）
-      const selectionIndex = report.fullReport.indexOf(dto.selection);
+
+    if (selectionToReplace) {
+      // 使用上下文定位进行精确替换
+      let selectionIndex = -1;
+
+      // 方法1：使用 selectorPrefix 和 selectorSuffix 进行上下文匹配
+      if (dto.selectorPrefix || dto.selectorSuffix) {
+        const prefix = dto.selectorPrefix || "";
+        const suffix = dto.selectorSuffix || "";
+        const contextPattern = prefix + selectionToReplace + suffix;
+        const contextIndex = report.fullReport.indexOf(contextPattern);
+
+        if (contextIndex !== -1) {
+          // 找到上下文匹配，计算实际选中文本的位置
+          selectionIndex = contextIndex + prefix.length;
+          this.logger.debug(
+            `Context-based match found at index ${selectionIndex} (context at ${contextIndex})`,
+          );
+        } else {
+          // 上下文匹配失败，记录警告并尝试退回到简单匹配
+          this.logger.warn(
+            `Context pattern not found, falling back to simple match. ` +
+              `Prefix: "${prefix.slice(-20)}", Suffix: "${suffix.slice(0, 20)}"`,
+          );
+        }
+      }
+
+      // 方法2：退回到简单的 indexOf 匹配（当没有上下文或上下文匹配失败时）
+      if (selectionIndex === -1) {
+        selectionIndex = report.fullReport.indexOf(selectionToReplace);
+      }
+
       if (selectionIndex !== -1) {
         newFullReport =
           report.fullReport.substring(0, selectionIndex) +
           editedContent +
-          report.fullReport.substring(selectionIndex + dto.selection.length);
+          report.fullReport.substring(
+            selectionIndex + selectionToReplace.length,
+          );
       } else {
         // 选中内容未找到，可能已被修改，使用原报告
         this.logger.warn(
@@ -1733,7 +1799,9 @@ export class TopicResearchService {
           reportId,
           revisionNumber: newRevisionNumber,
           content: report.fullReport,
-          changeDescription: `AI ${dto.operation} 操作`,
+          changeDescription: dto.context
+            ? `AI ${dto.operation}: ${dto.context.slice(0, 50)}`
+            : `AI ${dto.operation} 操作`,
           editedBy: "ai",
           editOperation: dto.operation,
         },

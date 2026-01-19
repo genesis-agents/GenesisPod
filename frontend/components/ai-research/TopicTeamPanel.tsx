@@ -15,6 +15,7 @@ import type {
   TaskStatus,
   TeamInfo,
 } from '@/lib/api/topic-research';
+// TaskStatus is used in type annotations below
 
 interface SimpleRefreshProgress {
   phase: string;
@@ -437,6 +438,7 @@ export function TopicTeamPanel({
           selectedAgent={selectedAgent}
           onSelect={setSelectedAgent}
           teamInfo={teamInfo}
+          missionStatus={missionStatus}
         />
       </div>
 
@@ -614,6 +616,7 @@ function TeamCanvasView({
   selectedAgent,
   onSelect,
   teamInfo,
+  missionStatus,
 }: {
   agents: ResearchAgent[];
   currentPhase: string;
@@ -623,6 +626,7 @@ function TeamCanvasView({
   selectedAgent: string | null;
   onSelect: (id: string | null) => void;
   teamInfo?: TeamInfo | null;
+  missionStatus?: MissionStatus | null;
 }) {
   const canvasSize = { width: 320, height: 200 };
 
@@ -1089,31 +1093,82 @@ function TeamCanvasView({
                   </div>
                 </div>
 
-                {/* ★ AI 模型 - 显示 Agent 使用的模型 */}
+                {/* ★ AI 模型 - 显示 Agent 实际使用的模型 */}
                 <div>
                   <div className="mb-1.5 text-xs font-medium text-gray-500">
                     🤖 AI 模型
                   </div>
                   <div className="rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 px-3 py-2">
-                    <span className="font-mono text-sm font-medium text-indigo-700">
-                      {agent.role === 'leader'
-                        ? teamInfo?.leaderModel || '未指定'
-                        : (() => {
-                            // 根据前端角色匹配后端 Agent 类型
-                            // 后端 type: dimension_researcher, quality_reviewer, report_writer
-                            // 前端 role: researcher, reviewer, synthesizer
-                            const typeMapping: Record<string, string> = {
-                              researcher: 'researcher',
-                              reviewer: 'reviewer',
-                              synthesizer: 'writer',
-                            };
-                            const targetType = typeMapping[agent.role];
-                            const matchedAgent = teamInfo?.agents?.find((a) =>
-                              a.type?.toLowerCase().includes(targetType)
-                            );
-                            return matchedAgent?.model || '未指定';
-                          })()}
-                    </span>
+                    {agent.role === 'leader' ? (
+                      <span className="font-mono text-sm font-medium text-indigo-700">
+                        {teamInfo?.leaderModel || '未指定'}
+                      </span>
+                    ) : (
+                      (() => {
+                        // 获取分配给该 Agent 的实际任务及其模型
+                        const tasks = missionStatus?.tasks || [];
+                        const dimensionTasks = tasks.filter(
+                          (t: TaskStatus) => t.taskType === 'dimension_research'
+                        );
+                        const reviewTasks = tasks.filter(
+                          (t: TaskStatus) => t.taskType === 'quality_review'
+                        );
+                        const synthesisTasks = tasks.filter(
+                          (t: TaskStatus) => t.taskType === 'report_synthesis'
+                        );
+
+                        let assignedTasks: TaskStatus[] = [];
+                        if (agent.role === 'researcher') {
+                          // 研究员按 round-robin 分配
+                          const researcherIndex = parseInt(
+                            agent.id.replace('researcher-', ''),
+                            10
+                          );
+                          const researcherCount = agents.filter(
+                            (a) => a.role === 'researcher'
+                          ).length;
+                          assignedTasks = dimensionTasks.filter(
+                            (_: TaskStatus, idx: number) =>
+                              idx % researcherCount === researcherIndex
+                          );
+                        } else if (agent.role === 'reviewer') {
+                          assignedTasks = reviewTasks;
+                        } else if (agent.role === 'synthesizer') {
+                          assignedTasks = synthesisTasks;
+                        }
+
+                        // 收集唯一的模型 ID
+                        const models: string[] = [
+                          ...new Set(
+                            assignedTasks
+                              .map((t: TaskStatus) => t.modelId)
+                              .filter((m): m is string => Boolean(m))
+                          ),
+                        ];
+
+                        if (models.length === 0) {
+                          return (
+                            <span className="font-mono text-sm text-gray-400">
+                              未指定
+                            </span>
+                          );
+                        }
+
+                        return (
+                          <div className="flex flex-wrap gap-1">
+                            {models.map((model: string, idx: number) => (
+                              <span
+                                key={idx}
+                                className="font-mono text-xs font-medium text-indigo-700"
+                              >
+                                {model}
+                                {idx < models.length - 1 && ', '}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()
+                    )}
                   </div>
                 </div>
               </div>

@@ -820,6 +820,135 @@ export class ResearchTodoService {
   }
 
   /**
+   * ★ v7.2: 调度 TODO 任务
+   * 将 TODO 加入任务队列，根据当前队列状态决定是否立即执行
+   *
+   * 调度策略：
+   * 1. 如果当前没有正在执行的 USER_REQUEST 任务 → 立即执行
+   * 2. 如果有正在执行的任务 → 仅入队，等待前序任务完成后自动触发
+   *
+   * @param topicId 专题 ID
+   * @param todoId TODO ID
+   */
+  async scheduleTodo(topicId: string, todoId: string): Promise<void> {
+    this.logger.log(`[scheduleTodo] Scheduling TODO ${todoId} for execution`);
+
+    // 1. 获取 TODO 信息
+    const todo = await this.prisma.researchTodo.findUnique({
+      where: { id: todoId },
+    });
+
+    if (!todo) {
+      throw new NotFoundException(`TODO ${todoId} not found`);
+    }
+
+    if (todo.status !== ResearchTodoStatus.PENDING) {
+      this.logger.warn(
+        `[scheduleTodo] TODO ${todoId} is not PENDING (status: ${todo.status}), skipping`,
+      );
+      return;
+    }
+
+    // 2. 检查当前是否有正在执行的 USER_REQUEST 任务
+    const runningTodos = await this.prisma.researchTodo.count({
+      where: {
+        topicId,
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.IN_PROGRESS,
+      },
+    });
+
+    // 3. 更新 TODO 状态为 QUEUED
+    const updatedTodo = await this.prisma.researchTodo.update({
+      where: { id: todoId },
+      data: {
+        status: ResearchTodoStatus.QUEUED,
+        statusMessage:
+          runningTodos > 0
+            ? `排队中（前方 ${runningTodos} 个任务），等待 ${todo.agentName || "研究员"} 执行...`
+            : `已分配给 ${todo.agentName || "研究员"}，准备执行...`,
+      },
+    });
+
+    // 发送状态更新事件
+    await this.emitTodoEvent(topicId, TodoEventType.TODO_STATUS_CHANGED, {
+      todoId,
+      oldStatus: ResearchTodoStatus.PENDING,
+      newStatus: ResearchTodoStatus.QUEUED,
+      message: `任务已分配给 ${todo.agentName || "研究员"}，${runningTodos > 0 ? "排队等待" : "准备执行"}`,
+      todo: this.formatTodoForClient(updatedTodo),
+    });
+
+    // 4. 根据队列状态决定是否立即执行
+    if (runningTodos === 0) {
+      // 没有正在执行的任务，立即开始
+      this.logger.log(
+        `[scheduleTodo] No running tasks, starting TODO ${todoId} immediately`,
+      );
+      this.executeTodo(topicId, todoId).catch((error: Error) => {
+        this.logger.error(
+          `[scheduleTodo] Failed to execute TODO ${todoId}: ${error.message}`,
+        );
+      });
+    } else {
+      // 有任务在执行，等待其完成后由 processNextQueuedTodo 触发
+      this.logger.log(
+        `[scheduleTodo] ${runningTodos} tasks running, TODO ${todoId} queued for later`,
+      );
+    }
+  }
+
+  /**
+   * ★ v7.2: 处理队列中的下一个 TODO
+   * 在当前任务完成后调用，检查并执行下一个排队的任务
+   *
+   * @param topicId 专题 ID
+   */
+  async processNextQueuedTodo(topicId: string): Promise<void> {
+    // 检查是否有正在执行的任务
+    const runningCount = await this.prisma.researchTodo.count({
+      where: {
+        topicId,
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.IN_PROGRESS,
+      },
+    });
+
+    if (runningCount > 0) {
+      this.logger.log(
+        `[processNextQueuedTodo] ${runningCount} tasks still running, skip`,
+      );
+      return;
+    }
+
+    // 获取下一个排队的任务（按优先级和创建时间排序）
+    const nextTodo = await this.prisma.researchTodo.findFirst({
+      where: {
+        topicId,
+        type: ResearchTodoType.USER_REQUEST,
+        status: ResearchTodoStatus.QUEUED,
+      },
+      orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
+    });
+
+    if (!nextTodo) {
+      this.logger.log(`[processNextQueuedTodo] No queued tasks for ${topicId}`);
+      return;
+    }
+
+    this.logger.log(
+      `[processNextQueuedTodo] Starting next queued TODO: ${nextTodo.id}`,
+    );
+
+    // 执行下一个任务
+    this.executeTodo(topicId, nextTodo.id).catch((error: Error) => {
+      this.logger.error(
+        `[processNextQueuedTodo] Failed to execute TODO ${nextTodo.id}: ${error.message}`,
+      );
+    });
+  }
+
+  /**
    * ★ 执行用户请求的 TODO
    * 解析 TODO 内容，执行相应操作（如新增维度并研究）
    */
@@ -845,11 +974,17 @@ export class ResearchTodoService {
       );
     }
 
-    if (todo.status !== ResearchTodoStatus.PENDING) {
+    // ★ v7.2: 允许 PENDING 或 QUEUED 状态的 TODO 执行
+    if (
+      todo.status !== ResearchTodoStatus.PENDING &&
+      todo.status !== ResearchTodoStatus.QUEUED
+    ) {
       throw new BadRequestException(
-        `TODO must be in PENDING status to execute. Current: ${todo.status}`,
+        `TODO must be in PENDING or QUEUED status to execute. Current: ${todo.status}`,
       );
     }
+
+    const previousStatus = todo.status;
 
     // 3. 更新状态为 IN_PROGRESS
     const updatedTodo = await this.prisma.researchTodo.update({
@@ -857,14 +992,14 @@ export class ResearchTodoService {
       data: {
         status: ResearchTodoStatus.IN_PROGRESS,
         startedAt: new Date(),
-        statusMessage: "正在执行用户请求...",
+        statusMessage: `${todo.agentName || "研究员"} 正在执行任务...`,
       },
     });
 
     // 发送状态更新事件
     await this.emitTodoEvent(topicId, TodoEventType.TODO_STATUS_CHANGED, {
       todoId,
-      oldStatus: ResearchTodoStatus.PENDING,
+      oldStatus: previousStatus,
       newStatus: ResearchTodoStatus.IN_PROGRESS,
       message: "正在执行用户请求...",
       todo: this.formatTodoForClient(updatedTodo),
@@ -887,14 +1022,23 @@ export class ResearchTodoService {
         todoDesc.includes("新增维度") ||
         todoDesc.includes("新增章节") ||
         // 匹配 "研究: xxx" 格式（Leader 创建的研究任务）
-        /^研究[:：]/.test(todoTitle);
+        /^研究[:：]/.test(todoTitle) ||
+        // 匹配用户请求的研究相关任务（如"构建xxx"、"分析xxx"、"梳理xxx"等）
+        todoTitle.includes("构建") ||
+        todoTitle.includes("梳理") ||
+        todoTitle.includes("整理") ||
+        todoTitle.includes("总结") ||
+        todoTitle.includes("归纳") ||
+        todoTitle.includes("补充") ||
+        todoTitle.includes("完善");
 
       if (isAddDimension) {
         // 新增维度/章节操作
         resultMessage = await this.executeAddDimension(topicId, todo);
       } else if (
         todoTitle.includes("深入研究") ||
-        todoTitle.includes("详细分析")
+        todoTitle.includes("详细分析") ||
+        todoTitle.includes("分析")
       ) {
         // 深入研究操作
         resultMessage = await this.executeDeepResearch(topicId, todo);
@@ -1002,6 +1146,7 @@ export class ResearchTodoService {
     );
 
     // ★ 同时创建 ResearchTask 记录，用于 Mission 进度追踪
+    // ★ v7.2: 使用 TODO 中 Leader 分配的 Agent 信息
     let task = null;
     if (todo.missionId) {
       task = await this.prisma.researchTask.create({
@@ -1013,8 +1158,10 @@ export class ResearchTodoService {
           taskType: "dimension_research",
           dimensionName: dimensionName,
           dimensionId: dimension.id,
-          assignedAgent: "researcher_dynamic",
+          // ★ v7.2: 使用 Leader 分配的 Agent 而非硬编码
+          assignedAgent: todo.agentId || "researcher_dynamic",
           assignedAgentType: "dimension_researcher",
+          modelId: todo.modelId, // ★ 使用 Leader 分配的模型
           priority: TASK_PRIORITY.DIMENSION_RESEARCH_DYNAMIC,
           status: ResearchTaskStatus.EXECUTING,
           startedAt: new Date(),
@@ -1169,6 +1316,7 @@ export class ResearchTodoService {
     );
 
     // ★ 同时创建 ResearchTask 记录，用于 Mission 进度追踪
+    // ★ v7.2: 使用 TODO 中 Leader 分配的 Agent 信息
     let task = null;
     if (todo.missionId) {
       task = await this.prisma.researchTask.create({
@@ -1180,8 +1328,10 @@ export class ResearchTodoService {
           taskType: "dimension_research",
           dimensionName: dimensionName,
           dimensionId: dimension.id,
-          assignedAgent: "researcher_dynamic",
+          // ★ v7.2: 使用 Leader 分配的 Agent 而非硬编码
+          assignedAgent: todo.agentId || "researcher_dynamic",
           assignedAgentType: "dimension_researcher",
+          modelId: todo.modelId, // ★ 使用 Leader 分配的模型
           priority: TASK_PRIORITY.DIMENSION_RESEARCH_DYNAMIC,
           status: ResearchTaskStatus.EXECUTING,
           startedAt: new Date(),
@@ -1197,7 +1347,7 @@ export class ResearchTodoService {
       });
 
       this.logger.log(
-        `[executeDeepResearch] Created ResearchTask ${task.id} for deep research ${dimensionName}`,
+        `[executeDeepResearch] Created ResearchTask ${task.id} for deep research ${dimensionName}, agent: ${todo.agentId || "dynamic"}`,
       );
     }
 

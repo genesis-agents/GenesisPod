@@ -109,7 +109,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       ref={sidebarRef}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`${showExpanded ? 'w-52' : 'w-16'} relative z-40 hidden flex-col border-r border-gray-200 bg-white transition-all duration-300 md:flex ${className}`}
+      className={`${showExpanded ? 'w-52' : 'w-16'} relative z-40 hidden h-full flex-col overflow-hidden border-r border-gray-200 bg-white transition-all duration-300 md:flex ${className}`}
     >
       {/* Collapse/Expand Button - Vertically Centered */}
       <button
@@ -144,7 +144,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
       {/* Header */}
       <div
-        className={`flex items-center p-4 ${!showExpanded ? 'justify-center' : ''}`}
+        className={`flex flex-shrink-0 items-center p-4 ${!showExpanded ? 'justify-center' : ''}`}
       >
         {!showExpanded ? (
           /* Collapsed Logo - AI Teams: Circular collaboration */
@@ -757,7 +757,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       </nav>
 
       {/* Bottom Navigation */}
-      <div className="space-y-1 border-t border-gray-200 p-3">
+      <div className="flex-shrink-0 space-y-1 border-t border-gray-200 p-3">
         <Link
           href="/notifications"
           onClick={(e) => {
