@@ -1,7 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
-import { SocialContentType } from "../types";
-import { AIModelType } from "@prisma/client";
+import { SocialContentType, AIModelType } from "@prisma/client";
 
 export interface TransformInput {
   sourceContent: string;

@@ -16,7 +16,7 @@ import {
   SocialContentSourceType,
   SocialContentType,
   SocialReviewStatus,
-} from "../types";
+} from "@prisma/client";
 
 // Prisma client accessor for models not yet migrated
 type PrismaAny = any;

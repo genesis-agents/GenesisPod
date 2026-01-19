@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SocialContentSourceType } from "../types";
+import { SocialContentSourceType } from "@prisma/client";
 
 export interface FetchedContent {
   title: string;

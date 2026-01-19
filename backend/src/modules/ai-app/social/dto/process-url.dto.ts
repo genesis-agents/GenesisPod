@@ -1,5 +1,5 @@
 import { IsString, IsEnum, IsOptional } from "class-validator";
-import { SocialContentType } from "../types";
+import { SocialContentType } from "@prisma/client";
 
 export class ProcessUrlDto {
   @IsString()
