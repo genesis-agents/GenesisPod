@@ -19,6 +19,7 @@ coverage/
 .nyc_output
 .pytest_cache/
 htmlcov/
+.playwright-mcp/
 
 # 生产构建
 .next/
