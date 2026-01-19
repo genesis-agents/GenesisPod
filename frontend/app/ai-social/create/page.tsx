@@ -92,6 +92,13 @@ function CreateSocialContentForm() {
     useState<SocialContentType | null>(null);
   const [sourceItems, setSourceItems] = useState<SourceItem[]>([]);
 
+  // 调试状态 - 显示 API 返回的原始数据
+  const [debugData, setDebugData] = useState<{
+    sourceListResponse?: unknown;
+    selectedItemData?: unknown;
+    processResponse?: unknown;
+  }>({});
+
   // 内容状态
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -144,6 +151,13 @@ function CreateSocialContentForm() {
           break;
       }
 
+      // 保存调试数据
+      setDebugData((prev) => ({
+        ...prev,
+        sourceListResponse: result,
+      }));
+      console.log('[DEBUG] Source list API response:', result);
+
       setSourceItems(result.items || []);
     } catch (err) {
       setError(t('aiSocial.create.loadSourceFailed'));
@@ -168,6 +182,12 @@ function CreateSocialContentForm() {
   // 处理来源项选择
   const handleSourceItemSelect = (item: SourceItem) => {
     setSelectedSourceId(item.id);
+    // 保存选中项的调试数据
+    setDebugData((prev) => ({
+      ...prev,
+      selectedItemData: item,
+    }));
+    console.log('[DEBUG] Selected item:', item);
     setCurrentStep('select-platform');
   };
 
@@ -212,6 +232,13 @@ function CreateSocialContentForm() {
       }
 
       if (result) {
+        // 保存处理结果的调试数据
+        setDebugData((prev) => ({
+          ...prev,
+          processResponse: result,
+        }));
+        console.log('[DEBUG] Process API response:', result);
+
         setCurrentContent(result.content);
         setTitle(result.content.title);
         setContent(result.content.content);
@@ -224,6 +251,12 @@ function CreateSocialContentForm() {
       const errorMessage =
         err instanceof Error ? err.message : t('aiSocial.create.processFailed');
       setError(errorMessage);
+      // 保存错误信息
+      setDebugData((prev) => ({
+        ...prev,
+        processResponse: { error: errorMessage, rawError: String(err) },
+      }));
+      console.error('[DEBUG] Process API error:', err);
     } finally {
       setIsProcessing(false);
     }
@@ -503,6 +536,53 @@ function CreateSocialContentForm() {
           {error || aiError || contentError}
         </div>
       )}
+
+      {/* Debug Panel - 显示 API 返回的原始数据 */}
+      <details className="mb-6 rounded-lg border border-amber-200 bg-amber-50">
+        <summary className="cursor-pointer p-4 font-medium text-amber-800">
+          [DEBUG] API Response Data (点击展开)
+        </summary>
+        <div className="space-y-4 border-t border-amber-200 p-4">
+          {'sourceListResponse' in debugData &&
+            debugData.sourceListResponse !== undefined && (
+              <div>
+                <h4 className="mb-2 font-medium text-amber-900">
+                  1. Source List API Response:
+                </h4>
+                <pre className="max-h-60 overflow-auto rounded bg-white p-3 text-xs">
+                  {JSON.stringify(debugData.sourceListResponse, null, 2)}
+                </pre>
+              </div>
+            )}
+          {'selectedItemData' in debugData &&
+            debugData.selectedItemData !== undefined && (
+              <div>
+                <h4 className="mb-2 font-medium text-amber-900">
+                  2. Selected Item Data:
+                </h4>
+                <pre className="max-h-60 overflow-auto rounded bg-white p-3 text-xs">
+                  {JSON.stringify(debugData.selectedItemData, null, 2)}
+                </pre>
+              </div>
+            )}
+          {'processResponse' in debugData &&
+            debugData.processResponse !== undefined && (
+              <div>
+                <h4 className="mb-2 font-medium text-amber-900">
+                  3. Process API Response:
+                </h4>
+                <pre className="max-h-60 overflow-auto rounded bg-white p-3 text-xs">
+                  {JSON.stringify(debugData.processResponse, null, 2)}
+                </pre>
+              </div>
+            )}
+          {!debugData.sourceListResponse &&
+            !debugData.selectedItemData &&
+            !debugData.processResponse && (
+              <p className="text-amber-700">暂无数据 - 请选择来源开始调试</p>
+            )}
+        </div>
+      </details>
 
       {/* Step 1: 选择来源 */}
       {currentStep === 'select-source' && (
