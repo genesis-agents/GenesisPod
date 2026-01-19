@@ -11,6 +11,9 @@ export * from './ai-teams';
 // AI Organizer API
 export * from './ai-organizer';
 
+// AI Social API
+export * from './ai-social';
+
 // Data Collection API
 export * from './data-collection';
 

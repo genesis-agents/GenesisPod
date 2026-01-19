@@ -37,6 +37,7 @@ import { AiCodingModule } from "./modules/ai-app/coding/ai-coding.module";
 import { RAGModule } from "./modules/ai-app/rag/rag.module";
 import { AiWritingModule } from "./modules/ai-app/writing/ai-writing.module";
 import { ResearchModule } from "./modules/ai-app/research";
+import { AiSocialModule } from "./modules/ai-app/social/ai-social.module";
 // Content modules
 import { CollectionsModule } from "./modules/content/collections/collections.module";
 import { CommentsModule } from "./modules/content/comments/comments.module";
@@ -130,6 +131,7 @@ import { WebhooksModule } from "./modules/webhooks";
     RAGModule,
     AiWritingModule,
     ResearchModule, // 统一研究模块 (包含 Topic, Deep, Notebook Research)
+    AiSocialModule, // AI 社交媒体发布模块
 
     // Content modules
     ResourcesModule,

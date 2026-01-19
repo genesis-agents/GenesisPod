@@ -157,6 +157,10 @@ model User {
   feedbackReplies   FeedbackReply[] @relation("FeedbackReplyUser")
   assignedFeedbacks Feedback[]      @relation("FeedbackAssignee")
 
+  // AI Social 社交媒体发布
+  socialPlatformConnections SocialPlatformConnection[]
+  socialContents            SocialContent[]
+
   @@map("users")
 }
 
@@ -7967,4 +7971,139 @@ model FeedbackReply {
   @@index([feedbackId, createdAt])
   @@index([userId])
   @@map("feedback_replies")
+}
+
+// ==================== AI Social 社交媒体发布 ====================
+
+enum SocialPlatformType {
+  WECHAT_MP // 微信公众号
+  XIAOHONGSHU // 小红书
+}
+
+enum SocialContentType {
+  WECHAT_ARTICLE // 公众号文章
+  XIAOHONGSHU_POST // 小红书图文
+}
+
+enum SocialContentStatus {
+  DRAFT // 草稿
+  PENDING // 待发布
+  SCHEDULED // 已排期
+  PUBLISHING // 发布中
+  PUBLISHED // 已发布
+  FAILED // 发布失败
+}
+
+enum SocialContentSourceType {
+  ORIGINAL // 原创
+  EXPLORE_RESOURCE // 从 AI Explore 导入（YouTube/Paper/Blog 等）
+  RESEARCH_REPORT // 从 AI Research 导入
+  OFFICE_DOCUMENT // 从 AI Office 导入
+  WRITING_CHAPTER // 从 AI Writing 导入
+  EXTERNAL_URL // 外部链接（用户输入）
+}
+
+enum SocialReviewStatus {
+  PENDING // 待审核
+  APPROVED // 已通过
+  REJECTED // 已拒绝
+}
+
+/// 平台账号连接
+model SocialPlatformConnection {
+  id           String             @id @default(uuid())
+  userId       String             @map("user_id")
+  platformType SocialPlatformType @map("platform_type")
+
+  // 账号信息
+  accountName String? @map("account_name") // 账号名称/昵称
+  accountId   String? @map("account_id") // 平台账号 ID
+  avatarUrl   String? @map("avatar_url") // 头像
+
+  // Session 存储（加密）
+  sessionData String? @map("session_data") @db.Text
+
+  // 状态
+  isActive    Boolean   @default(true) @map("is_active")
+  lastCheckAt DateTime? @map("last_check_at")
+  expiresAt   DateTime? @map("expires_at")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contents SocialContent[]
+
+  @@unique([userId, platformType])
+  @@index([userId])
+  @@map("social_platform_connections")
+}
+
+/// 社交媒体内容
+model SocialContent {
+  id           String  @id @default(uuid())
+  userId       String  @map("user_id")
+  connectionId String? @map("connection_id")
+
+  // 内容类型
+  contentType SocialContentType   @map("content_type")
+  status      SocialContentStatus @default(DRAFT)
+
+  // 内容来源
+  sourceType SocialContentSourceType @map("source_type")
+  sourceId   String?                 @map("source_id") // 来源内容 ID（Resource/TopicReport/OfficeDocument 等）
+  sourceUrl  String?                 @map("source_url") @db.Text // 外部链接
+
+  // 通用字段
+  title   String @db.VarChar(200)
+  content String @db.Text // 正文内容
+
+  // 公众号文章专用
+  author        String? @db.VarChar(50)
+  digest        String? @db.VarChar(200) // 摘要
+  coverImageUrl String? @map("cover_image_url")
+
+  // 小红书专用
+  images   Json    @default("[]") // 图片 URL 数组
+  tags     Json    @default("[]") // 话题标签数组
+  location String? @db.VarChar(100)
+
+  // AI Engine 处理记录
+  aiProcessLog  Json? @map("ai_process_log") // Leader 处理日志
+  aiSuggestions Json? @map("ai_suggestions") // AI 建议（封面、标签等）
+
+  // 审核相关
+  reviewStatus    SocialReviewStatus? @map("review_status")
+  reviewedAt      DateTime?           @map("reviewed_at")
+  reviewNote      String?             @map("review_note") @db.Text
+  complianceCheck Json?               @map("compliance_check") // 违禁词检测结果
+
+  // 发布配置
+  scheduledAt DateTime? @map("scheduled_at")
+  publishedAt DateTime? @map("published_at")
+  autoPublish Boolean   @default(false) @map("auto_publish") // 是否自动发布
+
+  // 发布结果
+  externalUrl String? @map("external_url") // 发布后的链接
+  externalId  String? @map("external_id") // 平台内容 ID
+
+  // 错误处理
+  errorMessage String? @map("error_message") @db.Text
+  retryCount   Int     @default(0) @map("retry_count")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  user       User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection SocialPlatformConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([status, scheduledAt])
+  @@index([contentType])
+  @@index([reviewStatus])
+  @@map("social_contents")
 }

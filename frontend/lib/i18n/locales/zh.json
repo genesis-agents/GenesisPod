@@ -80,7 +80,7 @@
     "aiStudio": "AI 研究",
     "aiResearch": "AI 研究",
     "aiTeams": "AI 团队",
-    "myTeams": "我的团队",
+    "myTeams": "自建团队",
     "aiOffice": "AI 办公",
     "aiReports": "AI 报告",
     "aiAsk": "AI 问答",
@@ -91,6 +91,7 @@
     "aiImage": "AI 绘图",
     "aiSimulation": "AI 决策",
     "aiWriting": "AI 写作",
+    "aiSocial": "AI 社媒",
     "labs": "实验室",
     "aiLabs": "AI 实验室",
     "admin": "管理后台",
@@ -546,7 +547,7 @@
     "subtitle": "多人多AI协作讨论社区",
     "createTeam": "创建团队",
     "newTeam": "新建团队",
-    "myTeams": "我的团队",
+    "myTeams": "自建团队",
     "discover": "发现",
     "teamMembers": "团队成员",
     "missions": "任务",
@@ -558,7 +559,7 @@
       "failed": "失败"
     },
     "search": {
-      "myTeams": "搜索我的团队...",
+      "myTeams": "搜索自建团队...",
       "publicTeams": "搜索公开团队..."
     },
     "empty": {
@@ -1250,6 +1251,100 @@
     },
     "confirm": {
       "delete": "确认删除场景「{{name}}」？此操作不可恢复。"
+    }
+  },
+  "aiSocial": {
+    "title": "AI 社媒",
+    "subtitle": "智能发布内容到社交平台",
+    "signIn": {
+      "title": "请先登录",
+      "description": "进入 AI Social 需要登录并拥有管理员权限。"
+    },
+    "tabs": {
+      "contents": "内容管理",
+      "connections": "平台连接",
+      "sources": "素材来源"
+    },
+    "status": {
+      "draft": "草稿",
+      "pending": "待发布",
+      "scheduled": "已排期",
+      "publishing": "发布中",
+      "published": "已发布",
+      "failed": "发布失败"
+    },
+    "reviewStatus": {
+      "pending": "待审核",
+      "approved": "已通过",
+      "rejected": "已拒绝"
+    },
+    "platform": {
+      "wechatMp": "微信公众号",
+      "xiaohongshu": "小红书"
+    },
+    "contentType": {
+      "wechatArticle": "公众号文章",
+      "xiaohongshuPost": "小红书笔记"
+    },
+    "connections": {
+      "title": "平台连接",
+      "connect": "连接",
+      "disconnect": "断开连接",
+      "connected": "已连接",
+      "notConnected": "未连接",
+      "scanQrCode": "扫码登录",
+      "waitingForScan": "等待扫码确认",
+      "expired": "登录已过期"
+    },
+    "contents": {
+      "title": "内容管理",
+      "empty": "暂无内容",
+      "create": "创建内容",
+      "edit": "编辑内容",
+      "delete": "删除内容",
+      "publish": "发布",
+      "schedule": "排期发布",
+      "cancelPublish": "取消发布",
+      "check": "合规检测",
+      "regenerate": "重新生成"
+    },
+    "sources": {
+      "title": "素材来源",
+      "explore": "AI 探索",
+      "research": "AI 研究",
+      "office": "AI 办公",
+      "writing": "AI 写作",
+      "fromUrl": "从链接导入"
+    },
+    "ai": {
+      "processUrl": "处理链接",
+      "processSource": "处理素材",
+      "targetPlatform": "目标平台",
+      "additionalInstructions": "额外要求",
+      "generating": "AI 正在生成内容...",
+      "checkPassed": "合规检测通过",
+      "checkFailed": "存在合规问题，请修改后再发布"
+    },
+    "review": {
+      "title": "内容审核",
+      "pendingReview": "待审核内容",
+      "approve": "通过",
+      "reject": "拒绝",
+      "note": "审核备注"
+    },
+    "toast": {
+      "created": "内容创建成功",
+      "updated": "内容更新成功",
+      "deleted": "内容删除成功",
+      "published": "发布成功",
+      "scheduled": "排期设置成功",
+      "cancelled": "已取消发布",
+      "approved": "审核通过",
+      "rejected": "审核拒绝"
+    },
+    "confirm": {
+      "delete": "确认删除此内容？此操作不可恢复。",
+      "disconnect": "确认断开「{{name}}」的连接？"
     }
   },
   "aiStore": {

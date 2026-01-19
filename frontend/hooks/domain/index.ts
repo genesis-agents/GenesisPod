@@ -12,6 +12,26 @@ export { useResourceDetail } from './useResourceDetail';
 // AI hooks
 export { useAIImage } from './useAIImage';
 export { useAICoding } from './useAICoding';
+export {
+  useAISocial,
+  useSocialConnections,
+  useSocialContents,
+  useSocialAIEngine,
+  useSocialReview,
+  useSocialPublish,
+  useSocialSources,
+} from './useAISocial';
+export type {
+  SocialPlatformConnection,
+  SocialContent,
+  SocialPublishLog,
+  ComplianceCheckResult,
+  SocialPlatformType,
+  SocialContentStatus,
+  SocialContentType,
+  SocialContentSourceType,
+  SocialReviewStatus,
+} from './useAISocial';
 
 // Google Drive hooks
 export { useGoogleDrive } from './useGoogleDrive';
