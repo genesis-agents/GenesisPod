@@ -4,7 +4,17 @@ name: Deploy Protection Check
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".vscode/**"
+      - ".claude/**"
   workflow_dispatch:
+
+# 取消同一分支上正在运行的旧 workflow
+concurrency:
+  group: deploy-protection-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   pre-deploy-checks:

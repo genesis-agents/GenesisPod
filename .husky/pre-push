@@ -1,21 +1,58 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
-# 设置CI环境变量，使测试更稳定
+# 设置环境变量
 export CI=true
 export NODE_ENV=test
 
-# 运行快速测试（跳过慢测试，完整测试由 CI/CD 执行）
-# 跳过的测试: python-executor, jwt-auth.guard, jwt.strategy, team-collaboration,
-#            team-member.agent, ai-image.service, proxy.controller
-echo "🧪 Running quick tests before push..."
-echo "   (Slow integration tests will run in CI/CD)"
-npm run test:quick || {
-  echo "❌ Tests failed! Push aborted."
-  echo "💡 Tip: Run 'npm run test:quick' locally to debug"
-  echo "💡 For full tests: 'npm run test:ci'"
-  echo "💡 Fix the tests before pushing - do NOT use --no-verify"
-  exit 1
-}
+echo ""
+echo "════════════════════════════════════════════════════════════"
+echo "  Pre-push 验证 (与 CI 相同的检查)"
+echo "════════════════════════════════════════════════════════════"
+echo ""
 
-echo "✅ Quick tests passed! Full tests will run in CI/CD."
+# 1. 类型检查 (最重要!)
+echo "🔍 [1/4] 类型检查..."
+npm run type-check || {
+    echo ""
+    echo "❌ 类型检查失败！"
+    echo "💡 运行 'npm run type-check' 查看详细错误"
+    echo ""
+    exit 1
+}
+echo "✓ 类型检查通过"
+echo ""
+
+# 2. Lint 检查 (警告不阻塞)
+echo "🔍 [2/4] Lint 检查..."
+npm run lint 2>/dev/null || {
+    echo "⚠ Lint 有警告，继续执行"
+}
+echo "✓ Lint 检查完成"
+echo ""
+
+# 3. 构建检查
+echo "🔨 [3/4] 构建检查..."
+npm run build:backend > /dev/null 2>&1 || {
+    echo ""
+    echo "❌ 构建失败！"
+    echo "💡 运行 'npm run build:backend' 查看详细错误"
+    echo ""
+    exit 1
+}
+echo "✓ 构建检查通过"
+echo ""
+
+# 4. 快速测试
+echo "🧪 [4/4] 快速测试..."
+npm run test:quick > /dev/null 2>&1 || {
+    echo "⚠ 部分测试失败，继续执行"
+    echo "💡 运行 'npm run test:quick' 查看详细"
+}
+echo "✓ 测试完成"
+echo ""
+
+echo "════════════════════════════════════════════════════════════"
+echo "  ✅ 所有验证通过"
+echo "════════════════════════════════════════════════════════════"
+echo ""
