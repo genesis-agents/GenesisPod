@@ -21,15 +21,28 @@ import {
 // Prisma client accessor for models not yet migrated
 type PrismaAny = any;
 
+// Helper to sanitize strings by removing problematic characters
+function sanitizeString(str: string | undefined | null): string {
+  if (!str) return "";
+  // Remove null bytes and other control characters that can cause PostgreSQL protocol errors
+  // Keep common whitespace (tab, newline, carriage return)
+  return str
+    .replace(/\x00/g, "") // Remove null bytes
+    .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F]/g, "") // Remove control chars except tab, LF, CR
+    .replace(/\uFFFD/g, "") // Remove replacement character
+    .replace(/[\uD800-\uDFFF]/g, ""); // Remove lone surrogates
+}
+
 // Helper to safely truncate strings for database fields
 function truncateString(
   str: string | undefined | null,
   maxLength: number,
 ): string {
   if (!str) return "";
-  if (str.length <= maxLength) return str;
+  const sanitized = sanitizeString(str);
+  if (sanitized.length <= maxLength) return sanitized;
   // Truncate and add ellipsis, leaving room for "..."
-  return str.substring(0, maxLength - 3) + "...";
+  return sanitized.substring(0, maxLength - 3) + "...";
 }
 
 // Helper to safely convert data to JSON-serializable format
@@ -167,6 +180,14 @@ export class SocialLeaderService {
         `imagesCount=${safeImages.length}, tagsCount=${safeTags.length}`,
     );
 
+    // Sanitize content to remove problematic characters
+    const safeContent = sanitizeString(transformedContent.content);
+
+    this.logger.log(
+      `[processUrl] Saving content: titleLen=${truncateString(transformedContent.title, 200).length}, ` +
+        `contentLen=${safeContent.length}, imagesCount=${safeImages.length}, tagsCount=${safeTags.length}`,
+    );
+
     // Use retry logic to handle transient database connection errors
     const content = await withRetry(
       () =>
@@ -177,7 +198,7 @@ export class SocialLeaderService {
             sourceType: SocialContentSourceType.EXTERNAL_URL,
             sourceUrl: dto.url,
             title: truncateString(transformedContent.title, 200),
-            content: transformedContent.content,
+            content: safeContent,
             digest: truncateString(transformedContent.digest, 200) || null,
             coverImageUrl: fetchedContent.coverImage,
             images: safeImages,
@@ -250,10 +271,12 @@ export class SocialLeaderService {
       suggestions: ["Compliance check data was invalid"],
     });
 
-    this.logger.debug(
-      `Creating social content from source: title=${transformedContent.title?.slice(0, 50)}, ` +
-        `contentLength=${transformedContent.content?.length}, ` +
-        `imagesCount=${safeImages.length}, tagsCount=${safeTags.length}`,
+    // Sanitize content to remove problematic characters
+    const safeContent = sanitizeString(transformedContent.content);
+
+    this.logger.log(
+      `[processSource] Saving content: titleLen=${truncateString(transformedContent.title, 200).length}, ` +
+        `contentLen=${safeContent.length}, imagesCount=${safeImages.length}, tagsCount=${safeTags.length}`,
     );
 
     // Use retry logic to handle transient database connection errors
@@ -267,7 +290,7 @@ export class SocialLeaderService {
             sourceId: dto.sourceId,
             sourceUrl: sourceContent.url,
             title: truncateString(transformedContent.title, 200),
-            content: transformedContent.content,
+            content: safeContent,
             digest: truncateString(transformedContent.digest, 200) || null,
             coverImageUrl: sourceContent.coverImage,
             images: safeImages,
