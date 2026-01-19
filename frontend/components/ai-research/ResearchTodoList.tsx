@@ -71,6 +71,12 @@ const STATUS_CONFIG: Record<
     color: 'text-blue-600',
     bgColor: 'bg-blue-50',
   },
+  [ResearchTodoStatus.REVIEWING]: {
+    label: '审核中',
+    icon: <Loader2 className="h-3 w-3 animate-spin" />,
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-50',
+  },
   [ResearchTodoStatus.PAUSED]: {
     label: '已暂停',
     icon: <Pause className="h-3 w-3" />,

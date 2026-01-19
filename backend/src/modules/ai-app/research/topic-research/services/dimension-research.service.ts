@@ -17,6 +17,8 @@ import {
   DIMENSION_RESEARCH_USER_PROMPT_TEMPLATE,
   formatEvidenceForPrompt,
   renderPromptTemplate,
+  getCurrentDateString,
+  getFreshnessRequirementDescription,
 } from "../prompts/dimension-research.prompt";
 import { DataSourceRouterService } from "./data-source-router.service";
 
@@ -181,6 +183,10 @@ export class DimensionResearchService {
     // 格式化证据列表
     const evidenceFormatted = formatEvidenceForPrompt(evidenceData);
 
+    // ★ 从专题配置获取搜索时间范围
+    const topicConfig = topic.topicConfig as Record<string, unknown> | null;
+    const searchTimeRange = topicConfig?.searchTimeRange as string | undefined;
+
     // 准备提示词变量
     const promptVariables = {
       topicName: topic.name,
@@ -192,6 +198,9 @@ export class DimensionResearchService {
         ? (dimension.searchQueries as string[]).join(", ")
         : "无",
       evidenceList: evidenceFormatted,
+      // ★ 时间上下文：确保 AI 使用最新数据而非训练数据
+      currentDate: getCurrentDateString(),
+      freshnessRequirement: getFreshnessRequirementDescription(searchTimeRange),
     };
 
     // 渲染用户提示词

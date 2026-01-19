@@ -32,6 +32,10 @@ import type { ResearchTodo, ResearchMission } from "@prisma/client";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
 import { DimensionMissionService } from "./dimension-mission.service";
 import { TASK_PRIORITY } from "./research-mission.service";
+import {
+  ResearchLeaderService,
+  ReviewDecision,
+} from "./research-leader.service";
 
 // ==================== Types ====================
 
@@ -97,6 +101,9 @@ export enum TodoEventType {
   TODO_CANCELLED = "todo:cancelled",
   TODO_PAUSED = "todo:paused",
   TODO_RESUMED = "todo:resumed",
+  /** ★ v7.2: Leader 审核相关事件 */
+  TODO_REVIEWING = "todo:reviewing",
+  TODO_REVIEWED = "todo:reviewed",
 }
 
 // ==================== Service ====================
@@ -110,6 +117,8 @@ export class ResearchTodoService {
     private readonly eventEmitter: ResearchEventEmitterService,
     @Inject(forwardRef(() => DimensionMissionService))
     private readonly dimensionMissionService: DimensionMissionService,
+    @Inject(forwardRef(() => ResearchLeaderService))
+    private readonly leaderService: ResearchLeaderService,
   ) {}
 
   // ==================== CRUD 操作 ====================
@@ -949,6 +958,82 @@ export class ResearchTodoService {
   }
 
   /**
+   * ★ v7.2: Leader 审核 TODO 执行结果
+   *
+   * @param topicId 专题 ID
+   * @param todo TODO 信息
+   * @param executionResult 执行结果描述
+   * @returns 审核决策
+   */
+  private async reviewTodoResult(
+    topicId: string,
+    todo: ResearchTodo,
+    executionResult: string,
+  ): Promise<ReviewDecision> {
+    this.logger.log(`[reviewTodoResult] Leader reviewing TODO ${todo.id}`);
+
+    // 发送审核中事件
+    await this.emitTodoEvent(topicId, TodoEventType.TODO_REVIEWING, {
+      todoId: todo.id,
+      message: "Leader 正在审核研究成果...",
+      todo: this.formatTodoForClient(todo),
+    });
+
+    // 更新状态消息
+    await this.prisma.researchTodo.update({
+      where: { id: todo.id },
+      data: {
+        progress: 95,
+        statusMessage: "Leader 正在审核研究成果...",
+      },
+    });
+
+    try {
+      // 调用 Leader 审核服务
+      if (!todo.missionId) {
+        // 没有 Mission，默认通过
+        this.logger.log(
+          `[reviewTodoResult] No mission for TODO ${todo.id}, auto-approve`,
+        );
+        return {
+          taskId: todo.id,
+          status: "approved",
+          feedback: "任务完成（无需审核）",
+        };
+      }
+
+      const reviewResult = await this.leaderService.reviewTaskResult(
+        todo.missionId,
+        todo.id,
+        {
+          todoTitle: todo.title,
+          todoDescription: todo.description,
+          executionResult,
+          agentName: todo.agentName,
+          agentId: todo.agentId,
+        },
+        todo.dimensionName || todo.title,
+      );
+
+      this.logger.log(
+        `[reviewTodoResult] Review result for TODO ${todo.id}: ${reviewResult.status}`,
+      );
+
+      return reviewResult;
+    } catch (error) {
+      // 审核失败时默认通过，避免阻塞流程
+      this.logger.error(
+        `[reviewTodoResult] Review failed for TODO ${todo.id}: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+      return {
+        taskId: todo.id,
+        status: "approved",
+        feedback: "审核服务异常，默认通过",
+      };
+    }
+  }
+
+  /**
    * ★ 执行用户请求的 TODO
    * 解析 TODO 内容，执行相应操作（如新增维度并研究）
    */
@@ -1047,35 +1132,80 @@ export class ResearchTodoService {
         resultMessage = `任务「${todo.title}」已记录，将在后续研究中考虑`;
       }
 
-      // 5. 更新状态为 COMPLETED
+      // 5. ★ v7.2: Leader 审核 Agent 的工作成果
+      const reviewResult = await this.reviewTodoResult(
+        topicId,
+        todo,
+        resultMessage,
+      );
+
+      // 6. 根据审核结果更新状态
+      let finalStatus: ResearchTodoStatus;
+      let finalMessage: string;
+
+      if (reviewResult.status === "approved") {
+        finalStatus = ResearchTodoStatus.COMPLETED;
+        finalMessage = `${resultMessage}\n\n✅ Leader 审核通过: ${reviewResult.feedback}`;
+      } else if (reviewResult.status === "needs_revision") {
+        // 需要修订：标记为失败，用户可以重试
+        finalStatus = ResearchTodoStatus.FAILED;
+        finalMessage = `⚠️ Leader 要求修订: ${reviewResult.feedback}${reviewResult.revisionInstructions ? `\n修订建议: ${reviewResult.revisionInstructions}` : ""}`;
+      } else {
+        // rejected
+        finalStatus = ResearchTodoStatus.FAILED;
+        finalMessage = `❌ Leader 审核未通过: ${reviewResult.feedback}`;
+      }
+
       const completedTodo = await this.prisma.researchTodo.update({
         where: { id: todoId },
         data: {
-          status: ResearchTodoStatus.COMPLETED,
-          progress: 100,
+          status: finalStatus,
+          progress: finalStatus === ResearchTodoStatus.COMPLETED ? 100 : 90,
           completedAt: new Date(),
           actualMs: updatedTodo.startedAt
             ? Date.now() - updatedTodo.startedAt.getTime()
             : null,
-          statusMessage: resultMessage,
+          statusMessage: finalMessage,
         },
       });
 
-      // 发送完成事件
-      await this.emitTodoEvent(topicId, TodoEventType.TODO_COMPLETED, {
+      // 发送审核完成事件
+      await this.emitTodoEvent(topicId, TodoEventType.TODO_REVIEWED, {
         todoId,
-        result: { message: resultMessage },
-        duration: completedTodo.actualMs,
+        reviewResult,
         todo: this.formatTodoForClient(completedTodo),
       });
 
+      // 发送完成/失败事件
+      if (finalStatus === ResearchTodoStatus.COMPLETED) {
+        await this.emitTodoEvent(topicId, TodoEventType.TODO_COMPLETED, {
+          todoId,
+          result: { message: finalMessage },
+          duration: completedTodo.actualMs,
+          todo: this.formatTodoForClient(completedTodo),
+        });
+      } else {
+        await this.emitTodoEvent(topicId, TodoEventType.TODO_FAILED, {
+          todoId,
+          error: finalMessage,
+          todo: this.formatTodoForClient(completedTodo),
+        });
+      }
+
       this.logger.log(
-        `[executeTodo] TODO ${todoId} executed successfully: ${resultMessage}`,
+        `[executeTodo] TODO ${todoId} review result: ${reviewResult.status}`,
       );
+
+      // ★ v7.2: 任务完成后，检查并执行队列中的下一个任务
+      this.processNextQueuedTodo(topicId).catch((err: Error) => {
+        this.logger.error(
+          `[executeTodo] Failed to process next queued todo: ${err.message}`,
+        );
+      });
 
       return {
         todo: completedTodo,
-        message: resultMessage,
+        message: finalMessage,
       };
     } catch (error) {
       // 执行失败，更新状态
@@ -1090,6 +1220,13 @@ export class ResearchTodoService {
       await this.emitTodoEvent(topicId, TodoEventType.TODO_FAILED, {
         todo: this.formatTodoForClient(failedTodo),
         error: error instanceof Error ? error.message : "未知错误",
+      });
+
+      // ★ v7.2: 即使失败也要处理队列中的下一个任务
+      this.processNextQueuedTodo(topicId).catch((err: Error) => {
+        this.logger.error(
+          `[executeTodo] Failed to process next queued todo after failure: ${err.message}`,
+        );
       });
 
       throw error;

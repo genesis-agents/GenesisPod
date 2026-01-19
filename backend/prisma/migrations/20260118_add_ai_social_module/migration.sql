@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS "social_contents" (
     "ai_process_log" JSONB,
     "ai_suggestions" JSONB,
     "review_status" "SocialReviewStatus",
+    "reviewed_by_id" TEXT,
     "reviewed_at" TIMESTAMP(3),
     "review_note" TEXT,
     "compliance_check" JSONB,

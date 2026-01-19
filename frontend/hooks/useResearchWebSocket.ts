@@ -42,7 +42,10 @@ export type ResearchEventType =
   | 'todo:progress'
   | 'todo:completed'
   | 'todo:failed'
-  | 'todo:cancelled';
+  | 'todo:cancelled'
+  // ★ v7.2: Leader 审核事件
+  | 'todo:reviewing'
+  | 'todo:reviewed';
 
 // Leader 思考数据
 export interface LeaderThinkingData {
@@ -365,6 +368,26 @@ export function useResearchWebSocket(
     socket.on('todo:cancelled', (data) => {
       console.log('[ResearchWS] TODO cancelled:', data);
       handleEvent('todo:cancelled', data);
+    });
+
+    // ★ v7.2: Leader 审核事件
+    socket.on('todo:reviewing', (data) => {
+      console.log('[ResearchWS] TODO reviewing:', data);
+      setCurrentMessage(data.message || 'Leader 正在审核任务结果...');
+      handleEvent('todo:reviewing', data);
+    });
+
+    socket.on('todo:reviewed', (data) => {
+      console.log('[ResearchWS] TODO reviewed:', data);
+      const decision = data.decision || 'unknown';
+      const msg =
+        decision === 'approved'
+          ? '审核通过'
+          : decision === 'needs_revision'
+            ? '需要修改'
+            : '审核拒绝';
+      setCurrentMessage(`Leader 审核结果: ${msg}`);
+      handleEvent('todo:reviewed', data);
     });
 
     socketRef.current = socket;

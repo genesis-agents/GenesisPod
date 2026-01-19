@@ -506,6 +506,7 @@ export enum ResearchTodoStatus {
   PENDING = 'PENDING',
   QUEUED = 'QUEUED',
   IN_PROGRESS = 'IN_PROGRESS',
+  REVIEWING = 'REVIEWING', // ★ v7.2: Leader 审核中
   PAUSED = 'PAUSED',
   COMPLETED = 'COMPLETED',
   FAILED = 'FAILED',
@@ -610,4 +611,7 @@ export enum TodoEventType {
   TODO_CANCELLED = 'todo:cancelled',
   TODO_PAUSED = 'todo:paused',
   TODO_RESUMED = 'todo:resumed',
+  // ★ v7.2: Leader 审核事件
+  TODO_REVIEWING = 'todo:reviewing',
+  TODO_REVIEWED = 'todo:reviewed',
 }

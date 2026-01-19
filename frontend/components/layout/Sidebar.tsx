@@ -109,7 +109,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       ref={sidebarRef}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`${showExpanded ? 'w-52' : 'w-16'} relative z-40 hidden h-full flex-col overflow-hidden border-r border-gray-200 bg-white transition-all duration-300 md:flex ${className}`}
+      className={`${showExpanded ? 'w-52' : 'w-16'} relative z-40 hidden h-full flex-col border-r border-gray-200 bg-white transition-all duration-300 md:flex ${className}`}
     >
       {/* Collapse/Expand Button - Vertically Centered */}
       <button
@@ -144,7 +144,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
       {/* Header */}
       <div
-        className={`flex flex-shrink-0 items-center p-4 ${!showExpanded ? 'justify-center' : ''}`}
+        className={`flex flex-shrink-0 items-center overflow-hidden px-4 py-3 ${!showExpanded ? 'justify-center' : ''}`}
       >
         {!showExpanded ? (
           /* Collapsed Logo - AI Teams: Circular collaboration */
@@ -335,7 +335,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       </div>
 
       {/* Main Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-2">
+      <nav className="scrollbar-thin flex-1 overflow-y-auto overflow-x-hidden px-3 py-1">
         <div className="space-y-1">
           {/* AI Ask - Primary AI Chat Entry */}
           <Link
@@ -757,7 +757,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       </nav>
 
       {/* Bottom Navigation */}
-      <div className="flex-shrink-0 space-y-1 border-t border-gray-200 p-3">
+      <div className="flex-shrink-0 space-y-0.5 overflow-hidden border-t border-gray-200 px-3 py-2">
         <Link
           href="/notifications"
           onClick={(e) => {

@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ContentCheckerService } from "./services/content-checker.service";
 import { PublishExecutorService } from "./services/publish-executor.service";
@@ -288,7 +293,7 @@ export class AiSocialService {
     const content = await this.getContent(userId, id);
 
     if (!content.connectionId && !dto.connectionId) {
-      throw new Error("请选择发布账号");
+      throw new BadRequestException("请选择发布账号");
     }
 
     // 更新状态为待发布
@@ -323,7 +328,7 @@ export class AiSocialService {
       content.status !== SocialContentStatus.SCHEDULED &&
       content.status !== SocialContentStatus.PENDING
     ) {
-      throw new Error("只能取消排期或待发布状态的内容");
+      throw new BadRequestException("只能取消排期或待发布状态的内容");
     }
 
     return this.db.socialContent.update({

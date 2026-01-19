@@ -83,6 +83,7 @@ function convertTaskToTodo(task: TaskStatus): ResearchTodo {
     PENDING: 'PENDING' as ResearchTodoStatus,
     ASSIGNED: 'QUEUED' as ResearchTodoStatus,
     EXECUTING: 'IN_PROGRESS' as ResearchTodoStatus,
+    REVIEWING: 'REVIEWING' as ResearchTodoStatus, // ★ v7.2: Leader 审核中
     COMPLETED: 'COMPLETED' as ResearchTodoStatus,
     NEEDS_REVISION: 'PAUSED' as ResearchTodoStatus,
     FAILED: 'FAILED' as ResearchTodoStatus,
@@ -165,6 +166,7 @@ function calculateSummary(todos: ResearchTodo[]): TodoSummary {
         completed++;
         break;
       case 'IN_PROGRESS':
+      case 'REVIEWING': // ★ v7.2: 审核中也算进行中
         inProgress++;
         break;
       case 'PENDING':

@@ -1,4 +1,9 @@
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { ContentFetcherService } from "./content-fetcher.service";
@@ -164,7 +169,7 @@ export class SocialLeaderService {
     });
 
     if (!existingContent) {
-      throw new Error("内容不存在");
+      throw new NotFoundException("内容不存在");
     }
 
     // 根据原始来源重新获取和转换
@@ -183,6 +188,6 @@ export class SocialLeaderService {
       });
     }
 
-    throw new Error("无法确定原始内容来源");
+    throw new BadRequestException("无法确定原始内容来源");
   }
 }

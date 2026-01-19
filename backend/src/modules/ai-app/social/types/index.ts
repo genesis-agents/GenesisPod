@@ -63,7 +63,7 @@ export interface SocialContent {
   sourceType: SocialContentSourceType;
   sourceId?: string | null;
   sourceUrl?: string | null;
-  title?: string | null;
+  title: string; // ★ 必填字段，与 Prisma schema 一致
   content: string;
   author?: string | null;
   digest?: string | null;

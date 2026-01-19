@@ -72,6 +72,7 @@ async function deploy(): Promise<void> {
     }
 
     // Step 2.5: Clean up rolled-back migrations
+    // ★ 只删除记录，让 prisma migrate deploy 重新运行它们
     console.log("2.5. Cleaning up rolled-back migrations...");
     const rolledBackMigrations = await prisma.$queryRaw<
       Array<{ migration_name: string }>
@@ -82,30 +83,19 @@ async function deploy(): Promise<void> {
 
     if (rolledBackMigrations.length > 0) {
       console.log(
-        `   Found ${rolledBackMigrations.length} unique rolled-back migration(s)`,
+        `   Found ${rolledBackMigrations.length} unique rolled-back migration(s):`,
       );
+      for (const m of rolledBackMigrations) {
+        console.log(`   - ${m.migration_name}`);
+      }
 
-      // First, delete ALL rolled-back records in one operation
+      // 只删除记录，不标记为 applied，让 migrate deploy 重新运行
       const deleteResult = await prisma.$executeRaw`
         DELETE FROM "_prisma_migrations"
         WHERE rolled_back_at IS NOT NULL
       `;
       console.log(`   Deleted ${deleteResult} rolled-back records`);
-
-      // Then mark each unique migration as applied (if it exists in local migration files)
-      for (const m of rolledBackMigrations) {
-        try {
-          execSync(
-            `npx prisma migrate resolve --applied "${m.migration_name}"`,
-            { stdio: "inherit", env: process.env },
-          );
-          console.log(`   Applied: ${m.migration_name}`);
-        } catch {
-          // Migration might not exist in local files - that's OK
-          console.log(`   Skipped (not in local files): ${m.migration_name}`);
-        }
-      }
-      console.log("");
+      console.log("   These migrations will be re-run by migrate deploy\n");
     } else {
       console.log("   No rolled-back migrations found\n");
     }
