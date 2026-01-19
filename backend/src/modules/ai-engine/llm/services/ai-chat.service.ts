@@ -4,6 +4,7 @@ import { firstValueFrom } from "rxjs";
 import { AIErrorClassifier } from "../../../../common/ai-orchestration/error-classifier";
 import { AiServiceUnavailableError } from "../../core/exceptions";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { SecretsService } from "../../../core/secrets/secrets.service";
 import { AIModelType } from "@prisma/client";
 import { TaskProfile } from "../types";
 import { TaskProfileMapperService } from "./task-profile-mapper.service";
@@ -49,6 +50,7 @@ export interface AIModelConfig {
   modelId: string;
   apiEndpoint: string;
   apiKey: string | null;
+  secretKey?: string | null; // 引用 Secret Manager 中的密钥名称
   maxTokens: number;
   temperature: number;
   isEnabled: boolean;
@@ -89,11 +91,33 @@ export class AiChatService {
     private readonly httpService: HttpService,
     private readonly prisma: PrismaService,
     private readonly taskProfileMapper: TaskProfileMapperService,
+    private readonly secretsService: SecretsService,
   ) {
     // 初始化时异步加载模型配置
     this.refreshModelConfigCache().catch((err) =>
       this.logger.warn(`Failed to initialize model config cache: ${err}`),
     );
+  }
+
+  /**
+   * 获取模型的 API Key
+   * 优先从 Secret Manager 获取（如果 secretKey 已配置），否则使用直接存储的 apiKey
+   */
+  async getApiKeyForModel(model: AIModelConfig): Promise<string | null> {
+    // 优先使用 secretKey 从 Secret Manager 获取
+    if (model.secretKey) {
+      const secretValue = await this.secretsService.getValueInternal(
+        model.secretKey,
+      );
+      if (secretValue) {
+        return secretValue;
+      }
+      this.logger.warn(
+        `Secret '${model.secretKey}' not found for model ${model.name}, falling back to apiKey`,
+      );
+    }
+    // 回退到直接存储的 apiKey
+    return model.apiKey;
   }
 
   /**

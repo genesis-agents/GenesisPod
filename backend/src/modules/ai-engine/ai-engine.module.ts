@@ -17,6 +17,7 @@
 import { Module, Global, OnModuleInit, Logger } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../common/prisma/prisma.module";
+import { SecretsModule } from "../core/secrets/secrets.module";
 
 // Registries
 import { ToolRegistry } from "./tools/registry/tool-registry";
@@ -269,6 +270,7 @@ const conversationMemoryFactory = {
     ImageModule,
     TeamsModule,
     LongContentModule,
+    SecretsModule,
   ],
   controllers: [AgentsController, AiCoreController, SkillsController],
   providers: [
