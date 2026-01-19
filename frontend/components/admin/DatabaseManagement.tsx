@@ -22,7 +22,13 @@ import {
   Shield,
   BarChart3,
   Sparkles,
+  Brain,
+  Lightbulb,
+  Target,
+  TrendingUp,
+  AlertCircle,
 } from 'lucide-react';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 interface StorageCategory {
   name: string;
@@ -66,6 +72,26 @@ interface DatabaseAnalysis {
   recommendations: string[];
 }
 
+interface AIDiagnosis {
+  summary: string;
+  healthScore: number;
+  issues: Array<{
+    severity: 'critical' | 'warning' | 'info';
+    title: string;
+    description: string;
+    recommendation: string;
+    autoFixable: boolean;
+    fixAction?: string;
+  }>;
+  optimizations: Array<{
+    title: string;
+    description: string;
+    potentialSavings: string;
+    action: string;
+  }>;
+  timestamp: string;
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 const ADMIN_KEY = 'deepdive-admin-cleanup-2024';
 
@@ -104,10 +130,13 @@ const categoryBgColors: Record<string, string> = {
 export default function DatabaseManagement() {
   const [stats, setStats] = useState<StorageStats | null>(null);
   const [dbAnalysis, setDbAnalysis] = useState<DatabaseAnalysis | null>(null);
+  const [aiDiagnosis, setAiDiagnosis] = useState<AIDiagnosis | null>(null);
   const [loading, setLoading] = useState(true);
   const [analyzingDb, setAnalyzingDb] = useState(false);
+  const [diagnosing, setDiagnosing] = useState(false);
   const [vacuuming, setVacuuming] = useState(false);
   const [cleaning, setCleaning] = useState<string | null>(null);
+  const [optimizing, setOptimizing] = useState<string | null>(null);
   const [message, setMessage] = useState<{
     type: 'success' | 'error';
     text: string;
@@ -150,6 +179,193 @@ export default function DatabaseManagement() {
       setAnalyzingDb(false);
     }
   }, []);
+
+  // AI Diagnosis - analyze database and generate recommendations
+  const runAIDiagnosis = useCallback(async () => {
+    if (!stats || !dbAnalysis) {
+      setMessage({ type: 'error', text: 'Please wait for data to load first' });
+      return;
+    }
+
+    setDiagnosing(true);
+    setMessage(null);
+
+    try {
+      // Generate AI diagnosis based on current data
+      const issues: AIDiagnosis['issues'] = [];
+      const optimizations: AIDiagnosis['optimizations'] = [];
+      let healthScore = 100;
+
+      // Analyze database size
+      if (dbAnalysis.totalDatabaseSizeMB > 500) {
+        healthScore -= 20;
+        issues.push({
+          severity: 'critical',
+          title: 'Database size exceeds 500MB',
+          description: `Current size: ${dbAnalysis.totalDatabaseSizeMB.toFixed(2)}MB. Railway charges based on storage usage.`,
+          recommendation:
+            'Run Full Cleanup to remove unnecessary data and reduce costs.',
+          autoFixable: true,
+          fixAction: 'fullCleanup',
+        });
+      } else if (dbAnalysis.totalDatabaseSizeMB > 300) {
+        healthScore -= 10;
+        issues.push({
+          severity: 'warning',
+          title: 'Database size approaching limit',
+          description: `Current size: ${dbAnalysis.totalDatabaseSizeMB.toFixed(2)}MB. Consider cleanup to prevent cost increase.`,
+          recommendation: 'Review large tables and clean up old data.',
+          autoFixable: false,
+        });
+      }
+
+      // Analyze categories for cleanup opportunities
+      const cleanableCategories = stats.categories.filter(
+        (c) => c.canCleanup && c.count > 0
+      );
+      if (cleanableCategories.length > 0) {
+        const totalCleanable = cleanableCategories.reduce(
+          (sum, c) => sum + c.estimatedSizeMB,
+          0
+        );
+        if (totalCleanable > 10) {
+          healthScore -= 5;
+          issues.push({
+            severity: 'warning',
+            title: `${cleanableCategories.length} categories have cleanable data`,
+            description: `Approximately ${totalCleanable.toFixed(2)}MB can be freed.`,
+            recommendation:
+              'Click cleanup buttons on individual categories or run Full Cleanup.',
+            autoFixable: true,
+            fixAction: 'fullCleanup',
+          });
+        }
+      }
+
+      // Check for large TOAST data (indicates large text/JSON fields)
+      const tablesWithLargeToast = dbAnalysis.largestTables.filter(
+        (t) => t.toastSizeMB > 10
+      );
+      if (tablesWithLargeToast.length > 0) {
+        healthScore -= 5;
+        tablesWithLargeToast.forEach((table) => {
+          issues.push({
+            severity: 'info',
+            title: `Large TOAST data in ${table.tableName}`,
+            description: `${table.toastSizeMB.toFixed(2)}MB of TOAST data (large text/JSON fields).`,
+            recommendation:
+              'Consider archiving old records or optimizing data storage.',
+            autoFixable: false,
+          });
+        });
+      }
+
+      // Generate optimizations based on stats
+      stats.categories.forEach((category) => {
+        if (category.cleanupRecommendation) {
+          optimizations.push({
+            title: `Clean ${category.displayName}`,
+            description: category.cleanupRecommendation,
+            potentialSavings: `~${category.estimatedSizeMB.toFixed(2)}MB`,
+            action: category.name,
+          });
+        }
+      });
+
+      // Add VACUUM recommendation if database is large
+      if (dbAnalysis.totalDatabaseSizeMB > 100) {
+        optimizations.push({
+          title: 'Run VACUUM ANALYZE',
+          description:
+            'Reclaim disk space and update query planner statistics.',
+          potentialSavings: 'Improves performance',
+          action: 'vacuum',
+        });
+      }
+
+      // Generate summary
+      let summary = '';
+      if (healthScore >= 90) {
+        summary =
+          'Database is in excellent health. No immediate action required.';
+      } else if (healthScore >= 70) {
+        summary =
+          'Database is healthy but has some optimization opportunities.';
+      } else if (healthScore >= 50) {
+        summary =
+          'Database needs attention. Several issues should be addressed.';
+      } else {
+        summary =
+          'Database requires immediate attention. Critical issues detected.';
+      }
+
+      const diagnosis: AIDiagnosis = {
+        summary,
+        healthScore: Math.max(0, healthScore),
+        issues,
+        optimizations,
+        timestamp: new Date().toISOString(),
+      };
+
+      setAiDiagnosis(diagnosis);
+      setMessage({ type: 'success', text: 'AI diagnosis completed' });
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to run AI diagnosis' });
+    } finally {
+      setDiagnosing(false);
+    }
+  }, [stats, dbAnalysis]);
+
+  // Auto-optimize based on AI recommendations
+  const runAutoOptimize = async () => {
+    if (!aiDiagnosis) return;
+
+    const fixableIssues = aiDiagnosis.issues.filter((i) => i.autoFixable);
+    if (fixableIssues.length === 0) {
+      setMessage({
+        type: 'info' as 'success',
+        text: 'No auto-fixable issues found',
+      });
+      return;
+    }
+
+    if (
+      !confirm(
+        `This will automatically fix ${fixableIssues.length} issues. Continue?`
+      )
+    ) {
+      return;
+    }
+
+    setOptimizing('auto');
+    setMessage(null);
+
+    try {
+      // Run full cleanup
+      const res = await fetch(
+        `${API_BASE}/api/v1/storage/cleanup/all?key=${ADMIN_KEY}`,
+        { method: 'POST' }
+      );
+      const result = await res.json();
+
+      if (result.success) {
+        setMessage({
+          type: 'success',
+          text: `Auto-optimization completed: ${result.totalDeleted} records deleted, ~${result.totalFreedMB}MB freed`,
+        });
+        // Refresh all data
+        await Promise.all([loadStats(), loadDbAnalysis()]);
+        // Re-run diagnosis
+        setTimeout(() => runAIDiagnosis(), 1000);
+      } else {
+        setMessage({ type: 'error', text: 'Auto-optimization failed' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to run auto-optimization' });
+    } finally {
+      setOptimizing(null);
+    }
+  };
 
   // Run VACUUM
   const handleVacuum = async () => {
@@ -274,6 +490,37 @@ export default function DatabaseManagement() {
     return `${mb.toFixed(2)} MB`;
   };
 
+  // Get health score color
+  const getHealthScoreColor = (score: number) => {
+    if (score >= 90) return 'text-green-600 bg-green-100';
+    if (score >= 70) return 'text-yellow-600 bg-yellow-100';
+    if (score >= 50) return 'text-orange-600 bg-orange-100';
+    return 'text-red-600 bg-red-100';
+  };
+
+  // Get severity color
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'critical':
+        return 'border-red-200 bg-red-50 text-red-800';
+      case 'warning':
+        return 'border-amber-200 bg-amber-50 text-amber-800';
+      default:
+        return 'border-blue-200 bg-blue-50 text-blue-800';
+    }
+  };
+
+  const getSeverityIcon = (severity: string) => {
+    switch (severity) {
+      case 'critical':
+        return <AlertCircle className="h-5 w-5 text-red-600" />;
+      case 'warning':
+        return <AlertTriangle className="h-5 w-5 text-amber-600" />;
+      default:
+        return <Lightbulb className="h-5 w-5 text-blue-600" />;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Action Buttons */}
@@ -290,6 +537,18 @@ export default function DatabaseManagement() {
             className={`h-4 w-4 ${loading || analyzingDb ? 'animate-spin' : ''}`}
           />
           Refresh
+        </button>
+        <button
+          onClick={runAIDiagnosis}
+          disabled={diagnosing || loading || !stats || !dbAnalysis}
+          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50"
+        >
+          {diagnosing ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Brain className="h-4 w-4" />
+          )}
+          AI Diagnosis
         </button>
         <button
           onClick={handleVacuum}
@@ -338,6 +597,109 @@ export default function DatabaseManagement() {
           >
             &times;
           </button>
+        </div>
+      )}
+
+      {/* AI Diagnosis Panel */}
+      {aiDiagnosis && (
+        <div className="space-y-4 rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50 p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <Brain className="h-5 w-5 text-blue-600" />
+              AI Diagnosis Report
+            </h2>
+            <div className="flex items-center gap-3">
+              <div
+                className={`flex items-center gap-2 rounded-full px-4 py-2 font-bold ${getHealthScoreColor(aiDiagnosis.healthScore)}`}
+              >
+                <Target className="h-4 w-4" />
+                Health: {aiDiagnosis.healthScore}/100
+              </div>
+              {aiDiagnosis.issues.some((i) => i.autoFixable) && (
+                <button
+                  onClick={runAutoOptimize}
+                  disabled={optimizing !== null}
+                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-green-600 hover:to-emerald-600 disabled:opacity-50"
+                >
+                  {optimizing === 'auto' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <TrendingUp className="h-4 w-4" />
+                  )}
+                  Auto Optimize
+                </button>
+              )}
+            </div>
+          </div>
+
+          <p className="text-gray-700">{aiDiagnosis.summary}</p>
+
+          {/* Issues */}
+          {aiDiagnosis.issues.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="font-semibold text-gray-900">Issues Detected</h3>
+              {aiDiagnosis.issues.map((issue, idx) => (
+                <div
+                  key={idx}
+                  className={`rounded-lg border p-4 ${getSeverityColor(issue.severity)}`}
+                >
+                  <div className="flex items-start gap-3">
+                    {getSeverityIcon(issue.severity)}
+                    <div className="flex-1">
+                      <h4 className="font-medium">{issue.title}</h4>
+                      <p className="mt-1 text-sm opacity-90">
+                        {issue.description}
+                      </p>
+                      <p className="mt-2 text-sm font-medium">
+                        Recommendation: {issue.recommendation}
+                      </p>
+                      {issue.autoFixable && (
+                        <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                          <CheckCircle className="h-3 w-3" /> Auto-fixable
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Optimizations */}
+          {aiDiagnosis.optimizations.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="font-semibold text-gray-900">
+                Optimization Opportunities
+              </h3>
+              <div className="grid gap-3 md:grid-cols-2">
+                {aiDiagnosis.optimizations.map((opt, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-lg border border-green-200 bg-green-50/50 p-4"
+                  >
+                    <div className="flex items-start gap-3">
+                      <Lightbulb className="h-5 w-5 flex-shrink-0 text-green-600" />
+                      <div className="flex-1">
+                        <h4 className="font-medium text-green-900">
+                          {opt.title}
+                        </h4>
+                        <p className="mt-1 text-sm text-green-700">
+                          {opt.description}
+                        </p>
+                        <p className="mt-2 text-xs font-medium text-green-600">
+                          Potential savings: {opt.potentialSavings}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs text-gray-500">
+            Diagnosed at: {new Date(aiDiagnosis.timestamp).toLocaleString()}
+          </p>
         </div>
       )}
 
@@ -430,98 +792,6 @@ export default function DatabaseManagement() {
               ))}
             </div>
           </div>
-
-          {/* All Tables */}
-          <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
-            <h3 className="mb-4 font-semibold text-gray-900">
-              All Tables ({dbAnalysis.tables.length})
-            </h3>
-            <div className="max-h-96 overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-white">
-                  <tr className="border-b text-left text-gray-500">
-                    <th className="pb-2 font-medium">Table</th>
-                    <th className="pb-2 text-right font-medium">Rows</th>
-                    <th className="pb-2 text-right font-medium">Total</th>
-                    <th className="pb-2 text-right font-medium">Data</th>
-                    <th className="pb-2 text-right font-medium">Index</th>
-                    <th className="pb-2 text-right font-medium">TOAST</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dbAnalysis.tables.map((table) => (
-                    <tr
-                      key={table.tableName}
-                      className="border-b border-gray-100"
-                    >
-                      <td className="py-2 font-medium text-gray-900">
-                        {table.tableName}
-                      </td>
-                      <td className="py-2 text-right text-gray-600">
-                        {table.rowCount.toLocaleString()}
-                      </td>
-                      <td className="py-2 text-right font-medium text-indigo-600">
-                        {formatSize(table.totalSizeMB)}
-                      </td>
-                      <td className="py-2 text-right text-gray-600">
-                        {formatSize(table.dataSizeMB)}
-                      </td>
-                      <td className="py-2 text-right text-gray-600">
-                        {formatSize(table.indexSizeMB)}
-                      </td>
-                      <td className="py-2 text-right text-gray-600">
-                        {table.toastSizeMB > 0
-                          ? formatSize(table.toastSizeMB)
-                          : '-'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* DB Recommendations */}
-          {dbAnalysis.recommendations.length > 0 && (
-            <div className="rounded-xl border border-purple-200 bg-purple-50/50 p-5">
-              <h3 className="flex items-center gap-2 font-semibold text-purple-800">
-                <AlertTriangle className="h-5 w-5" />
-                Database Recommendations
-              </h3>
-              <ul className="mt-3 space-y-2">
-                {dbAnalysis.recommendations.map((rec, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2 text-sm text-purple-700"
-                  >
-                    <span className="mt-0.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-purple-500" />
-                    {rec}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Recommendations */}
-      {!loading && stats && stats.recommendations.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-5">
-          <h3 className="flex items-center gap-2 font-semibold text-amber-800">
-            <AlertTriangle className="h-5 w-5" />
-            Cleanup Recommendations
-          </h3>
-          <ul className="mt-3 space-y-2">
-            {stats.recommendations.map((rec, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-2 text-sm text-amber-700"
-              >
-                <span className="mt-0.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-500" />
-                {rec}
-              </li>
-            ))}
-          </ul>
         </div>
       )}
 
@@ -534,7 +804,8 @@ export default function DatabaseManagement() {
         <>
           <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
             <Database className="h-5 w-5 text-blue-600" />
-            Data Categories
+            Data Categories (
+            {stats.categories.filter((c) => c.canCleanup).length} cleanable)
           </h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {stats.categories.map((category) => (
@@ -681,7 +952,8 @@ export default function DatabaseManagement() {
           Railway charges based on database storage usage. This dashboard helps
           you monitor and manage PostgreSQL data across different categories.
           Regular cleanup and VACUUM operations help reclaim space and control
-          costs.
+          costs. Use AI Diagnosis for intelligent analysis and Auto Optimize for
+          one-click optimization.
         </p>
       </div>
     </div>
