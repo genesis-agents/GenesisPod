@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
@@ -22,15 +22,16 @@ import {
   Globe,
   Loader2,
 } from 'lucide-react';
+import {
+  useSocialContents,
+  useSocialPublish,
+  SocialContent,
+  SocialContentStatus,
+} from '@/hooks/domain/useAISocial';
+import { toast } from '@/stores/toastStore';
 
 // Types matching backend
-type ContentStatus =
-  | 'DRAFT'
-  | 'PENDING'
-  | 'SCHEDULED'
-  | 'PUBLISHING'
-  | 'PUBLISHED'
-  | 'FAILED';
+type ContentStatus = SocialContentStatus;
 type ContentType = 'WECHAT_ARTICLE' | 'XIAOHONGSHU_NOTE';
 type SourceType =
   | 'MANUAL'
@@ -39,19 +40,6 @@ type SourceType =
   | 'AI_RESEARCH'
   | 'AI_OFFICE'
   | 'AI_WRITING';
-
-interface SocialContent {
-  id: string;
-  title: string;
-  contentType: ContentType;
-  sourceType: SourceType;
-  status: ContentStatus;
-  scheduledAt: string | null;
-  publishedAt: string | null;
-  externalUrl: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
 
 const STATUS_CONFIG: Record<
   ContentStatus,
@@ -76,8 +64,13 @@ const STATUS_CONFIG: Record<
 export default function ContentsTab() {
   const { t } = useTranslation();
   const router = useRouter();
-  const [contents, setContents] = useState<SocialContent[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+
+  // API hooks
+  const { contents, loading, error, fetchContents, removeContent } =
+    useSocialContents();
+  const { publish, loading: publishing } = useSocialPublish();
+
+  // Local state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ContentStatus | 'ALL'>(
     'ALL'
@@ -87,6 +80,14 @@ export default function ContentsTab() {
   const [modalStep, setModalStep] = useState<1 | 2>(1);
   const [externalUrl, setExternalUrl] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+
+  // Load contents on mount and when filter changes
+  useEffect(() => {
+    const options = statusFilter === 'ALL' ? {} : { status: statusFilter };
+    fetchContents(options);
+  }, [fetchContents, statusFilter]);
 
   const resetModal = () => {
     setShowCreateModal(false);
@@ -102,7 +103,6 @@ export default function ContentsTab() {
     if (selectedSource === 'EXTERNAL_URL') {
       setModalStep(2);
     } else {
-      // For other sources, navigate to a picker page
       router.push(`/ai-social/create?source=${selectedSource}`);
       resetModal();
     }
@@ -112,31 +112,43 @@ export default function ContentsTab() {
     if (!externalUrl.trim()) return;
 
     setIsProcessing(true);
-    try {
-      // Navigate to create page with URL
-      router.push(
-        `/ai-social/create?source=EXTERNAL_URL&url=${encodeURIComponent(externalUrl)}`
-      );
-      resetModal();
-    } catch (error) {
-      console.error('Error processing URL:', error);
-      setIsProcessing(false);
-    }
+    router.push(
+      `/ai-social/create?source=EXTERNAL_URL&url=${encodeURIComponent(externalUrl)}`
+    );
+    resetModal();
   };
 
   const handleRefresh = async () => {
-    setIsLoading(true);
-    // TODO: Fetch contents from API
-    setTimeout(() => setIsLoading(false), 1000);
+    const options = statusFilter === 'ALL' ? {} : { status: statusFilter };
+    await fetchContents(options);
+    toast.success(t('common.refresh'));
   };
 
   const handleDelete = async (contentId: string) => {
-    // TODO: Delete via API
-    setContents(contents.filter((c) => c.id !== contentId));
+    if (!confirm(t('aiSocial.confirm.delete'))) return;
+
+    setDeletingId(contentId);
+    const success = await removeContent(contentId);
+    setDeletingId(null);
+
+    if (success) {
+      toast.success(t('aiSocial.toast.deleted'));
+    } else {
+      toast.error(error || t('common.error'));
+    }
   };
 
   const handlePublish = async (contentId: string) => {
-    // TODO: Publish via API
+    setPublishingId(contentId);
+    const result = await publish(contentId);
+    setPublishingId(null);
+
+    if (result.success) {
+      toast.success(t('aiSocial.toast.published'));
+      fetchContents(statusFilter === 'ALL' ? {} : { status: statusFilter });
+    } else {
+      toast.error(result.errorMessage || t('common.error'));
+    }
   };
 
   const getStatusBadge = (status: ContentStatus) => {
@@ -154,13 +166,12 @@ export default function ContentsTab() {
     );
   };
 
+  // Filter contents by search query (API already filters by status)
   const filteredContents = contents.filter((content) => {
     const matchesSearch = content.title
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
-    const matchesStatus =
-      statusFilter === 'ALL' || content.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
 
   return (
@@ -178,12 +189,10 @@ export default function ContentsTab() {
         <div className="flex gap-2">
           <button
             onClick={handleRefresh}
-            disabled={isLoading}
+            disabled={loading}
             className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
           >
-            <RefreshCw
-              className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
-            />
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             {t('aiSocial.contents.refresh')}
           </button>
           <button
@@ -195,6 +204,13 @@ export default function ContentsTab() {
           </button>
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600">
+          {error}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -227,8 +243,16 @@ export default function ContentsTab() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {loading && contents.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Loader2 className="mb-4 h-8 w-8 animate-spin text-rose-500" />
+          <p className="text-sm text-gray-500">{t('common.loading')}</p>
+        </div>
+      )}
+
       {/* Content List */}
-      {filteredContents.length > 0 ? (
+      {!loading && filteredContents.length > 0 ? (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -283,10 +307,15 @@ export default function ContentsTab() {
                       {content.status === 'DRAFT' && (
                         <button
                           onClick={() => handlePublish(content.id)}
-                          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-rose-600"
+                          disabled={publishingId === content.id}
+                          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-rose-600 disabled:opacity-50"
                           title={t('aiSocial.contents.publish')}
                         >
-                          <Send className="h-4 w-4" />
+                          {publishingId === content.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
                         </button>
                       )}
                       {content.externalUrl && (
@@ -301,6 +330,9 @@ export default function ContentsTab() {
                         </a>
                       )}
                       <button
+                        onClick={() =>
+                          router.push(`/ai-social/edit/${content.id}`)
+                        }
                         className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                         title={t('aiSocial.contents.preview')}
                       >
@@ -308,10 +340,15 @@ export default function ContentsTab() {
                       </button>
                       <button
                         onClick={() => handleDelete(content.id)}
-                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-600"
+                        disabled={deletingId === content.id}
+                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-600 disabled:opacity-50"
                         title={t('aiSocial.contents.delete')}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {deletingId === content.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                   </td>
@@ -320,7 +357,7 @@ export default function ContentsTab() {
             </tbody>
           </table>
         </div>
-      ) : (
+      ) : !loading ? (
         /* Empty State */
         <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-12 text-center">
           <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
@@ -338,7 +375,7 @@ export default function ContentsTab() {
             {t('aiSocial.contents.createFirst')}
           </button>
         </div>
-      )}
+      ) : null}
 
       {/* Create Content Modal */}
       {showCreateModal && (

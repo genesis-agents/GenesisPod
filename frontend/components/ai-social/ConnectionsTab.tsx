@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import {
   Link2,
@@ -11,19 +11,16 @@ import {
   AlertCircle,
   Settings,
   Trash2,
+  Loader2,
 } from 'lucide-react';
+import {
+  useSocialConnections,
+  SocialPlatformConnection,
+} from '@/hooks/domain/useAISocial';
+import { toast } from '@/stores/toastStore';
 
 // Platform types matching backend
 type PlatformType = 'WECHAT_MP' | 'XIAOHONGSHU';
-
-interface PlatformConnection {
-  id: string;
-  platformType: PlatformType;
-  accountName: string | null;
-  isActive: boolean;
-  lastSyncAt: string | null;
-  createdAt: string;
-}
 
 // Platform configuration
 const PLATFORMS: Record<
@@ -46,29 +43,71 @@ const PLATFORMS: Record<
 
 export default function ConnectionsTab() {
   const { t } = useTranslation();
-  const [connections, setConnections] = useState<PlatformConnection[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const {
+    connections,
+    loading,
+    error,
+    fetchConnections,
+    removeConnection,
+    testConnection,
+    refreshConnection,
+  } = useSocialConnections();
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformType | null>(
     null
   );
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Placeholder for future API integration
-  const handleAddConnection = async (platform: PlatformType) => {
+  // Load connections on mount
+  useEffect(() => {
+    fetchConnections();
+  }, [fetchConnections]);
+
+  const handleAddConnection = (platform: PlatformType) => {
     setSelectedPlatform(platform);
     setShowAddModal(true);
-    // TODO: Implement connection flow with backend API
   };
 
   const handleRefresh = async () => {
-    setIsLoading(true);
-    // TODO: Fetch connections from API
-    setTimeout(() => setIsLoading(false), 1000);
+    await fetchConnections();
+    toast.success(t('common.refresh') + ' ' + t('common.success'));
   };
 
   const handleDeleteConnection = async (connectionId: string) => {
-    // TODO: Delete connection via API
-    setConnections(connections.filter((c) => c.id !== connectionId));
+    if (!confirm(t('aiSocial.confirm.disconnect'))) return;
+
+    setDeletingId(connectionId);
+    const success = await removeConnection(connectionId);
+    setDeletingId(null);
+
+    if (success) {
+      toast.success(t('aiSocial.toast.deleted'));
+    } else {
+      toast.error(error || t('common.error'));
+    }
+  };
+
+  const handleTestConnection = async (connectionId: string) => {
+    setTestingId(connectionId);
+    const result = await testConnection(connectionId);
+    setTestingId(null);
+
+    if (result.success) {
+      toast.success(result.message || t('aiSocial.connections.connected'));
+    } else {
+      toast.error(result.message || t('common.error'));
+    }
+  };
+
+  const handleRefreshConnection = async (connectionId: string) => {
+    const result = await refreshConnection(connectionId);
+    if (result) {
+      toast.success(t('common.success'));
+    } else {
+      toast.error(error || t('common.error'));
+    }
   };
 
   const getStatusIcon = (isActive: boolean) => {
@@ -76,6 +115,12 @@ export default function ConnectionsTab() {
       return <CheckCircle className="h-4 w-4 text-green-500" />;
     }
     return <XCircle className="h-4 w-4 text-red-500" />;
+  };
+
+  const getConnectionForPlatform = (
+    platformType: PlatformType
+  ): SocialPlatformConnection | undefined => {
+    return connections.find((c) => c.platformType === platformType);
   };
 
   return (
@@ -92,21 +137,26 @@ export default function ConnectionsTab() {
         </div>
         <button
           onClick={handleRefresh}
-          disabled={isLoading}
+          disabled={loading}
           className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
         >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           {t('aiSocial.connections.refresh')}
         </button>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600">
+          {error}
+        </div>
+      )}
 
       {/* Available Platforms */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {Object.entries(PLATFORMS).map(([key, platform]) => {
           const platformType = key as PlatformType;
-          const existingConnection = connections.find(
-            (c) => c.platformType === platformType
-          );
+          const existingConnection = getConnectionForPlatform(platformType);
 
           return (
             <div
@@ -166,17 +216,32 @@ export default function ConnectionsTab() {
                     </div>
                   )}
                   <div className="flex gap-2 pt-2">
-                    <button className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
-                      <Settings className="h-4 w-4" />
+                    <button
+                      onClick={() =>
+                        handleTestConnection(existingConnection.id)
+                      }
+                      disabled={testingId === existingConnection.id}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      {testingId === existingConnection.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Settings className="h-4 w-4" />
+                      )}
                       {t('aiSocial.connections.configure')}
                     </button>
                     <button
                       onClick={() =>
                         handleDeleteConnection(existingConnection.id)
                       }
-                      className="flex items-center justify-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+                      disabled={deletingId === existingConnection.id}
+                      className="flex items-center justify-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      {deletingId === existingConnection.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -194,8 +259,8 @@ export default function ConnectionsTab() {
         })}
       </div>
 
-      {/* Empty State */}
-      {connections.length === 0 && (
+      {/* Empty State - Only show if no connections and not loading */}
+      {connections.length === 0 && !loading && (
         <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-12 text-center">
           <Link2 className="mx-auto mb-4 h-12 w-12 text-gray-400" />
           <h3 className="mb-2 text-lg font-medium text-gray-900">
@@ -218,7 +283,7 @@ export default function ConnectionsTab() {
         </div>
       </div>
 
-      {/* Add Connection Modal Placeholder */}
+      {/* Add Connection Modal */}
       {showAddModal && selectedPlatform && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
@@ -242,6 +307,7 @@ export default function ConnectionsTab() {
               <button
                 onClick={() => {
                   // TODO: Implement OAuth or session-based connection
+                  toast.info('平台连接功能即将上线');
                   setShowAddModal(false);
                 }}
                 className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700"

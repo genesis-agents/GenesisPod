@@ -1259,7 +1259,13 @@
     "subtitle": "Publish content to social platforms with AI",
     "signIn": {
       "title": "Please sign in",
-      "description": "AI Social requires sign in with admin access."
+      "description": "AI Social requires sign in with admin access.",
+      "button": "Sign In"
+    },
+    "loading": "Loading...",
+    "accessDenied": {
+      "title": "Access Denied",
+      "description": "Sorry, you don't have permission to access this page. Please contact an administrator."
     },
     "tabs": {
       "contents": "Content",
@@ -1362,12 +1368,26 @@
       "subtitle": "AI will help transform your content for social platforms",
       "processing": "Processing content...",
       "selectPlatform": "Select Target Platform",
+      "selectPlatformFirst": "Please select a target platform first",
+      "selectPlatformPrompt": "Select a target platform first, then AI will process the content automatically",
       "preview": "Content Preview",
       "publish": "Publish",
       "saveDraft": "Save as Draft",
       "back": "Back",
       "noSource": "No content source specified",
-      "goBack": "Go back to select source"
+      "goBack": "Go back to select source",
+      "titlePlaceholder": "Enter title...",
+      "contentPlaceholder": "Enter content...",
+      "digest": "Digest",
+      "digestPlaceholder": "Enter digest (optional)...",
+      "tags": "Tags",
+      "addTag": "Add tag...",
+      "regenerate": "Regenerate",
+      "regenerateSuccess": "Content regenerated successfully",
+      "processSuccess": "Content processed successfully",
+      "processFailed": "Failed to process content, please try again",
+      "saveFailed": "Failed to save, please try again",
+      "publishFailed": "Failed to publish, please try again"
     },
     "ai": {
       "processUrl": "Process URL",
@@ -1389,6 +1409,7 @@
       "created": "Content created successfully",
       "updated": "Content updated successfully",
       "deleted": "Content deleted successfully",
+      "saved": "Saved successfully",
       "published": "Published successfully",
       "scheduled": "Schedule set successfully",
       "cancelled": "Publish cancelled",

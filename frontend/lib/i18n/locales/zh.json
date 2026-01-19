@@ -1259,7 +1259,13 @@
     "subtitle": "智能发布内容到社交平台",
     "signIn": {
       "title": "请先登录",
-      "description": "进入 AI Social 需要登录并拥有管理员权限。"
+      "description": "进入 AI Social 需要登录并拥有管理员权限。",
+      "button": "登录"
+    },
+    "loading": "加载中...",
+    "accessDenied": {
+      "title": "访问受限",
+      "description": "抱歉，您没有访问此页面的权限。请联系管理员。"
     },
     "tabs": {
       "contents": "内容管理",
@@ -1362,12 +1368,26 @@
       "subtitle": "AI 将帮助您将内容转换为适合社交平台的格式",
       "processing": "正在处理内容...",
       "selectPlatform": "选择目标平台",
+      "selectPlatformFirst": "请先选择目标平台",
+      "selectPlatformPrompt": "请先选择目标平台，然后 AI 将自动处理内容",
       "preview": "内容预览",
       "publish": "发布",
       "saveDraft": "保存草稿",
       "back": "返回",
       "noSource": "未指定内容来源",
-      "goBack": "返回选择来源"
+      "goBack": "返回选择来源",
+      "titlePlaceholder": "输入标题...",
+      "contentPlaceholder": "输入内容...",
+      "digest": "摘要",
+      "digestPlaceholder": "输入摘要（可选）...",
+      "tags": "标签",
+      "addTag": "添加标签...",
+      "regenerate": "重新生成",
+      "regenerateSuccess": "内容重新生成成功",
+      "processSuccess": "内容处理成功",
+      "processFailed": "内容处理失败，请重试",
+      "saveFailed": "保存失败，请重试",
+      "publishFailed": "发布失败，请重试"
     },
     "ai": {
       "processUrl": "处理链接",
@@ -1389,6 +1409,7 @@
       "created": "内容创建成功",
       "updated": "内容更新成功",
       "deleted": "内容删除成功",
+      "saved": "保存成功",
       "published": "发布成功",
       "scheduled": "排期设置成功",
       "cancelled": "已取消发布",
