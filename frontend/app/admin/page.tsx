@@ -1,5 +1,7 @@
-import { redirect } from 'next/navigation';
+'use client';
+
+import { ArchitectureDiagram } from '@/components/admin/overview';
 
 export default function AdminPage() {
-  redirect('/admin/overview');
+  return <ArchitectureDiagram />;
 }

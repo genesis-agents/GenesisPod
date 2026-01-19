@@ -41,25 +41,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   async redirects() {
-    return [
-      // Redirect deleted admin pages to new locations
-      {
-        source: '/admin/settings',
-        destination: '/admin/system/site',
-        permanent: true,
-      },
-      // Renamed routes for cleaner naming
-      {
-        source: '/admin/ai/tools',
-        destination: '/admin/ai/external-services',
-        permanent: false,
-      },
-      {
-        source: '/admin/ai/skills',
-        destination: '/admin/ai/capabilities',
-        permanent: false,
-      },
-    ];
+    return [];
   },
   async rewrites() {
     // Ensure URLs have protocol prefix
