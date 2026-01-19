@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ConfigurationView } from './ConfigurationView';
 import { QualityView } from './QualityView';
 import { MonitoringView } from './MonitoringView';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 type ResourceType = 'PAPER' | 'BLOG' | 'REPORT' | 'YOUTUBE_VIDEO' | 'NEWS';
 type ManagementTab = 'overview' | 'configuration' | 'monitoring' | 'quality';
@@ -87,7 +88,9 @@ const MANAGEMENT_TABS: Array<{
 ];
 
 const fetchDashboardSummary = async (): Promise<DashboardSummary> => {
-  const response = await fetch('/api/v1/data-management/dashboard/summary');
+  const response = await fetch('/api/v1/data-management/dashboard/summary', {
+    headers: { ...getAuthHeader() },
+  });
   if (!response.ok) {
     throw new Error('Failed to fetch dashboard summary');
   }
@@ -96,7 +99,10 @@ const fetchDashboardSummary = async (): Promise<DashboardSummary> => {
 
 const fetchRecentTasks = async (): Promise<RecentTask[]> => {
   const response = await fetch(
-    '/api/v1/data-management/dashboard/recent-tasks'
+    '/api/v1/data-management/dashboard/recent-tasks',
+    {
+      headers: { ...getAuthHeader() },
+    }
   );
   if (!response.ok) {
     throw new Error('Failed to fetch recent tasks');
