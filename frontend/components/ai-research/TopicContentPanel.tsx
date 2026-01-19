@@ -37,6 +37,10 @@ import { ChapterizedReportView } from './ChapterizedReportView';
 import { ReportRevisionHistory } from './ReportRevisionHistory';
 import { ReportAnnotations } from './ReportAnnotations';
 import { useTopicResearchStore } from '@/stores/topicResearchStore';
+// AI Edit 优化组件
+import { useAIEdit } from './useAIEdit';
+import { AIEditInputModal } from './AIEditInputModal';
+import { AIEditPreviewModal } from './AIEditPreviewModal';
 // Phase 1-3 优化组件
 import { CredibilityPanel } from './CredibilityPanel';
 // Phase TODO UX 优化组件 - 新的研究协作面板（合并原 thinking/history/collaboration）
@@ -407,6 +411,20 @@ export function TopicContentPanel({
     message: string;
     type: 'success' | 'error';
   } | null>(null);
+
+  // ★ AI Edit Hook - 统一的 AI 编辑逻辑
+  const aiEdit = useAIEdit({
+    topicId: topicId || '',
+    reportId: report?.id || '',
+    onSuccess: (editedText) => {
+      setToast({ message: 'AI 编辑已应用', type: 'success' });
+      // TODO: 刷新报告内容
+    },
+    onError: (error) => {
+      setToast({ message: error.message, type: 'error' });
+    },
+    fullContent: report?.fullReport,
+  });
 
   // ★ 前端导出功能（参考 AI Writing 实现）
   // 生成报告的 Markdown 内容（从 dimensionAnalyses 和 highlights 组合）
