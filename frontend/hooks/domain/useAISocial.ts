@@ -349,7 +349,8 @@ export function useSocialAIEngine() {
       const message =
         err instanceof Error ? err.message : 'Failed to process URL';
       setError(message);
-      return null;
+      // Re-throw so component can catch with specific message
+      throw new Error(message);
     } finally {
       setLoading(false);
     }
@@ -364,7 +365,8 @@ export function useSocialAIEngine() {
       const message =
         err instanceof Error ? err.message : 'Failed to process source';
       setError(message);
-      return null;
+      // Re-throw so component can catch with specific message
+      throw new Error(message);
     } finally {
       setLoading(false);
     }

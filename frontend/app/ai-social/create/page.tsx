@@ -218,11 +218,12 @@ function CreateSocialContentForm() {
         setDigest(result.content.digest || '');
         setTags(result.content.tags || []);
         toast.success(result.message || t('aiSocial.create.processSuccess'));
-      } else {
-        setError(aiError || t('aiSocial.create.processFailed'));
       }
     } catch (err) {
-      setError(t('aiSocial.create.processFailed'));
+      // Display the actual error message from the backend
+      const errorMessage =
+        err instanceof Error ? err.message : t('aiSocial.create.processFailed');
+      setError(errorMessage);
     } finally {
       setIsProcessing(false);
     }
