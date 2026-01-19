@@ -275,6 +275,21 @@ interface ReportEditorProps {
   evidence?: TopicEvidence[];
   isLoading?: boolean;
   onSave?: (content: string) => Promise<void>;
+  /**
+   * New AI edit callback - opens modal for AI editing
+   * (Preferred over onAIEdit)
+   */
+  onOpenAIEdit?: (selection: {
+    text: string;
+    startOffset: number;
+    endOffset: number;
+    selectorPrefix?: string;
+    selectorSuffix?: string;
+  }) => void;
+  /**
+   * Legacy AI edit callback
+   * @deprecated Use onOpenAIEdit instead
+   */
   onAIEdit?: (
     operation: AIEditOperation,
     selection?: string
@@ -615,6 +630,7 @@ function ReportEditorInner({
   evidence: evidenceProp,
   isLoading = false,
   onSave,
+  onOpenAIEdit,
   onAIEdit,
   onAddAnnotation,
   annotations = [],
@@ -1531,6 +1547,7 @@ function ReportEditorInner({
             {/* Context menu for preview mode */}
             <TextSelectionContextMenu
               containerRef={previewRef}
+              onOpenAIEdit={onOpenAIEdit}
               onAIEdit={onAIEdit ? handleAIEditFromMenu : undefined}
               onAddAnnotation={onAddAnnotation}
               isAIProcessing={isAIProcessing}
@@ -1560,6 +1577,7 @@ function ReportEditorInner({
             {/* Context menu for richtext mode */}
             <TextSelectionContextMenu
               containerRef={richTextRef}
+              onOpenAIEdit={onOpenAIEdit}
               onAIEdit={onAIEdit ? handleAIEditFromMenu : undefined}
               onAddAnnotation={onAddAnnotation}
               isAIProcessing={isAIProcessing}

@@ -197,7 +197,21 @@ interface ChapterizedReportViewProps {
   isLoading?: boolean;
   onEditChapter?: (chapterId: string, content: string) => void;
   onAIEditChapter?: (chapterId: string, operation: string) => Promise<void>;
-  /** AI edit callback for selected text (right-click menu) */
+  /**
+   * New AI edit callback - opens modal for AI editing
+   * (Preferred over onAIEdit)
+   */
+  onOpenAIEdit?: (selection: {
+    text: string;
+    startOffset: number;
+    endOffset: number;
+    selectorPrefix?: string;
+    selectorSuffix?: string;
+  }) => void;
+  /**
+   * Legacy AI edit callback for selected text (right-click menu)
+   * @deprecated Use onOpenAIEdit instead
+   */
   onAIEdit?: (
     operation: AIEditOperation,
     selectedText: string
@@ -426,6 +440,7 @@ function ChapterizedReportViewInner({
   isLoading = false,
   onEditChapter,
   onAIEditChapter,
+  onOpenAIEdit,
   onAIEdit,
   onAddAnnotation,
   annotations = [],
@@ -1016,6 +1031,7 @@ function ChapterizedReportViewInner({
               {/* ★ 右键菜单 - 编辑模式 */}
               <TextSelectionContextMenu
                 containerRef={editContainerRef}
+                onOpenAIEdit={onOpenAIEdit}
                 onAIEdit={onAIEdit ? handleAIEditFromMenu : undefined}
                 onAddAnnotation={onAddAnnotation}
                 isAIProcessing={isAIProcessing}
@@ -1108,6 +1124,7 @@ function ChapterizedReportViewInner({
               {/* ★ 右键菜单 - 与连续视图保持一致 */}
               <TextSelectionContextMenu
                 containerRef={previewRef}
+                onOpenAIEdit={onOpenAIEdit}
                 onAIEdit={onAIEdit ? handleAIEditFromMenu : undefined}
                 onAddAnnotation={onAddAnnotation}
                 isAIProcessing={isAIProcessing}

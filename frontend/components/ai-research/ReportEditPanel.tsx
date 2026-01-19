@@ -86,6 +86,21 @@ interface ReportEditPanelProps {
   sidePanelType?: SidePanelType;
   onSidePanelChange?: (type: SidePanelType) => void;
   onSave?: (content: string) => Promise<void>;
+  /**
+   * New AI edit callback - opens modal for AI editing
+   * (Preferred over onAIEdit)
+   */
+  onOpenAIEdit?: (selection: {
+    text: string;
+    startOffset: number;
+    endOffset: number;
+    selectorPrefix?: string;
+    selectorSuffix?: string;
+  }) => void;
+  /**
+   * Legacy AI edit callback
+   * @deprecated Use onOpenAIEdit instead
+   */
   onAIEdit?: (
     operation: AIEditOperation,
     selection?: TextSelection
@@ -197,6 +212,7 @@ export function ReportEditPanel({
   sidePanelType: externalSidePanelType,
   onSidePanelChange,
   onSave,
+  onOpenAIEdit,
   onAIEdit,
   onRollback,
   onAnnotationAdd,
@@ -478,6 +494,7 @@ export function ReportEditPanel({
             evidence={evidence}
             isLoading={isLoading}
             onSave={onSave}
+            onOpenAIEdit={onOpenAIEdit}
             onAIEdit={
               onAIEdit
                 ? async (operation: AIEditOperation, selection?: string) => {

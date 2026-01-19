@@ -1224,6 +1224,7 @@ export function TopicContentPanel({
                       disableSidePanel={true}
                       sidePanelType={sidePanelType}
                       onSidePanelChange={setSidePanelType}
+                      onOpenAIEdit={aiEdit.handleOpenEdit}
                       onAIEdit={async (operation, selection) => {
                         if (!topicId || !report?.id) return '';
                         try {
@@ -1261,6 +1262,7 @@ export function TopicContentPanel({
                       dimensions={dimensions}
                       evidence={safeEvidence}
                       isLoading={isLoadingReport}
+                      onOpenAIEdit={aiEdit.handleOpenEdit}
                       onAIEdit={async (operation, selection) => {
                         if (!topicId || !report?.id) return '';
                         try {
@@ -1684,6 +1686,7 @@ export function TopicContentPanel({
                 // TODO: Implement save functionality
                 console.log('Save report:', content);
               }}
+              onOpenAIEdit={aiEdit.handleOpenEdit}
               onAIEdit={async (operation, selection) => {
                 if (!topicId || !report?.id) {
                   console.error('Cannot AI edit: missing topicId or reportId');
@@ -1733,6 +1736,7 @@ export function TopicContentPanel({
                       console.log('AI Edit chapter:', chapterId, operation);
                     }}
                     // ★ 右键菜单回调 - 与连续视图保持一致
+                    onOpenAIEdit={aiEdit.handleOpenEdit}
                     onAIEdit={async (operation, selection) => {
                       if (!topicId || !report?.id) {
                         console.error(
@@ -1973,6 +1977,28 @@ export function TopicContentPanel({
             {toast.message}
           </div>
         )}
+
+        {/* AI Edit Modals */}
+        <AIEditInputModal
+          isOpen={aiEdit.isInputModalOpen}
+          onClose={aiEdit.closeInputModal}
+          selectedText={aiEdit.selectedText}
+          onSubmit={aiEdit.handleSubmitEdit}
+          isLoading={aiEdit.isLoading}
+          context={aiEdit.editContext || undefined}
+        />
+        <AIEditPreviewModal
+          isOpen={aiEdit.isPreviewModalOpen}
+          onClose={aiEdit.closePreviewModal}
+          originalText={aiEdit.selectedText}
+          editedText={aiEdit.editedText}
+          isLoading={aiEdit.isLoading}
+          error={aiEdit.error}
+          onApply={aiEdit.handleApplyEdit}
+          onRegenerate={aiEdit.handleRegenerate}
+          onClearError={aiEdit.clearError}
+          instruction={aiEdit.instruction}
+        />
       </div>
     </>
   );
