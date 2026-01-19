@@ -59,6 +59,7 @@ AI Apps（应用层）→ AI Studio / AI Office / AI Simulation
 2. **函数式组件**: React 使用函数组件 + Hooks
 3. **错误处理**: 所有异步操作必须 try-catch
 4. **日志**: 使用 NestJS Logger，禁止 console.log
+5. **图标**: 禁止使用 emoji，必须使用 SVG 图标（Lucide React）
 
 ### 导入顺序
 

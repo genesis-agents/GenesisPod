@@ -1,4 +1,4 @@
-import { useApiGet, useApiPost, useApiPut, useApiDelete } from '../core';
+import { useApiGet } from '../core';
 import { useCallback, useState } from 'react';
 
 export interface User {
@@ -42,15 +42,8 @@ export function useAdminUsers() {
     immediate: true,
   });
 
-  const { loading: updateLoading, execute: updateUserApi } = useApiPut<
-    User,
-    Partial<User>
-  >('/admin/users');
-
-  const { loading: deleteLoading, execute: deleteUserApi } = useApiDelete<
-    void,
-    { id: string }
-  >('/admin/users');
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const createUser = useCallback(
     async (data: CreateUserData) => {
@@ -59,6 +52,7 @@ export function useAdminUsers() {
         const response = await fetch('/api/v1/admin/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify(data),
         });
         const result = await response.json();
@@ -75,19 +69,38 @@ export function useAdminUsers() {
 
   const updateUser = useCallback(
     async (id: string, data: Partial<User>) => {
-      const result = await updateUserApi({ ...data, id });
-      if (result) await refreshUsers();
-      return result;
+      setUpdateLoading(true);
+      try {
+        const response = await fetch(`/api/v1/admin/users/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(data),
+        });
+        const result = await response.json();
+        if (result) await refreshUsers();
+        return result;
+      } finally {
+        setUpdateLoading(false);
+      }
     },
-    [updateUserApi, refreshUsers]
+    [refreshUsers]
   );
 
   const deleteUser = useCallback(
     async (id: string) => {
-      await deleteUserApi({ id });
-      await refreshUsers();
+      setDeleteLoading(true);
+      try {
+        await fetch(`/api/v1/admin/users/${id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+        await refreshUsers();
+      } finally {
+        setDeleteLoading(false);
+      }
     },
-    [deleteUserApi, refreshUsers]
+    [refreshUsers]
   );
 
   const banUser = useCallback(
@@ -110,6 +123,7 @@ export function useAdminUsers() {
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ amount, reason }),
           }
         );
@@ -134,6 +148,7 @@ export function useAdminUsers() {
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ freeze, reason }),
           }
         );

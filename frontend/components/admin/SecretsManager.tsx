@@ -1,8 +1,9 @@
 ﻿'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+
 import {
   Key,
   Plus,
@@ -22,6 +23,13 @@ import {
   AlertTriangle,
   History,
   Link2,
+  Bot,
+  FileText,
+  Play,
+  Volume2,
+  Zap,
+  KeyRound,
+  type LucideIcon,
 } from 'lucide-react';
 
 // Secret category enum matching backend
@@ -67,49 +75,49 @@ interface SecretReference {
 // Category display configuration
 const CATEGORY_CONFIG: Record<
   SecretCategory,
-  { label: string; color: string; bgColor: string; icon: string }
+  { label: string; color: string; bgColor: string; icon: LucideIcon }
 > = {
   AI_MODEL: {
     label: 'AI Models',
     color: 'text-blue-600',
     bgColor: 'bg-blue-50',
-    icon: 'ðŸ¤–',
+    icon: Bot,
   },
   SEARCH: {
     label: 'Search APIs',
     color: 'text-purple-600',
     bgColor: 'bg-purple-50',
-    icon: 'ðŸ”',
+    icon: Search,
   },
   EXTRACTION: {
     label: 'Extraction APIs',
     color: 'text-green-600',
     bgColor: 'bg-green-50',
-    icon: 'ðŸ“„',
+    icon: FileText,
   },
   YOUTUBE: {
     label: 'YouTube APIs',
     color: 'text-red-600',
     bgColor: 'bg-red-50',
-    icon: 'â–¶ï¸',
+    icon: Play,
   },
   TTS: {
     label: 'TTS APIs',
     color: 'text-indigo-600',
     bgColor: 'bg-indigo-50',
-    icon: 'ðŸ”Š',
+    icon: Volume2,
   },
   SKILLSMP: {
     label: 'SkillsMP',
     color: 'text-violet-600',
     bgColor: 'bg-violet-50',
-    icon: 'âš¡',
+    icon: Zap,
   },
   OTHER: {
     label: 'Other',
     color: 'text-gray-600',
     bgColor: 'bg-gray-50',
-    icon: 'ðŸ”‘',
+    icon: KeyRound,
   },
 };
 
@@ -528,7 +536,9 @@ export default function SecretsManager({
                 <div
                   className={`flex items-center gap-2 px-6 py-3 ${categoryConfig.bgColor}`}
                 >
-                  <span className="text-lg">{categoryConfig.icon}</span>
+                  {React.createElement(categoryConfig.icon, {
+                    className: 'h-5 w-5',
+                  })}
                   <h2 className={`font-semibold ${categoryConfig.color}`}>
                     {categoryConfig.label}
                   </h2>
@@ -924,7 +934,7 @@ function SecretForm({
         >
           {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
             <option key={key} value={key}>
-              {config.icon} {config.label}
+              {config.label}
             </option>
           ))}
         </select>
