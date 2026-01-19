@@ -73,14 +73,14 @@ export function useAdminSecrets() {
     loading: listLoading,
     error: listError,
     execute: refreshSecrets,
-  } = useApiGet<Secret[]>('/api/admin/secrets', {
+  } = useApiGet<Secret[]>('/admin/secrets', {
     immediate: true,
   });
 
   // 获取密钥名称列表
   const { data: secretNames, execute: refreshSecretNames } = useApiGet<
     string[]
-  >('/api/admin/secrets/names', {
+  >('/admin/secrets/names', {
     immediate: true,
   });
 
@@ -89,7 +89,7 @@ export function useAdminSecrets() {
     loading: createLoading,
     error: createError,
     execute: createSecretApi,
-  } = useApiPost<Secret, CreateSecretDto>('/api/admin/secrets');
+  } = useApiPost<Secret, CreateSecretDto>('/admin/secrets');
 
   const createSecret = useCallback(
     async (data: CreateSecretDto) => {
@@ -108,7 +108,7 @@ export function useAdminSecrets() {
       setUpdateLoading(true);
       try {
         const result = await apiClient.patch<Secret>(
-          `/api/admin/secrets/${name}`,
+          `/admin/secrets/${name}`,
           data
         );
         await refreshSecrets();
@@ -124,7 +124,7 @@ export function useAdminSecrets() {
     async (name: string) => {
       setDeleteLoading(true);
       try {
-        await apiClient.delete(`/api/admin/secrets/${name}`);
+        await apiClient.delete(`/admin/secrets/${name}`);
         await refreshSecrets();
         await refreshSecretNames();
       } finally {
@@ -139,7 +139,7 @@ export function useAdminSecrets() {
       setGetValueLoading(true);
       try {
         const result = await apiClient.get<{ value: string }>(
-          `/api/admin/secrets/${name}/value`
+          `/admin/secrets/${name}/value`
         );
         return result?.value ?? null;
       } finally {
@@ -154,7 +154,7 @@ export function useAdminSecrets() {
       setLogsLoading(true);
       try {
         const result = await apiClient.get<SecretAccessLog[]>(
-          `/api/admin/secrets/${name}/logs?limit=${limit}`
+          `/admin/secrets/${name}/logs?limit=${limit}`
         );
         return result ?? [];
       } finally {
