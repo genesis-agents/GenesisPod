@@ -209,10 +209,12 @@ export default function ConnectionsTab() {
                         : t('aiSocial.connections.disconnected')}
                     </span>
                   </div>
-                  {existingConnection.lastSyncAt && (
+                  {existingConnection.lastCheckAt && (
                     <div className="text-xs text-gray-400">
                       {t('aiSocial.connections.lastSync')}:{' '}
-                      {new Date(existingConnection.lastSyncAt).toLocaleString()}
+                      {new Date(
+                        existingConnection.lastCheckAt
+                      ).toLocaleString()}
                     </div>
                   )}
                   <div className="flex gap-2 pt-2">

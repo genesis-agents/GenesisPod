@@ -43,8 +43,10 @@ export interface SocialPlatformConnection {
   platformType: SocialPlatformType;
   accountName: string | null;
   accountId: string | null;
+  avatarUrl: string | null;
+  sessionData: string | null;
   isActive: boolean;
-  lastSyncAt: string | null;
+  lastCheckAt: string | null;
   expiresAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -60,22 +62,27 @@ export interface SocialContent {
   sourceUrl: string | null;
   title: string;
   content: string;
+  author: string | null;
   digest: string | null;
   coverImageUrl: string | null;
   images: string[];
   tags: string[];
+  location: string | null;
   status: SocialContentStatus;
-  reviewStatus: SocialReviewStatus;
-  reviewNotes: string | null;
-  reviewedBy: string | null;
+  aiProcessLog: Record<string, unknown> | null;
+  aiSuggestions: Record<string, unknown> | null;
+  reviewStatus: SocialReviewStatus | null;
+  reviewedById: string | null;
   reviewedAt: string | null;
+  reviewNote: string | null;
   complianceCheck: Record<string, unknown> | null;
   scheduledAt: string | null;
   publishedAt: string | null;
+  autoPublish: boolean;
   externalId: string | null;
   externalUrl: string | null;
   errorMessage: string | null;
-  metadata: Record<string, unknown> | null;
+  retryCount: number;
   createdAt: string;
   updatedAt: string;
   connection?: SocialPlatformConnection;
@@ -305,10 +312,28 @@ export async function getContents(options?: {
   if (options?.sourceType) params.set('sourceType', options.sourceType);
   if (options?.reviewStatus) params.set('reviewStatus', options.reviewStatus);
   if (options?.limit) params.set('limit', options.limit.toString());
-  if (options?.offset) params.set('offset', options.offset.toString());
+  // Backend uses 'page' not 'offset', convert offset to page
+  if (options?.offset !== undefined && options?.limit) {
+    const page = Math.floor(options.offset / options.limit) + 1;
+    params.set('page', page.toString());
+  }
 
   const query = params.toString();
-  return fetchWithAuth(`/api/v1/ai-social/contents${query ? `?${query}` : ''}`);
+  const response = await fetchWithAuth<{
+    contents: SocialContent[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }>(`/api/v1/ai-social/contents${query ? `?${query}` : ''}`);
+
+  // Transform backend response format to frontend expected format
+  return {
+    items: response.contents || [],
+    total: response.pagination?.total || 0,
+  };
 }
 
 /**
@@ -413,11 +438,11 @@ export async function checkCompliance(
  */
 export async function approveContent(
   contentId: string,
-  notes?: string
+  note?: string
 ): Promise<SocialContent> {
-  return fetchWithAuth(`/api/v1/ai-social/review/${contentId}/approve`, {
+  return fetchWithAuth(`/api/v1/ai-social/contents/${contentId}/approve`, {
     method: 'POST',
-    body: JSON.stringify({ notes }),
+    body: JSON.stringify({ note }),
   });
 }
 
@@ -426,36 +451,37 @@ export async function approveContent(
  */
 export async function rejectContent(
   contentId: string,
-  notes: string
+  note: string
 ): Promise<SocialContent> {
-  return fetchWithAuth(`/api/v1/ai-social/review/${contentId}/reject`, {
+  return fetchWithAuth(`/api/v1/ai-social/contents/${contentId}/reject`, {
     method: 'POST',
-    body: JSON.stringify({ notes }),
+    body: JSON.stringify({ note }),
   });
 }
 
 /**
- * Request revision for content
+ * Request revision for content (maps to reject with note)
  */
 export async function requestRevision(
   contentId: string,
-  notes: string
+  note: string
 ): Promise<SocialContent> {
-  return fetchWithAuth(`/api/v1/ai-social/review/${contentId}/revision`, {
+  // Note: Backend doesn't have a separate revision endpoint, using reject
+  return fetchWithAuth(`/api/v1/ai-social/contents/${contentId}/reject`, {
     method: 'POST',
-    body: JSON.stringify({ notes }),
+    body: JSON.stringify({ note }),
   });
 }
 
 /**
  * Resubmit content for review after revision
+ * Note: This endpoint doesn't exist in backend yet - will need to be added
  */
 export async function resubmitForReview(
-  contentId: string
+  _contentId: string
 ): Promise<SocialContent> {
-  return fetchWithAuth(`/api/v1/ai-social/review/${contentId}/resubmit`, {
-    method: 'POST',
-  });
+  // TODO: Backend endpoint not implemented
+  throw new Error('Resubmit for review not implemented in backend');
 }
 
 // ==================== Publish API ====================
@@ -498,7 +524,7 @@ export async function scheduleContent(
 export async function cancelSchedule(
   contentId: string
 ): Promise<SocialContent> {
-  return fetchWithAuth(`/api/v1/ai-social/contents/${contentId}/unschedule`, {
+  return fetchWithAuth(`/api/v1/ai-social/contents/${contentId}/cancel`, {
     method: 'POST',
   });
 }
