@@ -25,8 +25,10 @@ import {
 import {
   useSocialContents,
   useSocialPublish,
+  useSocialConnections,
   SocialContent,
   SocialContentStatus,
+  SocialPlatformConnection,
 } from '@/hooks/domain/useAISocial';
 import { toast } from '@/stores/toastStore';
 
@@ -69,6 +71,7 @@ export default function ContentsTab() {
   const { contents, loading, error, fetchContents, removeContent } =
     useSocialContents();
   const { publish, loading: publishing } = useSocialPublish();
+  const { connections, fetchConnections } = useSocialConnections();
 
   // Local state
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,11 +86,22 @@ export default function ContentsTab() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [publishingId, setPublishingId] = useState<string | null>(null);
 
+  // Publish modal state
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [contentToPublish, setContentToPublish] =
+    useState<SocialContent | null>(null);
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string>('');
+
   // Load contents on mount and when filter changes
   useEffect(() => {
     const options = statusFilter === 'ALL' ? {} : { status: statusFilter };
     fetchContents(options);
   }, [fetchContents, statusFilter]);
+
+  // Load connections for publish modal
+  useEffect(() => {
+    fetchConnections();
+  }, [fetchConnections]);
 
   const resetModal = () => {
     setShowCreateModal(false);
@@ -138,9 +152,48 @@ export default function ContentsTab() {
     }
   };
 
-  const handlePublish = async (contentId: string) => {
+  const handlePublish = (content: SocialContent) => {
+    // If content already has a connectionId, publish directly
+    if (content.connectionId) {
+      confirmPublish(content.id, content.connectionId);
+      return;
+    }
+
+    // Filter connections by content type
+    const compatibleConnections = connections.filter((conn) => {
+      if (content.contentType === 'WECHAT_ARTICLE') {
+        return conn.platformType === 'WECHAT_MP';
+      }
+      if (content.contentType === 'XIAOHONGSHU_NOTE') {
+        return conn.platformType === 'XIAOHONGSHU';
+      }
+      return true;
+    });
+
+    // If no compatible connections, show error
+    if (compatibleConnections.length === 0) {
+      toast.error(t('aiSocial.publish.noConnections'));
+      return;
+    }
+
+    // If only one compatible connection, use it directly
+    if (compatibleConnections.length === 1) {
+      confirmPublish(content.id, compatibleConnections[0].id);
+      return;
+    }
+
+    // Multiple connections - show modal to select
+    setContentToPublish(content);
+    setSelectedConnectionId('');
+    setShowPublishModal(true);
+  };
+
+  const confirmPublish = async (contentId: string, connectionId: string) => {
     setPublishingId(contentId);
-    const result = await publish(contentId);
+    setShowPublishModal(false);
+    setContentToPublish(null);
+
+    const result = await publish(contentId, connectionId);
     setPublishingId(null);
 
     if (result.success) {
@@ -149,6 +202,12 @@ export default function ContentsTab() {
     } else {
       toast.error(result.errorMessage || t('common.error'));
     }
+  };
+
+  const cancelPublishModal = () => {
+    setShowPublishModal(false);
+    setContentToPublish(null);
+    setSelectedConnectionId('');
   };
 
   const getStatusBadge = (status: ContentStatus) => {
@@ -306,7 +365,7 @@ export default function ContentsTab() {
                     <div className="flex items-center justify-end gap-2">
                       {content.status === 'DRAFT' && (
                         <button
-                          onClick={() => handlePublish(content.id)}
+                          onClick={() => handlePublish(content)}
                           disabled={publishingId === content.id}
                           className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-rose-600 disabled:opacity-50"
                           title={t('aiSocial.contents.publish')}
@@ -536,6 +595,104 @@ export default function ContentsTab() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Publish Modal - Connection Selection */}
+      {showPublishModal && contentToPublish && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {t('aiSocial.publish.selectAccount')}
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {t('aiSocial.publish.selectAccountDescription')}
+              </p>
+            </div>
+
+            {/* Connection Selection */}
+            <div className="mb-6 space-y-3">
+              {connections
+                .filter((conn) => {
+                  if (contentToPublish.contentType === 'WECHAT_ARTICLE') {
+                    return conn.platformType === 'WECHAT_MP';
+                  }
+                  if (contentToPublish.contentType === 'XIAOHONGSHU_NOTE') {
+                    return conn.platformType === 'XIAOHONGSHU';
+                  }
+                  return true;
+                })
+                .map((conn) => (
+                  <button
+                    key={conn.id}
+                    onClick={() => setSelectedConnectionId(conn.id)}
+                    className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
+                      selectedConnectionId === conn.id
+                        ? 'border-rose-500 bg-rose-50 ring-1 ring-rose-500'
+                        : 'border-gray-200 hover:border-rose-300 hover:bg-rose-50'
+                    }`}
+                  >
+                    <div
+                      className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                        conn.platformType === 'WECHAT_MP'
+                          ? 'bg-green-100'
+                          : 'bg-red-100'
+                      }`}
+                    >
+                      <span
+                        className={`text-lg font-bold ${
+                          conn.platformType === 'WECHAT_MP'
+                            ? 'text-green-600'
+                            : 'text-red-500'
+                        }`}
+                      >
+                        {conn.platformType === 'WECHAT_MP' ? 'W' : 'X'}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {conn.accountName ||
+                          t(
+                            `aiSocial.platforms.${conn.platformType.toLowerCase()}`
+                          )}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {conn.isActive
+                          ? t('aiSocial.connections.connected')
+                          : t('aiSocial.connections.disconnected')}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={cancelPublishModal}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={() =>
+                  confirmPublish(contentToPublish.id, selectedConnectionId)
+                }
+                disabled={!selectedConnectionId || publishing}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {publishing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t('aiSocial.publish.publishing')}
+                  </>
+                ) : (
+                  t('aiSocial.publish.confirm')
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -95,6 +95,51 @@ export class AiSocialService {
     return { success: true };
   }
 
+  async testConnection(userId: string, connectionId: string) {
+    const connection = await this.db.socialPlatformConnection.findFirst({
+      where: { id: connectionId, userId },
+    });
+
+    if (!connection) {
+      throw new NotFoundException("连接不存在");
+    }
+
+    // TODO: 实际测试连接状态（如检查 session 有效性）
+    // 目前返回 mock 结果
+    const isValid = connection.isActive;
+
+    // 更新最后检查时间
+    await this.db.socialPlatformConnection.update({
+      where: { id: connectionId },
+      data: { lastCheckAt: new Date() },
+    });
+
+    return {
+      success: isValid,
+      message: isValid ? "连接正常" : "连接已失效，请重新授权",
+    };
+  }
+
+  async refreshConnection(userId: string, connectionId: string) {
+    const connection = await this.db.socialPlatformConnection.findFirst({
+      where: { id: connectionId, userId },
+    });
+
+    if (!connection) {
+      throw new NotFoundException("连接不存在");
+    }
+
+    // TODO: 实际刷新 session（如重新获取 token）
+    // 目前只更新时间戳
+    return this.db.socialPlatformConnection.update({
+      where: { id: connectionId },
+      data: {
+        lastCheckAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+  }
+
   // ==================== 内容管理 ====================
 
   async getContents(
@@ -221,14 +266,20 @@ export class AiSocialService {
     const content = await this.getContent(userId, id);
     const result = await this.contentChecker.check(content.content);
 
+    // Add checkedAt timestamp for frontend compatibility
+    const resultWithTimestamp = {
+      ...result,
+      checkedAt: new Date().toISOString(),
+    };
+
     await this.db.socialContent.update({
       where: { id: content.id },
       data: {
-        complianceCheck: result as object,
+        complianceCheck: resultWithTimestamp as object,
       },
     });
 
-    return result;
+    return resultWithTimestamp;
   }
 
   // ==================== 发布管理 ====================
@@ -281,6 +332,16 @@ export class AiSocialService {
         status: SocialContentStatus.DRAFT,
         scheduledAt: null,
       },
+    });
+  }
+
+  async getPublishLogs(userId: string, contentId: string) {
+    // 验证内容归属
+    await this.getContent(userId, contentId);
+
+    return this.db.socialPublishLog.findMany({
+      where: { contentId },
+      orderBy: { createdAt: "desc" },
     });
   }
 

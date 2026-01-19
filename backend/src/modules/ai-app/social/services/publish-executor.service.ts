@@ -98,6 +98,20 @@ export class PublishExecutorService {
         },
       });
 
+      // 记录发布日志
+      await this.db.socialPublishLog.create({
+        data: {
+          contentId,
+          action: "PUBLISH",
+          status: result.success ? "SUCCESS" : "FAILED",
+          details: {
+            externalUrl: result.externalUrl,
+            externalId: result.externalId,
+          },
+          errorMessage: result.errorMessage,
+        },
+      });
+
       return result;
     } catch (error) {
       const err = error as Error;
@@ -107,6 +121,16 @@ export class PublishExecutorService {
         where: { id: contentId },
         data: {
           status: SocialContentStatus.FAILED,
+          errorMessage: err.message,
+        },
+      });
+
+      // 记录错误日志
+      await this.db.socialPublishLog.create({
+        data: {
+          contentId,
+          action: "PUBLISH",
+          status: "FAILED",
           errorMessage: err.message,
         },
       });

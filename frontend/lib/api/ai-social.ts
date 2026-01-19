@@ -478,13 +478,13 @@ export async function requestRevision(
 
 /**
  * Resubmit content for review after revision
- * Note: This endpoint doesn't exist in backend yet - will need to be added
  */
 export async function resubmitForReview(
-  _contentId: string
+  contentId: string
 ): Promise<SocialContent> {
-  // TODO: Backend endpoint not implemented
-  throw new Error('Resubmit for review not implemented in backend');
+  return fetchWithAuth(`/api/v1/ai-social/contents/${contentId}/resubmit`, {
+    method: 'POST',
+  });
 }
 
 // ==================== Publish API ====================

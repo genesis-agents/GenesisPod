@@ -65,6 +65,22 @@ export class AiSocialController {
     return this.aiSocialService.deleteConnection(req.user.id, type);
   }
 
+  @Post("connections/:id/test")
+  async testConnection(
+    @Request() req: AuthenticatedRequest,
+    @Param("id") id: string,
+  ) {
+    return this.aiSocialService.testConnection(req.user.id, id);
+  }
+
+  @Post("connections/:id/refresh")
+  async refreshConnection(
+    @Request() req: AuthenticatedRequest,
+    @Param("id") id: string,
+  ) {
+    return this.aiSocialService.refreshConnection(req.user.id, id);
+  }
+
   // ==================== 内容管理 ====================
 
   @Get("contents")
@@ -89,6 +105,12 @@ export class AiSocialController {
     @Body() dto: CreateContentDto,
   ) {
     return this.aiSocialService.createContent(req.user.id, dto);
+  }
+
+  // Note: This specific route MUST come before @Get("contents/:id") to avoid route conflict
+  @Get("contents/pending-review")
+  async getPendingReviewContents(@Request() req: AuthenticatedRequest) {
+    return this.reviewService.getPendingReviewContents(req.user.id);
   }
 
   @Get("contents/:id")
@@ -158,6 +180,14 @@ export class AiSocialController {
     return this.aiSocialService.cancelPublish(req.user.id, id);
   }
 
+  @Get("contents/:id/logs")
+  async getPublishLogs(
+    @Request() req: AuthenticatedRequest,
+    @Param("id") id: string,
+  ) {
+    return this.aiSocialService.getPublishLogs(req.user.id, id);
+  }
+
   // ==================== 导入来源 ====================
 
   @Get("sources/explore")
@@ -217,11 +247,6 @@ export class AiSocialController {
 
   // ==================== 审核管理 ====================
 
-  @Get("contents/pending-review")
-  async getPendingReviewContents(@Request() req: AuthenticatedRequest) {
-    return this.reviewService.getPendingReviewContents(req.user.id);
-  }
-
   @Post("contents/:id/approve")
   async approveContent(
     @Request() req: AuthenticatedRequest,
@@ -238,5 +263,13 @@ export class AiSocialController {
     @Body() dto: { note: string },
   ) {
     return this.reviewService.rejectContent(req.user.id, id, dto.note);
+  }
+
+  @Post("contents/:id/resubmit")
+  async resubmitForReview(
+    @Request() req: AuthenticatedRequest,
+    @Param("id") id: string,
+  ) {
+    return this.reviewService.resubmitForReview(req.user.id, id);
   }
 }

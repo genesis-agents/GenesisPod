@@ -8108,4 +8108,37 @@ model SocialContent {
   @@index([contentType])
   @@index([reviewStatus])
   @@map("social_contents")
+
+  // 发布日志
+  publishLogs SocialPublishLog[]
+}
+
+// 社交媒体发布日志
+model SocialPublishLog {
+  id        String @id @default(uuid())
+  contentId String @map("content_id")
+
+  // 操作类型
+  action String @db.VarChar(50) // PUBLISH, SCHEDULE, CANCEL, RETRY
+
+  // 状态
+  status String @db.VarChar(20) // SUCCESS, FAILED, PENDING
+
+  // 详情
+  details      Json?   // 详细信息
+  errorMessage String? @map("error_message") @db.Text
+
+  // 截图 (调试用)
+  screenshotUrl String? @map("screenshot_url")
+
+  // 时间戳
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // 关系
+  content SocialContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@index([contentId])
+  @@index([action])
+  @@index([status])
+  @@map("social_publish_logs")
 }
