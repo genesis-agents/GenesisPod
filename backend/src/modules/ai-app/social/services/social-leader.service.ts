@@ -21,16 +21,40 @@ import {
 // Prisma client accessor for models not yet migrated
 type PrismaAny = any;
 
-// Helper to sanitize strings by removing problematic characters
+// Helper to sanitize strings by removing problematic characters for PostgreSQL
 function sanitizeString(str: string | undefined | null): string {
   if (!str) return "";
-  // Remove null bytes and other control characters that can cause PostgreSQL protocol errors
-  // Keep common whitespace (tab, newline, carriage return)
-  return str
-    .replace(/\x00/g, "") // Remove null bytes
-    .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F]/g, "") // Remove control chars except tab, LF, CR
-    .replace(/\uFFFD/g, "") // Remove replacement character
-    .replace(/[\uD800-\uDFFF]/g, ""); // Remove lone surrogates
+  // Aggressive sanitization for PostgreSQL binary protocol compatibility
+  let result = str
+    // Step 1: Normalize Unicode to NFC form (combines characters)
+    .normalize("NFC")
+    // Step 2: Remove null bytes
+    .replace(/\x00/g, "")
+    // Step 3: Remove control characters except tab, LF, CR
+    .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+    // Step 4: Remove Unicode replacement character
+    .replace(/\uFFFD/g, "")
+    // Step 5: Remove lone surrogates (invalid UTF-16)
+    .replace(/[\uD800-\uDFFF]/g, "")
+    // Step 6: Remove zero-width characters that can cause encoding issues
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    // Step 7: Remove other problematic Unicode (private use area, etc.)
+    .replace(/[\uE000-\uF8FF]/g, "")
+    // Step 8: Normalize line endings to \n
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
+
+  // Step 9: Validate UTF-8 by encoding/decoding
+  try {
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder("utf-8", { fatal: false });
+    result = decoder.decode(encoder.encode(result));
+  } catch {
+    // If encoding fails, strip to ASCII
+    result = result.replace(/[^\x20-\x7E\n\t]/g, "");
+  }
+
+  return result;
 }
 
 // Helper to safely truncate strings for database fields
@@ -190,27 +214,68 @@ export class SocialLeaderService {
         `contentLen=${safeContent.length}, imagesCount=${safeImages.length}, tagsCount=${safeTags.length}`,
     );
 
-    // Use Prisma ORM for type-safe insertion with automatic encoding
+    // Use Prisma ORM with two-step approach to isolate 08P01 errors
     const safeTitle = truncateString(transformedContent.title, 200);
     const safeDigest = truncateString(transformedContent.digest, 200) || null;
 
+    // Debug: Log byte lengths per field
+    const fieldByteLengths = {
+      userId: Buffer.byteLength(userId, "utf8"),
+      title: Buffer.byteLength(safeTitle, "utf8"),
+      content: Buffer.byteLength(safeContent, "utf8"),
+      digest: safeDigest ? Buffer.byteLength(safeDigest, "utf8") : 0,
+      sourceUrl: safeSourceUrl ? Buffer.byteLength(safeSourceUrl, "utf8") : 0,
+      coverImageUrl: safeCoverImageUrl
+        ? Buffer.byteLength(safeCoverImageUrl, "utf8")
+        : 0,
+      images: Buffer.byteLength(JSON.stringify(safeImages), "utf8"),
+      tags: Buffer.byteLength(JSON.stringify(safeTags), "utf8"),
+    };
+
+    this.logger.log(
+      `[processUrl] Field byte lengths: ${JSON.stringify(fieldByteLengths)}`,
+    );
+
     try {
+      // Step 1: Create with minimal required fields only
+      const minimalData = {
+        userId,
+        contentType: dto.targetType,
+        sourceType: SocialContentSourceType.EXTERNAL_URL,
+        title: safeTitle,
+        content: safeContent,
+        status: SocialContentStatus.DRAFT,
+        reviewStatus: SocialReviewStatus.PENDING,
+      };
+
+      this.logger.log(`[processUrl] Step 1: Creating with minimal fields`);
+
       const content = await withRetry(
         async () => {
           return this.db.socialContent.create({
+            data: minimalData,
+          });
+        },
+        3,
+        500,
+        this.logger,
+      );
+
+      this.logger.log(
+        `[processUrl] Step 1 success: ${content.id}, updating with remaining fields`,
+      );
+
+      // Step 2: Update with optional fields
+      const updatedContent = await withRetry(
+        async () => {
+          return this.db.socialContent.update({
+            where: { id: content.id },
             data: {
-              userId,
-              contentType: dto.targetType,
-              sourceType: SocialContentSourceType.EXTERNAL_URL,
               sourceUrl: safeSourceUrl,
-              title: safeTitle,
-              content: safeContent,
               digest: safeDigest,
               coverImageUrl: safeCoverImageUrl,
               images: safeImages,
               tags: safeTags,
-              status: SocialContentStatus.DRAFT,
-              reviewStatus: SocialReviewStatus.PENDING,
               complianceCheck: safeComplianceCheck,
             },
           });
@@ -221,18 +286,18 @@ export class SocialLeaderService {
       );
 
       this.logger.log(
-        `[processUrl] Successfully created content via Prisma ORM: ${content.id}`,
+        `[processUrl] Step 2 success: Updated content ${updatedContent.id}`,
       );
 
       return {
-        content,
+        content: updatedContent,
         checkResult,
         message: checkResult.passed
           ? "内容已生成，请确认后发布"
           : "内容存在合规问题，请修改后再发布",
       };
     } catch (error) {
-      this.logger.error(`[processUrl] Prisma ORM insert failed: ${error}`);
+      this.logger.error(`[processUrl] Insert failed: ${error}`);
       throw error;
     }
   }
@@ -293,52 +358,48 @@ export class SocialLeaderService {
     const safeSourceUrl = sanitizeString(sourceContent.url) || null;
     const safeCoverImageUrl = sanitizeString(sourceContent.coverImage) || null;
 
-    // Build complete data object for debugging and insertion
-    const createData = {
-      userId,
-      contentType: dto.targetType,
-      sourceType: dto.sourceType,
-      sourceId: dto.sourceId,
-      sourceUrl: safeSourceUrl,
-      title: safeTitle,
-      content: safeContent,
-      digest: safeDigest,
-      coverImageUrl: safeCoverImageUrl,
-      images: safeImages,
-      tags: safeTags,
-      status: SocialContentStatus.DRAFT,
-      reviewStatus: SocialReviewStatus.PENDING,
-      complianceCheck: safeComplianceCheck,
+    // Debug: Log byte lengths per field to identify encoding issues
+    const fieldByteLengths = {
+      userId: Buffer.byteLength(userId, "utf8"),
+      title: Buffer.byteLength(safeTitle, "utf8"),
+      content: Buffer.byteLength(safeContent, "utf8"),
+      digest: safeDigest ? Buffer.byteLength(safeDigest, "utf8") : 0,
+      sourceUrl: safeSourceUrl ? Buffer.byteLength(safeSourceUrl, "utf8") : 0,
+      coverImageUrl: safeCoverImageUrl
+        ? Buffer.byteLength(safeCoverImageUrl, "utf8")
+        : 0,
+      images: Buffer.byteLength(JSON.stringify(safeImages), "utf8"),
+      tags: Buffer.byteLength(JSON.stringify(safeTags), "utf8"),
+      complianceCheck: Buffer.byteLength(
+        JSON.stringify(safeComplianceCheck),
+        "utf8",
+      ),
     };
 
-    // Debug: Log all field details to identify problematic data
     this.logger.log(
-      `[processSource] Creating SocialContent with data: ` +
-        `title(${safeTitle.length}), content(${safeContent.length}), ` +
-        `digest(${safeDigest?.length || 0}), sourceUrl(${safeSourceUrl?.length || 0}), ` +
-        `coverImageUrl(${safeCoverImageUrl?.length || 0}), images(${safeImages.length}), tags(${safeTags.length})`,
+      `[processSource] Field byte lengths: ${JSON.stringify(fieldByteLengths)}`,
     );
 
-    // Debug: Log the full JSON to check for encoding issues
+    // Strategy: First try minimal insert, then update with remaining fields
+    // This helps isolate which field(s) cause the 08P01 error
     try {
-      const jsonStr = JSON.stringify(createData);
-      const byteLength = Buffer.byteLength(jsonStr, "utf8");
-      this.logger.debug(
-        `[processSource] Data JSON byte length: ${byteLength}, ` +
-          `complianceCheck: ${JSON.stringify(safeComplianceCheck).length} bytes`,
-      );
-    } catch (jsonError) {
-      this.logger.error(
-        `[processSource] Failed to serialize data to JSON: ${jsonError}`,
-      );
-    }
+      // Step 1: Create with minimal required fields only
+      const minimalData = {
+        userId,
+        contentType: dto.targetType,
+        sourceType: dto.sourceType,
+        title: safeTitle,
+        content: safeContent,
+        status: SocialContentStatus.DRAFT,
+        reviewStatus: SocialReviewStatus.PENDING,
+      };
 
-    // Use Prisma ORM for type-safe insertion with automatic encoding
-    try {
+      this.logger.log(`[processSource] Step 1: Creating with minimal fields`);
+
       const content = await withRetry(
         async () => {
           return this.db.socialContent.create({
-            data: createData,
+            data: minimalData,
           });
         },
         3,
@@ -347,18 +408,43 @@ export class SocialLeaderService {
       );
 
       this.logger.log(
-        `[processSource] Successfully created content via Prisma ORM: ${content.id}`,
+        `[processSource] Step 1 success: ${content.id}, updating with remaining fields`,
+      );
+
+      // Step 2: Update with optional fields
+      const updatedContent = await withRetry(
+        async () => {
+          return this.db.socialContent.update({
+            where: { id: content.id },
+            data: {
+              sourceId: dto.sourceId,
+              sourceUrl: safeSourceUrl,
+              digest: safeDigest,
+              coverImageUrl: safeCoverImageUrl,
+              images: safeImages,
+              tags: safeTags,
+              complianceCheck: safeComplianceCheck,
+            },
+          });
+        },
+        3,
+        500,
+        this.logger,
+      );
+
+      this.logger.log(
+        `[processSource] Step 2 success: Updated content ${updatedContent.id}`,
       );
 
       return {
-        content,
+        content: updatedContent,
         checkResult,
         message: checkResult.passed
           ? "内容已生成，请确认后发布"
           : "内容存在合规问题，请修改后再发布",
       };
     } catch (error) {
-      this.logger.error(`[processSource] Prisma ORM insert failed: ${error}`);
+      this.logger.error(`[processSource] Insert failed: ${error}`);
       throw error;
     }
   }
