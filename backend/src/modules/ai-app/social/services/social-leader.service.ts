@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import * as crypto from "crypto";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { ContentFetcherService } from "./content-fetcher.service";
@@ -190,38 +191,63 @@ export class SocialLeaderService {
         `contentLen=${safeContent.length}, imagesCount=${safeImages.length}, tagsCount=${safeTags.length}`,
     );
 
-    // Use retry logic to handle transient database connection errors
-    const content = await withRetry(
-      () =>
-        this.db.socialContent.create({
-          data: {
-            userId,
-            contentType: dto.targetType,
-            sourceType: SocialContentSourceType.EXTERNAL_URL,
-            sourceUrl: safeSourceUrl,
-            title: truncateString(transformedContent.title, 200),
-            content: safeContent,
-            digest: truncateString(transformedContent.digest, 200) || null,
-            coverImageUrl: safeCoverImageUrl,
-            images: safeImages,
-            tags: safeTags,
-            status: SocialContentStatus.DRAFT,
-            reviewStatus: SocialReviewStatus.PENDING,
-            complianceCheck: safeComplianceCheck,
-          },
-        }),
-      3,
-      500,
-      this.logger,
-    );
+    // Try using raw SQL to bypass Prisma ORM issues
+    const id = crypto.randomUUID();
+    const now = new Date();
+    const safeTitle = truncateString(transformedContent.title, 200);
+    const safeDigest = truncateString(transformedContent.digest, 200) || null;
 
-    return {
-      content,
-      checkResult,
-      message: checkResult.passed
-        ? "内容已生成，请确认后发布"
-        : "内容存在合规问题，请修改后再发布",
-    };
+    try {
+      await this.prisma.$executeRawUnsafe(
+        `
+        INSERT INTO social_contents (
+          id, user_id, content_type, source_type, source_url,
+          title, content, digest, cover_image_url, images, tags,
+          status, review_status, compliance_check, created_at, updated_at
+        ) VALUES (
+          $1, $2, $3::"SocialContentType", $4::"SocialContentSourceType", $5,
+          $6, $7, $8, $9, $10::jsonb, $11::jsonb,
+          $12::"SocialContentStatus", $13::"SocialReviewStatus", $14::jsonb, $15, $16
+        )
+      `,
+        id,
+        userId,
+        dto.targetType,
+        SocialContentSourceType.EXTERNAL_URL,
+        safeSourceUrl,
+        safeTitle,
+        safeContent,
+        safeDigest,
+        safeCoverImageUrl,
+        JSON.stringify(safeImages),
+        JSON.stringify(safeTags),
+        SocialContentStatus.DRAFT,
+        SocialReviewStatus.PENDING,
+        JSON.stringify(safeComplianceCheck),
+        now,
+        now,
+      );
+
+      // Fetch the created content
+      const content = await this.db.socialContent.findUnique({
+        where: { id },
+      });
+
+      this.logger.log(
+        `[processUrl] Successfully created content via raw SQL: ${id}`,
+      );
+
+      return {
+        content,
+        checkResult,
+        message: checkResult.passed
+          ? "内容已生成，请确认后发布"
+          : "内容存在合规问题，请修改后再发布",
+      };
+    } catch (rawError) {
+      this.logger.error(`[processUrl] Raw SQL insert failed: ${rawError}`);
+      throw rawError;
+    }
   }
 
   /**
@@ -320,21 +346,64 @@ export class SocialLeaderService {
       );
     }
 
-    // Use retry logic to handle transient database connection errors
-    const content = await withRetry(
-      () => this.db.socialContent.create({ data: createData }),
-      3,
-      500,
-      this.logger,
-    );
+    // Try using raw SQL to bypass Prisma ORM issues
+    const id = crypto.randomUUID();
+    const now = new Date();
 
-    return {
-      content,
-      checkResult,
-      message: checkResult.passed
-        ? "内容已生成，请确认后发布"
-        : "内容存在合规问题，请修改后再发布",
-    };
+    try {
+      await this.prisma.$executeRawUnsafe(
+        `
+        INSERT INTO social_contents (
+          id, user_id, content_type, source_type, source_id, source_url,
+          title, content, digest, cover_image_url, images, tags,
+          status, review_status, compliance_check, created_at, updated_at
+        ) VALUES (
+          $1, $2, $3::\"SocialContentType\", $4::\"SocialContentSourceType\", $5, $6,
+          $7, $8, $9, $10, $11::jsonb, $12::jsonb,
+          $13::\"SocialContentStatus\", $14::\"SocialReviewStatus\", $15::jsonb, $16, $17
+        )
+      `,
+        id,
+        userId,
+        dto.targetType,
+        dto.sourceType,
+        dto.sourceId,
+        safeSourceUrl,
+        safeTitle,
+        safeContent,
+        safeDigest,
+        safeCoverImageUrl,
+        JSON.stringify(safeImages),
+        JSON.stringify(safeTags),
+        SocialContentStatus.DRAFT,
+        SocialReviewStatus.PENDING,
+        JSON.stringify(safeComplianceCheck),
+        now,
+        now,
+      );
+
+      // Fetch the created content
+      const content = await this.db.socialContent.findUnique({
+        where: { id },
+      });
+
+      this.logger.log(
+        `[processSource] Successfully created content via raw SQL: ${id}`,
+      );
+
+      return {
+        content,
+        checkResult,
+        message: checkResult.passed
+          ? "内容已生成，请确认后发布"
+          : "内容存在合规问题，请修改后再发布",
+      };
+    } catch (rawError) {
+      this.logger.error(
+        `[processSource] Raw SQL insert also failed: ${rawError}`,
+      );
+      throw rawError;
+    }
   }
 
   /**
