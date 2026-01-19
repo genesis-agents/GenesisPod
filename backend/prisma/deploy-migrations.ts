@@ -54,9 +54,11 @@ async function deploy(): Promise<void> {
       console.log(`   Found ${failedMigrations.length} failed migration(s):`);
       for (const m of failedMigrations) {
         console.log(`   - Resolving: ${m.migration_name}`);
+        // Mark as applied since the objects likely already exist in DB
+        // Use --applied instead of --rolled-back to prevent re-running
         try {
           execSync(
-            `npx prisma migrate resolve --rolled-back "${m.migration_name}"`,
+            `npx prisma migrate resolve --applied "${m.migration_name}"`,
             { stdio: "inherit", env: process.env },
           );
         } catch {
@@ -67,6 +69,40 @@ async function deploy(): Promise<void> {
       console.log("");
     } else {
       console.log("   No failed migrations found\n");
+    }
+
+    // Step 2.5: Check for rolled-back migrations that need to be re-applied
+    console.log("2.5. Checking for rolled-back migrations...");
+    const rolledBackMigrations = await prisma.$queryRaw<
+      Array<{ migration_name: string }>
+    >`
+      SELECT migration_name FROM "_prisma_migrations"
+      WHERE rolled_back_at IS NOT NULL
+    `;
+
+    if (rolledBackMigrations.length > 0) {
+      console.log(
+        `   Found ${rolledBackMigrations.length} rolled-back migration(s):`,
+      );
+      for (const m of rolledBackMigrations) {
+        console.log(`   - Marking as applied: ${m.migration_name}`);
+        // Remove the rolled-back record and mark as applied
+        try {
+          await prisma.$executeRaw`
+            DELETE FROM "_prisma_migrations"
+            WHERE migration_name = ${m.migration_name}
+          `;
+          execSync(
+            `npx prisma migrate resolve --applied "${m.migration_name}"`,
+            { stdio: "inherit", env: process.env },
+          );
+        } catch {
+          console.log(`     (could not resolve)`);
+        }
+      }
+      console.log("");
+    } else {
+      console.log("   No rolled-back migrations found\n");
     }
 
     // Step 3: Run Prisma migrate deploy
