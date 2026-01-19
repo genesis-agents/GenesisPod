@@ -25,7 +25,7 @@ interface AuthenticatedRequest {
   user: { id: string };
 }
 
-@Controller("api/v1/ai-social")
+@Controller("ai-social")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class AiSocialController {
   constructor(
