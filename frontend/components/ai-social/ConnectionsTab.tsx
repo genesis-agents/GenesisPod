@@ -75,11 +75,15 @@ export default function ConnectionsTab() {
     toast.success(t('common.refresh') + ' ' + t('common.success'));
   };
 
-  const handleDeleteConnection = async (connectionId: string) => {
+  const handleDeleteConnection = async (
+    connection: SocialPlatformConnection
+  ) => {
     if (!confirm(t('aiSocial.confirm.disconnect'))) return;
 
-    setDeletingId(connectionId);
-    const success = await removeConnection(connectionId);
+    setDeletingId(connection.id);
+    const success = await removeConnection(
+      connection.platformType as 'WECHAT_MP' | 'XIAOHONGSHU'
+    );
     setDeletingId(null);
 
     if (success) {
@@ -233,9 +237,7 @@ export default function ConnectionsTab() {
                       {t('aiSocial.connections.configure')}
                     </button>
                     <button
-                      onClick={() =>
-                        handleDeleteConnection(existingConnection.id)
-                      }
+                      onClick={() => handleDeleteConnection(existingConnection)}
                       disabled={deletingId === existingConnection.id}
                       className="flex items-center justify-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
                     >

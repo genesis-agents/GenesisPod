@@ -151,22 +151,27 @@ export function useSocialConnections() {
     []
   );
 
-  const removeConnection = useCallback(async (id: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      await deleteConnection(id);
-      setConnections((prev) => prev.filter((c) => c.id !== id));
-      return true;
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to delete connection';
-      setError(message);
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const removeConnection = useCallback(
+    async (platformType: SocialPlatformType) => {
+      setLoading(true);
+      setError(null);
+      try {
+        await deleteConnection(platformType);
+        setConnections((prev) =>
+          prev.filter((c) => c.platformType !== platformType)
+        );
+        return true;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Failed to delete connection';
+        setError(message);
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   const testPlatformConnection = useCallback(async (id: string) => {
     try {

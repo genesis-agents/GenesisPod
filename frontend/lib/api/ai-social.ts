@@ -263,10 +263,13 @@ export async function upsertConnection(
 }
 
 /**
- * Delete a platform connection
+ * Delete a platform connection by platform type
+ * Note: Backend uses platform type, not connection ID
  */
-export async function deleteConnection(id: string): Promise<void> {
-  return fetchWithAuth(`/api/v1/ai-social/connections/${id}`, {
+export async function deleteConnection(
+  platformType: SocialPlatformType
+): Promise<void> {
+  return fetchWithAuth(`/api/v1/ai-social/connections/${platformType}`, {
     method: 'DELETE',
   });
 }
@@ -540,8 +543,22 @@ export async function getPublishLogs(
 
 // ==================== Source Fetcher API ====================
 
+// Source item type for transformation
+interface SourceItemBase {
+  id: string;
+  title?: string;
+  name?: string;
+  description?: string;
+  type?: string;
+  sourceUrl?: string;
+  thumbnailUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 /**
  * Get available sources from AI Explore
+ * Note: Backend returns array directly, we transform to { items, total }
  */
 export async function getExploreSources(options?: {
   limit?: number;
@@ -550,23 +567,34 @@ export async function getExploreSources(options?: {
   items: Array<{
     id: string;
     title: string;
-    url: string;
-    type: string;
+    url?: string;
+    type?: string;
     thumbnail?: string;
   }>;
   total: number;
 }> {
   const params = new URLSearchParams();
   if (options?.limit) params.set('limit', options.limit.toString());
-  if (options?.offset) params.set('offset', options.offset.toString());
   const query = params.toString();
-  return fetchWithAuth(
+  const data = await fetchWithAuth<SourceItemBase[]>(
     `/api/v1/ai-social/sources/explore${query ? `?${query}` : ''}`
   );
+  const items = Array.isArray(data) ? data : [];
+  return {
+    items: items.map((item) => ({
+      id: item.id,
+      title: item.title || item.name || 'Untitled',
+      url: item.sourceUrl,
+      type: item.type,
+      thumbnail: item.thumbnailUrl,
+    })),
+    total: items.length,
+  };
 }
 
 /**
  * Get available sources from AI Research
+ * Note: Backend returns array directly, we transform to { items, total }
  */
 export async function getResearchSources(options?: {
   limit?: number;
@@ -575,22 +603,32 @@ export async function getResearchSources(options?: {
   items: Array<{
     id: string;
     title: string;
-    type: string;
-    createdAt: string;
+    type?: string;
+    createdAt?: string;
   }>;
   total: number;
 }> {
   const params = new URLSearchParams();
   if (options?.limit) params.set('limit', options.limit.toString());
-  if (options?.offset) params.set('offset', options.offset.toString());
   const query = params.toString();
-  return fetchWithAuth(
+  const data = await fetchWithAuth<SourceItemBase[]>(
     `/api/v1/ai-social/sources/research${query ? `?${query}` : ''}`
   );
+  const items = Array.isArray(data) ? data : [];
+  return {
+    items: items.map((item) => ({
+      id: item.id,
+      title: item.title || item.name || 'Untitled',
+      type: item.type,
+      createdAt: item.createdAt || item.updatedAt,
+    })),
+    total: items.length,
+  };
 }
 
 /**
  * Get available sources from AI Office
+ * Note: Backend returns array directly, we transform to { items, total }
  */
 export async function getOfficeSources(options?: {
   limit?: number;
@@ -599,22 +637,32 @@ export async function getOfficeSources(options?: {
   items: Array<{
     id: string;
     title: string;
-    type: string;
-    createdAt: string;
+    type?: string;
+    createdAt?: string;
   }>;
   total: number;
 }> {
   const params = new URLSearchParams();
   if (options?.limit) params.set('limit', options.limit.toString());
-  if (options?.offset) params.set('offset', options.offset.toString());
   const query = params.toString();
-  return fetchWithAuth(
+  const data = await fetchWithAuth<SourceItemBase[]>(
     `/api/v1/ai-social/sources/office${query ? `?${query}` : ''}`
   );
+  const items = Array.isArray(data) ? data : [];
+  return {
+    items: items.map((item) => ({
+      id: item.id,
+      title: item.title || item.name || 'Untitled',
+      type: item.type,
+      createdAt: item.createdAt || item.updatedAt,
+    })),
+    total: items.length,
+  };
 }
 
 /**
  * Get available sources from AI Writing
+ * Note: Backend returns array directly, we transform to { items, total }
  */
 export async function getWritingSources(options?: {
   limit?: number;
@@ -623,17 +671,26 @@ export async function getWritingSources(options?: {
   items: Array<{
     id: string;
     title: string;
-    type: string;
-    wordCount: number;
-    createdAt: string;
+    type?: string;
+    wordCount?: number;
+    createdAt?: string;
   }>;
   total: number;
 }> {
   const params = new URLSearchParams();
   if (options?.limit) params.set('limit', options.limit.toString());
-  if (options?.offset) params.set('offset', options.offset.toString());
   const query = params.toString();
-  return fetchWithAuth(
+  const data = await fetchWithAuth<SourceItemBase[]>(
     `/api/v1/ai-social/sources/writing${query ? `?${query}` : ''}`
   );
+  const items = Array.isArray(data) ? data : [];
+  return {
+    items: items.map((item) => ({
+      id: item.id,
+      title: item.title || item.name || 'Untitled',
+      type: item.type,
+      createdAt: item.createdAt || item.updatedAt,
+    })),
+    total: items.length,
+  };
 }
