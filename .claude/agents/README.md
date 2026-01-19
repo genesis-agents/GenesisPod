@@ -222,6 +222,59 @@ DeepDive项目采用**专业化Agent系统**，将不同的开发任务委托给
 "分析最近的性能下降问题"
 ```
 
+### 4. scripts-guardian Agent
+
+**用途：** 定期检查脚本目录是否符合规范
+
+**核心功能：**
+
+- ✅ 规范检查（命名、目录结构）
+- ✅ 归档提醒（识别需要归档的临时脚本）
+- ✅ 结构验证（检查目录是否符合最佳实践）
+- ✅ 死代码清理（识别过期脚本）
+
+**配置文件：**
+
+- Agent定义：`.claude/agents/scripts-guardian.md`
+- 规范：`.claude/standards/12-scripts-management.md`
+- 检查脚本：`scripts/utils/check-scripts-compliance.sh`
+
+**检查范围：**
+
+```
+scripts/                     # 根目录脚本
+backend/scripts/             # 后端脚本
+backend/test/                # 测试脚本
+.husky/                      # Git hooks
+.github/workflows/           # CI/CD workflows
+```
+
+**使用场景：**
+
+```bash
+# 场景1：定期检查
+"请检查脚本目录是否符合规范"
+
+# 场景2：自动修复
+"请检查并修复脚本目录问题"
+
+# 场景3：PR 审查
+包含脚本变更的 PR 时自动运行检查
+```
+
+**调用方式：**
+
+```bash
+# 手动运行检查脚本
+./scripts/utils/check-scripts-compliance.sh
+
+# 自动修复
+./scripts/utils/check-scripts-compliance.sh --fix
+
+# 在 Claude Code 中
+"请执行脚本规范检查"
+```
+
 ---
 
 ## 目录结构

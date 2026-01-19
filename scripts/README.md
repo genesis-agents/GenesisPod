@@ -2,17 +2,19 @@
 
 本目录包含项目的各类工具脚本，按功能模块组织。
 
+> **规范文档**: [.claude/standards/12-scripts-management.md](../.claude/standards/12-scripts-management.md)
+
 ## 目录结构
 
 ```
 scripts/
-├── merge-to-main/          # 代码合并到主干相关脚本
-│   ├── pre-merge-validation.sh    # 合并前验证（质量检查、测试、提交规范）
-│   ├── monitor-ci.sh              # CI/CD监控工具
-│   ├── rollback-merge.sh          # 合并回滚工具
-│   └── rollback.sh                # 通用回滚脚本
+├── _archive/                # 已完成/过期脚本归档
+│   ├── migrations/          # 已完成的迁移脚本
+│   └── fixes/               # 已完成的修复脚本
 │
-├── docs-specialist/        # 文档管理相关脚本（对应docs-specialist agent）
+├── deployment/              # 部署相关脚本
+│
+├── docs-specialist/         # 文档管理相关脚本（对应docs-specialist agent）
 │   ├── docs-validation.sh         # 文档验证工具
 │   ├── docs-reorganization-master.sh  # 文档重组主脚本
 │   ├── rename-docs-lowercase.sh   # 文档文件名规范化（Unix/Mac）
@@ -20,20 +22,35 @@ scripts/
 │   ├── update-doc-links.sh        # 更新文档链接
 │   └── check-file-naming.js       # 检查文件命名规范
 │
+├── local-server/            # 开发环境相关脚本
+│   ├── start-all.bat              # 启动所有服务（Windows）
+│   └── stop-all.bat               # 停止所有服务（Windows）
+│
+├── merge-to-main/           # 代码合并到主干相关脚本
+│   ├── pre-merge-validation.sh    # 合并前验证（质量检查、测试、提交规范）
+│   ├── monitor-ci.sh              # CI/CD监控工具
+│   ├── rollback-merge.sh          # 合并回滚工具
+│   └── rollback.sh                # 通用回滚脚本
+│
 ├── monitoring/              # 生产监控相关脚本（对应monitoring agent）
 │   ├── setup-prometheus.sh        # 部署Prometheus监控栈
 │   ├── health-check.sh            # 监控服务健康检查
 │   ├── check-alerts.sh            # 查看活跃告警
 │   └── validate-config.sh         # 验证监控配置
 │
-├── local-server/            # 开发环境相关脚本
-│   ├── start-all.bat              # 启动所有服务（Windows）
-│   └── stop-all.bat               # 停止所有服务（Windows）
+├── release-notification/    # 发布通知相关脚本
+│   ├── trigger-release-notification.sh  # 触发发布通知
+│   └── README.md                  # 使用说明
 │
-├── utils/                  # 通用工具脚本
+├── utils/                   # 通用工具脚本
+│   ├── diagnostics/               # 诊断工具
+│   │   └── diagnose-encryption.js # 加密诊断
+│   ├── setup-git-hooks.sh         # Git hooks 设置
+│   ├── verify-before-push.sh      # 推送前验证
+│   ├── verify-changed.js          # 智能变更验证
 │   └── test-data-management-api.sh # 测试数据管理API
 │
-└── README.md               # 本文件
+└── README.md                # 本文件
 ```
 
 ## merge-to-main/ - 代码合并工具
