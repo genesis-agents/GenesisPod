@@ -19,6 +19,17 @@ import {
 import type { EvidenceData } from "../types/research.types";
 
 /**
+ * 时间上下文配置
+ * 用于向 LLM 传递当前时间和时效性要求
+ */
+export interface TemporalContext {
+  /** 当前日期字符串，如 "2025年1月19日" */
+  currentDate: string;
+  /** 时效性要求描述 */
+  freshnessRequirement: string;
+}
+
+/**
  * 章节写作结果
  */
 export interface SectionWriteResult {
@@ -38,6 +49,8 @@ export interface SectionWriteInput {
   previousSections?: Array<{ title: string; content: string }>;
   /** ★ 指定使用的模型ID（用于实现 Agent 多元化） */
   modelId?: string;
+  /** ★ 时间上下文（当前日期和时效性要求） */
+  temporalContext?: TemporalContext;
 }
 
 /**
@@ -66,7 +79,13 @@ export class SectionWriterService {
    * @returns 章节写作结果
    */
   async writeSection(input: SectionWriteInput): Promise<SectionWriteResult> {
-    const { section, evidenceData, previousSections, modelId } = input;
+    const {
+      section,
+      evidenceData,
+      previousSections,
+      modelId,
+      temporalContext,
+    } = input;
 
     this.logger.log(
       `[writeSection] Writing section: ${section.title} (${section.targetWords} words)${modelId ? `, model: ${modelId}` : ""}`,
@@ -93,7 +112,7 @@ export class SectionWriterService {
     // 格式化 Agent 配置指导
     const agentGuidance = this.formatAgentGuidance(section);
 
-    // 准备提示词变量
+    // 准备提示词变量（包含时间上下文）
     const promptVariables = {
       sectionTitle: section.title,
       sectionDescription: section.description,
@@ -103,6 +122,11 @@ export class SectionWriterService {
       evidenceList: evidenceFormatted,
       previousContent,
       agentGuidance,
+      // ★ 时间上下文
+      currentDate: temporalContext?.currentDate || this.getCurrentDate(),
+      freshnessRequirement:
+        temporalContext?.freshnessRequirement ||
+        "不限制时间范围，但建议优先使用最近的数据",
     };
 
     // 渲染用户提示词
@@ -332,5 +356,13 @@ export class SectionWriterService {
     }
 
     return parts.length > 0 ? parts.join("\n\n") : "无特殊指导";
+  }
+
+  /**
+   * 获取当前日期字符串
+   */
+  private getCurrentDate(): string {
+    const now = new Date();
+    return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
   }
 }

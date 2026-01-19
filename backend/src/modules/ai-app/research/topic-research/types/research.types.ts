@@ -180,3 +180,31 @@ export interface AIDimensionAnalysisResponse {
 
 // Note: AggregatedSearchResult 和 SearchResultItem 已在 data-source.types.ts 中定义
 // 这里不再重复导出，使用 data-source.types.ts 中的定义
+
+// ==================== Data Enrichment Types ====================
+
+import type { DataSourceResult } from "./data-source.types";
+
+/**
+ * 增强后的搜索结果
+ * 在原有 DataSourceResult 基础上增加完整内容字段
+ */
+export interface EnrichedResult extends DataSourceResult {
+  /** 完整网页内容（最多 3000 字） */
+  fullContent: string | null;
+  /** 内容来源：fetched=成功抓取，snippet=降级到原snippet */
+  contentSource: "fetched" | "snippet";
+  /** URL 有效性：内容是否有意义（非 404/403 等错误页面） */
+  urlValid: boolean;
+}
+
+/**
+ * 增强后的证据数据（用于提示词）
+ * 在原有 EvidenceData 基础上增加完整内容字段
+ */
+export interface EnrichedEvidenceData extends EvidenceData {
+  /** 完整网页内容（最多 3000 字） */
+  fullContent?: string | null;
+  /** 内容来源：fetched=成功抓取，snippet=降级到原snippet */
+  contentSource?: "fetched" | "snippet";
+}

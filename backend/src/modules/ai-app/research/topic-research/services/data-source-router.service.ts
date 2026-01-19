@@ -88,18 +88,20 @@ export class DataSourceRouterService {
 
     this.logger.debug(`Search query: "${searchQuery}"`);
 
-    // ★ 从 topicConfig 中获取时间范围
-    const since = this.getSearchTimeRange(topic);
-    if (since) {
-      this.logger.debug(
-        `Using time range filter: since ${since.toISOString()}`,
-      );
-    }
+    // ★ 从 topicConfig 中获取时间范围，默认最近 6 个月
+    const userConfiguredSince = this.getSearchTimeRange(topic);
+    // 如果用户没有配置时间范围，默认使用最近 6 个月
+    const defaultSince = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
+    const since = userConfiguredSince || defaultSince;
+
+    this.logger.debug(
+      `Using time range filter: since ${since.toISOString()}${!userConfiguredSince ? " (default 6 months)" : ""}`,
+    );
 
     // 3. 并行调用所有数据源
     const searchPromises = sources.map((source) =>
       this.searchSource(source, searchQuery, {
-        maxResults: 10, // 每个数据源最多返回10个结果
+        maxResults: 15, // ★ 增加到 15 个结果，获取更多数据
         since, // ★ 传递时间范围参数
       }),
     );
@@ -192,6 +194,7 @@ export class DataSourceRouterService {
 
   /**
    * 构建搜索查询
+   * ★ 增强：添加时间戳关键词确保搜索最新数据
    */
   private buildSearchQuery(
     topic: ResearchTopic,
@@ -201,19 +204,103 @@ export class DataSourceRouterService {
     const dimensionName = dimension.name;
 
     // 从 dimension.searchQueries 获取额外的查询关键词
-    const searchQueries = dimension.searchQueries as any;
+    const searchQueries = dimension.searchQueries as string[] | null;
 
+    let baseQuery: string;
     if (
       searchQueries &&
       Array.isArray(searchQueries) &&
       searchQueries.length > 0
     ) {
       // 使用预定义的查询关键词
-      return searchQueries[0]; // 使用第一个查询作为主查询
+      baseQuery = searchQueries[0];
+    } else {
+      // 默认查询: "主题名 + 维度名"
+      baseQuery = `${topicName} ${dimensionName}`;
     }
 
-    // 默认查询: "主题名 + 维度名"
-    return `${topicName} ${dimensionName}`;
+    // ★ 时间戳增强：添加当前年份和时效性关键词
+    const enhancedQuery = this.enhanceQueryWithTimestamp(baseQuery, dimension);
+
+    this.logger.debug(
+      `[buildSearchQuery] Original: "${baseQuery}" -> Enhanced: "${enhancedQuery}"`,
+    );
+
+    return enhancedQuery;
+  }
+
+  /**
+   * 增强搜索查询，添加时间戳关键词
+   * ★ 确保搜索结果的时效性
+   */
+  private enhanceQueryWithTimestamp(
+    query: string,
+    dimension: TopicDimension,
+  ): string {
+    const currentYear = new Date().getFullYear();
+
+    // 检查查询是否已包含年份或时效性关键词
+    const hasTimestampKeyword =
+      /20\d{2}|latest|recent|最新|最近|current|今年|本年/i.test(query);
+
+    if (hasTimestampKeyword) {
+      return query;
+    }
+
+    // 根据维度类型选择合适的时效性关键词
+    const freshnessKeywords = this.getFreshnessKeywords(dimension);
+
+    return `${query} ${currentYear} ${freshnessKeywords}`.trim();
+  }
+
+  /**
+   * 根据维度类型获取时效性关键词
+   */
+  private getFreshnessKeywords(dimension: TopicDimension): string {
+    const dimensionLower = dimension.name.toLowerCase();
+
+    // 政策法规类
+    if (
+      dimensionLower.includes("政策") ||
+      dimensionLower.includes("法规") ||
+      dimensionLower.includes("regulation") ||
+      dimensionLower.includes("policy")
+    ) {
+      return "latest policy regulation";
+    }
+
+    // 市场投资类
+    if (
+      dimensionLower.includes("市场") ||
+      dimensionLower.includes("投资") ||
+      dimensionLower.includes("market") ||
+      dimensionLower.includes("investment")
+    ) {
+      return "market report forecast";
+    }
+
+    // 技术趋势类
+    if (
+      dimensionLower.includes("技术") ||
+      dimensionLower.includes("趋势") ||
+      dimensionLower.includes("technology") ||
+      dimensionLower.includes("trend")
+    ) {
+      return "emerging breakthrough latest";
+    }
+
+    // 竞争格局类
+    if (
+      dimensionLower.includes("竞争") ||
+      dimensionLower.includes("玩家") ||
+      dimensionLower.includes("competitor") ||
+      dimensionLower.includes("player")
+    ) {
+      return "landscape analysis";
+    }
+
+    // 默认：通用时效性关键词
+    return "latest recent";
   }
 
   /**

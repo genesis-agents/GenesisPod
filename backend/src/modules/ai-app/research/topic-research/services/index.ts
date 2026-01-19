@@ -26,6 +26,9 @@ export { ReviewWorkflowService } from "./review-workflow.service";
 export { ResearchTodoService } from "./research-todo.service";
 export { ResearchMissionHealthService } from "./research-mission-health.service";
 export { ResearchCheckpointService } from "./research-checkpoint.service";
+export { DataEnrichmentService } from "./data-enrichment.service";
+export { LeaderToolService } from "./leader-tool.service";
+export { ResearchReflectionService } from "./research-reflection.service";
 
 // Re-export types
 export type {
@@ -82,3 +85,17 @@ export type {
   ResearchCheckpoint,
   ResumableMissionInfo,
 } from "./research-checkpoint.service";
+export type {
+  DataEnrichmentOptions,
+  UrlValidationResult,
+} from "./data-enrichment.service";
+export type {
+  LeaderSearchContext,
+  LeaderSearchResult,
+  EnhancedPlanningContext,
+} from "./leader-tool.service";
+export type { TemporalContext } from "./section-writer.service";
+export type {
+  ReflectionResult,
+  ReflectionContext,
+} from "./research-reflection.service";

@@ -32,6 +32,7 @@ import {
 import {
   SectionWriterService,
   type SectionWriteResult,
+  type TemporalContext,
 } from "./section-writer.service";
 import { DataSourceRouterService } from "./data-source-router.service";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
@@ -40,12 +41,18 @@ import {
   type ThinkingPhase,
   type SearchResultsRecord,
 } from "./agent-activity.service";
+import { DataEnrichmentService } from "./data-enrichment.service";
+import { LeaderToolService } from "./leader-tool.service";
 import type {
   EvidenceData,
   DimensionAnalysisResult,
+  EnrichedEvidenceData,
 } from "../types/research.types";
-import type { DataSourceResult } from "../types/data-source.types";
 import { AgentActivityType } from "@prisma/client";
+import {
+  getCurrentDateString,
+  getFreshnessRequirementDescription,
+} from "../prompts/dimension-research.prompt";
 
 /**
  * 维度 Mission 执行结果
@@ -89,6 +96,8 @@ export class DimensionMissionService {
     private readonly dataSourceRouter: DataSourceRouterService,
     private readonly eventEmitter: ResearchEventEmitterService,
     private readonly agentActivity: AgentActivityService,
+    private readonly dataEnrichment: DataEnrichmentService,
+    private readonly leaderTool: LeaderToolService,
   ) {}
 
   /**
@@ -174,11 +183,40 @@ export class DimensionMissionService {
         `${logPrefix} Search completed: ${searchResult.items.length} sources found`,
       );
 
+      // ★ 新增：数据增强 - 抓取 Top N 结果的完整网页内容
+      // 从 topicConfig 读取配置，支持自定义
+      const topicConfig = topic.topicConfig as Record<string, unknown> | null;
+      const enrichmentTopN = (topicConfig?.enrichmentTopN as number) || 5;
+      const enrichmentMaxLength =
+        (topicConfig?.enrichmentMaxLength as number) || 3000;
+
+      this.logger.log(
+        `${logPrefix} Enriching search results (topN=${enrichmentTopN})...`,
+      );
+      const enrichedResults = await this.dataEnrichment.enrichSearchResults(
+        searchResult.items,
+        { topN: enrichmentTopN, maxContentLength: enrichmentMaxLength },
+      );
+
+      const enrichmentStats =
+        this.dataEnrichment.getEnrichmentStats(enrichedResults);
+      this.logger.log(
+        `${logPrefix} Enrichment: ${enrichmentStats.fetched}/${enrichmentStats.total} fetched, ` +
+          `${enrichmentStats.validUrls} valid URLs, avg ${enrichmentStats.avgContentLength} chars`,
+      );
+
+      // ★ 警告无效 URL
+      if (enrichmentStats.invalidUrls > 0) {
+        this.logger.warn(
+          `${logPrefix} Found ${enrichmentStats.invalidUrls} invalid URLs (404/error pages)`,
+        );
+      }
+
       // ★ 记录搜索完成并保存搜索结果
       const searchResultsRecord: SearchResultsRecord = {
         total: searchResult.items.length,
-        filtered: searchResult.items.length,
-        sources: searchResult.items.slice(0, 20).map((item) => ({
+        filtered: enrichedResults.length,
+        sources: enrichedResults.slice(0, 20).map((item) => ({
           title: item.title || "未知标题",
           url: item.url || "",
           domain: item.domain,
@@ -192,13 +230,51 @@ export class DimensionMissionService {
         "searching" as ThinkingPhase,
         {
           searchResults: searchResultsRecord,
-          finalContent: `搜索完成，找到 ${searchResult.items.length} 条相关资料`,
+          finalContent: `搜索完成，找到 ${searchResult.items.length} 条资料，${enrichmentStats.fetched} 条已增强完整内容`,
         },
       );
 
-      // 2. 准备证据数据
-      const evidenceData = this.prepareEvidenceData(searchResult.items);
-      const evidenceSummary = this.createEvidenceSummary(evidenceData);
+      // ★ 新增：生成时间上下文（从 topic 配置获取时效性要求）
+      // 注：topicConfig 已在上方数据增强部分声明
+      const searchTimeRange =
+        (topicConfig?.searchTimeRange as string) || undefined;
+      const temporalContext: TemporalContext = {
+        currentDate: getCurrentDateString(),
+        freshnessRequirement:
+          getFreshnessRequirementDescription(searchTimeRange),
+      };
+
+      this.logger.log(
+        `${logPrefix} Temporal context: ${temporalContext.currentDate}, ${searchTimeRange || "default"}`,
+      );
+
+      // ★ 新增：Leader 主动搜索获取额外上下文（可选，用于补充搜索结果）
+      let leaderContextSummary = "";
+      try {
+        const leaderContext =
+          await this.leaderTool.generateEnhancedPlanningContext({
+            topicName: topic.name,
+            topicDescription: topic.description || undefined,
+            dimensionName: dimension.name,
+            searchTimeRange,
+          });
+        leaderContextSummary = leaderContext.contextSummary;
+        this.logger.log(
+          `${logPrefix} Leader gathered additional context: ${leaderContextSummary.length} chars`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `${logPrefix} Leader context gathering failed (non-fatal): ${error}`,
+        );
+      }
+
+      // 2. 准备证据数据（使用增强后的结果）
+      const evidenceData = this.prepareEnrichedEvidenceData(enrichedResults);
+      const evidenceSummary =
+        this.createEvidenceSummary(evidenceData) +
+        (leaderContextSummary
+          ? `\n\n## 最新背景\n${leaderContextSummary}`
+          : "");
 
       // 3. Leader 规划大纲
       // 发送 Leader 思考事件 - 理解阶段
@@ -325,6 +401,7 @@ export class DimensionMissionService {
         evidenceData,
         missionId,
         modelId, // ★ 传递 Leader 分配的模型
+        temporalContext, // ★ 传递时间上下文
       );
 
       // ★ 记录写作完成
@@ -517,6 +594,7 @@ export class DimensionMissionService {
     evidenceData: EvidenceData[],
     missionId?: string,
     modelId?: string, // ★ Leader 分配的模型
+    temporalContext?: TemporalContext, // ★ 时间上下文
   ): Promise<SectionWriteResult[]> {
     const sectionResults: SectionWriteResult[] = [];
     const sectionMap = new Map<string, SectionWriteResult>();
@@ -546,6 +624,7 @@ export class DimensionMissionService {
           outline,
         ),
         modelId, // ★ 传递模型
+        temporalContext, // ★ 传递时间上下文
       }));
 
       const groupResults =
@@ -669,19 +748,24 @@ export class DimensionMissionService {
   }
 
   /**
-   * 准备证据数据
+   * 准备增强后的证据数据
+   * ★ 包含完整网页内容（fullContent）
    */
-  private prepareEvidenceData(searchItems: DataSourceResult[]): EvidenceData[] {
-    return searchItems.map((item, index) => ({
+  private prepareEnrichedEvidenceData(
+    enrichedItems: import("../types/research.types").EnrichedResult[],
+  ): EnrichedEvidenceData[] {
+    return enrichedItems.map((item, index) => ({
       id: `temp-${index}-${Date.now()}`,
       title: item.title,
       url: item.url,
-      // 优先使用 item.domain，如果没有则从 URL 提取
       domain: item.domain || this.extractDomainFromUrl(item.url),
       snippet: item.snippet || null,
       sourceType: item.sourceType,
       publishedAt: item.publishedAt || null,
       credibilityScore: null,
+      // ★ 新增：完整内容和内容来源
+      fullContent: item.fullContent,
+      contentSource: item.contentSource,
     }));
   }
 
