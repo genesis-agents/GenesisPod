@@ -11,6 +11,37 @@ export interface FetchedContent {
   metadata?: Record<string, unknown>;
 }
 
+/**
+ * Sanitize string by removing characters that can cause PostgreSQL protocol errors.
+ * Removes null bytes, control characters (except tab/LF/CR), replacement character,
+ * and lone surrogates that can corrupt the PostgreSQL binary protocol.
+ */
+function sanitizeForDb(str: string | undefined | null): string {
+  if (!str) return "";
+  return str
+    .replace(/\x00/g, "") // Remove null bytes
+    .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F]/g, "") // Remove control chars except tab, LF, CR
+    .replace(/\uFFFD/g, "") // Remove replacement character
+    .replace(/[\uD800-\uDFFF]/g, ""); // Remove lone surrogates
+}
+
+/**
+ * Sanitize JSON data recursively to remove problematic characters.
+ */
+function sanitizeJson(data: unknown): unknown {
+  if (data === null || data === undefined) return data;
+  if (typeof data === "string") return sanitizeForDb(data);
+  if (Array.isArray(data)) return data.map(sanitizeJson);
+  if (typeof data === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data)) {
+      result[key] = sanitizeJson(value);
+    }
+    return result;
+  }
+  return data;
+}
+
 @Injectable()
 export class ContentFetcherService {
   private readonly logger = new Logger(ContentFetcherService.name);
@@ -38,9 +69,10 @@ export class ContentFetcherService {
       // TODO: 使用 AI 提取正文内容
       const content = `从 ${url} 提取的内容（待实现）`;
 
+      // Sanitize external content to prevent PostgreSQL protocol errors
       return {
-        title,
-        content,
+        title: sanitizeForDb(title),
+        content: sanitizeForDb(content),
         url,
         metadata: {
           fetchedAt: new Date().toISOString(),
@@ -92,15 +124,17 @@ export class ContentFetcherService {
       throw new Error("资源不存在");
     }
 
+    // Sanitize all string fields to prevent PostgreSQL protocol errors
+    // Resource data comes from crawlers and may contain control characters
     return {
-      title: resource.title,
-      content: resource.abstract || "",
+      title: sanitizeForDb(resource.title),
+      content: sanitizeForDb(resource.abstract) || "",
       coverImage: resource.thumbnailUrl || undefined,
       url: resource.sourceUrl || undefined,
-      metadata: {
+      metadata: sanitizeJson({
         type: resource.type,
         authors: resource.authors,
-      },
+      }) as Record<string, unknown>,
     };
   }
 
@@ -124,9 +158,11 @@ export class ContentFetcherService {
 
     const latestReport = topic.reports[0];
 
+    // Sanitize content to prevent PostgreSQL protocol errors
     return {
-      title: topic.name,
-      content: latestReport?.fullReport || topic.description || "",
+      title: sanitizeForDb(topic.name),
+      content:
+        sanitizeForDb(latestReport?.fullReport || topic.description) || "",
       metadata: {
         status: topic.status,
         reportVersion: latestReport?.version,
@@ -146,12 +182,15 @@ export class ContentFetcherService {
       throw new Error("文档不存在");
     }
 
+    // Sanitize user content to prevent PostgreSQL protocol errors
+    const rawContent =
+      typeof document.content === "string"
+        ? document.content
+        : JSON.stringify(document.content);
+
     return {
-      title: document.title,
-      content:
-        typeof document.content === "string"
-          ? document.content
-          : JSON.stringify(document.content),
+      title: sanitizeForDb(document.title),
+      content: sanitizeForDb(rawContent),
       metadata: {
         documentType: document.type,
       },
@@ -179,11 +218,12 @@ export class ContentFetcherService {
       throw new Error("章节不存在");
     }
 
+    // Sanitize user content to prevent PostgreSQL protocol errors
     return {
-      title: chapter.title,
-      content: chapter.content || "",
+      title: sanitizeForDb(chapter.title),
+      content: sanitizeForDb(chapter.content) || "",
       metadata: {
-        projectName: chapter.volume.project.name,
+        projectName: sanitizeForDb(chapter.volume.project.name),
         wordCount: chapter.wordCount,
       },
     };
