@@ -1,0 +1,138 @@
+# 发布通知自动化工作流
+#
+# 触发条件：
+# 1. GitHub Release 发布时自动触发
+# 2. 手动触发（workflow_dispatch）
+#
+# 功能：
+# - 收集 Git 变更信息
+# - 使用 AI 生成发布说明
+# - 推送通知给所有活跃用户
+
+name: Release Notification
+
+on:
+  # GitHub Release 发布时自动触发
+  release:
+    types: [published]
+
+  # 支持手动触发
+  workflow_dispatch:
+    inputs:
+      from_tag:
+        description: "起始版本 tag (如 v1.0.0)"
+        required: true
+        type: string
+      to_tag:
+        description: "目标版本 tag (如 v1.1.0)"
+        required: true
+        type: string
+      dry_run:
+        description: "预览模式（不发送通知）"
+        required: false
+        type: boolean
+        default: false
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  send-notification:
+    name: Send Release Notification
+    runs-on: ubuntu-latest
+
+    # 仅在主仓库运行，避免 fork 触发
+    if: github.repository == 'your-org/deepdive-engine'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 获取完整历史，用于 git log
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Determine tags
+        id: tags
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            # 从 release 事件获取 tag
+            TO_TAG="${{ github.event.release.tag_name }}"
+            # 获取前一个 tag
+            FROM_TAG=$(git describe --tags --abbrev=0 "$TO_TAG^" 2>/dev/null || echo "")
+            if [ -z "$FROM_TAG" ]; then
+              echo "::warning::No previous tag found, using first commit"
+              FROM_TAG=$(git rev-list --max-parents=0 HEAD)
+            fi
+          else
+            # 从 workflow_dispatch 输入获取
+            FROM_TAG="${{ github.event.inputs.from_tag }}"
+            TO_TAG="${{ github.event.inputs.to_tag }}"
+          fi
+          echo "from_tag=$FROM_TAG" >> $GITHUB_OUTPUT
+          echo "to_tag=$TO_TAG" >> $GITHUB_OUTPUT
+          echo "From: $FROM_TAG"
+          echo "To: $TO_TAG"
+
+      - name: Validate tags
+        run: |
+          FROM_TAG="${{ steps.tags.outputs.from_tag }}"
+          TO_TAG="${{ steps.tags.outputs.to_tag }}"
+
+          if ! git rev-parse "$FROM_TAG" >/dev/null 2>&1; then
+            echo "::error::From tag does not exist: $FROM_TAG"
+            exit 1
+          fi
+
+          if ! git rev-parse "$TO_TAG" >/dev/null 2>&1; then
+            echo "::error::To tag does not exist: $TO_TAG"
+            exit 1
+          fi
+
+          echo "Tags validated successfully"
+
+      - name: Send release notification
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
+          LITELLM_API_URL: ${{ secrets.LITELLM_API_URL }}
+          CI: true
+        run: |
+          FROM_TAG="${{ steps.tags.outputs.from_tag }}"
+          TO_TAG="${{ steps.tags.outputs.to_tag }}"
+          DRY_RUN=""
+
+          # 检查是否为 dry-run 模式
+          if [ "${{ github.event.inputs.dry_run }}" == "true" ]; then
+            DRY_RUN="--dry-run"
+            echo "Running in dry-run mode"
+          fi
+
+          npx ts-node scripts/send-release-notification.ts \
+            --from "$FROM_TAG" \
+            --to "$TO_TAG" \
+            $DRY_RUN
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Release Notification Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **From Tag**: ${{ steps.tags.outputs.from_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **To Tag**: ${{ steps.tags.outputs.to_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event.inputs.dry_run }}" == "true" ]; then
+            echo "- **Mode**: Dry Run (no notifications sent)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Mode**: Production" >> $GITHUB_STEP_SUMMARY
+          fi

@@ -31,7 +31,9 @@
     "seed": "tsx prisma/seed.ts",
     "diagnose": "tsx prisma/diagnose-db.ts",
     "deploy": "tsx prisma/deploy-migrations.ts && npm run prisma:seed",
-    "deploy:migrate": "tsx prisma/deploy-migrations.ts"
+    "deploy:migrate": "tsx prisma/deploy-migrations.ts",
+    "release:preview": "ts-node scripts/send-release-notification.ts --dry-run",
+    "release:notify": "ts-node scripts/send-release-notification.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
