@@ -1,47 +1,46 @@
 import {
   IsString,
-  IsEnum,
   IsOptional,
   IsBoolean,
+  IsEnum,
   MaxLength,
-  MinLength,
-  IsDate,
+  IsDateString,
 } from "class-validator";
-import { Type } from "class-transformer";
 import { SecretCategory } from "@prisma/client";
 
 export class UpdateSecretDto {
-  @IsString()
   @IsOptional()
-  @MinLength(1)
+  @IsString()
   @MaxLength(200)
   displayName?: string;
 
-  @IsEnum(SecretCategory)
   @IsOptional()
-  category?: SecretCategory;
-
   @IsString()
-  @IsOptional()
-  @MaxLength(500)
   description?: string;
 
-  @IsString()
   @IsOptional()
-  @MinLength(1)
-  value?: string;
+  @IsEnum(SecretCategory)
+  category?: SecretCategory;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   @MaxLength(50)
   provider?: string;
 
-  @IsBoolean()
   @IsOptional()
+  @IsDateString()
+  expiresAt?: string;
+
+  @IsOptional()
+  @IsBoolean()
   isActive?: boolean;
 
-  @IsDate()
-  @Type(() => Date)
   @IsOptional()
-  expiresAt?: Date;
+  @IsString()
+  value?: string;
+}
+
+export class UpdateSecretValueDto {
+  @IsString()
+  value!: string;
 }
