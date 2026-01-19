@@ -69,7 +69,7 @@ export class ContentTransformerService {
 - digest: 摘要
 - tags: 标签数组`;
 
-      case SocialContentType.XIAOHONGSHU_POST:
+      case SocialContentType.XIAOHONGSHU_NOTE:
         return `你是一位专业的小红书内容创作者。你的任务是将提供的内容转换为适合小红书的图文笔记格式。
 
 要求：

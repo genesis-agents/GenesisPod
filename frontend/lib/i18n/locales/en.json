@@ -42,7 +42,8 @@
     "backToHome": "Back to Home",
     "profile": "Profile",
     "balance": "Balance",
-    "credits": "Credits"
+    "credits": "Credits",
+    "continue": "Continue"
   },
   "share": {
     "title": "Share",
@@ -1278,43 +1279,76 @@
       "approved": "Approved",
       "rejected": "Rejected"
     },
-    "platform": {
-      "wechatMp": "WeChat Official Account",
+    "platforms": {
+      "wechat_mp": "WeChat Official Account",
       "xiaohongshu": "Xiaohongshu"
     },
-    "contentType": {
-      "wechatArticle": "WeChat Article",
-      "xiaohongshuPost": "Xiaohongshu Post"
+    "contentTypes": {
+      "wechat_article": "WeChat Article",
+      "xiaohongshu_note": "Xiaohongshu Note"
     },
     "connections": {
       "title": "Platform Connections",
-      "connect": "Connect",
+      "description": "Connect your social media accounts to start publishing content",
+      "refresh": "Refresh",
+      "connect": "Connect Account",
       "disconnect": "Disconnect",
+      "configure": "Configure",
+      "status": "Status",
       "connected": "Connected",
-      "notConnected": "Not Connected",
+      "disconnected": "Not Connected",
+      "lastSync": "Last Sync",
       "scanQrCode": "Scan QR Code",
       "waitingForScan": "Waiting for scan...",
-      "expired": "Session expired"
+      "expired": "Session expired",
+      "emptyTitle": "No connected platforms",
+      "emptyDescription": "Connect your social media accounts to start publishing content",
+      "notice": {
+        "title": "Platform Connection Info",
+        "description": "Once connected, you can publish content to social platforms with one click. Currently supports WeChat Official Account and Xiaohongshu."
+      },
+      "addTitle": "Connect {{platform}}",
+      "addDescription": "Follow the instructions to authorize your account. Once authorized, you can publish content to this platform.",
+      "startAuth": "Start Authorization"
     },
     "contents": {
       "title": "Content Management",
-      "empty": "No content yet",
+      "description": "Manage your social media content with AI-powered generation and editing",
+      "refresh": "Refresh",
       "create": "Create Content",
       "edit": "Edit Content",
-      "delete": "Delete Content",
+      "delete": "Delete",
       "publish": "Publish",
+      "preview": "Preview",
+      "viewExternal": "View Original",
       "schedule": "Schedule",
       "cancelPublish": "Cancel Publish",
       "check": "Compliance Check",
-      "regenerate": "Regenerate"
+      "regenerate": "Regenerate",
+      "searchPlaceholder": "Search content by title...",
+      "allStatus": "All Status",
+      "emptyTitle": "No content yet",
+      "emptyDescription": "Create your first social media content. AI will help you generate it intelligently.",
+      "createFirst": "Create First Content",
+      "createTitle": "Create New Content",
+      "createDescription": "Select a content source. AI will help transform it for social platforms.",
+      "selectSource": "Select Content Source",
+      "table": {
+        "title": "Title",
+        "type": "Type",
+        "source": "Source",
+        "status": "Status",
+        "date": "Updated"
+      }
     },
     "sources": {
       "title": "Content Sources",
-      "explore": "AI Explore",
-      "research": "AI Research",
-      "office": "AI Office",
-      "writing": "AI Writing",
-      "fromUrl": "Import from URL"
+      "manual": "Manual Create",
+      "external_url": "External URL",
+      "ai_explore": "AI Explore",
+      "ai_research": "AI Research",
+      "ai_office": "AI Office",
+      "ai_writing": "AI Writing"
     },
     "ai": {
       "processUrl": "Process URL",

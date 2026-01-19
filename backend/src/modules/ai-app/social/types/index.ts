@@ -12,7 +12,7 @@ export enum SocialPlatformType {
 
 export enum SocialContentType {
   WECHAT_ARTICLE = "WECHAT_ARTICLE",
-  XIAOHONGSHU_POST = "XIAOHONGSHU_POST",
+  XIAOHONGSHU_NOTE = "XIAOHONGSHU_NOTE",
 }
 
 export enum SocialContentStatus {
@@ -25,18 +25,19 @@ export enum SocialContentStatus {
 }
 
 export enum SocialContentSourceType {
-  ORIGINAL = "ORIGINAL",
-  EXPLORE_RESOURCE = "EXPLORE_RESOURCE",
-  RESEARCH_REPORT = "RESEARCH_REPORT",
-  OFFICE_DOCUMENT = "OFFICE_DOCUMENT",
-  WRITING_CHAPTER = "WRITING_CHAPTER",
+  MANUAL = "MANUAL",
   EXTERNAL_URL = "EXTERNAL_URL",
+  AI_EXPLORE = "AI_EXPLORE",
+  AI_RESEARCH = "AI_RESEARCH",
+  AI_OFFICE = "AI_OFFICE",
+  AI_WRITING = "AI_WRITING",
 }
 
 export enum SocialReviewStatus {
   PENDING = "PENDING",
   APPROVED = "APPROVED",
   REJECTED = "REJECTED",
+  REVISION_REQUESTED = "REVISION_REQUESTED",
 }
 
 export interface SocialPlatformConnection {

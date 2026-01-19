@@ -161,7 +161,7 @@ export class AiSocialService {
       data: {
         userId,
         contentType: dto.contentType,
-        sourceType: dto.sourceType || SocialContentSourceType.ORIGINAL,
+        sourceType: dto.sourceType || SocialContentSourceType.MANUAL,
         sourceId: dto.sourceId,
         sourceUrl: dto.sourceUrl,
         title: dto.title,

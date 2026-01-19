@@ -7982,7 +7982,7 @@ enum SocialPlatformType {
 
 enum SocialContentType {
   WECHAT_ARTICLE // 公众号文章
-  XIAOHONGSHU_POST // 小红书图文
+  XIAOHONGSHU_NOTE // 小红书笔记
 }
 
 enum SocialContentStatus {
@@ -7995,18 +7995,19 @@ enum SocialContentStatus {
 }
 
 enum SocialContentSourceType {
-  ORIGINAL // 原创
-  EXPLORE_RESOURCE // 从 AI Explore 导入（YouTube/Paper/Blog 等）
-  RESEARCH_REPORT // 从 AI Research 导入
-  OFFICE_DOCUMENT // 从 AI Office 导入
-  WRITING_CHAPTER // 从 AI Writing 导入
-  EXTERNAL_URL // 外部链接（用户输入）
+  MANUAL // 手动创建
+  EXTERNAL_URL // 外部链接
+  AI_EXPLORE // 从 AI Explore 导入
+  AI_RESEARCH // 从 AI Research 导入
+  AI_OFFICE // 从 AI Office 导入
+  AI_WRITING // 从 AI Writing 导入
 }
 
 enum SocialReviewStatus {
   PENDING // 待审核
   APPROVED // 已通过
   REJECTED // 已拒绝
+  REVISION_REQUESTED // 需要修改
 }
 
 /// 平台账号连接

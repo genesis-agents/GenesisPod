@@ -64,16 +64,16 @@ export class ContentFetcherService {
     this.logger.log(`Fetching from source: ${sourceType}/${sourceId}`);
 
     switch (sourceType) {
-      case SocialContentSourceType.EXPLORE_RESOURCE:
+      case SocialContentSourceType.AI_EXPLORE:
         return this.fetchFromExploreResource(sourceId);
 
-      case SocialContentSourceType.RESEARCH_REPORT:
+      case SocialContentSourceType.AI_RESEARCH:
         return this.fetchFromResearchReport(sourceId, userId);
 
-      case SocialContentSourceType.OFFICE_DOCUMENT:
+      case SocialContentSourceType.AI_OFFICE:
         return this.fetchFromOfficeDocument(sourceId, userId);
 
-      case SocialContentSourceType.WRITING_CHAPTER:
+      case SocialContentSourceType.AI_WRITING:
         return this.fetchFromWritingChapter(sourceId, userId);
 
       default:

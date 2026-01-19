@@ -80,6 +80,7 @@ export default function ContentsTab() {
     'ALL'
   );
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedSource, setSelectedSource] = useState<SourceType | null>(null);
 
   const handleRefresh = async () => {
     setIsLoading(true);
@@ -332,12 +333,36 @@ export default function ContentsTab() {
                 ).map((source) => (
                   <button
                     key={source}
-                    className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 text-left transition-colors hover:border-rose-300 hover:bg-rose-50"
+                    type="button"
+                    onClick={() => setSelectedSource(source)}
+                    className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
+                      selectedSource === source
+                        ? 'border-rose-500 bg-rose-50 ring-1 ring-rose-500'
+                        : 'border-gray-200 hover:border-rose-300 hover:bg-rose-50'
+                    }`}
                   >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-                      <FileText className="h-4 w-4 text-gray-600" />
+                    <div
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                        selectedSource === source
+                          ? 'bg-rose-100'
+                          : 'bg-gray-100'
+                      }`}
+                    >
+                      <FileText
+                        className={`h-4 w-4 ${
+                          selectedSource === source
+                            ? 'text-rose-600'
+                            : 'text-gray-600'
+                        }`}
+                      />
                     </div>
-                    <span className="text-sm font-medium text-gray-900">
+                    <span
+                      className={`text-sm font-medium ${
+                        selectedSource === source
+                          ? 'text-rose-700'
+                          : 'text-gray-900'
+                      }`}
+                    >
                       {t(`aiSocial.sources.${source.toLowerCase()}`)}
                     </span>
                   </button>
@@ -348,17 +373,22 @@ export default function ContentsTab() {
             {/* Actions */}
             <div className="flex gap-3">
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setSelectedSource(null);
+                }}
                 className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 {t('common.cancel')}
               </button>
               <button
                 onClick={() => {
-                  // TODO: Navigate to content creation flow
+                  // TODO: Navigate to content creation flow with selectedSource
                   setShowCreateModal(false);
+                  setSelectedSource(null);
                 }}
-                className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700"
+                disabled={!selectedSource}
+                className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t('common.continue')}
               </button>

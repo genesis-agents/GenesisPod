@@ -42,7 +42,8 @@
     "backToHome": "返回首页",
     "profile": "个人资料",
     "balance": "余额",
-    "credits": "积分"
+    "credits": "积分",
+    "continue": "继续"
   },
   "share": {
     "title": "分享",
@@ -1278,43 +1279,76 @@
       "approved": "已通过",
       "rejected": "已拒绝"
     },
-    "platform": {
-      "wechatMp": "微信公众号",
+    "platforms": {
+      "wechat_mp": "微信公众号",
       "xiaohongshu": "小红书"
     },
-    "contentType": {
-      "wechatArticle": "公众号文章",
-      "xiaohongshuPost": "小红书笔记"
+    "contentTypes": {
+      "wechat_article": "公众号文章",
+      "xiaohongshu_note": "小红书笔记"
     },
     "connections": {
       "title": "平台连接",
-      "connect": "连接",
+      "description": "连接您的社交媒体账号，开始自动发布内容",
+      "refresh": "刷新",
+      "connect": "连接账号",
       "disconnect": "断开连接",
+      "configure": "配置",
+      "status": "状态",
       "connected": "已连接",
-      "notConnected": "未连接",
+      "disconnected": "未连接",
+      "lastSync": "上次同步",
       "scanQrCode": "扫码登录",
       "waitingForScan": "等待扫码确认",
-      "expired": "登录已过期"
+      "expired": "登录已过期",
+      "emptyTitle": "暂无连接的平台",
+      "emptyDescription": "连接您的社交媒体账号，即可开始发布内容",
+      "notice": {
+        "title": "平台连接说明",
+        "description": "连接平台后，您可以将内容一键发布到对应的社交媒体。目前支持微信公众号和小红书。"
+      },
+      "addTitle": "连接{{platform}}",
+      "addDescription": "请按照提示完成账号授权，授权后即可发布内容到该平台。",
+      "startAuth": "开始授权"
     },
     "contents": {
       "title": "内容管理",
-      "empty": "暂无内容",
+      "description": "管理您的社交媒体内容，支持 AI 智能生成和编辑",
+      "refresh": "刷新",
       "create": "创建内容",
       "edit": "编辑内容",
-      "delete": "删除内容",
+      "delete": "删除",
       "publish": "发布",
+      "preview": "预览",
+      "viewExternal": "查看原文",
       "schedule": "排期发布",
       "cancelPublish": "取消发布",
       "check": "合规检测",
-      "regenerate": "重新生成"
+      "regenerate": "重新生成",
+      "searchPlaceholder": "搜索内容标题...",
+      "allStatus": "全部状态",
+      "emptyTitle": "暂无内容",
+      "emptyDescription": "创建您的第一条社交媒体内容，AI 将帮助您智能生成",
+      "createFirst": "创建第一条内容",
+      "createTitle": "创建新内容",
+      "createDescription": "选择内容来源，AI 将帮助您转换为适合社交平台的格式",
+      "selectSource": "选择内容来源",
+      "table": {
+        "title": "标题",
+        "type": "类型",
+        "source": "来源",
+        "status": "状态",
+        "date": "更新时间"
+      }
     },
     "sources": {
       "title": "素材来源",
-      "explore": "AI 探索",
-      "research": "AI 研究",
-      "office": "AI 办公",
-      "writing": "AI 写作",
-      "fromUrl": "从链接导入"
+      "manual": "手动创建",
+      "external_url": "外部链接",
+      "ai_explore": "AI 探索",
+      "ai_research": "AI 研究",
+      "ai_office": "AI 办公",
+      "ai_writing": "AI 写作"
     },
     "ai": {
       "processUrl": "处理链接",
