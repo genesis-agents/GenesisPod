@@ -273,33 +273,54 @@ export class SocialLeaderService {
 
     // Sanitize content to remove problematic characters
     const safeContent = sanitizeString(transformedContent.content);
+    const safeTitle = truncateString(transformedContent.title, 200);
+    const safeDigest = truncateString(transformedContent.digest, 200) || null;
+    const safeSourceUrl = sanitizeString(sourceContent.url) || null;
+    const safeCoverImageUrl = sanitizeString(sourceContent.coverImage) || null;
 
+    // Build complete data object for debugging and insertion
+    const createData = {
+      userId,
+      contentType: dto.targetType,
+      sourceType: dto.sourceType,
+      sourceId: dto.sourceId,
+      sourceUrl: safeSourceUrl,
+      title: safeTitle,
+      content: safeContent,
+      digest: safeDigest,
+      coverImageUrl: safeCoverImageUrl,
+      images: safeImages,
+      tags: safeTags,
+      status: SocialContentStatus.DRAFT,
+      reviewStatus: SocialReviewStatus.PENDING,
+      complianceCheck: safeComplianceCheck,
+    };
+
+    // Debug: Log all field details to identify problematic data
     this.logger.log(
-      `[processSource] Saving content: titleLen=${truncateString(transformedContent.title, 200).length}, ` +
-        `contentLen=${safeContent.length}, imagesCount=${safeImages.length}, tagsCount=${safeTags.length}`,
+      `[processSource] Creating SocialContent with data: ` +
+        `title(${safeTitle.length}), content(${safeContent.length}), ` +
+        `digest(${safeDigest?.length || 0}), sourceUrl(${safeSourceUrl?.length || 0}), ` +
+        `coverImageUrl(${safeCoverImageUrl?.length || 0}), images(${safeImages.length}), tags(${safeTags.length})`,
     );
+
+    // Debug: Log the full JSON to check for encoding issues
+    try {
+      const jsonStr = JSON.stringify(createData);
+      const byteLength = Buffer.byteLength(jsonStr, "utf8");
+      this.logger.debug(
+        `[processSource] Data JSON byte length: ${byteLength}, ` +
+          `complianceCheck: ${JSON.stringify(safeComplianceCheck).length} bytes`,
+      );
+    } catch (jsonError) {
+      this.logger.error(
+        `[processSource] Failed to serialize data to JSON: ${jsonError}`,
+      );
+    }
 
     // Use retry logic to handle transient database connection errors
     const content = await withRetry(
-      () =>
-        this.db.socialContent.create({
-          data: {
-            userId,
-            contentType: dto.targetType,
-            sourceType: dto.sourceType,
-            sourceId: dto.sourceId,
-            sourceUrl: sourceContent.url,
-            title: truncateString(transformedContent.title, 200),
-            content: safeContent,
-            digest: truncateString(transformedContent.digest, 200) || null,
-            coverImageUrl: sourceContent.coverImage,
-            images: safeImages,
-            tags: safeTags,
-            status: SocialContentStatus.DRAFT,
-            reviewStatus: SocialReviewStatus.PENDING,
-            complianceCheck: safeComplianceCheck,
-          },
-        }),
+      () => this.db.socialContent.create({ data: createData }),
       3,
       500,
       this.logger,
