@@ -71,33 +71,38 @@ async function deploy(): Promise<void> {
       console.log("   No failed migrations found\n");
     }
 
-    // Step 2.5: Check for rolled-back migrations that need to be re-applied
-    console.log("2.5. Checking for rolled-back migrations...");
+    // Step 2.5: Clean up rolled-back migrations
+    console.log("2.5. Cleaning up rolled-back migrations...");
     const rolledBackMigrations = await prisma.$queryRaw<
       Array<{ migration_name: string }>
     >`
-      SELECT migration_name FROM "_prisma_migrations"
+      SELECT DISTINCT migration_name FROM "_prisma_migrations"
       WHERE rolled_back_at IS NOT NULL
     `;
 
     if (rolledBackMigrations.length > 0) {
       console.log(
-        `   Found ${rolledBackMigrations.length} rolled-back migration(s):`,
+        `   Found ${rolledBackMigrations.length} unique rolled-back migration(s)`,
       );
+
+      // First, delete ALL rolled-back records in one operation
+      const deleteResult = await prisma.$executeRaw`
+        DELETE FROM "_prisma_migrations"
+        WHERE rolled_back_at IS NOT NULL
+      `;
+      console.log(`   Deleted ${deleteResult} rolled-back records`);
+
+      // Then mark each unique migration as applied (if it exists in local migration files)
       for (const m of rolledBackMigrations) {
-        console.log(`   - Marking as applied: ${m.migration_name}`);
-        // Remove the rolled-back record and mark as applied
         try {
-          await prisma.$executeRaw`
-            DELETE FROM "_prisma_migrations"
-            WHERE migration_name = ${m.migration_name}
-          `;
           execSync(
             `npx prisma migrate resolve --applied "${m.migration_name}"`,
             { stdio: "inherit", env: process.env },
           );
+          console.log(`   Applied: ${m.migration_name}`);
         } catch {
-          console.log(`     (could not resolve)`);
+          // Migration might not exist in local files - that's OK
+          console.log(`   Skipped (not in local files): ${m.migration_name}`);
         }
       }
       console.log("");
