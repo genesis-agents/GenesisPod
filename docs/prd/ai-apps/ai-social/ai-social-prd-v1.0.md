@@ -465,30 +465,39 @@ model SocialContent {
 
 ### 端点列表
 
-| Method       | Endpoint                                     | 描述                         |
-| ------------ | -------------------------------------------- | ---------------------------- |
-| **平台连接** |
-| GET          | `/api/v1/ai-social/connections`              | 获取用户的平台连接列表       |
-| POST         | `/api/v1/ai-social/connections/:type/init`   | 初始化平台连接（获取二维码） |
-| POST         | `/api/v1/ai-social/connections/:type/verify` | 验证连接状态                 |
-| DELETE       | `/api/v1/ai-social/connections/:type`        | 断开平台连接                 |
-| **内容管理** |
-| GET          | `/api/v1/ai-social/contents`                 | 获取内容列表                 |
-| POST         | `/api/v1/ai-social/contents`                 | 创建内容（原创）             |
-| POST         | `/api/v1/ai-social/contents/import`          | 导入并转换内容               |
-| GET          | `/api/v1/ai-social/contents/:id`             | 获取内容详情                 |
-| PATCH        | `/api/v1/ai-social/contents/:id`             | 更新内容                     |
-| DELETE       | `/api/v1/ai-social/contents/:id`             | 删除内容                     |
-| **内容检测** |
-| POST         | `/api/v1/ai-social/contents/:id/check`       | 违禁词检测                   |
-| **发布管理** |
-| POST         | `/api/v1/ai-social/contents/:id/publish`     | 立即发布                     |
-| POST         | `/api/v1/ai-social/contents/:id/schedule`    | 定时发布                     |
-| POST         | `/api/v1/ai-social/contents/:id/cancel`      | 取消发布                     |
-| **导入来源** |
-| GET          | `/api/v1/ai-social/sources/research`         | 获取可导入的研究报告列表     |
-| GET          | `/api/v1/ai-social/sources/office`           | 获取可导入的文档列表         |
-| GET          | `/api/v1/ai-social/sources/writing`          | 获取可导入的章节列表         |
+| Method        | Endpoint                                     | 描述                         |
+| ------------- | -------------------------------------------- | ---------------------------- |
+| **平台连接**  |
+| GET           | `/api/v1/ai-social/connections`              | 获取用户的平台连接列表       |
+| POST          | `/api/v1/ai-social/connections/:type/init`   | 初始化平台连接（获取二维码） |
+| POST          | `/api/v1/ai-social/connections/:type/verify` | 验证连接状态                 |
+| DELETE        | `/api/v1/ai-social/connections/:type`        | 断开平台连接                 |
+| **内容管理**  |
+| GET           | `/api/v1/ai-social/contents`                 | 获取内容列表                 |
+| POST          | `/api/v1/ai-social/contents`                 | 创建内容（原创）             |
+| POST          | `/api/v1/ai-social/contents/import`          | 导入并转换内容               |
+| GET           | `/api/v1/ai-social/contents/:id`             | 获取内容详情                 |
+| PATCH         | `/api/v1/ai-social/contents/:id`             | 更新内容                     |
+| DELETE        | `/api/v1/ai-social/contents/:id`             | 删除内容                     |
+| **内容检测**  |
+| POST          | `/api/v1/ai-social/contents/:id/check`       | 违禁词检测                   |
+| **发布管理**  |
+| POST          | `/api/v1/ai-social/contents/:id/publish`     | 立即发布                     |
+| POST          | `/api/v1/ai-social/contents/:id/schedule`    | 定时发布                     |
+| POST          | `/api/v1/ai-social/contents/:id/cancel`      | 取消发布                     |
+| **导入来源**  |
+| GET           | `/api/v1/ai-social/sources/explore`          | 获取 AI Explore 素材列表     |
+| GET           | `/api/v1/ai-social/sources/research`         | 获取可导入的研究报告列表     |
+| GET           | `/api/v1/ai-social/sources/office`           | 获取可导入的文档列表         |
+| GET           | `/api/v1/ai-social/sources/writing`          | 获取可导入的章节列表         |
+| **AI Engine** |
+| POST          | `/api/v1/ai-social/ai/process-url`           | AI 处理外部链接              |
+| POST          | `/api/v1/ai-social/ai/process-source`        | AI 处理选定素材              |
+| POST          | `/api/v1/ai-social/ai/regenerate/:id`        | AI 重新生成内容              |
+| **审核管理**  |
+| GET           | `/api/v1/ai-social/contents/pending-review`  | 获取待审核内容列表           |
+| POST          | `/api/v1/ai-social/contents/:id/approve`     | 审核通过                     |
+| POST          | `/api/v1/ai-social/contents/:id/reject`      | 审核拒绝                     |
 
 ### 请求/响应示例
 
@@ -533,6 +542,70 @@ model SocialContent {
 }
 ```
 
+#### AI 处理外部链接
+
+```typescript
+// POST /api/v1/ai-social/ai/process-url
+{
+  "url": "https://www.youtube.com/watch?v=xxxxx",
+  "targetPlatform": "XIAOHONGSHU",  // 目标平台
+  "autoPublish": false              // 是否自动发布
+}
+
+// Response
+{
+  "id": "content-uuid",
+  "contentType": "XIAOHONGSHU_POST",
+  "status": "PENDING_REVIEW",
+  "sourceType": "EXTERNAL_URL",
+  "sourceUrl": "https://www.youtube.com/watch?v=xxxxx",
+  "title": "AI 最新突破！5分钟看懂 GPT-5",
+  "content": "1. 核心观点一...\n2. 核心观点二...",
+  "tags": ["AI", "GPT5", "科技"],
+  "aiProcessLog": {
+    "steps": [
+      { "step": "fetch_content", "status": "success", "message": "已获取视频字幕" },
+      { "step": "analyze", "status": "success", "message": "已分析内容主题" },
+      { "step": "transform", "status": "success", "message": "已生成小红书格式内容" },
+      { "step": "compliance_check", "status": "success", "message": "违禁词检测通过" }
+    ]
+  },
+  "aiSuggestions": {
+    "coverImages": ["建议使用视频截图作为封面"],
+    "tags": ["AI", "GPT5", "科技", "人工智能"],
+    "improvements": ["可以添加更多 emoji 增加阅读体验"]
+  },
+  "complianceCheck": {
+    "passed": true,
+    "issues": []
+  }
+}
+```
+
+#### AI 处理 Explore 素材
+
+```typescript
+// POST /api/v1/ai-social/ai/process-source
+{
+  "sourceType": "EXPLORE_RESOURCE",
+  "sourceId": "resource-uuid",       // AI Explore 中的 Resource ID
+  "targetPlatform": "WECHAT_MP",
+  "autoPublish": false
+}
+
+// Response
+{
+  "id": "content-uuid",
+  "contentType": "WECHAT_ARTICLE",
+  "status": "PENDING_REVIEW",
+  "title": "深度解读：OpenAI 最新论文揭示的 AI 未来",
+  "content": "<p>引言...</p><h2>核心发现</h2>...",
+  "digest": "本文深入解读 OpenAI 最新研究成果...",
+  "aiProcessLog": { ... },
+  "aiSuggestions": { ... }
+}
+```
+
 ---
 
 ## 文件结构
@@ -549,11 +622,15 @@ backend/src/modules/ai-app/social/
 │   ├── create-content.dto.ts
 │   ├── update-content.dto.ts
 │   ├── import-content.dto.ts
+│   ├── process-url.dto.ts              # AI 处理链接
+│   ├── process-source.dto.ts           # AI 处理素材
 │   └── publish-content.dto.ts
 ├── services/
-│   ├── content-editor.service.ts       # 内容编辑逻辑
+│   ├── social-leader.service.ts        # AI Leader Agent（核心）
+│   ├── content-fetcher.service.ts      # 内容获取（URL解析、素材读取）
 │   ├── content-transformer.service.ts  # AI 内容转换
 │   ├── content-checker.service.ts      # 违禁词检测
+│   ├── review.service.ts               # 审核管理
 │   ├── publish-executor.service.ts     # 发布执行调度
 │   ├── publish-scheduler.service.ts    # 定时任务管理
 │   └── playwright.service.ts           # Playwright 浏览器控制
@@ -561,8 +638,14 @@ backend/src/modules/ai-app/social/
 │   ├── base-platform.adapter.ts        # 抽象基类
 │   ├── wechat.adapter.ts               # 微信公众号适配器
 │   └── xiaohongshu.adapter.ts          # 小红书适配器
+├── fetchers/                           # 内容获取器
+│   ├── base-fetcher.ts
+│   ├── youtube-fetcher.ts              # YouTube 视频/字幕获取
+│   ├── web-fetcher.ts                  # 通用网页内容获取
+│   └── resource-fetcher.ts             # AI Explore Resource 获取
 └── interfaces/
     ├── social.interface.ts
+    ├── leader.interface.ts             # Leader Agent 接口
     └── platform-adapter.interface.ts
 ```
 

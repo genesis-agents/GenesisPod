@@ -544,7 +544,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
 
               {isAdmin && (
                 <Link
-                  href="/admin/dashboard"
+                  href="/admin/overview"
                   className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                     isActivePrefix('/admin')
                       ? 'bg-purple-50 text-gray-900'

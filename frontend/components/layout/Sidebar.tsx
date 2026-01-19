@@ -696,7 +696,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           {isAdmin && (
             <Link
-              href="/admin/dashboard"
+              href="/admin/overview"
               className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
                 pathname?.startsWith('/admin')
                   ? 'bg-purple-50 text-gray-900'
