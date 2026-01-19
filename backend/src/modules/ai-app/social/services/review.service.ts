@@ -54,7 +54,7 @@ export class ReviewService {
       where: { id: contentId },
       data: {
         reviewStatus: SocialReviewStatus.APPROVED,
-        reviewedBy: reviewerId,
+        reviewedById: reviewerId,
         reviewedAt: new Date(),
         reviewNote: note,
         // 审核通过后，如果是待发布状态，保持状态；如果是草稿，改为待发布
@@ -82,7 +82,7 @@ export class ReviewService {
       where: { id: contentId },
       data: {
         reviewStatus: SocialReviewStatus.REJECTED,
-        reviewedBy: reviewerId,
+        reviewedById: reviewerId,
         reviewedAt: new Date(),
         reviewNote: note,
         // 拒绝后回到草稿状态
@@ -111,7 +111,7 @@ export class ReviewService {
       where: { id: contentId },
       data: {
         reviewStatus: SocialReviewStatus.PENDING,
-        reviewedBy: null,
+        reviewedById: null,
         reviewedAt: null,
         reviewNote: null,
       },

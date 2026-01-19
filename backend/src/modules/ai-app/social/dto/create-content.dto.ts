@@ -17,9 +17,8 @@ export class CreateContentDto {
   @IsString()
   sourceUrl?: string;
 
-  @IsOptional()
   @IsString()
-  title?: string;
+  title!: string;
 
   @IsString()
   content!: string;

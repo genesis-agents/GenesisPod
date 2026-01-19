@@ -47,9 +47,7 @@ export interface SocialPlatformConnection {
   accountName?: string | null;
   accountId?: string | null;
   avatarUrl?: string | null;
-  accessToken?: string | null;
-  refreshToken?: string | null;
-  sessionData?: unknown;
+  sessionData?: string | null; // 加密存储的 session 数据
   isActive: boolean;
   lastCheckAt?: Date | null;
   expiresAt?: Date | null;
@@ -74,8 +72,8 @@ export interface SocialContent {
   tags: string[];
   location?: string | null;
   status: SocialContentStatus;
-  reviewStatus: SocialReviewStatus;
-  reviewedBy?: string | null;
+  reviewStatus?: SocialReviewStatus | null;
+  reviewedById?: string | null;
   reviewedAt?: Date | null;
   reviewNote?: string | null;
   complianceCheck?: unknown;

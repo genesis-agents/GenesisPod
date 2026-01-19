@@ -210,3 +210,13 @@ DO $$ BEGIN
         ALTER TABLE "social_contents" ADD COLUMN "source_url" TEXT;
     END IF;
 END $$;
+
+-- Add reviewed_by_id column if missing (for review functionality)
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'social_contents' AND column_name = 'reviewed_by_id'
+    ) THEN
+        ALTER TABLE "social_contents" ADD COLUMN "reviewed_by_id" TEXT;
+    END IF;
+END $$;

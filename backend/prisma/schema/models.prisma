@@ -8077,6 +8077,7 @@ model SocialContent {
 
   // 审核相关
   reviewStatus    SocialReviewStatus? @map("review_status")
+  reviewedById    String?             @map("reviewed_by_id")
   reviewedAt      DateTime?           @map("reviewed_at")
   reviewNote      String?             @map("review_note") @db.Text
   complianceCheck Json?               @map("compliance_check") // 违禁词检测结果
