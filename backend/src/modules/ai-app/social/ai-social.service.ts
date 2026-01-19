@@ -34,17 +34,6 @@ export class AiSocialService {
   async getConnections(userId: string) {
     return this.db.socialPlatformConnection.findMany({
       where: { userId },
-      select: {
-        id: true,
-        platformType: true,
-        accountName: true,
-        accountId: true,
-        avatarUrl: true,
-        isActive: true,
-        lastCheckAt: true,
-        expiresAt: true,
-        createdAt: true,
-      },
     });
   }
 

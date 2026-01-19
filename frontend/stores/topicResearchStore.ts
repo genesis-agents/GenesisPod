@@ -796,11 +796,20 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
       const report = await api.getReport(topicId, reportId);
       set({ currentReport: report });
     } catch (error) {
+      // ★ 报告不存在时不应设置 error 状态为"启动失败"
       set({
-        error:
-          error instanceof Error ? error.message : 'Failed to fetch report',
+        ...(isReportNotFoundError(error)
+          ? {}
+          : {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to fetch report',
+            }),
       });
-      throw error;
+      if (!isReportNotFoundError(error)) {
+        throw error;
+      }
     }
   },
 
@@ -880,12 +889,21 @@ export const useTopicResearchStore = create<TopicResearchState>((set, get) => ({
         isLoadingEvidence: false,
       });
     } catch (error) {
+      // ★ 报告不存在时不应设置 error 状态（新专题或报告被删除）
       set({
         isLoadingEvidence: false,
-        error:
-          error instanceof Error ? error.message : 'Failed to fetch evidence',
+        ...(isReportNotFoundError(error)
+          ? {}
+          : {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to fetch evidence',
+            }),
       });
-      throw error;
+      if (!isReportNotFoundError(error)) {
+        throw error;
+      }
     }
   },
 

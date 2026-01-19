@@ -43,15 +43,13 @@ CREATE TABLE IF NOT EXISTS "social_platform_connections" (
     "platform_type" "SocialPlatformType" NOT NULL,
     "account_name" TEXT,
     "account_id" TEXT,
-    "access_token" TEXT,
-    "refresh_token" TEXT,
-    "session_data" JSONB,
-    "cookies" JSONB,
+    "avatar_url" TEXT,
+    "session_data" TEXT,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
-    "last_sync_at" TIMESTAMP(3),
+    "last_check_at" TIMESTAMP(3),
     "expires_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "social_platform_connections_pkey" PRIMARY KEY ("id")
 );
@@ -62,45 +60,35 @@ CREATE TABLE IF NOT EXISTS "social_contents" (
     "user_id" TEXT NOT NULL,
     "connection_id" TEXT,
     "content_type" "SocialContentType" NOT NULL,
+    "status" "SocialContentStatus" NOT NULL DEFAULT 'DRAFT',
     "source_type" "SocialContentSourceType" NOT NULL DEFAULT 'MANUAL',
     "source_id" TEXT,
     "source_url" TEXT,
-    "title" TEXT NOT NULL,
+    "title" VARCHAR(200) NOT NULL,
     "content" TEXT NOT NULL,
-    "digest" TEXT,
+    "author" VARCHAR(50),
+    "digest" VARCHAR(200),
     "cover_image_url" TEXT,
-    "images" TEXT[],
-    "tags" TEXT[],
-    "status" "SocialContentStatus" NOT NULL DEFAULT 'DRAFT',
-    "review_status" "SocialReviewStatus" NOT NULL DEFAULT 'PENDING',
-    "review_notes" TEXT,
-    "reviewed_by" TEXT,
+    "images" JSONB NOT NULL DEFAULT '[]',
+    "tags" JSONB NOT NULL DEFAULT '[]',
+    "location" VARCHAR(100),
+    "ai_process_log" JSONB,
+    "ai_suggestions" JSONB,
+    "review_status" "SocialReviewStatus",
     "reviewed_at" TIMESTAMP(3),
+    "review_note" TEXT,
     "compliance_check" JSONB,
     "scheduled_at" TIMESTAMP(3),
     "published_at" TIMESTAMP(3),
-    "external_id" TEXT,
+    "auto_publish" BOOLEAN NOT NULL DEFAULT false,
     "external_url" TEXT,
+    "external_id" TEXT,
     "error_message" TEXT,
-    "metadata" JSONB,
+    "retry_count" INTEGER NOT NULL DEFAULT 0,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "social_contents_pkey" PRIMARY KEY ("id")
-);
-
--- Create social_publish_logs table for tracking publish attempts
-CREATE TABLE IF NOT EXISTS "social_publish_logs" (
-    "id" TEXT NOT NULL,
-    "content_id" TEXT NOT NULL,
-    "action" TEXT NOT NULL,
-    "status" TEXT NOT NULL,
-    "details" JSONB,
-    "error_message" TEXT,
-    "screenshot_url" TEXT,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "social_publish_logs_pkey" PRIMARY KEY ("id")
 );
 
 -- Create unique constraint on social_platform_connections (user_id, platform_type)
@@ -109,38 +97,33 @@ ON "social_platform_connections"("user_id", "platform_type");
 
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS "social_platform_connections_user_id_idx" ON "social_platform_connections"("user_id");
-CREATE INDEX IF NOT EXISTS "social_platform_connections_platform_type_idx" ON "social_platform_connections"("platform_type");
-CREATE INDEX IF NOT EXISTS "social_platform_connections_is_active_idx" ON "social_platform_connections"("is_active");
 
-CREATE INDEX IF NOT EXISTS "social_contents_user_id_idx" ON "social_contents"("user_id");
-CREATE INDEX IF NOT EXISTS "social_contents_connection_id_idx" ON "social_contents"("connection_id");
+CREATE INDEX IF NOT EXISTS "social_contents_user_id_status_idx" ON "social_contents"("user_id", "status");
+CREATE INDEX IF NOT EXISTS "social_contents_status_scheduled_at_idx" ON "social_contents"("status", "scheduled_at");
 CREATE INDEX IF NOT EXISTS "social_contents_content_type_idx" ON "social_contents"("content_type");
-CREATE INDEX IF NOT EXISTS "social_contents_source_type_idx" ON "social_contents"("source_type");
-CREATE INDEX IF NOT EXISTS "social_contents_status_idx" ON "social_contents"("status");
 CREATE INDEX IF NOT EXISTS "social_contents_review_status_idx" ON "social_contents"("review_status");
-CREATE INDEX IF NOT EXISTS "social_contents_scheduled_at_idx" ON "social_contents"("scheduled_at");
-CREATE INDEX IF NOT EXISTS "social_contents_created_at_idx" ON "social_contents"("created_at");
-
-CREATE INDEX IF NOT EXISTS "social_publish_logs_content_id_idx" ON "social_publish_logs"("content_id");
-CREATE INDEX IF NOT EXISTS "social_publish_logs_created_at_idx" ON "social_publish_logs"("created_at");
 
 -- Add foreign key constraints
-ALTER TABLE "social_platform_connections"
-ADD CONSTRAINT "social_platform_connections_user_id_fkey"
-FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "social_platform_connections"
+    ADD CONSTRAINT "social_platform_connections_user_id_fkey"
+    FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-ALTER TABLE "social_contents"
-ADD CONSTRAINT "social_contents_user_id_fkey"
-FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "social_contents"
+    ADD CONSTRAINT "social_contents_user_id_fkey"
+    FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
-ALTER TABLE "social_contents"
-ADD CONSTRAINT "social_contents_connection_id_fkey"
-FOREIGN KEY ("connection_id") REFERENCES "social_platform_connections"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
-ALTER TABLE "social_contents"
-ADD CONSTRAINT "social_contents_reviewed_by_fkey"
-FOREIGN KEY ("reviewed_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
-ALTER TABLE "social_publish_logs"
-ADD CONSTRAINT "social_publish_logs_content_id_fkey"
-FOREIGN KEY ("content_id") REFERENCES "social_contents"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "social_contents"
+    ADD CONSTRAINT "social_contents_connection_id_fkey"
+    FOREIGN KEY ("connection_id") REFERENCES "social_platform_connections"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
