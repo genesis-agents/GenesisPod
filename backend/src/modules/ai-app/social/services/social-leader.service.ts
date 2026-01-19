@@ -358,9 +358,9 @@ export class SocialLeaderService {
           title, content, digest, cover_image_url, images, tags,
           status, review_status, compliance_check, created_at, updated_at
         ) VALUES (
-          $1, $2, $3::\"SocialContentType\", $4::\"SocialContentSourceType\", $5, $6,
+          $1, $2, $3::"SocialContentType", $4::"SocialContentSourceType", $5, $6,
           $7, $8, $9, $10, $11::jsonb, $12::jsonb,
-          $13::\"SocialContentStatus\", $14::\"SocialReviewStatus\", $15::jsonb, $16, $17
+          $13::"SocialContentStatus", $14::"SocialReviewStatus", $15::jsonb, $16, $17
         )
       `,
         id,
