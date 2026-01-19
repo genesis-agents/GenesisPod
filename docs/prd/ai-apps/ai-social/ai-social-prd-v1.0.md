@@ -37,23 +37,147 @@
 
 ### 与其他模块的关系
 
-| 模块          | 定位     | 与 AI Social 的关系           |
-| ------------- | -------- | ----------------------------- |
-| AI Research   | 深度研究 | 报告可导入 AI Social 转换发布 |
-| AI Writing    | 小说写作 | 章节可导入 AI Social 转换发布 |
-| AI Office     | 文档办公 | 文档可导入 AI Social 转换发布 |
-| **AI Social** | 社交媒体 | 原生创作 + 导入转换 + 发布    |
+| 模块           | 定位     | 与 AI Social 的关系                |
+| -------------- | -------- | ---------------------------------- |
+| **AI Explore** | 内容发现 | YouTube/Papers/Blog 等素材来源     |
+| AI Research    | 深度研究 | 报告可导入 AI Social 转换发布      |
+| AI Writing     | 小说写作 | 章节可导入 AI Social 转换发布      |
+| AI Office      | 文档办公 | 文档可导入 AI Social 转换发布      |
+| **AI Social**  | 社交媒体 | AI Engine 驱动的内容创作与发布中心 |
 
 ### 核心价值
 
-- **原生创作**：针对公众号/小红书的专业编辑器
-- **智能导入**：从其他模块导入内容，AI 自动适配格式
+- **AI Engine 驱动**：告诉 Leader 一个链接，自动完成转换、审核、发布全流程
+- **多源素材**：从 AI Explore（YouTube/Papers/Blog）导入素材
+- **智能转换**：AI 自动适配不同平台格式和风格
 - **一键发布**：Playwright 自动化发布到各平台
-- **状态追踪**：发布进度和结果实时可见
+- **审核机制**：违禁词检测 + 人工审核（可选）
 
 ### 访问权限
 
 仅 `isAdmin` 用户可见和使用（MVP 阶段）。
+
+---
+
+## AI Engine 驱动架构
+
+### 核心理念
+
+AI Social 采用 **AI Engine（Leader Agent）驱动** 的设计模式。用户只需提供一个链接或选择一篇内容，Leader 就会自动完成从转换到发布的全流程。
+
+### 工作流程
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     AI Social Leader                         │
+│                  "社交媒体内容发布专家"                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  输入触发 ──────────────────────────────────────────────    │
+│  │                                                          │
+│  ├── 用户输入 URL（YouTube/Blog/Paper 链接）                │
+│  ├── 用户选择 AI Explore 中的素材                           │
+│  └── 用户选择 AI Research/Office/Writing 中的内容           │
+│                                                             │
+│       ↓                                                     │
+│                                                             │
+│  Leader 自动执行 ────────────────────────────────────────   │
+│  │                                                          │
+│  ├── 1. 内容获取                                            │
+│  │   └── 解析链接 / 读取素材内容                            │
+│  │                                                          │
+│  ├── 2. 内容分析                                            │
+│  │   ├── 理解内容主题和要点                                 │
+│  │   └── 确定目标平台（公众号/小红书）                      │
+│  │                                                          │
+│  ├── 3. AI 转换                                             │
+│  │   ├── 生成适配平台的标题                                 │
+│  │   ├── 改写内容为平台风格                                 │
+│  │   ├── 生成封面图建议                                     │
+│  │   └── 生成话题标签（小红书）                             │
+│  │                                                          │
+│  ├── 4. 合规检测                                            │
+│  │   ├── 违禁词检测                                         │
+│  │   ├── 敏感内容检测                                       │
+│  │   └── 自动修复或标记                                     │
+│  │                                                          │
+│  ├── 5. 人工审核（可配置）                                  │
+│  │   ├── 自动发布模式：跳过审核直接发布                     │
+│  │   └── 审核模式：等待用户确认后发布                       │
+│  │                                                          │
+│  └── 6. 自动发布                                            │
+│      ├── 调用 Playwright 执行发布                           │
+│      └── 记录发布结果和外链                                 │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 使用方式
+
+**方式 1：输入链接**
+
+```
+用户：帮我把这个 YouTube 视频发到小红书
+      https://www.youtube.com/watch?v=xxxxx
+
+Leader：
+  ✓ 已获取视频内容和字幕
+  ✓ 已提取核心观点（5条）
+  ✓ 已生成小红书标题："AI 最新突破！5分钟看懂..."
+  ✓ 违禁词检测通过
+  → 是否确认发布？[预览] [编辑] [发布]
+```
+
+**方式 2：选择素材**
+
+```
+用户：把 AI Explore 里那篇 OpenAI 的论文发到公众号
+
+Leader：
+  ✓ 已读取论文内容
+  ✓ 已生成深度解读文章（3000字）
+  ✓ 已生成封面图建议
+  ✓ 违禁词检测通过
+  → 是否确认发布？[预览] [编辑] [发布]
+```
+
+**方式 3：全自动模式**
+
+```
+用户：开启自动发布，每天从 AI Explore 选一篇热门内容发到小红书
+
+Leader：
+  ✓ 已设置每日自动任务
+  ✓ 筛选条件：热度 > 100, 类型 = BLOG | YOUTUBE_VIDEO
+  ✓ 发布时间：每天 10:00
+  → 自动发布已开启
+```
+
+---
+
+## 素材来源
+
+### AI Explore 素材库
+
+AI Explore 中的 Resource 是 AI Social 的**核心素材来源**。
+
+| 素材类型         | ResourceType    | 转换策略                       |
+| ---------------- | --------------- | ------------------------------ |
+| **YouTube 视频** | `YOUTUBE_VIDEO` | 提取字幕 → 总结要点 → 生成图文 |
+| **学术论文**     | `PAPER`         | 提取摘要/结论 → 通俗化解读     |
+| **技术博客**     | `BLOG`          | 提取核心观点 → 精简改写        |
+| **新闻资讯**     | `NEWS`          | 提取要点 → 加入评论视角        |
+| **行业报告**     | `REPORT`        | 提取数据和结论 → 可视化呈现    |
+| **RSS 订阅**     | `RSS`           | 聚合多篇 → 生成周报/速览       |
+
+### 其他素材来源
+
+| 来源        | 数据模型                 | 导入内容             |
+| ----------- | ------------------------ | -------------------- |
+| AI Research | `TopicReport.fullReport` | 研究报告 Markdown    |
+| AI Office   | `OfficeDocument.content` | 文档内容             |
+| AI Writing  | `WritingChapter.content` | 小说章节             |
+| 手动输入    | -                        | 用户粘贴的链接或文本 |
 
 ---
 
@@ -228,9 +352,11 @@ enum SocialContentStatus {
 
 enum SocialContentSourceType {
   ORIGINAL           // 原创
+  EXPLORE_RESOURCE   // 从 AI Explore 导入（YouTube/Paper/Blog 等）
   RESEARCH_REPORT    // 从 AI Research 导入
   OFFICE_DOCUMENT    // 从 AI Office 导入
   WRITING_CHAPTER    // 从 AI Writing 导入
+  EXTERNAL_URL       // 外部链接（用户输入）
 }
 
 /// 平台账号连接
@@ -277,7 +403,8 @@ model SocialContent {
 
   // 内容来源
   sourceType      SocialContentSourceType  @map("source_type")
-  sourceId        String?                  @map("source_id")  // 来源内容 ID
+  sourceId        String?                  @map("source_id")  // 来源内容 ID（Resource/TopicReport/OfficeDocument 等）
+  sourceUrl       String?                  @map("source_url") @db.Text  // 外部链接
 
   // 通用字段
   title           String                   @db.VarChar(200)
@@ -293,9 +420,20 @@ model SocialContent {
   tags            Json                     @default("[]")     // 话题标签数组
   location        String?                  @db.VarChar(100)
 
+  // AI Engine 处理记录
+  aiProcessLog    Json?                    @map("ai_process_log")  // Leader 处理日志
+  aiSuggestions   Json?                    @map("ai_suggestions")  // AI 建议（封面、标签等）
+
+  // 审核相关
+  reviewStatus    String?                  @map("review_status")   // PENDING | APPROVED | REJECTED
+  reviewedAt      DateTime?                @map("reviewed_at")
+  reviewNote      String?                  @map("review_note") @db.Text
+  complianceCheck Json?                    @map("compliance_check")  // 违禁词检测结果
+
   // 发布配置
   scheduledAt     DateTime?                @map("scheduled_at")
   publishedAt     DateTime?                @map("published_at")
+  autoPublish     Boolean                  @default(false) @map("auto_publish")  // 是否自动发布
 
   // 发布结果
   externalUrl     String?                  @map("external_url")  // 发布后的链接
@@ -316,6 +454,7 @@ model SocialContent {
   @@index([userId, status])
   @@index([status, scheduledAt])
   @@index([contentType])
+  @@index([reviewStatus])
   @@map("social_contents")
 }
 ```

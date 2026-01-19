@@ -41,7 +41,69 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   async redirects() {
-    return [];
+    return [
+      // Legacy admin routes -> new locations (server-side, no flash)
+      {
+        source: '/admin/dashboard',
+        destination: '/admin/overview',
+        permanent: false,
+      },
+      {
+        source: '/admin/users',
+        destination: '/admin/access/users',
+        permanent: false,
+      },
+      {
+        source: '/admin/whitelists',
+        destination: '/admin/data/whitelists',
+        permanent: false,
+      },
+      {
+        source: '/admin/external-api',
+        destination: '/admin/ai/external-services',
+        permanent: false,
+      },
+      {
+        source: '/admin/ai-models',
+        destination: '/admin/ai/models',
+        permanent: false,
+      },
+      {
+        source: '/admin/storage',
+        destination: '/admin/system/storage',
+        permanent: false,
+      },
+      {
+        source: '/admin/collection',
+        destination: '/admin/data/collection',
+        permanent: false,
+      },
+      {
+        source: '/admin/capabilities',
+        destination: '/admin/ai/capabilities',
+        permanent: false,
+      },
+      {
+        source: '/admin/ai-teams',
+        destination: '/admin/ai/teams',
+        permanent: false,
+      },
+      {
+        source: '/admin/settings',
+        destination: '/admin/system/site',
+        permanent: false,
+      },
+      {
+        source: '/admin/ai/tools',
+        destination: '/admin/ai/external-services',
+        permanent: false,
+      },
+      {
+        source: '/admin/ai/skills',
+        destination: '/admin/ai/capabilities',
+        permanent: false,
+      },
+    ];
   },
   async rewrites() {
     // Ensure URLs have protocol prefix
