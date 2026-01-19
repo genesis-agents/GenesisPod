@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils/common';
 import { useDeepResearch, DeepResearchReport, ReportReference } from '@/hooks';
 import ThinkingChainPanel from './ThinkingChainPanel';
 import { useTranslation } from '@/lib/i18n';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 // ==================== Types ====================
 interface ResearchSession {
@@ -123,7 +124,7 @@ export function ResearchTab({
         const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
         const res = await fetch(
           `${API_BASE}/api/v1/ai-studio/projects/${projectId}/deep-research/sessions`,
-          { credentials: 'include' }
+          { headers: { ...getAuthHeader() } }
         );
         if (res.ok) {
           const data = await res.json();
@@ -201,7 +202,7 @@ export function ResearchTab({
           `${API_BASE}/api/v1/ai-studio/projects/${projectId}/deep-research/sessions/${sessionId}`,
           {
             method: 'DELETE',
-            credentials: 'include',
+            headers: { ...getAuthHeader() },
           }
         );
         if (res.ok) {

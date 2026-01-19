@@ -10,6 +10,7 @@ import {
 import { useAiGroupStore } from '@/stores/aiTeamsStore';
 import { useAIModels, AIModel } from '@/hooks';
 import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 import * as aiGroupApi from '@/lib/api/ai-teams';
 import { JoinRequest } from '@/lib/api/ai-teams';
 
@@ -831,7 +832,7 @@ function AddMemberDialog({
       try {
         const response = await fetch(
           `${config.apiUrl}/users/search?query=${encodeURIComponent(searchQuery)}&limit=10`,
-          { credentials: 'include' }
+          { headers: { ...getAuthHeader() } }
         );
         if (response.ok) {
           const users = await response.json();

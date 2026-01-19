@@ -72,7 +72,6 @@ export default function WechatDataSourcePanel() {
         `${config.apiUrl}/wechat-data-source/status`,
         {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
       if (response.ok) {
@@ -95,7 +94,6 @@ export default function WechatDataSourcePanel() {
         `${config.apiUrl}/wechat-data-source/items?limit=50`,
         {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
       if (response.ok) {
@@ -148,7 +146,6 @@ export default function WechatDataSourcePanel() {
         {
           method: 'DELETE',
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
       if (response.ok) {
@@ -177,7 +174,6 @@ export default function WechatDataSourcePanel() {
             ...getAuthHeader(),
             'Content-Type': 'application/json',
           },
-          credentials: 'include',
           body: JSON.stringify({ ids: Array.from(selectedItems) }),
         }
       );
@@ -206,7 +202,6 @@ export default function WechatDataSourcePanel() {
             ...getAuthHeader(),
             'Content-Type': 'application/json',
           },
-          credentials: 'include',
           body: JSON.stringify({ url: newUrl.trim() }),
         }
       );

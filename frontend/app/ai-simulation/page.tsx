@@ -29,7 +29,6 @@ export default function AISimulationPage() {
     try {
       const res = await fetch(`${config.apiUrl}/simulation/scenarios`, {
         headers: { ...getAuthHeader() },
-        credentials: 'include',
       });
       if (res.ok) {
         setScenarios(await res.json());
@@ -93,7 +92,6 @@ export default function AISimulationPage() {
         {
           method: 'DELETE',
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
 

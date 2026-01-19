@@ -87,7 +87,6 @@ export default function GoogleDriveImportPanel({
               'Content-Type': 'application/json',
               ...getAuthHeader(),
             },
-            credentials: 'include',
             body: JSON.stringify({
               googleDriveFolderIds: selectedFolderIds,
             }),
@@ -110,7 +109,6 @@ export default function GoogleDriveImportPanel({
               'Content-Type': 'application/json',
               ...getAuthHeader(),
             },
-            credentials: 'include',
             body: JSON.stringify({ resources }),
           }
         );
@@ -130,7 +128,6 @@ export default function GoogleDriveImportPanel({
             'Content-Type': 'application/json',
             ...getAuthHeader(),
           },
-          credentials: 'include',
         }
       );
 

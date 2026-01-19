@@ -210,7 +210,6 @@ export default function DataSourcesTab({
         `${config.apiUrl}/rag/embedding-config`,
         {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
       if (embeddingResponse.ok) {
@@ -266,7 +265,6 @@ export default function DataSourcesTab({
           `${config.apiUrl}/google-drive/connection`,
           {
             headers: { ...getAuthHeader() },
-            credentials: 'include',
           }
         );
 
@@ -303,7 +301,6 @@ export default function DataSourcesTab({
           `${config.apiUrl}/notion/connections`,
           {
             headers: { ...getAuthHeader() },
-            credentials: 'include',
           }
         );
 
@@ -335,7 +332,6 @@ export default function DataSourcesTab({
           `${config.apiUrl}/wechat-data-source/binding`,
           {
             headers: { ...getAuthHeader() },
-            credentials: 'include',
           }
         );
 

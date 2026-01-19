@@ -2215,7 +2215,6 @@ export default function TopicPage() {
             headers: accessToken
               ? { Authorization: `Bearer ${accessToken}` }
               : {},
-            credentials: 'include',
           }
         );
         if (response.ok) {

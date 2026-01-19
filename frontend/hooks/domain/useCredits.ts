@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useApiGet, useApiPost } from '../core';
 import { useCreditsStore, CreditTransaction } from '@/stores/creditsStore';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 /**
  * 积分统计信息
@@ -126,7 +127,7 @@ export function useCreditsTransactions(options?: {
     async (offset: number) => {
       const response = await fetch(
         `/api/v1/credits/transactions?offset=${offset}&limit=${options?.limit || 20}`,
-        { credentials: 'include' }
+        { headers: { ...getAuthHeader() } }
       );
       return response.json();
     },
@@ -226,7 +227,7 @@ export function useEstimateCredits() {
       });
 
       const response = await fetch(`/api/v1/credits/estimate?${params}`, {
-        credentials: 'include',
+        headers: { ...getAuthHeader() },
       });
       const result = await response.json();
       return result.success ? result.data.estimatedCredits : 0;

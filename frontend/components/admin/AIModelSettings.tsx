@@ -300,7 +300,6 @@ function ModelIdSelector({
             'Content-Type': 'application/json',
             ...getAuthHeader(),
           },
-          credentials: 'include',
           body: JSON.stringify({ provider, apiKey, modelType }),
         }
       );
@@ -460,7 +459,6 @@ export default function AIModelSettings({
     try {
       const response = await fetch(`${config.apiUrl}/admin/ai-models`, {
         headers: { ...getAuthHeader() },
-        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -486,7 +484,6 @@ export default function AIModelSettings({
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          credentials: 'include',
           body: JSON.stringify({ isEnabled: !model.isEnabled }),
         }
       );
@@ -514,7 +511,6 @@ export default function AIModelSettings({
         {
           method: 'POST',
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
 
@@ -572,7 +568,6 @@ export default function AIModelSettings({
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          credentials: 'include',
           body: JSON.stringify(updateData),
         }
       );
@@ -618,7 +613,6 @@ export default function AIModelSettings({
         const response = await fetch(`${config.apiUrl}/admin/ai-models`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          credentials: 'include',
           body: JSON.stringify(workerModel),
         });
 
@@ -689,7 +683,6 @@ export default function AIModelSettings({
         {
           method: 'DELETE',
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
 
@@ -717,7 +710,6 @@ export default function AIModelSettings({
         {
           method: 'POST',
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
 
@@ -754,7 +746,6 @@ export default function AIModelSettings({
         `${config.apiUrl}/admin/ai-models/diagnose`,
         {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
 
@@ -1308,7 +1299,6 @@ function EditModelModal({
           `${config.apiUrl}/admin/ai-models/${model.id}?edit=true`,
           {
             headers: { ...getAuthHeader() },
-            credentials: 'include',
           }
         );
         if (response.ok) {

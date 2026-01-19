@@ -306,7 +306,6 @@ export default function RunConsolePage() {
     try {
       const res = await fetch(`${config.apiUrl}/simulation/runs/${runId}`, {
         headers: { ...getAuthHeader() },
-        credentials: 'include',
       });
       if (res.ok) {
         const data = await res.json();
@@ -324,7 +323,6 @@ export default function RunConsolePage() {
       await fetch(`${config.apiUrl}/simulation/runs/${runId}/resume`, {
         method: 'PATCH',
         headers: { ...getAuthHeader() },
-        credentials: 'include',
       });
       await fetchRun();
     } catch (err) {
@@ -337,7 +335,6 @@ export default function RunConsolePage() {
       await fetch(`${config.apiUrl}/simulation/runs/${runId}/pause`, {
         method: 'PATCH',
         headers: { ...getAuthHeader() },
-        credentials: 'include',
       });
       await fetchRun();
     } catch (err) {
@@ -355,7 +352,6 @@ export default function RunConsolePage() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify({ message: interventionText }),
       });
       setInterventionText('');

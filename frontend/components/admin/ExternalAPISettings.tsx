@@ -542,27 +542,21 @@ export default function ExternalAPISettings() {
       ] = await Promise.all([
         fetch(`${config.apiUrl}/admin/search-config`, {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }),
         fetch(`${config.apiUrl}/admin/extraction-config`, {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }),
         fetch(`${config.apiUrl}/admin/external-providers`, {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }),
         fetch(`${config.apiUrl}/admin/youtube-config`, {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }),
         fetch(`${config.apiUrl}/admin/tts-config`, {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }),
         fetch(`${config.apiUrl}/admin/skillsmp-config`, {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }),
       ]);
 
@@ -684,7 +678,6 @@ export default function ExternalAPISettings() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify({
           provider: searchConfig.provider,
           enabled: searchConfig.enabled,
@@ -727,7 +720,6 @@ export default function ExternalAPISettings() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify({
           enabled: extractionConfig.enabled,
           jinaApiKey: extractionApiKeys.jina || undefined,
@@ -765,7 +757,6 @@ export default function ExternalAPISettings() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify({
           enabled: youtubeConfig.enabled,
           provider: youtubeConfig.provider,
@@ -835,7 +826,6 @@ export default function ExternalAPISettings() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify({ provider: providerId, apiKey }),
       });
 
@@ -876,7 +866,6 @@ export default function ExternalAPISettings() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify({
           enabled: ttsConfig.enabled,
           provider: ttsConfig.provider,
@@ -935,7 +924,6 @@ export default function ExternalAPISettings() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify({ provider: providerId, apiKey }),
       });
 
@@ -988,7 +976,6 @@ export default function ExternalAPISettings() {
             'Content-Type': 'application/json',
             ...getAuthHeader(),
           },
-          credentials: 'include',
           body: JSON.stringify({
             id: fullProviderId,
             name: provider.name,
@@ -1076,7 +1063,6 @@ export default function ExternalAPISettings() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify({ providers: allProviders }),
       });
 
@@ -1249,7 +1235,6 @@ export default function ExternalAPISettings() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify({ provider: providerId, apiKey }),
       });
 
@@ -1310,7 +1295,6 @@ export default function ExternalAPISettings() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify({ provider: providerId, apiKey }),
       });
 
@@ -1344,7 +1328,6 @@ export default function ExternalAPISettings() {
         `${config.apiUrl}/admin/api-balance/${type}/${providerId}`,
         {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
 
@@ -3308,7 +3291,6 @@ export default function ExternalAPISettings() {
                               'Content-Type': 'application/json',
                               ...getAuthHeader(),
                             },
-                            credentials: 'include',
                             body: JSON.stringify({ apiKey: skillsmpApiKey }),
                           }
                         );
@@ -3351,7 +3333,6 @@ export default function ExternalAPISettings() {
                             headers: {
                               ...getAuthHeader(),
                             },
-                            credentials: 'include',
                           }
                         );
                         const data = await res.json();
@@ -3452,7 +3433,6 @@ export default function ExternalAPISettings() {
                         'Content-Type': 'application/json',
                         ...getAuthHeader(),
                       },
-                      credentials: 'include',
                       body: JSON.stringify({
                         enabled: skillsmpConfig.enabled,
                         apiKey: skillsmpApiKey || undefined,

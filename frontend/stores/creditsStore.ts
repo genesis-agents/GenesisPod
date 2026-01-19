@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { getAuthTokens } from '@/lib/utils/auth';
+import { getAuthTokens, getAuthHeader } from '@/lib/utils/auth';
 
 /**
  * 积分账户信息
@@ -139,7 +139,6 @@ export const useCreditsStore = create<CreditsState>()(
       fetchBalance: async () => {
         try {
           const response = await fetch(API_BASE + '/balance', {
-            credentials: 'include',
             headers: getAuthHeaders(),
           });
           // Silently ignore 401 - user not authenticated
@@ -185,7 +184,6 @@ export const useCreditsStore = create<CreditsState>()(
         set({ isLoading: true, error: null });
         try {
           const response = await fetch(API_BASE, {
-            credentials: 'include',
             headers: getAuthHeaders(),
           });
           // Silently ignore 401 - user not authenticated
@@ -210,7 +208,6 @@ export const useCreditsStore = create<CreditsState>()(
       fetchCheckinStatus: async () => {
         try {
           const response = await fetch(API_BASE + '/checkin/status', {
-            credentials: 'include',
             headers: getAuthHeaders(),
           });
           // Silently ignore 401 - user not authenticated
@@ -234,7 +231,6 @@ export const useCreditsStore = create<CreditsState>()(
         try {
           const response = await fetch(API_BASE + '/checkin', {
             method: 'POST',
-            credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
               ...getAuthHeaders(),

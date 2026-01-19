@@ -1,4 +1,5 @@
 import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 const baseUrl = `${config.apiUrl}/data-collection`;
 
@@ -6,9 +7,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, {
     headers: {
       'Content-Type': 'application/json',
+      ...getAuthHeader(),
       ...(options.headers || {}),
     },
-    credentials: 'include',
     ...options,
   });
 

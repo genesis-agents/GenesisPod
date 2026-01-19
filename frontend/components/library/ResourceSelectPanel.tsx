@@ -89,7 +89,6 @@ export default function ResourceSelectPanel({
         headers: {
           ...getAuthHeader(),
         },
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -165,7 +164,6 @@ export default function ResourceSelectPanel({
             'Content-Type': 'application/json',
             ...getAuthHeader(),
           },
-          credentials: 'include',
           body: JSON.stringify({ resources: resourceData }),
         }
       );

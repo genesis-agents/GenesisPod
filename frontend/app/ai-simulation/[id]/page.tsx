@@ -158,7 +158,6 @@ export default function ScenarioDetailPage() {
         `${config.apiUrl}/simulation/scenarios/${scenarioId}`,
         {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
       if (res.ok) {
@@ -183,7 +182,6 @@ export default function ScenarioDetailPage() {
     try {
       const res = await fetch(`${config.apiUrl}/simulation/runs/${runId}`, {
         headers: { ...getAuthHeader() },
-        credentials: 'include',
       });
       if (res.ok) {
         const data = await res.json();
@@ -215,7 +213,6 @@ export default function ScenarioDetailPage() {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify({
           scenarioId: scenario.id,
           rounds: scenario.params?.humanBreakEvery
@@ -277,7 +274,6 @@ export default function ScenarioDetailPage() {
       const res = await fetch(`${config.apiUrl}/simulation/runs/${runId}`, {
         method: 'DELETE',
         headers: { ...getAuthHeader() },
-        credentials: 'include',
       });
 
       if (res.ok) {

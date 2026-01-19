@@ -56,7 +56,6 @@ export default function EditScenarioPage() {
         `${config.apiUrl}/simulation/scenarios/${scenarioId}`,
         {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
       if (res.ok) {

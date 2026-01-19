@@ -73,7 +73,6 @@ export default function MemberManagementDialog({
         `${config.apiUrl}/rag/knowledge-bases/${knowledgeBaseId}/members`,
         {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
 
@@ -111,7 +110,6 @@ export default function MemberManagementDialog({
             'Content-Type': 'application/json',
             ...getAuthHeader(),
           },
-          credentials: 'include',
           body: JSON.stringify({
             email: newMemberEmail.trim(),
             role: newMemberRole,
@@ -148,7 +146,6 @@ export default function MemberManagementDialog({
             'Content-Type': 'application/json',
             ...getAuthHeader(),
           },
-          credentials: 'include',
           body: JSON.stringify({ role }),
         }
       );
@@ -174,7 +171,6 @@ export default function MemberManagementDialog({
         {
           method: 'DELETE',
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
 

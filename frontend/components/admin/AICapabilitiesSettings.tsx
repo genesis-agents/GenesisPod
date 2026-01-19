@@ -383,7 +383,6 @@ export default function AICapabilitiesSettings() {
         `${config.apiUrl}/admin/capabilities/tools`,
         {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
       if (response.ok) {
@@ -402,7 +401,6 @@ export default function AICapabilitiesSettings() {
         `${config.apiUrl}/admin/capabilities/skills`,
         {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
       if (response.ok) {
@@ -421,7 +419,6 @@ export default function AICapabilitiesSettings() {
         `${config.apiUrl}/admin/capabilities/mcp-servers`,
         {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
       if (response.ok) {
@@ -463,7 +460,6 @@ export default function AICapabilitiesSettings() {
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          credentials: 'include',
           body: JSON.stringify({ enabled }),
         }
       );
@@ -486,7 +482,6 @@ export default function AICapabilitiesSettings() {
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          credentials: 'include',
           body: JSON.stringify({
             enabled: tool.enabled,
             displayName: tool.displayName,
@@ -514,7 +509,6 @@ export default function AICapabilitiesSettings() {
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          credentials: 'include',
           body: JSON.stringify({ enabled }),
         }
       );
@@ -537,7 +531,6 @@ export default function AICapabilitiesSettings() {
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          credentials: 'include',
           body: JSON.stringify({
             enabled: skill.enabled,
             displayName: skill.displayName,
@@ -565,7 +558,6 @@ export default function AICapabilitiesSettings() {
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          credentials: 'include',
           body: JSON.stringify({ enabled }),
         }
       );
@@ -590,7 +582,6 @@ export default function AICapabilitiesSettings() {
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          credentials: 'include',
           body: JSON.stringify({
             name: server.name,
             description: server.description,
@@ -621,7 +612,6 @@ export default function AICapabilitiesSettings() {
         {
           method: 'POST',
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
       if (response.ok) {
@@ -659,7 +649,6 @@ export default function AICapabilitiesSettings() {
         {
           method: 'POST',
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
       if (response.ok) {
@@ -679,7 +668,6 @@ export default function AICapabilitiesSettings() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          credentials: 'include',
           body: JSON.stringify({
             serverId: preset.serverId,
             name: preset.name,
@@ -711,7 +699,6 @@ export default function AICapabilitiesSettings() {
         {
           method: 'DELETE',
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
       if (response.ok) {
@@ -739,7 +726,6 @@ export default function AICapabilitiesSettings() {
         {
           method: 'POST',
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
       const data = await response.json();

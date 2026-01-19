@@ -129,7 +129,6 @@ export default function NotionImportPanel({
             'Content-Type': 'application/json',
             ...getAuthHeader(),
           },
-          credentials: 'include',
           body: JSON.stringify({ resources: resourceData }),
         }
       );

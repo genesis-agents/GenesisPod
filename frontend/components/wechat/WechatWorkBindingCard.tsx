@@ -31,7 +31,6 @@ export function WechatWorkBindingCard() {
         `${config.apiUrl}/wechat-data-source/binding`,
         {
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
       if (response.ok) {
@@ -72,7 +71,6 @@ export function WechatWorkBindingCard() {
             ...getAuthHeader(),
             'Content-Type': 'application/json',
           },
-          credentials: 'include',
           body: JSON.stringify({ wechatWorkUserId: wechatWorkUserId.trim() }),
         }
       );
@@ -108,7 +106,6 @@ export function WechatWorkBindingCard() {
         {
           method: 'DELETE',
           headers: { ...getAuthHeader() },
-          credentials: 'include',
         }
       );
 

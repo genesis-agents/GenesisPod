@@ -237,7 +237,6 @@ export function EditorModal({
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify({
           industry: form.industry,
           region: form.region || 'Global',
@@ -419,7 +418,6 @@ export function EditorModal({
             'Content-Type': 'application/json',
             ...getAuthHeader(),
           },
-          credentials: 'include',
           body: JSON.stringify({
             industry: form.industry,
             companies: companies.map((c) => ({ name: c.name, type: c.type })),
@@ -555,7 +553,6 @@ export function EditorModal({
             'Content-Type': 'application/json',
             ...getAuthHeader(),
           },
-          credentials: 'include',
           body: JSON.stringify({
             industry: form.industry,
             region: form.region,
@@ -644,7 +641,6 @@ export function EditorModal({
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify(requestBody),
       });
 
@@ -681,7 +677,6 @@ export function EditorModal({
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify({
           scenarioId: localScenario.id,
           rounds: 4,
@@ -780,7 +775,6 @@ export function EditorModal({
     try {
       const res = await fetch(`${config.apiUrl}/simulation/external/snapshot`, {
         headers: { ...getAuthHeader() },
-        credentials: 'include',
       });
       const data = await res.json();
       if (res.ok) {
@@ -891,7 +885,6 @@ export function EditorModal({
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify({
           industry: form.industry,
           region: form.region || 'Global',
@@ -912,7 +905,6 @@ export function EditorModal({
                     'Content-Type': 'application/json',
                     ...getAuthHeader(),
                   },
-                  credentials: 'include',
                   body: JSON.stringify({
                     companyName: c.name,
                     companyType: c.type || 'competitor',
@@ -2630,7 +2622,7 @@ export function EditorModal({
                     {scenario?.id && (
                       <p>
                         场景 ID:{' '}
-                        <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">
+                        <code className="font-mono rounded bg-white px-1.5 py-0.5 text-xs">
                           {scenario.id}
                         </code>
                       </p>
@@ -2638,7 +2630,7 @@ export function EditorModal({
                     {runId && (
                       <p>
                         运行 ID:{' '}
-                        <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">
+                        <code className="font-mono rounded bg-white px-1.5 py-0.5 text-xs">
                           {runId}
                         </code>
                       </p>

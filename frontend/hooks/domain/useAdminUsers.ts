@@ -1,5 +1,6 @@
 import { useApiGet } from '../core';
 import { useCallback, useState } from 'react';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 export interface User {
   id: string;
@@ -51,8 +52,7 @@ export function useAdminUsers() {
       try {
         const response = await fetch('/api/v1/admin/users', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
           body: JSON.stringify(data),
         });
         const result = await response.json();
@@ -73,8 +73,7 @@ export function useAdminUsers() {
       try {
         const response = await fetch(`/api/v1/admin/users/${id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
           body: JSON.stringify(data),
         });
         const result = await response.json();
@@ -93,7 +92,7 @@ export function useAdminUsers() {
       try {
         await fetch(`/api/v1/admin/users/${id}`, {
           method: 'DELETE',
-          credentials: 'include',
+          headers: { ...getAuthHeader() },
         });
         await refreshUsers();
       } finally {
@@ -122,8 +121,7 @@ export function useAdminUsers() {
           `/api/v1/admin/users/${userId}/credits/grant`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
             body: JSON.stringify({ amount, reason }),
           }
         );
@@ -147,8 +145,7 @@ export function useAdminUsers() {
           `/api/v1/admin/users/${userId}/credits/freeze`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
             body: JSON.stringify({ freeze, reason }),
           }
         );

@@ -17,6 +17,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { config } from '@/lib/utils/config';
 import { cn } from '@/lib/utils/common';
+import { getAuthHeader } from '@/lib/utils/auth';
 
 interface ExportDropdownProps {
   documentId: string;
@@ -118,7 +119,6 @@ export default function ExportDropdown({
           headers: {
             'Content-Type': 'application/json',
           },
-          credentials: 'include',
           body: JSON.stringify({ format }),
         }
       );

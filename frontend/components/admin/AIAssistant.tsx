@@ -255,7 +255,6 @@ export default function AIAssistant({
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        credentials: 'include',
         body: JSON.stringify({
           message: `${systemPrompt}${dataContext}\n\n用户问题：${content}`,
           messages:
