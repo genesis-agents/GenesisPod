@@ -1350,16 +1350,28 @@
     "sources": {
       "title": "Content Sources",
       "manual": "Manual Create",
+      "manualDesc": "Create content from scratch",
       "external_url": "External URL",
+      "externalUrlDesc": "Extract content from webpage",
       "ai_explore": "AI Explore",
+      "aiExploreDesc": "Select from saved resources",
       "ai_research": "AI Research",
+      "aiResearchDesc": "Select research reports",
       "ai_office": "AI Office",
-      "ai_writing": "AI Writing"
+      "aiOfficeDesc": "Select office documents",
+      "ai_writing": "AI Writing",
+      "aiWritingDesc": "Select writing projects"
+    },
+    "steps": {
+      "source": "Select Source",
+      "platform": "Select Platform",
+      "edit": "Edit Content"
     },
     "modal": {
       "enterUrl": "Enter article URL, AI will automatically extract and transform content",
       "urlLabel": "Article URL",
       "urlHint": "Supports articles from major platforms like Medium, Substack, news sites, etc.",
+      "urlRequired": "Please enter article URL",
       "processing": "Processing...",
       "processUrl": "Extract Content"
     },
@@ -1387,7 +1399,11 @@
       "processSuccess": "Content processed successfully",
       "processFailed": "Failed to process content, please try again",
       "saveFailed": "Failed to save, please try again",
-      "publishFailed": "Failed to publish, please try again"
+      "publishFailed": "Failed to publish, please try again",
+      "loadSourceFailed": "Failed to load source list",
+      "selectItem": "Select {{source}} content",
+      "noSourceItems": "No content available",
+      "processingHint": "AI is analyzing and transforming content, please wait..."
     },
     "ai": {
       "processUrl": "Process URL",

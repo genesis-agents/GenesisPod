@@ -1350,16 +1350,28 @@
     "sources": {
       "title": "素材来源",
       "manual": "手动创建",
+      "manualDesc": "从零开始创作内容",
       "external_url": "外部链接",
+      "externalUrlDesc": "从网页提取内容",
       "ai_explore": "AI 探索",
+      "aiExploreDesc": "选择已收藏的资源",
       "ai_research": "AI 研究",
+      "aiResearchDesc": "选择研究报告",
       "ai_office": "AI 办公",
-      "ai_writing": "AI 写作"
+      "aiOfficeDesc": "选择办公文档",
+      "ai_writing": "AI 写作",
+      "aiWritingDesc": "选择写作项目"
+    },
+    "steps": {
+      "source": "选择来源",
+      "platform": "选择平台",
+      "edit": "编辑内容"
     },
     "modal": {
       "enterUrl": "输入文章链接，AI 将自动提取并转换内容",
       "urlLabel": "文章链接",
       "urlHint": "支持微信公众号、知乎、简书等主流平台的文章链接",
+      "urlRequired": "请输入文章链接",
       "processing": "处理中...",
       "processUrl": "提取内容"
     },
@@ -1387,7 +1399,11 @@
       "processSuccess": "内容处理成功",
       "processFailed": "内容处理失败，请重试",
       "saveFailed": "保存失败，请重试",
-      "publishFailed": "发布失败，请重试"
+      "publishFailed": "发布失败，请重试",
+      "loadSourceFailed": "加载来源列表失败",
+      "selectItem": "选择{{source}}内容",
+      "noSourceItems": "暂无可用内容",
+      "processingHint": "AI 正在分析和转换内容，请稍候..."
     },
     "ai": {
       "processUrl": "处理链接",

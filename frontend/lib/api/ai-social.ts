@@ -362,7 +362,7 @@ export async function processUrl(dto: ProcessUrlDto): Promise<{
   checkResult: ComplianceCheckResult;
   message: string;
 }> {
-  return fetchWithAuth('/api/v1/ai-social/engine/process-url', {
+  return fetchWithAuth('/api/v1/ai-social/ai/process-url', {
     method: 'POST',
     body: JSON.stringify(dto),
   });
@@ -376,7 +376,7 @@ export async function processSource(dto: ProcessSourceDto): Promise<{
   checkResult: ComplianceCheckResult;
   message: string;
 }> {
-  return fetchWithAuth('/api/v1/ai-social/engine/process-source', {
+  return fetchWithAuth('/api/v1/ai-social/ai/process-source', {
     method: 'POST',
     body: JSON.stringify(dto),
   });
@@ -390,7 +390,7 @@ export async function regenerateContent(contentId: string): Promise<{
   checkResult: ComplianceCheckResult;
   message: string;
 }> {
-  return fetchWithAuth(`/api/v1/ai-social/engine/regenerate/${contentId}`, {
+  return fetchWithAuth(`/api/v1/ai-social/ai/regenerate/${contentId}`, {
     method: 'POST',
   });
 }
@@ -401,7 +401,7 @@ export async function regenerateContent(contentId: string): Promise<{
 export async function checkCompliance(
   contentId: string
 ): Promise<ComplianceCheckResult> {
-  return fetchWithAuth(`/api/v1/ai-social/engine/check/${contentId}`, {
+  return fetchWithAuth(`/api/v1/ai-social/contents/${contentId}/check`, {
     method: 'POST',
   });
 }
