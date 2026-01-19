@@ -3252,4 +3252,266 @@ export class AdminService {
       };
     }
   }
+
+  // ============ Storage Provider Configuration ============
+
+  /**
+   * 获取存储配置
+   */
+  async getStorageProviderConfig() {
+    const [
+      provider,
+      localPath,
+      s3Bucket,
+      s3Region,
+      s3AccessKey,
+      s3SecretKey,
+      gdriveClientId,
+      gdriveClientSecret,
+      gdriveFolderId,
+      b2KeyId,
+      b2AppKey,
+      b2BucketName,
+      b2BucketId,
+      maxFileSize,
+      allowedTypes,
+    ] = await Promise.all([
+      this.getSetting("storage.provider"),
+      this.getSetting("storage.localPath"),
+      this.getSetting("storage.s3Bucket"),
+      this.getSetting("storage.s3Region"),
+      this.getSetting("storage.s3AccessKey"),
+      this.getSetting("storage.s3SecretKey"),
+      this.getSetting("storage.gdriveClientId"),
+      this.getSetting("storage.gdriveClientSecret"),
+      this.getSetting("storage.gdriveFolderId"),
+      this.getSetting("storage.b2KeyId"),
+      this.getSetting("storage.b2AppKey"),
+      this.getSetting("storage.b2BucketName"),
+      this.getSetting("storage.b2BucketId"),
+      this.getSetting("storage.maxUploadSizeMb"),
+      this.getSetting("storage.allowedFileTypes"),
+    ]);
+
+    return {
+      provider: provider || "local",
+      localPath: localPath || "/uploads",
+      s3Bucket: s3Bucket || "",
+      s3Region: s3Region || "us-east-1",
+      s3AccessKey: s3AccessKey ? this.maskApiKey(s3AccessKey) : "",
+      s3SecretKey: s3SecretKey ? this.maskApiKey(s3SecretKey) : "",
+      gdriveClientId: gdriveClientId || "",
+      gdriveClientSecret: gdriveClientSecret
+        ? this.maskApiKey(gdriveClientSecret)
+        : "",
+      gdriveFolderId: gdriveFolderId || "",
+      b2KeyId: b2KeyId || "",
+      b2AppKey: b2AppKey ? this.maskApiKey(b2AppKey) : "",
+      b2BucketName: b2BucketName || "",
+      b2BucketId: b2BucketId || "",
+      maxFileSize: maxFileSize || 10,
+      allowedTypes: allowedTypes
+        ? allowedTypes.split(",").map((s: string) => s.trim())
+        : ["image/*", "application/pdf", "text/*"],
+    };
+  }
+
+  /**
+   * 更新存储配置
+   */
+  async updateStorageProviderConfig(config: {
+    provider?: string;
+    localPath?: string;
+    s3Bucket?: string;
+    s3Region?: string;
+    s3AccessKey?: string;
+    s3SecretKey?: string;
+    gdriveClientId?: string;
+    gdriveClientSecret?: string;
+    gdriveFolderId?: string;
+    b2KeyId?: string;
+    b2AppKey?: string;
+    b2BucketName?: string;
+    b2BucketId?: string;
+    maxFileSize?: number;
+    allowedTypes?: string[];
+  }) {
+    const updates: Array<{
+      key: string;
+      value: any;
+      description?: string;
+      category: string;
+    }> = [];
+
+    // Helper to add update if value is provided and not masked
+    const addUpdate = (
+      key: string,
+      value: any,
+      description: string,
+      isSensitive = false,
+    ) => {
+      if (value === undefined) return;
+      if (isSensitive && typeof value === "string" && value.includes("****"))
+        return;
+      updates.push({
+        key: `storage.${key}`,
+        value,
+        description,
+        category: "storage",
+      });
+    };
+
+    addUpdate("provider", config.provider, "Active storage provider");
+    addUpdate("localPath", config.localPath, "Local storage path");
+    addUpdate("s3Bucket", config.s3Bucket, "S3 bucket name");
+    addUpdate("s3Region", config.s3Region, "S3 region");
+    addUpdate("s3AccessKey", config.s3AccessKey, "S3 access key", true);
+    addUpdate("s3SecretKey", config.s3SecretKey, "S3 secret key", true);
+    addUpdate("gdriveClientId", config.gdriveClientId, "Google Drive client ID");
+    addUpdate(
+      "gdriveClientSecret",
+      config.gdriveClientSecret,
+      "Google Drive client secret",
+      true,
+    );
+    addUpdate(
+      "gdriveFolderId",
+      config.gdriveFolderId,
+      "Google Drive folder ID",
+    );
+    addUpdate("b2KeyId", config.b2KeyId, "Backblaze B2 key ID");
+    addUpdate("b2AppKey", config.b2AppKey, "Backblaze B2 application key", true);
+    addUpdate("b2BucketName", config.b2BucketName, "Backblaze B2 bucket name");
+    addUpdate("b2BucketId", config.b2BucketId, "Backblaze B2 bucket ID");
+    addUpdate("maxUploadSizeMb", config.maxFileSize, "Max upload size in MB");
+
+    if (config.allowedTypes) {
+      addUpdate(
+        "allowedFileTypes",
+        config.allowedTypes.join(", "),
+        "Allowed file types",
+      );
+    }
+
+    if (updates.length > 0) {
+      await this.setSettings(updates);
+    }
+
+    return this.getStorageProviderConfig();
+  }
+
+  /**
+   * 测试 Backblaze B2 连接
+   */
+  async testB2Connection(config: {
+    keyId: string;
+    appKey: string;
+    bucketName: string;
+  }): Promise<{ success: boolean; message: string }> {
+    try {
+      // Step 1: Authorize with B2
+      const authString = Buffer.from(
+        `${config.keyId}:${config.appKey}`,
+      ).toString("base64");
+
+      const authResponse = await fetch(
+        "https://api.backblazeb2.com/b2api/v2/b2_authorize_account",
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Basic ${authString}`,
+          },
+        },
+      );
+
+      if (!authResponse.ok) {
+        const errorText = await authResponse.text();
+        return {
+          success: false,
+          message: `B2 authorization failed: ${errorText}`,
+        };
+      }
+
+      const authData = await authResponse.json();
+
+      // Step 2: List buckets to verify access
+      const listResponse = await fetch(
+        `${authData.apiUrl}/b2api/v2/b2_list_buckets`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: authData.authorizationToken,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            accountId: authData.accountId,
+            bucketName: config.bucketName,
+          }),
+        },
+      );
+
+      if (!listResponse.ok) {
+        return {
+          success: false,
+          message: "B2 connection successful but bucket access failed",
+        };
+      }
+
+      const bucketsData = await listResponse.json();
+      const bucketExists = bucketsData.buckets?.some(
+        (b: any) => b.bucketName === config.bucketName,
+      );
+
+      if (!bucketExists) {
+        return {
+          success: false,
+          message: `Bucket "${config.bucketName}" not found`,
+        };
+      }
+
+      return {
+        success: true,
+        message: `Connected to Backblaze B2. Bucket "${config.bucketName}" is accessible.`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Connection failed",
+      };
+    }
+  }
+
+  /**
+   * 测试 Google Drive 连接
+   * Note: Google Drive OAuth requires user authentication flow
+   */
+  async testGDriveConnection(config: {
+    clientId: string;
+    clientSecret: string;
+  }): Promise<{ success: boolean; message: string }> {
+    // Google Drive requires OAuth2 flow, we can only validate the client ID format
+    if (
+      !config.clientId.includes(".apps.googleusercontent.com") &&
+      !config.clientId.includes(".apps.google.com")
+    ) {
+      return {
+        success: false,
+        message:
+          "Invalid Client ID format. Should end with .apps.googleusercontent.com",
+      };
+    }
+
+    if (!config.clientSecret || config.clientSecret.length < 10) {
+      return {
+        success: false,
+        message: "Client Secret appears to be invalid",
+      };
+    }
+
+    return {
+      success: true,
+      message:
+        "Google Drive credentials format validated. Full OAuth connection requires user authorization.",
+    };
+  }
 }

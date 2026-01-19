@@ -1408,6 +1408,80 @@ export class AdminController {
     return this.adminService.setDefaultAIModelForType(id);
   }
 
+  // ============ Storage Provider Configuration ============
+
+  /**
+   * 获取存储配置
+   * GET /api/v1/admin/storage-config
+   */
+  @Get("storage-config")
+  async getStorageConfig() {
+    this.logger.log("Admin: Fetching storage config");
+    return this.adminService.getStorageProviderConfig();
+  }
+
+  /**
+   * 更新存储配置
+   * PATCH /api/v1/admin/storage-config
+   */
+  @Patch("storage-config")
+  async updateStorageConfig(
+    @Body()
+    body: {
+      provider?: string;
+      localPath?: string;
+      s3Bucket?: string;
+      s3Region?: string;
+      s3AccessKey?: string;
+      s3SecretKey?: string;
+      gdriveClientId?: string;
+      gdriveClientSecret?: string;
+      gdriveFolderId?: string;
+      b2KeyId?: string;
+      b2AppKey?: string;
+      b2BucketName?: string;
+      b2BucketId?: string;
+      maxFileSize?: number;
+      allowedTypes?: string[];
+    },
+  ) {
+    this.logger.log("Admin: Updating storage config");
+    return this.adminService.updateStorageProviderConfig(body);
+  }
+
+  /**
+   * 测试 Backblaze B2 连接
+   * POST /api/v1/admin/storage-config/test-b2
+   */
+  @Post("storage-config/test-b2")
+  async testB2Connection(
+    @Body()
+    body: {
+      keyId: string;
+      appKey: string;
+      bucketName: string;
+    },
+  ) {
+    this.logger.log("Admin: Testing Backblaze B2 connection");
+    return this.adminService.testB2Connection(body);
+  }
+
+  /**
+   * 测试 Google Drive 连接
+   * POST /api/v1/admin/storage-config/test-gdrive
+   */
+  @Post("storage-config/test-gdrive")
+  async testGDriveConnection(
+    @Body()
+    body: {
+      clientId: string;
+      clientSecret: string;
+    },
+  ) {
+    this.logger.log("Admin: Testing Google Drive connection");
+    return this.adminService.testGDriveConnection(body);
+  }
+
   // ============ Data Collection Management ============
 
   /**
