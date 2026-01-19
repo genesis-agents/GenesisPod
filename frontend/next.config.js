@@ -48,11 +48,6 @@ const nextConfig = {
         destination: '/admin/system/site',
         permanent: true,
       },
-      {
-        source: '/admin/data-management',
-        destination: '/admin/data/collection',
-        permanent: true,
-      },
       // Renamed routes for cleaner naming
       {
         source: '/admin/ai/tools',
