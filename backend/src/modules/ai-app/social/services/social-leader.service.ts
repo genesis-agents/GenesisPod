@@ -182,6 +182,8 @@ export class SocialLeaderService {
 
     // Sanitize content to remove problematic characters
     const safeContent = sanitizeString(transformedContent.content);
+    const safeSourceUrl = sanitizeString(dto.url) || null;
+    const safeCoverImageUrl = sanitizeString(fetchedContent.coverImage) || null;
 
     this.logger.log(
       `[processUrl] Saving content: titleLen=${truncateString(transformedContent.title, 200).length}, ` +
@@ -196,11 +198,11 @@ export class SocialLeaderService {
             userId,
             contentType: dto.targetType,
             sourceType: SocialContentSourceType.EXTERNAL_URL,
-            sourceUrl: dto.url,
+            sourceUrl: safeSourceUrl,
             title: truncateString(transformedContent.title, 200),
             content: safeContent,
             digest: truncateString(transformedContent.digest, 200) || null,
-            coverImageUrl: fetchedContent.coverImage,
+            coverImageUrl: safeCoverImageUrl,
             images: safeImages,
             tags: safeTags,
             status: SocialContentStatus.DRAFT,
