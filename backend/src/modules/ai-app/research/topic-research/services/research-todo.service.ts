@@ -30,12 +30,11 @@ import {
 } from "@prisma/client";
 import type { ResearchTodo, ResearchMission } from "@prisma/client";
 import { ResearchEventEmitterService } from "./research-event-emitter.service";
-import { DimensionMissionService } from "./dimension-mission.service";
-import { TASK_PRIORITY } from "./research-mission.service";
 import {
   ResearchLeaderService,
   ReviewDecision,
 } from "./research-leader.service";
+import { ResearchMissionService } from "./research-mission.service";
 
 // ==================== Types ====================
 
@@ -115,10 +114,10 @@ export class ResearchTodoService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: ResearchEventEmitterService,
-    @Inject(forwardRef(() => DimensionMissionService))
-    private readonly dimensionMissionService: DimensionMissionService,
     @Inject(forwardRef(() => ResearchLeaderService))
     private readonly leaderService: ResearchLeaderService,
+    @Inject(forwardRef(() => ResearchMissionService))
+    private readonly missionService: ResearchMissionService,
   ) {}
 
   // ==================== CRUD 操作 ====================
@@ -1235,7 +1234,7 @@ export class ResearchTodoService {
 
   /**
    * 执行新增维度操作
-   * ★ 增强版：创建 Dimension + Task 后自动触发 AI 研究
+   * ★ v7.3: 任务加入 Mission 调度队列，而非直接执行（修复插队问题）
    */
   private async executeAddDimension(
     topicId: string,
@@ -1260,12 +1259,6 @@ export class ResearchTodoService {
       throw new NotFoundException(`Topic ${topicId} not found`);
     }
 
-    // 获取最新的 report
-    const report = await this.prisma.topicReport.findFirst({
-      where: { topicId },
-      orderBy: { generatedAt: "desc" },
-    });
-
     // 创建新维度
     const dimension = await this.prisma.topicDimension.create({
       data: {
@@ -1282,10 +1275,34 @@ export class ResearchTodoService {
       `[executeAddDimension] Created dimension ${dimension.id}: ${dimensionName}`,
     );
 
-    // ★ 同时创建 ResearchTask 记录，用于 Mission 进度追踪
-    // ★ v7.2: 使用 TODO 中 Leader 分配的 Agent 信息
+    // ★ v7.3: 创建 ResearchTask 并加入调度队列（PENDING 状态）
+    // 任务将由 Mission 的 startExecution 循环调度执行，而非直接执行
     let task = null;
+    let queuePosition = 0;
     if (todo.missionId) {
+      // 获取当前队列中的最大优先级，新任务排在最后
+      const existingTasks = await this.prisma.researchTask.findMany({
+        where: {
+          missionId: todo.missionId,
+          taskType: "dimension_research",
+        },
+        orderBy: { priority: "desc" },
+        take: 1,
+      });
+
+      // 新任务优先级 = 当前最大优先级 + 1（排在队列末尾）
+      const maxPriority = existingTasks[0]?.priority || 0;
+      const newPriority = maxPriority + 1;
+
+      // 计算队列位置（待处理的任务数）
+      const pendingCount = await this.prisma.researchTask.count({
+        where: {
+          missionId: todo.missionId,
+          status: ResearchTaskStatus.PENDING,
+        },
+      });
+      queuePosition = pendingCount + 1;
+
       task = await this.prisma.researchTask.create({
         data: {
           missionId: todo.missionId,
@@ -1299,9 +1316,10 @@ export class ResearchTodoService {
           assignedAgent: todo.agentId || "researcher_dynamic",
           assignedAgentType: "dimension_researcher",
           modelId: todo.modelId, // ★ 使用 Leader 分配的模型
-          priority: TASK_PRIORITY.DIMENSION_RESEARCH_DYNAMIC,
-          status: ResearchTaskStatus.EXECUTING,
-          startedAt: new Date(),
+          // ★ v7.3: 使用计算的优先级，确保排在已有任务后面
+          priority: newPriority,
+          // ★ v7.3: 状态为 PENDING，由 Mission 调度执行
+          status: ResearchTaskStatus.PENDING,
         },
       });
 
@@ -1314,98 +1332,38 @@ export class ResearchTodoService {
       });
 
       this.logger.log(
-        `[executeAddDimension] Created ResearchTask ${task.id} for dimension ${dimensionName}`,
+        `[executeAddDimension] Created ResearchTask ${task.id} for dimension ${dimensionName}, priority: ${newPriority}, queue position: ${queuePosition}`,
       );
-    }
 
-    // ★ 自动触发维度研究
-    try {
-      // 更新 TODO 进度
-      await this.prisma.researchTodo.update({
-        where: { id: todo.id },
-        data: {
-          progress: 20,
-          statusMessage: `已创建维度「${dimensionName}」，正在启动 AI 研究...`,
-        },
-      });
-
-      // 调用 DimensionMissionService 执行真正的研究
-      const missionResult =
-        await this.dimensionMissionService.executeDimensionMission(
-          topic,
-          dimension,
-          report?.id,
-          todo.missionId,
-        );
-
-      if (missionResult.success) {
-        // ★ 更新 Task 状态为完成
-        if (task) {
-          await this.prisma.researchTask.update({
-            where: { id: task.id },
-            data: {
-              status: ResearchTaskStatus.COMPLETED,
-              completedAt: new Date(),
-              result:
-                missionResult.analysisResult as unknown as Prisma.InputJsonValue,
-              resultSummary: `研究完成，找到 ${missionResult.evidenceIds.length} 个证据`,
-            },
-          });
-          // 更新 Mission 的 completedTasks 计数
-          await this.prisma.researchMission.update({
-            where: { id: todo.missionId! },
-            data: {
-              completedTasks: { increment: 1 },
-            },
-          });
-        }
-
-        this.logger.log(
-          `[executeAddDimension] Dimension research completed successfully for ${dimensionName}`,
-        );
-        return `已创建新维度「${dimensionName}」并完成 AI 研究。找到 ${missionResult.evidenceIds.length} 个证据来源。`;
-      } else {
-        // ★ 更新 Task 状态为失败
-        if (task) {
-          await this.prisma.researchTask.update({
-            where: { id: task.id },
-            data: {
-              status: ResearchTaskStatus.FAILED,
-              completedAt: new Date(),
-              resultSummary: `研究失败: ${missionResult.error || "未知错误"}`,
-            },
-          });
-        }
-
-        this.logger.warn(
-          `[executeAddDimension] Dimension research failed: ${missionResult.error}`,
-        );
-        return `已创建新维度「${dimensionName}」，但研究过程中出现问题: ${missionResult.error || "未知错误"}。您可以稍后手动触发研究。`;
-      }
-    } catch (error) {
-      // ★ 更新 Task 状态为失败
-      if (task) {
-        await this.prisma.researchTask.update({
-          where: { id: task.id },
-          data: {
-            status: ResearchTaskStatus.FAILED,
-            completedAt: new Date(),
-            resultSummary: `研究失败: ${error instanceof Error ? error.message : "未知错误"}`,
-          },
+      // ★ v7.3: 触发任务执行（处理 Mission 已完成的情况）
+      // 如果 Mission 正在执行，循环会自动拾取新任务
+      // 如果 Mission 已完成，会重新启动执行循环
+      this.missionService
+        .resumeExecutionForNewTask(todo.missionId, topicId)
+        .catch((err: Error) => {
+          this.logger.error(
+            `[executeAddDimension] Failed to resume execution: ${err.message}`,
+          );
         });
-      }
-
-      // 研究失败不影响维度创建
-      this.logger.error(
-        `[executeAddDimension] Failed to execute dimension research: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
-      return `已创建新维度「${dimensionName}」，但自动研究启动失败。您可以在维度列表中手动触发研究。`;
     }
+
+    // ★ v7.3: 不再直接执行研究，而是返回"已加入队列"的消息
+    // 研究将由 Mission 的 startExecution 循环调度执行
+    const message =
+      queuePosition > 0
+        ? `已创建新维度「${dimensionName}」并加入研究队列（第 ${queuePosition} 位）。研究将按顺序自动执行。`
+        : `已创建新维度「${dimensionName}」并加入研究队列。研究将按顺序自动执行。`;
+
+    this.logger.log(
+      `[executeAddDimension] Dimension ${dimensionName} added to queue successfully`,
+    );
+
+    return message;
   }
 
   /**
    * 执行深入研究操作
-   * ★ 增强版：创建 Dimension + Task 后自动触发 AI 研究
+   * ★ v7.3: 任务加入 Mission 调度队列，而非直接执行（修复插队问题）
    */
   private async executeDeepResearch(
     topicId: string,
@@ -1427,12 +1385,6 @@ export class ResearchTodoService {
       throw new NotFoundException(`Topic ${topicId} not found`);
     }
 
-    // 获取最新的 report
-    const report = await this.prisma.topicReport.findFirst({
-      where: { topicId },
-      orderBy: { generatedAt: "desc" },
-    });
-
     // 创建专门的深入研究维度
     const dimensionName = `深入分析：${researchTopic}`;
     const dimension = await this.prisma.topicDimension.create({
@@ -1452,10 +1404,33 @@ export class ResearchTodoService {
       `[executeDeepResearch] Created deep research dimension ${dimension.id}: ${dimensionName}`,
     );
 
-    // ★ 同时创建 ResearchTask 记录，用于 Mission 进度追踪
-    // ★ v7.2: 使用 TODO 中 Leader 分配的 Agent 信息
+    // ★ v7.3: 创建 ResearchTask 并加入调度队列（PENDING 状态）
     let task = null;
+    let queuePosition = 0;
     if (todo.missionId) {
+      // 获取当前队列中的最大优先级，新任务排在最后
+      const existingTasks = await this.prisma.researchTask.findMany({
+        where: {
+          missionId: todo.missionId,
+          taskType: "dimension_research",
+        },
+        orderBy: { priority: "desc" },
+        take: 1,
+      });
+
+      // 新任务优先级 = 当前最大优先级 + 1（排在队列末尾）
+      const maxPriority = existingTasks[0]?.priority || 0;
+      const newPriority = maxPriority + 1;
+
+      // 计算队列位置
+      const pendingCount = await this.prisma.researchTask.count({
+        where: {
+          missionId: todo.missionId,
+          status: ResearchTaskStatus.PENDING,
+        },
+      });
+      queuePosition = pendingCount + 1;
+
       task = await this.prisma.researchTask.create({
         data: {
           missionId: todo.missionId,
@@ -1465,13 +1440,13 @@ export class ResearchTodoService {
           taskType: "dimension_research",
           dimensionName: dimensionName,
           dimensionId: dimension.id,
-          // ★ v7.2: 使用 Leader 分配的 Agent 而非硬编码
           assignedAgent: todo.agentId || "researcher_dynamic",
           assignedAgentType: "dimension_researcher",
-          modelId: todo.modelId, // ★ 使用 Leader 分配的模型
-          priority: TASK_PRIORITY.DIMENSION_RESEARCH_DYNAMIC,
-          status: ResearchTaskStatus.EXECUTING,
-          startedAt: new Date(),
+          modelId: todo.modelId,
+          // ★ v7.3: 使用计算的优先级
+          priority: newPriority,
+          // ★ v7.3: 状态为 PENDING，由 Mission 调度执行
+          status: ResearchTaskStatus.PENDING,
         },
       });
 
@@ -1484,93 +1459,30 @@ export class ResearchTodoService {
       });
 
       this.logger.log(
-        `[executeDeepResearch] Created ResearchTask ${task.id} for deep research ${dimensionName}, agent: ${todo.agentId || "dynamic"}`,
+        `[executeDeepResearch] Created ResearchTask ${task.id} for deep research ${dimensionName}, priority: ${newPriority}, queue position: ${queuePosition}`,
       );
-    }
 
-    // ★ 自动触发维度研究
-    try {
-      // 更新 TODO 进度
-      await this.prisma.researchTodo.update({
-        where: { id: todo.id },
-        data: {
-          progress: 20,
-          statusMessage: `正在启动对「${researchTopic}」的深入研究...`,
-        },
-      });
-
-      // 调用 DimensionMissionService 执行真正的研究
-      const missionResult =
-        await this.dimensionMissionService.executeDimensionMission(
-          topic,
-          dimension,
-          report?.id,
-          todo.missionId,
-        );
-
-      if (missionResult.success) {
-        // ★ 更新 Task 状态为完成
-        if (task) {
-          await this.prisma.researchTask.update({
-            where: { id: task.id },
-            data: {
-              status: ResearchTaskStatus.COMPLETED,
-              completedAt: new Date(),
-              result:
-                missionResult.analysisResult as unknown as Prisma.InputJsonValue,
-              resultSummary: `深入研究完成，找到 ${missionResult.evidenceIds.length} 个证据`,
-            },
-          });
-          // 更新 Mission 的 completedTasks 计数
-          await this.prisma.researchMission.update({
-            where: { id: todo.missionId! },
-            data: {
-              completedTasks: { increment: 1 },
-            },
-          });
-        }
-
-        this.logger.log(
-          `[executeDeepResearch] Deep research completed successfully for ${researchTopic}`,
-        );
-        return `已完成对「${researchTopic}」的深入研究。找到 ${missionResult.evidenceIds.length} 个证据来源，研究内容已添加到报告中。`;
-      } else {
-        // ★ 更新 Task 状态为失败
-        if (task) {
-          await this.prisma.researchTask.update({
-            where: { id: task.id },
-            data: {
-              status: ResearchTaskStatus.FAILED,
-              completedAt: new Date(),
-              resultSummary: `研究失败: ${missionResult.error || "未知错误"}`,
-            },
-          });
-        }
-
-        this.logger.warn(
-          `[executeDeepResearch] Deep research failed: ${missionResult.error}`,
-        );
-        return `深入研究「${researchTopic}」过程中出现问题: ${missionResult.error || "未知错误"}。您可以稍后在维度列表中手动触发研究。`;
-      }
-    } catch (error) {
-      // ★ 更新 Task 状态为失败
-      if (task) {
-        await this.prisma.researchTask.update({
-          where: { id: task.id },
-          data: {
-            status: ResearchTaskStatus.FAILED,
-            completedAt: new Date(),
-            resultSummary: `研究失败: ${error instanceof Error ? error.message : "未知错误"}`,
-          },
+      // ★ v7.3: 触发任务执行（处理 Mission 已完成的情况）
+      this.missionService
+        .resumeExecutionForNewTask(todo.missionId, topicId)
+        .catch((err: Error) => {
+          this.logger.error(
+            `[executeDeepResearch] Failed to resume execution: ${err.message}`,
+          );
         });
-      }
-
-      // 研究失败不影响维度创建
-      this.logger.error(
-        `[executeDeepResearch] Failed to execute deep research: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
-      return `已创建深入研究任务「${researchTopic}」，但自动研究启动失败。您可以在维度列表中手动触发研究。`;
     }
+
+    // ★ v7.3: 不再直接执行研究，返回"已加入队列"的消息
+    const message =
+      queuePosition > 0
+        ? `已创建深入研究任务「${researchTopic}」并加入研究队列（第 ${queuePosition} 位）。研究将按顺序自动执行。`
+        : `已创建深入研究任务「${researchTopic}」并加入研究队列。研究将按顺序自动执行。`;
+
+    this.logger.log(
+      `[executeDeepResearch] Deep research ${researchTopic} added to queue successfully`,
+    );
+
+    return message;
   }
 
   // ==================== 辅助方法 ====================

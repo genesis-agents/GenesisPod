@@ -3,6 +3,10 @@
  *
  * Agent 服务：负责撰写单个章节内容
  * 每次调用只生成 300-800 字，确保不超 token 限制
+ *
+ * ★ 增强：内容质量检查和自动重试
+ * - 检查 API 错误状态，自动抛出异常触发重试
+ * - 检查内容长度，极短内容视为失败
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -17,6 +21,12 @@ import {
   renderPromptTemplate,
 } from "../prompts/dimension-research.prompt";
 import type { EvidenceData } from "../types/research.types";
+
+/**
+ * 内容质量检查阈值
+ */
+const MIN_CONTENT_LENGTH = 200; // 最小内容长度（字符）
+const MIN_CONTENT_LENGTH_RATIO = 0.1; // 最小内容长度比例（相对于目标字数）
 
 /**
  * 时间上下文配置
@@ -152,8 +162,32 @@ export class SectionWriterService {
     });
     const latencyMs = Date.now() - startTime;
 
+    // ★ 检查 API 错误状态
+    if (response.isError) {
+      this.logger.error(
+        `[writeSection] API error for ${section.title}: ${response.content.slice(0, 100)}`,
+      );
+      throw new Error(
+        `API error while writing section "${section.title}": ${response.content}`,
+      );
+    }
+
     // 提取内容（移除可能的 markdown 代码块包装）
     const content = this.extractContent(response.content);
+
+    // ★ 检查内容质量（长度检查）
+    const minLength = Math.max(
+      MIN_CONTENT_LENGTH,
+      section.targetWords * MIN_CONTENT_LENGTH_RATIO,
+    );
+    if (content.length < minLength) {
+      this.logger.error(
+        `[writeSection] Content too short for ${section.title}: ${content.length} chars < ${minLength} min`,
+      );
+      throw new Error(
+        `Content too short for section "${section.title}": got ${content.length} chars, expected at least ${minLength}`,
+      );
+    }
 
     // 统计字数和引用
     const wordCount = content.length;
@@ -231,8 +265,32 @@ export class SectionWriterService {
     });
     const latencyMs = Date.now() - startTime;
 
+    // ★ 检查 API 错误状态
+    if (response.isError) {
+      this.logger.error(
+        `[reviseSection] API error for ${section.title}: ${response.content.slice(0, 100)}`,
+      );
+      throw new Error(
+        `API error while revising section "${section.title}": ${response.content}`,
+      );
+    }
+
     // 提取内容
     const content = this.extractContent(response.content);
+
+    // ★ 检查内容质量（长度检查）
+    const minLength = Math.max(
+      MIN_CONTENT_LENGTH,
+      section.targetWords * MIN_CONTENT_LENGTH_RATIO,
+    );
+    if (content.length < minLength) {
+      this.logger.error(
+        `[reviseSection] Content too short for ${section.title}: ${content.length} chars < ${minLength} min`,
+      );
+      throw new Error(
+        `Revised content too short for section "${section.title}": got ${content.length} chars, expected at least ${minLength}`,
+      );
+    }
 
     // 统计字数和引用
     const wordCount = content.length;
@@ -254,8 +312,13 @@ export class SectionWriterService {
   /**
    * 批量并行写作多个章节
    *
+   * ★ 增强：支持单个章节失败时的容错和自动重试
+   * - 使用 Promise.allSettled 避免单个失败影响整体
+   * - 对失败的章节自动使用备用模型重试
+   * - 保持结果顺序与输入顺序一致
+   *
    * @param inputs 多个章节写作输入
-   * @returns 所有章节的写作结果
+   * @returns 所有章节的写作结果（顺序与输入一致）
    */
   async writeSectionsParallel(
     inputs: SectionWriteInput[],
@@ -264,11 +327,132 @@ export class SectionWriterService {
       `[writeSectionsParallel] Writing ${inputs.length} sections in parallel`,
     );
 
-    const results = await Promise.all(
+    // 初始化结果数组，保持与输入相同的长度和顺序
+    const results: (SectionWriteResult | null)[] = new Array(
+      inputs.length,
+    ).fill(null);
+    const failedIndices: {
+      index: number;
+      input: SectionWriteInput;
+      error: string;
+    }[] = [];
+
+    // 第一轮：并行执行所有章节
+    const firstRoundResults = await Promise.allSettled(
       inputs.map((input) => this.writeSection(input)),
     );
 
-    return results;
+    // 收集成功和失败的结果，保持索引位置
+    for (let i = 0; i < firstRoundResults.length; i++) {
+      const result = firstRoundResults[i];
+      if (result.status === "fulfilled") {
+        results[i] = result.value;
+      } else {
+        failedIndices.push({
+          index: i,
+          input: inputs[i],
+          error: result.reason?.message || String(result.reason),
+        });
+        this.logger.warn(
+          `[writeSectionsParallel] Section "${inputs[i].section.title}" failed: ${result.reason?.message}`,
+        );
+      }
+    }
+
+    // 如果有失败的章节，尝试用备用模型重试
+    if (failedIndices.length > 0) {
+      // 获取备用模型（使用 AI Engine 的智能选择，一次性获取）
+      const fallbackModel = await this.aiFacade.selectModel({
+        modelType: "CHAT" as any,
+      });
+
+      if (fallbackModel) {
+        // 过滤掉原模型就是 fallbackModel 的情况，避免无意义重试
+        const retryableItems = failedIndices.filter(
+          ({ input }) => input.modelId !== fallbackModel.id,
+        );
+        const skipItems = failedIndices.filter(
+          ({ input }) => input.modelId === fallbackModel.id,
+        );
+
+        // 记录跳过的项
+        for (const { index, input, error } of skipItems) {
+          this.logger.warn(
+            `[writeSectionsParallel] Skipping retry for "${input.section.title}" - fallback model same as original`,
+          );
+          results[index] = this.createFailedResult(input, error);
+        }
+
+        if (retryableItems.length > 0) {
+          this.logger.log(
+            `[writeSectionsParallel] Retrying ${retryableItems.length} failed sections with ${fallbackModel.id}`,
+          );
+
+          const retryResults = await Promise.allSettled(
+            retryableItems.map(({ input }) =>
+              this.writeSection({
+                ...input,
+                modelId: fallbackModel.id,
+              }),
+            ),
+          );
+
+          // 处理重试结果，放回正确的索引位置
+          for (let i = 0; i < retryResults.length; i++) {
+            const result = retryResults[i];
+            const { index, input, error: originalError } = retryableItems[i];
+
+            if (result.status === "fulfilled") {
+              this.logger.log(
+                `[writeSectionsParallel] Section "${input.section.title}" succeeded on retry with ${fallbackModel.id}`,
+              );
+              results[index] = result.value;
+            } else {
+              this.logger.error(
+                `[writeSectionsParallel] Section "${input.section.title}" failed even after retry: ${result.reason?.message}`,
+              );
+              results[index] = this.createFailedResult(input, originalError);
+            }
+          }
+        }
+      } else {
+        // 没有可用的备用模型，记录所有失败
+        this.logger.error(
+          `[writeSectionsParallel] No fallback model available, ${failedIndices.length} sections failed`,
+        );
+        for (const { index, input, error } of failedIndices) {
+          results[index] = this.createFailedResult(input, error);
+        }
+      }
+    }
+
+    // 确保所有位置都有结果（防御性编程）
+    const finalResults = results.map(
+      (r, i) => r ?? this.createFailedResult(inputs[i], "Unknown error"),
+    );
+
+    const successCount = finalResults.filter((r) => r.wordCount > 0).length;
+    this.logger.log(
+      `[writeSectionsParallel] Completed: ${successCount}/${inputs.length} sections successful`,
+    );
+
+    return finalResults;
+  }
+
+  /**
+   * 创建失败结果占位对象
+   */
+  private createFailedResult(
+    input: SectionWriteInput,
+    error: string,
+  ): SectionWriteResult {
+    return {
+      sectionId: input.section.id,
+      title: input.section.title,
+      content: `[内容生成失败] 原因: ${error}`,
+      wordCount: 0,
+      referencesUsed: [],
+    };
   }
 
   /**

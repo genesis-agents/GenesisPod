@@ -57,7 +57,7 @@ export default function LanguageSwitcher({
       <div ref={dropdownRef} className={`relative ${className}`}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
           title={t('profile.language')}
         >
           <Globe className="h-5 w-5 flex-shrink-0" />
@@ -102,7 +102,7 @@ export default function LanguageSwitcher({
       <div ref={dropdownRef} className={`relative ${className}`}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+          className="flex h-8 w-full items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
           title={t('profile.language')}
           aria-label={t('profile.language')}
         >

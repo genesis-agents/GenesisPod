@@ -46,6 +46,22 @@ export class ContentTransformerService {
       },
     });
 
+    // Check for API errors (e.g., expired API key, rate limits)
+    if (response.isError) {
+      this.logger.error(
+        `AI transform failed: ${response.content.slice(0, 200)}`,
+      );
+      throw new Error(`AI 内容转换失败: ${response.content.slice(0, 100)}`);
+    }
+
+    // Validate response content is not empty or too short
+    if (!response.content || response.content.length < 50) {
+      this.logger.error(
+        `AI returned invalid content (length=${response.content?.length || 0})`,
+      );
+      throw new Error("AI 返回的内容无效或过短，请重试");
+    }
+
     return this.parseResponse(response.content, input.sourceTitle);
   }
 

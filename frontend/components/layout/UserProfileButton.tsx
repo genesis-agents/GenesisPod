@@ -67,7 +67,7 @@ export default function UserProfileButton({
   if (isLoading) {
     return (
       <div
-        className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm`}
+        className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm`}
       >
         <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600"></div>
       </div>
@@ -79,7 +79,7 @@ export default function UserProfileButton({
     return (
       <button
         onClick={loginWithGoogle}
-        className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50`}
+        className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50`}
         title="Login with Google"
       >
         <LogIn className="h-5 w-5 flex-shrink-0" />
@@ -93,7 +93,7 @@ export default function UserProfileButton({
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setShowMenu(!showMenu)}
-        className={`flex w-full items-center ${isCollapsed ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-gray-50`}
+        className={`flex w-full items-center ${isCollapsed ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium transition-colors hover:bg-gray-50`}
         title={user.username || user.email}
       >
         <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200">

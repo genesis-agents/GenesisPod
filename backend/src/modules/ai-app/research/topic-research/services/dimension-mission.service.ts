@@ -674,14 +674,27 @@ export class DimensionMissionService {
             false,
           );
 
-          result = await this.sectionWriter.reviseSection({
-            section,
-            originalContent: result.content,
-            reviewFeedback: review.feedback,
-            revisionInstructions: review.revisionInstructions || "",
-            evidenceData,
-            modelId, // ★ 修订时使用同一模型
-          });
+          // ★ 修订时添加异常处理，失败时保持原内容并退出修订循环
+          try {
+            result = await this.sectionWriter.reviseSection({
+              section,
+              originalContent: result.content,
+              reviewFeedback: review.feedback,
+              revisionInstructions: review.revisionInstructions || "",
+              evidenceData,
+              modelId, // ★ 修订时使用同一模型
+            });
+          } catch (revisionError) {
+            const errorMsg =
+              revisionError instanceof Error
+                ? revisionError.message
+                : String(revisionError);
+            this.logger.error(
+              `${logPrefix} Section "${section.title}" revision failed: ${errorMsg}, keeping current content`,
+            );
+            // 修订失败，保持当前内容并退出修订循环，避免阻塞其他章节
+            break;
+          }
 
           revisionCount++;
         }
@@ -1065,6 +1078,7 @@ export class DimensionMissionService {
    * @param dimensionName - 维度名称（用于前端显示）
    * @param stageProgress - 当前阶段的进度百分比（可选，如果提供则使用此值）
    *
+   * ★ v7.3: 同时更新 ResearchTask.progress，确保前端能正确显示实时进度
    * ★ 同时更新 mission.updatedAt 作为心跳，防止被健康检测误判为卡死
    */
   private async emitProgress(
@@ -1087,7 +1101,7 @@ export class DimensionMissionService {
       calculatedProgress = 10;
     }
 
-    // 使用维度研究进度事件
+    // 使用维度研究进度事件（前端通过 WebSocket 接收实时进度）
     this.eventEmitter.emitDimensionResearchProgress(
       topicId,
       dimensionName,

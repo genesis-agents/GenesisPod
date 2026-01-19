@@ -144,7 +144,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
       {/* Header */}
       <div
-        className={`flex flex-shrink-0 items-center overflow-hidden px-4 py-3 ${!showExpanded ? 'justify-center' : ''}`}
+        className={`flex flex-shrink-0 items-center overflow-hidden px-4 py-2.5 ${!showExpanded ? 'justify-center' : ''}`}
       >
         {!showExpanded ? (
           /* Collapsed Logo - AI Teams: Circular collaboration */
@@ -335,8 +335,8 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       </div>
 
       {/* Main Navigation */}
-      <nav className="scrollbar-thin flex-1 overflow-y-auto overflow-x-hidden px-3 py-1">
-        <div className="space-y-1">
+      <nav className="scrollbar-thin flex-1 overflow-y-auto overflow-x-hidden px-3 py-0.5">
+        <div className="space-y-0.5">
           {/* AI Ask - Primary AI Chat Entry */}
           <Link
             href="/ai-ask"
@@ -346,7 +346,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 window.location.href = '/ai-ask';
               }
             }}
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
               isActive('/ai-ask') || pathname?.startsWith('/ai-ask')
                 ? 'bg-violet-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -372,7 +372,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           {/* Section: Materials & Knowledge */}
           {showExpanded && (
-            <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
               {t('nav.sections.materialsKnowledge')}
             </div>
           )}
@@ -388,7 +388,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 window.location.href = '/explore';
               }
             }}
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
               isActive('/explore')
                 ? 'bg-pink-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -419,7 +419,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 window.location.href = '/library';
               }
             }}
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
               isActive('/library')
                 ? 'bg-indigo-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -444,7 +444,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           {/* Section: AI Teams */}
           {showExpanded && (
-            <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
               {t('nav.sections.aiTeams')}
             </div>
           )}
@@ -454,7 +454,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           <Link
             href="/ai-image"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
               pathname?.startsWith('/ai-image')
                 ? 'bg-pink-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -479,7 +479,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           <Link
             href="/ai-writing"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
               pathname?.startsWith('/ai-writing')
                 ? 'bg-amber-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -504,7 +504,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           <Link
             href="/ai-research"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
               pathname?.startsWith('/ai-research')
                 ? 'bg-purple-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -535,7 +535,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 window.location.href = '/ai-office';
               }
             }}
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} relative rounded-lg px-3 py-2.5 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} relative rounded-lg px-3 py-2 text-sm font-medium ${
               isActive('/ai-office') || pathname?.startsWith('/ai-office')
                 ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-gray-900 shadow-sm'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -566,7 +566,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           <Link
             href="/ai-simulation"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
               pathname?.startsWith('/ai-simulation')
                 ? 'bg-indigo-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -635,7 +635,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           <Link
             href="/ai-teams"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
               pathname?.startsWith('/ai-teams')
                 ? 'bg-green-50 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-50'
@@ -660,7 +660,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           {/* Section: AI Tools */}
           {showExpanded && (
-            <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
               {t('nav.sections.aiTools')}
             </div>
           )}
@@ -670,7 +670,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           <Link
             href="/ai-store"
-            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
               pathname?.startsWith('/ai-store') ||
               pathname?.startsWith('/ai-skills')
                 ? 'bg-cyan-50 text-gray-900'
@@ -697,7 +697,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           {isAdmin && (
             <Link
               href="/ai-social"
-              className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
+              className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
                 pathname?.startsWith('/ai-social')
                   ? 'bg-rose-50 text-gray-900'
                   : 'text-gray-700 hover:bg-gray-50'
@@ -724,7 +724,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           {isAdmin && (
             <Link
               href="/admin/overview"
-              className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium ${
+              className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
                 pathname?.startsWith('/admin')
                   ? 'bg-purple-50 text-gray-900'
                   : 'text-gray-700 hover:bg-gray-50'
@@ -757,7 +757,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       </nav>
 
       {/* Bottom Navigation */}
-      <div className="flex-shrink-0 space-y-0.5 overflow-hidden border-t border-gray-200 px-3 py-2">
+      <div className="flex-shrink-0 space-y-0 overflow-hidden border-t border-gray-200 px-3 py-1.5">
         <Link
           href="/notifications"
           onClick={(e) => {
@@ -767,7 +767,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
               window.location.href = '/notifications';
             }
           }}
-          className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
+          className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
             isActive('/notifications')
               ? 'bg-pink-50 text-gray-900'
               : 'text-gray-700 hover:bg-gray-50'
@@ -807,7 +807,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
               window.location.href = '/feedback';
             }
           }}
-          className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-2 text-sm font-medium ${
+          className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
             isActive('/feedback')
               ? 'bg-pink-50 text-gray-900'
               : 'text-gray-700 hover:bg-gray-50'

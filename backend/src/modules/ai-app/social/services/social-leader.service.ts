@@ -14,6 +14,7 @@ import { ProcessSourceDto } from "../dto/process-source.dto";
 import {
   SocialContentStatus,
   SocialContentSourceType,
+  SocialContentType,
   SocialReviewStatus,
 } from "../types";
 
@@ -29,6 +30,70 @@ function truncateString(
   if (str.length <= maxLength) return str;
   // Truncate and add ellipsis, leaving room for "..."
   return str.substring(0, maxLength - 3) + "...";
+}
+
+// Helper to safely convert data to JSON-serializable format
+function safeJsonSerialize<T>(data: T, fallback: T): T {
+  try {
+    // Test if data can be serialized
+    JSON.stringify(data);
+    return data;
+  } catch {
+    return fallback;
+  }
+}
+
+// Helper to ensure array is valid JSON array
+function ensureJsonArray(data: unknown): string[] {
+  if (!data) return [];
+  if (!Array.isArray(data)) return [];
+  // Filter out non-string items and ensure serializable
+  return data
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => truncateString(item, 500));
+}
+
+// Retry helper for transient database errors (like connection pool issues)
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  delayMs: number = 500,
+  logger?: Logger,
+): Promise<T> {
+  let lastError: Error | undefined;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      const errorMessage = lastError.message;
+
+      // Check if it's a transient error that can be retried
+      // Be specific to avoid retrying non-transient errors like "Invalid connection string"
+      const isTransientError =
+        errorMessage.includes("08P01") || // PostgreSQL protocol error
+        errorMessage.includes("insufficient data") ||
+        errorMessage.includes("ECONNRESET") ||
+        errorMessage.includes("ETIMEDOUT") ||
+        errorMessage.includes("Connection terminated") ||
+        errorMessage.includes("connection reset") ||
+        errorMessage.includes("connection closed") ||
+        errorMessage.includes("Can't reach database") ||
+        errorMessage.includes("Server has closed the connection");
+
+      if (isTransientError && attempt < maxRetries) {
+        const delay = delayMs * Math.pow(2, attempt - 1); // Exponential backoff
+        logger?.warn(
+          `Database operation failed (attempt ${attempt}/${maxRetries}), ` +
+            `retrying in ${delay}ms: ${errorMessage.slice(0, 100)}`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        throw lastError;
+      }
+    }
+  }
+  throw lastError;
 }
 
 @Injectable()
@@ -70,29 +135,62 @@ export class SocialLeaderService {
       additionalInstructions: dto.additionalInstructions,
     });
 
-    // 3. 内容合规检测
+    // 3. 验证转换后的内容有效性
+    if (
+      !transformedContent.content ||
+      transformedContent.content.trim().length < 10
+    ) {
+      this.logger.error(
+        `Invalid transformed content: length=${transformedContent.content?.length || 0}`,
+      );
+      throw new BadRequestException("内容转换结果无效，请重试");
+    }
+
+    // 4. 内容合规检测
     const checkResult = await this.contentChecker.check(
       transformedContent.content,
     );
 
-    // 4. 创建内容记录 (truncate fields to fit database constraints)
-    const content = await this.db.socialContent.create({
-      data: {
-        userId,
-        contentType: dto.targetType,
-        sourceType: SocialContentSourceType.EXTERNAL_URL,
-        sourceUrl: dto.url,
-        title: truncateString(transformedContent.title, 200),
-        content: transformedContent.content,
-        digest: truncateString(transformedContent.digest, 200) || null,
-        coverImageUrl: fetchedContent.coverImage,
-        images: fetchedContent.images || [],
-        tags: transformedContent.tags || [],
-        status: SocialContentStatus.DRAFT,
-        reviewStatus: SocialReviewStatus.PENDING,
-        complianceCheck: checkResult as object,
-      },
+    // 5. 创建内容记录 (truncate fields and validate JSON to fit database constraints)
+    const safeImages = ensureJsonArray(fetchedContent.images);
+    const safeTags = ensureJsonArray(transformedContent.tags);
+    const safeComplianceCheck = safeJsonSerialize(checkResult, {
+      passed: false,
+      score: 0,
+      issues: [],
+      suggestions: ["Compliance check data was invalid"],
     });
+
+    this.logger.debug(
+      `Creating social content: title=${transformedContent.title?.slice(0, 50)}, ` +
+        `contentLength=${transformedContent.content?.length}, ` +
+        `imagesCount=${safeImages.length}, tagsCount=${safeTags.length}`,
+    );
+
+    // Use retry logic to handle transient database connection errors
+    const content = await withRetry(
+      () =>
+        this.db.socialContent.create({
+          data: {
+            userId,
+            contentType: dto.targetType,
+            sourceType: SocialContentSourceType.EXTERNAL_URL,
+            sourceUrl: dto.url,
+            title: truncateString(transformedContent.title, 200),
+            content: transformedContent.content,
+            digest: truncateString(transformedContent.digest, 200) || null,
+            coverImageUrl: fetchedContent.coverImage,
+            images: safeImages,
+            tags: safeTags,
+            status: SocialContentStatus.DRAFT,
+            reviewStatus: SocialReviewStatus.PENDING,
+            complianceCheck: safeComplianceCheck,
+          },
+        }),
+      3,
+      500,
+      this.logger,
+    );
 
     return {
       content,
@@ -126,30 +224,63 @@ export class SocialLeaderService {
       additionalInstructions: dto.additionalInstructions,
     });
 
-    // 3. 内容合规检测
+    // 3. 验证转换后的内容有效性
+    if (
+      !transformedContent.content ||
+      transformedContent.content.trim().length < 10
+    ) {
+      this.logger.error(
+        `Invalid transformed content from source: length=${transformedContent.content?.length || 0}`,
+      );
+      throw new BadRequestException("内容转换结果无效，请重试");
+    }
+
+    // 4. 内容合规检测
     const checkResult = await this.contentChecker.check(
       transformedContent.content,
     );
 
-    // 4. 创建内容记录 (truncate fields to fit database constraints)
-    const content = await this.db.socialContent.create({
-      data: {
-        userId,
-        contentType: dto.targetType,
-        sourceType: dto.sourceType,
-        sourceId: dto.sourceId,
-        sourceUrl: sourceContent.url,
-        title: truncateString(transformedContent.title, 200),
-        content: transformedContent.content,
-        digest: truncateString(transformedContent.digest, 200) || null,
-        coverImageUrl: sourceContent.coverImage,
-        images: sourceContent.images || [],
-        tags: transformedContent.tags || [],
-        status: SocialContentStatus.DRAFT,
-        reviewStatus: SocialReviewStatus.PENDING,
-        complianceCheck: checkResult as object,
-      },
+    // 5. 创建内容记录 (truncate fields and validate JSON to fit database constraints)
+    const safeImages = ensureJsonArray(sourceContent.images);
+    const safeTags = ensureJsonArray(transformedContent.tags);
+    const safeComplianceCheck = safeJsonSerialize(checkResult, {
+      passed: false,
+      score: 0,
+      issues: [],
+      suggestions: ["Compliance check data was invalid"],
     });
+
+    this.logger.debug(
+      `Creating social content from source: title=${transformedContent.title?.slice(0, 50)}, ` +
+        `contentLength=${transformedContent.content?.length}, ` +
+        `imagesCount=${safeImages.length}, tagsCount=${safeTags.length}`,
+    );
+
+    // Use retry logic to handle transient database connection errors
+    const content = await withRetry(
+      () =>
+        this.db.socialContent.create({
+          data: {
+            userId,
+            contentType: dto.targetType,
+            sourceType: dto.sourceType,
+            sourceId: dto.sourceId,
+            sourceUrl: sourceContent.url,
+            title: truncateString(transformedContent.title, 200),
+            content: transformedContent.content,
+            digest: truncateString(transformedContent.digest, 200) || null,
+            coverImageUrl: sourceContent.coverImage,
+            images: safeImages,
+            tags: safeTags,
+            status: SocialContentStatus.DRAFT,
+            reviewStatus: SocialReviewStatus.PENDING,
+            complianceCheck: safeComplianceCheck,
+          },
+        }),
+      3,
+      500,
+      this.logger,
+    );
 
     return {
       content,
@@ -164,9 +295,23 @@ export class SocialLeaderService {
    * 重新生成内容
    */
   async regenerateContent(userId: string, contentId: string) {
-    const existingContent = await this.db.socialContent.findFirst({
-      where: { id: contentId, userId },
-    });
+    // Use retry for database query in case of transient connection issues
+    const existingContent = await withRetry(
+      async () => {
+        const result = await this.db.socialContent.findFirst({
+          where: { id: contentId, userId },
+        });
+        return result as {
+          sourceUrl?: string;
+          sourceId?: string;
+          sourceType?: SocialContentSourceType;
+          contentType: SocialContentType;
+        } | null;
+      },
+      3,
+      500,
+      this.logger,
+    );
 
     if (!existingContent) {
       throw new NotFoundException("内容不存在");

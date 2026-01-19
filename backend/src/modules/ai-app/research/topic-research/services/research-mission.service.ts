@@ -1584,10 +1584,13 @@ export class ResearchMissionService {
 
   /**
    * 获取可执行的任务（依赖已完成）
+   * ★ v7.3: 按 priority 升序排序（数字越小越先执行）
    */
   async getExecutableTasks(missionId: string): Promise<ResearchTask[]> {
+    // ★ v7.3: 查询时按 priority 排序
     const allTasks = await this.prisma.researchTask.findMany({
       where: { missionId },
+      orderBy: { priority: "asc" },
     });
 
     const completedTaskIds = new Set(
@@ -1596,7 +1599,7 @@ export class ResearchMissionService {
         .map((t) => t.id),
     );
 
-    return allTasks.filter((task) => {
+    const executableTasks = allTasks.filter((task) => {
       // 必须是 PENDING 状态
       if (task.status !== ResearchTaskStatus.PENDING) {
         return false;
@@ -1606,6 +1609,11 @@ export class ResearchMissionService {
       const dependencies = task.dependencies || [];
       return dependencies.every((depId) => completedTaskIds.has(depId));
     });
+
+    // ★ v7.3: 确保返回的任务按 priority 排序（虽然查询已排序，但 filter 不保证顺序）
+    return executableTasks.sort(
+      (a, b) => (a.priority || 0) - (b.priority || 0),
+    );
   }
 
   /**
@@ -2282,5 +2290,101 @@ export class ResearchMissionService {
     await Promise.all(executing);
 
     return results;
+  }
+
+  /**
+   * ★ v7.3: 恢复执行新添加的任务
+   *
+   * 当用户在 Mission 完成后添加新任务时调用此方法
+   * 会重新激活 Mission 并执行待处理的任务
+   *
+   * @param missionId Mission ID
+   * @param topicId Topic ID
+   * @returns 是否成功触发执行
+   */
+  async resumeExecutionForNewTask(
+    missionId: string,
+    topicId: string,
+  ): Promise<boolean> {
+    this.logger.log(
+      `[resumeExecutionForNewTask] Checking mission ${missionId} for new task execution`,
+    );
+
+    // 1. 检查 Mission 状态
+    const mission = await this.prisma.researchMission.findUnique({
+      where: { id: missionId },
+      select: { status: true },
+    });
+
+    if (!mission) {
+      this.logger.warn(
+        `[resumeExecutionForNewTask] Mission ${missionId} not found`,
+      );
+      return false;
+    }
+
+    // 2. 如果 Mission 正在执行中，循环会自动拾取新任务，无需处理
+    if (mission.status === ResearchMissionStatus.EXECUTING) {
+      this.logger.log(
+        `[resumeExecutionForNewTask] Mission ${missionId} is still executing, loop will pick up new task`,
+      );
+      return true;
+    }
+
+    // 3. 如果 Mission 已完成或失败，检查是否有待执行的任务
+    if (
+      mission.status === ResearchMissionStatus.COMPLETED ||
+      mission.status === ResearchMissionStatus.FAILED
+    ) {
+      const pendingTasks = await this.prisma.researchTask.findMany({
+        where: {
+          missionId,
+          status: ResearchTaskStatus.PENDING,
+        },
+        orderBy: { priority: "asc" },
+      });
+
+      if (pendingTasks.length === 0) {
+        this.logger.log(
+          `[resumeExecutionForNewTask] No pending tasks for mission ${missionId}`,
+        );
+        return false;
+      }
+
+      this.logger.log(
+        `[resumeExecutionForNewTask] Found ${pendingTasks.length} pending tasks, restarting execution`,
+      );
+
+      // 4. 更新 Mission 状态为 EXECUTING
+      await this.prisma.researchMission.update({
+        where: { id: missionId },
+        data: { status: ResearchMissionStatus.EXECUTING },
+      });
+
+      // 5. 发送状态更新事件
+      await this.researchEventEmitter.emitMissionProgress(topicId, {
+        missionId,
+        progress: 0,
+        phase: "resuming",
+        message: `恢复执行 ${pendingTasks.length} 个新任务`,
+        completedTasks: 0,
+        totalTasks: pendingTasks.length,
+      });
+
+      // 6. 异步启动执行循环
+      this.startExecution(missionId, topicId).catch((err) => {
+        this.logger.error(
+          `[resumeExecutionForNewTask] Execution failed: ${err}`,
+        );
+      });
+
+      return true;
+    }
+
+    // 其他状态（CANCELLED）不处理
+    this.logger.log(
+      `[resumeExecutionForNewTask] Mission ${missionId} status is ${mission.status}, not resuming`,
+    );
+    return false;
   }
 }
