@@ -1776,6 +1776,13 @@
       },
       "modal": {
         "configure": "配置 {{name}}",
+        "keySource": "API Key 来源",
+        "secretManager": "密钥管理器",
+        "directInput": "直接输入",
+        "selectSecret": "选择密钥",
+        "noSecretsAvailable": "暂无可用密钥",
+        "addSecretsHint": "请先在密钥管理中添加密钥",
+        "currentSecret": "当前密钥",
         "apiKey": "API Key",
         "apiKeyConfigured": "API Key 已配置",
         "noKeyRequired": "无需配置 API Key",

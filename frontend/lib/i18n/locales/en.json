@@ -1774,6 +1774,13 @@
       },
       "modal": {
         "configure": "Configure {{name}}",
+        "keySource": "API Key Source",
+        "secretManager": "Secret Manager",
+        "directInput": "Direct Input",
+        "selectSecret": "Select Secret",
+        "noSecretsAvailable": "No secrets available",
+        "addSecretsHint": "Add secrets in Secret Management first",
+        "currentSecret": "Current secret",
         "apiKey": "API Key",
         "apiKeyConfigured": "API Key configured",
         "noKeyRequired": "No API Key required",

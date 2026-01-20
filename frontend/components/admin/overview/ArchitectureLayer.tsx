@@ -54,12 +54,12 @@ export default function ArchitectureLayer({
           <div className={cn('w-1.5 flex-shrink-0', styles.accentBar)} />
 
           {/* Header content */}
-          <div className="flex flex-1 items-center justify-between px-5 py-4">
-            <div className="flex items-center gap-4">
-              {/* Level badge - larger and more prominent */}
+          <div className="flex flex-1 items-center justify-between px-4 py-2.5">
+            <div className="flex items-center gap-3">
+              {/* Level badge - compact */}
               <span
                 className={cn(
-                  'flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold shadow-sm',
+                  'flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold shadow-sm',
                   styles.badge
                 )}
               >
@@ -68,11 +68,11 @@ export default function ArchitectureLayer({
 
               {/* Title and description */}
               <div>
-                <h3 className="text-base font-semibold text-gray-900">
+                <h3 className="text-sm font-semibold text-gray-900">
                   {t(layer.titleKey)}
                 </h3>
                 {layer.subtitleKey && (
-                  <p className="mt-0.5 text-sm text-gray-500">
+                  <p className="text-xs text-gray-500">
                     {t(layer.subtitleKey)}
                   </p>
                 )}
@@ -80,15 +80,15 @@ export default function ArchitectureLayer({
             </div>
 
             {/* Stats */}
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-1">
                 <span className="font-medium text-gray-700">{cardCount}</span>
                 <span className="text-gray-400">modules</span>
               </div>
               {clickableCount > 0 && (
                 <>
-                  <div className="h-4 w-px bg-gray-200" />
-                  <div className="flex items-center gap-1.5">
+                  <div className="h-3 w-px bg-gray-200" />
+                  <div className="flex items-center gap-1">
                     <span className={cn('font-medium', styles.accent)}>
                       {clickableCount}
                     </span>
@@ -101,14 +101,14 @@ export default function ArchitectureLayer({
         </div>
 
         {/* Cards Grid */}
-        <div className="px-5 pb-5">
+        <div className="px-4 pb-3">
           {/* Regular cards - Use grid for L1/L2 for consistent sizing */}
           {layer.cards && (
             <div
               className={cn(
                 layer.level === 1 || layer.level === 2
-                  ? 'grid grid-cols-5 gap-3' // 5 columns for L1, L2 uses same grid for alignment
-                  : 'flex flex-wrap gap-3'
+                  ? 'grid grid-cols-5 gap-2' // 5 columns for L1, L2 uses same grid for alignment
+                  : 'flex flex-wrap gap-2'
               )}
             >
               {layer.cards.map((card) => (
@@ -124,18 +124,18 @@ export default function ArchitectureLayer({
 
           {/* Grouped cards (for AI Apps layer) */}
           {layer.groups && (
-            <div className="space-y-5">
+            <div className="space-y-3">
               {layer.groups.map((group) => (
                 <div key={group.id}>
                   {/* Group title with subtle line */}
-                  <div className="mb-3 flex items-center gap-3">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                       {t(group.titleKey)}
                     </span>
                     <div className="h-px flex-1 bg-gray-200/50" />
                   </div>
                   {/* Group cards */}
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-wrap gap-2">
                     {group.cards.map((card) => (
                       <ArchitectureCard
                         key={card.id}
@@ -151,18 +151,18 @@ export default function ArchitectureLayer({
         </div>
       </div>
 
-      {/* Connection Arrow - Enhanced design */}
+      {/* Connection Arrow - Compact */}
       {showArrow && (
-        <div className="flex justify-center py-4">
+        <div className="flex justify-center py-1.5">
           <div className="flex flex-col items-center">
             {/* Dotted line */}
-            <div className="h-3 w-px border-l-2 border-dashed border-gray-300" />
+            <div className="h-2 w-px border-l border-dashed border-gray-300" />
             {/* Arrow circle */}
-            <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-gray-200 bg-white shadow-sm">
-              <ChevronDown className="h-4 w-4 text-gray-400" />
+            <div className="flex h-5 w-5 items-center justify-center rounded-full border border-gray-200 bg-white">
+              <ChevronDown className="h-3 w-3 text-gray-400" />
             </div>
             {/* Dotted line */}
-            <div className="h-3 w-px border-l-2 border-dashed border-gray-300" />
+            <div className="h-2 w-px border-l border-dashed border-gray-300" />
           </div>
         </div>
       )}

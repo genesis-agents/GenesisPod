@@ -5,6 +5,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
 import { createLogger } from '@/lib/utils/logger';
+import { useAdminSecrets } from '@/hooks/domain/useAdminSecrets';
 import {
   Search,
   CheckCircle,
@@ -30,6 +31,8 @@ import {
   MoreHorizontal,
   ChevronDown,
   X,
+  Key,
+  Lock,
 } from 'lucide-react';
 
 const logger = createLogger('ToolsManagement');
@@ -52,6 +55,7 @@ interface Tool {
   status: 'configured' | 'not_configured' | 'error';
   hasApiKey: boolean;
   noKeyRequired?: boolean;
+  secretKey?: string | null; // Reference to Secret Manager secret name
   url?: string;
   freeQuota?: string;
   pricing?: string;
@@ -62,6 +66,17 @@ interface Tool {
     error?: string;
   };
 }
+
+// Map tool categories to secret categories
+const CATEGORY_TO_SECRET_CATEGORY: Record<ToolCategory, string | null> = {
+  all: null,
+  search: 'SEARCH',
+  extraction: 'EXTRACTION',
+  youtube: 'YOUTUBE',
+  tts: 'TTS',
+  skillsmp: 'SKILLSMP',
+  simulation: 'OTHER',
+};
 
 // Category configuration
 const CATEGORIES: {
@@ -377,15 +392,37 @@ function ConfigureModal({
   onClose,
   onSave,
   saving,
+  availableSecrets,
 }: {
   tool: Tool;
   onClose: () => void;
-  onSave: (toolId: string, apiKey: string) => Promise<void>;
+  onSave: (
+    toolId: string,
+    apiKey: string,
+    secretKey?: string | null
+  ) => Promise<void>;
   saving: boolean;
+  availableSecrets: Array<{
+    name: string;
+    displayName: string;
+    category: string;
+  }>;
 }) {
   const { t } = useTranslation();
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
+  const [keySourceMode, setKeySourceMode] = useState<'direct' | 'secret'>(
+    tool.secretKey ? 'secret' : 'direct'
+  );
+  const [selectedSecretKey, setSelectedSecretKey] = useState<string | null>(
+    tool.secretKey || null
+  );
+
+  // Filter secrets by tool category
+  const secretCategory = CATEGORY_TO_SECRET_CATEGORY[tool.category];
+  const filteredSecrets = availableSecrets.filter(
+    (s) => s.category === secretCategory
+  );
 
   // Keyboard support - Escape to close
   useEffect(() => {
@@ -400,9 +437,15 @@ function ConfigureModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSave(tool.id, apiKey);
+    if (keySourceMode === 'secret') {
+      await onSave(tool.id, '', selectedSecretKey);
+    } else {
+      await onSave(tool.id, apiKey, null);
+    }
     setApiKey('');
   };
+
+  const canSubmit = keySourceMode === 'secret' ? !!selectedSecretKey : !!apiKey;
 
   return (
     <div
@@ -457,51 +500,153 @@ function ConfigureModal({
                 </p>
               </div>
             ) : (
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                  {t('admin.tools.modal.apiKey')}
-                </label>
-                <div className="relative">
-                  <input
-                    type={showKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder={
-                      tool.hasApiKey ? '••••••••••••••••' : 'Enter API Key'
-                    }
-                    autoComplete="new-password"
-                    spellCheck="false"
-                    aria-label="API Key"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowKey(!showKey)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-600"
-                  >
-                    {showKey ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
+              <div className="space-y-4">
+                {/* Key Source Mode Toggle */}
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    {t('admin.tools.modal.keySource')}
+                  </label>
+                  <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setKeySourceMode('secret')}
+                      className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                        keySourceMode === 'secret'
+                          ? 'bg-white text-blue-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <Lock className="h-4 w-4" />
+                      {t('admin.tools.modal.secretManager')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setKeySourceMode('direct')}
+                      className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                        keySourceMode === 'direct'
+                          ? 'bg-white text-blue-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <Key className="h-4 w-4" />
+                      {t('admin.tools.modal.directInput')}
+                    </button>
+                  </div>
                 </div>
-                {tool.hasApiKey && (
-                  <p className="mt-1 text-xs text-green-600">
-                    <CheckCircle className="mr-1 inline h-3 w-3" />
-                    {t('admin.tools.modal.apiKeyConfigured')}
-                  </p>
+
+                {/* Secret Manager Selection */}
+                {keySourceMode === 'secret' && (
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                      {t('admin.tools.modal.selectSecret')}
+                    </label>
+                    {filteredSecrets.length > 0 ? (
+                      <div className="space-y-2">
+                        {filteredSecrets.map((secret) => (
+                          <label
+                            key={secret.name}
+                            className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-all ${
+                              selectedSecretKey === secret.name
+                                ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
+                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="secretKey"
+                              value={secret.name}
+                              checked={selectedSecretKey === secret.name}
+                              onChange={(e) =>
+                                setSelectedSecretKey(e.target.value)
+                              }
+                              className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <Lock className="h-4 w-4 text-gray-400" />
+                                <span className="font-medium text-gray-900">
+                                  {secret.displayName || secret.name}
+                                </span>
+                              </div>
+                              <span className="text-xs text-gray-500">
+                                {secret.name}
+                              </span>
+                            </div>
+                            {selectedSecretKey === secret.name && (
+                              <CheckCircle className="h-5 w-5 text-blue-600" />
+                            )}
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
+                        <Lock className="mx-auto h-8 w-8 text-gray-400" />
+                        <p className="mt-2 text-sm text-gray-600">
+                          {t('admin.tools.modal.noSecretsAvailable')}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {t('admin.tools.modal.addSecretsHint')}
+                        </p>
+                      </div>
+                    )}
+                    {tool.secretKey && (
+                      <p className="mt-2 text-xs text-green-600">
+                        <CheckCircle className="mr-1 inline h-3 w-3" />
+                        {t('admin.tools.modal.currentSecret')}: {tool.secretKey}
+                      </p>
+                    )}
+                  </div>
                 )}
-                {tool.url && (
-                  <a
-                    href={tool.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    {t('admin.tools.modal.getApiKey')}
-                  </a>
+
+                {/* Direct API Key Input */}
+                {keySourceMode === 'direct' && (
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                      {t('admin.tools.modal.apiKey')}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showKey ? 'text' : 'password'}
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder={
+                          tool.hasApiKey ? '••••••••••••••••' : 'Enter API Key'
+                        }
+                        autoComplete="new-password"
+                        spellCheck="false"
+                        aria-label="API Key"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowKey(!showKey)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-600"
+                      >
+                        {showKey ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                    {tool.hasApiKey && !tool.secretKey && (
+                      <p className="mt-1 text-xs text-green-600">
+                        <CheckCircle className="mr-1 inline h-3 w-3" />
+                        {t('admin.tools.modal.apiKeyConfigured')}
+                      </p>
+                    )}
+                    {tool.url && (
+                      <a
+                        href={tool.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        {t('admin.tools.modal.getApiKey')}
+                      </a>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -539,7 +684,7 @@ function ConfigureModal({
             {!tool.noKeyRequired && (
               <button
                 type="submit"
-                disabled={saving || !apiKey}
+                disabled={saving || !canSubmit}
                 className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? (
@@ -560,6 +705,8 @@ function ConfigureModal({
 // Main Component
 export default function ToolsManagement() {
   const { t } = useTranslation();
+  const { secrets: availableSecrets, loading: secretsLoading } =
+    useAdminSecrets();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tools, setTools] = useState<Tool[]>([]);
@@ -738,7 +885,11 @@ export default function ToolsManagement() {
   }, [tools]);
 
   // Handle save configuration
-  const handleSaveConfig = async (toolId: string, apiKey: string) => {
+  const handleSaveConfig = async (
+    toolId: string,
+    apiKey: string,
+    secretKey?: string | null
+  ) => {
     setSaving(true);
     setMessage(null);
 
@@ -1019,6 +1170,7 @@ export default function ToolsManagement() {
           onClose={() => setConfiguringTool(null)}
           onSave={handleSaveConfig}
           saving={saving}
+          availableSecrets={availableSecrets || []}
         />
       )}
     </div>

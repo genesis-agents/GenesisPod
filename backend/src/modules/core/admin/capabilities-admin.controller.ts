@@ -49,6 +49,7 @@ export class CapabilitiesAdminController {
       displayName?: string;
       description?: string;
       config?: Record<string, unknown>;
+      secretKey?: string | null;
     },
   ) {
     this.logger.log(`Admin: Updating tool ${toolId}`);

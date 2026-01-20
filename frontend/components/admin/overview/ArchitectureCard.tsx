@@ -27,7 +27,7 @@ export default function ArchitectureCard({
   const cardContent = (
     <div
       className={cn(
-        'group flex items-center gap-3 rounded-lg border px-4 py-3 transition-all duration-200',
+        'group flex items-center gap-2 rounded-md border px-3 py-2 transition-all duration-200',
         fixedWidth && 'w-full', // Fill grid cell width
         card.clickable
           ? [
@@ -41,17 +41,17 @@ export default function ArchitectureCard({
       {/* Icon with layer color */}
       <div
         className={cn(
-          'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg transition-colors',
+          'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md transition-colors',
           card.clickable ? styles.iconBg : 'bg-gray-100/80 text-gray-400'
         )}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className="h-4 w-4" />
       </div>
 
       {/* Label */}
       <span
         className={cn(
-          'text-sm font-medium',
+          'text-xs font-medium',
           card.clickable
             ? 'text-gray-700 group-hover:text-gray-900'
             : 'text-gray-500'
@@ -64,7 +64,7 @@ export default function ArchitectureCard({
       {card.clickable && (
         <ArrowRight
           className={cn(
-            'ml-auto h-4 w-4 flex-shrink-0 text-gray-300 transition-all duration-200',
+            'ml-auto h-3.5 w-3.5 flex-shrink-0 text-gray-300 transition-all duration-200',
             'group-hover:translate-x-0.5',
             `group-hover:${styles.accent}`
           )}

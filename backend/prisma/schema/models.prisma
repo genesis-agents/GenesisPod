@@ -6599,6 +6599,9 @@ model ToolConfig {
   displayName String? @map("display_name")
   description String?
 
+  // API 密钥配置 - 引用 Secret Manager
+  secretKey String? @map("secret_key") @db.VarChar(100) // 引用 Secret Manager 中的密钥名称
+
   // 参数配置（覆盖默认值）
   config Json? // { timeout: 30000, retry: { maxRetries: 3 } }
 
