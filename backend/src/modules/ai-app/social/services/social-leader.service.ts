@@ -411,6 +411,8 @@ export class SocialLeaderService {
       this.logger.log(`[processSource] Inserting via $queryRaw`);
 
       // Use $queryRaw with RETURNING to get the created record
+      // Note: images and tags columns are text[] (PostgreSQL array), not jsonb
+      // Use ARRAY() constructor with jsonb_array_elements_text to convert
       const results = await this.db.$queryRaw<Array<{ id: string }>>`
         INSERT INTO "social_contents" (
           "id", "user_id", "content_type", "source_type", "source_id",
@@ -428,8 +430,8 @@ export class SocialLeaderService {
           ${safeDigest},
           ${safeSourceUrl},
           ${safeCoverImageUrl},
-          ${JSON.stringify(safeImages)}::jsonb,
-          ${JSON.stringify(safeTags)}::jsonb,
+          ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(safeImages)}::jsonb)),
+          ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(safeTags)}::jsonb)),
           ${JSON.stringify(safeComplianceCheck)}::jsonb,
           'DRAFT'::"SocialContentStatus",
           'PENDING'::"SocialReviewStatus",
