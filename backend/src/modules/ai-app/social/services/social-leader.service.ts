@@ -24,37 +24,62 @@ type PrismaAny = any;
 // Helper to sanitize strings by removing problematic characters for PostgreSQL
 function sanitizeString(str: string | undefined | null): string {
   if (!str) return "";
-  // Aggressive sanitization for PostgreSQL binary protocol compatibility
-  let result = str
-    // Step 1: Normalize Unicode to NFC form (combines characters)
-    .normalize("NFC")
-    // Step 2: Remove null bytes
-    .replace(/\x00/g, "")
-    // Step 3: Remove control characters except tab, LF, CR
-    .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
-    // Step 4: Remove Unicode replacement character
-    .replace(/\uFFFD/g, "")
-    // Step 5: Remove lone surrogates (invalid UTF-16)
-    .replace(/[\uD800-\uDFFF]/g, "")
-    // Step 6: Remove zero-width characters that can cause encoding issues
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")
-    // Step 7: Remove other problematic Unicode (private use area, etc.)
-    .replace(/[\uE000-\uF8FF]/g, "")
-    // Step 8: Normalize line endings to \n
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n");
 
-  // Step 9: Validate UTF-8 by encoding/decoding
+  let result: string;
+
+  // Step 1: FIRST validate UTF-8 using Node.js Buffer (more reliable than TextEncoder)
+  // Buffer.from with utf8 encoding handles malformed UTF-16 surrogates
+  // by replacing them with the UTF-8 representation of U+FFFD
   try {
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder("utf-8", { fatal: false });
-    result = decoder.decode(encoder.encode(result));
+    const buffer = Buffer.from(str, "utf8");
+    result = buffer.toString("utf8");
   } catch {
-    // If encoding fails, strip to ASCII
-    result = result.replace(/[^\x20-\x7E\n\t]/g, "");
+    // If Buffer operations fail, strip to ASCII as fallback
+    return str.replace(/[^\x20-\x7E\n\t\r]/g, "");
   }
 
-  return result;
+  // Step 2: Normalize Unicode to NFC form (combines characters)
+  try {
+    result = result.normalize("NFC");
+  } catch {
+    // Some strings can't be normalized, continue without
+  }
+
+  // Step 3: Remove null bytes
+  result = result.replace(/\x00/g, "");
+
+  // Step 4: Remove control characters except tab (\x09), LF (\x0A), CR (\x0D)
+  result = result.replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+
+  // Step 5: Remove zero-width characters that can cause encoding issues
+  result = result.replace(/[\u200B-\u200D\uFEFF]/g, "");
+
+  // Step 6: Remove private use area characters
+  result = result.replace(/[\uE000-\uF8FF]/g, "");
+
+  // Step 7: Normalize line endings to \n
+  result = result.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  // Step 8: Remove any U+FFFD replacement characters (introduced by UTF-8 validation)
+  // IMPORTANT: This must come AFTER UTF-8 validation, not before!
+  result = result.replace(/\uFFFD/g, "");
+
+  // Step 9: Final validation - ensure the string round-trips through Buffer cleanly
+  try {
+    const finalBuffer = Buffer.from(result, "utf8");
+    const finalString = finalBuffer.toString("utf8");
+
+    // If round-trip produced different string, there's still invalid data
+    if (finalString !== result) {
+      // Strip to safe ASCII + common CJK range as last resort
+      return result.replace(/[^\x20-\x7E\n\t\u4E00-\u9FFF\u3000-\u303F]/g, "");
+    }
+
+    return finalString;
+  } catch {
+    // Ultimate fallback: ASCII only
+    return result.replace(/[^\x20-\x7E\n\t]/g, "");
+  }
 }
 
 // Helper to safely truncate strings for database fields
