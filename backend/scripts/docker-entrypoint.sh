@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 5 - Revert fix script, rely on prisma migrate
+# Version: 6 - Add login_history migration resolve
 
 echo "=========================================="
 echo "Starting DeepDive Engine Backend"
@@ -22,6 +22,9 @@ npx prisma migrate resolve --applied 20251204000000_add_team_collaboration --sch
 
 # Mark tool_secret_key migration as rolled-back so it can be re-applied if column missing
 npx prisma migrate resolve --rolled-back 20260120_add_tool_secret_key --schema=./prisma/schema.prisma || true
+
+# Mark login_history migration as rolled-back so it can be re-applied if table missing
+npx prisma migrate resolve --rolled-back 20260120_add_login_history --schema=./prisma/schema.prisma || true
 
 echo "🔄 Step 2: Running database migrations..."
 npx prisma migrate deploy --schema=./prisma/schema.prisma
