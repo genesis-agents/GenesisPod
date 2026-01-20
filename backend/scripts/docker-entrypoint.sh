@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 3 - Force rebuild with export tables fix
+# Version: 4 - Add fix-tool-secret-key.js for missing column
 
 echo "=========================================="
 echo "Starting DeepDive Engine Backend"
@@ -12,6 +12,12 @@ echo "🔧 Step 0.5: Creating export tables if needed..."
 node ./scripts/fix-export-tables.js
 if [ $? -ne 0 ]; then
   echo "⚠️ fix-export-tables.js failed, but continuing..."
+fi
+
+echo "🔧 Step 0.6: Fixing tool secret_key column if missing..."
+node ./scripts/fix-tool-secret-key.js
+if [ $? -ne 0 ]; then
+  echo "⚠️ fix-tool-secret-key.js failed, but continuing..."
 fi
 
 echo "🔧 Step 1: Resolving failed migrations..."
