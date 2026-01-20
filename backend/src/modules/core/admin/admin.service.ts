@@ -563,6 +563,7 @@ export class AdminService {
     color: string;
     apiEndpoint: string;
     apiKey?: string;
+    secretKey?: string | null; // 引用 Secret Manager 中的密钥名称
     maxTokens?: number;
     temperature?: number;
     description?: string;
@@ -610,6 +611,7 @@ export class AdminService {
         icon: data.icon,
         color: data.color,
         apiEndpoint: data.apiEndpoint,
+        secretKey: (data as any).secretKey,
         maxTokens: data.maxTokens ?? existingByModelId.maxTokens,
         temperature: data.temperature ?? existingByModelId.temperature,
         description: data.description,
@@ -675,6 +677,7 @@ export class AdminService {
         color: data.color,
         apiEndpoint: data.apiEndpoint,
         apiKey: apiKey,
+        secretKey: (data as any).secretKey,
         maxTokens: data.maxTokens ?? 4096,
         temperature: data.temperature ?? 0.7,
         description: data.description,
@@ -721,6 +724,7 @@ export class AdminService {
       color?: string;
       apiEndpoint?: string;
       apiKey?: string;
+      secretKey?: string | null; // 引用 Secret Manager 中的密钥名称
       maxTokens?: number;
       temperature?: number;
       description?: string;
@@ -781,6 +785,7 @@ export class AdminService {
         color: data.color,
         apiEndpoint: data.apiEndpoint,
         apiKey: apiKeyUpdate,
+        secretKey: (data as any).secretKey,
         maxTokens: data.maxTokens,
         temperature: data.temperature,
         description: data.description,
@@ -3367,7 +3372,11 @@ export class AdminService {
     addUpdate("s3Region", config.s3Region, "S3 region");
     addUpdate("s3AccessKey", config.s3AccessKey, "S3 access key", true);
     addUpdate("s3SecretKey", config.s3SecretKey, "S3 secret key", true);
-    addUpdate("gdriveClientId", config.gdriveClientId, "Google Drive client ID");
+    addUpdate(
+      "gdriveClientId",
+      config.gdriveClientId,
+      "Google Drive client ID",
+    );
     addUpdate(
       "gdriveClientSecret",
       config.gdriveClientSecret,
@@ -3380,7 +3389,12 @@ export class AdminService {
       "Google Drive folder ID",
     );
     addUpdate("b2KeyId", config.b2KeyId, "Backblaze B2 key ID");
-    addUpdate("b2AppKey", config.b2AppKey, "Backblaze B2 application key", true);
+    addUpdate(
+      "b2AppKey",
+      config.b2AppKey,
+      "Backblaze B2 application key",
+      true,
+    );
     addUpdate("b2BucketName", config.b2BucketName, "Backblaze B2 bucket name");
     addUpdate("b2BucketId", config.b2BucketId, "Backblaze B2 bucket ID");
     addUpdate("maxUploadSizeMb", config.maxFileSize, "Max upload size in MB");
