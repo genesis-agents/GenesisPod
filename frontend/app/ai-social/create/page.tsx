@@ -537,52 +537,6 @@ function CreateSocialContentForm() {
         </div>
       )}
 
-      {/* Debug Panel - 显示 API 返回的原始数据 */}
-      <details className="mb-6 rounded-lg border border-amber-200 bg-amber-50">
-        <summary className="cursor-pointer p-4 font-medium text-amber-800">
-          [DEBUG] API Response Data (点击展开)
-        </summary>
-        <div className="space-y-4 border-t border-amber-200 p-4">
-          {'sourceListResponse' in debugData &&
-            debugData.sourceListResponse !== undefined && (
-              <div>
-                <h4 className="mb-2 font-medium text-amber-900">
-                  1. Source List API Response:
-                </h4>
-                <pre className="max-h-60 overflow-auto rounded bg-white p-3 text-xs">
-                  {JSON.stringify(debugData.sourceListResponse, null, 2)}
-                </pre>
-              </div>
-            )}
-          {'selectedItemData' in debugData &&
-            debugData.selectedItemData !== undefined && (
-              <div>
-                <h4 className="mb-2 font-medium text-amber-900">
-                  2. Selected Item Data:
-                </h4>
-                <pre className="max-h-60 overflow-auto rounded bg-white p-3 text-xs">
-                  {JSON.stringify(debugData.selectedItemData, null, 2)}
-                </pre>
-              </div>
-            )}
-          {'processResponse' in debugData &&
-            debugData.processResponse !== undefined && (
-              <div>
-                <h4 className="mb-2 font-medium text-amber-900">
-                  3. Process API Response:
-                </h4>
-                <pre className="max-h-60 overflow-auto rounded bg-white p-3 text-xs">
-                  {JSON.stringify(debugData.processResponse, null, 2)}
-                </pre>
-              </div>
-            )}
-          {!debugData.sourceListResponse &&
-            !debugData.selectedItemData &&
-            !debugData.processResponse && (
-              <p className="text-amber-700">暂无数据 - 请选择来源开始调试</p>
-            )}
-        </div>
-      </details>
 
       {/* Step 1: 选择来源 */}
       {currentStep === 'select-source' && (
