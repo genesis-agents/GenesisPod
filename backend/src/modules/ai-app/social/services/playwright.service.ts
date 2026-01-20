@@ -38,12 +38,14 @@ const PLATFORM_CONFIGS: Record<string, PlatformLoginConfig> = {
   WECHAT_MP: {
     loginUrl: "https://mp.weixin.qq.com/",
     loginSuccessIndicator: ".weui-desktop-account__nickname", // 登录后显示的昵称
-    qrCodeSelector: ".login__type__container__scan__qrcode", // 二维码元素
+    qrCodeSelector:
+      ".login__type__container__scan__qrcode img, .qrcode img, [class*='qrcode'] img, canvas[class*='qr']", // 二维码元素 - 多个选择器
   },
   XIAOHONGSHU: {
     loginUrl: "https://creator.xiaohongshu.com/login",
     loginSuccessIndicator: ".user-info", // 登录后显示的用户信息
-    qrCodeSelector: ".qrcode-img", // 二维码元素
+    qrCodeSelector:
+      ".qrcode-img, [class*='qrcode'] img, [class*='QRCode'], canvas, .login-qrcode img", // 二维码元素 - 多个选择器
   },
 };
 
@@ -245,8 +247,35 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
       // 等待页面加载
       await page.waitForTimeout(2000);
 
-      // 截图
-      const screenshotBuffer = await page.screenshot({ type: "png" });
+      // 截取二维码区域（如果有配置选择器）
+      let screenshotBuffer: Buffer;
+      if (config.qrCodeSelector) {
+        try {
+          // 等待二维码元素出现
+          await page.waitForSelector(config.qrCodeSelector, { timeout: 10000 });
+          const qrElement = await page.$(config.qrCodeSelector);
+          if (qrElement) {
+            screenshotBuffer = await qrElement.screenshot({ type: "png" });
+            this.logger.log(
+              `QR code element screenshot taken for ${platformType}`,
+            );
+          } else {
+            // 降级到全页截图
+            screenshotBuffer = await page.screenshot({ type: "png" });
+            this.logger.warn(
+              `QR code element not found, using full page screenshot`,
+            );
+          }
+        } catch {
+          // 降级到全页截图
+          screenshotBuffer = await page.screenshot({ type: "png" });
+          this.logger.warn(
+            `Failed to screenshot QR code element, using full page`,
+          );
+        }
+      } else {
+        screenshotBuffer = await page.screenshot({ type: "png" });
+      }
       const screenshotBase64 = `data:image/png;base64,${screenshotBuffer.toString("base64")}`;
 
       // 保存待验证的登录会话
@@ -323,8 +352,22 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
         };
       }
 
-      // 未登录，返回新截图
-      const screenshotBuffer = await page.screenshot({ type: "png" });
+      // 未登录，返回新截图（优先截取二维码区域）
+      let screenshotBuffer: Buffer;
+      if (config.qrCodeSelector) {
+        try {
+          const qrElement = await page.$(config.qrCodeSelector);
+          if (qrElement) {
+            screenshotBuffer = await qrElement.screenshot({ type: "png" });
+          } else {
+            screenshotBuffer = await page.screenshot({ type: "png" });
+          }
+        } catch {
+          screenshotBuffer = await page.screenshot({ type: "png" });
+        }
+      } else {
+        screenshotBuffer = await page.screenshot({ type: "png" });
+      }
       const screenshot = `data:image/png;base64,${screenshotBuffer.toString("base64")}`;
 
       return {
@@ -338,7 +381,7 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
   }
 
   /**
-   * 获取登录页面截图
+   * 获取登录页面截图（优先截取二维码区域）
    */
   async getLoginScreenshot(sessionKey: string): Promise<string> {
     const session = this.pendingLogins.get(sessionKey);
@@ -346,8 +389,24 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
       throw new Error(`Login session not found: ${sessionKey}`);
     }
 
+    const config = PLATFORM_CONFIGS[session.platformType];
     const { page } = session;
-    const screenshotBuffer = await page.screenshot({ type: "png" });
+
+    let screenshotBuffer: Buffer;
+    if (config?.qrCodeSelector) {
+      try {
+        const qrElement = await page.$(config.qrCodeSelector);
+        if (qrElement) {
+          screenshotBuffer = await qrElement.screenshot({ type: "png" });
+        } else {
+          screenshotBuffer = await page.screenshot({ type: "png" });
+        }
+      } catch {
+        screenshotBuffer = await page.screenshot({ type: "png" });
+      }
+    } else {
+      screenshotBuffer = await page.screenshot({ type: "png" });
+    }
     return `data:image/png;base64,${screenshotBuffer.toString("base64")}`;
   }
 
