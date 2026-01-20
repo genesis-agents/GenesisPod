@@ -1777,6 +1777,10 @@
       "saveSuccess": "{{name}} configuration saved",
       "testSuccess": "Test successful",
       "testFailed": "Test failed",
+      "delete": "Delete configuration",
+      "confirmDelete": "Are you sure you want to delete the configuration for {{name}}?",
+      "deleteSuccess": "{{name}} configuration deleted",
+      "deleteFailed": "Failed to delete configuration",
       "notSupported": "Testing not supported for this tool",
       "categories": {
         "all": "All Tools",

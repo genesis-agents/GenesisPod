@@ -1779,6 +1779,10 @@
       "saveSuccess": "{{name}} 配置已保存",
       "testSuccess": "测试成功",
       "testFailed": "测试失败",
+      "delete": "删除配置",
+      "confirmDelete": "确定要删除 {{name}} 的配置吗？",
+      "deleteSuccess": "{{name}} 配置已删除",
+      "deleteFailed": "删除配置失败",
       "notSupported": "不支持测试此工具",
       "categories": {
         "all": "全部工具",

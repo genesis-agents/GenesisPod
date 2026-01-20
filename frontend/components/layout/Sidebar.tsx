@@ -335,8 +335,8 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       </div>
 
       {/* Main Navigation */}
-      <nav className="scrollbar-thin flex-1 overflow-y-auto overflow-x-hidden px-3 py-0.5">
-        <div className="space-y-0.5">
+      <nav className="scrollbar-thin flex-1 overflow-y-auto overflow-x-hidden px-3 py-1">
+        <div className="space-y-1">
           {/* AI Ask - Primary AI Chat Entry */}
           <Link
             href="/ai-ask"
@@ -372,7 +372,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           {/* Section: Materials & Knowledge */}
           {showExpanded && (
-            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <div className="px-3 pb-0.5 pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
               {t('nav.sections.materialsKnowledge')}
             </div>
           )}
@@ -444,7 +444,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           {/* Section: AI Teams */}
           {showExpanded && (
-            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <div className="px-3 pb-0.5 pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
               {t('nav.sections.aiTeams')}
             </div>
           )}
@@ -660,7 +660,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
 
           {/* Section: AI Tools */}
           {showExpanded && (
-            <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <div className="px-3 pb-0.5 pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
               {t('nav.sections.aiTools')}
             </div>
           )}

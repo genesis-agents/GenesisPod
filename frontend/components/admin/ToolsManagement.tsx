@@ -33,6 +33,7 @@ import {
   X,
   Key,
   Lock,
+  Trash2,
 } from 'lucide-react';
 
 const logger = createLogger('ToolsManagement');
@@ -253,13 +254,17 @@ function ToolRow({
   tool,
   onConfigure,
   onTest,
+  onDelete,
   testing,
+  deleting,
   testResult,
 }: {
   tool: Tool;
   onConfigure: (tool: Tool) => void;
   onTest: (tool: Tool) => void;
+  onDelete: (tool: Tool) => void;
   testing: boolean;
+  deleting: boolean;
   testResult?: { success: boolean; message: string };
 }) {
   const { t } = useTranslation();
@@ -380,6 +385,21 @@ function ToolRow({
           >
             <ExternalLink className="h-4 w-4" />
           </a>
+        )}
+        {/* Delete button - only show if tool has API key or secretKey configured */}
+        {!tool.noKeyRequired && (tool.hasApiKey || tool.secretKey) && (
+          <button
+            onClick={() => onDelete(tool)}
+            disabled={deleting}
+            className="rounded-lg border border-gray-200 p-1.5 text-gray-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+            title={t('admin.tools.delete')}
+          >
+            {deleting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+          </button>
         )}
       </div>
     </div>
@@ -714,6 +734,7 @@ export default function ToolsManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [configuringTool, setConfiguringTool] = useState<Tool | null>(null);
   const [testingTool, setTestingTool] = useState<string | null>(null);
+  const [deletingTool, setDeletingTool] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<
     Record<string, { success: boolean; message: string }>
   >({});
@@ -1104,6 +1125,53 @@ export default function ToolsManagement() {
     }
   };
 
+  // Handle delete tool configuration
+  const handleDeleteTool = async (tool: Tool) => {
+    if (!confirm(t('admin.tools.confirmDelete', { name: tool.name }))) {
+      return;
+    }
+
+    setDeletingTool(tool.id);
+    setMessage(null);
+
+    try {
+      // Clear the secretKey via capabilities endpoint
+      const res = await fetch(
+        `${config.apiUrl}/admin/capabilities/tools/${tool.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          },
+          body: JSON.stringify({ secretKey: null }),
+        }
+      );
+
+      if (res.ok) {
+        setMessage({
+          type: 'success',
+          text: t('admin.tools.deleteSuccess', { name: tool.name }),
+        });
+        // Clear test result for this tool
+        setTestResults((prev) => {
+          const newResults = { ...prev };
+          delete newResults[tool.id];
+          return newResults;
+        });
+        await loadConfigs();
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        setMessage({ type: 'error', text: t('admin.tools.deleteFailed') });
+      }
+    } catch (err) {
+      logger.error('Failed to delete tool config:', err);
+      setMessage({ type: 'error', text: t('admin.tools.deleteFailed') });
+    } finally {
+      setDeletingTool(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -1223,7 +1291,9 @@ export default function ToolsManagement() {
               tool={tool}
               onConfigure={setConfiguringTool}
               onTest={handleTestTool}
+              onDelete={handleDeleteTool}
               testing={testingTool === tool.id}
+              deleting={deletingTool === tool.id}
               testResult={testResults[tool.id]}
             />
           ))
