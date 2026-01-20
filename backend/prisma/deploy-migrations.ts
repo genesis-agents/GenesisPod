@@ -108,6 +108,64 @@ async function deploy(): Promise<void> {
     });
     console.log("   Migrations deployed\n");
 
+    // Step 3.5: Ensure critical schema changes (fallback for failed migrations)
+    console.log("3.5. Ensuring critical schema changes...");
+
+    // Check if secrets.current_version column exists
+    const secretsColumnCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'secrets' AND column_name = 'current_version'
+      ) as exists
+    `;
+
+    if (!secretsColumnCheck[0]?.exists) {
+      console.log("   Adding secrets.current_version column...");
+      await prisma.$executeRaw`ALTER TABLE "secrets" ADD COLUMN IF NOT EXISTS "current_version" INT NOT NULL DEFAULT 1`;
+      console.log("   Added secrets.current_version");
+    } else {
+      console.log("   OK secrets.current_version");
+    }
+
+    // Check if secret_versions table exists
+    const versionsTableCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_name = 'secret_versions'
+      ) as exists
+    `;
+
+    if (!versionsTableCheck[0]?.exists) {
+      console.log("   Creating secret_versions table...");
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "secret_versions" (
+          "id" TEXT NOT NULL,
+          "secret_id" TEXT NOT NULL,
+          "version" INTEGER NOT NULL,
+          "encrypted_value" TEXT NOT NULL,
+          "iv" VARCHAR(32) NOT NULL,
+          "key_version" INTEGER NOT NULL DEFAULT 1,
+          "checksum" VARCHAR(64) NOT NULL,
+          "created_by" VARCHAR(100),
+          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "change_note" TEXT,
+          CONSTRAINT "secret_versions_pkey" PRIMARY KEY ("id"),
+          CONSTRAINT "secret_versions_secret_id_version_key" UNIQUE ("secret_id", "version"),
+          CONSTRAINT "secret_versions_secret_id_fkey" FOREIGN KEY ("secret_id") REFERENCES "secrets"("id") ON DELETE CASCADE ON UPDATE CASCADE
+        )
+      `;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "secret_versions_secret_id_idx" ON "secret_versions"("secret_id")`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "secret_versions_created_at_idx" ON "secret_versions"("created_at")`;
+      console.log("   Created secret_versions table");
+    } else {
+      console.log("   OK secret_versions table");
+    }
+    console.log("");
+
     // Step 4: Generate Prisma Client
     console.log("4. Generating Prisma Client...");
     execSync("npx prisma generate --schema=prisma/schema", {
