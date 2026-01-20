@@ -36,7 +36,7 @@ RUN npm install --no-package-lock --legacy-peer-deps
 COPY . .
 
 # Generate Prisma Client
-RUN npx prisma generate
+RUN npx prisma generate --schema=prisma/schema
 
 # Build the application
 RUN npm run build
