@@ -4,6 +4,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry";
 import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
 import { MCPManager } from "../../ai-engine/mcp/manager/mcp-manager";
+import { SecretsService } from "../secrets/secrets.service";
 
 /**
  * AI Agent 能力管理服务
@@ -19,6 +20,7 @@ export class CapabilitiesAdminService implements OnModuleInit {
     private readonly toolRegistry: ToolRegistry,
     private readonly skillRegistry: SkillRegistry,
     private readonly mcpManager: MCPManager,
+    private readonly secretsService: SecretsService,
   ) {}
 
   /**
@@ -185,11 +187,29 @@ export class CapabilitiesAdminService implements OnModuleInit {
       };
     }
 
+    // 获取工具配置，解析 API Key
+    const toolConfig = await this.prisma.toolConfig.findUnique({
+      where: { toolId },
+    });
+
+    let apiKey: string | undefined;
+    if (toolConfig?.secretKey) {
+      // 从 Secret Manager 获取 API Key
+      const secretValue = await this.secretsService.getValue(
+        toolConfig.secretKey,
+      );
+      if (secretValue) {
+        apiKey = secretValue;
+      }
+    }
+
     const startTime = Date.now();
     try {
       // 尝试执行工具（如果有 execute 方法）
       if (typeof (tool as any).execute === "function") {
-        const result = await (tool as any).execute(input || {});
+        // 将 API Key 传递给工具
+        const executeInput = { ...input, apiKey };
+        const result = await (tool as any).execute(executeInput);
         const duration = Date.now() - startTime;
 
         // 记录使用统计
