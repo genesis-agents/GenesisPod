@@ -37,43 +37,43 @@ export default function ArchitectureDiagram() {
 
   return (
     <div className="flex min-h-full flex-col bg-gray-50/50">
-      {/* Header - Compact design */}
-      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-sm">
+      {/* Header - Consistent with other admin pages */}
+      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 px-6 py-5 backdrop-blur-sm">
         <div className="flex items-center justify-between">
           {/* Left: Title section with icon */}
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md shadow-indigo-500/20">
-              <Layers className="h-5 w-5 text-white" />
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/25">
+              <Layers className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-base font-semibold text-gray-900">
+              <h1 className="text-xl font-semibold text-gray-900">
                 {t('admin.architecture.title')}
               </h1>
-              <p className="text-xs text-gray-500">
+              <p className="text-sm text-gray-500">
                 {t('admin.architecture.subtitle')}
               </p>
             </div>
           </div>
 
-          {/* Right: Stats pills - Compact */}
-          <div className="hidden items-center gap-2 md:flex">
+          {/* Right: Stats pills */}
+          <div className="hidden items-center gap-3 md:flex">
             <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5">
-              <span className="text-xs font-semibold text-gray-700">
+              <span className="text-sm font-semibold text-gray-700">
                 {ARCHITECTURE_LAYERS.length}
               </span>
-              <span className="text-xs text-gray-500">Layers</span>
+              <span className="text-sm text-gray-500">Layers</span>
             </div>
             <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5">
-              <span className="text-xs font-semibold text-gray-700">
+              <span className="text-sm font-semibold text-gray-700">
                 {totalCards}
               </span>
-              <span className="text-xs text-gray-500">Modules</span>
+              <span className="text-sm text-gray-500">Modules</span>
             </div>
             <div className="flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1.5">
-              <span className="text-xs font-semibold text-indigo-700">
+              <span className="text-sm font-semibold text-indigo-700">
                 {clickableCards}
               </span>
-              <span className="text-xs text-indigo-600">Configurable</span>
+              <span className="text-sm text-indigo-600">Configurable</span>
             </div>
           </div>
         </div>

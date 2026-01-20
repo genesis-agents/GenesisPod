@@ -101,13 +101,13 @@ export default function ArchitectureLayer({
         </div>
 
         {/* Cards Grid */}
-        <div className="px-4 pb-3">
+        <div className="px-4 pb-4">
           {/* Regular cards - Use grid for L1/L2 for consistent sizing */}
           {layer.cards && (
             <div
               className={cn(
                 layer.level === 1 || layer.level === 2
-                  ? 'grid grid-cols-5 gap-2' // 5 columns for L1, L2 uses same grid for alignment
+                  ? 'grid grid-cols-4 gap-3' // 4 columns for L1/L2 - bigger cards
                   : 'flex flex-wrap gap-2'
               )}
             >
