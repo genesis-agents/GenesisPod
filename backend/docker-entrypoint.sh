@@ -45,6 +45,24 @@ EOSQL
 echo "✅ Schema fix completed!"
 
 echo ""
+echo "🔧 Fixing tool_configs table schema..."
+npx prisma db execute --stdin << 'EOSQL' || echo "⚠️ tool_configs fix skipped (may already be applied)"
+DO $$
+BEGIN
+    -- Add secret_key column to tool_configs if missing
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'tool_configs' AND column_name = 'secret_key'
+    ) THEN
+        ALTER TABLE "tool_configs" ADD COLUMN "secret_key" VARCHAR(100);
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'tool_configs fix: %', SQLERRM;
+END $$;
+EOSQL
+echo "✅ tool_configs fix completed!"
+
+echo ""
 echo "🔄 Running database migrations..."
 if npx prisma migrate deploy; then
     echo "✅ Migrations completed successfully!"
