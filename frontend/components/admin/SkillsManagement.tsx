@@ -586,7 +586,7 @@ export default function SkillsManagement() {
   const loadSkills = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${config.apiUrl}/admin/ai-capabilities/skills`, {
+      const res = await fetch(`${config.apiUrl}/admin/capabilities/skills`, {
         headers: { ...getAuthHeader() },
       });
       if (res.ok) {
@@ -633,7 +633,7 @@ export default function SkillsManagement() {
   const handleToggle = async (skillId: string, enabled: boolean) => {
     try {
       const res = await fetch(
-        `${config.apiUrl}/admin/ai-capabilities/skills/${skillId}`,
+        `${config.apiUrl}/admin/capabilities/skills/${skillId}`,
         {
           method: 'PATCH',
           headers: {
@@ -670,7 +670,7 @@ export default function SkillsManagement() {
     setSaving(true);
     try {
       const res = await fetch(
-        `${config.apiUrl}/admin/ai-capabilities/skills/${skill.skillId}`,
+        `${config.apiUrl}/admin/capabilities/skills/${skill.skillId}`,
         {
           method: 'PATCH',
           headers: {
