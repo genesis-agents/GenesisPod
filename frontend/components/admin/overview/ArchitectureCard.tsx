@@ -54,11 +54,10 @@ export default function ArchitectureCard({
         <Icon className={isConfigurable ? 'h-5 w-5' : 'h-4 w-4'} />
       </div>
 
-      {/* Label - bigger font for configurable cards */}
+      {/* Label - consistent text-sm for all cards */}
       <span
         className={cn(
-          'font-medium',
-          isConfigurable ? 'text-sm' : 'text-xs',
+          'text-sm font-medium',
           card.clickable
             ? 'text-gray-700 group-hover:text-gray-900'
             : 'text-gray-500'

@@ -129,7 +129,7 @@ export default function ArchitectureLayer({
                 <div key={group.id}>
                   {/* Group title with subtle line */}
                   <div className="mb-2 flex items-center gap-2">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                       {t(group.titleKey)}
                     </span>
                     <div className="h-px flex-1 bg-gray-200/50" />
