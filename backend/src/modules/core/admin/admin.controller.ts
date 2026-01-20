@@ -16,6 +16,7 @@ import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
 import { AIModelType } from "@prisma/client";
+import { SecretsService } from "../secrets/secrets.service";
 
 /**
  * 管理员控制器
@@ -29,6 +30,7 @@ export class AdminController {
   constructor(
     private adminService: AdminService,
     private aiChatService: AiChatService,
+    private secretsService: SecretsService,
   ) {}
 
   /**
@@ -274,7 +276,8 @@ export class AdminController {
     @Body()
     body: {
       provider: string;
-      apiKey: string;
+      apiKey?: string;
+      secretKey?: string;
       apiEndpoint?: string;
       modelType?: string; // CHAT, CHAT_FAST, EMBEDDING, IMAGE_GENERATION, RERANK, etc.
     },
@@ -282,9 +285,23 @@ export class AdminController {
     this.logger.log(
       `Admin: Fetching available models for ${body.provider}, type: ${body.modelType || "ALL"}`,
     );
+
+    // 解析 API Key：优先使用直接提供的，否则从 Secret Manager 获取
+    let resolvedApiKey = body.apiKey;
+    if (!resolvedApiKey && body.secretKey) {
+      const secretValue = await this.secretsService.getValue(body.secretKey);
+      if (secretValue) {
+        resolvedApiKey = secretValue;
+      } else {
+        return { success: false, error: "无法从 Secret Manager 获取 API Key" };
+      }
+    }
+    if (!resolvedApiKey) {
+      return { success: false, error: "请提供 API Key 或选择有效的 Secret" };
+    }
     return this.aiChatService.fetchAvailableModels(
       body.provider,
-      body.apiKey,
+      resolvedApiKey,
       body.apiEndpoint,
       body.modelType,
     );

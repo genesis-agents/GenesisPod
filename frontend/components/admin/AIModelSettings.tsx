@@ -271,12 +271,14 @@ function ModelIdSelector({
   onChange,
   provider,
   apiKey,
+  secretKey,
   modelType,
 }: {
   value: string;
   onChange: (modelId: string) => void;
   provider: string;
   apiKey: string;
+  secretKey?: string | null;
   modelType: AIModelType;
 }) {
   const [availableModels, setAvailableModels] = useState<
@@ -287,8 +289,8 @@ function ModelIdSelector({
   const [hasFetched, setHasFetched] = useState(false);
 
   const fetchModels = async () => {
-    if (!apiKey) {
-      setError('请先输入 API Key');
+    if (!apiKey && !secretKey) {
+      setError('请先输入 API Key 或选择 Secret');
       return;
     }
     setLoading(true);
@@ -302,7 +304,7 @@ function ModelIdSelector({
             'Content-Type': 'application/json',
             ...getAuthHeader(),
           },
-          body: JSON.stringify({ provider, apiKey, modelType }),
+          body: JSON.stringify({ provider, apiKey, secretKey, modelType }),
         }
       );
       const data = await response.json();
@@ -1568,6 +1570,7 @@ function EditModelModal({
                 onChange={(modelId) => setFormData({ ...formData, modelId })}
                 provider={formData.provider}
                 apiKey={apiKey || ''}
+                secretKey={formData.secretKey}
                 modelType={formData.modelType}
               />
             </div>
@@ -2218,6 +2221,7 @@ function AddModelModal({
                 onChange={(modelId) => setFormData({ ...formData, modelId })}
                 provider={formData.provider}
                 apiKey={formData.apiKey || ''}
+                secretKey={formData.secretKey}
                 modelType={formData.modelType}
               />
             </div>
