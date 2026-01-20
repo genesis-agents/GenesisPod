@@ -103,6 +103,7 @@ export class CapabilitiesAdminService implements OnModuleInit {
         implemented: !!registeredTool,
         tags: dbConfig?.tags || tool.tags || [],
         config: dbConfig?.config || null,
+        secretKey: dbConfig?.secretKey || null, // Secret Manager 密钥引用
         requiresAuth: dbConfig?.requiresAuth || false,
         allowedRoles: dbConfig?.allowedRoles || [],
       };
@@ -135,6 +136,7 @@ export class CapabilitiesAdminService implements OnModuleInit {
       displayName?: string;
       description?: string;
       config?: Record<string, unknown>;
+      secretKey?: string | null;
       requiresAuth?: boolean;
       allowedRoles?: string[];
     },
@@ -147,6 +149,7 @@ export class CapabilitiesAdminService implements OnModuleInit {
         displayName: update.displayName,
         description: update.description,
         config: update.config as Prisma.InputJsonValue | undefined,
+        secretKey: update.secretKey,
         requiresAuth: update.requiresAuth,
         allowedRoles: update.allowedRoles,
       },
@@ -155,13 +158,14 @@ export class CapabilitiesAdminService implements OnModuleInit {
         displayName: update.displayName,
         description: update.description,
         config: update.config as Prisma.InputJsonValue | undefined,
+        secretKey: update.secretKey,
         requiresAuth: update.requiresAuth,
         allowedRoles: update.allowedRoles,
       },
     });
 
     this.logger.log(
-      `Updated tool config: ${toolId}, enabled=${result.enabled}`,
+      `Updated tool config: ${toolId}, enabled=${result.enabled}, secretKey=${result.secretKey ? "set" : "none"}`,
     );
 
     return { success: true, ...result };

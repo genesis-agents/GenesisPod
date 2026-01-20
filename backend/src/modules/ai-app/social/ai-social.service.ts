@@ -337,7 +337,7 @@ export class AiSocialService {
           spc.platform_type AS "connectionPlatformType"
         FROM social_contents sc
         LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
-        WHERE sc.user_id = ${userId}::uuid
+        WHERE sc.user_id = ${userId}
           AND sc.status = ${statusFilter}::"SocialContentStatus"
           AND sc.content_type = ${contentTypeFilter}::"SocialContentType"
         ORDER BY sc.created_at DESC
@@ -346,7 +346,7 @@ export class AiSocialService {
 
       countResult = (await this.db.$queryRaw`
         SELECT COUNT(*) as count FROM social_contents sc
-        WHERE sc.user_id = ${userId}::uuid
+        WHERE sc.user_id = ${userId}
           AND sc.status = ${statusFilter}::"SocialContentStatus"
           AND sc.content_type = ${contentTypeFilter}::"SocialContentType"
       `) as Array<{ count: bigint }>;
@@ -390,7 +390,7 @@ export class AiSocialService {
           spc.platform_type AS "connectionPlatformType"
         FROM social_contents sc
         LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
-        WHERE sc.user_id = ${userId}::uuid
+        WHERE sc.user_id = ${userId}
           AND sc.status = ${statusFilter}::"SocialContentStatus"
         ORDER BY sc.created_at DESC
         LIMIT ${options.limit} OFFSET ${offset}
@@ -398,7 +398,7 @@ export class AiSocialService {
 
       countResult = (await this.db.$queryRaw`
         SELECT COUNT(*) as count FROM social_contents sc
-        WHERE sc.user_id = ${userId}::uuid
+        WHERE sc.user_id = ${userId}
           AND sc.status = ${statusFilter}::"SocialContentStatus"
       `) as Array<{ count: bigint }>;
     } else if (contentTypeFilter) {
@@ -441,7 +441,7 @@ export class AiSocialService {
           spc.platform_type AS "connectionPlatformType"
         FROM social_contents sc
         LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
-        WHERE sc.user_id = ${userId}::uuid
+        WHERE sc.user_id = ${userId}
           AND sc.content_type = ${contentTypeFilter}::"SocialContentType"
         ORDER BY sc.created_at DESC
         LIMIT ${options.limit} OFFSET ${offset}
@@ -449,7 +449,7 @@ export class AiSocialService {
 
       countResult = (await this.db.$queryRaw`
         SELECT COUNT(*) as count FROM social_contents sc
-        WHERE sc.user_id = ${userId}::uuid
+        WHERE sc.user_id = ${userId}
           AND sc.content_type = ${contentTypeFilter}::"SocialContentType"
       `) as Array<{ count: bigint }>;
     } else {
@@ -492,14 +492,14 @@ export class AiSocialService {
           spc.platform_type AS "connectionPlatformType"
         FROM social_contents sc
         LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
-        WHERE sc.user_id = ${userId}::uuid
+        WHERE sc.user_id = ${userId}
         ORDER BY sc.created_at DESC
         LIMIT ${options.limit} OFFSET ${offset}
       `) as ContentRow[];
 
       countResult = (await this.db.$queryRaw`
         SELECT COUNT(*) as count FROM social_contents sc
-        WHERE sc.user_id = ${userId}::uuid
+        WHERE sc.user_id = ${userId}
       `) as Array<{ count: bigint }>;
     }
 
@@ -552,7 +552,7 @@ export class AiSocialService {
         "images", "tags", "location", "status", "created_at", "updated_at"
       ) VALUES (
         gen_random_uuid(),
-        ${userId}::uuid,
+        ${userId},
         ${dto.contentType}::"SocialContentType",
         ${sourceType}::"SocialContentSourceType",
         ${dto.sourceId || null},
@@ -632,7 +632,7 @@ export class AiSocialService {
         spc.platform_type AS "connectionPlatformType"
       FROM social_contents sc
       LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
-      WHERE sc.id = ${id}::uuid AND sc.user_id = ${userId}::uuid
+      WHERE sc.id = ${id} AND sc.user_id = ${userId}
     `;
 
     if (!results[0]) {
@@ -697,7 +697,7 @@ export class AiSocialService {
       values.push(dto.location);
     }
     if (dto.connectionId !== undefined) {
-      updates.push(`connection_id = $${paramIndex++}::uuid`);
+      updates.push(`connection_id = $${paramIndex++}`);
       values.push(dto.connectionId);
     }
 
@@ -713,7 +713,7 @@ export class AiSocialService {
     const query = `
       UPDATE social_contents
       SET ${updates.join(", ")}
-      WHERE id = $${paramIndex++}::uuid AND user_id = $${paramIndex}::uuid
+      WHERE id = $${paramIndex++} AND user_id = $${paramIndex}
     `;
     values.push(id, userId);
 
@@ -728,7 +728,7 @@ export class AiSocialService {
 
     await this.db.$executeRaw`
       DELETE FROM social_contents
-      WHERE id = ${id}::uuid AND user_id = ${userId}::uuid
+      WHERE id = ${id} AND user_id = ${userId}
     `;
 
     return { success: true };
@@ -750,7 +750,7 @@ export class AiSocialService {
     await this.db.$executeRaw`
       UPDATE social_contents
       SET compliance_check = ${JSON.stringify(resultWithTimestamp)}::jsonb, updated_at = NOW()
-      WHERE id = ${content.id}::uuid
+      WHERE id = ${content.id}
     `;
 
     return resultWithTimestamp;
@@ -771,9 +771,9 @@ export class AiSocialService {
     await this.db.$executeRaw`
       UPDATE social_contents
       SET status = 'PENDING'::"SocialContentStatus",
-          connection_id = ${connectionId}::uuid,
+          connection_id = ${connectionId},
           updated_at = NOW()
-      WHERE id = ${content.id}::uuid
+      WHERE id = ${content.id}
     `;
 
     // 执行发布
@@ -789,7 +789,7 @@ export class AiSocialService {
       SET status = 'SCHEDULED'::"SocialContentStatus",
           scheduled_at = ${scheduledAt},
           updated_at = NOW()
-      WHERE id = ${content.id}::uuid
+      WHERE id = ${content.id}
     `;
 
     return this.getContent(userId, id);
@@ -811,7 +811,7 @@ export class AiSocialService {
       SET status = 'DRAFT'::"SocialContentStatus",
           scheduled_at = NULL,
           updated_at = NOW()
-      WHERE id = ${content.id}::uuid
+      WHERE id = ${content.id}
     `;
 
     return this.getContent(userId, id);
