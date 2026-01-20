@@ -355,32 +355,54 @@ export function AnnotationHighlighter({
     }
 
     // Wait for highlights to be applied, then scroll
-    let scrollRafId: number | null = null;
-    scrollRafId = requestAnimationFrame(() => {
-      scrollRafId = requestAnimationFrame(() => {
-        if (!containerRef.current) return;
+    // Use retry mechanism since highlight application may take 50-300ms+
+    let retryCount = 0;
+    const maxRetries = 10;
+    const retryDelay = 100; // 100ms between retries
+    let timeoutId: NodeJS.Timeout | null = null;
 
-        try {
-          // Update highlight state
-          updateHighlightedAnnotation(
-            containerRef.current,
-            highlightedAnnotationId
+    const attemptScroll = () => {
+      if (!containerRef.current) return;
+
+      try {
+        // Update highlight state
+        updateHighlightedAnnotation(
+          containerRef.current,
+          highlightedAnnotationId
+        );
+
+        // Try to scroll to the annotation
+        const success = scrollToAnnotation(
+          containerRef.current,
+          highlightedAnnotationId
+        );
+
+        if (!success && retryCount < maxRetries) {
+          // Mark element not found yet, retry after delay
+          retryCount++;
+          console.log(
+            `[AnnotationHighlighter] Scroll retry ${retryCount}/${maxRetries} for ${highlightedAnnotationId}`
           );
-
-          // Scroll to the annotation
-          scrollToAnnotation(containerRef.current, highlightedAnnotationId);
-        } catch (err) {
+          timeoutId = setTimeout(attemptScroll, retryDelay);
+        } else if (!success) {
           console.warn(
-            '[AnnotationHighlighter] Error scrolling to annotation:',
-            err
+            `[AnnotationHighlighter] Failed to scroll after ${maxRetries} retries for ${highlightedAnnotationId}`
           );
         }
-      });
-    });
+      } catch (err) {
+        console.warn(
+          '[AnnotationHighlighter] Error scrolling to annotation:',
+          err
+        );
+      }
+    };
+
+    // Start first attempt after a short delay to allow initial render
+    timeoutId = setTimeout(attemptScroll, 50);
 
     return () => {
-      if (scrollRafId) {
-        cancelAnimationFrame(scrollRafId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
     };
   }, [highlightedAnnotationId, containerRef]);
