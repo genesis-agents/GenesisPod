@@ -1405,6 +1405,21 @@
       "noSourceItems": "No content available",
       "processingHint": "AI is analyzing and transforming content, please wait..."
     },
+    "edit": {
+      "title": "Edit Content",
+      "content": "Content",
+      "sourceCode": "Source Code",
+      "plainText": "Plain Text",
+      "wechatPreview": "WeChat Preview",
+      "xiaohongshuPreview": "Xiaohongshu Preview",
+      "previewPlaceholder": "Preview content will appear here...",
+      "save": "Save",
+      "publish": "Publish",
+      "loadFailed": "Failed to load content",
+      "notFound": "Content not found",
+      "saveFailed": "Failed to save",
+      "publishFailed": "Failed to publish"
+    },
     "ai": {
       "processUrl": "Process URL",
       "processSource": "Process Source",

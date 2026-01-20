@@ -1405,6 +1405,21 @@
       "noSourceItems": "暂无可用内容",
       "processingHint": "AI 正在分析和转换内容，请稍候..."
     },
+    "edit": {
+      "title": "编辑内容",
+      "content": "内容",
+      "sourceCode": "源代码",
+      "plainText": "纯文本",
+      "wechatPreview": "微信公众号效果",
+      "xiaohongshuPreview": "小红书效果",
+      "previewPlaceholder": "预览内容将在此显示...",
+      "save": "保存",
+      "publish": "发布",
+      "loadFailed": "加载内容失败",
+      "notFound": "内容不存在",
+      "saveFailed": "保存失败",
+      "publishFailed": "发布失败"
+    },
     "ai": {
       "processUrl": "处理链接",
       "processSource": "处理素材",

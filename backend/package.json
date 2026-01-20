@@ -98,6 +98,7 @@
     "pdfkit-table": "^0.1.99",
     "pdfmake": "^0.2.20",
     "pg": "^8.16.3",
+    "playwright-core": "^1.50.0",
     "pptxgenjs": "^4.0.1",
     "prisma": "^6.19.2",
     "puppeteer": "^24.30.0",

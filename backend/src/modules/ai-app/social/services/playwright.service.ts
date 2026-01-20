@@ -88,11 +88,22 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
         if (!playwright) {
           throw new Error("playwright-core is not installed");
         }
+
+        // Use system Chromium if available (Docker environment)
+        // Falls back to bundled Chromium if not set
+        const executablePath =
+          process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
+          process.env.PUPPETEER_EXECUTABLE_PATH ||
+          undefined;
+
         this.browser = await playwright.chromium.launch({
           headless: true,
+          executablePath,
           args: ["--no-sandbox", "--disable-setuid-sandbox"],
         });
-        this.logger.log("Playwright browser launched");
+        this.logger.log(
+          `Playwright browser launched${executablePath ? ` (using: ${executablePath})` : ""}`,
+        );
       } catch (error) {
         this.logger.error("Failed to launch browser", error);
         throw new Error(
