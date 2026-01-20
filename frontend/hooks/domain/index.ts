@@ -1,7 +1,12 @@
 // Admin hooks
 export { useAdminModels } from './useAdminModels';
-export { useAdminUsers } from './useAdminUsers';
-export type { User, CreateUserData } from './useAdminUsers';
+export { useAdminUsers, useUserStats } from './useAdminUsers';
+export type {
+  User,
+  CreateUserData,
+  AdminUserStats,
+  LoginHistoryItem,
+} from './useAdminUsers';
 export { useAdminStorage } from './useAdminStorage';
 export { useAdminCollections } from './useAdminCollections';
 

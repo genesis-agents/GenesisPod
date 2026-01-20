@@ -296,6 +296,47 @@ export async function refreshConnection(
   });
 }
 
+// ==================== Connection Login API ====================
+
+export interface InitConnectionResponse {
+  status: 'existing' | 'pending' | 'error';
+  connection?: SocialPlatformConnection;
+  sessionKey?: string;
+  screenshot?: string;
+  message: string;
+}
+
+export interface VerifyConnectionResponse {
+  status: 'success' | 'pending' | 'error';
+  connection?: SocialPlatformConnection;
+  screenshot?: string;
+  message: string;
+}
+
+/**
+ * Initialize platform connection - starts browser login session
+ * Returns screenshot of login page (QR code) for user to scan
+ */
+export async function initConnection(
+  platformType: SocialPlatformType
+): Promise<InitConnectionResponse> {
+  return fetchWithAuth(`/api/v1/ai-social/connections/${platformType}/init`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * Verify platform connection - checks if user has logged in
+ * Returns new screenshot if still pending, or connection if successful
+ */
+export async function verifyConnection(
+  platformType: SocialPlatformType
+): Promise<VerifyConnectionResponse> {
+  return fetchWithAuth(`/api/v1/ai-social/connections/${platformType}/verify`, {
+    method: 'POST',
+  });
+}
+
 // ==================== Content API ====================
 
 /**

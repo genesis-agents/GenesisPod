@@ -13,8 +13,22 @@ import {
   Unlock,
   Plus,
   X,
+  History,
+  Monitor,
+  Globe,
+  Calendar,
+  UserCheck,
+  UserCog,
+  TrendingUp,
 } from 'lucide-react';
-import { useAdminUsers, type User, type CreateUserData } from '@/hooks/domain';
+import {
+  useAdminUsers,
+  useUserStats,
+  type User,
+  type CreateUserData,
+  type LoginHistoryItem,
+} from '@/hooks/domain';
+import { useTranslation } from '@/lib/i18n';
 import { LoadingState, ErrorState, useConfirm } from '@/components/ui';
 
 // Export components for use in page layout
@@ -57,7 +71,7 @@ interface UsersSettingsProps {
   setShowAddModal: (show: boolean) => void;
 }
 
-// Add User Modal
+// Add User Modal - Form order: Email, Password, Role
 function AddUserModal({
   isOpen,
   onClose,
@@ -71,9 +85,8 @@ function AddUserModal({
 }) {
   const [formData, setFormData] = useState<CreateUserData>({
     email: '',
-    username: '',
-    role: 'USER',
     password: '',
+    role: 'USER',
   });
 
   if (!isOpen) return null;
@@ -81,7 +94,7 @@ function AddUserModal({
   const handleSubmit = async () => {
     if (!formData.email) return;
     await onCreate(formData);
-    setFormData({ email: '', username: '', role: 'USER', password: '' });
+    setFormData({ email: '', password: '', role: 'USER' });
     onClose();
   };
 
@@ -99,7 +112,7 @@ function AddUserModal({
           </button>
         </div>
 
-        {/* Content */}
+        {/* Content - Order: Email, Password, Role */}
         <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">
@@ -117,15 +130,15 @@ function AddUserModal({
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700">
-              Username
+              Password <span className="text-red-500">*</span>
             </label>
             <input
-              type="text"
-              value={formData.username}
+              type="password"
+              value={formData.password || ''}
               onChange={(e) =>
-                setFormData({ ...formData, username: e.target.value })
+                setFormData({ ...formData, password: e.target.value })
               }
-              placeholder="johndoe"
+              placeholder="Enter password"
               className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
             />
           </div>
@@ -147,23 +160,6 @@ function AddUserModal({
               <option value="ADMIN">Admin</option>
             </select>
           </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
-              Password
-            </label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(e) =>
-                setFormData({ ...formData, password: e.target.value })
-              }
-              placeholder="Leave empty for auto-generated"
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              If left empty, user will receive an email to set password
-            </p>
-          </div>
         </div>
 
         {/* Footer */}
@@ -176,10 +172,116 @@ function AddUserModal({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={!formData.email || isLoading}
+            disabled={!formData.email || !formData.password || isLoading}
             className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isLoading ? 'Creating...' : 'Create User'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Login History Modal
+function LoginHistoryModal({
+  isOpen,
+  onClose,
+  history,
+  userName,
+  isLoading,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  history: LoginHistoryItem[];
+  userName: string;
+  isLoading: boolean;
+}) {
+  const { t } = useTranslation();
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {t('admin.users.loginHistory.title')}
+            </h2>
+            <p className="text-sm text-gray-500">{userName}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+            </div>
+          ) : history.length === 0 ? (
+            <div className="py-12 text-center text-gray-500">
+              <History className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+              <p>{t('admin.users.loginHistory.noHistory')}</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {history.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-lg border border-gray-200 bg-gray-50 p-4"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100">
+                        <Monitor className="h-5 w-5 text-violet-600" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                          {item.device || 'Unknown Device'}
+                          {item.browser && (
+                            <span className="text-gray-500">
+                              - {item.browser}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          {item.os && <span>{item.os}</span>}
+                          {item.ipAddress && (
+                            <span className="flex items-center gap-1">
+                              <Globe className="h-3 w-3" />
+                              {item.ipAddress}
+                            </span>
+                          )}
+                          {item.location && <span>{item.location}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {new Date(item.loginAt).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end border-t border-gray-200 px-6 py-4">
+          <button
+            onClick={onClose}
+            className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+          >
+            Close
           </button>
         </div>
       </div>
@@ -399,11 +501,86 @@ function GrantCreditsModal({
   );
 }
 
+// Statistics Cards Component
+function UserStatsCards() {
+  const { t } = useTranslation();
+  const { stats, loading } = useUserStats();
+
+  if (loading || !stats) {
+    return (
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <div
+            key={i}
+            className="h-24 animate-pulse rounded-xl border border-gray-200 bg-gray-100"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  const statCards = [
+    {
+      label: t('admin.users.stats.totalUsers'),
+      value: stats.totalUsers,
+      icon: Users,
+      color: 'bg-violet-50 text-violet-600',
+    },
+    {
+      label: t('admin.users.stats.weeklyActive'),
+      value: stats.weeklyActiveUsers,
+      icon: TrendingUp,
+      color: 'bg-emerald-50 text-emerald-600',
+    },
+    {
+      label: t('admin.users.stats.newThisMonth'),
+      value: stats.newUsersThisMonth,
+      icon: UserPlus,
+      color: 'bg-blue-50 text-blue-600',
+    },
+    {
+      label: t('admin.users.stats.adminCount'),
+      value: stats.adminCount,
+      icon: UserCog,
+      color: 'bg-amber-50 text-amber-600',
+    },
+  ];
+
+  return (
+    <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {statCards.map((stat, index) => {
+        const Icon = stat.icon;
+        return (
+          <div
+            key={index}
+            className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">
+                  {stat.label}
+                </p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">
+                  {stat.value.toLocaleString()}
+                </p>
+              </div>
+              <div className={`rounded-xl p-3 ${stat.color}`}>
+                <Icon className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function UsersSettings({
   searchQuery,
   showAddModal,
   setShowAddModal,
 }: UsersSettingsProps) {
+  const { t } = useTranslation();
   const {
     users,
     loading,
@@ -418,6 +595,7 @@ export default function UsersSettings({
     grantCredits,
     toggleCreditFreeze,
     isCreditsLoading,
+    fetchLoginHistory,
   } = useAdminUsers();
 
   const [grantModalUser, setGrantModalUser] = useState<{
@@ -426,6 +604,31 @@ export default function UsersSettings({
   } | null>(null);
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  // Login history state
+  const [loginHistoryUser, setLoginHistoryUser] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [loginHistory, setLoginHistory] = useState<LoginHistoryItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Fetch login history when user is selected
+  const handleViewLoginHistory = async (user: User) => {
+    setLoginHistoryUser({
+      id: user.id,
+      name: user.name || user.username || user.email || 'User',
+    });
+    setLoadingHistory(true);
+    try {
+      const history = await fetchLoginHistory(user.id, 5);
+      setLoginHistory(history);
+    } catch {
+      setLoginHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   const { confirm, dialog } = useConfirm({
     title: 'Confirm Delete',
@@ -542,6 +745,20 @@ export default function UsersSettings({
         isLoading={isUpdating}
       />
 
+      <LoginHistoryModal
+        isOpen={!!loginHistoryUser}
+        onClose={() => {
+          setLoginHistoryUser(null);
+          setLoginHistory([]);
+        }}
+        history={loginHistory}
+        userName={loginHistoryUser?.name || 'User'}
+        isLoading={loadingHistory}
+      />
+
+      {/* Statistics Cards */}
+      <UserStatsCards />
+
       {/* Users Table */}
       <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-200">
@@ -560,7 +777,7 @@ export default function UsersSettings({
                 Credits
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Last Login
+                {t('admin.users.loginHistory.title')}
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                 Actions
@@ -638,10 +855,14 @@ export default function UsersSettings({
                       <span className="text-sm text-gray-400">-</span>
                     )}
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                    {user.lastLoginAt
-                      ? new Date(user.lastLoginAt).toLocaleDateString()
-                      : 'Never'}
+                  <td className="whitespace-nowrap px-6 py-4">
+                    <button
+                      onClick={() => handleViewLoginHistory(user)}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-violet-600 hover:bg-violet-50"
+                    >
+                      <History className="h-4 w-4" />
+                      <span>View History</span>
+                    </button>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
                     <div className="flex items-center justify-end gap-1">

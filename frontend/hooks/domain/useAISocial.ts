@@ -16,6 +16,8 @@ import {
   SocialContentType,
   SocialContentSourceType,
   SocialReviewStatus,
+  InitConnectionResponse,
+  VerifyConnectionResponse,
   // DTOs
   CreateContentDto,
   UpdateContentDto,
@@ -30,6 +32,8 @@ import {
   deleteConnection,
   testConnection,
   refreshConnection,
+  initConnection,
+  verifyConnection,
   getContents,
   getContent,
   createContent,
@@ -64,6 +68,8 @@ export type {
   SocialContentType,
   SocialContentSourceType,
   SocialReviewStatus,
+  InitConnectionResponse,
+  VerifyConnectionResponse,
   CreateContentDto,
   UpdateContentDto,
   ProcessUrlDto,
@@ -201,6 +207,57 @@ export function useSocialConnections() {
     }
   }, []);
 
+  const startConnection = useCallback(
+    async (platformType: SocialPlatformType) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await initConnection(platformType);
+        if (result.status === 'existing' && result.connection) {
+          setConnections((prev) => {
+            const exists = prev.find((c) => c.id === result.connection!.id);
+            if (exists) return prev;
+            return [...prev, result.connection!];
+          });
+        }
+        return result;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Failed to start connection';
+        setError(message);
+        return { status: 'error' as const, message };
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  const checkConnection = useCallback(
+    async (platformType: SocialPlatformType) => {
+      try {
+        const result = await verifyConnection(platformType);
+        if (result.status === 'success' && result.connection) {
+          setConnections((prev) => {
+            const exists = prev.find((c) => c.id === result.connection!.id);
+            if (exists) {
+              return prev.map((c) =>
+                c.id === result.connection!.id ? result.connection! : c
+              );
+            }
+            return [...prev, result.connection!];
+          });
+        }
+        return result;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Failed to verify connection';
+        return { status: 'error' as const, message };
+      }
+    },
+    []
+  );
+
   return {
     connections,
     loading,
@@ -212,6 +269,8 @@ export function useSocialConnections() {
     removeConnection,
     testConnection: testPlatformConnection,
     refreshConnection: refreshPlatformConnection,
+    startConnection,
+    checkConnection,
   };
 }
 

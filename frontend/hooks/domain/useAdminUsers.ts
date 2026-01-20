@@ -1,6 +1,27 @@
 import { useApiGet } from '../core';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { getAuthHeader } from '@/lib/utils/auth';
+
+export interface AdminUserStats {
+  totalUsers: number;
+  activeUsers: number;
+  weeklyActiveUsers: number;
+  monthlyActiveUsers: number;
+  newUsersToday: number;
+  newUsersThisWeek: number;
+  newUsersThisMonth: number;
+  adminCount: number;
+}
+
+export interface LoginHistoryItem {
+  id: string;
+  loginAt: string;
+  ipAddress: string | null;
+  device: string | null;
+  browser: string | null;
+  os: string | null;
+  location: string | null;
+}
 
 export interface User {
   id: string;
@@ -161,6 +182,25 @@ export function useAdminUsers() {
     [refreshUsers]
   );
 
+  // Fetch user login history
+  const fetchLoginHistory = useCallback(
+    async (userId: string, limit = 10): Promise<LoginHistoryItem[]> => {
+      try {
+        const response = await fetch(
+          `/api/v1/admin/users/${userId}/login-history?limit=${limit}`,
+          {
+            headers: { ...getAuthHeader() },
+          }
+        );
+        const result = await response.json();
+        return result.history || [];
+      } catch {
+        return [];
+      }
+    },
+    []
+  );
+
   return {
     users: data?.users ?? [],
     total: data?.total ?? 0,
@@ -179,9 +219,29 @@ export function useAdminUsers() {
     activateUser,
     grantCredits,
     toggleCreditFreeze,
+    fetchLoginHistory,
     isCreating: createLoading,
     isUpdating: updateLoading,
     isDeleting: deleteLoading,
     isCreditsLoading: creditsLoading,
+  };
+}
+
+// Separate hook for user statistics
+export function useUserStats() {
+  const {
+    data,
+    loading,
+    error,
+    execute: refreshStats,
+  } = useApiGet<AdminUserStats>('/admin/users/stats', {
+    immediate: true,
+  });
+
+  return {
+    stats: data,
+    loading,
+    error,
+    refreshStats,
   };
 }

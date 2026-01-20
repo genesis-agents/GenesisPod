@@ -102,14 +102,21 @@ export default function ArchitectureLayer({
 
         {/* Cards Grid */}
         <div className="px-5 pb-5">
-          {/* Regular cards */}
+          {/* Regular cards - Use grid for L1/L2 for consistent sizing */}
           {layer.cards && (
-            <div className="flex flex-wrap gap-3">
+            <div
+              className={cn(
+                layer.level === 1 || layer.level === 2
+                  ? 'grid grid-cols-5 gap-3' // 5 columns for L1, L2 uses same grid for alignment
+                  : 'flex flex-wrap gap-3'
+              )}
+            >
               {layer.cards.map((card) => (
                 <ArchitectureCard
                   key={card.id}
                   card={card}
                   layerLevel={layer.level}
+                  fixedWidth={layer.level === 1 || layer.level === 2}
                 />
               ))}
             </div>

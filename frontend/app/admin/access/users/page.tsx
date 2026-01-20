@@ -16,8 +16,8 @@ export default function UsersPage() {
 
   return (
     <AdminPageLayout
-      title={t('admin.nav.users')}
-      description={t('admin.tabDescriptions.users')}
+      title={t('admin.users.title')}
+      description={t('admin.users.description')}
       icon={Users}
       domain="access"
       actions={<UsersAddButton onClick={() => setShowAddModal(true)} />}

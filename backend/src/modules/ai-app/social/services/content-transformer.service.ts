@@ -78,10 +78,19 @@ export class ContentTransformerService {
 6. 生成3-5个相关标签
 7. 生成一段100字以内的摘要
 
+重要：内容必须是带内联样式的HTML（类似秀米格式），可以直接复制到微信公众号编辑器！
+
+排版样式要求：
+- 段落: <p style="margin: 1em 0; line-height: 1.8; text-indent: 2em;">内容</p>
+- 小标题: <h3 style="margin: 1.5em 0 0.8em; font-size: 18px; font-weight: bold; color: #333; border-left: 4px solid #07C160; padding-left: 10px;">标题</h3>
+- 粗体: <strong style="color: #07C160;">重点内容</strong>
+- 引用: <blockquote style="margin: 1em 0; padding: 10px 15px; background: #f7f7f7; border-left: 3px solid #07C160;">引用内容</blockquote>
+- 列表: <ul style="margin: 1em 0; padding-left: 2em;"><li style="margin: 0.5em 0;">列表项</li></ul>
+
 请以JSON格式返回，包含以下字段：
-- title: 文章标题
-- content: 正文内容（Markdown格式）
-- digest: 摘要
+- title: 文章标题（纯文本）
+- content: 正文内容（带内联样式的HTML，不要包含<html><body>等外层标签）
+- digest: 摘要（纯文本）
 - tags: 标签数组`;
 
       case SocialContentType.XIAOHONGSHU_NOTE:

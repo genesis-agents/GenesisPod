@@ -52,6 +52,50 @@ export class AdminController {
   }
 
   /**
+   * 获取用户统计信息
+   * GET /api/v1/admin/users/stats
+   */
+  @Get("users/stats")
+  async getUserStats() {
+    this.logger.log("Admin: Fetching user statistics");
+    return this.adminService.getUserStats();
+  }
+
+  /**
+   * 创建新用户
+   * POST /api/v1/admin/users
+   */
+  @Post("users")
+  async createUser(
+    @Body()
+    body: {
+      email: string;
+      username?: string;
+      role?: "USER" | "ADMIN";
+      password?: string;
+    },
+  ) {
+    this.logger.log(`Admin: Creating user ${body.email}`);
+    return this.adminService.createUser(body);
+  }
+
+  /**
+   * 获取用户登录历史
+   * GET /api/v1/admin/users/:id/login-history
+   */
+  @Get("users/:id/login-history")
+  async getUserLoginHistory(
+    @Param("id") id: string,
+    @Query("limit") limit?: string,
+  ) {
+    this.logger.log(`Admin: Fetching login history for user ${id}`);
+    return this.adminService.getUserLoginHistory(
+      id,
+      limit ? parseInt(limit) : 10,
+    );
+  }
+
+  /**
    * 获取系统统计信息
    * GET /api/v1/admin/stats
    */

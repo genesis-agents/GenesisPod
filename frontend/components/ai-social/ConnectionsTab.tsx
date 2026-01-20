@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import {
   Link2,
@@ -12,15 +12,27 @@ import {
   Settings,
   Trash2,
   Loader2,
+  QrCode,
+  X,
 } from 'lucide-react';
 import {
   useSocialConnections,
   SocialPlatformConnection,
+  InitConnectionResponse,
 } from '@/hooks/domain/useAISocial';
 import { toast } from '@/stores/toastStore';
 
 // Platform types matching backend
 type PlatformType = 'WECHAT_MP' | 'XIAOHONGSHU';
+
+// Login modal state
+interface LoginModalState {
+  isOpen: boolean;
+  platform: PlatformType | null;
+  status: 'idle' | 'loading' | 'scanning' | 'success' | 'error';
+  screenshot: string | null;
+  message: string;
+}
 
 // Platform configuration
 const PLATFORMS: Record<
@@ -51,23 +63,128 @@ export default function ConnectionsTab() {
     removeConnection,
     testConnection,
     refreshConnection,
+    startConnection,
+    checkConnection,
   } = useSocialConnections();
 
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [selectedPlatform, setSelectedPlatform] = useState<PlatformType | null>(
-    null
-  );
   const [testingId, setTestingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Login modal state
+  const [loginModal, setLoginModal] = useState<LoginModalState>({
+    isOpen: false,
+    platform: null,
+    status: 'idle',
+    screenshot: null,
+    message: '',
+  });
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load connections on mount
   useEffect(() => {
     fetchConnections();
   }, [fetchConnections]);
 
-  const handleAddConnection = (platform: PlatformType) => {
-    setSelectedPlatform(platform);
-    setShowAddModal(true);
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
+  }, []);
+
+  // Stop polling
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+
+  // Close login modal
+  const closeLoginModal = useCallback(() => {
+    stopPolling();
+    setLoginModal({
+      isOpen: false,
+      platform: null,
+      status: 'idle',
+      screenshot: null,
+      message: '',
+    });
+  }, [stopPolling]);
+
+  // Handle add connection - start login flow
+  const handleAddConnection = async (platform: PlatformType) => {
+    setLoginModal({
+      isOpen: true,
+      platform,
+      status: 'loading',
+      screenshot: null,
+      message: '正在启动登录...',
+    });
+
+    const result = await startConnection(platform);
+
+    if (result.status === 'existing') {
+      setLoginModal((prev) => ({
+        ...prev,
+        status: 'success',
+        message: result.message || '平台已连接',
+      }));
+      toast.success(result.message || '平台已连接');
+      setTimeout(closeLoginModal, 1500);
+      return;
+    }
+
+    if (result.status === 'pending' && result.screenshot) {
+      setLoginModal((prev) => ({
+        ...prev,
+        status: 'scanning',
+        screenshot: result.screenshot || null,
+        message: '请扫码登录',
+      }));
+
+      // Start polling for verification
+      pollingRef.current = setInterval(async () => {
+        const verifyResult = await checkConnection(platform);
+
+        if (verifyResult.status === 'success') {
+          stopPolling();
+          setLoginModal((prev) => ({
+            ...prev,
+            status: 'success',
+            message: verifyResult.message || '连接成功',
+          }));
+          toast.success(verifyResult.message || '连接成功');
+          setTimeout(closeLoginModal, 1500);
+        } else if (
+          verifyResult.status === 'pending' &&
+          verifyResult.screenshot
+        ) {
+          // Update screenshot if changed
+          setLoginModal((prev) => ({
+            ...prev,
+            screenshot: verifyResult.screenshot || prev.screenshot,
+          }));
+        } else if (verifyResult.status === 'error') {
+          stopPolling();
+          setLoginModal((prev) => ({
+            ...prev,
+            status: 'error',
+            message: verifyResult.message || '验证失败',
+          }));
+        }
+      }, 3000); // Poll every 3 seconds
+      return;
+    }
+
+    // Error
+    setLoginModal((prev) => ({
+      ...prev,
+      status: 'error',
+      message: result.message || '启动登录失败',
+    }));
   };
 
   const handleRefresh = async () => {
@@ -287,38 +404,95 @@ export default function ConnectionsTab() {
         </div>
       </div>
 
-      {/* Add Connection Modal */}
-      {showAddModal && selectedPlatform && (
+      {/* Login Modal with QR Code */}
+      {loginModal.isOpen && loginModal.platform && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold">
-              {t('aiSocial.connections.addTitle', {
-                platform: t(
-                  `aiSocial.platforms.${selectedPlatform.toLowerCase()}`
-                ),
-              })}
-            </h3>
-            <p className="mb-6 text-sm text-gray-500">
-              {t('aiSocial.connections.addDescription')}
-            </p>
-            <div className="flex gap-3">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            {/* Header */}
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">
+                {t('aiSocial.connections.addTitle', {
+                  platform: t(
+                    `aiSocial.platforms.${loginModal.platform.toLowerCase()}`
+                  ),
+                })}
+              </h3>
               <button
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                onClick={closeLoginModal}
+                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
               >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={() => {
-                  // TODO: Implement OAuth or session-based connection
-                  toast.info('平台连接功能即将上线');
-                  setShowAddModal(false);
-                }}
-                className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700"
-              >
-                {t('aiSocial.connections.startAuth')}
+                <X className="h-5 w-5" />
               </button>
             </div>
+
+            {/* Content based on status */}
+            <div className="min-h-[300px]">
+              {loginModal.status === 'loading' && (
+                <div className="flex h-[300px] flex-col items-center justify-center">
+                  <Loader2 className="h-12 w-12 animate-spin text-gray-400" />
+                  <p className="mt-4 text-sm text-gray-500">
+                    {loginModal.message}
+                  </p>
+                </div>
+              )}
+
+              {loginModal.status === 'scanning' && loginModal.screenshot && (
+                <div className="flex flex-col items-center">
+                  <p className="mb-4 text-sm text-gray-600">
+                    请使用
+                    {loginModal.platform === 'WECHAT_MP' ? '微信' : '小红书'}
+                    扫描下方二维码登录
+                  </p>
+                  <div className="relative overflow-hidden rounded-lg border border-gray-200">
+                    <img
+                      src={loginModal.screenshot}
+                      alt="Login QR Code"
+                      className="max-h-[400px] w-auto"
+                    />
+                  </div>
+                  <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>等待扫码确认...</span>
+                  </div>
+                </div>
+              )}
+
+              {loginModal.status === 'success' && (
+                <div className="flex h-[300px] flex-col items-center justify-center">
+                  <CheckCircle className="h-16 w-16 text-green-500" />
+                  <p className="mt-4 text-lg font-medium text-gray-900">
+                    {loginModal.message}
+                  </p>
+                </div>
+              )}
+
+              {loginModal.status === 'error' && (
+                <div className="flex h-[300px] flex-col items-center justify-center">
+                  <XCircle className="h-16 w-16 text-red-500" />
+                  <p className="mt-4 text-lg font-medium text-gray-900">
+                    {loginModal.message}
+                  </p>
+                  <button
+                    onClick={() => handleAddConnection(loginModal.platform!)}
+                    className="mt-4 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                  >
+                    重试
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            {loginModal.status === 'scanning' && (
+              <div className="mt-4 border-t border-gray-100 pt-4">
+                <button
+                  onClick={closeLoginModal}
+                  className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  取消
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

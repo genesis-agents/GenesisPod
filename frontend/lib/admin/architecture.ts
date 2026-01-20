@@ -75,8 +75,10 @@ const aiAppsLayer: ArchitectureLayer = {
         {
           id: 'aiExplore',
           i18nKey: 'nav.aiExplore',
+          descriptionKey: 'admin.tabDescriptions.collection',
+          href: '/admin/data/collection',
           icon: Compass,
-          clickable: false,
+          clickable: true,
         },
         {
           id: 'myLibrary',
@@ -200,6 +202,7 @@ const aiEngineLayer: ArchitectureLayer = {
 };
 
 // Layer 1: Infrastructure Layer (Foundation)
+// 5 cards in even row layout: Storage, Data, Users, Secrets, System
 const infrastructureLayer: ArchitectureLayer = {
   id: 'infrastructure',
   titleKey: 'admin.architecture.layers.infrastructure',
@@ -207,10 +210,10 @@ const infrastructureLayer: ArchitectureLayer = {
   level: 1,
   cards: [
     {
-      id: 'collection',
-      i18nKey: 'admin.nav.collection',
-      href: '/admin/data/collection',
-      icon: Database,
+      id: 'storage',
+      i18nKey: 'admin.nav.storage',
+      href: '/admin/system/storage',
+      icon: HardDrive,
       clickable: true,
     },
     {
@@ -218,20 +221,6 @@ const infrastructureLayer: ArchitectureLayer = {
       i18nKey: 'admin.nav.dataManagement',
       href: '/admin/data-management',
       icon: Layers,
-      clickable: true,
-    },
-    {
-      id: 'system',
-      i18nKey: 'admin.nav.systemSettings',
-      href: '/admin/system/site',
-      icon: Settings,
-      clickable: true,
-    },
-    {
-      id: 'storage',
-      i18nKey: 'admin.nav.storage',
-      href: '/admin/system/storage',
-      icon: HardDrive,
       clickable: true,
     },
     {
@@ -249,10 +238,10 @@ const infrastructureLayer: ArchitectureLayer = {
       clickable: true,
     },
     {
-      id: 'security',
-      i18nKey: 'admin.nav.security',
-      href: '/admin/access/security',
-      icon: Shield,
+      id: 'system',
+      i18nKey: 'admin.nav.systemManagement',
+      href: '/admin/system',
+      icon: Settings,
       clickable: true,
     },
   ],

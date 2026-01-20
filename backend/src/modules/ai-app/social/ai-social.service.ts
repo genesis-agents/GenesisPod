@@ -7,6 +7,7 @@ import {
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ContentCheckerService } from "./services/content-checker.service";
 import { PublishExecutorService } from "./services/publish-executor.service";
+import { PlaywrightService } from "./services/playwright.service";
 import { CreateContentDto } from "./dto/create-content.dto";
 import { UpdateContentDto } from "./dto/update-content.dto";
 import { PublishContentDto } from "./dto/publish-content.dto";
@@ -27,6 +28,7 @@ export class AiSocialService {
     private readonly prisma: PrismaService,
     private readonly contentChecker: ContentCheckerService,
     private readonly publishExecutor: PublishExecutorService,
+    private readonly playwright: PlaywrightService,
   ) {}
 
   // Helper to access prisma with new models
@@ -41,6 +43,12 @@ export class AiSocialService {
       where: { userId },
     });
   }
+
+  // 存储待验证的登录会话
+  private pendingLoginSessions: Map<
+    string,
+    { sessionKey: string; platformType: SocialPlatformType }
+  > = new Map();
 
   async initConnection(userId: string, type: string) {
     const platformType = type.toUpperCase() as SocialPlatformType;
@@ -63,26 +71,88 @@ export class AiSocialService {
       };
     }
 
-    // TODO: 启动 Playwright 获取登录二维码
-    // 这里返回一个占位响应，实际需要集成 Playwright
-    return {
-      status: "pending",
-      qrCodeUrl: null, // Playwright 生成的二维码 URL
-      message: "请扫码登录",
-    };
+    try {
+      // 启动 Playwright 登录会话
+      const { sessionKey, screenshot } =
+        await this.playwright.startLoginSession(userId, platformType);
+
+      // 保存待验证的会话
+      this.pendingLoginSessions.set(userId + "-" + platformType, {
+        sessionKey,
+        platformType,
+      });
+
+      return {
+        status: "pending",
+        sessionKey,
+        screenshot, // base64 截图
+        message: "请扫码登录",
+      };
+    } catch (error) {
+      this.logger.error(`Failed to init connection: ${error}`);
+      return {
+        status: "error",
+        message: "启动登录失败，请稍后重试",
+      };
+    }
   }
 
   async verifyConnection(userId: string, type: string) {
     const platformType = type.toUpperCase() as SocialPlatformType;
     this.logger.log(`Verifying connection ${platformType} for user ${userId}`);
 
-    // TODO: 检查 Playwright session 状态
-    // 如果登录成功，保存 session 到数据库
+    // 获取待验证的会话
+    const pendingKey = userId + "-" + platformType;
+    const pending = this.pendingLoginSessions.get(pendingKey);
 
-    return {
-      status: "pending",
-      message: "等待扫码确认",
-    };
+    if (!pending) {
+      return {
+        status: "error",
+        message: "没有待验证的登录会话，请重新开始",
+      };
+    }
+
+    try {
+      // 检查登录状态
+      const result = await this.playwright.checkLoginStatus(pending.sessionKey);
+
+      if (result.loggedIn) {
+        // 登录成功，保存到数据库
+        const connection = await this.db.socialPlatformConnection.create({
+          data: {
+            userId,
+            platformType,
+            accountName: result.accountName || platformType,
+            sessionData: result.sessionData as object,
+            isActive: true,
+            lastCheckAt: new Date(),
+          },
+        });
+
+        // 清理登录会话
+        await this.playwright.endLoginSession(pending.sessionKey);
+        this.pendingLoginSessions.delete(pendingKey);
+
+        return {
+          status: "success",
+          connection,
+          message: "连接成功",
+        };
+      }
+
+      // 未登录，返回新截图
+      return {
+        status: "pending",
+        screenshot: result.screenshot,
+        message: "等待扫码确认",
+      };
+    } catch (error) {
+      this.logger.error(`Failed to verify connection: ${error}`);
+      return {
+        status: "error",
+        message: "验证失败，请重试",
+      };
+    }
   }
 
   async deleteConnection(userId: string, type: string) {
@@ -156,36 +226,123 @@ export class AiSocialService {
       limit: number;
     },
   ) {
-    const where: Record<string, unknown> = { userId };
+    // Use $queryRaw because images and tags columns are text[] in database
+    // but Prisma schema declares them as Json - causes type mismatch with ORM
+    const offset = (options.page - 1) * options.limit;
 
+    // Build WHERE conditions
+    const conditions: string[] = [`sc.user_id = '${userId}'`];
     if (options.status) {
-      where.status = options.status.toUpperCase();
+      conditions.push(`sc.status = '${options.status.toUpperCase()}'`);
     }
-
     if (options.contentType) {
-      where.contentType = options.contentType.toUpperCase();
+      conditions.push(
+        `sc.content_type = '${options.contentType.toUpperCase()}'`,
+      );
+    }
+    const whereClause = conditions.join(" AND ");
+
+    // Define result type
+    interface ContentRow {
+      id: string;
+      userId: string;
+      connectionId: string | null;
+      contentType: string;
+      sourceType: string;
+      sourceId: string | null;
+      sourceUrl: string | null;
+      title: string;
+      content: string;
+      author: string | null;
+      digest: string | null;
+      coverImageUrl: string | null;
+      images: string[];
+      tags: string[];
+      location: string | null;
+      status: string;
+      aiProcessLog: unknown;
+      aiSuggestions: unknown;
+      complianceCheck: unknown;
+      reviewStatus: string | null;
+      reviewedById: string | null;
+      reviewedAt: Date | null;
+      reviewNote: string | null;
+      scheduledAt: Date | null;
+      publishedAt: Date | null;
+      autoPublish: boolean;
+      externalId: string | null;
+      externalUrl: string | null;
+      errorMessage: string | null;
+      retryCount: number;
+      createdAt: Date;
+      updatedAt: Date;
+      connectionAccountName: string | null;
+      connectionPlatformType: string | null;
     }
 
-    const [contents, total] = await Promise.all([
-      this.db.socialContent.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: (options.page - 1) * options.limit,
-        take: options.limit,
-        include: {
-          connection: {
-            select: {
-              accountName: true,
-              platformType: true,
-            },
-          },
-        },
-      }),
-      this.db.socialContent.count({ where }),
-    ]);
+    // Query contents with connection join
+    const contents = (await this.db.$queryRawUnsafe(
+      `SELECT
+        sc.id,
+        sc.user_id AS "userId",
+        sc.connection_id AS "connectionId",
+        sc.content_type AS "contentType",
+        sc.source_type AS "sourceType",
+        sc.source_id AS "sourceId",
+        sc.source_url AS "sourceUrl",
+        sc.title,
+        sc.content,
+        sc.author,
+        sc.digest,
+        sc.cover_image_url AS "coverImageUrl",
+        sc.images,
+        sc.tags,
+        sc.location,
+        sc.status,
+        sc.ai_process_log AS "aiProcessLog",
+        sc.ai_suggestions AS "aiSuggestions",
+        sc.compliance_check AS "complianceCheck",
+        sc.review_status AS "reviewStatus",
+        sc.reviewed_by_id AS "reviewedById",
+        sc.reviewed_at AS "reviewedAt",
+        sc.review_note AS "reviewNote",
+        sc.scheduled_at AS "scheduledAt",
+        sc.published_at AS "publishedAt",
+        sc.auto_publish AS "autoPublish",
+        sc.external_id AS "externalId",
+        sc.external_url AS "externalUrl",
+        sc.error_message AS "errorMessage",
+        sc.retry_count AS "retryCount",
+        sc.created_at AS "createdAt",
+        sc.updated_at AS "updatedAt",
+        spc.account_name AS "connectionAccountName",
+        spc.platform_type AS "connectionPlatformType"
+      FROM social_contents sc
+      LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
+      WHERE ${whereClause}
+      ORDER BY sc.created_at DESC
+      LIMIT ${options.limit} OFFSET ${offset}`,
+    )) as ContentRow[];
+
+    // Query total count
+    const countResult = (await this.db.$queryRawUnsafe(
+      `SELECT COUNT(*) as count FROM social_contents sc WHERE ${whereClause}`,
+    )) as Array<{ count: bigint }>;
+    const total = Number(countResult[0]?.count || 0);
+
+    // Transform to expected format
+    const transformedContents = contents.map((c: ContentRow) => ({
+      ...c,
+      connection: c.connectionId
+        ? {
+            accountName: c.connectionAccountName,
+            platformType: c.connectionPlatformType,
+          }
+        : null,
+    }));
 
     return {
-      contents,
+      contents: transformedContents,
       pagination: {
         page: options.page,
         limit: options.limit,

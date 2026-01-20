@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  Compass,
   Database,
   Plus,
   Pause,
@@ -688,9 +689,9 @@ export default function ConfigPage() {
 
   return (
     <AdminPageLayout
-      title={t('admin.nav.collection')}
-      description={t('admin.tabDescriptions.collection')}
-      icon={Database}
+      title={t('admin.dataCollection.title')}
+      description={t('admin.dataCollection.description')}
+      icon={Compass}
       domain="data"
       actions={
         <button

@@ -537,7 +537,6 @@ function CreateSocialContentForm() {
         </div>
       )}
 
-
       {/* Step 1: 选择来源 */}
       {currentStep === 'select-source' && (
         <div className="space-y-6">
@@ -732,11 +731,11 @@ function CreateSocialContentForm() {
                 />
               </div>
 
-              {/* 内容 */}
+              {/* 内容编辑与预览 */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium text-gray-700">
-                    {t('aiSocial.create.preview')}
+                    内容
                   </label>
                   {currentContent && (
                     <button
@@ -751,14 +750,72 @@ function CreateSocialContentForm() {
                     </button>
                   )}
                 </div>
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  rows={12}
-                  disabled={isLoading}
-                  className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 disabled:bg-gray-50"
-                  placeholder={t('aiSocial.create.contentPlaceholder')}
-                />
+
+                {/* 双栏布局：编辑器 + 预览（预览区更宽） */}
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
+                  {/* 左侧：代码编辑器（2/5 宽度） */}
+                  <div className="space-y-2 xl:col-span-2">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span className="rounded bg-gray-100 px-2 py-0.5">
+                        {selectedPlatform === 'WECHAT_ARTICLE'
+                          ? 'HTML'
+                          : '纯文本'}
+                      </span>
+                      <span>源代码</span>
+                    </div>
+                    <textarea
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      rows={20}
+                      disabled={isLoading}
+                      className="font-mono w-full rounded-lg border border-gray-200 px-4 py-3 text-sm focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 disabled:bg-gray-50"
+                      placeholder={t('aiSocial.create.contentPlaceholder')}
+                    />
+                  </div>
+
+                  {/* 右侧：实时预览（3/5 宽度） */}
+                  <div className="space-y-2 xl:col-span-3">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span className="rounded bg-green-100 px-2 py-0.5 text-green-700">
+                        {t('aiSocial.create.preview')}
+                      </span>
+                      <span>
+                        {selectedPlatform === 'WECHAT_ARTICLE'
+                          ? '微信公众号效果'
+                          : '小红书效果'}
+                      </span>
+                    </div>
+                    <div
+                      className="max-h-[600px] min-h-[400px] overflow-auto rounded-lg border border-gray-200 bg-white p-4"
+                      style={{
+                        // 模拟微信公众号文章样式
+                        fontFamily:
+                          selectedPlatform === 'WECHAT_ARTICLE'
+                            ? '-apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif'
+                            : 'inherit',
+                        fontSize: '16px',
+                        lineHeight: '1.75',
+                        color: '#333',
+                      }}
+                    >
+                      {selectedPlatform === 'WECHAT_ARTICLE' ? (
+                        // 微信公众号：渲染 HTML
+                        <div
+                          dangerouslySetInnerHTML={{
+                            __html:
+                              content ||
+                              '<p style="color: #999;">预览内容将在此显示...</p>',
+                          }}
+                        />
+                      ) : (
+                        // 小红书：渲染纯文本（保留换行和表情）
+                        <div className="whitespace-pre-wrap">
+                          {content || '预览内容将在此显示...'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* 摘要 */}

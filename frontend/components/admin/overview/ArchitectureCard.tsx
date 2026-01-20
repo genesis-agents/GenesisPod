@@ -12,11 +12,13 @@ import { cn } from '@/lib/utils/common';
 interface ArchitectureCardProps {
   card: CardType;
   layerLevel: 1 | 2 | 3;
+  fixedWidth?: boolean;
 }
 
 export default function ArchitectureCard({
   card,
   layerLevel,
+  fixedWidth = false,
 }: ArchitectureCardProps) {
   const { t } = useTranslation();
   const Icon = card.icon;
@@ -26,6 +28,7 @@ export default function ArchitectureCard({
     <div
       className={cn(
         'group flex items-center gap-3 rounded-lg border px-4 py-3 transition-all duration-200',
+        fixedWidth && 'w-full', // Fill grid cell width
         card.clickable
           ? [
               'cursor-pointer border-gray-200 bg-white shadow-sm',
@@ -72,11 +75,11 @@ export default function ArchitectureCard({
 
   if (card.clickable && card.href) {
     return (
-      <Link href={card.href} className="block">
+      <Link href={card.href} className={cn('block', fixedWidth && 'w-full')}>
         {cardContent}
       </Link>
     );
   }
 
-  return <div>{cardContent}</div>;
+  return <div className={cn(fixedWidth && 'w-full')}>{cardContent}</div>;
 }

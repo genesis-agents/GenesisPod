@@ -164,6 +164,169 @@ export class AdminService {
   }
 
   /**
+   * 获取用户统计信息（用于管理仪表板）
+   */
+  async getUserStats() {
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const [
+      totalUsers,
+      activeUsers,
+      weeklyActiveUsers,
+      monthlyActiveUsers,
+      newUsersToday,
+      newUsersThisWeek,
+      newUsersThisMonth,
+      adminCount,
+    ] = await Promise.all([
+      // 总用户数
+      this.prisma.user.count(),
+      // 活跃用户数（isActive = true）
+      this.prisma.user.count({ where: { isActive: true } }),
+      // 周活跃用户数（过去7天有登录）
+      this.prisma.user.count({
+        where: { lastLoginAt: { gte: oneWeekAgo } },
+      }),
+      // 月活跃用户数（过去30天有登录）
+      this.prisma.user.count({
+        where: { lastLoginAt: { gte: oneMonthAgo } },
+      }),
+      // 今日新增用户
+      this.prisma.user.count({
+        where: { createdAt: { gte: today } },
+      }),
+      // 本周新增用户
+      this.prisma.user.count({
+        where: { createdAt: { gte: oneWeekAgo } },
+      }),
+      // 本月新增用户
+      this.prisma.user.count({
+        where: { createdAt: { gte: oneMonthAgo } },
+      }),
+      // 管理员数量
+      this.prisma.user.count({ where: { role: "ADMIN" } }),
+    ]);
+
+    return {
+      totalUsers,
+      activeUsers,
+      weeklyActiveUsers,
+      monthlyActiveUsers,
+      newUsersToday,
+      newUsersThisWeek,
+      newUsersThisMonth,
+      adminCount,
+    };
+  }
+
+  /**
+   * 获取用户登录历史
+   */
+  async getUserLoginHistory(userId: string, limit = 10) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+
+    const history = await this.prisma.loginHistory.findMany({
+      where: { userId },
+      orderBy: { loginAt: "desc" },
+      take: limit,
+      select: {
+        id: true,
+        loginAt: true,
+        ipAddress: true,
+        device: true,
+        browser: true,
+        os: true,
+        location: true,
+      },
+    });
+
+    return {
+      userId,
+      email: user.email,
+      history,
+    };
+  }
+
+  /**
+   * 创建新用户（管理员功能）
+   */
+  async createUser(data: {
+    email: string;
+    username?: string;
+    role?: "USER" | "ADMIN";
+    password?: string;
+  }) {
+    // 检查邮箱是否已存在
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (existingUser) {
+      return { success: false, error: "Email already exists" };
+    }
+
+    // 如果提供了用户名，检查是否已存在
+    if (data.username) {
+      const existingUsername = await this.prisma.user.findUnique({
+        where: { username: data.username },
+      });
+      if (existingUsername) {
+        return { success: false, error: "Username already exists" };
+      }
+    }
+
+    // 创建用户
+    const userData: any = {
+      email: data.email,
+      username: data.username || null,
+      role: data.role || "USER",
+      isActive: true,
+      isVerified: true, // 管理员创建的用户默认已验证
+    };
+
+    // 如果提供了密码，哈希它
+    if (data.password) {
+      const bcrypt = await import("bcrypt");
+      userData.passwordHash = await bcrypt.hash(data.password, 10);
+    }
+
+    const user = await this.prisma.user.create({
+      data: userData,
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    // 创建积分账户
+    await this.prisma.creditAccount.create({
+      data: {
+        userId: user.id,
+        balance: 10000, // 默认初始积分
+        totalEarned: 10000,
+        totalSpent: 0,
+      },
+    });
+
+    this.logger.log(`Admin created new user: ${user.email}`);
+
+    return { success: true, ...user };
+  }
+
+  /**
    * 删除资源
    */
   async deleteResource(resourceId: string) {
