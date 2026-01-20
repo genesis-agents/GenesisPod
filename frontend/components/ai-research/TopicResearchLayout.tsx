@@ -199,17 +199,39 @@ export function TopicResearchLayout({
     }
 
     // 先做本地快速检查：如果是所有者，立即设置权限
-    const ownerId = topic.userId || topic.createdById;
+    const ownerId = (topic as any).userId || (topic as any).createdById;
     if (ownerId === user.id) {
       setCanEdit(true);
       return;
     }
 
-    // 非所有者需要检查协作者权限
-    checkEditPermission(topic.id, user.id)
-      .then((hasPermission) => setCanEdit(hasPermission))
-      .catch(() => setCanEdit(false));
-  }, [user?.id, topic.id, topic.userId, topic.createdById]);
+    // ★ 根据可见性决定是否需要检查协作者权限
+    const visibility = (topic as any).visibility;
+
+    // PRIVATE: 非所有者不可能有权限访问（能看到说明已经是所有者）
+    // PUBLIC: 非所有者只有查看权限，没有编辑权限
+    if (visibility === 'PRIVATE' || visibility === 'PUBLIC') {
+      setCanEdit(false);
+      return;
+    }
+
+    // SHARED: 需要检查协作者权限（可能是 EDITOR 或 ADMIN）
+    if (visibility === 'SHARED') {
+      checkEditPermission(topic.id, user.id)
+        .then((hasPermission) => setCanEdit(hasPermission))
+        .catch(() => setCanEdit(false));
+      return;
+    }
+
+    // 未知可见性，默认无权限（避免不必要的 API 调用）
+    setCanEdit(false);
+  }, [
+    user?.id,
+    topic.id,
+    (topic as any).userId,
+    (topic as any).createdById,
+    (topic as any).visibility,
+  ]);
 
   const handleExport = useCallback(
     (format: 'pdf' | 'docx') => {
@@ -370,6 +392,7 @@ export function TopicResearchLayout({
             missionStatus={missionStatus}
             onDeleteReport={onDeleteReport}
             initialView={initialView}
+            canEdit={canEdit}
           />
         </div>
       </div>

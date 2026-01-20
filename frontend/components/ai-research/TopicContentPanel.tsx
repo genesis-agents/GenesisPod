@@ -165,6 +165,8 @@ interface TopicContentPanelProps {
   onDeleteReport?: (reportId: string) => Promise<void>;
   /** ★ 初始视图（用于分享链接直接跳转到报告） */
   initialView?: string | null;
+  /** ★ 是否有编辑权限（所有者或 EDITOR/ADMIN 协作者） */
+  canEdit?: boolean;
 }
 
 // Icons
@@ -382,6 +384,7 @@ export function TopicContentPanel({
   topicId,
   onDeleteReport,
   initialView,
+  canEdit = false,
 }: TopicContentPanelProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -798,9 +801,11 @@ export function TopicContentPanel({
   const [isLoadingAnnotations, setIsLoadingAnnotations] = useState(false);
 
   // ★ Load annotations from backend when report changes
+  // 只有有编辑权限的用户才能访问批注（所有者或 EDITOR/ADMIN 协作者）
   useEffect(() => {
     async function loadAnnotations() {
-      if (!topicId || !report?.id) {
+      // ★ 如果没有编辑权限，不加载批注（避免 403 错误）
+      if (!topicId || !report?.id || !canEdit) {
         setAnnotations([]);
         return;
       }
@@ -845,7 +850,7 @@ export function TopicContentPanel({
     }
 
     loadAnnotations();
-  }, [topicId, report?.id]);
+  }, [topicId, report?.id, canEdit]);
 
   // ★ 用于自动展开证据卡片的 ID
   const [autoExpandEvidenceId, setAutoExpandEvidenceId] = useState<
