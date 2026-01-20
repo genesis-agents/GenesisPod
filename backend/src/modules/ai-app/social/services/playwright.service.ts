@@ -450,33 +450,46 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
       }
 
       // 未登录，返回新截图（优先截取二维码区域）
-      let screenshotBuffer: Buffer;
-      if (config.qrCodeSelector) {
-        try {
-          const qrElement = await page.$(config.qrCodeSelector);
-          if (qrElement) {
-            screenshotBuffer = await qrElement.screenshot({
-              type: "png",
-              timeout: 10000,
-            });
-          } else {
-            screenshotBuffer = await page.screenshot({
-              type: "png",
-              timeout: 10000,
-            });
+      let screenshotBuffer: Buffer | null = null;
+      const screenshotTimeout = 30000; // 增加到30秒
+
+      try {
+        if (config.qrCodeSelector) {
+          try {
+            const qrElement = await page.$(config.qrCodeSelector);
+            if (qrElement) {
+              screenshotBuffer = await qrElement.screenshot({
+                type: "png",
+                timeout: screenshotTimeout,
+              });
+            }
+          } catch {
+            // QR元素截图失败，使用全页截图
           }
-        } catch {
+        }
+
+        if (!screenshotBuffer) {
           screenshotBuffer = await page.screenshot({
             type: "png",
-            timeout: 10000,
+            timeout: screenshotTimeout,
           });
         }
-      } else {
-        screenshotBuffer = await page.screenshot({
-          type: "png",
-          timeout: 10000,
-        });
+      } catch (screenshotError) {
+        this.logger.warn(
+          `Screenshot failed, returning pending status without new screenshot: ${screenshotError}`,
+        );
+        // 截图失败时返回 pending 状态但不包含新截图
+        return {
+          loggedIn: false,
+        };
       }
+
+      if (!screenshotBuffer) {
+        return {
+          loggedIn: false,
+        };
+      }
+
       const screenshot = `data:image/png;base64,${screenshotBuffer.toString("base64")}`;
 
       return {
@@ -485,7 +498,10 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
       };
     } catch (error) {
       this.logger.error(`Failed to check login status: ${error}`);
-      throw error;
+      // 返回错误状态而不是抛出异常，让前端可以继续轮询
+      return {
+        loggedIn: false,
+      };
     }
   }
 
