@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 7 - Use consolidated fix migration
+# Version: 8 - Clean migration approach
 
 echo "=========================================="
 echo "Starting DeepDive Engine Backend"
@@ -14,12 +14,9 @@ if [ $? -ne 0 ]; then
   echo "⚠️ fix-export-tables.js failed, but continuing..."
 fi
 
-echo "🔧 Step 1: Resolving migration state..."
-
-# Mark old problematic migrations as applied (skip them)
+echo "🔧 Step 1: Resolving known failed migration..."
+# Only resolve the historically problematic migration
 npx prisma migrate resolve --applied 20251204000000_add_team_collaboration --schema=./prisma/schema.prisma || true
-npx prisma migrate resolve --applied 20260120_add_tool_secret_key --schema=./prisma/schema.prisma || true
-npx prisma migrate resolve --applied 20260120_add_login_history --schema=./prisma/schema.prisma || true
 
 echo "🔄 Step 2: Running database migrations..."
 npx prisma migrate deploy --schema=./prisma/schema.prisma
