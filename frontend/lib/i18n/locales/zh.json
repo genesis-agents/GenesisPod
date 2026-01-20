@@ -1791,7 +1791,7 @@
         "youtube": "YouTube",
         "tts": "语音合成",
         "skillsmp": "AI技能",
-        "simulation": "数据源"
+        "policy": "政策研究"
       },
       "modal": {
         "configure": "配置 {{name}}",
@@ -1868,25 +1868,20 @@
           "tags": "技能市场, AI语义搜索, SKILL.md",
           "features": "AI语义搜索, SKILL.md标准, 每日自动同步, 分类浏览"
         },
-        "marketData": {
-          "description": "GPU/芯片/云算力价格、供需关系、交付周期",
-          "tags": "市场数据, 定价, API",
-          "features": "实时价格, 历史数据, 多数据源"
+        "federal-register": {
+          "description": "搜索美国联邦公报 - 行政命令、联邦法规、机构通知",
+          "tags": "行政命令, 法规, 联邦",
+          "features": "行政命令, 最终规则, 拟议规则, 机构通知"
         },
-        "financeData": {
-          "description": "财报、投融资、公告、专利/备案等公司公开信息",
-          "tags": "财经, 公告, SEC",
-          "features": "财务报表, 投融资, 公告追踪"
+        "congress-gov": {
+          "description": "搜索美国国会法案、立法进程、投票记录",
+          "tags": "立法, 国会, 法案",
+          "features": "法案追踪, 投票记录, 立法状态"
         },
-        "newsData": {
-          "description": "行业新闻、媒体报道、社交媒体情绪",
-          "tags": "新闻, 舆情, 情绪分析",
-          "features": "实时新闻, 情绪分析, 多源聚合"
-        },
-        "regulationData": {
-          "description": "政策法规、出口管制、能耗标准、合规要求",
-          "tags": "监管, 政策, 合规",
-          "features": "法规追踪, 合规检查, 政策分析"
+        "whitehouse-news": {
+          "description": "美国白宫官方声明、新闻发布、总统行动",
+          "tags": "白宫, 新闻, 行政",
+          "features": "新闻简报, 官方声明, 总统行动"
         }
       }
     },

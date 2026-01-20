@@ -1789,7 +1789,7 @@
         "youtube": "YouTube",
         "tts": "Text-to-Speech",
         "skillsmp": "AI Skills",
-        "simulation": "Data Sources"
+        "policy": "Policy Research"
       },
       "modal": {
         "configure": "Configure {{name}}",
@@ -1866,25 +1866,20 @@
           "tags": "Skills Market, AI Semantic Search, SKILL.md",
           "features": "AI semantic search, SKILL.md standard, Daily sync, Category browsing"
         },
-        "marketData": {
-          "description": "GPU/chip/cloud computing prices, supply-demand, delivery cycles",
-          "tags": "Market Data, Pricing, API",
-          "features": "Real-time prices, Historical data, Multi-source"
+        "federal-register": {
+          "description": "Search federal regulations, executive orders, agency notices from Federal Register",
+          "tags": "Executive Orders, Regulations, Federal",
+          "features": "Executive orders, Final rules, Proposed rules, Agency notices"
         },
-        "financeData": {
-          "description": "Financial reports, investments, announcements, patents and filings",
-          "tags": "Finance, Announcements, SEC",
-          "features": "Financial statements, Investments, Announcement tracking"
+        "congress-gov": {
+          "description": "Search Congressional bills, legislation, and voting records",
+          "tags": "Legislation, Congress, Bills",
+          "features": "Bill tracking, Voting records, Legislative status"
         },
-        "newsData": {
-          "description": "Industry news, media coverage, social media sentiment",
-          "tags": "News, Sentiment, Analysis",
-          "features": "Real-time news, Sentiment analysis, Multi-source aggregation"
-        },
-        "regulationData": {
-          "description": "Policies, export controls, energy standards, compliance requirements",
-          "tags": "Regulation, Policy, Compliance",
-          "features": "Regulation tracking, Compliance check, Policy analysis"
+        "whitehouse-news": {
+          "description": "Official White House statements, press briefings, and presidential actions",
+          "tags": "White House, Press, Executive",
+          "features": "Press briefings, Statements, Presidential actions"
         }
       }
     },

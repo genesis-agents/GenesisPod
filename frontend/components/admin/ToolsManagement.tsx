@@ -26,7 +26,7 @@ import {
   Youtube,
   Volume2,
   Sparkles,
-  Database,
+  Landmark,
   Tag,
   MoreHorizontal,
   ChevronDown,
@@ -46,7 +46,7 @@ type ToolCategory =
   | 'youtube'
   | 'tts'
   | 'skillsmp'
-  | 'simulation';
+  | 'policy';
 
 // Tool interface - description, tags, features are obtained via i18n
 interface Tool {
@@ -76,7 +76,7 @@ const CATEGORY_TO_SECRET_CATEGORY: Record<ToolCategory, string | null> = {
   youtube: 'YOUTUBE',
   tts: 'TTS',
   skillsmp: 'SKILLSMP',
-  simulation: 'OTHER',
+  policy: 'POLICY',
 };
 
 // Category configuration
@@ -100,9 +100,9 @@ const CATEGORIES: {
     icon: Sparkles,
   },
   {
-    id: 'simulation',
-    labelKey: 'admin.tools.categories.simulation',
-    icon: Database,
+    id: 'policy',
+    labelKey: 'admin.tools.categories.policy',
+    icon: Landmark,
   },
 ];
 
@@ -200,11 +200,28 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
     freeQuota: 'Basic search free',
     pricing: 'Free/Paid',
   },
-  // Simulation Data Sources
-  { id: 'marketData', name: 'Market & Pricing', category: 'simulation' },
-  { id: 'financeData', name: 'Finance & Filings', category: 'simulation' },
-  { id: 'newsData', name: 'News & Sentiment', category: 'simulation' },
-  { id: 'regulationData', name: 'Regulation & Policy', category: 'simulation' },
+  // Policy Research Tools
+  {
+    id: 'federal-register',
+    name: 'Federal Register',
+    category: 'policy',
+    url: 'https://www.federalregister.gov/developers/documentation/api/v1',
+    noKeyRequired: true,
+  },
+  {
+    id: 'congress-gov',
+    name: 'Congress.gov',
+    category: 'policy',
+    url: 'https://api.congress.gov/',
+    freeQuota: '5,000 requests/hour',
+  },
+  {
+    id: 'whitehouse-news',
+    name: 'White House News',
+    category: 'policy',
+    url: 'https://www.whitehouse.gov/news/',
+    noKeyRequired: true,
+  },
 ];
 
 // Category color mapping
@@ -242,7 +259,7 @@ const CATEGORY_COLORS: Record<
     text: 'text-violet-700',
     badge: 'bg-violet-100 text-violet-700',
   },
-  simulation: {
+  policy: {
     bg: 'bg-emerald-50',
     text: 'text-emerald-700',
     badge: 'bg-emerald-100 text-emerald-700',
@@ -865,17 +882,8 @@ export default function ToolsManagement() {
           }
         }
 
-        // Check simulation providers
-        if (def.category === 'simulation' && Array.isArray(providersData)) {
-          const categoryId = def.id.replace('-data', '');
-          const hasProviders = providersData.some(
-            (p: any) => p.category === categoryId && p.enabled
-          );
-          if (hasProviders) {
-            hasApiKey = true;
-            status = 'configured';
-          }
-        }
+        // Policy tools - check capabilities/tools endpoint for secretKey
+        // (handled below via secretKeyMap)
 
         // Handle no-key-required tools
         if (def.noKeyRequired) {

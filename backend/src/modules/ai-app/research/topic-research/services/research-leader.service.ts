@@ -424,6 +424,9 @@ const DIMENSION_OUTLINE_PROMPT = `你是资深的研究协调专家（Research L
 - "web-search": 网页搜索，获取最新信息
 - "data-analysis": 数据分析，处理数字信息
 - "rag-search": 内部知识库搜索
+- "federal-register": 联邦公报搜索（行政命令、法规、通知）- 适合美国联邦政策研究
+- "congress-gov": 国会立法搜索（法案、决议、投票）- 适合立法动态追踪
+- "whitehouse-news": 白宫新闻（声明、政策公告）- 适合总统政策和行政动态
 
 ### skills（分析技能）
 - "trend_analysis": 趋势分析 - 适合分析发展方向、变化趋势
@@ -436,6 +439,9 @@ const DIMENSION_OUTLINE_PROMPT = `你是资深的研究协调专家（Research L
 - "future_projection": 未来预测 - 适合预测发展走向
 - "cause_effect": 因果分析 - 适合分析原因和影响
 - "comparison": 对比分析 - 适合比较不同方案或事物
+- "policy_analysis": 政策分析 - 适合分析政策内容、影响、合规性
+- "regulatory_impact": 监管影响评估 - 适合评估法规对行业/企业的影响
+- "legislative_tracking": 立法追踪 - 适合追踪法案进程和立法动态
 
 ### outputStyle
 - "analytical": 分析型 - 逻辑严谨，数据支撑

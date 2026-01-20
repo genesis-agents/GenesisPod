@@ -123,6 +123,14 @@ import { SkillsMPClientService } from "./skills/ecosystem/skillsmp-client.servic
 // Skills Public API
 import { SkillsController, SkillsApiService } from "./skills/api";
 
+// Policy Research Tools
+import {
+  PolicyDataService,
+  FederalRegisterTool,
+  CongressGovTool,
+  WhiteHouseNewsTool,
+} from "./tools/categories/information/policy";
+
 /**
  * 工具管道工厂
  */
@@ -358,6 +366,12 @@ const conversationMemoryFactory = {
     SkillPromptBuilder,
     SkillsMPClientService,
     SkillsApiService,
+
+    // === Policy Research Tools ===
+    PolicyDataService,
+    FederalRegisterTool,
+    CongressGovTool,
+    WhiteHouseNewsTool,
   ],
   exports: [
     // === Registries ===
@@ -452,6 +466,12 @@ const conversationMemoryFactory = {
     SkillLoaderService,
     SkillPromptBuilder,
     SkillsMPClientService,
+
+    // === Policy Research Tools ===
+    PolicyDataService,
+    FederalRegisterTool,
+    CongressGovTool,
+    WhiteHouseNewsTool,
   ],
 })
 export class AiEngineModule implements OnModuleInit {
@@ -463,11 +483,20 @@ export class AiEngineModule implements OnModuleInit {
     private readonly agentRegistry: AgentRegistry,
     private readonly llmFactory: LLMFactory,
     private readonly universalLLMAdapter: UniversalLLMAdapter,
+    // Policy Research Tools
+    private readonly federalRegisterTool: FederalRegisterTool,
+    private readonly congressGovTool: CongressGovTool,
+    private readonly whiteHouseNewsTool: WhiteHouseNewsTool,
   ) {}
 
   onModuleInit() {
     // 注册 LLM 适配器到工厂
     this.llmFactory.registerAdapter(this.universalLLMAdapter);
+
+    // 注册政策研究工具到 ToolRegistry
+    this.toolRegistry.register(this.federalRegisterTool);
+    this.toolRegistry.register(this.congressGovTool);
+    this.toolRegistry.register(this.whiteHouseNewsTool);
 
     this.logger.log("AI Engine Module initialized");
     this.logger.log(`  Tools: ${this.toolRegistry.size()}`);

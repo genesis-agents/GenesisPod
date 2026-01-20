@@ -14,6 +14,10 @@ export enum DataSourceType {
   HACKERNEWS = "hackernews", // HackerNews
   RSS = "rss", // RSS订阅
   LOCAL = "local", // 本地资源库
+  // ★ 政策研究数据源
+  FEDERAL_REGISTER = "federal-register", // 联邦公报 (行政命令、法规)
+  CONGRESS = "congress-gov", // 国会立法 (法案、决议)
+  WHITEHOUSE = "whitehouse-news", // 白宫新闻 (声明、政策)
 }
 
 /**

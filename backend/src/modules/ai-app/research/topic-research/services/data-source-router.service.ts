@@ -7,6 +7,14 @@ import {
 // import { ArxivService } from '../../../ingestion/crawlers/arxiv.service';
 // import { GithubService } from '../../../ingestion/crawlers/github.service';
 // import { HackernewsService } from '../../../ingestion/crawlers/hackernews.service';
+
+// ★ 政策研究工具导入
+import {
+  FederalRegisterTool,
+  CongressGovTool,
+  WhiteHouseNewsTool,
+} from "@/modules/ai-engine/tools/categories/information/policy";
+
 import {
   DataSourceType,
   DataSourceResult,
@@ -38,6 +46,11 @@ export class DataSourceRouterService {
     // private readonly hackernewsService: HackernewsService, // Ingestion Crawlers (HackerNews) - TODO: implement search API
     // private readonly rssService: RssService,
     // private readonly ragService: RagService,
+
+    // ★ 政策研究工具（通过 AI Engine 模块注入）
+    private readonly federalRegisterTool: FederalRegisterTool,
+    private readonly congressGovTool: CongressGovTool,
+    private readonly whiteHouseNewsTool: WhiteHouseNewsTool,
   ) {}
 
   /**
@@ -78,6 +91,10 @@ export class DataSourceRouterService {
             [DataSourceType.HACKERNEWS]: 0,
             [DataSourceType.RSS]: 0,
             [DataSourceType.LOCAL]: 0,
+            // ★ 政策数据源
+            [DataSourceType.FEDERAL_REGISTER]: 0,
+            [DataSourceType.CONGRESS]: 0,
+            [DataSourceType.WHITEHOUSE]: 0,
           },
         },
       };
@@ -376,6 +393,16 @@ export class DataSourceRouterService {
         this.logger.warn("Local RAG search not implemented yet");
         return [];
 
+      // ★ 政策研究数据源
+      case DataSourceType.FEDERAL_REGISTER:
+        return this.searchFederalRegister(query, maxResults);
+
+      case DataSourceType.CONGRESS:
+        return this.searchCongress(query, maxResults);
+
+      case DataSourceType.WHITEHOUSE:
+        return this.searchWhiteHouse(query, maxResults);
+
       default:
         this.logger.warn(`Unknown data source type: ${source}`);
         return [];
@@ -478,6 +505,170 @@ export class DataSourceRouterService {
     } catch (error) {
       this.logger.error(
         `HackerNews search failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return [];
+    }
+  }
+
+  // ============================================================================
+  // ★ 政策研究数据源搜索方法
+  // ============================================================================
+
+  /**
+   * 创建工具执行上下文
+   */
+  private createToolContext(
+    toolId: string,
+  ): import("@/modules/ai-engine/tools/abstractions/tool.interface").ToolContext {
+    return {
+      executionId: `${toolId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      toolId,
+      createdAt: new Date(),
+      callerType: "orchestrator",
+    };
+  }
+
+  /**
+   * 联邦公报搜索 (Federal Register)
+   * 搜索行政命令、法规、拟议规则、机构通知
+   */
+  private async searchFederalRegister(
+    query: string,
+    maxResults: number,
+  ): Promise<DataSourceResult[]> {
+    try {
+      this.logger.log(`[searchFederalRegister] Searching: "${query}"`);
+
+      const result = await this.federalRegisterTool.execute(
+        {
+          query,
+          maxResults,
+        },
+        this.createToolContext("federal-register"),
+      );
+
+      if (!result.success || !result.data?.documents) {
+        this.logger.warn(
+          `[searchFederalRegister] No results or error: ${result.error?.message}`,
+        );
+        return [];
+      }
+
+      return result.data.documents.map((doc) => ({
+        sourceType: DataSourceType.FEDERAL_REGISTER,
+        title: doc.title,
+        url: doc.htmlUrl,
+        snippet: doc.abstract || doc.title,
+        publishedAt: doc.publicationDate
+          ? new Date(doc.publicationDate)
+          : undefined,
+        domain: "federalregister.gov",
+        metadata: {
+          documentType: doc.type,
+          agencies: doc.agencies,
+          documentNumber: doc.documentNumber,
+        },
+      }));
+    } catch (error) {
+      this.logger.error(
+        `[searchFederalRegister] Failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * 国会立法搜索 (Congress.gov)
+   * 搜索法案、决议、投票记录
+   */
+  private async searchCongress(
+    query: string,
+    maxResults: number,
+  ): Promise<DataSourceResult[]> {
+    try {
+      this.logger.log(`[searchCongress] Searching: "${query}"`);
+
+      const result = await this.congressGovTool.execute(
+        {
+          query,
+          limit: maxResults,
+        },
+        this.createToolContext("congress-gov"),
+      );
+
+      if (!result.success || !result.data?.bills) {
+        this.logger.warn(
+          `[searchCongress] No results or error: ${result.error?.message}`,
+        );
+        return [];
+      }
+
+      return result.data.bills.map((bill) => ({
+        sourceType: DataSourceType.CONGRESS,
+        title: bill.shortTitle || bill.title,
+        url: bill.url,
+        snippet: `${bill.number} - ${bill.title}${bill.latestAction ? ` | Latest: ${bill.latestAction.text}` : ""}`,
+        publishedAt: bill.introducedDate
+          ? new Date(bill.introducedDate)
+          : undefined,
+        domain: "congress.gov",
+        metadata: {
+          billNumber: bill.number,
+          billType: bill.type,
+          congress: bill.congress,
+          sponsors: bill.sponsors,
+          policyArea: bill.policyArea,
+          latestAction: bill.latestAction,
+        },
+      }));
+    } catch (error) {
+      this.logger.error(
+        `[searchCongress] Failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * 白宫新闻搜索 (White House)
+   * 搜索声明、新闻发布、行政命令
+   */
+  private async searchWhiteHouse(
+    query: string,
+    maxResults: number,
+  ): Promise<DataSourceResult[]> {
+    try {
+      this.logger.log(`[searchWhiteHouse] Searching: "${query}"`);
+
+      const result = await this.whiteHouseNewsTool.execute(
+        {
+          query,
+          limit: maxResults,
+        },
+        this.createToolContext("whitehouse-news"),
+      );
+
+      if (!result.success || !result.data?.items) {
+        this.logger.warn(
+          `[searchWhiteHouse] No results or error: ${result.error?.message}`,
+        );
+        return [];
+      }
+
+      return result.data.items.map((item) => ({
+        sourceType: DataSourceType.WHITEHOUSE,
+        title: item.title,
+        url: item.url,
+        snippet: item.summary || item.title,
+        publishedAt: item.date ? new Date(item.date) : undefined,
+        domain: "whitehouse.gov",
+        metadata: {
+          contentType: item.type,
+        },
+      }));
+    } catch (error) {
+      this.logger.error(
+        `[searchWhiteHouse] Failed: ${error instanceof Error ? error.message : String(error)}`,
       );
       return [];
     }
@@ -616,6 +807,10 @@ export class DataSourceRouterService {
       [DataSourceType.HACKERNEWS]: 75, // 技术新闻
       [DataSourceType.RSS]: 65, // RSS 订阅
       [DataSourceType.LOCAL]: 80, // 本地库 (已验证)
+      // ★ 政策数据源（官方来源，可信度高）
+      [DataSourceType.FEDERAL_REGISTER]: 95, // 联邦公报（官方）
+      [DataSourceType.CONGRESS]: 95, // 国会立法（官方）
+      [DataSourceType.WHITEHOUSE]: 90, // 白宫新闻（官方）
     };
 
     return scores[sourceType] || 50;
