@@ -83,7 +83,6 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
     if (!this.browser) {
       try {
         // Dynamic import to avoid issues if playwright-core not installed
-        // @ts-expect-error playwright-core may not be installed yet
         const playwright = await import("playwright-core").catch(() => null);
         if (!playwright) {
           throw new Error("playwright-core is not installed");
