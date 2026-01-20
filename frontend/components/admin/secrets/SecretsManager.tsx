@@ -1,16 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   Key,
   Eye,
-  EyeOff,
   Trash2,
   Edit,
   History,
-  Copy,
-  Check,
+  GitBranch,
   AlertCircle,
   RefreshCw,
 } from 'lucide-react';
@@ -23,6 +21,8 @@ import {
 } from '@/hooks/domain/useAdminSecrets';
 import { SecretForm } from './SecretForm';
 import { SecretAccessLogs } from './SecretAccessLogs';
+import { SecretVersions } from './SecretVersions';
+import { SecretValueModal } from './SecretValueModal';
 
 const CATEGORY_OPTIONS: {
   value: SecretCategory;
@@ -69,9 +69,13 @@ export function SecretsManager({
     deleteSecret,
     getSecretValue,
     getAccessLogs,
+    getVersions,
+    getVersionValue,
+    rollbackVersion,
     isCreating,
     isUpdating,
     isDeleting,
+    isRollingBack,
   } = useAdminSecrets();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -80,12 +84,13 @@ export function SecretsManager({
   );
   const [editingSecret, setEditingSecret] = useState<Secret | null>(null);
   const [showLogsFor, setShowLogsFor] = useState<string | null>(null);
-  const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(
-    new Set()
-  );
-  const [secretValues, setSecretValues] = useState<Record<string, string>>({});
-  const [copiedSecret, setCopiedSecret] = useState<string | null>(null);
+  const [showVersionsFor, setShowVersionsFor] = useState<string | null>(null);
+
   const [deletingName, setDeletingName] = useState<string | null>(null);
+  const [showValueFor, setShowValueFor] = useState<{
+    name: string;
+    displayName: string;
+  } | null>(null);
 
   // Reset editingSecret when modal is closed
   useEffect(() => {
@@ -94,54 +99,18 @@ export function SecretsManager({
     }
   }, [showAddModal]);
 
-  // 过滤密钥
-  const filteredSecrets = secrets.filter((secret) => {
-    const matchesSearch =
-      secret.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      secret.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      secret.provider?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory =
-      categoryFilter === 'ALL' || secret.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
-
-  // Show/Hide密钥Value
-  const toggleReveal = async (name: string) => {
-    if (revealedSecrets.has(name)) {
-      setRevealedSecrets((prev) => {
-        const next = new Set(prev);
-        next.delete(name);
-        return next;
-      });
-    } else {
-      const value = await getSecretValue(name);
-      if (value) {
-        setSecretValues((prev) => ({ ...prev, [name]: value }));
-        setRevealedSecrets((prev) => new Set(prev).add(name));
-        // 30秒后自动Hide
-        setTimeout(() => {
-          setRevealedSecrets((prev) => {
-            const next = new Set(prev);
-            next.delete(name);
-            return next;
-          });
-        }, 30000);
-      }
-    }
-  };
-
-  // Copy密钥Value
-  const copySecret = async (name: string) => {
-    let value = secretValues[name];
-    if (!value) {
-      value = (await getSecretValue(name)) ?? '';
-    }
-    if (value) {
-      await navigator.clipboard.writeText(value);
-      setCopiedSecret(name);
-      setTimeout(() => setCopiedSecret(null), 2000);
-    }
-  };
+  // M5 Fix: Use useMemo for filteredSecrets to prevent recalculation on every render
+  const filteredSecrets = useMemo(() => {
+    return secrets.filter((secret) => {
+      const matchesSearch =
+        secret.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        secret.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        secret.provider?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory =
+        categoryFilter === 'ALL' || secret.category === categoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+  }, [secrets, searchTerm, categoryFilter]);
 
   // 处理创建/更新
   const handleSubmit = async (data: CreateSecretDto | UpdateSecretDto) => {
@@ -154,12 +123,18 @@ export function SecretsManager({
     setEditingSecret(null);
   };
 
-  // 处理Delete
+  // H3 Fix: 处理Delete with try-finally for error recovery
   const handleDelete = async (name: string) => {
     if (confirm(`确定要Delete密钥 "${name}" 吗？此Actions不可恢复。`)) {
       setDeletingName(name);
-      await deleteSecret(name);
-      setDeletingName(null);
+      try {
+        await deleteSecret(name);
+      } catch (err) {
+        console.error('Failed to delete secret:', err);
+        // Error will be shown via the error state
+      } finally {
+        setDeletingName(null);
+      }
     }
   };
 
@@ -188,7 +163,11 @@ export function SecretsManager({
       {error && (
         <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
           <AlertCircle className="h-5 w-5 text-red-500" />
-          <span className="text-red-700">{error.message}</span>
+          <span className="text-red-700">
+            {typeof error === 'string'
+              ? error
+              : error?.message || 'An error occurred'}
+          </span>
         </div>
       )}
 
@@ -291,33 +270,19 @@ export function SecretsManager({
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-2">
                       <code className="font-mono rounded bg-gray-100 px-2 py-1 text-sm dark:bg-gray-700">
-                        {revealedSecrets.has(secret.name)
-                          ? secretValues[secret.name]
-                          : secret.maskedValue}
+                        {secret.maskedValue}
                       </code>
                       <button
-                        onClick={() => toggleReveal(secret.name)}
-                        className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        title={
-                          revealedSecrets.has(secret.name) ? 'Hide' : 'Show'
+                        onClick={() =>
+                          setShowValueFor({
+                            name: secret.name,
+                            displayName: secret.displayName,
+                          })
                         }
-                      >
-                        {revealedSecrets.has(secret.name) ? (
-                          <EyeOff className="h-4 w-4 text-gray-500" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-gray-500" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => copySecret(secret.name)}
                         className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        title="Copy"
+                        title="View Secret"
                       >
-                        {copiedSecret === secret.name ? (
-                          <Check className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <Copy className="h-4 w-4 text-gray-500" />
-                        )}
+                        <Eye className="h-4 w-4 text-gray-500" />
                       </button>
                     </div>
                   </td>
@@ -337,6 +302,13 @@ export function SecretsManager({
                   </td>
                   <td className="px-4 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => setShowVersionsFor(secret.name)}
+                        className="rounded p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        title="Version History"
+                      >
+                        <GitBranch className="h-4 w-4 text-gray-500" />
+                      </button>
                       <button
                         onClick={() => setShowLogsFor(secret.name)}
                         className="rounded p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -384,12 +356,34 @@ export function SecretsManager({
         />
       )}
 
+      {/* Version History弹窗 */}
+      {showVersionsFor && (
+        <SecretVersions
+          secretName={showVersionsFor}
+          onClose={() => setShowVersionsFor(null)}
+          getVersions={getVersions}
+          getVersionValue={getVersionValue}
+          rollbackVersion={rollbackVersion}
+          isRollingBack={isRollingBack}
+        />
+      )}
+
       {/* Access Logs弹窗 */}
       {showLogsFor && (
         <SecretAccessLogs
           secretName={showLogsFor}
           onClose={() => setShowLogsFor(null)}
           getAccessLogs={getAccessLogs}
+        />
+      )}
+
+      {/* Secret Value弹窗 */}
+      {showValueFor && (
+        <SecretValueModal
+          secretName={showValueFor.name}
+          displayName={showValueFor.displayName}
+          onClose={() => setShowValueFor(null)}
+          getSecretValue={getSecretValue}
         />
       )}
     </div>

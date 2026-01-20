@@ -40,6 +40,16 @@ export interface SecretAccessLog {
   timestamp: string;
 }
 
+export interface SecretVersion {
+  id: string;
+  version: number;
+  checksum: string;
+  createdBy: string | null;
+  createdAt: string;
+  changeNote: string | null;
+  isCurrent: boolean;
+}
+
 export interface CreateSecretDto {
   name: string;
   displayName: string;
@@ -65,7 +75,10 @@ export function useAdminSecrets() {
   const [updateLoading, setUpdateLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [getValueLoading, setGetValueLoading] = useState(false);
+  const [getValueError, setGetValueError] = useState<string | null>(null);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [rollbackLoading, setRollbackLoading] = useState(false);
 
   // 列表查询
   const {
@@ -134,14 +147,23 @@ export function useAdminSecrets() {
     [refreshSecrets, refreshSecretNames]
   );
 
+  // C3 Fix: Add proper error handling for getSecretValue
   const getSecretValue = useCallback(
     async (name: string): Promise<string | null> => {
       setGetValueLoading(true);
+      setGetValueError(null);
       try {
         const result = await apiClient.get<{ value: string }>(
-          `/admin/secrets/${name}/value`
+          `/admin/secrets/${encodeURIComponent(name)}/value`
         );
         return result?.value ?? null;
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Failed to fetch secret value';
+        setGetValueError(message);
+        return null;
       } finally {
         setGetValueLoading(false);
       }
@@ -164,6 +186,57 @@ export function useAdminSecrets() {
     []
   );
 
+  const getVersions = useCallback(
+    async (name: string): Promise<SecretVersion[]> => {
+      setVersionsLoading(true);
+      try {
+        const result = await apiClient.get<SecretVersion[]>(
+          `/admin/secrets/${name}/versions`
+        );
+        return result ?? [];
+      } finally {
+        setVersionsLoading(false);
+      }
+    },
+    []
+  );
+
+  const getVersionValue = useCallback(
+    async (name: string, version: number): Promise<string | null> => {
+      setGetValueLoading(true);
+      setGetValueError(null);
+      try {
+        const result = await apiClient.get<{ value: string }>(
+          `/admin/secrets/${encodeURIComponent(name)}/versions/${version}/value`
+        );
+        return result?.value ?? null;
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Failed to fetch version value';
+        setGetValueError(message);
+        return null;
+      } finally {
+        setGetValueLoading(false);
+      }
+    },
+    []
+  );
+
+  const rollbackVersion = useCallback(
+    async (name: string, version: number) => {
+      setRollbackLoading(true);
+      try {
+        await apiClient.post(`/admin/secrets/${name}/rollback/${version}`);
+        await refreshSecrets();
+      } finally {
+        setRollbackLoading(false);
+      }
+    },
+    [refreshSecrets]
+  );
+
   return {
     // 数据
     secrets: secrets ?? [],
@@ -175,6 +248,7 @@ export function useAdminSecrets() {
 
     // 错误状态
     error: listError || createError,
+    getValueError,
 
     // 操作方法
     refreshSecrets,
@@ -191,5 +265,12 @@ export function useAdminSecrets() {
     isDeleting: deleteLoading,
     isGettingValue: getValueLoading,
     isLoadingLogs: logsLoading,
+
+    // 版本管理
+    getVersions,
+    getVersionValue,
+    rollbackVersion,
+    isLoadingVersions: versionsLoading,
+    isRollingBack: rollbackLoading,
   };
 }

@@ -24,6 +24,10 @@ export class CreateSecretDto {
   displayName!: string;
 
   @IsString()
+  @MinLength(1, { message: "Secret value cannot be empty" })
+  @MaxLength(100000, {
+    message: "Secret value cannot exceed 100,000 characters",
+  })
   value!: string;
 
   @IsOptional()
@@ -32,6 +36,7 @@ export class CreateSecretDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000, { message: "Description cannot exceed 2,000 characters" })
   description?: string;
 
   @IsOptional()

@@ -40,6 +40,7 @@ export class SecretNameValidationPipe implements PipeTransform<string, string> {
 
     // Check for suspicious patterns that might indicate injection attempts
     // Note: Double hyphens (--) are allowed as they're common in naming conventions
+    // H1 Fix: Use trimmed value for suspicious pattern check (not original value)
     const suspiciousPatterns = [
       /\.\./, // path traversal
       /__/, // double underscore
@@ -47,7 +48,7 @@ export class SecretNameValidationPipe implements PipeTransform<string, string> {
     ];
 
     for (const pattern of suspiciousPatterns) {
-      if (pattern.test(value)) {
+      if (pattern.test(trimmed)) {
         throw new BadRequestException(
           "Secret name contains invalid characters",
         );

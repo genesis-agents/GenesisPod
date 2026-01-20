@@ -70,7 +70,9 @@ export class SecretsController {
   /**
    * Create a new secret
    * POST /api/v1/admin/secrets
+   * M1 Fix: Rate limit 50 req/hour to prevent spam creation
    */
+  @Throttle({ default: { limit: 50, ttl: 3600000 } })
   @Post()
   async create(@Body() dto: CreateSecretDto, @Req() req: AuthenticatedRequest) {
     this.logger.log(`Creating new secret`); // H4: Removed secret name from log;
@@ -183,5 +185,65 @@ export class SecretsController {
       ipAddress: req.ip || req.socket?.remoteAddress,
       userAgent: req.headers["user-agent"],
     };
+  }
+
+  // ========== Version Management Endpoints ==========
+
+  /**
+   * Get all versions of a secret
+   * GET /api/v1/admin/secrets/:name/versions
+   */
+  @Get(":name/versions")
+  async getVersions(@Param("name", SecretNameValidationPipe) name: string) {
+    this.logger.debug("Fetching secret versions");
+    return this.secretsService.getVersions(name);
+  }
+
+  /**
+   * Get decrypted value of a specific version
+   * GET /api/v1/admin/secrets/:name/versions/:version/value
+   */
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Get(":name/versions/:version/value")
+  async getVersionValue(
+    @Param("name", SecretNameValidationPipe) name: string,
+    @Param("version") version: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    this.logger.debug("Secret version value access requested");
+    const context = this.getAuditContext(req);
+    const value = await this.secretsService.getVersionValue(
+      name,
+      parseInt(version),
+      context,
+    );
+    return { value };
+  }
+
+  /**
+   * Rollback to a previous version
+   * POST /api/v1/admin/secrets/:name/rollback/:version
+   */
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Post(":name/rollback/:version")
+  async rollback(
+    @Param("name", SecretNameValidationPipe) name: string,
+    @Param("version") version: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    this.logger.log(`Secret rollback requested to version ${version}`);
+    const context = this.getAuditContext(req);
+    return this.secretsService.rollback(name, parseInt(version), context);
+  }
+
+  /**
+   * Initialize versions for all existing secrets (migration)
+   * POST /api/v1/admin/secrets/init-versions
+   */
+  @Throttle({ default: { limit: 1, ttl: 3600000 } })
+  @Post("init-versions")
+  async initializeVersions() {
+    this.logger.log("Initializing versions for all secrets");
+    return this.secretsService.initializeAllVersions();
   }
 }

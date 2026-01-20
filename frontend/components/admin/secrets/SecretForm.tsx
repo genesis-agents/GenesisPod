@@ -114,7 +114,11 @@ export function SecretForm({
         </div>
 
         {/* 表单 */}
-        <form onSubmit={handleSubmit} className="space-y-4 p-6">
+        <form
+          onSubmit={handleSubmit}
+          autoComplete="off"
+          className="space-y-4 p-6"
+        >
           {/* 名称 (仅创建时) */}
           {!isEditing && (
             <div>
@@ -124,6 +128,7 @@ export function SecretForm({
               <input
                 type="text"
                 value={formData.name}
+                autoComplete="off"
                 onChange={(e) =>
                   setFormData({
                     ...formData,
@@ -154,6 +159,7 @@ export function SecretForm({
             <input
               type="text"
               value={formData.displayName}
+              autoComplete="off"
               onChange={(e) =>
                 setFormData({ ...formData, displayName: e.target.value })
               }
@@ -177,6 +183,7 @@ export function SecretForm({
             <input
               type="password"
               value={formData.value}
+              autoComplete="new-password"
               onChange={(e) =>
                 setFormData({ ...formData, value: e.target.value })
               }
@@ -221,6 +228,7 @@ export function SecretForm({
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 value={formData.provider}
                 onChange={(e) =>
                   setFormData({ ...formData, provider: e.target.value })

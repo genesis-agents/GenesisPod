@@ -35,6 +35,16 @@ export interface SecretListItem {
   lastRotatedAt: Date | null;
 }
 
+export interface SecretVersionItem {
+  id: string;
+  version: number;
+  checksum: string;
+  createdBy: string | null;
+  createdAt: Date;
+  changeNote: string | null;
+  isCurrent: boolean;
+}
+
 export interface SecretReference {
   type: "ai_model" | "external_api";
   id: string;
@@ -172,6 +182,16 @@ export class SecretsService {
     const secret = await this.prisma.secret.findUnique({ where: { name } });
     if (!secret || !secret.isActive || secret.deletedAt) return null;
     if (secret.expiresAt && secret.expiresAt < new Date()) return null;
+
+    // Increment access count for internal calls too
+    await this.prisma.secret.update({
+      where: { id: secret.id },
+      data: {
+        lastAccessedAt: new Date(),
+        accessCount: { increment: 1 },
+      },
+    });
+
     return this.decrypt(secret.encryptedValue, secret.iv);
   }
 
@@ -208,6 +228,23 @@ export class SecretsService {
       updateData.keyVersion = this.currentKeyVersion;
       updateData.lastRotatedAt = new Date();
       newValueHash = this.hashValue(dto.value);
+
+      // Create new version
+      const newVersion = (existing.currentVersion || 1) + 1;
+      updateData.currentVersion = newVersion;
+
+      await this.prisma.secretVersion.create({
+        data: {
+          secretId: existing.id,
+          version: newVersion,
+          encryptedValue,
+          iv,
+          keyVersion: this.currentKeyVersion,
+          checksum: this.calculateChecksum(dto.value),
+          createdBy: context?.userEmail || context?.userId,
+          changeNote: (dto as any).changeNote || null,
+        },
+      });
     }
 
     const secret = await this.prisma.secret.update({
@@ -538,6 +575,10 @@ export class SecretsService {
     return crypto.createHash("sha256").update(value).digest("hex");
   }
 
+  private calculateChecksum(value: string): string {
+    return crypto.createHash("sha256").update(value).digest("hex");
+  }
+
   private async logAccess(
     secretId: string,
     action: SecretAction,
@@ -647,5 +688,243 @@ export class SecretsService {
       );
       return null;
     }
+  }
+
+  // ========== Version Management ==========
+
+  /**
+   * Get all versions of a secret
+   */
+  async getVersions(name: string): Promise<SecretVersionItem[]> {
+    const secret = await this.prisma.secret.findUnique({ where: { name } });
+    if (!secret || secret.deletedAt) {
+      throw new NotFoundException(`Secret '${name}' not found`);
+    }
+
+    const versions = await this.prisma.secretVersion.findMany({
+      where: { secretId: secret.id },
+      orderBy: { version: "desc" },
+    });
+
+    return versions.map((v) => ({
+      id: v.id,
+      version: v.version,
+      checksum: v.checksum,
+      createdBy: v.createdBy,
+      createdAt: v.createdAt,
+      changeNote: v.changeNote,
+      isCurrent: v.version === (secret.currentVersion || 1),
+    }));
+  }
+
+  /**
+   * Get decrypted value of a specific version
+   */
+  async getVersionValue(
+    name: string,
+    version: number,
+    context?: AuditContext,
+  ): Promise<string | null> {
+    const secret = await this.prisma.secret.findUnique({ where: { name } });
+    if (!secret || secret.deletedAt) {
+      throw new NotFoundException(`Secret '${name}' not found`);
+    }
+
+    // If requesting current version, use the secret's current value
+    if (version === (secret.currentVersion || 1)) {
+      await this.logAccess(secret.id, SecretAction.VIEW, context, {
+        secretName: name,
+      });
+      return this.decrypt(secret.encryptedValue, secret.iv);
+    }
+
+    // Otherwise, get from version history
+    const secretVersion = await this.prisma.secretVersion.findUnique({
+      where: {
+        secretId_version: {
+          secretId: secret.id,
+          version,
+        },
+      },
+    });
+
+    if (!secretVersion) {
+      throw new NotFoundException(
+        `Version ${version} not found for secret '${name}'`,
+      );
+    }
+
+    await this.logAccess(secret.id, SecretAction.VIEW, context, {
+      secretName: name,
+    });
+
+    return this.decrypt(secretVersion.encryptedValue, secretVersion.iv);
+  }
+
+  /**
+   * Rollback to a previous version
+   */
+  async rollback(
+    name: string,
+    version: number,
+    context?: AuditContext,
+  ): Promise<SecretListItem> {
+    const secret = await this.prisma.secret.findUnique({ where: { name } });
+    if (!secret || secret.deletedAt) {
+      throw new NotFoundException(`Secret '${name}' not found`);
+    }
+
+    const currentVersion = secret.currentVersion || 1;
+    if (version === currentVersion) {
+      throw new Error("Cannot rollback to current version");
+    }
+
+    const targetVersion = await this.prisma.secretVersion.findUnique({
+      where: {
+        secretId_version: {
+          secretId: secret.id,
+          version,
+        },
+      },
+    });
+
+    if (!targetVersion) {
+      throw new NotFoundException(
+        `Version ${version} not found for secret '${name}'`,
+      );
+    }
+
+    // Decrypt the target version's value
+    const decryptedValue = this.decrypt(
+      targetVersion.encryptedValue,
+      targetVersion.iv,
+    );
+    if (!decryptedValue) {
+      throw new Error(`Failed to decrypt version ${version}`);
+    }
+
+    // Create a new version with the rolled-back value
+    const newVersion = currentVersion + 1;
+    const { encryptedValue, iv } = this.encrypt(decryptedValue);
+
+    await this.prisma.secretVersion.create({
+      data: {
+        secretId: secret.id,
+        version: newVersion,
+        encryptedValue,
+        iv,
+        keyVersion: this.currentKeyVersion,
+        checksum: this.calculateChecksum(decryptedValue),
+        createdBy: context?.userEmail || context?.userId,
+        changeNote: `Rollback from version ${version}`,
+      },
+    });
+
+    const updated = await this.prisma.secret.update({
+      where: { name },
+      data: {
+        encryptedValue,
+        iv,
+        keyVersion: this.currentKeyVersion,
+        currentVersion: newVersion,
+        lastRotatedAt: new Date(),
+        updatedBy: context?.userEmail || context?.userId,
+      },
+    });
+
+    await this.logAccess(secret.id, SecretAction.UPDATE, context, {
+      secretName: name,
+    });
+
+    this.logger.log(
+      `Secret '${name}' rolled back to version ${version} (now version ${newVersion})`,
+    );
+    return this.toListItem(updated);
+  }
+
+  /**
+   * Create initial version for existing secrets (migration helper)
+   */
+  async createInitialVersion(name: string): Promise<void> {
+    const secret = await this.prisma.secret.findUnique({ where: { name } });
+    if (!secret || secret.deletedAt) {
+      throw new NotFoundException(`Secret '${name}' not found`);
+    }
+
+    // Check if version 1 already exists
+    const existingVersion = await this.prisma.secretVersion.findUnique({
+      where: {
+        secretId_version: {
+          secretId: secret.id,
+          version: 1,
+        },
+      },
+    });
+
+    if (existingVersion) {
+      this.logger.debug(`Secret '${name}' already has version 1`);
+      return;
+    }
+
+    const decryptedValue = this.decrypt(secret.encryptedValue, secret.iv);
+    if (!decryptedValue) {
+      this.logger.warn(
+        `Cannot create initial version for '${name}': decryption failed`,
+      );
+      return;
+    }
+
+    await this.prisma.secretVersion.create({
+      data: {
+        secretId: secret.id,
+        version: 1,
+        encryptedValue: secret.encryptedValue,
+        iv: secret.iv,
+        keyVersion: secret.keyVersion,
+        checksum: this.calculateChecksum(decryptedValue),
+        createdBy: secret.createdBy,
+        createdAt: secret.createdAt,
+        changeNote: "Initial version",
+      },
+    });
+
+    // Ensure currentVersion is set to 1
+    if (!secret.currentVersion || secret.currentVersion < 1) {
+      await this.prisma.secret.update({
+        where: { id: secret.id },
+        data: { currentVersion: 1 },
+      });
+    }
+
+    this.logger.log(`Created initial version for secret '${name}'`);
+  }
+
+  /**
+   * Initialize versions for all existing secrets
+   */
+  async initializeAllVersions(): Promise<{
+    processed: number;
+    skipped: number;
+  }> {
+    const secrets = await this.prisma.secret.findMany({
+      where: { deletedAt: null },
+    });
+
+    let processed = 0;
+    let skipped = 0;
+
+    for (const secret of secrets) {
+      try {
+        await this.createInitialVersion(secret.name);
+        processed++;
+      } catch (error) {
+        this.logger.warn(
+          `Skipped version init for '${secret.name}': ${(error as Error).message}`,
+        );
+        skipped++;
+      }
+    }
+
+    return { processed, skipped };
   }
 }
