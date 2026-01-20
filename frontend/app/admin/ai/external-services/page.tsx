@@ -1,21 +1,21 @@
 'use client';
 
-import { Plug } from 'lucide-react';
+import { Wrench } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
-import ExternalAPISettings from '@/components/admin/ExternalAPISettings';
+import ToolsManagement from '@/components/admin/ToolsManagement';
 
-export default function ExternalServicesPage() {
+export default function ToolsManagementPage() {
   const { t } = useTranslation();
 
   return (
     <AdminPageLayout
-      title={t('admin.nav.externalServices')}
-      description={t('admin.tabDescriptions.externalApi')}
-      icon={Plug}
+      title={t('admin.nav.tools')}
+      description={t('admin.tools.description')}
+      icon={Wrench}
       domain="ai"
     >
-      <ExternalAPISettings />
+      <ToolsManagement />
     </AdminPageLayout>
   );
 }

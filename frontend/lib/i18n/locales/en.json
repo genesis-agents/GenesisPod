@@ -1571,11 +1571,11 @@
       "aiTeams": "AI Teams",
       "capabilities": "Capabilities",
       "externalApi": "External API",
-      "secrets": "Secrets",
+      "secrets": "Secret Management",
       "collection": "Collection",
       "whitelists": "Whitelists",
       "users": "Users",
-      "storage": "Storage",
+      "storage": "Storage Management",
       "settings": "Settings"
     },
     "tabDescriptions": {
@@ -1685,10 +1685,10 @@
       "overview": "Overview",
       "dashboard": "Dashboard",
       "aiConfig": "AI Configuration",
-      "models": "Models",
-      "teams": "Teams",
-      "skills": "Skills",
-      "tools": "Tools",
+      "models": "Model Management",
+      "teams": "Team Management",
+      "skills": "Skills Management",
+      "tools": "Tools Management",
       "capabilities": "Skills",
       "dataManagement": "Data Management",
       "collection": "Collection Sources",
@@ -1696,12 +1696,217 @@
       "quality": "Quality Rules",
       "accessControl": "Access Control",
       "users": "Users",
-      "secrets": "Secrets",
+      "secrets": "Secret Management",
       "security": "Security",
       "systemSettings": "System Settings",
+      "systemManagement": "System Management",
       "site": "Site",
       "email": "Email",
-      "storage": "Storage"
+      "storage": "Storage Management"
+    },
+    "dataCollection": {
+      "title": "AI Explore Data Sources",
+      "description": "Configure data sources for AI Explore content discovery"
+    },
+    "users": {
+      "title": "Users Management",
+      "description": "Manage user accounts, roles, and permissions",
+      "stats": {
+        "totalUsers": "Total Users",
+        "activeUsers": "Active Users",
+        "weeklyActive": "Weekly Active",
+        "monthlyActive": "Monthly Active",
+        "newToday": "New Today",
+        "newThisWeek": "New This Week",
+        "newThisMonth": "New This Month",
+        "adminCount": "Admins"
+      },
+      "loginHistory": {
+        "title": "Login History",
+        "noHistory": "No login history available",
+        "device": "Device",
+        "browser": "Browser",
+        "location": "Location",
+        "time": "Time"
+      }
+    },
+    "system": {
+      "description": "Configure system-wide settings, security policies, and email notifications",
+      "cards": {
+        "site": {
+          "title": "Site Settings",
+          "description": "Configure site name, branding, and general system preferences"
+        },
+        "security": {
+          "title": "Security Settings",
+          "description": "Manage authentication methods, session policies, and access controls"
+        },
+        "email": {
+          "title": "Email Settings",
+          "description": "Configure SMTP server and email notification templates"
+        }
+      }
+    },
+    "tools": {
+      "title": "Tools Management",
+      "description": "Configure external APIs and tools for AI capabilities including search, extraction, and data sources",
+      "configured": "configured",
+      "refresh": "Refresh",
+      "searchPlaceholder": "Search tools...",
+      "noToolsFound": "No tools found",
+      "test": "Test",
+      "configure": "Configure",
+      "free": "Free",
+      "loadFailed": "Failed to load configuration",
+      "saveFailed": "Failed to save configuration",
+      "saveSuccess": "{{name}} configuration saved",
+      "testSuccess": "Test successful",
+      "testFailed": "Test failed",
+      "notSupported": "Testing not supported for this tool",
+      "categories": {
+        "all": "All Tools",
+        "search": "Web Search",
+        "extraction": "Content Extraction",
+        "youtube": "YouTube",
+        "tts": "Text-to-Speech",
+        "skillsmp": "AI Skills",
+        "simulation": "Data Sources"
+      },
+      "modal": {
+        "configure": "Configure {{name}}",
+        "apiKey": "API Key",
+        "apiKeyConfigured": "API Key configured",
+        "noKeyRequired": "No API Key required",
+        "canUseDirectly": "This tool can be used directly",
+        "getApiKey": "Get API Key",
+        "freeQuota": "Free quota",
+        "pricing": "Pricing",
+        "cancel": "Cancel",
+        "save": "Save"
+      },
+      "providers": {
+        "perplexity": {
+          "description": "AI-powered research search engine with real-time information and deep research",
+          "tags": "AI Search, Real-time, Research",
+          "features": "AI-generated answers, Real-time info, Deep research"
+        },
+        "tavily": {
+          "description": "AI Agent optimized search API with fast response and structured data",
+          "tags": "Agent Optimized, Structured, API",
+          "features": "Agent optimized, Structured data, Fast response"
+        },
+        "serper": {
+          "description": "Google search results API with high accuracy and rich metadata",
+          "tags": "Google, Metadata, API",
+          "features": "Google results, High accuracy, Rich metadata"
+        },
+        "duckduckgo": {
+          "description": "Privacy-first free search engine, no API Key required",
+          "tags": "Free, Privacy, No Key",
+          "features": "Free to use, No API Key, Privacy protection"
+        },
+        "jina": {
+          "description": "URL to Markdown conversion, free high-quality extraction",
+          "tags": "Markdown, Free quota, High quality",
+          "features": "Free quota, High quality, Markdown output"
+        },
+        "firecrawl": {
+          "description": "Complex web scraping with JavaScript rendering support",
+          "tags": "JS Rendering, Complex sites, Structured",
+          "features": "JS rendering, Complex sites, Structured data"
+        },
+        "tavilyExtract": {
+          "description": "Deep research and content analysis with multi-source synthesis",
+          "tags": "Deep research, Multi-source, AI Analysis",
+          "features": "Deep research, Multi-source synthesis, AI analysis"
+        },
+        "supadata": {
+          "description": "YouTube transcript extraction API, bypasses IP blocking",
+          "tags": "Transcript, Multi-language, API",
+          "features": "100 free/month, Cloud-friendly, Multi-language"
+        },
+        "elevenlabs": {
+          "description": "High-quality AI voice synthesis with multiple voices and emotions",
+          "tags": "AI Voice, Multi-voice, Emotion",
+          "features": "Natural voice, Multiple voices, Emotion expression, 29 languages"
+        },
+        "googleTts": {
+          "description": "Google Cloud text-to-speech, supports 40+ languages",
+          "tags": "Google, Multi-language, Neural2",
+          "features": "40+ languages, Neural2 voices, High quality, SSML support"
+        },
+        "skillsmp": {
+          "description": "Agent Skills Marketplace - 66,000+ skills for AI assistants",
+          "tags": "Skills Market, AI Semantic Search, SKILL.md",
+          "features": "AI semantic search, SKILL.md standard, Daily sync, Category browsing"
+        },
+        "marketData": {
+          "description": "GPU/chip/cloud computing prices, supply-demand, delivery cycles",
+          "tags": "Market Data, Pricing, API",
+          "features": "Real-time prices, Historical data, Multi-source"
+        },
+        "financeData": {
+          "description": "Financial reports, investments, announcements, patents and filings",
+          "tags": "Finance, Announcements, SEC",
+          "features": "Financial statements, Investments, Announcement tracking"
+        },
+        "newsData": {
+          "description": "Industry news, media coverage, social media sentiment",
+          "tags": "News, Sentiment, Analysis",
+          "features": "Real-time news, Sentiment analysis, Multi-source aggregation"
+        },
+        "regulationData": {
+          "description": "Policies, export controls, energy standards, compliance requirements",
+          "tags": "Regulation, Policy, Compliance",
+          "features": "Regulation tracking, Compliance check, Policy analysis"
+        }
+      }
+    },
+    "skills": {
+      "title": "Skills Management",
+      "description": "Configure and manage AI skills including understanding, planning, design, content generation, and optimization capabilities",
+      "enabled": "enabled",
+      "refresh": "Refresh",
+      "searchPlaceholder": "Search skills...",
+      "noSkillsFound": "No skills found",
+      "edit": "Edit",
+      "dependencies": "Dependencies",
+      "requiredTools": "Required Tools",
+      "requiredSkills": "Required Skills",
+      "loadFailed": "Failed to load skills",
+      "toggleSuccess": "Skill {{action}}",
+      "toggleEnabled": "enabled",
+      "toggleDisabled": "disabled",
+      "operationFailed": "Operation failed",
+      "saveSuccess": "Skill configuration saved",
+      "saveFailed": "Failed to save",
+      "layers": {
+        "all": "All Skills",
+        "understanding": "Understanding",
+        "planning": "Planning",
+        "design": "Design",
+        "content": "Content",
+        "rendering": "Rendering",
+        "optimization": "Optimization",
+        "quality": "Quality"
+      },
+      "modal": {
+        "editSkill": "Edit Skill",
+        "displayName": "Display Name",
+        "description": "Description",
+        "layer": "Layer",
+        "domain": "Domain",
+        "domainPlaceholder": "e.g., research, writing",
+        "tags": "Tags",
+        "commaSeparated": "(comma separated)",
+        "tagsPlaceholder": "research, analysis, writing",
+        "requiredToolsPlaceholder": "web_search, content_extraction",
+        "requiredSkillsPlaceholder": "topic_analysis, summary_generation",
+        "enabled": "Enabled",
+        "enabledDescription": "Allow this skill to be used by AI",
+        "cancel": "Cancel",
+        "saveChanges": "Save Changes"
+      }
     },
     "sidebar": {
       "collapse": "Collapse sidebar",

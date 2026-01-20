@@ -1,21 +1,21 @@
 'use client';
 
-import { Wrench } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
-import AICapabilitiesSettings from '@/components/admin/AICapabilitiesSettings';
+import SkillsManagement from '@/components/admin/SkillsManagement';
 
-export default function AICapabilitiesPage() {
+export default function SkillsManagementPage() {
   const { t } = useTranslation();
 
   return (
     <AdminPageLayout
-      title={t('admin.nav.capabilities')}
-      description={t('admin.tabDescriptions.capabilities')}
-      icon={Wrench}
+      title={t('admin.nav.skills')}
+      description={t('admin.skills.description')}
+      icon={Sparkles}
       domain="ai"
     >
-      <AICapabilitiesSettings />
+      <SkillsManagement />
     </AdminPageLayout>
   );
 }
