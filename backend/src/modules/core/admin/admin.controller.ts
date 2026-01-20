@@ -726,12 +726,34 @@ export class AdminController {
     @Body()
     body: {
       provider: string;
-      apiKey: string;
+      apiKey?: string;
+      secretKey?: string;
     },
   ) {
     this.logger.log(`Admin: Testing search connection for ${body.provider}`);
 
     try {
+      // Get API key - either directly provided or from Secret Manager
+      let apiKey = body.apiKey;
+      if (!apiKey && body.secretKey) {
+        const secretValue = await this.secretsService.getValue(body.secretKey);
+        if (!secretValue) {
+          return {
+            success: false,
+            message: `Secret '${body.secretKey}' not found or has no value`,
+          };
+        }
+        apiKey = secretValue;
+      }
+
+      if (!apiKey) {
+        return {
+          success: false,
+          message:
+            "No API key provided. Please configure an API key or select a secret.",
+        };
+      }
+
       const { HttpService } = await import("@nestjs/axios");
 
       // Create a temporary test instance

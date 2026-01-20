@@ -1062,13 +1062,21 @@ export default function ToolsManagement() {
           return;
       }
 
+      // Include secretKey if the tool has one configured
+      const requestBody: { provider: string; secretKey?: string } = {
+        provider: providerId,
+      };
+      if (tool.secretKey) {
+        requestBody.secretKey = tool.secretKey;
+      }
+
       const res = await fetch(`${config.apiUrl}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        body: JSON.stringify({ provider: providerId }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await res.json();
