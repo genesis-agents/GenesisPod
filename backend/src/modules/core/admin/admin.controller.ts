@@ -780,7 +780,7 @@ export class AdminController {
             },
             {
               headers: {
-                Authorization: `Bearer ${body.apiKey}`,
+                Authorization: `Bearer ${apiKey}`,
                 "Content-Type": "application/json",
               },
               timeout: 15000,
@@ -799,7 +799,7 @@ export class AdminController {
           httpService.post(
             "https://api.tavily.com/search",
             {
-              api_key: body.apiKey,
+              api_key: apiKey,
               query: testQuery,
               max_results: 1,
               search_depth: "basic",
@@ -827,7 +827,7 @@ export class AdminController {
             },
             {
               headers: {
-                "X-API-KEY": body.apiKey,
+                "X-API-KEY": apiKey,
                 "Content-Type": "application/json",
               },
               timeout: 10000,
@@ -894,7 +894,8 @@ export class AdminController {
     @Body()
     body: {
       provider: "jina" | "firecrawl" | "tavily";
-      apiKey: string;
+      apiKey?: string;
+      secretKey?: string;
     },
   ) {
     this.logger.log(
@@ -902,12 +903,33 @@ export class AdminController {
     );
 
     try {
+      // Get API key - either directly provided or from Secret Manager
+      let apiKey = body.apiKey;
+      if (!apiKey && body.secretKey) {
+        const secretValue = await this.secretsService.getValue(body.secretKey);
+        if (!secretValue) {
+          return {
+            success: false,
+            message: `Secret '${body.secretKey}' not found or has no value`,
+          };
+        }
+        apiKey = secretValue;
+      }
+
+      if (!apiKey) {
+        return {
+          success: false,
+          message:
+            "No API key provided. Please configure an API key or select a secret.",
+        };
+      }
+
       if (body.provider === "jina") {
         // Test Jina AI Reader
         const response = await fetch("https://r.jina.ai/https://example.com", {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${body.apiKey}`,
+            Authorization: `Bearer ${apiKey}`,
             Accept: "application/json",
           },
         });
@@ -928,7 +950,7 @@ export class AdminController {
         const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${body.apiKey}`,
+            Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -957,7 +979,7 @@ export class AdminController {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            api_key: body.apiKey,
+            api_key: apiKey,
             query: "test",
             max_results: 1,
           }),
@@ -1027,7 +1049,8 @@ export class AdminController {
     @Body()
     body: {
       provider: string;
-      apiKey: string;
+      apiKey?: string;
+      secretKey?: string;
     },
   ) {
     this.logger.log(
@@ -1035,6 +1058,27 @@ export class AdminController {
     );
 
     try {
+      // Get API key - either directly provided or from Secret Manager
+      let apiKey = body.apiKey;
+      if (!apiKey && body.secretKey) {
+        const secretValue = await this.secretsService.getValue(body.secretKey);
+        if (!secretValue) {
+          return {
+            success: false,
+            message: `Secret '${body.secretKey}' not found or has no value`,
+          };
+        }
+        apiKey = secretValue;
+      }
+
+      if (!apiKey) {
+        return {
+          success: false,
+          message:
+            "No API key provided. Please configure an API key or select a secret.",
+        };
+      }
+
       if (body.provider === "supadata") {
         // Test Supadata API with a known video
         const testVideoId = "dQw4w9WgXcQ"; // Rick Astley - Never Gonna Give You Up
@@ -1042,7 +1086,7 @@ export class AdminController {
           `https://api.supadata.ai/v1/youtube/transcript?video_id=${testVideoId}&text=true`,
           {
             headers: {
-              "x-api-key": body.apiKey,
+              "x-api-key": apiKey,
             },
           },
         );
@@ -1115,17 +1159,39 @@ export class AdminController {
     @Body()
     body: {
       provider: string;
-      apiKey: string;
+      apiKey?: string;
+      secretKey?: string;
     },
   ) {
     this.logger.log(`Admin: Testing TTS API connection for ${body.provider}`);
 
     try {
+      // Get API key - either directly provided or from Secret Manager
+      let apiKey = body.apiKey;
+      if (!apiKey && body.secretKey) {
+        const secretValue = await this.secretsService.getValue(body.secretKey);
+        if (!secretValue) {
+          return {
+            success: false,
+            message: `Secret '${body.secretKey}' not found or has no value`,
+          };
+        }
+        apiKey = secretValue;
+      }
+
+      if (!apiKey) {
+        return {
+          success: false,
+          message:
+            "No API key provided. Please configure an API key or select a secret.",
+        };
+      }
+
       if (body.provider === "elevenlabs") {
         // Test ElevenLabs API - get available voices
         const response = await fetch("https://api.elevenlabs.io/v1/voices", {
           headers: {
-            "xi-api-key": body.apiKey,
+            "xi-api-key": apiKey,
           },
         });
 
@@ -1146,7 +1212,7 @@ export class AdminController {
       if (body.provider === "google") {
         // Test Google Cloud TTS API - list voices
         const response = await fetch(
-          `https://texttospeech.googleapis.com/v1/voices?key=${body.apiKey}`,
+          `https://texttospeech.googleapis.com/v1/voices?key=${apiKey}`,
         );
 
         if (response.ok) {
@@ -1214,18 +1280,40 @@ export class AdminController {
   async testSkillsmpConnection(
     @Body()
     body: {
-      apiKey: string;
+      apiKey?: string;
+      secretKey?: string;
     },
   ) {
     this.logger.log("Admin: Testing SkillsMP API connection");
 
     try {
+      // Get API key - either directly provided or from Secret Manager
+      let apiKey = body.apiKey;
+      if (!apiKey && body.secretKey) {
+        const secretValue = await this.secretsService.getValue(body.secretKey);
+        if (!secretValue) {
+          return {
+            success: false,
+            message: `Secret '${body.secretKey}' not found or has no value`,
+          };
+        }
+        apiKey = secretValue;
+      }
+
+      if (!apiKey) {
+        return {
+          success: false,
+          message:
+            "No API key provided. Please configure an API key or select a secret.",
+        };
+      }
+
       // Test SkillsMP API - search for a simple query
       const response = await fetch(
         "https://skillsmp.com/api/v1/skills/search?q=test&limit=1",
         {
           headers: {
-            Authorization: `Bearer ${body.apiKey}`,
+            Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
         },
