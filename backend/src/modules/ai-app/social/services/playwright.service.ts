@@ -1,4 +1,10 @@
-import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from "@nestjs/common";
+import { v4 as uuidv4 } from "uuid";
 
 // Playwright types - will be properly typed when playwright-core is installed
 type Browser = any;
@@ -45,13 +51,31 @@ const PLATFORM_CONFIGS: Record<string, PlatformLoginConfig> = {
 export { PLATFORM_CONFIGS };
 
 @Injectable()
-export class PlaywrightService implements OnModuleDestroy {
+export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
   private readonly logger = new Logger(PlaywrightService.name);
   private browser: Browser | null = null;
   private contexts: Map<string, BrowserContext> = new Map();
   private pendingLogins: Map<string, PendingLoginSession> = new Map();
+  private cleanupInterval: NodeJS.Timeout | null = null;
+
+  onModuleInit() {
+    // Start periodic cleanup of expired sessions (every 2 minutes)
+    this.cleanupInterval = setInterval(
+      () => {
+        this.cleanupExpiredSessions().catch((err) => {
+          this.logger.error("Failed to cleanup expired sessions", err);
+        });
+      },
+      2 * 60 * 1000,
+    );
+    this.logger.log("Playwright service initialized with session cleanup");
+  }
 
   async onModuleDestroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
     await this.cleanup();
   }
 
@@ -199,7 +223,7 @@ export class PlaywrightService implements OnModuleDestroy {
       throw new Error(`Unknown platform: ${platformType}`);
     }
 
-    const sessionKey = `login-${userId}-${platformType}-${Date.now()}`;
+    const sessionKey = `login-${userId}-${platformType}-${uuidv4()}`;
     this.logger.log(`Starting login session: ${sessionKey}`);
 
     try {

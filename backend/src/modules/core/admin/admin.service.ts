@@ -5,6 +5,7 @@ import {
   mapWithConcurrency,
   ConcurrencyLimits,
 } from "../../../common/utils/concurrency.utils";
+import * as bcrypt from "bcrypt";
 
 type ExternalProvider = {
   id: string;
@@ -295,7 +296,6 @@ export class AdminService {
 
     // 如果提供了密码，哈希它
     if (data.password) {
-      const bcrypt = await import("bcrypt");
       userData.passwordHash = await bcrypt.hash(data.password, 10);
     }
 
