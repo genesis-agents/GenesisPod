@@ -2127,15 +2127,19 @@ function renderTextWithCitations(
   let match;
 
   // 建立引用索引到证据的映射
+  // ★ 使用 citationIndex（如果有），否则降级使用数组索引
+  // 这样可以正确处理多维度研究中的连续引用编号（如 [11], [12]）
   const evidenceMap = new Map<
     string,
     { index: number; evidence: TopicEvidence }
   >();
   evidence.forEach((e, idx) => {
-    // 按顺序映射：第一个证据对应 [1]，第二个对应 [2]
-    evidenceMap.set(String(idx + 1), { index: idx + 1, evidence: e });
-    // 同时支持 temp-x-y 格式和 UUID 格式映射到证据 ID
-    evidenceMap.set(e.id, { index: idx + 1, evidence: e });
+    // ★ 优先使用 citationIndex，它是后端分配的实际引用编号
+    // 对于多维度研究，第二个维度的引用可能从 [11] 开始
+    const citationNum = e.citationIndex ?? idx + 1;
+    evidenceMap.set(String(citationNum), { index: citationNum, evidence: e });
+    // 同时支持 UUID 格式映射到证据 ID
+    evidenceMap.set(e.id, { index: citationNum, evidence: e });
   });
 
   while ((match = citationPattern.exec(text)) !== null) {

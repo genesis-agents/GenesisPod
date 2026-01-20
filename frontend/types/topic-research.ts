@@ -213,6 +213,8 @@ export interface TopicEvidence {
   credibilityScore: number | null;
   fetchedAt: string | null;
   createdAt: string;
+  /** 引用索引，用于报告正文中的引用标记 [1], [2] 等 */
+  citationIndex?: number | null;
 }
 
 /**
