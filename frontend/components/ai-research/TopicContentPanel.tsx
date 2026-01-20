@@ -801,11 +801,10 @@ export function TopicContentPanel({
   const [isLoadingAnnotations, setIsLoadingAnnotations] = useState(false);
 
   // ★ Load annotations from backend when report changes
-  // 只有有编辑权限的用户才能访问批注（所有者或 EDITOR/ADMIN 协作者）
+  // 公开专题的所有登录用户都可以查看和创建批注
   useEffect(() => {
     async function loadAnnotations() {
-      // ★ 如果没有编辑权限，不加载批注（避免 403 错误）
-      if (!topicId || !report?.id || !canEdit) {
+      if (!topicId || !report?.id) {
         setAnnotations([]);
         return;
       }
@@ -850,7 +849,7 @@ export function TopicContentPanel({
     }
 
     loadAnnotations();
-  }, [topicId, report?.id, canEdit]);
+  }, [topicId, report?.id]);
 
   // ★ 用于自动展开证据卡片的 ID
   const [autoExpandEvidenceId, setAutoExpandEvidenceId] = useState<
