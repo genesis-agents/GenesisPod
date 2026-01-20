@@ -179,6 +179,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
   /**
    * 记录错误日志
+   *
+   * 日志级别策略：
+   * - 5xx: ERROR（服务器错误，需要关注）
+   * - 401/403/404: DEBUG（业务预期的权限/资源错误，不需要关注）
+   * - 其他4xx: WARN（客户端错误，可能需要关注）
    */
   private logError(request: Request, errorResponse: any, exception: unknown) {
     const logContext = {
@@ -193,11 +198,20 @@ export class AllExceptionsFilter implements ExceptionFilter {
     };
 
     if (errorResponse.statusCode >= 500) {
+      // 5xx: 服务器错误，需要立即关注
       this.logger.error(
         `Server Error: ${JSON.stringify(logContext)}`,
         exception instanceof Error ? exception.stack : undefined,
       );
+    } else if (
+      errorResponse.statusCode === 401 ||
+      errorResponse.statusCode === 403 ||
+      errorResponse.statusCode === 404
+    ) {
+      // 401/403/404: 业务预期的权限/资源错误，仅在 debug 模式记录
+      this.logger.debug(`Expected Client Error: ${JSON.stringify(logContext)}`);
     } else if (errorResponse.statusCode >= 400) {
+      // 其他 4xx: 可能是客户端 bug 或攻击，需要关注
       this.logger.warn(`Client Error: ${JSON.stringify(logContext)}`);
     }
   }
