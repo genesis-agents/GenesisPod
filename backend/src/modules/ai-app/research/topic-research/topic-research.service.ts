@@ -2500,8 +2500,8 @@ export class TopicResearchService {
     reportId: string,
     dto: any,
   ) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限（公开专题的所有登录用户都可以创建批注）
+    await this.verifyTopicReadAccess(userId, topicId);
 
     // 验证报告属于该专题
     const report = await this.reportService.getReport(reportId);
@@ -2519,13 +2519,25 @@ export class TopicResearchService {
     annotationId: string,
     dto: any,
   ) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 验证专题读取权限
+    await this.verifyTopicReadAccess(userId, topicId);
 
     // 验证报告属于该专题
     const report = await this.reportService.getReport(reportId);
     if (!report || report.topicId !== topicId) {
       throw new NotFoundException("Report not found");
+    }
+
+    // 验证批注所有权（只有批注创建者可以更新自己的批注）
+    const annotation = await this.prisma.reportAnnotation.findUnique({
+      where: { id: annotationId },
+      select: { createdById: true },
+    });
+    if (!annotation) {
+      throw new NotFoundException("Annotation not found");
+    }
+    if (annotation.createdById !== userId) {
+      throw new ForbiddenException("You can only update your own annotations");
     }
 
     return this.reportAnnotationService.updateAnnotation(annotationId, dto);
@@ -2537,13 +2549,38 @@ export class TopicResearchService {
     reportId: string,
     annotationId: string,
   ) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 获取专题信息
+    const topic = await this.prisma.researchTopic.findUnique({
+      where: { id: topicId },
+      select: { userId: true },
+    });
+    if (!topic) {
+      throw new NotFoundException("Topic not found");
+    }
+
+    // 验证专题读取权限
+    await this.verifyTopicReadAccess(userId, topicId);
 
     // 验证报告属于该专题
     const report = await this.reportService.getReport(reportId);
     if (!report || report.topicId !== topicId) {
       throw new NotFoundException("Report not found");
+    }
+
+    // 验证删除权限（批注创建者或专题创建者可删除）
+    const annotation = await this.prisma.reportAnnotation.findUnique({
+      where: { id: annotationId },
+      select: { createdById: true },
+    });
+    if (!annotation) {
+      throw new NotFoundException("Annotation not found");
+    }
+    const isAnnotationOwner = annotation.createdById === userId;
+    const isTopicOwner = topic.userId === userId;
+    if (!isAnnotationOwner && !isTopicOwner) {
+      throw new ForbiddenException(
+        "Only the annotation creator or topic owner can delete this annotation",
+      );
     }
 
     return this.reportAnnotationService.deleteAnnotation(annotationId);
@@ -2555,13 +2592,38 @@ export class TopicResearchService {
     reportId: string,
     annotationId: string,
   ) {
-    // 验证专题所有权
-    await this.verifyTopicOwnership(userId, topicId);
+    // 获取专题信息
+    const topic = await this.prisma.researchTopic.findUnique({
+      where: { id: topicId },
+      select: { userId: true },
+    });
+    if (!topic) {
+      throw new NotFoundException("Topic not found");
+    }
+
+    // 验证专题读取权限
+    await this.verifyTopicReadAccess(userId, topicId);
 
     // 验证报告属于该专题
     const report = await this.reportService.getReport(reportId);
     if (!report || report.topicId !== topicId) {
       throw new NotFoundException("Report not found");
+    }
+
+    // 验证解决权限（批注创建者或专题创建者可解决）
+    const annotation = await this.prisma.reportAnnotation.findUnique({
+      where: { id: annotationId },
+      select: { createdById: true },
+    });
+    if (!annotation) {
+      throw new NotFoundException("Annotation not found");
+    }
+    const isAnnotationOwner = annotation.createdById === userId;
+    const isTopicOwner = topic.userId === userId;
+    if (!isAnnotationOwner && !isTopicOwner) {
+      throw new ForbiddenException(
+        "Only the annotation creator or topic owner can resolve this annotation",
+      );
     }
 
     return this.reportAnnotationService.resolveAnnotation(annotationId, userId);
