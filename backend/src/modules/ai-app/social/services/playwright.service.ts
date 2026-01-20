@@ -22,6 +22,8 @@ export interface PlatformLoginConfig {
   loginUrl: string;
   loginSuccessIndicator: string; // CSS selector or URL pattern
   qrCodeSelector?: string;
+  needClickLogin?: boolean; // 是否需要先点击登录按钮
+  loginButtonSelector?: string; // 登录按钮选择器
 }
 
 // Pending login session
@@ -42,10 +44,11 @@ const PLATFORM_CONFIGS: Record<string, PlatformLoginConfig> = {
       ".login__type__container__scan__qrcode img, .qrcode img, [class*='qrcode'] img, canvas[class*='qr']", // 二维码元素 - 多个选择器
   },
   XIAOHONGSHU: {
-    loginUrl: "https://creator.xiaohongshu.com/login",
-    loginSuccessIndicator: ".user-info", // 登录后显示的用户信息
-    qrCodeSelector:
-      ".qrcode-img, [class*='qrcode'] img, [class*='QRCode'], canvas, .login-qrcode img", // 二维码元素 - 多个选择器
+    loginUrl: "https://www.xiaohongshu.com/explore",
+    loginSuccessIndicator: ".user-info, .user-name, .header-user", // 登录后显示的用户信息
+    qrCodeSelector: ".qrcode-image img, [class*='qrcode'] img, canvas", // 主站二维码选择器
+    needClickLogin: true, // 需要先点击登录按钮
+    loginButtonSelector: ".login-btn, .login-button, button:has-text('登录')", // 登录按钮选择器
   },
 };
 
@@ -246,6 +249,20 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
 
       // 等待页面加载
       await page.waitForTimeout(2000);
+
+      // 如果需要先点击登录按钮
+      if (config.needClickLogin && config.loginButtonSelector) {
+        try {
+          const loginBtn = await page.$(config.loginButtonSelector);
+          if (loginBtn) {
+            await loginBtn.click();
+            await page.waitForTimeout(2000); // 等待登录弹窗出现
+            this.logger.log(`Clicked login button for ${platformType}`);
+          }
+        } catch (e) {
+          this.logger.warn(`Failed to click login button: ${e}`);
+        }
+      }
 
       // 截取二维码区域（如果有配置选择器）
       let screenshotBuffer: Buffer;
