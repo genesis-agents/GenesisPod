@@ -358,15 +358,27 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
         try {
           const qrElement = await page.$(config.qrCodeSelector);
           if (qrElement) {
-            screenshotBuffer = await qrElement.screenshot({ type: "png" });
+            screenshotBuffer = await qrElement.screenshot({
+              type: "png",
+              timeout: 10000,
+            });
           } else {
-            screenshotBuffer = await page.screenshot({ type: "png" });
+            screenshotBuffer = await page.screenshot({
+              type: "png",
+              timeout: 10000,
+            });
           }
         } catch {
-          screenshotBuffer = await page.screenshot({ type: "png" });
+          screenshotBuffer = await page.screenshot({
+            type: "png",
+            timeout: 10000,
+          });
         }
       } else {
-        screenshotBuffer = await page.screenshot({ type: "png" });
+        screenshotBuffer = await page.screenshot({
+          type: "png",
+          timeout: 10000,
+        });
       }
       const screenshot = `data:image/png;base64,${screenshotBuffer.toString("base64")}`;
 
@@ -397,15 +409,24 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
       try {
         const qrElement = await page.$(config.qrCodeSelector);
         if (qrElement) {
-          screenshotBuffer = await qrElement.screenshot({ type: "png" });
+          screenshotBuffer = await qrElement.screenshot({
+            type: "png",
+            timeout: 10000,
+          });
         } else {
-          screenshotBuffer = await page.screenshot({ type: "png" });
+          screenshotBuffer = await page.screenshot({
+            type: "png",
+            timeout: 10000,
+          });
         }
       } catch {
-        screenshotBuffer = await page.screenshot({ type: "png" });
+        screenshotBuffer = await page.screenshot({
+          type: "png",
+          timeout: 10000,
+        });
       }
     } else {
-      screenshotBuffer = await page.screenshot({ type: "png" });
+      screenshotBuffer = await page.screenshot({ type: "png", timeout: 10000 });
     }
     return `data:image/png;base64,${screenshotBuffer.toString("base64")}`;
   }
