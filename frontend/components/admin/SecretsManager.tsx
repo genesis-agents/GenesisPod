@@ -30,6 +30,7 @@ import {
   Zap,
   KeyRound,
   type LucideIcon,
+  Landmark,
 } from 'lucide-react';
 
 // Secret category enum matching backend
@@ -40,6 +41,7 @@ type SecretCategory =
   | 'YOUTUBE'
   | 'TTS'
   | 'SKILLSMP'
+  | 'POLICY'
   | 'OTHER';
 
 interface Secret {
@@ -112,6 +114,12 @@ const CATEGORY_CONFIG: Record<
     color: 'text-violet-600',
     bgColor: 'bg-violet-50',
     icon: Zap,
+  },
+  POLICY: {
+    label: 'Policy APIs',
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-50',
+    icon: Landmark,
   },
   OTHER: {
     label: 'Other',

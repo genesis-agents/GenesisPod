@@ -9,6 +9,7 @@ export type SecretCategory =
   | 'YOUTUBE'
   | 'TTS'
   | 'SKILLSMP'
+  | 'POLICY'
   | 'OTHER';
 
 export interface Secret {

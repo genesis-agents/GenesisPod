@@ -7689,6 +7689,7 @@ enum SecretCategory {
   YOUTUBE // YouTube 字幕 API
   TTS // 语音合成 API
   SKILLSMP // SkillsMP API
+  POLICY // 政策研究 API (Congress.gov)
   OTHER // 其他
 }
 
