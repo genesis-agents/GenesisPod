@@ -11,6 +11,7 @@ import {
   X,
   Settings,
 } from 'lucide-react';
+import { getAuthTokens } from '@/lib/utils/auth';
 
 interface StorageConfig {
   provider: 'local' | 's3' | 'azure' | 'gdrive' | 'b2';
@@ -375,7 +376,7 @@ export default function StorageSettings() {
 
   const loadConfig = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthTokens()?.accessToken;
       const res = await fetch('/api/v1/admin/storage-config', {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -393,7 +394,7 @@ export default function StorageSettings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthTokens()?.accessToken;
       const res = await fetch('/api/v1/admin/storage-config', {
         method: 'PATCH',
         headers: {

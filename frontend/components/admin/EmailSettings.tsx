@@ -13,6 +13,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
+import { getAuthTokens } from '@/lib/utils/auth';
 
 interface EmailConfig {
   provider: 'smtp' | 'resend';
@@ -57,7 +58,7 @@ export default function EmailSettings() {
 
   const loadEmailConfig = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthTokens()?.accessToken;
       const res = await fetch('/api/v1/admin/settings/email', {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -76,7 +77,7 @@ export default function EmailSettings() {
     setSaving(true);
     setTestResult(null);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthTokens()?.accessToken;
       const payload: Record<string, unknown> = {
         provider: config.provider,
         enabled: config.enabled,
@@ -137,7 +138,7 @@ export default function EmailSettings() {
     setTesting(true);
     setTestResult(null);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthTokens()?.accessToken;
       const res = await fetch('/api/v1/admin/settings/email/test', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -157,7 +158,7 @@ export default function EmailSettings() {
 
   const handleReinitialize = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthTokens()?.accessToken;
       await fetch('/api/v1/feedback/email/reinitialize', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },

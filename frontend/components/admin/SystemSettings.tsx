@@ -14,6 +14,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import EmailSettings from './EmailSettings';
+import { getAuthTokens } from '@/lib/utils/auth';
 
 interface SearchConfig {
   provider: string;
@@ -58,7 +59,7 @@ export default function SystemSettings() {
 
   const loadSearchConfig = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthTokens()?.accessToken;
       const res = await fetch('/api/v1/admin/search-config', {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -74,7 +75,7 @@ export default function SystemSettings() {
   const handleSaveSearchConfig = async () => {
     setSearchSaving(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthTokens()?.accessToken;
       const res = await fetch('/api/v1/admin/search-config', {
         method: 'PATCH',
         headers: {
@@ -111,7 +112,7 @@ export default function SystemSettings() {
     setSearchTestResult(null);
 
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthTokens()?.accessToken;
       const apiKey =
         provider === 'tavily'
           ? tavilyApiKey ||
