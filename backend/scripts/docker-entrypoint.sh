@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 6 - Add login_history migration resolve
+# Version: 7 - Use consolidated fix migration
 
 echo "=========================================="
 echo "Starting DeepDive Engine Backend"
@@ -14,17 +14,12 @@ if [ $? -ne 0 ]; then
   echo "⚠️ fix-export-tables.js failed, but continuing..."
 fi
 
-echo "🔧 Step 1: Resolving failed migrations..."
+echo "🔧 Step 1: Resolving migration state..."
 
-# Check if the migration is marked as failed and resolve it
-# Use --schema to ensure Prisma finds the schema
+# Mark old problematic migrations as applied (skip them)
 npx prisma migrate resolve --applied 20251204000000_add_team_collaboration --schema=./prisma/schema.prisma || true
-
-# Mark tool_secret_key migration as rolled-back so it can be re-applied if column missing
-npx prisma migrate resolve --rolled-back 20260120_add_tool_secret_key --schema=./prisma/schema.prisma || true
-
-# Mark login_history migration as rolled-back so it can be re-applied if table missing
-npx prisma migrate resolve --rolled-back 20260120_add_login_history --schema=./prisma/schema.prisma || true
+npx prisma migrate resolve --applied 20260120_add_tool_secret_key --schema=./prisma/schema.prisma || true
+npx prisma migrate resolve --applied 20260120_add_login_history --schema=./prisma/schema.prisma || true
 
 echo "🔄 Step 2: Running database migrations..."
 npx prisma migrate deploy --schema=./prisma/schema.prisma
