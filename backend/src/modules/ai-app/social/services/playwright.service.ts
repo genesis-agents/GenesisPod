@@ -253,9 +253,17 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
       // 如果需要先点击登录按钮
       if (config.needClickLogin && config.loginButtonSelector) {
         try {
+          // 先尝试关闭任何现有的遮罩层
+          const mask = await page.$(".reds-mask, [class*='mask']");
+          if (mask) {
+            await mask.click({ force: true });
+            await page.waitForTimeout(500);
+          }
+
           const loginBtn = await page.$(config.loginButtonSelector);
           if (loginBtn) {
-            await loginBtn.click();
+            // 使用 force: true 绕过遮罩层
+            await loginBtn.click({ force: true, timeout: 5000 });
             await page.waitForTimeout(2000); // 等待登录弹窗出现
             this.logger.log(`Clicked login button for ${platformType}`);
           }
