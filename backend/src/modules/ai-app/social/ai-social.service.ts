@@ -230,17 +230,29 @@ export class AiSocialService {
     // but Prisma schema declares them as Json - causes type mismatch with ORM
     const offset = (options.page - 1) * options.limit;
 
-    // Build WHERE conditions
-    const conditions: string[] = [`sc.user_id = '${userId}'`];
-    if (options.status) {
-      conditions.push(`sc.status = '${options.status.toUpperCase()}'`);
+    // Validate and sanitize enum values to prevent SQL injection
+    const validStatuses = [
+      "DRAFT",
+      "PENDING",
+      "SCHEDULED",
+      "PUBLISHING",
+      "PUBLISHED",
+      "FAILED",
+    ];
+    const validContentTypes = ["WECHAT_ARTICLE", "XIAOHONGSHU_NOTE"];
+
+    const statusFilter = options.status?.toUpperCase();
+    const contentTypeFilter = options.contentType?.toUpperCase();
+
+    // Validate enum values - reject invalid inputs
+    if (statusFilter && !validStatuses.includes(statusFilter)) {
+      throw new BadRequestException(`Invalid status: ${options.status}`);
     }
-    if (options.contentType) {
-      conditions.push(
-        `sc.content_type = '${options.contentType.toUpperCase()}'`,
+    if (contentTypeFilter && !validContentTypes.includes(contentTypeFilter)) {
+      throw new BadRequestException(
+        `Invalid content type: ${options.contentType}`,
       );
     }
-    const whereClause = conditions.join(" AND ");
 
     // Define result type
     interface ContentRow {
@@ -280,54 +292,217 @@ export class AiSocialService {
       connectionPlatformType: string | null;
     }
 
-    // Query contents with connection join
-    const contents = (await this.db.$queryRawUnsafe(
-      `SELECT
-        sc.id,
-        sc.user_id AS "userId",
-        sc.connection_id AS "connectionId",
-        sc.content_type AS "contentType",
-        sc.source_type AS "sourceType",
-        sc.source_id AS "sourceId",
-        sc.source_url AS "sourceUrl",
-        sc.title,
-        sc.content,
-        sc.author,
-        sc.digest,
-        sc.cover_image_url AS "coverImageUrl",
-        sc.images,
-        sc.tags,
-        sc.location,
-        sc.status,
-        sc.ai_process_log AS "aiProcessLog",
-        sc.ai_suggestions AS "aiSuggestions",
-        sc.compliance_check AS "complianceCheck",
-        sc.review_status AS "reviewStatus",
-        sc.reviewed_by_id AS "reviewedById",
-        sc.reviewed_at AS "reviewedAt",
-        sc.review_note AS "reviewNote",
-        sc.scheduled_at AS "scheduledAt",
-        sc.published_at AS "publishedAt",
-        sc.auto_publish AS "autoPublish",
-        sc.external_id AS "externalId",
-        sc.external_url AS "externalUrl",
-        sc.error_message AS "errorMessage",
-        sc.retry_count AS "retryCount",
-        sc.created_at AS "createdAt",
-        sc.updated_at AS "updatedAt",
-        spc.account_name AS "connectionAccountName",
-        spc.platform_type AS "connectionPlatformType"
-      FROM social_contents sc
-      LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
-      WHERE ${whereClause}
-      ORDER BY sc.created_at DESC
-      LIMIT ${options.limit} OFFSET ${offset}`,
-    )) as ContentRow[];
+    // Use parameterized query to prevent SQL injection
+    // Build query based on which filters are provided
+    let contents: ContentRow[];
+    let countResult: Array<{ count: bigint }>;
 
-    // Query total count
-    const countResult = (await this.db.$queryRawUnsafe(
-      `SELECT COUNT(*) as count FROM social_contents sc WHERE ${whereClause}`,
-    )) as Array<{ count: bigint }>;
+    if (statusFilter && contentTypeFilter) {
+      // Both filters
+      contents = (await this.db.$queryRaw`
+        SELECT
+          sc.id,
+          sc.user_id AS "userId",
+          sc.connection_id AS "connectionId",
+          sc.content_type AS "contentType",
+          sc.source_type AS "sourceType",
+          sc.source_id AS "sourceId",
+          sc.source_url AS "sourceUrl",
+          sc.title,
+          sc.content,
+          sc.author,
+          sc.digest,
+          sc.cover_image_url AS "coverImageUrl",
+          sc.images,
+          sc.tags,
+          sc.location,
+          sc.status,
+          sc.ai_process_log AS "aiProcessLog",
+          sc.ai_suggestions AS "aiSuggestions",
+          sc.compliance_check AS "complianceCheck",
+          sc.review_status AS "reviewStatus",
+          sc.reviewed_by_id AS "reviewedById",
+          sc.reviewed_at AS "reviewedAt",
+          sc.review_note AS "reviewNote",
+          sc.scheduled_at AS "scheduledAt",
+          sc.published_at AS "publishedAt",
+          sc.auto_publish AS "autoPublish",
+          sc.external_id AS "externalId",
+          sc.external_url AS "externalUrl",
+          sc.error_message AS "errorMessage",
+          sc.retry_count AS "retryCount",
+          sc.created_at AS "createdAt",
+          sc.updated_at AS "updatedAt",
+          spc.account_name AS "connectionAccountName",
+          spc.platform_type AS "connectionPlatformType"
+        FROM social_contents sc
+        LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
+        WHERE sc.user_id = ${userId}::uuid
+          AND sc.status = ${statusFilter}::"SocialContentStatus"
+          AND sc.content_type = ${contentTypeFilter}::"SocialContentType"
+        ORDER BY sc.created_at DESC
+        LIMIT ${options.limit} OFFSET ${offset}
+      `) as ContentRow[];
+
+      countResult = (await this.db.$queryRaw`
+        SELECT COUNT(*) as count FROM social_contents sc
+        WHERE sc.user_id = ${userId}::uuid
+          AND sc.status = ${statusFilter}::"SocialContentStatus"
+          AND sc.content_type = ${contentTypeFilter}::"SocialContentType"
+      `) as Array<{ count: bigint }>;
+    } else if (statusFilter) {
+      // Only status filter
+      contents = (await this.db.$queryRaw`
+        SELECT
+          sc.id,
+          sc.user_id AS "userId",
+          sc.connection_id AS "connectionId",
+          sc.content_type AS "contentType",
+          sc.source_type AS "sourceType",
+          sc.source_id AS "sourceId",
+          sc.source_url AS "sourceUrl",
+          sc.title,
+          sc.content,
+          sc.author,
+          sc.digest,
+          sc.cover_image_url AS "coverImageUrl",
+          sc.images,
+          sc.tags,
+          sc.location,
+          sc.status,
+          sc.ai_process_log AS "aiProcessLog",
+          sc.ai_suggestions AS "aiSuggestions",
+          sc.compliance_check AS "complianceCheck",
+          sc.review_status AS "reviewStatus",
+          sc.reviewed_by_id AS "reviewedById",
+          sc.reviewed_at AS "reviewedAt",
+          sc.review_note AS "reviewNote",
+          sc.scheduled_at AS "scheduledAt",
+          sc.published_at AS "publishedAt",
+          sc.auto_publish AS "autoPublish",
+          sc.external_id AS "externalId",
+          sc.external_url AS "externalUrl",
+          sc.error_message AS "errorMessage",
+          sc.retry_count AS "retryCount",
+          sc.created_at AS "createdAt",
+          sc.updated_at AS "updatedAt",
+          spc.account_name AS "connectionAccountName",
+          spc.platform_type AS "connectionPlatformType"
+        FROM social_contents sc
+        LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
+        WHERE sc.user_id = ${userId}::uuid
+          AND sc.status = ${statusFilter}::"SocialContentStatus"
+        ORDER BY sc.created_at DESC
+        LIMIT ${options.limit} OFFSET ${offset}
+      `) as ContentRow[];
+
+      countResult = (await this.db.$queryRaw`
+        SELECT COUNT(*) as count FROM social_contents sc
+        WHERE sc.user_id = ${userId}::uuid
+          AND sc.status = ${statusFilter}::"SocialContentStatus"
+      `) as Array<{ count: bigint }>;
+    } else if (contentTypeFilter) {
+      // Only content type filter
+      contents = (await this.db.$queryRaw`
+        SELECT
+          sc.id,
+          sc.user_id AS "userId",
+          sc.connection_id AS "connectionId",
+          sc.content_type AS "contentType",
+          sc.source_type AS "sourceType",
+          sc.source_id AS "sourceId",
+          sc.source_url AS "sourceUrl",
+          sc.title,
+          sc.content,
+          sc.author,
+          sc.digest,
+          sc.cover_image_url AS "coverImageUrl",
+          sc.images,
+          sc.tags,
+          sc.location,
+          sc.status,
+          sc.ai_process_log AS "aiProcessLog",
+          sc.ai_suggestions AS "aiSuggestions",
+          sc.compliance_check AS "complianceCheck",
+          sc.review_status AS "reviewStatus",
+          sc.reviewed_by_id AS "reviewedById",
+          sc.reviewed_at AS "reviewedAt",
+          sc.review_note AS "reviewNote",
+          sc.scheduled_at AS "scheduledAt",
+          sc.published_at AS "publishedAt",
+          sc.auto_publish AS "autoPublish",
+          sc.external_id AS "externalId",
+          sc.external_url AS "externalUrl",
+          sc.error_message AS "errorMessage",
+          sc.retry_count AS "retryCount",
+          sc.created_at AS "createdAt",
+          sc.updated_at AS "updatedAt",
+          spc.account_name AS "connectionAccountName",
+          spc.platform_type AS "connectionPlatformType"
+        FROM social_contents sc
+        LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
+        WHERE sc.user_id = ${userId}::uuid
+          AND sc.content_type = ${contentTypeFilter}::"SocialContentType"
+        ORDER BY sc.created_at DESC
+        LIMIT ${options.limit} OFFSET ${offset}
+      `) as ContentRow[];
+
+      countResult = (await this.db.$queryRaw`
+        SELECT COUNT(*) as count FROM social_contents sc
+        WHERE sc.user_id = ${userId}::uuid
+          AND sc.content_type = ${contentTypeFilter}::"SocialContentType"
+      `) as Array<{ count: bigint }>;
+    } else {
+      // No filters, just userId
+      contents = (await this.db.$queryRaw`
+        SELECT
+          sc.id,
+          sc.user_id AS "userId",
+          sc.connection_id AS "connectionId",
+          sc.content_type AS "contentType",
+          sc.source_type AS "sourceType",
+          sc.source_id AS "sourceId",
+          sc.source_url AS "sourceUrl",
+          sc.title,
+          sc.content,
+          sc.author,
+          sc.digest,
+          sc.cover_image_url AS "coverImageUrl",
+          sc.images,
+          sc.tags,
+          sc.location,
+          sc.status,
+          sc.ai_process_log AS "aiProcessLog",
+          sc.ai_suggestions AS "aiSuggestions",
+          sc.compliance_check AS "complianceCheck",
+          sc.review_status AS "reviewStatus",
+          sc.reviewed_by_id AS "reviewedById",
+          sc.reviewed_at AS "reviewedAt",
+          sc.review_note AS "reviewNote",
+          sc.scheduled_at AS "scheduledAt",
+          sc.published_at AS "publishedAt",
+          sc.auto_publish AS "autoPublish",
+          sc.external_id AS "externalId",
+          sc.external_url AS "externalUrl",
+          sc.error_message AS "errorMessage",
+          sc.retry_count AS "retryCount",
+          sc.created_at AS "createdAt",
+          sc.updated_at AS "updatedAt",
+          spc.account_name AS "connectionAccountName",
+          spc.platform_type AS "connectionPlatformType"
+        FROM social_contents sc
+        LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
+        WHERE sc.user_id = ${userId}::uuid
+        ORDER BY sc.created_at DESC
+        LIMIT ${options.limit} OFFSET ${offset}
+      `) as ContentRow[];
+
+      countResult = (await this.db.$queryRaw`
+        SELECT COUNT(*) as count FROM social_contents sc
+        WHERE sc.user_id = ${userId}::uuid
+      `) as Array<{ count: bigint }>;
+    }
+
     const total = Number(countResult[0]?.count || 0);
 
     // Transform to expected format
@@ -353,71 +528,208 @@ export class AiSocialService {
   }
 
   async createContent(userId: string, dto: CreateContentDto) {
-    return this.db.socialContent.create({
-      data: {
-        userId,
-        contentType: dto.contentType,
-        sourceType: dto.sourceType || SocialContentSourceType.MANUAL,
-        sourceId: dto.sourceId,
-        sourceUrl: dto.sourceUrl,
-        title: dto.title,
-        content: dto.content,
-        author: dto.author,
-        digest: dto.digest,
-        coverImageUrl: dto.coverImageUrl,
-        images: dto.images || [],
-        tags: dto.tags || [],
-        location: dto.location,
-        status: SocialContentStatus.DRAFT,
-      },
-    });
+    // Use $queryRaw because images and tags columns are text[] in database
+    const sourceType = dto.sourceType || SocialContentSourceType.MANUAL;
+    const images = JSON.stringify(dto.images || []);
+    const tags = JSON.stringify(dto.tags || []);
+
+    const results = await this.db.$queryRaw<
+      Array<{
+        id: string;
+        user_id: string;
+        content_type: string;
+        source_type: string;
+        title: string;
+        content: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+      }>
+    >`
+      INSERT INTO "social_contents" (
+        "id", "user_id", "content_type", "source_type", "source_id",
+        "title", "content", "author", "digest", "source_url", "cover_image_url",
+        "images", "tags", "location", "status", "created_at", "updated_at"
+      ) VALUES (
+        gen_random_uuid(),
+        ${userId}::uuid,
+        ${dto.contentType}::"SocialContentType",
+        ${sourceType}::"SocialContentSourceType",
+        ${dto.sourceId || null},
+        ${dto.title},
+        ${dto.content},
+        ${dto.author || null},
+        ${dto.digest || null},
+        ${dto.sourceUrl || null},
+        ${dto.coverImageUrl || null},
+        ARRAY(SELECT jsonb_array_elements_text(${images}::jsonb)),
+        ARRAY(SELECT jsonb_array_elements_text(${tags}::jsonb)),
+        ${dto.location || null},
+        'DRAFT'::"SocialContentStatus",
+        NOW(),
+        NOW()
+      )
+      RETURNING id, user_id, content_type, source_type, title, content, status, created_at, updated_at
+    `;
+
+    return results[0];
   }
 
   async getContent(userId: string, id: string) {
-    const content = await this.db.socialContent.findFirst({
-      where: { id, userId },
-      include: {
-        connection: {
-          select: {
-            accountName: true,
-            platformType: true,
-          },
-        },
-      },
-    });
+    // Use $queryRaw because images and tags columns are text[] in database
+    const results = await this.db.$queryRaw<
+      Array<{
+        id: string;
+        userId: string;
+        connectionId: string | null;
+        contentType: string;
+        sourceType: string;
+        sourceId: string | null;
+        sourceUrl: string | null;
+        title: string;
+        content: string;
+        author: string | null;
+        digest: string | null;
+        coverImageUrl: string | null;
+        images: string[];
+        tags: string[];
+        location: string | null;
+        status: string;
+        complianceCheck: unknown;
+        reviewStatus: string | null;
+        scheduledAt: Date | null;
+        publishedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+        connectionAccountName: string | null;
+        connectionPlatformType: string | null;
+      }>
+    >`
+      SELECT
+        sc.id,
+        sc.user_id AS "userId",
+        sc.connection_id AS "connectionId",
+        sc.content_type AS "contentType",
+        sc.source_type AS "sourceType",
+        sc.source_id AS "sourceId",
+        sc.source_url AS "sourceUrl",
+        sc.title,
+        sc.content,
+        sc.author,
+        sc.digest,
+        sc.cover_image_url AS "coverImageUrl",
+        sc.images,
+        sc.tags,
+        sc.location,
+        sc.status,
+        sc.compliance_check AS "complianceCheck",
+        sc.review_status AS "reviewStatus",
+        sc.scheduled_at AS "scheduledAt",
+        sc.published_at AS "publishedAt",
+        sc.created_at AS "createdAt",
+        sc.updated_at AS "updatedAt",
+        spc.account_name AS "connectionAccountName",
+        spc.platform_type AS "connectionPlatformType"
+      FROM social_contents sc
+      LEFT JOIN social_platform_connections spc ON sc.connection_id = spc.id
+      WHERE sc.id = ${id}::uuid AND sc.user_id = ${userId}::uuid
+    `;
 
-    if (!content) {
+    if (!results[0]) {
       throw new NotFoundException("内容不存在");
     }
 
-    return content;
+    const c = results[0];
+    return {
+      ...c,
+      connection: c.connectionId
+        ? {
+            accountName: c.connectionAccountName,
+            platformType: c.connectionPlatformType,
+          }
+        : null,
+    };
   }
 
   async updateContent(userId: string, id: string, dto: UpdateContentDto) {
-    const content = await this.getContent(userId, id);
+    // First verify the content exists and belongs to user
+    await this.getContent(userId, id);
 
-    return this.db.socialContent.update({
-      where: { id: content.id },
-      data: {
-        title: dto.title,
-        content: dto.content,
-        author: dto.author,
-        digest: dto.digest,
-        coverImageUrl: dto.coverImageUrl,
-        images: dto.images,
-        tags: dto.tags,
-        location: dto.location,
-        connectionId: dto.connectionId,
-      },
-    });
+    // Build dynamic update query
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+
+    if (dto.title !== undefined) {
+      updates.push(`title = $${paramIndex++}`);
+      values.push(dto.title);
+    }
+    if (dto.content !== undefined) {
+      updates.push(`content = $${paramIndex++}`);
+      values.push(dto.content);
+    }
+    if (dto.author !== undefined) {
+      updates.push(`author = $${paramIndex++}`);
+      values.push(dto.author);
+    }
+    if (dto.digest !== undefined) {
+      updates.push(`digest = $${paramIndex++}`);
+      values.push(dto.digest);
+    }
+    if (dto.coverImageUrl !== undefined) {
+      updates.push(`cover_image_url = $${paramIndex++}`);
+      values.push(dto.coverImageUrl);
+    }
+    if (dto.images !== undefined) {
+      updates.push(
+        `images = ARRAY(SELECT jsonb_array_elements_text($${paramIndex++}::jsonb))`,
+      );
+      values.push(JSON.stringify(dto.images));
+    }
+    if (dto.tags !== undefined) {
+      updates.push(
+        `tags = ARRAY(SELECT jsonb_array_elements_text($${paramIndex++}::jsonb))`,
+      );
+      values.push(JSON.stringify(dto.tags));
+    }
+    if (dto.location !== undefined) {
+      updates.push(`location = $${paramIndex++}`);
+      values.push(dto.location);
+    }
+    if (dto.connectionId !== undefined) {
+      updates.push(`connection_id = $${paramIndex++}::uuid`);
+      values.push(dto.connectionId);
+    }
+
+    updates.push(`updated_at = NOW()`);
+
+    if (updates.length === 1) {
+      // Only updated_at, no actual changes
+      return this.getContent(userId, id);
+    }
+
+    // Execute update - we need to use $queryRawUnsafe here because we're building dynamic SQL
+    // But all values are parameterized, so it's safe
+    const query = `
+      UPDATE social_contents
+      SET ${updates.join(", ")}
+      WHERE id = $${paramIndex++}::uuid AND user_id = $${paramIndex}::uuid
+    `;
+    values.push(id, userId);
+
+    await this.db.$executeRawUnsafe(query, ...values);
+
+    return this.getContent(userId, id);
   }
 
   async deleteContent(userId: string, id: string) {
-    const content = await this.getContent(userId, id);
+    // First verify the content exists and belongs to user
+    await this.getContent(userId, id);
 
-    await this.db.socialContent.delete({
-      where: { id: content.id },
-    });
+    await this.db.$executeRaw`
+      DELETE FROM social_contents
+      WHERE id = ${id}::uuid AND user_id = ${userId}::uuid
+    `;
 
     return { success: true };
   }
@@ -434,12 +746,12 @@ export class AiSocialService {
       checkedAt: new Date().toISOString(),
     };
 
-    await this.db.socialContent.update({
-      where: { id: content.id },
-      data: {
-        complianceCheck: resultWithTimestamp as object,
-      },
-    });
+    // Use $executeRaw to avoid Prisma ORM issues with text[] columns
+    await this.db.$executeRaw`
+      UPDATE social_contents
+      SET compliance_check = ${JSON.stringify(resultWithTimestamp)}::jsonb, updated_at = NOW()
+      WHERE id = ${content.id}::uuid
+    `;
 
     return resultWithTimestamp;
   }
@@ -453,14 +765,16 @@ export class AiSocialService {
       throw new BadRequestException("请选择发布账号");
     }
 
-    // 更新状态为待发布
-    await this.db.socialContent.update({
-      where: { id: content.id },
-      data: {
-        status: SocialContentStatus.PENDING,
-        connectionId: dto.connectionId || content.connectionId,
-      },
-    });
+    const connectionId = dto.connectionId || content.connectionId;
+
+    // Use $executeRaw to avoid Prisma ORM issues with text[] columns
+    await this.db.$executeRaw`
+      UPDATE social_contents
+      SET status = 'PENDING'::"SocialContentStatus",
+          connection_id = ${connectionId}::uuid,
+          updated_at = NOW()
+      WHERE id = ${content.id}::uuid
+    `;
 
     // 执行发布
     return this.publishExecutor.execute(content.id);
@@ -469,13 +783,16 @@ export class AiSocialService {
   async scheduleContent(userId: string, id: string, scheduledAt: Date) {
     const content = await this.getContent(userId, id);
 
-    return this.db.socialContent.update({
-      where: { id: content.id },
-      data: {
-        status: SocialContentStatus.SCHEDULED,
-        scheduledAt,
-      },
-    });
+    // Use $executeRaw to avoid Prisma ORM issues with text[] columns
+    await this.db.$executeRaw`
+      UPDATE social_contents
+      SET status = 'SCHEDULED'::"SocialContentStatus",
+          scheduled_at = ${scheduledAt},
+          updated_at = NOW()
+      WHERE id = ${content.id}::uuid
+    `;
+
+    return this.getContent(userId, id);
   }
 
   async cancelPublish(userId: string, id: string) {
@@ -488,13 +805,16 @@ export class AiSocialService {
       throw new BadRequestException("只能取消排期或待发布状态的内容");
     }
 
-    return this.db.socialContent.update({
-      where: { id: content.id },
-      data: {
-        status: SocialContentStatus.DRAFT,
-        scheduledAt: null,
-      },
-    });
+    // Use $executeRaw to avoid Prisma ORM issues with text[] columns
+    await this.db.$executeRaw`
+      UPDATE social_contents
+      SET status = 'DRAFT'::"SocialContentStatus",
+          scheduled_at = NULL,
+          updated_at = NOW()
+      WHERE id = ${content.id}::uuid
+    `;
+
+    return this.getContent(userId, id);
   }
 
   async getPublishLogs(userId: string, contentId: string) {

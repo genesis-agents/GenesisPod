@@ -1559,7 +1559,7 @@
       "welcomeDescription": "Manage your system settings, AI configurations, data collection, and access control from here."
     },
     "subtitle": "System management and configuration",
-    "users": "Users",
+    "users": "User Management",
     "settings": "Settings",
     "aiModels": "AI Models",
     "systemStats": "System Stats",
@@ -1574,7 +1574,7 @@
       "secrets": "Secret Management",
       "collection": "Collection",
       "whitelists": "Whitelists",
-      "users": "Users",
+      "users": "User Management",
       "storage": "Storage Management",
       "settings": "Settings"
     },
@@ -1695,7 +1695,7 @@
       "whitelists": "Whitelists",
       "quality": "Quality Rules",
       "accessControl": "Access Control",
-      "users": "Users",
+      "users": "User Management",
       "secrets": "Secret Management",
       "security": "Security",
       "systemSettings": "System Settings",

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import DOMPurify from 'dompurify';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import AppShell from '@/components/layout/AppShell';
@@ -799,12 +800,48 @@ function CreateSocialContentForm() {
                       }}
                     >
                       {selectedPlatform === 'WECHAT_ARTICLE' ? (
-                        // 微信公众号：渲染 HTML
+                        // 微信公众号：渲染 HTML (使用 DOMPurify 防止 XSS)
                         <div
                           dangerouslySetInnerHTML={{
-                            __html:
+                            __html: DOMPurify.sanitize(
                               content ||
-                              '<p style="color: #999;">预览内容将在此显示...</p>',
+                                '<p style="color: #999;">预览内容将在此显示...</p>',
+                              {
+                                ALLOWED_TAGS: [
+                                  'p',
+                                  'h1',
+                                  'h2',
+                                  'h3',
+                                  'h4',
+                                  'h5',
+                                  'h6',
+                                  'strong',
+                                  'em',
+                                  'b',
+                                  'i',
+                                  'u',
+                                  'blockquote',
+                                  'ul',
+                                  'ol',
+                                  'li',
+                                  'br',
+                                  'hr',
+                                  'span',
+                                  'div',
+                                  'img',
+                                  'a',
+                                ],
+                                ALLOWED_ATTR: [
+                                  'style',
+                                  'class',
+                                  'href',
+                                  'src',
+                                  'alt',
+                                  'title',
+                                ],
+                                ALLOW_DATA_ATTR: false,
+                              }
+                            ),
                           }}
                         />
                       ) : (

@@ -757,7 +757,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
       </nav>
 
       {/* Bottom Navigation */}
-      <div className="flex-shrink-0 space-y-0 overflow-hidden border-t border-gray-200 px-3 py-1.5">
+      <div className="flex-shrink-0 space-y-0 border-t border-gray-200 px-3 py-1.5">
         <Link
           href="/notifications"
           onClick={(e) => {
