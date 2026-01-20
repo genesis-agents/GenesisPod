@@ -406,8 +406,8 @@ export default function ConnectionsTab() {
 
       {/* Login Modal with QR Code */}
       {loginModal.isOpen && loginModal.platform && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-6 shadow-xl">
             {/* Header */}
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">
@@ -443,11 +443,11 @@ export default function ConnectionsTab() {
                     {loginModal.platform === 'WECHAT_MP' ? '微信' : '小红书'}
                     扫描下方二维码登录
                   </p>
-                  <div className="relative overflow-hidden rounded-lg border border-gray-200">
+                  <div className="relative overflow-hidden rounded-lg border border-gray-200 bg-white">
                     <img
                       src={loginModal.screenshot}
                       alt="Login QR Code"
-                      className="max-h-[400px] w-auto"
+                      className="h-auto w-full max-w-[500px]"
                     />
                   </div>
                   <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">

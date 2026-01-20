@@ -45,7 +45,9 @@ const PLATFORM_CONFIGS: Record<string, PlatformLoginConfig> = {
   },
   XIAOHONGSHU: {
     loginUrl: "https://www.xiaohongshu.com/explore",
-    loginSuccessIndicator: ".user-info, .user-name, .header-user", // 登录后显示的用户信息
+    // 登录后显示的用户信息 - 多种选择器覆盖不同页面状态
+    loginSuccessIndicator:
+      ".user-info, .user-name, .header-user, .side-bar .avatar, .sidebar .avatar, [class*='avatar'][class*='sidebar'], .reds-button-new-note, [class*='publish'], .feeds-page",
     qrCodeSelector: ".qrcode-image img, [class*='qrcode'] img, canvas", // 主站二维码选择器
     needClickLogin: true, // 需要先点击登录按钮
     loginButtonSelector: ".login-btn, .login-button, button:has-text('登录')", // 登录按钮选择器
@@ -347,11 +349,81 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
     try {
       const { page } = session;
 
-      // 检查是否有登录成功的指示器
-      const loggedIn = await page
+      // 多种方式检测登录状态
+      let loggedIn = false;
+
+      // 方法1: 检查登录成功指示器元素
+      const hasIndicator = await page
         .$(config.loginSuccessIndicator)
         .then((el: unknown) => !!el)
         .catch(() => false);
+
+      if (hasIndicator) {
+        loggedIn = true;
+        this.logger.log(
+          `Login detected via indicator for ${session.platformType}`,
+        );
+      }
+
+      // 方法2: 小红书特殊检测 - 检查登录弹窗是否消失 + cookies
+      if (!loggedIn && session.platformType === "XIAOHONGSHU") {
+        // 检查登录弹窗是否还在
+        const loginModalVisible = await page
+          .$(".login-container, .login-modal, [class*='login-dialog']")
+          .then((el: unknown) => !!el)
+          .catch(() => false);
+
+        // 检查是否有登录相关的 cookies
+        const context = this.contexts.get(sessionKey);
+        if (context) {
+          const cookies = await context.cookies();
+          const hasLoginCookie = cookies.some(
+            (c: { name: string }) =>
+              c.name.includes("web_session") ||
+              c.name.includes("customer") ||
+              c.name.includes("userid") ||
+              c.name.includes("xsecappid"),
+          );
+
+          if (hasLoginCookie && !loginModalVisible) {
+            loggedIn = true;
+            this.logger.log(
+              `Xiaohongshu login detected via cookies: ${cookies.map((c: { name: string }) => c.name).join(", ")}`,
+            );
+          }
+        }
+
+        // 方法3: 检查页面内容是否包含登录后才有的元素
+        if (!loggedIn) {
+          const hasLoggedInContent = await page.evaluate(() => {
+            // 检查是否有发布按钮、用户头像等
+            const selectors = [
+              '[class*="publish"]',
+              '[class*="creator"]',
+              ".reds-button-new-note",
+              '[class*="sidebar"] [class*="avatar"]',
+              '[class*="user-avatar"]',
+            ];
+            for (const selector of selectors) {
+              if (document.querySelector(selector)) {
+                return true;
+              }
+            }
+            // 检查是否没有登录按钮了
+            const loginBtn = document.querySelector(
+              ".login-btn, [class*='login-button'], button:has-text('登录')",
+            );
+            return !loginBtn;
+          });
+
+          if (hasLoggedInContent) {
+            loggedIn = true;
+            this.logger.log(
+              `Xiaohongshu login detected via page content analysis`,
+            );
+          }
+        }
+      }
 
       if (loggedIn) {
         // 尝试获取账号名称
