@@ -240,6 +240,7 @@ export class AdminController {
       color: string;
       apiEndpoint: string;
       apiKey?: string;
+      secretKey?: string | null; // 引用 Secret Manager 中的密钥名称
       maxTokens?: number;
       temperature?: number;
       description?: string;
@@ -306,6 +307,7 @@ export class AdminController {
       color?: string;
       apiEndpoint?: string;
       apiKey?: string;
+      secretKey?: string | null; // 引用 Secret Manager 中的密钥名称
       maxTokens?: number;
       temperature?: number;
       description?: string;

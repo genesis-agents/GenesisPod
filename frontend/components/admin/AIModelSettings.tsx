@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { useAdminSecrets } from '@/hooks/domain/useAdminSecrets';
 
 // AI模型类型枚举 - 支持 Tier 分级
 type AIModelType =
@@ -76,6 +77,7 @@ interface AIModel {
   color: string;
   apiEndpoint: string;
   apiKey: string | null;
+  secretKey: string | null; // 引用 Secret Manager 中的密钥名称
   hasApiKey: boolean;
   isEnabled: boolean;
   isDefault: boolean;
@@ -556,6 +558,8 @@ export default function AIModelSettings({
         priceInputPerMillion: model.priceInputPerMillion,
         priceOutputPerMillion: model.priceOutputPerMillion,
         priority: model.priority,
+        // ★ 新增：Secret Manager 引用
+        secretKey: model.secretKey,
       };
 
       // Only send apiKey if it was changed
@@ -1290,6 +1294,14 @@ function EditModelModal({
   const [showApiKey, setShowApiKey] = useState(false);
   const [isApiKeyModified, setIsApiKeyModified] = useState(false);
   const [loadingApiKey, setLoadingApiKey] = useState(true);
+  const [keySourceMode, setKeySourceMode] = useState<'direct' | 'secret'>(
+    model.secretKey ? 'secret' : 'direct'
+  ); // 根据现有配置判断模式
+
+  // 获取可用的密钥列表（过滤 AI_MODEL 类型）
+  const { secrets } = useAdminSecrets();
+  const aiModelSecrets =
+    secrets?.filter((s) => s.category === 'AI_MODEL' && s.isActive) || [];
 
   // 打开编辑模态框时，获取完整的 API Key
   useEffect(() => {
@@ -1454,32 +1466,101 @@ function EditModelModal({
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  API Key <span className="text-red-500">*</span>
+                  API Key 配置 <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  {loadingApiKey ? (
-                    <div className="flex h-10 w-full items-center rounded-lg border border-gray-300 bg-gray-50 px-3">
-                      <span className="text-sm text-gray-500">Loading...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <input
-                        type={showApiKey ? 'text' : 'password'}
-                        value={apiKey}
-                        onChange={(e) => handleApiKeyChange(e.target.value)}
-                        placeholder={model.hasApiKey ? '' : 'sk-...'}
-                        className="font-mono w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowApiKey(!showApiKey)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                      >
-                        {showApiKey ? '🙈' : '👁️'}
-                      </button>
-                    </>
-                  )}
+
+                {/* Key Source Mode Toggle */}
+                <div className="mb-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setKeySourceMode('direct');
+                      setFormData({ ...formData, secretKey: null });
+                    }}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                      keySourceMode === 'direct'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    直接输入
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setKeySourceMode('secret');
+                      setApiKey('');
+                      setIsApiKeyModified(false);
+                    }}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                      keySourceMode === 'secret'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    引用 Secret Manager
+                  </button>
                 </div>
+
+                {keySourceMode === 'direct' ? (
+                  <div className="relative">
+                    {loadingApiKey ? (
+                      <div className="flex h-10 w-full items-center rounded-lg border border-gray-300 bg-gray-50 px-3">
+                        <span className="text-sm text-gray-500">
+                          Loading...
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          type={showApiKey ? 'text' : 'password'}
+                          value={apiKey}
+                          onChange={(e) => handleApiKeyChange(e.target.value)}
+                          placeholder={model.hasApiKey ? '' : 'sk-...'}
+                          className="font-mono w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        >
+                          {showApiKey ? '🙈' : '👁️'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <select
+                      value={formData.secretKey || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          secretKey: e.target.value || null,
+                        })
+                      }
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="">选择密钥...</option>
+                      {aiModelSecrets.map((secret) => (
+                        <option key={secret.name} value={secret.name}>
+                          {secret.displayName} ({secret.name})
+                        </option>
+                      ))}
+                    </select>
+                    {aiModelSecrets.length === 0 && (
+                      <p className="mt-1 text-xs text-amber-600">
+                        暂无可用密钥，请先在 Secret Manager 中创建 AI_MODEL
+                        类型的密钥
+                      </p>
+                    )}
+                    {formData.secretKey && (
+                      <p className="mt-1 text-xs text-green-600">
+                        已选择密钥：{formData.secretKey}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <ModelIdSelector
@@ -1822,9 +1903,19 @@ function EditModelModal({
               取消
             </button>
             <button
-              onClick={() =>
-                onSave(formData, isApiKeyModified ? apiKey : undefined)
-              }
+              onClick={() => {
+                // 如果使用 Secret Manager 模式，清空直接输入的 apiKey
+                const modelToSave =
+                  keySourceMode === 'secret'
+                    ? { ...formData, apiKey: null }
+                    : formData;
+                onSave(
+                  modelToSave,
+                  keySourceMode === 'direct' && isApiKeyModified
+                    ? apiKey
+                    : undefined
+                );
+              }}
               disabled={saving}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
@@ -1860,6 +1951,7 @@ function AddModelModal({
     color: 'from-gray-500 to-gray-600',
     apiEndpoint: '',
     apiKey: null as string | null,
+    secretKey: null as string | null, // 引用 Secret Manager
     isEnabled: true,
     isDefault: false,
     isReasoning: false,
@@ -1880,6 +1972,14 @@ function AddModelModal({
   });
   const [showApiKey, setShowApiKey] = useState(false);
   const [workerCount, setWorkerCount] = useState(1); // 默认创建1个
+  const [keySourceMode, setKeySourceMode] = useState<'direct' | 'secret'>(
+    'direct'
+  ); // API Key 来源模式
+
+  // 获取可用的密钥列表（过滤 AI_MODEL 类型）
+  const { secrets } = useAdminSecrets();
+  const aiModelSecrets =
+    secrets?.filter((s) => s.category === 'AI_MODEL' && s.isActive) || [];
 
   const colorOptions = [
     { value: 'from-blue-500 to-blue-600', label: 'Blue' },
@@ -2022,29 +2122,95 @@ function AddModelModal({
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  API Key <span className="text-red-500">*</span>
+                  API Key 配置 <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <input
-                    type={showApiKey ? 'text' : 'password'}
-                    value={formData.apiKey || ''}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        apiKey: e.target.value || null,
-                      })
-                    }
-                    placeholder="sk-..."
-                    className="font-mono w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
+
+                {/* Key Source Mode Toggle */}
+                <div className="mb-2 flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    onClick={() => {
+                      setKeySourceMode('direct');
+                      setFormData({ ...formData, secretKey: null });
+                    }}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                      keySourceMode === 'direct'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
                   >
-                    {showApiKey ? '🙈' : '👁️'}
+                    直接输入
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setKeySourceMode('secret');
+                      setFormData({ ...formData, apiKey: null });
+                    }}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                      keySourceMode === 'secret'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    引用 Secret Manager
                   </button>
                 </div>
+
+                {keySourceMode === 'direct' ? (
+                  <div className="relative">
+                    <input
+                      type={showApiKey ? 'text' : 'password'}
+                      value={formData.apiKey || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          apiKey: e.target.value || null,
+                        })
+                      }
+                      placeholder="sk-..."
+                      className="font-mono w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showApiKey ? '🙈' : '👁️'}
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <select
+                      value={formData.secretKey || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          secretKey: e.target.value || null,
+                        })
+                      }
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="">选择密钥...</option>
+                      {aiModelSecrets.map((secret) => (
+                        <option key={secret.name} value={secret.name}>
+                          {secret.displayName} ({secret.name})
+                        </option>
+                      ))}
+                    </select>
+                    {aiModelSecrets.length === 0 && (
+                      <p className="mt-1 text-xs text-amber-600">
+                        暂无可用密钥，请先在 Secret Manager 中创建 AI_MODEL
+                        类型的密钥
+                      </p>
+                    )}
+                    {formData.secretKey && (
+                      <p className="mt-1 text-xs text-green-600">
+                        已选择密钥：{formData.secretKey}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <ModelIdSelector
@@ -2422,11 +2588,16 @@ function AddModelModal({
                   {
                     ...formData,
                     apiKey: formData.apiKey || null,
+                    secretKey: formData.secretKey || null,
                   } as any,
                   workerCount
                 )
               }
-              disabled={saving || !formData.name || !formData.apiKey}
+              disabled={
+                saving ||
+                !formData.name ||
+                (!formData.apiKey && !formData.secretKey)
+              }
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {saving
