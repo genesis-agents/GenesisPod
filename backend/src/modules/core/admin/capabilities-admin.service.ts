@@ -1015,6 +1015,138 @@ export class CapabilitiesAdminService implements OnModuleInit {
         category: "collaboration",
         tags: ["notification", "alert"],
       },
+
+      // 外部服务 - 搜索类
+      {
+        id: "perplexity",
+        name: "perplexity",
+        displayName: "Perplexity",
+        description: "Perplexity AI 搜索服务",
+        category: "external-search",
+        tags: ["search", "ai", "perplexity"],
+      },
+      {
+        id: "tavily",
+        name: "tavily",
+        displayName: "Tavily",
+        description: "Tavily AI 搜索服务",
+        category: "external-search",
+        tags: ["search", "ai", "tavily"],
+      },
+      {
+        id: "serper",
+        name: "serper",
+        displayName: "Serper",
+        description: "Serper Google 搜索 API",
+        category: "external-search",
+        tags: ["search", "google", "serper"],
+      },
+      {
+        id: "duckduckgo",
+        name: "duckduckgo",
+        displayName: "DuckDuckGo",
+        description: "DuckDuckGo 搜索（免费）",
+        category: "external-search",
+        tags: ["search", "free", "duckduckgo"],
+      },
+
+      // 外部服务 - 内容提取类
+      {
+        id: "jina",
+        name: "jina",
+        displayName: "Jina AI Reader",
+        description: "Jina AI 网页内容提取",
+        category: "external-extraction",
+        tags: ["extraction", "reader", "jina"],
+      },
+      {
+        id: "firecrawl",
+        name: "firecrawl",
+        displayName: "Firecrawl",
+        description: "Firecrawl 网页抓取服务",
+        category: "external-extraction",
+        tags: ["extraction", "crawler", "firecrawl"],
+      },
+      {
+        id: "tavilyExtract",
+        name: "tavilyExtract",
+        displayName: "Tavily Extract",
+        description: "Tavily 内容提取服务",
+        category: "external-extraction",
+        tags: ["extraction", "tavily"],
+      },
+
+      // 外部服务 - YouTube 类
+      {
+        id: "supadata",
+        name: "supadata",
+        displayName: "Supadata",
+        description: "Supadata YouTube 字幕服务",
+        category: "external-youtube",
+        tags: ["youtube", "transcript", "supadata"],
+      },
+
+      // 外部服务 - TTS 类
+      {
+        id: "elevenlabs",
+        name: "elevenlabs",
+        displayName: "ElevenLabs",
+        description: "ElevenLabs 语音合成",
+        category: "external-tts",
+        tags: ["tts", "voice", "elevenlabs"],
+      },
+      {
+        id: "googleTts",
+        name: "googleTts",
+        displayName: "Google Cloud TTS",
+        description: "Google Cloud 语音合成",
+        category: "external-tts",
+        tags: ["tts", "google", "cloud"],
+      },
+
+      // 外部服务 - SkillsMP
+      {
+        id: "skillsmp",
+        name: "skillsmp",
+        displayName: "SkillsMP",
+        description: "SkillsMP 技能搜索服务",
+        category: "external-skills",
+        tags: ["skills", "search", "skillsmp"],
+      },
+
+      // 外部服务 - 模拟数据
+      {
+        id: "marketData",
+        name: "marketData",
+        displayName: "Market & Pricing",
+        description: "市场和定价数据",
+        category: "external-simulation",
+        tags: ["market", "pricing", "data"],
+      },
+      {
+        id: "financeData",
+        name: "financeData",
+        displayName: "Finance & Filings",
+        description: "财务和报表数据",
+        category: "external-simulation",
+        tags: ["finance", "filings", "data"],
+      },
+      {
+        id: "newsData",
+        name: "newsData",
+        displayName: "News & Sentiment",
+        description: "新闻和情绪数据",
+        category: "external-simulation",
+        tags: ["news", "sentiment", "data"],
+      },
+      {
+        id: "regulationData",
+        name: "regulationData",
+        displayName: "Regulation & Policy",
+        description: "法规和政策数据",
+        category: "external-simulation",
+        tags: ["regulation", "policy", "data"],
+      },
     ];
 
     return toolDefinitions;
