@@ -405,64 +405,58 @@ export class SocialLeaderService {
       `[processSource] Field byte lengths: ${JSON.stringify(fieldByteLengths)}`,
     );
 
-    // Strategy: First try minimal insert, then update with remaining fields
-    // This helps isolate which field(s) cause the 08P01 error
+    // Use Prisma $queryRaw to bypass ORM query builder
+    // This tests if the issue is in Prisma's ORM layer vs binary protocol
     try {
-      // Step 1: Create with minimal required fields only
-      const minimalData = {
-        userId,
-        contentType: dto.targetType,
-        sourceType: dto.sourceType,
-        title: safeTitle,
-        content: safeContent,
-        status: SocialContentStatus.DRAFT,
-        reviewStatus: SocialReviewStatus.PENDING,
-      };
+      this.logger.log(`[processSource] Inserting via $queryRaw`);
 
-      this.logger.log(`[processSource] Step 1: Creating with minimal fields`);
+      // Use $queryRaw with RETURNING to get the created record
+      const results = await this.db.$queryRaw<Array<{ id: string }>>`
+        INSERT INTO "social_contents" (
+          "id", "user_id", "content_type", "source_type", "source_id",
+          "title", "content", "digest", "source_url", "cover_image_url",
+          "images", "tags", "compliance_check", "status", "review_status",
+          "created_at", "updated_at"
+        ) VALUES (
+          gen_random_uuid(),
+          ${userId}::uuid,
+          ${dto.targetType}::"SocialContentType",
+          ${dto.sourceType}::"SocialContentSourceType",
+          ${dto.sourceId},
+          ${safeTitle},
+          ${safeContent},
+          ${safeDigest},
+          ${safeSourceUrl},
+          ${safeCoverImageUrl},
+          ${JSON.stringify(safeImages)}::jsonb,
+          ${JSON.stringify(safeTags)}::jsonb,
+          ${JSON.stringify(safeComplianceCheck)}::jsonb,
+          'DRAFT'::"SocialContentStatus",
+          'PENDING'::"SocialReviewStatus",
+          NOW(),
+          NOW()
+        )
+        RETURNING "id"
+      `;
 
-      const content = await withRetry(
-        async () => {
-          return this.db.socialContent.create({
-            data: minimalData,
-          });
-        },
-        3,
-        500,
-        this.logger,
-      );
+      const contentId = results[0]?.id;
+      if (!contentId) {
+        throw new Error("Insert succeeded but no ID returned");
+      }
 
-      this.logger.log(
-        `[processSource] Step 1 success: ${content.id}, updating with remaining fields`,
-      );
+      this.logger.log(`[processSource] $queryRaw insert success: ${contentId}`);
 
-      // Step 2: Update with optional fields
-      const updatedContent = await withRetry(
-        async () => {
-          return this.db.socialContent.update({
-            where: { id: content.id },
-            data: {
-              sourceId: dto.sourceId,
-              sourceUrl: safeSourceUrl,
-              digest: safeDigest,
-              coverImageUrl: safeCoverImageUrl,
-              images: safeImages,
-              tags: safeTags,
-              complianceCheck: safeComplianceCheck,
-            },
-          });
-        },
-        3,
-        500,
-        this.logger,
-      );
+      // Fetch the full record using ORM (this should work since it's a simple select)
+      const content = await this.db.socialContent.findUnique({
+        where: { id: contentId },
+      });
 
-      this.logger.log(
-        `[processSource] Step 2 success: Updated content ${updatedContent.id}`,
-      );
+      if (!content) {
+        throw new Error("Failed to fetch created content");
+      }
 
       return {
-        content: updatedContent,
+        content,
         checkResult,
         message: checkResult.passed
           ? "内容已生成，请确认后发布"
