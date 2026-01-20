@@ -16,6 +16,7 @@ import {
   AlertCircle,
   RefreshCw,
   Shield,
+  ArrowLeft,
 } from 'lucide-react';
 import {
   useAdminSecrets,
@@ -54,6 +55,7 @@ const CATEGORY_OPTIONS: {
 ];
 
 export function SecretsManager() {
+  const router = useRouter();
   const {
     secrets,
     loading,
@@ -175,15 +177,24 @@ export function SecretsManager() {
     <div className="space-y-6">
       {/* 头部 */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-white">
-            <Shield className="h-5 w-5" />
-            Secret Management
-          </h2>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Centralized management of all API keys with encrypted storage and
-            access auditing
-          </p>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push('/admin')}
+            className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            返回
+          </button>
+          <div>
+            <h2 className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-white">
+              <Shield className="h-5 w-5" />
+              Secret Management
+            </h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Centralized management of all API keys with encrypted storage and
+              access auditing
+            </p>
+          </div>
         </div>
         <button
           onClick={() => {
