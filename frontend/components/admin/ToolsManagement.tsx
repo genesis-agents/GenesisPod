@@ -746,6 +746,10 @@ export default function ToolsManagement() {
         fetch(`${config.apiUrl}/admin/external-providers`, {
           headers: { ...getAuthHeader() },
         }),
+        // Also fetch capabilities/tools to get secretKey data
+        fetch(`${config.apiUrl}/admin/capabilities/tools`, {
+          headers: { ...getAuthHeader() },
+        }),
       ]);
 
       // Extract responses, handling rejected promises
@@ -756,6 +760,7 @@ export default function ToolsManagement() {
         ttsRes,
         skillsmpRes,
         providersRes,
+        capabilitiesRes,
       ] = results.map((result, idx) => {
         if (result.status === 'rejected') {
           logger.warn(`Config fetch failed at index ${idx}`, result.reason);
@@ -772,6 +777,21 @@ export default function ToolsManagement() {
       const ttsData = ttsRes?.ok ? await ttsRes.json() : null;
       const skillsmpData = skillsmpRes?.ok ? await skillsmpRes.json() : null;
       const providersData = providersRes?.ok ? await providersRes.json() : [];
+      const capabilitiesData = capabilitiesRes?.ok
+        ? await capabilitiesRes.json()
+        : null;
+
+      // Build a map of toolId -> secretKey from capabilities data
+      const secretKeyMap = new Map<string, string | null>();
+      if (capabilitiesData?.tools) {
+        capabilitiesData.tools.forEach(
+          (tool: { toolId: string; secretKey?: string | null }) => {
+            if (tool.secretKey) {
+              secretKeyMap.set(tool.toolId, tool.secretKey);
+            }
+          }
+        );
+      }
 
       // Map tool definitions to tools with status
       const mappedTools: Tool[] = TOOL_DEFINITIONS.map((def) => {
@@ -841,10 +861,20 @@ export default function ToolsManagement() {
           status = 'configured';
         }
 
+        // Get secretKey from capabilities data
+        const secretKey = secretKeyMap.get(def.id) || null;
+
+        // If secretKey is set, mark as configured
+        if (secretKey) {
+          status = 'configured';
+          hasApiKey = true;
+        }
+
         return {
           ...def,
           hasApiKey,
           status,
+          secretKey,
         };
       });
 
@@ -897,6 +927,35 @@ export default function ToolsManagement() {
       const tool = tools.find((t) => t.id === toolId);
       if (!tool) return;
 
+      // If using Secret Manager, save via capabilities endpoint
+      if (secretKey !== undefined) {
+        const capabilitiesRes = await fetch(
+          `${config.apiUrl}/admin/capabilities/tools/${toolId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeader(),
+            },
+            body: JSON.stringify({ secretKey }),
+          }
+        );
+
+        if (capabilitiesRes.ok) {
+          setMessage({
+            type: 'success',
+            text: t('admin.tools.saveSuccess', { name: tool.name }),
+          });
+          setConfiguringTool(null);
+          await loadConfigs();
+          setTimeout(() => setMessage(null), 3000);
+        } else {
+          setMessage({ type: 'error', text: t('admin.tools.saveFailed') });
+        }
+        return;
+      }
+
+      // Otherwise, use the legacy config endpoints for direct API key input
       let endpoint = '';
       let body: Record<string, any> = {};
 
