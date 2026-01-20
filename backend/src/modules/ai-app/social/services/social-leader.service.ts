@@ -413,7 +413,28 @@ export class SocialLeaderService {
       // Use $queryRaw with RETURNING to get the created record
       // Note: images and tags columns are text[] (PostgreSQL array), not jsonb
       // Use ARRAY() constructor with jsonb_array_elements_text to convert
-      const results = await this.db.$queryRaw<Array<{ id: string }>>`
+      // Return all fields to avoid Prisma ORM type mismatch when reading back
+      const results = await this.db.$queryRaw<
+        Array<{
+          id: string;
+          user_id: string;
+          content_type: string;
+          source_type: string;
+          source_id: string;
+          title: string;
+          content: string;
+          digest: string | null;
+          source_url: string | null;
+          cover_image_url: string | null;
+          images: string[];
+          tags: string[];
+          compliance_check: unknown;
+          status: string;
+          review_status: string;
+          created_at: Date;
+          updated_at: Date;
+        }>
+      >`
         INSERT INTO "social_contents" (
           "id", "user_id", "content_type", "source_type", "source_id",
           "title", "content", "digest", "source_url", "cover_image_url",
@@ -438,24 +459,36 @@ export class SocialLeaderService {
           NOW(),
           NOW()
         )
-        RETURNING "id"
+        RETURNING *
       `;
 
-      const contentId = results[0]?.id;
-      if (!contentId) {
-        throw new Error("Insert succeeded but no ID returned");
+      const row = results[0];
+      if (!row) {
+        throw new Error("Insert succeeded but no data returned");
       }
 
-      this.logger.log(`[processSource] $queryRaw insert success: ${contentId}`);
+      this.logger.log(`[processSource] $queryRaw insert success: ${row.id}`);
 
-      // Fetch the full record using ORM (this should work since it's a simple select)
-      const content = await this.db.socialContent.findUnique({
-        where: { id: contentId },
-      });
-
-      if (!content) {
-        throw new Error("Failed to fetch created content");
-      }
+      // Map raw SQL result to expected format (avoiding Prisma ORM type mismatch)
+      const content = {
+        id: row.id,
+        userId: row.user_id,
+        contentType: row.content_type as SocialContentType,
+        sourceType: row.source_type as SocialContentSourceType,
+        sourceId: row.source_id,
+        title: row.title,
+        content: row.content,
+        digest: row.digest,
+        sourceUrl: row.source_url,
+        coverImageUrl: row.cover_image_url,
+        images: row.images,
+        tags: row.tags,
+        complianceCheck: row.compliance_check,
+        status: row.status as SocialContentStatus,
+        reviewStatus: row.review_status as SocialReviewStatus,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
 
       return {
         content,
