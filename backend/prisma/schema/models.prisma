@@ -161,7 +161,29 @@ model User {
   socialPlatformConnections SocialPlatformConnection[]
   socialContents            SocialContent[]
 
+  // 登录历史
+  loginHistory LoginHistory[]
+
   @@map("users")
+}
+
+// 用户登录历史记录
+model LoginHistory {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  loginAt   DateTime @default(now()) @map("login_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent") @db.Text
+  device    String?  // desktop, mobile, tablet
+  browser   String?  // Chrome, Firefox, Safari, etc.
+  os        String?  // Windows, macOS, Linux, iOS, Android
+  location  String?  // 城市/国家（可选，基于 IP）
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([loginAt])
+  @@map("login_history")
 }
 
 model UserInterest {
@@ -7712,9 +7734,11 @@ model Secret {
   // 访问记录
   lastAccessedAt DateTime? @map("last_accessed_at")
   accessCount    Int       @default(0) @map("access_count")
+  currentVersion Int       @default(1) @map("current_version") // 当前激活版本号
 
   // 关联
-  accessLogs SecretAccessLog[]
+  versions       SecretVersion[]
+  accessLogs     SecretAccessLog[]
 
   // 索引
   @@index([category])
@@ -7729,6 +7753,35 @@ model Secret {
   @@index([isActive, updatedAt])
   @@map("secrets")
 }
+
+// 密钥版本历史
+model SecretVersion {
+  id             String   @id @default(cuid())
+  secretId       String   @map("secret_id")
+  version        Int      // 版本号: 1, 2, 3...
+  
+  // 加密存储
+  encryptedValue String   @map("encrypted_value") @db.Text
+  iv             String   @db.VarChar(32)
+  keyVersion     Int      @default(1) @map("key_version")
+  checksum       String   @db.VarChar(64) // SHA-256 用于完整性校验
+  
+  // 审计字段
+  createdBy      String?  @map("created_by") @db.VarChar(100)
+  createdAt      DateTime @default(now()) @map("created_at")
+  
+  // 版本说明
+  changeNote     String?  @map("change_note") @db.Text
+  
+  // 关系
+  secret         Secret   @relation(fields: [secretId], references: [id], onDelete: Cascade)
+  
+  @@unique([secretId, version])
+  @@index([secretId])
+  @@index([createdAt])
+  @@map("secret_versions")
+}
+
 
 /// Secret 访问日志
 /// 记录密钥的访问和修改历史，用于安全审计
