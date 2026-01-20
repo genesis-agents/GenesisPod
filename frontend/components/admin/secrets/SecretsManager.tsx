@@ -1,9 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import {
-  Plus,
   Search,
   Key,
   Eye,
@@ -15,8 +13,6 @@ import {
   Check,
   AlertCircle,
   RefreshCw,
-  Shield,
-  ArrowLeft,
 } from 'lucide-react';
 import {
   useAdminSecrets,
@@ -54,8 +50,15 @@ const CATEGORY_OPTIONS: {
   { value: 'OTHER', label: 'Other', color: 'bg-gray-100 text-gray-800' },
 ];
 
-export function SecretsManager() {
-  const router = useRouter();
+interface SecretsManagerProps {
+  showAddModal: boolean;
+  setShowAddModal: (show: boolean) => void;
+}
+
+export function SecretsManager({
+  showAddModal,
+  setShowAddModal,
+}: SecretsManagerProps) {
   const {
     secrets,
     loading,
@@ -75,7 +78,6 @@ export function SecretsManager() {
   const [categoryFilter, setCategoryFilter] = useState<SecretCategory | 'ALL'>(
     'ALL'
   );
-  const [showForm, setShowForm] = useState(false);
   const [editingSecret, setEditingSecret] = useState<Secret | null>(null);
   const [showLogsFor, setShowLogsFor] = useState<string | null>(null);
   const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(
@@ -84,6 +86,13 @@ export function SecretsManager() {
   const [secretValues, setSecretValues] = useState<Record<string, string>>({});
   const [copiedSecret, setCopiedSecret] = useState<string | null>(null);
   const [deletingName, setDeletingName] = useState<string | null>(null);
+
+  // Reset editingSecret when modal is closed
+  useEffect(() => {
+    if (!showAddModal) {
+      setEditingSecret(null);
+    }
+  }, [showAddModal]);
 
   // 过滤密钥
   const filteredSecrets = secrets.filter((secret) => {
@@ -141,7 +150,7 @@ export function SecretsManager() {
     } else {
       await createSecret(data as CreateSecretDto);
     }
-    setShowForm(false);
+    setShowAddModal(false);
     setEditingSecret(null);
   };
 
@@ -175,39 +184,6 @@ export function SecretsManager() {
 
   return (
     <div className="space-y-6">
-      {/* 头部 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push('/admin')}
-            className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            返回
-          </button>
-          <div>
-            <h2 className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-white">
-              <Shield className="h-5 w-5" />
-              Secret Management
-            </h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Centralized management of all API keys with encrypted storage and
-              access auditing
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => {
-            setEditingSecret(null);
-            setShowForm(true);
-          }}
-          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4" />
-          Add Secret
-        </button>
-      </div>
-
       {/* 错误提示 */}
       {error && (
         <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
@@ -371,7 +347,7 @@ export function SecretsManager() {
                       <button
                         onClick={() => {
                           setEditingSecret(secret);
-                          setShowForm(true);
+                          setShowAddModal(true);
                         }}
                         className="rounded p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700"
                         title="Edit"
@@ -396,12 +372,12 @@ export function SecretsManager() {
       </div>
 
       {/* 表单弹窗 */}
-      {showForm && (
+      {showAddModal && (
         <SecretForm
           secret={editingSecret}
           onSubmit={handleSubmit}
           onCancel={() => {
-            setShowForm(false);
+            setShowAddModal(false);
             setEditingSecret(null);
           }}
           isSubmitting={isCreating || isUpdating}

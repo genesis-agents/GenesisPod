@@ -39,8 +39,8 @@ export class SecretNameValidationPipe implements PipeTransform<string, string> {
     }
 
     // Check for suspicious patterns that might indicate injection attempts
+    // Note: Double hyphens (--) are allowed as they're common in naming conventions
     const suspiciousPatterns = [
-      /--/, // double hyphens (SQL comment)
       /\.\./, // path traversal
       /__/, // double underscore
       /[<>'";&|]/, // common injection chars
