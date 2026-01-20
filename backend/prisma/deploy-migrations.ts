@@ -58,7 +58,7 @@ async function deploy(): Promise<void> {
         // Use --applied instead of --rolled-back to prevent re-running
         try {
           execSync(
-            `npx prisma migrate resolve --applied "${m.migration_name}"`,
+            `npx prisma migrate resolve --schema=prisma/schema --applied "${m.migration_name}"`,
             { stdio: "inherit", env: process.env },
           );
         } catch {
@@ -102,7 +102,7 @@ async function deploy(): Promise<void> {
 
     // Step 3: Run Prisma migrate deploy
     console.log("3. Running Prisma migrate deploy...");
-    execSync("npx prisma migrate deploy", {
+    execSync("npx prisma migrate deploy --schema=prisma/schema", {
       stdio: "inherit",
       env: process.env,
     });
@@ -110,7 +110,7 @@ async function deploy(): Promise<void> {
 
     // Step 4: Generate Prisma Client
     console.log("4. Generating Prisma Client...");
-    execSync("npx prisma generate", {
+    execSync("npx prisma generate --schema=prisma/schema", {
       stdio: "inherit",
       env: process.env,
     });
