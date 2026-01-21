@@ -20,6 +20,7 @@ import ConfigureModal from './tools/ConfigureModal';
 import CapabilitiesTab from './tools/CapabilitiesTab';
 import {
   CAPABILITY_DEFINITIONS,
+  getIndependentProviderIds,
   type ProviderDefinition,
 } from './tools/capability-mapping';
 
@@ -230,20 +231,17 @@ export default function ToolsManagement() {
       }
 
       // Map builtin tools
-      const builtinCategories = [
-        'information',
-        'content',
-        'data',
-        'code',
-        'integration',
-        'memory',
-        'export',
-        'collaboration',
-      ];
+      // 获取所有 CAPABILITY_DEFINITIONS 中定义的工具 ID（包括独立 providers）
+      const capabilityToolIds = new Set<string>(
+        CAPABILITY_DEFINITIONS.map((cap) => cap.id)
+      );
+      // 添加独立 provider IDs（如政策研究的各个工具）
+      const independentProviderIds = getIndependentProviderIds();
+      independentProviderIds.forEach((id) => capabilityToolIds.add(id));
 
       const builtinToolsData: BuiltinTool[] = (capabilitiesData?.tools || [])
-        .filter((tool: { category: string }) =>
-          builtinCategories.includes(tool.category)
+        .filter((tool: { toolId: string }) =>
+          capabilityToolIds.has(tool.toolId)
         )
         .map(
           (tool: {
