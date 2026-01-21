@@ -8125,8 +8125,8 @@ model SocialContent {
   coverImageUrl String? @map("cover_image_url")
 
   // 小红书专用
-  images   Json    @default("[]") // 图片 URL 数组
-  tags     Json    @default("[]") // 话题标签数组
+  images   String[] @default([]) // 图片 URL 数组
+  tags     String[] @default([]) // 话题标签数组
   location String? @db.VarChar(100)
 
   // AI Engine 处理记录

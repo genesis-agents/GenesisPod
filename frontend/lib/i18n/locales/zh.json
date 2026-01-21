@@ -1839,7 +1839,10 @@
         "autoConnect": "启动时自动连接",
         "serverId": "服务器 ID",
         "name": "名称",
-        "description": "描述"
+        "description": "描述",
+        "presetServers": "热门 MCP 服务器",
+        "presetDescription": "一键添加来自 Anthropic 官方 MCP 集合的热门服务器",
+        "configuredServers": "已配置的服务器"
       },
       "providers": {
         "perplexity": {

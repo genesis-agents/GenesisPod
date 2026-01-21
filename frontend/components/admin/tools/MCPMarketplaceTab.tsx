@@ -15,7 +15,190 @@ import {
   Server,
   X,
   ChevronDown,
+  Globe,
+  Github,
+  FileText,
+  Database,
+  Search,
+  Code,
+  Mail,
+  MessageSquare,
+  Zap,
+  Cloud,
 } from 'lucide-react';
+
+// ============ 预置 MCP 服务器列表 ============
+// 这些是知名的、常用的 MCP 服务器，用户可以一键添加
+
+interface PresetMCPServer {
+  serverId: string;
+  name: string;
+  description: string;
+  transport: 'stdio' | 'sse';
+  command: string;
+  args: string[];
+  icon: React.ComponentType<{ className?: string }>;
+  category: 'search' | 'dev' | 'productivity' | 'data' | 'communication';
+  officialUrl?: string;
+}
+
+const PRESET_MCP_SERVERS: PresetMCPServer[] = [
+  // 搜索类
+  {
+    serverId: 'brave-search',
+    name: 'Brave Search',
+    description:
+      'Web search using Brave Search API - privacy-focused search engine',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@anthropics/mcp-server-brave-search'],
+    icon: Search,
+    category: 'search',
+    officialUrl: 'https://github.com/anthropics/mcp-servers',
+  },
+  {
+    serverId: 'duckduckgo-search',
+    name: 'DuckDuckGo Search',
+    description: 'Free web search using DuckDuckGo - no API key required',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@anthropics/mcp-server-ddg-search'],
+    icon: Globe,
+    category: 'search',
+    officialUrl: 'https://github.com/anthropics/mcp-servers',
+  },
+  {
+    serverId: 'google-search',
+    name: 'Google Search',
+    description: 'Web search using Google Custom Search API',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@anthropics/mcp-server-google-search'],
+    icon: Search,
+    category: 'search',
+    officialUrl: 'https://github.com/anthropics/mcp-servers',
+  },
+  // 开发工具类
+  {
+    serverId: 'github',
+    name: 'GitHub',
+    description: 'GitHub repository access - issues, PRs, code search',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@anthropics/mcp-server-github'],
+    icon: Github,
+    category: 'dev',
+    officialUrl: 'https://github.com/anthropics/mcp-servers',
+  },
+  {
+    serverId: 'gitlab',
+    name: 'GitLab',
+    description: 'GitLab repository access and management',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@anthropics/mcp-server-gitlab'],
+    icon: Code,
+    category: 'dev',
+  },
+  {
+    serverId: 'filesystem',
+    name: 'Filesystem',
+    description: 'Local filesystem access - read, write, search files',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@anthropics/mcp-server-filesystem', '--allow-write', '.'],
+    icon: FileText,
+    category: 'dev',
+    officialUrl: 'https://github.com/anthropics/mcp-servers',
+  },
+  // 数据类
+  {
+    serverId: 'sqlite',
+    name: 'SQLite',
+    description: 'SQLite database queries and management',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@anthropics/mcp-server-sqlite'],
+    icon: Database,
+    category: 'data',
+    officialUrl: 'https://github.com/anthropics/mcp-servers',
+  },
+  {
+    serverId: 'postgres',
+    name: 'PostgreSQL',
+    description: 'PostgreSQL database queries and management',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@anthropics/mcp-server-postgres'],
+    icon: Database,
+    category: 'data',
+    officialUrl: 'https://github.com/anthropics/mcp-servers',
+  },
+  // 生产力工具
+  {
+    serverId: 'memory',
+    name: 'Memory',
+    description: 'Persistent memory storage for AI context',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@anthropics/mcp-server-memory'],
+    icon: Zap,
+    category: 'productivity',
+    officialUrl: 'https://github.com/anthropics/mcp-servers',
+  },
+  {
+    serverId: 'puppeteer',
+    name: 'Puppeteer',
+    description: 'Browser automation and web scraping',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@anthropics/mcp-server-puppeteer'],
+    icon: Globe,
+    category: 'productivity',
+    officialUrl: 'https://github.com/anthropics/mcp-servers',
+  },
+  {
+    serverId: 'fetch',
+    name: 'Fetch',
+    description: 'HTTP requests and web content fetching',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@anthropics/mcp-server-fetch'],
+    icon: Cloud,
+    category: 'productivity',
+    officialUrl: 'https://github.com/anthropics/mcp-servers',
+  },
+  // 通信工具
+  {
+    serverId: 'slack',
+    name: 'Slack',
+    description: 'Slack workspace integration - messages, channels, users',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@anthropics/mcp-server-slack'],
+    icon: MessageSquare,
+    category: 'communication',
+    officialUrl: 'https://github.com/anthropics/mcp-servers',
+  },
+  {
+    serverId: 'google-drive',
+    name: 'Google Drive',
+    description: 'Google Drive file access and management',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@anthropics/mcp-server-google-drive'],
+    icon: Cloud,
+    category: 'productivity',
+  },
+];
+
+const CATEGORY_LABELS: Record<string, string> = {
+  search: 'Search Engines',
+  dev: 'Developer Tools',
+  productivity: 'Productivity',
+  data: 'Data & Database',
+  communication: 'Communication',
+};
 
 export interface MCPServer {
   serverId: string;
@@ -69,6 +252,37 @@ export default function MCPMarketplaceTab({
     );
   }
 
+  // 检查预置服务器是否已添加
+  const isPresetAdded = (presetId: string) => {
+    return servers.some((s) => s.serverId === presetId);
+  };
+
+  // 一键添加预置服务器
+  const handleAddPreset = async (preset: PresetMCPServer) => {
+    await onAdd({
+      serverId: preset.serverId,
+      name: preset.name,
+      description: preset.description,
+      transport: preset.transport,
+      command: preset.command,
+      args: preset.args,
+      enabled: true,
+      autoConnect: false,
+    });
+  };
+
+  // 按分类分组预置服务器
+  const groupedPresets = PRESET_MCP_SERVERS.reduce(
+    (acc, preset) => {
+      if (!acc[preset.category]) {
+        acc[preset.category] = [];
+      }
+      acc[preset.category].push(preset);
+      return acc;
+    },
+    {} as Record<string, PresetMCPServer[]>
+  );
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -87,39 +301,117 @@ export default function MCPMarketplaceTab({
         </button>
       </div>
 
-      {/* Server List */}
-      {servers.length === 0 ? (
-        <div className="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-12 text-center">
-          <Server className="mx-auto h-12 w-12 text-gray-400" />
-          <p className="mt-3 text-sm font-medium text-gray-700">
-            No MCP servers configured
-          </p>
-          <p className="mt-1 text-xs text-gray-500">
-            Add a server to get started
-          </p>
-          <button
-            onClick={() => setShowAddDialog(true)}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" />
-            {t('admin.tools.mcp.addServer')}
-          </button>
+      {/* 预置服务器列表 - 总是显示 */}
+      <div className="rounded-xl border border-gray-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Zap className="h-5 w-5 text-blue-600" />
+          <h3 className="font-semibold text-gray-900">
+            {t('admin.tools.mcp.presetServers') || 'Popular MCP Servers'}
+          </h3>
+          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+            {PRESET_MCP_SERVERS.length} available
+          </span>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {servers.map((server) => (
-            <MCPServerRow
-              key={server.serverId}
-              server={server}
-              onConnect={onConnect}
-              onDisconnect={onDisconnect}
-              onDelete={onDelete}
-              connecting={connectingServer === server.serverId}
-              deleting={deletingServer === server.serverId}
-            />
+        <p className="mb-4 text-sm text-gray-600">
+          {t('admin.tools.mcp.presetDescription') ||
+            'One-click add popular MCP servers from the official Anthropic MCP collection'}
+        </p>
+
+        {/* 分类展示 */}
+        <div className="space-y-4">
+          {Object.entries(groupedPresets).map(([category, presets]) => (
+            <div key={category}>
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                {CATEGORY_LABELS[category] || category}
+              </h4>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {presets.map((preset) => {
+                  const Icon = preset.icon;
+                  const added = isPresetAdded(preset.serverId);
+                  return (
+                    <div
+                      key={preset.serverId}
+                      className={`flex items-center gap-3 rounded-lg border bg-white p-3 transition-all ${
+                        added
+                          ? 'border-green-200 bg-green-50'
+                          : 'border-gray-200 hover:border-blue-300 hover:shadow-sm'
+                      }`}
+                    >
+                      <div
+                        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${
+                          added ? 'bg-green-100' : 'bg-blue-100'
+                        }`}
+                      >
+                        <Icon
+                          className={`h-4 w-4 ${added ? 'text-green-600' : 'text-blue-600'}`}
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h5 className="truncate text-sm font-medium text-gray-900">
+                          {preset.name}
+                        </h5>
+                        <p className="truncate text-xs text-gray-500">
+                          {preset.description}
+                        </p>
+                      </div>
+                      {added ? (
+                        <span className="flex items-center gap-1 text-xs font-medium text-green-600">
+                          <CheckCircle className="h-4 w-4" />
+                          Added
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleAddPreset(preset)}
+                          className="flex-shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"
+                        >
+                          Add
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           ))}
         </div>
-      )}
+      </div>
+
+      {/* 已配置的服务器列表 */}
+      <div>
+        <h3 className="mb-3 flex items-center gap-2 font-semibold text-gray-900">
+          <Server className="h-5 w-5 text-gray-600" />
+          {t('admin.tools.mcp.configuredServers') || 'Configured Servers'}
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+            {servers.length}
+          </span>
+        </h3>
+
+        {servers.length === 0 ? (
+          <div className="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-8 text-center">
+            <Server className="mx-auto h-10 w-10 text-gray-400" />
+            <p className="mt-2 text-sm font-medium text-gray-700">
+              No MCP servers configured yet
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Add a preset server above or create a custom one
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {servers.map((server) => (
+              <MCPServerRow
+                key={server.serverId}
+                server={server}
+                onConnect={onConnect}
+                onDisconnect={onDisconnect}
+                onDelete={onDelete}
+                connecting={connectingServer === server.serverId}
+                deleting={deletingServer === server.serverId}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Add Server Dialog */}
       {showAddDialog && (

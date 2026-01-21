@@ -1472,17 +1472,266 @@ export class AdminController {
    */
   @Get("skillsmp-config/skills")
   async getSkillsmpSkills() {
-    const skills =
+    const syncedSkills =
       (await this.adminService.getSetting("skillsmp.syncedSkills")) ?? [];
     const totalSkills =
       (await this.adminService.getSetting("skillsmp.totalSkills")) ?? 66541;
     const lastSync = await this.adminService.getSetting("skillsmp.lastSync");
+
+    // 如果没有同步的技能，返回预置的示例技能
+    const skills =
+      syncedSkills.length > 0
+        ? syncedSkills
+        : this.getPresetMarketplaceSkills();
 
     return {
       skills,
       totalSkills,
       lastSync: lastSync || null,
     };
+  }
+
+  /**
+   * 获取预置的市场技能列表
+   * 这些是示例技能，用于展示 Skills Marketplace 的功能
+   */
+  private getPresetMarketplaceSkills() {
+    return [
+      // Research & Analysis Skills
+      {
+        id: "skill-deep-research",
+        name: "deep-research",
+        displayName: "Deep Research",
+        description:
+          "Advanced research methodology for comprehensive topic analysis with multi-source verification",
+        version: "2.1.0",
+        author: "SkillsMP Official",
+        layer: "application",
+        domain: "research",
+        tags: ["research", "analysis", "verification", "multi-source"],
+        rating: 4.9,
+        ratingCount: 1250,
+        downloads: 15680,
+        requiredTools: ["web-search", "web-scraper"],
+        requiredSkills: [],
+        createdAt: "2024-06-15T00:00:00Z",
+        updatedAt: "2025-01-10T00:00:00Z",
+      },
+      {
+        id: "skill-academic-writing",
+        name: "academic-writing",
+        displayName: "Academic Writing",
+        description:
+          "Professional academic writing with proper citations, structure, and scholarly tone",
+        version: "1.8.0",
+        author: "SkillsMP Official",
+        layer: "application",
+        domain: "writing",
+        tags: ["academic", "writing", "citations", "scholarly"],
+        rating: 4.8,
+        ratingCount: 890,
+        downloads: 12450,
+        requiredTools: [],
+        requiredSkills: [],
+        createdAt: "2024-07-20T00:00:00Z",
+        updatedAt: "2025-01-05T00:00:00Z",
+      },
+      {
+        id: "skill-data-visualization",
+        name: "data-visualization",
+        displayName: "Data Visualization",
+        description:
+          "Create insightful charts, graphs, and visual representations of complex data",
+        version: "1.5.0",
+        author: "DataViz Labs",
+        layer: "capability",
+        domain: "data",
+        tags: ["visualization", "charts", "data", "analytics"],
+        rating: 4.7,
+        ratingCount: 560,
+        downloads: 8920,
+        requiredTools: ["data-analysis"],
+        requiredSkills: [],
+        createdAt: "2024-08-10T00:00:00Z",
+        updatedAt: "2024-12-20T00:00:00Z",
+      },
+      // Content Creation Skills
+      {
+        id: "skill-content-marketing",
+        name: "content-marketing",
+        displayName: "Content Marketing",
+        description:
+          "Create engaging marketing content optimized for various platforms and audiences",
+        version: "2.0.0",
+        author: "Marketing Pro",
+        layer: "application",
+        domain: "marketing",
+        tags: ["marketing", "content", "seo", "engagement"],
+        rating: 4.6,
+        ratingCount: 720,
+        downloads: 9840,
+        requiredTools: ["web-search"],
+        requiredSkills: [],
+        createdAt: "2024-05-01T00:00:00Z",
+        updatedAt: "2024-11-15T00:00:00Z",
+      },
+      {
+        id: "skill-technical-documentation",
+        name: "technical-documentation",
+        displayName: "Technical Documentation",
+        description:
+          "Write clear, comprehensive technical documentation for software and APIs",
+        version: "1.6.0",
+        author: "DevDocs Team",
+        layer: "application",
+        domain: "development",
+        tags: ["documentation", "technical", "api", "software"],
+        rating: 4.8,
+        ratingCount: 450,
+        downloads: 7650,
+        requiredTools: [],
+        requiredSkills: [],
+        createdAt: "2024-09-01T00:00:00Z",
+        updatedAt: "2025-01-08T00:00:00Z",
+      },
+      // Presentation Skills
+      {
+        id: "skill-presentation-design",
+        name: "presentation-design",
+        displayName: "Presentation Design",
+        description:
+          "Design professional, visually appealing presentations with effective storytelling",
+        version: "1.4.0",
+        author: "SkillsMP Official",
+        layer: "application",
+        domain: "office",
+        tags: ["presentation", "design", "slides", "storytelling"],
+        rating: 4.7,
+        ratingCount: 680,
+        downloads: 11200,
+        requiredTools: ["export-pptx"],
+        requiredSkills: [],
+        createdAt: "2024-06-20T00:00:00Z",
+        updatedAt: "2024-12-01T00:00:00Z",
+      },
+      {
+        id: "skill-executive-summary",
+        name: "executive-summary",
+        displayName: "Executive Summary",
+        description:
+          "Create concise, impactful executive summaries for business reports and proposals",
+        version: "1.3.0",
+        author: "Business Insights",
+        layer: "capability",
+        domain: "business",
+        tags: ["executive", "summary", "business", "reports"],
+        rating: 4.5,
+        ratingCount: 340,
+        downloads: 5430,
+        requiredTools: [],
+        requiredSkills: [],
+        createdAt: "2024-10-01T00:00:00Z",
+        updatedAt: "2024-12-15T00:00:00Z",
+      },
+      // Code & Development Skills
+      {
+        id: "skill-code-review",
+        name: "code-review",
+        displayName: "Code Review",
+        description:
+          "Comprehensive code review with security analysis, best practices, and improvement suggestions",
+        version: "2.2.0",
+        author: "DevOps Masters",
+        layer: "capability",
+        domain: "development",
+        tags: ["code-review", "security", "best-practices", "development"],
+        rating: 4.9,
+        ratingCount: 980,
+        downloads: 14500,
+        requiredTools: ["code-generation"],
+        requiredSkills: [],
+        createdAt: "2024-04-15T00:00:00Z",
+        updatedAt: "2025-01-12T00:00:00Z",
+      },
+      {
+        id: "skill-api-design",
+        name: "api-design",
+        displayName: "API Design",
+        description:
+          "Design RESTful and GraphQL APIs following industry best practices and standards",
+        version: "1.7.0",
+        author: "API Architects",
+        layer: "capability",
+        domain: "development",
+        tags: ["api", "rest", "graphql", "design"],
+        rating: 4.6,
+        ratingCount: 520,
+        downloads: 7890,
+        requiredTools: [],
+        requiredSkills: [],
+        createdAt: "2024-07-01T00:00:00Z",
+        updatedAt: "2024-11-20T00:00:00Z",
+      },
+      // Analysis & Strategy Skills
+      {
+        id: "skill-competitive-analysis",
+        name: "competitive-analysis",
+        displayName: "Competitive Analysis",
+        description:
+          "Conduct thorough competitive analysis with market positioning and strategic insights",
+        version: "1.5.0",
+        author: "Strategy Hub",
+        layer: "application",
+        domain: "business",
+        tags: ["competitive", "analysis", "strategy", "market"],
+        rating: 4.7,
+        ratingCount: 420,
+        downloads: 6780,
+        requiredTools: ["web-search", "web-scraper"],
+        requiredSkills: ["deep-research"],
+        createdAt: "2024-08-20T00:00:00Z",
+        updatedAt: "2024-12-10T00:00:00Z",
+      },
+      {
+        id: "skill-swot-analysis",
+        name: "swot-analysis",
+        displayName: "SWOT Analysis",
+        description:
+          "Perform comprehensive SWOT analysis with actionable recommendations",
+        version: "1.2.0",
+        author: "Business Insights",
+        layer: "capability",
+        domain: "business",
+        tags: ["swot", "analysis", "strategy", "planning"],
+        rating: 4.5,
+        ratingCount: 280,
+        downloads: 4560,
+        requiredTools: [],
+        requiredSkills: [],
+        createdAt: "2024-09-15T00:00:00Z",
+        updatedAt: "2024-11-30T00:00:00Z",
+      },
+      // Translation & Localization Skills
+      {
+        id: "skill-professional-translation",
+        name: "professional-translation",
+        displayName: "Professional Translation",
+        description:
+          "High-quality translation with cultural adaptation and industry-specific terminology",
+        version: "1.9.0",
+        author: "LinguaPro",
+        layer: "capability",
+        domain: "language",
+        tags: ["translation", "localization", "multilingual", "cultural"],
+        rating: 4.8,
+        ratingCount: 650,
+        downloads: 9200,
+        requiredTools: [],
+        requiredSkills: [],
+        createdAt: "2024-05-20T00:00:00Z",
+        updatedAt: "2025-01-02T00:00:00Z",
+      },
+    ];
   }
 
   // ============ External Data Providers ============

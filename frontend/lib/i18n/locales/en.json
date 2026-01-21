@@ -1837,7 +1837,10 @@
         "autoConnect": "Auto-connect on startup",
         "serverId": "Server ID",
         "name": "Name",
-        "description": "Description"
+        "description": "Description",
+        "presetServers": "Popular MCP Servers",
+        "presetDescription": "One-click add popular MCP servers from the official Anthropic MCP collection",
+        "configuredServers": "Configured Servers"
       },
       "providers": {
         "perplexity": {
