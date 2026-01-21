@@ -4,32 +4,16 @@ import { useMemo } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import {
   CAPABILITY_DEFINITIONS,
-  STANDALONE_TOOLS,
+  CATEGORY_CONFIG,
+  getCapabilitiesByCategory,
+  getIndependentProviderIds,
   type CapabilityDefinition,
+  type CapabilityCategory,
   type ProviderDefinition,
 } from './capability-mapping';
 import UnifiedCapabilityCard, {
   type ProviderStatus,
 } from './UnifiedCapabilityCard';
-import {
-  Landmark,
-  Scale,
-  Building2,
-  CheckCircle,
-  ExternalLink,
-  Settings,
-  Lock,
-} from 'lucide-react';
-
-// Icon mapping for standalone tools
-const STANDALONE_ICON_MAP: Record<
-  string,
-  React.ComponentType<{ className?: string }>
-> = {
-  Landmark,
-  Scale,
-  Building2,
-};
 
 export interface BuiltinTool {
   id: string;
@@ -74,10 +58,52 @@ export function CapabilitiesTab({
 }: CapabilitiesTabProps) {
   const { t } = useTranslation();
 
+  // 获取独立 Provider ID 列表（如政策研究工具）
+  const independentProviderIds = useMemo(() => getIndependentProviderIds(), []);
+
   // 构建能力数据
   const capabilitiesData = useMemo(() => {
     return CAPABILITY_DEFINITIONS.map((capability) => {
-      // 查找内建工具状态
+      // 对于 independentProviders，每个 provider 有独立开关
+      if (capability.independentProviders) {
+        const providerStatuses: ProviderStatus[] = capability.providers.map(
+          (provider) => {
+            // 独立 provider 使用自己的 ID 查找 builtinTool
+            const builtinTool = builtinTools.find((t) => t.id === provider.id);
+            const externalStatus = externalToolStatuses.find(
+              (e) => e.id === provider.id
+            );
+
+            const configured =
+              provider.noKeyRequired ||
+              externalStatus?.status === 'configured' ||
+              externalStatus?.hasApiKey ||
+              !!externalStatus?.secretKey;
+
+            return {
+              id: provider.id,
+              configured,
+              hasApiKey:
+                externalStatus?.hasApiKey || provider.noKeyRequired || false,
+              secretKey: externalStatus?.secretKey,
+              isActive: configured,
+              // 独立 provider 需要自己的 enabled 状态
+              enabled: builtinTool?.enabled ?? false,
+            };
+          }
+        );
+
+        // 对于独立 providers，整体 enabled 取决于任一 provider 是否启用
+        const anyEnabled = providerStatuses.some((p) => p.enabled);
+
+        return {
+          capability,
+          enabled: anyEnabled,
+          providerStatuses,
+        };
+      }
+
+      // 普通能力：使用能力 ID 查找 builtinTool
       const builtinTool = builtinTools.find((t) => t.id === capability.id);
       const enabled = builtinTool?.enabled ?? false;
 
@@ -88,7 +114,6 @@ export function CapabilitiesTab({
             (e) => e.id === provider.id
           );
 
-          // 检查是否配置了（有 API key 或不需要 key）
           const configured =
             provider.noKeyRequired ||
             externalStatus?.status === 'configured' ||
@@ -101,7 +126,7 @@ export function CapabilitiesTab({
             hasApiKey:
               externalStatus?.hasApiKey || provider.noKeyRequired || false,
             secretKey: externalStatus?.secretKey,
-            isActive: configured && enabled, // 简化：配置了且能力启用就是 active
+            isActive: configured && enabled,
           };
         }
       );
@@ -114,53 +139,27 @@ export function CapabilitiesTab({
     });
   }, [builtinTools, externalToolStatuses]);
 
-  // 独立工具数据
-  const standaloneToolsData = useMemo(() => {
-    return STANDALONE_TOOLS.map((tool) => {
-      const builtinTool = builtinTools.find((t) => t.id === tool.id);
-      const externalStatus = externalToolStatuses.find((e) => e.id === tool.id);
-
-      return {
-        ...tool,
-        enabled: builtinTool?.enabled ?? false,
-        configured:
-          tool.noKeyRequired ||
-          externalStatus?.status === 'configured' ||
-          !!externalStatus?.secretKey,
-        secretKey: externalStatus?.secretKey,
-      };
-    });
-  }, [builtinTools, externalToolStatuses]);
-
-  // 按类别分组能力
+  // 按类别分组并排序
   const groupedCapabilities = useMemo(() => {
-    const groups: Record<string, typeof capabilitiesData> = {
-      search: [],
-      extraction: [],
-      generation: [],
-      analysis: [],
-      other: [],
-    };
+    const groups = new Map<CapabilityCategory, typeof capabilitiesData>();
 
     capabilitiesData.forEach((item) => {
       const category = item.capability.category;
-      if (groups[category]) {
-        groups[category].push(item);
-      } else {
-        groups.other.push(item);
-      }
+      const list = groups.get(category) || [];
+      list.push(item);
+      groups.set(category, list);
     });
 
-    return groups;
-  }, [capabilitiesData]);
+    // 按 order 排序
+    const sortedCategories = Array.from(groups.keys()).sort(
+      (a, b) => CATEGORY_CONFIG[a].order - CATEGORY_CONFIG[b].order
+    );
 
-  const categoryLabels: Record<string, string> = {
-    search: t('admin.tools.categories.search'),
-    extraction: t('admin.tools.categories.extraction'),
-    generation: t('admin.tools.categories.generation'),
-    analysis: t('admin.tools.categories.analysis'),
-    other: t('admin.tools.categories.other'),
-  };
+    return sortedCategories.map((category) => ({
+      category,
+      items: groups.get(category)!,
+    }));
+  }, [capabilitiesData]);
 
   if (loading) {
     return (
@@ -172,14 +171,15 @@ export function CapabilitiesTab({
 
   return (
     <div className="space-y-8">
-      {/* Capabilities by Category */}
-      {Object.entries(groupedCapabilities).map(([category, items]) => {
+      {groupedCapabilities.map(({ category, items }) => {
         if (items.length === 0) return null;
+
+        const categoryLabel = t(CATEGORY_CONFIG[category].labelKey);
 
         return (
           <div key={category}>
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
-              {categoryLabels[category] || category}
+              {categoryLabel}
             </h3>
             <div className="space-y-4">
               {items.map(({ capability, enabled, providerStatuses }) => (
@@ -188,8 +188,20 @@ export function CapabilitiesTab({
                   capability={capability}
                   enabled={enabled}
                   providerStatuses={providerStatuses}
-                  onToggleCapability={(newEnabled) =>
-                    onToggleCapability(capability.id, newEnabled)
+                  onToggleCapability={(newEnabled) => {
+                    if (capability.independentProviders) {
+                      // 对于独立 providers，需要单独切换每个 provider
+                      // 这里暂时禁用整体开关，用户需要展开后单独操作
+                      return;
+                    }
+                    onToggleCapability(capability.id, newEnabled);
+                  }}
+                  onToggleProvider={
+                    capability.independentProviders
+                      ? (providerId, newEnabled) => {
+                          onToggleCapability(providerId, newEnabled);
+                        }
+                      : undefined
                   }
                   onConfigureProvider={(provider) =>
                     onConfigureProvider(provider, capability.category)
@@ -208,116 +220,6 @@ export function CapabilitiesTab({
           </div>
         );
       })}
-
-      {/* Standalone Policy Research Tools */}
-      {standaloneToolsData.length > 0 && (
-        <div>
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">
-            {t('admin.tools.categories.policyResearch')}
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {standaloneToolsData.map((tool) => {
-              const Icon = STANDALONE_ICON_MAP[tool.icon] || Landmark;
-
-              return (
-                <div
-                  key={tool.id}
-                  className={`rounded-xl border p-4 transition-all ${
-                    tool.enabled && tool.configured
-                      ? 'border-green-200 bg-white shadow-sm'
-                      : tool.enabled && !tool.configured
-                        ? 'border-yellow-200 bg-yellow-50/30'
-                        : 'border-gray-200 bg-gray-50/50'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                          tool.enabled && tool.configured
-                            ? 'bg-green-100 text-green-600'
-                            : 'bg-gray-100 text-gray-400'
-                        }`}
-                      >
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-medium text-gray-900">
-                            {tool.displayName}
-                          </h4>
-                          {tool.noKeyRequired && (
-                            <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
-                              Free
-                            </span>
-                          )}
-                          {tool.configured && !tool.noKeyRequired && (
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          )}
-                        </div>
-                        <p className="mt-1 text-xs text-gray-500">
-                          {tool.description}
-                        </p>
-                        {tool.freeQuota && (
-                          <p className="mt-1 text-xs text-green-600">
-                            {tool.freeQuota}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Toggle */}
-                    <label className="relative inline-flex cursor-pointer items-center">
-                      <input
-                        type="checkbox"
-                        checked={tool.enabled}
-                        onChange={(e) =>
-                          onToggleCapability(tool.id, e.target.checked)
-                        }
-                        className="peer sr-only"
-                      />
-                      <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-2 peer-focus:ring-blue-300"></div>
-                    </label>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="mt-3 flex items-center gap-2">
-                    {!tool.noKeyRequired && (
-                      <button
-                        onClick={() =>
-                          onConfigureProvider(
-                            {
-                              id: tool.id,
-                              name: tool.name,
-                              description: tool.description,
-                              url: tool.url,
-                              secretKeyName: tool.secretKeyName,
-                            },
-                            'policy-research'
-                          )
-                        }
-                        className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
-                      >
-                        <Settings className="h-3 w-3" />
-                        Configure
-                      </button>
-                    )}
-                    <a
-                      href={tool.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      Docs
-                    </a>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

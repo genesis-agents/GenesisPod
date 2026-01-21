@@ -11,20 +11,16 @@ import {
   AlertTriangle,
   RefreshCw,
   Zap,
-  Wrench,
   Server,
 } from 'lucide-react';
 
-import BuiltinToolsTab, { BuiltinTool } from './tools/BuiltinToolsTab';
+import { BuiltinTool } from './tools/BuiltinToolsTab';
 import { ExternalTool } from './tools/ExternalToolsTab';
 import MCPMarketplaceTab, { MCPServer } from './tools/MCPMarketplaceTab';
 import ConfigureModal from './tools/ConfigureModal';
 import CapabilitiesTab from './tools/CapabilitiesTab';
 import {
   CAPABILITY_DEFINITIONS,
-  STANDALONE_TOOLS,
-  isCapability,
-  isProvider,
   type ProviderDefinition,
 } from './tools/capability-mapping';
 
@@ -137,13 +133,13 @@ const EXTERNAL_TOOL_DEFINITIONS = [
   },
 ];
 
-type TabType = 'capabilities' | 'other-tools' | 'mcp';
+type TabType = 'ai-tools' | 'mcp';
 
 export default function ToolsManagement() {
   const { t } = useTranslation();
   const { secrets: availableSecrets } = useAdminSecrets();
 
-  const [activeTab, setActiveTab] = useState<TabType>('capabilities');
+  const [activeTab, setActiveTab] = useState<TabType>('ai-tools');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -877,44 +873,23 @@ export default function ToolsManagement() {
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           <button
-            onClick={() => setActiveTab('capabilities')}
+            onClick={() => setActiveTab('ai-tools')}
             className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
-              activeTab === 'capabilities'
+              activeTab === 'ai-tools'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
             }`}
           >
             <Zap className="h-5 w-5" />
-            {t('admin.tools.tabs.capabilities')}
+            {t('admin.tools.tabs.aiTools')}
             <span
               className={`rounded-full px-2 py-0.5 text-xs ${
-                activeTab === 'capabilities'
+                activeTab === 'ai-tools'
                   ? 'bg-blue-100 text-blue-600'
                   : 'bg-gray-100 text-gray-600'
               }`}
             >
-              {CAPABILITY_DEFINITIONS.length + STANDALONE_TOOLS.length}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('other-tools')}
-            className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
-              activeTab === 'other-tools'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-          >
-            <Wrench className="h-5 w-5" />
-            {t('admin.tools.tabs.otherTools')}
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs ${
-                activeTab === 'other-tools'
-                  ? 'bg-blue-100 text-blue-600'
-                  : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              {stats.builtin.total}
+              {CAPABILITY_DEFINITIONS.length}
             </span>
           </button>
 
@@ -942,7 +917,7 @@ export default function ToolsManagement() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'capabilities' && (
+      {activeTab === 'ai-tools' && (
         <CapabilitiesTab
           builtinTools={builtinTools}
           externalToolStatuses={externalTools.map((t) => ({
@@ -981,14 +956,6 @@ export default function ToolsManagement() {
           }}
           testingProvider={testingTool}
           testResults={testResults}
-          loading={loading}
-        />
-      )}
-
-      {activeTab === 'other-tools' && (
-        <BuiltinToolsTab
-          tools={builtinTools}
-          onToggle={handleToggleBuiltinTool}
           loading={loading}
         />
       )}

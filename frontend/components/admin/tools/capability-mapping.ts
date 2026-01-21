@@ -2,7 +2,7 @@
  * Capability-Provider Mapping
  *
  * 定义内建能力（Built-in Capability）与外部提供者（External Provider）的映射关系
- * 解决 UI 展示混乱的问题：将能力和它的实现放在一起显示
+ * 所有工具类型统一使用折叠卡片样式展示
  */
 
 export interface ProviderDefinition {
@@ -22,9 +22,41 @@ export interface CapabilityDefinition {
   displayName: string;
   description: string;
   icon: string; // Lucide icon name
-  category: 'search' | 'extraction' | 'generation' | 'analysis' | 'other';
+  category: CapabilityCategory;
   providers: ProviderDefinition[];
+  /** 如果为 true，每个 provider 都是独立的工具（有各自的开关） */
+  independentProviders?: boolean;
 }
+
+/**
+ * 能力类别
+ */
+export type CapabilityCategory =
+  | 'search'
+  | 'extraction'
+  | 'generation'
+  | 'processing'
+  | 'memory'
+  | 'integration'
+  | 'export'
+  | 'policy';
+
+/**
+ * 类别显示顺序和配置
+ */
+export const CATEGORY_CONFIG: Record<
+  CapabilityCategory,
+  { order: number; labelKey: string }
+> = {
+  search: { order: 1, labelKey: 'admin.tools.categories.search' },
+  extraction: { order: 2, labelKey: 'admin.tools.categories.extraction' },
+  generation: { order: 3, labelKey: 'admin.tools.categories.generation' },
+  processing: { order: 4, labelKey: 'admin.tools.categories.processing' },
+  memory: { order: 5, labelKey: 'admin.tools.categories.memory' },
+  integration: { order: 6, labelKey: 'admin.tools.categories.integration' },
+  export: { order: 7, labelKey: 'admin.tools.categories.export' },
+  policy: { order: 8, labelKey: 'admin.tools.categories.policy' },
+};
 
 /**
  * 能力定义列表
@@ -106,7 +138,28 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
     ],
   },
 
-  // ==================== 音频生成能力 ====================
+  // YouTube 字幕 - 归类到内容提取，使用 web-scraper 的开关
+  {
+    id: 'youtube-transcript',
+    name: 'youtube-transcript',
+    displayName: 'YouTube 字幕',
+    description: '获取 YouTube 视频的字幕和转录文本',
+    icon: 'Youtube',
+    category: 'extraction',
+    providers: [
+      {
+        id: 'supadata',
+        name: 'Supadata',
+        description: 'YouTube 字幕和转录 API',
+        url: 'https://supadata.ai/youtube-transcript-api',
+        freeQuota: '100/month',
+        pricing: '$9/month (1000)',
+        secretKeyName: 'SUPADATA_API_KEY',
+      },
+    ],
+  },
+
+  // ==================== 内容生成能力 ====================
   {
     id: 'audio-generation',
     name: 'audio-generation',
@@ -136,62 +189,40 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
     ],
   },
 
-  // ==================== YouTube 能力 ====================
+  // ==================== 政策研究能力 ====================
+  // 每个 Provider 都是独立的工具，有各自的开关
   {
-    id: 'youtube-transcript',
-    name: 'youtube-transcript',
-    displayName: 'YouTube 字幕',
-    description: '获取 YouTube 视频的字幕和转录文本',
-    icon: 'Youtube',
-    category: 'extraction',
+    id: 'policy-research',
+    name: 'policy-research',
+    displayName: '政策研究',
+    description: '获取美国政府政策、法规和新闻',
+    icon: 'Landmark',
+    category: 'policy',
+    independentProviders: true, // 每个 provider 有独立开关
     providers: [
       {
-        id: 'supadata',
-        name: 'Supadata',
-        description: 'YouTube 字幕和转录 API',
-        url: 'https://supadata.ai/youtube-transcript-api',
-        freeQuota: '100/month',
-        pricing: '$9/month (1000)',
-        secretKeyName: 'SUPADATA_API_KEY',
+        id: 'federal-register',
+        name: '联邦公报',
+        description: '搜索美国联邦公报，获取行政命令、法规和通知',
+        url: 'https://www.federalregister.gov',
+        noKeyRequired: true,
+      },
+      {
+        id: 'congress-gov',
+        name: '国会立法',
+        description: '搜索美国国会立法，获取法案和投票记录',
+        url: 'https://api.congress.gov',
+        freeQuota: '5,000 requests/hour',
+        secretKeyName: 'CONGRESS_GOV_API_KEY',
+      },
+      {
+        id: 'whitehouse-news',
+        name: '白宫新闻',
+        description: '获取白宫新闻发布和声明',
+        url: 'https://www.whitehouse.gov/news',
+        noKeyRequired: true,
       },
     ],
-  },
-];
-
-/**
- * 政策研究工具（独立显示，不需要外部 Provider）
- */
-export const STANDALONE_TOOLS = [
-  {
-    id: 'federal-register',
-    name: 'Federal Register',
-    displayName: '联邦公报',
-    description: '搜索美国联邦公报，获取行政命令、法规和通知',
-    icon: 'Landmark',
-    category: 'policy-research',
-    noKeyRequired: true,
-    url: 'https://www.federalregister.gov',
-  },
-  {
-    id: 'congress-gov',
-    name: 'Congress.gov',
-    displayName: '国会立法',
-    description: '搜索美国国会立法，获取法案和投票记录',
-    icon: 'Scale',
-    category: 'policy-research',
-    freeQuota: '5,000 requests/hour',
-    url: 'https://api.congress.gov',
-    secretKeyName: 'CONGRESS_GOV_API_KEY',
-  },
-  {
-    id: 'whitehouse-news',
-    name: 'White House News',
-    displayName: '白宫新闻',
-    description: '获取白宫新闻发布和声明',
-    icon: 'Building2',
-    category: 'policy-research',
-    noKeyRequired: true,
-    url: 'https://www.whitehouse.gov/news',
   },
 ];
 
@@ -237,4 +268,42 @@ export function isProvider(toolId: string): boolean {
   return CAPABILITY_DEFINITIONS.some((cap) =>
     cap.providers.some((p) => p.id === toolId)
   );
+}
+
+/**
+ * 获取所有独立 Provider 的 ID 列表（用于政策研究等）
+ */
+export function getIndependentProviderIds(): string[] {
+  return CAPABILITY_DEFINITIONS.filter(
+    (cap) => cap.independentProviders
+  ).flatMap((cap) => cap.providers.map((p) => p.id));
+}
+
+/**
+ * 按类别分组并排序能力
+ */
+export function getCapabilitiesByCategory(): Map<
+  CapabilityCategory,
+  CapabilityDefinition[]
+> {
+  const grouped = new Map<CapabilityCategory, CapabilityDefinition[]>();
+
+  // 按类别分组
+  CAPABILITY_DEFINITIONS.forEach((cap) => {
+    const list = grouped.get(cap.category) || [];
+    list.push(cap);
+    grouped.set(cap.category, list);
+  });
+
+  // 按 order 排序返回
+  const sorted = new Map<CapabilityCategory, CapabilityDefinition[]>();
+  const categories = Array.from(grouped.keys()).sort(
+    (a, b) => CATEGORY_CONFIG[a].order - CATEGORY_CONFIG[b].order
+  );
+
+  categories.forEach((cat) => {
+    sorted.set(cat, grouped.get(cat)!);
+  });
+
+  return sorted;
 }

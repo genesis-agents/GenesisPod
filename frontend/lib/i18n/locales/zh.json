@@ -1826,7 +1826,8 @@
         "external": "外部工具",
         "mcp": "MCP 服务器",
         "capabilities": "AI 能力",
-        "otherTools": "其他工具"
+        "otherTools": "其他工具",
+        "aiTools": "AI 工具"
       },
       "capability": {
         "ready": "可用",
@@ -1843,9 +1844,11 @@
         "search": "网络搜索",
         "extraction": "内容提取",
         "generation": "内容生成",
-        "analysis": "数据分析",
-        "other": "其他",
-        "policyResearch": "政策研究"
+        "processing": "数据处理",
+        "memory": "知识记忆",
+        "integration": "外部集成",
+        "export": "导出",
+        "policy": "政策研究"
       },
       "mcp": {
         "addServer": "添加服务器",

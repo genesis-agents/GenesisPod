@@ -1824,7 +1824,8 @@
         "external": "External Tools",
         "mcp": "MCP Servers",
         "capabilities": "AI Capabilities",
-        "otherTools": "Other Tools"
+        "otherTools": "Other Tools",
+        "aiTools": "AI Tools"
       },
       "capability": {
         "ready": "Ready",
@@ -1841,9 +1842,11 @@
         "search": "Web Search",
         "extraction": "Content Extraction",
         "generation": "Content Generation",
-        "analysis": "Data Analysis",
-        "other": "Other",
-        "policyResearch": "Policy Research"
+        "processing": "Data Processing",
+        "memory": "Knowledge & Memory",
+        "integration": "External Integration",
+        "export": "Export",
+        "policy": "Policy Research"
       },
       "mcp": {
         "addServer": "Add Server",

@@ -41,6 +41,7 @@ export interface ProviderStatus {
   hasApiKey: boolean;
   secretKey?: string | null;
   isActive?: boolean; // 当前正在使用的 provider
+  enabled?: boolean; // 用于 independentProviders 模式，每个 provider 有独立开关
 }
 
 interface UnifiedCapabilityCardProps {
@@ -48,6 +49,7 @@ interface UnifiedCapabilityCardProps {
   enabled: boolean;
   providerStatuses: ProviderStatus[];
   onToggleCapability: (enabled: boolean) => void;
+  onToggleProvider?: (providerId: string, enabled: boolean) => void; // 用于 independentProviders 模式
   onConfigureProvider: (provider: ProviderDefinition) => void;
   onTestProvider?: (providerId: string) => void;
   testingProvider?: string | null;
@@ -59,6 +61,7 @@ export function UnifiedCapabilityCard({
   enabled,
   providerStatuses,
   onToggleCapability,
+  onToggleProvider,
   onConfigureProvider,
   onTestProvider,
   testingProvider,
