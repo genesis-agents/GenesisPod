@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Key, Save } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 import {
   Secret,
   SecretCategory,
@@ -9,15 +10,16 @@ import {
   UpdateSecretDto,
 } from '@/hooks/domain/useAdminSecrets';
 
-const CATEGORY_OPTIONS: { value: SecretCategory; label: string }[] = [
-  { value: 'AI_MODEL', label: 'AI 模型' },
-  { value: 'SEARCH', label: '搜索' },
-  { value: 'EXTRACTION', label: '内容提取' },
-  { value: 'YOUTUBE', label: 'YouTube' },
-  { value: 'TTS', label: '语音合成' },
-  { value: 'SKILLSMP', label: 'SkillsMP' },
-  { value: 'POLICY', label: '政策研究' },
-  { value: 'OTHER', label: '其他' },
+// Category keys for i18n lookup
+const CATEGORY_KEYS: { value: SecretCategory; key: string }[] = [
+  { value: 'AI_MODEL', key: 'aiModel' },
+  { value: 'SEARCH', key: 'search' },
+  { value: 'EXTRACTION', key: 'extraction' },
+  { value: 'YOUTUBE', key: 'youtube' },
+  { value: 'TTS', key: 'tts' },
+  { value: 'SKILLSMP', key: 'skillsmp' },
+  { value: 'POLICY', key: 'policy' },
+  { value: 'OTHER', key: 'other' },
 ];
 
 interface SecretFormProps {
@@ -33,7 +35,14 @@ export function SecretForm({
   onCancel,
   isSubmitting,
 }: SecretFormProps) {
+  const { t } = useTranslation();
   const isEditing = !!secret;
+
+  // Build category options with i18n labels
+  const categoryOptions = CATEGORY_KEYS.map((cat) => ({
+    value: cat.value,
+    label: t(`admin.secrets.categories.${cat.key}`) || cat.key,
+  }));
 
   const [formData, setFormData] = useState({
     name: secret?.name ?? '',
@@ -216,7 +225,7 @@ export function SecretForm({
                 }
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               >
-                {CATEGORY_OPTIONS.map((option) => (
+                {categoryOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>

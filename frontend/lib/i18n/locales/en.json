@@ -2005,6 +2005,18 @@
         "clickable": "Configurable",
         "readOnly": "Read-only"
       }
+    },
+    "secrets": {
+      "categories": {
+        "aiModel": "AI Model",
+        "search": "Search Service",
+        "extraction": "Content Extraction",
+        "youtube": "YouTube",
+        "tts": "Text-to-Speech",
+        "skillsmp": "Skills Marketplace",
+        "policy": "Policy Research",
+        "other": "Other"
+      }
     }
   },
   "auth": {

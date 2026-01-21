@@ -2007,6 +2007,18 @@
         "clickable": "可配置",
         "readOnly": "只读"
       }
+    },
+    "secrets": {
+      "categories": {
+        "aiModel": "AI 模型",
+        "search": "搜索服务",
+        "extraction": "内容提取",
+        "youtube": "YouTube",
+        "tts": "语音合成",
+        "skillsmp": "技能市场",
+        "policy": "政策研究",
+        "other": "其他"
+      }
     }
   },
   "auth": {
