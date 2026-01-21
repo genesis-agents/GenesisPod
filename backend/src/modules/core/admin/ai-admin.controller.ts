@@ -1,0 +1,286 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  UseGuards,
+  Logger,
+} from "@nestjs/common";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBody,
+} from "@nestjs/swagger";
+import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../common/guards/admin.guard";
+import { AIAdminService } from "./ai-admin.service";
+
+/**
+ * AI 能力管理控制器
+ * 管理 Tools、Skills 和 MCP 服务器
+ * 统一路由前缀: /admin/ai
+ */
+@ApiTags("AI Admin")
+@Controller("admin/ai")
+@UseGuards(JwtAuthGuard, AdminGuard)
+export class AIAdminController {
+  private readonly logger = new Logger(AIAdminController.name);
+
+  constructor(private readonly aiAdminService: AIAdminService) {}
+
+  // ==================== Batch Operations ====================
+
+  @Post("tools/batch")
+  @ApiOperation({ summary: "批量更新工具状态" })
+  @ApiBody({
+    description: "工具更新列表",
+    schema: {
+      type: "object",
+      required: ["updates"],
+      properties: {
+        updates: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["toolId", "enabled"],
+            properties: {
+              toolId: { type: "string", description: "工具 ID" },
+              enabled: { type: "boolean", description: "是否启用" },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: "返回批量更新结果" })
+  async batchUpdateTools(
+    @Body() body: { updates: Array<{ toolId: string; enabled: boolean }> },
+  ) {
+    this.logger.log(`Admin: Batch updating ${body.updates.length} tools`);
+    return this.aiAdminService.batchUpdateTools(body.updates);
+  }
+
+  @Post("skills/batch")
+  @ApiOperation({ summary: "批量更新技能状态" })
+  @ApiBody({
+    description: "技能更新列表",
+    schema: {
+      type: "object",
+      required: ["updates"],
+      properties: {
+        updates: {
+          type: "array",
+          items: {
+            type: "object",
+            required: ["skillId", "enabled"],
+            properties: {
+              skillId: { type: "string", description: "技能 ID" },
+              enabled: { type: "boolean", description: "是否启用" },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: "返回批量更新结果" })
+  async batchUpdateSkills(
+    @Body() body: { updates: Array<{ skillId: string; enabled: boolean }> },
+  ) {
+    this.logger.log(`Admin: Batch updating ${body.updates.length} skills`);
+    return this.aiAdminService.batchUpdateSkills(body.updates);
+  }
+
+  // ==================== Aggregated API ====================
+
+  @Get("all-configs")
+  @ApiOperation({
+    summary: "获取所有配置",
+    description: "聚合 API - 一次请求返回 tools、skills 和 MCP servers 配置",
+  })
+  @ApiResponse({ status: 200, description: "成功返回所有配置" })
+  async getAllConfigs() {
+    this.logger.log("Admin: Fetching all AI configurations");
+    return this.aiAdminService.getAllConfigs();
+  }
+
+  // ==================== Tools ====================
+
+  @Get("tools")
+  @ApiOperation({ summary: "获取所有工具配置" })
+  @ApiResponse({ status: 200, description: "成功返回工具配置列表" })
+  async getTools() {
+    this.logger.log("Admin: Fetching tool configurations");
+    return this.aiAdminService.getToolConfigs();
+  }
+
+  @Patch("tools/:toolId")
+  @ApiOperation({ summary: "更新工具配置" })
+  @ApiParam({ name: "toolId", description: "工具 ID" })
+  @ApiResponse({ status: 200, description: "成功更新工具配置" })
+  async updateTool(
+    @Param("toolId") toolId: string,
+    @Body()
+    body: {
+      enabled?: boolean;
+      displayName?: string;
+      description?: string;
+      config?: Record<string, unknown>;
+      secretKey?: string | null;
+    },
+  ) {
+    this.logger.log(`Admin: Updating tool ${toolId}`);
+    return this.aiAdminService.updateToolConfig(toolId, body);
+  }
+
+  @Post("tools/:toolId/test")
+  @ApiOperation({ summary: "测试工具" })
+  @ApiParam({ name: "toolId", description: "工具 ID" })
+  @ApiResponse({ status: 200, description: "返回工具测试结果" })
+  async testTool(
+    @Param("toolId") toolId: string,
+    @Body() body: { input?: Record<string, unknown> },
+  ) {
+    this.logger.log(`Admin: Testing tool ${toolId}`);
+    return this.aiAdminService.testTool(toolId, body.input);
+  }
+
+  // ==================== Skills ====================
+
+  @Get("skills")
+  @ApiOperation({ summary: "获取所有技能配置" })
+  @ApiResponse({ status: 200, description: "成功返回技能配置列表" })
+  async getSkills() {
+    this.logger.log("Admin: Fetching skill configurations");
+    return this.aiAdminService.getSkillConfigs();
+  }
+
+  @Patch("skills/:skillId")
+  @ApiOperation({ summary: "更新技能配置" })
+  @ApiParam({ name: "skillId", description: "技能 ID" })
+  @ApiResponse({ status: 200, description: "成功更新技能配置" })
+  async updateSkill(
+    @Param("skillId") skillId: string,
+    @Body()
+    body: {
+      enabled?: boolean;
+      displayName?: string;
+      description?: string;
+      config?: Record<string, unknown>;
+    },
+  ) {
+    this.logger.log(`Admin: Updating skill ${skillId}`);
+    return this.aiAdminService.updateSkillConfig(skillId, body);
+  }
+
+  // ==================== MCP Servers ====================
+
+  @Get("mcp-servers")
+  @ApiOperation({ summary: "获取所有 MCP 服务器配置" })
+  @ApiResponse({ status: 200, description: "成功返回 MCP 服务器列表" })
+  async getMCPServers() {
+    this.logger.log("Admin: Fetching MCP server configurations");
+    return this.aiAdminService.getMCPServerConfigs();
+  }
+
+  @Post("mcp-servers")
+  @ApiOperation({ summary: "添加 MCP 服务器" })
+  @ApiBody({
+    description: "MCP 服务器配置",
+    schema: {
+      type: "object",
+      required: ["serverId", "name", "transport"],
+      properties: {
+        serverId: { type: "string", description: "服务器唯一标识" },
+        name: { type: "string", description: "服务器名称" },
+        description: { type: "string", description: "服务器描述" },
+        transport: {
+          type: "string",
+          enum: ["stdio", "sse"],
+          description: "传输类型",
+        },
+        command: { type: "string", description: "命令 (stdio)" },
+        args: {
+          type: "array",
+          items: { type: "string" },
+          description: "命令参数",
+        },
+        url: { type: "string", description: "URL (sse)" },
+        enabled: { type: "boolean", description: "是否启用" },
+        autoConnect: { type: "boolean", description: "自动连接" },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: "成功添加 MCP 服务器" })
+  async addMCPServer(
+    @Body()
+    body: {
+      serverId: string;
+      name: string;
+      description?: string;
+      transport: "stdio" | "sse";
+      command?: string;
+      args?: string[];
+      url?: string;
+      enabled?: boolean;
+      autoConnect?: boolean;
+      apiKey?: string;
+    },
+  ) {
+    this.logger.log(`Admin: Adding MCP server ${body.serverId}`);
+    return this.aiAdminService.addMCPServer(body);
+  }
+
+  @Patch("mcp-servers/:serverId")
+  @ApiOperation({ summary: "更新 MCP 服务器配置" })
+  @ApiParam({ name: "serverId", description: "服务器 ID" })
+  @ApiResponse({ status: 200, description: "成功更新 MCP 服务器配置" })
+  async updateMCPServer(
+    @Param("serverId") serverId: string,
+    @Body()
+    body: {
+      name?: string;
+      description?: string;
+      enabled?: boolean;
+      autoConnect?: boolean;
+      command?: string;
+      args?: string[];
+      url?: string;
+      apiKey?: string;
+    },
+  ) {
+    this.logger.log(`Admin: Updating MCP server ${serverId}`);
+    return this.aiAdminService.updateMCPServer(serverId, body);
+  }
+
+  @Post("mcp-servers/:serverId/connect")
+  @ApiOperation({ summary: "连接 MCP 服务器" })
+  @ApiParam({ name: "serverId", description: "服务器 ID" })
+  @ApiResponse({ status: 200, description: "成功连接 MCP 服务器" })
+  async connectMCPServer(@Param("serverId") serverId: string) {
+    this.logger.log(`Admin: Connecting MCP server ${serverId}`);
+    return this.aiAdminService.connectMCPServer(serverId);
+  }
+
+  @Post("mcp-servers/:serverId/disconnect")
+  @ApiOperation({ summary: "断开 MCP 服务器" })
+  @ApiParam({ name: "serverId", description: "服务器 ID" })
+  @ApiResponse({ status: 200, description: "成功断开 MCP 服务器" })
+  async disconnectMCPServer(@Param("serverId") serverId: string) {
+    this.logger.log(`Admin: Disconnecting MCP server ${serverId}`);
+    return this.aiAdminService.disconnectMCPServer(serverId);
+  }
+
+  @Delete("mcp-servers/:serverId")
+  @ApiOperation({ summary: "删除 MCP 服务器" })
+  @ApiParam({ name: "serverId", description: "服务器 ID" })
+  @ApiResponse({ status: 200, description: "成功删除 MCP 服务器" })
+  async deleteMCPServer(@Param("serverId") serverId: string) {
+    this.logger.log(`Admin: Deleting MCP server ${serverId}`);
+    return this.aiAdminService.deleteMCPServer(serverId);
+  }
+}

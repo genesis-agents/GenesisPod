@@ -38,15 +38,27 @@ import {
 
 const logger = createLogger('ToolsManagement');
 
-// Tool category types
+// Tool category types - includes both builtin and external tools
 type ToolCategory =
   | 'all'
-  | 'search'
-  | 'extraction'
-  | 'youtube'
-  | 'tts'
-  | 'skillsmp'
-  | 'policy';
+  // Builtin tool categories
+  | 'information'
+  | 'content'
+  | 'data'
+  | 'code'
+  | 'integration'
+  | 'memory'
+  | 'export'
+  | 'collaboration'
+  // External service categories
+  | 'external-search'
+  | 'external-extraction'
+  | 'external-youtube'
+  | 'external-tts'
+  | 'external-skills'
+  | 'policy-research'
+  // MCP tools
+  | 'mcp';
 
 // Tool interface - description, tags, features are obtained via i18n
 interface Tool {
@@ -71,12 +83,24 @@ interface Tool {
 // Map tool categories to secret categories
 const CATEGORY_TO_SECRET_CATEGORY: Record<ToolCategory, string | null> = {
   all: null,
-  search: 'SEARCH',
-  extraction: 'EXTRACTION',
-  youtube: 'YOUTUBE',
-  tts: 'TTS',
-  skillsmp: 'SKILLSMP',
-  policy: 'POLICY',
+  // Builtin categories don't need secrets
+  information: null,
+  content: null,
+  data: null,
+  code: null,
+  integration: null,
+  memory: null,
+  export: null,
+  collaboration: null,
+  // External service categories
+  'external-search': 'SEARCH',
+  'external-extraction': 'EXTRACTION',
+  'external-youtube': 'YOUTUBE',
+  'external-tts': 'TTS',
+  'external-skills': 'SKILLSMP',
+  'policy-research': 'POLICY',
+  // MCP tools - may need API keys for some servers
+  mcp: 'MCP',
 };
 
 // Category configuration
@@ -84,25 +108,106 @@ const CATEGORIES: {
   id: ToolCategory;
   labelKey: string;
   icon: typeof Search;
+  group: 'builtin' | 'external';
 }[] = [
-  { id: 'all', labelKey: 'admin.tools.categories.all', icon: Filter },
-  { id: 'search', labelKey: 'admin.tools.categories.search', icon: Search },
   {
-    id: 'extraction',
+    id: 'all',
+    labelKey: 'admin.tools.categories.all',
+    icon: Filter,
+    group: 'builtin',
+  },
+  // Builtin tool categories
+  {
+    id: 'information',
+    labelKey: 'admin.tools.categories.information',
+    icon: Search,
+    group: 'builtin',
+  },
+  {
+    id: 'content',
+    labelKey: 'admin.tools.categories.content',
+    icon: FileText,
+    group: 'builtin',
+  },
+  {
+    id: 'data',
+    labelKey: 'admin.tools.categories.data',
+    icon: Filter,
+    group: 'builtin',
+  },
+  {
+    id: 'code',
+    labelKey: 'admin.tools.categories.code',
+    icon: Settings,
+    group: 'builtin',
+  },
+  {
+    id: 'integration',
+    labelKey: 'admin.tools.categories.integration',
+    icon: Globe,
+    group: 'builtin',
+  },
+  {
+    id: 'memory',
+    labelKey: 'admin.tools.categories.memory',
+    icon: Filter,
+    group: 'builtin',
+  },
+  {
+    id: 'export',
+    labelKey: 'admin.tools.categories.export',
+    icon: FileText,
+    group: 'builtin',
+  },
+  {
+    id: 'collaboration',
+    labelKey: 'admin.tools.categories.collaboration',
+    icon: Filter,
+    group: 'builtin',
+  },
+  // External service categories
+  {
+    id: 'external-search',
+    labelKey: 'admin.tools.categories.search',
+    icon: Search,
+    group: 'external',
+  },
+  {
+    id: 'external-extraction',
     labelKey: 'admin.tools.categories.extraction',
     icon: FileText,
+    group: 'external',
   },
-  { id: 'youtube', labelKey: 'admin.tools.categories.youtube', icon: Youtube },
-  { id: 'tts', labelKey: 'admin.tools.categories.tts', icon: Volume2 },
   {
-    id: 'skillsmp',
+    id: 'external-youtube',
+    labelKey: 'admin.tools.categories.youtube',
+    icon: Youtube,
+    group: 'external',
+  },
+  {
+    id: 'external-tts',
+    labelKey: 'admin.tools.categories.tts',
+    icon: Volume2,
+    group: 'external',
+  },
+  {
+    id: 'external-skills',
     labelKey: 'admin.tools.categories.skillsmp',
     icon: Sparkles,
+    group: 'external',
   },
   {
-    id: 'policy',
+    id: 'policy-research',
     labelKey: 'admin.tools.categories.policy',
     icon: Landmark,
+    group: 'external',
+  },
+  // MCP tools
+  {
+    id: 'mcp',
+    labelKey: 'admin.tools.categories.mcp',
+    icon: Settings,
+    group: 'external',
   },
 ];
 
@@ -118,30 +223,31 @@ interface ToolDefinition {
   pricing?: string;
 }
 
-const TOOL_DEFINITIONS: ToolDefinition[] = [
+// External service tool definitions (loaded separately from builtin tools)
+const EXTERNAL_TOOL_DEFINITIONS: ToolDefinition[] = [
   // Search Tools
   {
     id: 'perplexity',
     name: 'Perplexity',
-    category: 'search',
+    category: 'external-search',
     url: 'https://perplexity.ai',
   },
   {
     id: 'tavily',
     name: 'Tavily',
-    category: 'search',
+    category: 'external-search',
     url: 'https://tavily.com',
   },
   {
     id: 'serper',
     name: 'Serper',
-    category: 'search',
+    category: 'external-search',
     url: 'https://serper.dev',
   },
   {
     id: 'duckduckgo',
     name: 'DuckDuckGo',
-    category: 'search',
+    category: 'external-search',
     url: 'https://duckduckgo.com',
     noKeyRequired: true,
   },
@@ -149,27 +255,27 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     id: 'jina',
     name: 'Jina AI Reader',
-    category: 'extraction',
+    category: 'external-extraction',
     url: 'https://jina.ai/reader',
     freeQuota: '1M tokens/month',
   },
   {
     id: 'firecrawl',
     name: 'Firecrawl',
-    category: 'extraction',
+    category: 'external-extraction',
     url: 'https://firecrawl.dev',
   },
   {
     id: 'tavilyExtract',
     name: 'Tavily Extract',
-    category: 'extraction',
+    category: 'external-extraction',
     url: 'https://tavily.com',
   },
   // YouTube Tools
   {
     id: 'supadata',
     name: 'Supadata',
-    category: 'youtube',
+    category: 'external-youtube',
     url: 'https://supadata.ai/youtube-transcript-api',
     freeQuota: '100/month',
     pricing: '$9/month (1000)',
@@ -178,7 +284,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     id: 'elevenlabs',
     name: 'ElevenLabs',
-    category: 'tts',
+    category: 'external-tts',
     url: 'https://elevenlabs.io',
     freeQuota: '10,000 chars/month',
     pricing: '$5/month+',
@@ -186,7 +292,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     id: 'googleTts',
     name: 'Google Cloud TTS',
-    category: 'tts',
+    category: 'external-tts',
     url: 'https://cloud.google.com/text-to-speech',
     freeQuota: '4M chars/month',
     pricing: 'Usage-based',
@@ -195,7 +301,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     id: 'skillsmp',
     name: 'SkillsMP',
-    category: 'skillsmp',
+    category: 'external-skills',
     url: 'https://skillsmp.com',
     freeQuota: 'Basic search free',
     pricing: 'Free/Paid',
@@ -204,21 +310,21 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     id: 'federal-register',
     name: 'Federal Register',
-    category: 'policy',
+    category: 'policy-research',
     url: 'https://www.federalregister.gov/developers/documentation/api/v1',
     noKeyRequired: true,
   },
   {
     id: 'congress-gov',
     name: 'Congress.gov',
-    category: 'policy',
+    category: 'policy-research',
     url: 'https://api.congress.gov/',
     freeQuota: '5,000 requests/hour',
   },
   {
     id: 'whitehouse-news',
     name: 'White House News',
-    category: 'policy',
+    category: 'policy-research',
     url: 'https://www.whitehouse.gov/news/',
     noKeyRequired: true,
   },
@@ -234,35 +340,82 @@ const CATEGORY_COLORS: Record<
     text: 'text-gray-700',
     badge: 'bg-gray-100 text-gray-700',
   },
-  search: {
+  // Builtin tool categories
+  information: {
     bg: 'bg-blue-50',
     text: 'text-blue-700',
     badge: 'bg-blue-100 text-blue-700',
   },
-  extraction: {
+  content: {
+    bg: 'bg-green-50',
+    text: 'text-green-700',
+    badge: 'bg-green-100 text-green-700',
+  },
+  data: {
+    bg: 'bg-yellow-50',
+    text: 'text-yellow-700',
+    badge: 'bg-yellow-100 text-yellow-700',
+  },
+  code: {
+    bg: 'bg-indigo-50',
+    text: 'text-indigo-700',
+    badge: 'bg-indigo-100 text-indigo-700',
+  },
+  integration: {
+    bg: 'bg-pink-50',
+    text: 'text-pink-700',
+    badge: 'bg-pink-100 text-pink-700',
+  },
+  memory: {
+    bg: 'bg-cyan-50',
+    text: 'text-cyan-700',
+    badge: 'bg-cyan-100 text-cyan-700',
+  },
+  export: {
+    bg: 'bg-teal-50',
+    text: 'text-teal-700',
+    badge: 'bg-teal-100 text-teal-700',
+  },
+  collaboration: {
+    bg: 'bg-amber-50',
+    text: 'text-amber-700',
+    badge: 'bg-amber-100 text-amber-700',
+  },
+  // External service categories
+  'external-search': {
+    bg: 'bg-blue-50',
+    text: 'text-blue-700',
+    badge: 'bg-blue-100 text-blue-700',
+  },
+  'external-extraction': {
     bg: 'bg-orange-50',
     text: 'text-orange-700',
     badge: 'bg-orange-100 text-orange-700',
   },
-  youtube: {
+  'external-youtube': {
     bg: 'bg-red-50',
     text: 'text-red-700',
     badge: 'bg-red-100 text-red-700',
   },
-  tts: {
+  'external-tts': {
     bg: 'bg-purple-50',
     text: 'text-purple-700',
     badge: 'bg-purple-100 text-purple-700',
   },
-  skillsmp: {
+  'external-skills': {
     bg: 'bg-violet-50',
     text: 'text-violet-700',
     badge: 'bg-violet-100 text-violet-700',
   },
-  policy: {
+  'policy-research': {
     bg: 'bg-emerald-50',
     text: 'text-emerald-700',
     badge: 'bg-emerald-100 text-emerald-700',
+  },
+  mcp: {
+    bg: 'bg-slate-50',
+    text: 'text-slate-700',
+    badge: 'bg-slate-100 text-slate-700',
   },
 };
 
@@ -765,6 +918,7 @@ export default function ToolsManagement() {
     setLoading(true);
     try {
       // Use Promise.allSettled to handle partial failures gracefully
+      // Optimized: Use aggregated API for tools + mcp-servers (single call instead of 2)
       const results = await Promise.allSettled([
         fetch(`${config.apiUrl}/admin/search-config`, {
           headers: { ...getAuthHeader() },
@@ -784,8 +938,8 @@ export default function ToolsManagement() {
         fetch(`${config.apiUrl}/admin/external-providers`, {
           headers: { ...getAuthHeader() },
         }),
-        // Also fetch capabilities/tools to get secretKey data
-        fetch(`${config.apiUrl}/admin/capabilities/tools`, {
+        // Aggregated API: tools + skills + MCP servers in one call
+        fetch(`${config.apiUrl}/admin/ai/all-configs`, {
           headers: { ...getAuthHeader() },
         }),
       ]);
@@ -798,7 +952,7 @@ export default function ToolsManagement() {
         ttsRes,
         skillsmpRes,
         providersRes,
-        capabilitiesRes,
+        allConfigsRes,
       ] = results.map((result, idx) => {
         if (result.status === 'rejected') {
           logger.warn(`Config fetch failed at index ${idx}`, result.reason);
@@ -815,9 +969,71 @@ export default function ToolsManagement() {
       const ttsData = ttsRes?.ok ? await ttsRes.json() : null;
       const skillsmpData = skillsmpRes?.ok ? await skillsmpRes.json() : null;
       const providersData = providersRes?.ok ? await providersRes.json() : [];
-      const capabilitiesData = capabilitiesRes?.ok
-        ? await capabilitiesRes.json()
-        : null;
+
+      // Parse aggregated API response
+      const allConfigsData = allConfigsRes?.ok
+        ? await allConfigsRes.json()
+        : { tools: null, skills: null, mcpServers: { servers: [] } };
+      const capabilitiesData = allConfigsData.tools;
+      const mcpServersData = allConfigsData.mcpServers || { servers: [] };
+
+      // Map backend category to frontend category
+      const categoryMapping: Record<string, ToolCategory> = {
+        information: 'information',
+        content: 'content',
+        data: 'data',
+        code: 'code',
+        integration: 'integration',
+        memory: 'memory',
+        export: 'export',
+        collaboration: 'collaboration',
+        'external-search': 'external-search',
+        'external-extraction': 'external-extraction',
+        'external-youtube': 'external-youtube',
+        'external-tts': 'external-tts',
+        'external-skills': 'external-skills',
+        'policy-research': 'policy-research',
+      };
+
+      // Map builtin tools from backend API
+      const builtinTools: Tool[] = (capabilitiesData?.tools || [])
+        .filter((tool: { category: string }) => {
+          // Only include builtin categories, exclude external services (handled separately)
+          const builtinCategories = [
+            'information',
+            'content',
+            'data',
+            'code',
+            'integration',
+            'memory',
+            'export',
+            'collaboration',
+          ];
+          return builtinCategories.includes(tool.category);
+        })
+        .map(
+          (tool: {
+            toolId: string;
+            name: string;
+            displayName?: string;
+            description?: string;
+            category: string;
+            enabled: boolean;
+            implemented: boolean;
+            secretKey?: string | null;
+          }) => ({
+            id: tool.toolId,
+            name: tool.displayName || tool.name,
+            category: (categoryMapping[tool.category] ||
+              tool.category) as ToolCategory,
+            status: tool.enabled
+              ? 'configured'
+              : ('not_configured' as Tool['status']),
+            hasApiKey: false, // Builtin tools don't need API keys
+            noKeyRequired: true,
+            secretKey: tool.secretKey || null,
+          })
+        );
 
       // Build a map of toolId -> secretKey from capabilities data
       const secretKeyMap = new Map<string, string | null>();
@@ -831,13 +1047,13 @@ export default function ToolsManagement() {
         );
       }
 
-      // Map tool definitions to tools with status
-      const mappedTools: Tool[] = TOOL_DEFINITIONS.map((def) => {
+      // Map external tool definitions to tools with status
+      const externalTools: Tool[] = EXTERNAL_TOOL_DEFINITIONS.map((def) => {
         let hasApiKey = false;
         let status: Tool['status'] = 'not_configured';
 
         // Check search tools
-        if (def.category === 'search' && searchData) {
+        if (def.category === 'external-search' && searchData) {
           const providerData = searchData[def.id];
           if (providerData?.hasApiKey || def.noKeyRequired) {
             hasApiKey = providerData?.hasApiKey || false;
@@ -846,7 +1062,7 @@ export default function ToolsManagement() {
         }
 
         // Check extraction tools
-        if (def.category === 'extraction' && extractionData) {
+        if (def.category === 'external-extraction' && extractionData) {
           const providerId = def.id === 'tavily-extract' ? 'tavily' : def.id;
           const providerData = extractionData[providerId];
           if (providerData?.hasApiKey) {
@@ -856,7 +1072,7 @@ export default function ToolsManagement() {
         }
 
         // Check youtube tools
-        if (def.category === 'youtube' && youtubeData) {
+        if (def.category === 'external-youtube' && youtubeData) {
           const providerData = youtubeData[def.id];
           if (providerData?.hasApiKey) {
             hasApiKey = true;
@@ -865,7 +1081,7 @@ export default function ToolsManagement() {
         }
 
         // Check TTS tools
-        if (def.category === 'tts' && ttsData) {
+        if (def.category === 'external-tts' && ttsData) {
           const providerId = def.id === 'google-tts' ? 'google' : def.id;
           const providerData = ttsData[providerId];
           if (providerData?.hasApiKey) {
@@ -875,15 +1091,12 @@ export default function ToolsManagement() {
         }
 
         // Check SkillsMP
-        if (def.category === 'skillsmp' && skillsmpData) {
+        if (def.category === 'external-skills' && skillsmpData) {
           if (skillsmpData.hasApiKey) {
             hasApiKey = true;
             status = 'configured';
           }
         }
-
-        // Policy tools - check capabilities/tools endpoint for secretKey
-        // (handled below via secretKeyMap)
 
         // Handle no-key-required tools
         if (def.noKeyRequired) {
@@ -907,7 +1120,28 @@ export default function ToolsManagement() {
         };
       });
 
-      setTools(mappedTools);
+      // Map MCP servers to Tool format
+      const mcpTools: Tool[] = (mcpServersData.servers || []).map(
+        (server: {
+          serverId: string;
+          name: string;
+          description?: string;
+          enabled: boolean;
+          connected?: boolean;
+          toolCount?: number;
+        }) => ({
+          id: `mcp-${server.serverId}`,
+          name: server.name,
+          category: 'mcp' as ToolCategory,
+          status: server.enabled ? 'configured' : 'not_configured',
+          hasApiKey: server.enabled,
+          noKeyRequired: false,
+          url: undefined,
+        })
+      );
+
+      // Combine all tools: builtin + external + MCP
+      setTools([...builtinTools, ...externalTools, ...mcpTools]);
     } catch (err) {
       logger.error('Failed to load configs:', err);
       setMessage({ type: 'error', text: t('admin.tools.loadFailed') });
@@ -959,7 +1193,7 @@ export default function ToolsManagement() {
       // If using Secret Manager, save via capabilities endpoint
       if (secretKey !== undefined) {
         const capabilitiesRes = await fetch(
-          `${config.apiUrl}/admin/capabilities/tools/${toolId}`,
+          `${config.apiUrl}/admin/ai/tools/${toolId}`,
           {
             method: 'PATCH',
             headers: {
@@ -989,7 +1223,7 @@ export default function ToolsManagement() {
       let body: Record<string, any> = {};
 
       switch (tool.category) {
-        case 'search':
+        case 'external-search':
           endpoint = '/admin/search-config';
           if (toolId === 'tavily') {
             body = { tavilyApiKeys: [apiKey] };
@@ -999,21 +1233,21 @@ export default function ToolsManagement() {
             body = { [`${toolId}ApiKey`]: apiKey };
           }
           break;
-        case 'extraction':
+        case 'external-extraction':
           endpoint = '/admin/extraction-config';
           const extractId = toolId === 'tavily-extract' ? 'tavily' : toolId;
           body = { [`${extractId}ApiKey`]: apiKey };
           break;
-        case 'youtube':
+        case 'external-youtube':
           endpoint = '/admin/youtube-config';
           body = { [`${toolId}ApiKey`]: apiKey };
           break;
-        case 'tts':
+        case 'external-tts':
           endpoint = '/admin/tts-config';
           const ttsId = toolId === 'google-tts' ? 'google' : toolId;
           body = { [`${ttsId}ApiKey`]: apiKey };
           break;
-        case 'skillsmp':
+        case 'external-skills':
           endpoint = '/admin/skillsmp-config';
           body = { apiKey };
           break;
@@ -1064,19 +1298,19 @@ export default function ToolsManagement() {
       const providerId = tool.id;
 
       switch (tool.category) {
-        case 'search':
+        case 'external-search':
           endpoint = `/admin/search-config/test`;
           break;
-        case 'extraction':
+        case 'external-extraction':
           endpoint = `/admin/extraction-config/test`;
           break;
-        case 'youtube':
+        case 'external-youtube':
           endpoint = `/admin/youtube-config/test`;
           break;
-        case 'tts':
+        case 'external-tts':
           endpoint = `/admin/tts-config/test`;
           break;
-        case 'skillsmp':
+        case 'external-skills':
           endpoint = `/admin/skillsmp-config/test`;
           break;
         default:
@@ -1144,23 +1378,24 @@ export default function ToolsManagement() {
 
     try {
       // Clear the secretKey via capabilities endpoint
-      const res = await fetch(
-        `${config.apiUrl}/admin/capabilities/tools/${tool.id}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            ...getAuthHeader(),
-          },
-          body: JSON.stringify({ secretKey: null }),
-        }
-      );
+      const res = await fetch(`${config.apiUrl}/admin/ai/tools/${tool.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({ secretKey: null }),
+      });
 
       if (res.ok) {
         setMessage({
           type: 'success',
           text: t('admin.tools.deleteSuccess', { name: tool.name }),
         });
+        // Close configure modal if the deleted tool is being configured
+        if (configuringTool?.id === tool.id) {
+          setConfiguringTool(null);
+        }
         // Clear test result for this tool
         setTestResults((prev) => {
           const newResults = { ...prev };

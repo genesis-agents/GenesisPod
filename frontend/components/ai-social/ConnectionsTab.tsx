@@ -137,12 +137,13 @@ export default function ConnectionsTab() {
       return;
     }
 
-    if (result.status === 'pending' && result.screenshot) {
+    if (result.status === 'pending') {
+      // 即使没有 screenshot 也进入 scanning 状态，等待轮询获取
       setLoginModal((prev) => ({
         ...prev,
         status: 'scanning',
         screenshot: result.screenshot || null,
-        message: '请扫码登录',
+        message: result.screenshot ? '请扫码登录' : '正在加载二维码...',
       }));
 
       // Start polling for verification
@@ -157,15 +158,14 @@ export default function ConnectionsTab() {
             message: verifyResult.message || '连接成功',
           }));
           toast.success(verifyResult.message || '连接成功');
+          fetchConnections(); // 刷新连接列表
           setTimeout(closeLoginModal, 1500);
-        } else if (
-          verifyResult.status === 'pending' &&
-          verifyResult.screenshot
-        ) {
-          // Update screenshot if changed
+        } else if (verifyResult.status === 'pending') {
+          // Update screenshot if available
           setLoginModal((prev) => ({
             ...prev,
             screenshot: verifyResult.screenshot || prev.screenshot,
+            message: verifyResult.screenshot ? '请扫码登录' : prev.message,
           }));
         } else if (verifyResult.status === 'error') {
           stopPolling();
@@ -179,7 +179,7 @@ export default function ConnectionsTab() {
       return;
     }
 
-    // Error
+    // Error - status is 'error'
     setLoginModal((prev) => ({
       ...prev,
       status: 'error',
@@ -436,23 +436,29 @@ export default function ConnectionsTab() {
                 </div>
               )}
 
-              {loginModal.status === 'scanning' && loginModal.screenshot && (
+              {loginModal.status === 'scanning' && (
                 <div className="flex flex-col items-center">
                   <p className="mb-4 text-sm text-gray-600">
-                    请使用
-                    {loginModal.platform === 'WECHAT_MP' ? '微信' : '小红书'}
-                    扫描下方二维码登录
+                    {loginModal.screenshot
+                      ? `请使用${loginModal.platform === 'WECHAT_MP' ? '微信' : '小红书'}扫描下方二维码登录`
+                      : '正在加载登录页面...'}
                   </p>
-                  <div className="relative overflow-hidden rounded-lg border border-gray-200 bg-white">
-                    <img
-                      src={loginModal.screenshot}
-                      alt="Login QR Code"
-                      className="h-auto w-full max-w-[500px]"
-                    />
-                  </div>
+                  {loginModal.screenshot ? (
+                    <div className="relative overflow-hidden rounded-lg border border-gray-200 bg-white">
+                      <img
+                        src={loginModal.screenshot}
+                        alt="Login QR Code"
+                        className="h-auto w-full max-w-[500px]"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex h-[300px] w-full max-w-[500px] items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
+                      <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                    </div>
+                  )}
                   <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>等待扫码确认...</span>
+                    <span>{loginModal.message || '等待扫码确认...'}</span>
                   </div>
                 </div>
               )}

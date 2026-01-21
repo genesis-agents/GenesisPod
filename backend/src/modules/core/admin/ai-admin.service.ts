@@ -1,24 +1,83 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+
+/**
+ * MCP Tool 类型定义
+ */
+interface MCPToolInfo {
+  name: string;
+  description?: string;
+}
+
+/**
+ * 可执行工具接口
+ */
+interface ExecutableTool {
+  execute(input: Record<string, unknown>): Promise<unknown>;
+}
+
+/**
+ * 类型守卫：检查工具是否可执行
+ */
+function isExecutableTool(tool: unknown): tool is ExecutableTool {
+  return (
+    typeof tool === "object" &&
+    tool !== null &&
+    "execute" in tool &&
+    typeof (tool as ExecutableTool).execute === "function"
+  );
+}
+
+/**
+ * 错误类型辅助函数
+ */
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
 import { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry";
 import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
+import { SkillLoaderService } from "../../ai-engine/skills/loader/skill-loader.service";
 import { MCPManager } from "../../ai-engine/mcp/manager/mcp-manager";
 import { SecretsService } from "../secrets/secrets.service";
 
 /**
- * AI Agent 能力管理服务
+ * AI 能力管理服务
  * 管理 Tools、Skills 和 MCP 服务器配置
  * 使用数据库持久化配置
  */
+/**
+ * 技能定义类型
+ */
+interface SkillDefinition {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string;
+  layer: string;
+  domain: string;
+  tags: string[];
+  requiredTools: string[];
+  requiredSkills: string[];
+}
+
 @Injectable()
-export class CapabilitiesAdminService implements OnModuleInit {
-  private readonly logger = new Logger(CapabilitiesAdminService.name);
+export class AIAdminService implements OnModuleInit {
+  private readonly logger = new Logger(AIAdminService.name);
+
+  // 缓存技能定义，避免重复计算
+  private skillDefinitionsCache: SkillDefinition[] | null = null;
+  private skillDefinitionsCacheTime: number = 0;
+  private readonly CACHE_TTL_MS = 60000; // 1 分钟缓存
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly toolRegistry: ToolRegistry,
     private readonly skillRegistry: SkillRegistry,
+    private readonly skillLoaderService: SkillLoaderService,
     private readonly mcpManager: MCPManager,
     private readonly secretsService: SecretsService,
   ) {}
@@ -63,18 +122,20 @@ export class CapabilitiesAdminService implements OnModuleInit {
           // 自动连接
           await this.mcpManager.connect(server.serverId);
           this.logger.log(`Auto-connected MCP server: ${server.serverId}`);
-        } catch (error: any) {
+        } catch (error: unknown) {
           this.logger.warn(
-            `Failed to auto-connect MCP server ${server.serverId}: ${error.message}`,
+            `Failed to auto-connect MCP server ${server.serverId}: ${getErrorMessage(error)}`,
           );
         }
       }
 
       this.logger.log(
-        `Initialized capabilities: ${mcpServers.length} MCP servers loaded`,
+        `Initialized AI capabilities: ${mcpServers.length} MCP servers loaded`,
       );
-    } catch (error: any) {
-      this.logger.error(`Failed to initialize configs: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to initialize configs: ${getErrorMessage(error)}`,
+      );
     }
   }
 
@@ -143,6 +204,17 @@ export class CapabilitiesAdminService implements OnModuleInit {
       allowedRoles?: string[];
     },
   ) {
+    // 验证 secretKey 是否存在
+    if (update.secretKey !== undefined && update.secretKey !== null) {
+      const secretExists = await this.secretsService.exists(update.secretKey);
+      if (!secretExists) {
+        this.logger.warn(
+          `Invalid secretKey reference: ${update.secretKey} for tool ${toolId}`,
+        );
+        throw new Error(`Secret key '${update.secretKey}' does not exist`);
+      }
+    }
+
     const result = await this.prisma.toolConfig.upsert({
       where: { toolId },
       create: {
@@ -206,10 +278,10 @@ export class CapabilitiesAdminService implements OnModuleInit {
     const startTime = Date.now();
     try {
       // 尝试执行工具（如果有 execute 方法）
-      if (typeof (tool as any).execute === "function") {
+      if (isExecutableTool(tool)) {
         // 将 API Key 传递给工具
         const executeInput = { ...input, apiKey };
-        const result = await (tool as any).execute(executeInput);
+        const result = await tool.execute(executeInput);
         const duration = Date.now() - startTime;
 
         // 记录使用统计
@@ -228,15 +300,19 @@ export class CapabilitiesAdminService implements OnModuleInit {
           "Tool is registered but execute method not available for testing",
         duration: Date.now() - startTime,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       const duration = Date.now() - startTime;
+      const errorCode =
+        error instanceof Error
+          ? (error as Error & { code?: string }).code
+          : undefined;
 
       // 记录失败统计
-      await this.recordUsage("tool", toolId, false, duration, error.code);
+      await this.recordUsage("tool", toolId, false, duration, errorCode);
 
       return {
         success: false,
-        error: error.message,
+        error: getErrorMessage(error),
         duration,
       };
     }
@@ -330,11 +406,22 @@ export class CapabilitiesAdminService implements OnModuleInit {
       },
     });
 
+    // 清除技能定义缓存，确保下次获取时重新计算
+    this.invalidateSkillDefinitionsCache();
+
     this.logger.log(
       `Updated skill config: ${skillId}, enabled=${result.enabled}`,
     );
 
     return { success: true, ...result };
+  }
+
+  /**
+   * 清除技能定义缓存
+   */
+  private invalidateSkillDefinitionsCache(): void {
+    this.skillDefinitionsCache = null;
+    this.skillDefinitionsCacheTime = 0;
   }
 
   // ==================== MCP Servers ====================
@@ -354,7 +441,7 @@ export class CapabilitiesAdminService implements OnModuleInit {
         if (isConnected && client) {
           try {
             const mcpTools = await client.listTools();
-            tools = mcpTools.map((t: any) => ({
+            tools = mcpTools.map((t: MCPToolInfo) => ({
               name: t.name,
               description: t.description || "",
             }));
@@ -437,9 +524,9 @@ export class CapabilitiesAdminService implements OnModuleInit {
       try {
         await this.mcpManager.connect(config.serverId);
         this.logger.log(`Auto-connected MCP server: ${config.serverId}`);
-      } catch (error: any) {
+      } catch (error: unknown) {
         this.logger.warn(
-          `Failed to auto-connect MCP server ${config.serverId}: ${error.message}`,
+          `Failed to auto-connect MCP server ${config.serverId}: ${getErrorMessage(error)}`,
         );
       }
     }
@@ -499,12 +586,29 @@ export class CapabilitiesAdminService implements OnModuleInit {
     try {
       await this.mcpManager.connect(serverId);
       this.logger.log(`Connected MCP server: ${serverId}`);
+
+      // 记录成功状态到 metadata
+      await this.updateMCPServerConnectionStatus(serverId, {
+        connected: true,
+        lastConnectedAt: new Date().toISOString(),
+        lastError: null,
+      });
+
       return { success: true, serverId };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMsg = getErrorMessage(error);
       this.logger.error(
-        `Failed to connect MCP server ${serverId}: ${error.message}`,
+        `Failed to connect MCP server ${serverId}: ${errorMsg}`,
       );
-      return { success: false, error: error.message };
+
+      // 记录失败状态到 metadata
+      await this.updateMCPServerConnectionStatus(serverId, {
+        connected: false,
+        lastError: errorMsg,
+        lastErrorAt: new Date().toISOString(),
+      });
+
+      return { success: false, error: errorMsg };
     }
   }
 
@@ -515,12 +619,27 @@ export class CapabilitiesAdminService implements OnModuleInit {
     try {
       await this.mcpManager.disconnect(serverId);
       this.logger.log(`Disconnected MCP server: ${serverId}`);
+
+      // 记录断开状态到 metadata
+      await this.updateMCPServerConnectionStatus(serverId, {
+        connected: false,
+        lastDisconnectedAt: new Date().toISOString(),
+      });
+
       return { success: true, serverId };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMsg = getErrorMessage(error);
       this.logger.error(
-        `Failed to disconnect MCP server ${serverId}: ${error.message}`,
+        `Failed to disconnect MCP server ${serverId}: ${errorMsg}`,
       );
-      return { success: false, error: error.message };
+
+      // 记录失败状态到 metadata
+      await this.updateMCPServerConnectionStatus(serverId, {
+        lastError: errorMsg,
+        lastErrorAt: new Date().toISOString(),
+      });
+
+      return { success: false, error: errorMsg };
     }
   }
 
@@ -545,6 +664,42 @@ export class CapabilitiesAdminService implements OnModuleInit {
     return { success: true, serverId };
   }
 
+  /**
+   * 更新 MCP 服务器连接状态到 metadata
+   * 用于持久化连接成功/失败的记录
+   */
+  private async updateMCPServerConnectionStatus(
+    serverId: string,
+    status: {
+      connected?: boolean;
+      lastConnectedAt?: string;
+      lastDisconnectedAt?: string;
+      lastError?: string | null;
+      lastErrorAt?: string;
+    },
+  ): Promise<void> {
+    try {
+      const existing = await this.prisma.mCPServerConfig.findUnique({
+        where: { serverId },
+        select: { metadata: true },
+      });
+
+      const currentMetadata =
+        (existing?.metadata as Record<string, unknown>) || {};
+      const updatedMetadata = { ...currentMetadata, ...status };
+
+      await this.prisma.mCPServerConfig.update({
+        where: { serverId },
+        data: { metadata: updatedMetadata },
+      });
+    } catch (error) {
+      // 仅记录日志，不影响主流程
+      this.logger.warn(
+        `Failed to update MCP server connection status for ${serverId}: ${getErrorMessage(error)}`,
+      );
+    }
+  }
+
   // ==================== Usage Statistics ====================
 
   /**
@@ -559,7 +714,7 @@ export class CapabilitiesAdminService implements OnModuleInit {
     context?: { userId?: string; teamId?: string; agentId?: string },
   ) {
     try {
-      await this.prisma.capabilityUsage.create({
+      await this.prisma.aIUsageLog.create({
         data: {
           capabilityType,
           capabilityId,
@@ -571,8 +726,8 @@ export class CapabilitiesAdminService implements OnModuleInit {
           agentId: context?.agentId,
         },
       });
-    } catch (error: any) {
-      this.logger.warn(`Failed to record usage: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.warn(`Failed to record usage: ${getErrorMessage(error)}`);
     }
   }
 
@@ -585,7 +740,7 @@ export class CapabilitiesAdminService implements OnModuleInit {
     startDate?: Date;
     endDate?: Date;
   }) {
-    const where: any = {};
+    const where: Prisma.AIUsageLogWhereInput = {};
 
     if (options?.capabilityType) {
       where.capabilityType = options.capabilityType;
@@ -604,9 +759,9 @@ export class CapabilitiesAdminService implements OnModuleInit {
     }
 
     const [total, successful, usages] = await Promise.all([
-      this.prisma.capabilityUsage.count({ where }),
-      this.prisma.capabilityUsage.count({ where: { ...where, success: true } }),
-      this.prisma.capabilityUsage.findMany({
+      this.prisma.aIUsageLog.count({ where }),
+      this.prisma.aIUsageLog.count({ where: { ...where, success: true } }),
+      this.prisma.aIUsageLog.findMany({
         where,
         orderBy: { createdAt: "desc" },
         take: 100,
@@ -618,6 +773,99 @@ export class CapabilitiesAdminService implements OnModuleInit {
       successful,
       failureRate: total > 0 ? ((total - successful) / total) * 100 : 0,
       recentUsages: usages,
+    };
+  }
+
+  // ==================== Batch Operations ====================
+
+  /**
+   * 批量更新工具状态
+   * 使用事务确保原子性
+   */
+  async batchUpdateTools(
+    updates: Array<{ toolId: string; enabled: boolean }>,
+  ): Promise<{ success: boolean; updated: number; errors: string[] }> {
+    try {
+      // 使用事务批量更新，确保原子性
+      const results = await this.prisma.$transaction(
+        updates.map((update) =>
+          this.prisma.toolConfig.upsert({
+            where: { toolId: update.toolId },
+            create: { toolId: update.toolId, enabled: update.enabled },
+            update: { enabled: update.enabled },
+          }),
+        ),
+      );
+
+      this.logger.log(`Batch updated ${results.length} tools successfully`);
+      return { success: true, updated: results.length, errors: [] };
+    } catch (error: unknown) {
+      const errorMsg = getErrorMessage(error);
+      this.logger.error(`Batch update tools failed: ${errorMsg}`);
+      return {
+        success: false,
+        updated: 0,
+        errors: [`Transaction failed: ${errorMsg}`],
+      };
+    }
+  }
+
+  /**
+   * 批量更新技能状态
+   * 使用事务确保原子性
+   */
+  async batchUpdateSkills(
+    updates: Array<{ skillId: string; enabled: boolean }>,
+  ): Promise<{ success: boolean; updated: number; errors: string[] }> {
+    try {
+      // 使用事务批量更新，确保原子性
+      const results = await this.prisma.$transaction(
+        updates.map((update) =>
+          this.prisma.skillConfig.upsert({
+            where: { skillId: update.skillId },
+            create: { skillId: update.skillId, enabled: update.enabled },
+            update: { enabled: update.enabled },
+          }),
+        ),
+      );
+
+      // 清除技能定义缓存
+      this.invalidateSkillDefinitionsCache();
+
+      this.logger.log(`Batch updated ${results.length} skills successfully`);
+
+      return { success: true, updated: results.length, errors: [] };
+    } catch (error: unknown) {
+      const errorMsg = getErrorMessage(error);
+      this.logger.error(`Batch update skills failed: ${errorMsg}`);
+
+      return {
+        success: false,
+        updated: 0,
+        errors: [`Transaction failed: ${errorMsg}`],
+      };
+    }
+  }
+
+  // ==================== Aggregated API ====================
+
+  /**
+   * 获取所有配置（聚合 API）
+   * 一次请求返回 tools、skills 和 MCP servers 配置
+   * 减少前端 API 调用次数，提升加载性能
+   */
+  async getAllConfigs() {
+    const [toolsResult, skillsResult, mcpResult] = await Promise.all([
+      this.getToolConfigs(),
+      this.getSkillConfigs(),
+      this.getMCPServerConfigs(),
+    ]);
+
+    return {
+      tools: toolsResult,
+      skills: skillsResult,
+      mcpServers: mcpResult,
+      timestamp: new Date().toISOString(),
     };
   }
 
@@ -1166,40 +1414,63 @@ export class CapabilitiesAdminService implements OnModuleInit {
 
   /**
    * 获取技能定义列表
+   * 合并来源：SkillRegistry（代码实现）+ SkillLoaderService（SKILL.md 文件）
+   * 使用缓存提升性能
    */
-  private getSkillDefinitions() {
-    // 从 SkillRegistry 获取已注册的技能
-    const registeredSkills = this.skillRegistry.getAll();
-
-    // 基础技能定义
-    const skillDefinitions: Array<{
-      id: string;
-      name: string;
-      displayName: string;
-      description: string;
-      layer: string;
-      domain: string;
-      tags: string[];
-      requiredTools: string[];
-      requiredSkills: string[];
-    }> = [];
-
-    // 添加已注册的技能
-    for (const skill of registeredSkills) {
-      skillDefinitions.push({
-        id: skill.id,
-        name: skill.name,
-        displayName: (skill as any).displayName || skill.name,
-        description: skill.description,
-        layer: skill.layer || "content",
-        domain: skill.domain || "common",
-        tags: skill.tags || [],
-        requiredTools: skill.requiredTools || [],
-        requiredSkills: skill.requiredSkills || [],
-      });
+  private getSkillDefinitions(): SkillDefinition[] {
+    // 检查缓存是否有效
+    const now = Date.now();
+    if (
+      this.skillDefinitionsCache &&
+      now - this.skillDefinitionsCacheTime < this.CACHE_TTL_MS
+    ) {
+      return this.skillDefinitionsCache;
     }
 
-    // 如果没有注册的技能，添加默认示例
+    // 重新计算技能定义
+    const skillDefinitions: SkillDefinition[] = [];
+    const addedIds = new Set<string>();
+
+    // 1. 从 SkillRegistry 获取已注册的代码技能
+    const registeredSkills = this.skillRegistry.getAll();
+    for (const skill of registeredSkills) {
+      if (!addedIds.has(skill.id)) {
+        const skillWithDisplayName = skill as { displayName?: string };
+        skillDefinitions.push({
+          id: skill.id,
+          name: skill.name,
+          displayName: skillWithDisplayName.displayName || skill.name,
+          description: skill.description,
+          layer: skill.layer || "content",
+          domain: skill.domain || "common",
+          tags: skill.tags || [],
+          requiredTools: skill.requiredTools || [],
+          requiredSkills: skill.requiredSkills || [],
+        });
+        addedIds.add(skill.id);
+      }
+    }
+
+    // 2. 从 SkillLoaderService 获取 SKILL.md 文件技能
+    const loadedSkills = this.skillLoaderService.getAllLoadedSkills();
+    for (const skill of loadedSkills) {
+      if (!addedIds.has(skill.metadata.id)) {
+        skillDefinitions.push({
+          id: skill.metadata.id,
+          name: skill.metadata.name,
+          displayName: skill.metadata.name,
+          description: skill.metadata.description || "",
+          layer: "content", // SKILL.md 使用 domain 而非 layer
+          domain: skill.metadata.domain || "common",
+          tags: skill.metadata.tags || [],
+          requiredTools: skill.metadata.allowedTools || [], // 使用 allowedTools
+          requiredSkills: skill.metadata.dependencies || [], // 使用 dependencies
+        });
+        addedIds.add(skill.metadata.id);
+      }
+    }
+
+    // 如果没有任何技能，添加默认示例
     if (skillDefinitions.length === 0) {
       skillDefinitions.push(
         // Understanding Layer
@@ -1296,6 +1567,10 @@ export class CapabilitiesAdminService implements OnModuleInit {
         },
       );
     }
+
+    // 更新缓存
+    this.skillDefinitionsCache = skillDefinitions;
+    this.skillDefinitionsCacheTime = now;
 
     return skillDefinitions;
   }

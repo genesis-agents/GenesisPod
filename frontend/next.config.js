@@ -60,7 +60,7 @@ const nextConfig = {
       },
       {
         source: '/admin/external-api',
-        destination: '/admin/ai/external-services',
+        destination: '/admin/ai/tools',
         permanent: false,
       },
       {
@@ -80,7 +80,12 @@ const nextConfig = {
       },
       {
         source: '/admin/capabilities',
-        destination: '/admin/ai/capabilities',
+        destination: '/admin/ai/skills',
+        permanent: false,
+      },
+      {
+        source: '/admin/ai/capabilities',
+        destination: '/admin/ai/skills',
         permanent: false,
       },
       {
@@ -94,13 +99,8 @@ const nextConfig = {
         permanent: false,
       },
       {
-        source: '/admin/ai/tools',
-        destination: '/admin/ai/external-services',
-        permanent: false,
-      },
-      {
-        source: '/admin/ai/skills',
-        destination: '/admin/ai/capabilities',
+        source: '/admin/ai/external-services',
+        destination: '/admin/ai/tools',
         permanent: false,
       },
     ];

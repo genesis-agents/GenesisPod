@@ -187,14 +187,14 @@ const aiEngineLayer: ArchitectureLayer = {
     {
       id: 'skills',
       i18nKey: 'admin.nav.skills',
-      href: '/admin/ai/capabilities',
+      href: '/admin/ai/skills',
       icon: Sparkles,
       clickable: true,
     },
     {
       id: 'tools',
       i18nKey: 'admin.nav.tools',
-      href: '/admin/ai/external-services',
+      href: '/admin/ai/tools',
       icon: Wrench,
       clickable: true,
     },

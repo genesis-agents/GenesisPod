@@ -82,6 +82,10 @@ export class AiSocialService {
         platformType,
       });
 
+      this.logger.log(
+        `Login session created for ${platformType}, sessionKey: ${sessionKey}`,
+      );
+
       return {
         status: "pending",
         sessionKey,
@@ -89,10 +93,13 @@ export class AiSocialService {
         message: "请扫码登录",
       };
     } catch (error) {
-      this.logger.error(`Failed to init connection: ${error}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to init connection for ${platformType}: ${errorMsg}`,
+      );
       return {
         status: "error",
-        message: "启动登录失败，请稍后重试",
+        message: `启动登录失败: ${errorMsg}`,
       };
     }
   }
@@ -105,10 +112,18 @@ export class AiSocialService {
     const pendingKey = userId + "-" + platformType;
     const pending = this.pendingLoginSessions.get(pendingKey);
 
+    // 调试日志：显示当前所有待验证会话
+    this.logger.debug(
+      `Current pending sessions: ${Array.from(this.pendingLoginSessions.keys()).join(", ") || "none"}`,
+    );
+
     if (!pending) {
+      this.logger.warn(
+        `No pending session found for key: ${pendingKey}. User may need to restart login.`,
+      );
       return {
         status: "error",
-        message: "没有待验证的登录会话，请重新开始",
+        message: "没有待验证的登录会话，请重新开始连接流程",
       };
     }
 
@@ -123,7 +138,9 @@ export class AiSocialService {
             userId,
             platformType,
             accountName: result.accountName || platformType,
-            sessionData: result.sessionData as object,
+            sessionData: result.sessionData
+              ? JSON.stringify(result.sessionData)
+              : null,
             isActive: true,
             lastCheckAt: new Date(),
           },
@@ -141,16 +158,20 @@ export class AiSocialService {
       }
 
       // 未登录，返回新截图
+      this.logger.debug(`Login not detected yet, returning screenshot`);
       return {
         status: "pending",
         screenshot: result.screenshot,
         message: "等待扫码确认",
       };
     } catch (error) {
-      this.logger.error(`Failed to verify connection: ${error}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to verify connection for ${platformType}: ${errorMsg}`,
+      );
       return {
         status: "error",
-        message: "验证失败，请重试",
+        message: `验证失败: ${errorMsg}`,
       };
     }
   }

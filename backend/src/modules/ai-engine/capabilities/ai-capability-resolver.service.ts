@@ -5,9 +5,9 @@ import { SkillRegistry } from "../skills/registry/skill-registry";
 import { MCPManager } from "../mcp/manager/mcp-manager";
 
 /**
- * 能力解析上下文
+ * AI 能力解析上下文
  */
-export interface CapabilityContext {
+export interface AICapabilityContext {
   agentId?: string;
   teamId?: string;
   userId?: string;
@@ -26,12 +26,12 @@ export interface MCPToolInfo {
 }
 
 /**
- * 能力解析服务
+ * AI 能力解析服务
  * Agent 运行时使用此服务获取可用的 Tools、Skills 和 MCP Tools
  */
 @Injectable()
-export class CapabilityResolver {
-  private readonly logger = new Logger(CapabilityResolver.name);
+export class AICapabilityResolver {
+  private readonly logger = new Logger(AICapabilityResolver.name);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -44,7 +44,7 @@ export class CapabilityResolver {
    * 解析 Agent 可用的 Tools
    * 优先级：全局配置 → 团队配置 → 角色配置
    */
-  async resolveToolsForAgent(context: CapabilityContext): Promise<string[]> {
+  async resolveToolsForAgent(context: AICapabilityContext): Promise<string[]> {
     // 1. 获取全局启用的工具
     const enabledTools = await this.getGlobalEnabledTools();
 
@@ -81,7 +81,7 @@ export class CapabilityResolver {
    * 解析 Agent 可用的 Skills
    * 可按领域过滤
    */
-  async resolveSkillsForAgent(context: CapabilityContext): Promise<string[]> {
+  async resolveSkillsForAgent(context: AICapabilityContext): Promise<string[]> {
     // 1. 获取全局启用的技能
     const enabledSkills = await this.getGlobalEnabledSkills();
 
@@ -108,7 +108,7 @@ export class CapabilityResolver {
    * 解析 Agent 可用的 MCP Tools
    */
   async resolveMCPToolsForAgent(
-    context: CapabilityContext,
+    context: AICapabilityContext,
   ): Promise<MCPToolInfo[]> {
     // 1. 获取全局启用的 MCP 服务器
     const enabledServers = await this.prisma.mCPServerConfig.findMany({
@@ -152,7 +152,7 @@ export class CapabilityResolver {
   /**
    * 解析 Agent 可用的所有能力
    */
-  async resolveAllCapabilities(context: CapabilityContext): Promise<{
+  async resolveAllCapabilities(context: AICapabilityContext): Promise<{
     tools: string[];
     skills: string[];
     mcpTools: MCPToolInfo[];
@@ -171,7 +171,7 @@ export class CapabilityResolver {
    */
   async isToolAvailable(
     toolId: string,
-    context: CapabilityContext,
+    context: AICapabilityContext,
   ): Promise<boolean> {
     const availableTools = await this.resolveToolsForAgent(context);
     return availableTools.includes(toolId);
@@ -182,7 +182,7 @@ export class CapabilityResolver {
    */
   async isSkillAvailable(
     skillId: string,
-    context: CapabilityContext,
+    context: AICapabilityContext,
   ): Promise<boolean> {
     const availableSkills = await this.resolveSkillsForAgent(context);
     return availableSkills.includes(skillId);
@@ -361,3 +361,6 @@ export class CapabilityResolver {
     return mapping[capability] || null;
   }
 }
+
+// 保持向后兼容的类型别名
+export type CapabilityContext = AICapabilityContext;

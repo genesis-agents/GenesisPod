@@ -1784,12 +1784,21 @@
       "notSupported": "Testing not supported for this tool",
       "categories": {
         "all": "All Tools",
+        "information": "Information",
+        "content": "Content Generation",
+        "data": "Data Processing",
+        "code": "Code Execution",
+        "integration": "Integration",
+        "memory": "Memory",
+        "export": "Export",
+        "collaboration": "Collaboration",
         "search": "Web Search",
         "extraction": "Content Extraction",
         "youtube": "YouTube",
         "tts": "Text-to-Speech",
         "skillsmp": "AI Skills",
-        "policy": "Policy Research"
+        "policy": "Policy Research",
+        "mcp": "MCP Servers"
       },
       "modal": {
         "configure": "Configure {{name}}",

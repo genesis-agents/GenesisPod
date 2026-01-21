@@ -6689,8 +6689,8 @@ model MCPServerConfig {
   @@map("mcp_server_configs")
 }
 
-/// 能力使用统计
-model CapabilityUsage {
+/// AI 使用日志（工具、技能、MCP 调用记录）
+model AIUsageLog {
   id String @id @default(uuid())
 
   // 能力标识
@@ -6713,7 +6713,7 @@ model CapabilityUsage {
 
   @@index([capabilityType, capabilityId])
   @@index([createdAt])
-  @@map("capability_usages")
+  @@map("ai_usage_logs")
 }
 
 // ============ Topic Research 专题研究 ============

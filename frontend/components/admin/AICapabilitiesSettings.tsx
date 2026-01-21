@@ -379,12 +379,9 @@ export default function AICapabilitiesSettings() {
   // Load data
   const loadTools = useCallback(async () => {
     try {
-      const response = await fetch(
-        `${config.apiUrl}/admin/capabilities/tools`,
-        {
-          headers: { ...getAuthHeader() },
-        }
-      );
+      const response = await fetch(`${config.apiUrl}/admin/ai/tools`, {
+        headers: { ...getAuthHeader() },
+      });
       if (response.ok) {
         const data = await response.json();
         setTools(data.tools || []);
@@ -397,12 +394,9 @@ export default function AICapabilitiesSettings() {
 
   const loadSkills = useCallback(async () => {
     try {
-      const response = await fetch(
-        `${config.apiUrl}/admin/capabilities/skills`,
-        {
-          headers: { ...getAuthHeader() },
-        }
-      );
+      const response = await fetch(`${config.apiUrl}/admin/ai/skills`, {
+        headers: { ...getAuthHeader() },
+      });
       if (response.ok) {
         const data = await response.json();
         setSkills(data.skills || []);
@@ -415,12 +409,9 @@ export default function AICapabilitiesSettings() {
 
   const loadMCPServers = useCallback(async () => {
     try {
-      const response = await fetch(
-        `${config.apiUrl}/admin/capabilities/mcp-servers`,
-        {
-          headers: { ...getAuthHeader() },
-        }
-      );
+      const response = await fetch(`${config.apiUrl}/admin/ai/mcp-servers`, {
+        headers: { ...getAuthHeader() },
+      });
       if (response.ok) {
         const data = await response.json();
         setMcpServers(data.servers || []);
@@ -456,7 +447,7 @@ export default function AICapabilitiesSettings() {
   const handleToggleTool = async (toolId: string, enabled: boolean) => {
     try {
       const response = await fetch(
-        `${config.apiUrl}/admin/capabilities/tools/${toolId}`,
+        `${config.apiUrl}/admin/ai/tools/${toolId}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
@@ -478,7 +469,7 @@ export default function AICapabilitiesSettings() {
   const handleSaveTool = async (tool: ToolConfig) => {
     try {
       const response = await fetch(
-        `${config.apiUrl}/admin/capabilities/tools/${tool.toolId}`,
+        `${config.apiUrl}/admin/ai/tools/${tool.toolId}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
@@ -505,7 +496,7 @@ export default function AICapabilitiesSettings() {
   const handleToggleSkill = async (skillId: string, enabled: boolean) => {
     try {
       const response = await fetch(
-        `${config.apiUrl}/admin/capabilities/skills/${skillId}`,
+        `${config.apiUrl}/admin/ai/skills/${skillId}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
@@ -527,7 +518,7 @@ export default function AICapabilitiesSettings() {
   const handleSaveSkill = async (skill: SkillConfig) => {
     try {
       const response = await fetch(
-        `${config.apiUrl}/admin/capabilities/skills/${skill.skillId}`,
+        `${config.apiUrl}/admin/ai/skills/${skill.skillId}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
@@ -554,7 +545,7 @@ export default function AICapabilitiesSettings() {
   const handleToggleMCPServer = async (serverId: string, enabled: boolean) => {
     try {
       const response = await fetch(
-        `${config.apiUrl}/admin/capabilities/mcp-servers/${serverId}`,
+        `${config.apiUrl}/admin/ai/mcp-servers/${serverId}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
@@ -578,7 +569,7 @@ export default function AICapabilitiesSettings() {
   const handleSaveMCPServer = async (server: MCPServerConfig) => {
     try {
       const response = await fetch(
-        `${config.apiUrl}/admin/capabilities/mcp-servers/${server.serverId}`,
+        `${config.apiUrl}/admin/ai/mcp-servers/${server.serverId}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
@@ -608,7 +599,7 @@ export default function AICapabilitiesSettings() {
     setTesting(`mcp-connect-${serverId}`);
     try {
       const response = await fetch(
-        `${config.apiUrl}/admin/capabilities/mcp-servers/${serverId}/connect`,
+        `${config.apiUrl}/admin/ai/mcp-servers/${serverId}/connect`,
         {
           method: 'POST',
           headers: { ...getAuthHeader() },
@@ -645,7 +636,7 @@ export default function AICapabilitiesSettings() {
   const handleDisconnectMCPServer = async (serverId: string) => {
     try {
       const response = await fetch(
-        `${config.apiUrl}/admin/capabilities/mcp-servers/${serverId}/disconnect`,
+        `${config.apiUrl}/admin/ai/mcp-servers/${serverId}/disconnect`,
         {
           method: 'POST',
           headers: { ...getAuthHeader() },
@@ -663,23 +654,20 @@ export default function AICapabilitiesSettings() {
 
   const handleAddMCPServer = async (preset: (typeof PRESET_MCP_SERVERS)[0]) => {
     try {
-      const response = await fetch(
-        `${config.apiUrl}/admin/capabilities/mcp-servers`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          body: JSON.stringify({
-            serverId: preset.serverId,
-            name: preset.name,
-            description: preset.description,
-            transport: preset.transport,
-            command: preset.command,
-            args: preset.args,
-            enabled: true,
-            autoConnect: true,
-          }),
-        }
-      );
+      const response = await fetch(`${config.apiUrl}/admin/ai/mcp-servers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({
+          serverId: preset.serverId,
+          name: preset.name,
+          description: preset.description,
+          transport: preset.transport,
+          command: preset.command,
+          args: preset.args,
+          enabled: true,
+          autoConnect: true,
+        }),
+      });
       if (response.ok) {
         await loadMCPServers();
         setShowAddMCP(false);
@@ -695,7 +683,7 @@ export default function AICapabilitiesSettings() {
     if (!confirm('确定要删除这个 MCP 服务器吗？')) return;
     try {
       const response = await fetch(
-        `${config.apiUrl}/admin/capabilities/mcp-servers/${serverId}`,
+        `${config.apiUrl}/admin/ai/mcp-servers/${serverId}`,
         {
           method: 'DELETE',
           headers: { ...getAuthHeader() },
@@ -722,7 +710,7 @@ export default function AICapabilitiesSettings() {
 
     try {
       const response = await fetch(
-        `${config.apiUrl}/admin/capabilities/tools/${toolId}/test`,
+        `${config.apiUrl}/admin/ai/tools/${toolId}/test`,
         {
           method: 'POST',
           headers: { ...getAuthHeader() },

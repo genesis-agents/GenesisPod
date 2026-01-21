@@ -1786,12 +1786,21 @@
       "notSupported": "不支持测试此工具",
       "categories": {
         "all": "全部工具",
+        "information": "信息获取",
+        "content": "内容生成",
+        "data": "数据处理",
+        "code": "代码执行",
+        "integration": "外部集成",
+        "memory": "记忆管理",
+        "export": "导出",
+        "collaboration": "协作",
         "search": "网络搜索",
         "extraction": "内容提取",
         "youtube": "YouTube",
         "tts": "语音合成",
         "skillsmp": "AI技能",
-        "policy": "政策研究"
+        "policy": "政策研究",
+        "mcp": "MCP 服务器"
       },
       "modal": {
         "configure": "配置 {{name}}",

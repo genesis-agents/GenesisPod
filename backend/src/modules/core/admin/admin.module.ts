@@ -6,8 +6,8 @@ import {
   AITeamsTemplatesController,
 } from "./ai-teams-admin.controller";
 import { AITeamsAdminService } from "./ai-teams-admin.service";
-import { CapabilitiesAdminController } from "./capabilities-admin.controller";
-import { CapabilitiesAdminService } from "./capabilities-admin.service";
+import { AIAdminController } from "./ai-admin.controller";
+import { AIAdminService } from "./ai-admin.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { SecretsModule } from "../secrets/secrets.module";
@@ -18,9 +18,9 @@ import { SecretsModule } from "../secrets/secrets.module";
     AdminController,
     AITeamsAdminController,
     AITeamsTemplatesController,
-    CapabilitiesAdminController,
+    AIAdminController, // /admin/ai/* routes for tools, skills, mcp-servers
   ],
-  providers: [AdminService, AITeamsAdminService, CapabilitiesAdminService],
-  exports: [AdminService, AITeamsAdminService, CapabilitiesAdminService],
+  providers: [AdminService, AITeamsAdminService, AIAdminService],
+  exports: [AdminService, AITeamsAdminService, AIAdminService],
 })
 export class AdminModule {}

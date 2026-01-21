@@ -92,7 +92,9 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
         // Dynamic import to avoid issues if playwright-core not installed
         const playwright = await import("playwright-core").catch(() => null);
         if (!playwright) {
-          throw new Error("playwright-core is not installed");
+          throw new Error(
+            "playwright-core is not installed. Run: npm install playwright-core",
+          );
         }
 
         // Use system Chromium if available (Docker environment)
@@ -102,19 +104,37 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
           process.env.PUPPETEER_EXECUTABLE_PATH ||
           undefined;
 
+        this.logger.log(
+          `Attempting to launch Chromium${executablePath ? ` from: ${executablePath}` : " (using bundled)"}`,
+        );
+
+        // Check if executable exists when path is specified
+        if (executablePath) {
+          const fs = await import("fs");
+          if (!fs.existsSync(executablePath)) {
+            throw new Error(
+              `Chromium not found at: ${executablePath}. Please install Chromium or set correct path.`,
+            );
+          }
+        }
+
         this.browser = await playwright.chromium.launch({
           headless: true,
           executablePath,
-          args: ["--no-sandbox", "--disable-setuid-sandbox"],
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+          ],
         });
         this.logger.log(
-          `Playwright browser launched${executablePath ? ` (using: ${executablePath})` : ""}`,
+          `Playwright browser launched successfully${executablePath ? ` (using: ${executablePath})` : ""}`,
         );
       } catch (error) {
-        this.logger.error("Failed to launch browser", error);
-        throw new Error(
-          "Playwright browser launch failed. Please ensure playwright-core is installed.",
-        );
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Failed to launch browser: ${errorMsg}`);
+        throw new Error(`浏览器启动失败: ${errorMsg}`);
       }
     }
     return this.browser;
@@ -338,12 +358,20 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
   }> {
     const session = this.pendingLogins.get(sessionKey);
     if (!session) {
-      throw new Error(`Login session not found: ${sessionKey}`);
+      // 详细的诊断日志
+      const allSessionKeys = Array.from(this.pendingLogins.keys());
+      this.logger.error(
+        `Session not found: ${sessionKey}. ` +
+          `Available sessions (${allSessionKeys.length}): ${allSessionKeys.join(", ") || "none"}`,
+      );
+      throw new Error(
+        `登录会话已过期或不存在 (session: ${sessionKey.substring(0, 20)}...)`,
+      );
     }
 
     const config = PLATFORM_CONFIGS[session.platformType];
     if (!config) {
-      throw new Error(`Unknown platform: ${session.platformType}`);
+      throw new Error(`不支持的平台类型: ${session.platformType}`);
     }
 
     try {
@@ -365,7 +393,81 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
         );
       }
 
-      // 方法2: 小红书特殊检测 - 检查登录弹窗是否消失 + cookies
+      // 方法2: 微信公众号特殊检测 - 检查 URL 跳转 + cookies + 页面元素
+      if (!loggedIn && session.platformType === "WECHAT_MP") {
+        // 检查当前 URL 是否已跳转到管理后台
+        const currentUrl = page.url();
+        const isInDashboard =
+          currentUrl.includes("/cgi-bin/home") ||
+          currentUrl.includes("/cgi-bin/frame") ||
+          currentUrl.includes("action=home") ||
+          currentUrl.includes("t=home/index");
+
+        if (isInDashboard) {
+          loggedIn = true;
+          this.logger.log(
+            `WeChat MP login detected via URL redirect: ${currentUrl}`,
+          );
+        }
+
+        // 检查微信公众号相关的 cookies
+        if (!loggedIn) {
+          const context = this.contexts.get(sessionKey);
+          if (context) {
+            const cookies = await context.cookies();
+            const hasLoginCookie = cookies.some(
+              (c: { name: string }) =>
+                c.name === "slave_user" ||
+                c.name === "slave_sid" ||
+                c.name === "bizuin" ||
+                c.name === "data_bizuin" ||
+                c.name === "data_ticket",
+            );
+
+            if (hasLoginCookie) {
+              loggedIn = true;
+              this.logger.log(
+                `WeChat MP login detected via cookies: ${cookies.map((c: { name: string }) => c.name).join(", ")}`,
+              );
+            }
+          }
+        }
+
+        // 检查页面是否包含登录后才有的元素
+        if (!loggedIn) {
+          const hasLoggedInContent = await page.evaluate(() => {
+            // 微信公众号后台特有的元素
+            const selectors = [
+              ".weui-desktop-account", // 账号信息区域
+              ".weui-desktop-sidebar", // 侧边栏
+              ".weui-desktop-main", // 主内容区
+              '[class*="menu-root"]', // 菜单
+              '[class*="home-index"]', // 首页
+              ".main_bd", // 主体区域
+              "#menuBar", // 菜单栏
+            ];
+            for (const selector of selectors) {
+              if (document.querySelector(selector)) {
+                return true;
+              }
+            }
+            // 检查二维码是否还存在（如果不存在说明登录成功）
+            const qrCode = document.querySelector(
+              ".login__type__container__scan__qrcode img, .qrcode img",
+            );
+            return !qrCode;
+          });
+
+          if (hasLoggedInContent) {
+            loggedIn = true;
+            this.logger.log(
+              `WeChat MP login detected via page content analysis`,
+            );
+          }
+        }
+      }
+
+      // 方法3: 小红书特殊检测 - 检查登录弹窗是否消失 + cookies
       if (!loggedIn && session.platformType === "XIAOHONGSHU") {
         // 检查登录弹窗是否还在
         const loginModalVisible = await page
