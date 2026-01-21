@@ -1,9 +1,12 @@
 /**
  * Image Generation Tool
  * 图像生成工具 - 复用 AiImageService
+ *
+ * 注意: 使用 forwardRef 打破与 AiImageModule 的循环依赖
+ * AiEngineModule ← ImageGenerationTool ← AiImageService ← AiImageModule → AiEngineModule
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Inject, forwardRef } from "@nestjs/common";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
@@ -160,7 +163,10 @@ export class ImageGenerationTool extends BaseTool<
     },
   };
 
-  constructor(private readonly aiImageService: AiImageService) {
+  constructor(
+    @Inject(forwardRef(() => AiImageService))
+    private readonly aiImageService: AiImageService,
+  ) {
     super();
     // defaultTimeout set in class property // 120 秒超时（图像生成较慢）
   }

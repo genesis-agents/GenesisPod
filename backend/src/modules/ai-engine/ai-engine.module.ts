@@ -14,7 +14,14 @@
  * - MCP 协议 (MCP)
  */
 
-import { Module, Global, OnModuleInit, Logger, Inject } from "@nestjs/common";
+import {
+  Module,
+  Global,
+  OnModuleInit,
+  Logger,
+  Inject,
+  forwardRef,
+} from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { PrismaService } from "../../common/prisma/prisma.service";
@@ -100,6 +107,9 @@ import { DocumentChunker } from "./rag/chunking";
 
 // Image
 import { ImageModule } from "./image/image.module";
+
+// AiImageModule (使用 forwardRef 打破循环依赖)
+import { AiImageModule } from "../ai-app/image/ai-image.module";
 
 // Teams
 import { TeamsModule } from "./teams/teams.module";
@@ -284,6 +294,8 @@ const conversationMemoryFactory = {
     TeamsModule,
     LongContentModule,
     SecretsModule,
+    // 使用 forwardRef 打破循环依赖: AiEngineModule ← ImageGenerationTool ← AiImageService ← AiImageModule → AiEngineModule
+    forwardRef(() => AiImageModule),
   ],
   controllers: [AgentsController, AiCoreController, SkillsController],
   providers: [
