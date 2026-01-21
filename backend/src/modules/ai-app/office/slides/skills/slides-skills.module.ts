@@ -17,7 +17,8 @@
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
-import { AiEngineModule } from "@/modules/ai-engine";
+// 直接从文件导入，避免 barrel export 循环依赖
+import { AiEngineModule } from "@/modules/ai-engine/ai-engine.module";
 import { AIModelService } from "../../core/ai-model.service";
 import { PrismaModule } from "@/common/prisma/prisma.module";
 

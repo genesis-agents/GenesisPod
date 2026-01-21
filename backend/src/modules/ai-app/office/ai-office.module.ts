@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { ConfigModule } from "@nestjs/config";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
@@ -45,8 +45,9 @@ import { AIOfficeCommonModule } from "./common";
     HttpModule,
     ConfigModule,
     PrismaModule,
-    AiEngineModule,
-    AiImageModule,
+    // 使用 forwardRef 打破三角循环: AiEngineModule → AiImageModule → AiOfficeModule → AiEngineModule
+    forwardRef(() => AiEngineModule),
+    forwardRef(() => AiImageModule),
     StorageModule,
     CreditsModule,
     ExportModule,
