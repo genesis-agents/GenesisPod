@@ -17,7 +17,9 @@ import {
 } from "@prisma/client";
 import { CreateMissionDto } from "../../../dto/create-mission.dto";
 import { AIEngineFacade, ChatMessage } from "../../../../../ai-engine/facade";
-import { SearchService } from "../../../../../ai-engine/search/search.service";
+// ★ 架构重构：通过 ToolRegistry 调用工具
+import { ToolRegistry } from "../../../../../ai-engine/tools/registry/tool-registry";
+import type { ToolContext } from "../../../../../ai-engine/tools/abstractions/tool.interface";
 import { TopicEventEmitterService } from "../../events";
 import {
   mapWithConcurrency,
@@ -108,7 +110,8 @@ export class TeamMissionService implements OnModuleInit {
   constructor(
     private prisma: PrismaService,
     private aiFacade: AIEngineFacade,
-    private searchService: SearchService,
+    // ★ 架构重构：通过 ToolRegistry 调用工具
+    private toolRegistry: ToolRegistry,
     private topicEventEmitter: TopicEventEmitterService,
     private longContentService: TeamsLongContentService,
     private circuitBreaker: CircuitBreakerService,
@@ -124,6 +127,18 @@ export class TeamMissionService implements OnModuleInit {
     // ★ Leader 模型容错服务：支持重试和模型切换
     private leaderModelService: LeaderModelService,
   ) {}
+
+  /**
+   * 创建工具执行上下文
+   */
+  private createToolContext(toolId: string): ToolContext {
+    return {
+      executionId: `${toolId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      toolId,
+      createdAt: new Date(),
+      callerType: "agent",
+    };
+  }
 
   // ==================== 生命周期钩子 ====================
 
@@ -1702,14 +1717,30 @@ export class TeamMissionService implements OnModuleInit {
           `[executeTask] Performing web search for task "${task.title}": ${searchQuery}`,
         );
 
-        const searchResult = await this.searchService.search(searchQuery, 5);
-        if (searchResult.success && searchResult.results.length > 0) {
-          searchContext = this.searchService.formatResultsForContext(
-            searchResult.results,
+        // ★ 通过 ToolRegistry 调用 web-search 工具
+        const webSearchTool = this.toolRegistry.tryGet("web-search");
+        if (webSearchTool) {
+          const toolResult = await webSearchTool.execute(
+            { query: searchQuery, numResults: 5 },
+            this.createToolContext("web-search"),
           );
-          this.logger.log(
-            `[executeTask] Found ${searchResult.results.length} search results for task "${task.title}"`,
-          );
+          if (toolResult.success && toolResult.data) {
+            const searchData = toolResult.data as {
+              results: Array<{ title: string; url: string; content: string }>;
+              success: boolean;
+            };
+            if (searchData.success && searchData.results?.length > 0) {
+              searchContext = searchData.results
+                .map(
+                  (r, i) =>
+                    `[${i + 1}] ${r.title}\n${r.content}\nSource: ${r.url}`,
+                )
+                .join("\n\n");
+              this.logger.log(
+                `[executeTask] Found ${searchData.results.length} search results for task "${task.title}"`,
+              );
+            }
+          }
         }
       }
 

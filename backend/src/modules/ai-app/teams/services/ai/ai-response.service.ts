@@ -7,7 +7,9 @@ import {
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { MessageContentType } from "@prisma/client";
 import { AIEngineFacade, ChatMessage } from "../../../../ai-engine/facade";
-import { SearchService } from "../../../../ai-engine/search/search.service";
+// ★ 架构重构：通过 ToolRegistry 调用工具
+import { ToolRegistry } from "../../../../ai-engine/tools/registry/tool-registry";
+import type { ToolContext } from "../../../../ai-engine/tools/abstractions/tool.interface";
 import {
   ContextRouterService,
   ContextStrategy,
@@ -39,7 +41,8 @@ export class AiResponseService {
   constructor(
     private prisma: PrismaService,
     private aiFacade: AIEngineFacade,
-    private searchService: SearchService,
+    // ★ 架构重构：通过 ToolRegistry 调用工具
+    private toolRegistry: ToolRegistry,
     private contextRouter: ContextRouterService,
     private teamMemberAgent: TeamMemberAgent,
     private functionCallingLLMAdapter: FunctionCallingLLMAdapter,
@@ -52,6 +55,27 @@ export class AiResponseService {
   ) {
     // 保留重试方法引用供未来集成
     void this.generateWithToolsWithRetry;
+  }
+
+  /**
+   * 创建工具执行上下文
+   */
+  private createToolContext(toolId: string): ToolContext {
+    return {
+      executionId: `${toolId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      toolId,
+      createdAt: new Date(),
+      callerType: "orchestrator",
+    };
+  }
+
+  /**
+   * 从文本中提取 URL
+   */
+  private extractUrls(text: string): string[] {
+    const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/g;
+    const matches = text.match(urlRegex) || [];
+    return [...new Set(matches)];
   }
 
   /**
@@ -499,7 +523,7 @@ export class AiResponseService {
     const allUrls: string[] = [];
     for (const msg of recentUserMessages) {
       const messageSample = msg.content.substring(0, 10000);
-      const urls = this.searchService.extractUrls(messageSample);
+      const urls = this.extractUrls(messageSample);
       allUrls.push(...urls);
     }
     const uniqueUrls = [...new Set(allUrls)].slice(0, 2);
@@ -508,9 +532,35 @@ export class AiResponseService {
       this.logger.log(
         `Found ${uniqueUrls.length} URLs in recent messages, fetching content...`,
       );
-      urlContext = await this.searchService.fetchUrlsForContext(uniqueUrls);
-      if (urlContext) {
-        this.logger.log(`Added URL content to context`);
+      // ★ 通过 ToolRegistry 调用 web-fetch 工具获取 URL 内容
+      const webFetchTool = this.toolRegistry.tryGet("web-fetch");
+      if (webFetchTool) {
+        const urlContents: string[] = [];
+        for (const url of uniqueUrls) {
+          try {
+            const fetchResult = await webFetchTool.execute(
+              { url },
+              this.createToolContext("web-fetch"),
+            );
+            if (fetchResult.success && fetchResult.data) {
+              const fetchData = fetchResult.data as {
+                content?: string;
+                title?: string;
+              };
+              if (fetchData.content) {
+                urlContents.push(
+                  `**${fetchData.title || url}**\n${fetchData.content.substring(0, 2000)}`,
+                );
+              }
+            }
+          } catch (e) {
+            this.logger.warn(`Failed to fetch URL ${url}: ${e}`);
+          }
+        }
+        if (urlContents.length > 0) {
+          urlContext = `\n\n## URL 内容\n${urlContents.join("\n\n---\n\n")}`;
+          this.logger.log(`Added URL content to context`);
+        }
       }
     }
 
@@ -524,17 +574,32 @@ export class AiResponseService {
       this.logger.log(
         `Searching for real-time info: "${lastUserMessage.content.substring(0, 100)}..."`,
       );
-      const searchResults = await this.searchService.search(
-        lastUserMessage.content,
-        5,
-      );
-      if (searchResults.success && searchResults.results.length > 0) {
-        searchContext =
-          "\n\n" +
-          this.searchService.formatResultsForContext(searchResults.results);
-        this.logger.log(
-          `Added ${searchResults.results.length} search results to context`,
+      // ★ 通过 ToolRegistry 调用 web-search 工具
+      const webSearchTool = this.toolRegistry.tryGet("web-search");
+      if (webSearchTool) {
+        const toolResult = await webSearchTool.execute(
+          { query: lastUserMessage.content, numResults: 5 },
+          this.createToolContext("web-search"),
         );
+        if (toolResult.success && toolResult.data) {
+          const searchData = toolResult.data as {
+            results: Array<{ title: string; url: string; content: string }>;
+            success: boolean;
+          };
+          if (searchData.success && searchData.results?.length > 0) {
+            searchContext =
+              "\n\n## 搜索结果\n" +
+              searchData.results
+                .map(
+                  (r, i) =>
+                    `[${i + 1}] **${r.title}**\n${r.content}\nSource: ${r.url}`,
+                )
+                .join("\n\n");
+            this.logger.log(
+              `Added ${searchData.results.length} search results to context`,
+            );
+          }
+        }
       }
     }
 

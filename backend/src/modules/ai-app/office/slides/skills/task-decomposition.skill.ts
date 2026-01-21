@@ -23,7 +23,9 @@ import {
   SourceAnalysis,
   DataPoint,
 } from "../checkpoint/checkpoint.types";
-import { SearchService } from "../../../../ai-engine/search/search.service";
+// ★ 架构重构：通过 ToolRegistry 调用工具
+import { ToolRegistry } from "../../../../ai-engine/tools/registry/tool-registry";
+import type { ToolContext } from "../../../../ai-engine/tools/abstractions/tool.interface";
 
 /**
  * 任务分解输入
@@ -232,8 +234,21 @@ export class TaskDecompositionSkill
 
   constructor(
     @Optional() private readonly llmFactory: LLMFactory,
-    @Optional() private readonly searchService: SearchService,
+    // ★ 架构重构：通过 ToolRegistry 调用工具
+    @Optional() private readonly toolRegistry: ToolRegistry,
   ) {}
+
+  /**
+   * 创建工具执行上下文
+   */
+  private createToolContext(toolId: string): ToolContext {
+    return {
+      executionId: `${toolId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      toolId,
+      createdAt: new Date(),
+      callerType: "orchestrator",
+    };
+  }
 
   /**
    * 执行任务分解 (ISkill 接口实现)
@@ -275,7 +290,7 @@ export class TaskDecompositionSkill
     try {
       // 第一步：尝试从源文本中搜索补充数据（如果源文本较短）
       let enrichedSourceText = actualInput.sourceText;
-      if (this.searchService && actualInput.sourceText.length < 2000) {
+      if (this.toolRegistry && actualInput.sourceText.length < 2000) {
         const searchEnrichment = await this.enrichWithSearch(
           actualInput.sourceText,
         );
@@ -403,15 +418,35 @@ export class TaskDecompositionSkill
 
       this.logger.log(`[enrichWithSearch] Searching for: ${keywords}`);
 
-      const searchResult = await this.searchService.search(keywords, 3);
+      // ★ 通过 ToolRegistry 调用 web-search 工具
+      const webSearchTool = this.toolRegistry?.tryGet("web-search");
+      if (!webSearchTool) {
+        this.logger.debug("[enrichWithSearch] web-search tool not available");
+        return null;
+      }
 
-      if (!searchResult.success || searchResult.results.length === 0) {
+      const toolResult = await webSearchTool.execute(
+        { query: keywords, numResults: 3 },
+        this.createToolContext("web-search"),
+      );
+
+      if (!toolResult.success || !toolResult.data) {
+        this.logger.debug("[enrichWithSearch] No search results found");
+        return null;
+      }
+
+      const searchData = toolResult.data as {
+        results: Array<{ title: string; url: string; content: string }>;
+        success: boolean;
+      };
+
+      if (!searchData.success || !searchData.results?.length) {
         this.logger.debug("[enrichWithSearch] No search results found");
         return null;
       }
 
       // 组合搜索结果
-      const enrichment = searchResult.results
+      const enrichment = searchData.results
         .map(
           (r, i) =>
             `### 资料${i + 1}: ${r.title}\n${r.content}\n来源: ${r.url}`,

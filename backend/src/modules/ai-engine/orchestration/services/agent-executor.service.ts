@@ -14,7 +14,9 @@ import {
   ExecutionResult,
 } from "./interfaces";
 import { AiChatService } from "../../llm/services/ai-chat.service";
-import { SearchService } from "../../search/search.service";
+// ★ 架构重构：通过 ToolRegistry 调用工具
+import { ToolRegistry } from "../../tools/registry/tool-registry";
+import type { ToolContext } from "../../tools/abstractions/tool.interface";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 /**
@@ -64,9 +66,22 @@ export class AgentExecutorService implements IAgentExecutorService {
 
   constructor(
     private readonly aiChatService: AiChatService,
-    private readonly searchService: SearchService,
+    // ★ 架构重构：通过 ToolRegistry 调用工具
+    private readonly toolRegistry: ToolRegistry,
     private readonly prismaService: PrismaService,
   ) {}
+
+  /**
+   * 创建工具执行上下文
+   */
+  private createToolContext(toolId: string): ToolContext {
+    return {
+      executionId: `${toolId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      toolId,
+      createdAt: new Date(),
+      callerType: "orchestrator",
+    };
+  }
 
   /**
    * 执行单个任务
@@ -107,14 +122,27 @@ export class AgentExecutorService implements IAgentExecutorService {
             `[executeTask] Performing search: "${searchQuery}"`,
           );
 
-          const searchResponse = await this.searchService.search(searchQuery);
-          if (searchResponse.success && searchResponse.results.length > 0) {
-            searchContext = this.formatSearchResults(searchResponse.results);
-            searchResults = searchResponse.results.map((r) => ({
-              title: r.title,
-              url: r.url,
-              snippet: r.content || "",
-            }));
+          // ★ 通过 ToolRegistry 调用 web-search 工具
+          const webSearchTool = this.toolRegistry.tryGet("web-search");
+          if (webSearchTool) {
+            const toolResult = await webSearchTool.execute(
+              { query: searchQuery, numResults: 10 },
+              this.createToolContext("web-search"),
+            );
+            if (toolResult.success && toolResult.data) {
+              const searchData = toolResult.data as {
+                results: Array<{ title: string; url: string; content: string }>;
+                success: boolean;
+              };
+              if (searchData.success && searchData.results?.length > 0) {
+                searchContext = this.formatSearchResults(searchData.results);
+                searchResults = searchData.results.map((r) => ({
+                  title: r.title,
+                  url: r.url,
+                  snippet: r.content || "",
+                }));
+              }
+            }
           }
         } catch (error) {
           this.logger.warn(

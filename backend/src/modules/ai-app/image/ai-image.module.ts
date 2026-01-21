@@ -6,6 +6,8 @@ import { StorageModule } from "../../core/storage/storage.module";
 import { AiOfficeModule } from "../office/ai-office.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
+// ★ 依赖反转: 导入 token 用于提供 ImageGenerationService 实现
+import { IMAGE_GENERATION_SERVICE } from "../../ai-engine/tools/abstractions/generation-services.interface";
 
 // Generation
 import {
@@ -61,6 +63,11 @@ import { AnalyticsService, AgentExecutorService } from "./analytics";
     // Analytics
     AnalyticsService,
     AgentExecutorService,
+    // ★ 依赖反转: 提供 IImageGenerationService 接口实现
+    {
+      provide: IMAGE_GENERATION_SERVICE,
+      useExisting: GenerationService,
+    },
   ],
   exports: [
     // Generation
@@ -78,6 +85,8 @@ import { AnalyticsService, AgentExecutorService } from "./analytics";
     // Analytics
     AnalyticsService,
     AgentExecutorService,
+    // ★ 依赖反转: 导出接口实现供 AiEngineModule 使用
+    IMAGE_GENERATION_SERVICE,
   ],
 })
 export class AiImageModule {}

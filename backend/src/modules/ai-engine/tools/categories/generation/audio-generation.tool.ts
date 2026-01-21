@@ -1,23 +1,24 @@
 /**
  * Audio Generation Tool
- * 音频生成工具 (TTS) - 复用 AiStudioTTSService
+ * 音频生成工具 (TTS) - 通过接口依赖 AiStudioTTSService
+ *
+ * ★ 架构重构: 使用依赖反转原则打破循环依赖
+ * - 工具依赖 ITTSService 接口
+ * - NotebookResearchModule 提供 TTS_SERVICE 实现
+ * - 不再需要 forwardRef
  */
 
-/**
- * 注意: 使用 forwardRef 打破与 NotebookResearchModule 的循环依赖
- * AiEngineModule ← AudioGenerationTool ← AiStudioTTSService ← NotebookResearchModule → AiEngineModule
- */
-
-import { Injectable, Inject, forwardRef } from "@nestjs/common";
+import { Injectable, Inject, Optional } from "@nestjs/common";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
   JSONSchema,
   ToolCategory,
 } from "../../abstractions/tool.interface";
-
-// 直接从具体文件导入，避免通过 barrel export 引发循环依赖
-import { AiStudioTTSService } from "../../../../ai-app/research/notebook-research/ai-studio-tts.service";
+import {
+  TTS_SERVICE,
+  ITTSService,
+} from "../../abstractions/generation-services.interface";
 
 // ============================================================================
 // Types
@@ -202,8 +203,9 @@ export class AudioGenerationTool extends BaseTool<
   };
 
   constructor(
-    @Inject(forwardRef(() => AiStudioTTSService))
-    private readonly ttsService: AiStudioTTSService,
+    @Optional()
+    @Inject(TTS_SERVICE)
+    private readonly ttsService?: ITTSService,
   ) {
     super();
     // defaultTimeout set in class property // 120 秒超时（TTS 生成可能较慢）
@@ -232,7 +234,19 @@ export class AudioGenerationTool extends BaseTool<
       segmented = false,
     } = input;
 
-    // 检查 TTS 服务是否可用
+    // ★ 检查服务是否注入
+    if (!this.ttsService) {
+      return {
+        audioUrl: "",
+        duration: 0,
+        format,
+        success: false,
+        error:
+          "TTS service not available. NotebookResearchModule may not be loaded.",
+      };
+    }
+
+    // 检查 TTS 服务是否可用（API key 配置）
     if (!this.ttsService.isAvailable()) {
       return {
         audioUrl: "",

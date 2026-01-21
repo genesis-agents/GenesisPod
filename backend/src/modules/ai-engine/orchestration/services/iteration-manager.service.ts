@@ -17,7 +17,9 @@ import {
   ResearchContext,
 } from "./interfaces";
 import { AiChatService } from "../../llm/services/ai-chat.service";
-import { SearchService } from "../../search/search.service";
+// ★ 架构重构：通过 ToolRegistry 调用工具
+import { ToolRegistry } from "../../tools/registry/tool-registry";
+import type { ToolContext } from "../../tools/abstractions/tool.interface";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 /**
@@ -43,11 +45,24 @@ export class IterationManagerService implements IIterationManagerService {
 
   constructor(
     private readonly aiChatService: AiChatService,
-    private readonly searchService: SearchService,
+    // ★ 架构重构：通过 ToolRegistry 调用工具
+    private readonly toolRegistry: ToolRegistry,
     // prismaService 预留用于后续版本持久化
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _prismaService: PrismaService,
   ) {}
+
+  /**
+   * 创建工具执行上下文
+   */
+  private createToolContext(toolId: string): ToolContext {
+    return {
+      executionId: `${toolId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      toolId,
+      createdAt: new Date(),
+      callerType: "orchestrator",
+    };
+  }
 
   /**
    * 执行迭代请求
@@ -566,16 +581,31 @@ export class IterationManagerService implements IIterationManagerService {
     const searchKeywords = request.searchKeywords || [context.topic];
     const newSources: ResearchContext["accumulatedKnowledge"]["sources"] = [];
 
+    // ★ 通过 ToolRegistry 调用 web-search 工具
+    const webSearchTool = this.toolRegistry.tryGet("web-search");
     for (const keyword of searchKeywords) {
       try {
-        const searchResponse = await this.searchService.search(keyword);
-        if (searchResponse.success && searchResponse.results.length > 0) {
-          for (const r of searchResponse.results.slice(0, 3)) {
-            newSources.push({
-              url: r.url,
-              title: r.title,
-              summary: r.content || "",
-            });
+        if (!webSearchTool) {
+          this.logger.warn("[executeRefresh] web-search tool not available");
+          continue;
+        }
+        const toolResult = await webSearchTool.execute(
+          { query: keyword, numResults: 5 },
+          this.createToolContext("web-search"),
+        );
+        if (toolResult.success && toolResult.data) {
+          const searchData = toolResult.data as {
+            results: Array<{ title: string; url: string; content: string }>;
+            success: boolean;
+          };
+          if (searchData.success && searchData.results?.length > 0) {
+            for (const r of searchData.results.slice(0, 3)) {
+              newSources.push({
+                url: r.url,
+                title: r.title,
+                summary: r.content || "",
+              });
+            }
           }
         }
       } catch (error) {

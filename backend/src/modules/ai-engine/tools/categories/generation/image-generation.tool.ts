@@ -1,20 +1,24 @@
 /**
  * Image Generation Tool
- * 图像生成工具 - 复用 AiImageService
+ * 图像生成工具 - 通过接口依赖 AiImageService
  *
- * 注意: 使用 forwardRef 打破与 AiImageModule 的循环依赖
- * AiEngineModule ← ImageGenerationTool ← AiImageService ← AiImageModule → AiEngineModule
+ * ★ 架构重构: 使用依赖反转原则打破循环依赖
+ * - 工具依赖 IImageGenerationService 接口
+ * - AiImageModule 提供 IMAGE_GENERATION_SERVICE 实现
+ * - 不再需要 forwardRef
  */
 
-import { Injectable, Inject, forwardRef } from "@nestjs/common";
+import { Injectable, Inject, Optional } from "@nestjs/common";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
   JSONSchema,
   ToolCategory,
 } from "../../abstractions/tool.interface";
-
-import { AiImageService } from "../../../../ai-app/image/generation/generation.service";
+import {
+  IMAGE_GENERATION_SERVICE,
+  IImageGenerationService,
+} from "../../abstractions/generation-services.interface";
 
 // ============================================================================
 // Types
@@ -164,8 +168,9 @@ export class ImageGenerationTool extends BaseTool<
   };
 
   constructor(
-    @Inject(forwardRef(() => AiImageService))
-    private readonly aiImageService: AiImageService,
+    @Optional()
+    @Inject(IMAGE_GENERATION_SERVICE)
+    private readonly imageService?: IImageGenerationService,
   ) {
     super();
     // defaultTimeout set in class property // 120 秒超时（图像生成较慢）
@@ -183,6 +188,16 @@ export class ImageGenerationTool extends BaseTool<
     input: ImageGenerationInput,
     _context: ToolContext,
   ): Promise<ImageGenerationOutput> {
+    // ★ 检查服务是否可用
+    if (!this.imageService) {
+      return {
+        imageUrl: "",
+        success: false,
+        error:
+          "Image generation service not available. AiImageModule may not be loaded.",
+      };
+    }
+
     const {
       prompt,
       content,
@@ -229,38 +244,45 @@ export class ImageGenerationTool extends BaseTool<
   /**
    * 异步生成图像（将流式 API 转换为 Promise）
    */
-  private async generateImageAsync(
-    options: {
-      prompt: string;
-      content?: string;
-      urls?: string[];
-      style?: string;
-      aspectRatio?: "9:16" | "16:9" | "1:1";
-      templateLayout?: string;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } & Record<string, any>,
-  ): Promise<{
+  private async generateImageAsync(options: {
+    prompt: string;
+    content?: string;
+    urls?: string[];
+    style?: string;
+    aspectRatio?: "9:16" | "16:9" | "1:1";
+    templateLayout?: string;
+  }): Promise<{
     imageUrl: string;
     width?: number;
     height?: number;
     model?: string;
   }> {
     return new Promise((resolve, reject) => {
-      // Cast to any to bypass strict type checking for templateLayout
-      const stream = this.aiImageService.generateImageStream(options as any);
+      // ★ 使用接口方法，服务已在 doExecute 中验证可用性
+      const stream = this.imageService!.generateImageStream(options);
 
-      let result: any = null;
+      let result: {
+        imageUrl?: string;
+        url?: string;
+        width?: number;
+        height?: number;
+        model?: string;
+      } | null = null;
 
       const subscription = stream.subscribe({
         next: (event) => {
-          const data = JSON.parse(event.data as string);
+          const data = JSON.parse(event.data) as {
+            type: string;
+            result?: typeof result;
+            error?: string;
+          };
           if (data.type === "complete" && data.result) {
             result = data.result;
           } else if (data.type === "error") {
             reject(new Error(data.error || "Image generation failed"));
           }
         },
-        error: (error) => {
+        error: (error: Error) => {
           subscription.unsubscribe();
           reject(error);
         },
@@ -268,7 +290,7 @@ export class ImageGenerationTool extends BaseTool<
           subscription.unsubscribe();
           if (result) {
             resolve({
-              imageUrl: result.imageUrl || result.url,
+              imageUrl: result.imageUrl || result.url || "",
               width: result.width,
               height: result.height,
               model: result.model,

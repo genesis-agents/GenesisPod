@@ -14,10 +14,18 @@ import {
   SKILL_LAYERS,
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
 import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
-import {
-  SearchService,
-  SearchResult,
-} from "../../../../ai-engine/search/search.service";
+// ★ 架构重构：通过 ToolRegistry 调用工具
+import { ToolRegistry } from "../../../../ai-engine/tools/registry/tool-registry";
+import type { ToolContext } from "../../../../ai-engine/tools/abstractions/tool.interface";
+
+/**
+ * 搜索结果类型（从工具返回数据中提取）
+ */
+interface SearchResult {
+  title: string;
+  url: string;
+  content: string;
+}
 import { PageContent, StatContent } from "../checkpoint/checkpoint.types";
 import {
   MISSING_PLACEHOLDER,
@@ -120,8 +128,21 @@ export class DataSupplementSkill
 
   constructor(
     @Optional() private readonly llmFactory: LLMFactory,
-    private readonly searchService: SearchService,
+    // ★ 架构重构：通过 ToolRegistry 调用工具
+    @Optional() private readonly toolRegistry: ToolRegistry,
   ) {}
+
+  /**
+   * 创建工具执行上下文
+   */
+  private createToolContext(toolId: string): ToolContext {
+    return {
+      executionId: `${toolId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      toolId,
+      createdAt: new Date(),
+      callerType: "orchestrator",
+    };
+  }
 
   /**
    * 将 MissionOrchestrator 输入格式转换为直接输入格式
@@ -500,11 +521,28 @@ export class DataSupplementSkill
   private async performSearches(queries: string[]): Promise<SearchResult[]> {
     const allResults: SearchResult[] = [];
 
+    // ★ 通过 ToolRegistry 调用 web-search 工具
+    const webSearchTool = this.toolRegistry?.tryGet("web-search");
+    if (!webSearchTool) {
+      this.logger.warn("[performSearches] web-search tool not available");
+      return [];
+    }
+
     for (const query of queries) {
       try {
-        const response = await this.searchService.search(query, 3);
-        if (response.success && response.results.length > 0) {
-          allResults.push(...response.results);
+        const toolResult = await webSearchTool.execute(
+          { query, numResults: 3 },
+          this.createToolContext("web-search"),
+        );
+
+        if (toolResult.success && toolResult.data) {
+          const searchData = toolResult.data as {
+            results: SearchResult[];
+            success: boolean;
+          };
+          if (searchData.success && searchData.results?.length > 0) {
+            allResults.push(...searchData.results);
+          }
         }
       } catch (error) {
         this.logger.warn(

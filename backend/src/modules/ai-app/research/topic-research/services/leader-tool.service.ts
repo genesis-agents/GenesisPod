@@ -3,6 +3,8 @@
  *
  * 给 Leader 提供工具调用能力，让 Leader 可以主动获取最新数据
  *
+ * ★ 架构重构：通过 ToolRegistry 调用工具，不再直接调用 SearchService
+ *
  * 核心功能:
  * 1. Leader 可以主动搜索获取最新信息
  * 2. Leader 可以验证数据的时效性和准确性
@@ -15,7 +17,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AIEngineFacade } from "@/modules/ai-engine/facade";
-import { SearchService } from "@/modules/ai-engine/search/search.service";
+import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 import { AIModelType } from "@prisma/client";
 import {
   getCurrentDateString,
@@ -34,6 +36,7 @@ export interface LeaderSearchContext {
   topicDescription?: string;
   dimensionName: string;
   searchTimeRange?: string;
+  userId?: string;
 }
 
 /**
@@ -68,21 +71,23 @@ export class LeaderToolService {
 
   constructor(
     private readonly aiFacade: AIEngineFacade,
-    private readonly searchService: SearchService,
+    private readonly toolRegistry: ToolRegistry,
     private readonly capabilityResolver: AICapabilityResolver,
   ) {}
 
   /**
    * Leader 主动搜索获取最新数据
-   * ★ 让 Leader 在规划前了解当前最新状态
+   * ★ 通过 ToolRegistry 调用 web-search 工具，不再直接调用 SearchService
    *
    * @param context 搜索上下文
    * @param queries 搜索查询列表（可选，Leader 也可以自己生成）
+   * @param capabilityContext AI 能力上下文（用于检查工具可用性）
    * @returns 搜索结果
    */
   async searchLatestData(
     context: LeaderSearchContext,
     queries?: string[],
+    capabilityContext?: AICapabilityContext,
   ): Promise<LeaderSearchResult[]> {
     const currentDate = getCurrentDateString();
     const freshnessRequirement = getFreshnessRequirementDescription(
@@ -93,6 +98,28 @@ export class LeaderToolService {
       `[searchLatestData] Leader searching for dimension: ${context.dimensionName}`,
     );
 
+    // ★ 检查 web-search 工具是否可用
+    if (capabilityContext) {
+      const availableTools =
+        await this.capabilityResolver.resolveToolsForAgent(capabilityContext);
+
+      if (!availableTools.includes("web-search")) {
+        this.logger.warn(
+          "[searchLatestData] web-search tool not available in capability context",
+        );
+        return [];
+      }
+    }
+
+    // ★ 通过 ToolRegistry 获取 web-search 工具
+    const webSearchTool = this.toolRegistry.tryGet("web-search");
+    if (!webSearchTool) {
+      this.logger.error(
+        "[searchLatestData] web-search tool not registered in ToolRegistry",
+      );
+      return [];
+    }
+
     // 如果没有提供查询，让 Leader 生成查询
     const searchQueries =
       queries && queries.length > 0
@@ -101,9 +128,6 @@ export class LeaderToolService {
 
     const results: LeaderSearchResult[] = [];
 
-    // 获取时间范围对应的 since 日期
-    const since = this.getTimeRangeDate(context.searchTimeRange);
-
     for (const query of searchQueries.slice(0, 3)) {
       // 最多 3 个查询
       const enhancedQuery = this.enhanceQueryWithTimestamp(query);
@@ -111,25 +135,48 @@ export class LeaderToolService {
       this.logger.debug(`[searchLatestData] Searching: "${enhancedQuery}"`);
 
       try {
-        const searchResponse = await this.searchService.search(
-          enhancedQuery,
-          5,
-          since,
+        // ★ 通过工具系统执行搜索
+        const toolResult = await webSearchTool.execute(
+          {
+            query: enhancedQuery,
+            numResults: 5,
+          },
+          {
+            executionId: `leader-search-${Date.now()}`,
+            toolId: "web-search",
+            taskId: capabilityContext?.agentId || "leader",
+            userId: context.userId || capabilityContext?.userId,
+            callerType: "agent",
+            createdAt: new Date(),
+          },
         );
 
-        if (searchResponse.success && searchResponse.results) {
-          results.push({
-            query: enhancedQuery,
-            results: searchResponse.results.map((r) => ({
-              title: r.title,
-              url: r.url,
-              snippet: r.content,
-              publishedAt: r.publishedDate,
-              domain: r.domain,
-            })),
-            currentDate,
-            freshnessRequirement,
-          });
+        if (toolResult.success && toolResult.data) {
+          const searchData = toolResult.data as {
+            results: Array<{
+              title: string;
+              url: string;
+              content: string;
+              publishedDate?: string;
+              domain?: string;
+            }>;
+            success: boolean;
+          };
+
+          if (searchData.success && searchData.results) {
+            results.push({
+              query: enhancedQuery,
+              results: searchData.results.map((r) => ({
+                title: r.title,
+                url: r.url,
+                snippet: r.content,
+                publishedAt: r.publishedDate,
+                domain: r.domain,
+              })),
+              currentDate,
+              freshnessRequirement,
+            });
+          }
         }
       } catch (error) {
         this.logger.warn(
@@ -141,6 +188,24 @@ export class LeaderToolService {
     this.logger.log(
       `[searchLatestData] Completed ${results.length} searches with ${results.reduce((sum, r) => sum + r.results.length, 0)} total results`,
     );
+
+    // ★ 记录工具使用日志
+    if (capabilityContext && results.length > 0) {
+      this.capabilityResolver
+        .logCapabilityUsage({
+          capabilityType: "tool",
+          capabilityId: "web-search",
+          agentId: capabilityContext.agentId,
+          userId: capabilityContext.userId,
+          teamId: capabilityContext.teamId,
+          success: true,
+        })
+        .catch((error) => {
+          this.logger.warn(
+            `Failed to log capability usage: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        });
+    }
 
     return results;
   }
@@ -185,33 +250,18 @@ export class LeaderToolService {
       }
     }
 
-    // 先进行搜索获取最新数据
-    const searchResults = await this.searchLatestData(context);
+    // 先进行搜索获取最新数据（传递 capabilityContext）
+    const searchResults = await this.searchLatestData(
+      context,
+      undefined,
+      capabilityContext,
+    );
 
     // 生成上下文摘要
     const contextSummary = await this.summarizeSearchResults(
       context,
       searchResults,
     );
-
-    // ★ 记录工具使用日志（fire-and-forget 模式，不阻塞主流程）
-    if (capabilityContext && searchResults.length > 0) {
-      this.capabilityResolver
-        .logCapabilityUsage({
-          capabilityType: "tool",
-          capabilityId: "web-search",
-          agentId: capabilityContext.agentId,
-          userId: capabilityContext.userId,
-          teamId: capabilityContext.teamId,
-          success: true,
-          duration: undefined, // SearchService 不返回 duration，可在未来优化
-        })
-        .catch((error) => {
-          this.logger.warn(
-            `Failed to log capability usage: ${error instanceof Error ? error.message : String(error)}`,
-          );
-        });
-    }
 
     return {
       currentDate,
@@ -273,10 +323,10 @@ ${context.dimensionName}
       this.logger.warn(
         `[generateSearchQueries] Failed to generate queries: ${error}`,
       );
-      const currentYear = new Date().getFullYear();
+      const year = new Date().getFullYear();
       return [
-        `${context.topicName} ${context.dimensionName} ${currentYear}`,
-        `${context.dimensionName} latest trends ${currentYear}`,
+        `${context.topicName} ${context.dimensionName} ${year}`,
+        `${context.dimensionName} latest trends ${year}`,
       ];
     }
   }
@@ -293,33 +343,6 @@ ${context.dimensionName}
     }
 
     return `${query} ${currentYear}`;
-  }
-
-  /**
-   * 根据时间范围配置获取起始日期
-   */
-  private getTimeRangeDate(searchTimeRange?: string): Date | undefined {
-    if (!searchTimeRange || searchTimeRange === "all") {
-      // 默认最近 6 个月
-      return new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
-    }
-
-    const now = new Date();
-
-    switch (searchTimeRange) {
-      case "6months":
-        return new Date(now.getTime() - 6 * 30 * 24 * 60 * 60 * 1000);
-      case "1year":
-        return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-      case "2years":
-        return new Date(now.getTime() - 2 * 365 * 24 * 60 * 60 * 1000);
-      case "3years":
-        return new Date(now.getTime() - 3 * 365 * 24 * 60 * 60 * 1000);
-      case "5years":
-        return new Date(now.getTime() - 5 * 365 * 24 * 60 * 60 * 1000);
-      default:
-        return new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
-    }
   }
 
   /**

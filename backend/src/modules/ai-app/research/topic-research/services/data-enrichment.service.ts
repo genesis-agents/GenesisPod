@@ -14,7 +14,9 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { SearchService } from "@/modules/ai-engine/search/search.service";
+// ★ 架构重构：通过 ToolRegistry 调用工具，不再直接调用 SearchService
+import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
+import type { ToolContext } from "@/modules/ai-engine/tools/abstractions/tool.interface";
 import type { DataSourceResult } from "../types/data-source.types";
 import type { EnrichedResult } from "../types/research.types";
 
@@ -48,7 +50,20 @@ export interface DataEnrichmentOptions {
 export class DataEnrichmentService {
   private readonly logger = new Logger(DataEnrichmentService.name);
 
-  constructor(private readonly searchService: SearchService) {}
+  // ★ 架构重构：通过 ToolRegistry 调用工具，不再直接依赖 SearchService
+  constructor(private readonly toolRegistry: ToolRegistry) {}
+
+  /**
+   * 创建工具执行上下文
+   */
+  private createToolContext(toolId: string): ToolContext {
+    return {
+      executionId: `${toolId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      toolId,
+      createdAt: new Date(),
+      callerType: "orchestrator",
+    };
+  }
 
   /**
    * 增强搜索结果：抓取 Top N 条结果的完整网页内容
@@ -157,54 +172,89 @@ export class DataEnrichmentService {
 
   /**
    * 增强单个搜索结果
+   * ★ 架构重构：通过 ToolRegistry 调用 web-scraper 工具
    */
   private async enrichSingleResult(
     result: DataSourceResult,
     maxContentLength: number,
     fetchTimeout: number,
   ): Promise<EnrichedResult> {
+    // ★ 通过 ToolRegistry 获取 web-scraper 工具
+    const webScraperTool = this.toolRegistry.tryGet("web-scraper");
+    if (!webScraperTool) {
+      this.logger.warn(
+        "[enrichSingleResult] web-scraper tool not registered, falling back to snippet",
+      );
+      return {
+        ...result,
+        fullContent: result.snippet || null,
+        contentSource: "snippet",
+        urlValid: false,
+      };
+    }
+
     try {
       // 使用 Promise.race 实现超时控制
-      const fetchPromise = this.searchService.fetchUrlContent(result.url);
-      const timeoutPromise = new Promise<{ success: false; error: string }>(
-        (resolve) =>
-          setTimeout(
-            () => resolve({ success: false, error: "Fetch timeout" }),
-            fetchTimeout,
-          ),
+      const fetchPromise = webScraperTool.execute(
+        {
+          url: result.url,
+          maxLength: maxContentLength,
+        },
+        this.createToolContext("web-scraper"),
+      );
+      const timeoutPromise = new Promise<{
+        success: false;
+        error: { message: string };
+      }>((resolve) =>
+        setTimeout(
+          () =>
+            resolve({ success: false, error: { message: "Fetch timeout" } }),
+          fetchTimeout,
+        ),
       );
 
-      const fetchResult = await Promise.race([fetchPromise, timeoutPromise]);
+      const toolResult = await Promise.race([fetchPromise, timeoutPromise]);
 
-      if (fetchResult.success && fetchResult.content) {
-        // 成功抓取到内容
-        const truncatedContent = fetchResult.content.slice(0, maxContentLength);
-        // ★ 检查内容是否有意义（非错误页面）
-        const isValid = this.isContentMeaningful(truncatedContent);
-
-        this.logger.debug(
-          `Fetched ${truncatedContent.length} chars from ${result.domain || result.url}, valid: ${isValid}`,
-        );
-
-        return {
-          ...result,
-          fullContent: truncatedContent,
-          contentSource: "fetched",
-          urlValid: isValid,
+      if (toolResult.success && toolResult.data) {
+        const scraperData = toolResult.data as {
+          content: string;
+          title?: string;
+          success: boolean;
         };
-      } else {
-        // 抓取失败，降级到 snippet
-        this.logger.debug(
-          `Failed to fetch ${result.url}: ${fetchResult.error || "unknown error"}, falling back to snippet`,
-        );
 
-        return {
-          ...result,
-          fullContent: result.snippet || null,
-          contentSource: "snippet",
-          urlValid: false, // 抓取失败，标记为无效
-        };
+        if (scraperData.success && scraperData.content) {
+          // 成功抓取到内容
+          const truncatedContent = scraperData.content.slice(
+            0,
+            maxContentLength,
+          );
+          // ★ 检查内容是否有意义（非错误页面）
+          const isValid = this.isContentMeaningful(truncatedContent);
+
+          this.logger.debug(
+            `Fetched ${truncatedContent.length} chars from ${result.domain || result.url}, valid: ${isValid}`,
+          );
+
+          return {
+            ...result,
+            fullContent: truncatedContent,
+            contentSource: "fetched",
+            urlValid: isValid,
+          };
+        }
       }
+
+      // 抓取失败，降级到 snippet
+      this.logger.debug(
+        `Failed to fetch ${result.url}: ${toolResult.error?.message || "unknown error"}, falling back to snippet`,
+      );
+
+      return {
+        ...result,
+        fullContent: result.snippet || null,
+        contentSource: "snippet",
+        urlValid: false, // 抓取失败，标记为无效
+      };
     } catch (error) {
       // 异常情况，降级到 snippet
       this.logger.warn(
@@ -284,43 +334,70 @@ export class DataEnrichmentService {
 
   /**
    * 验证单个 URL
+   * ★ 架构重构：通过 ToolRegistry 调用 web-scraper 工具
    */
   private async validateSingleUrl(
     url: string,
     timeout: number,
   ): Promise<UrlValidationResult> {
+    // ★ 通过 ToolRegistry 获取 web-scraper 工具
+    const webScraperTool = this.toolRegistry.tryGet("web-scraper");
+    if (!webScraperTool) {
+      return {
+        url,
+        isValid: false,
+        hasContent: false,
+        errorReason: "web-scraper tool not available",
+      };
+    }
+
     try {
-      // 使用 fetchUrlContent 来验证 URL
-      // 如果能成功获取内容，说明 URL 有效
-      const fetchPromise = this.searchService.fetchUrlContent(url);
-      const timeoutPromise = new Promise<{ success: false; error: string }>(
-        (resolve) =>
-          setTimeout(
-            () => resolve({ success: false, error: "Validation timeout" }),
-            timeout,
-          ),
+      // 使用 web-scraper 工具来验证 URL
+      const fetchPromise = webScraperTool.execute(
+        { url, maxLength: 1000 }, // 验证时只需少量内容
+        this.createToolContext("web-scraper"),
+      );
+      const timeoutPromise = new Promise<{
+        success: false;
+        error: { message: string };
+      }>((resolve) =>
+        setTimeout(
+          () =>
+            resolve({
+              success: false,
+              error: { message: "Validation timeout" },
+            }),
+          timeout,
+        ),
       );
 
-      const result = await Promise.race([fetchPromise, timeoutPromise]);
+      const toolResult = await Promise.race([fetchPromise, timeoutPromise]);
 
-      if (result.success && result.content) {
-        // 检查内容是否有意义（不是错误页面）
-        const hasContent = this.isContentMeaningful(result.content);
+      if (toolResult.success && toolResult.data) {
+        const scraperData = toolResult.data as {
+          content: string;
+          success: boolean;
+        };
 
-        return {
-          url,
-          isValid: true,
-          hasContent,
-          statusCode: 200,
-        };
-      } else {
-        return {
-          url,
-          isValid: false,
-          hasContent: false,
-          errorReason: result.error || "Failed to fetch content",
-        };
+        if (scraperData.success && scraperData.content) {
+          // 检查内容是否有意义（不是错误页面）
+          const hasContent = this.isContentMeaningful(scraperData.content);
+
+          return {
+            url,
+            isValid: true,
+            hasContent,
+            statusCode: 200,
+          };
+        }
       }
+
+      return {
+        url,
+        isValid: false,
+        hasContent: false,
+        errorReason: toolResult.error?.message || "Failed to fetch content",
+      };
     } catch (error) {
       return {
         url,

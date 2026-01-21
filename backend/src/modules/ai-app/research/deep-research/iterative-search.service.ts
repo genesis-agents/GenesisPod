@@ -1,5 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { SearchService } from "../../../ai-engine/search/search.service";
+// ★ 架构重构：通过 ToolRegistry 调用工具，不再直接调用 SearchService
+import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
+import type { ToolContext } from "@/modules/ai-engine/tools/abstractions/tool.interface";
 import {
   ResearchPlan,
   ResearchPlanStep,
@@ -15,10 +17,24 @@ import {
 export class IterativeSearchService {
   private readonly logger = new Logger(IterativeSearchService.name);
 
-  constructor(private readonly searchService: SearchService) {}
+  // ★ 架构重构：通过 ToolRegistry 调用工具，不再直接依赖 SearchService
+  constructor(private readonly toolRegistry: ToolRegistry) {}
+
+  /**
+   * 创建工具执行上下文
+   */
+  private createToolContext(toolId: string): ToolContext {
+    return {
+      executionId: `${toolId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      toolId,
+      createdAt: new Date(),
+      callerType: "orchestrator",
+    };
+  }
 
   /**
    * 执行单个搜索步骤
+   * ★ 架构重构：通过 ToolRegistry 调用 web-search 工具
    */
   async executeStep(
     step: ResearchPlanStep,
@@ -32,18 +48,80 @@ export class IterativeSearchService {
     // 根据步骤类型调整搜索查询
     const searchQuery = this.enhanceQuery(step.query, step.type);
 
-    try {
-      const response = await this.searchService.search(searchQuery, maxResults);
+    // ★ 通过 ToolRegistry 获取 web-search 工具
+    const webSearchTool = this.toolRegistry.tryGet("web-search");
+    if (!webSearchTool) {
+      this.logger.error(
+        `[executeStep] web-search tool not registered in ToolRegistry`,
+      );
+      return {
+        round,
+        stepId: step.id,
+        query: step.query,
+        resultsCount: 0,
+        sources: [],
+        timestamp: new Date(),
+      };
+    }
 
-      const sources: SearchSource[] = response.results.map((result, index) => ({
-        id: `source_${round}_${index}`,
-        title: result.title,
-        url: result.url,
-        snippet: result.content,
-        domain: result.domain || this.extractDomain(result.url),
-        publishedDate: result.publishedDate,
-        relevanceScore: result.score || 0.5,
-      }));
+    try {
+      // ★ 通过工具系统执行搜索
+      const toolResult = await webSearchTool.execute(
+        {
+          query: searchQuery,
+          numResults: maxResults,
+        },
+        this.createToolContext("web-search"),
+      );
+
+      if (!toolResult.success || !toolResult.data) {
+        this.logger.warn(
+          `[executeStep] Search failed: ${toolResult.error?.message || "unknown error"}`,
+        );
+        return {
+          round,
+          stepId: step.id,
+          query: step.query,
+          resultsCount: 0,
+          sources: [],
+          timestamp: new Date(),
+        };
+      }
+
+      const searchData = toolResult.data as {
+        results: Array<{
+          title: string;
+          url: string;
+          content: string;
+          domain?: string;
+          publishedDate?: string;
+          score?: number;
+        }>;
+        success: boolean;
+      };
+
+      if (!searchData.success || !searchData.results) {
+        return {
+          round,
+          stepId: step.id,
+          query: step.query,
+          resultsCount: 0,
+          sources: [],
+          timestamp: new Date(),
+        };
+      }
+
+      const sources: SearchSource[] = searchData.results.map(
+        (result, index) => ({
+          id: `source_${round}_${index}`,
+          title: result.title,
+          url: result.url,
+          snippet: result.content,
+          domain: result.domain || this.extractDomain(result.url),
+          publishedDate: result.publishedDate,
+          relevanceScore: result.score || 0.5,
+        }),
+      );
 
       const searchRound: SearchRound = {
         round,

@@ -16,6 +16,10 @@ import {
 } from "@prisma/client";
 import { CreateSecretDto } from "./dto/create-secret.dto";
 import { UpdateSecretDto } from "./dto/update-secret.dto";
+import {
+  SYSTEM_SETTING_TO_SECRET_MAPPING,
+  normalizeSecretName,
+} from "./secret-name-mapping";
 import * as crypto from "crypto";
 
 export interface SecretListItem {
@@ -186,7 +190,12 @@ export class SecretsService {
   }
 
   async getValueInternal(name: string): Promise<string | null> {
-    const secret = await this.prisma.secret.findUnique({ where: { name } });
+    // ★ 规范化 Secret 名称，支持旧格式（SCREAMING_SNAKE_CASE）自动转换
+    const normalizedName = normalizeSecretName(name);
+
+    const secret = await this.prisma.secret.findUnique({
+      where: { name: normalizedName },
+    });
     if (!secret || !secret.isActive || secret.deletedAt) return null;
     if (secret.expiresAt && secret.expiresAt < new Date()) return null;
 
@@ -413,78 +422,9 @@ export class SecretsService {
       }
     }
 
-    const settingKeys = [
-      {
-        key: "search.perplexity.apiKey",
-        name: "perplexity-api-key",
-        displayName: "Perplexity API Key",
-        category: "SEARCH",
-        provider: "Perplexity",
-      },
-      {
-        key: "search.tavily.apiKey",
-        name: "tavily-search-api-key",
-        displayName: "Tavily Search API Key",
-        category: "SEARCH",
-        provider: "Tavily",
-      },
-      {
-        key: "search.serper.apiKey",
-        name: "serper-api-key",
-        displayName: "Serper API Key",
-        category: "SEARCH",
-        provider: "Serper",
-      },
-      {
-        key: "extraction.jina.apiKey",
-        name: "jina-api-key",
-        displayName: "Jina Reader API Key",
-        category: "EXTRACTION",
-        provider: "Jina",
-      },
-      {
-        key: "extraction.firecrawl.apiKey",
-        name: "firecrawl-api-key",
-        displayName: "Firecrawl API Key",
-        category: "EXTRACTION",
-        provider: "Firecrawl",
-      },
-      {
-        key: "extraction.tavily.apiKey",
-        name: "tavily-extraction-api-key",
-        displayName: "Tavily Extraction API Key",
-        category: "EXTRACTION",
-        provider: "Tavily",
-      },
-      {
-        key: "youtube.supadata.apiKey",
-        name: "supadata-api-key",
-        displayName: "Supadata YouTube API Key",
-        category: "YOUTUBE",
-        provider: "Supadata",
-      },
-      {
-        key: "tts.elevenlabs.apiKey",
-        name: "elevenlabs-api-key",
-        displayName: "ElevenLabs TTS API Key",
-        category: "TTS",
-        provider: "ElevenLabs",
-      },
-      {
-        key: "tts.google.apiKey",
-        name: "google-tts-api-key",
-        displayName: "Google Cloud TTS API Key",
-        category: "TTS",
-        provider: "Google",
-      },
-      {
-        key: "skillsmp.apiKey",
-        name: "skillsmp-api-key",
-        displayName: "SkillsMP API Key",
-        category: "SKILLSMP",
-        provider: "SkillsMP",
-      },
-    ];
+    // ★ 使用统一的 SYSTEM_SETTING_TO_SECRET_MAPPING
+    // 不允许在此硬编码映射关系
+    const settingKeys = SYSTEM_SETTING_TO_SECRET_MAPPING;
 
     for (const setting of settingKeys) {
       try {

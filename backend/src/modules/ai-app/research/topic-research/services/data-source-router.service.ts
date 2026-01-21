@@ -1,8 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import {
-  SearchService,
-  SearchResult,
-} from "@/modules/ai-engine/search/search.service";
+// ★ 架构重构：移除 SearchService 直接导入，通过 ToolRegistry 调用
 // TODO: 后续添加其他数据源服务导入
 // import { ArxivService } from '../../../ingestion/crawlers/arxiv.service';
 // import { GithubService } from '../../../ingestion/crawlers/github.service';
@@ -14,6 +11,9 @@ import {
   CongressGovTool,
   WhiteHouseNewsTool,
 } from "@/modules/ai-engine/tools/categories/information/policy";
+
+// ★ 架构重构：通过 ToolRegistry 调用工具
+import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
 
 import {
   DataSourceType,
@@ -40,7 +40,8 @@ export class DataSourceRouterService {
   private readonly logger = new Logger(DataSourceRouterService.name);
 
   constructor(
-    private readonly searchService: SearchService, // AI Engine Search (Web)
+    // ★ 架构重构：通过 ToolRegistry 调用工具，不再直接依赖 SearchService
+    private readonly toolRegistry: ToolRegistry,
     // TODO: 后续添加其他数据源服务
     // private readonly arxivService: ArxivService,          // Ingestion Crawlers (Academic) - TODO: implement searchOnly mode
     // private readonly githubService: GithubService,        // Ingestion Crawlers (GitHub) - TODO: implement searchOnly mode
@@ -426,7 +427,8 @@ export class DataSourceRouterService {
   }
 
   /**
-   * Web 搜索 (使用 SearchService)
+   * Web 搜索
+   * ★ 架构重构：通过 ToolRegistry 调用 web-search 工具，不再直接调用 SearchService
    */
   private async searchWeb(
     query: string,
@@ -434,36 +436,79 @@ export class DataSourceRouterService {
     since?: Date,
   ): Promise<DataSourceResult[]> {
     this.logger.log(
-      `[searchWeb] Calling SearchService with query="${query}", maxResults=${maxResults}, since=${since?.toISOString() || "none"}`,
+      `[searchWeb] Calling web-search tool via ToolRegistry with query="${query}", maxResults=${maxResults}, since=${since?.toISOString() || "none"}`,
     );
 
-    const response = await this.searchService.search(query, maxResults, since);
-
-    this.logger.log(
-      `[searchWeb] SearchService response: success=${response.success}, provider=${response.provider || "unknown"}, results=${response.results?.length || 0}, error=${response.error || "none"}`,
-    );
-
-    if (!response.success || !response.results) {
-      this.logger.warn(
-        `[searchWeb] Search failed or no results: ${response.error || "unknown error"}`,
+    // ★ 通过 ToolRegistry 获取 web-search 工具
+    const webSearchTool = this.toolRegistry.tryGet("web-search");
+    if (!webSearchTool) {
+      this.logger.error(
+        "[searchWeb] web-search tool not registered in ToolRegistry",
       );
       return [];
     }
 
-    return response.results.map((result: SearchResult) => ({
-      sourceType: DataSourceType.WEB,
-      title: result.title,
-      url: result.url,
-      snippet: result.content,
-      domain: result.domain,
-      publishedAt: result.publishedDate
-        ? new Date(result.publishedDate)
-        : undefined,
-      metadata: {
-        score: result.score,
-        rawScore: result.rawScore,
-      },
-    }));
+    try {
+      // ★ 通过工具系统执行搜索
+      const toolResult = await webSearchTool.execute(
+        {
+          query,
+          numResults: maxResults,
+          // since 参数由工具内部处理（如果支持的话）
+        },
+        this.createToolContext("web-search"),
+      );
+
+      if (!toolResult.success || !toolResult.data) {
+        this.logger.warn(
+          `[searchWeb] Search failed or no results: ${toolResult.error?.message || "unknown error"}`,
+        );
+        return [];
+      }
+
+      const searchData = toolResult.data as {
+        results: Array<{
+          title: string;
+          url: string;
+          content: string;
+          publishedDate?: string;
+          domain?: string;
+          score?: number;
+          rawScore?: number;
+        }>;
+        success: boolean;
+        provider?: string;
+      };
+
+      this.logger.log(
+        `[searchWeb] Tool response: success=${searchData.success}, provider=${searchData.provider || "unknown"}, results=${searchData.results?.length || 0}`,
+      );
+
+      if (!searchData.success || !searchData.results) {
+        this.logger.warn("[searchWeb] Tool returned unsuccessful result");
+        return [];
+      }
+
+      return searchData.results.map((result) => ({
+        sourceType: DataSourceType.WEB,
+        title: result.title,
+        url: result.url,
+        snippet: result.content,
+        domain: result.domain,
+        publishedAt: result.publishedDate
+          ? new Date(result.publishedDate)
+          : undefined,
+        metadata: {
+          score: result.score,
+          rawScore: result.rawScore,
+        },
+      }));
+    } catch (error) {
+      this.logger.error(
+        `[searchWeb] Tool execution failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return [];
+    }
   }
 
   /**

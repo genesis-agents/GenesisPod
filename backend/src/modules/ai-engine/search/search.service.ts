@@ -8,6 +8,7 @@ import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { SecretsService } from "../../core/secrets/secrets.service";
+import { SECRET_NAMES } from "../../core/secrets/secret-name-mapping";
 import * as duckDuckScrape from "duck-duck-scrape";
 import * as crypto from "crypto";
 
@@ -485,13 +486,15 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       : [];
 
     try {
-      // ★ M1 Fix: 从 Secret Manager 获取 API Keys
+      // ★ 使用统一的 SECRET_NAMES 映射获取 API Keys
+      // 不允许在此硬编码 Secret 名称
       const tavilyKeys: string[] = [];
       const serperKeys: string[] = [];
 
-      // 尝试从 Secret Manager 获取 Tavily Key
-      const tavilySecret =
-        await this.secretsService.getValueInternal("TAVILY_API_KEY");
+      // 从 Secret Manager 获取 Tavily Key（使用统一映射）
+      const tavilySecret = await this.secretsService.getValueInternal(
+        SECRET_NAMES.TAVILY_SEARCH,
+      );
       if (tavilySecret) {
         // 支持逗号分隔的多个 Key
         const keys = tavilySecret
@@ -501,9 +504,10 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         tavilyKeys.push(...keys);
       }
 
-      // 尝试从 Secret Manager 获取 Serper Key
-      const serperSecret =
-        await this.secretsService.getValueInternal("SERPER_API_KEY");
+      // 从 Secret Manager 获取 Serper Key（使用统一映射）
+      const serperSecret = await this.secretsService.getValueInternal(
+        SECRET_NAMES.SERPER,
+      );
       if (serperSecret) {
         const keys = serperSecret
           .split(",")

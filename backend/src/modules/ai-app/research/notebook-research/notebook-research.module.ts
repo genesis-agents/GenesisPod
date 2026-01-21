@@ -13,6 +13,8 @@ import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
 import { StorageModule } from "../../../core/storage/storage.module";
 import { CreditsModule } from "../../../credits/credits.module";
+// ★ 依赖反转: 导入 token 用于提供 ITTSService 实现
+import { TTS_SERVICE } from "../../../ai-engine/tools/abstractions/generation-services.interface";
 
 // 控制器和服务 (保持原名以兼容现有 API 路由)
 import { AiStudioController } from "./ai-studio.controller";
@@ -39,6 +41,11 @@ import { FileParserService } from "./services/file-parser.service";
     AiStudioOutputService,
     AiStudioTTSService,
     FileParserService,
+    // ★ 依赖反转: 提供 ITTSService 接口实现
+    {
+      provide: TTS_SERVICE,
+      useExisting: AiStudioTTSService,
+    },
   ],
   exports: [
     AiStudioService,
@@ -46,6 +53,8 @@ import { FileParserService } from "./services/file-parser.service";
     AiStudioChatService,
     AiStudioOutputService,
     AiStudioTTSService,
+    // ★ 依赖反转: 导出接口实现供 AiEngineModule 使用
+    TTS_SERVICE,
   ],
 })
 export class NotebookResearchModule {}

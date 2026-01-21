@@ -14,7 +14,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AIEngineFacade } from "../ai-engine.facade";
 import { AiChatService } from "../../llm/services/ai-chat.service";
-import { SearchService } from "../../search/search.service";
+import { ToolRegistry } from "../../tools/registry/tool-registry";
 import { CircuitBreakerService } from "../../orchestration/services/circuit-breaker.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AIModelType } from "@prisma/client";
@@ -22,7 +22,7 @@ import { AIModelType } from "@prisma/client";
 describe("AIEngineFacade", () => {
   let facade: AIEngineFacade;
   let mockAiChatService: any;
-  let mockSearchService: any;
+  let mockToolRegistry: any;
   let mockCircuitBreaker: any;
   let mockPrisma: any;
 
@@ -37,14 +37,33 @@ describe("AIEngineFacade", () => {
       isReasoningModel: jest.fn().mockReturnValue(false),
     };
 
-    mockSearchService = {
-      search: jest.fn().mockResolvedValue({
-        success: true,
-        results: [
-          { title: "Test", url: "https://test.com", content: "Test content" },
-        ],
+    // ★ 架构重构：使用 ToolRegistry mock
+    mockToolRegistry = {
+      tryGet: jest.fn().mockImplementation((toolId: string) => {
+        if (toolId === "web-search") {
+          return {
+            execute: jest.fn().mockResolvedValue({
+              success: true,
+              data: {
+                success: true,
+                results: [
+                  {
+                    title: "Test",
+                    url: "https://test.com",
+                    content: "Test content",
+                  },
+                ],
+              },
+            }),
+          };
+        }
+        return null;
       }),
-      formatResultsForContext: jest.fn().mockReturnValue("Formatted results"),
+      getByCategory: jest.fn().mockReturnValue([]),
+      getEnabled: jest.fn().mockReturnValue([]),
+      isAvailable: jest.fn().mockReturnValue(true),
+      getFunctionDefinitions: jest.fn().mockReturnValue([]),
+      getAllFunctionDefinitions: jest.fn().mockReturnValue([]),
     };
 
     mockCircuitBreaker = {
@@ -89,7 +108,7 @@ describe("AIEngineFacade", () => {
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: mockAiChatService },
-        { provide: SearchService, useValue: mockSearchService },
+        { provide: ToolRegistry, useValue: mockToolRegistry },
         { provide: CircuitBreakerService, useValue: mockCircuitBreaker },
         { provide: PrismaService, useValue: mockPrisma },
       ],
@@ -232,7 +251,7 @@ describe("AIEngineFacade", () => {
   });
 
   describe("search", () => {
-    it("should call SearchService and return results", async () => {
+    it("should call ToolRegistry web-search and return results", async () => {
       const result = await facade.search({
         query: "test query",
         maxResults: 5,
@@ -240,7 +259,7 @@ describe("AIEngineFacade", () => {
 
       expect(result.success).toBe(true);
       expect(result.results).toHaveLength(1);
-      expect(mockSearchService.search).toHaveBeenCalledWith("test query", 5);
+      expect(mockToolRegistry.tryGet).toHaveBeenCalledWith("web-search");
     });
   });
 
@@ -262,7 +281,7 @@ describe("AIEngineFacade", () => {
         sources: [{ type: "search", content: "test query" }],
       });
 
-      expect(mockSearchService.search).toHaveBeenCalled();
+      expect(mockToolRegistry.tryGet).toHaveBeenCalledWith("web-search");
     });
   });
 
@@ -339,12 +358,14 @@ describe("AIEngineFacade", () => {
   });
 
   describe("formatSearchResultsForContext", () => {
-    it("should call SearchService formatter", () => {
-      facade.formatSearchResultsForContext([
+    it("should format search results for context", () => {
+      const result = facade.formatSearchResultsForContext([
         { title: "Test", url: "https://test.com", content: "Content" },
       ]);
 
-      expect(mockSearchService.formatResultsForContext).toHaveBeenCalled();
+      expect(result).toContain("Test");
+      expect(result).toContain("https://test.com");
+      expect(result).toContain("Content");
     });
   });
 });
@@ -352,7 +373,6 @@ describe("AIEngineFacade", () => {
 describe("AIEngineFacade without optional dependencies", () => {
   let facade: AIEngineFacade;
   let mockAiChatService: any;
-  let mockSearchService: any;
 
   beforeEach(async () => {
     mockAiChatService = {
@@ -366,17 +386,11 @@ describe("AIEngineFacade without optional dependencies", () => {
       isReasoningModel: jest.fn().mockReturnValue(false),
     };
 
-    mockSearchService = {
-      search: jest.fn().mockResolvedValue({ success: true, results: [] }),
-      formatResultsForContext: jest.fn().mockReturnValue(""),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AIEngineFacade,
         { provide: AiChatService, useValue: mockAiChatService },
-        { provide: SearchService, useValue: mockSearchService },
-        // No CircuitBreakerService, PrismaService, etc.
+        // No ToolRegistry, CircuitBreakerService, PrismaService, etc.
       ],
     }).compile();
 

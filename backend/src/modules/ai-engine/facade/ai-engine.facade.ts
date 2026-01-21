@@ -12,7 +12,8 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../llm/services/ai-chat.service";
-import { SearchService } from "../search/search.service";
+// ★ 架构重构：通过 ToolRegistry 调用搜索工具
+import type { ToolContext } from "../tools/abstractions/tool.interface";
 import {
   TeamsService,
   CreateMissionDto,
@@ -88,7 +89,7 @@ export class AIEngineFacade {
 
   constructor(
     private readonly aiChatService: AiChatService,
-    private readonly searchService: SearchService,
+    // ★ 架构重构：移除 SearchService 直接依赖，通过 ToolRegistry 调用
     @Optional() private readonly circuitBreaker?: CircuitBreakerService,
     @Optional() private readonly prisma?: PrismaService,
     @Optional() private readonly teamsService?: TeamsService,
@@ -650,31 +651,78 @@ export class AIEngineFacade {
   // ==================== 搜索能力 ====================
 
   /**
+   * 创建工具执行上下文
+   */
+  private createToolContext(toolId: string): ToolContext {
+    return {
+      executionId: `${toolId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      toolId,
+      createdAt: new Date(),
+      callerType: "orchestrator",
+    };
+  }
+
+  /**
    * 智能搜索
+   * ★ 架构重构：优先使用 ToolRegistry，向后兼容 SearchService
    */
   async search(request: SearchRequest): Promise<SearchResponse> {
     this.logger.debug(
       `[search] query="${request.query}", maxResults=${request.maxResults}`,
     );
 
-    const result = await this.searchService.search(
-      request.query,
-      request.maxResults || 5,
-    );
+    // ★ 优先通过 ToolRegistry 调用 web-search 工具
+    const webSearchTool = this.toolRegistry?.tryGet("web-search");
+    if (webSearchTool) {
+      try {
+        const toolResult = await webSearchTool.execute(
+          { query: request.query, numResults: request.maxResults || 5 },
+          this.createToolContext("web-search"),
+        );
 
-    const items: SearchResultItem[] = result.results.map((r) => ({
-      title: r.title,
-      url: r.url,
-      content: r.content,
-      score: r.score,
-      publishedDate: r.publishedDate,
-      domain: r.domain,
-    }));
+        if (toolResult.success && toolResult.data) {
+          const searchData = toolResult.data as {
+            results: Array<{
+              title: string;
+              url: string;
+              content: string;
+              score?: number;
+              publishedDate?: string;
+              domain?: string;
+            }>;
+            success: boolean;
+            error?: string;
+          };
 
+          const items: SearchResultItem[] = (searchData.results || []).map(
+            (r) => ({
+              title: r.title,
+              url: r.url,
+              content: r.content,
+              score: r.score,
+              publishedDate: r.publishedDate,
+              domain: r.domain,
+            }),
+          );
+
+          return {
+            success: searchData.success,
+            results: items,
+            error: searchData.error,
+          };
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[search] ToolRegistry search failed, falling back to SearchService: ${error}`,
+        );
+      }
+    }
+
+    // ★ ToolRegistry 不可用时返回错误
     return {
-      success: result.success,
-      results: items,
-      error: result.error,
+      success: false,
+      results: [],
+      error: "Search tool not available via ToolRegistry",
     };
   }
 
@@ -682,16 +730,11 @@ export class AIEngineFacade {
    * 格式化搜索结果为上下文
    */
   formatSearchResultsForContext(results: SearchResultItem[]): string {
-    return this.searchService.formatResultsForContext(
-      results.map((r) => ({
-        title: r.title,
-        url: r.url,
-        content: r.content,
-        score: r.score,
-        publishedDate: r.publishedDate,
-        domain: r.domain,
-      })),
-    );
+    return results
+      .map(
+        (r, i) => `[${i + 1}] **${r.title}**\n${r.content}\nSource: ${r.url}`,
+      )
+      .join("\n\n");
   }
 
   // ==================== 团队协作能力 ====================

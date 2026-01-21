@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { EXTERNAL_TOOL_SECRET_MAPPING } from "../secrets/secret-name-mapping";
 
 /**
  * MCP Tool 类型定义
@@ -28,6 +29,9 @@ interface ExternalToolDefinition {
 /**
  * External Tools 预定义列表
  * 这些是外部 API 服务，需要配置 API 密钥
+ *
+ * ★ secretKeyName 使用统一的 EXTERNAL_TOOL_SECRET_MAPPING
+ *   不允许在此硬编码 Secret 名称
  */
 const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
   // Web Search
@@ -36,21 +40,21 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     name: "Perplexity",
     category: "Web Search",
     url: "https://perplexity.ai",
-    secretKeyName: "PERPLEXITY_API_KEY",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING.perplexity,
   },
   {
     id: "tavily",
     name: "Tavily",
     category: "Web Search",
     url: "https://tavily.com",
-    secretKeyName: "TAVILY_API_KEY",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING.tavily,
   },
   {
     id: "serper",
     name: "Serper",
     category: "Web Search",
     url: "https://serper.dev",
-    secretKeyName: "SERPER_API_KEY",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING.serper,
   },
   {
     id: "duckduckgo",
@@ -66,21 +70,21 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     category: "Content Extraction",
     url: "https://jina.ai/reader",
     freeQuota: "1M tokens/month",
-    secretKeyName: "JINA_API_KEY",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING.jina,
   },
   {
     id: "firecrawl",
     name: "Firecrawl",
     category: "Content Extraction",
     url: "https://firecrawl.dev",
-    secretKeyName: "FIRECRAWL_API_KEY",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING.firecrawl,
   },
   {
     id: "tavilyExtract",
     name: "Tavily Extract",
     category: "Content Extraction",
     url: "https://tavily.com",
-    secretKeyName: "TAVILY_API_KEY",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING.tavilyExtract,
   },
   // YouTube
   {
@@ -89,7 +93,7 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     category: "YouTube",
     url: "https://supadata.ai",
     freeQuota: "100/month",
-    secretKeyName: "SUPADATA_API_KEY",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING.supadata,
   },
   // TTS
   {
@@ -98,7 +102,7 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     category: "TTS",
     url: "https://elevenlabs.io",
     freeQuota: "10,000 chars/month",
-    secretKeyName: "ELEVENLABS_API_KEY",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING.elevenlabs,
   },
   {
     id: "googleTts",
@@ -106,7 +110,7 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     category: "TTS",
     url: "https://cloud.google.com/text-to-speech",
     freeQuota: "4M chars/month",
-    secretKeyName: "GOOGLE_TTS_API_KEY",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING.googleTts,
   },
   // Skills Marketplace
   {
@@ -115,7 +119,7 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     category: "Skills",
     url: "https://skillsmp.com",
     freeQuota: "Basic search free",
-    secretKeyName: "SKILLSMP_API_KEY",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING.skillsmp,
   },
   // Policy Research
   {
@@ -131,7 +135,7 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
     category: "Policy Research",
     url: "https://api.congress.gov",
     freeQuota: "5,000 requests/hour",
-    secretKeyName: "CONGRESS_API_KEY",
+    secretKeyName: EXTERNAL_TOOL_SECRET_MAPPING["congress-gov"],
   },
   {
     id: "whitehouse-news",

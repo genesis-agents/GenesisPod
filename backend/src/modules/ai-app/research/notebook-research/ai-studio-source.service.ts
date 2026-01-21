@@ -6,7 +6,9 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { InputJsonValue } from "@prisma/client/runtime/library";
-import { SearchService } from "../../../ai-engine/search/search.service";
+// ★ 架构重构：通过 ToolRegistry 调用工具，不再直接调用 SearchService
+import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
+import type { ToolContext } from "@/modules/ai-engine/tools/abstractions/tool.interface";
 import { AddSourceDto, SearchSourcesDto } from "./dto";
 import { FileParserService } from "./services/file-parser.service";
 
@@ -14,11 +16,24 @@ import { FileParserService } from "./services/file-parser.service";
 export class AiStudioSourceService {
   private readonly logger = new Logger(AiStudioSourceService.name);
 
+  // ★ 架构重构：通过 ToolRegistry 调用工具，不再直接依赖 SearchService
   constructor(
     private readonly prisma: PrismaService,
-    private readonly searchService: SearchService,
+    private readonly toolRegistry: ToolRegistry,
     private readonly fileParserService: FileParserService,
   ) {}
+
+  /**
+   * 创建工具执行上下文
+   */
+  private createToolContext(toolId: string): ToolContext {
+    return {
+      executionId: `${toolId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      toolId,
+      createdAt: new Date(),
+      callerType: "orchestrator",
+    };
+  }
 
   /**
    * Add a source to a project (with deduplication)
@@ -563,23 +578,56 @@ export class AiStudioSourceService {
 
   /**
    * Search web using Tavily/Serper
+   * ★ 架构重构：通过 ToolRegistry 调用 web-search 工具
    */
   private async searchWeb(query: string, limit: number): Promise<any[]> {
-    const webResults = await this.searchService.search(query, limit);
-    if (!webResults.success || !webResults.results.length) {
+    // ★ 通过 ToolRegistry 获取 web-search 工具
+    const webSearchTool = this.toolRegistry.tryGet("web-search");
+    if (!webSearchTool) {
+      this.logger.warn("[searchWeb] web-search tool not registered");
       return [];
     }
 
-    this.logger.log(`Web search returned ${webResults.results.length} results`);
-    return webResults.results.map((r) => ({
-      id: null,
-      title: r.title,
-      abstract: r.content,
-      sourceUrl: r.url,
-      source: "web",
-      sourceType: "web",
-      score: r.score,
-    }));
+    try {
+      const toolResult = await webSearchTool.execute(
+        { query, numResults: limit },
+        this.createToolContext("web-search"),
+      );
+
+      if (!toolResult.success || !toolResult.data) {
+        return [];
+      }
+
+      const searchData = toolResult.data as {
+        results: Array<{
+          title: string;
+          url: string;
+          content: string;
+          score?: number;
+        }>;
+        success: boolean;
+      };
+
+      if (!searchData.success || !searchData.results?.length) {
+        return [];
+      }
+
+      this.logger.log(
+        `Web search returned ${searchData.results.length} results`,
+      );
+      return searchData.results.map((r) => ({
+        id: null,
+        title: r.title,
+        abstract: r.content,
+        sourceUrl: r.url,
+        source: "web",
+        sourceType: "web",
+        score: r.score,
+      }));
+    } catch (error) {
+      this.logger.error(`[searchWeb] Tool execution failed: ${error}`);
+      return [];
+    }
   }
 
   /**
@@ -626,28 +674,61 @@ export class AiStudioSourceService {
 
   /**
    * Search news sources using web search with news-focused keywords
+   * ★ 架构重构：通过 ToolRegistry 调用 web-search 工具
    */
   private async searchNews(query: string, limit: number): Promise<any[]> {
-    // Add news-related terms to improve news results
-    const newsQuery = `${query} news latest update announcement`;
-    const webResults = await this.searchService.search(newsQuery, limit);
-    if (!webResults.success || !webResults.results.length) {
+    // ★ 通过 ToolRegistry 获取 web-search 工具
+    const webSearchTool = this.toolRegistry.tryGet("web-search");
+    if (!webSearchTool) {
+      this.logger.warn("[searchNews] web-search tool not registered");
       return [];
     }
 
-    this.logger.log(
-      `News search returned ${webResults.results.length} results`,
-    );
-    return webResults.results.map((r) => ({
-      id: null,
-      title: r.title,
-      abstract: r.content,
-      sourceUrl: r.url,
-      source: "news",
-      sourceType: "news",
-      score: r.score,
-      publishedDate: r.publishedDate,
-    }));
+    // Add news-related terms to improve news results
+    const newsQuery = `${query} news latest update announcement`;
+
+    try {
+      const toolResult = await webSearchTool.execute(
+        { query: newsQuery, numResults: limit },
+        this.createToolContext("web-search"),
+      );
+
+      if (!toolResult.success || !toolResult.data) {
+        return [];
+      }
+
+      const searchData = toolResult.data as {
+        results: Array<{
+          title: string;
+          url: string;
+          content: string;
+          score?: number;
+          publishedDate?: string;
+        }>;
+        success: boolean;
+      };
+
+      if (!searchData.success || !searchData.results?.length) {
+        return [];
+      }
+
+      this.logger.log(
+        `News search returned ${searchData.results.length} results`,
+      );
+      return searchData.results.map((r) => ({
+        id: null,
+        title: r.title,
+        abstract: r.content,
+        sourceUrl: r.url,
+        source: "news",
+        sourceType: "news",
+        score: r.score,
+        publishedDate: r.publishedDate,
+      }));
+    } catch (error) {
+      this.logger.error(`[searchNews] Tool execution failed: ${error}`);
+      return [];
+    }
   }
 
   /**
