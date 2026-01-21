@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from '@/lib/i18n';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 import {
   CheckCircle,
   XCircle,
@@ -25,10 +27,19 @@ import {
   MessageSquare,
   Zap,
   Cloud,
+  Key,
+  Link2,
 } from 'lucide-react';
 
 // ============ 预置 MCP 服务器列表 ============
 // 这些是知名的、常用的 MCP 服务器，用户可以一键添加
+
+interface EnvVarRequirement {
+  name: string;
+  description: string;
+  required: boolean;
+  secretCategory?: string; // Secret Manager 中的分类，便于用户选择
+}
 
 interface PresetMCPServer {
   serverId: string;
@@ -40,6 +51,7 @@ interface PresetMCPServer {
   icon: React.ComponentType<{ className?: string }>;
   category: 'search' | 'dev' | 'productivity' | 'data' | 'communication';
   officialUrl?: string;
+  requiredEnvVars?: EnvVarRequirement[]; // 需要的环境变量
 }
 
 const PRESET_MCP_SERVERS: PresetMCPServer[] = [
@@ -55,6 +67,14 @@ const PRESET_MCP_SERVERS: PresetMCPServer[] = [
     icon: Search,
     category: 'search',
     officialUrl: 'https://github.com/anthropics/mcp-servers',
+    requiredEnvVars: [
+      {
+        name: 'BRAVE_API_KEY',
+        description: 'Brave Search API Key',
+        required: true,
+        secretCategory: 'SEARCH',
+      },
+    ],
   },
   {
     serverId: 'duckduckgo-search',
@@ -66,6 +86,7 @@ const PRESET_MCP_SERVERS: PresetMCPServer[] = [
     icon: Globe,
     category: 'search',
     officialUrl: 'https://github.com/anthropics/mcp-servers',
+    // 无需环境变量
   },
   {
     serverId: 'google-search',
@@ -77,6 +98,20 @@ const PRESET_MCP_SERVERS: PresetMCPServer[] = [
     icon: Search,
     category: 'search',
     officialUrl: 'https://github.com/anthropics/mcp-servers',
+    requiredEnvVars: [
+      {
+        name: 'GOOGLE_API_KEY',
+        description: 'Google API Key',
+        required: true,
+        secretCategory: 'SEARCH',
+      },
+      {
+        name: 'GOOGLE_CSE_ID',
+        description: 'Google Custom Search Engine ID',
+        required: true,
+        secretCategory: 'SEARCH',
+      },
+    ],
   },
   // 开发工具类
   {
@@ -89,6 +124,14 @@ const PRESET_MCP_SERVERS: PresetMCPServer[] = [
     icon: Github,
     category: 'dev',
     officialUrl: 'https://github.com/anthropics/mcp-servers',
+    requiredEnvVars: [
+      {
+        name: 'GITHUB_TOKEN',
+        description: 'GitHub Personal Access Token',
+        required: true,
+        secretCategory: 'DEV_TOOLS',
+      },
+    ],
   },
   {
     serverId: 'gitlab',
@@ -99,6 +142,20 @@ const PRESET_MCP_SERVERS: PresetMCPServer[] = [
     args: ['-y', '@anthropics/mcp-server-gitlab'],
     icon: Code,
     category: 'dev',
+    requiredEnvVars: [
+      {
+        name: 'GITLAB_TOKEN',
+        description: 'GitLab Personal Access Token',
+        required: true,
+        secretCategory: 'DEV_TOOLS',
+      },
+      {
+        name: 'GITLAB_URL',
+        description: 'GitLab Instance URL (optional for gitlab.com)',
+        required: false,
+        secretCategory: 'DEV_TOOLS',
+      },
+    ],
   },
   {
     serverId: 'filesystem',
@@ -110,6 +167,7 @@ const PRESET_MCP_SERVERS: PresetMCPServer[] = [
     icon: FileText,
     category: 'dev',
     officialUrl: 'https://github.com/anthropics/mcp-servers',
+    // 无需环境变量
   },
   // 数据类
   {
@@ -122,6 +180,13 @@ const PRESET_MCP_SERVERS: PresetMCPServer[] = [
     icon: Database,
     category: 'data',
     officialUrl: 'https://github.com/anthropics/mcp-servers',
+    requiredEnvVars: [
+      {
+        name: 'SQLITE_DB_PATH',
+        description: 'Path to SQLite database file',
+        required: true,
+      },
+    ],
   },
   {
     serverId: 'postgres',
@@ -133,6 +198,14 @@ const PRESET_MCP_SERVERS: PresetMCPServer[] = [
     icon: Database,
     category: 'data',
     officialUrl: 'https://github.com/anthropics/mcp-servers',
+    requiredEnvVars: [
+      {
+        name: 'POSTGRES_URL',
+        description: 'PostgreSQL connection URL',
+        required: true,
+        secretCategory: 'DATA',
+      },
+    ],
   },
   // 生产力工具
   {
@@ -145,6 +218,7 @@ const PRESET_MCP_SERVERS: PresetMCPServer[] = [
     icon: Zap,
     category: 'productivity',
     officialUrl: 'https://github.com/anthropics/mcp-servers',
+    // 无需环境变量
   },
   {
     serverId: 'puppeteer',
@@ -156,6 +230,7 @@ const PRESET_MCP_SERVERS: PresetMCPServer[] = [
     icon: Globe,
     category: 'productivity',
     officialUrl: 'https://github.com/anthropics/mcp-servers',
+    // 无需环境变量
   },
   {
     serverId: 'fetch',
@@ -167,6 +242,7 @@ const PRESET_MCP_SERVERS: PresetMCPServer[] = [
     icon: Cloud,
     category: 'productivity',
     officialUrl: 'https://github.com/anthropics/mcp-servers',
+    // 无需环境变量
   },
   // 通信工具
   {
@@ -179,6 +255,20 @@ const PRESET_MCP_SERVERS: PresetMCPServer[] = [
     icon: MessageSquare,
     category: 'communication',
     officialUrl: 'https://github.com/anthropics/mcp-servers',
+    requiredEnvVars: [
+      {
+        name: 'SLACK_BOT_TOKEN',
+        description: 'Slack Bot OAuth Token (xoxb-...)',
+        required: true,
+        secretCategory: 'COMMUNICATION',
+      },
+      {
+        name: 'SLACK_TEAM_ID',
+        description: 'Slack Workspace/Team ID',
+        required: false,
+        secretCategory: 'COMMUNICATION',
+      },
+    ],
   },
   {
     serverId: 'google-drive',
@@ -189,8 +279,28 @@ const PRESET_MCP_SERVERS: PresetMCPServer[] = [
     args: ['-y', '@anthropics/mcp-server-google-drive'],
     icon: Cloud,
     category: 'productivity',
+    requiredEnvVars: [
+      {
+        name: 'GOOGLE_CLIENT_ID',
+        description: 'Google OAuth Client ID',
+        required: true,
+        secretCategory: 'GOOGLE',
+      },
+      {
+        name: 'GOOGLE_CLIENT_SECRET',
+        description: 'Google OAuth Client Secret',
+        required: true,
+        secretCategory: 'GOOGLE',
+      },
+    ],
   },
 ];
+
+// 获取预置服务器的环境变量需求
+export function getPresetEnvVars(serverId: string): EnvVarRequirement[] {
+  const preset = PRESET_MCP_SERVERS.find((p) => p.serverId === serverId);
+  return preset?.requiredEnvVars || [];
+}
 
 const CATEGORY_LABELS: Record<string, string> = {
   search: 'Search Engines',
@@ -216,6 +326,7 @@ export interface MCPServer {
     name: string;
     description?: string;
   }>;
+  env?: Record<string, string>; // Environment variables configuration
 }
 
 interface MCPMarketplaceTabProps {
@@ -226,6 +337,10 @@ interface MCPMarketplaceTabProps {
   onConnect: (serverId: string) => Promise<void>;
   onDisconnect: (serverId: string) => Promise<void>;
   onDelete: (serverId: string) => Promise<void>;
+  onConfigure?: (
+    serverId: string,
+    env: Record<string, string>
+  ) => Promise<void>;
   connectingServer: string | null;
   deletingServer: string | null;
   loading?: boolean;
@@ -237,12 +352,16 @@ export default function MCPMarketplaceTab({
   onConnect,
   onDisconnect,
   onDelete,
+  onConfigure,
   connectingServer,
   deletingServer,
   loading = false,
 }: MCPMarketplaceTabProps) {
   const { t } = useTranslation();
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [configuringServer, setConfiguringServer] = useState<MCPServer | null>(
+    null
+  );
 
   if (loading) {
     return (
@@ -405,6 +524,7 @@ export default function MCPMarketplaceTab({
                 onConnect={onConnect}
                 onDisconnect={onDisconnect}
                 onDelete={onDelete}
+                onConfigure={() => setConfiguringServer(server)}
                 connecting={connectingServer === server.serverId}
                 deleting={deletingServer === server.serverId}
               />
@@ -423,6 +543,18 @@ export default function MCPMarketplaceTab({
           }}
         />
       )}
+
+      {/* Configure Environment Variables Dialog */}
+      {configuringServer && onConfigure && (
+        <ConfigureEnvDialog
+          server={configuringServer}
+          onClose={() => setConfiguringServer(null)}
+          onSave={async (env) => {
+            await onConfigure(configuringServer.serverId, env);
+            setConfiguringServer(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -432,6 +564,7 @@ function MCPServerRow({
   onConnect,
   onDisconnect,
   onDelete,
+  onConfigure,
   connecting,
   deleting,
 }: {
@@ -439,11 +572,19 @@ function MCPServerRow({
   onConnect: (serverId: string) => void;
   onDisconnect: (serverId: string) => void;
   onDelete: (serverId: string) => void;
+  onConfigure: () => void;
   connecting: boolean;
   deleting: boolean;
 }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
+
+  // Get required env vars for this server
+  const requiredEnvVars = getPresetEnvVars(server.serverId);
+  const hasEnvVars = requiredEnvVars.length > 0;
+  const isConfigured =
+    hasEnvVars &&
+    requiredEnvVars.every((env) => server.env?.[env.name] || !env.required);
 
   const statusColor = server.connected
     ? 'bg-green-100 text-green-700'
@@ -530,6 +671,31 @@ function MCPServerRow({
               )}
               <span className="hidden sm:inline">
                 {t('admin.tools.mcp.connect')}
+              </span>
+            </button>
+          )}
+          {/* Configure button - show for servers with env vars */}
+          {hasEnvVars && (
+            <button
+              onClick={onConfigure}
+              className={`flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                isConfigured
+                  ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                  : 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
+              }`}
+              title={
+                isConfigured
+                  ? 'Configure environment variables'
+                  : 'Configuration required'
+              }
+            >
+              {isConfigured ? (
+                <Settings className="h-4 w-4" />
+              ) : (
+                <AlertTriangle className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">
+                {isConfigured ? 'Configure' : 'Setup Required'}
               </span>
             </button>
           )}
@@ -795,6 +961,269 @@ function AddMCPServerDialog({
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               {t('admin.tools.mcp.addServer')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ============ 环境变量配置对话框 ============
+interface SecretOption {
+  name: string;
+  displayName: string;
+  category: string;
+}
+
+function ConfigureEnvDialog({
+  server,
+  onClose,
+  onSave,
+}: {
+  server: MCPServer;
+  onClose: () => void;
+  onSave: (env: Record<string, string>) => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const [saving, setSaving] = useState(false);
+  const [secrets, setSecrets] = useState<SecretOption[]>([]);
+  const [loadingSecrets, setLoadingSecrets] = useState(true);
+
+  // Get required env vars for this server
+  const requiredEnvVars = getPresetEnvVars(server.serverId);
+
+  // Initialize env values from server config
+  const [envValues, setEnvValues] = useState<
+    Record<string, { type: 'secret' | 'manual'; value: string }>
+  >(() => {
+    const initial: Record<
+      string,
+      { type: 'secret' | 'manual'; value: string }
+    > = {};
+    requiredEnvVars.forEach((env) => {
+      const currentValue = server.env?.[env.name] || '';
+      // Check if current value looks like a secret reference (starts with $secret:)
+      if (currentValue.startsWith('$secret:')) {
+        initial[env.name] = {
+          type: 'secret',
+          value: currentValue.replace('$secret:', ''),
+        };
+      } else {
+        initial[env.name] = { type: 'manual', value: currentValue };
+      }
+    });
+    return initial;
+  });
+
+  // Fetch available secrets from backend
+  useEffect(() => {
+    const fetchSecrets = async () => {
+      try {
+        const response = await fetch(`${config.apiUrl}/admin/secrets`, {
+          headers: getAuthHeader(),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setSecrets(
+            data.map(
+              (s: { name: string; displayName: string; category: string }) => ({
+                name: s.name,
+                displayName: s.displayName,
+                category: s.category,
+              })
+            )
+          );
+        }
+      } catch (error) {
+        console.error('Failed to fetch secrets:', error);
+      } finally {
+        setLoadingSecrets(false);
+      }
+    };
+    fetchSecrets();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      // Convert to final env format
+      const env: Record<string, string> = {};
+      Object.entries(envValues).forEach(([key, envConfig]) => {
+        if (envConfig.value) {
+          env[key] =
+            envConfig.type === 'secret'
+              ? `$secret:${envConfig.value}`
+              : envConfig.value;
+        }
+      });
+      await onSave(env);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateEnvValue = (
+    envName: string,
+    type: 'secret' | 'manual',
+    value: string
+  ) => {
+    setEnvValues((prev) => ({
+      ...prev,
+      [envName]: { type, value },
+    }));
+  };
+
+  // Filter secrets by category for better UX
+  const getSecretsForEnv = (envVar: EnvVarRequirement) => {
+    if (envVar.secretCategory) {
+      const filtered = secrets.filter(
+        (s) => s.category === envVar.secretCategory
+      );
+      if (filtered.length > 0) return filtered;
+    }
+    return secrets;
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Configure {server.name}
+            </h3>
+            <p className="mt-0.5 text-sm text-gray-500">
+              Set environment variables required by this MCP server
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="space-y-4">
+            {requiredEnvVars.map((envVar) => {
+              const currentConfig = envValues[envVar.name] || {
+                type: 'manual',
+                value: '',
+              };
+              const availableSecrets = getSecretsForEnv(envVar);
+
+              return (
+                <div
+                  key={envVar.name}
+                  className="rounded-lg border border-gray-200 p-4"
+                >
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Key className="h-4 w-4 text-gray-500" />
+                      <span className="font-medium text-gray-900">
+                        {envVar.name}
+                      </span>
+                      {envVar.required && (
+                        <span className="text-xs text-red-500">*</span>
+                      )}
+                    </div>
+                    {!envVar.required && (
+                      <span className="text-xs text-gray-400">Optional</span>
+                    )}
+                  </div>
+                  <p className="mb-3 text-sm text-gray-500">
+                    {envVar.description}
+                  </p>
+
+                  {/* Type selector */}
+                  <div className="mb-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateEnvValue(envVar.name, 'secret', '')}
+                      className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                        currentConfig.type === 'secret'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Link2 className="h-3 w-3" />
+                      Use Secret
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateEnvValue(envVar.name, 'manual', '')}
+                      className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                        currentConfig.type === 'manual'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Key className="h-3 w-3" />
+                      Manual Input
+                    </button>
+                  </div>
+
+                  {/* Value input */}
+                  {currentConfig.type === 'secret' ? (
+                    <select
+                      value={currentConfig.value}
+                      onChange={(e) =>
+                        updateEnvValue(envVar.name, 'secret', e.target.value)
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      disabled={loadingSecrets}
+                    >
+                      <option value="">
+                        {loadingSecrets
+                          ? 'Loading secrets...'
+                          : 'Select a secret'}
+                      </option>
+                      {availableSecrets.map((secret) => (
+                        <option key={secret.name} value={secret.name}>
+                          {secret.displayName} ({secret.name})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="password"
+                      value={currentConfig.value}
+                      onChange={(e) =>
+                        updateEnvValue(envVar.name, 'manual', e.target.value)
+                      }
+                      placeholder={`Enter ${envVar.name}`}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {requiredEnvVars.length === 0 && (
+            <p className="py-8 text-center text-sm text-gray-500">
+              This server does not require any environment variables.
+            </p>
+          )}
+
+          <div className="mt-6 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save Configuration
             </button>
           </div>
         </form>

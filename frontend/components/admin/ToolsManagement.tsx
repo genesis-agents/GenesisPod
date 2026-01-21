@@ -347,6 +347,7 @@ export default function ToolsManagement() {
         autoConnect: server.autoConnect,
         toolCount: server.toolCount,
         tools: server.tools,
+        env: server.env,
       }));
       setMcpServers(mcpServersDataMapped);
     } catch (err) {
@@ -737,6 +738,46 @@ export default function ToolsManagement() {
     }
   };
 
+  const handleConfigureMCPServer = async (
+    serverId: string,
+    env: Record<string, string>
+  ) => {
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/admin/ai/mcp-servers/${serverId}/env`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          },
+          body: JSON.stringify({ env }),
+        }
+      );
+
+      if (res.ok) {
+        setMessage({
+          type: 'success',
+          text: 'Environment variables configured successfully',
+        });
+        // Update local state
+        setMcpServers((prev) =>
+          prev.map((s) => (s.serverId === serverId ? { ...s, env } : s))
+        );
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        const error = await res.json().catch(() => ({}));
+        setMessage({
+          type: 'error',
+          text: error.message || 'Failed to configure server',
+        });
+      }
+    } catch (err) {
+      logger.error('Failed to configure MCP server:', err);
+      setMessage({ type: 'error', text: 'Failed to configure server' });
+    }
+  };
+
   // Statistics
   const stats = useMemo(() => {
     const builtinConfigured = builtinTools.filter((t) => t.enabled).length;
@@ -908,6 +949,7 @@ export default function ToolsManagement() {
           onConnect={handleConnectMCPServer}
           onDisconnect={handleDisconnectMCPServer}
           onDelete={handleDeleteMCPServer}
+          onConfigure={handleConfigureMCPServer}
           connectingServer={connectingServer}
           deletingServer={deletingServer}
           loading={loading}

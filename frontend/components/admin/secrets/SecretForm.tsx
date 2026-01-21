@@ -16,6 +16,7 @@ const CATEGORY_OPTIONS: { value: SecretCategory; label: string }[] = [
   { value: 'YOUTUBE', label: 'YouTube' },
   { value: 'TTS', label: '语音合成' },
   { value: 'SKILLSMP', label: 'SkillsMP' },
+  { value: 'POLICY', label: '政策研究' },
   { value: 'OTHER', label: '其他' },
 ];
 

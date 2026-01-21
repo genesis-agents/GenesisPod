@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Delete,
   Param,
@@ -251,10 +252,23 @@ export class AIAdminController {
       args?: string[];
       url?: string;
       apiKey?: string;
+      env?: Record<string, string>;
     },
   ) {
     this.logger.log(`Admin: Updating MCP server ${serverId}`);
     return this.aiAdminService.updateMCPServer(serverId, body);
+  }
+
+  @Put("mcp-servers/:serverId/env")
+  @ApiOperation({ summary: "配置 MCP 服务器环境变量" })
+  @ApiParam({ name: "serverId", description: "服务器 ID" })
+  @ApiResponse({ status: 200, description: "成功配置环境变量" })
+  async configureMCPServerEnv(
+    @Param("serverId") serverId: string,
+    @Body() body: { env: Record<string, string> },
+  ) {
+    this.logger.log(`Admin: Configuring env for MCP server ${serverId}`);
+    return this.aiAdminService.updateMCPServerEnv(serverId, body.env);
   }
 
   @Post("mcp-servers/:serverId/connect")

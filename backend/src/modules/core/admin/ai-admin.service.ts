@@ -450,6 +450,10 @@ export class AIAdminService implements OnModuleInit {
           }
         }
 
+        // Extract env from metadata
+        const metadata = (config.metadata as Record<string, unknown>) || {};
+        const env = (metadata.env as Record<string, string>) || {};
+
         return {
           id: config.id,
           serverId: config.serverId,
@@ -463,6 +467,7 @@ export class AIAdminService implements OnModuleInit {
           autoConnect: config.autoConnect,
           connected: isConnected,
           tools,
+          env,
         };
       }),
     );
@@ -660,6 +665,33 @@ export class AIAdminService implements OnModuleInit {
     });
 
     this.logger.log(`Deleted MCP server: ${serverId}`);
+
+    return { success: true, serverId };
+  }
+
+  /**
+   * 更新 MCP 服务器环境变量配置
+   */
+  async updateMCPServerEnv(serverId: string, env: Record<string, string>) {
+    const existing = await this.prisma.mCPServerConfig.findUnique({
+      where: { serverId },
+      select: { metadata: true },
+    });
+
+    if (!existing) {
+      return { success: false, error: "Server not found" };
+    }
+
+    const currentMetadata =
+      (existing.metadata as Record<string, unknown>) || {};
+    const updatedMetadata = { ...currentMetadata, env };
+
+    await this.prisma.mCPServerConfig.update({
+      where: { serverId },
+      data: { metadata: updatedMetadata },
+    });
+
+    this.logger.log(`Updated env for MCP server: ${serverId}`);
 
     return { success: true, serverId };
   }
