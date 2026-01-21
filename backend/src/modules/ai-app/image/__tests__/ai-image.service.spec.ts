@@ -20,10 +20,9 @@ import { PromptEnhancementService } from "../generation/prompt-enhancement.servi
 import { ImageGenerationService } from "../generation/image-generation.service";
 import { ImageStorageService } from "../storage/storage.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import {
-  ContentExtractorService,
-  DataFetchingService,
-} from "../../../../common/content-processing";
+// 直接从具体文件导入，避免通过 barrel export 引发循环依赖
+import { ContentExtractorService } from "../../../../common/content-processing/content-extractor.service";
+import { DataFetchingService } from "../../../../common/content-processing/data-fetching.service";
 
 describe("AiImageService", () => {
   let service: AiImageService;

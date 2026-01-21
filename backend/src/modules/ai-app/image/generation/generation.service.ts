@@ -13,11 +13,12 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { Observable, Subject } from "rxjs";
+// 直接从具体文件导入，避免通过 barrel export 引发循环依赖
+import { ContentExtractorService } from "../../../../common/content-processing/content-extractor.service";
 import {
-  ContentExtractorService,
   DataFetchingService,
   DataFetchingResult,
-} from "../../../../common/content-processing";
+} from "../../../../common/content-processing/data-fetching.service";
 import { AIModelType } from "@prisma/client";
 import {
   ProcessingStep,

@@ -65,6 +65,16 @@ export interface MCPToolInfo {
 export class AICapabilityResolver {
   private readonly logger = new Logger(AICapabilityResolver.name);
 
+  /**
+   * 问题 #1 修复: 团队配置缓存
+   * 避免 resolveTokenBudget 每次调用都查询数据库
+   */
+  private readonly teamConfigCache = new Map<
+    string,
+    { metadata: Record<string, unknown> | null; timestamp: number }
+  >();
+  private readonly TEAM_CONFIG_CACHE_TTL = 60000; // 1分钟缓存
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly toolRegistry: ToolRegistry,
@@ -271,6 +281,7 @@ export class AICapabilityResolver {
 
   /**
    * A3 Fix: 将 MCP 工具转换为 FunctionDefinition 格式
+   * 问题 #2 修复: 改进异常处理和日志记录
    */
   private async getMCPToolFunctionDefinitions(
     mcpToolsInfo: MCPToolInfo[],
@@ -279,33 +290,48 @@ export class AICapabilityResolver {
   > {
     const definitions: import("../tools/abstractions/tool.interface").FunctionDefinition[] =
       [];
+    const skippedTools: string[] = [];
 
     // 从 MCP Manager 获取完整的工具定义
     for (const info of mcpToolsInfo) {
       try {
         const client = this.mcpManager.getClient(info.serverId);
         if (!client?.connected) {
+          skippedTools.push(
+            `${info.serverId}:${info.toolName} (not connected)`,
+          );
           continue;
         }
 
         const tools = await client.listTools();
         const tool = tools.find((t) => t.name === info.toolName);
 
-        if (tool) {
-          // 转换为 FunctionDefinition 格式
-          // 使用 serverId:toolName 作为唯一标识，避免与内置工具冲突
-          definitions.push({
-            name: `mcp_${info.serverId}_${tool.name}`,
-            description: tool.description || info.description || tool.name,
-            parameters:
-              tool.inputSchema as import("../tools/abstractions/tool.interface").JSONSchema,
-          });
+        if (!tool) {
+          skippedTools.push(`${info.serverId}:${info.toolName} (not found)`);
+          continue;
         }
+
+        // 转换为 FunctionDefinition 格式
+        // 使用 serverId:toolName 作为唯一标识，避免与内置工具冲突
+        definitions.push({
+          name: `mcp_${info.serverId}_${tool.name}`,
+          description: tool.description || info.description || tool.name,
+          parameters:
+            tool.inputSchema as import("../tools/abstractions/tool.interface").JSONSchema,
+        });
       } catch (error) {
+        skippedTools.push(`${info.serverId}:${info.toolName} (error)`);
         this.logger.warn(
           `Failed to get MCP tool definition for ${info.serverId}:${info.toolName}: ${(error as Error).message}`,
         );
       }
+    }
+
+    // 记录跳过的工具，便于排查问题
+    if (skippedTools.length > 0) {
+      this.logger.debug(
+        `[MCP] Skipped ${skippedTools.length} tools: ${skippedTools.join(", ")}`,
+      );
     }
 
     return definitions;
@@ -438,6 +464,7 @@ export class AICapabilityResolver {
   /**
    * ★ K4: 解析 Token 预算
    * 优先级：options > 用户配置 > 团队配置 > 默认值
+   * 问题 #1 修复: 使用缓存避免 N+1 查询
    */
   private async resolveTokenBudget(
     context: AICapabilityContext,
@@ -452,25 +479,14 @@ export class AICapabilityResolver {
       );
     }
 
-    // 2. 如果有团队，尝试从团队 metadata 获取
+    // 2. 如果有团队，尝试从缓存或数据库获取 metadata
     if (context.teamId) {
-      try {
-        const team = await this.prisma.aITeamTemplate.findUnique({
-          where: { id: context.teamId },
-          select: { metadata: true },
-        });
-
-        if (team?.metadata) {
-          const teamMetadata = team.metadata as Record<string, unknown>;
-          if (typeof teamMetadata.skillTokenBudget === "number") {
-            return Math.min(
-              teamMetadata.skillTokenBudget as number,
-              this.defaultTokenBudget.skillPromptMax,
-            );
-          }
-        }
-      } catch {
-        // 忽略错误，使用默认值
+      const teamMetadata = await this.getTeamMetadataCached(context.teamId);
+      if (teamMetadata && typeof teamMetadata.skillTokenBudget === "number") {
+        return Math.min(
+          teamMetadata.skillTokenBudget as number,
+          this.defaultTokenBudget.skillPromptMax,
+        );
       }
     }
 
@@ -484,6 +500,41 @@ export class AICapabilityResolver {
    */
   getTokenBudgetConfig(): TokenBudgetConfig {
     return { ...this.defaultTokenBudget };
+  }
+
+  /**
+   * 问题 #1 修复: 获取团队 metadata（带缓存）
+   * 避免频繁查询数据库
+   */
+  private async getTeamMetadataCached(
+    teamId: string,
+  ): Promise<Record<string, unknown> | null> {
+    // 检查缓存
+    const cached = this.teamConfigCache.get(teamId);
+    if (cached && Date.now() - cached.timestamp < this.TEAM_CONFIG_CACHE_TTL) {
+      return cached.metadata;
+    }
+
+    // 从数据库获取
+    try {
+      const team = await this.prisma.aITeamTemplate.findUnique({
+        where: { id: teamId },
+        select: { metadata: true },
+      });
+
+      const metadata = team?.metadata as Record<string, unknown> | null;
+
+      // 更新缓存
+      this.teamConfigCache.set(teamId, {
+        metadata,
+        timestamp: Date.now(),
+      });
+
+      return metadata;
+    } catch {
+      // 出错时返回 null，不缓存错误状态
+      return null;
+    }
   }
 
   /**
