@@ -27,7 +27,8 @@ import {
 import { AiTeamsService } from "./ai-teams.service";
 import { AiTeamsGateway } from "./ai-teams.gateway";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { AiEngineModule } from "../../ai-engine";
+// 直接从文件导入，避免 barrel export 循环依赖
+import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { CreditsModule } from "../../credits/credits.module";
 import {
   // AI 服务

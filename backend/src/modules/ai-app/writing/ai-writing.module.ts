@@ -3,7 +3,8 @@ import { ConfigModule } from "@nestjs/config";
 import { AiWritingController } from "./ai-writing.controller";
 import { AiWritingService } from "./ai-writing.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { AiEngineModule } from "../../ai-engine";
+// 直接从文件导入，避免 barrel export 循环依赖
+import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 
 // AI Engine Long Content (for long-form writing)
 import { LongContentModule } from "../../ai-engine/long-content";

@@ -3,7 +3,12 @@
  * 音频生成工具 (TTS) - 复用 AiStudioTTSService
  */
 
-import { Injectable } from "@nestjs/common";
+/**
+ * 注意: 使用 forwardRef 打破与 NotebookResearchModule 的循环依赖
+ * AiEngineModule ← AudioGenerationTool ← AiStudioTTSService ← NotebookResearchModule → AiEngineModule
+ */
+
+import { Injectable, Inject, forwardRef } from "@nestjs/common";
 import { BaseTool } from "../../base/base-tool";
 import {
   ToolContext,
@@ -196,7 +201,10 @@ export class AudioGenerationTool extends BaseTool<
     },
   };
 
-  constructor(private readonly ttsService: AiStudioTTSService) {
+  constructor(
+    @Inject(forwardRef(() => AiStudioTTSService))
+    private readonly ttsService: AiStudioTTSService,
+  ) {
     super();
     // defaultTimeout set in class property // 120 秒超时（TTS 生成可能较慢）
   }

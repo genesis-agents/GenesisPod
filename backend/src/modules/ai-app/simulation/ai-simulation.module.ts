@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { AiEngineModule } from "../../ai-engine";
+// 直接从文件导入，避免 barrel export 循环依赖
+import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { AiSimulationService } from "./ai-simulation.service";
 import { AiSimulationController } from "./ai-simulation.controller";
 import { AiSimulationEngineService } from "./ai-simulation.engine";

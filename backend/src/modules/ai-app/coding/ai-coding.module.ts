@@ -4,7 +4,8 @@ import { AiCodingController } from "./ai-coding.controller";
 import { AiCodingService } from "./ai-coding.service";
 import { AiCodingGateway } from "./ai-coding.gateway";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { AiEngineModule } from "../../ai-engine";
+// 直接从文件导入，避免 barrel export 循环依赖
+import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import {
   StandardsService,
   ComplianceService,

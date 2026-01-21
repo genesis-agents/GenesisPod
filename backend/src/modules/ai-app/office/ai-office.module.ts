@@ -2,7 +2,8 @@ import { Module } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { ConfigModule } from "@nestjs/config";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { AiEngineModule } from "../../ai-engine";
+// 直接从文件导入，避免 barrel export 循环依赖
+import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { AiImageModule } from "../image/ai-image.module";
 import { StorageModule } from "../../core/storage/storage.module";
 import { CreditsModule } from "../../credits/credits.module";
