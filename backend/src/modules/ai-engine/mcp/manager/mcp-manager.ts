@@ -39,6 +39,35 @@ export class MCPManager implements IMCPManager {
   }
 
   /**
+   * 更新服务器配置
+   * 如果服务器已连接，会先断开连接，更新配置后需要重新连接
+   */
+  async updateServerConfig(config: MCPServerConfig): Promise<void> {
+    const existingClient = this.clients.get(config.id);
+
+    // 如果有现有连接，先断开
+    if (existingClient?.connected) {
+      await existingClient.disconnect();
+      this.clients.delete(config.id);
+    }
+
+    // 更新配置
+    this.configs.set(config.id, config);
+    this.logger.log(`Updated MCP server config: ${config.name} (${config.id})`);
+  }
+
+  /**
+   * 注册或更新服务器配置
+   */
+  async registerOrUpdateServer(config: MCPServerConfig): Promise<void> {
+    if (this.configs.has(config.id)) {
+      await this.updateServerConfig(config);
+    } else {
+      this.registerServer(config);
+    }
+  }
+
+  /**
    * 注销服务器
    */
   async unregisterServer(serverId: string): Promise<void> {

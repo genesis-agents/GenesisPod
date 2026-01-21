@@ -279,15 +279,41 @@ export class AIAdminService implements OnModuleInit {
   /**
    * M2 Fix: 解析 MCP 服务器的环境变量
    * 支持从 Secret Manager 获取 API 密钥
+   * 支持从 metadata.env 读取用户配置的环境变量
    */
   private async resolveMCPServerEnv(server: {
     serverId: string;
     secretKey?: string | null;
     apiKey?: string | null;
+    metadata?: unknown;
   }): Promise<Record<string, string> | undefined> {
     const env: Record<string, string> = {};
 
-    // 优先使用 secretKey（新方式：从 Secret Manager 获取）
+    // 1. 从 metadata.env 读取用户配置的环境变量（Configure 对话框保存的）
+    const metadata = server.metadata as Record<string, unknown> | null;
+    const metadataEnv = (metadata?.env as Record<string, string>) || {};
+    for (const [key, value] of Object.entries(metadataEnv)) {
+      if (typeof value === "string" && value) {
+        // 检查是否是 secret 引用（$secret:SECRET_NAME 格式）
+        if (value.startsWith("$secret:")) {
+          const secretName = value.replace("$secret:", "");
+          const secretValue =
+            await this.secretsService.getValueInternal(secretName);
+          if (secretValue) {
+            env[key] = secretValue;
+          } else {
+            this.logger.warn(
+              `Secret "${secretName}" not found for env var ${key} in MCP server ${server.serverId}`,
+            );
+          }
+        } else {
+          // 直接使用值
+          env[key] = value;
+        }
+      }
+    }
+
+    // 2. 优先使用 secretKey（新方式：从 Secret Manager 获取）
     if (server.secretKey) {
       const apiKey = await this.secretsService.getValueInternal(
         server.secretKey,
@@ -304,7 +330,7 @@ export class AIAdminService implements OnModuleInit {
         );
       }
     }
-    // 兼容旧方式：直接使用 apiKey 字段（已弃用）
+    // 3. 兼容旧方式：直接使用 apiKey 字段（已弃用）
     else if (server.apiKey) {
       env["API_KEY"] = server.apiKey;
     }
@@ -1407,9 +1433,48 @@ export class AIAdminService implements OnModuleInit {
 
   /**
    * 连接 MCP 服务器
+   * 连接前会从数据库读取最新配置（包括 metadata.env 中的环境变量）
    */
   async connectMCPServer(serverId: string) {
     try {
+      // 从数据库获取最新的服务器配置
+      const dbServer = await this.prisma.mCPServerConfig.findUnique({
+        where: { serverId },
+      });
+
+      if (!dbServer) {
+        return { success: false, error: `Server ${serverId} not found` };
+      }
+
+      // 解析环境变量（包括 metadata.env）
+      const env = await this.resolveMCPServerEnv({
+        serverId: dbServer.serverId,
+        secretKey: dbServer.secretKey,
+        apiKey: dbServer.apiKey,
+        metadata: dbServer.metadata,
+      });
+
+      // 更新或注册服务器配置（确保使用最新的 env）
+      if (dbServer.transport === "stdio" && dbServer.command) {
+        await this.mcpManager.registerOrUpdateServer({
+          id: dbServer.serverId,
+          name: dbServer.name,
+          transport: "stdio",
+          command: dbServer.command,
+          args: dbServer.args || [],
+          env,
+        });
+      } else if (dbServer.transport === "sse" && dbServer.url) {
+        await this.mcpManager.registerOrUpdateServer({
+          id: dbServer.serverId,
+          name: dbServer.name,
+          transport: "http",
+          url: dbServer.url,
+          env,
+        });
+      }
+
+      // 连接
       await this.mcpManager.connect(serverId);
       this.logger.log(`Connected MCP server: ${serverId}`);
 
