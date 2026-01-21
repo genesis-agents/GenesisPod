@@ -161,6 +161,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
           },
         };
 
+      case "P2023":
+        // Inconsistent column data
+        return {
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: "数据格式不一致，请联系管理员修复",
+          code: "DATA_INCONSISTENCY",
+          details: {
+            field: meta?.column_name,
+            hint: "数据库中存在格式不正确的数据",
+          },
+        };
+
       default:
         this.logger.error(
           `Unhandled Prisma error: ${error.code}`,

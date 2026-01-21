@@ -42,10 +42,45 @@ export class PublishExecutorService {
   }
 
   async execute(contentId: string): Promise<PublishResult> {
-    const content = await this.db.socialContent.findUnique({
-      where: { id: contentId },
-      include: { connection: true },
-    });
+    let content;
+    try {
+      content = await this.db.socialContent.findUnique({
+        where: { id: contentId },
+        include: { connection: true },
+      });
+    } catch (error) {
+      // Handle Prisma P2023 (inconsistent column data) by fetching raw data
+      if (
+        error instanceof Error &&
+        error.message.includes("Inconsistent column data")
+      ) {
+        this.logger.warn(
+          `Data inconsistency detected for content ${contentId}, attempting raw query`,
+        );
+        // Try to fetch with raw query and fix the data
+        const rawContent = await this.db.$queryRaw`
+          SELECT id, user_id, connection_id, content_type, status, title, content
+          FROM social_contents WHERE id = ${contentId}
+        `;
+        if (Array.isArray(rawContent) && rawContent.length > 0) {
+          // Fix the corrupted record
+          await this.db.$executeRaw`
+            UPDATE social_contents
+            SET images = '[]'::jsonb, tags = '[]'::jsonb
+            WHERE id = ${contentId}
+            AND (images IS NULL OR tags IS NULL OR images::text = '' OR tags::text = '')
+          `;
+          // Retry the query
+          content = await this.db.socialContent.findUnique({
+            where: { id: contentId },
+            include: { connection: true },
+          });
+        }
+      }
+      if (!content) {
+        throw error;
+      }
+    }
 
     if (!content) {
       return { success: false, errorMessage: "内容不存在" };
