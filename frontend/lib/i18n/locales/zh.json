@@ -1821,6 +1821,26 @@
         "cancel": "取消",
         "save": "保存"
       },
+      "tabs": {
+        "builtin": "内置工具",
+        "external": "外部工具",
+        "mcp": "MCP 服务器"
+      },
+      "mcp": {
+        "addServer": "添加服务器",
+        "connect": "连接",
+        "disconnect": "断开",
+        "connected": "已连接",
+        "disconnected": "未连接",
+        "transport": "传输方式",
+        "command": "命令",
+        "args": "参数",
+        "url": "URL",
+        "autoConnect": "启动时自动连接",
+        "serverId": "服务器 ID",
+        "name": "名称",
+        "description": "描述"
+      },
       "providers": {
         "perplexity": {
           "description": "AI驱动的研究搜索引擎，提供实时信息和深度研究",
@@ -1902,6 +1922,7 @@
       "searchPlaceholder": "搜索技能...",
       "noSkillsFound": "未找到技能",
       "edit": "编辑",
+      "upload": "上传技能",
       "dependencies": "依赖",
       "requiredTools": "依赖工具",
       "requiredSkills": "依赖技能",
@@ -1912,6 +1933,20 @@
       "operationFailed": "操作失败",
       "saveSuccess": "技能配置已保存",
       "saveFailed": "保存失败",
+      "tabs": {
+        "local": "本地技能",
+        "marketplace": "技能市场"
+      },
+      "marketplace": {
+        "searchPlaceholder": "搜索市场技能...",
+        "noSkillsAvailable": "市场暂无可用技能",
+        "install": "安装",
+        "installed": "已安装",
+        "update": "更新",
+        "preview": "预览",
+        "installSuccess": "技能安装成功",
+        "installFailed": "技能安装失败"
+      },
       "layers": {
         "all": "全部技能",
         "understanding": "理解层",

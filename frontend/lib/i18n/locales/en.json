@@ -1819,6 +1819,26 @@
         "cancel": "Cancel",
         "save": "Save"
       },
+      "tabs": {
+        "builtin": "Built-in Tools",
+        "external": "External Tools",
+        "mcp": "MCP Servers"
+      },
+      "mcp": {
+        "addServer": "Add Server",
+        "connect": "Connect",
+        "disconnect": "Disconnect",
+        "connected": "Connected",
+        "disconnected": "Disconnected",
+        "transport": "Transport",
+        "command": "Command",
+        "args": "Arguments",
+        "url": "URL",
+        "autoConnect": "Auto-connect on startup",
+        "serverId": "Server ID",
+        "name": "Name",
+        "description": "Description"
+      },
       "providers": {
         "perplexity": {
           "description": "AI-powered research search engine with real-time information and deep research",
@@ -1900,6 +1920,7 @@
       "searchPlaceholder": "Search skills...",
       "noSkillsFound": "No skills found",
       "edit": "Edit",
+      "upload": "Upload Skill",
       "dependencies": "Dependencies",
       "requiredTools": "Required Tools",
       "requiredSkills": "Required Skills",
@@ -1910,6 +1931,20 @@
       "operationFailed": "Operation failed",
       "saveSuccess": "Skill configuration saved",
       "saveFailed": "Failed to save",
+      "tabs": {
+        "local": "Local Skills",
+        "marketplace": "Skills Marketplace"
+      },
+      "marketplace": {
+        "searchPlaceholder": "Search marketplace skills...",
+        "noSkillsAvailable": "No skills available in marketplace",
+        "install": "Install",
+        "installed": "Installed",
+        "update": "Update",
+        "preview": "Preview",
+        "installSuccess": "Skill installed successfully",
+        "installFailed": "Failed to install skill"
+      },
       "layers": {
         "all": "All Skills",
         "understanding": "Understanding",

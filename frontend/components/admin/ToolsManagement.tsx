@@ -7,224 +7,23 @@ import { useTranslation } from '@/lib/i18n';
 import { createLogger } from '@/lib/utils/logger';
 import { useAdminSecrets } from '@/hooks/domain/useAdminSecrets';
 import {
-  Search,
   CheckCircle,
-  XCircle,
-  Loader2,
-  Save,
-  ExternalLink,
   AlertTriangle,
   RefreshCw,
-  Wallet,
-  Eye,
-  EyeOff,
-  Settings,
-  Play,
-  Filter,
+  Wrench,
   Globe,
-  FileText,
-  Youtube,
-  Volume2,
-  Sparkles,
-  Landmark,
-  Tag,
-  MoreHorizontal,
-  ChevronDown,
-  X,
-  Key,
-  Lock,
-  Trash2,
+  Server,
 } from 'lucide-react';
+
+import BuiltinToolsTab, { BuiltinTool } from './tools/BuiltinToolsTab';
+import ExternalToolsTab, { ExternalTool } from './tools/ExternalToolsTab';
+import MCPMarketplaceTab, { MCPServer } from './tools/MCPMarketplaceTab';
+import ConfigureModal from './tools/ConfigureModal';
 
 const logger = createLogger('ToolsManagement');
 
-// Tool category types - includes both builtin and external tools
-type ToolCategory =
-  | 'all'
-  // Builtin tool categories
-  | 'information'
-  | 'content'
-  | 'data'
-  | 'code'
-  | 'integration'
-  | 'memory'
-  | 'export'
-  | 'collaboration'
-  // External service categories
-  | 'external-search'
-  | 'external-extraction'
-  | 'external-youtube'
-  | 'external-tts'
-  | 'external-skills'
-  | 'policy-research'
-  // MCP tools
-  | 'mcp';
-
-// Tool interface - description, tags, features are obtained via i18n
-interface Tool {
-  id: string;
-  name: string;
-  category: ToolCategory;
-  status: 'configured' | 'not_configured' | 'error';
-  hasApiKey: boolean;
-  noKeyRequired?: boolean;
-  secretKey?: string | null; // Reference to Secret Manager secret name
-  url?: string;
-  freeQuota?: string;
-  pricing?: string;
-  balance?: {
-    hasBalance: boolean;
-    balance?: string;
-    quota?: { used: number; limit: number };
-    error?: string;
-  };
-}
-
-// Map tool categories to secret categories
-const CATEGORY_TO_SECRET_CATEGORY: Record<ToolCategory, string | null> = {
-  all: null,
-  // Builtin categories don't need secrets
-  information: null,
-  content: null,
-  data: null,
-  code: null,
-  integration: null,
-  memory: null,
-  export: null,
-  collaboration: null,
-  // External service categories
-  'external-search': 'SEARCH',
-  'external-extraction': 'EXTRACTION',
-  'external-youtube': 'YOUTUBE',
-  'external-tts': 'TTS',
-  'external-skills': 'SKILLSMP',
-  'policy-research': 'POLICY',
-  // MCP tools - may need API keys for some servers
-  mcp: 'MCP',
-};
-
-// Category configuration
-const CATEGORIES: {
-  id: ToolCategory;
-  labelKey: string;
-  icon: typeof Search;
-  group: 'builtin' | 'external';
-}[] = [
-  {
-    id: 'all',
-    labelKey: 'admin.tools.categories.all',
-    icon: Filter,
-    group: 'builtin',
-  },
-  // Builtin tool categories
-  {
-    id: 'information',
-    labelKey: 'admin.tools.categories.information',
-    icon: Search,
-    group: 'builtin',
-  },
-  {
-    id: 'content',
-    labelKey: 'admin.tools.categories.content',
-    icon: FileText,
-    group: 'builtin',
-  },
-  {
-    id: 'data',
-    labelKey: 'admin.tools.categories.data',
-    icon: Filter,
-    group: 'builtin',
-  },
-  {
-    id: 'code',
-    labelKey: 'admin.tools.categories.code',
-    icon: Settings,
-    group: 'builtin',
-  },
-  {
-    id: 'integration',
-    labelKey: 'admin.tools.categories.integration',
-    icon: Globe,
-    group: 'builtin',
-  },
-  {
-    id: 'memory',
-    labelKey: 'admin.tools.categories.memory',
-    icon: Filter,
-    group: 'builtin',
-  },
-  {
-    id: 'export',
-    labelKey: 'admin.tools.categories.export',
-    icon: FileText,
-    group: 'builtin',
-  },
-  {
-    id: 'collaboration',
-    labelKey: 'admin.tools.categories.collaboration',
-    icon: Filter,
-    group: 'builtin',
-  },
-  // External service categories
-  {
-    id: 'external-search',
-    labelKey: 'admin.tools.categories.search',
-    icon: Search,
-    group: 'external',
-  },
-  {
-    id: 'external-extraction',
-    labelKey: 'admin.tools.categories.extraction',
-    icon: FileText,
-    group: 'external',
-  },
-  {
-    id: 'external-youtube',
-    labelKey: 'admin.tools.categories.youtube',
-    icon: Youtube,
-    group: 'external',
-  },
-  {
-    id: 'external-tts',
-    labelKey: 'admin.tools.categories.tts',
-    icon: Volume2,
-    group: 'external',
-  },
-  {
-    id: 'external-skills',
-    labelKey: 'admin.tools.categories.skillsmp',
-    icon: Sparkles,
-    group: 'external',
-  },
-  {
-    id: 'policy-research',
-    labelKey: 'admin.tools.categories.policy',
-    icon: Landmark,
-    group: 'external',
-  },
-  // MCP tools
-  {
-    id: 'mcp',
-    labelKey: 'admin.tools.categories.mcp',
-    icon: Settings,
-    group: 'external',
-  },
-];
-
-// Tool definitions - description, tags, and features use translation keys
-// Format: admin.tools.providers.{id}.{description|tags|features}
-interface ToolDefinition {
-  id: string;
-  name: string;
-  category: ToolCategory;
-  url?: string;
-  noKeyRequired?: boolean;
-  freeQuota?: string;
-  pricing?: string;
-}
-
-// External service tool definitions (loaded separately from builtin tools)
-const EXTERNAL_TOOL_DEFINITIONS: ToolDefinition[] = [
+// External tool definitions (from original file)
+const EXTERNAL_TOOL_DEFINITIONS = [
   // Search Tools
   {
     id: 'perplexity',
@@ -330,595 +129,44 @@ const EXTERNAL_TOOL_DEFINITIONS: ToolDefinition[] = [
   },
 ];
 
-// Category color mapping
-const CATEGORY_COLORS: Record<
-  ToolCategory,
-  { bg: string; text: string; badge: string }
-> = {
-  all: {
-    bg: 'bg-gray-100',
-    text: 'text-gray-700',
-    badge: 'bg-gray-100 text-gray-700',
-  },
-  // Builtin tool categories
-  information: {
-    bg: 'bg-blue-50',
-    text: 'text-blue-700',
-    badge: 'bg-blue-100 text-blue-700',
-  },
-  content: {
-    bg: 'bg-green-50',
-    text: 'text-green-700',
-    badge: 'bg-green-100 text-green-700',
-  },
-  data: {
-    bg: 'bg-yellow-50',
-    text: 'text-yellow-700',
-    badge: 'bg-yellow-100 text-yellow-700',
-  },
-  code: {
-    bg: 'bg-indigo-50',
-    text: 'text-indigo-700',
-    badge: 'bg-indigo-100 text-indigo-700',
-  },
-  integration: {
-    bg: 'bg-pink-50',
-    text: 'text-pink-700',
-    badge: 'bg-pink-100 text-pink-700',
-  },
-  memory: {
-    bg: 'bg-cyan-50',
-    text: 'text-cyan-700',
-    badge: 'bg-cyan-100 text-cyan-700',
-  },
-  export: {
-    bg: 'bg-teal-50',
-    text: 'text-teal-700',
-    badge: 'bg-teal-100 text-teal-700',
-  },
-  collaboration: {
-    bg: 'bg-amber-50',
-    text: 'text-amber-700',
-    badge: 'bg-amber-100 text-amber-700',
-  },
-  // External service categories
-  'external-search': {
-    bg: 'bg-blue-50',
-    text: 'text-blue-700',
-    badge: 'bg-blue-100 text-blue-700',
-  },
-  'external-extraction': {
-    bg: 'bg-orange-50',
-    text: 'text-orange-700',
-    badge: 'bg-orange-100 text-orange-700',
-  },
-  'external-youtube': {
-    bg: 'bg-red-50',
-    text: 'text-red-700',
-    badge: 'bg-red-100 text-red-700',
-  },
-  'external-tts': {
-    bg: 'bg-purple-50',
-    text: 'text-purple-700',
-    badge: 'bg-purple-100 text-purple-700',
-  },
-  'external-skills': {
-    bg: 'bg-violet-50',
-    text: 'text-violet-700',
-    badge: 'bg-violet-100 text-violet-700',
-  },
-  'policy-research': {
-    bg: 'bg-emerald-50',
-    text: 'text-emerald-700',
-    badge: 'bg-emerald-100 text-emerald-700',
-  },
-  mcp: {
-    bg: 'bg-slate-50',
-    text: 'text-slate-700',
-    badge: 'bg-slate-100 text-slate-700',
-  },
-};
+type TabType = 'builtin' | 'external' | 'mcp';
 
-// Tool Row Component
-function ToolRow({
-  tool,
-  onConfigure,
-  onTest,
-  onDelete,
-  testing,
-  deleting,
-  testResult,
-}: {
-  tool: Tool;
-  onConfigure: (tool: Tool) => void;
-  onTest: (tool: Tool) => void;
-  onDelete: (tool: Tool) => void;
-  testing: boolean;
-  deleting: boolean;
-  testResult?: { success: boolean; message: string };
-}) {
-  const { t } = useTranslation();
-  const categoryColor = CATEGORY_COLORS[tool.category];
-  const categoryInfo = CATEGORIES.find((c) => c.id === tool.category);
-  const CategoryIcon = categoryInfo?.icon || Globe;
-
-  return (
-    <div className="group flex items-center gap-4 border-b border-gray-100 px-4 py-4 transition-colors hover:bg-gray-50">
-      {/* Status Indicator */}
-      <div className="flex-shrink-0">
-        {tool.noKeyRequired ? (
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-          </div>
-        ) : tool.status === 'configured' ? (
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-          </div>
-        ) : tool.status === 'error' ? (
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
-            <AlertTriangle className="h-5 w-5 text-red-600" />
-          </div>
-        ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100">
-            <XCircle className="h-5 w-5 text-gray-400" />
-          </div>
-        )}
-      </div>
-
-      {/* Tool Info */}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <h3 className="font-medium text-gray-900">{tool.name}</h3>
-          <span
-            className={`rounded-full px-2 py-0.5 text-xs font-medium ${categoryColor.badge}`}
-          >
-            {categoryInfo ? t(categoryInfo.labelKey) : tool.category}
-          </span>
-          {tool.noKeyRequired && (
-            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-              {t('admin.tools.free')}
-            </span>
-          )}
-        </div>
-        <p className="mt-0.5 truncate text-sm text-gray-500">
-          {t(`admin.tools.providers.${tool.id}.description`)}
-        </p>
-        <div className="mt-1 flex flex-wrap gap-1">
-          {t(`admin.tools.providers.${tool.id}.tags`)
-            .split(', ')
-            .map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600"
-              >
-                <Tag className="mr-0.5 h-3 w-3" />
-                {tag}
-              </span>
-            ))}
-        </div>
-      </div>
-
-      {/* Status & Quota */}
-      <div className="hidden flex-shrink-0 flex-col items-end gap-1 sm:flex">
-        {tool.balance?.hasBalance && (
-          <div className="flex items-center gap-1 text-xs text-gray-500">
-            <Wallet className="h-3 w-3" />
-            <span>{tool.balance.balance || 'Available'}</span>
-            {tool.balance.quota && (
-              <span className="text-gray-400">
-                ({tool.balance.quota.used}/{tool.balance.quota.limit})
-              </span>
-            )}
-          </div>
-        )}
-        {tool.freeQuota && (
-          <span className="text-xs text-gray-400">{tool.freeQuota}</span>
-        )}
-        {testResult && (
-          <span
-            className={`text-xs ${testResult.success ? 'text-green-600' : 'text-red-600'}`}
-          >
-            {testResult.message}
-          </span>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="flex flex-shrink-0 items-center gap-2">
-        {!tool.noKeyRequired && (
-          <button
-            onClick={() => onTest(tool)}
-            disabled={testing || !tool.hasApiKey}
-            className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {testing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Play className="h-4 w-4" />
-            )}
-            <span className="hidden sm:inline">{t('admin.tools.test')}</span>
-          </button>
-        )}
-        <button
-          onClick={() => onConfigure(tool)}
-          className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-        >
-          <Settings className="h-4 w-4" />
-          <span className="hidden sm:inline">{t('admin.tools.configure')}</span>
-        </button>
-        {tool.url && (
-          <a
-            href={tool.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-lg border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
-          >
-            <ExternalLink className="h-4 w-4" />
-          </a>
-        )}
-        {/* Delete button - only show if tool has API key or secretKey configured */}
-        {!tool.noKeyRequired && (tool.hasApiKey || tool.secretKey) && (
-          <button
-            onClick={() => onDelete(tool)}
-            disabled={deleting}
-            className="rounded-lg border border-gray-200 p-1.5 text-gray-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
-            title={t('admin.tools.delete')}
-          >
-            {deleting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Trash2 className="h-4 w-4" />
-            )}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Configure Modal Component
-function ConfigureModal({
-  tool,
-  onClose,
-  onSave,
-  saving,
-  availableSecrets,
-}: {
-  tool: Tool;
-  onClose: () => void;
-  onSave: (
-    toolId: string,
-    apiKey: string,
-    secretKey?: string | null
-  ) => Promise<void>;
-  saving: boolean;
-  availableSecrets: Array<{
-    name: string;
-    displayName: string;
-    category: string;
-  }>;
-}) {
-  const { t } = useTranslation();
-  const [apiKey, setApiKey] = useState('');
-  const [showKey, setShowKey] = useState(false);
-  const [keySourceMode, setKeySourceMode] = useState<'direct' | 'secret'>(
-    tool.secretKey ? 'secret' : 'direct'
-  );
-  const [selectedSecretKey, setSelectedSecretKey] = useState<string | null>(
-    tool.secretKey || null
-  );
-
-  // Filter secrets by tool category
-  const secretCategory = CATEGORY_TO_SECRET_CATEGORY[tool.category];
-  const filteredSecrets = availableSecrets.filter(
-    (s) => s.category === secretCategory
-  );
-
-  // Keyboard support - Escape to close
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (keySourceMode === 'secret') {
-      await onSave(tool.id, '', selectedSecretKey);
-    } else {
-      await onSave(tool.id, apiKey, null);
-    }
-    setApiKey('');
-  };
-
-  const canSubmit = keySourceMode === 'secret' ? !!selectedSecretKey : !!apiKey;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="configure-modal-title"
-    >
-      <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h3
-            id="configure-modal-title"
-            className="text-lg font-semibold text-gray-900"
-          >
-            {t('admin.tools.modal.configure', { name: tool.name })}
-          </h3>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-6">
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm text-gray-600">
-                {t(`admin.tools.providers.${tool.id}.description`)}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1">
-                {t(`admin.tools.providers.${tool.id}.features`)
-                  .split(', ')
-                  .map((feature: string) => (
-                    <span
-                      key={feature}
-                      className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700"
-                    >
-                      {feature}
-                    </span>
-                  ))}
-              </div>
-            </div>
-
-            {tool.noKeyRequired ? (
-              <div className="rounded-lg bg-green-50 p-4 text-center">
-                <CheckCircle className="mx-auto h-8 w-8 text-green-600" />
-                <p className="mt-2 font-medium text-green-700">
-                  {t('admin.tools.modal.noKeyRequired')}
-                </p>
-                <p className="text-sm text-green-600">
-                  {t('admin.tools.modal.canUseDirectly')}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Key Source Mode Toggle */}
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    {t('admin.tools.modal.keySource')}
-                  </label>
-                  <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-1">
-                    <button
-                      type="button"
-                      onClick={() => setKeySourceMode('secret')}
-                      className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-                        keySourceMode === 'secret'
-                          ? 'bg-white text-blue-600 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      <Lock className="h-4 w-4" />
-                      {t('admin.tools.modal.secretManager')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setKeySourceMode('direct')}
-                      className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-                        keySourceMode === 'direct'
-                          ? 'bg-white text-blue-600 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      <Key className="h-4 w-4" />
-                      {t('admin.tools.modal.directInput')}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Secret Manager Selection */}
-                {keySourceMode === 'secret' && (
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                      {t('admin.tools.modal.selectSecret')}
-                    </label>
-                    {filteredSecrets.length > 0 ? (
-                      <div className="space-y-2">
-                        {filteredSecrets.map((secret) => (
-                          <label
-                            key={secret.name}
-                            className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-all ${
-                              selectedSecretKey === secret.name
-                                ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
-                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name="secretKey"
-                              value={secret.name}
-                              checked={selectedSecretKey === secret.name}
-                              onChange={(e) =>
-                                setSelectedSecretKey(e.target.value)
-                              }
-                              className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <Lock className="h-4 w-4 text-gray-400" />
-                                <span className="font-medium text-gray-900">
-                                  {secret.displayName || secret.name}
-                                </span>
-                              </div>
-                              <span className="text-xs text-gray-500">
-                                {secret.name}
-                              </span>
-                            </div>
-                            {selectedSecretKey === secret.name && (
-                              <CheckCircle className="h-5 w-5 text-blue-600" />
-                            )}
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
-                        <Lock className="mx-auto h-8 w-8 text-gray-400" />
-                        <p className="mt-2 text-sm text-gray-600">
-                          {t('admin.tools.modal.noSecretsAvailable')}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-500">
-                          {t('admin.tools.modal.addSecretsHint')}
-                        </p>
-                      </div>
-                    )}
-                    {tool.secretKey && (
-                      <p className="mt-2 text-xs text-green-600">
-                        <CheckCircle className="mr-1 inline h-3 w-3" />
-                        {t('admin.tools.modal.currentSecret')}: {tool.secretKey}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Direct API Key Input */}
-                {keySourceMode === 'direct' && (
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                      {t('admin.tools.modal.apiKey')}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showKey ? 'text' : 'password'}
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        placeholder={
-                          tool.hasApiKey ? '••••••••••••••••' : 'Enter API Key'
-                        }
-                        autoComplete="new-password"
-                        spellCheck="false"
-                        aria-label="API Key"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowKey(!showKey)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-600"
-                      >
-                        {showKey ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                    {tool.hasApiKey && !tool.secretKey && (
-                      <p className="mt-1 text-xs text-green-600">
-                        <CheckCircle className="mr-1 inline h-3 w-3" />
-                        {t('admin.tools.modal.apiKeyConfigured')}
-                      </p>
-                    )}
-                    {tool.url && (
-                      <a
-                        href={tool.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        {t('admin.tools.modal.getApiKey')}
-                      </a>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {(tool.freeQuota || tool.pricing) && (
-              <div className="rounded-lg bg-gray-50 p-3">
-                {tool.freeQuota && (
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">
-                      {t('admin.tools.modal.freeQuota')}:
-                    </span>{' '}
-                    {tool.freeQuota}
-                  </p>
-                )}
-                {tool.pricing && (
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">
-                      {t('admin.tools.modal.pricing')}:
-                    </span>{' '}
-                    {tool.pricing}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="mt-6 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              {t('admin.tools.modal.cancel')}
-            </button>
-            {!tool.noKeyRequired && (
-              <button
-                type="submit"
-                disabled={saving || !canSubmit}
-                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                {t('admin.tools.modal.save')}
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// Main Component
 export default function ToolsManagement() {
   const { t } = useTranslation();
-  const { secrets: availableSecrets, loading: secretsLoading } =
-    useAdminSecrets();
+  const { secrets: availableSecrets } = useAdminSecrets();
+
+  const [activeTab, setActiveTab] = useState<TabType>('builtin');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [tools, setTools] = useState<Tool[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<ToolCategory>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [configuringTool, setConfiguringTool] = useState<Tool | null>(null);
+
+  // Builtin tools state
+  const [builtinTools, setBuiltinTools] = useState<BuiltinTool[]>([]);
+
+  // External tools state
+  const [externalTools, setExternalTools] = useState<ExternalTool[]>([]);
+  const [configuringTool, setConfiguringTool] = useState<ExternalTool | null>(
+    null
+  );
   const [testingTool, setTestingTool] = useState<string | null>(null);
   const [deletingTool, setDeletingTool] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<
     Record<string, { success: boolean; message: string }>
   >({});
+
+  // MCP servers state
+  const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
+  const [connectingServer, setConnectingServer] = useState<string | null>(null);
+  const [deletingServer, setDeletingServer] = useState<string | null>(null);
+
   const [message, setMessage] = useState<{
     type: 'success' | 'error';
     text: string;
   } | null>(null);
 
-  // Load tool configurations
+  // Load all configurations
   const loadConfigs = useCallback(async () => {
     setLoading(true);
     try {
-      // Use Promise.allSettled to handle partial failures gracefully
-      // Optimized: Use aggregated API for tools + mcp-servers (single call instead of 2)
       const results = await Promise.allSettled([
         fetch(`${config.apiUrl}/admin/search-config`, {
           headers: { ...getAuthHeader() },
@@ -935,29 +183,20 @@ export default function ToolsManagement() {
         fetch(`${config.apiUrl}/admin/skillsmp-config`, {
           headers: { ...getAuthHeader() },
         }),
-        fetch(`${config.apiUrl}/admin/external-providers`, {
-          headers: { ...getAuthHeader() },
-        }),
-        // Aggregated API: tools + skills + MCP servers in one call
         fetch(`${config.apiUrl}/admin/ai/all-configs`, {
           headers: { ...getAuthHeader() },
         }),
       ]);
 
-      // Extract responses, handling rejected promises
       const [
         searchRes,
         extractionRes,
         youtubeRes,
         ttsRes,
         skillsmpRes,
-        providersRes,
         allConfigsRes,
-      ] = results.map((result, idx) => {
-        if (result.status === 'rejected') {
-          logger.warn(`Config fetch failed at index ${idx}`, result.reason);
-          return null;
-        }
+      ] = results.map((result) => {
+        if (result.status === 'rejected') return null;
         return result.value;
       });
 
@@ -968,74 +207,14 @@ export default function ToolsManagement() {
       const youtubeData = youtubeRes?.ok ? await youtubeRes.json() : null;
       const ttsData = ttsRes?.ok ? await ttsRes.json() : null;
       const skillsmpData = skillsmpRes?.ok ? await skillsmpRes.json() : null;
-      const providersData = providersRes?.ok ? await providersRes.json() : [];
 
-      // Parse aggregated API response
       const allConfigsData = allConfigsRes?.ok
         ? await allConfigsRes.json()
-        : { tools: null, skills: null, mcpServers: { servers: [] } };
+        : { tools: null, mcpServers: { servers: [] } };
       const capabilitiesData = allConfigsData.tools;
       const mcpServersData = allConfigsData.mcpServers || { servers: [] };
 
-      // Map backend category to frontend category
-      const categoryMapping: Record<string, ToolCategory> = {
-        information: 'information',
-        content: 'content',
-        data: 'data',
-        code: 'code',
-        integration: 'integration',
-        memory: 'memory',
-        export: 'export',
-        collaboration: 'collaboration',
-        'external-search': 'external-search',
-        'external-extraction': 'external-extraction',
-        'external-youtube': 'external-youtube',
-        'external-tts': 'external-tts',
-        'external-skills': 'external-skills',
-        'policy-research': 'policy-research',
-      };
-
-      // Map builtin tools from backend API
-      const builtinTools: Tool[] = (capabilitiesData?.tools || [])
-        .filter((tool: { category: string }) => {
-          // Only include builtin categories, exclude external services (handled separately)
-          const builtinCategories = [
-            'information',
-            'content',
-            'data',
-            'code',
-            'integration',
-            'memory',
-            'export',
-            'collaboration',
-          ];
-          return builtinCategories.includes(tool.category);
-        })
-        .map(
-          (tool: {
-            toolId: string;
-            name: string;
-            displayName?: string;
-            description?: string;
-            category: string;
-            enabled: boolean;
-            implemented: boolean;
-            secretKey?: string | null;
-          }) => ({
-            id: tool.toolId,
-            name: tool.displayName || tool.name,
-            category: (categoryMapping[tool.category] ||
-              tool.category) as ToolCategory,
-            status: tool.enabled
-              ? 'configured'
-              : ('not_configured' as Tool['status']),
-            hasApiKey: false, // Builtin tools don't need API keys
-            noKeyRequired: true,
-            secretKey: tool.secretKey || null,
-          })
-        );
-
-      // Build a map of toolId -> secretKey from capabilities data
+      // Build secret key map
       const secretKeyMap = new Map<string, string | null>();
       if (capabilitiesData?.tools) {
         capabilitiesData.tools.forEach(
@@ -1047,101 +226,129 @@ export default function ToolsManagement() {
         );
       }
 
-      // Map external tool definitions to tools with status
-      const externalTools: Tool[] = EXTERNAL_TOOL_DEFINITIONS.map((def) => {
-        let hasApiKey = false;
-        let status: Tool['status'] = 'not_configured';
+      // Map builtin tools
+      const builtinCategories = [
+        'information',
+        'content',
+        'data',
+        'code',
+        'integration',
+        'memory',
+        'export',
+        'collaboration',
+      ];
 
-        // Check search tools
-        if (def.category === 'external-search' && searchData) {
-          const providerData = searchData[def.id];
-          if (providerData?.hasApiKey || def.noKeyRequired) {
-            hasApiKey = providerData?.hasApiKey || false;
+      const builtinToolsData: BuiltinTool[] = (capabilitiesData?.tools || [])
+        .filter((tool: { category: string }) =>
+          builtinCategories.includes(tool.category)
+        )
+        .map(
+          (tool: {
+            toolId: string;
+            name: string;
+            displayName?: string;
+            description?: string;
+            category: string;
+            enabled: boolean;
+            implemented: boolean;
+          }) => ({
+            id: tool.toolId,
+            name: tool.name,
+            displayName: tool.displayName,
+            category: tool.category,
+            enabled: tool.enabled,
+            implemented: tool.implemented,
+            description: tool.description,
+          })
+        );
+      setBuiltinTools(builtinToolsData);
+
+      // Map external tools
+      const externalToolsData: ExternalTool[] = EXTERNAL_TOOL_DEFINITIONS.map(
+        (def: any) => {
+          let hasApiKey = false;
+          let status: 'configured' | 'not_configured' | 'error' =
+            'not_configured';
+
+          if (def.category === 'external-search' && searchData) {
+            const providerData = searchData[def.id];
+            if (providerData?.hasApiKey || def.noKeyRequired) {
+              hasApiKey = providerData?.hasApiKey || false;
+              status = 'configured';
+            }
+          }
+
+          if (def.category === 'external-extraction' && extractionData) {
+            const providerId = def.id === 'tavilyExtract' ? 'tavily' : def.id;
+            const providerData = extractionData[providerId];
+            if (providerData?.hasApiKey) {
+              hasApiKey = true;
+              status = 'configured';
+            }
+          }
+
+          if (def.category === 'external-youtube' && youtubeData) {
+            const providerData = youtubeData[def.id];
+            if (providerData?.hasApiKey) {
+              hasApiKey = true;
+              status = 'configured';
+            }
+          }
+
+          if (def.category === 'external-tts' && ttsData) {
+            const providerId = def.id === 'googleTts' ? 'google' : def.id;
+            const providerData = ttsData[providerId];
+            if (providerData?.hasApiKey) {
+              hasApiKey = true;
+              status = 'configured';
+            }
+          }
+
+          if (def.category === 'external-skills' && skillsmpData) {
+            if (skillsmpData.hasApiKey) {
+              hasApiKey = true;
+              status = 'configured';
+            }
+          }
+
+          if (def.noKeyRequired) {
             status = 'configured';
           }
-        }
 
-        // Check extraction tools
-        if (def.category === 'external-extraction' && extractionData) {
-          const providerId = def.id === 'tavily-extract' ? 'tavily' : def.id;
-          const providerData = extractionData[providerId];
-          if (providerData?.hasApiKey) {
+          const secretKey = secretKeyMap.get(def.id) || null;
+          if (secretKey) {
+            status = 'configured';
             hasApiKey = true;
-            status = 'configured';
           }
+
+          return {
+            ...def,
+            hasApiKey,
+            status,
+            secretKey,
+          };
         }
-
-        // Check youtube tools
-        if (def.category === 'external-youtube' && youtubeData) {
-          const providerData = youtubeData[def.id];
-          if (providerData?.hasApiKey) {
-            hasApiKey = true;
-            status = 'configured';
-          }
-        }
-
-        // Check TTS tools
-        if (def.category === 'external-tts' && ttsData) {
-          const providerId = def.id === 'google-tts' ? 'google' : def.id;
-          const providerData = ttsData[providerId];
-          if (providerData?.hasApiKey) {
-            hasApiKey = true;
-            status = 'configured';
-          }
-        }
-
-        // Check SkillsMP
-        if (def.category === 'external-skills' && skillsmpData) {
-          if (skillsmpData.hasApiKey) {
-            hasApiKey = true;
-            status = 'configured';
-          }
-        }
-
-        // Handle no-key-required tools
-        if (def.noKeyRequired) {
-          status = 'configured';
-        }
-
-        // Get secretKey from capabilities data
-        const secretKey = secretKeyMap.get(def.id) || null;
-
-        // If secretKey is set, mark as configured
-        if (secretKey) {
-          status = 'configured';
-          hasApiKey = true;
-        }
-
-        return {
-          ...def,
-          hasApiKey,
-          status,
-          secretKey,
-        };
-      });
-
-      // Map MCP servers to Tool format
-      const mcpTools: Tool[] = (mcpServersData.servers || []).map(
-        (server: {
-          serverId: string;
-          name: string;
-          description?: string;
-          enabled: boolean;
-          connected?: boolean;
-          toolCount?: number;
-        }) => ({
-          id: `mcp-${server.serverId}`,
-          name: server.name,
-          category: 'mcp' as ToolCategory,
-          status: server.enabled ? 'configured' : 'not_configured',
-          hasApiKey: server.enabled,
-          noKeyRequired: false,
-          url: undefined,
-        })
       );
+      setExternalTools(externalToolsData);
 
-      // Combine all tools: builtin + external + MCP
-      setTools([...builtinTools, ...externalTools, ...mcpTools]);
+      // Map MCP servers
+      const mcpServersDataMapped: MCPServer[] = (
+        mcpServersData.servers || []
+      ).map((server: any) => ({
+        serverId: server.serverId,
+        name: server.name,
+        description: server.description,
+        transport: server.transport,
+        command: server.command,
+        args: server.args,
+        url: server.url,
+        enabled: server.enabled,
+        connected: server.connected,
+        autoConnect: server.autoConnect,
+        toolCount: server.toolCount,
+        tools: server.tools,
+      }));
+      setMcpServers(mcpServersDataMapped);
     } catch (err) {
       logger.error('Failed to load configs:', err);
       setMessage({ type: 'error', text: t('admin.tools.loadFailed') });
@@ -1154,31 +361,36 @@ export default function ToolsManagement() {
     loadConfigs();
   }, [loadConfigs]);
 
-  // Filter tools
-  const filteredTools = useMemo(() => {
-    return tools.filter((tool) => {
-      const matchesCategory =
-        selectedCategory === 'all' || tool.category === selectedCategory;
-      const description = t(`admin.tools.providers.${tool.id}.description`);
-      const tags = t(`admin.tools.providers.${tool.id}.tags`);
-      const matchesSearch =
-        !searchQuery ||
-        tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tags.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch;
-    });
-  }, [tools, selectedCategory, searchQuery, t]);
+  // Builtin tools handlers
+  const handleToggleBuiltinTool = async (toolId: string, enabled: boolean) => {
+    try {
+      const res = await fetch(`${config.apiUrl}/admin/ai/tools/${toolId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({ enabled }),
+      });
 
-  // Statistics
-  const stats = useMemo(() => {
-    const total = tools.length;
-    const configured = tools.filter((t) => t.status === 'configured').length;
-    return { total, configured };
-  }, [tools]);
+      if (res.ok) {
+        setMessage({
+          type: 'success',
+          text: `Tool ${enabled ? 'enabled' : 'disabled'}`,
+        });
+        await loadConfigs();
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        setMessage({ type: 'error', text: 'Failed to update tool' });
+      }
+    } catch (err) {
+      logger.error('Failed to toggle tool:', err);
+      setMessage({ type: 'error', text: 'Failed to update tool' });
+    }
+  };
 
-  // Handle save configuration
-  const handleSaveConfig = async (
+  // External tools handlers
+  const handleSaveExternalToolConfig = async (
     toolId: string,
     apiKey: string,
     secretKey?: string | null
@@ -1187,24 +399,20 @@ export default function ToolsManagement() {
     setMessage(null);
 
     try {
-      const tool = tools.find((t) => t.id === toolId);
+      const tool = externalTools.find((t) => t.id === toolId);
       if (!tool) return;
 
-      // If using Secret Manager, save via capabilities endpoint
       if (secretKey !== undefined) {
-        const capabilitiesRes = await fetch(
-          `${config.apiUrl}/admin/ai/tools/${toolId}`,
-          {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              ...getAuthHeader(),
-            },
-            body: JSON.stringify({ secretKey }),
-          }
-        );
+        const res = await fetch(`${config.apiUrl}/admin/ai/tools/${toolId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          },
+          body: JSON.stringify({ secretKey }),
+        });
 
-        if (capabilitiesRes.ok) {
+        if (res.ok) {
           setMessage({
             type: 'success',
             text: t('admin.tools.saveSuccess', { name: tool.name }),
@@ -1218,7 +426,7 @@ export default function ToolsManagement() {
         return;
       }
 
-      // Otherwise, use the legacy config endpoints for direct API key input
+      // Legacy config endpoints for direct API key
       let endpoint = '';
       let body: Record<string, any> = {};
 
@@ -1235,7 +443,7 @@ export default function ToolsManagement() {
           break;
         case 'external-extraction':
           endpoint = '/admin/extraction-config';
-          const extractId = toolId === 'tavily-extract' ? 'tavily' : toolId;
+          const extractId = toolId === 'tavilyExtract' ? 'tavily' : toolId;
           body = { [`${extractId}ApiKey`]: apiKey };
           break;
         case 'external-youtube':
@@ -1244,7 +452,7 @@ export default function ToolsManagement() {
           break;
         case 'external-tts':
           endpoint = '/admin/tts-config';
-          const ttsId = toolId === 'google-tts' ? 'google' : toolId;
+          const ttsId = toolId === 'googleTts' ? 'google' : toolId;
           body = { [`${ttsId}ApiKey`]: apiKey };
           break;
         case 'external-skills':
@@ -1283,8 +491,7 @@ export default function ToolsManagement() {
     }
   };
 
-  // Handle test tool
-  const handleTestTool = async (tool: Tool) => {
+  const handleTestExternalTool = async (tool: ExternalTool) => {
     if (!tool.hasApiKey) return;
 
     setTestingTool(tool.id);
@@ -1295,7 +502,6 @@ export default function ToolsManagement() {
 
     try {
       let endpoint = '';
-      const providerId = tool.id;
 
       switch (tool.category) {
         case 'external-search':
@@ -1325,9 +531,8 @@ export default function ToolsManagement() {
           return;
       }
 
-      // Include secretKey if the tool has one configured
       const requestBody: { provider: string; secretKey?: string } = {
-        provider: providerId,
+        provider: tool.id,
       };
       if (tool.secretKey) {
         requestBody.secretKey = tool.secretKey;
@@ -1367,8 +572,7 @@ export default function ToolsManagement() {
     }
   };
 
-  // Handle delete tool configuration
-  const handleDeleteTool = async (tool: Tool) => {
+  const handleDeleteExternalTool = async (tool: ExternalTool) => {
     if (!confirm(t('admin.tools.confirmDelete', { name: tool.name }))) {
       return;
     }
@@ -1377,7 +581,6 @@ export default function ToolsManagement() {
     setMessage(null);
 
     try {
-      // Clear the secretKey via capabilities endpoint
       const res = await fetch(`${config.apiUrl}/admin/ai/tools/${tool.id}`, {
         method: 'PATCH',
         headers: {
@@ -1392,11 +595,9 @@ export default function ToolsManagement() {
           type: 'success',
           text: t('admin.tools.deleteSuccess', { name: tool.name }),
         });
-        // Close configure modal if the deleted tool is being configured
         if (configuringTool?.id === tool.id) {
           setConfiguringTool(null);
         }
-        // Clear test result for this tool
         setTestResults((prev) => {
           const newResults = { ...prev };
           delete newResults[tool.id];
@@ -1415,6 +616,142 @@ export default function ToolsManagement() {
     }
   };
 
+  // MCP servers handlers
+  const handleAddMCPServer = async (
+    server: Omit<MCPServer, 'connected' | 'toolCount' | 'tools'>
+  ) => {
+    try {
+      const res = await fetch(`${config.apiUrl}/admin/ai/mcp-servers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify(server),
+      });
+
+      if (res.ok) {
+        setMessage({
+          type: 'success',
+          text: `Server ${server.name} added successfully`,
+        });
+        await loadConfigs();
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        setMessage({ type: 'error', text: 'Failed to add server' });
+      }
+    } catch (err) {
+      logger.error('Failed to add MCP server:', err);
+      setMessage({ type: 'error', text: 'Failed to add server' });
+    }
+  };
+
+  const handleConnectMCPServer = async (serverId: string) => {
+    setConnectingServer(serverId);
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/admin/ai/mcp-servers/${serverId}/connect`,
+        {
+          method: 'POST',
+          headers: { ...getAuthHeader() },
+        }
+      );
+
+      if (res.ok) {
+        setMessage({
+          type: 'success',
+          text: 'Server connected successfully',
+        });
+        await loadConfigs();
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        setMessage({ type: 'error', text: 'Failed to connect server' });
+      }
+    } catch (err) {
+      logger.error('Failed to connect MCP server:', err);
+      setMessage({ type: 'error', text: 'Failed to connect server' });
+    } finally {
+      setConnectingServer(null);
+    }
+  };
+
+  const handleDisconnectMCPServer = async (serverId: string) => {
+    setConnectingServer(serverId);
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/admin/ai/mcp-servers/${serverId}/disconnect`,
+        {
+          method: 'POST',
+          headers: { ...getAuthHeader() },
+        }
+      );
+
+      if (res.ok) {
+        setMessage({
+          type: 'success',
+          text: 'Server disconnected successfully',
+        });
+        await loadConfigs();
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        setMessage({ type: 'error', text: 'Failed to disconnect server' });
+      }
+    } catch (err) {
+      logger.error('Failed to disconnect MCP server:', err);
+      setMessage({ type: 'error', text: 'Failed to disconnect server' });
+    } finally {
+      setConnectingServer(null);
+    }
+  };
+
+  const handleDeleteMCPServer = async (serverId: string) => {
+    if (!confirm('Are you sure you want to delete this server?')) {
+      return;
+    }
+
+    setDeletingServer(serverId);
+    try {
+      const res = await fetch(
+        `${config.apiUrl}/admin/ai/mcp-servers/${serverId}`,
+        {
+          method: 'DELETE',
+          headers: { ...getAuthHeader() },
+        }
+      );
+
+      if (res.ok) {
+        setMessage({
+          type: 'success',
+          text: 'Server deleted successfully',
+        });
+        await loadConfigs();
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        setMessage({ type: 'error', text: 'Failed to delete server' });
+      }
+    } catch (err) {
+      logger.error('Failed to delete MCP server:', err);
+      setMessage({ type: 'error', text: 'Failed to delete server' });
+    } finally {
+      setDeletingServer(null);
+    }
+  };
+
+  // Statistics
+  const stats = useMemo(() => {
+    const builtinConfigured = builtinTools.filter((t) => t.enabled).length;
+    const externalConfigured = externalTools.filter(
+      (t) => t.status === 'configured'
+    ).length;
+    const mcpConnected = mcpServers.filter((s) => s.connected).length;
+
+    return {
+      builtin: { total: builtinTools.length, configured: builtinConfigured },
+      external: { total: externalTools.length, configured: externalConfigured },
+      mcp: { total: mcpServers.length, connected: mcpConnected },
+    };
+  }, [builtinTools, externalTools, mcpServers]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -1430,8 +767,13 @@ export default function ToolsManagement() {
         <div className="flex items-center gap-4">
           <div className="rounded-lg bg-blue-50 px-3 py-1.5">
             <span className="text-sm text-blue-700">
-              <span className="font-semibold">{stats.configured}</span> /{' '}
-              {stats.total} {t('admin.tools.configured')}
+              <span className="font-semibold">
+                {stats.builtin.configured +
+                  stats.external.configured +
+                  stats.mcp.connected}
+              </span>{' '}
+              / {stats.builtin.total + stats.external.total + stats.mcp.total}{' '}
+              {t('admin.tools.configured')}
             </span>
           </div>
         </div>
@@ -1469,86 +811,115 @@ export default function ToolsManagement() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        {/* Category Filter */}
-        <div className="flex flex-wrap gap-2">
-          {CATEGORIES.map((category) => {
-            const Icon = category.icon;
-            const isActive = selectedCategory === category.id;
-            const count =
-              category.id === 'all'
-                ? tools.length
-                : tools.filter((t) => t.category === category.id).length;
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('builtin')}
+            className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
+              activeTab === 'builtin'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            <Wrench className="h-5 w-5" />
+            {t('admin.tools.tabs.builtin')}
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs ${
+                activeTab === 'builtin'
+                  ? 'bg-blue-100 text-blue-600'
+                  : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              {stats.builtin.total}
+            </span>
+          </button>
 
-            return (
-              <button
-                key={category.id}
-                onClick={() => setSelectedCategory(category.id)}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{t(category.labelKey)}</span>
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-xs ${
-                    isActive
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-200 text-gray-600'
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+          <button
+            onClick={() => setActiveTab('external')}
+            className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
+              activeTab === 'external'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            <Globe className="h-5 w-5" />
+            {t('admin.tools.tabs.external')}
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs ${
+                activeTab === 'external'
+                  ? 'bg-blue-100 text-blue-600'
+                  : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              {stats.external.total}
+            </span>
+          </button>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t('admin.tools.searchPlaceholder')}
-            className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 sm:w-64"
-          />
-        </div>
+          <button
+            onClick={() => setActiveTab('mcp')}
+            className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
+              activeTab === 'mcp'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            <Server className="h-5 w-5" />
+            {t('admin.tools.tabs.mcp')}
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs ${
+                activeTab === 'mcp'
+                  ? 'bg-blue-100 text-blue-600'
+                  : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              {stats.mcp.total}
+            </span>
+          </button>
+        </nav>
       </div>
 
-      {/* Tools List */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        {filteredTools.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <Globe className="mx-auto h-12 w-12 text-gray-300" />
-            <p className="mt-2">{t('admin.tools.noToolsFound')}</p>
-          </div>
-        ) : (
-          filteredTools.map((tool) => (
-            <ToolRow
-              key={tool.id}
-              tool={tool}
-              onConfigure={setConfiguringTool}
-              onTest={handleTestTool}
-              onDelete={handleDeleteTool}
-              testing={testingTool === tool.id}
-              deleting={deletingTool === tool.id}
-              testResult={testResults[tool.id]}
-            />
-          ))
-        )}
-      </div>
+      {/* Tab Content */}
+      {activeTab === 'builtin' && (
+        <BuiltinToolsTab
+          tools={builtinTools}
+          onToggle={handleToggleBuiltinTool}
+          loading={loading}
+        />
+      )}
 
-      {/* Configure Modal */}
+      {activeTab === 'external' && (
+        <ExternalToolsTab
+          tools={externalTools}
+          onConfigure={setConfiguringTool}
+          onTest={handleTestExternalTool}
+          onDelete={handleDeleteExternalTool}
+          testingTool={testingTool}
+          deletingTool={deletingTool}
+          testResults={testResults}
+          loading={loading}
+        />
+      )}
+
+      {activeTab === 'mcp' && (
+        <MCPMarketplaceTab
+          servers={mcpServers}
+          onAdd={handleAddMCPServer}
+          onConnect={handleConnectMCPServer}
+          onDisconnect={handleDisconnectMCPServer}
+          onDelete={handleDeleteMCPServer}
+          connectingServer={connectingServer}
+          deletingServer={deletingServer}
+          loading={loading}
+        />
+      )}
+
+      {/* Configure Modal for External Tools */}
       {configuringTool && (
         <ConfigureModal
-          tool={configuringTool}
+          tool={configuringTool as any}
           onClose={() => setConfiguringTool(null)}
-          onSave={handleSaveConfig}
+          onSave={handleSaveExternalToolConfig}
           saving={saving}
           availableSecrets={availableSecrets || []}
         />
