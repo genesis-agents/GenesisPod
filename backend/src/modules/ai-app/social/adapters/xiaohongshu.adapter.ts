@@ -137,10 +137,78 @@ export class XiaohongshuAdapter {
 
   private async checkLoginStatus(page: any): Promise<boolean> {
     try {
-      // 检查是否有登录后的用户头像元素
-      const avatar = await page.$(".user-avatar");
-      return avatar !== null;
-    } catch {
+      // 等待页面稳定
+      await page
+        .waitForLoadState("networkidle", { timeout: 10000 })
+        .catch(() => {});
+
+      // 方法1: 检查 URL - 如果重定向到登录页面则未登录
+      const url = page.url();
+      if (url.includes("/login") || url.includes("login.xiaohongshu.com")) {
+        this.logger.debug("Login check: URL indicates not logged in");
+        return false;
+      }
+
+      // 方法2: 检查是否在创作者中心
+      if (url.includes("creator.xiaohongshu.com/publish")) {
+        // 可能已登录，继续检查页面元素
+        this.logger.debug(
+          "Login check: URL is creator center, checking elements",
+        );
+      }
+
+      // 方法3: 检查多个可能的登录后元素
+      const selectors = [
+        ".user-avatar",
+        ".creator-avatar", // 创作者头像
+        ".publish-container", // 发布容器
+        ".upload-wrapper", // 上传区域
+        ".draftItem", // 草稿项
+        "[class*='userInfo']", // 用户信息区
+      ];
+
+      for (const selector of selectors) {
+        try {
+          const element = await page.$(selector);
+          if (element) {
+            this.logger.debug(
+              `Login check: Found logged-in indicator: ${selector}`,
+            );
+            return true;
+          }
+        } catch {
+          // Continue to next selector
+        }
+      }
+
+      // 方法4: 检查是否有登录按钮/表单
+      const loginIndicators = [
+        ".login-btn",
+        ".login-button",
+        "[class*='LoginButton']",
+        "text=登录",
+      ];
+
+      for (const selector of loginIndicators) {
+        try {
+          const element = await page.$(selector);
+          if (element) {
+            this.logger.debug(
+              `Login check: Found login indicator: ${selector}, not logged in`,
+            );
+            return false;
+          }
+        } catch {
+          // Continue
+        }
+      }
+
+      this.logger.warn(
+        "Login check: Could not determine login status, assuming not logged in",
+      );
+      return false;
+    } catch (error) {
+      this.logger.error(`Login check failed: ${(error as Error).message}`);
       return false;
     }
   }

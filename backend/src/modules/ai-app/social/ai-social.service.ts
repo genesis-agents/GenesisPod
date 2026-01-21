@@ -200,20 +200,162 @@ export class AiSocialService {
       throw new NotFoundException("连接不存在");
     }
 
-    // TODO: 实际测试连接状态（如检查 session 有效性）
-    // 目前返回 mock 结果
-    const isValid = connection.isActive;
+    // 实际验证会话有效性
+    const validationResult = await this.validateSession(connection);
 
-    // 更新最后检查时间
+    // 更新最后检查时间和状态
     await this.db.socialPlatformConnection.update({
       where: { id: connectionId },
-      data: { lastCheckAt: new Date() },
+      data: {
+        lastCheckAt: new Date(),
+        isActive: validationResult.isValid,
+      },
     });
 
     return {
-      success: isValid,
-      message: isValid ? "连接正常" : "连接已失效，请重新授权",
+      success: validationResult.isValid,
+      message: validationResult.isValid
+        ? "连接正常"
+        : validationResult.message || "连接已失效，请重新授权",
     };
+  }
+
+  /**
+   * 验证会话是否仍然有效
+   */
+  private async validateSession(connection: any): Promise<{
+    isValid: boolean;
+    message?: string;
+  }> {
+    if (!connection.sessionData) {
+      return { isValid: false, message: "无会话数据" };
+    }
+
+    const contextId = `validate-${connection.id}-${Date.now()}`;
+
+    try {
+      // 恢复会话
+      const sessionData =
+        typeof connection.sessionData === "string"
+          ? JSON.parse(connection.sessionData)
+          : connection.sessionData;
+
+      await this.playwright.restoreSession(contextId, sessionData);
+      const page = await this.playwright.createPage(contextId);
+
+      // 根据平台类型验证
+      let isValid = false;
+      let message = "";
+
+      if (connection.platformType === SocialPlatformType.WECHAT_MP) {
+        isValid = await this.validateWechatSession(page);
+        if (!isValid) message = "微信公众号登录已过期";
+      } else if (connection.platformType === SocialPlatformType.XIAOHONGSHU) {
+        isValid = await this.validateXiaohongshuSession(page);
+        if (!isValid) message = "小红书登录已过期";
+      } else {
+        return { isValid: false, message: "不支持的平台类型" };
+      }
+
+      return { isValid, message };
+    } catch (error) {
+      this.logger.error(
+        `Session validation failed: ${(error as Error).message}`,
+      );
+      return { isValid: false, message: "验证失败，请重新连接" };
+    } finally {
+      await this.playwright.closeContext(contextId);
+    }
+  }
+
+  private async validateWechatSession(page: any): Promise<boolean> {
+    try {
+      await page.goto("https://mp.weixin.qq.com/cgi-bin/home", {
+        timeout: 30000,
+      });
+      await page
+        .waitForLoadState("networkidle", { timeout: 15000 })
+        .catch(() => {});
+
+      const url = page.url();
+
+      // 如果重定向到登录页，说明未登录
+      if (url.includes("/cgi-bin/bizlogin") || url.includes("action=login")) {
+        this.logger.debug("WeChat validation: redirected to login page");
+        return false;
+      }
+
+      // 检查是否在后台
+      if (url.includes("/cgi-bin/home") || url.includes("/cgi-bin/frame")) {
+        this.logger.debug("WeChat validation: in backend, session valid");
+        return true;
+      }
+
+      // 检查页面元素
+      const selectors = [
+        ".weui-desktop-account__nickname",
+        "#menuBar",
+        ".main_bd",
+      ];
+      for (const selector of selectors) {
+        const element = await page.$(selector);
+        if (element) {
+          this.logger.debug(
+            `WeChat validation: found indicator ${selector}, session valid`,
+          );
+          return true;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      this.logger.error(
+        `WeChat session validation error: ${(error as Error).message}`,
+      );
+      return false;
+    }
+  }
+
+  private async validateXiaohongshuSession(page: any): Promise<boolean> {
+    try {
+      await page.goto("https://creator.xiaohongshu.com/publish/publish", {
+        timeout: 30000,
+      });
+      await page
+        .waitForLoadState("networkidle", { timeout: 15000 })
+        .catch(() => {});
+
+      const url = page.url();
+
+      // 如果重定向到登录页，说明未登录
+      if (url.includes("/login") || url.includes("login.xiaohongshu.com")) {
+        this.logger.debug("Xiaohongshu validation: redirected to login page");
+        return false;
+      }
+
+      // 检查页面元素
+      const selectors = [
+        ".user-avatar",
+        ".publish-container",
+        ".upload-wrapper",
+      ];
+      for (const selector of selectors) {
+        const element = await page.$(selector);
+        if (element) {
+          this.logger.debug(
+            `Xiaohongshu validation: found indicator ${selector}, session valid`,
+          );
+          return true;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      this.logger.error(
+        `Xiaohongshu session validation error: ${(error as Error).message}`,
+      );
+      return false;
+    }
   }
 
   async refreshConnection(userId: string, connectionId: string) {

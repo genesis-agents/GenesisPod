@@ -133,10 +133,60 @@ export class WechatAdapter {
 
   private async checkLoginStatus(page: any): Promise<boolean> {
     try {
-      // 检查是否有登录后的元素
-      const loggedInIndicator = await page.$(".weui-desktop-account__nickname");
-      return loggedInIndicator !== null;
-    } catch {
+      // 等待页面稳定
+      await page
+        .waitForLoadState("networkidle", { timeout: 10000 })
+        .catch(() => {});
+
+      // 方法1: 检查 URL - 如果重定向到登录页面则未登录
+      const url = page.url();
+      if (url.includes("/cgi-bin/bizlogin") || url.includes("action=login")) {
+        this.logger.debug("Login check: URL indicates not logged in");
+        return false;
+      }
+
+      // 方法2: 检查是否在后台首页
+      if (url.includes("/cgi-bin/home") || url.includes("/cgi-bin/frame")) {
+        this.logger.debug("Login check: URL indicates logged in");
+        return true;
+      }
+
+      // 方法3: 检查多个可能的登录后元素
+      const selectors = [
+        ".weui-desktop-account__nickname",
+        ".weui-desktop-account__info",
+        ".menu_item.selected", // 左侧菜单选中项
+        "#menuBar", // 菜单栏
+        ".main_bd", // 主内容区
+      ];
+
+      for (const selector of selectors) {
+        try {
+          const element = await page.$(selector);
+          if (element) {
+            this.logger.debug(
+              `Login check: Found logged-in indicator: ${selector}`,
+            );
+            return true;
+          }
+        } catch {
+          // Continue to next selector
+        }
+      }
+
+      // 方法4: 检查是否有登录表单（表示未登录）
+      const loginForm = await page.$(".login__type__qrcode");
+      if (loginForm) {
+        this.logger.debug("Login check: Found login form, not logged in");
+        return false;
+      }
+
+      this.logger.warn(
+        "Login check: Could not determine login status, assuming not logged in",
+      );
+      return false;
+    } catch (error) {
+      this.logger.error(`Login check failed: ${(error as Error).message}`);
       return false;
     }
   }
