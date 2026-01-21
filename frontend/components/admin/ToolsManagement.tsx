@@ -14,8 +14,7 @@ import {
   Server,
 } from 'lucide-react';
 
-import { BuiltinTool } from './tools/BuiltinToolsTab';
-import { ExternalTool } from './tools/ExternalToolsTab';
+import type { BuiltinTool, ExternalTool } from './tools/types';
 import MCPMarketplaceTab, { MCPServer } from './tools/MCPMarketplaceTab';
 import ConfigureModal from './tools/ConfigureModal';
 import CapabilitiesTab from './tools/CapabilitiesTab';

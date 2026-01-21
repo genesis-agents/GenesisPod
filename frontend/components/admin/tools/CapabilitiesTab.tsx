@@ -5,32 +5,13 @@ import { useTranslation } from '@/lib/i18n';
 import {
   CAPABILITY_DEFINITIONS,
   CATEGORY_CONFIG,
-  getCapabilitiesByCategory,
   getIndependentProviderIds,
   type CapabilityDefinition,
   type CapabilityCategory,
   type ProviderDefinition,
 } from './capability-mapping';
-import UnifiedCapabilityCard, {
-  type ProviderStatus,
-} from './UnifiedCapabilityCard';
-
-export interface BuiltinTool {
-  id: string;
-  name: string;
-  displayName?: string;
-  category: string;
-  enabled: boolean;
-  implemented: boolean;
-  description?: string;
-}
-
-export interface ExternalToolStatus {
-  id: string;
-  hasApiKey: boolean;
-  status: 'configured' | 'not_configured' | 'error';
-  secretKey?: string | null;
-}
+import UnifiedCapabilityCard from './UnifiedCapabilityCard';
+import type { BuiltinTool, ExternalToolStatus, ProviderStatus } from './types';
 
 interface CapabilitiesTabProps {
   builtinTools: BuiltinTool[];
@@ -189,11 +170,7 @@ export function CapabilitiesTab({
                   enabled={enabled}
                   providerStatuses={providerStatuses}
                   onToggleCapability={(newEnabled) => {
-                    if (capability.independentProviders) {
-                      // 对于独立 providers，需要单独切换每个 provider
-                      // 这里暂时禁用整体开关，用户需要展开后单独操作
-                      return;
-                    }
+                    // UnifiedCapabilityCard 内部会处理 independentProviders 的批量切换
                     onToggleCapability(capability.id, newEnabled);
                   }}
                   onToggleProvider={

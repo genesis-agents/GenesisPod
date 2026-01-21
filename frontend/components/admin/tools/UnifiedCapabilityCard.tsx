@@ -23,6 +23,7 @@ import type {
   CapabilityDefinition,
   ProviderDefinition,
 } from './capability-mapping';
+import type { ProviderStatus } from './types';
 
 // Icon mapping
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -35,21 +36,12 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Building2,
 };
 
-export interface ProviderStatus {
-  id: string;
-  configured: boolean;
-  hasApiKey: boolean;
-  secretKey?: string | null;
-  isActive?: boolean; // 当前正在使用的 provider
-  enabled?: boolean; // 用于 independentProviders 模式，每个 provider 有独立开关
-}
-
 interface UnifiedCapabilityCardProps {
   capability: CapabilityDefinition;
   enabled: boolean;
   providerStatuses: ProviderStatus[];
   onToggleCapability: (enabled: boolean) => void;
-  onToggleProvider?: (providerId: string, enabled: boolean) => void; // 用于 independentProviders 模式
+  onToggleProvider?: (providerId: string, enabled: boolean) => void;
   onConfigureProvider: (provider: ProviderDefinition) => void;
   onTestProvider?: (providerId: string) => void;
   testingProvider?: string | null;
@@ -71,14 +63,30 @@ export function UnifiedCapabilityCard({
   const [expanded, setExpanded] = useState(false);
 
   const Icon = ICON_MAP[capability.icon] || Search;
+  const isIndependent = capability.independentProviders;
 
   // 计算配置状态
   const configuredProviders = providerStatuses.filter((p) => p.configured);
   const hasAnyProvider = configuredProviders.length > 0;
   const activeProvider = providerStatuses.find((p) => p.isActive);
 
-  // 能力状态
-  const capabilityStatus = hasAnyProvider ? 'ready' : 'needs_config';
+  // 对于独立 providers，计算启用数量
+  const enabledCount = isIndependent
+    ? providerStatuses.filter((p) => p.enabled).length
+    : 0;
+  const totalCount = capability.providers.length;
+
+  // 处理主开关切换
+  const handleMainToggle = (newEnabled: boolean) => {
+    if (isIndependent && onToggleProvider) {
+      // 批量切换所有 provider
+      capability.providers.forEach((provider) => {
+        onToggleProvider(provider.id, newEnabled);
+      });
+    } else {
+      onToggleCapability(newEnabled);
+    }
+  };
 
   return (
     <div
@@ -114,16 +122,29 @@ export function UnifiedCapabilityCard({
                   {capability.displayName}
                 </h3>
                 {/* Status Badge */}
-                {enabled && hasAnyProvider && (
+                {enabled && hasAnyProvider && !isIndependent && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
                     <CheckCircle className="h-3 w-3" />
                     {t('admin.tools.capability.ready')}
                   </span>
                 )}
-                {enabled && !hasAnyProvider && (
+                {enabled && !hasAnyProvider && !isIndependent && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
                     <AlertCircle className="h-3 w-3" />
                     {t('admin.tools.capability.needsProvider')}
+                  </span>
+                )}
+                {/* 独立 providers 显示启用数量 */}
+                {isIndependent && (
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                      enabledCount > 0
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {enabledCount}/{totalCount}{' '}
+                    {t('admin.tools.capability.enabled')}
                   </span>
                 )}
               </div>
@@ -132,29 +153,39 @@ export function UnifiedCapabilityCard({
               </p>
 
               {/* Active Provider Info */}
-              {enabled && hasAnyProvider && activeProvider && (
-                <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
-                  <span>{t('admin.tools.capability.using')}:</span>
-                  <span className="font-medium text-gray-700">
-                    {
-                      capability.providers.find(
-                        (p) => p.id === activeProvider.id
-                      )?.name
-                    }
-                  </span>
-                </div>
-              )}
+              {enabled &&
+                hasAnyProvider &&
+                activeProvider &&
+                !isIndependent && (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+                    <span>{t('admin.tools.capability.using')}:</span>
+                    <span className="font-medium text-gray-700">
+                      {
+                        capability.providers.find(
+                          (p) => p.id === activeProvider.id
+                        )?.name
+                      }
+                    </span>
+                  </div>
+                )}
             </div>
           </div>
 
           {/* Toggle + Expand */}
           <div className="flex items-center gap-3">
             {/* Toggle Switch */}
-            <label className="relative inline-flex cursor-pointer items-center">
+            <label
+              className="relative inline-flex cursor-pointer items-center"
+              title={
+                isIndependent
+                  ? t('admin.tools.capability.toggleAll')
+                  : undefined
+              }
+            >
               <input
                 type="checkbox"
-                checked={enabled}
-                onChange={(e) => onToggleCapability(e.target.checked)}
+                checked={isIndependent ? enabledCount === totalCount : enabled}
+                onChange={(e) => handleMainToggle(e.target.checked)}
                 className="peer sr-only"
               />
               <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-2 peer-focus:ring-blue-300"></div>
@@ -194,21 +225,30 @@ export function UnifiedCapabilityCard({
 
               const testResult = testResults[provider.id];
               const isTesting = testingProvider === provider.id;
+              const providerEnabled = isIndependent
+                ? (status.enabled ?? false)
+                : enabled;
 
               return (
                 <div
                   key={provider.id}
                   className={`flex items-center justify-between rounded-lg border bg-white p-3 ${
-                    status.configured ? 'border-green-200' : 'border-gray-200'
+                    status.configured && providerEnabled
+                      ? 'border-green-200'
+                      : status.configured
+                        ? 'border-gray-200'
+                        : 'border-gray-200'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     {/* Provider Status Icon */}
                     <div
                       className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                        status.configured
+                        status.configured && providerEnabled
                           ? 'bg-green-100 text-green-600'
-                          : 'bg-gray-100 text-gray-400'
+                          : status.configured
+                            ? 'bg-gray-100 text-gray-400'
+                            : 'bg-gray-100 text-gray-400'
                       }`}
                     >
                       {status.configured ? (
@@ -255,6 +295,21 @@ export function UnifiedCapabilityCard({
 
                   {/* Provider Actions */}
                   <div className="flex items-center gap-2">
+                    {/* Independent Provider Toggle */}
+                    {isIndependent && onToggleProvider && (
+                      <label className="relative inline-flex cursor-pointer items-center">
+                        <input
+                          type="checkbox"
+                          checked={providerEnabled}
+                          onChange={(e) =>
+                            onToggleProvider(provider.id, e.target.checked)
+                          }
+                          className="peer sr-only"
+                        />
+                        <div className="peer h-5 w-9 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-2 peer-focus:ring-blue-300"></div>
+                      </label>
+                    )}
+
                     {/* Test Result */}
                     {testResult && (
                       <span

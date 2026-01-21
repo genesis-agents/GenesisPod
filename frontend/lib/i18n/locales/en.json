@@ -1836,7 +1836,9 @@
         "active": "Active",
         "freeQuota": "Free Quota",
         "test": "Test",
-        "configure": "Configure"
+        "configure": "Configure",
+        "enabled": "enabled",
+        "toggleAll": "Toggle all"
       },
       "categories": {
         "search": "Web Search",

@@ -1838,7 +1838,9 @@
         "active": "当前",
         "freeQuota": "免费额度",
         "test": "测试",
-        "configure": "配置"
+        "configure": "配置",
+        "enabled": "已启用",
+        "toggleAll": "切换全部"
       },
       "categories": {
         "search": "网络搜索",
