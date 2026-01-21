@@ -129,7 +129,7 @@ export class DimensionMissionService {
     const logPrefix = `[Dimension:${dimension.name}:${dimId}]`;
 
     this.logger.log(
-      `${logPrefix} Starting mission (topicId=${topic.id.slice(0, 8)})${modelId ? `, model: ${modelId}` : ""}`,
+      `${logPrefix} Starting mission (topicId=${topic.id.slice(0, 8)}, reportId=${reportId || "NONE"})${modelId ? `, model: ${modelId}` : ""}`,
     );
 
     // ★ 更新维度状态为 RESEARCHING
@@ -212,6 +212,25 @@ export class DimensionMissionService {
           `${logPrefix} Found ${enrichmentStats.invalidUrls} invalid URLs (404/error pages)`,
         );
       }
+
+      // ★ 发送研究员搜索完成事件
+      const researcherAgentId = `researcher_${dimId}`;
+      const researcherAgentName = `研究员 [${modelId || "default"}]`;
+      await this.eventEmitter.emitAgentWorking(
+        topic.id,
+        {
+          agentId: researcherAgentId,
+          agentName: researcherAgentName,
+          agentRole: "researcher",
+          status: "working",
+          taskDescription: `维度「${dimension.name}」资料收集完成：找到 ${searchResult.items.length} 条结果，增强处理 ${enrichedResults.length} 条`,
+          dimensionId: dimension.id,
+          dimensionName: dimension.name,
+          progress: 15,
+          modelId,
+        },
+        effectiveMissionId,
+      );
 
       // ★ 记录搜索完成并保存搜索结果
       const searchResultsRecord: SearchResultsRecord = {
@@ -495,12 +514,18 @@ export class DimensionMissionService {
       // 6. 保存证据到数据库并替换临时ID
       let savedEvidenceIds: string[] = [];
       let finalIntegratedResult = integratedResult;
+      this.logger.log(
+        `${logPrefix} Saving evidence: ${evidenceData.length} items, reportId=${reportId || "NONE"}`,
+      );
       if (reportId) {
         const { savedIds, indexMapping } = await this.saveEvidence(
           evidenceData,
           reportId,
         );
         savedEvidenceIds = savedIds;
+        this.logger.log(
+          `${logPrefix} Evidence saved: ${savedIds.length} items`,
+        );
 
         // ★ 替换报告内容中的临时证据ID为数字引用 [n]
         if (indexMapping.size > 0) {
@@ -542,6 +567,27 @@ export class DimensionMissionService {
           message: "维度研究完成",
         },
         missionId,
+      );
+
+      // ★ 发送研究员完成事件
+      const researcherTotalWords = sectionResults.reduce(
+        (sum, r) => sum + (r.content?.length || 0),
+        0,
+      );
+      await this.eventEmitter.emitAgentWorking(
+        topic.id,
+        {
+          agentId: `researcher_${dimId}`,
+          agentName: `研究员 [${modelId || "default"}]`,
+          agentRole: "researcher",
+          status: "completed",
+          taskDescription: `维度「${dimension.name}」研究完成：${sectionResults.length} 个章节，共 ${researcherTotalWords} 字`,
+          dimensionId: dimension.id,
+          dimensionName: dimension.name,
+          progress: 100,
+          modelId,
+        },
+        effectiveMissionId,
       );
 
       this.logger.log(`${logPrefix} Mission completed successfully`);
@@ -639,6 +685,24 @@ export class DimensionMissionService {
         temporalContext, // ★ 传递时间上下文
       }));
 
+      // ★ 发送研究员开始写作事件
+      const researcherAgentId = `researcher_${dimId}`;
+      await this.eventEmitter.emitAgentWorking(
+        topicId,
+        {
+          agentId: researcherAgentId,
+          agentName: `研究员 [${modelId || "default"}]`,
+          agentRole: "researcher",
+          status: "working",
+          taskDescription: `正在撰写章节：${groupSections.map((s) => s.title).join("、")}`,
+          dimensionId: dimension.id,
+          dimensionName: dimension.name,
+          progress: 30,
+          modelId,
+        },
+        missionId,
+      );
+
       const groupResults =
         await this.sectionWriter.writeSectionsParallel(writeInputs);
 
@@ -646,6 +710,26 @@ export class DimensionMissionService {
       for (let i = 0; i < groupResults.length; i++) {
         const section = groupSections[i];
         let result = groupResults[i];
+
+        // ★ 发送研究员章节完成事件
+        const progressPercent =
+          30 +
+          Math.round((sectionResults.length / outline.sections.length) * 50);
+        await this.eventEmitter.emitAgentWorking(
+          topicId,
+          {
+            agentId: researcherAgentId,
+            agentName: `研究员 [${modelId || "default"}]`,
+            agentRole: "researcher",
+            status: "working",
+            taskDescription: `章节「${section.title}」撰写完成（${result.content?.length || 0} 字），等待审核`,
+            dimensionId: dimension.id,
+            dimensionName: dimension.name,
+            progress: progressPercent,
+            modelId,
+          },
+          missionId,
+        );
 
         // 审核循环
         let revisionCount = 0;
@@ -684,6 +768,23 @@ export class DimensionMissionService {
             dimension.name,
             `章节「${section.title}」需要修订 (评分: ${review.score}/100)：${review.feedback}`,
             false,
+          );
+
+          // ★ 发送研究员修订事件
+          await this.eventEmitter.emitAgentWorking(
+            topicId,
+            {
+              agentId: researcherAgentId,
+              agentName: `研究员 [${modelId || "default"}]`,
+              agentRole: "researcher",
+              status: "working",
+              taskDescription: `正在修订章节「${section.title}」（第 ${revisionCount + 1} 次修订，评分: ${review.score}/100）`,
+              dimensionId: dimension.id,
+              dimensionName: dimension.name,
+              progress: progressPercent + 5,
+              modelId,
+            },
+            missionId,
           );
 
           // ★ 修订时添加异常处理，失败时保持原内容并退出修订循环
