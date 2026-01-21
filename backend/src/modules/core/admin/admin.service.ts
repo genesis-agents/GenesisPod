@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { SecretsService } from "../secrets/secrets.service";
 import { AIModelType } from "@prisma/client";
 import {
   mapWithConcurrency,
@@ -53,7 +54,10 @@ export class AdminService {
   // 管理员邮箱列表（从环境变量读取）
   private readonly adminEmails: string[];
 
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    private secretsService: SecretsService,
+  ) {
     const emails = process.env.ADMIN_EMAILS || "";
     this.adminEmails = emails
       .split(",")
@@ -1039,14 +1043,39 @@ export class AdminService {
 
   /**
    * 获取AI模型的API Key（仅用于测试连接）
+   * 优先从 Secret Manager 获取（如果 secretKey 已配置），否则使用直接存储的 apiKey
    */
   async getAIModelApiKey(id: string): Promise<string | null> {
     const model = await this.prisma.aIModel.findUnique({
       where: { id },
-      select: { apiKey: true },
+      select: { apiKey: true, secretKey: true },
     });
 
-    return model?.apiKey || null;
+    if (!model) {
+      return null;
+    }
+
+    // 优先使用 secretKey 从 Secret Manager 获取
+    if (model.secretKey) {
+      this.logger.debug(
+        `Resolving API key for model ${id} from Secret Manager: ${model.secretKey}`,
+      );
+      const secretValue = await this.secretsService.getValueInternal(
+        model.secretKey,
+      );
+      if (secretValue) {
+        this.logger.debug(
+          `Successfully resolved API key from Secret Manager (length=${secretValue.length})`,
+        );
+        return secretValue;
+      }
+      this.logger.warn(
+        `Secret '${model.secretKey}' not found for model ${id}, falling back to apiKey`,
+      );
+    }
+
+    // 回退到直接存储的 apiKey
+    return model.apiKey || null;
   }
 
   // ============ System Settings Management ============

@@ -111,6 +111,9 @@ import { ImageModule } from "./image/image.module";
 // AiImageModule (使用 forwardRef 打破循环依赖)
 import { AiImageModule } from "../ai-app/image/ai-image.module";
 
+// NotebookResearchModule (使用 forwardRef 打破循环依赖 - AudioGenerationTool 需要 AiStudioTTSService)
+import { NotebookResearchModule } from "../ai-app/research/notebook-research/notebook-research.module";
+
 // Teams
 import { TeamsModule } from "./teams/teams.module";
 
@@ -296,6 +299,8 @@ const conversationMemoryFactory = {
     SecretsModule,
     // 使用 forwardRef 打破循环依赖: AiEngineModule ← ImageGenerationTool ← AiImageService ← AiImageModule → AiEngineModule
     forwardRef(() => AiImageModule),
+    // 使用 forwardRef 打破循环依赖: AiEngineModule ← AudioGenerationTool ← AiStudioTTSService ← NotebookResearchModule → AiEngineModule
+    forwardRef(() => NotebookResearchModule),
   ],
   controllers: [AgentsController, AiCoreController, SkillsController],
   providers: [

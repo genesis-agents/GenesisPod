@@ -7,7 +7,7 @@
  * - 研究报告生成
  * - TTS 语音输出
  */
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 // Import directly from source to avoid circular dependency via barrel export
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
@@ -24,7 +24,13 @@ import { AiStudioTTSService } from "./ai-studio-tts.service";
 import { FileParserService } from "./services/file-parser.service";
 
 @Module({
-  imports: [PrismaModule, AiEngineModule, StorageModule, CreditsModule],
+  // 使用 forwardRef 打破循环依赖: NotebookResearchModule ↔ AiEngineModule (AudioGenerationTool 需要 AiStudioTTSService)
+  imports: [
+    PrismaModule,
+    forwardRef(() => AiEngineModule),
+    StorageModule,
+    CreditsModule,
+  ],
   controllers: [AiStudioController],
   providers: [
     AiStudioService,
