@@ -6,6 +6,7 @@
 import {
   FunctionDefinition,
   ToolCategory,
+  CompactToolSummary,
 } from "../tools/abstractions/tool.interface";
 import { SkillLayer } from "../skills/abstractions/skill.interface";
 
@@ -212,4 +213,37 @@ export interface MCPToolSummary {
    * 描述
    */
   description?: string;
+}
+
+/**
+ * 工具包（用于 Agent 运行时）
+ * 类似于 SkillPromptBundle，用于管理工具列表和 Token 消耗
+ */
+export interface ToolBundle {
+  /**
+   * 精简工具摘要列表（默认）
+   * 用于 LLM 工具选择，节省 Token
+   */
+  compactTools: CompactToolSummary[];
+
+  /**
+   * 完整工具定义列表（按需获取）
+   * 仅在 LLM 决定调用某工具时获取
+   */
+  fullDefinitions?: FunctionDefinition[];
+
+  /**
+   * 使用的工具 IDs
+   */
+  usedTools: string[];
+
+  /**
+   * 预估的 Token 消耗
+   */
+  estimatedTokens: number;
+
+  /**
+   * 是否使用精简模式
+   */
+  isCompact: boolean;
 }

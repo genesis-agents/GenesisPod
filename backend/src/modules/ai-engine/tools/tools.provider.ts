@@ -1,0 +1,269 @@
+/**
+ * AI Engine Tools Provider
+ * 工具统一提供者 - 注册所有内置工具
+ */
+
+import { Provider, Type } from "@nestjs/common";
+import { ITool } from "./abstractions/tool.interface";
+
+// ============================================================================
+// Information Tools (信息获取)
+// ============================================================================
+import {
+  WebSearchTool,
+  WebScraperTool,
+  DataFetchTool,
+  RAGSearchTool,
+  DatabaseQueryTool,
+  KnowledgeGraphTool,
+  // Policy Tools
+  FederalRegisterTool,
+  CongressGovTool,
+  WhiteHouseNewsTool,
+} from "./categories/information";
+
+// ============================================================================
+// Generation Tools (内容生成)
+// ============================================================================
+import {
+  TextGenerationTool,
+  ImageGenerationTool,
+  CodeGenerationTool,
+  AudioGenerationTool,
+  VideoGenerationTool,
+  StructuredOutputTool,
+} from "./categories/generation";
+
+// ============================================================================
+// Processing Tools (数据处理)
+// ============================================================================
+import {
+  DataAnalysisTool,
+  DataValidationTool,
+  DataCleaningTool,
+  FileParserTool,
+  FileConversionTool,
+  DocumentDiffTool,
+  TemplateRenderTool,
+} from "./categories/processing";
+
+// ============================================================================
+// Execution Tools (代码执行)
+// ============================================================================
+import {
+  PythonExecutorTool,
+  JavaScriptExecutorTool,
+  SQLExecutorTool,
+  ShellExecutorTool,
+  ContainerExecutorTool,
+  OCRRecognitionTool,
+} from "./categories/execution";
+
+// ============================================================================
+// Integration Tools (外部集成)
+// ============================================================================
+import {
+  MessagePushTool,
+  CloudStorageTool,
+  GitHubIntegrationTool,
+  EmailSenderTool,
+  CalendarIntegrationTool,
+  WebhookTriggerTool,
+} from "./categories/integration";
+
+// ============================================================================
+// Memory Tools (记忆管理)
+// ============================================================================
+import {
+  ShortTermMemoryTool,
+  LongTermMemoryTool,
+  EntityMemoryTool,
+  KnowledgeBaseTool,
+  UserPreferencesTool,
+} from "./categories/memory";
+
+// ============================================================================
+// Export Tools (导出)
+// ============================================================================
+import {
+  ExportPPTXTool,
+  ExportDOCXTool,
+  ExportPDFTool,
+  ExportImageTool,
+} from "./categories/export";
+
+// ============================================================================
+// Collaboration Tools (Agent 协作)
+// ============================================================================
+import {
+  AgentHandoffTool,
+  HumanApprovalTool,
+  AgentCommunicationTool,
+  TaskDelegationTool,
+  ConsensusMechanismTool,
+  WorkflowOrchestrationTool,
+} from "./categories/collaboration";
+
+/**
+ * 所有内置工具类列表
+ */
+export const ALL_TOOL_CLASSES: Type<ITool>[] = [
+  // Information Tools
+  WebSearchTool,
+  WebScraperTool,
+  DataFetchTool,
+  RAGSearchTool,
+  DatabaseQueryTool,
+  KnowledgeGraphTool,
+  FederalRegisterTool,
+  CongressGovTool,
+  WhiteHouseNewsTool,
+
+  // Generation Tools
+  TextGenerationTool,
+  ImageGenerationTool,
+  CodeGenerationTool,
+  AudioGenerationTool,
+  VideoGenerationTool,
+  StructuredOutputTool,
+
+  // Processing Tools
+  DataAnalysisTool,
+  DataValidationTool,
+  DataCleaningTool,
+  FileParserTool,
+  FileConversionTool,
+  DocumentDiffTool,
+  TemplateRenderTool,
+
+  // Execution Tools
+  PythonExecutorTool,
+  JavaScriptExecutorTool,
+  SQLExecutorTool,
+  ShellExecutorTool,
+  ContainerExecutorTool,
+  OCRRecognitionTool,
+
+  // Integration Tools
+  MessagePushTool,
+  CloudStorageTool,
+  GitHubIntegrationTool,
+  EmailSenderTool,
+  CalendarIntegrationTool,
+  WebhookTriggerTool,
+
+  // Memory Tools
+  ShortTermMemoryTool,
+  LongTermMemoryTool,
+  EntityMemoryTool,
+  KnowledgeBaseTool,
+  UserPreferencesTool,
+
+  // Export Tools
+  ExportPPTXTool,
+  ExportDOCXTool,
+  ExportPDFTool,
+  ExportImageTool,
+
+  // Collaboration Tools
+  AgentHandoffTool,
+  HumanApprovalTool,
+  AgentCommunicationTool,
+  TaskDelegationTool,
+  ConsensusMechanismTool,
+  WorkflowOrchestrationTool,
+];
+
+/**
+ * 所有工具 Providers（用于 NestJS Module）
+ */
+export const ALL_TOOL_PROVIDERS: Provider[] = ALL_TOOL_CLASSES;
+
+/**
+ * 工具注册 Token（用于批量注入）
+ */
+export const ALL_TOOLS_TOKEN = "ALL_TOOLS";
+
+/**
+ * 批量注入所有工具的 Provider
+ */
+export const allToolsProvider: Provider = {
+  provide: ALL_TOOLS_TOKEN,
+  useFactory: (...tools: ITool[]) => tools,
+  inject: ALL_TOOL_CLASSES,
+};
+
+/**
+ * 工具 ID 到类的映射
+ */
+export const TOOL_ID_CLASS_MAP: Record<string, Type<ITool>> = {
+  // Information
+  "web-search": WebSearchTool,
+  "web-scraper": WebScraperTool,
+  "data-fetch": DataFetchTool,
+  "rag-search": RAGSearchTool,
+  "database-query": DatabaseQueryTool,
+  "knowledge-graph": KnowledgeGraphTool,
+  "federal-register": FederalRegisterTool,
+  "congress-gov": CongressGovTool,
+  "whitehouse-news": WhiteHouseNewsTool,
+
+  // Generation
+  "text-generation": TextGenerationTool,
+  "image-generation": ImageGenerationTool,
+  "code-generation": CodeGenerationTool,
+  "audio-generation": AudioGenerationTool,
+  "video-generation": VideoGenerationTool,
+  "structured-output": StructuredOutputTool,
+
+  // Processing
+  "data-analysis": DataAnalysisTool,
+  "data-validation": DataValidationTool,
+  "data-cleaning": DataCleaningTool,
+  "file-parser": FileParserTool,
+  "file-conversion": FileConversionTool,
+  "document-diff": DocumentDiffTool,
+  "template-render": TemplateRenderTool,
+
+  // Execution
+  "python-executor": PythonExecutorTool,
+  "javascript-executor": JavaScriptExecutorTool,
+  "sql-executor": SQLExecutorTool,
+  "shell-executor": ShellExecutorTool,
+  "container-executor": ContainerExecutorTool,
+  "ocr-recognition": OCRRecognitionTool,
+
+  // Integration
+  "message-push": MessagePushTool,
+  "cloud-storage": CloudStorageTool,
+  "github-integration": GitHubIntegrationTool,
+  "email-sender": EmailSenderTool,
+  "calendar-integration": CalendarIntegrationTool,
+  "webhook-trigger": WebhookTriggerTool,
+
+  // Memory
+  "short-term-memory": ShortTermMemoryTool,
+  "long-term-memory": LongTermMemoryTool,
+  "entity-memory": EntityMemoryTool,
+  "knowledge-base": KnowledgeBaseTool,
+  "user-preferences": UserPreferencesTool,
+
+  // Export
+  "export-pptx": ExportPPTXTool,
+  "export-docx": ExportDOCXTool,
+  "export-pdf": ExportPDFTool,
+  "export-image": ExportImageTool,
+
+  // Collaboration
+  "agent-handoff": AgentHandoffTool,
+  "human-approval": HumanApprovalTool,
+  "agent-communication": AgentCommunicationTool,
+  "task-delegation": TaskDelegationTool,
+  "consensus-mechanism": ConsensusMechanismTool,
+  "workflow-orchestration": WorkflowOrchestrationTool,
+};
+
+/**
+ * 获取工具总数
+ */
+export const TOTAL_TOOL_COUNT = ALL_TOOL_CLASSES.length;

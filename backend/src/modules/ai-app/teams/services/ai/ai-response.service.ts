@@ -21,7 +21,7 @@ import {
   AgentEvent,
 } from "../../../../ai-engine/orchestration/executors/function-calling-executor";
 import { BuiltinToolId } from "../../../../ai-engine/core";
-import { ToolContext } from "../../../../ai-engine/tools/abstractions/tool.interface";
+import { AICapabilityContext } from "../../../../ai-engine/capabilities/ai-capability-resolver.service";
 import { TopicEventEmitterService } from "../events";
 import { CreditsService } from "../../../../credits/credits.service";
 import { InsufficientCreditsException } from "../../../../credits/exceptions/insufficient-credits.exception";
@@ -1751,14 +1751,12 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
     const lastUserMessage = userMessages[userMessages.length - 1];
     const userPrompt = lastUserMessage?.content || "请继续";
 
-    // 构建工具上下文
-    const toolContext: ToolContext = {
-      executionId: `topic_${topicId}_${Date.now()}`,
-      toolId: "ai-response",
-      taskId: `topic_${topicId}_${Date.now()}`,
+    // T2 Fix: 构建 AICapabilityContext，使用 executeWithContext() 以支持工具启用/禁用
+    const capabilityContext: AICapabilityContext = {
+      agentId: `ai-response-${aiMember.id}`,
       userId: lastUserMessage?.senderId || "system",
-      workspaceId: topicId,
-      createdAt: new Date(),
+      teamId: topicId, // 使用 topicId 作为 teamId
+      domain: "teams",
     };
 
     // 执行 Function Calling
@@ -1771,12 +1769,13 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
     let finalContent = "";
 
     try {
-      const eventGenerator = this.functionCallingExecutor.execute(
+      // T2 Fix: 使用 executeWithContext() 替代 execute()
+      // executeWithContext() 会通过 AICapabilityResolver 解析可用工具
+      const eventGenerator = this.functionCallingExecutor.executeWithContext(
         this.functionCallingLLMAdapter,
         systemPrompt,
         userPrompt,
-        toolTypes,
-        toolContext,
+        capabilityContext,
         {
           maxIterations: 5,
           maxToolCalls: 10,

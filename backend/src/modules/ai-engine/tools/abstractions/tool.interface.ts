@@ -310,6 +310,68 @@ export interface FunctionDefinition {
 }
 
 /**
+ * 精简工具摘要（用于 LLM 工具列表展示，节省 Token）
+ *
+ * 设计思路：
+ * - LLM 在选择工具时，只需要知道工具名和用途，不需要完整参数 schema
+ * - 当 LLM 决定调用某个工具时，再获取该工具的完整 FunctionDefinition
+ * - 这样可以显著减少 System Prompt 中的 Token 消耗
+ */
+export interface CompactToolSummary {
+  /**
+   * 工具 ID（也是函数名）
+   */
+  id: string;
+
+  /**
+   * 工具名称（人类可读）
+   */
+  name: string;
+
+  /**
+   * 简短描述（限制 100 字符）
+   */
+  brief: string;
+
+  /**
+   * 工具类别
+   */
+  category: ToolCategory;
+
+  /**
+   * 标签（可选，便于分类展示）
+   */
+  tags?: string[];
+}
+
+/**
+ * 工具列表构建选项
+ */
+export interface ToolListOptions {
+  /**
+   * 是否使用精简模式（默认 true）
+   * - true: 只返回 CompactToolSummary，节省 Token
+   * - false: 返回完整 FunctionDefinition
+   */
+  compact?: boolean;
+
+  /**
+   * 最大工具数量（默认不限制）
+   */
+  maxTools?: number;
+
+  /**
+   * 按类别过滤
+   */
+  categories?: ToolCategory[];
+
+  /**
+   * 按标签过滤
+   */
+  tags?: string[];
+}
+
+/**
  * 工具接口
  * 精简版，专注于单一原子操作
  */
@@ -379,6 +441,11 @@ export interface ITool<TInput = unknown, TOutput = unknown> {
    * 转换为 Function Calling 格式
    */
   toFunctionDefinition(): FunctionDefinition;
+
+  /**
+   * 转换为精简摘要格式（节省 Token）
+   */
+  toCompactSummary(): CompactToolSummary;
 }
 
 /**

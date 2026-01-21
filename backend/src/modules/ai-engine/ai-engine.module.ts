@@ -14,7 +14,7 @@
  * - MCP 协议 (MCP)
  */
 
-import { Module, Global, OnModuleInit, Logger } from "@nestjs/common";
+import { Module, Global, OnModuleInit, Logger, Inject } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { SecretsModule } from "../core/secrets/secrets.module";
@@ -123,13 +123,17 @@ import { SkillsMPClientService } from "./skills/ecosystem/skillsmp-client.servic
 // Skills Public API
 import { SkillsController, SkillsApiService } from "./skills/api";
 
-// Policy Research Tools
+// Policy Research Tools (单独导入 PolicyDataService)
+import { PolicyDataService } from "./tools/categories/information/policy";
+
+// ★ 所有内置工具统一提供者
 import {
-  PolicyDataService,
-  FederalRegisterTool,
-  CongressGovTool,
-  WhiteHouseNewsTool,
-} from "./tools/categories/information/policy";
+  ALL_TOOL_PROVIDERS,
+  ALL_TOOLS_TOKEN,
+  allToolsProvider,
+  TOTAL_TOOL_COUNT,
+} from "./tools/tools.provider";
+import { ITool } from "./tools/abstractions/tool.interface";
 
 /**
  * 工具管道工厂
@@ -367,11 +371,12 @@ const conversationMemoryFactory = {
     SkillsMPClientService,
     SkillsApiService,
 
-    // === Policy Research Tools ===
+    // === Policy Data Service ===
     PolicyDataService,
-    FederalRegisterTool,
-    CongressGovTool,
-    WhiteHouseNewsTool,
+
+    // === ★ 所有内置工具 (46 个) ===
+    ...ALL_TOOL_PROVIDERS,
+    allToolsProvider, // 批量注入 token
   ],
   exports: [
     // === Registries ===
@@ -467,11 +472,11 @@ const conversationMemoryFactory = {
     SkillPromptBuilder,
     SkillsMPClientService,
 
-    // === Policy Research Tools ===
+    // === Policy Data Service ===
     PolicyDataService,
-    FederalRegisterTool,
-    CongressGovTool,
-    WhiteHouseNewsTool,
+
+    // === ★ 所有内置工具导出 ===
+    ...ALL_TOOL_PROVIDERS,
   ],
 })
 export class AiEngineModule implements OnModuleInit {
@@ -483,23 +488,23 @@ export class AiEngineModule implements OnModuleInit {
     private readonly agentRegistry: AgentRegistry,
     private readonly llmFactory: LLMFactory,
     private readonly universalLLMAdapter: UniversalLLMAdapter,
-    // Policy Research Tools
-    private readonly federalRegisterTool: FederalRegisterTool,
-    private readonly congressGovTool: CongressGovTool,
-    private readonly whiteHouseNewsTool: WhiteHouseNewsTool,
+    // ★ 批量注入所有工具
+    @Inject(ALL_TOOLS_TOKEN) private readonly allTools: ITool[],
   ) {}
 
   onModuleInit() {
     // 注册 LLM 适配器到工厂
     this.llmFactory.registerAdapter(this.universalLLMAdapter);
 
-    // 注册政策研究工具到 ToolRegistry
-    this.toolRegistry.register(this.federalRegisterTool);
-    this.toolRegistry.register(this.congressGovTool);
-    this.toolRegistry.register(this.whiteHouseNewsTool);
+    // ★ 批量注册所有工具到 ToolRegistry
+    for (const tool of this.allTools) {
+      this.toolRegistry.register(tool);
+    }
 
     this.logger.log("AI Engine Module initialized");
-    this.logger.log(`  Tools: ${this.toolRegistry.size()}`);
+    this.logger.log(
+      `  Tools: ${this.toolRegistry.size()} (expected: ${TOTAL_TOOL_COUNT})`,
+    );
     this.logger.log(`  Skills: ${this.skillRegistry.size()}`);
     this.logger.log(`  Agents: ${this.agentRegistry.size()}`);
     this.logger.log(

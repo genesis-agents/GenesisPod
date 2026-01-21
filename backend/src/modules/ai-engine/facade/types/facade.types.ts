@@ -85,6 +85,30 @@ export interface ChatRequest {
 
   /** 严格模式：API失败时抛出异常 */
   strictMode?: boolean;
+
+  // ==================== K3 Fix: Skill Injection Options ====================
+
+  /**
+   * K3 Fix: 领域（用于自动注入技能）
+   * 设置后，chat() 方法会自动加载对应领域的 Skills
+   */
+  domain?: string;
+
+  /**
+   * K3 Fix: 任务类型（用于自动注入技能）
+   * 结合 domain 使用，自动加载匹配的 Skills
+   */
+  taskType?: string;
+
+  /**
+   * K3 Fix: 额外加载的技能 ID 列表
+   */
+  additionalSkills?: string[];
+
+  /**
+   * K3 Fix: 技能上下文（传递给技能的变量）
+   */
+  skillContext?: Record<string, unknown>;
 }
 
 /**

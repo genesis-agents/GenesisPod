@@ -10,6 +10,8 @@ import {
   ToolCategory,
   FunctionDefinition,
   ToolDefinition,
+  CompactToolSummary,
+  ToolListOptions,
 } from "../abstractions/tool.interface";
 
 /**
@@ -144,6 +146,79 @@ export class ToolRegistry
         (tool): tool is ITool => tool !== undefined && tool.enabled !== false,
       )
       .map((tool) => tool.toFunctionDefinition());
+  }
+
+  /**
+   * ★ NEW: 获取所有工具的精简摘要（节省 Token）
+   * 用于 LLM 工具列表展示，不包含参数 Schema
+   */
+  getAllCompactSummaries(): CompactToolSummary[] {
+    return this.getEnabled().map((tool) => tool.toCompactSummary());
+  }
+
+  /**
+   * ★ NEW: 获取指定工具的精简摘要
+   */
+  getCompactSummaries(ids: string[]): CompactToolSummary[] {
+    return ids
+      .map((id) => this.tryGet(id))
+      .filter(
+        (tool): tool is ITool => tool !== undefined && tool.enabled !== false,
+      )
+      .map((tool) => tool.toCompactSummary());
+  }
+
+  /**
+   * ★ NEW: 根据选项获取工具列表
+   * 支持精简模式和完整模式
+   */
+  getToolList(
+    ids: string[],
+    options: ToolListOptions = {},
+  ): CompactToolSummary[] | FunctionDefinition[] {
+    const { compact = true, maxTools, categories, tags } = options;
+
+    // 过滤工具
+    let tools = ids
+      .map((id) => this.tryGet(id))
+      .filter(
+        (tool): tool is ITool => tool !== undefined && tool.enabled !== false,
+      );
+
+    // 按类别过滤
+    if (categories && categories.length > 0) {
+      tools = tools.filter((tool) => categories.includes(tool.category));
+    }
+
+    // 按标签过滤
+    if (tags && tags.length > 0) {
+      tools = tools.filter(
+        (tool) => tool.tags && tags.some((tag) => tool.tags!.includes(tag)),
+      );
+    }
+
+    // 限制数量
+    if (maxTools && maxTools > 0) {
+      tools = tools.slice(0, maxTools);
+    }
+
+    // 返回精简或完整格式
+    if (compact) {
+      return tools.map((tool) => tool.toCompactSummary());
+    } else {
+      return tools.map((tool) => tool.toFunctionDefinition());
+    }
+  }
+
+  /**
+   * ★ NEW: 估算工具列表的 Token 消耗
+   * 精简摘要：约 30-50 tokens/工具
+   * 完整定义：约 100-300 tokens/工具
+   */
+  estimateTokens(ids: string[], compact = true): number {
+    const count = ids.filter((id) => this.isAvailable(id)).length;
+    // 估算值：精简约 40 tokens，完整约 200 tokens
+    return compact ? count * 40 : count * 200;
   }
 
   /**

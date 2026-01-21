@@ -162,6 +162,13 @@ export class SecretsService {
       return null;
     }
 
+    // S5 Fix: Check isActive status
+    if (!secret.isActive) {
+      if (context)
+        await this.logAccessDenied(name, context, "Secret is disabled");
+      return null;
+    }
+
     if (secret.expiresAt && secret.expiresAt < new Date()) {
       if (context) await this.logAccessDenied(name, context, "Secret expired");
       return null;

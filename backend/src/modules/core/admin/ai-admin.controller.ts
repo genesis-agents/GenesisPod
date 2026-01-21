@@ -150,6 +150,115 @@ export class AIAdminController {
     return this.aiAdminService.testTool(toolId, body.input);
   }
 
+  @Get("tools/diagnose")
+  @ApiOperation({
+    summary: "诊断所有工具健康状态",
+    description: "检查所有工具的可用性、密钥配置等，返回诊断结果",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "返回工具健康诊断结果",
+    schema: {
+      type: "object",
+      properties: {
+        tools: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              toolId: { type: "string" },
+              name: { type: "string" },
+              status: {
+                type: "string",
+                enum: ["healthy", "unhealthy", "unconfigured"],
+              },
+              message: { type: "string" },
+              hasSecretKey: { type: "boolean" },
+              secretKeyValid: { type: "boolean" },
+            },
+          },
+        },
+        summary: {
+          type: "object",
+          properties: {
+            total: { type: "number" },
+            healthy: { type: "number" },
+            unhealthy: { type: "number" },
+            unconfigured: { type: "number" },
+          },
+        },
+      },
+    },
+  })
+  async diagnoseTools() {
+    this.logger.log("Admin: Diagnosing all tools");
+    return this.aiAdminService.diagnoseTools();
+  }
+
+  @Get("external-tools/diagnose")
+  @ApiOperation({
+    summary: "诊断外部工具健康状态",
+    description: "检查外部 API 服务（如 Perplexity, Tavily, Serper）的配置状态",
+  })
+  @ApiResponse({ status: 200, description: "返回外部工具诊断结果" })
+  async diagnoseExternalTools() {
+    this.logger.log("Admin: Diagnosing external tools");
+    return this.aiAdminService.diagnoseExternalTools();
+  }
+
+  @Get("mcp-servers/diagnose")
+  @ApiOperation({
+    summary: "诊断 MCP 服务器健康状态",
+    description: "检查所有 MCP 服务器的连接状态和可用工具",
+  })
+  @ApiResponse({ status: 200, description: "返回 MCP 服务器诊断结果" })
+  async diagnoseMCPServers() {
+    this.logger.log("Admin: Diagnosing MCP servers");
+    return this.aiAdminService.diagnoseMCPServers();
+  }
+
+  @Get("diagnose")
+  @ApiOperation({
+    summary: "全面诊断 AI 能力系统",
+    description:
+      "检查所有断点：Secrets、内置工具、外部工具、MCP 服务器、技能、团队能力",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "返回完整的系统诊断结果，包括发现的断点和修复建议",
+  })
+  async diagnoseAllCapabilities() {
+    this.logger.log("Admin: Running full AI capability system diagnosis");
+    return this.aiAdminService.diagnoseAllCapabilities();
+  }
+
+  @Get("tools/available-for-agent")
+  @ApiOperation({
+    summary: "获取可装配给 Agent 的工具列表",
+    description: "只返回健康且启用的工具，用于 Team Leader 装配成员",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "返回可用工具列表",
+    schema: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          toolId: { type: "string" },
+          name: { type: "string" },
+          description: { type: "string" },
+          category: { type: "string" },
+          tags: { type: "array", items: { type: "string" } },
+        },
+      },
+    },
+  })
+  async getAvailableToolsForAgent() {
+    this.logger.log("Admin: Getting available tools for agent");
+    return this.aiAdminService.getAvailableToolsForAgent();
+  }
+
   // ==================== Skills ====================
 
   @Get("skills")

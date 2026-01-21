@@ -7,6 +7,7 @@ import {
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { SecretsService } from "../../core/secrets/secrets.service";
 import * as duckDuckScrape from "duck-duck-scrape";
 import * as crypto from "crypto";
 
@@ -81,6 +82,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly httpService: HttpService,
     private readonly prisma: PrismaService,
+    private readonly secretsService: SecretsService,
   ) {}
 
   /**
@@ -455,16 +457,15 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Get search API configuration from database, fallback to environment variables
-   * ★ 支持多 Key 配置：每个 Provider 可配置多个 API Key
+   * Get search API configuration
+   * ★ M1 Fix: 统一使用 Secret Manager 获取 API Key
    *
-   * 配置格式（数据库 JSON）：
-   * - search.tavily.apiKeys: ["key1", "key2", "key3"]
-   * - search.serper.apiKeys: ["key1", "key2"]
-   * - 兼容旧格式 search.tavily.apiKey: "single_key"
+   * 密钥来源优先级：
+   * 1. Secret Manager (TAVILY_API_KEY, SERPER_API_KEY)
+   * 2. 环境变量 (兼容旧配置)
    */
   private async getSearchConfig(): Promise<SearchConfig> {
-    // Environment variable keys (支持逗号分隔多个 Key)
+    // 环境变量作为备用 (支持逗号分隔多个 Key)
     const tavilyEnvKeys = process.env.TAVILY_API_KEY
       ? process.env.TAVILY_API_KEY.split(",")
           .map((k) => k.trim())
@@ -477,36 +478,68 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       : [];
 
     try {
-      // Try to get from database first
-      const settings = await this.prisma.systemSetting.findMany({
-        where: {
-          key: {
-            in: [
-              "search.provider",
-              "search.enabled",
-              "search.tavily.apiKey", // 旧格式（单个 Key）
-              "search.tavily.apiKeys", // 新格式（多个 Key）
-              "search.serper.apiKey", // 旧格式
-              "search.serper.apiKeys", // 新格式
-            ],
-          },
-        },
-      });
+      // ★ M1 Fix: 从 Secret Manager 获取 API Keys
+      const tavilyKeys: string[] = [];
+      const serperKeys: string[] = [];
 
-      const settingsMap: Record<string, any> = {};
-      for (const s of settings) {
+      // 尝试从 Secret Manager 获取 Tavily Key
+      const tavilySecret =
+        await this.secretsService.getValueInternal("TAVILY_API_KEY");
+      if (tavilySecret) {
+        // 支持逗号分隔的多个 Key
+        const keys = tavilySecret
+          .split(",")
+          .map((k) => k.trim())
+          .filter(Boolean);
+        tavilyKeys.push(...keys);
+      }
+
+      // 尝试从 Secret Manager 获取 Serper Key
+      const serperSecret =
+        await this.secretsService.getValueInternal("SERPER_API_KEY");
+      if (serperSecret) {
+        const keys = serperSecret
+          .split(",")
+          .map((k) => k.trim())
+          .filter(Boolean);
+        serperKeys.push(...keys);
+      }
+
+      // 如果 Secret Manager 没有配置，回退到环境变量
+      if (tavilyKeys.length === 0) {
+        tavilyKeys.push(...tavilyEnvKeys);
+      }
+      if (serperKeys.length === 0) {
+        serperKeys.push(...serperEnvKeys);
+      }
+
+      // 获取 provider 配置（仍从 SystemSetting 获取，因为这不是密钥）
+      let provider: string = "tavily";
+      let enabled = true;
+
+      const providerSetting = await this.prisma.systemSetting.findFirst({
+        where: { key: "search.provider" },
+      });
+      if (providerSetting?.value) {
         try {
-          if (s.value) settingsMap[s.key] = JSON.parse(s.value);
+          provider = JSON.parse(providerSetting.value);
         } catch {
-          settingsMap[s.key] = s.value;
+          provider = providerSetting.value;
         }
       }
 
-      // Check if search is disabled in database
-      if (
-        settingsMap["search.enabled"] === false ||
-        settingsMap["search.enabled"] === "false"
-      ) {
+      const enabledSetting = await this.prisma.systemSetting.findFirst({
+        where: { key: "search.enabled" },
+      });
+      if (enabledSetting?.value) {
+        try {
+          enabled = JSON.parse(enabledSetting.value) !== false;
+        } catch {
+          enabled = enabledSetting.value !== "false";
+        }
+      }
+
+      if (!enabled) {
         return {
           provider: "tavily",
           enabled: false,
@@ -515,33 +548,23 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         };
       }
 
-      // Get provider from database (user's configured default)
-      const provider = settingsMap["search.provider"] || "tavily";
-
-      // ★ 获取 Tavily Keys（优先新格式，兼容旧格式，最后环境变量）
-      let tavilyKeys: string[] = [];
-      if (Array.isArray(settingsMap["search.tavily.apiKeys"])) {
-        tavilyKeys = settingsMap["search.tavily.apiKeys"].filter(Boolean);
-      } else if (settingsMap["search.tavily.apiKey"]) {
-        tavilyKeys = [settingsMap["search.tavily.apiKey"]];
-      }
-      if (tavilyKeys.length === 0) {
-        tavilyKeys = tavilyEnvKeys;
-      }
-
-      // ★ 获取 Serper Keys
-      let serperKeys: string[] = [];
-      if (Array.isArray(settingsMap["search.serper.apiKeys"])) {
-        serperKeys = settingsMap["search.serper.apiKeys"].filter(Boolean);
-      } else if (settingsMap["search.serper.apiKey"]) {
-        serperKeys = [settingsMap["search.serper.apiKey"]];
-      }
-      if (serperKeys.length === 0) {
-        serperKeys = serperEnvKeys;
+      // 根据可用的 Key 自动选择 provider
+      if (
+        provider === "tavily" &&
+        tavilyKeys.length === 0 &&
+        serperKeys.length > 0
+      ) {
+        provider = "serper";
+      } else if (
+        provider === "serper" &&
+        serperKeys.length === 0 &&
+        tavilyKeys.length > 0
+      ) {
+        provider = "tavily";
       }
 
       this.logger.debug(
-        `[Search] Config: provider=${provider}, tavily=${tavilyKeys.length} keys, serper=${serperKeys.length} keys`,
+        `[Search] Config: provider=${provider}, tavily=${tavilyKeys.length} keys, serper=${serperKeys.length} keys (source: Secret Manager)`,
       );
 
       return {
@@ -552,11 +575,11 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       };
     } catch (error) {
       this.logger.warn(
-        "Failed to get search config from database, using env vars",
+        `Failed to get search config: ${error instanceof Error ? error.message : String(error)}, using env vars`,
       );
     }
 
-    // Fallback to environment variables when DB access fails
+    // Fallback to environment variables when Secret Manager access fails
     return {
       provider:
         tavilyEnvKeys.length > 0

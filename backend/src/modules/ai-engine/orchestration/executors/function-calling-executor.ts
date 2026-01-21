@@ -16,6 +16,7 @@ import {
   AICapabilityResolver,
   AICapabilityContext,
 } from "../../capabilities/ai-capability-resolver.service";
+import { MCPManager } from "../../mcp/manager/mcp-manager";
 
 // ============================================================================
 // Types
@@ -195,6 +196,7 @@ export class FunctionCallingExecutor {
   constructor(
     private readonly toolRegistry: ToolRegistry,
     @Optional() private readonly capabilityResolver?: AICapabilityResolver,
+    @Optional() private readonly mcpManager?: MCPManager,
   ) {
     this.retryStrategy = new RetryStrategy();
   }
@@ -383,6 +385,7 @@ export class FunctionCallingExecutor {
 
   /**
    * 执行单个工具
+   * A3 Fix: 支持 MCP 工具（工具名以 mcp_ 开头）
    */
   private async executeTool(
     toolId: string,
@@ -391,6 +394,11 @@ export class FunctionCallingExecutor {
     enableRetry: boolean,
   ): Promise<ToolResult> {
     const startTime = Date.now();
+
+    // A3 Fix: 检查是否为 MCP 工具（格式: mcp_{serverId}_{toolName}）
+    if (toolId.startsWith("mcp_") && this.mcpManager) {
+      return this.executeMCPTool(toolId, input, context, startTime);
+    }
 
     if (!this.toolRegistry.has(toolId)) {
       this.logger.warn(`[executeTool] Tool not found: ${toolId}`);
@@ -439,6 +447,86 @@ export class FunctionCallingExecutor {
   }
 
   /**
+   * A3 Fix: 执行 MCP 工具
+   */
+  private async executeMCPTool(
+    toolId: string,
+    input: unknown,
+    context: ToolContext,
+    startTime: number,
+  ): Promise<ToolResult> {
+    // 解析 MCP 工具名（格式: mcp_{serverId}_{toolName}）
+    const parts = toolId.split("_");
+    if (parts.length < 3) {
+      return {
+        success: false,
+        error: {
+          message: `Invalid MCP tool ID format: ${toolId}`,
+          code: "INVALID_FORMAT",
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime: new Date(startTime),
+          endTime: new Date(),
+          duration: Date.now() - startTime,
+        },
+      };
+    }
+
+    const serverId = parts[1];
+    const toolName = parts.slice(2).join("_"); // 工具名可能包含下划线
+
+    try {
+      const result = await this.mcpManager!.callTool(
+        serverId,
+        toolName,
+        input as Record<string, unknown>,
+      );
+
+      // 转换 MCP 结果为 ToolResult 格式
+      const content = result.content
+        .map((c) => c.text || c.data || "")
+        .join("\n");
+
+      return {
+        success: !result.isError,
+        data: result.isError ? undefined : content,
+        error: result.isError
+          ? {
+              message: content || "MCP tool execution failed",
+              code: "MCP_ERROR",
+            }
+          : undefined,
+        metadata: {
+          executionId: context.executionId,
+          startTime: new Date(startTime),
+          endTime: new Date(),
+          duration: Date.now() - startTime,
+          extra: { serverId, toolName, mcpTool: true },
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        `[executeMCPTool] Failed to execute ${serverId}:${toolName}: ${(error as Error).message}`,
+      );
+      return {
+        success: false,
+        error: {
+          message: (error as Error).message || "MCP tool execution failed",
+          code: "MCP_EXECUTION_FAILED",
+        },
+        metadata: {
+          executionId: context.executionId,
+          startTime: new Date(startTime),
+          endTime: new Date(),
+          duration: Date.now() - startTime,
+          extra: { serverId, toolName, mcpTool: true },
+        },
+      };
+    }
+  }
+
+  /**
    * 获取工具的 Function 定义
    */
   private getFunctionDefinitions(tools: ToolId[]): FunctionDefinition[] {
@@ -470,6 +558,7 @@ export class FunctionCallingExecutor {
    * ★ NEW: 执行 Function Calling with AICapabilityContext
    *
    * 使用 AICapabilityResolver 来解析可用的工具，自动处理权限和配置
+   * A3 Fix: 现在包含 MCP 工具
    */
   async *executeWithContext(
     llmAdapter: ILLMAdapter,
@@ -489,11 +578,12 @@ export class FunctionCallingExecutor {
       return;
     }
 
-    // 1. 解析可用的工具
-    const toolIds = await this.capabilityResolver.resolveToolsForAgent(context);
+    // A3 Fix: 获取包含 MCP 工具的完整 Function Definitions
+    const functionDefinitions =
+      await this.capabilityResolver.getToolFunctionDefinitions(context);
 
     this.logger.log(
-      `[executeWithContext] Resolved ${toolIds.length} tools for context: ${toolIds.join(", ")}`,
+      `[executeWithContext] Resolved ${functionDefinitions.length} tools (including MCP) for context`,
     );
 
     // 2. 构建 ToolContext
@@ -504,15 +594,15 @@ export class FunctionCallingExecutor {
       createdAt: new Date(),
     };
 
-    // 3. 执行 Function Calling（使用原有的 execute 方法）
+    // 3. A3 Fix: 执行 Function Calling（使用 function definitions 直接）
     let successfulCalls = 0;
     let failedCalls = 0;
 
-    for await (const event of this.execute(
+    for await (const event of this.executeWithDefinitions(
       llmAdapter,
       systemPrompt,
       userPrompt,
-      toolIds,
+      functionDefinitions,
       toolContext,
       config,
     )) {
@@ -552,5 +642,192 @@ export class FunctionCallingExecutor {
     this.logger.log(
       `[executeWithContext] Completed with ${successfulCalls} successful and ${failedCalls} failed tool calls`,
     );
+  }
+
+  /**
+   * A3 Fix: 内部方法 - 使用 FunctionDefinitions 直接执行
+   * 支持内置工具和 MCP 工具的混合执行
+   */
+  private async *executeWithDefinitions(
+    llmAdapter: ILLMAdapter,
+    systemPrompt: string,
+    userPrompt: string,
+    functionDefinitions: FunctionDefinition[],
+    context: ToolContext,
+    config?: Partial<ExecutionConfig>,
+  ): AsyncGenerator<AgentEvent> {
+    const cfg: ExecutionConfig = {
+      ...FunctionCallingExecutor.DEFAULT_CONFIG,
+      ...config,
+    };
+    const startTime = Date.now();
+
+    const metrics: ExecutionMetrics = {
+      iterations: 0,
+      toolCalls: 0,
+      successfulToolCalls: 0,
+      failedToolCalls: 0,
+      tokensUsed: { prompt: 0, completion: 0, total: 0 },
+      totalDuration: 0,
+      toolCallDetails: [],
+    };
+
+    const messages: LLMMessage[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ];
+
+    this.logger.log(
+      `[executeWithDefinitions] Starting with ${functionDefinitions.length} tools`,
+    );
+
+    while (
+      metrics.iterations < cfg.maxIterations &&
+      metrics.toolCalls < cfg.maxToolCalls
+    ) {
+      metrics.iterations++;
+
+      this.logger.log(
+        `[executeWithDefinitions] Iteration ${metrics.iterations}`,
+      );
+
+      let response: LLMResponse;
+      try {
+        response = await llmAdapter.chat({
+          messages,
+          functions: functionDefinitions,
+          temperature: cfg.temperature,
+          maxTokens: cfg.maxTokens,
+          tool_choice: "auto",
+        });
+      } catch (error) {
+        this.logger.error(`[executeWithDefinitions] LLM call failed: ${error}`);
+        yield {
+          type: "error",
+          error: error instanceof Error ? error.message : "LLM call failed",
+        };
+        break;
+      }
+
+      if (response.usage) {
+        metrics.tokensUsed.prompt += response.usage.promptTokens;
+        metrics.tokensUsed.completion += response.usage.completionTokens;
+        metrics.tokensUsed.total += response.usage.totalTokens;
+      }
+
+      const toolCalls = llmAdapter.parseToolCalls(response);
+
+      if (toolCalls.length === 0) {
+        this.logger.log(
+          "[executeWithDefinitions] No tool calls, task completed",
+        );
+
+        metrics.totalDuration = Date.now() - startTime;
+
+        yield {
+          type: "complete",
+          result: {
+            success: true,
+            artifacts: [],
+            summary: response.content || "",
+            tokensUsed: metrics.tokensUsed.total,
+            duration: metrics.totalDuration,
+          },
+        };
+
+        return;
+      }
+
+      messages.push({
+        role: "assistant",
+        content: response.content,
+        tool_calls: response.tool_calls,
+      });
+
+      this.logger.log(
+        `[executeWithDefinitions] Executing ${toolCalls.length} tool calls`,
+      );
+
+      for (const toolCall of toolCalls) {
+        metrics.toolCalls++;
+
+        const toolId = toolCall.name;
+        let input: unknown;
+
+        try {
+          input = JSON.parse(toolCall.arguments);
+        } catch {
+          input = toolCall.arguments;
+        }
+
+        yield {
+          type: "tool_call",
+          tool: toolId,
+          input,
+        };
+
+        const toolResult = await this.executeTool(
+          toolId,
+          input,
+          context,
+          cfg.enableRetry,
+        );
+
+        metrics.toolCallDetails.push({
+          tool: toolId,
+          duration: toolResult.metadata?.duration || 0,
+          success: toolResult.success,
+        });
+
+        if (toolResult.success) {
+          metrics.successfulToolCalls++;
+        } else {
+          metrics.failedToolCalls++;
+        }
+
+        yield {
+          type: "tool_result",
+          tool: toolId,
+          output: toolResult.data,
+          duration: toolResult.metadata?.duration || 0,
+        };
+
+        const toolResultMessage = llmAdapter.buildToolResultMessage(
+          toolCall.id,
+          toolCall.name,
+          toolResult.success ? toolResult.data : { error: toolResult.error },
+        );
+        messages.push(toolResultMessage);
+      }
+    }
+
+    if (metrics.iterations >= cfg.maxIterations) {
+      this.logger.warn("[executeWithDefinitions] Max iterations reached");
+      yield {
+        type: "error",
+        error: "Max iterations reached, task may be incomplete",
+      };
+    }
+
+    if (metrics.toolCalls >= cfg.maxToolCalls) {
+      this.logger.warn("[executeWithDefinitions] Max tool calls reached");
+      yield {
+        type: "error",
+        error: "Max tool calls reached, task may be incomplete",
+      };
+    }
+
+    metrics.totalDuration = Date.now() - startTime;
+
+    yield {
+      type: "complete",
+      result: {
+        success: true,
+        artifacts: [],
+        summary: "Task execution completed",
+        tokensUsed: metrics.tokensUsed.total,
+        duration: metrics.totalDuration,
+      },
+    };
   }
 }

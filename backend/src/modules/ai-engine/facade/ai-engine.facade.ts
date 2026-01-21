@@ -111,8 +111,43 @@ export class AIEngineFacade {
    * 统一对话入口（带熔断器保护）
    *
    * ★ P0 增强：内置熔断器，自动处理模型故障和限速
+   * ★ K3 Fix: 支持自动注入 Skills（当 domain/taskType 参数存在时）
    */
   async chat(request: ChatRequest): Promise<ChatResponse> {
+    // K3 Fix: 如果提供了 domain 或 taskType，自动委托给 chatWithSkills
+    if (
+      (request.domain || request.taskType) &&
+      this.skillLoader &&
+      this.skillPromptBuilder
+    ) {
+      this.logger.debug(
+        `[chat] K3 Fix: Auto-delegating to chatWithSkills (domain=${request.domain}, taskType=${request.taskType})`,
+      );
+      const skillResponse = await this.chatWithSkills({
+        messages: request.messages,
+        modelType: request.modelType,
+        model: request.model,
+        taskProfile: request.taskProfile || {
+          creativity: "medium",
+          outputLength: "standard",
+        },
+        maxTokens: request.maxTokens,
+        temperature: request.temperature,
+        strictMode: request.strictMode,
+        domain: (request.domain ||
+          "common") as import("../skills/types/skill-md.types").SkillDomain,
+        taskType: request.taskType || "general",
+        additionalSkills: request.additionalSkills,
+        skillContext: request.skillContext,
+      });
+      return {
+        content: skillResponse.content,
+        model: skillResponse.model,
+        tokensUsed: skillResponse.tokensUsed,
+        isError: skillResponse.isError,
+      };
+    }
+
     const modelId = request.model || request.modelType || "default";
     const entityId = `chat:${modelId}`;
 

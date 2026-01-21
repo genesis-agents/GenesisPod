@@ -5,7 +5,7 @@ import { SkillRegistry } from "../skills/registry/skill-registry";
 import { MCPManager } from "../mcp/manager/mcp-manager";
 import { SkillLoaderService } from "../skills/loader/skill-loader.service";
 import { SkillPromptBuilder } from "../skills/builder/skill-prompt-builder.service";
-import { CapabilityUsageLog, SkillPromptBundle } from "./types";
+import { CapabilityUsageLog, SkillPromptBundle, ToolBundle } from "./types";
 
 /**
  * AI 能力解析上下文
@@ -220,14 +220,112 @@ export class AICapabilityResolver {
   /**
    * ★ NEW: 获取工具的 Function Definitions
    * 用于 LLM Function Calling
+   * A3 Fix: 现在包含 MCP 工具
    */
   async getToolFunctionDefinitions(
     context: AICapabilityContext,
   ): Promise<
     import("../tools/abstractions/tool.interface").FunctionDefinition[]
   > {
+    // 1. 获取内置工具的 Function Definitions
     const toolIds = await this.resolveToolsForAgent(context);
-    return this.toolRegistry.getFunctionDefinitions(toolIds);
+    const builtinDefinitions =
+      this.toolRegistry.getFunctionDefinitions(toolIds);
+
+    // 2. A3 Fix: 获取 MCP 工具的 Function Definitions
+    const mcpTools = await this.resolveMCPToolsForAgent(context);
+    const mcpDefinitions = await this.getMCPToolFunctionDefinitions(mcpTools);
+
+    // 3. 合并返回
+    return [...builtinDefinitions, ...mcpDefinitions];
+  }
+
+  /**
+   * A3 Fix: 将 MCP 工具转换为 FunctionDefinition 格式
+   */
+  private async getMCPToolFunctionDefinitions(
+    mcpToolsInfo: MCPToolInfo[],
+  ): Promise<
+    import("../tools/abstractions/tool.interface").FunctionDefinition[]
+  > {
+    const definitions: import("../tools/abstractions/tool.interface").FunctionDefinition[] =
+      [];
+
+    // 从 MCP Manager 获取完整的工具定义
+    for (const info of mcpToolsInfo) {
+      try {
+        const client = this.mcpManager.getClient(info.serverId);
+        if (!client?.connected) {
+          continue;
+        }
+
+        const tools = await client.listTools();
+        const tool = tools.find((t) => t.name === info.toolName);
+
+        if (tool) {
+          // 转换为 FunctionDefinition 格式
+          // 使用 serverId:toolName 作为唯一标识，避免与内置工具冲突
+          definitions.push({
+            name: `mcp_${info.serverId}_${tool.name}`,
+            description: tool.description || info.description || tool.name,
+            parameters:
+              tool.inputSchema as import("../tools/abstractions/tool.interface").JSONSchema,
+          });
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to get MCP tool definition for ${info.serverId}:${info.toolName}: ${(error as Error).message}`,
+        );
+      }
+    }
+
+    return definitions;
+  }
+
+  /**
+   * ★ NEW: 获取工具包（支持精简模式）
+   * 用于 Agent 运行时，默认返回精简摘要以节省 Token
+   *
+   * @param context - 能力解析上下文
+   * @param compact - 是否使用精简模式（默认 true）
+   * @returns ToolBundle 包含工具列表和 Token 估算
+   */
+  async getToolBundle(
+    context: AICapabilityContext,
+    compact = true,
+  ): Promise<ToolBundle> {
+    const toolIds = await this.resolveToolsForAgent(context);
+
+    if (toolIds.length === 0) {
+      return {
+        compactTools: [],
+        usedTools: [],
+        estimatedTokens: 0,
+        isCompact: compact,
+      };
+    }
+
+    const compactTools = this.toolRegistry.getCompactSummaries(toolIds);
+    const estimatedTokens = this.toolRegistry.estimateTokens(toolIds, compact);
+
+    this.logger.debug(
+      `Built tool bundle: ${toolIds.length} tools, ~${estimatedTokens} tokens (compact=${compact})`,
+    );
+
+    const bundle: ToolBundle = {
+      compactTools,
+      usedTools: toolIds,
+      estimatedTokens,
+      isCompact: compact,
+    };
+
+    // 如果不使用精简模式，也获取完整定义
+    if (!compact) {
+      bundle.fullDefinitions =
+        this.toolRegistry.getFunctionDefinitions(toolIds);
+    }
+
+    return bundle;
   }
 
   /**
@@ -321,6 +419,7 @@ export class AICapabilityResolver {
 
   /**
    * 获取全局启用的工具
+   * ★ 只返回已在 ToolRegistry 中注册的工具，确保可用性
    */
   private async getGlobalEnabledTools(): Promise<string[]> {
     const configs = await this.prisma.toolConfig.findMany({
@@ -328,12 +427,20 @@ export class AICapabilityResolver {
       select: { toolId: true },
     });
 
+    // 获取所有已注册的工具 ID
+    const registeredToolIds = new Set(
+      this.toolRegistry.getAll().map((t) => t.id),
+    );
+
     // 如果没有配置，返回所有注册的工具（默认全部启用）
     if (configs.length === 0) {
-      return this.toolRegistry.getEnabled().map((t) => t.id);
+      return Array.from(registeredToolIds);
     }
 
-    return configs.map((c) => c.toolId);
+    // ★ 只返回既在配置中启用，又在 ToolRegistry 中注册的工具
+    return configs
+      .map((c) => c.toolId)
+      .filter((toolId) => registeredToolIds.has(toolId));
   }
 
   /**
@@ -355,6 +462,7 @@ export class AICapabilityResolver {
 
   /**
    * 获取团队配置的工具
+   * A1 Fix: 使用 capabilityToToolIds 获取完整的工具列表
    */
   private async getTeamConfiguredTools(teamId: string): Promise<string[]> {
     // 从团队模板获取配置的能力
@@ -377,9 +485,9 @@ export class AICapabilityResolver {
     const tools = new Set<string>();
     for (const member of team.members) {
       for (const capability of member.capabilities) {
-        // AICapability 枚举映射到工具 ID
-        const toolId = this.capabilityToToolId(capability);
-        if (toolId) {
+        // A1 Fix: 使用 capabilityToToolIds 获取完整工具列表
+        const toolIds = this.capabilityToToolIds(capability);
+        for (const toolId of toolIds) {
           tools.add(toolId);
         }
       }
@@ -448,35 +556,32 @@ export class AICapabilityResolver {
   }
 
   /**
-   * 将 AICapability 枚举映射到工具 ID
+   * 将 AICapability 枚举映射到工具 ID 列表
+   * A1 Fix: 完整覆盖所有 AICapability 枚举值
+   * A2 Fix: 与 TeamMemberAgent.CAPABILITY_TOOL_MAPPING 保持同步
+   * 返回该能力对应的所有相关工具
    */
-  private capabilityToToolId(capability: string): string | null {
-    // AICapability 枚举到工具 ID 的映射
-    const mapping: Record<string, string> = {
-      WEB_SEARCH: "web-search",
-      WEB_SCRAPER: "web-scraper",
-      DATA_FETCH: "data-fetch",
-      RAG_SEARCH: "rag-search",
-      DATABASE_QUERY: "database-query",
-      KNOWLEDGE_GRAPH: "knowledge-graph",
-      DOCUMENT_RETRIEVAL: "document-retrieval",
-      TEXT_GENERATION: "text-generation",
-      IMAGE_GENERATION: "image-generation",
-      CODE_GENERATION: "code-generation",
-      DATA_ANALYSIS: "data-analysis",
-      FILE_CONVERSION: "file-conversion",
-      FILE_PARSER: "file-parser",
-      PYTHON_EXECUTOR: "python-executor",
-      JAVASCRIPT_EXECUTOR: "javascript-executor",
-      EXPORT_PPTX: "export-pptx",
-      EXPORT_DOCX: "export-docx",
-      EXPORT_PDF: "export-pdf",
-      AGENT_HANDOFF: "agent-handoff",
-      HUMAN_APPROVAL: "human-approval",
-      TASK_DELEGATION: "task-delegation",
+  private capabilityToToolIds(capability: string): string[] {
+    const mapping: Record<string, string[]> = {
+      TEXT_GENERATION: ["text-generation", "template-render"],
+      CODE_GENERATION: [
+        "code-generation",
+        "python-executor",
+        "javascript-executor",
+      ],
+      CODE_REVIEW: ["code-generation", "data-validation"],
+      IMAGE_GENERATION: ["image-generation", "export-image"],
+      IMAGE_ANALYSIS: ["ocr-recognition", "data-analysis"],
+      WEB_SEARCH: ["web-search", "web-scraper"],
+      URL_FETCH: ["web-scraper", "data-fetch"],
+      DOCUMENT_ANALYSIS: ["file-parser", "rag-search", "data-analysis"],
+      REASONING: ["text-generation", "structured-output"],
+      MATH: ["python-executor", "data-analysis"],
+      TRANSLATION: ["text-generation"],
+      SUMMARIZATION: ["text-generation", "structured-output"],
     };
 
-    return mapping[capability] || null;
+    return mapping[capability] || [];
   }
 }
 

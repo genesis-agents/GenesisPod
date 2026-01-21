@@ -28,6 +28,16 @@ export type TeamMemberRole =
   | "general"; // 通用：基础能力
 
 /**
+ * MCP 工具配置
+ * A3 Fix: 添加 MCP 工具支持
+ */
+export interface MCPToolConfig {
+  serverId: string;
+  toolName: string;
+  description?: string;
+}
+
+/**
  * 成员 Agent 配置
  */
 export interface TeamMemberAgentConfig {
@@ -39,6 +49,8 @@ export interface TeamMemberAgentConfig {
   workStyle: AgentWorkStyle | null;
   isLeader: boolean;
   customTools?: BuiltinToolId[];
+  /** A3 Fix: MCP 工具配置 */
+  mcpTools?: MCPToolConfig[];
 }
 
 /**
@@ -267,6 +279,36 @@ export class TeamMemberAgent {
     );
 
     return Array.from(tools);
+  }
+
+  /**
+   * A3 Fix: 解析成员配置的 MCP 工具列表
+   * 返回成员配置中的 MCP 工具，用于传递给 Agent 执行器
+   */
+  resolveMCPTools(config: TeamMemberAgentConfig): MCPToolConfig[] {
+    if (!config.mcpTools || config.mcpTools.length === 0) {
+      return [];
+    }
+
+    this.logger.debug(
+      `[resolveMCPTools] Member ${config.displayName}: ${config.mcpTools.length} MCP tools configured`,
+    );
+
+    return config.mcpTools;
+  }
+
+  /**
+   * A3 Fix: 解析成员的所有工具（内置工具 + MCP 工具）
+   * 返回一个包含所有工具信息的结构
+   */
+  resolveAllTools(config: TeamMemberAgentConfig): {
+    builtinTools: BuiltinToolId[];
+    mcpTools: MCPToolConfig[];
+  } {
+    return {
+      builtinTools: this.resolveTools(config),
+      mcpTools: this.resolveMCPTools(config),
+    };
   }
 
   /**

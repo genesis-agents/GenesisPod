@@ -6676,7 +6676,8 @@ model MCPServerConfig {
   autoConnect Boolean @default(true) @map("auto_connect")
 
   // 认证（如需要）
-  apiKey String? @map("api_key") // 加密存储
+  apiKey    String? @map("api_key") // 旧方式：直接存储（已弃用）
+  secretKey String? @map("secret_key") // 新方式：引用 Secret 名称
 
   // 元数据
   metadata Json?

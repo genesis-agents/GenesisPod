@@ -11,6 +11,138 @@ interface MCPToolInfo {
 }
 
 /**
+ * ★ External Tool 定义
+ * 与前端 EXTERNAL_TOOL_DEFINITIONS 保持同步
+ */
+interface ExternalToolDefinition {
+  id: string;
+  name: string;
+  category: string;
+  url: string;
+  noKeyRequired?: boolean;
+  freeQuota?: string;
+  pricing?: string;
+  secretKeyName?: string; // 对应 Secret Manager 中的密钥名称
+}
+
+/**
+ * External Tools 预定义列表
+ * 这些是外部 API 服务，需要配置 API 密钥
+ */
+const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
+  // Web Search
+  {
+    id: "perplexity",
+    name: "Perplexity",
+    category: "Web Search",
+    url: "https://perplexity.ai",
+    secretKeyName: "PERPLEXITY_API_KEY",
+  },
+  {
+    id: "tavily",
+    name: "Tavily",
+    category: "Web Search",
+    url: "https://tavily.com",
+    secretKeyName: "TAVILY_API_KEY",
+  },
+  {
+    id: "serper",
+    name: "Serper",
+    category: "Web Search",
+    url: "https://serper.dev",
+    secretKeyName: "SERPER_API_KEY",
+  },
+  {
+    id: "duckduckgo",
+    name: "DuckDuckGo",
+    category: "Web Search",
+    url: "https://duckduckgo.com",
+    noKeyRequired: true,
+  },
+  // Content Extraction
+  {
+    id: "jina",
+    name: "Jina AI Reader",
+    category: "Content Extraction",
+    url: "https://jina.ai/reader",
+    freeQuota: "1M tokens/month",
+    secretKeyName: "JINA_API_KEY",
+  },
+  {
+    id: "firecrawl",
+    name: "Firecrawl",
+    category: "Content Extraction",
+    url: "https://firecrawl.dev",
+    secretKeyName: "FIRECRAWL_API_KEY",
+  },
+  {
+    id: "tavilyExtract",
+    name: "Tavily Extract",
+    category: "Content Extraction",
+    url: "https://tavily.com",
+    secretKeyName: "TAVILY_API_KEY",
+  },
+  // YouTube
+  {
+    id: "supadata",
+    name: "Supadata",
+    category: "YouTube",
+    url: "https://supadata.ai",
+    freeQuota: "100/month",
+    secretKeyName: "SUPADATA_API_KEY",
+  },
+  // TTS
+  {
+    id: "elevenlabs",
+    name: "ElevenLabs",
+    category: "TTS",
+    url: "https://elevenlabs.io",
+    freeQuota: "10,000 chars/month",
+    secretKeyName: "ELEVENLABS_API_KEY",
+  },
+  {
+    id: "googleTts",
+    name: "Google Cloud TTS",
+    category: "TTS",
+    url: "https://cloud.google.com/text-to-speech",
+    freeQuota: "4M chars/month",
+    secretKeyName: "GOOGLE_TTS_API_KEY",
+  },
+  // Skills Marketplace
+  {
+    id: "skillsmp",
+    name: "SkillsMP",
+    category: "Skills",
+    url: "https://skillsmp.com",
+    freeQuota: "Basic search free",
+    secretKeyName: "SKILLSMP_API_KEY",
+  },
+  // Policy Research
+  {
+    id: "federal-register",
+    name: "Federal Register",
+    category: "Policy Research",
+    url: "https://www.federalregister.gov",
+    noKeyRequired: true,
+  },
+  {
+    id: "congress-gov",
+    name: "Congress.gov",
+    category: "Policy Research",
+    url: "https://api.congress.gov",
+    freeQuota: "5,000 requests/hour",
+    secretKeyName: "CONGRESS_API_KEY",
+  },
+  {
+    id: "whitehouse-news",
+    name: "White House News",
+    category: "Policy Research",
+    url: "https://www.whitehouse.gov/news",
+    noKeyRequired: true,
+  },
+];
+
+/**
  * 可执行工具接口
  */
 interface ExecutableTool {
@@ -101,6 +233,9 @@ export class AIAdminService implements OnModuleInit {
 
       for (const server of mcpServers) {
         try {
+          // M2 Fix: 从 SecretsService 解析 API 密钥
+          const env = await this.resolveMCPServerEnv(server);
+
           // 注册到 MCPManager
           if (server.transport === "stdio" && server.command) {
             this.mcpManager.registerServer({
@@ -109,6 +244,7 @@ export class AIAdminService implements OnModuleInit {
               transport: "stdio",
               command: server.command,
               args: server.args || [],
+              env,
             });
           } else if (server.transport === "sse" && server.url) {
             this.mcpManager.registerServer({
@@ -116,6 +252,7 @@ export class AIAdminService implements OnModuleInit {
               name: server.name,
               transport: "http",
               url: server.url,
+              env,
             });
           }
 
@@ -139,36 +276,76 @@ export class AIAdminService implements OnModuleInit {
     }
   }
 
+  /**
+   * M2 Fix: 解析 MCP 服务器的环境变量
+   * 支持从 Secret Manager 获取 API 密钥
+   */
+  private async resolveMCPServerEnv(server: {
+    serverId: string;
+    secretKey?: string | null;
+    apiKey?: string | null;
+  }): Promise<Record<string, string> | undefined> {
+    const env: Record<string, string> = {};
+
+    // 优先使用 secretKey（新方式：从 Secret Manager 获取）
+    if (server.secretKey) {
+      const apiKey = await this.secretsService.getValueInternal(
+        server.secretKey,
+      );
+      if (apiKey) {
+        // 根据 secretKey 名称推断环境变量名
+        // 例如 TAVILY_API_KEY -> TAVILY_API_KEY
+        env[server.secretKey] = apiKey;
+        // 同时设置通用的 API_KEY 环境变量
+        env["API_KEY"] = apiKey;
+      } else {
+        this.logger.warn(
+          `Secret "${server.secretKey}" not found for MCP server ${server.serverId}`,
+        );
+      }
+    }
+    // 兼容旧方式：直接使用 apiKey 字段（已弃用）
+    else if (server.apiKey) {
+      env["API_KEY"] = server.apiKey;
+    }
+
+    return Object.keys(env).length > 0 ? env : undefined;
+  }
+
   // ==================== Tools ====================
 
   /**
    * 获取所有工具配置
+   * ★ 从 ToolRegistry 获取实际注册的工具，确保 Admin 与运行时一致
    */
   async getToolConfigs() {
-    const toolDefinitions = this.getToolDefinitions();
+    // ★ 直接从 ToolRegistry 获取所有已注册的工具
+    const registeredTools = this.toolRegistry.getAll();
 
     // 获取数据库中的配置
     const dbConfigs = await this.prisma.toolConfig.findMany();
     const configMap = new Map(dbConfigs.map((c) => [c.toolId, c]));
 
-    const tools = toolDefinitions.map((tool) => {
+    const tools = registeredTools.map((tool) => {
       const dbConfig = configMap.get(tool.id);
-      const registeredTool = this.toolRegistry.tryGet(tool.id);
 
       return {
         id: dbConfig?.id || tool.id,
         toolId: tool.id,
         name: tool.name,
-        displayName: dbConfig?.displayName || tool.displayName,
+        displayName: dbConfig?.displayName || tool.name,
         description: dbConfig?.description || tool.description,
         category: dbConfig?.category || tool.category,
         enabled: dbConfig?.enabled ?? true,
-        implemented: !!registeredTool,
+        implemented: true, // ★ 所有 Registry 中的工具都是已实现的
         tags: dbConfig?.tags || tool.tags || [],
         config: dbConfig?.config || null,
-        secretKey: dbConfig?.secretKey || null, // Secret Manager 密钥引用
+        secretKey: dbConfig?.secretKey || null,
         requiresAuth: dbConfig?.requiresAuth || false,
         allowedRoles: dbConfig?.allowedRoles || [],
+        // ★ 新增：工具元信息
+        inputSchema: tool.inputSchema,
+        outputSchema: tool.outputSchema,
       };
     });
 
@@ -176,7 +353,7 @@ export class AIAdminService implements OnModuleInit {
     const stats = {
       total: tools.length,
       enabled: tools.filter((t) => t.enabled).length,
-      implemented: tools.filter((t) => t.implemented).length,
+      implemented: tools.length, // ★ 所有工具都是已实现的
       byCategory: tools.reduce(
         (acc, tool) => {
           acc[tool.category] = (acc[tool.category] || 0) + 1;
@@ -187,6 +364,605 @@ export class AIAdminService implements OnModuleInit {
     };
 
     return { tools, stats };
+  }
+
+  /**
+   * ★ 诊断工具健康状态
+   * 检查工具是否可用，返回诊断结果
+   */
+  async diagnoseTools(): Promise<{
+    tools: Array<{
+      toolId: string;
+      name: string;
+      status: "healthy" | "unhealthy" | "unconfigured";
+      message: string;
+      hasSecretKey: boolean;
+      secretKeyValid: boolean;
+    }>;
+    summary: {
+      total: number;
+      healthy: number;
+      unhealthy: number;
+      unconfigured: number;
+    };
+  }> {
+    const registeredTools = this.toolRegistry.getAll();
+    const dbConfigs = await this.prisma.toolConfig.findMany();
+    const configMap = new Map(dbConfigs.map((c) => [c.toolId, c]));
+
+    const diagnostics = await Promise.all(
+      registeredTools.map(async (tool) => {
+        const dbConfig = configMap.get(tool.id);
+        const hasSecretKey = !!dbConfig?.secretKey;
+        let secretKeyValid = true;
+        let status: "healthy" | "unhealthy" | "unconfigured" = "healthy";
+        let message = "工具可用";
+
+        // 检查密钥配置
+        if (hasSecretKey && dbConfig?.secretKey) {
+          secretKeyValid = await this.secretsService.exists(dbConfig.secretKey);
+          if (!secretKeyValid) {
+            status = "unhealthy";
+            message = `密钥 "${dbConfig.secretKey}" 不存在`;
+          }
+        }
+
+        // 检查是否需要但未配置密钥（根据工具类型推断）
+        const requiresApiKey = this.toolRequiresApiKey(tool.id);
+        if (requiresApiKey && !hasSecretKey) {
+          status = "unconfigured";
+          message = "需要配置 API 密钥";
+        }
+
+        // 检查是否被禁用
+        if (dbConfig && !dbConfig.enabled) {
+          status = "unhealthy";
+          message = "工具已被禁用";
+        }
+
+        return {
+          toolId: tool.id,
+          name: tool.name,
+          status,
+          message,
+          hasSecretKey,
+          secretKeyValid,
+        };
+      }),
+    );
+
+    const summary = {
+      total: diagnostics.length,
+      healthy: diagnostics.filter((d) => d.status === "healthy").length,
+      unhealthy: diagnostics.filter((d) => d.status === "unhealthy").length,
+      unconfigured: diagnostics.filter((d) => d.status === "unconfigured")
+        .length,
+    };
+
+    return { tools: diagnostics, summary };
+  }
+
+  /**
+   * ★ 诊断 MCP 服务器和工具健康状态
+   */
+  async diagnoseMCPServers(): Promise<{
+    servers: Array<{
+      serverId: string;
+      name: string;
+      status: "connected" | "disconnected" | "error";
+      message: string;
+      toolCount: number;
+      tools: Array<{ name: string; description: string }>;
+    }>;
+    summary: {
+      total: number;
+      connected: number;
+      disconnected: number;
+      totalTools: number;
+    };
+  }> {
+    const dbConfigs = await this.prisma.mCPServerConfig.findMany();
+
+    const serverDiagnostics = await Promise.all(
+      dbConfigs.map(async (config) => {
+        const client = this.mcpManager.getClient(config.serverId);
+        const isConnected = client?.connected ?? false;
+
+        let tools: Array<{ name: string; description: string }> = [];
+        let status: "connected" | "disconnected" | "error" = "disconnected";
+        let message = "服务器未连接";
+
+        if (!config.enabled) {
+          status = "disconnected";
+          message = "服务器已禁用";
+        } else if (isConnected && client) {
+          try {
+            const mcpTools = await client.listTools();
+            tools = mcpTools.map((t: MCPToolInfo) => ({
+              name: t.name,
+              description: t.description || "",
+            }));
+            status = "connected";
+            message = `已连接，${tools.length} 个工具可用`;
+          } catch (error) {
+            status = "error";
+            message = `获取工具列表失败: ${getErrorMessage(error)}`;
+          }
+        }
+
+        return {
+          serverId: config.serverId,
+          name: config.name,
+          status,
+          message,
+          toolCount: tools.length,
+          tools,
+        };
+      }),
+    );
+
+    const summary = {
+      total: serverDiagnostics.length,
+      connected: serverDiagnostics.filter((s) => s.status === "connected")
+        .length,
+      disconnected: serverDiagnostics.filter((s) => s.status !== "connected")
+        .length,
+      totalTools: serverDiagnostics.reduce((acc, s) => acc + s.toolCount, 0),
+    };
+
+    return { servers: serverDiagnostics, summary };
+  }
+
+  /**
+   * ★ 诊断 External Tools（外部 API 服务）健康状态
+   */
+  async diagnoseExternalTools(): Promise<{
+    tools: Array<{
+      id: string;
+      name: string;
+      category: string;
+      status: "configured" | "unconfigured" | "no_key_required";
+      message: string;
+      secretKeyName: string | null;
+      secretKeyValid: boolean;
+      url: string;
+      freeQuota?: string;
+    }>;
+    summary: {
+      total: number;
+      configured: number;
+      unconfigured: number;
+      noKeyRequired: number;
+    };
+  }> {
+    const allSecrets = await this.prisma.secret.findMany({
+      where: { deletedAt: null, isActive: true },
+      select: { name: true },
+    });
+    const secretNames = new Set(allSecrets.map((s) => s.name));
+
+    const toolDiagnostics = EXTERNAL_TOOL_DEFINITIONS.map((tool) => {
+      let status: "configured" | "unconfigured" | "no_key_required" =
+        "unconfigured";
+      let message = "需要配置 API 密钥";
+      let secretKeyValid = false;
+
+      if (tool.noKeyRequired) {
+        status = "no_key_required";
+        message = "无需 API 密钥";
+        secretKeyValid = true;
+      } else if (tool.secretKeyName && secretNames.has(tool.secretKeyName)) {
+        status = "configured";
+        message = "API 密钥已配置";
+        secretKeyValid = true;
+      }
+
+      return {
+        id: tool.id,
+        name: tool.name,
+        category: tool.category,
+        status,
+        message,
+        secretKeyName: tool.secretKeyName || null,
+        secretKeyValid,
+        url: tool.url,
+        freeQuota: tool.freeQuota,
+      };
+    });
+
+    const summary = {
+      total: toolDiagnostics.length,
+      configured: toolDiagnostics.filter((t) => t.status === "configured")
+        .length,
+      unconfigured: toolDiagnostics.filter((t) => t.status === "unconfigured")
+        .length,
+      noKeyRequired: toolDiagnostics.filter(
+        (t) => t.status === "no_key_required",
+      ).length,
+    };
+
+    return { tools: toolDiagnostics, summary };
+  }
+
+  /**
+   * ★ 全面诊断 AI 能力系统
+   * 检查所有断点：Secret、Tool、Skill、MCP、Team
+   */
+  async diagnoseAllCapabilities(): Promise<{
+    secrets: {
+      items: Array<{
+        name: string;
+        status: "active" | "inactive" | "expired" | "missing";
+        message: string;
+        referencedBy: string[];
+      }>;
+      summary: {
+        total: number;
+        active: number;
+        inactive: number;
+        expired: number;
+      };
+    };
+    builtinTools: {
+      tools: Array<{
+        toolId: string;
+        name: string;
+        status: "healthy" | "unhealthy" | "unconfigured";
+        message: string;
+        hasSecretKey: boolean;
+        secretKeyValid: boolean;
+      }>;
+      summary: {
+        total: number;
+        healthy: number;
+        unhealthy: number;
+        unconfigured: number;
+      };
+    };
+    mcpServers: {
+      servers: Array<{
+        serverId: string;
+        name: string;
+        status: "connected" | "disconnected" | "error";
+        message: string;
+        toolCount: number;
+        tools: Array<{ name: string; description: string }>;
+      }>;
+      summary: {
+        total: number;
+        connected: number;
+        disconnected: number;
+        totalTools: number;
+      };
+    };
+    externalTools: {
+      tools: Array<{
+        id: string;
+        name: string;
+        category: string;
+        status: "configured" | "unconfigured" | "no_key_required";
+        message: string;
+        secretKeyName: string | null;
+        secretKeyValid: boolean;
+        url: string;
+        freeQuota?: string;
+      }>;
+      summary: {
+        total: number;
+        configured: number;
+        unconfigured: number;
+        noKeyRequired: number;
+      };
+    };
+    skills: {
+      items: Array<{
+        skillId: string;
+        name: string;
+        status: "enabled" | "disabled" | "missing_file";
+        message: string;
+      }>;
+      summary: {
+        total: number;
+        enabled: number;
+        disabled: number;
+        missingFile: number;
+      };
+    };
+    teamCapabilities: {
+      items: Array<{
+        teamId: string;
+        name: string;
+        memberCount: number;
+        capabilityCoverage: string[];
+        missingTools: string[];
+      }>;
+      summary: {
+        total: number;
+        fullyConfigured: number;
+        partiallyConfigured: number;
+      };
+    };
+    breakpoints: Array<{
+      code: string;
+      severity: "high" | "medium" | "low";
+      location: string;
+      description: string;
+      recommendation: string;
+    }>;
+  }> {
+    const breakpoints: Array<{
+      code: string;
+      severity: "high" | "medium" | "low";
+      location: string;
+      description: string;
+      recommendation: string;
+    }> = [];
+
+    // 1. 诊断 Secrets
+    const allSecrets = await this.prisma.secret.findMany({
+      where: { deletedAt: null },
+    });
+    const toolConfigs = await this.prisma.toolConfig.findMany({
+      where: { secretKey: { not: null } },
+    });
+
+    const secretDiagnostics = allSecrets.map((secret) => {
+      let status: "active" | "inactive" | "expired" | "missing" = "active";
+      let message = "密钥可用";
+
+      if (!secret.isActive) {
+        status = "inactive";
+        message = "密钥已禁用";
+      } else if (secret.expiresAt && secret.expiresAt < new Date()) {
+        status = "expired";
+        message = "密钥已过期";
+      }
+
+      const referencedBy = toolConfigs
+        .filter((tc) => tc.secretKey === secret.name)
+        .map((tc) => tc.toolId);
+
+      return {
+        name: secret.name,
+        status,
+        message,
+        referencedBy,
+      };
+    });
+
+    // 检查 S1-S4 断点：工具引用不存在的密钥
+    for (const tc of toolConfigs) {
+      if (tc.secretKey) {
+        const secretExists = allSecrets.find((s) => s.name === tc.secretKey);
+        if (!secretExists) {
+          breakpoints.push({
+            code: "S2",
+            severity: "high",
+            location: `ToolConfig.${tc.toolId}`,
+            description: `工具 ${tc.toolId} 引用的密钥 "${tc.secretKey}" 不存在`,
+            recommendation: `在 Secret Manager 中创建名为 "${tc.secretKey}" 的密钥，或更新工具配置`,
+          });
+        }
+      }
+    }
+
+    // 2. 诊断内置工具
+    const builtinToolsDiag = await this.diagnoseTools();
+
+    // 检查 T1-T4 断点
+    for (const tool of builtinToolsDiag.tools) {
+      if (tool.status === "unconfigured") {
+        breakpoints.push({
+          code: "T3",
+          severity: "medium",
+          location: `Tool.${tool.toolId}`,
+          description: tool.message,
+          recommendation: `为工具 ${tool.toolId} 配置所需的 API 密钥`,
+        });
+      }
+    }
+
+    // 3. 诊断 MCP 服务器
+    const mcpServersDiag = await this.diagnoseMCPServers();
+
+    // 3.5 诊断 External Tools（外部 API 服务）
+    const externalToolsDiag = await this.diagnoseExternalTools();
+
+    // 检查 External Tools 断点
+    for (const tool of externalToolsDiag.tools) {
+      if (tool.status === "unconfigured") {
+        breakpoints.push({
+          code: "E1",
+          severity: "medium",
+          location: `ExternalTool.${tool.id}`,
+          description: `外部工具 ${tool.name} 未配置 API 密钥`,
+          recommendation: `在 Secret Manager 中配置名为 "${tool.secretKeyName}" 的密钥`,
+        });
+      }
+    }
+
+    // 4. 诊断 Skills
+    const skillConfigs = await this.prisma.skillConfig.findMany();
+    const loadedSkills = this.skillLoaderService.getAllLoadedSkills();
+    const loadedSkillIds = new Set(loadedSkills.map((s) => s.metadata.id));
+
+    const skillDiagnostics = skillConfigs.map((config) => {
+      const hasFile = loadedSkillIds.has(config.skillId);
+      let status: "enabled" | "disabled" | "missing_file" = config.enabled
+        ? "enabled"
+        : "disabled";
+      let message = config.enabled ? "技能已启用" : "技能已禁用";
+
+      if (config.enabled && !hasFile) {
+        status = "missing_file";
+        message = "SKILL.md 文件不存在";
+        breakpoints.push({
+          code: "K1",
+          severity: "high",
+          location: `Skill.${config.skillId}`,
+          description: `技能 ${config.skillId} 已启用但 SKILL.md 文件不存在`,
+          recommendation: `在 skills/ 目录下创建 ${config.skillId}/SKILL.md 文件`,
+        });
+      }
+
+      return {
+        skillId: config.skillId,
+        name: config.displayName || config.skillId,
+        status,
+        message,
+      };
+    });
+
+    // 5. 诊断 Team Capabilities
+    const teams = await this.prisma.aITeamTemplate.findMany({
+      include: {
+        members: {
+          select: {
+            id: true,
+            displayName: true,
+            capabilities: true,
+            mcpTools: true,
+          },
+        },
+      },
+    });
+
+    const teamDiagnostics = teams.map((team) => {
+      const allCapabilities = new Set<string>();
+      const missingTools: string[] = [];
+
+      for (const member of team.members) {
+        for (const cap of member.capabilities) {
+          allCapabilities.add(cap);
+        }
+
+        // A4 断点：成员没有能力配置
+        if (member.capabilities.length === 0) {
+          breakpoints.push({
+            code: "A4",
+            severity: "high",
+            location: `Team.${team.id}.Member.${member.id}`,
+            description: `成员 ${member.displayName} 没有配置任何能力`,
+            recommendation: `为成员配置 AICapability，如 WEB_SEARCH、TEXT_GENERATION 等`,
+          });
+        }
+      }
+
+      return {
+        teamId: team.id,
+        name: team.name,
+        memberCount: team.members.length,
+        capabilityCoverage: Array.from(allCapabilities),
+        missingTools,
+      };
+    });
+
+    return {
+      secrets: {
+        items: secretDiagnostics,
+        summary: {
+          total: secretDiagnostics.length,
+          active: secretDiagnostics.filter((s) => s.status === "active").length,
+          inactive: secretDiagnostics.filter((s) => s.status === "inactive")
+            .length,
+          expired: secretDiagnostics.filter((s) => s.status === "expired")
+            .length,
+        },
+      },
+      builtinTools: builtinToolsDiag,
+      mcpServers: mcpServersDiag,
+      externalTools: externalToolsDiag,
+      skills: {
+        items: skillDiagnostics,
+        summary: {
+          total: skillDiagnostics.length,
+          enabled: skillDiagnostics.filter((s) => s.status === "enabled")
+            .length,
+          disabled: skillDiagnostics.filter((s) => s.status === "disabled")
+            .length,
+          missingFile: skillDiagnostics.filter(
+            (s) => s.status === "missing_file",
+          ).length,
+        },
+      },
+      teamCapabilities: {
+        items: teamDiagnostics,
+        summary: {
+          total: teamDiagnostics.length,
+          fullyConfigured: teamDiagnostics.filter(
+            (t) => t.missingTools.length === 0,
+          ).length,
+          partiallyConfigured: teamDiagnostics.filter(
+            (t) => t.missingTools.length > 0,
+          ).length,
+        },
+      },
+      breakpoints,
+    };
+  }
+
+  /**
+   * ★ 判断工具是否需要 API 密钥
+   */
+  private toolRequiresApiKey(toolId: string): boolean {
+    // 需要外部 API 密钥的工具列表
+    const toolsRequiringApiKey = [
+      "web-search",
+      "web-scraper",
+      "image-generation",
+      "audio-generation",
+      "video-generation",
+      "text-generation",
+      "code-generation",
+      "federal-register",
+      "congress-gov",
+      "email-sender",
+      "github-integration",
+      "cloud-storage",
+      "message-push",
+    ];
+    return toolsRequiringApiKey.includes(toolId);
+  }
+
+  /**
+   * ★ 获取可装配给 Agent 的工具列表
+   * 只返回健康且启用的工具
+   */
+  async getAvailableToolsForAgent(): Promise<
+    Array<{
+      toolId: string;
+      name: string;
+      description: string;
+      category: string;
+      tags: string[];
+    }>
+  > {
+    const diagnosis = await this.diagnoseTools();
+    const healthyToolIds = new Set(
+      diagnosis.tools
+        .filter((t) => t.status === "healthy")
+        .map((t) => t.toolId),
+    );
+
+    const registeredTools = this.toolRegistry.getAll();
+    const dbConfigs = await this.prisma.toolConfig.findMany({
+      where: { enabled: true },
+    });
+    const enabledToolIds = new Set(dbConfigs.map((c) => c.toolId));
+
+    return registeredTools
+      .filter(
+        (tool) =>
+          healthyToolIds.has(tool.id) &&
+          (enabledToolIds.has(tool.id) || enabledToolIds.size === 0),
+      )
+      .map((tool) => ({
+        toolId: tool.id,
+        name: tool.name,
+        description: tool.description,
+        category: tool.category,
+        tags: tool.tags || [],
+      }));
   }
 
   /**
@@ -488,7 +1264,8 @@ export class AIAdminService implements OnModuleInit {
     url?: string;
     enabled?: boolean;
     autoConnect?: boolean;
-    apiKey?: string;
+    apiKey?: string; // 旧方式（已弃用）
+    secretKey?: string; // M2 Fix: 新方式 - 引用 Secret Manager 中的密钥
   }) {
     // 保存到数据库
     const dbConfig = await this.prisma.mCPServerConfig.create({
@@ -503,7 +1280,15 @@ export class AIAdminService implements OnModuleInit {
         enabled: config.enabled ?? true,
         autoConnect: config.autoConnect ?? true,
         apiKey: config.apiKey,
+        secretKey: config.secretKey, // M2 Fix: 保存 secretKey 引用
       },
+    });
+
+    // M2 Fix: 从 SecretsService 解析 API 密钥
+    const env = await this.resolveMCPServerEnv({
+      serverId: config.serverId,
+      secretKey: config.secretKey,
+      apiKey: config.apiKey,
     });
 
     // 注册到 MCPManager
@@ -514,6 +1299,7 @@ export class AIAdminService implements OnModuleInit {
         transport: "stdio",
         command: config.command,
         args: config.args || [],
+        env,
       });
     } else if (config.transport === "sse" && config.url) {
       this.mcpManager.registerServer({
@@ -521,6 +1307,7 @@ export class AIAdminService implements OnModuleInit {
         name: config.name,
         transport: "http",
         url: config.url,
+        env,
       });
     }
 
@@ -902,547 +1689,6 @@ export class AIAdminService implements OnModuleInit {
   }
 
   // ==================== Helper Methods ====================
-
-  /**
-   * 获取工具定义列表
-   */
-  private getToolDefinitions() {
-    // 工具定义 - 基于 BUILTIN_TOOLS
-    const toolDefinitions: Array<{
-      id: string;
-      name: string;
-      displayName: string;
-      description: string;
-      category: string;
-      tags: string[];
-    }> = [
-      // 信息获取类
-      {
-        id: "web-search",
-        name: "web-search",
-        displayName: "Web 搜索",
-        description: "搜索互联网获取最新信息",
-        category: "information",
-        tags: ["search", "web"],
-      },
-      {
-        id: "web-scraper",
-        name: "web-scraper",
-        displayName: "网页抓取",
-        description: "抓取网页内容并提取信息",
-        category: "information",
-        tags: ["scraper", "web"],
-      },
-      {
-        id: "data-fetch",
-        name: "data-fetch",
-        displayName: "数据获取",
-        description: "从 API 或数据源获取数据",
-        category: "information",
-        tags: ["api", "data"],
-      },
-      {
-        id: "rag-search",
-        name: "rag-search",
-        displayName: "RAG 搜索",
-        description: "在知识库中进行语义搜索",
-        category: "information",
-        tags: ["rag", "search"],
-      },
-      {
-        id: "database-query",
-        name: "database-query",
-        displayName: "数据库查询",
-        description: "执行数据库查询操作",
-        category: "information",
-        tags: ["database", "sql"],
-      },
-      {
-        id: "knowledge-graph",
-        name: "knowledge-graph",
-        displayName: "知识图谱",
-        description: "查询和遍历知识图谱",
-        category: "information",
-        tags: ["graph", "knowledge"],
-      },
-      {
-        id: "document-retrieval",
-        name: "document-retrieval",
-        displayName: "文档检索",
-        description: "检索和获取文档内容",
-        category: "information",
-        tags: ["document", "retrieval"],
-      },
-      {
-        id: "youtube-transcript",
-        name: "youtube-transcript",
-        displayName: "YouTube 字幕",
-        description: "获取 YouTube 视频字幕",
-        category: "information",
-        tags: ["youtube", "video"],
-      },
-
-      // 内容生成类
-      {
-        id: "text-generation",
-        name: "text-generation",
-        displayName: "文本生成",
-        description: "生成各类文本内容",
-        category: "content",
-        tags: ["text", "generation"],
-      },
-      {
-        id: "image-generation",
-        name: "image-generation",
-        displayName: "图片生成",
-        description: "使用 AI 生成图片",
-        category: "content",
-        tags: ["image", "ai"],
-      },
-      {
-        id: "code-generation",
-        name: "code-generation",
-        displayName: "代码生成",
-        description: "生成编程代码",
-        category: "content",
-        tags: ["code", "programming"],
-      },
-      {
-        id: "audio-generation",
-        name: "audio-generation",
-        displayName: "音频生成",
-        description: "生成语音或音频内容",
-        category: "content",
-        tags: ["audio", "tts"],
-      },
-      {
-        id: "video-generation",
-        name: "video-generation",
-        displayName: "视频生成",
-        description: "生成视频内容",
-        category: "content",
-        tags: ["video", "ai"],
-      },
-      {
-        id: "chart-generation",
-        name: "chart-generation",
-        displayName: "图表生成",
-        description: "生成数据可视化图表",
-        category: "content",
-        tags: ["chart", "visualization"],
-      },
-
-      // 数据处理类
-      {
-        id: "data-analysis",
-        name: "data-analysis",
-        displayName: "数据分析",
-        description: "分析和处理数据",
-        category: "data",
-        tags: ["analysis", "data"],
-      },
-      {
-        id: "file-conversion",
-        name: "file-conversion",
-        displayName: "文件转换",
-        description: "转换文件格式",
-        category: "data",
-        tags: ["file", "conversion"],
-      },
-      {
-        id: "file-parser",
-        name: "file-parser",
-        displayName: "文件解析",
-        description: "解析各种文件格式",
-        category: "data",
-        tags: ["file", "parser"],
-      },
-      {
-        id: "data-validation",
-        name: "data-validation",
-        displayName: "数据验证",
-        description: "验证数据格式和内容",
-        category: "data",
-        tags: ["validation", "data"],
-      },
-      {
-        id: "data-transformation",
-        name: "data-transformation",
-        displayName: "数据转换",
-        description: "转换数据结构和格式",
-        category: "data",
-        tags: ["transformation", "data"],
-      },
-      {
-        id: "json-processor",
-        name: "json-processor",
-        displayName: "JSON 处理",
-        description: "处理和转换 JSON 数据",
-        category: "data",
-        tags: ["json", "processor"],
-      },
-      {
-        id: "csv-processor",
-        name: "csv-processor",
-        displayName: "CSV 处理",
-        description: "处理 CSV 文件",
-        category: "data",
-        tags: ["csv", "processor"],
-      },
-
-      // 代码执行类
-      {
-        id: "python-executor",
-        name: "python-executor",
-        displayName: "Python 执行器",
-        description: "执行 Python 代码",
-        category: "code",
-        tags: ["python", "executor"],
-      },
-      {
-        id: "javascript-executor",
-        name: "javascript-executor",
-        displayName: "JavaScript 执行器",
-        description: "执行 JavaScript 代码",
-        category: "code",
-        tags: ["javascript", "executor"],
-      },
-      {
-        id: "sql-executor",
-        name: "sql-executor",
-        displayName: "SQL 执行器",
-        description: "执行 SQL 查询",
-        category: "code",
-        tags: ["sql", "executor"],
-      },
-      {
-        id: "shell-executor",
-        name: "shell-executor",
-        displayName: "Shell 执行器",
-        description: "执行 Shell 命令",
-        category: "code",
-        tags: ["shell", "executor"],
-      },
-      {
-        id: "code-interpreter",
-        name: "code-interpreter",
-        displayName: "代码解释器",
-        description: "解释和执行代码",
-        category: "code",
-        tags: ["interpreter", "code"],
-      },
-      {
-        id: "sandbox-executor",
-        name: "sandbox-executor",
-        displayName: "沙箱执行器",
-        description: "在沙箱中安全执行代码",
-        category: "code",
-        tags: ["sandbox", "security"],
-      },
-
-      // 外部集成类
-      {
-        id: "message-push",
-        name: "message-push",
-        displayName: "消息推送",
-        description: "推送通知消息",
-        category: "integration",
-        tags: ["message", "notification"],
-      },
-      {
-        id: "cloud-storage",
-        name: "cloud-storage",
-        displayName: "云存储",
-        description: "操作云存储服务",
-        category: "integration",
-        tags: ["cloud", "storage"],
-      },
-      {
-        id: "github-integration",
-        name: "github-integration",
-        displayName: "GitHub 集成",
-        description: "与 GitHub 交互",
-        category: "integration",
-        tags: ["github", "git"],
-      },
-      {
-        id: "email-sender",
-        name: "email-sender",
-        displayName: "邮件发送",
-        description: "发送电子邮件",
-        category: "integration",
-        tags: ["email", "sender"],
-      },
-      {
-        id: "slack-integration",
-        name: "slack-integration",
-        displayName: "Slack 集成",
-        description: "与 Slack 交互",
-        category: "integration",
-        tags: ["slack", "messaging"],
-      },
-      {
-        id: "calendar-integration",
-        name: "calendar-integration",
-        displayName: "日历集成",
-        description: "管理日历和事件",
-        category: "integration",
-        tags: ["calendar", "events"],
-      },
-
-      // 记忆管理类
-      {
-        id: "short-term-memory",
-        name: "short-term-memory",
-        displayName: "短期记忆",
-        description: "管理短期对话记忆",
-        category: "memory",
-        tags: ["memory", "short-term"],
-      },
-      {
-        id: "long-term-memory",
-        name: "long-term-memory",
-        displayName: "长期记忆",
-        description: "管理长期知识记忆",
-        category: "memory",
-        tags: ["memory", "long-term"],
-      },
-      {
-        id: "entity-memory",
-        name: "entity-memory",
-        displayName: "实体记忆",
-        description: "记忆实体和关系",
-        category: "memory",
-        tags: ["entity", "memory"],
-      },
-      {
-        id: "session-memory",
-        name: "session-memory",
-        displayName: "会话记忆",
-        description: "管理会话上下文",
-        category: "memory",
-        tags: ["session", "context"],
-      },
-      {
-        id: "vector-memory",
-        name: "vector-memory",
-        displayName: "向量记忆",
-        description: "基于向量的语义记忆",
-        category: "memory",
-        tags: ["vector", "semantic"],
-      },
-
-      // 导出类
-      {
-        id: "export-pptx",
-        name: "export-pptx",
-        displayName: "导出 PPT",
-        description: "导出 PowerPoint 文件",
-        category: "export",
-        tags: ["export", "pptx"],
-      },
-      {
-        id: "export-docx",
-        name: "export-docx",
-        displayName: "导出 Word",
-        description: "导出 Word 文档",
-        category: "export",
-        tags: ["export", "docx"],
-      },
-      {
-        id: "export-pdf",
-        name: "export-pdf",
-        displayName: "导出 PDF",
-        description: "导出 PDF 文件",
-        category: "export",
-        tags: ["export", "pdf"],
-      },
-      {
-        id: "export-image",
-        name: "export-image",
-        displayName: "导出图片",
-        description: "导出图片文件",
-        category: "export",
-        tags: ["export", "image"],
-      },
-
-      // 协作类
-      {
-        id: "agent-handoff",
-        name: "agent-handoff",
-        displayName: "Agent 交接",
-        description: "在 Agent 之间传递任务",
-        category: "collaboration",
-        tags: ["agent", "handoff"],
-      },
-      {
-        id: "human-approval",
-        name: "human-approval",
-        displayName: "人工审批",
-        description: "请求人工审批",
-        category: "collaboration",
-        tags: ["human", "approval"],
-      },
-      {
-        id: "task-delegation",
-        name: "task-delegation",
-        displayName: "任务委派",
-        description: "将任务委派给其他 Agent",
-        category: "collaboration",
-        tags: ["task", "delegation"],
-      },
-      {
-        id: "consensus-voting",
-        name: "consensus-voting",
-        displayName: "共识投票",
-        description: "多 Agent 共识投票",
-        category: "collaboration",
-        tags: ["consensus", "voting"],
-      },
-      {
-        id: "workflow-trigger",
-        name: "workflow-trigger",
-        displayName: "工作流触发",
-        description: "触发工作流程",
-        category: "collaboration",
-        tags: ["workflow", "trigger"],
-      },
-      {
-        id: "notification",
-        name: "notification",
-        displayName: "通知",
-        description: "发送系统通知",
-        category: "collaboration",
-        tags: ["notification", "alert"],
-      },
-
-      // 外部服务 - 搜索类
-      {
-        id: "perplexity",
-        name: "perplexity",
-        displayName: "Perplexity",
-        description: "Perplexity AI 搜索服务",
-        category: "external-search",
-        tags: ["search", "ai", "perplexity"],
-      },
-      {
-        id: "tavily",
-        name: "tavily",
-        displayName: "Tavily",
-        description: "Tavily AI 搜索服务",
-        category: "external-search",
-        tags: ["search", "ai", "tavily"],
-      },
-      {
-        id: "serper",
-        name: "serper",
-        displayName: "Serper",
-        description: "Serper Google 搜索 API",
-        category: "external-search",
-        tags: ["search", "google", "serper"],
-      },
-      {
-        id: "duckduckgo",
-        name: "duckduckgo",
-        displayName: "DuckDuckGo",
-        description: "DuckDuckGo 搜索（免费）",
-        category: "external-search",
-        tags: ["search", "free", "duckduckgo"],
-      },
-
-      // 外部服务 - 内容提取类
-      {
-        id: "jina",
-        name: "jina",
-        displayName: "Jina AI Reader",
-        description: "Jina AI 网页内容提取",
-        category: "external-extraction",
-        tags: ["extraction", "reader", "jina"],
-      },
-      {
-        id: "firecrawl",
-        name: "firecrawl",
-        displayName: "Firecrawl",
-        description: "Firecrawl 网页抓取服务",
-        category: "external-extraction",
-        tags: ["extraction", "crawler", "firecrawl"],
-      },
-      {
-        id: "tavilyExtract",
-        name: "tavilyExtract",
-        displayName: "Tavily Extract",
-        description: "Tavily 内容提取服务",
-        category: "external-extraction",
-        tags: ["extraction", "tavily"],
-      },
-
-      // 外部服务 - YouTube 类
-      {
-        id: "supadata",
-        name: "supadata",
-        displayName: "Supadata",
-        description: "Supadata YouTube 字幕服务",
-        category: "external-youtube",
-        tags: ["youtube", "transcript", "supadata"],
-      },
-
-      // 外部服务 - TTS 类
-      {
-        id: "elevenlabs",
-        name: "elevenlabs",
-        displayName: "ElevenLabs",
-        description: "ElevenLabs 语音合成",
-        category: "external-tts",
-        tags: ["tts", "voice", "elevenlabs"],
-      },
-      {
-        id: "googleTts",
-        name: "googleTts",
-        displayName: "Google Cloud TTS",
-        description: "Google Cloud 语音合成",
-        category: "external-tts",
-        tags: ["tts", "google", "cloud"],
-      },
-
-      // 外部服务 - SkillsMP
-      {
-        id: "skillsmp",
-        name: "skillsmp",
-        displayName: "SkillsMP",
-        description: "SkillsMP 技能搜索服务",
-        category: "external-skills",
-        tags: ["skills", "search", "skillsmp"],
-      },
-
-      // 政策研究工具
-      {
-        id: "federal-register",
-        name: "federal-register",
-        displayName: "Federal Register",
-        description: "联邦公报 - 搜索行政命令、联邦法规、机构通知",
-        category: "policy-research",
-        tags: ["policy", "regulation", "executive-order", "federal"],
-      },
-      {
-        id: "congress-gov",
-        name: "congress-gov",
-        displayName: "Congress.gov",
-        description: "国会立法 - 搜索法案、决议、投票记录",
-        category: "policy-research",
-        tags: ["policy", "legislation", "congress", "bills"],
-      },
-      {
-        id: "whitehouse-news",
-        name: "whitehouse-news",
-        displayName: "White House News",
-        description: "白宫新闻 - 官方声明、新闻发布、行政命令",
-        category: "policy-research",
-        tags: ["policy", "executive", "whitehouse", "president"],
-      },
-    ];
-
-    return toolDefinitions;
-  }
 
   /**
    * 获取技能定义列表

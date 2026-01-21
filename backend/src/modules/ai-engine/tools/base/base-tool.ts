@@ -13,6 +13,7 @@ import {
   ToolCategory,
   JSONSchema,
   FunctionDefinition,
+  CompactToolSummary,
   ToolId,
 } from "../abstractions/tool.interface";
 
@@ -158,6 +159,26 @@ export abstract class BaseTool<TInput = unknown, TOutput = unknown>
   }
 
   /**
+   * 转换为精简摘要格式（节省 Token）
+   * 描述限制在 100 字符以内
+   */
+  toCompactSummary(): CompactToolSummary {
+    // 截断描述到 100 字符
+    const brief =
+      this.description.length > 100
+        ? this.description.substring(0, 97) + "..."
+        : this.description;
+
+    return {
+      id: this.id,
+      name: this.name,
+      brief,
+      category: this.category,
+      tags: this.tags.length > 0 ? this.tags : undefined,
+    };
+  }
+
+  /**
    * 构建执行元数据
    */
   protected buildMetadata(
@@ -280,6 +301,20 @@ export function createTool<TInput, TOutput>(options: {
         name: options.id,
         description: options.description,
         parameters: options.inputSchema,
+      };
+    },
+
+    toCompactSummary(): CompactToolSummary {
+      const brief =
+        options.description.length > 100
+          ? options.description.substring(0, 97) + "..."
+          : options.description;
+      return {
+        id: options.id,
+        name: options.name,
+        brief,
+        category: options.category,
+        tags: options.tags,
       };
     },
   };

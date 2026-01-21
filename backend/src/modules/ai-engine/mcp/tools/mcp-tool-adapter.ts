@@ -5,7 +5,12 @@
  * 将 MCP 工具转换为 ai-engine ITool 接口
  */
 
-import { ITool, ToolContext, ToolResult } from "../../tools/abstractions";
+import {
+  ITool,
+  ToolContext,
+  ToolResult,
+  CompactToolSummary,
+} from "../../tools/abstractions";
 import { MCPTool, MCPToolResult } from "../abstractions/mcp.interface";
 import { MCPManager } from "../manager/mcp-manager";
 
@@ -90,6 +95,24 @@ export class MCPToolAdapter
       name: this.mcpTool.name,
       description: this.mcpTool.description,
       parameters: this.mcpTool.inputSchema,
+    };
+  }
+
+  /**
+   * 转换为精简摘要格式（节省 Token）
+   */
+  toCompactSummary(): CompactToolSummary {
+    const brief =
+      this.description.length > 100
+        ? this.description.substring(0, 97) + "..."
+        : this.description;
+
+    return {
+      id: this.id,
+      name: this.name,
+      brief,
+      category: "mcp",
+      tags: this.tags,
     };
   }
 }

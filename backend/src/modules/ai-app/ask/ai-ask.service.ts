@@ -13,7 +13,7 @@ import {
 } from "../../ai-engine/orchestration/executors/function-calling-executor";
 import { BUILTIN_TOOLS, BuiltinToolId } from "../../ai-engine/core";
 import { ToolRegistry } from "../../ai-engine/tools/registry";
-import { ToolContext } from "../../ai-engine/tools/abstractions/tool.interface";
+import { AICapabilityContext } from "../../ai-engine/capabilities/ai-capability-resolver.service";
 import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
 import { RAGPipelineService } from "../rag/services/rag-pipeline.service";
 import { CreditsService } from "../../credits/credits.service";
@@ -361,17 +361,14 @@ export class AiAskService {
           dto.content,
         );
 
-        // 构建工具执行上下文
-        const toolContext: ToolContext = {
-          executionId: sessionId,
-          toolId: "ai-ask",
-          createdAt: new Date(),
-          timeout: 60000,
+        // T2 Fix: 构建 AICapabilityContext，使用 executeWithContext() 以支持工具启用/禁用
+        const capabilityContext: AICapabilityContext = {
+          agentId: `ai-ask-${sessionId}`,
+          userId: userId,
+          domain: "ask",
         };
 
         // 执行配置
-        // Note: ExecutionConfig 暂不支持 taskProfile，保持原参数
-        // TODO: Phase 1 - 更新 ExecutionConfig 接口以支持 taskProfile
         const executionConfig: Partial<ExecutionConfig> = {
           maxIterations: 5,
           maxToolCalls: 10,
@@ -379,13 +376,15 @@ export class AiAskService {
           maxTokens: 4000, // outputLength: standard
         };
 
-        // 执行自主模式（使用 AI Engine 的 FunctionCallingLLMAdapter）
-        const events = this.functionCallingExecutor.execute(
+        // T2 Fix: 使用 executeWithContext() 替代 execute()
+        // executeWithContext() 会：
+        // 1. 通过 AICapabilityResolver 解析可用工具（尊重 enabled/disabled 状态）
+        // 2. 自动记录工具使用日志
+        const events = this.functionCallingExecutor.executeWithContext(
           this.functionCallingLLMAdapter,
           systemPrompt,
           dto.content,
-          this.getAvailableTools(),
-          toolContext,
+          capabilityContext,
           executionConfig,
         );
 
