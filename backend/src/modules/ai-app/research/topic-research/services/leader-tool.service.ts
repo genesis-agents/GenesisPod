@@ -194,17 +194,23 @@ export class LeaderToolService {
       searchResults,
     );
 
-    // ★ 记录工具使用日志
+    // ★ 记录工具使用日志（fire-and-forget 模式，不阻塞主流程）
     if (capabilityContext && searchResults.length > 0) {
-      await this.capabilityResolver.logCapabilityUsage({
-        capabilityType: "tool",
-        capabilityId: "web-search",
-        agentId: capabilityContext.agentId,
-        userId: capabilityContext.userId,
-        teamId: capabilityContext.teamId,
-        success: true,
-        duration: undefined, // SearchService 不返回 duration，可在未来优化
-      });
+      this.capabilityResolver
+        .logCapabilityUsage({
+          capabilityType: "tool",
+          capabilityId: "web-search",
+          agentId: capabilityContext.agentId,
+          userId: capabilityContext.userId,
+          teamId: capabilityContext.teamId,
+          success: true,
+          duration: undefined, // SearchService 不返回 duration，可在未来优化
+        })
+        .catch((error) => {
+          this.logger.warn(
+            `Failed to log capability usage: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        });
     }
 
     return {

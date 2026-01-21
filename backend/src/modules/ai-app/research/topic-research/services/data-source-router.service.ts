@@ -961,8 +961,8 @@ export class DataSourceRouterService {
       this.logger.error(
         `[isToolEnabled] Failed to check tool ${toolId}: ${error instanceof Error ? error.message : String(error)}`,
       );
-      // 发生错误时默认启用，避免阻塞搜索
-      return true;
+      // ★ 安全优先：发生错误时默认禁用，避免使用未授权的工具
+      return false;
     }
   }
 }

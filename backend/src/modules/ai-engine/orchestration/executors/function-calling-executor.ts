@@ -526,9 +526,9 @@ export class FunctionCallingExecutor {
           failedCalls++;
         }
 
-        // 记录到 AIUsageLog
+        // 记录到 AIUsageLog（fire-and-forget 模式，不阻塞主流程）
         if (this.capabilityResolver) {
-          await this.capabilityResolver
+          this.capabilityResolver
             .logCapabilityUsage({
               capabilityType: "tool",
               capabilityId: event.tool,
@@ -539,7 +539,9 @@ export class FunctionCallingExecutor {
               duration: event.duration,
             })
             .catch((err) => {
-              this.logger.warn(`Failed to log tool usage: ${err.message}`);
+              this.logger.warn(
+                `Failed to log tool usage: ${err instanceof Error ? err.message : String(err)}`,
+              );
             });
         }
       }

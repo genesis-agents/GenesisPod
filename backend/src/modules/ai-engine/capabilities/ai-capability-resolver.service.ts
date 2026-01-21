@@ -249,10 +249,13 @@ export class AICapabilityResolver {
       };
     }
 
+    // 使用类型守护函数确保 domain 的类型安全
+    const domain = this.validateSkillDomain(context.domain) || "general";
+
     // 使用 SkillLoaderService 加载 Skills（从文件系统）
     const skills = await this.skillLoader.getSkillsForTask({
       taskType: "*", // 默认匹配所有任务
-      domain: (context.domain as any) || "general",
+      domain,
       additionalSkillIds: skillIds,
       maxTokenBudget: 4000,
     });
@@ -429,6 +432,19 @@ export class AICapabilityResolver {
       toolName: t.toolName,
       description: t.description,
     }));
+  }
+
+  /**
+   * 验证并返回有效的 SkillDomain
+   * 如果 domain 不是字符串或为空，返回 null
+   */
+  private validateSkillDomain(
+    domain: string | undefined,
+  ): import("../skills/types/skill-md.types").SkillDomain | null {
+    if (!domain || typeof domain !== "string") {
+      return null;
+    }
+    return domain;
   }
 
   /**
