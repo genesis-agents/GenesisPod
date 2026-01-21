@@ -20,12 +20,11 @@ import {
   ToolId,
 } from "../../base/plan-based-agent";
 import { BUILTIN_TOOLS, PlanStep } from "../../../core/types/agent.types";
-import {
-  AiStudioService,
-  AiStudioChatService,
-  AiStudioSourceService,
-  AiStudioOutputService,
-} from "../../../../ai-app/research";
+// 直接从具体文件导入，避免通过 barrel export 引发循环依赖
+import { AiStudioService } from "../../../../ai-app/research/notebook-research/ai-studio.service";
+import { AiStudioChatService } from "../../../../ai-app/research/notebook-research/ai-studio-chat.service";
+import { AiStudioSourceService } from "../../../../ai-app/research/notebook-research/ai-studio-source.service";
+import { AiStudioOutputService } from "../../../../ai-app/research/notebook-research/ai-studio-output.service";
 
 /**
  * 研究任务类型

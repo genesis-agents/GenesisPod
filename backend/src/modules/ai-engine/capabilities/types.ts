@@ -216,6 +216,54 @@ export interface MCPToolSummary {
 }
 
 /**
+ * K4: Skill Prompt 构建选项
+ * 支持动态 Token 预算配置
+ */
+export interface SkillPromptOptions {
+  /**
+   * 最大 Token 预算（默认 4000）
+   * 用于限制 Skill Prompts 的总 Token 消耗
+   */
+  maxTokenBudget?: number;
+
+  /**
+   * 是否包含元数据（默认 false）
+   */
+  includeMetadata?: boolean;
+
+  /**
+   * 优先技能 IDs（这些技能优先分配 Token）
+   */
+  prioritySkillIds?: string[];
+}
+
+/**
+ * K4: Token 预算配置
+ * 定义不同场景的 Token 预算
+ */
+export interface TokenBudgetConfig {
+  /**
+   * Skill Prompts 默认预算
+   */
+  skillPromptDefault: number;
+
+  /**
+   * Skill Prompts 最大预算
+   */
+  skillPromptMax: number;
+
+  /**
+   * Tool Definitions 默认预算
+   */
+  toolDefinitionDefault: number;
+
+  /**
+   * 系统消息预留预算
+   */
+  systemMessageReserved: number;
+}
+
+/**
  * 工具包（用于 Agent 运行时）
  * 类似于 SkillPromptBundle，用于管理工具列表和 Token 消耗
  */

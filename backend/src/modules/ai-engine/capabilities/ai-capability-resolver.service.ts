@@ -5,7 +5,15 @@ import { SkillRegistry } from "../skills/registry/skill-registry";
 import { MCPManager } from "../mcp/manager/mcp-manager";
 import { SkillLoaderService } from "../skills/loader/skill-loader.service";
 import { SkillPromptBuilder } from "../skills/builder/skill-prompt-builder.service";
-import { CapabilityUsageLog, SkillPromptBundle, ToolBundle } from "./types";
+import {
+  CapabilityUsageLog,
+  SkillPromptBundle,
+  ToolBundle,
+  SkillPromptOptions,
+  TokenBudgetConfig,
+} from "./types";
+// A2 Fix: 使用统一的 BUILTIN_TOOLS 常量，与 TeamMemberAgent 保持一致
+import { BUILTIN_TOOLS } from "../core/types/agent.types";
 
 /**
  * AI 能力解析上下文
@@ -17,6 +25,27 @@ export interface AICapabilityContext {
   roleId?: string;
   domain?: string;
   memberId?: string;
+}
+
+/**
+ * D1: 规范化后的上下文（所有字段非空或有默认值）
+ */
+export interface NormalizedCapabilityContext {
+  agentId: string;
+  teamId: string | null;
+  userId: string;
+  roleId: string | null;
+  domain: string;
+  memberId: string | null;
+}
+
+/**
+ * D1: Context 验证结果
+ */
+export interface ContextValidationResult {
+  isValid: boolean;
+  normalizedContext: NormalizedCapabilityContext;
+  warnings: string[];
 }
 
 /**
@@ -329,11 +358,27 @@ export class AICapabilityResolver {
   }
 
   /**
+   * ★ K4: 默认 Token 预算配置
+   * 可以通过环境变量或数据库配置覆盖
+   */
+  private readonly defaultTokenBudget: TokenBudgetConfig = {
+    skillPromptDefault: 4000,
+    skillPromptMax: 8000,
+    toolDefinitionDefault: 2000,
+    systemMessageReserved: 1000,
+  };
+
+  /**
    * ★ NEW: 获取 Skills 的 Prompt Bundle
    * 用于注入到 System Message
+   *
+   * K4 Fix: 支持动态 Token 预算配置
+   * @param context - 能力解析上下文
+   * @param options - Skill Prompt 构建选项（可选）
    */
   async getSkillPrompts(
     context: AICapabilityContext,
+    options?: SkillPromptOptions,
   ): Promise<SkillPromptBundle> {
     const skillIds = await this.resolveSkillsForAgent(context);
 
@@ -347,6 +392,9 @@ export class AICapabilityResolver {
       };
     }
 
+    // K4: 动态获取 Token 预算
+    const maxTokenBudget = await this.resolveTokenBudget(context, options);
+
     // 使用类型守护函数确保 domain 的类型安全
     const domain = this.validateSkillDomain(context.domain) || "general";
 
@@ -355,7 +403,7 @@ export class AICapabilityResolver {
       taskType: "*", // 默认匹配所有任务
       domain,
       additionalSkillIds: skillIds,
-      maxTokenBudget: 4000,
+      maxTokenBudget,
     });
 
     if (skills.length === 0) {
@@ -370,12 +418,12 @@ export class AICapabilityResolver {
 
     // 使用 SkillPromptBuilder 组装 Prompts
     const buildResult = this.skillPromptBuilder.buildSystemPrompt(skills, {
-      maxTokens: 4000,
-      includeMetadata: false,
+      maxTokens: maxTokenBudget,
+      includeMetadata: options?.includeMetadata ?? false,
     });
 
     this.logger.debug(
-      `Built skill prompts for ${buildResult.usedSkills.length} skills: ${buildResult.usedSkills.join(", ")}`,
+      `Built skill prompts for ${buildResult.usedSkills.length} skills (budget: ${maxTokenBudget}): ${buildResult.usedSkills.join(", ")}`,
     );
 
     return {
@@ -385,6 +433,57 @@ export class AICapabilityResolver {
       wasTrimmed: buildResult.wasTrimmed,
       skippedSkills: buildResult.skippedSkills,
     };
+  }
+
+  /**
+   * ★ K4: 解析 Token 预算
+   * 优先级：options > 用户配置 > 团队配置 > 默认值
+   */
+  private async resolveTokenBudget(
+    context: AICapabilityContext,
+    options?: SkillPromptOptions,
+  ): Promise<number> {
+    // 1. 如果 options 中指定了预算，直接使用
+    if (options?.maxTokenBudget) {
+      // 限制在最大值以内
+      return Math.min(
+        options.maxTokenBudget,
+        this.defaultTokenBudget.skillPromptMax,
+      );
+    }
+
+    // 2. 如果有团队，尝试从团队 metadata 获取
+    if (context.teamId) {
+      try {
+        const team = await this.prisma.aITeamTemplate.findUnique({
+          where: { id: context.teamId },
+          select: { metadata: true },
+        });
+
+        if (team?.metadata) {
+          const teamMetadata = team.metadata as Record<string, unknown>;
+          if (typeof teamMetadata.skillTokenBudget === "number") {
+            return Math.min(
+              teamMetadata.skillTokenBudget as number,
+              this.defaultTokenBudget.skillPromptMax,
+            );
+          }
+        }
+      } catch {
+        // 忽略错误，使用默认值
+      }
+    }
+
+    // 3. 返回默认值
+    return this.defaultTokenBudget.skillPromptDefault;
+  }
+
+  /**
+   * ★ K4: 获取当前 Token 预算配置
+   * 用于诊断和管理界面显示
+   */
+  getTokenBudgetConfig(): TokenBudgetConfig {
+    return { ...this.defaultTokenBudget };
   }
 
   /**
@@ -558,30 +657,131 @@ export class AICapabilityResolver {
   /**
    * 将 AICapability 枚举映射到工具 ID 列表
    * A1 Fix: 完整覆盖所有 AICapability 枚举值
-   * A2 Fix: 与 TeamMemberAgent.CAPABILITY_TOOL_MAPPING 保持同步
+   * A2 Fix: 使用 BUILTIN_TOOLS 常量，与 TeamMemberAgent.CAPABILITY_TOOL_MAPPING 保持同步
    * 返回该能力对应的所有相关工具
    */
   private capabilityToToolIds(capability: string): string[] {
+    // A2 Fix: 使用 BUILTIN_TOOLS 常量确保与 TeamMemberAgent 映射一致
     const mapping: Record<string, string[]> = {
-      TEXT_GENERATION: ["text-generation", "template-render"],
-      CODE_GENERATION: [
-        "code-generation",
-        "python-executor",
-        "javascript-executor",
+      TEXT_GENERATION: [
+        BUILTIN_TOOLS.TEXT_GENERATION,
+        BUILTIN_TOOLS.TEMPLATE_RENDER,
       ],
-      CODE_REVIEW: ["code-generation", "data-validation"],
-      IMAGE_GENERATION: ["image-generation", "export-image"],
-      IMAGE_ANALYSIS: ["ocr-recognition", "data-analysis"],
-      WEB_SEARCH: ["web-search", "web-scraper"],
-      URL_FETCH: ["web-scraper", "data-fetch"],
-      DOCUMENT_ANALYSIS: ["file-parser", "rag-search", "data-analysis"],
-      REASONING: ["text-generation", "structured-output"],
-      MATH: ["python-executor", "data-analysis"],
-      TRANSLATION: ["text-generation"],
-      SUMMARIZATION: ["text-generation", "structured-output"],
+      CODE_GENERATION: [
+        BUILTIN_TOOLS.CODE_GENERATION,
+        BUILTIN_TOOLS.PYTHON_EXECUTOR,
+        BUILTIN_TOOLS.JAVASCRIPT_EXECUTOR,
+      ],
+      CODE_REVIEW: [
+        BUILTIN_TOOLS.CODE_GENERATION,
+        BUILTIN_TOOLS.DATA_VALIDATION,
+      ],
+      IMAGE_GENERATION: [
+        BUILTIN_TOOLS.IMAGE_GENERATION,
+        BUILTIN_TOOLS.EXPORT_IMAGE,
+      ],
+      IMAGE_ANALYSIS: [
+        BUILTIN_TOOLS.OCR_RECOGNITION,
+        BUILTIN_TOOLS.DATA_ANALYSIS,
+      ],
+      WEB_SEARCH: [BUILTIN_TOOLS.WEB_SEARCH, BUILTIN_TOOLS.WEB_SCRAPER],
+      URL_FETCH: [BUILTIN_TOOLS.WEB_SCRAPER, BUILTIN_TOOLS.DATA_FETCH],
+      DOCUMENT_ANALYSIS: [
+        BUILTIN_TOOLS.FILE_PARSER,
+        BUILTIN_TOOLS.RAG_SEARCH,
+        BUILTIN_TOOLS.DATA_ANALYSIS,
+      ],
+      REASONING: [
+        BUILTIN_TOOLS.TEXT_GENERATION,
+        BUILTIN_TOOLS.STRUCTURED_OUTPUT,
+      ],
+      MATH: [BUILTIN_TOOLS.PYTHON_EXECUTOR, BUILTIN_TOOLS.DATA_ANALYSIS],
+      TRANSLATION: [BUILTIN_TOOLS.TEXT_GENERATION],
+      SUMMARIZATION: [
+        BUILTIN_TOOLS.TEXT_GENERATION,
+        BUILTIN_TOOLS.STRUCTURED_OUTPUT,
+      ],
     };
 
     return mapping[capability] || [];
+  }
+
+  // ==================== D1: Context Validation ====================
+
+  /**
+   * D1: 验证并规范化上下文
+   * 确保所有必要字段都有默认值，记录警告
+   */
+  validateAndNormalizeContext(
+    context: AICapabilityContext,
+  ): ContextValidationResult {
+    const warnings: string[] = [];
+
+    // 验证并设置默认值
+    const normalizedContext: NormalizedCapabilityContext = {
+      agentId: context.agentId || "default-agent",
+      teamId: context.teamId || null,
+      userId: context.userId || "system",
+      roleId: context.roleId || null,
+      domain: context.domain || "general",
+      memberId: context.memberId || null,
+    };
+
+    // 记录警告
+    if (!context.agentId) {
+      warnings.push("No agentId provided, using default-agent");
+    }
+    if (!context.userId) {
+      warnings.push("No userId provided, using system");
+    }
+    if (!context.domain) {
+      warnings.push("No domain provided, using general");
+    }
+
+    // 验证 ID 格式（如果提供）
+    if (context.teamId && !this.isValidUUID(context.teamId)) {
+      warnings.push(`Invalid teamId format: ${context.teamId}`);
+    }
+    if (context.memberId && !this.isValidUUID(context.memberId)) {
+      warnings.push(`Invalid memberId format: ${context.memberId}`);
+    }
+
+    // 记录警告日志
+    if (warnings.length > 0) {
+      this.logger.debug(
+        `[D1] Context validation warnings: ${warnings.join("; ")}`,
+      );
+    }
+
+    return {
+      isValid: true, // 即使有警告也认为有效（使用默认值）
+      normalizedContext,
+      warnings,
+    };
+  }
+
+  /**
+   * D1: 创建带默认值的上下文
+   * 便捷方法，用于调用者不需要完整上下文时
+   */
+  createDefaultContext(
+    overrides?: Partial<AICapabilityContext>,
+  ): AICapabilityContext {
+    return {
+      agentId: "default-agent",
+      userId: "system",
+      domain: "general",
+      ...overrides,
+    };
+  }
+
+  /**
+   * D1: 验证 UUID 格式
+   */
+  private isValidUUID(str: string): boolean {
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
   }
 }
 

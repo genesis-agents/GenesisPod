@@ -11,7 +11,8 @@ import {
   ToolCategory,
 } from "../../abstractions/tool.interface";
 
-import { AiStudioTTSService } from "../../../../ai-app/research";
+// 直接从具体文件导入，避免通过 barrel export 引发循环依赖
+import { AiStudioTTSService } from "../../../../ai-app/research/notebook-research/ai-studio-tts.service";
 
 // ============================================================================
 // Types

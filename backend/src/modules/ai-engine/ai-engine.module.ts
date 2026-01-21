@@ -17,6 +17,7 @@
 import { Module, Global, OnModuleInit, Logger, Inject } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../common/prisma/prisma.module";
+import { PrismaService } from "../../common/prisma/prisma.service";
 import { SecretsModule } from "../core/secrets/secrets.module";
 
 // Registries
@@ -488,11 +489,12 @@ export class AiEngineModule implements OnModuleInit {
     private readonly agentRegistry: AgentRegistry,
     private readonly llmFactory: LLMFactory,
     private readonly universalLLMAdapter: UniversalLLMAdapter,
+    private readonly prisma: PrismaService,
     // ★ 批量注入所有工具
     @Inject(ALL_TOOLS_TOKEN) private readonly allTools: ITool[],
   ) {}
 
-  onModuleInit() {
+  async onModuleInit() {
     // 注册 LLM 适配器到工厂
     this.llmFactory.registerAdapter(this.universalLLMAdapter);
 
@@ -510,6 +512,62 @@ export class AiEngineModule implements OnModuleInit {
     this.logger.log(
       `  LLM Adapters: ${this.llmFactory.getAllAdapters().length}`,
     );
+
+    // ★ T4: 验证 ToolConfig 与 ToolRegistry 同步
+    await this.validateToolConfigSync();
+  }
+
+  /**
+   * ★ T4: 启动时验证 ToolConfig 与 ToolRegistry 同步
+   * 检测孤立配置（数据库有配置但工具未注册）
+   */
+  private async validateToolConfigSync(): Promise<void> {
+    try {
+      const dbConfigs = await this.prisma.toolConfig.findMany({
+        select: { toolId: true, enabled: true },
+      });
+
+      const registeredToolIds = new Set(
+        this.toolRegistry.getAll().map((t) => t.id),
+      );
+
+      // 检查孤立配置：数据库有配置但 ToolRegistry 中没有对应工具
+      const orphanedConfigs = dbConfigs.filter(
+        (config) => !registeredToolIds.has(config.toolId),
+      );
+
+      if (orphanedConfigs.length > 0) {
+        this.logger.warn(
+          `[T4] Found ${orphanedConfigs.length} orphaned ToolConfig entries (in DB but not in registry):`,
+        );
+        for (const config of orphanedConfigs) {
+          this.logger.warn(`  - ${config.toolId} (enabled: ${config.enabled})`);
+        }
+        this.logger.warn(
+          `  → These configs will be ignored. Consider removing them from the database.`,
+        );
+      }
+
+      // 统计：有多少注册的工具在数据库中有配置
+      const configuredToolIds = new Set(dbConfigs.map((c) => c.toolId));
+      const unconfiguredTools = Array.from(registeredToolIds).filter(
+        (id) => !configuredToolIds.has(id),
+      );
+
+      if (unconfiguredTools.length > 0) {
+        this.logger.log(
+          `[T4] ${unconfiguredTools.length} tools have no database config (using defaults)`,
+        );
+      }
+
+      this.logger.log(
+        `[T4] ToolConfig sync check: ${dbConfigs.length} DB configs, ${registeredToolIds.size} registered tools`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[T4] Failed to validate ToolConfig sync: ${error instanceof Error ? error.message : error}`,
+      );
+    }
   }
 }
 
