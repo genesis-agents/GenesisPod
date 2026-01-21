@@ -4,7 +4,8 @@ import { MulterModule } from "@nestjs/platform-express";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { StorageModule } from "../../core/storage/storage.module";
 import { AiOfficeModule } from "../office/ai-office.module";
-import { AiEngineModule } from "../../ai-engine";
+// 直接从文件导入，避免 barrel export 循环依赖
+import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 
 // Generation
 import {
@@ -38,7 +39,8 @@ import { AnalyticsService, AgentExecutorService } from "./analytics";
     MulterModule.register({
       limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
     }),
-    AiEngineModule, // 使用 AI Engine 的 ImageFactory
+    // 使用 forwardRef 打破循环依赖: AiImageModule ↔ AiEngineModule
+    forwardRef(() => AiEngineModule),
     forwardRef(() => AiOfficeModule),
   ],
   controllers: [GenerationController, BrandKitController, ExportController],
