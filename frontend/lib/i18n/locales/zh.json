@@ -1948,7 +1948,16 @@
         "update": "更新",
         "preview": "预览",
         "installSuccess": "技能安装成功",
-        "installFailed": "技能安装失败"
+        "installFailed": "技能安装失败",
+        "connected": "已连接 SkillsMP",
+        "notConnected": "SkillsMP 未配置",
+        "lastSync": "上次同步",
+        "neverSynced": "从未同步 - 点击同步按钮获取技能",
+        "configureHint": "在工具管理中配置 SkillsMP API Key 以从市场同步技能",
+        "sync": "从 SkillsMP 同步",
+        "configure": "去配置",
+        "syncSuccess": "同步成功",
+        "syncFailed": "同步失败"
       },
       "layers": {
         "all": "全部技能",

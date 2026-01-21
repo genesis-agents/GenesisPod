@@ -17,6 +17,10 @@ import {
   RefreshCw,
   Eye,
   Package,
+  Cloud,
+  AlertCircle,
+  Settings,
+  Sparkles,
 } from 'lucide-react';
 import { SKILL_LAYERS } from './skill-layers';
 import type { MarketplaceSkill, SkillConfig } from './types';
@@ -28,12 +32,19 @@ interface SkillsMarketplaceTabProps {
   onInstall: (skillId: string) => Promise<void>;
 }
 
+interface SkillsmpConfig {
+  enabled: boolean;
+  hasApiKey: boolean;
+  lastSync?: string;
+}
+
 export function SkillsMarketplaceTab({
   installedSkills,
   onInstall,
 }: SkillsMarketplaceTabProps) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [marketplaceSkills, setMarketplaceSkills] = useState<
     MarketplaceSkill[]
   >([]);
@@ -42,6 +53,29 @@ export function SkillsMarketplaceTab({
     null
   );
   const [installing, setInstalling] = useState<string | null>(null);
+  const [skillsmpConfig, setSkillsmpConfig] = useState<SkillsmpConfig | null>(
+    null
+  );
+  const [lastSync, setLastSync] = useState<string | null>(null);
+  const [syncMessage, setSyncMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+
+  // Load SkillsMP config
+  const loadSkillsmpConfig = async () => {
+    try {
+      const res = await fetch(`${config.apiUrl}/admin/skillsmp-config`, {
+        headers: { ...getAuthHeader() },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSkillsmpConfig(data);
+      }
+    } catch (err) {
+      logger.error('Failed to load SkillsMP config:', err);
+    }
+  };
 
   // Load marketplace skills
   const loadMarketplaceSkills = async () => {
@@ -53,6 +87,7 @@ export function SkillsMarketplaceTab({
       if (res.ok) {
         const data = await res.json();
         const skills = data.skills || [];
+        setLastSync(data.lastSync || null);
 
         // Mark installed skills
         const skillsWithStatus = skills.map((skill: MarketplaceSkill) => ({
@@ -71,7 +106,44 @@ export function SkillsMarketplaceTab({
     }
   };
 
+  // Sync from SkillsMP
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const res = await fetch(`${config.apiUrl}/admin/skillsmp-config/sync`, {
+        method: 'POST',
+        headers: { ...getAuthHeader() },
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setSyncMessage({
+          type: 'success',
+          text: data.message || t('admin.skills.marketplace.syncSuccess'),
+        });
+        // Reload skills after sync
+        await loadMarketplaceSkills();
+      } else {
+        setSyncMessage({
+          type: 'error',
+          text: data.message || t('admin.skills.marketplace.syncFailed'),
+        });
+      }
+    } catch (err) {
+      logger.error('Failed to sync from SkillsMP:', err);
+      setSyncMessage({
+        type: 'error',
+        text: t('admin.skills.marketplace.syncFailed'),
+      });
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncMessage(null), 5000);
+    }
+  };
+
   useEffect(() => {
+    loadSkillsmpConfig();
     loadMarketplaceSkills();
   }, [installedSkills]);
 
@@ -116,6 +188,91 @@ export function SkillsMarketplaceTab({
 
   return (
     <div className="space-y-6">
+      {/* SkillsMP Connection Status */}
+      <div
+        className={`rounded-xl border p-4 ${
+          skillsmpConfig?.hasApiKey
+            ? 'border-green-200 bg-gradient-to-r from-green-50 to-emerald-50'
+            : 'border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50'
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div
+              className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                skillsmpConfig?.hasApiKey ? 'bg-green-100' : 'bg-amber-100'
+              }`}
+            >
+              {skillsmpConfig?.hasApiKey ? (
+                <Cloud className="h-5 w-5 text-green-600" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+              )}
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-900">
+                {skillsmpConfig?.hasApiKey
+                  ? t('admin.skills.marketplace.connected') ||
+                    'Connected to SkillsMP'
+                  : t('admin.skills.marketplace.notConnected') ||
+                    'SkillsMP Not Configured'}
+              </h3>
+              <p className="text-sm text-gray-600">
+                {skillsmpConfig?.hasApiKey
+                  ? lastSync
+                    ? `${t('admin.skills.marketplace.lastSync') || 'Last synced'}: ${new Date(lastSync).toLocaleString()}`
+                    : t('admin.skills.marketplace.neverSynced') ||
+                      'Never synced - click Sync to fetch skills'
+                  : t('admin.skills.marketplace.configureHint') ||
+                    'Configure SkillsMP API Key in Tools Management to sync skills from the marketplace'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {skillsmpConfig?.hasApiKey ? (
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {syncing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Cloud className="h-4 w-4" />
+                )}
+                {t('admin.skills.marketplace.sync') || 'Sync from SkillsMP'}
+              </button>
+            ) : (
+              <a
+                href="/admin/ai/tools"
+                className="flex items-center gap-2 rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-50"
+              >
+                <Settings className="h-4 w-4" />
+                {t('admin.skills.marketplace.configure') || 'Configure'}
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Sync Message */}
+      {syncMessage && (
+        <div
+          className={`flex items-center gap-3 rounded-lg p-4 ${
+            syncMessage.type === 'success'
+              ? 'bg-green-50 text-green-700'
+              : 'bg-red-50 text-red-700'
+          }`}
+        >
+          {syncMessage.type === 'success' ? (
+            <CheckCircle className="h-5 w-5" />
+          ) : (
+            <AlertCircle className="h-5 w-5" />
+          )}
+          <span>{syncMessage.text}</span>
+        </div>
+      )}
+
       {/* Search & Refresh */}
       <div className="flex items-center justify-between gap-4">
         <div className="relative flex-1">
@@ -137,6 +294,18 @@ export function SkillsMarketplaceTab({
           {t('admin.skills.refresh')}
         </button>
       </div>
+
+      {/* Skills count and source indicator */}
+      {marketplaceSkills.length > 0 && (
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <Sparkles className="h-4 w-4 text-purple-500" />
+          <span>
+            {lastSync
+              ? `${marketplaceSkills.length} skills from SkillsMP`
+              : `${marketplaceSkills.length} sample skills (sync to get more)`}
+          </span>
+        </div>
+      )}
 
       {/* Skills Grid */}
       {filteredSkills.length === 0 ? (

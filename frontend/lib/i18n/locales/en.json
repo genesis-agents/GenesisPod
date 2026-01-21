@@ -1946,7 +1946,16 @@
         "update": "Update",
         "preview": "Preview",
         "installSuccess": "Skill installed successfully",
-        "installFailed": "Failed to install skill"
+        "installFailed": "Failed to install skill",
+        "connected": "Connected to SkillsMP",
+        "notConnected": "SkillsMP Not Configured",
+        "lastSync": "Last synced",
+        "neverSynced": "Never synced - click Sync to fetch skills",
+        "configureHint": "Configure SkillsMP API Key in Tools Management to sync skills from the marketplace",
+        "sync": "Sync from SkillsMP",
+        "configure": "Configure",
+        "syncSuccess": "Sync successful",
+        "syncFailed": "Sync failed"
       },
       "layers": {
         "all": "All Skills",
