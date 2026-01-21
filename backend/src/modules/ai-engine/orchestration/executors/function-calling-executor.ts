@@ -3,7 +3,7 @@
  * 执行引擎 - 让 LLM 自主选择和调用工具
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ToolRegistry } from "../../tools/registry";
 import {
   ToolContext,
@@ -12,6 +12,10 @@ import {
 } from "../../tools/abstractions/tool.interface";
 import { ToolId } from "../../core/types/agent.types";
 import { RetryStrategy } from "./retry-strategy";
+import {
+  AICapabilityResolver,
+  AICapabilityContext,
+} from "../../capabilities/ai-capability-resolver.service";
 
 // ============================================================================
 // Types
@@ -188,7 +192,10 @@ export class FunctionCallingExecutor {
     maxTokens: 4096,
   };
 
-  constructor(private readonly toolRegistry: ToolRegistry) {
+  constructor(
+    private readonly toolRegistry: ToolRegistry,
+    @Optional() private readonly capabilityResolver?: AICapabilityResolver,
+  ) {
     this.retryStrategy = new RetryStrategy();
   }
 
@@ -457,5 +464,91 @@ export class FunctionCallingExecutor {
   getAllFunctionDefinitions(): FunctionDefinition[] {
     const tools = this.toolRegistry.getAll();
     return tools.map((tool) => tool.toFunctionDefinition());
+  }
+
+  /**
+   * ★ NEW: 执行 Function Calling with AICapabilityContext
+   *
+   * 使用 AICapabilityResolver 来解析可用的工具，自动处理权限和配置
+   */
+  async *executeWithContext(
+    llmAdapter: ILLMAdapter,
+    systemPrompt: string,
+    userPrompt: string,
+    context: AICapabilityContext,
+    config?: Partial<ExecutionConfig>,
+  ): AsyncGenerator<AgentEvent> {
+    if (!this.capabilityResolver) {
+      this.logger.warn(
+        "[executeWithContext] AICapabilityResolver not available, using empty tool list",
+      );
+      yield {
+        type: "error",
+        error: "AICapabilityResolver not available",
+      };
+      return;
+    }
+
+    // 1. 解析可用的工具
+    const toolIds = await this.capabilityResolver.resolveToolsForAgent(context);
+
+    this.logger.log(
+      `[executeWithContext] Resolved ${toolIds.length} tools for context: ${toolIds.join(", ")}`,
+    );
+
+    // 2. 构建 ToolContext
+    const toolContext: ToolContext = {
+      executionId: context.agentId || `exec-${Date.now()}`,
+      toolId: "function-calling",
+      userId: context.userId,
+      createdAt: new Date(),
+    };
+
+    // 3. 执行 Function Calling（使用原有的 execute 方法）
+    let successfulCalls = 0;
+    let failedCalls = 0;
+
+    for await (const event of this.execute(
+      llmAdapter,
+      systemPrompt,
+      userPrompt,
+      toolIds,
+      toolContext,
+      config,
+    )) {
+      // 4. 记录工具调用日志
+      if (event.type === "tool_result") {
+        const success = event.output !== undefined && event.output !== null;
+
+        if (success) {
+          successfulCalls++;
+        } else {
+          failedCalls++;
+        }
+
+        // 记录到 AIUsageLog
+        if (this.capabilityResolver) {
+          await this.capabilityResolver
+            .logCapabilityUsage({
+              capabilityType: "tool",
+              capabilityId: event.tool,
+              agentId: context.agentId,
+              teamId: context.teamId,
+              userId: context.userId,
+              success,
+              duration: event.duration,
+            })
+            .catch((err) => {
+              this.logger.warn(`Failed to log tool usage: ${err.message}`);
+            });
+        }
+      }
+
+      yield event;
+    }
+
+    this.logger.log(
+      `[executeWithContext] Completed with ${successfulCalls} successful and ${failedCalls} failed tool calls`,
+    );
   }
 }

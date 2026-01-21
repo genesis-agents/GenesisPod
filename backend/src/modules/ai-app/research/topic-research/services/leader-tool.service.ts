@@ -21,6 +21,10 @@ import {
   getCurrentDateString,
   getFreshnessRequirementDescription,
 } from "../prompts/dimension-research.prompt";
+import {
+  AICapabilityResolver,
+  AICapabilityContext,
+} from "@/modules/ai-engine/capabilities/ai-capability-resolver.service";
 
 /**
  * Leader 搜索上下文
@@ -65,6 +69,7 @@ export class LeaderToolService {
   constructor(
     private readonly aiFacade: AIEngineFacade,
     private readonly searchService: SearchService,
+    private readonly capabilityResolver: AICapabilityResolver,
   ) {}
 
   /**
@@ -145,15 +150,40 @@ export class LeaderToolService {
    * ★ 包含当前日期、时效性要求、最新搜索结果摘要
    *
    * @param context 搜索上下文
+   * @param capabilityContext AI 能力上下文（用于检查工具可用性）
    * @returns 增强的规划上下文
    */
   async generateEnhancedPlanningContext(
     context: LeaderSearchContext,
+    capabilityContext?: AICapabilityContext,
   ): Promise<EnhancedPlanningContext> {
     const currentDate = getCurrentDateString();
     const freshnessRequirement = getFreshnessRequirementDescription(
       context.searchTimeRange,
     );
+
+    // ★ 检查工具可用性（如果提供了 capability context）
+    if (capabilityContext) {
+      const availableTools =
+        await this.capabilityResolver.resolveToolsForAgent(capabilityContext);
+      this.logger.log(
+        `[generateEnhancedPlanningContext] Available tools for Leader: ${availableTools.join(", ")}`,
+      );
+
+      // 如果 web-search 不可用，直接返回空上下文
+      if (!availableTools.includes("web-search")) {
+        this.logger.warn(
+          "[generateEnhancedPlanningContext] web-search tool not available, skipping data gathering",
+        );
+        return {
+          currentDate,
+          freshnessRequirement,
+          latestSearchResults: [],
+          contextSummary:
+            "（工具不可用，无法获取最新数据，请基于已有证据进行分析）",
+        };
+      }
+    }
 
     // 先进行搜索获取最新数据
     const searchResults = await this.searchLatestData(context);
@@ -163,6 +193,19 @@ export class LeaderToolService {
       context,
       searchResults,
     );
+
+    // ★ 记录工具使用日志
+    if (capabilityContext && searchResults.length > 0) {
+      await this.capabilityResolver.logCapabilityUsage({
+        capabilityType: "tool",
+        capabilityId: "web-search",
+        agentId: capabilityContext.agentId,
+        userId: capabilityContext.userId,
+        teamId: capabilityContext.teamId,
+        success: true,
+        duration: undefined, // SearchService 不返回 duration，可在未来优化
+      });
+    }
 
     return {
       currentDate,

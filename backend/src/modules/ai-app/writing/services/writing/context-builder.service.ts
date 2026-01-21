@@ -1,7 +1,17 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { StoryBibleService } from "../bible/story-bible.service";
+import { AICapabilityResolver } from "../../../../ai-engine/capabilities/ai-capability-resolver.service";
 
+/**
+ * Context Builder Service
+ *
+ * 负责为章节写作构建上下文信息，包括：
+ * - Story Bible 快照
+ * - 前文章节上下文
+ * - 跨卷关键情节
+ * - ★ NEW: 写作技能提示（从 AICapabilityResolver）
+ */
 @Injectable()
 export class ContextBuilderService {
   private readonly logger = new Logger(ContextBuilderService.name);
@@ -9,8 +19,36 @@ export class ContextBuilderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storyBibleService: StoryBibleService,
+    private readonly capabilityResolver: AICapabilityResolver,
   ) {
     void this.logger;
+  }
+
+  /**
+   * ★ NEW: 获取写作上下文相关的技能提示
+   * 可用于增强写作提示词
+   */
+  async getContextSkillPrompts(projectId: string): Promise<string> {
+    try {
+      const skillPrompts = await this.capabilityResolver.getSkillPrompts({
+        domain: "writing",
+        agentId: projectId,
+      });
+
+      if (skillPrompts.content) {
+        this.logger.debug(
+          `[ContextBuilder] Loaded ${skillPrompts.usedSkills.length} writing skills for context`,
+        );
+        return skillPrompts.content;
+      }
+
+      return "";
+    } catch (error) {
+      this.logger.warn(
+        `[ContextBuilder] Failed to load skill prompts: ${(error as Error).message}`,
+      );
+      return "";
+    }
   }
 
   async buildWritingContext(chapterId: string, bibleSnapshot?: any) {

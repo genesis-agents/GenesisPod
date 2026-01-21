@@ -3,6 +3,9 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 import { ToolRegistry } from "../tools/registry/tool-registry";
 import { SkillRegistry } from "../skills/registry/skill-registry";
 import { MCPManager } from "../mcp/manager/mcp-manager";
+import { SkillLoaderService } from "../skills/loader/skill-loader.service";
+import { SkillPromptBuilder } from "../skills/builder/skill-prompt-builder.service";
+import { CapabilityUsageLog, SkillPromptBundle } from "./types";
 
 /**
  * AI 能力解析上下文
@@ -38,6 +41,8 @@ export class AICapabilityResolver {
     private readonly toolRegistry: ToolRegistry,
     private readonly skillRegistry: SkillRegistry,
     private readonly mcpManager: MCPManager,
+    private readonly skillLoader: SkillLoaderService,
+    private readonly skillPromptBuilder: SkillPromptBuilder,
   ) {}
 
   /**
@@ -210,6 +215,103 @@ export class AICapabilityResolver {
     });
 
     return config?.config as Record<string, unknown> | null;
+  }
+
+  /**
+   * ★ NEW: 获取工具的 Function Definitions
+   * 用于 LLM Function Calling
+   */
+  async getToolFunctionDefinitions(
+    context: AICapabilityContext,
+  ): Promise<
+    import("../tools/abstractions/tool.interface").FunctionDefinition[]
+  > {
+    const toolIds = await this.resolveToolsForAgent(context);
+    return this.toolRegistry.getFunctionDefinitions(toolIds);
+  }
+
+  /**
+   * ★ NEW: 获取 Skills 的 Prompt Bundle
+   * 用于注入到 System Message
+   */
+  async getSkillPrompts(
+    context: AICapabilityContext,
+  ): Promise<SkillPromptBundle> {
+    const skillIds = await this.resolveSkillsForAgent(context);
+
+    if (skillIds.length === 0) {
+      return {
+        content: "",
+        usedSkills: [],
+        estimatedTokens: 0,
+        wasTrimmed: false,
+        skippedSkills: [],
+      };
+    }
+
+    // 使用 SkillLoaderService 加载 Skills（从文件系统）
+    const skills = await this.skillLoader.getSkillsForTask({
+      taskType: "*", // 默认匹配所有任务
+      domain: (context.domain as any) || "general",
+      additionalSkillIds: skillIds,
+      maxTokenBudget: 4000,
+    });
+
+    if (skills.length === 0) {
+      return {
+        content: "",
+        usedSkills: [],
+        estimatedTokens: 0,
+        wasTrimmed: false,
+        skippedSkills: [],
+      };
+    }
+
+    // 使用 SkillPromptBuilder 组装 Prompts
+    const buildResult = this.skillPromptBuilder.buildSystemPrompt(skills, {
+      maxTokens: 4000,
+      includeMetadata: false,
+    });
+
+    this.logger.debug(
+      `Built skill prompts for ${buildResult.usedSkills.length} skills: ${buildResult.usedSkills.join(", ")}`,
+    );
+
+    return {
+      content: buildResult.prompt,
+      usedSkills: buildResult.usedSkills,
+      estimatedTokens: buildResult.estimatedTokens,
+      wasTrimmed: buildResult.wasTrimmed,
+      skippedSkills: buildResult.skippedSkills,
+    };
+  }
+
+  /**
+   * ★ NEW: 记录能力使用日志
+   * 所有 Tool/Skill 调用都应该记录到 AIUsageLog
+   */
+  async logCapabilityUsage(log: CapabilityUsageLog): Promise<void> {
+    try {
+      await this.prisma.aIUsageLog.create({
+        data: {
+          capabilityType: log.capabilityType,
+          capabilityId: log.capabilityId,
+          userId: log.userId,
+          teamId: log.teamId,
+          agentId: log.agentId,
+          success: log.success,
+          duration: log.duration,
+          tokensUsed: log.tokensUsed,
+          errorCode: log.errorCode,
+        },
+      });
+
+      this.logger.debug(
+        `Logged ${log.capabilityType} usage: ${log.capabilityId} (success=${log.success})`,
+      );
+    } catch (error: any) {
+      this.logger.warn(`Failed to log capability usage: ${error.message}`);
+    }
   }
 
   // ==================== Private Methods ====================

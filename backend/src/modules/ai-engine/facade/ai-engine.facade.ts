@@ -29,6 +29,12 @@ import { ToolRegistry } from "../tools/registry/tool-registry";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { SkillLoaderService } from "../skills/loader/skill-loader.service";
 import { SkillPromptBuilder } from "../skills/builder/skill-prompt-builder.service";
+import {
+  AICapabilityResolver,
+  AICapabilityContext,
+} from "../capabilities/ai-capability-resolver.service";
+import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
+import { CapabilitySummary } from "../capabilities/types";
 import type {
   ChatWithSkillsRequest,
   ChatWithSkillsResponse,
@@ -92,6 +98,9 @@ export class AIEngineFacade {
     @Optional() private readonly toolRegistry?: ToolRegistry,
     @Optional() private readonly skillLoader?: SkillLoaderService,
     @Optional() private readonly skillPromptBuilder?: SkillPromptBuilder,
+    @Optional() private readonly capabilityResolver?: AICapabilityResolver,
+    @Optional()
+    private readonly functionCallingExecutor?: FunctionCallingExecutor,
   ) {
     this.logger.log("AIEngineFacade initialized");
   }
@@ -1485,5 +1494,153 @@ export class AIEngineFacade {
       : this.toolRegistry.getAllFunctionDefinitions();
 
     return definitions;
+  }
+
+  // ==================== ★ NEW: AI Capability 能力 ====================
+
+  /**
+   * ★ NEW: 获取可用的能力（Tools、Skills、MCP Tools）
+   *
+   * 根据上下文（用户、团队、角色）获取所有可用的 AI 能力
+   */
+  async getAvailableCapabilities(
+    context: AICapabilityContext,
+  ): Promise<CapabilitySummary> {
+    if (!this.capabilityResolver) {
+      this.logger.warn(
+        "[getAvailableCapabilities] AICapabilityResolver not available",
+      );
+      return { tools: [], skills: [], mcpTools: [] };
+    }
+
+    this.logger.debug(
+      `[getAvailableCapabilities] Resolving capabilities for context: ${JSON.stringify(context)}`,
+    );
+
+    // 解析所有能力
+    const { tools, skills, mcpTools } =
+      await this.capabilityResolver.resolveAllCapabilities(context);
+
+    // 构建工具摘要
+    const toolSummaries = tools.map((toolId) => {
+      const tool = this.toolRegistry?.tryGet(toolId);
+      return {
+        id: toolId,
+        name: tool?.name || toolId,
+        description: tool?.description || "",
+        category: tool?.category || ("information" as const),
+        enabled: tool?.enabled !== false,
+        functionDefinition: tool?.toFunctionDefinition() || {
+          name: toolId,
+          description: "",
+          parameters: { type: "object", properties: {} },
+        },
+      };
+    });
+
+    // 构建技能摘要
+    const skillSummaries = skills.map((skillId) => {
+      // Skills 需要通过 SkillRegistry 获取详细信息
+      return {
+        id: skillId,
+        name: skillId,
+        description: "",
+        domain: "common",
+        layer: "domain" as const,
+        enabled: true,
+      };
+    });
+
+    // 构建 MCP 工具摘要
+    const mcpToolSummaries = mcpTools.map((mcp) => ({
+      serverId: mcp.serverId,
+      toolName: mcp.toolName,
+      description: mcp.description,
+    }));
+
+    this.logger.log(
+      `[getAvailableCapabilities] Found ${toolSummaries.length} tools, ${skillSummaries.length} skills, ${mcpToolSummaries.length} MCP tools`,
+    );
+
+    return {
+      tools: toolSummaries,
+      skills: skillSummaries,
+      mcpTools: mcpToolSummaries,
+    };
+  }
+
+  /**
+   * ★ NEW: 使用 Function Calling 的聊天
+   *
+   * 自动解析可用工具并让 LLM 自主调用
+   *
+   * 注意：此方法需要实现 LLMAdapter，当前返回占位符响应
+   */
+  async chatWithTools(request: {
+    messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+    context: AICapabilityContext;
+    modelType?: AIModelType;
+    model?: string;
+    taskProfile?: import("./types").TaskProfile;
+    maxIterations?: number;
+    maxToolCalls?: number;
+  }): Promise<{
+    content: string;
+    model: string;
+    tokensUsed: number;
+    toolCalls: Array<{
+      toolId: string;
+      input: unknown;
+      output: unknown;
+      success: boolean;
+      duration: number;
+    }>;
+    isError?: boolean;
+  }> {
+    this.logger.log(
+      `[chatWithTools] Starting with context: ${JSON.stringify(request.context)}`,
+    );
+
+    if (!this.capabilityResolver || !this.functionCallingExecutor) {
+      this.logger.warn(
+        "[chatWithTools] AICapabilityResolver or FunctionCallingExecutor not available",
+      );
+      // 降级到普通 chat
+      const result = await this.chat({
+        messages: request.messages,
+        modelType: request.modelType,
+        model: request.model,
+        taskProfile: request.taskProfile,
+      });
+
+      return {
+        content: result.content,
+        model: result.model,
+        tokensUsed: result.tokensUsed,
+        toolCalls: [],
+        isError: result.isError,
+      };
+    }
+
+    // TODO: 完整实现需要创建 LLMAdapter
+    // 当前返回占位符响应
+    this.logger.warn(
+      "[chatWithTools] Full implementation requires LLMAdapter - returning placeholder",
+    );
+
+    const result = await this.chat({
+      messages: request.messages,
+      modelType: request.modelType,
+      model: request.model,
+      taskProfile: request.taskProfile,
+    });
+
+    return {
+      content: result.content,
+      model: result.model,
+      tokensUsed: result.tokensUsed,
+      toolCalls: [],
+      isError: result.isError,
+    };
   }
 }

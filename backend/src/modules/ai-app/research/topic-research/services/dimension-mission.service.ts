@@ -53,6 +53,7 @@ import {
   getCurrentDateString,
   getFreshnessRequirementDescription,
 } from "../prompts/dimension-research.prompt";
+import { AICapabilityContext } from "@/modules/ai-engine/capabilities/ai-capability-resolver.service";
 
 /**
  * 维度 Mission 执行结果
@@ -249,15 +250,26 @@ export class DimensionMissionService {
       );
 
       // ★ 新增：Leader 主动搜索获取额外上下文（可选，用于补充搜索结果）
+      // ★ 集成 AICapabilityContext - 让 Leader 检查工具可用性
+      const leaderCapabilityContext: AICapabilityContext = {
+        agentId: leaderAgentId,
+        domain: "research",
+        roleId: "research-leader",
+        userId: topic.userId || undefined,
+      };
+
       let leaderContextSummary = "";
       try {
         const leaderContext =
-          await this.leaderTool.generateEnhancedPlanningContext({
-            topicName: topic.name,
-            topicDescription: topic.description || undefined,
-            dimensionName: dimension.name,
-            searchTimeRange,
-          });
+          await this.leaderTool.generateEnhancedPlanningContext(
+            {
+              topicName: topic.name,
+              topicDescription: topic.description || undefined,
+              dimensionName: dimension.name,
+              searchTimeRange,
+            },
+            leaderCapabilityContext, // ★ 传递 capability context
+          );
         leaderContextSummary = leaderContext.contextSummary;
         this.logger.log(
           `${logPrefix} Leader gathered additional context: ${leaderContextSummary.length} chars`,

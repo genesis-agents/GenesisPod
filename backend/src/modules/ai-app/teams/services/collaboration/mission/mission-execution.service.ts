@@ -50,6 +50,11 @@ import { MissionContextPackage } from "../../../interfaces/mission-context.inter
 // ★ AI Engine 能力下沉：注入 AgentExecutorService
 // 提供 Agent 执行的核心能力（熔断器、重试等），当前保持现有实现以确保兼容性
 import { AgentExecutorService } from "../../../../../ai-engine/orchestration/services";
+// ★ AI Tools & Skills Integration: 集成 AICapabilityResolver
+import {
+  AICapabilityResolver,
+  AICapabilityContext,
+} from "../../../../../ai-engine/capabilities/ai-capability-resolver.service";
 
 /**
  * 执行服务回调接口
@@ -135,10 +140,12 @@ export class MissionExecutionService {
     private agentExecutorService: AgentExecutorService,
     // ★ Leader 模型容错服务：支持重试和模型切换
     private leaderModelService: LeaderModelService,
+    // ★ AI Tools & Skills Integration: 注入 AICapabilityResolver
+    private capabilityResolver: AICapabilityResolver,
   ) {
     // 验证 AI Engine 服务可用
     this.logger.debug(
-      `[MissionExecutionService] AI Engine services injected: AgentExecutor=${!!this.agentExecutorService}, LeaderModel=${!!this.leaderModelService}`,
+      `[MissionExecutionService] AI Engine services injected: AgentExecutor=${!!this.agentExecutorService}, LeaderModel=${!!this.leaderModelService}, CapabilityResolver=${!!this.capabilityResolver}`,
     );
   }
 
@@ -261,6 +268,63 @@ export class MissionExecutionService {
         `[trackMissionTokens] Failed to update tokens for mission ${missionId}: ${error}`,
       );
     }
+  }
+
+  /**
+   * 从任务类型推断领域
+   * ★ AI Tools & Skills Integration: 用于确定任务执行时的能力上下文
+   */
+  private inferDomainFromTask(task: AgentTaskWithAssignee): string {
+    // 根据任务类型映射到领域
+    const taskType = task.taskType;
+
+    if (taskType === TaskType.RESEARCH) {
+      return "research";
+    }
+
+    if (taskType === TaskType.DOCUMENTATION || taskType === TaskType.CREATIVE) {
+      return "writing";
+    }
+
+    if (taskType === TaskType.DESIGN) {
+      return "design";
+    }
+
+    if (taskType === TaskType.REVIEW || taskType === TaskType.SYNTHESIS) {
+      return "analysis";
+    }
+
+    // 检查任务描述中的关键词
+    const description = (task.description || "").toLowerCase();
+    const title = (task.title || "").toLowerCase();
+    const combined = `${title} ${description}`;
+
+    if (
+      combined.includes("研究") ||
+      combined.includes("调研") ||
+      combined.includes("分析")
+    ) {
+      return "research";
+    }
+
+    if (
+      combined.includes("写作") ||
+      combined.includes("撰写") ||
+      combined.includes("编写")
+    ) {
+      return "writing";
+    }
+
+    if (
+      combined.includes("设计") ||
+      combined.includes("图片") ||
+      combined.includes("PPT")
+    ) {
+      return "design";
+    }
+
+    // 默认领域
+    return "general";
   }
 
   /**
@@ -940,6 +1004,25 @@ export class MissionExecutionService {
 
       this.logger.debug(
         `[executeTask] Successfully acquired task "${task.title}" (${task.id}) for execution`,
+      );
+
+      // ★ AI Tools & Skills Integration: 解析成员可用的工具和技能
+      const capabilityContext: AICapabilityContext = {
+        // teamId 从 Topic 获取（通过 topicId）
+        memberId: assignedTo.id,
+        agentId: assignedTo.id,
+        userId: mission.createdBy?.id,
+        domain: this.inferDomainFromTask(task),
+      };
+
+      const capabilities =
+        await this.capabilityResolver.resolveAllCapabilities(capabilityContext);
+
+      this.logger.log(
+        `[executeTask] Agent ${assignedTo.displayName} capabilities: ` +
+          `tools=[${capabilities.tools.join(", ")}], ` +
+          `skills=[${capabilities.skills.join(", ")}], ` +
+          `mcpTools=[${capabilities.mcpTools.map((t) => `${t.serverId}:${t.toolName}`).join(", ")}]`,
       );
 
       // 日志和消息发送（fire-and-forget）

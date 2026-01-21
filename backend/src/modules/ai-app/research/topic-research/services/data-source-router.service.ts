@@ -22,6 +22,7 @@ import {
   SearchOptions,
 } from "../types/data-source.types";
 import { ResearchTopic, TopicDimension } from "@prisma/client";
+import { AICapabilityResolver } from "@/modules/ai-engine/capabilities/ai-capability-resolver.service";
 
 /**
  * Data Source Router Service
@@ -51,6 +52,8 @@ export class DataSourceRouterService {
     private readonly federalRegisterTool: FederalRegisterTool,
     private readonly congressGovTool: CongressGovTool,
     private readonly whiteHouseNewsTool: WhiteHouseNewsTool,
+    // ★ AI 能力解析器（用于检查工具是否被 Admin 启用）
+    private readonly capabilityResolver: AICapabilityResolver,
   ) {}
 
   /**
@@ -363,6 +366,7 @@ export class DataSourceRouterService {
 
   /**
    * 执行具体的搜索操作
+   * ★ 增强：在调用工具前检查 Admin 是否启用该工具
    */
   private async executeSearch(
     source: DataSourceType,
@@ -370,6 +374,18 @@ export class DataSourceRouterService {
     maxResults: number,
     since?: Date,
   ): Promise<DataSourceResult[]> {
+    // ★ 检查特殊工具是否被 Admin 启用
+    const toolId = this.dataSourceToToolId(source);
+    if (toolId) {
+      const isEnabled = await this.isToolEnabled(toolId);
+      if (!isEnabled) {
+        this.logger.warn(
+          `[executeSearch] Tool ${toolId} for data source ${source} is disabled by Admin, skipping`,
+        );
+        return [];
+      }
+    }
+
     switch (source) {
       case DataSourceType.WEB:
         return this.searchWeb(query, maxResults, since);
@@ -911,5 +927,42 @@ export class DataSourceRouterService {
     });
 
     return counts as Record<DataSourceType, number>;
+  }
+
+  // ==================== Tool Capability Integration ====================
+
+  /**
+   * 将 DataSourceType 映射到 Tool ID
+   * 某些数据源对应特定的工具，需要检查 Admin 配置
+   */
+  private dataSourceToToolId(source: DataSourceType): string | null {
+    const mapping: Partial<Record<DataSourceType, string>> = {
+      [DataSourceType.WEB]: "web-search",
+      [DataSourceType.FEDERAL_REGISTER]: "federal-register",
+      [DataSourceType.CONGRESS]: "congress-gov",
+      [DataSourceType.WHITEHOUSE]: "whitehouse-news",
+      // ACADEMIC, GITHUB, HACKERNEWS 暂时不映射，因为它们使用的是 Ingestion Crawlers 而非 AI Engine Tools
+    };
+
+    return mapping[source] || null;
+  }
+
+  /**
+   * 检查工具是否被 Admin 启用
+   */
+  private async isToolEnabled(toolId: string): Promise<boolean> {
+    try {
+      // 使用空上下文，只检查全局配置
+      const availableTools = await this.capabilityResolver.resolveToolsForAgent(
+        {},
+      );
+      return availableTools.includes(toolId);
+    } catch (error) {
+      this.logger.error(
+        `[isToolEnabled] Failed to check tool ${toolId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      // 发生错误时默认启用，避免阻塞搜索
+      return true;
+    }
   }
 }

@@ -23,6 +23,10 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AIEngineFacade } from "../../../../ai-engine/facade";
 import type { AIModelType as _AIModelType } from "@prisma/client"; // 保留用于类型参考
 
+// AI Capability Resolver - Skills 和 Tools 集成
+import { AICapabilityResolver } from "../../../../ai-engine/capabilities/ai-capability-resolver.service";
+import type { AICapabilityContext } from "../../../../ai-engine/capabilities/ai-capability-resolver.service";
+
 // AI Engine 核心依赖
 import { MissionOrchestrator } from "../../../../ai-engine/teams/orchestrator/mission-orchestrator";
 import { TeamFactory } from "../../../../ai-engine/teams/factory/team-factory";
@@ -218,6 +222,8 @@ export class WritingMissionService {
     private readonly editor: EditorAgent,
     // ★ P3 迁移：使用 AIEngineFacade 统一入口
     private readonly aiFacade: AIEngineFacade,
+    // ★ AI Capability Resolver - Skills 和 Tools 集成
+    private readonly capabilityResolver: AICapabilityResolver,
     // Event Emitter - 实时事件推送
     private readonly eventEmitter: WritingEventEmitterService,
     // Expression Memory - 表达冷却服务
@@ -277,16 +283,95 @@ export class WritingMissionService {
   }
 
   /**
+   * ★ NEW: 获取写作相关的技能提示
+   * 根据任务类型从 AICapabilityResolver 获取适用的 Skills
+   */
+  private async getWritingSkillPrompts(params: {
+    taskType?:
+      | "chapter-writing"
+      | "editing"
+      | "consistency-check"
+      | "outline-planning";
+    roleId?: string;
+    projectId?: string;
+  }): Promise<string> {
+    try {
+      // 定义能力上下文
+      const context: AICapabilityContext = {
+        domain: "writing",
+        roleId: params.roleId,
+        agentId: params.projectId, // 使用 projectId 作为 agentId 来追踪
+      };
+
+      // 从 AICapabilityResolver 获取技能提示
+      const skillPrompts =
+        await this.capabilityResolver.getSkillPrompts(context);
+
+      if (skillPrompts.content && skillPrompts.usedSkills.length > 0) {
+        this.logger.debug(
+          `[SkillIntegration] Loaded ${skillPrompts.usedSkills.length} writing skills: ${skillPrompts.usedSkills.join(", ")}`,
+        );
+
+        // 记录技能使用
+        for (const skillId of skillPrompts.usedSkills) {
+          await this.capabilityResolver
+            .logCapabilityUsage({
+              capabilityType: "skill",
+              capabilityId: skillId,
+              agentId: params.projectId,
+              success: true,
+            })
+            .catch((err) => {
+              this.logger.warn(
+                `Failed to log skill usage for ${skillId}: ${err.message}`,
+              );
+            });
+        }
+
+        return skillPrompts.content;
+      }
+
+      this.logger.debug(
+        "[SkillIntegration] No skills available for writing domain",
+      );
+      return "";
+    } catch (error) {
+      this.logger.warn(
+        `[SkillIntegration] Failed to load writing skills: ${(error as Error).message}`,
+      );
+      return "";
+    }
+  }
+
+  /**
    * 生成章节质量约束提示词（v3 新增）
    * 整合专业声音、五感沉浸、开篇钩子、节奏控制等服务
+   * ★ 增强：现在也会集成 Skills from AICapabilityResolver
    */
-  private generateQualityConstraints(
+  private async generateQualityConstraints(
     chapterNumber: number,
     chapterOutline?: string,
     characters?: Array<{ name: string; role?: string; background?: string }>,
     projectId?: string,
-  ): string {
+  ): Promise<string> {
     const constraints: string[] = [];
+
+    // ★★★ -1. 写作技能提示（从 AICapabilityResolver 获取）★★★
+    try {
+      const skillPrompts = await this.getWritingSkillPrompts({
+        taskType: "chapter-writing",
+        roleId: "writer",
+        projectId,
+      });
+      if (skillPrompts) {
+        constraints.push(skillPrompts);
+        this.logger.debug(
+          `[QualityConstraints] Added skill prompts (${skillPrompts.length} chars)`,
+        );
+      }
+    } catch (e) {
+      this.logger.warn(`[QualityConstraints] Skill prompts failed: ${e}`);
+    }
 
     this.logger.debug(
       `[QualityConstraints] Generating for chapter ${chapterNumber}, outline: ${chapterOutline?.slice(0, 50) || "none"}, characters: ${characters?.length || 0}`,
@@ -2079,7 +2164,7 @@ ${missingTitleChapters.map((item) => `第${item.index + 1}章：情节 - ${item.
           role?: string;
           background?: string;
         }>) || [];
-      const qualityConstraints = this.generateQualityConstraints(
+      const qualityConstraints = await this.generateQualityConstraints(
         chapterNumber,
         chapterInfo.plot,
         characters,
@@ -7014,7 +7099,7 @@ ${previousSummary ? `【前文摘要】\n${previousSummary}\n` : "【开篇提�
           role?: string;
           background?: string;
         }>) || [];
-      const qualityConstraints = this.generateQualityConstraints(
+      const qualityConstraints = await this.generateQualityConstraints(
         chapter.chapterNumber,
         chapter.title, // 使用章节标题作为剧情提示
         characters,
