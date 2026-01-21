@@ -181,11 +181,15 @@ export function UnifiedCapabilityCard({
                   ? t('admin.tools.capability.toggleAll')
                   : undefined
               }
+              onClick={(e) => e.stopPropagation()}
             >
               <input
                 type="checkbox"
                 checked={isIndependent ? enabledCount === totalCount : enabled}
-                onChange={(e) => handleMainToggle(e.target.checked)}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  handleMainToggle(e.target.checked);
+                }}
                 className="peer sr-only"
               />
               <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-2 peer-focus:ring-blue-300"></div>
@@ -293,64 +297,78 @@ export function UnifiedCapabilityCard({
                     </div>
                   </div>
 
-                  {/* Provider Actions */}
+                  {/* Provider Actions - 统一布局: Toggle | Test | Configure | Link */}
                   <div className="flex items-center gap-2">
-                    {/* Independent Provider Toggle */}
-                    {isIndependent && onToggleProvider && (
-                      <label className="relative inline-flex cursor-pointer items-center">
-                        <input
-                          type="checkbox"
-                          checked={providerEnabled}
-                          onChange={(e) =>
-                            onToggleProvider(provider.id, e.target.checked)
-                          }
-                          className="peer sr-only"
-                        />
-                        <div className="peer h-5 w-9 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-2 peer-focus:ring-blue-300"></div>
-                      </label>
-                    )}
+                    {/* Independent Provider Toggle - 固定宽度确保对齐 */}
+                    <div className="w-12 flex-shrink-0">
+                      {isIndependent && onToggleProvider && (
+                        <label
+                          className="relative inline-flex cursor-pointer items-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={providerEnabled}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              onToggleProvider(provider.id, e.target.checked);
+                            }}
+                            className="peer sr-only"
+                          />
+                          <div className="peer h-5 w-9 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-2 peer-focus:ring-blue-300"></div>
+                        </label>
+                      )}
+                    </div>
 
-                    {/* Test Result */}
-                    {testResult && (
-                      <span
-                        className={`text-xs ${testResult.success ? 'text-green-600' : 'text-red-600'}`}
-                      >
-                        {testResult.success ? '✓' : '✗'}
-                      </span>
-                    )}
+                    {/* Test Button - 固定宽度确保对齐 */}
+                    <div className="w-16 flex-shrink-0">
+                      {status.configured && onTestProvider && (
+                        <button
+                          onClick={() => onTestProvider(provider.id)}
+                          disabled={isTesting}
+                          className="flex w-full items-center justify-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          {isTesting ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <>
+                              {testResult && (
+                                <span
+                                  className={
+                                    testResult.success
+                                      ? 'text-green-600'
+                                      : 'text-red-600'
+                                  }
+                                >
+                                  {testResult.success ? '✓' : '✗'}
+                                </span>
+                              )}
+                              {t('admin.tools.capability.test')}
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
 
-                    {/* Test Button */}
-                    {status.configured && onTestProvider && (
-                      <button
-                        onClick={() => onTestProvider(provider.id)}
-                        disabled={isTesting}
-                        className="rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                      >
-                        {isTesting ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          t('admin.tools.capability.test')
-                        )}
-                      </button>
-                    )}
-
-                    {/* Configure Button */}
-                    {!provider.noKeyRequired && (
-                      <button
-                        onClick={() => onConfigureProvider(provider)}
-                        className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-                      >
-                        <Settings className="h-3 w-3" />
-                        {t('admin.tools.capability.configure')}
-                      </button>
-                    )}
+                    {/* Configure Button - 固定宽度确保对齐 */}
+                    <div className="w-24 flex-shrink-0">
+                      {!provider.noKeyRequired && (
+                        <button
+                          onClick={() => onConfigureProvider(provider)}
+                          className="flex w-full items-center justify-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                        >
+                          <Settings className="h-3 w-3" />
+                          {t('admin.tools.capability.configure')}
+                        </button>
+                      )}
+                    </div>
 
                     {/* External Link */}
                     <a
                       href={provider.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      className="flex-shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                     >
                       <ExternalLink className="h-4 w-4" />
                     </a>
