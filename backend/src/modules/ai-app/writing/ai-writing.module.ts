@@ -6,8 +6,8 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 
-// AI Engine Long Content (for long-form writing)
-import { LongContentModule } from "../../ai-engine/long-content";
+// AI Engine Long Content (for long-form writing) - 直接文件导入
+import { LongContentModule } from "../../ai-engine/long-content/long-content.module";
 
 // WebSocket Gateway and Event Emitter
 import { AiWritingGateway } from "./ai-writing.gateway";

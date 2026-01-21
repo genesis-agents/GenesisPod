@@ -52,7 +52,8 @@ import { AIOfficeCommonModule } from "./common";
     CreditsModule,
     ExportModule,
     AIOfficeCommonModule,
-    SlidesSkillsModule, // v4.0: 注册 Slides 技能到 AI Engine
+    // 使用 forwardRef: SlidesSkillsModule 也导入 AiEngineModule，形成循环
+    forwardRef(() => SlidesSkillsModule),
   ],
   controllers: [AIModelController, SlidesController, AgentsController],
   providers: [
