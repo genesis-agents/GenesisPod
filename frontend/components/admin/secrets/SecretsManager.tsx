@@ -47,6 +47,11 @@ const CATEGORY_OPTIONS: {
     label: 'SkillsMP',
     color: 'bg-indigo-100 text-indigo-800',
   },
+  {
+    value: 'POLICY',
+    label: 'Policy Research',
+    color: 'bg-teal-100 text-teal-800',
+  },
   { value: 'OTHER', label: 'Other', color: 'bg-gray-100 text-gray-800' },
 ];
 

@@ -403,7 +403,8 @@ export default function ToolsManagement() {
       const tool = externalTools.find((t) => t.id === toolId);
       if (!tool) return;
 
-      if (secretKey !== undefined) {
+      // Handle Secret Manager mode - save reference to Secret Manager
+      if (secretKey) {
         const res = await fetch(`${config.apiUrl}/admin/ai/tools/${toolId}`, {
           method: 'PATCH',
           headers: {
@@ -425,6 +426,18 @@ export default function ToolsManagement() {
           setMessage({ type: 'error', text: t('admin.tools.saveFailed') });
         }
         return;
+      }
+
+      // When switching to direct input, clear the secretKey reference first
+      if (tool.secretKey && secretKey === null) {
+        await fetch(`${config.apiUrl}/admin/ai/tools/${toolId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          },
+          body: JSON.stringify({ secretKey: null }),
+        });
       }
 
       // Legacy config endpoints for direct API key

@@ -317,16 +317,19 @@ export class AIAdminService implements OnModuleInit {
   /**
    * 获取所有工具配置
    * ★ 从 ToolRegistry 获取实际注册的工具，确保 Admin 与运行时一致
+   * ★ 同时返回外部工具的配置（如 firecrawl、jina 等），这些工具不在 Registry 中
    */
   async getToolConfigs() {
     // ★ 直接从 ToolRegistry 获取所有已注册的工具
     const registeredTools = this.toolRegistry.getAll();
+    const registeredToolIds = new Set(registeredTools.map((t) => t.id));
 
     // 获取数据库中的配置
     const dbConfigs = await this.prisma.toolConfig.findMany();
     const configMap = new Map(dbConfigs.map((c) => [c.toolId, c]));
 
-    const tools = registeredTools.map((tool) => {
+    // ★ 内置工具（在 Registry 中）
+    const builtinTools = registeredTools.map((tool) => {
       const dbConfig = configMap.get(tool.id);
 
       return {
@@ -349,11 +352,36 @@ export class AIAdminService implements OnModuleInit {
       };
     });
 
+    // ★ 外部工具配置（在数据库中但不在 Registry 中）
+    // 这些是 API 服务配置，如 firecrawl、jina、elevenlabs 等
+    const externalToolConfigs = dbConfigs
+      .filter((c) => !registeredToolIds.has(c.toolId))
+      .map((c) => ({
+        id: c.id,
+        toolId: c.toolId,
+        name: c.displayName || c.toolId,
+        displayName: c.displayName || c.toolId,
+        description: c.description || null,
+        category: c.category || "external",
+        enabled: c.enabled,
+        implemented: false, // 外部工具不在 Registry 中
+        tags: c.tags || [],
+        config: c.config || null,
+        secretKey: c.secretKey || null,
+        requiresAuth: c.requiresAuth || false,
+        allowedRoles: c.allowedRoles || [],
+        inputSchema: null,
+        outputSchema: null,
+      }));
+
+    const tools = [...builtinTools, ...externalToolConfigs];
+
     // 统计信息
     const stats = {
       total: tools.length,
       enabled: tools.filter((t) => t.enabled).length,
-      implemented: tools.length, // ★ 所有工具都是已实现的
+      implemented: builtinTools.length,
+      external: externalToolConfigs.length,
       byCategory: tools.reduce(
         (acc, tool) => {
           acc[tool.category] = (acc[tool.category] || 0) + 1;
@@ -1106,9 +1134,15 @@ export class AIAdminService implements OnModuleInit {
     const dbConfigs = await this.prisma.skillConfig.findMany();
     const configMap = new Map(dbConfigs.map((c) => [c.skillId, c]));
 
+    // 获取已加载的 SKILL.md 技能 ID 集合
+    const loadedSkills = this.skillLoaderService.getAllLoadedSkills();
+    const loadedSkillIds = new Set(loadedSkills.map((s) => s.metadata.id));
+
     const skills = skillDefinitions.map((skill) => {
       const dbConfig = configMap.get(skill.id);
       const registeredSkill = this.skillRegistry.tryGet(skill.id);
+      // 检查是否在 SkillRegistry 或 SkillLoaderService 中
+      const isImplemented = !!registeredSkill || loadedSkillIds.has(skill.id);
 
       return {
         id: dbConfig?.id || skill.id,
@@ -1122,7 +1156,7 @@ export class AIAdminService implements OnModuleInit {
         tags: dbConfig?.tags || skill.tags || [],
         requiredTools: skill.requiredTools || [],
         requiredSkills: skill.requiredSkills || [],
-        implemented: !!registeredSkill,
+        implemented: isImplemented,
         config: dbConfig?.config || null,
       };
     });
