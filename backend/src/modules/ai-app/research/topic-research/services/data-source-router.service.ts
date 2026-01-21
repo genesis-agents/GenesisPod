@@ -433,9 +433,20 @@ export class DataSourceRouterService {
     maxResults: number,
     since?: Date,
   ): Promise<DataSourceResult[]> {
+    this.logger.log(
+      `[searchWeb] Calling SearchService with query="${query}", maxResults=${maxResults}, since=${since?.toISOString() || "none"}`,
+    );
+
     const response = await this.searchService.search(query, maxResults, since);
 
+    this.logger.log(
+      `[searchWeb] SearchService response: success=${response.success}, provider=${response.provider || "unknown"}, results=${response.results?.length || 0}, error=${response.error || "none"}`,
+    );
+
     if (!response.success || !response.results) {
+      this.logger.warn(
+        `[searchWeb] Search failed or no results: ${response.error || "unknown error"}`,
+      );
       return [];
     }
 
