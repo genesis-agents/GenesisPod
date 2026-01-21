@@ -1824,7 +1824,28 @@
       "tabs": {
         "builtin": "内置工具",
         "external": "外部工具",
-        "mcp": "MCP 服务器"
+        "mcp": "MCP 服务器",
+        "capabilities": "AI 能力",
+        "otherTools": "其他工具"
+      },
+      "capability": {
+        "ready": "可用",
+        "needsProvider": "需配置",
+        "using": "正在使用",
+        "providers": "个提供者",
+        "free": "免费",
+        "active": "当前",
+        "freeQuota": "免费额度",
+        "test": "测试",
+        "configure": "配置"
+      },
+      "categories": {
+        "search": "网络搜索",
+        "extraction": "内容提取",
+        "generation": "内容生成",
+        "analysis": "数据分析",
+        "other": "其他",
+        "policyResearch": "政策研究"
       },
       "mcp": {
         "addServer": "添加服务器",

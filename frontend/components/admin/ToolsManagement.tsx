@@ -10,15 +10,23 @@ import {
   CheckCircle,
   AlertTriangle,
   RefreshCw,
+  Zap,
   Wrench,
-  Globe,
   Server,
 } from 'lucide-react';
 
 import BuiltinToolsTab, { BuiltinTool } from './tools/BuiltinToolsTab';
-import ExternalToolsTab, { ExternalTool } from './tools/ExternalToolsTab';
+import { ExternalTool } from './tools/ExternalToolsTab';
 import MCPMarketplaceTab, { MCPServer } from './tools/MCPMarketplaceTab';
 import ConfigureModal from './tools/ConfigureModal';
+import CapabilitiesTab from './tools/CapabilitiesTab';
+import {
+  CAPABILITY_DEFINITIONS,
+  STANDALONE_TOOLS,
+  isCapability,
+  isProvider,
+  type ProviderDefinition,
+} from './tools/capability-mapping';
 
 const logger = createLogger('ToolsManagement');
 
@@ -129,13 +137,13 @@ const EXTERNAL_TOOL_DEFINITIONS = [
   },
 ];
 
-type TabType = 'builtin' | 'external' | 'mcp';
+type TabType = 'capabilities' | 'other-tools' | 'mcp';
 
 export default function ToolsManagement() {
   const { t } = useTranslation();
   const { secrets: availableSecrets } = useAdminSecrets();
 
-  const [activeTab, setActiveTab] = useState<TabType>('builtin');
+  const [activeTab, setActiveTab] = useState<TabType>('capabilities');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -869,44 +877,44 @@ export default function ToolsManagement() {
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           <button
-            onClick={() => setActiveTab('builtin')}
+            onClick={() => setActiveTab('capabilities')}
             className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
-              activeTab === 'builtin'
+              activeTab === 'capabilities'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            <Zap className="h-5 w-5" />
+            {t('admin.tools.tabs.capabilities')}
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs ${
+                activeTab === 'capabilities'
+                  ? 'bg-blue-100 text-blue-600'
+                  : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              {CAPABILITY_DEFINITIONS.length + STANDALONE_TOOLS.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('other-tools')}
+            className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
+              activeTab === 'other-tools'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
             }`}
           >
             <Wrench className="h-5 w-5" />
-            {t('admin.tools.tabs.builtin')}
+            {t('admin.tools.tabs.otherTools')}
             <span
               className={`rounded-full px-2 py-0.5 text-xs ${
-                activeTab === 'builtin'
+                activeTab === 'other-tools'
                   ? 'bg-blue-100 text-blue-600'
                   : 'bg-gray-100 text-gray-600'
               }`}
             >
               {stats.builtin.total}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('external')}
-            className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
-              activeTab === 'external'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-          >
-            <Globe className="h-5 w-5" />
-            {t('admin.tools.tabs.external')}
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs ${
-                activeTab === 'external'
-                  ? 'bg-blue-100 text-blue-600'
-                  : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              {stats.external.total}
             </span>
           </button>
 
@@ -934,23 +942,53 @@ export default function ToolsManagement() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'builtin' && (
-        <BuiltinToolsTab
-          tools={builtinTools}
-          onToggle={handleToggleBuiltinTool}
+      {activeTab === 'capabilities' && (
+        <CapabilitiesTab
+          builtinTools={builtinTools}
+          externalToolStatuses={externalTools.map((t) => ({
+            id: t.id,
+            hasApiKey: t.hasApiKey,
+            status: t.status,
+            secretKey: t.secretKey,
+          }))}
+          onToggleCapability={handleToggleBuiltinTool}
+          onConfigureProvider={(provider, category) => {
+            // 转换 ProviderDefinition 为 ExternalTool 格式以便复用 ConfigureModal
+            const externalTool = externalTools.find(
+              (t) => t.id === provider.id
+            );
+            if (externalTool) {
+              setConfiguringTool(externalTool);
+            } else {
+              // 创建一个临时的 ExternalTool 对象
+              setConfiguringTool({
+                id: provider.id,
+                name: provider.name,
+                category: `external-${category}`,
+                url: provider.url,
+                hasApiKey: false,
+                status: 'not_configured',
+                noKeyRequired: provider.noKeyRequired,
+                freeQuota: provider.freeQuota,
+              } as ExternalTool);
+            }
+          }}
+          onTestProvider={(providerId, category) => {
+            const tool = externalTools.find((t) => t.id === providerId);
+            if (tool) {
+              handleTestExternalTool(tool);
+            }
+          }}
+          testingProvider={testingTool}
+          testResults={testResults}
           loading={loading}
         />
       )}
 
-      {activeTab === 'external' && (
-        <ExternalToolsTab
-          tools={externalTools}
-          onConfigure={setConfiguringTool}
-          onTest={handleTestExternalTool}
-          onDelete={handleDeleteExternalTool}
-          testingTool={testingTool}
-          deletingTool={deletingTool}
-          testResults={testResults}
+      {activeTab === 'other-tools' && (
+        <BuiltinToolsTab
+          tools={builtinTools}
+          onToggle={handleToggleBuiltinTool}
           loading={loading}
         />
       )}

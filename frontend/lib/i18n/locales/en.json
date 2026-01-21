@@ -1822,7 +1822,28 @@
       "tabs": {
         "builtin": "Built-in Tools",
         "external": "External Tools",
-        "mcp": "MCP Servers"
+        "mcp": "MCP Servers",
+        "capabilities": "AI Capabilities",
+        "otherTools": "Other Tools"
+      },
+      "capability": {
+        "ready": "Ready",
+        "needsProvider": "Needs Config",
+        "using": "Using",
+        "providers": "providers",
+        "free": "Free",
+        "active": "Active",
+        "freeQuota": "Free Quota",
+        "test": "Test",
+        "configure": "Configure"
+      },
+      "categories": {
+        "search": "Web Search",
+        "extraction": "Content Extraction",
+        "generation": "Content Generation",
+        "analysis": "Data Analysis",
+        "other": "Other",
+        "policyResearch": "Policy Research"
       },
       "mcp": {
         "addServer": "Add Server",
