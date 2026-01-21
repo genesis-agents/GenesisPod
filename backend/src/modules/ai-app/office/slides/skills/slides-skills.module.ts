@@ -14,7 +14,7 @@
  * - Layer 6 (Quality Assurance): quality-audit
  */
 
-import { Module, OnModuleInit, Logger } from "@nestjs/common";
+import { Module, OnModuleInit, Logger, forwardRef } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
 // 直接从文件导入，避免 barrel export 循环依赖
@@ -79,7 +79,8 @@ const SLIDES_SKILL_PROVIDERS = [
 ];
 
 @Module({
-  imports: [AiEngineModule, HttpModule, PrismaModule],
+  // 使用 forwardRef 打破循环: AiEngineModule → AiImageModule → AiOfficeModule → SlidesSkillsModule → AiEngineModule
+  imports: [forwardRef(() => AiEngineModule), HttpModule, PrismaModule],
   providers: [AIModelService, ...SLIDES_SKILL_PROVIDERS],
   exports: [AIModelService, ...SLIDES_SKILL_PROVIDERS],
 })
