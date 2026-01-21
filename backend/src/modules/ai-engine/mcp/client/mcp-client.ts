@@ -318,15 +318,24 @@ export class StdioMCPClient extends BaseMCPClient {
       this.processBuffer();
     });
 
-    // 处理 stderr（日志）
+    // 处理 stderr（日志）- 使用 error 级别以便诊断问题
     this.process.stderr?.on("data", (data: Buffer) => {
-      this.logger.debug(`[stderr] ${data.toString()}`);
+      const msg = data.toString().trim();
+      if (msg) {
+        this.logger.error(`[stderr] ${msg}`);
+      }
     });
 
     // 处理进程退出
     this.process.on("exit", (code: number) => {
       this._connected = false;
-      this.logger.warn(`MCP server process exited with code ${code}`);
+      if (code !== 0) {
+        this.logger.error(
+          `MCP server process exited with code ${code}. Check stderr above for details.`,
+        );
+      } else {
+        this.logger.warn(`MCP server process exited with code ${code}`);
+      }
     });
 
     this.process.on("error", (error: Error) => {

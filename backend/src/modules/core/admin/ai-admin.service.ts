@@ -435,6 +435,17 @@ export class AIAdminService implements OnModuleInit {
       env["API_KEY"] = server.apiKey;
     }
 
+    // 记录解析结果（不记录实际值，只记录 key）
+    if (Object.keys(env).length > 0) {
+      this.logger.log(
+        `Resolved env vars for MCP server ${server.serverId}: ${Object.keys(env).join(", ")}`,
+      );
+    } else {
+      this.logger.warn(
+        `No env vars resolved for MCP server ${server.serverId}. metadata.env: ${JSON.stringify(Object.keys(metadataEnv))}`,
+      );
+    }
+
     return Object.keys(env).length > 0 ? env : undefined;
   }
 
