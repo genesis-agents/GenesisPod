@@ -216,6 +216,24 @@ async function deploy(): Promise<void> {
     } else {
       console.log("   OK login_history table");
     }
+
+    // Check if mcp_server_configs.secret_key column exists
+    const mcpServerConfigsColumnCheck = await prisma.$queryRaw<
+      Array<{ exists: boolean }>
+    >`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'mcp_server_configs' AND column_name = 'secret_key'
+      ) as exists
+    `;
+
+    if (!mcpServerConfigsColumnCheck[0]?.exists) {
+      console.log("   Adding mcp_server_configs.secret_key column...");
+      await prisma.$executeRaw`ALTER TABLE "mcp_server_configs" ADD COLUMN IF NOT EXISTS "secret_key" VARCHAR(100)`;
+      console.log("   Added mcp_server_configs.secret_key");
+    } else {
+      console.log("   OK mcp_server_configs.secret_key");
+    }
     console.log("");
 
     // Step 4: Generate Prisma Client
@@ -232,6 +250,7 @@ async function deploy(): Promise<void> {
       { type: "ResearchMessageType", value: "DIMENSION_STARTED" },
       { type: "ResearchMessageType", value: "DIMENSION_PROGRESS" },
       { type: "ResearchMessageType", value: "DIMENSION_COMPLETED" },
+      { type: "SecretCategory", value: "POLICY" },
     ];
 
     for (const { type, value } of enumValues) {
