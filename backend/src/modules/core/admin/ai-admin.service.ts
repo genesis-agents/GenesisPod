@@ -226,11 +226,17 @@ export class AIAdminService implements OnModuleInit {
   }
 
   /**
-   * 初始化配置 - 从数据库加载并连接 MCP 服务器
+   * 初始化配置 - 同步工具/技能配置 + 连接 MCP 服务器
    */
   private async initializeConfigs() {
     try {
-      // 加载 MCP 服务器配置并自动连接
+      // ★ 1. 同步工具配置：为所有注册的工具创建数据库记录（默认启用）
+      await this.syncToolConfigs();
+
+      // ★ 2. 同步技能配置：为所有注册的技能创建数据库记录（默认启用）
+      await this.syncSkillConfigs();
+
+      // 3. 加载 MCP 服务器配置并自动连接
       const mcpServers = await this.prisma.mCPServerConfig.findMany({
         where: { enabled: true, autoConnect: true },
       });
@@ -276,6 +282,96 @@ export class AIAdminService implements OnModuleInit {
     } catch (error: unknown) {
       this.logger.error(
         `Failed to initialize configs: ${getErrorMessage(error)}`,
+      );
+    }
+  }
+
+  /**
+   * ★ 同步工具配置
+   * 为所有在 ToolRegistry 中注册但没有数据库记录的工具创建默认配置（enabled=true）
+   * 确保数据库是唯一真相来源
+   */
+  private async syncToolConfigs(): Promise<void> {
+    try {
+      const registeredTools = this.toolRegistry.getAll();
+      const existingConfigs = await this.prisma.toolConfig.findMany({
+        select: { toolId: true },
+      });
+      const existingToolIds = new Set(existingConfigs.map((c) => c.toolId));
+
+      // 找出没有数据库记录的工具
+      const missingTools = registeredTools.filter(
+        (tool) => !existingToolIds.has(tool.id),
+      );
+
+      if (missingTools.length === 0) {
+        return;
+      }
+
+      // 批量创建默认配置
+      await this.prisma.toolConfig.createMany({
+        data: missingTools.map((tool) => ({
+          toolId: tool.id,
+          displayName: tool.name,
+          description: tool.description,
+          category: tool.category,
+          enabled: true, // 默认启用
+          tags: tool.tags || [],
+        })),
+        skipDuplicates: true,
+      });
+
+      this.logger.log(
+        `Synced ${missingTools.length} tool configs: ${missingTools.map((t) => t.id).join(", ")}`,
+      );
+    } catch (error: unknown) {
+      this.logger.warn(
+        `Failed to sync tool configs: ${getErrorMessage(error)}`,
+      );
+    }
+  }
+
+  /**
+   * ★ 同步技能配置
+   * 为所有在 SkillRegistry 中注册但没有数据库记录的技能创建默认配置（enabled=true）
+   */
+  private async syncSkillConfigs(): Promise<void> {
+    try {
+      const registeredSkills = this.skillRegistry.getAll();
+      const existingConfigs = await this.prisma.skillConfig.findMany({
+        select: { skillId: true },
+      });
+      const existingSkillIds = new Set(existingConfigs.map((c) => c.skillId));
+
+      // 找出没有数据库记录的技能
+      const missingSkills = registeredSkills.filter(
+        (skill) => !existingSkillIds.has(skill.id),
+      );
+
+      if (missingSkills.length === 0) {
+        return;
+      }
+
+      // 批量创建默认配置
+      await this.prisma.skillConfig.createMany({
+        data: missingSkills.map((skill) => ({
+          skillId: skill.id,
+          displayName: skill.name,
+          description: skill.description,
+          layer: skill.layer || "content",
+          domain: skill.domain || "common",
+          enabled: true, // 默认启用
+          tags: skill.tags || [],
+        })),
+        skipDuplicates: true,
+      });
+
+      this.logger.log(
+        `Synced ${missingSkills.length} skill configs: ${missingSkills.map((s) => s.id).join(", ")}`,
+      );
+    } catch (error: unknown) {
+      this.logger.warn(
+        `Failed to sync skill configs: ${getErrorMessage(error)}`,
       );
     }
   }
