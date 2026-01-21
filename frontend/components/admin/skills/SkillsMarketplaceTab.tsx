@@ -154,11 +154,11 @@ export function SkillsMarketplaceTab({
     const query = searchQuery.toLowerCase();
     return marketplaceSkills.filter(
       (skill) =>
-        skill.name.toLowerCase().includes(query) ||
-        skill.displayName.toLowerCase().includes(query) ||
-        skill.description.toLowerCase().includes(query) ||
-        skill.author.toLowerCase().includes(query) ||
-        skill.tags.some((tag) => tag.toLowerCase().includes(query))
+        skill.name?.toLowerCase().includes(query) ||
+        skill.displayName?.toLowerCase().includes(query) ||
+        skill.description?.toLowerCase().includes(query) ||
+        skill.author?.toLowerCase().includes(query) ||
+        skill.tags?.some((tag) => tag.toLowerCase().includes(query))
     );
   }, [marketplaceSkills, searchQuery]);
 
@@ -398,18 +398,18 @@ function MarketplaceSkillCard({
         <div className="flex items-center gap-1">
           <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
           <span>
-            {skill.rating.toFixed(1)} ({skill.ratingCount})
+            {(skill.rating ?? 0).toFixed(1)} ({skill.ratingCount ?? 0})
           </span>
         </div>
         <div className="flex items-center gap-1">
           <Download className="h-3 w-3" />
-          <span>{skill.downloads.toLocaleString()}</span>
+          <span>{(skill.downloads ?? 0).toLocaleString()}</span>
         </div>
       </div>
 
       {/* Tags */}
       <div className="mb-3 flex flex-wrap gap-1">
-        {skill.tags.slice(0, 3).map((tag) => (
+        {(skill.tags ?? []).slice(0, 3).map((tag) => (
           <span
             key={tag}
             className="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600"
@@ -418,9 +418,9 @@ function MarketplaceSkillCard({
             {tag}
           </span>
         ))}
-        {skill.tags.length > 3 && (
+        {(skill.tags?.length ?? 0) > 3 && (
           <span className="text-xs text-gray-400">
-            +{skill.tags.length - 3}
+            +{(skill.tags?.length ?? 0) - 3}
           </span>
         )}
       </div>
@@ -506,12 +506,12 @@ function SkillPreviewModal({
                 <div className="flex items-center gap-1">
                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                   <span>
-                    {skill.rating.toFixed(1)} ({skill.ratingCount})
+                    {(skill.rating ?? 0).toFixed(1)} ({skill.ratingCount ?? 0})
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Download className="h-4 w-4" />
-                  <span>{skill.downloads.toLocaleString()}</span>
+                  <span>{(skill.downloads ?? 0).toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -552,11 +552,11 @@ function SkillPreviewModal({
               </dl>
             </div>
 
-            {skill.tags.length > 0 && (
+            {(skill.tags?.length ?? 0) > 0 && (
               <div>
                 <h3 className="mb-2 font-medium text-gray-900">Tags</h3>
                 <div className="flex flex-wrap gap-2">
-                  {skill.tags.map((tag) => (
+                  {(skill.tags ?? []).map((tag) => (
                     <span
                       key={tag}
                       className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
@@ -568,17 +568,17 @@ function SkillPreviewModal({
               </div>
             )}
 
-            {(skill.requiredTools.length > 0 ||
-              skill.requiredSkills.length > 0) && (
+            {((skill.requiredTools?.length ?? 0) > 0 ||
+              (skill.requiredSkills?.length ?? 0) > 0) && (
               <div>
                 <h3 className="mb-2 font-medium text-gray-900">Dependencies</h3>
-                {skill.requiredTools.length > 0 && (
+                {(skill.requiredTools?.length ?? 0) > 0 && (
                   <div className="mb-2">
                     <p className="mb-1 text-sm text-gray-500">
                       Required Tools:
                     </p>
                     <div className="flex flex-wrap gap-1">
-                      {skill.requiredTools.map((tool) => (
+                      {(skill.requiredTools ?? []).map((tool) => (
                         <span
                           key={tool}
                           className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700"
@@ -589,13 +589,13 @@ function SkillPreviewModal({
                     </div>
                   </div>
                 )}
-                {skill.requiredSkills.length > 0 && (
+                {(skill.requiredSkills?.length ?? 0) > 0 && (
                   <div>
                     <p className="mb-1 text-sm text-gray-500">
                       Required Skills:
                     </p>
                     <div className="flex flex-wrap gap-1">
-                      {skill.requiredSkills.map((s) => (
+                      {(skill.requiredSkills ?? []).map((s) => (
                         <span
                           key={s}
                           className="rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-700"
