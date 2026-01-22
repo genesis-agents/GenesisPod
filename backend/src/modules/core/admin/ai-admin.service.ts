@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { EXTERNAL_TOOL_SECRET_MAPPING } from "../secrets/secret-name-mapping";
@@ -201,13 +206,19 @@ interface SkillDefinition {
 }
 
 @Injectable()
-export class AIAdminService implements OnModuleInit {
+export class AIAdminService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AIAdminService.name);
 
   // 缓存技能定义，避免重复计算
   private skillDefinitionsCache: SkillDefinition[] | null = null;
   private skillDefinitionsCacheTime: number = 0;
   private readonly CACHE_TTL_MS = 60000; // 1 分钟缓存
+
+  // MCP 健康检查定时器
+  private mcpHealthCheckInterval: NodeJS.Timeout | null = null;
+  private readonly MCP_HEALTH_CHECK_INTERVAL_MS = 60000; // 60 秒检查一次
+  private readonly MCP_MAX_RETRIES = 3;
+  private readonly MCP_RETRY_DELAY_MS = 5000; // 5 秒重试间隔
 
   constructor(
     private readonly prisma: PrismaService,
@@ -223,6 +234,18 @@ export class AIAdminService implements OnModuleInit {
    */
   async onModuleInit() {
     await this.initializeConfigs();
+    // 启动 MCP 健康检查定时器
+    this.startMCPHealthCheck();
+  }
+
+  /**
+   * 模块销毁时清理定时器
+   */
+  onModuleDestroy() {
+    if (this.mcpHealthCheckInterval) {
+      clearInterval(this.mcpHealthCheckInterval);
+      this.mcpHealthCheckInterval = null;
+    }
   }
 
   /**
@@ -304,6 +327,137 @@ export class AIAdminService implements OnModuleInit {
         `Failed to initialize configs: ${getErrorMessage(error)}`,
       );
     }
+  }
+
+  /**
+   * 启动 MCP 健康检查定时器
+   * 定期检查所有应该自动连接的服务器，如果断开则尝试重连
+   */
+  private startMCPHealthCheck(): void {
+    this.mcpHealthCheckInterval = setInterval(async () => {
+      await this.checkAndReconnectMCPServers();
+    }, this.MCP_HEALTH_CHECK_INTERVAL_MS);
+
+    this.logger.log(
+      `MCP health check started (interval: ${this.MCP_HEALTH_CHECK_INTERVAL_MS / 1000}s)`,
+    );
+  }
+
+  /**
+   * 检查并重连断开的 MCP 服务器
+   */
+  private async checkAndReconnectMCPServers(): Promise<void> {
+    try {
+      // 获取所有应该自动连接的服务器
+      const servers = await this.prisma.mCPServerConfig.findMany({
+        where: { enabled: true, autoConnect: true },
+      });
+
+      for (const server of servers) {
+        const client = this.mcpManager.getClient(server.serverId);
+        const isConnected = client?.connected ?? false;
+
+        if (!isConnected) {
+          this.logger.log(
+            `MCP server ${server.serverId} is disconnected, attempting reconnect...`,
+          );
+
+          // 尝试重连（带重试）
+          await this.reconnectMCPServerWithRetry(server);
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        `MCP health check failed: ${getErrorMessage(error as Error)}`,
+      );
+    }
+  }
+
+  /**
+   * 带重试机制的 MCP 服务器重连
+   */
+  private async reconnectMCPServerWithRetry(server: {
+    serverId: string;
+    name: string;
+    transport: string;
+    command: string | null;
+    args: string[];
+    url: string | null;
+    secretKey: string | null;
+    apiKey: string | null;
+    metadata: Prisma.JsonValue;
+  }): Promise<boolean> {
+    for (let attempt = 1; attempt <= this.MCP_MAX_RETRIES; attempt++) {
+      try {
+        // 解析环境变量
+        const env = await this.resolveMCPServerEnv({
+          serverId: server.serverId,
+          secretKey: server.secretKey,
+          apiKey: server.apiKey,
+          metadata: server.metadata,
+        });
+
+        // 注册或更新服务器配置
+        if (server.transport === "stdio" && server.command) {
+          await this.mcpManager.registerOrUpdateServer({
+            id: server.serverId,
+            name: server.name,
+            transport: "stdio",
+            command: server.command,
+            args: server.args || [],
+            env,
+          });
+        } else if (server.transport === "sse" && server.url) {
+          await this.mcpManager.registerOrUpdateServer({
+            id: server.serverId,
+            name: server.name,
+            transport: "http",
+            url: server.url,
+            env,
+          });
+        }
+
+        // 尝试连接
+        await this.mcpManager.connect(server.serverId);
+
+        // 更新连接状态到 metadata
+        await this.updateMCPServerConnectionStatus(server.serverId, {
+          connected: true,
+          lastConnectedAt: new Date().toISOString(),
+          lastError: null,
+        });
+
+        this.logger.log(
+          `Successfully reconnected MCP server: ${server.serverId} (attempt ${attempt})`,
+        );
+        return true;
+      } catch (error) {
+        const errorMsg = getErrorMessage(error as Error);
+        this.logger.warn(
+          `Reconnect attempt ${attempt}/${this.MCP_MAX_RETRIES} failed for ${server.serverId}: ${errorMsg}`,
+        );
+
+        // 更新错误状态
+        await this.updateMCPServerConnectionStatus(server.serverId, {
+          connected: false,
+          lastError: errorMsg,
+          lastErrorAt: new Date().toISOString(),
+        });
+
+        // 如果不是最后一次尝试，等待后重试
+        if (attempt < this.MCP_MAX_RETRIES) {
+          await this.sleep(this.MCP_RETRY_DELAY_MS * attempt); // 指数退避
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 辅助函数：延迟
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
