@@ -224,9 +224,42 @@ export class WechatAdapter {
   private async fillContent(page: any, content: SocialContent): Promise<void> {
     this.logger.log("Starting to fill content...");
 
-    // 等待页面加载完成
-    await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(2000); // 额外等待 UI 渲染
+    // 等待页面完全加载（包括动态内容）
+    await page.waitForLoadState("networkidle");
+    this.logger.log(
+      "Network idle reached, waiting for editor to initialize...",
+    );
+
+    // 微信编辑器是动态加载的，需要等待编辑器容器出现
+    const editorContainerSelectors = [
+      ".appmsg_edit_area",
+      ".js_editor_area",
+      "#js_article_content",
+      ".editor-container",
+      ".weui-desktop-editor",
+    ];
+
+    let editorContainerFound = false;
+    for (const selector of editorContainerSelectors) {
+      try {
+        await page.waitForSelector(selector, { timeout: 5000 });
+        this.logger.log(`Editor container found with selector: ${selector}`);
+        editorContainerFound = true;
+        break;
+      } catch {
+        continue;
+      }
+    }
+
+    if (!editorContainerFound) {
+      this.logger.warn(
+        "Could not find editor container, waiting additional 3 seconds...",
+      );
+      await page.waitForTimeout(3000);
+    }
+
+    // 额外等待确保 UI 完全渲染
+    await page.waitForTimeout(2000);
 
     // 填写标题 - 尝试多个可能的选择器（微信后台界面经常更新）
     if (content.title) {
@@ -287,6 +320,24 @@ export class WechatAdapter {
         this.logger.warn(
           `Available inputs: ${JSON.stringify(inputs, null, 2)}`,
         );
+
+        // 如果没有 input 元素，检查是否是登录问题
+        if (inputs.length === 0) {
+          const pageTitle = await page.title();
+          const hasLoginForm = await page.$(".login__type__qrcode");
+          const hasErrorMsg = await page.$(".weui-desktop-msg__title");
+
+          this.logger.error(`Page diagnosis - no inputs found:`);
+          this.logger.error(`- Page title: ${pageTitle}`);
+          this.logger.error(`- Has login form: ${!!hasLoginForm}`);
+          this.logger.error(`- Has error message: ${!!hasErrorMsg}`);
+
+          if (hasLoginForm) {
+            throw new Error(
+              "微信公众号登录已过期，请在 AI Social 连接管理中重新连接",
+            );
+          }
+        }
 
         // 记录页面上所有 contenteditable 元素
         const editables = await page.$$eval(
