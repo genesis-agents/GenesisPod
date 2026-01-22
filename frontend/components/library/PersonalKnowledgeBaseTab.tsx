@@ -342,7 +342,11 @@ export default function PersonalKnowledgeBaseTab({
         {personalKBs.map((kb) => (
           <div
             key={kb.id}
-            className={`group relative overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
+            className={`group relative overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-300 ${
+              activeMenuId === kb.id
+                ? '' // 菜单打开时禁用 hover 动画，防止光标抖动
+                : 'hover:-translate-y-1 hover:shadow-lg'
+            } ${
               selectedIds.has(kb.id)
                 ? 'border-blue-400 ring-2 ring-blue-100'
                 : 'border-gray-100 hover:border-gray-200'
