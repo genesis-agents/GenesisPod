@@ -1148,19 +1148,9 @@ export class ResearchMissionService {
             });
           }
         }
-        // ★ 打印 skills/tools 分配情况（帮助调试）
-        const assignmentDetails = Array.from(agentAssignmentsMap.entries())
-          .map(([id, data]) => {
-            const parts = [id];
-            if (data.skills?.length)
-              parts.push(`skills=[${data.skills.join(",")}]`);
-            if (data.tools?.length)
-              parts.push(`tools=[${data.tools.join(",")}]`);
-            return parts.join(" ");
-          })
-          .join(" | ");
-        this.logger.log(
-          `[getTeamInfo] Agent capabilities from leaderPlan: ${assignmentDetails || "(none)"}`,
+        // ★ skills/tools 分配情况（debug 级别，避免轮询时刷屏）
+        this.logger.debug(
+          `[getTeamInfo] Found ${agentAssignmentsMap.size} agents with capabilities`,
         );
       }
     } catch (parseError) {
