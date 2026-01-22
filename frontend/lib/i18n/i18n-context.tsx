@@ -115,6 +115,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   // Translation function
   const t = useCallback(
     (key: string, params?: Record<string, string | number>): string => {
+      // During SSR or before hydration, translations might not be available
+      // Return empty string to let fallback logic work
+      if (typeof window === 'undefined' && isLoading) {
+        return '';
+      }
+
       const translation = getNestedValue(translations[locale], key);
 
       if (translation === undefined) {
@@ -123,14 +129,17 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         if (fallback !== undefined) {
           return interpolate(fallback, params);
         }
-        // Return key if no translation found (helps identify missing translations)
-        console.warn(`[i18n] Missing translation for key: ${key}`);
-        return key;
+        // Return empty string so fallback logic (|| 'fallback') works
+        // Only log in development
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(`[i18n] Missing translation for key: ${key}`);
+        }
+        return '';
       }
 
       return interpolate(translation, params);
     },
-    [locale]
+    [locale, isLoading]
   );
 
   // Update document lang attribute when locale changes
