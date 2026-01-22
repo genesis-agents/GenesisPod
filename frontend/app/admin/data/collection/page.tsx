@@ -40,6 +40,7 @@ import {
   CollectionTask,
 } from '@/lib/api/data-collection';
 import BatchCollectionDrawer from '@/components/admin/data-collection/BatchCollectionDrawer';
+import SchedulerPanel from '@/components/admin/data-collection/SchedulerPanel';
 import { Modal } from '@/components/ui';
 
 // Extended type for edit form with schedule fields
@@ -726,6 +727,14 @@ export default function ConfigPage() {
           </div>
         </div>
       )}
+
+      {/* Scheduler Panel */}
+      <SchedulerPanel
+        onRefresh={async () => {
+          const response = await getDataSources();
+          setSources(response.data);
+        }}
+      />
 
       {/* Category Cards Grid - 3x2 Layout for symmetry */}
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

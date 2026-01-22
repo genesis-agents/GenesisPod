@@ -444,3 +444,91 @@ export async function cleanOldHistory(
     method: 'DELETE',
   });
 }
+
+// ============ Scheduler Types ============
+
+export interface SchedulerInfo {
+  resourceType: string;
+  isRunning: boolean;
+  cronExpression: string;
+  maxConcurrent: number;
+  timeout: number;
+  lastRun?: string;
+  nextRun?: string;
+  activeSourceCount: number;
+}
+
+export interface SchedulerStatus {
+  enabled: boolean;
+  defaultInterval: string;
+  timezone: string;
+  schedulers: SchedulerInfo[];
+  activeExecutions: number;
+}
+
+export interface TriggerResult {
+  resourceType: string;
+  success: boolean;
+  message: string;
+  taskIds?: string[];
+}
+
+// ============ Scheduler API Functions ============
+
+/**
+ * Get scheduler status
+ */
+export async function getSchedulerStatus(): Promise<{
+  success: boolean;
+  data: SchedulerStatus;
+}> {
+  return request('/scheduler/status');
+}
+
+/**
+ * Update scheduler configuration
+ */
+export async function updateSchedulerConfig(config: {
+  enabled?: boolean;
+  defaultInterval?: '6h' | '12h' | '24h';
+}): Promise<{ success: boolean; data: SchedulerStatus }> {
+  return request('/scheduler/config', {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  });
+}
+
+/**
+ * Trigger collection for a specific resource type
+ */
+export async function triggerCollection(
+  resourceType: string
+): Promise<{ success: boolean; data: TriggerResult }> {
+  return request(`/scheduler/trigger/${resourceType}`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * Trigger collection for all resource types
+ */
+export async function triggerAllCollections(): Promise<{
+  success: boolean;
+  data: TriggerResult[];
+}> {
+  return request('/scheduler/trigger-all', {
+    method: 'POST',
+  });
+}
+
+/**
+ * Restart all schedulers
+ */
+export async function restartSchedulers(): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  return request('/scheduler/restart', {
+    method: 'POST',
+  });
+}

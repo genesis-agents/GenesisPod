@@ -55,6 +55,7 @@ import { RecommendationsModule } from "./modules/content/recommendations/recomme
 import { CrawlersModule } from "./modules/ingestion/crawlers/crawlers.module";
 import { SourcesModule } from "./modules/ingestion/sources/sources.module";
 import { IngestionConfigModule } from "./modules/ingestion/config/config.module";
+import { SchedulerModule } from "./modules/ingestion/scheduler/scheduler.module";
 // Integration modules
 import { ProxyModule } from "./modules/integrations/proxy/proxy.module";
 import { WechatWorkModule } from "./modules/integrations/wechat-work/wechat-work.module";
@@ -151,6 +152,7 @@ import { WebhooksModule } from "./modules/webhooks";
     CrawlersModule,
     SourcesModule,
     IngestionConfigModule,
+    SchedulerModule,
 
     // Integration modules
     ProxyModule,
