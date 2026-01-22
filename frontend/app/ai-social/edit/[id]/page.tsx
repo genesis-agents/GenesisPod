@@ -20,6 +20,8 @@ import {
   Send,
   RefreshCw,
   AlertCircle,
+  Eye,
+  Code,
 } from 'lucide-react';
 
 export default function EditSocialContentPage() {
@@ -48,6 +50,9 @@ export default function EditSocialContentPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Tab state: 'preview' or 'source'
+  const [activeTab, setActiveTab] = useState<'preview' | 'source'>('preview');
 
   // Load content on mount
   useEffect(() => {
@@ -197,7 +202,7 @@ export default function EditSocialContentPage() {
   return (
     <AppShell>
       <main className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-4xl px-4 py-8">
+        <div className="mx-auto max-w-6xl px-4 py-8">
           {/* Header */}
           <div className="mb-8 flex items-center gap-4">
             <button
@@ -251,42 +256,51 @@ export default function EditSocialContentPage() {
                   </label>
                 </div>
 
-                {/* Two-column layout: Editor + Preview */}
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-                  {/* Left: Code editor (2/5 width) */}
-                  <div className="space-y-2 xl:col-span-2">
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <span className="rounded bg-gray-100 px-2 py-0.5">
-                        {currentContent.contentType === 'WECHAT_ARTICLE'
-                          ? 'HTML'
-                          : t('aiSocial.edit.plainText')}
-                      </span>
-                      <span>{t('aiSocial.edit.sourceCode')}</span>
-                    </div>
+                {/* Tab Switcher */}
+                <div className="flex items-center border-b border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('preview')}
+                    className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                      activeTab === 'preview'
+                        ? 'border-rose-500 text-rose-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Eye className="h-4 w-4" />
+                    {t('aiSocial.create.preview')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('source')}
+                    className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                      activeTab === 'source'
+                        ? 'border-rose-500 text-rose-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Code className="h-4 w-4" />
+                    {currentContent.contentType === 'WECHAT_ARTICLE'
+                      ? 'HTML'
+                      : t('aiSocial.edit.plainText')}
+                  </button>
+                </div>
+
+                {/* Tab Content */}
+                <div className="mt-4">
+                  {activeTab === 'source' ? (
+                    /* Source Code Editor */
                     <textarea
                       value={content}
                       onChange={(e) => setContent(e.target.value)}
-                      rows={20}
                       disabled={isSaving}
-                      className="font-mono w-full rounded-lg border border-gray-200 px-4 py-3 text-sm focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 disabled:bg-gray-50"
+                      className="font-mono min-h-[500px] w-full rounded-lg border border-gray-200 px-4 py-3 text-sm focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 disabled:bg-gray-50"
                       placeholder={t('aiSocial.create.contentPlaceholder')}
                     />
-                  </div>
-
-                  {/* Right: Live preview (3/5 width) */}
-                  <div className="space-y-2 xl:col-span-3">
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <span className="rounded bg-green-100 px-2 py-0.5 text-green-700">
-                        {t('aiSocial.create.preview')}
-                      </span>
-                      <span>
-                        {currentContent.contentType === 'WECHAT_ARTICLE'
-                          ? t('aiSocial.edit.wechatPreview')
-                          : t('aiSocial.edit.xiaohongshuPreview')}
-                      </span>
-                    </div>
+                  ) : (
+                    /* Preview */
                     <div
-                      className="max-h-[600px] min-h-[400px] overflow-auto rounded-lg border border-gray-200 bg-white p-4"
+                      className="max-h-[calc(100vh-400px)] min-h-[500px] overflow-auto rounded-lg border border-gray-200 bg-white p-6"
                       style={{
                         fontFamily:
                           currentContent.contentType === 'WECHAT_ARTICLE'
@@ -347,7 +361,7 @@ export default function EditSocialContentPage() {
                         </div>
                       )}
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
