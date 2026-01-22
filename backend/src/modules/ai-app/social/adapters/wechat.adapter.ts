@@ -36,8 +36,12 @@ export class WechatAdapter {
         };
       }
 
-      const sessionData = connection.sessionData as any;
-      const cookiesCount = sessionData.cookies?.length || 0;
+      // Parse sessionData - it's stored as JSON string in database
+      const sessionData =
+        typeof connection.sessionData === "string"
+          ? JSON.parse(connection.sessionData)
+          : connection.sessionData;
+      const cookiesCount = sessionData?.cookies?.length || 0;
       this.logger.log(`Session data found, cookies count: ${cookiesCount}`);
 
       // 检查 cookies 数量，如果为 0 则无法恢复有效会话
