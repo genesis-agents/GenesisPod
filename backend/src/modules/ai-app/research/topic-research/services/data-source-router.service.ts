@@ -20,9 +20,23 @@ import {
   DataSourceResult,
   AggregatedSearchResult,
   SearchOptions,
+  DataSourcePlan,
 } from "../types/data-source.types";
 import { ResearchTopic, TopicDimension } from "@prisma/client";
 import { AICapabilityResolver } from "@/modules/ai-engine/capabilities/ai-capability-resolver.service";
+import { DataSourcePlannerService } from "./data-source-planner.service";
+
+/**
+ * 数据获取选项
+ */
+export interface FetchDataOptions {
+  /** 是否使用 AI 规划数据源（默认 false，使用维度配置） */
+  useAIPlanning?: boolean;
+  /** 覆盖默认的 maxResults */
+  maxResults?: number;
+  /** 覆盖默认的时间范围 */
+  since?: Date;
+}
 
 /**
  * Data Source Router Service
@@ -55,27 +69,48 @@ export class DataSourceRouterService {
     private readonly whiteHouseNewsTool: WhiteHouseNewsTool,
     // ★ AI 能力解析器（用于检查工具是否被 Admin 启用）
     private readonly capabilityResolver: AICapabilityResolver,
+    // ★ AI 数据源规划器
+    private readonly dataSourcePlanner: DataSourcePlannerService,
   ) {}
+
+  /** 缓存 AI 规划结果，避免同一维度重复规划 */
+  private planCache = new Map<string, DataSourcePlan>();
 
   /**
    * 为指定维度获取数据
    *
    * @param dimension 研究维度
    * @param topic 研究主题
+   * @param options 可选配置（AI 规划、maxResults 等）
    * @returns 聚合的搜索结果
    */
   async fetchDataForDimension(
     dimension: TopicDimension,
     topic: ResearchTopic,
+    options?: FetchDataOptions,
   ): Promise<AggregatedSearchResult> {
     const startTime = Date.now();
+    const useAIPlanning = options?.useAIPlanning ?? false;
 
     this.logger.log(
-      `Fetching data for dimension: ${dimension.name} (topic: ${topic.name})`,
+      `Fetching data for dimension: ${dimension.name} (topic: ${topic.name}, AI planning: ${useAIPlanning})`,
     );
 
     // 1. 确定要使用的数据源
-    const sources = this.getDataSourcesForDimension(dimension);
+    let sources: DataSourceType[];
+    let aiPlan: DataSourcePlan | undefined;
+
+    if (useAIPlanning) {
+      // ★ 使用 AI 规划数据源
+      aiPlan = await this.getAIPlanForDimension(dimension, topic);
+      sources = aiPlan.recommendedSources;
+      this.logger.log(
+        `[AI Planning] Recommended sources: ${sources.join(", ")} (confidence: ${aiPlan.confidence}%)`,
+      );
+    } else {
+      // 使用维度配置的数据源
+      sources = this.getDataSourcesForDimension(dimension);
+    }
 
     if (sources.length === 0) {
       this.logger.warn(
@@ -122,7 +157,7 @@ export class DataSourceRouterService {
     // 3. 并行调用所有数据源
     const searchPromises = sources.map((source) =>
       this.searchSource(source, searchQuery, {
-        maxResults: 15, // ★ 增加到 15 个结果，获取更多数据
+        maxResults: 25, // ★ 增加到 25 个结果，提升研究质量覆盖深度
         since, // ★ 传递时间范围参数
       }),
     );
@@ -512,48 +547,175 @@ export class DataSourceRouterService {
   }
 
   /**
-   * 学术搜索 (使用 ArxivService)
-   *
-   * 注意: ArxivService.searchPapers 会直接将结果存入数据库
-   * 这里我们需要临时存储结果用于聚合,但不影响其正常的数据采集流程
+   * 学术搜索 (使用 ArxivSearchTool)
+   * 搜索 arXiv 上的学术论文（预印本）
    */
   private async searchAcademic(
-    _query: string,
-    _maxResults: number,
+    query: string,
+    maxResults: number,
   ): Promise<DataSourceResult[]> {
     try {
-      // TODO: ArxivService 当前会直接存储到数据库
-      // 未来可能需要添加一个 searchOnly 模式,只返回结果不存储
-      // 现在先返回空数组,标记为 Not Implemented
-      this.logger.warn(
-        "Academic search integration pending (ArxivService stores directly to DB)",
+      this.logger.log(`[searchAcademic] Searching arXiv: "${query}"`);
+
+      // 通过 ToolRegistry 获取 arxiv-search 工具
+      const arxivTool = this.toolRegistry.tryGet("arxiv-search");
+      if (!arxivTool) {
+        this.logger.error(
+          "[searchAcademic] arxiv-search tool not registered in ToolRegistry",
+        );
+        return [];
+      }
+
+      const result = await arxivTool.execute(
+        {
+          query,
+          maxResults,
+          sortBy: "relevance",
+        },
+        this.createToolContext("arxiv-search"),
       );
-      return [];
+
+      if (!result.success || !result.data) {
+        this.logger.warn(
+          `[searchAcademic] No results or error: ${result.error?.message}`,
+        );
+        return [];
+      }
+
+      const arxivData = result.data as {
+        success: boolean;
+        papers: Array<{
+          id: string;
+          title: string;
+          summary: string;
+          authors: string[];
+          published: string;
+          updated: string;
+          categories: string[];
+          pdfUrl: string;
+          absUrl: string;
+        }>;
+        totalResults: number;
+        query: string;
+      };
+
+      if (!arxivData.papers || arxivData.papers.length === 0) {
+        this.logger.warn("[searchAcademic] No papers in response");
+        return [];
+      }
+
+      return arxivData.papers.map((paper) => ({
+        sourceType: DataSourceType.ACADEMIC,
+        title: paper.title,
+        url: paper.absUrl, // 使用摘要页 URL 作为主链接
+        snippet: paper.summary.slice(0, 500), // 截取摘要前 500 字符
+        publishedAt: paper.published ? new Date(paper.published) : undefined,
+        domain: "arxiv.org",
+        metadata: {
+          arxivId: paper.id,
+          authors: paper.authors,
+          categories: paper.categories,
+          pdfUrl: paper.pdfUrl,
+          updated: paper.updated,
+        },
+      }));
     } catch (error) {
       this.logger.error(
-        `Academic search failed: ${error instanceof Error ? error.message : String(error)}`,
+        `[searchAcademic] Failed: ${error instanceof Error ? error.message : String(error)}`,
       );
       return [];
     }
   }
 
   /**
-   * GitHub 搜索 (使用 GithubService)
+   * GitHub 搜索 (使用 GithubSearchTool)
+   * 搜索 GitHub 上的开源仓库
    */
   private async searchGithub(
-    _query: string,
-    _maxResults: number,
+    query: string,
+    maxResults: number,
   ): Promise<DataSourceResult[]> {
     try {
-      // TODO: GithubService 当前会直接存储到数据库
-      // 未来可能需要添加一个 searchOnly 模式,只返回结果不存储
-      this.logger.warn(
-        "GitHub search integration pending (GithubService stores directly to DB)",
+      this.logger.log(`[searchGithub] Searching GitHub: "${query}"`);
+
+      // 通过 ToolRegistry 获取 github-search 工具
+      const githubTool = this.toolRegistry.tryGet("github-search");
+      if (!githubTool) {
+        this.logger.error(
+          "[searchGithub] github-search tool not registered in ToolRegistry",
+        );
+        return [];
+      }
+
+      const result = await githubTool.execute(
+        {
+          query,
+          maxResults,
+          sort: "stars", // 按星标数排序，获取高质量仓库
+        },
+        this.createToolContext("github-search"),
       );
-      return [];
+
+      if (!result.success || !result.data) {
+        this.logger.warn(
+          `[searchGithub] No results or error: ${result.error?.message}`,
+        );
+        return [];
+      }
+
+      const githubData = result.data as {
+        success: boolean;
+        repositories: Array<{
+          fullName: string;
+          description: string | null;
+          htmlUrl: string;
+          language: string | null;
+          stargazersCount: number;
+          forksCount: number;
+          openIssuesCount: number;
+          topics: string[];
+          createdAt: string;
+          updatedAt: string;
+          pushedAt: string;
+          owner: {
+            login: string;
+            avatarUrl: string;
+            type: string;
+          };
+        }>;
+        totalCount: number;
+        query: string;
+      };
+
+      if (!githubData.repositories || githubData.repositories.length === 0) {
+        this.logger.warn("[searchGithub] No repositories in response");
+        return [];
+      }
+
+      return githubData.repositories.map((repo) => ({
+        sourceType: DataSourceType.GITHUB,
+        title: repo.fullName,
+        url: repo.htmlUrl,
+        snippet:
+          repo.description ||
+          `${repo.language || "Unknown language"} repository with ${repo.stargazersCount} stars`,
+        publishedAt: repo.createdAt ? new Date(repo.createdAt) : undefined,
+        domain: "github.com",
+        metadata: {
+          language: repo.language,
+          stars: repo.stargazersCount,
+          forks: repo.forksCount,
+          openIssues: repo.openIssuesCount,
+          topics: repo.topics,
+          owner: repo.owner.login,
+          ownerType: repo.owner.type,
+          updatedAt: repo.updatedAt,
+          pushedAt: repo.pushedAt,
+        },
+      }));
     } catch (error) {
       this.logger.error(
-        `GitHub search failed: ${error instanceof Error ? error.message : String(error)}`,
+        `[searchGithub] Failed: ${error instanceof Error ? error.message : String(error)}`,
       );
       return [];
     }
@@ -561,22 +723,81 @@ export class DataSourceRouterService {
 
   /**
    * HackerNews 搜索
-   *
-   * 注意: HackerNews 没有官方搜索 API
-   * 可以使用 Algolia HN Search API: https://hn.algolia.com/api
+   * 使用 Algolia HN Search API 搜索技术社区讨论和新闻
    */
   private async searchHackerNews(
-    _query: string,
-    _maxResults: number,
+    query: string,
+    maxResults: number,
   ): Promise<DataSourceResult[]> {
     try {
-      // TODO: 实现 HackerNews 搜索
-      // 可以使用 Algolia HN Search API
-      this.logger.warn("HackerNews search not implemented yet");
-      return [];
+      this.logger.log(`[searchHackerNews] Searching: "${query}"`);
+
+      // 通过 ToolRegistry 获取 hackernews-search 工具
+      const hackerNewsTool = this.toolRegistry.tryGet("hackernews-search");
+      if (!hackerNewsTool) {
+        this.logger.error(
+          "[searchHackerNews] hackernews-search tool not registered in ToolRegistry",
+        );
+        return [];
+      }
+
+      const result = await hackerNewsTool.execute(
+        {
+          query,
+          maxResults,
+          tags: "story", // 只搜索 story 类型，排除评论
+        },
+        this.createToolContext("hackernews-search"),
+      );
+
+      if (!result.success || !result.data) {
+        this.logger.warn(
+          `[searchHackerNews] No results or error: ${result.error?.message}`,
+        );
+        return [];
+      }
+
+      const hnData = result.data as {
+        success: boolean;
+        hits: Array<{
+          title: string;
+          url: string | null;
+          hnUrl: string;
+          author: string;
+          points: number;
+          numComments: number;
+          createdAt: string;
+          storyText: string | null;
+        }>;
+        totalHits: number;
+        query: string;
+      };
+
+      if (!hnData.hits || hnData.hits.length === 0) {
+        this.logger.warn("[searchHackerNews] No hits in response");
+        return [];
+      }
+
+      return hnData.hits.map((hit) => ({
+        sourceType: DataSourceType.HACKERNEWS,
+        title: hit.title,
+        // 优先使用原始 URL，如果是文本帖则使用 HN 讨论链接
+        url: hit.url || hit.hnUrl,
+        snippet:
+          hit.storyText ||
+          `${hit.points} points | ${hit.numComments} comments by ${hit.author}`,
+        publishedAt: hit.createdAt ? new Date(hit.createdAt) : undefined,
+        domain: "news.ycombinator.com",
+        metadata: {
+          author: hit.author,
+          points: hit.points,
+          comments: hit.numComments,
+          hnUrl: hit.hnUrl,
+        },
+      }));
     } catch (error) {
       this.logger.error(
-        `HackerNews search failed: ${error instanceof Error ? error.message : String(error)}`,
+        `[searchHackerNews] Failed: ${error instanceof Error ? error.message : String(error)}`,
       );
       return [];
     }
@@ -994,10 +1215,13 @@ export class DataSourceRouterService {
   private dataSourceToToolId(source: DataSourceType): string | null {
     const mapping: Partial<Record<DataSourceType, string>> = {
       [DataSourceType.WEB]: "web-search",
+      [DataSourceType.ACADEMIC]: "arxiv-search",
+      [DataSourceType.GITHUB]: "github-search",
+      [DataSourceType.HACKERNEWS]: "hackernews-search",
       [DataSourceType.FEDERAL_REGISTER]: "federal-register",
       [DataSourceType.CONGRESS]: "congress-gov",
       [DataSourceType.WHITEHOUSE]: "whitehouse-news",
-      // ACADEMIC, GITHUB, HACKERNEWS 暂时不映射，因为它们使用的是 Ingestion Crawlers 而非 AI Engine Tools
+      // RSS, LOCAL 暂时不映射，因为它们需要依赖 RSS/RAG 系统
     };
 
     return mapping[source] || null;
@@ -1020,5 +1244,70 @@ export class DataSourceRouterService {
       // ★ 安全优先：发生错误时默认禁用，避免使用未授权的工具
       return false;
     }
+  }
+
+  // ==================== AI Planning Integration ====================
+
+  /**
+   * 获取维度的 AI 数据源规划
+   * 使用缓存避免重复规划
+   */
+  private async getAIPlanForDimension(
+    dimension: TopicDimension,
+    topic: ResearchTopic,
+  ): Promise<DataSourcePlan> {
+    const cacheKey = `${topic.id}:${dimension.id}`;
+
+    // 检查缓存
+    if (this.planCache.has(cacheKey)) {
+      this.logger.debug(
+        `[getAIPlanForDimension] Using cached plan for ${cacheKey}`,
+      );
+      return this.planCache.get(cacheKey)!;
+    }
+
+    // 获取可用的数据源类型
+    const availableDataSources = Object.values(DataSourceType);
+
+    // 调用 AI 规划器
+    const plan = await this.dataSourcePlanner.planDataSources({
+      topicName: topic.name,
+      topicType: topic.type,
+      dimensionName: dimension.name,
+      dimensionDescription: dimension.description || dimension.name,
+      searchQueries: dimension.searchQueries as string[] | undefined,
+      availableDataSources,
+    });
+
+    // 缓存结果
+    this.planCache.set(cacheKey, plan);
+
+    return plan;
+  }
+
+  /**
+   * 清除 AI 规划缓存
+   * 在研究任务完成或取消时调用
+   */
+  clearPlanCache(topicId?: string): void {
+    if (topicId) {
+      // 清除指定主题的缓存
+      for (const key of this.planCache.keys()) {
+        if (key.startsWith(`${topicId}:`)) {
+          this.planCache.delete(key);
+        }
+      }
+    } else {
+      // 清除所有缓存
+      this.planCache.clear();
+    }
+  }
+
+  /**
+   * 获取 AI 规划的数据源能力描述
+   * 用于前端展示
+   */
+  getDataSourceCapabilities() {
+    return this.dataSourcePlanner.getDataSourceCapabilities();
   }
 }

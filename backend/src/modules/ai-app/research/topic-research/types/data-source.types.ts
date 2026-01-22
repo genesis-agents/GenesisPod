@@ -77,3 +77,72 @@ export interface SearchQueryBuilder {
     additionalQueries?: string[],
   ): string;
 }
+
+// ============================================================================
+// ★ AI 数据源规划相关类型
+// ============================================================================
+
+/**
+ * 数据源规划输入
+ */
+export interface DataSourcePlanInput {
+  /** 研究主题名称 */
+  topicName: string;
+  /** 主题类型 (MACRO_INSIGHT, TECHNOLOGY_INSIGHT, COMPANY_INSIGHT) */
+  topicType: string;
+  /** 维度名称 */
+  dimensionName: string;
+  /** 维度描述 */
+  dimensionDescription: string;
+  /** 预设的搜索查询（可选） */
+  searchQueries?: string[];
+  /** 可用的数据源列表 */
+  availableDataSources: DataSourceType[];
+}
+
+/**
+ * 数据源规划结果
+ */
+export interface DataSourcePlan {
+  /** AI 推荐的主要数据源 */
+  recommendedSources: DataSourceType[];
+  /** 每个数据源的推荐理由 */
+  sourceRationales: Record<string, string>;
+  /** 整体规划说明 */
+  overallRationale: string;
+  /** 备选数据源（当主要数据源失败时使用） */
+  fallbackSources: DataSourceType[];
+  /** 推荐的搜索策略 */
+  searchStrategy: {
+    /** 推荐的结果数量 */
+    suggestedMaxResults: number;
+    /** 是否需要时间过滤 */
+    needsTimeFilter: boolean;
+    /** 建议的时间范围（天数） */
+    suggestedTimeRangeDays?: number;
+    /** 是否需要内容增强 */
+    needsEnrichment: boolean;
+  };
+  /** AI 置信度 (0-100) */
+  confidence: number;
+}
+
+/**
+ * 数据源能力描述（用于 AI 规划）
+ */
+export interface DataSourceCapability {
+  /** 数据源类型 */
+  type: DataSourceType;
+  /** 人类可读名称 */
+  displayName: string;
+  /** 能力描述 */
+  description: string;
+  /** 适用场景 */
+  useCases: string[];
+  /** 数据特点 */
+  characteristics: string[];
+  /** 是否需要 API 密钥 */
+  requiresApiKey: boolean;
+  /** 是否当前可用 */
+  isAvailable: boolean;
+}

@@ -12,6 +12,9 @@ export { KnowledgeGraphTool } from "./knowledge-graph.tool";
 export { WebSearchTool } from "./web-search.tool";
 export { WebScraperTool } from "./web-scraper.tool";
 export { DataFetchTool } from "./data-fetch.tool";
+export { HackerNewsSearchTool } from "./hackernews-search.tool";
+export { ArxivSearchTool } from "./arxiv-search.tool";
+export { GithubSearchTool } from "./github-search.tool";
 
 // ============================================================================
 // Types - RAG Search
@@ -57,6 +60,36 @@ export type { WebScraperInput, WebScraperOutput } from "./web-scraper.tool";
 // Types - Data Fetch
 // ============================================================================
 export type { DataFetchInput, DataFetchOutput } from "./data-fetch.tool";
+
+// ============================================================================
+// Types - HackerNews Search
+// ============================================================================
+export type {
+  HackerNewsSearchInput,
+  HackerNewsSearchOutput,
+  HackerNewsSearchResult,
+  HackerNewsTagType,
+} from "./hackernews-search.tool";
+
+// ============================================================================
+// Types - ArXiv Search
+// ============================================================================
+export type {
+  ArxivSearchInput,
+  ArxivSearchOutput,
+  ArxivPaper,
+  ArxivSortBy,
+} from "./arxiv-search.tool";
+
+// ============================================================================
+// Types - GitHub Search
+// ============================================================================
+export type {
+  GithubSearchInput,
+  GithubSearchOutput,
+  GithubRepository,
+  GithubSortType,
+} from "./github-search.tool";
 
 // ============================================================================
 // Policy Research Tools

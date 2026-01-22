@@ -29,6 +29,7 @@ export { ResearchCheckpointService } from "./research-checkpoint.service";
 export { DataEnrichmentService } from "./data-enrichment.service";
 export { LeaderToolService } from "./leader-tool.service";
 export { ResearchReflectionService } from "./research-reflection.service";
+export { DataSourcePlannerService } from "./data-source-planner.service";
 
 // Re-export types
 export type {
@@ -99,3 +100,9 @@ export type {
   ReflectionResult,
   ReflectionContext,
 } from "./research-reflection.service";
+export type {
+  DataSourcePlanInput,
+  DataSourcePlan,
+  DataSourceCapability,
+} from "../types/data-source.types";
+export type { FetchDataOptions } from "./data-source-router.service";

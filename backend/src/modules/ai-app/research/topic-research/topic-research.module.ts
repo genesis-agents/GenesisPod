@@ -36,6 +36,7 @@ import {
   DataEnrichmentService,
   LeaderToolService,
   ResearchReflectionService,
+  DataSourcePlannerService,
 } from "./services";
 
 const services = [
@@ -65,6 +66,7 @@ const services = [
   DataEnrichmentService,
   LeaderToolService,
   ResearchReflectionService,
+  DataSourcePlannerService,
 ];
 
 @Module({

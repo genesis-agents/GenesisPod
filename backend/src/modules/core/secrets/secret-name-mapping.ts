@@ -40,6 +40,9 @@ export const EXTERNAL_TOOL_SECRET_MAPPING: Record<string, string> = {
   // ==================== Policy Research ====================
   "congress-gov": "congress-gov",
   opensanctions: "opensanctions-api",
+
+  // ==================== GitHub ====================
+  "github-search": "github-token",
 };
 
 /**
@@ -70,6 +73,9 @@ export const SECRET_NAMES = {
   // Policy Research
   CONGRESS_GOV: EXTERNAL_TOOL_SECRET_MAPPING["congress-gov"],
   OPENSANCTIONS: EXTERNAL_TOOL_SECRET_MAPPING.opensanctions,
+
+  // GitHub
+  GITHUB_TOKEN: EXTERNAL_TOOL_SECRET_MAPPING["github-search"],
 } as const;
 
 /**

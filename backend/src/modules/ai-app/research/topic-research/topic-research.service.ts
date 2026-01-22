@@ -69,7 +69,13 @@ const MACRO_INSIGHT_DIMENSIONS = [
       "{topic} legislative updates",
       "{topic} policy framework",
     ],
-    searchSources: ["web", "local_policy", "news"],
+    // ★ 启用政策专业工具
+    searchSources: [
+      "web",
+      "federal-register",
+      "congress-gov",
+      "whitehouse-news",
+    ],
     minSources: 5,
   },
   {
@@ -83,7 +89,7 @@ const MACRO_INSIGHT_DIMENSIONS = [
       "{topic} industry analysis",
       "{topic} market segmentation",
     ],
-    searchSources: ["web", "local_report", "news"],
+    searchSources: ["web", "local"],
     minSources: 6,
   },
   {
@@ -97,7 +103,7 @@ const MACRO_INSIGHT_DIMENSIONS = [
       "{topic} key players analysis",
       "{topic} market share",
     ],
-    searchSources: ["web", "local_report", "news"],
+    searchSources: ["web", "local"],
     minSources: 5,
   },
   {
@@ -111,7 +117,8 @@ const MACRO_INSIGHT_DIMENSIONS = [
       "{topic} innovation breakthroughs",
       "{topic} R&D direction",
     ],
-    searchSources: ["arxiv", "scholar", "github", "web", "hackernews"],
+    // ★ academic 映射到 ArXiv 搜索
+    searchSources: ["academic", "github", "web", "hackernews"],
     minSources: 6,
   },
   {
@@ -125,7 +132,7 @@ const MACRO_INSIGHT_DIMENSIONS = [
       "{topic} investment trends",
       "{topic} venture capital",
     ],
-    searchSources: ["web", "news", "local_report"],
+    searchSources: ["web", "local"],
     minSources: 5,
   },
   {
@@ -139,7 +146,7 @@ const MACRO_INSIGHT_DIMENSIONS = [
       "{topic} workforce analysis",
       "{topic} education programs",
     ],
-    searchSources: ["web", "arxiv", "github"],
+    searchSources: ["web", "academic", "github"],
     minSources: 5,
   },
   {
@@ -153,7 +160,13 @@ const MACRO_INSIGHT_DIMENSIONS = [
       "{topic} cross-border trends",
       "{topic} geopolitics",
     ],
-    searchSources: ["web", "news", "local_policy"],
+    // ★ 启用政策专业工具
+    searchSources: [
+      "web",
+      "federal-register",
+      "congress-gov",
+      "whitehouse-news",
+    ],
     minSources: 5,
   },
   {
@@ -167,7 +180,7 @@ const MACRO_INSIGHT_DIMENSIONS = [
       "{topic} application areas",
       "{topic} deployment scenarios",
     ],
-    searchSources: ["web", "news", "hackernews", "github"],
+    searchSources: ["web", "hackernews", "github"],
     minSources: 5,
   },
 ];
@@ -184,7 +197,8 @@ const TECH_INSIGHT_DIMENSIONS = [
       "{topic} underlying mechanism",
       "{topic} theoretical foundation",
     ],
-    searchSources: ["arxiv", "scholar", "web"],
+    // ★ academic 映射到 ArXiv 搜索
+    searchSources: ["academic", "web"],
     minSources: 6,
   },
   {
@@ -198,7 +212,7 @@ const TECH_INSIGHT_DIMENSIONS = [
       "{topic} latest capabilities",
       "{topic} technical specifications",
     ],
-    searchSources: ["arxiv", "scholar", "github", "web"],
+    searchSources: ["academic", "github", "web"],
     minSources: 6,
   },
   {
@@ -212,7 +226,7 @@ const TECH_INSIGHT_DIMENSIONS = [
       "{topic} research labs",
       "{topic} companies developing",
     ],
-    searchSources: ["arxiv", "scholar", "github", "web", "news"],
+    searchSources: ["academic", "github", "web"],
     minSources: 5,
   },
   {
@@ -226,7 +240,7 @@ const TECH_INSIGHT_DIMENSIONS = [
       "{topic} patent landscape",
       "{topic} IP trends",
     ],
-    searchSources: ["web", "arxiv"],
+    searchSources: ["web", "academic"],
     minSources: 5,
   },
   {
@@ -240,7 +254,7 @@ const TECH_INSIGHT_DIMENSIONS = [
       "{topic} real world deployment",
       "{topic} industry applications",
     ],
-    searchSources: ["web", "github", "hackernews", "news"],
+    searchSources: ["web", "github", "hackernews"],
     minSources: 5,
   },
   {
@@ -254,7 +268,7 @@ const TECH_INSIGHT_DIMENSIONS = [
       "{topic} products available",
       "{topic} technology readiness level",
     ],
-    searchSources: ["web", "github", "news"],
+    searchSources: ["web", "github"],
     minSources: 5,
   },
   {
@@ -268,7 +282,7 @@ const TECH_INSIGHT_DIMENSIONS = [
       "{topic} technical barriers",
       "{topic} engineering difficulties",
     ],
-    searchSources: ["arxiv", "web", "hackernews"],
+    searchSources: ["academic", "web", "hackernews"],
     minSources: 5,
   },
   {
@@ -282,7 +296,7 @@ const TECH_INSIGHT_DIMENSIONS = [
       "{topic} next generation",
       "{topic} future outlook",
     ],
-    searchSources: ["arxiv", "web", "news"],
+    searchSources: ["academic", "web"],
     minSources: 5,
   },
 ];
@@ -300,7 +314,7 @@ const COMPANY_INSIGHT_DIMENSIONS = [
       "{company} mission vision",
       "{company} leadership team",
     ],
-    searchSources: ["web", "news"],
+    searchSources: ["web"],
     minSources: 5,
   },
   {
@@ -314,7 +328,7 @@ const COMPANY_INSIGHT_DIMENSIONS = [
       "{company} product portfolio",
       "{company} pricing",
     ],
-    searchSources: ["web", "hackernews", "github", "news"],
+    searchSources: ["web", "hackernews", "github"],
     minSources: 5,
   },
   {
@@ -328,7 +342,7 @@ const COMPANY_INSIGHT_DIMENSIONS = [
       "{company} monetization",
       "{company} how they make money",
     ],
-    searchSources: ["web", "local_report", "news"],
+    searchSources: ["web", "local"],
     minSources: 5,
   },
   {
@@ -342,7 +356,7 @@ const COMPANY_INSIGHT_DIMENSIONS = [
       "{company} valuation",
       "{company} financial performance",
     ],
-    searchSources: ["web", "news", "local_report"],
+    searchSources: ["web", "local"],
     minSources: 5,
   },
   {
@@ -356,7 +370,7 @@ const COMPANY_INSIGHT_DIMENSIONS = [
       "{company} innovation",
       "{company} patents",
     ],
-    searchSources: ["github", "arxiv", "scholar", "web", "news"],
+    searchSources: ["github", "academic", "web"],
     minSources: 6,
   },
   {
@@ -370,7 +384,7 @@ const COMPANY_INSIGHT_DIMENSIONS = [
       "{company} competitive advantage",
       "{company} vs competitors",
     ],
-    searchSources: ["web", "local_report", "news"],
+    searchSources: ["web", "local"],
     minSources: 5,
   },
   {
@@ -385,7 +399,7 @@ const COMPANY_INSIGHT_DIMENSIONS = [
       "{company} expansion",
       "{company} news 2024 2025",
     ],
-    searchSources: ["news", "web", "hackernews"],
+    searchSources: ["web", "hackernews"],
     minSources: 6,
   },
   {
@@ -399,7 +413,7 @@ const COMPANY_INSIGHT_DIMENSIONS = [
       "{company} SWOT analysis",
       "{company} challenges",
     ],
-    searchSources: ["web", "local_report", "news"],
+    searchSources: ["web", "local"],
     minSources: 5,
   },
 ];
