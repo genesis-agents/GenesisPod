@@ -36,6 +36,9 @@ export enum NotificationTypeDto {
   // 反馈通知
   FEEDBACK_REPLIED = "FEEDBACK_REPLIED",
   FEEDBACK_STATUS_CHANGED = "FEEDBACK_STATUS_CHANGED",
+
+  // AI Social 通知
+  SESSION_EXPIRED = "SESSION_EXPIRED",
 }
 
 /**

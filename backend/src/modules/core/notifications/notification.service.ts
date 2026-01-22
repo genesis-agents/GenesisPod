@@ -27,6 +27,7 @@ const VALID_NOTIFICATION_TYPES: Record<NotificationTypeDto, NotificationType> =
     [NotificationTypeDto.CREDITS_RECEIVED]: "CREDITS_RECEIVED",
     [NotificationTypeDto.FEEDBACK_REPLIED]: "FEEDBACK_REPLIED",
     [NotificationTypeDto.FEEDBACK_STATUS_CHANGED]: "FEEDBACK_STATUS_CHANGED",
+    [NotificationTypeDto.SESSION_EXPIRED]: "SESSION_EXPIRED",
   };
 
 // 批量操作结果

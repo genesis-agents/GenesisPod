@@ -7863,6 +7863,9 @@ enum NotificationType {
   // 反馈通知
   FEEDBACK_REPLIED // 反馈收到回复
   FEEDBACK_STATUS_CHANGED // 反馈状态变更
+
+  // AI Social 通知
+  SESSION_EXPIRED // 平台会话过期
 }
 
 /// 用户通知
