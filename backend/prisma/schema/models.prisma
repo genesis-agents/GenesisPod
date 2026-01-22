@@ -7691,6 +7691,8 @@ enum SecretCategory {
   TTS // 语音合成 API
   SKILLSMP // SkillsMP API
   POLICY // 政策研究 API (Congress.gov)
+  DEV_TOOLS // 开发工具 API (GitHub, GitLab)
+  MCP // MCP 服务器 API (Slack, Google Drive)
   OTHER // 其他
 }
 

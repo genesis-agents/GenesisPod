@@ -2041,6 +2041,8 @@
         "tts": "Text-to-Speech",
         "skillsmp": "Skills Marketplace",
         "policy": "Policy Research",
+        "devTools": "Dev Tools",
+        "mcp": "MCP Servers",
         "other": "Other"
       }
     }

@@ -31,6 +31,8 @@ import {
   KeyRound,
   type LucideIcon,
   Landmark,
+  Github,
+  Server,
 } from 'lucide-react';
 
 // Secret category enum matching backend
@@ -42,6 +44,8 @@ type SecretCategory =
   | 'TTS'
   | 'SKILLSMP'
   | 'POLICY'
+  | 'DEV_TOOLS'
+  | 'MCP'
   | 'OTHER';
 
 interface Secret {
@@ -120,6 +124,18 @@ const CATEGORY_CONFIG: Record<
     color: 'text-amber-600',
     bgColor: 'bg-amber-50',
     icon: Landmark,
+  },
+  DEV_TOOLS: {
+    label: 'Dev Tools',
+    color: 'text-gray-700',
+    bgColor: 'bg-gray-100',
+    icon: Github,
+  },
+  MCP: {
+    label: 'MCP Servers',
+    color: 'text-cyan-600',
+    bgColor: 'bg-cyan-50',
+    icon: Server,
   },
   OTHER: {
     label: 'Other',

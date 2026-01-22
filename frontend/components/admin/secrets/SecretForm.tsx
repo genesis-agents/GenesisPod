@@ -19,6 +19,8 @@ const CATEGORY_KEYS: { value: SecretCategory; key: string }[] = [
   { value: 'TTS', key: 'tts' },
   { value: 'SKILLSMP', key: 'skillsmp' },
   { value: 'POLICY', key: 'policy' },
+  { value: 'DEV_TOOLS', key: 'devTools' },
+  { value: 'MCP', key: 'mcp' },
   { value: 'OTHER', key: 'other' },
 ];
 

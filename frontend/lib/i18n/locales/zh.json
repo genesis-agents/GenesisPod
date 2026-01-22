@@ -2043,6 +2043,8 @@
         "tts": "语音合成",
         "skillsmp": "技能市场",
         "policy": "政策研究",
+        "devTools": "开发工具",
+        "mcp": "MCP 服务器",
         "other": "其他"
       }
     }

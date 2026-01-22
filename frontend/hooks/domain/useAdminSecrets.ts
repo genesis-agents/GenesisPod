@@ -10,6 +10,8 @@ export type SecretCategory =
   | 'TTS'
   | 'SKILLSMP'
   | 'POLICY'
+  | 'DEV_TOOLS'
+  | 'MCP'
   | 'OTHER';
 
 export interface Secret {
