@@ -228,15 +228,32 @@ export class WechatAdapter {
     await page.waitForLoadState("domcontentloaded");
     await page.waitForTimeout(2000); // 额外等待 UI 渲染
 
-    // 填写标题 - 尝试多个可能的选择器
+    // 填写标题 - 尝试多个可能的选择器（微信后台界面经常更新）
     if (content.title) {
       const titleSelectors = [
+        // 新版微信公众号编辑器选择器
+        "#js_article_title",
+        ".js_title",
+        ".title_inner input",
+        ".weui-desktop-form-input__input",
+        '[data-type="title"]',
+        ".editor-title input",
+        ".article-title-input",
+        ".appmsg_edit_title input",
+        ".js_title_input",
+        // 旧版选择器保留兼容
         "#title",
         'input[name="title"]',
         ".title-input",
         '[placeholder*="标题"]',
+        '[placeholder*="请在这里输入标题"]',
         ".weui-desktop-form__input",
         'input[type="text"]:first-of-type',
+        // 通用后备选择器
+        ".title input",
+        "input.title",
+        '[class*="title"] input',
+        '[id*="title"]',
       ];
 
       let titleInput = null;
@@ -262,25 +279,64 @@ export class WechatAdapter {
           els.map((el) => ({
             id: el.id,
             name: el.getAttribute("name"),
+            class: el.className,
             placeholder: el.getAttribute("placeholder"),
             type: el.getAttribute("type"),
           })),
         );
-        this.logger.warn(`Available inputs: ${JSON.stringify(inputs)}`);
-        throw new Error("找不到标题输入框，微信后台界面可能已更新");
+        this.logger.warn(
+          `Available inputs: ${JSON.stringify(inputs, null, 2)}`,
+        );
+
+        // 记录页面上所有 contenteditable 元素
+        const editables = await page.$$eval(
+          "[contenteditable]",
+          (els: Element[]) =>
+            els.map((el) => ({
+              tag: el.tagName,
+              id: el.id,
+              class: el.className?.substring?.(0, 100) || "",
+            })),
+        );
+        this.logger.warn(
+          `Available contenteditable elements: ${JSON.stringify(editables, null, 2)}`,
+        );
+
+        // 记录当前页面 URL
+        const currentUrl = page.url();
+        this.logger.error(
+          `Current page URL when error occurred: ${currentUrl}`,
+        );
+
+        throw new Error(
+          `找不到标题输入框，微信后台界面可能已更新。当前页面: ${currentUrl}`,
+        );
       }
     }
 
-    // 填写正文 - 尝试多个可能的选择器
+    // 填写正文 - 尝试多个可能的选择器（微信后台界面经常更新）
     if (content.content) {
       const editorSelectors = [
+        // 新版微信公众号编辑器选择器
+        "#js_editor",
+        ".js_editor",
+        ".editor-content",
+        ".ProseMirror",
+        ".rich_media_content",
+        ".appmsg_edit_area [contenteditable='true']",
+        ".js_content",
+        ".weui-desktop-editor__textarea",
+        // 旧版选择器保留兼容
         "#edui1_contentplaceholder",
         ".edui-editor-body",
         ".ql-editor",
         '[contenteditable="true"]',
         ".rich-text-editor",
-        "#js_editor",
         ".weui-desktop-editor__content",
+        // 通用后备选择器
+        "[data-editor]",
+        ".editor [contenteditable]",
+        '[class*="editor"] [contenteditable]',
       ];
 
       let editor = null;
