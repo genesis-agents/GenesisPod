@@ -20,6 +20,7 @@ export class WechatAdapter {
     this.logger.log(`Publishing to WeChat MP: ${content.title}`);
 
     const contextId = `wechat-${connection.id}`;
+    let page: any = null;
 
     try {
       // 恢复登录会话
@@ -30,7 +31,7 @@ export class WechatAdapter {
         );
       }
 
-      const page = await this.playwright.createPage(contextId);
+      page = await this.playwright.createPage(contextId);
 
       // 1. 访问公众号后台
       await page.goto(`${this.MP_URL}/cgi-bin/home`);
@@ -45,8 +46,13 @@ export class WechatAdapter {
       }
 
       // 3. 进入图文编辑页面
+      this.logger.log("Navigating to article edit page...");
       await page.goto(`${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit`);
       await page.waitForLoadState("networkidle");
+
+      // 记录当前页面 URL 和状态用于调试
+      const editPageUrl = page.url();
+      this.logger.log(`Edit page URL: ${editPageUrl}`);
 
       // 4. 填写内容
       await this.fillContent(page, content);
@@ -63,6 +69,30 @@ export class WechatAdapter {
     } catch (error) {
       const err = error as Error;
       this.logger.error(`WeChat publish failed: ${err.message}`, err.stack);
+
+      // 捕获截图用于调试
+      if (page) {
+        try {
+          const screenshot = await page.screenshot({ fullPage: true });
+          this.logger.error(
+            `Debug screenshot captured (base64 length: ${screenshot.toString("base64").length})`,
+          );
+          // 记录当前页面 URL
+          this.logger.error(`Current page URL: ${page.url()}`);
+          // 记录页面 HTML 片段用于调试
+          const bodyHtml = await page.evaluate(
+            () => document.body?.innerHTML?.substring(0, 2000) || "empty",
+          );
+          this.logger.error(
+            `Page body preview: ${bodyHtml.substring(0, 500)}...`,
+          );
+        } catch (screenshotError) {
+          this.logger.error(
+            `Failed to capture debug screenshot: ${(screenshotError as Error).message}`,
+          );
+        }
+      }
+
       return {
         success: false,
         errorMessage: `发布失败: ${err.message}`,
@@ -192,25 +222,118 @@ export class WechatAdapter {
   }
 
   private async fillContent(page: any, content: SocialContent): Promise<void> {
-    // 填写标题
+    this.logger.log("Starting to fill content...");
+
+    // 等待页面加载完成
+    await page.waitForLoadState("domcontentloaded");
+    await page.waitForTimeout(2000); // 额外等待 UI 渲染
+
+    // 填写标题 - 尝试多个可能的选择器
     if (content.title) {
-      const titleInput = await page.waitForSelector("#title");
-      await titleInput.fill(content.title);
+      const titleSelectors = [
+        "#title",
+        'input[name="title"]',
+        ".title-input",
+        '[placeholder*="标题"]',
+        ".weui-desktop-form__input",
+        'input[type="text"]:first-of-type',
+      ];
+
+      let titleInput = null;
+      for (const selector of titleSelectors) {
+        try {
+          titleInput = await page.$(selector);
+          if (titleInput) {
+            this.logger.log(`Found title input with selector: ${selector}`);
+            break;
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      if (titleInput) {
+        await titleInput.fill(content.title);
+        this.logger.log("Title filled successfully");
+      } else {
+        this.logger.warn("Could not find title input element");
+        // 记录页面上所有 input 元素用于调试
+        const inputs = await page.$$eval("input", (els: Element[]) =>
+          els.map((el) => ({
+            id: el.id,
+            name: el.getAttribute("name"),
+            placeholder: el.getAttribute("placeholder"),
+            type: el.getAttribute("type"),
+          })),
+        );
+        this.logger.warn(`Available inputs: ${JSON.stringify(inputs)}`);
+        throw new Error("找不到标题输入框，微信后台界面可能已更新");
+      }
     }
 
-    // 填写正文
+    // 填写正文 - 尝试多个可能的选择器
     if (content.content) {
-      // 微信编辑器是富文本，需要特殊处理
-      const editor = await page.waitForSelector("#edui1_contentplaceholder");
-      await editor.click();
-      await page.keyboard.type(content.content);
+      const editorSelectors = [
+        "#edui1_contentplaceholder",
+        ".edui-editor-body",
+        ".ql-editor",
+        '[contenteditable="true"]',
+        ".rich-text-editor",
+        "#js_editor",
+        ".weui-desktop-editor__content",
+      ];
+
+      let editor = null;
+      for (const selector of editorSelectors) {
+        try {
+          editor = await page.$(selector);
+          if (editor) {
+            this.logger.log(`Found editor with selector: ${selector}`);
+            break;
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      if (editor) {
+        await editor.click();
+        // 使用 Ctrl+A 清空，然后输入内容
+        await page.keyboard.press("Control+a");
+        await page.keyboard.type(content.content, { delay: 10 });
+        this.logger.log("Content filled successfully");
+      } else {
+        this.logger.warn(
+          "Could not find editor element, trying alternative approach",
+        );
+        // 尝试通过 iframe 找到编辑器
+        const frames = page.frames();
+        for (const frame of frames) {
+          const frameEditor = await frame.$('[contenteditable="true"]');
+          if (frameEditor) {
+            await frameEditor.click();
+            await frame.keyboard.type(content.content);
+            this.logger.log("Content filled via iframe");
+            break;
+          }
+        }
+      }
     }
 
     // 填写摘要
     if (content.digest) {
-      const digestInput = await page.$("#digest");
-      if (digestInput) {
-        await digestInput.fill(content.digest);
+      const digestSelectors = [
+        "#digest",
+        'textarea[name="digest"]',
+        ".digest-input",
+      ];
+      for (const selector of digestSelectors) {
+        const digestInput = await page.$(selector);
+        if (digestInput) {
+          await digestInput.fill(content.digest);
+          this.logger.log("Digest filled successfully");
+          break;
+        }
       }
     }
   }

@@ -30,6 +30,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, "google") {
       clientSecret,
       callbackURL,
       scope: ["email", "profile"],
+      passReqToCallback: true, // 传递请求对象以获取 IP 和 User-Agent
     });
 
     if (!process.env.GOOGLE_CLIENT_ID) {
@@ -42,6 +43,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, "google") {
   }
 
   async validate(
+    req: any,
     _accessToken: string,
     _refreshToken: string,
     profile: any,
@@ -66,7 +68,19 @@ export class GoogleStrategy extends PassportStrategy(Strategy, "google") {
         picture,
       };
 
-      const result = await this.authService.findOrCreateGoogleUser(userProfile);
+      // 获取请求信息用于记录登录历史
+      const requestInfo = {
+        ipAddress:
+          req.headers?.["x-forwarded-for"]?.split(",")[0] ||
+          req.ip ||
+          req.connection?.remoteAddress,
+        userAgent: req.headers?.["user-agent"],
+      };
+
+      const result = await this.authService.findOrCreateGoogleUser(
+        userProfile,
+        requestInfo,
+      );
 
       done(null, result);
     } catch (error) {

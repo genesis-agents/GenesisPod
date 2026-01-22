@@ -42,11 +42,22 @@ export class AuthController {
    */
   @Post("login")
   async login(
+    @Request() req: any,
     @Body("email") email: string,
     @Body("password") password: string,
   ) {
     this.logger.log(`Login attempt: ${email}`);
-    return this.authService.login(email, password);
+
+    // 获取请求信息用于记录登录历史
+    const requestInfo = {
+      ipAddress:
+        req.headers["x-forwarded-for"]?.split(",")[0] ||
+        req.ip ||
+        req.connection?.remoteAddress,
+      userAgent: req.headers["user-agent"],
+    };
+
+    return this.authService.login(email, password, requestInfo);
   }
 
   /**

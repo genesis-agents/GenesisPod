@@ -9,6 +9,65 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 import * as bcrypt from "bcrypt";
 
 /**
+ * 登录请求信息（用于记录登录历史）
+ */
+export interface LoginRequestInfo {
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+/**
+ * 解析 User-Agent 获取设备信息
+ */
+function parseUserAgent(userAgent?: string): {
+  device: string;
+  browser: string;
+  os: string;
+} {
+  if (!userAgent) {
+    return { device: "unknown", browser: "unknown", os: "unknown" };
+  }
+
+  // 解析设备类型
+  let device = "desktop";
+  if (/mobile/i.test(userAgent)) {
+    device = "mobile";
+  } else if (/tablet|ipad/i.test(userAgent)) {
+    device = "tablet";
+  }
+
+  // 解析浏览器
+  let browser = "unknown";
+  if (/edg/i.test(userAgent)) {
+    browser = "Edge";
+  } else if (/chrome/i.test(userAgent)) {
+    browser = "Chrome";
+  } else if (/firefox/i.test(userAgent)) {
+    browser = "Firefox";
+  } else if (/safari/i.test(userAgent)) {
+    browser = "Safari";
+  } else if (/opera|opr/i.test(userAgent)) {
+    browser = "Opera";
+  }
+
+  // 解析操作系统
+  let os = "unknown";
+  if (/windows/i.test(userAgent)) {
+    os = "Windows";
+  } else if (/macintosh|mac os/i.test(userAgent)) {
+    os = "macOS";
+  } else if (/linux/i.test(userAgent)) {
+    os = "Linux";
+  } else if (/android/i.test(userAgent)) {
+    os = "Android";
+  } else if (/iphone|ipad|ipod/i.test(userAgent)) {
+    os = "iOS";
+  }
+
+  return { device, browser, os };
+}
+
+/**
  * 认证服务
  */
 @Injectable()
@@ -19,6 +78,34 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
   ) {}
+
+  /**
+   * 记录登录历史
+   */
+  private async recordLoginHistory(
+    userId: string,
+    requestInfo?: LoginRequestInfo,
+  ): Promise<void> {
+    try {
+      const { device, browser, os } = parseUserAgent(requestInfo?.userAgent);
+
+      await this.prisma.loginHistory.create({
+        data: {
+          userId,
+          ipAddress: requestInfo?.ipAddress || null,
+          userAgent: requestInfo?.userAgent || null,
+          device,
+          browser,
+          os,
+        },
+      });
+
+      this.logger.debug(`Login history recorded for user: ${userId}`);
+    } catch (error) {
+      // 登录历史记录失败不应阻止登录
+      this.logger.warn(`Failed to record login history: ${error}`);
+    }
+  }
 
   /**
    * 用户注册
@@ -84,7 +171,7 @@ export class AuthService {
   /**
    * 用户登录
    */
-  async login(email: string, password: string) {
+  async login(email: string, password: string, requestInfo?: LoginRequestInfo) {
     // 查找用户
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -114,6 +201,9 @@ export class AuthService {
         isActive: true,
       },
     });
+
+    // 记录登录历史
+    await this.recordLoginHistory(user.id, requestInfo);
 
     this.logger.log(`User logged in: ${user.username}`);
 
@@ -186,12 +276,15 @@ export class AuthService {
   /**
    * Google OAuth - 查找或创建用户
    */
-  async findOrCreateGoogleUser(profile: {
-    id: string;
-    email: string;
-    displayName: string;
-    picture?: string;
-  }) {
+  async findOrCreateGoogleUser(
+    profile: {
+      id: string;
+      email: string;
+      displayName: string;
+      picture?: string;
+    },
+    requestInfo?: LoginRequestInfo,
+  ) {
     // 先尝试通过email查找用户
     let user = await this.prisma.user.findUnique({
       where: { email: profile.email },
@@ -255,6 +348,9 @@ export class AuthService {
         isActive: true,
       },
     });
+
+    // 记录登录历史
+    await this.recordLoginHistory(user.id, requestInfo);
 
     // 生成tokens
     if (!user.email) {
