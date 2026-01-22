@@ -50,6 +50,9 @@ export class AiSocialService {
     { sessionKey: string; platformType: SocialPlatformType }
   > = new Map();
 
+  // 防止并发验证的锁
+  private verifyingConnections: Set<string> = new Set();
+
   async initConnection(userId: string, type: string) {
     const platformType = type.toUpperCase() as SocialPlatformType;
 
@@ -106,10 +109,20 @@ export class AiSocialService {
 
   async verifyConnection(userId: string, type: string) {
     const platformType = type.toUpperCase() as SocialPlatformType;
+    const pendingKey = userId + "-" + platformType;
+
+    // 防止并发验证 - 如果已经在验证中，直接返回pending状态
+    if (this.verifyingConnections.has(pendingKey)) {
+      this.logger.debug(`Verification already in progress for ${pendingKey}`);
+      return {
+        status: "pending",
+        message: "验证中，请稍候...",
+      };
+    }
+
     this.logger.log(`Verifying connection ${platformType} for user ${userId}`);
 
     // 获取待验证的会话
-    const pendingKey = userId + "-" + platformType;
     const pending = this.pendingLoginSessions.get(pendingKey);
 
     // 调试日志：显示当前所有待验证会话
@@ -127,20 +140,47 @@ export class AiSocialService {
       };
     }
 
+    // 获取锁
+    this.verifyingConnections.add(pendingKey);
+
     try {
       // 检查登录状态
       const result = await this.playwright.checkLoginStatus(pending.sessionKey);
 
       if (result.loggedIn) {
-        // 登录成功，保存到数据库
-        const connection = await this.db.socialPlatformConnection.create({
-          data: {
+        // 验证 sessionData 有有效的 cookies
+        const hasValidCookies =
+          result.sessionData?.cookies && result.sessionData.cookies.length > 0;
+        if (!hasValidCookies) {
+          this.logger.warn(
+            `Login detected but no valid cookies in sessionData, returning pending`,
+          );
+          return {
+            status: "pending",
+            screenshot: result.screenshot,
+            message: "登录检测中，请稍候...",
+          };
+        }
+
+        // 登录成功，使用 upsert 处理已存在的连接
+        const connection = await this.db.socialPlatformConnection.upsert({
+          where: {
+            userId_platformType: {
+              userId,
+              platformType,
+            },
+          },
+          update: {
+            accountName: result.accountName || platformType,
+            sessionData: JSON.stringify(result.sessionData),
+            isActive: true,
+            lastCheckAt: new Date(),
+          },
+          create: {
             userId,
             platformType,
             accountName: result.accountName || platformType,
-            sessionData: result.sessionData
-              ? JSON.stringify(result.sessionData)
-              : null,
+            sessionData: JSON.stringify(result.sessionData),
             isActive: true,
             lastCheckAt: new Date(),
           },
@@ -173,6 +213,9 @@ export class AiSocialService {
         status: "error",
         message: `验证失败: ${errorMsg}`,
       };
+    } finally {
+      // 释放锁
+      this.verifyingConnections.delete(pendingKey);
     }
   }
 
