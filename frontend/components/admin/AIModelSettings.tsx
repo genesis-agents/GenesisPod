@@ -1595,8 +1595,8 @@ function EditModelModal({
                 value={formData.modelId}
                 onChange={(modelId) => setFormData({ ...formData, modelId })}
                 provider={formData.provider}
-                apiKey={apiKey || ''}
-                secretKey={formData.secretKey}
+                apiKey={keySourceMode === 'direct' ? apiKey : ''}
+                secretKey={keySourceMode === 'secret' ? formData.secretKey : null}
                 modelType={formData.modelType}
               />
             </div>
@@ -2272,8 +2272,8 @@ function AddModelModal({
                 value={formData.modelId}
                 onChange={(modelId) => setFormData({ ...formData, modelId })}
                 provider={formData.provider}
-                apiKey={formData.apiKey || ''}
-                secretKey={formData.secretKey}
+                apiKey={keySourceMode === 'direct' ? formData.apiKey || '' : ''}
+                secretKey={keySourceMode === 'secret' ? formData.secretKey : null}
                 modelType={formData.modelType}
               />
             </div>
