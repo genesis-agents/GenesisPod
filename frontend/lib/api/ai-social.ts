@@ -174,7 +174,7 @@ class ApiError extends Error {
 
 async function fetchWithAuth<T>(
   url: string,
-  options: RequestInit = {}
+  options: RequestInit & { timeout?: number } = {}
 ): Promise<T> {
   const tokens = getAuthTokens();
   const headers: HeadersInit = {
@@ -187,54 +187,74 @@ async function fetchWithAuth<T>(
       `Bearer ${tokens.accessToken}`;
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  // Use AbortController for timeout (default 90s for AI operations)
+  const timeout = options.timeout ?? 90000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-  if (!response.ok) {
-    let errorMessage = `HTTP ${response.status}`;
-    try {
-      const errorText = await response.text();
-      if (errorText) {
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.message || errorJson.error || errorMessage;
-        } catch {
-          // 如果不是 JSON，可能是 HTML 错误页面
-          errorMessage =
-            response.status === 502 || response.status === 503
-              ? '服务暂时不可用，请稍后重试'
-              : response.status === 504
-                ? '请求超时，请稍后重试'
-                : `服务器错误 (${response.status})`;
-        }
-      }
-    } catch {
-      errorMessage = '网络请求失败';
-    }
-    throw new ApiError(errorMessage, response.status);
-  }
-
-  const text = await response.text();
-  if (!text) {
-    return {} as T;
-  }
-
-  let data: unknown;
   try {
-    data = JSON.parse(text);
-  } catch (parseError) {
-    console.error('Failed to parse API response:', text.substring(0, 200));
-    throw new ApiError('服务器响应格式错误', response.status);
-  }
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
 
-  // Unwrap { success, data } format if present
-  if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
-    return (data as { data: T }).data;
-  }
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorText = await response.text();
+        if (errorText) {
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorMessage = errorJson.message || errorJson.error || errorMessage;
+          } catch {
+            // 如果不是 JSON，可能是 HTML 错误页面
+            errorMessage =
+              response.status === 502 || response.status === 503
+                ? '服务暂时不可用，请稍后重试'
+                : response.status === 504
+                  ? '请求超时，请稍后重试'
+                  : `服务器错误 (${response.status})`;
+          }
+        }
+      } catch {
+        errorMessage = '网络请求失败';
+      }
+      throw new ApiError(errorMessage, response.status);
+    }
 
-  return data as T;
+    const text = await response.text();
+    if (!text) {
+      return {} as T;
+    }
+
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch (parseError) {
+      console.error('Failed to parse API response:', text.substring(0, 200));
+      throw new ApiError('服务器响应格式错误', response.status);
+    }
+
+    // Unwrap { success, data } format if present
+    if (
+      data &&
+      typeof data === 'object' &&
+      'success' in data &&
+      'data' in data
+    ) {
+      return (data as { data: T }).data;
+    }
+
+    return data as T;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError('请求超时，AI 正在生成内容，请稍后重试', 408);
+    }
+    throw error;
+  }
 }
 
 // ==================== Platform Connection API ====================

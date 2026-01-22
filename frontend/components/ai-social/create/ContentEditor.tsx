@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { useSocialCreateStore } from '@/stores/socialCreateStore';
 import {
@@ -19,6 +19,11 @@ import {
   AlertCircle,
   FileText,
   Type,
+  Clock,
+  Brain,
+  FileSearch,
+  Wand2,
+  CheckCircle2,
 } from 'lucide-react';
 
 export function ContentEditor() {
@@ -54,6 +59,42 @@ export function ContentEditor() {
   const [newTag, setNewTag] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [progressStep, setProgressStep] = useState(0);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Progress messages for friendly UI
+  const progressMessages = [
+    {
+      icon: FileSearch,
+      text: '正在获取源内容...',
+      textEn: 'Fetching source content...',
+    },
+    {
+      icon: Brain,
+      text: '正在分析内容结构...',
+      textEn: 'Analyzing content structure...',
+    },
+    {
+      icon: Wand2,
+      text: 'AI 正在创作优质内容...',
+      textEn: 'AI is crafting quality content...',
+    },
+    {
+      icon: Sparkles,
+      text: '正在优化排版格式...',
+      textEn: 'Optimizing layout and formatting...',
+    },
+  ];
+
+  // Tips to show during generation
+  const tips = [
+    'AI 会根据平台特点自动调整内容风格',
+    '公众号文章会自动生成精美的 HTML 排版',
+    'YouTube 视频会自动获取字幕并翻译',
+    '生成完成后您可以自由编辑内容',
+  ];
 
   // Platform specific config
   const platformConfig: Record<
@@ -86,12 +127,52 @@ export function ContentEditor() {
     ? platformConfig[platform]
     : platformConfig.WECHAT_ARTICLE;
 
+  // Start progress animation
+  const startProgressAnimation = () => {
+    setProgressStep(0);
+    setElapsedTime(0);
+
+    // Elapsed time counter
+    timerRef.current = setInterval(() => {
+      setElapsedTime((prev) => prev + 1);
+    }, 1000);
+
+    // Progress step animation (slower to match AI generation time)
+    progressTimerRef.current = setInterval(() => {
+      setProgressStep((prev) => {
+        // Stay on the last step (AI generating) until complete
+        if (prev >= progressMessages.length - 1) return prev;
+        return prev + 1;
+      });
+    }, 8000); // Change step every 8 seconds
+  };
+
+  // Stop progress animation
+  const stopProgressAnimation = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (progressTimerRef.current) {
+      clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
+    }
+  };
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      stopProgressAnimation();
+    };
+  }, []);
+
   // Generate content from source
   const handleGenerate = async () => {
     if (!platform) return;
 
     setIsProcessing(true);
     setError(null);
+    startProgressAnimation();
 
     try {
       let result;
@@ -111,6 +192,7 @@ export function ContentEditor() {
         // Manual mode - just continue with empty content
         setHasGenerated(true);
         setIsProcessing(false);
+        stopProgressAnimation();
         return;
       }
 
@@ -133,6 +215,7 @@ export function ContentEditor() {
       );
     } finally {
       setIsProcessing(false);
+      stopProgressAnimation();
     }
   };
 
@@ -167,23 +250,82 @@ export function ContentEditor() {
     }
   };
 
-  // Loading state - generating content
+  // Format elapsed time as mm:ss
+  const formatElapsedTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Loading state - generating content with friendly progress
   if (isProcessing || aiLoading) {
+    const currentMessage = progressMessages[progressStep];
+    const CurrentIcon = currentMessage.icon;
+    const currentTip = tips[Math.floor(elapsedTime / 10) % tips.length];
+
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <div
-          className={`mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br ${config.gradient}`}
-        >
-          <Sparkles className="h-10 w-10 animate-pulse text-white" />
+      <div className="flex flex-col items-center justify-center py-12">
+        {/* Main icon with animated ring */}
+        <div className="relative mb-8">
+          <div
+            className={`flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br ${config.gradient} shadow-lg`}
+          >
+            <CurrentIcon className="h-12 w-12 text-white" />
+          </div>
+          {/* Animated pulse ring */}
+          <div
+            className={`absolute -inset-2 animate-ping rounded-2xl bg-gradient-to-br ${config.gradient} opacity-20`}
+            style={{ animationDuration: '2s' }}
+          />
         </div>
-        <h3 className="mb-2 text-lg font-semibold text-gray-900">
-          {t('aiSocial.create.generating') || 'Generating Content'}
+
+        {/* Progress title */}
+        <h3 className="mb-2 text-xl font-semibold text-gray-900">
+          AI 内容生成中
         </h3>
-        <p className="text-sm text-gray-500">
-          {t('aiSocial.create.generatingDesc') ||
-            'AI is transforming your content...'}
-        </p>
-        <Loader2 className="mt-6 h-8 w-8 animate-spin text-rose-500" />
+
+        {/* Current step message */}
+        <p className="mb-6 text-base text-gray-600">{currentMessage.text}</p>
+
+        {/* Progress steps */}
+        <div className="mb-8 flex items-center gap-2">
+          {progressMessages.map((msg, index) => (
+            <div
+              key={index}
+              className={`flex h-2 w-8 rounded-full transition-all duration-500 ${
+                index <= progressStep
+                  ? `bg-gradient-to-r ${config.gradient}`
+                  : 'bg-gray-200'
+              }`}
+            />
+          ))}
+        </div>
+
+        {/* Time elapsed */}
+        <div className="mb-6 flex items-center gap-2 text-sm text-gray-500">
+          <Clock className="h-4 w-4" />
+          <span>已用时 {formatElapsedTime(elapsedTime)}</span>
+          <span className="text-gray-300">|</span>
+          <span>预计需要 30-60 秒</span>
+        </div>
+
+        {/* Loading spinner */}
+        <Loader2 className="mb-8 h-6 w-6 animate-spin text-rose-500" />
+
+        {/* Tip box */}
+        <div className="max-w-md rounded-xl bg-gray-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-amber-100">
+              <Sparkles className="h-4 w-4 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                小提示
+              </p>
+              <p className="mt-1 text-sm text-gray-700">{currentTip}</p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
