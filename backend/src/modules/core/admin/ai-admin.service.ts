@@ -284,7 +284,14 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
         where: { enabled: true, autoConnect: true },
       });
 
+      this.logger.log(
+        `[MCP Auto-Connect] Found ${mcpServers.length} servers to auto-connect: ${mcpServers.map((s) => s.serverId).join(", ") || "none"}`,
+      );
+
       for (const server of mcpServers) {
+        this.logger.log(
+          `[MCP Auto-Connect] Attempting to connect: ${server.serverId} (transport: ${server.transport})`,
+        );
         try {
           // M2 Fix: 从 SecretsService 解析 API 密钥
           const env = await this.resolveMCPServerEnv(server);
@@ -311,16 +318,33 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
 
           // 自动连接
           await this.mcpManager.connect(server.serverId);
-          this.logger.log(`Auto-connected MCP server: ${server.serverId}`);
-        } catch (error: unknown) {
-          this.logger.warn(
-            `Failed to auto-connect MCP server ${server.serverId}: ${getErrorMessage(error)}`,
+          this.logger.log(
+            `[MCP Auto-Connect] ✓ Successfully connected: ${server.serverId}`,
           );
+
+          // 记录连接成功状态
+          await this.updateMCPServerConnectionStatus(server.serverId, {
+            connected: true,
+            lastConnectedAt: new Date().toISOString(),
+            lastError: null,
+          });
+        } catch (error: unknown) {
+          const errorMsg = getErrorMessage(error);
+          this.logger.error(
+            `[MCP Auto-Connect] ✗ Failed to connect ${server.serverId}: ${errorMsg}`,
+          );
+
+          // 记录连接失败状态
+          await this.updateMCPServerConnectionStatus(server.serverId, {
+            connected: false,
+            lastError: errorMsg,
+            lastErrorAt: new Date().toISOString(),
+          });
         }
       }
 
       this.logger.log(
-        `Initialized AI capabilities: ${mcpServers.length} MCP servers loaded`,
+        `[MCP] Initialization complete: ${mcpServers.length} servers processed`,
       );
     } catch (error: unknown) {
       this.logger.error(
