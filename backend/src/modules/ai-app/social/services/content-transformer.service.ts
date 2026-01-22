@@ -5,6 +5,12 @@ import { SocialContentType, AIModelType } from "@prisma/client";
 export interface TransformInput {
   sourceContent: string;
   sourceTitle?: string;
+  /** 原文内容（英文或原始语言） */
+  originalContent?: string;
+  /** 翻译内容（中文） */
+  translatedContent?: string;
+  /** 是否为双语内容 */
+  isBilingual?: boolean;
   targetType: SocialContentType;
   additionalInstructions?: string;
 }
@@ -23,7 +29,9 @@ export class ContentTransformerService {
   constructor(private readonly aiChat: AiChatService) {}
 
   async transform(input: TransformInput): Promise<TransformOutput> {
-    this.logger.log(`Transforming content to ${input.targetType}`);
+    this.logger.log(
+      `Transforming content to ${input.targetType}, isBilingual=${input.isBilingual}`,
+    );
 
     const prompt = this.buildPrompt(input);
 
@@ -31,7 +39,7 @@ export class ContentTransformerService {
       messages: [
         {
           role: "system",
-          content: this.getSystemPrompt(input.targetType),
+          content: this.getSystemPrompt(input.targetType, input.isBilingual),
         },
         {
           role: "user",
@@ -64,7 +72,61 @@ export class ContentTransformerService {
     return this.parseResponse(response.content, input.sourceTitle);
   }
 
-  private getSystemPrompt(targetType: SocialContentType): string {
+  private getSystemPrompt(
+    targetType: SocialContentType,
+    isBilingual?: boolean,
+  ): string {
+    // 双语输出的通用样式说明
+    const bilingualStyleGuide = isBilingual
+      ? `
+
+## 【重要】双语输出格式要求：
+
+由于原始内容包含英文原文，请在文章中采用 **中英双语对照** 格式：先是一段中文，紧接着对应的一段英文。
+
+### 双语段落格式（必须严格遵循）：
+
+每个段落按以下格式输出，先中文后英文：
+
+<div style="margin: 1.5em 0; padding: 20px; background: #fafbfc; border-radius: 10px; border: 1px solid #e8eaed;">
+  <p style="margin: 0 0 15px 0; line-height: 1.9; font-size: 16px; color: #1a1a1a;">
+    这里是中文内容，一段完整的中文表达。
+  </p>
+  <p style="margin: 0; line-height: 1.8; font-size: 15px; color: #5f6368; font-style: italic; padding-top: 12px; border-top: 1px dashed #dadce0;">
+    This is the English content, a complete English expression.
+  </p>
+</div>
+
+### 双语小标题格式：
+
+<h3 style="margin: 2em 0 1em; font-size: 18px; font-weight: bold; color: #1a1a1a; border-bottom: 2px solid #4285f4; padding-bottom: 8px;">
+  中文标题
+  <br><span style="font-size: 14px; color: #5f6368; font-weight: normal; font-style: italic;">English Title</span>
+</h3>
+
+### 双语要点格式：
+
+<div style="margin: 1.2em 0; padding: 15px 18px; background: linear-gradient(135deg, #e8f0fe 0%, #f8f9fa 100%); border-radius: 8px; border-left: 4px solid #4285f4;">
+  <p style="margin: 0 0 10px 0; font-size: 16px; color: #1a1a1a;"><strong>📌 中文要点内容</strong></p>
+  <p style="margin: 0; font-size: 14px; color: #5f6368; font-style: italic;">📌 Key point in English</p>
+</div>
+
+### 双语引用格式：
+
+<blockquote style="margin: 1.5em 0; padding: 18px 22px; background: #f8f9fa; border-left: 4px solid #fbbc04; border-radius: 0 8px 8px 0;">
+  <p style="margin: 0 0 12px 0; font-size: 16px; color: #1a1a1a; line-height: 1.8;">"中文引用内容"</p>
+  <p style="margin: 0; font-size: 14px; color: #5f6368; font-style: italic; line-height: 1.7;">"English quote content"</p>
+</blockquote>
+
+### 格式要求：
+1. **先中文后英文**：每个段落、要点、引用都是先写中文，紧接着写英文
+2. 中文字号 16px，英文字号 14-15px，英文用斜体和灰色区分
+3. 使用虚线或实线分隔中英文部分
+4. 关键术语在中文中用括号标注英文，如：人工智能（Artificial Intelligence）
+5. 整体布局美观专业，使用圆角卡片和微妙的背景色
+`
+      : "";
+
     switch (targetType) {
       case SocialContentType.WECHAT_ARTICLE:
         return `你是一位专业的微信公众号文章编辑。你的任务是将提供的内容转换为适合微信公众号的文章格式。
@@ -83,7 +145,7 @@ export class ContentTransformerService {
 
 ### 3. 结尾部分
 - 简洁的结束语（如 "--end--"）
-
+${bilingualStyleGuide}
 ## HTML 样式规范（必须使用内联样式）：
 
 - 段落: <p style="margin: 1em 0; line-height: 2; font-size: 16px; color: #333;">内容</p>
@@ -121,7 +183,7 @@ export class ContentTransformerService {
 5. 包含实用的干货或观点
 6. 结尾可以引导互动（如提问）
 7. 生成5-8个相关话题标签（带#号）
-
+${isBilingual ? "\n8. 如果原文是英文，关键术语保留中英对照，如：人工智能 AI\n" : ""}
 请以JSON格式返回，包含以下字段：
 - title: 笔记标题
 - content: 正文内容
@@ -137,9 +199,33 @@ export class ContentTransformerService {
     let prompt = `请将以下内容转换为目标平台格式：
 
 原始标题：${input.sourceTitle || "无"}
+`;
 
+    // 如果有双语内容，分别提供原文和翻译
+    if (input.isBilingual && input.originalContent && input.translatedContent) {
+      prompt += `
+【重要提示】此内容为双语素材，请按照双语格式要求输出中英对照内容。
+
+=== 英文原文 (English Original) ===
+${input.originalContent}
+
+=== 中文翻译 (Chinese Translation) ===
+${input.translatedContent}
+`;
+    } else if (input.originalContent && !input.translatedContent) {
+      // 只有原文，没有翻译
+      prompt += `
+【提示】以下为英文原文，请在输出时保留关键术语的英文原文。
+
+原始内容（英文）：
+${input.originalContent}
+`;
+    } else {
+      // 普通内容
+      prompt += `
 原始内容：
 ${input.sourceContent}`;
+    }
 
     if (input.additionalInstructions) {
       prompt += `\n\n额外要求：${input.additionalInstructions}`;

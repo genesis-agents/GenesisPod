@@ -175,8 +175,18 @@ export class YoutubeService {
       }
     }
 
-    // 1c. Try youtubei.js (free, but often blocked on cloud)
-    if (transcriptSegments.length === 0 && !lang.startsWith("zh")) {
+    // 1c. Try youtubei.js (free, but often blocked on cloud and has frequent parsing errors)
+    // Skip in production/cloud environments due to IP blocking and API format changes
+    const isCloudEnvironment =
+      process.env.NODE_ENV === "production" ||
+      process.env.RAILWAY_ENVIRONMENT ||
+      process.env.VERCEL;
+
+    if (
+      transcriptSegments.length === 0 &&
+      !lang.startsWith("zh") &&
+      !isCloudEnvironment
+    ) {
       this.logger.debug(`Trying youtubei.js for ${videoId}`);
       try {
         await this.ensureClient();
@@ -202,8 +212,16 @@ export class YoutubeService {
           }
         }
       } catch (error) {
-        this.logger.debug(`youtubei.js failed for ${videoId}: ${error}`);
+        // youtubei.js has frequent parsing errors due to YouTube API changes
+        // Log at debug level to reduce noise
+        this.logger.debug(
+          `youtubei.js failed for ${videoId} (this is normal in cloud environments): ${error}`,
+        );
       }
+    } else if (isCloudEnvironment && transcriptSegments.length === 0) {
+      this.logger.debug(
+        `Skipping youtubei.js for ${videoId} (cloud environment detected)`,
+      );
     }
 
     // 1d. Try external fallback API (free)

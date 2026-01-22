@@ -189,10 +189,13 @@ export class SocialLeaderService {
     // 1. 获取URL内容
     const fetchedContent = await this.contentFetcher.fetchFromUrl(dto.url);
 
-    // 2. AI 转换为目标平台格式
+    // 2. AI 转换为目标平台格式（支持双语）
     const transformedContent = await this.contentTransformer.transform({
       sourceContent: fetchedContent.content,
       sourceTitle: fetchedContent.title,
+      originalContent: fetchedContent.originalContent,
+      translatedContent: fetchedContent.translatedContent,
+      isBilingual: fetchedContent.isBilingual,
       targetType: dto.targetType,
       additionalInstructions: dto.additionalInstructions,
     });
@@ -342,10 +345,13 @@ export class SocialLeaderService {
       userId,
     );
 
-    // 2. AI 转换为目标平台格式
+    // 2. AI 转换为目标平台格式（支持双语）
     const transformedContent = await this.contentTransformer.transform({
       sourceContent: sourceContent.content,
       sourceTitle: sourceContent.title,
+      originalContent: sourceContent.originalContent,
+      translatedContent: sourceContent.translatedContent,
+      isBilingual: sourceContent.isBilingual,
       targetType: dto.targetType,
       additionalInstructions: dto.additionalInstructions,
     });
