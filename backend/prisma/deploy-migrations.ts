@@ -251,6 +251,8 @@ async function deploy(): Promise<void> {
       { type: "ResearchMessageType", value: "DIMENSION_PROGRESS" },
       { type: "ResearchMessageType", value: "DIMENSION_COMPLETED" },
       { type: "SecretCategory", value: "POLICY" },
+      { type: "SecretCategory", value: "DEV_TOOLS" },
+      { type: "SecretCategory", value: "MCP" },
     ];
 
     for (const { type, value } of enumValues) {

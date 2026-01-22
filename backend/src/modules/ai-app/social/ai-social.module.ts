@@ -12,9 +12,10 @@ import { WechatAdapter } from "./adapters/wechat.adapter";
 import { XiaohongshuAdapter } from "./adapters/xiaohongshu.adapter";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
+import { ExploreModule } from "../../content/explore/explore.module";
 
 @Module({
-  imports: [PrismaModule, AiEngineModule],
+  imports: [PrismaModule, AiEngineModule, ExploreModule],
   controllers: [AiSocialController],
   providers: [
     AiSocialService,

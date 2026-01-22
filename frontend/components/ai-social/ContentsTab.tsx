@@ -342,9 +342,14 @@ export default function ContentsTab() {
                   <td className="whitespace-nowrap px-6 py-4">
                     <div className="flex items-center gap-3">
                       <FileText className="h-5 w-5 text-gray-400" />
-                      <span className="font-medium text-gray-900">
+                      <button
+                        onClick={() =>
+                          router.push(`/ai-social/edit/${content.id}`)
+                        }
+                        className="font-medium text-gray-900 hover:text-rose-600 hover:underline"
+                      >
                         {content.title}
-                      </span>
+                      </button>
                     </div>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
@@ -363,12 +368,17 @@ export default function ContentsTab() {
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
                     <div className="flex items-center justify-end gap-2">
-                      {content.status === 'DRAFT' && (
+                      {(content.status === 'DRAFT' ||
+                        content.status === 'FAILED') && (
                         <button
                           onClick={() => handlePublish(content)}
                           disabled={publishingId === content.id}
                           className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-rose-600 disabled:opacity-50"
-                          title={t('aiSocial.contents.publish')}
+                          title={
+                            content.status === 'FAILED'
+                              ? t('aiSocial.contents.retry')
+                              : t('aiSocial.contents.publish')
+                          }
                         >
                           {publishingId === content.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />

@@ -1492,6 +1492,82 @@ export class AdminController {
   }
 
   /**
+   * 安装 SkillsMP 技能
+   * POST /api/v1/admin/skillsmp/skills/:skillId/install
+   */
+  @Post("skillsmp/skills/:skillId/install")
+  async installSkillFromMarketplace(@Param("skillId") skillId: string) {
+    this.logger.log(`Installing skill from marketplace: ${skillId}`);
+
+    try {
+      // 1. 从已同步的 skills 中查找
+      const syncedSkills =
+        (await this.adminService.getSetting("skillsmp.syncedSkills")) ?? [];
+      const presetSkills = this.getPresetMarketplaceSkills();
+      const allSkills = [...syncedSkills, ...presetSkills];
+
+      const skill = allSkills.find(
+        (s: { id: string; name: string }) =>
+          s.id === skillId || s.name === skillId,
+      );
+
+      if (!skill) {
+        return {
+          success: false,
+          message: `Skill not found: ${skillId}`,
+        };
+      }
+
+      // 2. 在数据库中创建技能配置
+      const { PrismaClient } = await import("@prisma/client");
+      const prisma = new PrismaClient();
+
+      try {
+        await prisma.skillConfig.upsert({
+          where: { skillId: skill.id },
+          create: {
+            skillId: skill.id,
+            displayName: skill.displayName || skill.name,
+            description: skill.description,
+            layer: skill.layer || "application",
+            domain: skill.domain || "common",
+            enabled: true,
+            tags: skill.tags || [],
+            config: {},
+          },
+          update: {
+            displayName: skill.displayName || skill.name,
+            description: skill.description,
+            layer: skill.layer || "application",
+            domain: skill.domain || "common",
+            enabled: true,
+            tags: skill.tags || [],
+          },
+        });
+      } finally {
+        await prisma.$disconnect();
+      }
+
+      this.logger.log(`Successfully installed skill: ${skillId}`);
+      return {
+        success: true,
+        message: `Successfully installed skill: ${skill.displayName || skill.name}`,
+        skill: {
+          id: skill.id,
+          name: skill.name,
+          displayName: skill.displayName,
+        },
+      };
+    } catch (error: any) {
+      this.logger.error(`Failed to install skill ${skillId}: ${error.message}`);
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  /**
    * 获取预置的市场技能列表
    * 这些是示例技能，用于展示 Skills Marketplace 的功能
    */

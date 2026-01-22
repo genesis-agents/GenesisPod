@@ -1,6 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SocialContentSourceType } from "@prisma/client";
+import { WebContentExtractionService } from "../../../../common/content-processing/web-content-extraction.service";
+import { YoutubeService } from "../../../content/explore/youtube.service";
 
 export interface FetchedContent {
   title: string;
@@ -46,35 +48,43 @@ function sanitizeJson(data: unknown): unknown {
 export class ContentFetcherService {
   private readonly logger = new Logger(ContentFetcherService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly webExtractor: WebContentExtractionService,
+    private readonly youtubeService: YoutubeService,
+  ) {}
 
   /**
    * 从外部URL获取内容
+   * 支持：YouTube 视频（自动获取字幕）、普通网页（Jina/Firecrawl）
    */
   async fetchFromUrl(url: string): Promise<FetchedContent> {
     this.logger.log(`Fetching content from URL: ${url}`);
 
     try {
-      // TODO: 实现真实的URL内容抓取
-      // 可以使用 playwright 或 cheerio 等工具
-      // 目前返回占位数据
+      // 检测是否是 YouTube 视频
+      const youtubeVideoId = this.extractYoutubeVideoId(url);
+      if (youtubeVideoId) {
+        return this.fetchFromYoutubeUrl(youtubeVideoId, url);
+      }
 
-      const response = await fetch(url);
-      const html = await response.text();
+      // 使用 WebContentExtractionService 提取普通网页内容
+      const extracted = await this.webExtractor.extractContent(url);
 
-      // 简单的标题提取（实际应使用更复杂的解析逻辑）
-      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-      const title = titleMatch ? titleMatch[1].trim() : "Untitled";
+      if (extracted.error || !extracted.content) {
+        throw new Error(extracted.error || "无法提取内容");
+      }
 
-      // TODO: 使用 AI 提取正文内容
-      const content = `从 ${url} 提取的内容（待实现）`;
-
-      // Sanitize external content to prevent PostgreSQL protocol errors
       return {
-        title: sanitizeForDb(title),
-        content: sanitizeForDb(content),
+        title: sanitizeForDb(extracted.title || "Untitled"),
+        content: sanitizeForDb(extracted.content),
+        coverImage: extracted.image,
         url,
         metadata: {
+          source: extracted.source,
+          siteName: extracted.siteName,
+          author: extracted.author,
+          publishedDate: extracted.publishedDate,
           fetchedAt: new Date().toISOString(),
         },
       };
@@ -83,6 +93,64 @@ export class ContentFetcherService {
       this.logger.error(`Failed to fetch URL: ${url}`, err);
       throw new Error(`无法获取URL内容: ${err.message}`);
     }
+  }
+
+  /**
+   * 从 YouTube 视频获取字幕内容
+   */
+  private async fetchFromYoutubeUrl(
+    videoId: string,
+    url: string,
+  ): Promise<FetchedContent> {
+    this.logger.log(`Fetching YouTube transcript for video: ${videoId}`);
+
+    try {
+      const transcript = await this.youtubeService.getTranscript(videoId);
+
+      if (!transcript || !transcript.transcript?.length) {
+        throw new Error("无法获取视频字幕");
+      }
+
+      // 合并字幕文本
+      const content = transcript.transcript
+        .map((seg) => seg.translatedText || seg.text)
+        .join(" ");
+
+      return {
+        title: sanitizeForDb(transcript.title || "YouTube Video"),
+        content: sanitizeForDb(content),
+        url,
+        metadata: {
+          videoId,
+          source: "youtube",
+          hasTranslation: transcript.hasTranslation,
+          targetLanguage: transcript.targetLanguage,
+          fetchedAt: new Date().toISOString(),
+        },
+      };
+    } catch (error) {
+      const err = error as Error;
+      this.logger.error(`Failed to fetch YouTube transcript: ${videoId}`, err);
+      throw new Error(`无法获取YouTube字幕: ${err.message}`);
+    }
+  }
+
+  /**
+   * 提取 YouTube 视频 ID
+   */
+  private extractYoutubeVideoId(url: string): string | null {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) {
+        return match[1];
+      }
+    }
+    return null;
   }
 
   /**
@@ -124,11 +192,78 @@ export class ContentFetcherService {
       throw new Error("资源不存在");
     }
 
-    // Sanitize all string fields to prevent PostgreSQL protocol errors
+    // Use the best available content: content > aiSummary > abstract
     // Resource data comes from crawlers and may contain control characters
+    let bestContent =
+      resource.content || resource.aiSummary || resource.abstract || "";
+
+    // 如果是 YouTube 视频且内容不足，尝试获取字幕
+    if (
+      resource.type === "YOUTUBE_VIDEO" &&
+      (!bestContent || bestContent.trim().length < 100)
+    ) {
+      this.logger.log(
+        `YouTube resource ${resourceId} has insufficient content, fetching transcript...`,
+      );
+      const videoId = this.extractYoutubeVideoId(resource.sourceUrl);
+      if (videoId) {
+        try {
+          const transcript = await this.youtubeService.getTranscript(videoId);
+          if (transcript?.transcript?.length) {
+            bestContent = transcript.transcript
+              .map((seg) => seg.translatedText || seg.text)
+              .join(" ");
+            this.logger.log(
+              `Fetched YouTube transcript: ${bestContent.length} chars`,
+            );
+          }
+        } catch (err) {
+          this.logger.warn(`Failed to fetch YouTube transcript: ${err}`);
+        }
+      }
+    }
+
+    // 如果是普通网页且内容不足，尝试从 URL 获取
+    if (
+      !bestContent ||
+      (bestContent.trim().length < 100 &&
+        resource.type !== "YOUTUBE_VIDEO" &&
+        resource.sourceUrl)
+    ) {
+      this.logger.log(
+        `Resource ${resourceId} has insufficient content, fetching from URL...`,
+      );
+      try {
+        const extracted = await this.webExtractor.extractContent(
+          resource.sourceUrl,
+        );
+        if (
+          extracted.content &&
+          extracted.content.length > bestContent.length
+        ) {
+          bestContent = extracted.content;
+          this.logger.log(
+            `Fetched content from URL: ${bestContent.length} chars`,
+          );
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to fetch content from URL: ${err}`);
+      }
+    }
+
+    if (!bestContent || bestContent.trim().length < 10) {
+      this.logger.warn(
+        `Resource ${resourceId} has insufficient content: length=${bestContent?.length || 0}`,
+      );
+      throw new Error(
+        "该资源内容不足，无法生成社交媒体内容。请选择内容更丰富的资源。",
+      );
+    }
+
+    // Sanitize all string fields to prevent PostgreSQL protocol errors
     return {
       title: sanitizeForDb(resource.title),
-      content: sanitizeForDb(resource.abstract) || "",
+      content: sanitizeForDb(bestContent),
       coverImage: resource.thumbnailUrl || undefined,
       url: resource.sourceUrl || undefined,
       metadata: sanitizeJson({
