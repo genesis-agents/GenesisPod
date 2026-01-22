@@ -51,8 +51,52 @@ export class PublishExecutorService {
       return { success: false, errorMessage: "内容不存在" };
     }
 
-    if (!content.connection) {
-      return { success: false, errorMessage: "未关联发布账号" };
+    // 获取要使用的连接
+    let connection = content.connection;
+
+    // 如果没有关联连接，或者连接的会话数据无效，尝试找用户的活跃连接
+    const needsFallback =
+      !connection ||
+      !connection.sessionData ||
+      !this.hasValidSession(connection);
+
+    if (needsFallback) {
+      this.logger.warn(
+        `Content ${contentId} has invalid connection, looking for active connection...`,
+      );
+
+      // 根据内容类型确定平台
+      const platformType =
+        content.contentType === "WECHAT_ARTICLE"
+          ? SocialPlatformType.WECHAT_MP
+          : SocialPlatformType.XIAOHONGSHU;
+
+      // 查找用户的活跃连接
+      const activeConnection = await this.db.socialPlatformConnection.findFirst(
+        {
+          where: {
+            userId: content.userId,
+            platformType,
+            isActive: true,
+          },
+          orderBy: { lastCheckAt: "desc" },
+        },
+      );
+
+      if (activeConnection && this.hasValidSession(activeConnection)) {
+        this.logger.log(
+          `Found active connection ${activeConnection.id} with valid session`,
+        );
+        connection = activeConnection;
+
+        // 更新内容的连接关联
+        await this.db.socialContent.update({
+          where: { id: contentId },
+          data: { connectionId: activeConnection.id },
+        });
+      } else if (!connection) {
+        return { success: false, errorMessage: "未关联发布账号" };
+      }
     }
 
     try {
@@ -64,23 +108,23 @@ export class PublishExecutorService {
 
       let result: PublishResult;
 
-      switch (content.connection.platformType) {
+      switch (connection.platformType) {
         case SocialPlatformType.WECHAT_MP:
           result = await this.wechatAdapter.publish(
             content as SocialContent,
-            content.connection as SocialPlatformConnection,
+            connection as SocialPlatformConnection,
           );
           break;
         case SocialPlatformType.XIAOHONGSHU:
           result = await this.xiaohongshuAdapter.publish(
             content as SocialContent,
-            content.connection as SocialPlatformConnection,
+            connection as SocialPlatformConnection,
           );
           break;
         default:
           result = {
             success: false,
-            errorMessage: `不支持的平台类型: ${content.connection.platformType}`,
+            errorMessage: `不支持的平台类型: ${connection.platformType}`,
           };
       }
 
@@ -137,5 +181,21 @@ export class PublishExecutorService {
 
       return { success: false, errorMessage: err.message };
     }
+  }
+
+  /**
+   * 检查连接是否有有效的会话数据
+   */
+  private hasValidSession(connection: any): boolean {
+    if (!connection?.sessionData) {
+      return false;
+    }
+
+    const sessionData =
+      typeof connection.sessionData === "string"
+        ? JSON.parse(connection.sessionData)
+        : connection.sessionData;
+
+    return sessionData?.cookies?.length > 0;
   }
 }
