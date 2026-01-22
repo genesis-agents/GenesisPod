@@ -246,12 +246,29 @@ export class AiSocialController {
     @Request() req: AuthenticatedRequest,
     @Body() dto: ProcessSourceDto,
   ) {
+    // Log at entry point to verify request reaches backend
+    this.logger.log(
+      `[process-source] Request received: sourceType=${dto.sourceType}, ` +
+        `sourceId=${dto.sourceId}, targetType=${dto.targetType}`,
+    );
+    const startTime = Date.now();
+
     try {
-      return await this.socialLeaderService.processSource(req.user.id, dto);
+      const result = await this.socialLeaderService.processSource(
+        req.user.id,
+        dto,
+      );
+      this.logger.log(
+        `[process-source] Success in ${Date.now() - startTime}ms`,
+      );
+      return result;
     } catch (error) {
+      const elapsed = Date.now() - startTime;
       const message =
         error instanceof Error ? error.message : "内容处理失败，请重试";
-      this.logger.error(`processSource failed: ${message}`);
+      this.logger.error(
+        `[process-source] Failed after ${elapsed}ms: ${message}`,
+      );
       throw new HttpException(message, HttpStatus.BAD_REQUEST);
     }
   }

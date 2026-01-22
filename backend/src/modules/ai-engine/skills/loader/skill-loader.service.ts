@@ -5,7 +5,12 @@
  * 支持本地 Skills 和远程 SkillsMP Skills
  */
 
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from "@nestjs/common";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { glob } from "glob";
@@ -16,6 +21,7 @@ import {
 } from "../types/skill-md.types";
 import { parseSkillMd, estimateTokens } from "./skill-parser";
 import { SkillCacheService } from "./skill-cache.service";
+import { SkillsMPClientService } from "../ecosystem/skillsmp-client.service";
 
 /**
  * Skill 目录配置
@@ -30,7 +36,7 @@ interface SkillDirectoryConfig {
 }
 
 @Injectable()
-export class SkillLoaderService implements OnModuleInit {
+export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SkillLoaderService.name);
 
   /** 已加载的本地 Skills（内存缓存） */
@@ -42,7 +48,16 @@ export class SkillLoaderService implements OnModuleInit {
   /** 基础 Skills 目录 */
   private readonly baseSkillsDir: string;
 
-  constructor(private readonly cacheService: SkillCacheService) {
+  /** SkillsMP 自动更新定时器 */
+  private updateCheckInterval: NodeJS.Timeout | null = null;
+
+  /** 更新检查间隔（毫秒）- 6小时 */
+  private readonly UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+  constructor(
+    private readonly cacheService: SkillCacheService,
+    private readonly skillsMPClient: SkillsMPClientService,
+  ) {
     // 基于当前模块位置计算 Skills 目录
     this.baseSkillsDir = path.resolve(__dirname, "../../ai-app");
 
@@ -72,6 +87,156 @@ export class SkillLoaderService implements OnModuleInit {
 
     // 2. 预热已安装的 Marketplace Skills（从磁盘加载到内存）
     await this.warmupInstalledSkills();
+
+    // 3. 启动 SkillsMP 自动更新检查
+    this.startUpdateChecker();
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    // 清理更新检查定时器
+    if (this.updateCheckInterval) {
+      clearInterval(this.updateCheckInterval);
+      this.updateCheckInterval = null;
+      this.logger.log("[Skills] Stopped SkillsMP update checker");
+    }
+  }
+
+  /**
+   * 启动 SkillsMP 自动更新检查
+   */
+  private startUpdateChecker(): void {
+    // 启动时立即检查一次（延迟30秒，等待系统完全启动）
+    setTimeout(() => {
+      this.checkAndUpdateSkills().catch((err) => {
+        this.logger.warn(
+          `[Skills] Initial update check failed: ${err.message}`,
+        );
+      });
+    }, 30000);
+
+    // 定期检查更新
+    this.updateCheckInterval = setInterval(async () => {
+      await this.checkAndUpdateSkills().catch((err) => {
+        this.logger.warn(
+          `[Skills] Periodic update check failed: ${err.message}`,
+        );
+      });
+    }, this.UPDATE_CHECK_INTERVAL_MS);
+
+    this.logger.log(
+      `[Skills] 🔄 Started SkillsMP auto-update checker (interval: ${this.UPDATE_CHECK_INTERVAL_MS / 1000 / 60 / 60}h)`,
+    );
+  }
+
+  /**
+   * 检查并更新已安装的 SkillsMP Skills
+   */
+  private async checkAndUpdateSkills(): Promise<void> {
+    // 检查 SkillsMP 客户端是否启用
+    if (!this.skillsMPClient.isEnabled()) {
+      this.logger.debug(
+        "[Skills] SkillsMP client disabled, skipping update check",
+      );
+      return;
+    }
+
+    // 获取已安装的 Skills（从缓存服务获取）
+    const installedSkills = this.getInstalledMarketplaceSkills();
+    if (installedSkills.length === 0) {
+      this.logger.debug("[Skills] No installed Marketplace skills to check");
+      return;
+    }
+
+    this.logger.log(
+      `[Skills] 🔍 Checking updates for ${installedSkills.length} installed skills...`,
+    );
+
+    try {
+      // 调用 SkillsMP API 检查更新
+      const updates = await this.skillsMPClient.checkUpdates(installedSkills);
+
+      if (updates.length === 0) {
+        this.logger.log("[Skills] ✅ All installed skills are up to date");
+        return;
+      }
+
+      this.logger.log(
+        `[Skills] 📦 Found ${updates.length} skill updates available`,
+      );
+
+      // 自动更新每个有更新的 Skill
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const update of updates) {
+        try {
+          this.logger.log(
+            `[Skills]   └─ Updating ${update.skillId}: ${update.currentVersion} → ${update.latestVersion}`,
+          );
+
+          const success = await this.skillsMPClient.installSkill(
+            update.skillId,
+          );
+          if (success) {
+            successCount++;
+            this.logger.log(`[Skills]   ✅ Updated ${update.skillId}`);
+          } else {
+            failCount++;
+            this.logger.warn(
+              `[Skills]   ❌ Failed to update ${update.skillId}`,
+            );
+          }
+        } catch (err) {
+          failCount++;
+          this.logger.warn(
+            `[Skills]   ❌ Error updating ${update.skillId}: ${(err as Error).message}`,
+          );
+        }
+      }
+
+      this.logger.log(
+        `[Skills] 📊 Update complete: ${successCount} succeeded, ${failCount} failed`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[Skills] Failed to check updates: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  /**
+   * 获取已安装的 Marketplace Skills 列表（ID + 版本）
+   */
+  private getInstalledMarketplaceSkills(): Array<{
+    id: string;
+    version: string;
+  }> {
+    const installed: Array<{ id: string; version: string }> = [];
+
+    // 从缓存中获取所有已缓存的 Skills（这些是从 SkillsMP 安装的）
+    const stats = this.cacheService.getStats();
+    if (stats.size === 0) {
+      return installed;
+    }
+
+    // 遍历本地缓存，排除本地 Skills（本地 Skills 在 localSkills Map 中）
+    // 只返回从 SkillsMP 安装的 Skills
+    for (const [skillId, skill] of this.localSkills) {
+      // 本地 Skills 不需要检查更新
+      if (skill.metadata.source === "local") {
+        continue;
+      }
+
+      // 从 SkillsMP 安装的 Skills
+      if (skill.metadata.source === "skillsmp" || !skill.metadata.source) {
+        installed.push({
+          id: skillId,
+          version: skill.metadata.version || "0.0.0",
+        });
+      }
+    }
+
+    return installed;
   }
 
   /**
