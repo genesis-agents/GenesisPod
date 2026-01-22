@@ -912,6 +912,10 @@ export interface AgentInfo {
   assignedDimensions?: string[];
   /** ★ Agent 使用的 AI 模型名称 */
   model?: string;
+  /** ★ v8.0: Leader 分配给此 Agent 的技能 */
+  skills?: string[];
+  /** ★ v8.0: Leader 分配给此 Agent 的工具 */
+  tools?: string[];
 }
 
 export interface LeaderDecision {

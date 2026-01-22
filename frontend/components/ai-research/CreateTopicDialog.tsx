@@ -370,43 +370,34 @@ export function CreateTopicDialog({
           ) : (
             // Step 2: Details Form
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Templates */}
-              {templates.length > 0 && (
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    {t('topicResearch.createDialog.selectTemplate')}
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {isLoadingTemplates ? (
-                      <div className="col-span-2 flex items-center justify-center py-4">
-                        <LoaderIcon className="h-5 w-5 animate-spin text-gray-400" />
-                      </div>
-                    ) : (
-                      templates.map((template) => (
-                        <button
-                          key={template.id}
-                          type="button"
-                          onClick={() => handleTemplateSelect(template)}
-                          className={`rounded-lg border p-3 text-left transition-all ${
-                            selectedTemplate?.id === template.id
-                              ? 'border-blue-500 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          <span className="block text-sm font-medium text-gray-900">
-                            {template.name}
-                          </span>
-                          <span className="mt-0.5 block text-xs text-gray-500">
-                            {t('topicResearch.createDialog.dimensions', {
-                              count: template.dimensions.length,
-                            })}
-                          </span>
-                        </button>
-                      ))
-                    )}
+              {/* AI Planning Notice - v8.0: 维度由 AI 自动规划 */}
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
+                    <svg
+                      className="h-4 w-4 text-blue-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-900">
+                      {t('topicResearch.createDialog.aiPlanningTitle')}
+                    </h4>
+                    <p className="mt-1 text-xs text-blue-700">
+                      {t('topicResearch.createDialog.aiPlanningDesc')}
+                    </p>
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* Name */}
               <div>

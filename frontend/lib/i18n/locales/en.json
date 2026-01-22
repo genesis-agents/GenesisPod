@@ -1799,7 +1799,10 @@
         "tts": "Text-to-Speech",
         "skillsmp": "AI Skills",
         "policy": "Policy Research",
-        "mcp": "MCP Servers"
+        "mcp": "MCP Servers",
+        "devtools": "Dev Tools",
+        "generation": "Content Generation",
+        "processing": "Processing"
       },
       "modal": {
         "configure": "Configure {{name}}",
@@ -1961,6 +1964,9 @@
       "operationFailed": "Operation failed",
       "saveSuccess": "Skill configuration saved",
       "saveFailed": "Failed to save",
+      "usageCount": "uses",
+      "uploadSuccess": "Skill uploaded successfully",
+      "uploadFailed": "Failed to upload skill",
       "tabs": {
         "local": "Local Skills",
         "marketplace": "Skills Marketplace"

@@ -167,11 +167,12 @@ export function SkillsMarketplaceTab({
     setInstalling(skillId);
     try {
       await onInstall(skillId);
-      // Update local state
+      // Update local state to show installed status immediately
       setMarketplaceSkills((prev) =>
         prev.map((s) => (s.id === skillId ? { ...s, installed: true } : s))
       );
     } catch (err) {
+      // Installation failed - don't update local state
       logger.error('Failed to install skill:', err);
     } finally {
       setInstalling(null);

@@ -26,6 +26,7 @@ export default function SkillsManagement() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [skills, setSkills] = useState<SkillConfig[]>([]);
+  const [usageCounts, setUsageCounts] = useState<Record<string, number>>({});
   const [activeTab, setActiveTab] = useState<TabType>('local');
   const [message, setMessage] = useState<{
     type: 'success' | 'error';
@@ -51,9 +52,25 @@ export default function SkillsManagement() {
     }
   }, [t]);
 
+  // Load usage statistics
+  const loadUsageStats = useCallback(async () => {
+    try {
+      const res = await fetch(`${config.apiUrl}/admin/ai/usage-stats`, {
+        headers: { ...getAuthHeader() },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUsageCounts(data.skills || {});
+      }
+    } catch (err) {
+      logger.error('Failed to load usage stats:', err);
+    }
+  }, []);
+
   useEffect(() => {
     loadSkills();
-  }, [loadSkills]);
+    loadUsageStats();
+  }, [loadSkills, loadUsageStats]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -128,6 +145,49 @@ export default function SkillsManagement() {
     }
   };
 
+  // Upload skill from file
+  const handleUploadSkill = async (file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch(`${config.apiUrl}/admin/ai/skills/upload`, {
+        method: 'POST',
+        headers: { ...getAuthHeader() },
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setMessage({
+          type: 'success',
+          text:
+            data.message ||
+            t('admin.skills.uploadSuccess') ||
+            'Skill uploaded successfully',
+        });
+        setTimeout(() => setMessage(null), 3000);
+        // Reload skills to include the newly uploaded skill
+        await loadSkills();
+      } else {
+        setMessage({
+          type: 'error',
+          text:
+            data.message ||
+            t('admin.skills.uploadFailed') ||
+            'Failed to upload skill',
+        });
+      }
+    } catch (err) {
+      logger.error('Failed to upload skill:', err);
+      setMessage({
+        type: 'error',
+        text: t('admin.skills.uploadFailed') || 'Failed to upload skill',
+      });
+    }
+  };
+
   // Install skill from marketplace
   const handleInstallSkill = async (skillId: string) => {
     try {
@@ -139,26 +199,40 @@ export default function SkillsManagement() {
         }
       );
 
-      if (res.ok) {
+      const data = await res.json();
+
+      if (res.ok && data.success) {
         setMessage({
           type: 'success',
           text: t('admin.skills.marketplace.installSuccess'),
         });
         setTimeout(() => setMessage(null), 3000);
-        // Reload local skills
+        // Reload local skills to include the newly installed skill
         await loadSkills();
       } else {
+        const errorMsg =
+          data.message || t('admin.skills.marketplace.installFailed');
+        setMessage({
+          type: 'error',
+          text: errorMsg,
+        });
+        // Throw error so child component can handle it
+        throw new Error(errorMsg);
+      }
+    } catch (err) {
+      logger.error('Failed to install skill:', err);
+      if (
+        !err ||
+        !(err instanceof Error) ||
+        !err.message.includes(t('admin.skills.marketplace.installFailed'))
+      ) {
         setMessage({
           type: 'error',
           text: t('admin.skills.marketplace.installFailed'),
         });
       }
-    } catch (err) {
-      logger.error('Failed to install skill:', err);
-      setMessage({
-        type: 'error',
-        text: t('admin.skills.marketplace.installFailed'),
-      });
+      // Re-throw so child component knows installation failed
+      throw err;
     }
   };
 
@@ -250,7 +324,9 @@ export default function SkillsManagement() {
           skills={skills}
           onToggle={handleToggle}
           onSaveSkill={handleSaveSkill}
+          onUploadSkill={handleUploadSkill}
           saving={saving}
+          usageCounts={usageCounts}
         />
       ) : (
         <SkillsMarketplaceTab

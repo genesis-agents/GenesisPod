@@ -8,8 +8,12 @@ import {
   Param,
   Body,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
   Logger,
+  BadRequestException,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import {
   ApiTags,
   ApiOperation,
@@ -94,6 +98,99 @@ export class AIAdminController {
   ) {
     this.logger.log(`Admin: Batch updating ${body.updates.length} skills`);
     return this.aiAdminService.batchUpdateSkills(body.updates);
+  }
+
+  // ==================== Skill Upload ====================
+
+  @Post("skills/upload")
+  @ApiOperation({ summary: "上传技能配置文件" })
+  @ApiResponse({ status: 200, description: "技能上传成功" })
+  @UseInterceptors(
+    FileInterceptor("file", {
+      limits: { fileSize: 1024 * 1024 }, // 1MB max
+      fileFilter: (_req, file, callback) => {
+        const allowedTypes = [
+          "application/json",
+          "application/x-yaml",
+          "text/yaml",
+          "text/x-yaml",
+        ];
+        const allowedExtensions = [".json", ".yaml", ".yml"];
+        const ext = file.originalname
+          .toLowerCase()
+          .slice(file.originalname.lastIndexOf("."));
+
+        if (
+          allowedTypes.includes(file.mimetype) ||
+          allowedExtensions.includes(ext)
+        ) {
+          callback(null, true);
+        } else {
+          callback(
+            new BadRequestException(
+              "Only JSON and YAML files are allowed (.json, .yaml, .yml)",
+            ),
+            false,
+          );
+        }
+      },
+    }),
+  )
+  async uploadSkill(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("No file uploaded");
+    }
+
+    this.logger.log(`Admin: Uploading skill from file: ${file.originalname}`);
+
+    try {
+      const content = file.buffer.toString("utf-8");
+      let skillData: Record<string, unknown>;
+
+      // Parse file content based on extension
+      const ext = file.originalname
+        .toLowerCase()
+        .slice(file.originalname.lastIndexOf("."));
+      if (ext === ".json") {
+        skillData = JSON.parse(content);
+      } else {
+        // YAML parsing - use simple JSON-like structure for now
+        // For full YAML support, you'd need to add a YAML parser dependency
+        try {
+          skillData = JSON.parse(content);
+        } catch {
+          throw new BadRequestException(
+            "YAML parsing not yet supported. Please use JSON format.",
+          );
+        }
+      }
+
+      // Validate required fields
+      if (!skillData.name && !skillData.skillId) {
+        throw new BadRequestException(
+          "Skill file must contain 'name' or 'skillId' field",
+        );
+      }
+
+      // Create skill config in database
+      const result = await this.aiAdminService.uploadSkill(skillData);
+
+      return {
+        success: true,
+        message: `Successfully uploaded skill: ${result.displayName || result.skillId}`,
+        skill: result,
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to parse skill file";
+      this.logger.error(`Failed to upload skill: ${errorMessage}`);
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new BadRequestException(errorMessage);
+    }
   }
 
   // ==================== Aggregated API ====================
@@ -285,6 +382,47 @@ export class AIAdminController {
   ) {
     this.logger.log(`Admin: Updating skill ${skillId}`);
     return this.aiAdminService.updateSkillConfig(skillId, body);
+  }
+
+  // ==================== Usage Statistics ====================
+
+  @Get("usage-stats")
+  @ApiOperation({
+    summary: "获取能力使用统计",
+    description: "获取工具、技能、MCP 服务器的使用次数统计",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "成功返回使用统计",
+    schema: {
+      type: "object",
+      properties: {
+        tools: {
+          type: "object",
+          additionalProperties: { type: "number" },
+          description: "工具使用次数，键为工具ID",
+        },
+        skills: {
+          type: "object",
+          additionalProperties: { type: "number" },
+          description: "技能使用次数，键为技能ID",
+        },
+        mcp: {
+          type: "object",
+          additionalProperties: { type: "number" },
+          description: "MCP 工具使用次数，键为工具ID",
+        },
+      },
+    },
+  })
+  async getUsageStatistics() {
+    this.logger.log("Admin: Fetching usage statistics");
+    const [tools, skills, mcp] = await Promise.all([
+      this.aiAdminService.getUsageCountsByType("tool"),
+      this.aiAdminService.getUsageCountsByType("skill"),
+      this.aiAdminService.getUsageCountsByType("mcp"),
+    ]);
+    return { tools, skills, mcp };
   }
 
   // ==================== MCP Servers ====================

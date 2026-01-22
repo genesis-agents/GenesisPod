@@ -1801,7 +1801,10 @@
         "tts": "语音合成",
         "skillsmp": "AI技能",
         "policy": "政策研究",
-        "mcp": "MCP 服务器"
+        "mcp": "MCP 服务器",
+        "devtools": "开发工具",
+        "generation": "内容生成",
+        "processing": "数据处理"
       },
       "modal": {
         "configure": "配置 {{name}}",
@@ -1963,6 +1966,9 @@
       "operationFailed": "操作失败",
       "saveSuccess": "技能配置已保存",
       "saveFailed": "保存失败",
+      "usageCount": "次使用",
+      "uploadSuccess": "技能上传成功",
+      "uploadFailed": "技能上传失败",
       "tabs": {
         "local": "本地技能",
         "marketplace": "技能市场"
@@ -2416,7 +2422,9 @@
       "knowledgeBaseHint": "可选，优先使用知识库中的内容",
       "knowledgeBasePlaceholder": "选择关联的知识库 (可选)",
       "backToType": "← 返回选择类型",
-      "createFailed": "创建专题失败"
+      "createFailed": "创建专题失败",
+      "aiPlanningTitle": "AI 智能规划研究维度",
+      "aiPlanningDesc": "开始研究后，Leader AI 将根据您的主题名称自动规划最相关的研究维度，确保研究内容精准聚焦。"
     },
     "frequency": {
       "daily": "每日",

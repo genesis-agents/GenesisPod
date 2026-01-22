@@ -226,6 +226,26 @@ export class AIAdminService implements OnModuleInit {
   }
 
   /**
+   * 获取能力使用次数统计（按类型分组）
+   * 用于在 UI 上显示工具/技能的使用次数
+   */
+  async getUsageCountsByType(
+    capabilityType: "tool" | "skill" | "mcp",
+  ): Promise<Record<string, number>> {
+    const stats = await this.prisma.aIUsageLog.groupBy({
+      by: ["capabilityId"],
+      where: { capabilityType },
+      _count: { capabilityId: true },
+    });
+
+    const result: Record<string, number> = {};
+    for (const stat of stats) {
+      result[stat.capabilityId] = stat._count.capabilityId;
+    }
+    return result;
+  }
+
+  /**
    * 初始化配置 - 同步工具/技能配置 + 连接 MCP 服务器
    */
   private async initializeConfigs() {
@@ -1266,6 +1286,7 @@ export class AIAdminService implements OnModuleInit {
    */
   async getSkillConfigs() {
     const skillDefinitions = this.getSkillDefinitions();
+    const skillDefinitionIds = new Set(skillDefinitions.map((s) => s.id));
 
     // 获取数据库中的配置
     const dbConfigs = await this.prisma.skillConfig.findMany();
@@ -1275,7 +1296,23 @@ export class AIAdminService implements OnModuleInit {
     const loadedSkills = this.skillLoaderService.getAllLoadedSkills();
     const loadedSkillIds = new Set(loadedSkills.map((s) => s.metadata.id));
 
-    const skills = skillDefinitions.map((skill) => {
+    // 1. Map skills from definitions (local/builtin skills)
+    const skills: Array<{
+      id: string;
+      skillId: string;
+      name: string;
+      displayName: string;
+      description: string;
+      layer: string;
+      domain: string;
+      enabled: boolean;
+      tags: string[];
+      requiredTools: string[];
+      requiredSkills: string[];
+      implemented: boolean;
+      config: unknown;
+      source: "local" | "marketplace";
+    }> = skillDefinitions.map((skill) => {
       const dbConfig = configMap.get(skill.id);
       const registeredSkill = this.skillRegistry.tryGet(skill.id);
       // 检查是否在 SkillRegistry 或 SkillLoaderService 中
@@ -1295,8 +1332,32 @@ export class AIAdminService implements OnModuleInit {
         requiredSkills: skill.requiredSkills || [],
         implemented: isImplemented,
         config: dbConfig?.config || null,
+        source: "local",
       };
     });
+
+    // 2. Add marketplace-installed skills (only in database, not in definitions)
+    for (const dbConfig of dbConfigs) {
+      if (!skillDefinitionIds.has(dbConfig.skillId)) {
+        // This is a marketplace-installed skill
+        skills.push({
+          id: dbConfig.id,
+          skillId: dbConfig.skillId,
+          name: dbConfig.skillId,
+          displayName: dbConfig.displayName || dbConfig.skillId,
+          description: dbConfig.description || "",
+          layer: dbConfig.layer || "application",
+          domain: dbConfig.domain || "common",
+          enabled: dbConfig.enabled,
+          tags: (dbConfig.tags as string[]) || [],
+          requiredTools: [],
+          requiredSkills: [],
+          implemented: false, // Marketplace skills may not have local implementation
+          config: dbConfig.config || null,
+          source: "marketplace",
+        });
+      }
+    }
 
     // 统计信息
     const stats = {
@@ -1369,6 +1430,51 @@ export class AIAdminService implements OnModuleInit {
   private invalidateSkillDefinitionsCache(): void {
     this.skillDefinitionsCache = null;
     this.skillDefinitionsCacheTime = 0;
+  }
+
+  /**
+   * 上传技能配置
+   */
+  async uploadSkill(skillData: Record<string, unknown>) {
+    const skillId =
+      (skillData.skillId as string) ||
+      (skillData.name as string) ||
+      (skillData.id as string);
+
+    if (!skillId) {
+      throw new Error("Skill must have an id, skillId, or name field");
+    }
+
+    // Create or update skill config in database
+    const result = await this.prisma.skillConfig.upsert({
+      where: { skillId },
+      create: {
+        skillId,
+        displayName: (skillData.displayName as string) || skillId,
+        description: (skillData.description as string) || "",
+        layer: (skillData.layer as string) || "application",
+        domain: (skillData.domain as string) || "common",
+        enabled: skillData.enabled !== false,
+        tags: (skillData.tags as string[]) || [],
+        config: skillData.config as Prisma.InputJsonValue | undefined,
+      },
+      update: {
+        displayName: (skillData.displayName as string) || undefined,
+        description: (skillData.description as string) || undefined,
+        layer: (skillData.layer as string) || undefined,
+        domain: (skillData.domain as string) || undefined,
+        enabled: skillData.enabled !== false,
+        tags: (skillData.tags as string[]) || undefined,
+        config: skillData.config as Prisma.InputJsonValue | undefined,
+      },
+    });
+
+    // Clear cache
+    this.invalidateSkillDefinitionsCache();
+
+    this.logger.log(`Uploaded skill: ${skillId}`);
+
+    return result;
   }
 
   // ==================== MCP Servers ====================

@@ -12,6 +12,7 @@ import {
   Wrench,
   Sparkles,
   Tag,
+  BarChart2,
 } from 'lucide-react';
 import { SKILL_LAYERS } from './skill-layers';
 import type { SkillConfig } from './types';
@@ -20,9 +21,15 @@ interface SkillRowProps {
   skill: SkillConfig;
   onToggle: (skillId: string, enabled: boolean) => void;
   onEdit: (skill: SkillConfig) => void;
+  usageCount?: number;
 }
 
-export function SkillRow({ skill, onToggle, onEdit }: SkillRowProps) {
+export function SkillRow({
+  skill,
+  onToggle,
+  onEdit,
+  usageCount,
+}: SkillRowProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const layerInfo =
@@ -87,8 +94,17 @@ export function SkillRow({ skill, onToggle, onEdit }: SkillRowProps) {
           </div>
         </div>
 
-        {/* Dependencies Indicator */}
+        {/* Dependencies & Usage Stats */}
         <div className="hidden flex-shrink-0 flex-col items-end gap-1 sm:flex">
+          {/* Usage Count */}
+          {usageCount !== undefined && usageCount > 0 && (
+            <div className="flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-600">
+              <BarChart2 className="h-3 w-3" />
+              <span>
+                {usageCount.toLocaleString()} {t('admin.skills.usageCount')}
+              </span>
+            </div>
+          )}
           {hasDependencies && (
             <button
               onClick={() => setExpanded(!expanded)}

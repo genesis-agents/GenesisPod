@@ -443,18 +443,19 @@ export class TopicResearchService {
 
   /**
    * 创建专题
+   *
+   * ★ v8.0: 不再使用固定模板创建维度
+   * - 如果用户提供了自定义维度，使用用户的
+   * - 否则不创建任何维度，等到开始研究时由 Leader AI 自主规划
+   * - 这确保了维度与主题名称的语义匹配，而不是使用通用模板
    */
   async createTopic(userId: string, dto: CreateTopicDto) {
     this.logger.log(`Creating topic for user ${userId}: ${dto.name}`);
 
-    // 获取默认维度模板
-    const defaultDimensions = this.getDefaultDimensionsByType(dto.type);
-
-    // 如果用户提供了自定义维度，使用自定义的；否则使用默认的
+    // ★ v8.0: 只有用户明确提供维度时才创建
+    // 否则维度将在研究开始时由 Leader AI 根据主题名称动态规划
     const dimensionsToCreate =
-      dto.dimensions && dto.dimensions.length > 0
-        ? dto.dimensions
-        : defaultDimensions;
+      dto.dimensions && dto.dimensions.length > 0 ? dto.dimensions : [];
 
     // 使用事务创建专题和维度
     return this.prisma.$transaction(async (tx) => {
@@ -473,28 +474,34 @@ export class TopicResearchService {
         },
       });
 
-      // 创建维度
-      const dimensions = await Promise.all(
-        dimensionsToCreate.map((dim, index) =>
-          tx.topicDimension.create({
-            data: {
-              topicId: topic.id,
-              name: dim.name,
-              description: dim.description,
-              sortOrder: dim.sortOrder ?? index + 1,
-              searchQueries: dim.searchQueries || [],
-              searchSources: dim.searchSources || [],
-              minSources: dim.minSources ?? 5,
-              isEnabled: "isEnabled" in dim ? (dim.isEnabled ?? true) : true,
-              status: DimensionStatus.PENDING,
-            },
-          }),
-        ),
-      );
-
-      this.logger.log(
-        `Created topic ${topic.id} with ${dimensions.length} dimensions`,
-      );
+      // 只有用户提供了自定义维度时才创建
+      let dimensions: any[] = [];
+      if (dimensionsToCreate.length > 0) {
+        dimensions = await Promise.all(
+          dimensionsToCreate.map((dim, index) =>
+            tx.topicDimension.create({
+              data: {
+                topicId: topic.id,
+                name: dim.name,
+                description: dim.description,
+                sortOrder: dim.sortOrder ?? index + 1,
+                searchQueries: dim.searchQueries || [],
+                searchSources: dim.searchSources || [],
+                minSources: dim.minSources ?? 5,
+                isEnabled: "isEnabled" in dim ? (dim.isEnabled ?? true) : true,
+                status: DimensionStatus.PENDING,
+              },
+            }),
+          ),
+        );
+        this.logger.log(
+          `Created topic ${topic.id} with ${dimensions.length} user-defined dimensions`,
+        );
+      } else {
+        this.logger.log(
+          `Created topic ${topic.id} without dimensions (will be planned by Leader AI)`,
+        );
+      }
 
       return {
         ...topic,

@@ -18,6 +18,7 @@ import {
   type OverallReviewResult,
   ReviewQualityLevel,
 } from "./research-reviewer.service";
+import { ResearchLeaderService } from "./research-leader.service";
 import type { DimensionAnalysisResult } from "../types/research.types";
 
 /**
@@ -81,6 +82,7 @@ export class TopicTeamOrchestratorService {
     private readonly dimensionMissionService: DimensionMissionService,
     private readonly reportSynthesisService: ReportSynthesisService,
     private readonly researchReviewerService: ResearchReviewerService,
+    private readonly researchLeaderService: ResearchLeaderService,
   ) {}
 
   /**
@@ -131,10 +133,59 @@ export class TopicTeamOrchestratorService {
       });
 
       // 2. 获取要研究的维度
-      const dimensions = await this.getDimensionsToResearch(topicId, options);
+      let dimensions = await this.getDimensionsToResearch(topicId, options);
 
+      // ★ v8.0: 如果没有维度，由 Leader AI 动态规划
       if (dimensions.length === 0) {
-        throw new Error("No dimensions to research");
+        this.logger.log(
+          `[executeRefresh] No dimensions found, invoking Leader AI to plan dimensions for topic: ${topic.name}`,
+        );
+
+        this.emitProgress({
+          topicId,
+          reportId: report.id,
+          phase: "starting",
+          progress: 2,
+          completedDimensions: 0,
+          totalDimensions: 0,
+          message: "Leader AI 正在根据主题智能规划研究维度...",
+        });
+
+        // 调用 Leader 规划
+        const leaderPlan =
+          await this.researchLeaderService.planResearch(topicId);
+
+        if (!leaderPlan.dimensions || leaderPlan.dimensions.length === 0) {
+          throw new Error("Leader AI failed to plan dimensions");
+        }
+
+        this.logger.log(
+          `[executeRefresh] Leader planned ${leaderPlan.dimensions.length} dimensions: ${leaderPlan.dimensions.map((d) => d.name).join(", ")}`,
+        );
+
+        // 将规划的维度保存到数据库
+        const createdDimensions = await Promise.all(
+          leaderPlan.dimensions.map((dim, index) =>
+            this.prisma.topicDimension.create({
+              data: {
+                topicId,
+                name: dim.name,
+                description: dim.description,
+                sortOrder: dim.priority ?? index + 1,
+                searchQueries: dim.searchQueries || [],
+                searchSources: dim.dataSources || [],
+                minSources: 5,
+                isEnabled: true,
+                status: DimensionStatus.PENDING,
+              },
+            }),
+          ),
+        );
+
+        dimensions = createdDimensions;
+        this.logger.log(
+          `[executeRefresh] Created ${dimensions.length} dimensions from Leader plan`,
+        );
       }
 
       // 发送研究开始事件

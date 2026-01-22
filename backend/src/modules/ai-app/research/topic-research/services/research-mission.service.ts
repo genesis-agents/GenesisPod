@@ -138,6 +138,10 @@ export interface AgentInfo {
   assignedDimensions?: string[];
   /** ★ Agent 使用的 AI 模型名称 */
   model?: string;
+  /** ★ v8.0: Leader 分配给此 Agent 的技能 */
+  skills?: string[];
+  /** ★ v8.0: Leader 分配给此 Agent 的工具 */
+  tools?: string[];
 }
 
 // ==================== Service ====================
@@ -1061,6 +1065,7 @@ export class ResearchMissionService {
   /**
    * 获取当前团队组成
    * ★ 查询数据库获取各 Agent 使用的模型名称
+   * ★ v8.0: 从 leaderPlan 提取 Agent 的 skills/tools
    */
   async getTeamInfo(missionId: string): Promise<TeamInfo> {
     const mission = await this.prisma.researchMission.findUnique({
@@ -1086,20 +1091,97 @@ export class ResearchMissionService {
       );
     }
 
+    // ★ v8.0: 从 leaderPlan 提取 agentAssignments（包含 skills/tools）
+    //
+    // 运行时类型验证说明：
+    // - v8.0 之前的 leaderPlan 没有 skills/tools 字段
+    // - 必须验证数组元素是非空字符串，防止类型污染
+    // - 空数组 [] 转为 undefined，保持前端显示逻辑一致
+    const agentAssignmentsMap = new Map<
+      string,
+      { skills?: string[]; tools?: string[]; modelId?: string }
+    >();
+
+    // ★ 辅助函数：验证是否为非空字符串数组
+    const isNonEmptyStringArray = (value: unknown): value is string[] => {
+      if (!Array.isArray(value) || value.length === 0) return false;
+      return value.every(
+        (item) => typeof item === "string" && item.trim().length > 0,
+      );
+    };
+
+    try {
+      const rawPlan = mission.leaderPlan;
+      if (
+        rawPlan &&
+        typeof rawPlan === "object" &&
+        "agentAssignments" in rawPlan &&
+        Array.isArray((rawPlan as Record<string, unknown>).agentAssignments)
+      ) {
+        const assignments = (rawPlan as Record<string, unknown>)
+          .agentAssignments as unknown[];
+        for (const item of assignments) {
+          // 验证每个 assignment 的基本结构
+          if (
+            item &&
+            typeof item === "object" &&
+            "agentId" in item &&
+            typeof (item as Record<string, unknown>).agentId === "string"
+          ) {
+            const assignment = item as Record<string, unknown>;
+            const agentId = assignment.agentId as string;
+
+            // ★ 严格验证 skills/tools 是非空字符串数组
+            // 空数组 [] 或无效数据都转为 undefined
+            agentAssignmentsMap.set(agentId, {
+              skills: isNonEmptyStringArray(assignment.skills)
+                ? (assignment.skills as string[])
+                : undefined,
+              tools: isNonEmptyStringArray(assignment.tools)
+                ? (assignment.tools as string[])
+                : undefined,
+              modelId:
+                typeof assignment.modelId === "string" &&
+                assignment.modelId.trim()
+                  ? assignment.modelId
+                  : undefined,
+            });
+          }
+        }
+        this.logger.debug(
+          `[getTeamInfo] Found ${agentAssignmentsMap.size} valid agent assignments in leaderPlan`,
+        );
+      }
+    } catch (parseError) {
+      // 旧数据解析失败是预期行为，使用 debug 级别
+      this.logger.debug(
+        `[getTeamInfo] Failed to parse leaderPlan (may be legacy data): ${parseError instanceof Error ? parseError.message : parseError}`,
+      );
+    }
+
     // 从任务中提取 Agent 信息
     const agentMap = new Map<string, AgentInfo>();
 
     for (const task of mission.tasks) {
       if (!agentMap.has(task.assignedAgent)) {
         const agentType = task.assignedAgentType || "unknown";
+        // ★ v8.0: 从 leaderPlan 获取 skills/tools
+        const assignment = agentAssignmentsMap.get(task.assignedAgent);
+        // ★ 模型优先使用任务级别存储的，其次是 leaderPlan 中的，最后是默认
+        const model =
+          task.modelId ||
+          assignment?.modelId ||
+          this.getModelForAgentType(agentType, modelTypeMap);
+
         agentMap.set(task.assignedAgent, {
           id: task.assignedAgent,
           type: agentType,
           role: this.getAgentRole(task.assignedAgentType),
           status: "idle",
           assignedDimensions: [],
-          // ★ 根据 Agent 类型设置模型名称
-          model: this.getModelForAgentType(agentType, modelTypeMap),
+          model,
+          skills: assignment?.skills,
+          tools: assignment?.tools,
         });
       }
 

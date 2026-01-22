@@ -17,6 +17,17 @@ import type {
 } from '@/lib/api/topic-research';
 // TaskStatus is used in type annotations below
 
+/**
+ * ★ 类型守卫：验证是否为非空字符串数组
+ * 防止后端返回无效数据导致渲染错误
+ */
+function isValidStringArray(value: unknown): value is string[] {
+  if (!Array.isArray(value) || value.length === 0) return false;
+  return value.every(
+    (item) => typeof item === 'string' && item.trim().length > 0
+  );
+}
+
 interface SimpleRefreshProgress {
   phase: string;
   progress: number;
@@ -87,45 +98,46 @@ function getAgentDisplay(role: string): {
 }
 
 // Agent 角色详细信息
+// ★ v8.0: 技能和工具由 Leader 根据任务动态分配，这里显示的是角色的能力范围
 const AGENT_ROLE_INFO: Record<
   ResearchAgentRole,
-  { description: string; skills: string[]; tools: string[] }
+  { description: string; capabilities: string[]; note: string }
 > = {
   leader: {
     description:
       '负责规划研究大纲、分配任务给研究员、审核研究质量、整合最终结果',
-    skills: ['大纲规划', '任务分配', '质量审核', '结果整合'],
-    tools: ['任务规划器', '进度监控', '质量评估'],
+    capabilities: ['智能规划', '任务协调', '质量把控', '结果整合'],
+    note: '使用推理模型进行高级决策',
   },
   researcher: {
     description: '负责深入研究特定维度，收集证据，撰写分析内容',
-    skills: ['资料收集', '深度分析', '证据引用', '内容撰写'],
-    tools: ['网络搜索', '文档分析', '知识图谱'],
+    capabilities: ['信息检索', '内容分析', '报告撰写'],
+    note: 'Leader 根据任务分配模型和工具',
   },
   reviewer: {
     description: '负责审核研究内容的准确性、完整性和一致性',
-    skills: ['质量检查', '一致性审核', '准确性验证'],
-    tools: ['事实核查', '逻辑验证', '引用检查'],
+    capabilities: ['质量审核', '一致性检查', '准确性验证'],
+    note: 'Leader 根据任务分配模型和工具',
   },
   synthesizer: {
     description: '负责整合各维度研究结果，撰写最终综合报告',
-    skills: ['报告整合', '内容润色', '格式规范'],
-    tools: ['报告生成', '图表制作', '格式转换'],
+    capabilities: ['内容整合', '报告生成', '格式优化'],
+    note: 'Leader 根据任务分配模型和工具',
   },
 };
 
 // ★ 默认角色详细信息
 const DEFAULT_AGENT_ROLE_INFO = {
   description: 'AI 研究助手',
-  skills: ['研究', '分析'],
-  tools: ['通用工具'],
+  capabilities: ['研究', '分析'],
+  note: 'Leader 根据任务分配模型和工具',
 };
 
 // ★ 安全获取角色详细信息
 function getAgentRoleInfo(role: string): {
   description: string;
-  skills: string[];
-  tools: string[];
+  capabilities: string[];
+  note: string;
 } {
   if (role in AGENT_ROLE_INFO) {
     return AGENT_ROLE_INFO[role as ResearchAgentRole];
@@ -1059,39 +1071,91 @@ function TeamCanvasView({
                   </p>
                 </div>
 
-                {/* 技能列表 */}
-                <div className="mb-3">
-                  <div className="mb-1.5 text-xs font-medium text-gray-500">
-                    🎯 技能
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {roleInfo.skills.map((skill, i) => (
-                      <span
-                        key={i}
-                        className="rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                {/* ★ v8.0: 技能 - 优先显示 Leader 分配的真实技能 */}
+                {(() => {
+                  // 从 teamInfo 获取匹配的 Agent 信息
+                  const teamAgent = teamInfo?.agents?.find(
+                    (ta) => ta.id === agent.id || ta.id.includes(agent.id)
+                  );
+                  // ★ 使用类型守卫验证数据有效性
+                  const realSkills = isValidStringArray(teamAgent?.skills)
+                    ? teamAgent.skills
+                    : undefined;
+                  const realTools = isValidStringArray(teamAgent?.tools)
+                    ? teamAgent.tools
+                    : undefined;
+                  const hasRealData = !!realSkills || !!realTools;
 
-                {/* 工具列表 */}
-                <div className="mb-3">
-                  <div className="mb-1.5 text-xs font-medium text-gray-500">
-                    🔧 工具
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {roleInfo.tools.map((tool, i) => (
-                      <span
-                        key={i}
-                        className="rounded-full bg-purple-50 px-2.5 py-1 text-xs text-purple-700"
-                      >
-                        {tool}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                  return (
+                    <>
+                      {/* 技能 */}
+                      <div className="mb-3">
+                        <div className="mb-1.5 text-xs font-medium text-gray-500">
+                          🎯 {hasRealData ? '分配的技能' : '能力范围'}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {realSkills ? (
+                            realSkills.map((skill: string, i: number) => (
+                              <span
+                                key={i}
+                                className="rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700"
+                              >
+                                {skill}
+                              </span>
+                            ))
+                          ) : roleInfo.capabilities &&
+                            roleInfo.capabilities.length > 0 ? (
+                            roleInfo.capabilities.map(
+                              (cap: string, i: number) => (
+                                <span
+                                  key={i}
+                                  className="rounded-full bg-gray-50 px-2.5 py-1 text-xs text-gray-600"
+                                >
+                                  {cap}
+                                </span>
+                              )
+                            )
+                          ) : (
+                            <span className="italic text-gray-400">
+                              待 Leader 分配
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 工具 - 仅当有真实数据时显示 */}
+                      {hasRealData && realTools && realTools.length > 0 && (
+                        <div className="mb-3">
+                          <div className="mb-1.5 text-xs font-medium text-gray-500">
+                            🔧 分配的工具
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {realTools.map((tool: string, i: number) => (
+                              <span
+                                key={i}
+                                className="rounded-full bg-green-50 px-2.5 py-1 text-xs text-green-700"
+                              >
+                                {tool}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 配置说明 - 仅当没有真实数据时显示 */}
+                      {!hasRealData && (
+                        <div className="mb-3">
+                          <div className="mb-1.5 text-xs font-medium text-gray-500">
+                            ⚙️ 配置方式
+                          </div>
+                          <p className="text-xs italic text-gray-600">
+                            {roleInfo.note}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {/* ★ AI 模型 - 显示 Agent 实际使用的模型 */}
                 <div>

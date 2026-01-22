@@ -55,6 +55,10 @@ export interface AgentAssignment {
   role: string;
   /** ★ Leader 为此 Agent 选择的模型 ID（实现多元化） */
   modelId?: string;
+  /** ★ v8.0: Leader 分配给此 Agent 的技能（用于 UI 展示） */
+  skills?: string[];
+  /** ★ v8.0: Leader 分配给此 Agent 的工具（用于 UI 展示） */
+  tools?: string[];
 }
 
 export interface ReviewDecision {
@@ -213,7 +217,7 @@ const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Research L
 - 自主决定研究维度（不要使用预设模板）
 - 为每个维度设计搜索策略
 - 分配 Agent 执行任务
-- **为每个 Agent 选择合适的 AI 模型**（实现研究多元化）
+- **为每个 Agent 动态选择合适的 AI 模型、技能和工具**
 
 ## 用户研究请求
 主题：{topic}
@@ -231,19 +235,41 @@ const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Research L
 
 **禁止**：自作主张扩展研究范围。如果用户想研究更广的范围，他们会在主题名称中说明。
 
-## 可用 AI 模型
+## 可用 AI 模型（动态选择）
 {availableModels}
 
-**模型选择指南（必读）**：
-- ⚠️ **必须为每个研究员分配 modelId**：这是必填字段，不能省略！
+**模型选择指南**：
+- ⚠️ **必须为每个研究员分配 modelId**：从上面的可用模型列表中选择
 - 为不同研究员选择不同模型，确保观点多元化
 - 技术/数据分析类维度：优先选择 GPT 系列
 - 创意/洞察类维度：优先选择 Claude 系列
-- 实时信息/新闻类维度：优先选择 Grok 系列（擅长实时信息）
-- 中文内容/国内市场类维度：优先选择 DeepSeek、Qwen（通义千问）、GLM 等国产模型
-- 快速/基础类维度：可选择 Gemini Flash、DeepSeek-Chat
+- 实时信息/新闻类维度：优先选择 Grok 系列
+- 中文内容/国内市场：优先选择 DeepSeek、Qwen、GLM 等
 - **关键要求**：尽量让研究员使用不同的模型，避免所有人都用同一个
-- modelId 必须从上面的"可用 AI 模型"列表中选择
+
+## 可用分析技能（根据任务动态选择）
+- trend_analysis（趋势分析）: 识别和预测发展趋势
+- swot_analysis（SWOT分析）: 分析优势、劣势、机会、威胁
+- competitive_analysis（竞争分析）: 分析竞争格局和策略
+- deep_dive（深度调研）: 深入挖掘特定主题
+- data_interpretation（数据解读）: 解读数字和统计数据
+- synthesis（综合归纳）: 整合多源信息形成洞察
+- critical_thinking（批判性思维）: 质疑和验证信息
+- future_projection（未来预测）: 基于现状预测发展
+- cause_effect（因果分析）: 分析原因和影响
+- comparison（对比分析）: 比较不同方案或事物
+- policy_analysis（政策分析）: 分析政策内容和影响
+- regulatory_impact（监管影响评估）: 评估法规对行业的影响
+- legislative_tracking（立法追踪）: 追踪法案进程
+
+## 可用研究工具（根据任务动态选择）
+- web-search（网络搜索）: 获取最新信息
+- data-analysis（数据分析）: 处理数字信息
+- rag-search（知识库搜索）: 搜索内部知识库
+- federal-register（联邦公报）: 美国行政命令、法规
+- congress-gov（国会立法）: 法案、决议、投票
+- whitehouse-news（白宫新闻）: 政策公告
+- academic-search（学术检索）: 学术论文和研究
 
 ## 已有研究维度
 {existingDimensions}
@@ -255,7 +281,14 @@ const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Research L
 4. **可以优化已有维度**：如改进描述、搜索词等，但名称应保持一致
 
 ## 输出要求
-请分析用户的研究需求，输出 JSON 格式的研究规划：
+请分析用户的研究需求，输出 JSON 格式的研究规划。
+
+**skills 和 tools 选择原则**：
+- 根据每个研究员负责的维度内容，从上面的可用列表中动态选择最合适的技能和工具
+- 政策法规类研究：选择 policy_analysis、legislative_tracking、federal-register 等
+- 市场分析类研究：选择 trend_analysis、competitive_analysis、data_interpretation 等
+- 技术研究类：选择 deep_dive、comparison、academic-search 等
+- 每个研究员的 skills 选 2-4 个，tools 选 1-3 个
 
 \`\`\`json
 {
@@ -282,34 +315,32 @@ const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Research L
   },
   "agentAssignments": [
     {
-      "agentId": "researcher_market_trends",
-      "agentName": "市场趋势研究员",
+      "agentId": "researcher_xxx",
+      "agentName": "xxx研究员",
       "agentType": "dimension_researcher",
-      "assignedDimensions": ["dimension_id1"],
-      "role": "负责市场趋势维度的深度研究",
-      "modelId": "gpt-4o"
-    },
-    {
-      "agentId": "researcher_tech_analysis",
-      "agentName": "技术分析研究员",
-      "agentType": "dimension_researcher",
-      "assignedDimensions": ["dimension_id2"],
-      "role": "负责技术分析维度的深度研究",
-      "modelId": "claude-3-5-sonnet"
+      "assignedDimensions": ["dimension_id"],
+      "role": "负责xxx维度的深度研究",
+      "modelId": "从可用模型列表中选择",
+      "skills": ["从可用技能列表中根据任务选择2-4个"],
+      "tools": ["从可用工具列表中根据任务选择1-3个"]
     },
     {
       "agentId": "reviewer_quality",
       "agentName": "质量审核专家",
       "agentType": "quality_reviewer",
       "role": "负责审核所有研究结果的质量",
-      "modelId": "gemini-2.0-flash"
+      "modelId": "从可用模型列表中选择",
+      "skills": ["critical_thinking", "synthesis"],
+      "tools": ["web-search"]
     },
     {
       "agentId": "writer_report",
       "agentName": "报告撰写专家",
       "agentType": "report_writer",
       "role": "负责整合研究结果并撰写最终报告",
-      "modelId": "gpt-4o"
+      "modelId": "从可用模型列表中选择",
+      "skills": ["synthesis"],
+      "tools": []
     }
   ]
 }
@@ -320,9 +351,9 @@ const LEADER_PLAN_PROMPT = `你是一位资深的研究协调专家（Research L
 2. 维度数量根据研究复杂度决定，通常 3-8 个
 3. 搜索词要具体、可执行
 4. 数据源选择要与维度内容匹配
-5. **Agent ID 必须唯一**：使用 "researcher_维度关键词" 格式，如 "researcher_market_trends"
-6. **Agent Name 必须有区分度**：每个研究员的名称要体现其负责的维度，如 "市场趋势研究员"
-7. ⚠️ **modelId 是必填字段**：每个 dimension_researcher 必须分配一个 modelId，从可用模型列表中选择`;
+5. **Agent ID 必须唯一**：使用 "researcher_维度关键词" 格式
+6. **Agent Name 必须有区分度**：每个研究员的名称要体现其负责的维度
+7. ⚠️ **动态选择**：modelId、skills、tools 必须从上面列出的可用选项中选择，且要根据具体任务需求选择最合适的`;
 
 const LEADER_REVIEW_PROMPT = `你是研究团队的 Leader，负责审核研究成果质量。
 
@@ -785,22 +816,53 @@ export class ResearchLeaderService {
       throw new Error("无法解析 AI 规划响应，请稍后重试");
     }
 
-    // ★ 后处理：如果 Leader 没有为 Agent 分配 modelId，自动轮询分配
-    if (availableModels.length > 0 && plan.agentAssignments) {
+    // ★ 后处理：确保每个 Agent 都有 modelId、skills、tools
+    if (plan.agentAssignments) {
       let modelIndex = 0;
-      const researcherAssignments = plan.agentAssignments.filter(
-        (a) => a.agentType === "dimension_researcher",
-      );
 
-      for (const assignment of researcherAssignments) {
-        if (!assignment.modelId) {
-          // 轮询分配模型，实现多元化
+      for (const assignment of plan.agentAssignments) {
+        // 1. 为缺少 modelId 的 Agent 自动轮询分配
+        if (!assignment.modelId && availableModels.length > 0) {
           const model = availableModels[modelIndex % availableModels.length];
           assignment.modelId = model.id;
           this.logger.log(
             `[planResearch] Auto-assigned model ${model.id} to ${assignment.agentName || assignment.agentId}`,
           );
           modelIndex++;
+        }
+
+        // 2. 为研究员确保有 skills（若 AI 未返回则使用默认值）
+        if (assignment.agentType === "dimension_researcher") {
+          if (!assignment.skills || assignment.skills.length === 0) {
+            assignment.skills = [
+              "deep_dive",
+              "synthesis",
+              "data_interpretation",
+            ];
+            this.logger.debug(
+              `[planResearch] Auto-assigned default skills to ${assignment.agentName || assignment.agentId}`,
+            );
+          }
+          if (!assignment.tools || assignment.tools.length === 0) {
+            assignment.tools = ["web-search"];
+            this.logger.debug(
+              `[planResearch] Auto-assigned default tools to ${assignment.agentName || assignment.agentId}`,
+            );
+          }
+        }
+
+        // 3. 为质量审核员确保有 skills
+        if (assignment.agentType === "quality_reviewer") {
+          if (!assignment.skills || assignment.skills.length === 0) {
+            assignment.skills = ["critical_thinking", "synthesis"];
+          }
+        }
+
+        // 4. 为报告撰写员确保有 skills
+        if (assignment.agentType === "report_writer") {
+          if (!assignment.skills || assignment.skills.length === 0) {
+            assignment.skills = ["synthesis"];
+          }
         }
       }
     }

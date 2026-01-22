@@ -131,6 +131,15 @@ const EXTERNAL_TOOL_DEFINITIONS = [
     url: 'https://www.whitehouse.gov/news/',
     noKeyRequired: true,
   },
+  // Dev Tools
+  {
+    id: 'github-search',
+    name: 'GitHub',
+    category: 'external-devtools',
+    url: 'https://github.com',
+    freeQuota: '60 requests/hour (unauthenticated)',
+    pricing: '5,000 requests/hour (authenticated)',
+  },
 ];
 
 type TabType = 'ai-tools' | 'mcp';

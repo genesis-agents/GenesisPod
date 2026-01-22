@@ -2,7 +2,14 @@
 
 import { useState, useMemo } from 'react';
 import { useTranslation } from '@/lib/i18n';
-import { Search, Sparkles, Upload, Folder, ChevronDown } from 'lucide-react';
+import {
+  Search,
+  Sparkles,
+  Upload,
+  Folder,
+  ChevronDown,
+  Loader2,
+} from 'lucide-react';
 import { SkillRow } from '@/components/admin/skills/SkillRow';
 import { EditSkillModal } from '@/components/admin/skills/EditSkillModal';
 import {
@@ -15,20 +22,40 @@ interface LocalSkillsTabProps {
   skills: SkillConfig[];
   onToggle: (skillId: string, enabled: boolean) => void;
   onSaveSkill: (skill: SkillConfig) => Promise<void>;
+  onUploadSkill?: (file: File) => Promise<void>;
   saving: boolean;
+  usageCounts?: Record<string, number>;
 }
 
 export function LocalSkillsTab({
   skills,
   onToggle,
   onSaveSkill,
+  onUploadSkill,
   saving,
+  usageCounts = {},
 }: LocalSkillsTabProps) {
   const { t } = useTranslation();
   const [selectedLayer, setSelectedLayer] = useState<SkillLayer>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingSkill, setEditingSkill] = useState<SkillConfig | null>(null);
   const [showLayerDropdown, setShowLayerDropdown] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  // Handle file upload
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onUploadSkill) return;
+
+    setUploading(true);
+    try {
+      await onUploadSkill(file);
+    } finally {
+      setUploading(false);
+      // Reset input
+      e.target.value = '';
+    }
+  };
 
   // Filter skills
   const filteredSkills = useMemo(() => {
@@ -150,13 +177,26 @@ export function LocalSkillsTab({
           </div>
 
           {/* Upload Button */}
-          <button
-            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+          <label
+            className={`flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 ${
+              uploading || !onUploadSkill ? 'cursor-not-allowed opacity-50' : ''
+            }`}
             title={t('admin.skills.upload')}
           >
-            <Upload className="h-4 w-4" />
+            {uploading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
             <span className="hidden sm:inline">{t('admin.skills.upload')}</span>
-          </button>
+            <input
+              type="file"
+              accept=".json,.yaml,.yml"
+              onChange={handleUpload}
+              disabled={uploading || !onUploadSkill}
+              className="hidden"
+            />
+          </label>
         </div>
       </div>
 
@@ -214,6 +254,7 @@ export function LocalSkillsTab({
               skill={skill}
               onToggle={onToggle}
               onEdit={setEditingSkill}
+              usageCount={usageCounts[skill.skillId]}
             />
           ))
         )}

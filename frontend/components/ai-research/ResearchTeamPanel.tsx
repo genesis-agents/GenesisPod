@@ -21,6 +21,17 @@ import type {
   MissionStatus,
 } from '@/lib/api/topic-research';
 
+/**
+ * ★ 类型守卫：验证是否为非空字符串数组
+ * 防止后端返回无效数据导致渲染错误
+ */
+function isValidStringArray(value: unknown): value is string[] {
+  if (!Array.isArray(value) || value.length === 0) return false;
+  return value.every(
+    (item) => typeof item === 'string' && item.trim().length > 0
+  );
+}
+
 interface ResearchTeamPanelProps {
   teamInfo: TeamInfo | null;
   missionStatus: MissionStatus | null;
@@ -39,12 +50,17 @@ interface AgentNodeInfo {
   icon: string;
   color: typeof agentColors.leader;
   description?: string;
-  skills?: string[];
+  capabilities?: string[];
+  note?: string;
   currentTask?: string;
   completedTasks?: number;
   totalTasks?: number;
   /** ★ Agent 使用的 AI 模型名称 */
   model?: string;
+  /** ★ v8.0: Leader 分配给此 Agent 的技能 */
+  skills?: string[];
+  /** ★ v8.0: Leader 分配给此 Agent 的工具 */
+  tools?: string[];
 }
 
 // Agent 颜色配置
@@ -64,30 +80,35 @@ const agentIcons = {
 };
 
 // Agent 角色信息映射
+// ★ v8.0: 能力由 Leader 根据任务动态分配
 const agentRoleInfo: Record<
   string,
-  { name: string; description: string; skills: string[] }
+  { name: string; description: string; capabilities: string[]; note: string }
 > = {
   leader: {
     name: '研究协调员',
     description:
       '负责规划研究大纲、分配任务给研究员、审核研究质量、整合最终结果',
-    skills: ['大纲规划', '任务分配', '质量审核', '结果整合'],
+    capabilities: ['智能规划', '任务协调', '质量把控', '结果整合'],
+    note: '使用推理模型进行高级决策',
   },
   dimension_researcher: {
     name: '维度研究员',
     description: '负责深入研究特定维度，收集证据，撰写分析内容',
-    skills: ['资料收集', '深度分析', '证据引用', '内容撰写'],
+    capabilities: ['信息检索', '内容分析', '报告撰写'],
+    note: 'Leader 根据任务分配模型和工具',
   },
   quality_reviewer: {
     name: '质量审核员',
     description: '负责审核研究内容的准确性、完整性和一致性',
-    skills: ['质量检查', '一致性审核', '准确性验证'],
+    capabilities: ['质量审核', '一致性检查', '准确性验证'],
+    note: 'Leader 根据任务分配模型和工具',
   },
   report_writer: {
     name: '报告撰写员',
     description: '负责整合各维度研究结果，撰写最终综合报告',
-    skills: ['报告整合', '内容润色', '格式规范'],
+    capabilities: ['内容整合', '报告生成', '格式优化'],
+    note: 'Leader 根据任务分配模型和工具',
   },
 };
 
@@ -133,7 +154,8 @@ export function ResearchTeamPanel({
       icon: agentIcons.leader,
       color: agentColors.leader,
       description: leaderInfo.description,
-      skills: leaderInfo.skills,
+      capabilities: leaderInfo.capabilities,
+      note: leaderInfo.note,
       // ★ Leader 的模型来自 teamInfo.leaderModel
       model: teamInfo?.leaderModel || undefined,
     });
@@ -172,10 +194,14 @@ export function ResearchTeamPanel({
         description: dimensionName
           ? `负责研究「${dimensionName}」维度`
           : researcherInfo.description,
-        skills: researcherInfo.skills,
+        capabilities: researcherInfo.capabilities,
+        note: researcherInfo.note,
         currentTask: dimensionName,
         // ★ 从 API 返回的 agent 信息获取模型
         model: researcher?.model,
+        // ★ v8.0: 从 API 返回的 agent 信息获取 skills/tools
+        skills: researcher?.skills,
+        tools: researcher?.tools,
       });
     }
 
@@ -193,9 +219,13 @@ export function ResearchTeamPanel({
       icon: agentIcons.quality_reviewer,
       color: agentColors.quality_reviewer,
       description: reviewerInfo.description,
-      skills: reviewerInfo.skills,
+      capabilities: reviewerInfo.capabilities,
+      note: reviewerInfo.note,
       // ★ 从 API 返回的 agent 信息获取模型
       model: reviewer?.model,
+      // ★ v8.0: 从 API 返回的 agent 信息获取 skills/tools
+      skills: reviewer?.skills,
+      tools: reviewer?.tools,
     });
 
     // 报告撰写 - 右下
@@ -212,9 +242,13 @@ export function ResearchTeamPanel({
       icon: agentIcons.report_writer,
       color: agentColors.report_writer,
       description: writerInfo.description,
-      skills: writerInfo.skills,
+      capabilities: writerInfo.capabilities,
+      note: writerInfo.note,
       // ★ 从 API 返回的 agent 信息获取模型
       model: writer?.model,
+      // ★ v8.0: 从 API 返回的 agent 信息获取 skills/tools
+      skills: writer?.skills,
+      tools: writer?.tools,
     });
 
     return { nodes, canvasWidth, canvasHeight, centerX, centerY };
@@ -659,22 +693,80 @@ function AgentDetailModal({
             </div>
           )}
 
-          {/* 技能 */}
-          {agent.skills && agent.skills.length > 0 && (
-            <div className="mb-3">
-              <p className="text-xs text-gray-500">能力:</p>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {agent.skills.map((skill, i) => (
-                  <span
-                    key={i}
-                    className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
-                  >
-                    {skill}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* ★ v8.0: 技能 - 优先显示 Leader 分配的真实技能 */}
+          {(() => {
+            // ★ 使用类型守卫验证数据有效性
+            const realSkills = isValidStringArray(agent.skills)
+              ? agent.skills
+              : undefined;
+            const realTools = isValidStringArray(agent.tools)
+              ? agent.tools
+              : undefined;
+            const hasRealData = !!realSkills || !!realTools;
+
+            return (
+              <>
+                {/* 技能 */}
+                <div className="mb-3">
+                  <p className="text-xs text-gray-500">
+                    {hasRealData ? '🎯 分配的技能:' : '能力范围:'}
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {realSkills ? (
+                      realSkills.map((skill, i) => (
+                        <span
+                          key={i}
+                          className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700"
+                        >
+                          {skill}
+                        </span>
+                      ))
+                    ) : agent.capabilities && agent.capabilities.length > 0 ? (
+                      agent.capabilities.map((cap: string, i: number) => (
+                        <span
+                          key={i}
+                          className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                        >
+                          {cap}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="italic text-gray-400">
+                        待 Leader 分配
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 工具 - 仅当有真实数据时显示 */}
+                {realTools && (
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-500">🔧 分配的工具:</p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {realTools.map((tool, i) => (
+                        <span
+                          key={i}
+                          className="rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700"
+                        >
+                          {tool}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 配置说明 - 仅当没有真实数据时显示 */}
+                {!hasRealData && agent.note && (
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-500">配置方式:</p>
+                    <p className="mt-1 text-xs italic text-gray-600">
+                      {agent.note}
+                    </p>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* ★ AI 模型 - 始终显示，帮助用户了解使用哪个模型 */}
           <div className="mb-3">

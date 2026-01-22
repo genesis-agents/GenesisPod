@@ -39,7 +39,8 @@ export type CapabilityCategory =
   | 'memory'
   | 'integration'
   | 'export'
-  | 'policy';
+  | 'policy'
+  | 'devtools';
 
 /**
  * 类别显示顺序和配置
@@ -56,6 +57,7 @@ export const CATEGORY_CONFIG: Record<
   integration: { order: 6, labelKey: 'admin.tools.categories.integration' },
   export: { order: 7, labelKey: 'admin.tools.categories.export' },
   policy: { order: 8, labelKey: 'admin.tools.categories.policy' },
+  devtools: { order: 9, labelKey: 'admin.tools.categories.devtools' },
 };
 
 /**
@@ -221,6 +223,27 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
         description: '获取白宫新闻发布和声明',
         url: 'https://www.whitehouse.gov/news',
         noKeyRequired: true,
+      },
+    ],
+  },
+
+  // ==================== 开发工具能力 ====================
+  {
+    id: 'github-integration',
+    name: 'github-integration',
+    displayName: 'GitHub 集成',
+    description: '搜索 GitHub 仓库、代码和开源项目',
+    icon: 'Github',
+    category: 'devtools',
+    providers: [
+      {
+        id: 'github-search',
+        name: 'GitHub',
+        description: 'GitHub API 搜索仓库、代码和用户',
+        url: 'https://github.com',
+        freeQuota: '60 requests/hour (unauthenticated)',
+        pricing: '5,000 requests/hour (authenticated)',
+        secretKeyName: 'GITHUB_TOKEN',
       },
     ],
   },

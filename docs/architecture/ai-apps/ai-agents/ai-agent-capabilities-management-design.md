@@ -918,7 +918,7 @@ const PRESET_MCP_SERVERS = [
     description: "隐私搜索引擎",
     transport: "stdio",
     command: "npx",
-    args: ["-y", "@anthropic/mcp-server-duckduckgo"],
+    args: ["-y", "@modelcontextprotocol/server-ddg-search"],
     icon: "🦆",
   },
   {
@@ -927,7 +927,7 @@ const PRESET_MCP_SERVERS = [
     description: "文件系统访问",
     transport: "stdio",
     command: "npx",
-    args: ["-y", "@anthropic/mcp-server-filesystem"],
+    args: ["-y", "@modelcontextprotocol/server-filesystem"],
     icon: "📁",
   },
   {
@@ -936,7 +936,7 @@ const PRESET_MCP_SERVERS = [
     description: "GitHub API 访问",
     transport: "stdio",
     command: "npx",
-    args: ["-y", "@anthropic/mcp-server-github"],
+    args: ["-y", "@modelcontextprotocol/server-github"],
     requiresApiKey: true,
     icon: "🐙",
   },
