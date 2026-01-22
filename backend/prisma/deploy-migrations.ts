@@ -234,6 +234,39 @@ async function deploy(): Promise<void> {
     } else {
       console.log("   OK mcp_server_configs.secret_key");
     }
+
+    // Check if ai_usage_logs table exists
+    const aiUsageLogsCheck = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_name = 'ai_usage_logs'
+      ) as exists
+    `;
+
+    if (!aiUsageLogsCheck[0]?.exists) {
+      console.log("   Creating ai_usage_logs table...");
+      await prisma.$executeRaw`
+        CREATE TABLE IF NOT EXISTS "ai_usage_logs" (
+          "id" TEXT NOT NULL,
+          "capability_type" TEXT NOT NULL,
+          "capability_id" TEXT NOT NULL,
+          "user_id" TEXT,
+          "team_id" TEXT,
+          "agent_id" TEXT,
+          "success" BOOLEAN NOT NULL,
+          "duration" INTEGER,
+          "tokens_used" INTEGER,
+          "error_code" TEXT,
+          "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT "ai_usage_logs_pkey" PRIMARY KEY ("id")
+        )
+      `;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "ai_usage_logs_capability_type_capability_id_idx" ON "ai_usage_logs"("capability_type", "capability_id")`;
+      await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "ai_usage_logs_created_at_idx" ON "ai_usage_logs"("created_at")`;
+      console.log("   Created ai_usage_logs table");
+    } else {
+      console.log("   OK ai_usage_logs table");
+    }
     console.log("");
 
     // Step 4: Generate Prisma Client

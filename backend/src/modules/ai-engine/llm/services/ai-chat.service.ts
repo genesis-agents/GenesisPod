@@ -450,6 +450,52 @@ export class AiChatService {
   }
 
   /**
+   * ★ 获取指定类型的所有启用模型（用于 fallback）
+   * 返回所有可用模型，按优先级排序：默认模型优先，然后按创建时间降序
+   *
+   * @param modelType 模型类型
+   * @param excludeModelIds 要排除的模型 ID 列表（已尝试失败的模型）
+   * @returns 模型配置列表
+   */
+  async getAllEnabledModelsByType(
+    modelType: AIModelType,
+    excludeModelIds: string[] = [],
+  ): Promise<AIModelConfig[]> {
+    try {
+      const models = await this.prisma.aIModel.findMany({
+        where: {
+          modelType,
+          isEnabled: true,
+          modelId:
+            excludeModelIds.length > 0 ? { notIn: excludeModelIds } : undefined,
+        },
+        orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+      });
+
+      return models.map((model) => ({
+        id: model.id,
+        name: model.name,
+        displayName: model.displayName,
+        provider: model.provider,
+        modelId: model.modelId,
+        apiEndpoint: model.apiEndpoint,
+        apiKey: model.apiKey,
+        maxTokens: model.maxTokens,
+        temperature: model.temperature,
+        isEnabled: model.isEnabled,
+        isDefault: model.isDefault,
+        isReasoning:
+          (model as any).isReasoning ?? this.inferIsReasoning(model.modelId),
+      }));
+    } catch (error) {
+      this.logger.error(
+        `[getAllEnabledModelsByType] Failed to get models: ${error}`,
+      );
+      return [];
+    }
+  }
+
+  /**
    * ★ 获取推理模型配置
    * 用于需要深度推理能力的任务（如 Leader 规划、复杂分析）
    *
@@ -4643,20 +4689,86 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
         `temperature=${effectiveTemperature}, isReasoning=${modelConfig?.isReasoning ?? false}`,
     );
 
-    const result = await this.generateChatCompletion({
-      model,
-      systemPrompt,
-      messages,
-      maxTokens: effectiveMaxTokens,
-      temperature: effectiveTemperature,
-      strictMode,
-    });
+    // ★ Fallback 机制：如果首选模型失败，自动尝试其他同类型模型
+    const triedModelIds: string[] = [];
+    let lastError: string | null = null;
+    let currentModel = model;
+    let currentModelConfig = modelConfig;
+
+    // 最多尝试 5 个不同的模型
+    const maxFallbackAttempts = 5;
+
+    for (let attempt = 0; attempt < maxFallbackAttempts; attempt++) {
+      triedModelIds.push(currentModel);
+
+      this.logger.debug(
+        `[chat] Attempt ${attempt + 1}/${maxFallbackAttempts}: trying model ${currentModel}`,
+      );
+
+      const result = await this.generateChatCompletion({
+        model: currentModel,
+        systemPrompt,
+        messages,
+        maxTokens: effectiveMaxTokens,
+        temperature: effectiveTemperature,
+        strictMode,
+      });
+
+      // 如果成功（没有错误），直接返回
+      if (!result.isError) {
+        if (attempt > 0) {
+          this.logger.log(
+            `[chat] ✓ Fallback successful: ${currentModel} (after ${attempt} failed attempts)`,
+          );
+        }
+        return {
+          content: result.content,
+          usage: { totalTokens: result.tokensUsed },
+          model: result.model,
+          isError: false,
+        };
+      }
+
+      // 如果失败，记录错误并尝试下一个模型
+      lastError = result.content;
+      this.logger.warn(
+        `[chat] Model ${currentModel} failed: ${result.content.slice(0, 100)}...`,
+      );
+
+      // 获取其他可用的同类型模型（排除已尝试的）
+      if (modelType) {
+        const alternativeModels = await this.getAllEnabledModelsByType(
+          modelType,
+          triedModelIds,
+        );
+
+        if (alternativeModels.length > 0) {
+          currentModelConfig = alternativeModels[0];
+          currentModel = currentModelConfig.modelId;
+          this.logger.log(
+            `[chat] Falling back to alternative model: ${currentModel} (${currentModelConfig.provider})`,
+          );
+          continue;
+        }
+      }
+
+      // 没有更多备用模型，退出循环
+      this.logger.warn(
+        `[chat] No more alternative models available. Tried: ${triedModelIds.join(", ")}`,
+      );
+      break;
+    }
+
+    // 所有模型都失败了，返回最后一个错误
+    this.logger.error(
+      `[chat] All ${triedModelIds.length} models failed. Last error: ${lastError?.slice(0, 100)}`,
+    );
 
     return {
-      content: result.content,
-      usage: { totalTokens: result.tokensUsed },
-      model: result.model,
-      isError: result.isError,
+      content: lastError || "所有可用模型均调用失败，请检查 API 配置",
+      usage: { totalTokens: 0 },
+      model: currentModel,
+      isError: true,
     };
   }
 
