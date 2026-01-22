@@ -211,6 +211,20 @@ export class WechatAdapter {
         return false;
       }
 
+      // 方法5: 检查是否有登录超时提示（session 过期）
+      const pageText = await page.evaluate(
+        () => document.body?.innerText || "",
+      );
+      if (
+        pageText.includes("Login timeout") ||
+        pageText.includes("登录超时") ||
+        pageText.includes("Please Log in") ||
+        pageText.includes("请重新登录")
+      ) {
+        this.logger.debug("Login check: Found login timeout message");
+        return false;
+      }
+
       this.logger.warn(
         "Login check: Could not determine login status, assuming not logged in",
       );
@@ -326,13 +340,23 @@ export class WechatAdapter {
           const pageTitle = await page.title();
           const hasLoginForm = await page.$(".login__type__qrcode");
           const hasErrorMsg = await page.$(".weui-desktop-msg__title");
+          const pageText = await page.evaluate(
+            () => document.body?.innerText || "",
+          );
 
           this.logger.error(`Page diagnosis - no inputs found:`);
           this.logger.error(`- Page title: ${pageTitle}`);
           this.logger.error(`- Has login form: ${!!hasLoginForm}`);
           this.logger.error(`- Has error message: ${!!hasErrorMsg}`);
 
-          if (hasLoginForm) {
+          // 检查登录表单或登录超时提示
+          const isLoginTimeout =
+            pageText.includes("Login timeout") ||
+            pageText.includes("登录超时") ||
+            pageText.includes("Please Log in") ||
+            pageText.includes("请重新登录");
+
+          if (hasLoginForm || isLoginTimeout) {
             throw new Error(
               "微信公众号登录已过期，请在 AI Social 连接管理中重新连接",
             );
