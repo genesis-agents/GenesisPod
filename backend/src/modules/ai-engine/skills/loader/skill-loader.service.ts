@@ -67,7 +67,30 @@ export class SkillLoaderService implements OnModuleInit {
   }
 
   async onModuleInit(): Promise<void> {
+    // 1. 加载本地 Skills
     await this.loadAllLocalSkills();
+
+    // 2. 预热已安装的 Marketplace Skills（从磁盘加载到内存）
+    await this.warmupInstalledSkills();
+  }
+
+  /**
+   * 预热已安装的 Marketplace Skills
+   * 从 cached/skills 目录加载到内存
+   */
+  private async warmupInstalledSkills(): Promise<void> {
+    try {
+      const loadedCount = await this.cacheService.warmup();
+      if (loadedCount > 0) {
+        this.logger.log(
+          `[Skills] ✅ Warmed up ${loadedCount} installed Marketplace Skills`,
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        `[Skills] Failed to warmup installed skills: ${(error as Error).message}`,
+      );
+    }
   }
 
   /**
