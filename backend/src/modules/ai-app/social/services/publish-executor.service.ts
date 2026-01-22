@@ -96,6 +96,16 @@ export class PublishExecutorService {
         });
       } else if (!connection) {
         return { success: false, errorMessage: "未关联发布账号" };
+      } else {
+        // 有连接但会话无效，且找不到有效的活跃连接
+        this.logger.error(
+          `Content ${contentId} has invalid connection and no valid fallback found`,
+        );
+        return {
+          success: false,
+          errorMessage:
+            "微信公众号会话已失效（无有效Cookie），请在连接管理中断开后重新扫码登录",
+        };
       }
     }
 
