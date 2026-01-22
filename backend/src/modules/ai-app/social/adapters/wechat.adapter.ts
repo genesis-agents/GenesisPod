@@ -109,6 +109,44 @@ export class WechatAdapter {
         };
       }
 
+      // Step 7.5: 如果在列表页，点击"新建图文"按钮进入编辑器
+      const newArticleSelectors = [
+        'a[href*="appmsg_edit_v2"]',
+        'a:has-text("新建图文")',
+        'button:has-text("新建图文")',
+        ".weui-desktop-btn_primary:has-text('新建')",
+        '[class*="create"]:has-text("图文")',
+        "a.js_create_news",
+        ".appmsg_create_btn",
+      ];
+
+      let clickedNewArticle = false;
+      for (const selector of newArticleSelectors) {
+        try {
+          const btn = await page.$(selector);
+          if (btn) {
+            this.logger.log(
+              `Found new article button with selector: ${selector}`,
+            );
+            await btn.click();
+            await page.waitForLoadState("networkidle");
+            clickedNewArticle = true;
+            this.logger.log(
+              "Clicked new article button, waiting for editor...",
+            );
+            break;
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      if (!clickedNewArticle) {
+        this.logger.log(
+          "No new article button found, assuming already in editor",
+        );
+      }
+
       // Step 8: 填写内容
       this.logger.log("Filling content...");
       await this.fillContent(page, content);
@@ -440,23 +478,23 @@ export class WechatAdapter {
           const pageTitle = await page.title();
           const hasLoginForm = await page.$(".login__type__qrcode");
           const hasErrorMsg = await page.$(".weui-desktop-msg__title");
-          const pageText = await page.evaluate(
-            () => document.body?.innerText || "",
-          );
+          const currentUrl = page.url();
 
           this.logger.error(`Page diagnosis - no inputs found:`);
           this.logger.error(`- Page title: ${pageTitle}`);
+          this.logger.error(`- Current URL: ${currentUrl}`);
           this.logger.error(`- Has login form: ${!!hasLoginForm}`);
           this.logger.error(`- Has error message: ${!!hasErrorMsg}`);
 
-          // 检查登录表单或登录超时提示
-          const isLoginTimeout =
-            pageText.includes("Login timeout") ||
-            pageText.includes("登录超时") ||
-            pageText.includes("Please Log in") ||
-            pageText.includes("请重新登录");
+          // 只有当页面被重定向到登录页或有明确的登录表单时才认为登录过期
+          // 不再使用 pageText.includes 检测，因为正常页面也可能包含这些词
+          const isOnLoginPage =
+            currentUrl.includes("bizlogin") ||
+            currentUrl.includes("action=login") ||
+            currentUrl.includes("auth") ||
+            hasLoginForm;
 
-          if (hasLoginForm || isLoginTimeout) {
+          if (isOnLoginPage) {
             throw new Error(
               "微信公众号登录已过期，请在 AI Social 连接管理中重新连接",
             );
