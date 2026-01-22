@@ -1148,8 +1148,19 @@ export class ResearchMissionService {
             });
           }
         }
-        this.logger.debug(
-          `[getTeamInfo] Found ${agentAssignmentsMap.size} valid agent assignments in leaderPlan`,
+        // ★ 打印 skills/tools 分配情况（帮助调试）
+        const assignmentDetails = Array.from(agentAssignmentsMap.entries())
+          .map(([id, data]) => {
+            const parts = [id];
+            if (data.skills?.length)
+              parts.push(`skills=[${data.skills.join(",")}]`);
+            if (data.tools?.length)
+              parts.push(`tools=[${data.tools.join(",")}]`);
+            return parts.join(" ");
+          })
+          .join(" | ");
+        this.logger.log(
+          `[getTeamInfo] Agent capabilities from leaderPlan: ${assignmentDetails || "(none)"}`,
         );
       }
     } catch (parseError) {

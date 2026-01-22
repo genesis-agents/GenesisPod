@@ -871,14 +871,18 @@ export class ResearchLeaderService {
       `[planResearch] Plan created with ${plan.dimensions.length} dimensions in ${latencyMs}ms`,
     );
 
-    // ★ 打印 Agent 模型分配情况
-    const assignmentSummary = plan.agentAssignments
+    // ★ 打印 Agent 分配情况（包含模型、技能、工具）
+    const researcherSummary = plan.agentAssignments
       ?.filter((a) => a.agentType === "dimension_researcher")
-      .map((a) => `${a.agentName || a.agentId}: ${a.modelId || "未分配"}`)
-      .join(", ");
-    this.logger.log(
-      `[planResearch] Agent model assignments: ${assignmentSummary}`,
-    );
+      .map((a) => {
+        const parts = [a.agentName || a.agentId];
+        if (a.modelId) parts.push(`model=${a.modelId}`);
+        if (a.skills?.length) parts.push(`skills=[${a.skills.join(",")}]`);
+        if (a.tools?.length) parts.push(`tools=[${a.tools.join(",")}]`);
+        return parts.join(" ");
+      })
+      .join(" | ");
+    this.logger.log(`[planResearch] Agent assignments: ${researcherSummary}`);
 
     return plan;
   }
