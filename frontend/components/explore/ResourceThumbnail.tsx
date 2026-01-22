@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
+import { extractYouTubeVideoId } from './utils';
 
 // 简单的内存缓存，用于存储已提取的缩略图
 const thumbnailCache = new Map<string, string | null>();
@@ -90,22 +91,6 @@ interface ResourceThumbnailProps {
     };
   };
   className?: string;
-}
-
-/**
- * 从YouTube URL提取视频ID
- */
-function extractYouTubeVideoId(url: string): string | null {
-  if (!url) return null;
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
-    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
-  ];
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1];
-  }
-  return null;
 }
 
 /**

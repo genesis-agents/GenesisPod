@@ -49,11 +49,28 @@ export function extractImagesFromMarkdown(content: string): {
 
 /**
  * Extract YouTube video ID from URL
+ * Supports various formats:
+ * - youtube.com/watch?v=ID
+ * - youtube.com/watch?app=desktop&v=ID (with other params before v)
+ * - youtu.be/ID
+ * - youtube.com/embed/ID
+ * - youtube.com/v/ID
+ * - youtube.com/shorts/ID
  */
 export function extractYouTubeVideoId(url: string): string | null {
   if (!url) return null;
+
+  // Handle watch URLs with query parameters (v can be anywhere in query string)
+  if (url.includes('youtube.com/watch')) {
+    const match = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+    if (match) return match[1];
+  }
+
+  // Handle other URL formats
   const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/,
     /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
   ];
   for (const pattern of patterns) {

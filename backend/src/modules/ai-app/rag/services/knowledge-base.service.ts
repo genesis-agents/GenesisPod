@@ -115,10 +115,24 @@ export class KnowledgeBaseService {
   /**
    * Get knowledge base by ID
    * Uses Prisma ORM to automatically handle type conversions
+   * Supports both owner access and team member access
    */
   async findById(id: string, userId?: string) {
-    // Build where clause based on whether userId is provided
-    const whereClause = userId ? { id, userId } : { id };
+    // Build where clause: if userId provided, check ownership OR team membership
+    const whereClause = userId
+      ? {
+          id,
+          OR: [
+            { userId }, // User is owner
+            {
+              type: "TEAM" as const,
+              members: {
+                some: { userId }, // User is team member
+              },
+            },
+          ],
+        }
+      : { id };
 
     const kb = await this.prisma.knowledgeBase.findFirst({
       where: whereClause,

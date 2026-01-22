@@ -4208,13 +4208,13 @@ model ExportJob {
   id String @id @default(cuid())
 
   // 来源信息
-  sourceType ExportSourceType
+  sourceType ExportSourceType @map("source_type")
   sourceId   String?          @map("source_id") // 来源ID (如果有)
   sourceData Json?            @map("source_data") // 原始内容 (如果是RAW类型)
 
   // 导出配置
-  format     ExportFormat
-  templateId String?      @map("template_id")
+  format     ExportFormat     @map("format")
+  templateId String?          @map("template_id")
   options    Json         @default("{}") // 导出选项
 
   // 状态
