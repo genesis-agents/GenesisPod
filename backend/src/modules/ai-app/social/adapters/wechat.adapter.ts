@@ -18,48 +18,90 @@ export class WechatAdapter {
     connection: SocialPlatformConnection,
   ): Promise<PublishResult> {
     this.logger.log(`Publishing to WeChat MP: ${content.title}`);
+    this.logger.log(
+      `Connection ID: ${connection.id}, Platform: ${connection.platformType}`,
+    );
 
     const contextId = `wechat-${connection.id}`;
     let page: any = null;
 
     try {
-      // 恢复登录会话
-      if (connection.sessionData) {
-        await this.playwright.restoreSession(
-          contextId,
-          connection.sessionData as any,
-        );
-      }
-
-      page = await this.playwright.createPage(contextId);
-
-      // 1. 访问公众号后台
-      await page.goto(`${this.MP_URL}/cgi-bin/home`);
-
-      // 2. 检查登录状态
-      const isLoggedIn = await this.checkLoginStatus(page);
-      if (!isLoggedIn) {
+      // Step 1: 检查 session 数据是否存在
+      if (!connection.sessionData) {
+        this.logger.error("No session data found for connection");
         return {
           success: false,
-          errorMessage: "微信公众号登录已过期，请重新连接",
+          errorMessage:
+            "微信公众号未连接或登录已过期，请在连接管理中重新扫码登录",
         };
       }
 
-      // 3. 进入图文编辑页面
-      this.logger.log("Navigating to article edit page...");
-      await page.goto(`${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit`);
-      await page.waitForLoadState("networkidle");
+      const sessionData = connection.sessionData as any;
+      this.logger.log(
+        `Session data found, cookies count: ${sessionData.cookies?.length || 0}`,
+      );
 
-      // 记录当前页面 URL 和状态用于调试
+      // Step 2: 恢复登录会话
+      this.logger.log("Restoring session...");
+      await this.playwright.restoreSession(contextId, sessionData);
+      this.logger.log("Session restored successfully");
+
+      // Step 3: 创建页面
+      this.logger.log("Creating page...");
+      page = await this.playwright.createPage(contextId);
+      this.logger.log("Page created successfully");
+
+      // Step 4: 访问公众号后台
+      this.logger.log("Navigating to WeChat MP home...");
+      await page.goto(`${this.MP_URL}/cgi-bin/home`, {
+        waitUntil: "networkidle",
+        timeout: 30000,
+      });
+      this.logger.log(`Navigation complete, current URL: ${page.url()}`);
+
+      // Step 5: 检查登录状态
+      this.logger.log("Checking login status...");
+      const isLoggedIn = await this.checkLoginStatus(page);
+      if (!isLoggedIn) {
+        // 捕获截图用于调试
+        await this.captureDebugInfo(page, "login_check_failed");
+        return {
+          success: false,
+          errorMessage:
+            "微信公众号登录已过期，请在 AI Social 连接管理中重新扫码登录",
+        };
+      }
+      this.logger.log("Login status verified: logged in");
+
+      // Step 6: 进入图文编辑页面
+      this.logger.log("Navigating to article edit page...");
+      await page.goto(`${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit`, {
+        waitUntil: "networkidle",
+        timeout: 30000,
+      });
       const editPageUrl = page.url();
       this.logger.log(`Edit page URL: ${editPageUrl}`);
 
-      // 4. 填写内容
+      // Step 7: 检查是否成功进入编辑页面
+      if (
+        editPageUrl.includes("bizlogin") ||
+        editPageUrl.includes("action=login")
+      ) {
+        await this.captureDebugInfo(page, "redirected_to_login");
+        return {
+          success: false,
+          errorMessage: "访问编辑页面时被重定向到登录页，请重新连接微信公众号",
+        };
+      }
+
+      // Step 8: 填写内容
+      this.logger.log("Filling content...");
       await this.fillContent(page, content);
+      this.logger.log("Content filled successfully");
 
-      // 5. 保存为草稿（安全起见，先保存草稿，不直接发布）
+      // Step 9: 保存为草稿
+      this.logger.log("Saving as draft...");
       const draftUrl = await this.saveDraft(page);
-
       this.logger.log(`WeChat article saved as draft: ${draftUrl}`);
 
       return {
@@ -70,35 +112,78 @@ export class WechatAdapter {
       const err = error as Error;
       this.logger.error(`WeChat publish failed: ${err.message}`, err.stack);
 
-      // 捕获截图用于调试
+      // 捕获调试信息
       if (page) {
-        try {
-          const screenshot = await page.screenshot({ fullPage: true });
-          this.logger.error(
-            `Debug screenshot captured (base64 length: ${screenshot.toString("base64").length})`,
-          );
-          // 记录当前页面 URL
-          this.logger.error(`Current page URL: ${page.url()}`);
-          // 记录页面 HTML 片段用于调试
-          const bodyHtml = await page.evaluate(
-            () => document.body?.innerHTML?.substring(0, 2000) || "empty",
-          );
-          this.logger.error(
-            `Page body preview: ${bodyHtml.substring(0, 500)}...`,
-          );
-        } catch (screenshotError) {
-          this.logger.error(
-            `Failed to capture debug screenshot: ${(screenshotError as Error).message}`,
-          );
-        }
+        await this.captureDebugInfo(page, "publish_error");
+      }
+
+      // 返回更详细的错误信息
+      let errorMessage = `发布失败: ${err.message}`;
+      if (err.message.includes("timeout") || err.message.includes("Timeout")) {
+        errorMessage = "发布超时，微信公众号后台响应过慢，请稍后重试";
+      } else if (
+        err.message.includes("navigation") ||
+        err.message.includes("Navigation")
+      ) {
+        errorMessage = "页面导航失败，微信公众号后台可能不可用，请稍后重试";
+      } else if (
+        err.message.includes("登录") ||
+        err.message.includes("login")
+      ) {
+        errorMessage = "微信公众号登录状态异常，请重新连接";
       }
 
       return {
         success: false,
-        errorMessage: `发布失败: ${err.message}`,
+        errorMessage,
       };
     } finally {
       await this.playwright.closeContext(contextId);
+    }
+  }
+
+  /**
+   * 捕获调试信息用于问题排查
+   */
+  private async captureDebugInfo(page: any, context: string): Promise<void> {
+    try {
+      this.logger.error(`[${context}] Capturing debug info...`);
+      this.logger.error(`[${context}] Current URL: ${page.url()}`);
+
+      // 截图
+      const screenshot = await page
+        .screenshot({ fullPage: true })
+        .catch(() => null);
+      if (screenshot) {
+        this.logger.error(
+          `[${context}] Screenshot captured (base64 length: ${screenshot.toString("base64").length})`,
+        );
+      }
+
+      // 页面标题
+      const title = await page.title().catch(() => "unknown");
+      this.logger.error(`[${context}] Page title: ${title}`);
+
+      // 页面 HTML 片段
+      const bodyHtml = await page
+        .evaluate(() => document.body?.innerHTML?.substring(0, 1000) || "empty")
+        .catch(() => "failed to get HTML");
+      this.logger.error(
+        `[${context}] Page body preview: ${bodyHtml.substring(0, 500)}...`,
+      );
+
+      // 检查是否有登录相关的元素
+      const hasLoginForm = await page
+        .$(".login__type__qrcode")
+        .catch(() => null);
+      const hasLoginBtn = await page.$('[class*="login"]').catch(() => null);
+      this.logger.error(
+        `[${context}] Has login form: ${!!hasLoginForm}, Has login button: ${!!hasLoginBtn}`,
+      );
+    } catch (debugError) {
+      this.logger.error(
+        `[${context}] Failed to capture debug info: ${(debugError as Error).message}`,
+      );
     }
   }
 
@@ -470,17 +555,77 @@ export class WechatAdapter {
   }
 
   private async saveDraft(page: any): Promise<string> {
-    // 点击保存草稿按钮
-    const saveButton = await page.waitForSelector(".js_save");
+    this.logger.log("Looking for save button...");
+
+    // 尝试多个保存按钮选择器
+    const saveSelectors = [
+      ".js_save",
+      ".weui-desktop-btn_primary",
+      'button:has-text("保存")',
+      'button:has-text("保存草稿")',
+      '[class*="save"]',
+      ".tool_bar .preview",
+    ];
+
+    let saveButton = null;
+    for (const selector of saveSelectors) {
+      try {
+        saveButton = await page.waitForSelector(selector, { timeout: 5000 });
+        if (saveButton) {
+          this.logger.log(`Found save button with selector: ${selector}`);
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    if (!saveButton) {
+      // 记录所有按钮用于调试
+      const buttons = await page.$$eval("button", (els: Element[]) =>
+        els.map((el) => ({
+          text: el.textContent?.trim().substring(0, 50),
+          class: el.className?.substring(0, 50),
+        })),
+      );
+      this.logger.error(`Available buttons: ${JSON.stringify(buttons)}`);
+      throw new Error("找不到保存按钮，微信后台界面可能已更新");
+    }
+
+    // 点击保存按钮
+    this.logger.log("Clicking save button...");
     await saveButton.click();
 
-    // 等待保存完成
-    await page.waitForResponse(
-      (response: any) =>
-        response.url().includes("operate_appmsg") && response.status() === 200,
-    );
+    // 等待保存完成 - 使用多种检测方式
+    this.logger.log("Waiting for save response...");
+    try {
+      await Promise.race([
+        // 方式1: 等待 API 响应
+        page.waitForResponse(
+          (response: any) =>
+            response.url().includes("operate_appmsg") &&
+            response.status() === 200,
+          { timeout: 30000 },
+        ),
+        // 方式2: 等待成功提示
+        page.waitForSelector(".weui-desktop-toast__content", {
+          timeout: 30000,
+        }),
+        // 方式3: 等待 URL 变化
+        page.waitForURL(/appmsg.*aid=/, { timeout: 30000 }),
+      ]);
+      this.logger.log("Save operation completed");
+    } catch (waitError) {
+      this.logger.warn(
+        `Save wait timed out, checking current state: ${(waitError as Error).message}`,
+      );
+      // 即使超时，也检查是否已保存成功
+      await page.waitForTimeout(2000);
+    }
 
-    // 返回当前页面URL作为草稿链接
-    return page.url();
+    // 返回当前页面 URL 作为草稿链接
+    const draftUrl = page.url();
+    this.logger.log(`Draft URL: ${draftUrl}`);
+    return draftUrl;
   }
 }

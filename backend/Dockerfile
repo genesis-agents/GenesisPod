@@ -81,9 +81,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-wqy-zenhei \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Puppeteer to use system Chromium
+# Set Puppeteer and Playwright to use system Chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 # 生产环境标识 - 控制日志级别为 error/warn
 ENV NODE_ENV=production
 
