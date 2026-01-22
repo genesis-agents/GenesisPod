@@ -37,9 +37,20 @@ export class WechatAdapter {
       }
 
       const sessionData = connection.sessionData as any;
-      this.logger.log(
-        `Session data found, cookies count: ${sessionData.cookies?.length || 0}`,
-      );
+      const cookiesCount = sessionData.cookies?.length || 0;
+      this.logger.log(`Session data found, cookies count: ${cookiesCount}`);
+
+      // 检查 cookies 数量，如果为 0 则无法恢复有效会话
+      if (cookiesCount === 0) {
+        this.logger.error(
+          "Session has no cookies - cannot restore valid login session",
+        );
+        return {
+          success: false,
+          errorMessage:
+            "微信公众号会话数据无效（无Cookie），请断开连接后重新扫码登录",
+        };
+      }
 
       // Step 2: 恢复登录会话
       this.logger.log("Restoring session...");

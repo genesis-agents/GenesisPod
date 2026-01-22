@@ -539,10 +539,32 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
           // 忽略获取账号名称的错误
         }
 
-        // 保存会话数据
-        const sessionData = await this.saveSession(sessionKey);
+        // 等待一小段时间确保 cookies 完全设置
+        await page.waitForTimeout(2000).catch(() => {});
 
-        this.logger.log(`Login successful for session: ${sessionKey}`);
+        // 保存会话数据
+        let sessionData = await this.saveSession(sessionKey);
+
+        // 验证 cookies 数量，如果为 0 则重试
+        if (!sessionData?.cookies?.length) {
+          this.logger.warn(
+            `Session saved with 0 cookies, waiting and retrying...`,
+          );
+          await page.waitForTimeout(3000).catch(() => {});
+          sessionData = await this.saveSession(sessionKey);
+        }
+
+        // 记录 cookies 数量用于诊断
+        this.logger.log(
+          `Login successful for session: ${sessionKey}, cookies count: ${sessionData?.cookies?.length || 0}`,
+        );
+
+        // 如果仍然没有 cookies，记录警告
+        if (!sessionData?.cookies?.length) {
+          this.logger.warn(
+            `Warning: Session saved without cookies. This may cause issues during publishing.`,
+          );
+        }
 
         return {
           loggedIn: true,
