@@ -83,7 +83,6 @@ export class ContentTransformerService {
 
 ### 3. 结尾部分
 - 简洁的结束语（如 "--end--"）
-- 号召关注语（如 "欢迎点赞转发推荐评论，别忘了关注我"）
 
 ## HTML 样式规范（必须使用内联样式）：
 
@@ -94,7 +93,11 @@ export class ContentTransformerService {
 - 分隔线: <hr style="margin: 2em 0; border: none; border-top: 1px solid #eee;">
 - 引用块: <blockquote style="margin: 1em 0; padding: 15px 20px; background: #f9f9f9; border-left: 4px solid #ddd; color: #666;">引用内容</blockquote>
 - 结束语: <p style="text-align: center; margin: 2em 0; color: #999;">--end--</p>
-- 关注语: <p style="margin: 1em 0; line-height: 2; font-size: 15px; color: #666;">欢迎点赞转发推荐评论，别忘了关注我</p>
+
+## 字数要求：
+- 正文内容必须在 1500-5000 字之间
+- 内容要充实、有深度，不能过于简短
+- 每个章节至少 200 字以上
 
 ## 其他要求：
 1. 标题要有吸引力，可以用冒号分隔主副标题，控制在35字以内
