@@ -315,14 +315,14 @@ async function deploy(): Promise<void> {
     console.log("");
 
     // Step 4.6: Fix MCP server package names (from @anthropics to @modelcontextprotocol)
-    // Note: Using actual database table name "mcp_server_configs" (not Prisma model name "MCPServerConfig")
+    // Note: args is text[] array type, use array_replace() instead of jsonb functions
     console.log("4.6. Fixing MCP server package names...");
     try {
       // Fix GitHub server package name
       const githubFixed = await prisma.$executeRaw`
         UPDATE "mcp_server_configs"
-        SET args = REPLACE(args::text, '@anthropics/mcp-server-github', '@modelcontextprotocol/server-github')::jsonb
-        WHERE args::text LIKE '%@anthropics/mcp-server-github%'
+        SET args = array_replace(args, '@anthropics/mcp-server-github', '@modelcontextprotocol/server-github')
+        WHERE '@anthropics/mcp-server-github' = ANY(args)
       `;
       if (githubFixed > 0) {
         console.log(`   Fixed ${githubFixed} GitHub MCP server(s)`);
@@ -331,8 +331,8 @@ async function deploy(): Promise<void> {
       // Fix DuckDuckGo server package name
       const ddgFixed = await prisma.$executeRaw`
         UPDATE "mcp_server_configs"
-        SET args = REPLACE(args::text, '@anthropics/mcp-server-duckduckgo', '@modelcontextprotocol/server-ddg-search')::jsonb
-        WHERE args::text LIKE '%@anthropics/mcp-server-duckduckgo%'
+        SET args = array_replace(args, '@anthropics/mcp-server-duckduckgo', '@modelcontextprotocol/server-ddg-search')
+        WHERE '@anthropics/mcp-server-duckduckgo' = ANY(args)
       `;
       if (ddgFixed > 0) {
         console.log(`   Fixed ${ddgFixed} DuckDuckGo MCP server(s)`);
@@ -341,29 +341,14 @@ async function deploy(): Promise<void> {
       // Fix Filesystem server package name
       const fsFixed = await prisma.$executeRaw`
         UPDATE "mcp_server_configs"
-        SET args = REPLACE(args::text, '@anthropics/mcp-server-filesystem', '@modelcontextprotocol/server-filesystem')::jsonb
-        WHERE args::text LIKE '%@anthropics/mcp-server-filesystem%'
+        SET args = array_replace(args, '@anthropics/mcp-server-filesystem', '@modelcontextprotocol/server-filesystem')
+        WHERE '@anthropics/mcp-server-filesystem' = ANY(args)
       `;
       if (fsFixed > 0) {
         console.log(`   Fixed ${fsFixed} Filesystem MCP server(s)`);
       }
 
-      // Fix any other @anthropics packages
-      const otherFixed = await prisma.$executeRaw`
-        UPDATE "mcp_server_configs"
-        SET args = REPLACE(args::text, '@anthropics/mcp-server-', '@modelcontextprotocol/server-')::jsonb
-        WHERE args::text LIKE '%@anthropics/mcp-server-%'
-      `;
-      if (otherFixed > 0) {
-        console.log(`   Fixed ${otherFixed} other MCP server(s)`);
-      }
-
-      if (
-        githubFixed === 0 &&
-        ddgFixed === 0 &&
-        fsFixed === 0 &&
-        otherFixed === 0
-      ) {
+      if (githubFixed === 0 && ddgFixed === 0 && fsFixed === 0) {
         console.log("   No MCP servers needed fixing");
       }
     } catch (error: any) {

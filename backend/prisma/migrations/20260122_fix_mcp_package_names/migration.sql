@@ -1,22 +1,18 @@
 -- Fix MCP server package names from @anthropics to @modelcontextprotocol
 -- This migration corrects the npm package names for MCP servers
+-- Note: args is text[] array type, use array_replace() instead of jsonb
 
 -- Fix GitHub server
-UPDATE "MCPServerConfig"
-SET args = REPLACE(args::text, '@anthropics/mcp-server-github', '@modelcontextprotocol/server-github')::jsonb
-WHERE args::text LIKE '%@anthropics/mcp-server-github%';
+UPDATE "mcp_server_configs"
+SET args = array_replace(args, '@anthropics/mcp-server-github', '@modelcontextprotocol/server-github')
+WHERE '@anthropics/mcp-server-github' = ANY(args);
 
 -- Fix DuckDuckGo server
-UPDATE "MCPServerConfig"
-SET args = REPLACE(args::text, '@anthropics/mcp-server-duckduckgo', '@modelcontextprotocol/server-ddg-search')::jsonb
-WHERE args::text LIKE '%@anthropics/mcp-server-duckduckgo%';
+UPDATE "mcp_server_configs"
+SET args = array_replace(args, '@anthropics/mcp-server-duckduckgo', '@modelcontextprotocol/server-ddg-search')
+WHERE '@anthropics/mcp-server-duckduckgo' = ANY(args);
 
 -- Fix Filesystem server
-UPDATE "MCPServerConfig"
-SET args = REPLACE(args::text, '@anthropics/mcp-server-filesystem', '@modelcontextprotocol/server-filesystem')::jsonb
-WHERE args::text LIKE '%@anthropics/mcp-server-filesystem%';
-
--- Fix any other @anthropics packages to @modelcontextprotocol
-UPDATE "MCPServerConfig"
-SET args = REPLACE(args::text, '@anthropics/mcp-server-', '@modelcontextprotocol/server-')::jsonb
-WHERE args::text LIKE '%@anthropics/mcp-server-%';
+UPDATE "mcp_server_configs"
+SET args = array_replace(args, '@anthropics/mcp-server-filesystem', '@modelcontextprotocol/server-filesystem')
+WHERE '@anthropics/mcp-server-filesystem' = ANY(args);

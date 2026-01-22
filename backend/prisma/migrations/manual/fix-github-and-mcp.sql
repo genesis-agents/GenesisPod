@@ -12,28 +12,23 @@ WHERE (LOWER(name) LIKE '%github%' OR LOWER(display_name) LIKE '%github%')
 
 -- ============================================
 -- 2. Fix MCP server package names
--- Note: Table name is "mcp_server_configs" (not "MCPServerConfig")
+-- Note: args is text[] array type, use array_replace() instead of jsonb
 -- ============================================
 
 -- Fix GitHub server package name
 UPDATE "mcp_server_configs"
-SET args = REPLACE(args::text, '@anthropics/mcp-server-github', '@modelcontextprotocol/server-github')::jsonb
-WHERE args::text LIKE '%@anthropics/mcp-server-github%';
+SET args = array_replace(args, '@anthropics/mcp-server-github', '@modelcontextprotocol/server-github')
+WHERE '@anthropics/mcp-server-github' = ANY(args);
 
 -- Fix DuckDuckGo server package name
 UPDATE "mcp_server_configs"
-SET args = REPLACE(args::text, '@anthropics/mcp-server-duckduckgo', '@modelcontextprotocol/server-ddg-search')::jsonb
-WHERE args::text LIKE '%@anthropics/mcp-server-duckduckgo%';
+SET args = array_replace(args, '@anthropics/mcp-server-duckduckgo', '@modelcontextprotocol/server-ddg-search')
+WHERE '@anthropics/mcp-server-duckduckgo' = ANY(args);
 
 -- Fix Filesystem server package name
 UPDATE "mcp_server_configs"
-SET args = REPLACE(args::text, '@anthropics/mcp-server-filesystem', '@modelcontextprotocol/server-filesystem')::jsonb
-WHERE args::text LIKE '%@anthropics/mcp-server-filesystem%';
-
--- Fix any other @anthropics packages
-UPDATE "mcp_server_configs"
-SET args = REPLACE(args::text, '@anthropics/mcp-server-', '@modelcontextprotocol/server-')::jsonb
-WHERE args::text LIKE '%@anthropics/mcp-server-%';
+SET args = array_replace(args, '@anthropics/mcp-server-filesystem', '@modelcontextprotocol/server-filesystem')
+WHERE '@anthropics/mcp-server-filesystem' = ANY(args);
 
 -- ============================================
 -- Verification queries (run after migration)
