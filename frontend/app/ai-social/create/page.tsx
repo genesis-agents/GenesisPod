@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import AppShell from '@/components/layout/AppShell';
-import { useSocialCreateStore, CreateStep } from '@/stores/socialCreateStore';
+import { useSocialCreateStore } from '@/stores/socialCreateStore';
 import {
   useSocialContents,
   useSocialPublish,
@@ -40,8 +40,6 @@ function CreateSocialContentForm() {
     digest,
     tags,
     currentContentId,
-    isSaving,
-    isPublishing,
     setSource,
     setExternalUrl,
     setStep,
@@ -250,13 +248,15 @@ function CreateSocialContentForm() {
   };
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full min-h-0">
       {/* Left sidebar - Step navigation */}
       <StepNavigation onSaveDraft={handleSaveDraft} onPublish={handlePublish} />
 
       {/* Main content area */}
-      <div className="flex-1 overflow-auto bg-gray-50 p-8">
-        <div className="mx-auto max-w-3xl">{renderStepContent()}</div>
+      <div className="flex-1 overflow-auto bg-gray-50">
+        <div className="mx-auto min-h-full max-w-3xl p-8">
+          {renderStepContent()}
+        </div>
       </div>
     </div>
   );
@@ -265,10 +265,10 @@ function CreateSocialContentForm() {
 export default function CreateSocialContentPage() {
   return (
     <AppShell>
-      <main className="flex h-[calc(100vh-64px)] flex-col overflow-hidden">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <Suspense
           fallback={
-            <div className="flex min-h-screen items-center justify-center">
+            <div className="flex h-full items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
             </div>
           }

@@ -245,45 +245,152 @@ async function deploy(): Promise<void> {
     console.log("   Client generated\n");
 
     // Step 4.5: Fix enum values (cannot be added via migrations due to transaction limitations)
+    // Note: PostgreSQL ALTER TYPE doesn't support parameterized queries, so we use
+    // explicit SQL for each known enum value to avoid dynamic string construction
     console.log("4.5. Fixing enum values...");
-    const enumValues = [
-      { type: "ResearchMessageType", value: "DIMENSION_STARTED" },
-      { type: "ResearchMessageType", value: "DIMENSION_PROGRESS" },
-      { type: "ResearchMessageType", value: "DIMENSION_COMPLETED" },
-      { type: "SecretCategory", value: "POLICY" },
-      { type: "SecretCategory", value: "DEV_TOOLS" },
-      { type: "SecretCategory", value: "MCP" },
-    ];
 
-    for (const { type, value } of enumValues) {
+    // Helper to safely add enum value with explicit SQL (no string interpolation)
+    const addEnumIfNotExists = async (
+      checkQuery: Promise<{ exists: boolean }[]>,
+      addQuery: () => Promise<number>,
+      label: string,
+    ) => {
       try {
-        // Check if enum value already exists
-        const result = await prisma.$queryRaw<{ exists: boolean }[]>`
-          SELECT EXISTS (
-            SELECT 1 FROM pg_enum
-            WHERE enumlabel = ${value}
-            AND enumtypid = (SELECT oid FROM pg_type WHERE typname = ${type})
-          ) as exists
-        `;
-
+        const result = await checkQuery;
         if (!result[0]?.exists) {
-          // Add enum value using raw SQL (outside transaction)
-          await prisma.$executeRawUnsafe(
-            `ALTER TYPE "${type}" ADD VALUE IF NOT EXISTS '${value}'`,
-          );
-          console.log(`   Added ${type}.${value}`);
+          await addQuery();
+          console.log(`   Added ${label}`);
         } else {
-          console.log(`   OK ${type}.${value}`);
+          console.log(`   OK ${label}`);
         }
-      } catch (error: any) {
-        if (error.message?.includes("already exists")) {
-          console.log(`   OK ${type}.${value}`);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes("already exists")) {
+          console.log(`   OK ${label}`);
         } else {
-          console.warn(
-            `   Warning: Could not add ${type}.${value}: ${error.message}`,
-          );
+          console.warn(`   Warning: Could not add ${label}: ${message}`);
         }
       }
+    };
+
+    // ResearchMessageType enum values
+    await addEnumIfNotExists(
+      prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'DIMENSION_STARTED' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'ResearchMessageType')) as exists`,
+      () =>
+        prisma.$executeRaw`ALTER TYPE "ResearchMessageType" ADD VALUE IF NOT EXISTS 'DIMENSION_STARTED'`,
+      "ResearchMessageType.DIMENSION_STARTED",
+    );
+    await addEnumIfNotExists(
+      prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'DIMENSION_PROGRESS' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'ResearchMessageType')) as exists`,
+      () =>
+        prisma.$executeRaw`ALTER TYPE "ResearchMessageType" ADD VALUE IF NOT EXISTS 'DIMENSION_PROGRESS'`,
+      "ResearchMessageType.DIMENSION_PROGRESS",
+    );
+    await addEnumIfNotExists(
+      prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'DIMENSION_COMPLETED' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'ResearchMessageType')) as exists`,
+      () =>
+        prisma.$executeRaw`ALTER TYPE "ResearchMessageType" ADD VALUE IF NOT EXISTS 'DIMENSION_COMPLETED'`,
+      "ResearchMessageType.DIMENSION_COMPLETED",
+    );
+
+    // SecretCategory enum values
+    await addEnumIfNotExists(
+      prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'POLICY' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'SecretCategory')) as exists`,
+      () =>
+        prisma.$executeRaw`ALTER TYPE "SecretCategory" ADD VALUE IF NOT EXISTS 'POLICY'`,
+      "SecretCategory.POLICY",
+    );
+    await addEnumIfNotExists(
+      prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'DEV_TOOLS' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'SecretCategory')) as exists`,
+      () =>
+        prisma.$executeRaw`ALTER TYPE "SecretCategory" ADD VALUE IF NOT EXISTS 'DEV_TOOLS'`,
+      "SecretCategory.DEV_TOOLS",
+    );
+    await addEnumIfNotExists(
+      prisma.$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'MCP' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'SecretCategory')) as exists`,
+      () =>
+        prisma.$executeRaw`ALTER TYPE "SecretCategory" ADD VALUE IF NOT EXISTS 'MCP'`,
+      "SecretCategory.MCP",
+    );
+    console.log("");
+
+    // Step 4.6: Fix MCP server package names (from @anthropics to @modelcontextprotocol)
+    console.log("4.6. Fixing MCP server package names...");
+    try {
+      // Fix GitHub server package name
+      const githubFixed = await prisma.$executeRaw`
+        UPDATE "MCPServerConfig"
+        SET args = REPLACE(args::text, '@anthropics/mcp-server-github', '@modelcontextprotocol/server-github')::jsonb
+        WHERE args::text LIKE '%@anthropics/mcp-server-github%'
+      `;
+      if (githubFixed > 0) {
+        console.log(`   Fixed ${githubFixed} GitHub MCP server(s)`);
+      }
+
+      // Fix DuckDuckGo server package name
+      const ddgFixed = await prisma.$executeRaw`
+        UPDATE "MCPServerConfig"
+        SET args = REPLACE(args::text, '@anthropics/mcp-server-duckduckgo', '@modelcontextprotocol/server-ddg-search')::jsonb
+        WHERE args::text LIKE '%@anthropics/mcp-server-duckduckgo%'
+      `;
+      if (ddgFixed > 0) {
+        console.log(`   Fixed ${ddgFixed} DuckDuckGo MCP server(s)`);
+      }
+
+      // Fix Filesystem server package name
+      const fsFixed = await prisma.$executeRaw`
+        UPDATE "MCPServerConfig"
+        SET args = REPLACE(args::text, '@anthropics/mcp-server-filesystem', '@modelcontextprotocol/server-filesystem')::jsonb
+        WHERE args::text LIKE '%@anthropics/mcp-server-filesystem%'
+      `;
+      if (fsFixed > 0) {
+        console.log(`   Fixed ${fsFixed} Filesystem MCP server(s)`);
+      }
+
+      // Fix any other @anthropics packages
+      const otherFixed = await prisma.$executeRaw`
+        UPDATE "MCPServerConfig"
+        SET args = REPLACE(args::text, '@anthropics/mcp-server-', '@modelcontextprotocol/server-')::jsonb
+        WHERE args::text LIKE '%@anthropics/mcp-server-%'
+      `;
+      if (otherFixed > 0) {
+        console.log(`   Fixed ${otherFixed} other MCP server(s)`);
+      }
+
+      if (
+        githubFixed === 0 &&
+        ddgFixed === 0 &&
+        fsFixed === 0 &&
+        otherFixed === 0
+      ) {
+        console.log("   No MCP servers needed fixing");
+      }
+    } catch (error: any) {
+      console.warn(
+        `   Warning: Could not fix MCP package names: ${error.message}`,
+      );
+    }
+    console.log("");
+
+    // Step 4.7: Fix secret categories for known secrets
+    console.log("4.7. Fixing secret categories...");
+    try {
+      // Update GitHub-related secrets to DEV_TOOLS category
+      const githubSecretsFixed = await prisma.$executeRaw`
+        UPDATE "secrets"
+        SET category = 'DEV_TOOLS'
+        WHERE (LOWER(name) LIKE '%github%' OR LOWER(display_name) LIKE '%github%')
+          AND category != 'DEV_TOOLS'
+      `;
+      if (githubSecretsFixed > 0) {
+        console.log(`   Fixed ${githubSecretsFixed} GitHub secret(s) category`);
+      } else {
+        console.log("   No GitHub secrets needed category fix");
+      }
+    } catch (error: any) {
+      console.warn(
+        `   Warning: Could not fix secret categories: ${error.message}`,
+      );
     }
     console.log("");
 

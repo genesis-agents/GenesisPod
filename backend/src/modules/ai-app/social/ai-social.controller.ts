@@ -9,6 +9,9 @@ import {
   Query,
   UseGuards,
   Request,
+  HttpException,
+  HttpStatus,
+  Logger,
 } from "@nestjs/common";
 import { AiSocialService } from "./ai-social.service";
 import { SocialLeaderService } from "./services/social-leader.service";
@@ -28,6 +31,8 @@ interface AuthenticatedRequest {
 @Controller("ai-social")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class AiSocialController {
+  private readonly logger = new Logger(AiSocialController.name);
+
   constructor(
     private readonly aiSocialService: AiSocialService,
     private readonly socialLeaderService: SocialLeaderService,
@@ -94,8 +99,8 @@ export class AiSocialController {
     return this.aiSocialService.getContents(req.user.id, {
       status,
       contentType,
-      page: page || 1,
-      limit: limit || 20,
+      page: page ?? 1,
+      limit: limit ?? 20,
     });
   }
 
@@ -199,8 +204,8 @@ export class AiSocialController {
   ) {
     return this.aiSocialService.getExploreSources(req.user.id, {
       type,
-      page: page || 1,
-      limit: limit || 20,
+      page: page ?? 1,
+      limit: limit ?? 20,
     });
   }
 
@@ -226,7 +231,14 @@ export class AiSocialController {
     @Request() req: AuthenticatedRequest,
     @Body() dto: ProcessUrlDto,
   ) {
-    return this.socialLeaderService.processUrl(req.user.id, dto);
+    try {
+      return await this.socialLeaderService.processUrl(req.user.id, dto);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "内容处理失败，请重试";
+      this.logger.error(`processUrl failed: ${message}`);
+      throw new HttpException(message, HttpStatus.BAD_REQUEST);
+    }
   }
 
   @Post("ai/process-source")
@@ -234,7 +246,14 @@ export class AiSocialController {
     @Request() req: AuthenticatedRequest,
     @Body() dto: ProcessSourceDto,
   ) {
-    return this.socialLeaderService.processSource(req.user.id, dto);
+    try {
+      return await this.socialLeaderService.processSource(req.user.id, dto);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "内容处理失败，请重试";
+      this.logger.error(`processSource failed: ${message}`);
+      throw new HttpException(message, HttpStatus.BAD_REQUEST);
+    }
   }
 
   @Post("ai/regenerate/:id")
@@ -242,7 +261,14 @@ export class AiSocialController {
     @Request() req: AuthenticatedRequest,
     @Param("id") id: string,
   ) {
-    return this.socialLeaderService.regenerateContent(req.user.id, id);
+    try {
+      return await this.socialLeaderService.regenerateContent(req.user.id, id);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "内容重新生成失败，请重试";
+      this.logger.error(`regenerateContent failed: ${message}`);
+      throw new HttpException(message, HttpStatus.BAD_REQUEST);
+    }
   }
 
   // ==================== 审核管理 ====================

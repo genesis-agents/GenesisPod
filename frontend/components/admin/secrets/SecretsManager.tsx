@@ -52,6 +52,16 @@ const CATEGORY_OPTIONS: {
     label: 'Policy Research',
     color: 'bg-teal-100 text-teal-800',
   },
+  {
+    value: 'DEV_TOOLS',
+    label: 'Dev Tools',
+    color: 'bg-orange-100 text-orange-800',
+  },
+  {
+    value: 'MCP',
+    label: 'MCP Server',
+    color: 'bg-cyan-100 text-cyan-800',
+  },
   { value: 'OTHER', label: 'Other', color: 'bg-gray-100 text-gray-800' },
 ];
 
@@ -134,9 +144,8 @@ export function SecretsManager({
       setDeletingName(name);
       try {
         await deleteSecret(name);
-      } catch (err) {
-        console.error('Failed to delete secret:', err);
-        // Error will be shown via the error state
+      } catch {
+        // Error is handled by the hook's error state
       } finally {
         setDeletingName(null);
       }
