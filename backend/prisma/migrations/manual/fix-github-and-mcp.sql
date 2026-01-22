@@ -12,25 +12,26 @@ WHERE (LOWER(name) LIKE '%github%' OR LOWER(display_name) LIKE '%github%')
 
 -- ============================================
 -- 2. Fix MCP server package names
+-- Note: Table name is "mcp_server_configs" (not "MCPServerConfig")
 -- ============================================
 
 -- Fix GitHub server package name
-UPDATE "MCPServerConfig"
+UPDATE "mcp_server_configs"
 SET args = REPLACE(args::text, '@anthropics/mcp-server-github', '@modelcontextprotocol/server-github')::jsonb
 WHERE args::text LIKE '%@anthropics/mcp-server-github%';
 
 -- Fix DuckDuckGo server package name
-UPDATE "MCPServerConfig"
+UPDATE "mcp_server_configs"
 SET args = REPLACE(args::text, '@anthropics/mcp-server-duckduckgo', '@modelcontextprotocol/server-ddg-search')::jsonb
 WHERE args::text LIKE '%@anthropics/mcp-server-duckduckgo%';
 
 -- Fix Filesystem server package name
-UPDATE "MCPServerConfig"
+UPDATE "mcp_server_configs"
 SET args = REPLACE(args::text, '@anthropics/mcp-server-filesystem', '@modelcontextprotocol/server-filesystem')::jsonb
 WHERE args::text LIKE '%@anthropics/mcp-server-filesystem%';
 
 -- Fix any other @anthropics packages
-UPDATE "MCPServerConfig"
+UPDATE "mcp_server_configs"
 SET args = REPLACE(args::text, '@anthropics/mcp-server-', '@modelcontextprotocol/server-')::jsonb
 WHERE args::text LIKE '%@anthropics/mcp-server-%';
 
@@ -42,4 +43,4 @@ WHERE args::text LIKE '%@anthropics/mcp-server-%';
 -- SELECT name, display_name, category FROM secrets WHERE LOWER(name) LIKE '%github%' OR LOWER(display_name) LIKE '%github%';
 
 -- Check MCP server configs
--- SELECT server_id, name, args FROM "MCPServerConfig";
+-- SELECT server_id, name, args FROM "mcp_server_configs";

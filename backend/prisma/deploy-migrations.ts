@@ -315,11 +315,12 @@ async function deploy(): Promise<void> {
     console.log("");
 
     // Step 4.6: Fix MCP server package names (from @anthropics to @modelcontextprotocol)
+    // Note: Using actual database table name "mcp_server_configs" (not Prisma model name "MCPServerConfig")
     console.log("4.6. Fixing MCP server package names...");
     try {
       // Fix GitHub server package name
       const githubFixed = await prisma.$executeRaw`
-        UPDATE "MCPServerConfig"
+        UPDATE "mcp_server_configs"
         SET args = REPLACE(args::text, '@anthropics/mcp-server-github', '@modelcontextprotocol/server-github')::jsonb
         WHERE args::text LIKE '%@anthropics/mcp-server-github%'
       `;
@@ -329,7 +330,7 @@ async function deploy(): Promise<void> {
 
       // Fix DuckDuckGo server package name
       const ddgFixed = await prisma.$executeRaw`
-        UPDATE "MCPServerConfig"
+        UPDATE "mcp_server_configs"
         SET args = REPLACE(args::text, '@anthropics/mcp-server-duckduckgo', '@modelcontextprotocol/server-ddg-search')::jsonb
         WHERE args::text LIKE '%@anthropics/mcp-server-duckduckgo%'
       `;
@@ -339,7 +340,7 @@ async function deploy(): Promise<void> {
 
       // Fix Filesystem server package name
       const fsFixed = await prisma.$executeRaw`
-        UPDATE "MCPServerConfig"
+        UPDATE "mcp_server_configs"
         SET args = REPLACE(args::text, '@anthropics/mcp-server-filesystem', '@modelcontextprotocol/server-filesystem')::jsonb
         WHERE args::text LIKE '%@anthropics/mcp-server-filesystem%'
       `;
@@ -349,7 +350,7 @@ async function deploy(): Promise<void> {
 
       // Fix any other @anthropics packages
       const otherFixed = await prisma.$executeRaw`
-        UPDATE "MCPServerConfig"
+        UPDATE "mcp_server_configs"
         SET args = REPLACE(args::text, '@anthropics/mcp-server-', '@modelcontextprotocol/server-')::jsonb
         WHERE args::text LIKE '%@anthropics/mcp-server-%'
       `;

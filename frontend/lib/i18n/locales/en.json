@@ -1852,7 +1852,8 @@
         "memory": "Knowledge & Memory",
         "integration": "External Integration",
         "export": "Export",
-        "policy": "Policy Research"
+        "policy": "Policy Research",
+        "devtools": "Dev Tools"
       },
       "mcp": {
         "addServer": "Add Server",

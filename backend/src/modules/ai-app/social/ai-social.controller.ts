@@ -199,13 +199,13 @@ export class AiSocialController {
   async getExploreSources(
     @Request() req: AuthenticatedRequest,
     @Query("type") type?: string,
-    @Query("page") page?: number,
-    @Query("limit") limit?: number,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
   ) {
     return this.aiSocialService.getExploreSources(req.user.id, {
       type,
-      page: page ?? 1,
-      limit: limit ?? 20,
+      page: Number(page) || 1,
+      limit: Number(limit) || 20,
     });
   }
 

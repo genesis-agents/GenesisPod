@@ -1854,7 +1854,8 @@
         "memory": "知识记忆",
         "integration": "外部集成",
         "export": "导出",
-        "policy": "政策研究"
+        "policy": "政策研究",
+        "devtools": "开发工具"
       },
       "mcp": {
         "addServer": "添加服务器",
