@@ -1449,7 +1449,14 @@
       "accountsConnected": "{{count}} accounts connected",
       "noAccountsConnected": "No accounts connected",
       "comingSoon": "Coming Soon",
-      "generateFailed": "AI generation failed, please try again"
+      "generateFailed": "AI generation failed, please try again",
+      "aiGenerate": "AI Generate",
+      "urlInput": "URL",
+      "describeCoverImage": "Describe the cover image you want",
+      "coverImagePromptPlaceholder": "e.g., A futuristic cityscape with AI robots, vibrant colors, digital art style...",
+      "generateCoverImage": "Generate Cover Image",
+      "generating": "Generating...",
+      "enterImageUrl": "Enter image URL"
     },
     "edit": {
       "title": "Edit Content",

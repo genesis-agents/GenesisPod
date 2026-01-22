@@ -1448,7 +1448,14 @@
       "saveFailed": "保存失败，请重试",
       "publishFailed": "发布失败，请重试",
       "loadSourceFailed": "加载来源列表失败",
-      "processingHint": "AI 正在分析和转换内容，请稍候..."
+      "processingHint": "AI 正在分析和转换内容，请稍候...",
+      "aiGenerate": "AI 生成",
+      "urlInput": "链接",
+      "describeCoverImage": "描述您想要的封面图片",
+      "coverImagePromptPlaceholder": "例如：未来科技城市景观，AI机器人，鲜艳的色彩，数字艺术风格...",
+      "generateCoverImage": "生成封面图片",
+      "generating": "生成中...",
+      "enterImageUrl": "输入图片链接"
     },
     "edit": {
       "title": "编辑内容",

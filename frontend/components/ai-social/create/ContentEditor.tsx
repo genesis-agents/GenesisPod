@@ -8,6 +8,7 @@ import {
   useSocialContents,
   SocialContentType,
 } from '@/hooks/domain/useAISocial';
+import { useAIImage } from '@/hooks/domain/useAIImage';
 import {
   ArrowLeft,
   Sparkles,
@@ -26,6 +27,7 @@ import {
   CheckCircle2,
   Eye,
   Code,
+  Link,
 } from 'lucide-react';
 
 export function ContentEditor() {
@@ -57,6 +59,8 @@ export function ContentEditor() {
     loading: aiLoading,
   } = useSocialAIEngine();
   const { addContent, editContent } = useSocialContents();
+  const { generate: generateImage, isGenerating: isGeneratingImage } =
+    useAIImage();
 
   const [newTag, setNewTag] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +70,8 @@ export function ContentEditor() {
   const [contentViewMode, setContentViewMode] = useState<'preview' | 'source'>(
     'preview'
   );
+  const [coverImageMode, setCoverImageMode] = useState<'url' | 'ai'>('ai');
+  const [coverImagePrompt, setCoverImagePrompt] = useState('');
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -252,6 +258,25 @@ export function ContentEditor() {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleAddTag();
+    }
+  };
+
+  // Handle AI cover image generation
+  const handleGenerateCoverImage = async () => {
+    if (!coverImagePrompt.trim()) return;
+
+    try {
+      const result = await generateImage({
+        prompt: coverImagePrompt,
+        style: 'cover-art',
+      });
+
+      if (result && result.length > 0) {
+        setCoverImage(result[0].url);
+        setCoverImagePrompt('');
+      }
+    } catch (err) {
+      console.error('Failed to generate cover image:', err);
     }
   };
 
@@ -539,10 +564,38 @@ export function ContentEditor() {
 
         {/* Cover Image */}
         <div>
-          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-            <ImageIcon className="h-4 w-4" />
-            {t('aiSocial.create.coverImageLabel') || 'Cover Image'}
-          </label>
+          <div className="mb-2 flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <ImageIcon className="h-4 w-4" />
+              {t('aiSocial.create.coverImageLabel') || 'Cover Image'}
+            </label>
+            {/* Mode toggle */}
+            <div className="flex items-center rounded-lg bg-gray-100 p-1">
+              <button
+                onClick={() => setCoverImageMode('ai')}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                  coverImageMode === 'ai'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {t('aiSocial.create.aiGenerate') || 'AI Generate'}
+              </button>
+              <button
+                onClick={() => setCoverImageMode('url')}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                  coverImageMode === 'url'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Link className="h-3.5 w-3.5" />
+                {t('aiSocial.create.urlInput') || 'URL'}
+              </button>
+            </div>
+          </div>
+
           {coverImage ? (
             <div className="relative">
               <img
@@ -557,11 +610,53 @@ export function ContentEditor() {
                 <X className="h-4 w-4" />
               </button>
             </div>
+          ) : coverImageMode === 'ai' ? (
+            /* AI Generation Mode */
+            <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-4">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Sparkles className="h-4 w-4 text-rose-500" />
+                  <span>
+                    {t('aiSocial.create.describeCoverImage') ||
+                      'Describe the cover image you want'}
+                  </span>
+                </div>
+                <textarea
+                  value={coverImagePrompt}
+                  onChange={(e) => setCoverImagePrompt(e.target.value)}
+                  placeholder={
+                    t('aiSocial.create.coverImagePromptPlaceholder') ||
+                    'e.g., A futuristic cityscape with AI robots, vibrant colors, digital art style...'
+                  }
+                  rows={2}
+                  className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                />
+                <button
+                  onClick={handleGenerateCoverImage}
+                  disabled={!coverImagePrompt.trim() || isGeneratingImage}
+                  className={`flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r ${config.gradient} px-4 py-2.5 text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-50`}
+                >
+                  {isGeneratingImage ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {t('aiSocial.create.generating') || 'Generating...'}
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-4 w-4" />
+                      {t('aiSocial.create.generateCoverImage') ||
+                        'Generate Cover Image'}
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           ) : (
+            /* URL Input Mode */
             <div className="flex h-32 flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 transition-colors hover:border-gray-300">
-              <ImageIcon className="mb-2 h-8 w-8 text-gray-400" />
+              <Link className="mb-2 h-8 w-8 text-gray-400" />
               <p className="text-sm text-gray-500">
-                {t('aiSocial.create.addCoverImage') || 'Add cover image'}
+                {t('aiSocial.create.enterImageUrl') || 'Enter image URL'}
               </p>
               <input
                 type="url"
