@@ -436,7 +436,7 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
         // 检查页面是否包含登录后才有的元素
         if (!loggedIn) {
           const hasLoggedInContent = await page.evaluate(() => {
-            // 微信公众号后台特有的元素
+            // 微信公众号后台特有的元素 - 只有真正登录后才会出现
             const selectors = [
               ".weui-desktop-account", // 账号信息区域
               ".weui-desktop-sidebar", // 侧边栏
@@ -451,11 +451,16 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
                 return true;
               }
             }
-            // 检查二维码是否还存在（如果不存在说明登录成功）
-            const qrCode = document.querySelector(
-              ".login__type__container__scan__qrcode img, .qrcode img",
-            );
-            return !qrCode;
+            // 检查是否有"扫码成功，请在手机上确认"的等待状态
+            // 这表示用户扫码了但还没确认，不应该认为已登录
+            const waitingForConfirm =
+              document.body?.innerText?.includes("请在手机上确认");
+            if (waitingForConfirm) {
+              return false;
+            }
+            // 不再使用"二维码不存在=已登录"的逻辑，因为扫码后二维码消失但用户还没确认
+            // 只有真正检测到后台元素才认为登录成功
+            return false;
           });
 
           if (hasLoggedInContent) {
