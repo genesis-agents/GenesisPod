@@ -24,6 +24,8 @@ import {
   FileSearch,
   Wand2,
   CheckCircle2,
+  Eye,
+  Code,
 } from 'lucide-react';
 
 export function ContentEditor() {
@@ -61,6 +63,9 @@ export function ContentEditor() {
   const [hasGenerated, setHasGenerated] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [contentViewMode, setContentViewMode] = useState<'preview' | 'source'>(
+    'preview'
+  );
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -429,19 +434,66 @@ export function ContentEditor() {
 
         {/* Content */}
         <div>
-          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-            <FileText className="h-4 w-4" />
-            {t('aiSocial.create.contentLabel') || 'Content'}
-          </label>
-          <textarea
-            value={content}
-            onChange={(e) => setContentText(e.target.value)}
-            placeholder={
-              t('aiSocial.create.contentPlaceholder') || 'Enter content...'
-            }
-            rows={12}
-            className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
-          />
+          <div className="mb-2 flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <FileText className="h-4 w-4" />
+              {t('aiSocial.create.contentLabel') || 'Content'}
+            </label>
+            {/* View mode toggle */}
+            <div className="flex items-center rounded-lg bg-gray-100 p-1">
+              <button
+                onClick={() => setContentViewMode('preview')}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                  contentViewMode === 'preview'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                {t('aiSocial.create.previewMode') || 'Preview'}
+              </button>
+              <button
+                onClick={() => setContentViewMode('source')}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                  contentViewMode === 'source'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Code className="h-3.5 w-3.5" />
+                {t('aiSocial.create.sourceMode') || 'Source'}
+              </button>
+            </div>
+          </div>
+
+          {contentViewMode === 'preview' ? (
+            /* Preview mode - rendered HTML */
+            <div
+              className="prose prose-sm max-w-none overflow-auto rounded-xl border border-gray-200 bg-white p-6"
+              style={{ minHeight: '300px', maxHeight: '500px' }}
+            >
+              {content ? (
+                <div dangerouslySetInnerHTML={{ __html: content }} />
+              ) : (
+                <p className="italic text-gray-400">
+                  {t('aiSocial.create.noContentPreview') ||
+                    'No content to preview'}
+                </p>
+              )}
+            </div>
+          ) : (
+            /* Source mode - editable HTML */
+            <textarea
+              value={content}
+              onChange={(e) => setContentText(e.target.value)}
+              placeholder={
+                t('aiSocial.create.contentPlaceholder') || 'Enter content...'
+              }
+              rows={12}
+              className="font-mono w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+              style={{ minHeight: '300px' }}
+            />
+          )}
         </div>
 
         {/* Tags */}
