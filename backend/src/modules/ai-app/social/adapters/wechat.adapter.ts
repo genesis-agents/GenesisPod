@@ -88,14 +88,119 @@ export class WechatAdapter {
       }
       this.logger.log("Login status verified: logged in");
 
-      // Step 6: 进入图文编辑页面
-      this.logger.log("Navigating to article edit page...");
-      await page.goto(`${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit`, {
-        waitUntil: "networkidle",
-        timeout: 30000,
+      // Step 6: 在首页找到并点击"图文"按钮进入编辑器
+      // 微信公众号首页有"新的创作"区域，包含图标：文章、选择已有内容、图文、视频等
+      this.logger.log("Looking for '图文' button on home page...");
+
+      // 等待首页加载完成
+      await page.waitForTimeout(3000);
+
+      // 诊断首页内容
+      const homeDiagnosis = await page.evaluate(() => {
+        const pageText = document.body?.innerText?.substring(0, 500) || "";
+        const links = Array.from(document.querySelectorAll("a"))
+          .slice(0, 20)
+          .map((a) => ({
+            text: a.textContent?.trim().substring(0, 30),
+            href: a.href?.substring(0, 100),
+          }));
+        return { pageText, links };
       });
+      this.logger.log(
+        `Home page diagnosis: ${JSON.stringify(homeDiagnosis).substring(0, 500)}`,
+      );
+
+      // 查找"图文"按钮 - 它在"新的创作"区域，通常是一个带图标的链接
+      const tuWenButton = await page.evaluate(() => {
+        // 策略1: 查找所有链接，找到精确匹配"图文"的
+        const links = Array.from(document.querySelectorAll("a"));
+        for (const link of links) {
+          const text = link.textContent?.trim() || "";
+          // 精确匹配 "图文"（两个字）
+          if (text === "图文") {
+            return {
+              found: true,
+              text,
+              href: link.href || "",
+              tagName: "A",
+              strategy: "exact_match",
+            };
+          }
+        }
+
+        // 策略2: 查找包含"图文"但不包含干扰词的链接
+        for (const link of links) {
+          const text = link.textContent?.trim() || "";
+          if (
+            text.includes("图文") &&
+            !text.includes("选择") &&
+            !text.includes("已有") &&
+            text.length < 10
+          ) {
+            return {
+              found: true,
+              text,
+              href: link.href || "",
+              tagName: "A",
+              strategy: "contains_match",
+            };
+          }
+        }
+
+        // 策略3: 查找带有appmsg_edit链接的元素
+        for (const link of links) {
+          if (
+            link.href?.includes("appmsg_edit") &&
+            link.href?.includes("type=77")
+          ) {
+            return {
+              found: true,
+              text: link.textContent?.trim() || "",
+              href: link.href,
+              tagName: "A",
+              strategy: "url_match",
+            };
+          }
+        }
+
+        return { found: false, strategy: "none" };
+      });
+
+      this.logger.log(
+        `图文 button search result: ${JSON.stringify(tuWenButton)}`,
+      );
+
+      // 从当前 URL 提取 token
+      const currentUrl = page.url();
+      const tokenMatch = currentUrl.match(/token=(\d+)/);
+      const token = tokenMatch ? tokenMatch[1] : "";
+      this.logger.log(`Extracted token from URL: ${token}`);
+
+      if (tuWenButton.found && tuWenButton.href) {
+        this.logger.log(
+          `Found 图文 link via ${tuWenButton.strategy}, navigating to: ${tuWenButton.href}`,
+        );
+        await page.goto(tuWenButton.href, {
+          waitUntil: "networkidle",
+          timeout: 30000,
+        });
+      } else {
+        // 如果找不到图文按钮，使用正确的 v2 编辑器 URL（基于截图分析）
+        // URL 格式: /cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&createType=8&token=xxx
+        const editorUrl = token
+          ? `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&createType=8&token=${token}`
+          : `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&createType=8`;
+        this.logger.log(
+          `图文 button not found, trying direct URL: ${editorUrl}`,
+        );
+        await page.goto(editorUrl, {
+          waitUntil: "networkidle",
+          timeout: 30000,
+        });
+      }
+
       const editPageUrl = page.url();
-      this.logger.log(`Edit page URL: ${editPageUrl}`);
+      this.logger.log(`Current URL after navigation: ${editPageUrl}`);
 
       // Step 7: 检查是否成功进入编辑页面
       if (
@@ -107,93 +212,6 @@ export class WechatAdapter {
           success: false,
           errorMessage: "访问编辑页面时被重定向到登录页，请重新连接微信公众号",
         };
-      }
-
-      // Step 7.5: 诊断当前页面结构
-      this.logger.log("Diagnosing page structure...");
-      const pageInfo = await page.evaluate(() => {
-        const allLinks = Array.from(document.querySelectorAll("a")).map(
-          (a) => ({
-            text: a.textContent?.trim().substring(0, 50),
-            href: a.href?.substring(0, 100),
-            className: a.className?.substring(0, 50),
-          }),
-        );
-        const allButtons = Array.from(document.querySelectorAll("button")).map(
-          (b) => ({
-            text: b.textContent?.trim().substring(0, 50),
-            className: b.className?.substring(0, 50),
-          }),
-        );
-        return {
-          linkCount: allLinks.length,
-          buttonCount: allButtons.length,
-          links: allLinks.slice(0, 10),
-          buttons: allButtons.slice(0, 5),
-        };
-      });
-      this.logger.log(
-        `Page has ${pageInfo.linkCount} links, ${pageInfo.buttonCount} buttons`,
-      );
-      this.logger.log(`Sample links: ${JSON.stringify(pageInfo.links)}`);
-      this.logger.log(`Sample buttons: ${JSON.stringify(pageInfo.buttons)}`);
-
-      // Step 7.6: 查找并点击"新建图文"按钮
-      let clickedNewArticle = false;
-
-      // 方法1: 通过文本内容查找链接
-      const newArticleLink = await page.evaluate(() => {
-        const links = Array.from(document.querySelectorAll("a"));
-        for (const link of links) {
-          const text = link.textContent?.trim() || "";
-          if (
-            text.includes("新建图文") ||
-            text.includes("新建") ||
-            text.includes("写图文") ||
-            text.includes("创建图文")
-          ) {
-            return {
-              found: true,
-              text,
-              href: link.href,
-              id: link.id,
-              className: link.className,
-            };
-          }
-        }
-        return { found: false };
-      });
-
-      if (newArticleLink.found) {
-        this.logger.log(
-          `Found new article link via text: "${newArticleLink.text}", href: ${newArticleLink.href}`,
-        );
-        // 直接导航到链接
-        if (newArticleLink.href && newArticleLink.href.includes("appmsg")) {
-          await page.goto(newArticleLink.href, {
-            waitUntil: "networkidle",
-            timeout: 30000,
-          });
-          clickedNewArticle = true;
-          this.logger.log("Navigated to new article page");
-        } else {
-          // 尝试点击
-          const linkElement = await page.$(
-            `a:has-text("${newArticleLink.text}")`,
-          );
-          if (linkElement) {
-            await linkElement.click();
-            await page.waitForLoadState("networkidle");
-            clickedNewArticle = true;
-            this.logger.log("Clicked new article link");
-          }
-        }
-      }
-
-      if (!clickedNewArticle) {
-        this.logger.log(
-          "No new article button found, will try to use current page as editor",
-        );
       }
 
       // Step 8: 填写内容
@@ -431,22 +449,45 @@ export class WechatAdapter {
       "Network idle reached, waiting for editor to initialize...",
     );
 
-    // 微信编辑器是动态加载的，需要等待编辑器容器出现
+    // 详细诊断当前页面状态
+    const pageState = await page.evaluate(() => {
+      return {
+        url: window.location.href,
+        title: document.title,
+        bodyText: document.body?.innerText?.substring(0, 300) || "",
+      };
+    });
+    this.logger.log(
+      `Page state: URL=${pageState.url}, Title=${pageState.title}`,
+    );
+    this.logger.log(
+      `Page body preview: ${pageState.bodyText.substring(0, 200)}`,
+    );
+
+    // 微信编辑器 v2 的容器选择器
     const editorContainerSelectors = [
+      // v2 编辑器容器
+      ".weui-desktop-editor-form",
+      ".weui-desktop-form__bd",
       ".appmsg_edit_area",
       ".js_editor_area",
       "#js_article_content",
       ".editor-container",
       ".weui-desktop-editor",
+      // 检查是否有任何表单元素
+      "form",
+      "[class*='editor']",
     ];
 
     let editorContainerFound = false;
     for (const selector of editorContainerSelectors) {
       try {
-        await page.waitForSelector(selector, { timeout: 5000 });
-        this.logger.log(`Editor container found with selector: ${selector}`);
-        editorContainerFound = true;
-        break;
+        const element = await page.$(selector);
+        if (element) {
+          this.logger.log(`Editor container found with selector: ${selector}`);
+          editorContainerFound = true;
+          break;
+        }
       } catch {
         continue;
       }
@@ -462,32 +503,47 @@ export class WechatAdapter {
     // 额外等待确保 UI 完全渲染
     await page.waitForTimeout(2000);
 
-    // 填写标题 - 尝试多个可能的选择器（微信后台界面经常更新）
+    // 详细诊断页面上的所有输入元素
+    const allInputs = await page.evaluate(() => {
+      const inputs = Array.from(
+        document.querySelectorAll("input, textarea, [contenteditable='true']"),
+      );
+      return inputs.map((el, idx) => ({
+        index: idx,
+        tag: el.tagName,
+        type: (el as HTMLInputElement).type || "",
+        placeholder: el.getAttribute("placeholder") || "",
+        className: el.className?.substring(0, 100) || "",
+        id: el.id || "",
+        name: el.getAttribute("name") || "",
+        visible: (el as HTMLElement).offsetParent !== null,
+      }));
+    });
+    this.logger.log(`All input elements on page: ${JSON.stringify(allInputs)}`);
+
+    // 填写标题 - 新版编辑器 (appmsg_edit_v2)
     if (content.title) {
+      this.logger.log("Looking for title input in new editor...");
+
       const titleSelectors = [
-        // 新版微信公众号编辑器选择器
+        // 新版 v2 编辑器选择器 - 基于截图分析
+        // 截图显示标题输入框有 placeholder "请在这里输入标题（选填）"
+        '[placeholder*="请在这里输入标题"]',
+        '[placeholder*="输入标题"]',
+        '[placeholder*="标题"]',
+        'input[placeholder*="选填"]',
+        // weui 组件选择器
+        ".weui-desktop-form-input__input",
+        ".weui-desktop-form__input",
+        "input.weui-desktop-form__input-text",
+        // 通用选择器
+        ".title-input",
         "#js_article_title",
         ".js_title",
-        ".title_inner input",
-        ".weui-desktop-form-input__input",
-        '[data-type="title"]',
-        ".editor-title input",
-        ".article-title-input",
-        ".appmsg_edit_title input",
-        ".js_title_input",
-        // 旧版选择器保留兼容
-        "#title",
-        'input[name="title"]',
-        ".title-input",
-        '[placeholder*="标题"]',
-        '[placeholder*="请在这里输入标题"]',
-        ".weui-desktop-form__input",
-        'input[type="text"]:first-of-type',
-        // 通用后备选择器
-        ".title input",
-        "input.title",
-        '[class*="title"] input',
-        '[id*="title"]',
+        // 第一个可见的 text input 通常是标题
+        'input[type="text"]:not([hidden])',
+        // contenteditable 元素（标题可能是 contenteditable）
+        '.weui-desktop-form__bd [contenteditable="true"]',
       ];
 
       let titleInput = null;
@@ -500,6 +556,20 @@ export class WechatAdapter {
           }
         } catch {
           continue;
+        }
+      }
+
+      // 如果还找不到，尝试通过 placeholder 文本查找
+      if (!titleInput) {
+        this.logger.log("Trying to find title input by placeholder text...");
+        titleInput = await page.evaluate(() => {
+          const el = document.querySelector(
+            '[placeholder*="标题"]',
+          ) as HTMLInputElement;
+          return el ? true : false;
+        });
+        if (titleInput) {
+          titleInput = await page.$('[placeholder*="标题"]');
         }
       }
 
@@ -659,12 +729,31 @@ export class WechatAdapter {
   private async saveDraft(page: any): Promise<string> {
     this.logger.log("Looking for save button...");
 
-    // 尝试多个保存按钮选择器
+    // 先诊断页面上的按钮
+    const allButtons = await page.evaluate(() => {
+      const buttons = Array.from(
+        document.querySelectorAll("button, a[class*='btn'], [class*='button']"),
+      );
+      return buttons.slice(0, 15).map((btn) => ({
+        text: btn.textContent?.trim().substring(0, 30),
+        className: (btn as HTMLElement).className?.substring(0, 60),
+        tagName: btn.tagName,
+      }));
+    });
+    this.logger.log(`All buttons on page: ${JSON.stringify(allButtons)}`);
+
+    // 尝试多个保存按钮选择器 - 基于截图，按钮文本是"保存为草稿"
     const saveSelectors = [
+      // v2 编辑器的保存按钮（基于截图分析）
+      'button:has-text("保存为草稿")',
+      'a:has-text("保存为草稿")',
+      '[class*="btn"]:has-text("保存为草稿")',
+      // 通用保存按钮
+      'button:has-text("保存草稿")',
+      'button:has-text("保存")',
       ".js_save",
       ".weui-desktop-btn_primary",
-      'button:has-text("保存")',
-      'button:has-text("保存草稿")',
+      ".weui-desktop-btn_default",
       '[class*="save"]',
       ".tool_bar .preview",
     ];
