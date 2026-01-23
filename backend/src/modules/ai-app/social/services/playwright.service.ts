@@ -15,6 +15,8 @@ export interface SessionData {
   cookies: any[];
   localStorage: Record<string, string>;
   sessionStorage: Record<string, string>;
+  // WeChat MP specific: token is required for API calls and navigation
+  wechatToken?: string;
 }
 
 // Platform login configuration
@@ -557,6 +559,39 @@ export class PlaywrightService implements OnModuleDestroy, OnModuleInit {
           );
           await page.waitForTimeout(3000).catch(() => {});
           sessionData = await this.saveSession(sessionKey);
+        }
+
+        // WeChat MP 特殊处理：从 URL 中提取并保存 token
+        // Token 是微信公众号 CSRF 保护机制，不存储在 cookies 中
+        // 必须在登录成功时保存，发布时使用
+        if (session.platformType === "WECHAT_MP" && sessionData) {
+          const currentUrl = page.url();
+          const tokenMatch = currentUrl.match(/token=(\d+)/);
+          if (tokenMatch) {
+            sessionData.wechatToken = tokenMatch[1];
+            this.logger.log(
+              `WeChat MP token extracted and saved: ${sessionData.wechatToken}`,
+            );
+          } else {
+            // 尝试从页面 JavaScript 变量中提取 token
+            const pageToken = await page
+              .evaluate(() => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const w = window as any;
+                return w.wx?.commonData?.t || w.cgiData?.t || w.uin || "";
+              })
+              .catch(() => "");
+            if (pageToken) {
+              sessionData.wechatToken = pageToken;
+              this.logger.log(
+                `WeChat MP token extracted from page JS: ${sessionData.wechatToken}`,
+              );
+            } else {
+              this.logger.warn(
+                `WeChat MP login successful but no token found in URL or page. Publishing may fail.`,
+              );
+            }
+          }
         }
 
         // 记录 cookies 数量用于诊断

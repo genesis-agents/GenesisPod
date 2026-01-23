@@ -212,14 +212,22 @@ export class WechatAdapter {
       this.logger.log("Login status verified: logged in");
 
       // Step 6: 获取 token 并进入编辑器
-      // Token 已在 Step 4 中提取
-      this.logger.log("Extracting token from current URL...");
+      // 优先使用登录时保存的 token，因为恢复 cookies 后 URL 中通常没有 token
+      this.logger.log("Getting token for editor navigation...");
 
       let token = "";
-      const tokenMatch = currentUrl.match(/token=(\d+)/);
-      if (tokenMatch) {
-        token = tokenMatch[1];
-        this.logger.log(`Token extracted from URL: ${token}`);
+
+      // 优先使用保存的 wechatToken
+      if (sessionData.wechatToken) {
+        token = sessionData.wechatToken;
+        this.logger.log(`Using saved wechatToken: ${token}`);
+      } else {
+        // 尝试从当前 URL 提取
+        const tokenMatch = currentUrl.match(/token=(\d+)/);
+        if (tokenMatch) {
+          token = tokenMatch[1];
+          this.logger.log(`Token extracted from URL: ${token}`);
+        }
       }
 
       // 获取 browser context 用于监听新页面
