@@ -854,7 +854,6 @@ export class WechatAdapter {
         await editor.click();
         this.logger.log(`Filling content (${content.content.length} chars)...`);
 
-        // 方法1: 直接设置编辑器 innerHTML（最快最可靠）
         const editorSelector = await editor.evaluate(
           (el: Element) => el.className || el.id || el.tagName,
         );
@@ -867,51 +866,140 @@ export class WechatAdapter {
           .map((line) => `<p>${line}</p>`)
           .join("");
 
+        // 方法1: 使用 execCommand 插入 HTML（最兼容 ProseMirror）
+        // ProseMirror 会监听 beforeinput 和 input 事件来处理内容
         const fillResult = await page.evaluate(
           ({ html }: { html: string }) => {
-            // 尝试多种方式找到编辑器并填写内容
             const selectors = [
-              "#js_editor",
               ".ProseMirror",
+              "#js_editor",
               '[contenteditable="true"]',
               ".editor-content",
             ];
 
             for (const sel of selectors) {
-              const editor = document.querySelector(sel);
-              if (editor && (editor as HTMLElement).isContentEditable) {
-                (editor as HTMLElement).innerHTML = html;
-                // 触发 input 事件让编辑器感知变化
-                editor.dispatchEvent(new Event("input", { bubbles: true }));
-                editor.dispatchEvent(new Event("change", { bubbles: true }));
-                return { success: true, selector: sel };
+              const editorEl = document.querySelector(sel);
+              if (editorEl && (editorEl as HTMLElement).isContentEditable) {
+                // 聚焦编辑器
+                (editorEl as HTMLElement).focus();
+
+                // 方法1: 使用 Selection API + insertHTML (最可靠)
+                try {
+                  const selection = window.getSelection();
+                  if (selection) {
+                    selection.selectAllChildren(editorEl);
+                    selection.deleteFromDocument();
+                  }
+                  // 尝试使用 insertHTML 命令
+                  const success = document.execCommand(
+                    "insertHTML",
+                    false,
+                    html,
+                  );
+                  if (success) {
+                    editorEl.dispatchEvent(
+                      new Event("input", { bubbles: true }),
+                    );
+                    return {
+                      success: true,
+                      selector: sel,
+                      method: "execCommand",
+                    };
+                  }
+                } catch {
+                  // execCommand 可能失败，继续尝试其他方法
+                }
+
+                // 方法2: 使用 paste 事件模拟
+                try {
+                  const selection = window.getSelection();
+                  if (selection) {
+                    selection.selectAllChildren(editorEl);
+                    selection.deleteFromDocument();
+                  }
+                  const dt = new DataTransfer();
+                  dt.setData("text/html", html);
+                  dt.setData("text/plain", html.replace(/<[^>]*>/g, "\n"));
+                  const pasteEvent = new ClipboardEvent("paste", {
+                    clipboardData: dt,
+                    bubbles: true,
+                    cancelable: true,
+                  });
+                  editorEl.dispatchEvent(pasteEvent);
+                  editorEl.dispatchEvent(new Event("input", { bubbles: true }));
+                  return { success: true, selector: sel, method: "paste" };
+                } catch {
+                  // paste 事件可能失败
+                }
+
+                // 方法3: 直接设置 innerHTML（最后手段）
+                (editorEl as HTMLElement).innerHTML = html;
+                editorEl.dispatchEvent(new Event("input", { bubbles: true }));
+                editorEl.dispatchEvent(new Event("change", { bubbles: true }));
+                return { success: true, selector: sel, method: "innerHTML" };
               }
             }
-            return { success: false, selector: null };
+            return { success: false, selector: null, method: null };
           },
           { html: htmlContent },
         );
 
         if (fillResult.success) {
           this.logger.log(
-            `Content filled via innerHTML on ${fillResult.selector}`,
+            `Content filled via ${fillResult.method} on ${fillResult.selector}`,
           );
-        } else {
-          // 方法2: 如果 innerHTML 不行，尝试分段输入（每次输入一段）
-          this.logger.warn(
-            "innerHTML approach failed, trying chunked typing...",
-          );
-          await page.keyboard.press("Control+a");
 
-          // 将内容分成小块，每块最多 500 字符
-          const chunks = content.content.match(/.{1,500}/gs) || [];
-          for (let i = 0; i < chunks.length; i++) {
-            await page.keyboard.type(chunks[i], { delay: 1 });
-            if (i < chunks.length - 1) {
+          // 验证内容是否被正确填入
+          await page.waitForTimeout(500);
+          const contentLength = await page.evaluate(() => {
+            const pm = document.querySelector(".ProseMirror");
+            return pm ? pm.textContent?.length || 0 : 0;
+          });
+          this.logger.log(
+            `Editor content length after fill: ${contentLength} chars`,
+          );
+
+          // 如果内容长度远小于原始内容，说明填充失败，尝试键盘输入
+          if (contentLength < content.content.length * 0.5) {
+            this.logger.warn(
+              `Content may not have been properly inserted (${contentLength} < ${content.content.length * 0.5}), trying keyboard input...`,
+            );
+            await page.keyboard.press("Control+a");
+            await page.keyboard.press("Backspace");
+            await page.waitForTimeout(200);
+
+            // 使用键盘逐段输入
+            const lines = content.content.split("\n").filter((l) => l.trim());
+            for (let i = 0; i < lines.length; i++) {
+              await page.keyboard.type(lines[i], { delay: 0 });
+              if (i < lines.length - 1) {
+                await page.keyboard.press("Enter");
+              }
+              // 每隔一定行数等待一下
+              if (i % 10 === 9) {
+                await page.waitForTimeout(100);
+              }
+            }
+            this.logger.log("Content filled via keyboard input");
+          }
+        } else {
+          // 所有方法失败，使用纯键盘输入
+          this.logger.warn("All fill methods failed, using keyboard input...");
+          await page.keyboard.press("Control+a");
+          await page.keyboard.press("Backspace");
+          await page.waitForTimeout(200);
+
+          const lines = content.content.split("\n").filter((l) => l.trim());
+          for (let i = 0; i < lines.length; i++) {
+            await page.keyboard.type(lines[i], { delay: 0 });
+            if (i < lines.length - 1) {
+              await page.keyboard.press("Enter");
+            }
+            if (i % 10 === 9) {
               await page.waitForTimeout(100);
             }
           }
-          this.logger.log("Content filled via chunked typing");
+          this.logger.log("Content filled via keyboard input");
         }
 
         await page.waitForTimeout(1000); // 等待内容渲染
