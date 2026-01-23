@@ -874,20 +874,37 @@ export class WechatAdapter {
       }
     }
 
-    // 填写摘要
+    // 填写摘要 - 摘要是可选的，如果填写失败不应该阻止发布
     if (content.digest) {
-      const digestSelectors = [
-        "#digest",
-        'textarea[name="digest"]',
-        ".digest-input",
-      ];
-      for (const selector of digestSelectors) {
-        const digestInput = await page.$(selector);
-        if (digestInput) {
-          await digestInput.fill(content.digest);
-          this.logger.log("Digest filled successfully");
-          break;
+      try {
+        const digestSelectors = [
+          "#js_description", // 微信公众号实际使用的 ID
+          "#digest",
+          'textarea[name="digest"]',
+          ".js_desc",
+          ".digest-input",
+        ];
+        for (const selector of digestSelectors) {
+          try {
+            const digestInput = await page.$(selector);
+            if (digestInput) {
+              // 使用较短的超时，避免阻塞整个流程
+              await digestInput.fill(content.digest, { timeout: 5000 });
+              this.logger.log("Digest filled successfully");
+              break;
+            }
+          } catch (fillError) {
+            this.logger.warn(
+              `Failed to fill digest with selector ${selector}: ${(fillError as Error).message}`,
+            );
+            continue;
+          }
         }
+      } catch (digestError) {
+        // 摘要填写失败不应该阻止发布
+        this.logger.warn(
+          `Digest fill skipped due to error: ${(digestError as Error).message}`,
+        );
       }
     }
   }
