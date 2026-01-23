@@ -852,36 +852,70 @@ export class WechatAdapter {
 
       if (editor) {
         await editor.click();
-        // 使用剪贴板粘贴方式填写内容（比逐字符输入快得多）
-        this.logger.log(
-          `Filling content via clipboard paste (${content.content.length} chars)...`,
+        this.logger.log(`Filling content (${content.content.length} chars)...`);
+
+        // 方法1: 直接设置编辑器 innerHTML（最快最可靠）
+        const editorSelector = await editor.evaluate(
+          (el: Element) => el.className || el.id || el.tagName,
+        );
+        this.logger.log(`Editor element: ${editorSelector}`);
+
+        // 将纯文本转换为 HTML 段落
+        const htmlContent = content.content
+          .split("\n")
+          .filter((line) => line.trim())
+          .map((line) => `<p>${line}</p>`)
+          .join("");
+
+        const fillResult = await page.evaluate(
+          ({ html }: { html: string }) => {
+            // 尝试多种方式找到编辑器并填写内容
+            const selectors = [
+              "#js_editor",
+              ".ProseMirror",
+              '[contenteditable="true"]',
+              ".editor-content",
+            ];
+
+            for (const sel of selectors) {
+              const editor = document.querySelector(sel);
+              if (editor && (editor as HTMLElement).isContentEditable) {
+                (editor as HTMLElement).innerHTML = html;
+                // 触发 input 事件让编辑器感知变化
+                editor.dispatchEvent(new Event("input", { bubbles: true }));
+                editor.dispatchEvent(new Event("change", { bubbles: true }));
+                return { success: true, selector: sel };
+              }
+            }
+            return { success: false, selector: null };
+          },
+          { html: htmlContent },
         );
 
-        // 使用 evaluate 设置剪贴板内容并粘贴
-        await page.evaluate(async (text: string) => {
-          // 方法1: 使用 Clipboard API
-          try {
-            await navigator.clipboard.writeText(text);
-          } catch {
-            // 方法2: 创建临时 textarea 复制内容
-            const textarea = document.createElement("textarea");
-            textarea.value = text;
-            textarea.style.position = "fixed";
-            textarea.style.opacity = "0";
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand("copy");
-            document.body.removeChild(textarea);
+        if (fillResult.success) {
+          this.logger.log(
+            `Content filled via innerHTML on ${fillResult.selector}`,
+          );
+        } else {
+          // 方法2: 如果 innerHTML 不行，尝试分段输入（每次输入一段）
+          this.logger.warn(
+            "innerHTML approach failed, trying chunked typing...",
+          );
+          await page.keyboard.press("Control+a");
+
+          // 将内容分成小块，每块最多 500 字符
+          const chunks = content.content.match(/.{1,500}/gs) || [];
+          for (let i = 0; i < chunks.length; i++) {
+            await page.keyboard.type(chunks[i], { delay: 1 });
+            if (i < chunks.length - 1) {
+              await page.waitForTimeout(100);
+            }
           }
-        }, content.content);
+          this.logger.log("Content filled via chunked typing");
+        }
 
-        // 先清空现有内容
-        await page.keyboard.press("Control+a");
-        // 粘贴内容
-        await page.keyboard.press("Control+v");
-        await page.waitForTimeout(1000); // 等待粘贴完成
-
-        this.logger.log("Content filled successfully via clipboard paste");
+        await page.waitForTimeout(1000); // 等待内容渲染
+        this.logger.log("Content fill completed");
       } else {
         this.logger.warn(
           "Could not find editor element, trying alternative approach",
