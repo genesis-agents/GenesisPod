@@ -120,31 +120,62 @@ export class WechatAdapter {
       this.logger.log("Page created successfully");
 
       // Step 4: 访问公众号后台
-      this.logger.log("Navigating to WeChat MP home...");
-      await page.goto(`${this.MP_URL}/cgi-bin/home?t=home/index&lang=zh_CN`, {
+      // 先访问根路径，让 WeChat 自动重定向（包含 token）
+      this.logger.log("Navigating to WeChat MP root for auto-redirect...");
+      await page.goto(this.MP_URL, {
         waitUntil: "networkidle",
         timeout: 30000,
       });
-      this.logger.log(`Navigation complete, current URL: ${page.url()}`);
+      this.logger.log(`After root navigation, URL: ${page.url()}`);
 
-      // 等待 URL 包含 token（最多等待 10 秒）
-      // WeChat MP 登录后会重定向到包含 token 的 URL
+      // 如果被重定向到登录页或没有 token，尝试直接访问 home
+      let currentUrl = page.url();
+      if (!currentUrl.includes("token=") || currentUrl.includes("token=&")) {
+        this.logger.log("No token after root redirect, trying direct home...");
+        await page.goto(`${this.MP_URL}/cgi-bin/home?t=home/index&lang=zh_CN`, {
+          waitUntil: "networkidle",
+          timeout: 30000,
+        });
+        currentUrl = page.url();
+        this.logger.log(`After home navigation, URL: ${currentUrl}`);
+      }
+
+      // 等待 URL 包含 token（最多等待 15 秒）
       let tokenInUrl = false;
-      for (let i = 0; i < 10; i++) {
-        const url = page.url();
-        if (url.includes("token=") && !url.includes("token=&")) {
+      for (let i = 0; i < 15; i++) {
+        currentUrl = page.url();
+        if (currentUrl.includes("token=") && !currentUrl.includes("token=&")) {
           tokenInUrl = true;
-          this.logger.log(`Token found in URL after ${i + 1} attempts: ${url}`);
+          this.logger.log(`Token found in URL after ${i + 1}s: ${currentUrl}`);
           break;
         }
-        this.logger.log(`Waiting for token in URL, attempt ${i + 1}/10...`);
+        // 尝试刷新页面触发重定向
+        if (i === 5) {
+          this.logger.log("Refreshing page to trigger redirect...");
+          await page.reload({ waitUntil: "networkidle" });
+        }
+        this.logger.log(
+          `Waiting for token, attempt ${i + 1}/15, URL: ${currentUrl}`,
+        );
         await page.waitForTimeout(1000);
       }
 
       if (!tokenInUrl) {
-        this.logger.warn(
-          "No token in URL after waiting, page may not be fully logged in",
+        this.logger.error(
+          "CRITICAL: No token in URL after 15s - session may be invalid",
         );
+        // 尝试从页面 JS 中提取 token 作为最后手段
+        const pageToken = await page
+          .evaluate(() => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const w = window as any;
+            return w.wx?.commonData?.t || w.cgiData?.t || "";
+          })
+          .catch(() => "");
+        if (pageToken) {
+          this.logger.log(`Found token from page JS: ${pageToken}`);
+          currentUrl = `${this.MP_URL}/cgi-bin/home?token=${pageToken}`;
+        }
       }
 
       // 验证 cookies 是否被正确设置到浏览器上下文
@@ -181,46 +212,14 @@ export class WechatAdapter {
       this.logger.log("Login status verified: logged in");
 
       // Step 6: 获取 token 并进入编辑器
-      // 关键：等待页面重定向完成后，URL 中应该包含 token
-      this.logger.log("Waiting for page to settle and extracting token...");
-
-      // 等待首页完全加载并等待可能的重定向
-      await page.waitForTimeout(3000);
-
-      // 获取当前 URL 中的 token
-      let currentUrl = page.url();
-      this.logger.log(`Current URL after waiting: ${currentUrl}`);
+      // Token 已在 Step 4 中提取
+      this.logger.log("Extracting token from current URL...");
 
       let token = "";
       const tokenMatch = currentUrl.match(/token=(\d+)/);
       if (tokenMatch) {
         token = tokenMatch[1];
         this.logger.log(`Token extracted from URL: ${token}`);
-      }
-
-      // 如果 URL 中没有 token，尝试从页面 JS 中获取
-      if (!token) {
-        this.logger.log("No token in URL, trying to extract from page...");
-        try {
-          token = await page.evaluate(() => {
-            // 尝试从全局变量获取
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const win = window as any;
-            if (win.wx && win.wx.commonData && win.wx.commonData.t) {
-              return win.wx.commonData.t;
-            }
-            // 尝试从 URL 参数获取
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get("token") || "";
-          });
-          if (token) {
-            this.logger.log(`Token extracted from page JS: ${token}`);
-          }
-        } catch (evalError) {
-          this.logger.warn(
-            `Failed to extract token from page: ${(evalError as Error).message}`,
-          );
-        }
       }
 
       // 获取 browser context 用于监听新页面
