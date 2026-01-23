@@ -121,11 +121,31 @@ export class WechatAdapter {
 
       // Step 4: 访问公众号后台
       this.logger.log("Navigating to WeChat MP home...");
-      await page.goto(`${this.MP_URL}/cgi-bin/home`, {
+      await page.goto(`${this.MP_URL}/cgi-bin/home?t=home/index&lang=zh_CN`, {
         waitUntil: "networkidle",
         timeout: 30000,
       });
       this.logger.log(`Navigation complete, current URL: ${page.url()}`);
+
+      // 等待 URL 包含 token（最多等待 10 秒）
+      // WeChat MP 登录后会重定向到包含 token 的 URL
+      let tokenInUrl = false;
+      for (let i = 0; i < 10; i++) {
+        const url = page.url();
+        if (url.includes("token=") && !url.includes("token=&")) {
+          tokenInUrl = true;
+          this.logger.log(`Token found in URL after ${i + 1} attempts: ${url}`);
+          break;
+        }
+        this.logger.log(`Waiting for token in URL, attempt ${i + 1}/10...`);
+        await page.waitForTimeout(1000);
+      }
+
+      if (!tokenInUrl) {
+        this.logger.warn(
+          "No token in URL after waiting, page may not be fully logged in",
+        );
+      }
 
       // 验证 cookies 是否被正确设置到浏览器上下文
       const pageContext = page.context();
