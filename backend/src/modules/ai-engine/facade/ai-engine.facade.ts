@@ -737,6 +737,66 @@ export class AIEngineFacade {
   }
 
   /**
+   * ★ 获取完整模型配置（包含 apiKey 和 secretKey）
+   *
+   * 用于需要访问 API 密钥的场景（如图片生成服务）
+   * 注意：此方法返回敏感信息，仅供后端服务内部使用
+   */
+  async getFullModelConfig(modelId: string): Promise<{
+    id: string;
+    modelId: string;
+    displayName: string;
+    name: string;
+    provider: string;
+    apiKey: string;
+    secretKey?: string | null;
+    apiEndpoint?: string | null;
+    maxTokens?: number | null;
+    temperature?: number | null;
+    isEnabled: boolean;
+    isDefault: boolean;
+    isReasoning?: boolean;
+    apiFormat?: string | null;
+    supportsTemperature?: boolean;
+    supportsStreaming?: boolean;
+    supportsFunctionCalling?: boolean;
+    supportsVision?: boolean;
+    tokenParamName?: string | null;
+    defaultTimeoutMs?: number | null;
+    priceInputPerMillion?: number | null;
+    priceOutputPerMillion?: number | null;
+    priority?: number | null;
+  } | null> {
+    const config = await this.aiChatService.getModelConfig(modelId);
+    if (!config) return null;
+    return {
+      id: config.id || config.modelId,
+      modelId: config.modelId,
+      displayName: config.displayName || config.modelId,
+      name: config.name || config.modelId,
+      provider: config.provider,
+      apiKey: config.apiKey || "",
+      secretKey: config.secretKey || null,
+      apiEndpoint: config.apiEndpoint || null,
+      maxTokens: config.maxTokens || null,
+      temperature: config.temperature || null,
+      isEnabled: config.isEnabled ?? true,
+      isDefault: config.isDefault ?? false,
+      isReasoning: config.isReasoning ?? false,
+      apiFormat: config.apiFormat || null,
+      supportsTemperature: config.supportsTemperature ?? true,
+      supportsStreaming: config.supportsStreaming ?? false,
+      supportsFunctionCalling: config.supportsFunctionCalling ?? false,
+      supportsVision: config.supportsVision ?? false,
+      tokenParamName: config.tokenParamName || null,
+      defaultTimeoutMs: config.defaultTimeoutMs || null,
+      priceInputPerMillion: config.priceInputPerMillion || null,
+      priceOutputPerMillion: config.priceOutputPerMillion || null,
+      priority: config.priority || null,
+    };
+  }
+
+  /**
    * ★ 根据模型类型获取默认模型配置
    *
    * 支持 CHAT, IMAGE_GENERATION, EMBEDDING 等类型

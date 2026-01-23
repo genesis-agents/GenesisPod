@@ -12,7 +12,6 @@ import { AIModelType } from "@prisma/client";
 import { GEMINI_IMAGE_MODELS } from "../core/image.constants";
 import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
 import { SecretsService } from "../../../core/secrets/secrets.service";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 
 @Injectable()
 export class ImageGenerationService {
@@ -22,7 +21,6 @@ export class ImageGenerationService {
     private readonly httpService: HttpService,
     private readonly aiFacade: AIEngineFacade,
     private readonly secretsService: SecretsService,
-    private readonly aiChatService: AiChatService,
   ) {}
 
   /**
@@ -131,7 +129,7 @@ export class ImageGenerationService {
   /**
    * Convert facade model config to full model config structure
    * ★ Helper to maintain compatibility with existing code
-   * ★ Uses AiChatService.getModelConfig() to get full config including secretKey
+   * ★ Uses AIEngineFacade.getFullModelConfig() to get full config including secretKey
    */
   private async convertToFullModelConfig(facadeModel: {
     id: string;
@@ -141,8 +139,8 @@ export class ImageGenerationService {
     maxTokens?: number;
     apiEndpoint?: string;
   }) {
-    // Get full config via AiChatService (includes secretKey and all fields)
-    const fullConfig = await this.aiChatService.getModelConfig(
+    // Get full config via AIEngineFacade (includes secretKey and all fields)
+    const fullConfig = await this.aiFacade.getFullModelConfig(
       facadeModel.modelId,
     );
 
@@ -150,8 +148,7 @@ export class ImageGenerationService {
       throw new Error(`Model ${facadeModel.modelId} not found`);
     }
 
-    // Convert AIModelConfig to Prisma AIModel structure
-    // This maintains compatibility with existing code that expects Prisma model
+    // Convert to Prisma AIModel structure for compatibility with existing code
     return {
       id: fullConfig.id,
       modelId: fullConfig.modelId,
