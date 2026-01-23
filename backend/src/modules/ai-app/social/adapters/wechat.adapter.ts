@@ -969,36 +969,120 @@ export class WechatAdapter {
       throw new Error("找不到保存按钮，微信后台界面可能已更新");
     }
 
-    // 等待保存完成 - 使用多种检测方式
+    // 等待保存完成 - 使用多种检测方式，并验证结果
     this.logger.log("Waiting for save response...");
+    let saveSucceeded = false;
+    let saveResponse: any = null;
+
     try {
-      await Promise.race([
-        // 方式1: 等待 API 响应
-        page.waitForResponse(
-          (response: any) =>
-            response.url().includes("operate_appmsg") &&
-            response.status() === 200,
-          { timeout: 30000 },
-        ),
-        // 方式2: 等待成功提示
-        page.waitForSelector(".weui-desktop-toast__content", {
-          timeout: 30000,
-        }),
-        // 方式3: 等待 URL 变化
-        page.waitForURL(/appmsg.*aid=/, { timeout: 30000 }),
-      ]);
-      this.logger.log("Save operation completed");
+      // 监听 API 响应
+      const responsePromise = page.waitForResponse(
+        (response: any) => {
+          const url = response.url();
+          // 匹配保存草稿的 API
+          return (
+            (url.includes("operate_appmsg") ||
+              url.includes("appmsg") ||
+              url.includes("draft")) &&
+            response.status() === 200
+          );
+        },
+        { timeout: 30000 },
+      );
+
+      // 等待响应
+      saveResponse = await responsePromise;
+      this.logger.log(`Got save response from: ${saveResponse.url()}`);
+
+      // 解析响应内容验证是否真的成功
+      try {
+        const responseBody = await saveResponse.json();
+        this.logger.log(`Save response body: ${JSON.stringify(responseBody)}`);
+
+        // 微信 API 通常返回 { base_resp: { ret: 0 } } 表示成功
+        if (responseBody.base_resp?.ret === 0 || responseBody.ret === 0) {
+          saveSucceeded = true;
+          this.logger.log("Save API returned success (ret=0)");
+        } else if (responseBody.errcode === 0 || responseBody.errmsg === "ok") {
+          saveSucceeded = true;
+          this.logger.log("Save API returned success (errcode=0)");
+        } else {
+          const errMsg =
+            responseBody.base_resp?.err_msg ||
+            responseBody.errmsg ||
+            JSON.stringify(responseBody);
+          this.logger.error(`Save API returned error: ${errMsg}`);
+          throw new Error(`保存草稿失败: ${errMsg}`);
+        }
+      } catch (parseError) {
+        // 如果无法解析 JSON，尝试其他验证方式
+        this.logger.warn(
+          `Could not parse save response: ${(parseError as Error).message}`,
+        );
+      }
     } catch (waitError) {
       this.logger.warn(
-        `Save wait timed out, checking current state: ${(waitError as Error).message}`,
+        `Save response wait failed: ${(waitError as Error).message}`,
       );
-      // 即使超时，也检查是否已保存成功
-      await page.waitForTimeout(2000);
+    }
+
+    // 如果没有通过 API 响应验证，尝试其他方式验证
+    if (!saveSucceeded) {
+      this.logger.log("Checking save success via alternative methods...");
+
+      // 等待一下让 UI 更新
+      await page.waitForTimeout(3000);
+
+      // 方法1: 检查是否有成功提示
+      try {
+        const toast = await page.$(".weui-desktop-toast__content");
+        if (toast) {
+          const toastText = await toast.textContent();
+          this.logger.log(`Found toast message: ${toastText}`);
+          if (
+            toastText?.includes("成功") ||
+            toastText?.includes("success") ||
+            toastText?.includes("saved")
+          ) {
+            saveSucceeded = true;
+            this.logger.log("Save confirmed via toast message");
+          }
+        }
+      } catch {
+        // 忽略
+      }
+
+      // 方法2: 检查 URL 是否包含 aid（草稿ID）
+      const currentUrl = page.url();
+      if (currentUrl.includes("aid=") && !currentUrl.includes("aid=&")) {
+        const aidMatch = currentUrl.match(/aid=(\d+)/);
+        if (aidMatch && aidMatch[1] !== "0") {
+          saveSucceeded = true;
+          this.logger.log(`Save confirmed via URL aid: ${aidMatch[1]}`);
+        }
+      }
+
+      // 方法3: 检查页面标题或内容是否显示已保存状态
+      try {
+        const pageTitle = await page.title();
+        this.logger.log(`Page title after save: ${pageTitle}`);
+      } catch {
+        // 忽略
+      }
+    }
+
+    // 最终验证
+    if (!saveSucceeded) {
+      // 截图用于调试
+      await this.captureDebugInfo(page, "save_failed");
+      throw new Error(
+        "草稿保存失败：未能确认保存操作成功完成。请检查微信公众号后台是否正常。",
+      );
     }
 
     // 返回当前页面 URL 作为草稿链接
     const draftUrl = page.url();
-    this.logger.log(`Draft URL: ${draftUrl}`);
+    this.logger.log(`Draft saved successfully, URL: ${draftUrl}`);
     return draftUrl;
   }
 }
