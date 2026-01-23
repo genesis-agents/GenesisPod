@@ -9,12 +9,15 @@
  * 3. 识别页面和 UI 元素
  * 4. 生成问题描述
  *
- * 使用配置的默认聊天模型（需支持 Vision 能力）
+ * ★ 架构说明：
+ * - 通过 AIEngineFacade 获取模型配置（包括 API Key）
+ * - Vision API 调用需要特殊的多模态消息格式，AiChatService 尚不支持
+ * - 因此保留直接调用 Vision API 的逻辑，但密钥来源改为 AIEngineFacade
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { SecretsService } from "../../../core/secrets/secrets.service";
 import type {
   ScreenshotAnalysis,
   FeedbackAttachment,
@@ -46,8 +49,8 @@ export class ScreenshotAnalyzerService {
   private readonly logger = new Logger(ScreenshotAnalyzerService.name);
 
   constructor(
-    private readonly configService: ConfigService,
     private readonly aiFacade: AIEngineFacade,
+    private readonly secretsService: SecretsService,
   ) {}
 
   /**
@@ -143,6 +146,8 @@ export class ScreenshotAnalyzerService {
   /**
    * 调用 Gemini Vision API
    *
+   * ★ 架构说明：通过 AIEngineFacade 获取模型配置（包括 API Key）
+   *
    * 任务配置映射 (TaskProfile equivalent):
    * - creativity: "low" (temperature: 0.3) - 截图分析需要准确提取信息
    * - outputLength: "short" (maxOutputTokens: 1000) - 结构化分析结果
@@ -151,15 +156,31 @@ export class ScreenshotAnalyzerService {
     modelName: string,
     imageUrl: string,
   ): Promise<string> {
-    const apiKey = this.configService.get<string>("GOOGLE_AI_API_KEY");
+    // ★ 通过 AIEngineFacade 获取模型配置
+    const modelConfig = await this.aiFacade.getFullModelConfig(modelName);
+    if (!modelConfig) {
+      throw new Error(`Gemini model ${modelName} not found in database`);
+    }
+
+    // ★ 解析 API Key（支持 Secret Manager）
+    let apiKey = modelConfig.apiKey;
+    if (modelConfig.secretKey) {
+      const resolvedKey = await this.secretsService.getValue(
+        modelConfig.secretKey,
+      );
+      if (resolvedKey) {
+        apiKey = resolvedKey;
+      }
+    }
+
     if (!apiKey) {
-      throw new Error("GOOGLE_AI_API_KEY not configured");
+      throw new Error(`API key not configured for Gemini model ${modelName}`);
     }
 
     // Gemini 需要 base64 图片，先下载图片
     const imageData = await this.fetchImageAsBase64(imageUrl);
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelConfig.modelId}:generateContent?key=${apiKey}`;
 
     const response = await fetch(url, {
       method: "POST",
@@ -197,6 +218,8 @@ export class ScreenshotAnalyzerService {
   /**
    * 调用 OpenAI Vision API
    *
+   * ★ 架构说明：通过 AIEngineFacade 获取模型配置（包括 API Key）
+   *
    * 任务配置映射 (TaskProfile equivalent):
    * - creativity: "low" (temperature: 0.3) - 截图分析需要准确提取信息
    * - outputLength: "short" (max_tokens: 1000) - 结构化分析结果
@@ -205,14 +228,29 @@ export class ScreenshotAnalyzerService {
     modelName: string,
     imageUrl: string,
   ): Promise<string> {
-    const apiKey = this.configService.get<string>("OPENAI_API_KEY");
-    const baseUrl =
-      this.configService.get<string>("OPENAI_BASE_URL") ||
-      "https://api.openai.com/v1";
+    // ★ 通过 AIEngineFacade 获取模型配置
+    const modelConfig = await this.aiFacade.getFullModelConfig(modelName);
+    if (!modelConfig) {
+      throw new Error(`OpenAI model ${modelName} not found in database`);
+    }
+
+    // ★ 解析 API Key（支持 Secret Manager）
+    let apiKey = modelConfig.apiKey;
+    if (modelConfig.secretKey) {
+      const resolvedKey = await this.secretsService.getValue(
+        modelConfig.secretKey,
+      );
+      if (resolvedKey) {
+        apiKey = resolvedKey;
+      }
+    }
 
     if (!apiKey) {
-      throw new Error("OPENAI_API_KEY not configured");
+      throw new Error(`API key not configured for OpenAI model ${modelName}`);
     }
+
+    const baseUrl =
+      modelConfig.apiEndpoint?.trim() || "https://api.openai.com/v1";
 
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
@@ -221,7 +259,7 @@ export class ScreenshotAnalyzerService {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: modelName,
+        model: modelConfig.modelId,
         messages: [
           {
             role: "user",
@@ -247,20 +285,41 @@ export class ScreenshotAnalyzerService {
 
   /**
    * 调用 Claude Vision API
+   *
+   * ★ 架构说明：通过 AIEngineFacade 获取模型配置（包括 API Key）
    */
   private async callClaudeVisionApi(
     modelName: string,
     imageUrl: string,
   ): Promise<string> {
-    const apiKey = this.configService.get<string>("ANTHROPIC_API_KEY");
+    // ★ 通过 AIEngineFacade 获取模型配置
+    const modelConfig = await this.aiFacade.getFullModelConfig(modelName);
+    if (!modelConfig) {
+      throw new Error(`Claude model ${modelName} not found in database`);
+    }
+
+    // ★ 解析 API Key（支持 Secret Manager）
+    let apiKey = modelConfig.apiKey;
+    if (modelConfig.secretKey) {
+      const resolvedKey = await this.secretsService.getValue(
+        modelConfig.secretKey,
+      );
+      if (resolvedKey) {
+        apiKey = resolvedKey;
+      }
+    }
+
     if (!apiKey) {
-      throw new Error("ANTHROPIC_API_KEY not configured");
+      throw new Error(`API key not configured for Claude model ${modelName}`);
     }
 
     // Claude 需要 base64 图片
     const imageData = await this.fetchImageAsBase64(imageUrl);
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const baseUrl =
+      modelConfig.apiEndpoint?.trim() || "https://api.anthropic.com/v1";
+
+    const response = await fetch(`${baseUrl}/messages`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -268,7 +327,7 @@ export class ScreenshotAnalyzerService {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: modelName,
+        model: modelConfig.modelId,
         max_tokens: 1000,
         messages: [
           {
