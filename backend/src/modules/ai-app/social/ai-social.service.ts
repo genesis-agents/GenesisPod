@@ -971,7 +971,39 @@ export class AiSocialService {
       throw new BadRequestException("请选择发布账号");
     }
 
-    const connectionId = dto.connectionId || content.connectionId;
+    let connectionId = dto.connectionId || content.connectionId;
+
+    // 验证连接是否存在
+    const connection = await this.db.socialPlatformConnection.findUnique({
+      where: { id: connectionId },
+    });
+
+    if (!connection) {
+      // 连接已被删除，尝试找用户的活跃连接
+      const platformType =
+        content.contentType === "WECHAT_ARTICLE" ? "WECHAT_MP" : "XIAOHONGSHU";
+
+      const activeConnection = await this.db.socialPlatformConnection.findFirst(
+        {
+          where: {
+            userId,
+            platformType,
+            isActive: true,
+          },
+        },
+      );
+
+      if (!activeConnection) {
+        throw new BadRequestException(
+          "发布账号已断开连接，请在连接管理中重新连接后再发布",
+        );
+      }
+
+      connectionId = activeConnection.id;
+      this.logger.log(
+        `Original connection not found, using active connection: ${connectionId}`,
+      );
+    }
 
     // Use $executeRaw to avoid Prisma ORM issues with text[] columns
     await this.db.$executeRaw`
