@@ -852,10 +852,36 @@ export class WechatAdapter {
 
       if (editor) {
         await editor.click();
-        // 使用 Ctrl+A 清空，然后输入内容
+        // 使用剪贴板粘贴方式填写内容（比逐字符输入快得多）
+        this.logger.log(
+          `Filling content via clipboard paste (${content.content.length} chars)...`,
+        );
+
+        // 使用 evaluate 设置剪贴板内容并粘贴
+        await page.evaluate(async (text: string) => {
+          // 方法1: 使用 Clipboard API
+          try {
+            await navigator.clipboard.writeText(text);
+          } catch {
+            // 方法2: 创建临时 textarea 复制内容
+            const textarea = document.createElement("textarea");
+            textarea.value = text;
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textarea);
+          }
+        }, content.content);
+
+        // 先清空现有内容
         await page.keyboard.press("Control+a");
-        await page.keyboard.type(content.content, { delay: 10 });
-        this.logger.log("Content filled successfully");
+        // 粘贴内容
+        await page.keyboard.press("Control+v");
+        await page.waitForTimeout(1000); // 等待粘贴完成
+
+        this.logger.log("Content filled successfully via clipboard paste");
       } else {
         this.logger.warn(
           "Could not find editor element, trying alternative approach",
