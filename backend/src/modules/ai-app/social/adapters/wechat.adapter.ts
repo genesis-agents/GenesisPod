@@ -209,51 +209,41 @@ export class WechatAdapter {
       let clickSucceeded = false;
 
       // 尝试点击 Photo/图文 按钮进入编辑器
+      // 基于 Playwright 实际分析：按钮结构是 div.new-creation__menu-content 包含文本
       this.logger.log("Looking for Photo/图文 button on home page...");
 
-      // 使用 Playwright 的 locator API 进行文本匹配（更可靠）
-      const buttonTexts = ["Photo", "图文"];
+      const buttonTexts = ["Photo", "图文", "Article", "文章"];
 
       for (const buttonText of buttonTexts) {
         if (clickSucceeded) break;
 
         try {
-          // 使用 getByRole 或 getByText 进行定位
           this.logger.log(`Looking for button with text: "${buttonText}"...`);
 
-          // 方法1: 直接通过文本定位
-          const locator = page.locator(
-            `.new-creation__menu-title:has-text("${buttonText}")`,
+          // 方法1: 使用正确的选择器 - .new-creation__menu-content 包含文本
+          // Playwright 实际使用: div:nth-child(N) > .new-creation__menu-content
+          const menuContent = page.locator(
+            `.new-creation__menu-content:has-text("${buttonText}")`,
           );
-          const count = await locator.count();
-          this.logger.log(`Found ${count} elements with text "${buttonText}"`);
+          const count = await menuContent.count();
+          this.logger.log(
+            `Found ${count} .new-creation__menu-content with text "${buttonText}"`,
+          );
 
           if (count > 0) {
-            // 点击找到的元素的父级（菜单项）
-            const menuItem = page.locator(
-              `.new-creation__menu-item:has(.new-creation__menu-title:has-text("${buttonText}"))`,
-            );
-            const menuItemCount = await menuItem.count();
             this.logger.log(
-              `Found ${menuItemCount} menu items for "${buttonText}"`,
+              `Clicking .new-creation__menu-content for "${buttonText}"...`,
             );
+            const [newPage] = await Promise.all([
+              context.waitForEvent("page", { timeout: 15000 }),
+              menuContent.first().click(),
+            ]);
 
-            if (menuItemCount > 0) {
-              this.logger.log(
-                `Clicking menu item for "${buttonText}" and waiting for new tab...`,
-              );
-              const [newPage] = await Promise.all([
-                context.waitForEvent("page", { timeout: 15000 }),
-                menuItem.first().click(),
-              ]);
-
-              // 等待新页面加载
-              this.logger.log("New tab opened, waiting for it to load...");
-              await newPage.waitForLoadState("networkidle", { timeout: 30000 });
-              editorPage = newPage;
-              clickSucceeded = true;
-              this.logger.log(`Editor page URL: ${editorPage.url()}`);
-            }
+            this.logger.log("New tab opened, waiting for it to load...");
+            await newPage.waitForLoadState("networkidle", { timeout: 30000 });
+            editorPage = newPage;
+            clickSucceeded = true;
+            this.logger.log(`Editor page URL: ${editorPage.url()}`);
           }
         } catch (clickError) {
           this.logger.warn(
@@ -262,14 +252,54 @@ export class WechatAdapter {
         }
       }
 
-      // 如果点击方式失败，尝试直接文本匹配
+      // 如果点击方式失败，尝试通过 "New creation" 区域定位
       if (!clickSucceeded) {
-        this.logger.log("Menu item click failed, trying direct text match...");
+        this.logger.log(
+          "Menu content click failed, trying New creation section...",
+        );
+        try {
+          // 查找 "New creation" 标题，然后找到其下的第三个或第四个按钮（Photo）
+          const newCreationSection = page.locator(
+            'text="New creation" >> xpath=../following-sibling::*',
+          );
+          const sectionCount = await newCreationSection.count();
+          this.logger.log(`Found ${sectionCount} elements after New creation`);
+
+          // 尝试点击包含 Photo 的元素
+          const photoInSection = page
+            .locator('[class*="new-creation"]')
+            .filter({ hasText: /Photo|图文/ });
+          const photoCount = await photoInSection.count();
+          this.logger.log(`Found ${photoCount} Photo elements in section`);
+
+          if (photoCount > 0) {
+            const [newPage] = await Promise.all([
+              context
+                .waitForEvent("page", { timeout: 15000 })
+                .catch(() => null),
+              photoInSection.first().click(),
+            ]);
+            if (newPage) {
+              await newPage.waitForLoadState("networkidle", { timeout: 30000 });
+              editorPage = newPage;
+              clickSucceeded = true;
+              this.logger.log(`Editor page URL (section): ${editorPage.url()}`);
+            }
+          }
+        } catch (sectionError) {
+          this.logger.warn(
+            `Section approach failed: ${(sectionError as Error).message}`,
+          );
+        }
+      }
+
+      // 最后尝试：直接文本匹配
+      if (!clickSucceeded) {
+        this.logger.log("Trying direct text match as last resort...");
         for (const buttonText of buttonTexts) {
           if (clickSucceeded) break;
 
           try {
-            // 尝试直接通过文本内容点击
             const textLocator = page.getByText(buttonText, { exact: true });
             const textCount = await textLocator.count();
             this.logger.log(
@@ -628,16 +658,22 @@ export class WechatAdapter {
     );
 
     // 等待编辑器加载 - 基于 Playwright 实际访问发现的选择器
-    // 标题输入框是 TEXTAREA，id="title"，class="js_title js_article_title"
+    // Photo 编辑器：标题是 textbox，placeholder="Enter title here (optional)"
     this.logger.log("Waiting for editor to load...");
 
     const editorReadySelectors = [
-      "#title", // 标题输入框的 ID
-      ".js_title", // 标题输入框的 class
-      ".js_article_title", // 标题输入框的另一个 class
-      'textarea[placeholder*="title"]', // 通过 placeholder 匹配（英文）
-      'textarea[placeholder*="标题"]', // 通过 placeholder 匹配（中文）
-      "textarea.frm_input", // 通用 class
+      // Photo 编辑器 - 基于实际 Playwright 分析
+      '[placeholder*="Enter title here"]', // 英文 Photo 编辑器
+      '[placeholder*="title"]', // 通用英文
+      '[placeholder*="标题"]', // 中文
+      // Article 编辑器 - 旧版选择器
+      "#title",
+      ".js_title",
+      ".js_article_title",
+      "textarea.frm_input",
+      // 通用 input/textarea
+      'input[placeholder*="title"]',
+      'textarea[placeholder*="title"]',
     ];
 
     let editorReady = false;
@@ -682,117 +718,61 @@ export class WechatAdapter {
     });
     this.logger.log(`All input elements on page: ${JSON.stringify(allInputs)}`);
 
-    // 填写标题 - 新版编辑器 (appmsg_edit_v2)
+    // 填写标题 - 基于 Playwright 1:1 模拟实际操作 (2026-01-22)
     if (content.title) {
-      this.logger.log("Looking for title input in new editor...");
+      this.logger.log("Looking for title input using getByRole...");
 
-      const titleSelectors = [
-        // 基于 Playwright 实际访问发现的精确选择器
-        // 标题是 TEXTAREA 元素，id="title"，class="js_title js_article_title frm_input"
-        "#title", // 最精确 - 通过 ID
-        ".js_article_title", // 通过 class
-        ".js_title", // 通过 class
-        "textarea.frm_input", // 通过 class
-        // 通过 placeholder 匹配
-        'textarea[placeholder*="Enter title here"]', // 英文
-        'textarea[placeholder*="title"]', // 英文通用
-        'textarea[placeholder*="标题"]', // 中文
-        '[placeholder*="Enter title here"]',
-        '[placeholder*="请在这里输入标题"]',
-        '[placeholder*="标题"]',
-        // 备用选择器
-        "textarea",
-        'input[type="text"]',
-      ];
+      let titleFilled = false;
 
-      let titleInput = null;
-      for (const selector of titleSelectors) {
-        try {
-          titleInput = await page.$(selector);
-          if (titleInput) {
-            this.logger.log(`Found title input with selector: ${selector}`);
-            break;
-          }
-        } catch {
-          continue;
-        }
-      }
-
-      // 如果还找不到，尝试通过 placeholder 文本查找
-      if (!titleInput) {
-        this.logger.log("Trying to find title input by placeholder text...");
-        titleInput = await page.evaluate(() => {
-          const el = document.querySelector(
-            '[placeholder*="标题"]',
-          ) as HTMLInputElement;
-          return el ? true : false;
+      // 方法1: 使用 getByRole - 这是 Playwright 实际使用的方式
+      // page.getByRole('textbox', { name: 'Input a title here' }).fill(...)
+      try {
+        const titleTextbox = page.getByRole("textbox", {
+          name: /Input a title here|请在这里输入标题|标题/i,
         });
-        if (titleInput) {
-          titleInput = await page.$('[placeholder*="标题"]');
+        const count = await titleTextbox.count();
+        this.logger.log(`Found ${count} title textbox via getByRole`);
+        if (count > 0) {
+          await titleTextbox.first().fill(content.title);
+          titleFilled = true;
+          this.logger.log("Title filled via getByRole");
+        }
+      } catch (roleError) {
+        this.logger.warn(`getByRole failed: ${(roleError as Error).message}`);
+      }
+
+      // 方法2: 使用 placeholder 选择器
+      if (!titleFilled) {
+        const titleSelectors = [
+          '[placeholder="Enter title here (optional)"]',
+          '[placeholder*="Enter title here"]',
+          '[placeholder*="title"]',
+          '[placeholder*="标题"]',
+          "#title",
+          ".js_article_title",
+          "textarea",
+          'input[type="text"]',
+        ];
+
+        for (const selector of titleSelectors) {
+          try {
+            const titleInput = await page.$(selector);
+            if (titleInput) {
+              this.logger.log(`Found title input with selector: ${selector}`);
+              await titleInput.fill(content.title);
+              titleFilled = true;
+              break;
+            }
+          } catch {
+            continue;
+          }
         }
       }
 
-      if (titleInput) {
-        await titleInput.fill(content.title);
+      if (titleFilled) {
         this.logger.log("Title filled successfully");
       } else {
         this.logger.warn("Could not find title input element");
-        // 记录页面上所有 input 元素用于调试
-        const inputs = await page.$$eval("input", (els: Element[]) =>
-          els.map((el) => ({
-            id: el.id,
-            name: el.getAttribute("name"),
-            class: el.className,
-            placeholder: el.getAttribute("placeholder"),
-            type: el.getAttribute("type"),
-          })),
-        );
-        this.logger.warn(
-          `Available inputs: ${JSON.stringify(inputs, null, 2)}`,
-        );
-
-        // 如果没有 input 元素，检查是否是登录问题
-        if (inputs.length === 0) {
-          const pageTitle = await page.title();
-          const hasLoginForm = await page.$(".login__type__qrcode");
-          const hasErrorMsg = await page.$(".weui-desktop-msg__title");
-          const currentUrl = page.url();
-
-          this.logger.error(`Page diagnosis - no inputs found:`);
-          this.logger.error(`- Page title: ${pageTitle}`);
-          this.logger.error(`- Current URL: ${currentUrl}`);
-          this.logger.error(`- Has login form: ${!!hasLoginForm}`);
-          this.logger.error(`- Has error message: ${!!hasErrorMsg}`);
-
-          // 只有当页面被重定向到登录页或有明确的登录表单时才认为登录过期
-          // 不再使用 pageText.includes 检测，因为正常页面也可能包含这些词
-          const isOnLoginPage =
-            currentUrl.includes("bizlogin") ||
-            currentUrl.includes("action=login") ||
-            currentUrl.includes("auth") ||
-            hasLoginForm;
-
-          if (isOnLoginPage) {
-            throw new Error(
-              "微信公众号登录已过期，请在 AI Social 连接管理中重新连接",
-            );
-          }
-        }
-
-        // 记录页面上所有 contenteditable 元素
-        const editables = await page.$$eval(
-          "[contenteditable]",
-          (els: Element[]) =>
-            els.map((el) => ({
-              tag: el.tagName,
-              id: el.id,
-              class: el.className?.substring?.(0, 100) || "",
-            })),
-        );
-        this.logger.warn(
-          `Available contenteditable elements: ${JSON.stringify(editables, null, 2)}`,
-        );
-
         // 记录当前页面 URL
         const currentUrl = page.url();
         this.logger.error(
@@ -888,55 +868,52 @@ export class WechatAdapter {
   private async saveDraft(page: any): Promise<string> {
     this.logger.log("Looking for save button...");
 
-    // 先诊断页面上的按钮
-    const allButtons = await page.evaluate(() => {
-      const buttons = Array.from(
-        document.querySelectorAll("button, a[class*='btn'], [class*='button']"),
+    let saveClicked = false;
+
+    // 方法1: 使用 getByRole - 这是 Playwright 实际使用的方式
+    // page.getByRole('button', { name: 'Save as draft' }).click()
+    try {
+      const saveButton = page.getByRole("button", {
+        name: /Save as draft|保存为草稿|保存草稿/i,
+      });
+      const count = await saveButton.count();
+      this.logger.log(`Found ${count} save button via getByRole`);
+      if (count > 0) {
+        await saveButton.first().click();
+        saveClicked = true;
+        this.logger.log("Save button clicked via getByRole");
+      }
+    } catch (roleError) {
+      this.logger.warn(
+        `getByRole for save button failed: ${(roleError as Error).message}`,
       );
-      return buttons.slice(0, 15).map((btn) => ({
-        text: btn.textContent?.trim().substring(0, 30),
-        className: (btn as HTMLElement).className?.substring(0, 60),
-        tagName: btn.tagName,
-      }));
-    });
-    this.logger.log(`All buttons on page: ${JSON.stringify(allButtons)}`);
+    }
 
-    // 尝试多个保存按钮选择器 - 基于 Playwright 实际访问分析
-    // 英文界面: "Save as draft"
-    // 中文界面: "保存为草稿"
-    const saveSelectors = [
-      // v2 编辑器的保存按钮 - 英文界面
-      'button:has-text("Save as draft")',
-      'button:has-text("Save draft")',
-      // v2 编辑器的保存按钮 - 中文界面
-      'button:has-text("保存为草稿")',
-      'button:has-text("保存草稿")',
-      'button:has-text("保存")',
-      // 通用选择器
-      'a:has-text("Save as draft")',
-      'a:has-text("保存为草稿")',
-      '[class*="btn"]:has-text("Save")',
-      '[class*="btn"]:has-text("保存")',
-      ".js_save",
-      ".weui-desktop-btn_primary",
-      ".weui-desktop-btn_default",
-      '[class*="save"]',
-    ];
+    // 方法2: 使用选择器
+    if (!saveClicked) {
+      const saveSelectors = [
+        'button:has-text("Save as draft")',
+        'button:has-text("保存为草稿")',
+        'button:has-text("保存")',
+        ".js_save",
+      ];
 
-    let saveButton = null;
-    for (const selector of saveSelectors) {
-      try {
-        saveButton = await page.waitForSelector(selector, { timeout: 5000 });
-        if (saveButton) {
-          this.logger.log(`Found save button with selector: ${selector}`);
-          break;
+      for (const selector of saveSelectors) {
+        try {
+          const btn = await page.waitForSelector(selector, { timeout: 3000 });
+          if (btn) {
+            await btn.click();
+            saveClicked = true;
+            this.logger.log(`Save button clicked with selector: ${selector}`);
+            break;
+          }
+        } catch {
+          continue;
         }
-      } catch {
-        continue;
       }
     }
 
-    if (!saveButton) {
+    if (!saveClicked) {
       // 记录所有按钮用于调试
       const buttons = await page.$$eval("button", (els: Element[]) =>
         els.map((el) => ({
@@ -947,10 +924,6 @@ export class WechatAdapter {
       this.logger.error(`Available buttons: ${JSON.stringify(buttons)}`);
       throw new Error("找不到保存按钮，微信后台界面可能已更新");
     }
-
-    // 点击保存按钮
-    this.logger.log("Clicking save button...");
-    await saveButton.click();
 
     // 等待保存完成 - 使用多种检测方式
     this.logger.log("Waiting for save response...");
