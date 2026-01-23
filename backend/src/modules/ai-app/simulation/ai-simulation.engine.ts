@@ -116,14 +116,14 @@ export class AiSimulationEngineService {
     scenario: any,
     irrationalBias: boolean,
   ): Promise<{ innerMonologue: string; publicAction: string }> {
-    // 获取所有可用的AI模型，按优先级排序
-    const models = await this.prisma.aIModel.findMany({
-      where: {
-        isEnabled: true,
-        modelType: { in: [AIModelType.CHAT_FAST, AIModelType.CHAT] },
-      },
-      orderBy: [{ isDefault: "desc" }, { modelType: "asc" }],
-    });
+    // 获取所有可用的AI模型（优先CHAT_FAST，回退CHAT）
+    const fastModels = await this.aiFacade.getAvailableModelsExtended(
+      AIModelType.CHAT_FAST,
+    );
+    const chatModels = await this.aiFacade.getAvailableModelsExtended(
+      AIModelType.CHAT,
+    );
+    const models = [...fastModels, ...chatModels];
 
     if (models.length === 0) {
       this.logger.warn(
@@ -148,19 +148,31 @@ export class AiSimulationEngineService {
 
     // 尝试每个模型，直到成功或全部失败
     for (const model of models) {
-      if (!model.apiKey) continue;
+      // 跳过不可用的模型
+      if (!model.isAvailable) {
+        this.logger.debug(
+          `[Agent ${agent.role}] Model ${model.name} not available, skipping`,
+        );
+        continue;
+      }
 
-      // 使用模型数据库中配置的maxTokens
-      // 推理模型（如o1, gpt-5, gemini思考模式）需要更多tokens
       try {
         const result = await this.aiFacade.chat({
           messages,
-          model: model.modelId,
+          model: model.id,
           taskProfile: {
             creativity: irrationalBias ? "high" : "medium",
             outputLength: "medium",
           },
         });
+
+        // 检查是否返回错误
+        if (result.isError) {
+          this.logger.warn(
+            `[Agent ${agent.role}] Model ${model.name} returned error: ${result.content.slice(0, 100)}`,
+          );
+          continue; // 尝试下一个模型
+        }
 
         // 成功：解析AI响应并返回
         this.logger.log(`[Agent ${agent.role}] Using model: ${model.name}`);

@@ -1147,55 +1147,11 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       `[AI Model Lookup] aiMember.aiModel = "${aiMember.aiModel}", displayName = "${aiMember.displayName}"`,
     );
 
-    let aiModelConfig = await this.prisma.aIModel.findFirst({
-      where: {
-        modelId: {
-          equals: aiMember.aiModel,
-          mode: "insensitive",
-        },
-        isEnabled: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        modelId: true,
-        provider: true,
-        apiKey: true,
-        apiEndpoint: true,
-        temperature: true,
-        isEnabled: true,
-      },
-    });
+    const aiModelConfig = await this.aiFacade.getModelById(aiMember.aiModel);
 
     this.logger.log(
-      `[AI Model Lookup] By modelId "${aiMember.aiModel}": ${aiModelConfig ? `found (id=${aiModelConfig.id}, hasApiKey=${!!aiModelConfig.apiKey})` : "NOT FOUND"}`,
+      `[AI Model Lookup] By modelId "${aiMember.aiModel}": ${aiModelConfig ? `found (id=${aiModelConfig.id})` : "NOT FOUND"}`,
     );
-
-    // Fallback to name lookup
-    if (!aiModelConfig) {
-      this.logger.log(
-        `[AI Model Lookup] Falling back to name lookup: "${aiMember.aiModel}"`,
-      );
-      aiModelConfig = await this.prisma.aIModel.findFirst({
-        where: {
-          name: {
-            equals: aiMember.aiModel,
-            mode: "insensitive",
-          },
-          isEnabled: true,
-        },
-        select: {
-          id: true,
-          name: true,
-          modelId: true,
-          provider: true,
-          apiKey: true,
-          apiEndpoint: true,
-          temperature: true,
-          isEnabled: true,
-        },
-      });
-    }
 
     // Call AI service
     this.logger.log(
@@ -1206,132 +1162,47 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
     const startTime = Date.now();
 
     try {
-      let result;
+      // Determine output length based on model capabilities
+      // ★ 使用 AIEngineFacade 返回的 isReasoning 字段，不再硬编码模型名称
+      const modelId =
+        aiModelConfig?.modelId || this.getDefaultModelId(aiMember.aiModel);
+      const isReasoningModel = aiModelConfig?.isReasoning ?? false;
+      const isLargeModel =
+        modelId.includes("gpt-4") ||
+        modelId.includes("claude") ||
+        modelId.includes("gemini");
 
-      let apiKey: string | null = null;
-      let apiKeySource = "none";
-
-      if (aiModelConfig?.apiKey) {
-        apiKey = aiModelConfig.apiKey;
-        apiKeySource = "database";
-      } else {
-        const provider = aiModelConfig?.provider?.toLowerCase() || "";
-        const modelIdLower = aiMember.aiModel.toLowerCase();
-
-        let envKeyName: string | null = null;
-        if (provider === "xai" || modelIdLower.includes("grok")) {
-          envKeyName = "XAI_API_KEY";
-        } else if (
-          provider === "openai" ||
-          modelIdLower.includes("gpt") ||
-          modelIdLower.startsWith("o1") ||
-          modelIdLower.startsWith("o3")
-        ) {
-          envKeyName = "OPENAI_API_KEY";
-        } else if (
-          provider === "anthropic" ||
-          modelIdLower.includes("claude")
-        ) {
-          envKeyName = "ANTHROPIC_API_KEY";
-        } else if (provider === "google" || modelIdLower.includes("gemini")) {
-          envKeyName = "GOOGLE_AI_API_KEY";
-        }
-
-        if (envKeyName && process.env[envKeyName]) {
-          apiKey = process.env[envKeyName] as string;
-          apiKeySource = `env:${envKeyName}`;
-        }
-      }
+      // 【长文支持】根据模型能力确定输出长度
+      // - Reasoning models: "extended" (复杂多步骤任务、长文创作)
+      // - Large models: "long" (标准对话、中等长度内容)
+      // - Other models: "medium" (简单响应)
+      const outputLength = isReasoningModel
+        ? ("extended" as const)
+        : isLargeModel
+          ? ("long" as const)
+          : ("medium" as const);
 
       this.logger.log(
-        `API key source for ${aiMember.aiModel}: ${apiKeySource}, hasKey=${!!apiKey}`,
+        `Calling AI API: modelId=${modelId}, isReasoning=${isReasoningModel}, outputLength=${outputLength}`,
       );
 
-      if (apiKey) {
-        const provider = aiModelConfig?.provider || aiMember.aiModel;
-        const modelId =
-          aiModelConfig?.modelId || this.getDefaultModelId(aiMember.aiModel);
-        // apiEndpoint 由 Facade 内部处理，不再需要手动传递
+      // 构建消息列表，包含系统提示
+      const facadeMessages: ChatMessage[] = [
+        { role: "system", content: finalSystemPrompt },
+        ...chatMessages.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+      ];
 
-        // Determine max_tokens based on model capabilities
-        // Reasoning models and large context models can handle more output
-        const isReasoningModel =
-          modelId.includes("gpt-5") ||
-          modelId.startsWith("o1") ||
-          modelId.startsWith("o3") ||
-          modelId.includes("gemini-3-pro");
-        const isLargeModel =
-          modelId.includes("gpt-4") ||
-          modelId.includes("claude") ||
-          modelId.includes("gemini");
-
-        // 【长文支持】增加 max_tokens 以支持长文创作场景
-        // - Reasoning models: 16384 tokens (复杂多步骤任务、长文创作)
-        // - Large models: 8192 tokens (标准对话、中等长度内容)
-        // - Other models: 4096 tokens (简单响应)
-        const effectiveMaxTokens = isReasoningModel
-          ? 16384
-          : isLargeModel
-            ? 8192
-            : 4096;
-
-        this.logger.log(
-          `Calling AI API: provider=${provider}, modelId=${modelId}, maxTokens=${effectiveMaxTokens}`,
-        );
-
-        let effectiveCapabilities: string[] = (aiMember.capabilities || []).map(
-          (c) => String(c),
-        );
-        if (
-          aiMember.displayName.toLowerCase().includes("image") &&
-          !effectiveCapabilities.includes("IMAGE_GENERATION")
-        ) {
-          effectiveCapabilities = [
-            ...effectiveCapabilities,
-            "IMAGE_GENERATION",
-          ];
-          this.logger.log(
-            `[AI Capabilities] Inferred IMAGE_GENERATION for ${aiMember.displayName}`,
-          );
-        }
-
-        // 构建消息列表，包含系统提示
-        const facadeMessages: ChatMessage[] = [
-          { role: "system", content: finalSystemPrompt },
-          ...chatMessages.map((m) => ({
-            role: m.role as "user" | "assistant",
-            content: m.content,
-          })),
-        ];
-        result = await this.aiFacade.chat({
-          messages: facadeMessages,
-          model: modelId,
-          taskProfile: {
-            creativity: "medium",
-            outputLength: "long",
-          },
-        });
-      } else {
-        this.logger.warn(
-          `No API key found for ${aiMember.aiModel}. Configure API key in Admin panel or set environment variable.`,
-        );
-        // 构建消息列表，包含系统提示
-        const facadeMessages: ChatMessage[] = [
-          { role: "system", content: finalSystemPrompt },
-          ...chatMessages.map((m) => ({
-            role: m.role as "user" | "assistant",
-            content: m.content,
-          })),
-        ];
-        result = await this.aiFacade.chat({
-          messages: facadeMessages,
-          model: aiMember.aiModel,
-          taskProfile: {
-            creativity: "medium",
-            outputLength: "standard",
-          },
-        });
-      }
+      const result = await this.aiFacade.chat({
+        messages: facadeMessages,
+        model: modelId,
+        taskProfile: {
+          creativity: "medium",
+          outputLength,
+        },
+      });
       aiResponse = result.content;
       tokensUsed = result.tokensUsed;
 

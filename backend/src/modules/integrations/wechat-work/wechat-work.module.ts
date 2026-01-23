@@ -7,9 +7,10 @@ import { WechatWorkCryptoService } from "./wechat-work-crypto.service";
 import { WechatDataSourceService } from "./wechat-data-source.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { RAGModule } from "../../ai-app/rag/rag.module";
+import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 
 @Module({
-  imports: [HttpModule, PrismaModule, RAGModule],
+  imports: [HttpModule, PrismaModule, RAGModule, AiEngineModule],
   controllers: [WechatWorkController, WechatDataSourceController],
   providers: [
     WechatWorkService,

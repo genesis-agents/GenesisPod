@@ -14,6 +14,7 @@ import {
   Query,
   UseGuards,
   Req,
+  Logger,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -47,6 +48,8 @@ import { PlatformImportService } from "./services/platform-import.service";
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class RAGController {
+  private readonly logger = new Logger(RAGController.name);
+
   constructor(
     private readonly knowledgeBaseService: KnowledgeBaseService,
     private readonly ragPipelineService: RAGPipelineService,
@@ -88,11 +91,11 @@ export class RAGController {
         const syncResult = await this.googleDriveRAGService.syncKnowledgeBase(
           kb.id,
         );
-        console.log(
-          `[KB Create] Auto-sync completed for KB ${kb.id}: added=${syncResult.added}, updated=${syncResult.updated}`,
+        this.logger.log(
+          `Auto-sync completed for KB ${kb.id}: added=${syncResult.added}, updated=${syncResult.updated}`,
         );
       } catch (err) {
-        console.error(`[KB Create] Auto-sync failed for KB ${kb.id}:`, err);
+        this.logger.error(`Auto-sync failed for KB ${kb.id}`, err);
         // Don't throw - KB was created successfully, sync can be retried later
       }
     }
@@ -131,11 +134,11 @@ export class RAGController {
     description: "List of documents with vectorization status",
   })
   async listDocuments(@Req() req: any, @Param("id") id: string) {
-    console.log(`[RAG] Listing documents for KB ${id}`);
+    this.logger.debug(`Listing documents for KB ${id}`);
     // Verify ownership
     await this.knowledgeBaseService.findById(id, req.user.id);
     const documents = await this.knowledgeBaseService.listDocuments(id);
-    console.log(`[RAG] Found ${documents.length} documents for KB ${id}`);
+    this.logger.debug(`Found ${documents.length} documents for KB ${id}`);
     return documents;
   }
 
@@ -289,8 +292,8 @@ export class RAGController {
               actualResource.sourceUrl
             ) {
               try {
-                console.log(
-                  `[RAG] Content too short (${content.length} chars), fetching from URL: ${actualResource.sourceUrl}`,
+                this.logger.debug(
+                  `Content too short (${content.length} chars), fetching from URL: ${actualResource.sourceUrl}`,
                 );
                 const fetched = await this.urlFetchService.fetchUrl(
                   actualResource.sourceUrl,
@@ -300,11 +303,11 @@ export class RAGController {
                   fetched.content.length > content.length
                 ) {
                   content = fetched.content;
-                  console.log(`[RAG] Fetched ${content.length} chars from URL`);
+                  this.logger.debug(`Fetched ${content.length} chars from URL`);
                 }
               } catch (err) {
-                console.warn(
-                  `[RAG] Failed to fetch URL content: ${err instanceof Error ? err.message : err}`,
+                this.logger.warn(
+                  `Failed to fetch URL content: ${err instanceof Error ? err.message : err}`,
                 );
                 // Keep the existing short content as fallback
               }

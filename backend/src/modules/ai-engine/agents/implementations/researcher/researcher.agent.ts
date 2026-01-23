@@ -2,14 +2,11 @@
  * Researcher Agent
  * AI 研究助手 Agent
  *
- * 复用现有的 ai-studio 模块能力：
- * - AiStudioService: 项目管理
- * - AiStudioChatService: 对话交互
- * - AiStudioSourceService: 资料管理
- * - AiStudioOutputService: 输出管理
+ * 使用依赖反转原则，通过接口与 AI Apps 层解耦
+ * - IResearchService: 研究服务抽象接口
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
 import {
   PlanBasedAgent,
   BUILTIN_AGENTS,
@@ -20,11 +17,10 @@ import {
   ToolId,
 } from "../../base/plan-based-agent";
 import { BUILTIN_TOOLS, PlanStep } from "../../../core/types/agent.types";
-// 直接从具体文件导入，避免通过 barrel export 引发循环依赖
-import { AiStudioService } from "../../../../ai-app/research/notebook-research/ai-studio.service";
-import { AiStudioChatService } from "../../../../ai-app/research/notebook-research/ai-studio-chat.service";
-import { AiStudioSourceService } from "../../../../ai-app/research/notebook-research/ai-studio-source.service";
-import { AiStudioOutputService } from "../../../../ai-app/research/notebook-research/ai-studio-output.service";
+import {
+  IResearchService,
+  RESEARCH_SERVICE_TOKEN,
+} from "../../../interfaces/research.interface";
 
 /**
  * 研究任务类型
@@ -131,19 +127,12 @@ export class ResearcherAgent extends PlanBasedAgent {
   ];
 
   constructor(
-    private readonly studioService: AiStudioService,
-    private readonly chatService: AiStudioChatService,
-    private readonly sourceService: AiStudioSourceService,
-    private readonly outputService: AiStudioOutputService,
+    @Optional()
+    @Inject(RESEARCH_SERVICE_TOKEN)
+    private readonly researchService?: IResearchService,
   ) {
     super();
-    // 保留服务引用供未来使用
-    void [
-      this.studioService,
-      this.chatService,
-      this.sourceService,
-      this.outputService,
-    ];
+    // 服务是可选的，如果未提供则 Agent 功能会降级
   }
 
   /**
@@ -484,14 +473,21 @@ ${sources.map((s, i) => `[${i + 1}] ${s.title || s.url}`).join("\n") || "- 待�
    * 保存研究输出
    */
   private async saveResearchOutput(
-    _userId: string,
-    _projectId: string,
-    _content: string,
+    userId: string,
+    projectId: string,
+    content: string,
   ): Promise<void> {
-    // TODO: Implement using outputService.generateOutput with proper DTO
-    // The current output service uses GenerateOutputDto which requires
-    // different parameters (type: OutputTypeValue, selectedSourceIds, etc.)
-    this.logger.log("Research output saving - implementation pending");
+    if (!this.researchService) {
+      this.logger.warn("Research service not available, skipping output save");
+      return;
+    }
+
+    try {
+      await this.researchService.saveResearchOutput(userId, projectId, content);
+      this.logger.log("Research output saved successfully");
+    } catch (error) {
+      this.logger.error(`Failed to save research output: ${error}`);
+    }
   }
 
   /**

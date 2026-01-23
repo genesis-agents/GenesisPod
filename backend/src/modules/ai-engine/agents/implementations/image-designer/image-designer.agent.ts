@@ -2,15 +2,11 @@
  * Image Designer Agent
  * AI 图像设计师 Agent
  *
- * 复用现有的 ai-image 模块能力：
- * - AiImageService: 图像生成主服务
- * - PromptEnhancementService: Prompt 增强
- * - ImageGenerationService: 图像生成
- * - InfographicTemplateService: 信息图表生成
- * - BrandKitService: 品牌套件
+ * 使用依赖反转原则，通过接口与 AI Apps 层解耦
+ * - IImageGenerationService: 图像生成服务抽象接口
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
 import {
   PlanBasedAgent,
   BUILTIN_AGENTS,
@@ -21,14 +17,20 @@ import {
   ToolId,
 } from "../../base/plan-based-agent";
 import { BUILTIN_TOOLS, PlanStep } from "../../../core/types/agent.types";
-import { AiImageService } from "../../../../ai-app/image/generation/generation.service";
-import { PromptEnhancementService } from "../../../../ai-app/image/generation/prompt-enhancement.service";
-import { ImageGenerationService } from "../../../../ai-app/image/generation/image-generation.service";
 import {
-  InfographicTemplateService,
-  InfographicStyle,
-  TemplateLayout,
-} from "../../../../ai-app/image/infographic/infographic.service";
+  IImageGenerationService,
+  IMAGE_GENERATION_SERVICE_TOKEN,
+} from "../../../interfaces/image.interface";
+
+/**
+ * 信息图表风格 (从原 InfographicService 复制)
+ */
+export type InfographicStyle = "consulting" | "tech" | "business" | "creative";
+
+/**
+ * 信息图表布局 (从原 InfographicService 复制)
+ */
+export type TemplateLayout = "cards" | "timeline" | "grid" | "flow";
 
 /**
  * 图像任务类型
@@ -168,19 +170,13 @@ export class ImageDesignerAgent extends PlanBasedAgent {
   ];
 
   constructor(
-    private readonly imageService: AiImageService,
-    private readonly promptService: PromptEnhancementService,
-    private readonly generationService: ImageGenerationService,
-    private readonly infographicService: InfographicTemplateService,
+    @Optional()
+    @Inject(IMAGE_GENERATION_SERVICE_TOKEN)
+    private readonly imageService?: IImageGenerationService,
   ) {
     super();
-    // 保留服务引用供未来使用
-    void [
-      this.imageService,
-      this.promptService,
-      this.generationService,
-      this.infographicService,
-    ];
+    // 服务是可选的，如果未提供则 Agent 功能会降级
+    void this.imageService;
   }
 
   /**

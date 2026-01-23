@@ -1044,6 +1044,7 @@ export class AdminService {
   /**
    * 获取AI模型的API Key（仅用于测试连接）
    * 优先从 Secret Manager 获取（如果 secretKey 已配置），否则使用直接存储的 apiKey
+   * ★ 对返回值做 trim 处理，避免空格导致 API 调用失败
    */
   async getAIModelApiKey(id: string): Promise<string | null> {
     const model = await this.prisma.aIModel.findUnique({
@@ -1064,10 +1065,11 @@ export class AdminService {
         model.secretKey,
       );
       if (secretValue) {
+        const trimmedValue = secretValue.trim();
         this.logger.debug(
-          `Successfully resolved API key from Secret Manager (length=${secretValue.length})`,
+          `Successfully resolved API key from Secret Manager (length=${trimmedValue.length})`,
         );
-        return secretValue;
+        return trimmedValue;
       }
       this.logger.warn(
         `Secret '${model.secretKey}' not found for model ${id}, falling back to apiKey`,
@@ -1075,7 +1077,7 @@ export class AdminService {
     }
 
     // 回退到直接存储的 apiKey
-    return model.apiKey || null;
+    return model.apiKey?.trim() || null;
   }
 
   // ============ System Settings Management ============

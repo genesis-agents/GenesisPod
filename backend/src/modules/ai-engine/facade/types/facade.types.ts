@@ -462,8 +462,11 @@ export interface ConstraintResult {
  * 模型信息
  */
 export interface ModelInfo {
-  /** 模型 ID */
+  /** 模型 ID (modelId 字段) */
   id: string;
+
+  /** 数据库主键 ID */
+  dbId?: string;
 
   /** 显示名称 */
   name: string;
@@ -479,6 +482,12 @@ export interface ModelInfo {
 
   /** 最大 token 数 */
   maxTokens?: number;
+
+  /** UI 显示图标 */
+  icon?: string | null;
+
+  /** 是否默认模型 */
+  isDefault?: boolean;
 }
 
 /**

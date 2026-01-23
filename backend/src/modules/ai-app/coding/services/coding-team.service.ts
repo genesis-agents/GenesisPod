@@ -10,11 +10,11 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
 import {
   CodingAgentRole,
   CodingAgentMemberStatus,
   CodingMessageType,
-  AIModelType,
   CodingTeamMember,
   CodingTeamMessage,
 } from "@prisma/client";
@@ -58,7 +58,10 @@ export interface DefaultAIModel {
 export class CodingTeamService {
   private readonly logger = new Logger(CodingTeamService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiFacade: AIEngineFacade,
+  ) {}
 
   /**
    * 获取系统配置的默认 CHAT 模型（标准文本模型）
@@ -69,25 +72,8 @@ export class CodingTeamService {
    * 3. 抛出错误（无可用模型）
    */
   async getDefaultChatModel(): Promise<DefaultAIModel> {
-    // 1. 查找默认的 CHAT 模型
-    let model = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        isDefault: true,
-        modelType: AIModelType.CHAT,
-      },
-    });
-
-    // 2. Fallback: 查找任意可用的 CHAT 模型
-    if (!model) {
-      model = await this.prisma.aIModel.findFirst({
-        where: {
-          isEnabled: true,
-          modelType: AIModelType.CHAT,
-        },
-        orderBy: { createdAt: "desc" },
-      });
-    }
+    // 使用 AIEngineFacade 获取默认文本模型
+    const model = await this.aiFacade.getDefaultTextModel();
 
     if (!model) {
       throw new Error(
@@ -101,12 +87,12 @@ export class CodingTeamService {
 
     return {
       id: model.id,
-      name: model.name,
+      name: model.modelId,
       displayName: model.displayName,
       provider: model.provider,
       modelId: model.modelId,
-      apiKey: model.apiKey,
-      apiEndpoint: model.apiEndpoint,
+      apiKey: null, // API Key 由 AIEngineFacade 内部处理
+      apiEndpoint: null, // API Endpoint 由 AIEngineFacade 内部处理
     };
   }
 
@@ -357,25 +343,24 @@ export class CodingTeamService {
       return this.getDefaultChatModel();
     }
 
-    const model = await this.prisma.aIModel.findUnique({
-      where: { id: member.aiModelId },
-    });
+    // 使用 AIEngineFacade 获取模型配置
+    const model = await this.aiFacade.getModelById(member.aiModelId);
 
-    if (!model || !model.isEnabled) {
+    if (!model) {
       this.logger.warn(
-        `[getMemberAIModel] Model ${member.aiModelId} not found or disabled, using default`,
+        `[getMemberAIModel] Model ${member.aiModelId} not found, using default`,
       );
       return this.getDefaultChatModel();
     }
 
     return {
       id: model.id,
-      name: model.name,
+      name: model.modelId,
       displayName: model.displayName,
       provider: model.provider,
       modelId: model.modelId,
-      apiKey: model.apiKey,
-      apiEndpoint: model.apiEndpoint,
+      apiKey: null, // API Key 由 AIEngineFacade 内部处理
+      apiEndpoint: model.apiEndpoint || null,
     };
   }
 
@@ -386,9 +371,8 @@ export class CodingTeamService {
     memberId: string,
     aiModelId: string,
   ): Promise<CodingTeamMember> {
-    const model = await this.prisma.aIModel.findUnique({
-      where: { id: aiModelId },
-    });
+    // 使用 AIEngineFacade 验证模型是否存在
+    const model = await this.aiFacade.getModelById(aiModelId);
 
     if (!model) {
       throw new Error(`AI Model ${aiModelId} not found`);

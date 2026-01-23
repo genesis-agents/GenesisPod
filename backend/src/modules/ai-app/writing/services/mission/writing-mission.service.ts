@@ -21,7 +21,7 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AIEngineFacade } from "../../../../ai-engine/facade";
-import type { AIModelType as _AIModelType } from "@prisma/client"; // 保留用于类型参考
+import { AIModelType } from "@prisma/client";
 
 // AI Capability Resolver - Skills 和 Tools 集成
 import { AICapabilityResolver } from "../../../../ai-engine/capabilities/ai-capability-resolver.service";
@@ -511,33 +511,20 @@ export class WritingMissionService {
     }
 
     try {
-      const models = await this.prisma.aIModel.findMany({
-        where: {
-          isEnabled: true,
-          modelType: "CHAT",
-          // 排除 xAI 模型（grok），优先使用 GPT 和 Gemini
-          NOT: {
-            provider: "xAI",
-          },
-        },
-        select: {
-          modelId: true,
-          displayName: true,
-          provider: true,
-          apiKey: true,
-          apiEndpoint: true,
-        },
-      });
+      // ★ 使用 AIEngineFacade 获取模型列表
+      const models = await this.aiFacade.getAvailableModelsExtended(
+        AIModelType.CHAT,
+      );
 
-      // 转换为 ModelConfig 并标记推理能力
-      this.cachedModels = models.map((m) => ({
-        modelId: m.modelId,
-        displayName: m.displayName || m.modelId,
-        provider: m.provider,
-        apiKey: m.apiKey || undefined,
-        apiEndpoint: m.apiEndpoint || undefined,
-        isReasoning: this.isReasoningModel(m.modelId),
-      }));
+      // 转换为 ModelConfig 并排除 xAI 模型
+      this.cachedModels = models
+        .filter((m) => m.provider !== "xAI") // 排除 xAI 模型（grok）
+        .map((m) => ({
+          modelId: m.id,
+          displayName: m.name,
+          provider: m.provider,
+          isReasoning: m.isReasoning || false,
+        }));
 
       this.modelCacheTime = now;
 
@@ -553,23 +540,6 @@ export class WritingMissionService {
       );
       return [];
     }
-  }
-
-  /**
-   * 判断模型是否具备推理能力
-   * 推理模型：o1, o3, gpt-5, gpt5, claude-3.5-opus 等
-   */
-  private isReasoningModel(modelId: string): boolean {
-    const lower = modelId.toLowerCase();
-    return (
-      lower.startsWith("o1") ||
-      lower.startsWith("o3") ||
-      lower.includes("gpt-5") ||
-      lower.includes("gpt5") ||
-      lower.includes("opus") ||
-      lower.includes("reasoning") ||
-      lower.includes("thinking")
-    );
   }
 
   /**

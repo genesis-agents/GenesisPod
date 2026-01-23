@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
-import { TaskProfile } from "../../ai-engine/llm/types/task-profile";
+import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
+import { TaskProfile } from "../../ai-engine/llm/types";
 
 export interface FileInfo {
   id: string;
@@ -57,7 +57,7 @@ export class AiFileOrganizerService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   /**
@@ -72,16 +72,15 @@ export class AiFileOrganizerService {
       // 定义任务配置：文件分类任务，需要低创意度和短输出
       const taskProfile: TaskProfile = {
         creativity: "low", // temperature: 0.3 - 分析任务
-        outputLength: "short", // maxTokens: 1500 (原 1000)
+        outputLength: "short", // maxTokens: 1500
       };
 
-      const result = await this.aiChatService.generateChatCompletion({
-        model: process.env.DEFAULT_AI_MODEL || "gemini",
-        systemPrompt: this.getSystemPrompt(),
-        messages: [{ role: "user", content: prompt }],
-        taskProfile, // 使用任务配置
-        maxTokens: 1000, // 保持向后兼容
-        temperature: 0.3, // 保持向后兼容
+      const result = await this.aiFacade.chat({
+        messages: [
+          { role: "system", content: this.getSystemPrompt() },
+          { role: "user", content: prompt },
+        ],
+        taskProfile,
       });
 
       const suggestion = this.parseAIResponse(result.content, file);

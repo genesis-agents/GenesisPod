@@ -14,14 +14,7 @@
  * - MCP 协议 (MCP)
  */
 
-import {
-  Module,
-  Global,
-  OnModuleInit,
-  Logger,
-  Inject,
-  forwardRef,
-} from "@nestjs/common";
+import { Module, Global, OnModuleInit, Logger, Inject } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../common/prisma/prisma.module";
 import { PrismaService } from "../../common/prisma/prisma.service";
@@ -108,11 +101,9 @@ import { DocumentChunker } from "./rag/chunking";
 // Image
 import { ImageModule } from "./image/image.module";
 
-// AiImageModule (使用 forwardRef 打破循环依赖)
-import { AiImageModule } from "../ai-app/image/ai-image.module";
-
-// NotebookResearchModule (使用 forwardRef 打破循环依赖 - AudioGenerationTool 需要 AiStudioTTSService)
-import { NotebookResearchModule } from "../ai-app/research/notebook-research/notebook-research.module";
+// ★ 移除对 AI Apps 模块的直接依赖，使用依赖反转
+// AI Apps 模块应该导入 AI Engine，而不是反过来
+// 具体的服务实现通过 Injection Token 注入
 
 // ExportModule (FileConversionTool 需要 ExportOrchestratorService)
 import { ExportModule } from "../../common/export/export.module";
@@ -300,10 +291,6 @@ const conversationMemoryFactory = {
     TeamsModule,
     LongContentModule,
     SecretsModule,
-    // 使用 forwardRef 打破循环依赖: AiEngineModule ← ImageGenerationTool ← AiImageService ← AiImageModule → AiEngineModule
-    forwardRef(() => AiImageModule),
-    // 使用 forwardRef 打破循环依赖: AiEngineModule ← AudioGenerationTool ← AiStudioTTSService ← NotebookResearchModule → AiEngineModule
-    forwardRef(() => NotebookResearchModule),
     // ExportModule: FileConversionTool 需要 ExportOrchestratorService
     ExportModule,
   ],

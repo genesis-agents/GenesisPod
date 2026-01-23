@@ -185,24 +185,18 @@ export class MissionExecutionService {
 
   /**
    * 获取模型配置
+   * ★ 架构重构：使用 AIEngineFacade 获取模型配置
    */
   private async getModelConfig(aiModel: string) {
-    const modelConfig = await this.prisma.aIModel.findFirst({
-      where: {
-        OR: [
-          { modelId: { equals: aiModel, mode: "insensitive" } },
-          { name: { equals: aiModel, mode: "insensitive" } },
-        ],
-        isEnabled: true,
-      },
-    });
-
-    if (!modelConfig) {
-      this.logger.warn(`Model config not found for: ${aiModel}`);
+    try {
+      const modelConfig = await this.aiFacade.getModelById(aiModel);
+      return modelConfig;
+    } catch (error) {
+      this.logger.warn(
+        `Model config not found for: ${aiModel}, error: ${error}`,
+      );
       return null;
     }
-
-    return modelConfig;
   }
 
   /**

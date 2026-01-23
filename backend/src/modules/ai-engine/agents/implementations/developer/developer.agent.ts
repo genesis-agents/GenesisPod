@@ -25,7 +25,7 @@ import {
   AiChatService,
   ChatMessage,
 } from "../../../llm/services/ai-chat.service";
-import { AIModelService } from "../../../../ai-app/office/core";
+import { AIEngineFacade } from "../../../facade/ai-engine.facade";
 
 @Injectable()
 export class DeveloperAgent extends PlanBasedAgent {
@@ -109,7 +109,7 @@ export class DeveloperAgent extends PlanBasedAgent {
 
   constructor(
     private readonly aiChatService: AiChatService,
-    private readonly aiModelService: AIModelService,
+    private readonly aiFacade: AIEngineFacade,
   ) {
     super();
   }
@@ -211,9 +211,15 @@ export class DeveloperAgent extends PlanBasedAgent {
         message: "正在分析需求...",
       };
 
-      const textModel = await this.aiModelService.getDefaultTextModel(
-        input.options?.textModelId as string | undefined,
-      );
+      // ★ 使用 AIEngineFacade 获取默认文本模型
+      const preferredModelId = input.options?.textModelId as string | undefined;
+      const textModel = preferredModelId
+        ? await this.aiFacade.getModelById(preferredModelId)
+        : await this.aiFacade.getDefaultTextModel();
+
+      if (!textModel) {
+        throw new Error("No text model available");
+      }
 
       // 构建系统提示
       const systemPrompt = this.buildSystemPrompt(input);
@@ -228,12 +234,10 @@ export class DeveloperAgent extends PlanBasedAgent {
       };
 
       // 调用 AI 服务
+      // ★ 不传递 apiKey/provider，让 aiChatService 自动从 Secret Manager 获取
       const messages: ChatMessage[] = [{ role: "user", content: userPrompt }];
       const result = await this.aiChatService.chat({
-        provider: textModel.provider,
         model: textModel.modelId,
-        apiKey: textModel.apiKey || "",
-        apiEndpoint: textModel.apiEndpoint || undefined,
         systemPrompt,
         messages,
         maxTokens: textModel.maxTokens || 4096,

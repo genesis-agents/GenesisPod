@@ -102,6 +102,7 @@ export class AiChatService {
   /**
    * 获取模型的 API Key
    * 优先从 Secret Manager 获取（如果 secretKey 已配置），否则使用直接存储的 apiKey
+   * ★ 对返回值做 trim 处理，避免空格导致 API 调用失败
    */
   async getApiKeyForModel(model: AIModelConfig): Promise<string | null> {
     // 优先使用 secretKey 从 Secret Manager 获取
@@ -110,14 +111,14 @@ export class AiChatService {
         model.secretKey,
       );
       if (secretValue) {
-        return secretValue;
+        return secretValue.trim();
       }
       this.logger.warn(
         `Secret '${model.secretKey}' not found for model ${model.name}, falling back to apiKey`,
       );
     }
     // 回退到直接存储的 apiKey
-    return model.apiKey;
+    return model.apiKey?.trim() || null;
   }
 
   /**
@@ -167,6 +168,7 @@ export class AiChatService {
       modelId: model.modelId,
       apiEndpoint: model.apiEndpoint,
       apiKey: model.apiKey,
+      secretKey: model.secretKey, // ★ 添加 secretKey 以支持 Secret Manager
       maxTokens: model.maxTokens,
       temperature: model.temperature,
       isEnabled: model.isEnabled,
@@ -1236,7 +1238,10 @@ export class AiChatService {
     temperature?: number,
     optionStrictMode?: boolean,
   ): Promise<ChatCompletionResult> {
-    const { modelId, apiEndpoint, apiKey, provider } = config;
+    const { modelId, apiEndpoint, provider } = config;
+
+    // ★ 关键修复：使用 getApiKeyForModel 获取 API Key，支持 Secret Manager
+    const apiKey = await this.getApiKeyForModel(config);
 
     // ★ 完全使用数据库配置，无需硬编码
     const apiFormat = config.apiFormat || "openai";
@@ -1254,7 +1259,7 @@ export class AiChatService {
     const useStrictMode = optionStrictMode ?? this.strictMode;
 
     if (!apiKey) {
-      const errorMsg = `模型 ${modelId} 的 API Key 未在数据库中配置`;
+      const errorMsg = `模型 ${modelId} 的 API Key 未配置（直接输入或 Secret Manager 均未找到）`;
       this.logger.error(`[callAPIWithConfig] ${errorMsg}`);
       if (useStrictMode) {
         throw new AiServiceUnavailableError(errorMsg, modelId);
@@ -4811,11 +4816,22 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
 
     // 获取模型配置
     const modelConfig = await this.getModelConfig(model);
-    if (!modelConfig || !modelConfig.apiKey) {
+    if (!modelConfig) {
       yield {
-        content: `模型 ${model} 未配置或缺少 API Key`,
+        content: `模型 ${model} 未在数据库中配置`,
         done: true,
         error: "MODEL_NOT_CONFIGURED",
+      };
+      return;
+    }
+
+    // ★ 关键修复：使用 getApiKeyForModel 获取 API Key，支持 Secret Manager
+    const apiKey = await this.getApiKeyForModel(modelConfig);
+    if (!apiKey) {
+      yield {
+        content: `模型 ${model} 的 API Key 未配置（直接输入或 Secret Manager 均未找到）`,
+        done: true,
+        error: "API_KEY_NOT_CONFIGURED",
       };
       return;
     }
@@ -4854,7 +4870,7 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
           (modelConfig.isReasoning ? "max_completion_tokens" : "max_tokens");
         yield* this.streamOpenAICompatible(
           modelConfig.apiEndpoint,
-          modelConfig.apiKey,
+          apiKey, // ★ 使用已解析的 apiKey（支持 Secret Manager）
           modelConfig.modelId,
           fullMessages,
           effectiveMaxTokens,
@@ -4864,7 +4880,7 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
       } else if (apiFormat === "anthropic") {
         yield* this.streamAnthropic(
           modelConfig.apiEndpoint,
-          modelConfig.apiKey,
+          apiKey, // ★ 使用已解析的 apiKey（支持 Secret Manager）
           modelConfig.modelId,
           fullMessages,
           effectiveMaxTokens,

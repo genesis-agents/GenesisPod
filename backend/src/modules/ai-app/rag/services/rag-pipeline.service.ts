@@ -31,6 +31,7 @@ import {
   HybridSearchParams,
 } from "../interfaces/rag.interfaces";
 import { AIModelType } from "@prisma/client";
+import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
 
 const DEFAULT_TOP_K = 10;
 const DEFAULT_HYBRID_ALPHA = 0.5; // Balance between vector and keyword
@@ -47,6 +48,7 @@ export class RAGPipelineService {
     private readonly embeddingService: EmbeddingService,
     private readonly aiService: AiOrchestrationService,
     private readonly vectorService: VectorService,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   /**
@@ -158,16 +160,10 @@ Generate a detailed, factual-sounding passage (2-3 paragraphs) that would contai
 Do not mention that this is hypothetical. Write as if this is actual content from a document.
 Focus on being specific and informative.`;
 
-    // Get the actual model ID for CHAT_FAST type
-    const modelConfig = await this.prisma.aIModel.findFirst({
-      where: {
-        modelType: AIModelType.CHAT_FAST,
-        isEnabled: true,
-      },
-      orderBy: {
-        isDefault: "desc",
-      },
-    });
+    // Get the default CHAT_FAST model via AIEngineFacade
+    const modelConfig = await this.aiFacade.getDefaultModelByType(
+      AIModelType.CHAT_FAST,
+    );
 
     const response = await this.aiService.call({
       taskType: AiTaskType.CHAT,

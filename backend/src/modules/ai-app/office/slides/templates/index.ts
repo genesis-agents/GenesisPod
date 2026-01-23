@@ -213,12 +213,15 @@ export const TEMPLATE_LIBRARY_INFO = {
 
 // Log registration summary in development
 if (process.env.NODE_ENV !== "production") {
-  console.log(
-    `[TemplateLibrary] Registered ${ALL_TEMPLATES.length} templates:`,
-    `Narrative(${NARRATIVE_TEMPLATES.length})`,
-    `Structural(${STRUCTURAL_TEMPLATES.length})`,
-    `Data(${DATA_TEMPLATES.length})`,
-    `Content(${CONTENT_TEMPLATES.length})`,
-    `Action(${ACTION_TEMPLATES.length})`,
+  // Use dynamic import to avoid type issues with Logger in module scope
+  const { Logger } = require("@nestjs/common");
+  const logger = new Logger("TemplateLibrary");
+  logger.log(
+    `Registered ${ALL_TEMPLATES.length} templates: ` +
+      `Narrative(${NARRATIVE_TEMPLATES.length}), ` +
+      `Structural(${STRUCTURAL_TEMPLATES.length}), ` +
+      `Data(${DATA_TEMPLATES.length}), ` +
+      `Content(${CONTENT_TEMPLATES.length}), ` +
+      `Action(${ACTION_TEMPLATES.length})`,
   );
 }

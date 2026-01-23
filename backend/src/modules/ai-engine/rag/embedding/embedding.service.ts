@@ -10,6 +10,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { SecretsService } from "@/modules/core/secrets/secrets.service";
 import OpenAI from "openai";
 
 // Default fallback values
@@ -55,7 +56,10 @@ export class EmbeddingService {
   private configCacheTime: number = 0;
   private readonly CONFIG_CACHE_TTL = 60000; // 1 minute cache
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly secretsService: SecretsService,
+  ) {}
 
   /**
    * 从数据库加载 Embedding 模型配置
@@ -78,24 +82,48 @@ export class EmbeddingService {
       orderBy: { isDefault: "desc" },
     });
 
-    if (model && model.apiKey) {
-      this.cachedConfig = {
-        modelId: model.modelId,
-        dimensions: model.embeddingDimensions || DEFAULT_EMBEDDING_DIMENSIONS,
-        apiKey: model.apiKey,
-        apiEndpoint: model.apiEndpoint || undefined,
-        provider: model.provider,
-        maxInputTokens: model.maxInputTokens || undefined,
-      };
-      this.configCacheTime = Date.now();
-      this.logger.log(
-        `Loaded embedding config from database: ${model.modelId} (${this.cachedConfig.dimensions}D)`,
-      );
-      return this.cachedConfig;
+    if (model) {
+      // ★ 优先使用 secretKey 从 Secret Manager 获取 API Key
+      let apiKey: string | null = null;
+      if (model.secretKey) {
+        const secretValue = await this.secretsService.getValueInternal(
+          model.secretKey,
+        );
+        if (secretValue) {
+          apiKey = secretValue.trim();
+          this.logger.debug(
+            `Resolved API key from Secret Manager for embedding model: ${model.modelId}`,
+          );
+        } else {
+          this.logger.warn(
+            `Secret '${model.secretKey}' not found for embedding model ${model.modelId}, falling back to apiKey`,
+          );
+        }
+      }
+      // 回退到直接存储的 apiKey
+      if (!apiKey && model.apiKey) {
+        apiKey = model.apiKey.trim();
+      }
+
+      if (apiKey) {
+        this.cachedConfig = {
+          modelId: model.modelId,
+          dimensions: model.embeddingDimensions || DEFAULT_EMBEDDING_DIMENSIONS,
+          apiKey,
+          apiEndpoint: model.apiEndpoint || undefined,
+          provider: model.provider,
+          maxInputTokens: model.maxInputTokens || undefined,
+        };
+        this.configCacheTime = Date.now();
+        this.logger.log(
+          `Loaded embedding config from database: ${model.modelId} (${this.cachedConfig.dimensions}D)`,
+        );
+        return this.cachedConfig;
+      }
     }
 
-    // Fallback to environment variable
-    const apiKey = process.env.OPENAI_API_KEY;
+    // Fallback to environment variable (不推荐，应该在 Admin 中配置)
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
     if (!apiKey) {
       throw new Error(
         "No embedding model configured. Please add an EMBEDDING type model in Admin > AI Models, or set OPENAI_API_KEY.",

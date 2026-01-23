@@ -9,10 +9,16 @@
  * 配置通过 ConfigService 注入，支持环境变量覆盖
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  Optional,
+  Inject,
+  forwardRef,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { PrismaService } from "../prisma/prisma.service";
 import { AIModelType } from "@prisma/client";
+import { AIEngineFacade } from "../../modules/ai-engine/facade/ai-engine.facade";
 import { AiTaskType, AiModelConfig, ModelSelectionStrategy } from "./types";
 import {
   AiOrchestrationConfig,
@@ -36,7 +42,8 @@ export class ModelSelectorService {
   private readonly healthCheckConfig: HealthCheckConfig;
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => AIEngineFacade))
+    private readonly aiFacade: AIEngineFacade,
     @Optional() private readonly configService?: ConfigService,
   ) {
     // 从 ConfigService 获取配置，或使用默认值
@@ -148,49 +155,63 @@ export class ModelSelectorService {
     modelType: AIModelType,
     excludeIds: string[] = [],
   ): Promise<AiModelConfig[]> {
-    const models = await this.prisma.aIModel.findMany({
-      where: {
-        modelType,
-        isEnabled: true,
-        id: { notIn: excludeIds },
-      },
-      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
-    });
+    // 使用 AIEngineFacade 获取可用模型
+    const availableModels = await this.aiFacade.getAvailableModels(modelType);
 
-    // 过滤掉不健康的模型
-    return models
-      .filter((m) => this.isModelHealthy(m.id))
-      .map((m) => ({
-        id: m.id,
-        name: m.name,
-        displayName: m.displayName,
-        provider: m.provider,
-        modelId: m.modelId,
-        modelType: m.modelType,
-        apiKey: m.apiKey || "",
-        apiEndpoint: m.apiEndpoint || undefined,
-      }));
+    // 过滤排除的模型和不健康的模型
+    const filteredModels = availableModels
+      .filter((m) => !excludeIds.includes(m.dbId || m.id))
+      .filter((m) => this.isModelHealthy(m.dbId || m.id));
+
+    // 转换为 AiModelConfig 格式
+    const modelConfigs: AiModelConfig[] = [];
+    for (const m of filteredModels) {
+      // 获取完整的模型配置（包含 secretKey 等字段）
+      const fullConfig = await this.aiFacade.getModelById(m.id);
+      if (fullConfig) {
+        modelConfigs.push({
+          id: m.dbId || m.id,
+          name: m.name,
+          displayName: m.name,
+          provider: m.provider,
+          modelId: m.id,
+          modelType: modelType,
+          apiKey: "", // API Key 由 AIEngineFacade 内部管理
+          secretKey: undefined, // Secret Manager 由 AIEngineFacade 内部管理
+          apiEndpoint: fullConfig.apiEndpoint,
+        });
+      }
+    }
+
+    this.logger.debug(
+      `[getAvailableModels] Found ${modelConfigs.length} available models for type ${modelType}`,
+    );
+
+    return modelConfigs;
   }
 
   /**
    * 根据 ID 获取模型
    */
   async getModelById(id: string): Promise<AiModelConfig | null> {
-    const model = await this.prisma.aIModel.findFirst({
-      where: { id, isEnabled: true },
-    });
+    // 使用 AIEngineFacade 获取模型配置
+    const modelConfig = await this.aiFacade.getModelById(id);
 
-    if (!model) return null;
+    if (!modelConfig) {
+      this.logger.warn(`[getModelById] Model ${id} not found or not enabled`);
+      return null;
+    }
 
     return {
-      id: model.id,
-      name: model.name,
-      displayName: model.displayName,
-      provider: model.provider,
-      modelId: model.modelId,
-      modelType: model.modelType,
-      apiKey: model.apiKey || "",
-      apiEndpoint: model.apiEndpoint || undefined,
+      id: modelConfig.id,
+      name: modelConfig.displayName,
+      displayName: modelConfig.displayName,
+      provider: modelConfig.provider,
+      modelId: modelConfig.modelId,
+      modelType: AIModelType.CHAT, // 默认类型，实际由 AIEngineFacade 管理
+      apiKey: "", // API Key 由 AIEngineFacade 内部管理
+      secretKey: undefined, // Secret Manager 由 AIEngineFacade 内部管理
+      apiEndpoint: modelConfig.apiEndpoint,
     };
   }
 

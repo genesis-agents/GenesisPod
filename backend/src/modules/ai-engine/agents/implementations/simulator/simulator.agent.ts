@@ -2,13 +2,11 @@
  * Simulator Agent
  * AI 推演专家 Agent
  *
- * 复用现有的 ai-simulation 模块能力：
- * - AiSimulationService: 场景管理
- * - AiSimulationEngineService: 推演引擎
- * - ExternalDataService: 外部数据获取
+ * 使用依赖反转原则，通过接口与 AI Apps 层解耦
+ * - ISimulationService: 推演服务抽象接口
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
 import {
   PlanBasedAgent,
   BUILTIN_AGENTS,
@@ -19,8 +17,10 @@ import {
   ToolId,
 } from "../../base/plan-based-agent";
 import { BUILTIN_TOOLS, PlanStep } from "../../../core/types/agent.types";
-import { AiSimulationService } from "../../../../ai-app/simulation/ai-simulation.service";
-import { AiSimulationEngineService } from "../../../../ai-app/simulation/ai-simulation.engine";
+import {
+  ISimulationService,
+  SIMULATION_SERVICE_TOKEN,
+} from "../../../interfaces/simulation.interface";
 
 /**
  * 推演任务类型
@@ -133,12 +133,13 @@ export class SimulatorAgent extends PlanBasedAgent {
   ];
 
   constructor(
-    private readonly simulationService: AiSimulationService,
-    private readonly engineService: AiSimulationEngineService,
+    @Optional()
+    @Inject(SIMULATION_SERVICE_TOKEN)
+    private readonly simulationService?: ISimulationService,
   ) {
     super();
-    // 保留服务引用供未来使用
-    void [this.simulationService, this.engineService];
+    // 服务是可选的，如果未提供则 Agent 功能会降级
+    void this.simulationService;
   }
 
   /**

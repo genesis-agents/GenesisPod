@@ -681,6 +681,24 @@ export class FunctionCallingExecutor {
       `[executeWithDefinitions] Starting with ${functionDefinitions.length} tools`,
     );
 
+    // ★ Map legacy parameters to taskProfile if taskProfile not provided
+    const requestOptions: LLMRequestOptions = {
+      messages,
+      functions: functionDefinitions,
+      tool_choice: "auto",
+    };
+
+    if (cfg.taskProfile) {
+      // Use provided taskProfile
+      requestOptions.taskProfile = cfg.taskProfile;
+    } else {
+      // Map legacy temperature/maxTokens to taskProfile
+      requestOptions.taskProfile = {
+        creativity: this.mapTemperatureToCreativity(cfg.temperature),
+        outputLength: this.mapMaxTokensToOutputLength(cfg.maxTokens),
+      };
+    }
+
     while (
       metrics.iterations < cfg.maxIterations &&
       metrics.toolCalls < cfg.maxToolCalls
@@ -693,13 +711,7 @@ export class FunctionCallingExecutor {
 
       let response: LLMResponse;
       try {
-        response = await llmAdapter.chat({
-          messages,
-          functions: functionDefinitions,
-          temperature: cfg.temperature,
-          maxTokens: cfg.maxTokens,
-          tool_choice: "auto",
-        });
+        response = await llmAdapter.chat(requestOptions);
       } catch (error) {
         this.logger.error(`[executeWithDefinitions] LLM call failed: ${error}`);
         yield {
@@ -829,5 +841,31 @@ export class FunctionCallingExecutor {
         duration: metrics.totalDuration,
       },
     };
+  }
+
+  /**
+   * Map legacy temperature values to creativity levels
+   */
+  private mapTemperatureToCreativity(
+    temperature: number,
+  ): "deterministic" | "low" | "medium" | "high" {
+    if (temperature <= 0.2) return "deterministic";
+    if (temperature <= 0.3) return "low";
+    if (temperature <= 0.7) return "medium";
+    return "high";
+  }
+
+  /**
+   * Map legacy maxTokens values to outputLength levels
+   */
+  private mapMaxTokensToOutputLength(
+    maxTokens: number,
+  ): "minimal" | "short" | "medium" | "standard" | "long" | "extended" {
+    if (maxTokens <= 1000) return "minimal";
+    if (maxTokens <= 2000) return "short";
+    if (maxTokens <= 4000) return "medium";
+    if (maxTokens <= 6000) return "standard";
+    if (maxTokens <= 8000) return "long";
+    return "extended";
   }
 }

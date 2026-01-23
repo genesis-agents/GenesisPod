@@ -1,4 +1,14 @@
 {
+  "enableAllProjectMcpServers": true,
+  "env": {
+    "PRISMA_HIDE_UPDATE_MESSAGE": "true",
+    "FORCE_COLOR": "1",
+    "NODE_ENV": "development"
+  },
+  "attribution": {
+    "commit": "\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Jason Duan <hello.junjie.duan@gmail.com>",
+    "pr": "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+  },
   "permissions": {
     "allow": [
       "Bash(npm run:*)",
@@ -33,15 +43,6 @@
       "Write(.npmrc)"
     ],
     "defaultMode": "acceptEdits"
-  },
-  "env": {
-    "PRISMA_HIDE_UPDATE_MESSAGE": "true",
-    "FORCE_COLOR": "1",
-    "NODE_ENV": "development"
-  },
-  "attribution": {
-    "commit": "\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Jason Duan <hello.junjie.duan@gmail.com>",
-    "pr": "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
   },
   "hooks": {
     "PostToolUse": [
@@ -78,5 +79,11 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "github@claude-plugins-official": true,
+    "context7@claude-plugins-official": true
   }
 }

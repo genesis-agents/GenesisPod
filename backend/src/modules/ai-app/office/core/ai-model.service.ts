@@ -1,16 +1,18 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { AIModelType } from "@prisma/client";
+import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
 
 /**
  * AI 模型动态配置服务
  * 严禁硬编码模型名称！所有模型选择都通过此服务获取
+ *
+ * ★ 重构说明：已迁移到使用 AIEngineFacade，不再直接访问 prisma.aIModel
  */
 @Injectable()
 export class AIModelService {
   private readonly logger = new Logger(AIModelService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly aiFacade: AIEngineFacade) {}
 
   /**
    * 获取默认文本模型 (用于推理、生成)
@@ -26,14 +28,22 @@ export class AIModelService {
 
     // 1. 用户指定了模型
     if (userModelId) {
-      const userModel = await this.prisma.aIModel.findFirst({
-        where: { id: userModelId, isEnabled: true },
-      });
+      const userModel = await this.aiFacade.getModelById(userModelId);
       if (userModel) {
         this.logger.debug(
           `[getDefaultTextModel] Using user specified model: ${userModel.displayName}`,
         );
-        return userModel;
+        return {
+          id: userModel.id,
+          name: userModel.modelId,
+          modelId: userModel.modelId,
+          displayName: userModel.displayName,
+          provider: userModel.provider,
+          maxTokens: userModel.maxTokens,
+          isEnabled: true,
+          isDefault: false,
+          modelType: AIModelType.CHAT,
+        };
       }
       this.logger.warn(
         `[getDefaultTextModel] User specified model ${userModelId} not found or disabled`,
@@ -41,38 +51,29 @@ export class AIModelService {
     }
 
     // 2. 查找系统默认文本模型
-    const defaultModel = await this.prisma.aIModel.findFirst({
-      where: {
-        modelType: AIModelType.CHAT,
-        isDefault: true,
-        isEnabled: true,
-      },
-    });
+    const defaultModel = await this.aiFacade.getDefaultTextModel();
     if (defaultModel) {
       this.logger.debug(
         `[getDefaultTextModel] Using system default model: ${defaultModel.displayName}`,
       );
-      return defaultModel;
-    }
-
-    // 3. Fallback: 任意启用的文本模型
-    const anyModel = await this.prisma.aIModel.findFirst({
-      where: {
-        modelType: AIModelType.CHAT,
+      return {
+        id: defaultModel.id,
+        name: defaultModel.modelId,
+        modelId: defaultModel.modelId,
+        displayName: defaultModel.displayName,
+        provider: defaultModel.provider,
+        maxTokens: defaultModel.maxTokens,
         isEnabled: true,
-      },
-    });
-    if (!anyModel) {
-      this.logger.error("[getDefaultTextModel] No text model configured!");
-      throw new Error(
-        "No text model configured. Please configure at least one CHAT model.",
-      );
+        isDefault: true,
+        modelType: AIModelType.CHAT,
+      };
     }
 
-    this.logger.debug(
-      `[getDefaultTextModel] Using fallback model: ${anyModel.displayName}`,
+    // 3. Fallback: 抛出错误，让调用者处理
+    this.logger.error("[getDefaultTextModel] No text model configured!");
+    throw new Error(
+      "No text model configured. Please configure at least one CHAT model.",
     );
-    return anyModel;
   }
 
   /**
@@ -88,95 +89,104 @@ export class AIModelService {
 
     // 1. 用户指定了模型
     if (userModelId) {
-      const userModel = await this.prisma.aIModel.findFirst({
-        where: { id: userModelId, isEnabled: true },
-      });
+      const userModel = await this.aiFacade.getModelById(userModelId);
       if (userModel) {
         this.logger.debug(
           `[getDefaultImageModel] Using user specified model: ${userModel.displayName}`,
         );
-        return userModel;
+        return {
+          id: userModel.id,
+          name: userModel.modelId,
+          modelId: userModel.modelId,
+          displayName: userModel.displayName,
+          provider: userModel.provider,
+          maxTokens: userModel.maxTokens,
+          isEnabled: true,
+          isDefault: false,
+          modelType: AIModelType.IMAGE_GENERATION,
+        };
       }
     }
 
     // 2. 查找系统默认图像生成模型
-    const defaultModel = await this.prisma.aIModel.findFirst({
-      where: {
-        modelType: AIModelType.IMAGE_GENERATION,
-        isDefault: true,
-        isEnabled: true,
-      },
-    });
+    const defaultModel = await this.aiFacade.getDefaultImageModel();
     if (defaultModel) {
       this.logger.debug(
         `[getDefaultImageModel] Using system default model: ${defaultModel.displayName}`,
       );
-      return defaultModel;
-    }
-
-    // 3. Fallback: 任意启用的图像生成模型
-    const anyModel = await this.prisma.aIModel.findFirst({
-      where: {
-        modelType: AIModelType.IMAGE_GENERATION,
+      return {
+        id: defaultModel.id,
+        name: defaultModel.modelId,
+        modelId: defaultModel.modelId,
+        displayName: defaultModel.displayName,
+        provider: defaultModel.provider,
+        maxTokens: defaultModel.maxTokens,
         isEnabled: true,
-      },
-    });
-    if (!anyModel) {
-      this.logger.error("[getDefaultImageModel] No image model configured!");
-      throw new Error(
-        "No image generation model configured. Please configure at least one IMAGE_GENERATION model.",
-      );
+        isDefault: true,
+        modelType: AIModelType.IMAGE_GENERATION,
+      };
     }
 
-    this.logger.debug(
-      `[getDefaultImageModel] Using fallback model: ${anyModel.displayName}`,
+    // 3. Fallback: 抛出错误，让调用者处理
+    this.logger.error("[getDefaultImageModel] No image model configured!");
+    throw new Error(
+      "No image generation model configured. Please configure at least one IMAGE_GENERATION model.",
     );
-    return anyModel;
   }
 
   /**
    * 获取所有可用的文本模型列表 (用于前端下拉选择)
    */
   async getAvailableTextModels() {
-    return this.prisma.aIModel.findMany({
-      where: {
-        modelType: AIModelType.CHAT,
-        isEnabled: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        displayName: true,
-        provider: true,
-        modelId: true,
-        isDefault: true,
-        icon: true,
-        color: true,
-      },
-      orderBy: [{ isDefault: "desc" }, { displayName: "asc" }],
-    });
+    const models = await this.aiFacade.getAvailableModels(AIModelType.CHAT);
+
+    // 转换为原有格式，并按默认排序
+    return models
+      .map((model) => ({
+        id: model.id,
+        name: model.name,
+        displayName: model.name,
+        provider: model.provider,
+        modelId: model.id,
+        isDefault: false, // AIEngineFacade 不返回 isDefault，可以扩展
+        icon: null,
+        color: null,
+      }))
+      .sort((a, b) => {
+        // 先按 isDefault 降序，再按 displayName 升序
+        if (a.isDefault !== b.isDefault) {
+          return a.isDefault ? -1 : 1;
+        }
+        return a.displayName.localeCompare(b.displayName);
+      });
   }
 
   /**
    * 获取所有可用的图像生成模型列表
    */
   async getAvailableImageModels() {
-    return this.prisma.aIModel.findMany({
-      where: {
-        modelType: AIModelType.IMAGE_GENERATION,
-        isEnabled: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        displayName: true,
-        provider: true,
-        modelId: true,
-        isDefault: true,
-        icon: true,
-        color: true,
-      },
-      orderBy: [{ isDefault: "desc" }, { displayName: "asc" }],
-    });
+    const models = await this.aiFacade.getAvailableModels(
+      AIModelType.IMAGE_GENERATION,
+    );
+
+    // 转换为原有格式，并按默认排序
+    return models
+      .map((model) => ({
+        id: model.id,
+        name: model.name,
+        displayName: model.name,
+        provider: model.provider,
+        modelId: model.id,
+        isDefault: false, // AIEngineFacade 不返回 isDefault，可以扩展
+        icon: null,
+        color: null,
+      }))
+      .sort((a, b) => {
+        // 先按 isDefault 降序，再按 displayName 升序
+        if (a.isDefault !== b.isDefault) {
+          return a.isDefault ? -1 : 1;
+        }
+        return a.displayName.localeCompare(b.displayName);
+      });
   }
 }

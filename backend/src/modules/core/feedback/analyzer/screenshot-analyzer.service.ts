@@ -14,7 +14,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { AIModelService } from "../../../ai-app/office/core/ai-model.service";
+import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
 import type {
   ScreenshotAnalysis,
   FeedbackAttachment,
@@ -47,7 +47,7 @@ export class ScreenshotAnalyzerService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly aiModelService: AIModelService,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   /**
@@ -109,10 +109,13 @@ export class ScreenshotAnalyzerService {
    * 调用 Vision API（使用配置的默认聊天模型）
    */
   private async callVisionApi(imageUrl: string): Promise<string> {
-    // 从数据库获取默认聊天模型
-    const defaultModel = await this.aiModelService.getDefaultTextModel();
+    // ★ 通过 AIEngineFacade 获取默认聊天模型
+    const defaultModel = await this.aiFacade.getDefaultTextModel();
+    if (!defaultModel) {
+      throw new Error("No default text model available for vision API");
+    }
     const provider = defaultModel.provider.toLowerCase();
-    const modelName = defaultModel.name;
+    const modelName = defaultModel.displayName;
 
     this.logger.debug(
       `[callVisionApi] Using model: ${modelName} (provider: ${provider})`,

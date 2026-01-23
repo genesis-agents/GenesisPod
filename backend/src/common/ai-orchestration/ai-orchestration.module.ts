@@ -17,7 +17,7 @@
  * - 符合 SOLID 原则
  */
 
-import { Module, Global } from "@nestjs/common";
+import { Module, Global, forwardRef } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { HttpModule } from "@nestjs/axios";
 import { AiOrchestrationService } from "./ai-orchestration.service";
@@ -27,6 +27,7 @@ import { AIErrorClassifier } from "./error-classifier";
 import { AIProviderFactory } from "./providers";
 import { PrismaModule } from "../prisma/prisma.module";
 import { aiOrchestrationConfig } from "./config";
+import { AiEngineModule } from "../../modules/ai-engine/ai-engine.module";
 
 @Global()
 @Module({
@@ -37,6 +38,8 @@ import { aiOrchestrationConfig } from "./config";
       timeout: 120000, // 2 分钟超时（图像生成需要较长时间）
       maxRedirects: 5,
     }),
+    // 导入 AiEngineModule 以使用 AIEngineFacade
+    forwardRef(() => AiEngineModule),
   ],
   providers: [
     // 核心编排服务

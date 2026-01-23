@@ -9,9 +9,8 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { execSync } from "child_process";
-import { AIModelType } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
 import { NotificationService } from "../notifications/notification.service";
 import { NotificationTypeDto } from "../notifications/dto/notification.dto";
 import {
@@ -28,7 +27,7 @@ export class ReleaseService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
     private readonly notificationService: NotificationService,
   ) {}
 
@@ -202,9 +201,8 @@ ${Object.entries(commitsByType)
 }`;
 
     try {
-      const response = await this.aiChatService.chat({
+      const response = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
-        modelType: AIModelType.CHAT_FAST,
         taskProfile: {
           creativity: "low",
           outputLength: "medium",

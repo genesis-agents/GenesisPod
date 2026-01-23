@@ -9,13 +9,18 @@ import {
   HttpException,
   Logger,
   Optional,
+  Inject,
 } from "@nestjs/common";
 import { Response } from "express";
 import { AiCoreService } from "./ai-core.service";
 import { AiChatService } from "../llm/services/ai-chat.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { AIModelType } from "@prisma/client";
-import { RAGPipelineService } from "../../ai-app/rag/services/rag-pipeline.service";
+import {
+  IRAGPipelineService,
+  RAG_PIPELINE_SERVICE_TOKEN,
+} from "../interfaces/rag.interface";
+import { SecretsService } from "../../core/secrets/secrets.service";
 
 interface TranslateSingleRequest {
   text: string;
@@ -57,7 +62,10 @@ export class AiCoreController {
     private readonly aiCoreService: AiCoreService,
     private readonly aiChatService: AiChatService,
     private readonly prisma: PrismaService,
-    @Optional() private readonly ragPipelineService: RAGPipelineService,
+    @Optional()
+    @Inject(RAG_PIPELINE_SERVICE_TOKEN)
+    private readonly ragPipelineService?: IRAGPipelineService,
+    @Optional() private readonly secretsService?: SecretsService,
   ) {}
 
   /**
@@ -158,7 +166,20 @@ export class AiCoreController {
     const results: any[] = [];
 
     for (const model of geminiModels) {
-      const apiKey = model.apiKey || process.env.GOOGLE_AI_API_KEY;
+      // ★ 优先从 Secret Manager 获取 API Key
+      let apiKey: string | null = null;
+      if (model.secretKey && this.secretsService) {
+        const secretValue = await this.secretsService.getValueInternal(
+          model.secretKey,
+        );
+        if (secretValue) {
+          apiKey = secretValue.trim();
+        }
+      }
+      // 回退到直接存储的 apiKey 或环境变量
+      if (!apiKey) {
+        apiKey = model.apiKey?.trim() || process.env.GOOGLE_AI_API_KEY || null;
+      }
 
       if (!apiKey) {
         results.push({
@@ -255,17 +276,38 @@ export class AiCoreController {
     this.logger.log("Listing available Google AI models");
 
     // Try to get API key from database or environment
+    // ★ 支持 secretKey 或 apiKey
     const googleModel = await this.prisma.aIModel.findFirst({
       where: {
-        OR: [
-          { provider: { contains: "google", mode: "insensitive" } },
-          { provider: { contains: "gemini", mode: "insensitive" } },
+        AND: [
+          {
+            OR: [
+              { provider: { contains: "google", mode: "insensitive" } },
+              { provider: { contains: "gemini", mode: "insensitive" } },
+            ],
+          },
+          {
+            OR: [{ apiKey: { not: null } }, { secretKey: { not: null } }],
+          },
         ],
-        apiKey: { not: null },
       },
     });
 
-    const apiKey = googleModel?.apiKey || process.env.GOOGLE_AI_API_KEY;
+    // ★ 优先从 Secret Manager 获取 API Key
+    let apiKey: string | null = null;
+    if (googleModel?.secretKey && this.secretsService) {
+      const secretValue = await this.secretsService.getValueInternal(
+        googleModel.secretKey,
+      );
+      if (secretValue) {
+        apiKey = secretValue.trim();
+      }
+    }
+    // 回退到直接存储的 apiKey 或环境变量
+    if (!apiKey) {
+      apiKey =
+        googleModel?.apiKey?.trim() || process.env.GOOGLE_AI_API_KEY || null;
+    }
 
     if (!apiKey) {
       return {

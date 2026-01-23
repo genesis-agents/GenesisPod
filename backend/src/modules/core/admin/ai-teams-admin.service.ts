@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
 import { TaskProfile } from "../../ai-engine/llm/types/task-profile";
 import {
   CreateTeamDto,
@@ -22,7 +22,7 @@ export class AITeamsAdminService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   // ==================== Team CRUD ====================
@@ -483,23 +483,15 @@ ${params.category ? `团队分类：${params.category}` : ""}
 请返回纯 JSON 格式，不要包含 markdown 代码块。`;
 
     try {
-      // 从数据库获取可用的 CHAT 模型
-      const modelConfig = await this.prisma.aIModel.findFirst({
-        where: {
-          isEnabled: true,
-          modelType: "CHAT",
-        },
-        orderBy: {
-          isDefault: "desc", // 优先使用默认模型
-        },
-      });
+      // ★ 使用 AIEngineFacade 获取默认 CHAT 模型，不直接访问数据库
+      const modelConfig = await this.aiFacade.getDefaultTextModel();
 
       if (!modelConfig) {
         throw new Error("没有可用的 AI 模型，请在管理后台配置");
       }
 
       this.logger.log(
-        `Using model for team config generation: ${modelConfig.name} (${modelConfig.modelId})`,
+        `Using model for team config generation: ${modelConfig.displayName} (${modelConfig.modelId})`,
       );
 
       // 定义任务配置：团队配置生成任务，需要中等创意度和短输出
@@ -508,13 +500,13 @@ ${params.category ? `团队分类：${params.category}` : ""}
         outputLength: "short", // maxTokens: 1500 (原 2000，调整为 short)
       };
 
-      const result = await this.aiChatService.generateChatCompletion({
+      const result = await this.aiFacade.chat({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
         model: modelConfig.modelId,
-        systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
         taskProfile, // 使用任务配置
-        temperature: 0.7, // 保持向后兼容
-        maxTokens: 2000, // 保持向后兼容
       });
 
       this.logger.debug(

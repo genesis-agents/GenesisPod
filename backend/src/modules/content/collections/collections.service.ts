@@ -6,9 +6,7 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
-import { TaskProfile } from "../../ai-engine/llm/types/task-profile";
-import { AIModelService } from "../../ai-app/office/core";
+import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
 import {
   CreateCollectionDto,
   UpdateCollectionDto,
@@ -35,8 +33,7 @@ export class CollectionsService {
 
   constructor(
     private prisma: PrismaService,
-    private aiChatService: AiChatService,
-    private aiModelService: AIModelService,
+    private aiFacade: AIEngineFacade,
   ) {}
 
   /**
@@ -304,35 +301,27 @@ export class CollectionsService {
     if (!resource) return;
 
     try {
-      // 获取配置的默认文本模型
-      const model = await this.aiModelService.getDefaultTextModel();
+      // ★ 通过 AIEngineFacade 获取默认文本模型
+      const model = await this.aiFacade.getDefaultTextModel();
+      if (!model) {
+        this.logger.warn("[generateAutoTags] No default text model available");
+        return;
+      }
       const content = `Title: ${resource.title}\n${resource.abstract ? `Abstract: ${resource.abstract}` : ""}`;
 
-      // 定义任务配置：标签生成任务，需要低创意度和最小输出
-      const taskProfile: TaskProfile = {
-        creativity: "low", // temperature: 0.3 - 标签生成需要准确性
-        outputLength: "minimal", // maxTokens: 500 (原 200)
-      };
-
-      const response = await this.aiChatService.chat({
-        provider: model.provider,
-        model: model.modelId,
-        apiKey: model.apiKey || "",
-        apiEndpoint: model.apiEndpoint || undefined,
+      const response = await this.aiFacade.chat({
         messages: [
-          {
-            role: "system",
-            content:
-              'You are a tagging assistant. Generate 3-5 relevant tags for the given content. Return ONLY a JSON array of strings, no other text. Example: ["machine learning", "NLP", "deep learning"]',
-          },
           {
             role: "user",
             content: `Generate tags for:\n${content}`,
           },
         ],
-        taskProfile, // 使用任务配置
-        temperature: 0.3, // 保持向后兼容
-        maxTokens: 200, // 保持向后兼容
+        systemPrompt:
+          'You are a tagging assistant. Generate 3-5 relevant tags for the given content. Return ONLY a JSON array of strings, no other text. Example: ["machine learning", "NLP", "deep learning"]',
+        taskProfile: {
+          creativity: "low",
+          outputLength: "minimal",
+        },
       });
 
       // Parse the response to extract tags
@@ -769,8 +758,11 @@ export class CollectionsService {
    * 使用配置的默认文本模型，不硬编码模型名称
    */
   async aiBatchGenerateTags(userId: string, collectionId?: string) {
-    // 获取配置的默认文本模型
-    const model = await this.aiModelService.getDefaultTextModel();
+    // ★ 通过 AIEngineFacade 获取默认文本模型
+    const model = await this.aiFacade.getDefaultTextModel();
+    if (!model) {
+      throw new Error("No default text model available for batch tagging");
+    }
     this.logger.log(`AI batch tagging using model: ${model.displayName}`);
 
     // 获取没有标签的收藏项
@@ -815,32 +807,20 @@ export class CollectionsService {
 
           const content = `Title: ${item.resource.title}\n${item.resource.abstract ? `Abstract: ${item.resource.abstract}` : ""}`;
 
-          // 定义任务配置：标签生成任务
-          const taskProfile: TaskProfile = {
-            creativity: "low", // temperature: 0.3
-            outputLength: "minimal", // maxTokens: 500 (原 200)
-          };
-
           try {
-            const response = await this.aiChatService.chat({
-              provider: model.provider,
-              model: model.modelId,
-              apiKey: model.apiKey || "",
-              apiEndpoint: model.apiEndpoint || undefined,
+            const response = await this.aiFacade.chat({
               messages: [
-                {
-                  role: "system",
-                  content:
-                    'You are a tagging assistant. Generate 3-5 relevant tags for the given content. Return ONLY a JSON array of strings, no other text. Example: ["machine learning", "NLP"]',
-                },
                 {
                   role: "user",
                   content: `Generate tags for:\n${content}`,
                 },
               ],
-              taskProfile, // 使用任务配置
-              temperature: 0.3, // 保持向后兼容
-              maxTokens: 200, // 保持向后兼容
+              systemPrompt:
+                'You are a tagging assistant. Generate 3-5 relevant tags for the given content. Return ONLY a JSON array of strings, no other text. Example: ["machine learning", "NLP"]',
+              taskProfile: {
+                creativity: "low",
+                outputLength: "minimal",
+              },
             });
 
             let tags: string[] = [];
@@ -898,8 +878,11 @@ export class CollectionsService {
    * 使用配置的默认文本模型，不硬编码模型名称
    */
   async aiSmartClassify(userId: string) {
-    // 获取配置的默认文本模型
-    const model = await this.aiModelService.getDefaultTextModel();
+    // ★ 通过 AIEngineFacade 获取默认文本模型
+    const model = await this.aiFacade.getDefaultTextModel();
+    if (!model) {
+      throw new Error("No default text model available for smart classify");
+    }
     this.logger.log(`AI smart classify using model: ${model.displayName}`);
 
     // 获取用户的所有收藏集
@@ -956,34 +939,20 @@ export class CollectionsService {
     for (const item of defaultItems.slice(0, 10)) {
       if (!item.resource) continue;
 
-      // 定义任务配置：分类任务
-      const taskProfile: TaskProfile = {
-        creativity: "low", // temperature: 0.3
-        outputLength: "minimal", // maxTokens: 500 (原 200)
-      };
-
       try {
-        const response = await this.aiChatService.generateChatCompletionWithKey(
-          {
-            provider: model.provider,
-            modelId: model.modelId,
-            apiKey: model.apiKey || "",
-            apiEndpoint: model.apiEndpoint || undefined,
-            messages: [
-              {
-                role: "system",
-                content: `You are a classification assistant. Given a resource and a list of collections, suggest the best matching collection. Return ONLY a JSON object with "collection" (string) and "confidence" (number 0-1).`,
-              },
-              {
-                role: "user",
-                content: `Resource: ${item.resource.title}\n${item.resource.abstract || ""}\n\nAvailable collections:\n${collectionDescriptions}\n\nWhich collection fits best?`,
-              },
-            ],
-            taskProfile, // 使用任务配置
-            temperature: 0.3, // 保持向后兼容
-            maxTokens: 200, // 保持向后兼容
+        const response = await this.aiFacade.chat({
+          messages: [
+            {
+              role: "user",
+              content: `Resource: ${item.resource.title}\n${item.resource.abstract || ""}\n\nAvailable collections:\n${collectionDescriptions}\n\nWhich collection fits best?`,
+            },
+          ],
+          systemPrompt: `You are a classification assistant. Given a resource and a list of collections, suggest the best matching collection. Return ONLY a JSON object with "collection" (string) and "confidence" (number 0-1).`,
+          taskProfile: {
+            creativity: "low",
+            outputLength: "minimal",
           },
-        );
+        });
 
         try {
           const result = JSON.parse(response.content.trim());
@@ -1015,8 +984,11 @@ export class CollectionsService {
    * 使用配置的默认文本模型，不硬编码模型名称
    */
   async aiThemeCluster(userId: string) {
-    // 获取配置的默认文本模型
-    const model = await this.aiModelService.getDefaultTextModel();
+    // ★ 通过 AIEngineFacade 获取默认文本模型
+    const model = await this.aiFacade.getDefaultTextModel();
+    if (!model) {
+      throw new Error("No default text model available for theme clustering");
+    }
     this.logger.log(`AI theme cluster using model: ${model.displayName}`);
 
     // 获取用户所有收藏项的标题和摘要
@@ -1048,31 +1020,19 @@ export class CollectionsService {
       .map((item, idx) => `${idx + 1}. ${item.resource.title}`)
       .join("\n");
 
-    // 定义任务配置：主题聚类任务，需要中等创意度
-    const taskProfile: TaskProfile = {
-      creativity: "medium", // temperature: 0.7 (原 0.5，调整为 medium)
-      outputLength: "short", // maxTokens: 1500 (原 1000)
-    };
-
     try {
-      const response = await this.aiChatService.chat({
-        provider: model.provider,
-        model: model.modelId,
-        apiKey: model.apiKey || "",
-        apiEndpoint: model.apiEndpoint || undefined,
+      const response = await this.aiFacade.chat({
         messages: [
-          {
-            role: "system",
-            content: `You are a theme discovery assistant. Analyze the given list of resource titles and identify 3-7 main themes or topics. Return ONLY a JSON array of objects with "name" (theme name) and "keywords" (array of related keywords).`,
-          },
           {
             role: "user",
             content: `Analyze these resources and identify main themes:\n\n${contentSummary}`,
           },
         ],
-        taskProfile, // 使用任务配置
-        temperature: 0.5, // 保持向后兼容
-        maxTokens: 1000, // 保持向后兼容
+        systemPrompt: `You are a theme discovery assistant. Analyze the given list of resource titles and identify 3-7 main themes or topics. Return ONLY a JSON array of objects with "name" (theme name) and "keywords" (array of related keywords).`,
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "short",
+        },
       });
 
       let clusters: Array<{

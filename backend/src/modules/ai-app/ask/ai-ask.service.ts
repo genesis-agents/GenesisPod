@@ -852,51 +852,40 @@ export class AiAskService {
 
   /**
    * 获取模型配置
+   * 使用 AIEngineFacade 统一入口，避免直接访问 prisma.aIModel
    */
   private async getModelConfig(modelId?: string | null) {
     if (modelId) {
-      const model = await this.prisma.aIModel.findFirst({
-        where: {
-          OR: [
-            { id: modelId },
-            { modelId: { equals: modelId, mode: "insensitive" } },
-            { name: { equals: modelId, mode: "insensitive" } },
-          ],
-          isEnabled: true,
-        },
-      });
-
+      // 尝试根据 modelId 获取模型配置
+      const model = await this.aiFacade.getModelById(modelId);
       if (model) {
-        return model;
+        return {
+          id: model.id,
+          modelId: model.modelId,
+          name: model.displayName,
+          provider: model.provider,
+          apiKey: null, // API Key 由 AIEngineFacade 内部处理
+          apiEndpoint: model.apiEndpoint || null,
+          maxTokens: model.maxTokens,
+        };
       }
     }
 
     // 获取默认 CHAT 模型
-    const defaultModel = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        isDefault: true,
-        modelType: AIModelType.CHAT,
-      },
-    });
-
+    const defaultModel = await this.aiFacade.getDefaultTextModel();
     if (defaultModel) {
-      return defaultModel;
+      return {
+        id: defaultModel.id,
+        modelId: defaultModel.modelId,
+        name: defaultModel.displayName,
+        provider: defaultModel.provider,
+        apiKey: null, // API Key 由 AIEngineFacade 内部处理
+        apiEndpoint: null,
+        maxTokens: defaultModel.maxTokens,
+      };
     }
 
-    const anyModel = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        modelType: AIModelType.CHAT,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!anyModel) {
-      throw new NotFoundException("No CHAT AI model is available");
-    }
-
-    return anyModel;
+    throw new NotFoundException("No CHAT AI model is available");
   }
 
   /**

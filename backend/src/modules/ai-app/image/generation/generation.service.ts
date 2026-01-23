@@ -20,6 +20,7 @@ import {
   DataFetchingResult,
 } from "../../../../common/content-processing/data-fetching.service";
 import { AIModelType } from "@prisma/client";
+import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
 import {
   ProcessingStep,
   PromptEngineeringInsights,
@@ -67,67 +68,48 @@ export class AiImageService {
     private readonly imageGenerationService: ImageGenerationService,
     private readonly imageStorageService: ImageStorageService,
     private readonly imagen4PromptService: Imagen4PromptService,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   /**
    * Get all available models (text + image)
+   * ★ 完全通过 AIEngineFacade 获取，不再直接访问数据库
    */
   async getAvailableModels() {
-    const textModels = await this.prisma.aIModel.findMany({
-      where: {
-        isEnabled: true,
-        modelType: AIModelType.CHAT,
-      },
-      select: {
-        id: true,
-        name: true,
-        displayName: true,
-        provider: true,
-        modelId: true,
-        icon: true,
-        isDefault: true,
-      },
-      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-    });
-
-    const imageModels = await this.prisma.aIModel.findMany({
-      where: {
-        isEnabled: true,
-        modelType: AIModelType.IMAGE_GENERATION,
-      },
-      select: {
-        id: true,
-        name: true,
-        displayName: true,
-        provider: true,
-        modelId: true,
-        icon: true,
-        isDefault: true,
-      },
-      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-    });
-
-    this.logger.log(
-      `[getAvailableModels] Found ${textModels.length} CHAT models, ${imageModels.length} IMAGE_GENERATION models`,
+    // Use AIEngineFacade to get available models (now includes icon and isDefault)
+    const textModelsData = await this.aiFacade.getAvailableModels(
+      AIModelType.CHAT,
+    );
+    const imageModelsData = await this.aiFacade.getAvailableModels(
+      AIModelType.IMAGE_GENERATION,
     );
 
+    this.logger.log(
+      `[getAvailableModels] Found ${textModelsData.length} CHAT models, ${imageModelsData.length} IMAGE_GENERATION models`,
+    );
+
+    // Map to UI-friendly format (AIEngineFacade now returns icon and isDefault)
+    const textModels = textModelsData.map((m) => ({
+      id: m.dbId || m.id,
+      name: m.name,
+      provider: m.provider,
+      modelId: m.id,
+      icon: m.icon,
+      isDefault: m.isDefault || false,
+    }));
+
+    const imageModels = imageModelsData.map((m) => ({
+      id: m.dbId || m.id,
+      name: m.name,
+      provider: m.provider,
+      modelId: m.id,
+      icon: m.icon,
+      isDefault: m.isDefault || false,
+    }));
+
     return {
-      textModels: textModels.map((m) => ({
-        id: m.id,
-        name: m.displayName || m.name,
-        provider: m.provider,
-        modelId: m.modelId,
-        icon: m.icon,
-        isDefault: m.isDefault,
-      })),
-      imageModels: imageModels.map((m) => ({
-        id: m.id,
-        name: m.displayName || m.name,
-        provider: m.provider,
-        modelId: m.modelId,
-        icon: m.icon,
-        isDefault: m.isDefault,
-      })),
+      textModels,
+      imageModels,
     };
   }
 
@@ -526,7 +508,7 @@ export class AiImageService {
 
           const textModel =
             await this.imageGenerationService.getDefaultTextModel();
-          if (!textModel?.apiKey) {
+          if (!textModel) {
             emitStep(
               "prompt_generate",
               "No Text Model Available",
@@ -536,33 +518,15 @@ export class AiImageService {
             throw new Error("No text model configured");
           }
 
-          textModelUsed = textModel.displayName || textModel.name;
+          textModelUsed = textModel.displayName;
           emitStep("prompt_generate", `Using ${textModelUsed}`, "processing");
 
-          const provider = textModel.provider.toLowerCase();
-          const modelId = textModel.modelId.toLowerCase();
-          let rawEnhancedPrompt: string;
-
-          if (
-            provider.includes("google") ||
-            provider.includes("gemini") ||
-            modelId.includes("gemini")
-          ) {
-            rawEnhancedPrompt =
-              await this.promptEnhancementService.callGeminiTextAPI(
-                textModel.apiKey,
-                textModel.modelId,
-                inputContent,
-              );
-          } else {
-            rawEnhancedPrompt =
-              await this.promptEnhancementService.callOpenAITextAPI(
-                textModel.apiKey,
-                textModel.apiEndpoint,
-                textModel.modelId,
-                inputContent,
-              );
-          }
+          // ★ 使用 enhancePromptWithLLM，内部通过 AIEngineFacade 调用 LLM
+          const rawEnhancedPrompt =
+            await this.promptEnhancementService.enhancePromptWithLLM(
+              inputContent,
+              textModel.modelId,
+            );
 
           promptInsights =
             this.promptEnhancementService.parsePromptEnhancementResponse(
@@ -650,7 +614,11 @@ export class AiImageService {
               ? await this.imageGenerationService.getModelById(imageModelId)
               : await this.imageGenerationService.getDefaultImageModel();
 
-            if (imageModelConfig && imageModelConfig.apiKey) {
+            // ★ 检查 apiKey 或 secretKey 存在（secretKey 通过 SecretsService 解析）
+            if (
+              imageModelConfig &&
+              (imageModelConfig.apiKey || imageModelConfig.secretKey)
+            ) {
               try {
                 const bgPrompt =
                   promptInsights.backgroundPrompt ||
@@ -662,8 +630,7 @@ export class AiImageService {
                     dimensions,
                     mergedNegativePrompt,
                   );
-                imageModelUsed =
-                  imageModelConfig.displayName || imageModelConfig.name;
+                imageModelUsed = imageModelConfig.displayName;
                 emitStep(
                   "background_gen",
                   `Background Generated with ${imageModelUsed}`,
@@ -703,12 +670,13 @@ export class AiImageService {
           ? await this.imageGenerationService.getModelById(imageModelId)
           : await this.imageGenerationService.getDefaultImageModel();
 
-        if (!imageModelConfig?.apiKey) {
+        // ★ 检查 apiKey 或 secretKey 存在
+        if (!imageModelConfig?.apiKey && !imageModelConfig?.secretKey) {
           emitStep("ai_image", "No Image Model Available", "error");
           throw new Error("No image model configured");
         }
 
-        imageModelUsed = imageModelConfig.displayName || imageModelConfig.name;
+        imageModelUsed = imageModelConfig.displayName;
         emitStep("ai_image", `Using ${imageModelUsed}`, "processing");
 
         generatedImageUrl =

@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
 import { ContentFetcherService } from "./content-fetcher.service";
 import { ContentTransformerService } from "./content-transformer.service";
 import { ContentCheckerService } from "./content-checker.service";
@@ -164,7 +164,7 @@ export class SocialLeaderService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
     private readonly contentFetcher: ContentFetcherService,
     private readonly contentTransformer: ContentTransformerService,
     private readonly contentChecker: ContentCheckerService,
@@ -175,9 +175,9 @@ export class SocialLeaderService {
     return this.prisma;
   }
 
-  // Expose AI chat service for advanced operations
-  getAiChat(): AiChatService {
-    return this.aiChatService;
+  // Expose AI engine facade for advanced operations
+  getAiFacade(): AIEngineFacade {
+    return this.aiFacade;
   }
 
   /**

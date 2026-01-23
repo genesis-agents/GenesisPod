@@ -270,57 +270,33 @@ export class AiStudioChatService {
   }
 
   /**
-   * Get model configuration from database
+   * Get model configuration using AIEngineFacade
    */
-  private async getModelConfig(modelName?: string) {
-    // If model name is provided, find by name
-    if (modelName) {
-      const model = await this.prisma.aIModel.findFirst({
-        where: {
-          name: modelName,
-          isEnabled: true,
-        },
-      });
+  private async getModelConfig(modelId?: string) {
+    // If model ID is provided, find by ID
+    if (modelId) {
+      const model = await this.aiFacade.getModelById(modelId);
       if (model) {
         this.logger.log(
-          `[AIStudio] Using specified model: ${model.name} (${model.modelId})`,
+          `[AIStudio] Using specified model: ${model.displayName} (${model.modelId})`,
         );
         return model;
       }
     }
 
     // Fallback to default CHAT model
-    const defaultModel = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        isDefault: true,
-        modelType: "CHAT",
-      },
-    });
+    const defaultModel = await this.aiFacade.getDefaultTextModel();
 
     if (defaultModel) {
       this.logger.log(
-        `[AIStudio] Using default CHAT model: ${defaultModel.name} (${defaultModel.modelId})`,
+        `[AIStudio] Using default CHAT model: ${defaultModel.displayName} (${defaultModel.modelId})`,
       );
       return defaultModel;
     }
 
-    // If no default, get any enabled CHAT model
-    const anyModel = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        modelType: "CHAT",
-      },
-      orderBy: { createdAt: "asc" },
-    });
-
-    if (anyModel) {
-      this.logger.log(
-        `[AIStudio] Using fallback CHAT model: ${anyModel.name} (${anyModel.modelId})`,
-      );
-    }
-
-    return anyModel;
+    // No model available
+    this.logger.warn("[AIStudio] No enabled CHAT model found");
+    return null;
   }
 
   /**

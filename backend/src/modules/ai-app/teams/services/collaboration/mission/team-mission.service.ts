@@ -330,17 +330,10 @@ export class TeamMissionService implements OnModuleInit {
 
   /**
    * Get AI model config from database by model identifier
+   * ★ 使用 AIEngineFacade 替代直接访问 prisma.aIModel
    */
   private async getModelConfig(aiModel: string) {
-    const modelConfig = await this.prisma.aIModel.findFirst({
-      where: {
-        OR: [
-          { modelId: { equals: aiModel, mode: "insensitive" } },
-          { name: { equals: aiModel, mode: "insensitive" } },
-        ],
-        isEnabled: true,
-      },
-    });
+    const modelConfig = await this.aiFacade.getModelById(aiModel);
 
     if (!modelConfig) {
       this.logger.warn(`Model config not found for: ${aiModel}`);

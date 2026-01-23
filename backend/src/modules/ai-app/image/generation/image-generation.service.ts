@@ -2,14 +2,17 @@
  * Image Generation Service
  *
  * This service handles all image generation APIs and provider integrations
+ * ★ 使用 SecretsService 进行密钥管理，不直接使用数据库中的 apiKey
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { firstValueFrom } from "rxjs";
-import { AIModelType, Prisma } from "@prisma/client";
+import { AIModelType } from "@prisma/client";
 import { GEMINI_IMAGE_MODELS } from "../core/image.constants";
+import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
+import { SecretsService } from "../../../core/secrets/secrets.service";
+import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 
 @Injectable()
 export class ImageGenerationService {
@@ -17,151 +20,190 @@ export class ImageGenerationService {
 
   constructor(
     private readonly httpService: HttpService,
-    private readonly prisma: PrismaService,
+    private readonly aiFacade: AIEngineFacade,
+    private readonly secretsService: SecretsService,
+    private readonly aiChatService: AiChatService,
   ) {}
 
   /**
+   * 获取模型的 API Key
+   * ★ 优先从 Secret Manager 获取（如果 secretKey 已配置），否则使用直接存储的 apiKey
+   */
+  async getApiKeyForModel(model: {
+    secretKey?: string | null;
+    apiKey?: string | null;
+    displayName?: string;
+  }): Promise<string | null> {
+    // 优先使用 secretKey 从 Secret Manager 获取
+    if (model.secretKey) {
+      const secretValue = await this.secretsService.getValueInternal(
+        model.secretKey,
+      );
+      if (secretValue) {
+        return secretValue.trim();
+      }
+      this.logger.warn(
+        `Secret '${model.secretKey}' not found for model ${model.displayName}, falling back to apiKey`,
+      );
+    }
+    // 回退到直接存储的 apiKey
+    return model.apiKey?.trim() || null;
+  }
+
+  /**
    * Get default text model (for prompt enhancement)
+   * ★ 完全通过 AIEngineFacade 获取，不再直接访问数据库
    */
   async getDefaultTextModel() {
-    const googleConditions: Prisma.AIModelWhereInput = {
-      OR: [
-        {
-          provider: {
-            contains: "google",
-            mode: Prisma.QueryMode.insensitive,
-          },
-        },
-        {
-          provider: {
-            contains: "gemini",
-            mode: Prisma.QueryMode.insensitive,
-          },
-        },
-        {
-          modelId: {
-            contains: "gemini",
-            mode: Prisma.QueryMode.insensitive,
-          },
-        },
-      ],
-    };
-
-    // 1) Find default CHAT model
-    const defaultModel = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        isDefault: true,
-        modelType: AIModelType.CHAT,
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const defaultModel = await this.aiFacade.getDefaultTextModel();
 
     if (defaultModel) {
       this.logger.log(
-        `[getDefaultTextModel] Found default CHAT model: ${defaultModel.displayName || defaultModel.name} (${defaultModel.modelId})`,
+        `[getDefaultTextModel] Found default CHAT model: ${defaultModel.displayName} (${defaultModel.modelId})`,
       );
       return defaultModel;
     }
 
-    // 2) If no default, prefer Google/Gemini
-    const googleModel = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        modelType: AIModelType.CHAT,
-        ...googleConditions,
-      },
-      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
-    });
-    if (googleModel) {
-      this.logger.log(
-        `[getDefaultTextModel] Found Google/Gemini CHAT model: ${googleModel.displayName || googleModel.name} (${googleModel.modelId})`,
-      );
-      return googleModel;
-    }
-
-    // 3) Fallback to any available chat model
-    const anyModel = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        modelType: AIModelType.CHAT,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-    if (anyModel) {
-      this.logger.log(
-        `[getDefaultTextModel] Found fallback CHAT model: ${anyModel.displayName || anyModel.name} (${anyModel.modelId})`,
-      );
-    }
-
-    return anyModel;
+    this.logger.warn("[getDefaultTextModel] No default text model found");
+    return null;
   }
 
   /**
    * Get default image generation model
+   *
+   * ★ 通过 AIEngineFacade 获取模型配置，不再直接访问数据库
+   * ★ apiKey 通过 getApiKeyForModel + SecretsService 解析，不直接使用数据库中的 apiKey
    */
   async getDefaultImageModel() {
-    // Find default IMAGE_GENERATION model
-    const defaultModel = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        isDefault: true,
-        modelType: AIModelType.IMAGE_GENERATION,
-      },
-    });
+    // First try to find IMAGE_GENERATION model via AIEngineFacade
+    const imageModel = await this.aiFacade.getDefaultImageModel();
 
-    if (defaultModel) {
+    if (imageModel) {
       this.logger.log(
-        `[getDefaultImageModel] Found default IMAGE_GENERATION model: ${defaultModel.name} (${defaultModel.provider})`,
+        `[getDefaultImageModel] Found default IMAGE_GENERATION model: ${imageModel.displayName} (${imageModel.provider})`,
       );
-      return defaultModel;
+      // Convert to full model config structure expected by caller
+      return this.convertToFullModelConfig(imageModel);
     }
 
-    // Find any available IMAGE_GENERATION model
-    const anyImageModel = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        modelType: AIModelType.IMAGE_GENERATION,
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    // Fallback: Try to get any IMAGE_GENERATION model from available models
+    const availableModels = await this.aiFacade.getAvailableModelsExtended(
+      AIModelType.IMAGE_GENERATION,
+    );
 
-    if (anyImageModel) {
+    if (availableModels.length > 0) {
+      const firstModel = availableModels[0];
       this.logger.log(
-        `[getDefaultImageModel] Found fallback IMAGE_GENERATION model: ${anyImageModel.name} (${anyImageModel.provider})`,
+        `[getDefaultImageModel] Found IMAGE_GENERATION model: ${firstModel.name}`,
       );
-      return anyImageModel;
+      return this.convertToFullModelConfig({
+        id: firstModel.dbId || firstModel.id,
+        modelId: firstModel.id,
+        displayName: firstModel.name,
+        provider: firstModel.provider,
+        maxTokens: firstModel.maxTokens,
+      });
     }
 
     // Fallback to MULTIMODAL model
-    const multimodalModel = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        modelType: AIModelType.MULTIMODAL,
-      },
-      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
-    });
+    const multimodalModels = await this.aiFacade.getAvailableModelsExtended(
+      AIModelType.MULTIMODAL,
+    );
 
-    if (multimodalModel) {
+    if (multimodalModels.length > 0) {
+      const firstModel = multimodalModels[0];
       this.logger.log(
-        `[getDefaultImageModel] Found MULTIMODAL fallback model: ${multimodalModel.name} (${multimodalModel.provider})`,
+        `[getDefaultImageModel] Found MULTIMODAL fallback model: ${firstModel.name}`,
       );
+      return this.convertToFullModelConfig({
+        id: firstModel.dbId || firstModel.id,
+        modelId: firstModel.id,
+        displayName: firstModel.name,
+        provider: firstModel.provider,
+        maxTokens: firstModel.maxTokens,
+      });
     }
 
-    return multimodalModel;
+    this.logger.warn("[getDefaultImageModel] No image model found");
+    return null;
+  }
+
+  /**
+   * Convert facade model config to full model config structure
+   * ★ Helper to maintain compatibility with existing code
+   * ★ Uses AiChatService.getModelConfig() to get full config including secretKey
+   */
+  private async convertToFullModelConfig(facadeModel: {
+    id: string;
+    modelId: string;
+    displayName: string;
+    provider: string;
+    maxTokens?: number;
+    apiEndpoint?: string;
+  }) {
+    // Get full config via AiChatService (includes secretKey and all fields)
+    const fullConfig = await this.aiChatService.getModelConfig(
+      facadeModel.modelId,
+    );
+
+    if (!fullConfig) {
+      throw new Error(`Model ${facadeModel.modelId} not found`);
+    }
+
+    // Convert AIModelConfig to Prisma AIModel structure
+    // This maintains compatibility with existing code that expects Prisma model
+    return {
+      id: fullConfig.id,
+      modelId: fullConfig.modelId,
+      displayName: fullConfig.displayName,
+      provider: fullConfig.provider,
+      apiEndpoint: fullConfig.apiEndpoint || null,
+      apiKey: fullConfig.apiKey,
+      secretKey: fullConfig.secretKey || null,
+      maxTokens: fullConfig.maxTokens || null,
+      temperature: fullConfig.temperature || null,
+      isEnabled: fullConfig.isEnabled,
+      isDefault: fullConfig.isDefault,
+      modelType: AIModelType.IMAGE_GENERATION, // Default type
+      name: fullConfig.name,
+      description: null,
+      icon: null,
+      isReasoning: fullConfig.isReasoning || false,
+      apiFormat: fullConfig.apiFormat || null,
+      supportsTemperature: fullConfig.supportsTemperature ?? true,
+      supportsStreaming: fullConfig.supportsStreaming ?? false,
+      supportsFunctionCalling: fullConfig.supportsFunctionCalling ?? false,
+      supportsVision: fullConfig.supportsVision ?? false,
+      tokenParamName: fullConfig.tokenParamName || null,
+      defaultTimeoutMs: fullConfig.defaultTimeoutMs || null,
+      priceInputPerMillion: fullConfig.priceInputPerMillion || null,
+      priceOutputPerMillion: fullConfig.priceOutputPerMillion || null,
+      priority: fullConfig.priority || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
   }
 
   /**
    * Get model by ID
+   *
+   * ★ 通过 AIEngineFacade 获取模型配置，不再直接访问数据库
+   * ★ apiKey 通过 getApiKeyForModel 解析
    */
   async getModelById(id: string) {
-    return this.prisma.aIModel.findFirst({
-      where: { id, isEnabled: true },
-    });
+    const facadeModel = await this.aiFacade.getModelById(id);
+    if (!facadeModel) {
+      this.logger.warn(`[getModelById] Model not found: ${id}`);
+      return null;
+    }
+
+    // Convert to full model config structure expected by caller
+    return this.convertToFullModelConfig(facadeModel);
   }
 
   /**
    * Call image generation API based on provider
+   * ★ 使用 getApiKeyForModel 从 Secret Manager 解析 API Key
    */
   async callImageGenerationAPI(
     modelConfig: any,
@@ -177,10 +219,19 @@ export class ImageGenerationService {
       `Calling image generation API: provider=${provider}, model=${modelConfig.modelId}`,
     );
 
+    // ★ 从 Secret Manager 解析 API Key
+    const apiKey = await this.getApiKeyForModel(modelConfig);
+    if (!apiKey) {
+      throw new Error(
+        `No API key found for model ${modelConfig.displayName || modelConfig.modelId}`,
+      );
+    }
+
     // If reference image is provided, use image-to-image API
     if (referenceImageBase64) {
       return this.callImageToImageAPI(
         modelConfig,
+        apiKey,
         referenceImageBase64,
         prompt,
         dimensions,
@@ -195,21 +246,21 @@ export class ImageGenerationService {
       modelId.includes("imagen")
     ) {
       return this.generateWithGemini(
-        modelConfig.apiKey,
+        apiKey,
         modelConfig.modelId,
         prompt,
         dimensions,
       );
     } else if (provider.includes("openai")) {
       return this.generateWithOpenAI(
-        modelConfig.apiKey,
+        apiKey,
         modelConfig.apiEndpoint,
         prompt,
         dimensions,
       );
     } else if (provider.includes("stability")) {
       return this.generateWithStability(
-        modelConfig.apiKey,
+        apiKey,
         modelConfig.apiEndpoint,
         prompt,
         dimensions,
@@ -217,7 +268,7 @@ export class ImageGenerationService {
       );
     } else if (provider.includes("replicate")) {
       return this.generateWithReplicate(
-        modelConfig.apiKey,
+        apiKey,
         modelConfig.modelId,
         prompt,
         dimensions,
@@ -225,7 +276,7 @@ export class ImageGenerationService {
       );
     } else if (provider.includes("together")) {
       return this.generateWithTogether(
-        modelConfig.apiKey,
+        apiKey,
         modelConfig.modelId,
         prompt,
         dimensions,
@@ -233,7 +284,7 @@ export class ImageGenerationService {
     } else {
       // Default to OpenAI-compatible API
       return this.generateWithOpenAICompatible(
-        modelConfig.apiKey,
+        apiKey,
         modelConfig.apiEndpoint,
         modelConfig.modelId,
         prompt,
@@ -244,9 +295,11 @@ export class ImageGenerationService {
 
   /**
    * Image-to-Image API call
+   * ★ apiKey 已在 callImageGenerationAPI 中通过 Secret Manager 解析
    */
   private async callImageToImageAPI(
     modelConfig: any,
+    apiKey: string,
     referenceImageBase64: string,
     modificationPrompt: string,
     _dimensions: { width: number; height: number },
@@ -263,7 +316,7 @@ export class ImageGenerationService {
       modelConfig.modelId.toLowerCase().includes("gemini")
     ) {
       return this.imageToImageWithGemini(
-        modelConfig.apiKey,
+        apiKey,
         modelConfig.modelId,
         referenceImageBase64,
         modificationPrompt,

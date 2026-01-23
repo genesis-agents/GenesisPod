@@ -6,9 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
-import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
-import { TaskProfile } from "../../ai-engine/llm/types";
-import { AIModelService } from "../../ai-app/office/core";
+import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
 
 /**
  * 笔记服务
@@ -25,8 +23,7 @@ export class NotesService {
 
   constructor(
     private prisma: PrismaService,
-    private aiChatService: AiChatService,
-    private aiModelService: AIModelService,
+    private aiFacade: AIEngineFacade,
   ) {}
 
   /**
@@ -349,6 +346,7 @@ export class NotesService {
 
   /**
    * 请求AI解释
+   * 使用 AIEngineFacade 进行 AI 调用，不直接访问外部 API
    */
   async requestAIExplanation(
     noteId: string,
@@ -376,9 +374,6 @@ export class NotesService {
     let explanation = "AI服务暂时不可用";
 
     try {
-      const aiServiceUrl =
-        process.env.AI_SERVICE_URL || "http://localhost:5000";
-
       // 构建上下文：优先使用传入的PDF内容，否则使用资源的标题和摘要
       let context = "";
       if (pdfContext?.trim()) {
@@ -394,22 +389,27 @@ export class NotesService {
         context = `资源标题: ${note.resource.title}\n摘要: ${note.resource.abstract || "无"}`;
       }
 
-      const response = await fetch(`${aiServiceUrl}/api/v1/ai/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: `基于以下PDF文档内容，请详细解释所选文本的含义、重要性和在文档中的作用：\n\n选中的文本：${text}`,
-          context: context || undefined,
-          model: "grok",
-          stream: false,
-        }),
+      // 使用 AIEngineFacade.chat() 进行 AI 调用
+      const systemPrompt = context
+        ? `你是一个专业的文档分析助手。以下是相关的文档上下文：\n\n${context}`
+        : "你是一个专业的文档分析助手。";
+
+      const response = await this.aiFacade.chat({
+        messages: [
+          {
+            role: "user",
+            content: `请详细解释以下选中文本的含义、重要性和在文档中的作用：\n\n选中的文本：${text}`,
+          },
+        ],
+        systemPrompt,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "medium",
+        },
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        explanation = data.content || explanation;
-      } else {
-        this.logger.warn(`AI service returned error: ${response.status}`);
+      if (response.content) {
+        explanation = response.content;
       }
     } catch (error) {
       this.logger.error(
@@ -601,7 +601,10 @@ export class NotesService {
     }
 
     try {
-      const model = await this.aiModelService.getDefaultTextModel();
+      const model = await this.aiFacade.getDefaultTextModel();
+      if (!model) {
+        throw new Error("No default text model available");
+      }
 
       // Combine notes content for analysis
       const notesContent = notes
@@ -611,31 +614,19 @@ export class NotesService {
         )
         .join("\n\n");
 
-      // 定义任务配置：分析任务，需要低创意度和短输出
-      const taskProfile: TaskProfile = {
-        creativity: "low", // temperature: 0.3 - 分析任务需要准确性
-        outputLength: "short", // maxTokens: 1500 (原 1000)
-      };
-
-      const response = await this.aiChatService.chat({
-        provider: model.provider,
-        model: model.modelId,
-        apiKey: model.apiKey || "",
-        apiEndpoint: model.apiEndpoint || undefined,
+      const response = await this.aiFacade.chat({
         messages: [
-          {
-            role: "system",
-            content:
-              "You are an expert at analyzing notes and extracting key insights. Output JSON format only.",
-          },
           {
             role: "user",
             content: `Analyze these notes and extract 5-10 key points or insights. Return JSON: {"keyPoints": [{"title": "...", "insight": "...", "importance": "high|medium|low", "sourceNotes": ["noteId1", "noteId2"]}]}\n\nNotes:\n${notesContent}`,
           },
         ],
-        taskProfile, // 使用任务配置
-        temperature: 0.3, // 保持向后兼容
-        maxTokens: 1000, // 保持向后兼容
+        systemPrompt:
+          "You are an expert at analyzing notes and extracting key insights. Output JSON format only.",
+        taskProfile: {
+          creativity: "low",
+          outputLength: "short",
+        },
       });
 
       try {
@@ -690,7 +681,10 @@ export class NotesService {
     }
 
     try {
-      const model = await this.aiModelService.getDefaultTextModel();
+      const model = await this.aiFacade.getDefaultTextModel();
+      if (!model) {
+        throw new Error("No default text model available");
+      }
 
       const notesContent = notes
         .map(
@@ -699,31 +693,19 @@ export class NotesService {
         )
         .join("\n\n");
 
-      // 定义任务配置：连接发现任务，需要低创意度和短输出
-      const taskProfile: TaskProfile = {
-        creativity: "low", // temperature: 0.3 (原 0.4，调整为 low)
-        outputLength: "short", // maxTokens: 1500 (原 1000)
-      };
-
-      const response = await this.aiChatService.chat({
-        provider: model.provider,
-        model: model.modelId,
-        apiKey: model.apiKey || "",
-        apiEndpoint: model.apiEndpoint || undefined,
+      const response = await this.aiFacade.chat({
         messages: [
-          {
-            role: "system",
-            content:
-              "You are an expert at finding thematic and conceptual connections between notes. Output JSON format only.",
-          },
           {
             role: "user",
             content: `Analyze these notes and find meaningful connections between them. Return JSON: {"connections": [{"noteIds": ["id1", "id2"], "relationship": "description of connection", "strength": "strong|moderate|weak", "theme": "common theme"}]}\n\nNotes:\n${notesContent}`,
           },
         ],
-        taskProfile, // 使用任务配置
-        temperature: 0.4, // 保持向后兼容
-        maxTokens: 1000, // 保持向后兼容
+        systemPrompt:
+          "You are an expert at finding thematic and conceptual connections between notes. Output JSON format only.",
+        taskProfile: {
+          creativity: "low",
+          outputLength: "short",
+        },
       });
 
       try {
@@ -820,7 +802,10 @@ export class NotesService {
     }
 
     try {
-      const model = await this.aiModelService.getDefaultTextModel();
+      const model = await this.aiFacade.getDefaultTextModel();
+      if (!model) {
+        throw new Error("No default text model available");
+      }
 
       const notesContent = notes
         .map(
@@ -829,31 +814,19 @@ export class NotesService {
         )
         .join("\n\n");
 
-      // 定义任务配置：摘要任务，需要中等创意度和中等长度输出
-      const taskProfile: TaskProfile = {
-        creativity: "medium", // temperature: 0.7 (原 0.5，调整为 medium)
-        outputLength: "short", // maxTokens: 1500
-      };
-
-      const response = await this.aiChatService.chat({
-        provider: model.provider,
-        model: model.modelId,
-        apiKey: model.apiKey || "",
-        apiEndpoint: model.apiEndpoint || undefined,
+      const response = await this.aiFacade.chat({
         messages: [
-          {
-            role: "system",
-            content:
-              "You are an expert at synthesizing and summarizing information. Output JSON format only.",
-          },
           {
             role: "user",
             content: `Create a comprehensive summary of all these notes, identifying main themes, key learnings, and areas of focus. Return JSON: {"summary": "comprehensive summary...", "themes": ["theme1", "theme2"], "highlights": [{"point": "key point", "category": "category"}], "suggestedActions": ["action1", "action2"]}\n\nNotes:\n${notesContent}`,
           },
         ],
-        taskProfile, // 使用任务配置
-        temperature: 0.5, // 保持向后兼容
-        maxTokens: 1500, // 保持向后兼容
+        systemPrompt:
+          "You are an expert at synthesizing and summarizing information. Output JSON format only.",
+        taskProfile: {
+          creativity: "medium",
+          outputLength: "short",
+        },
       });
 
       try {

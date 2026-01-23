@@ -559,11 +559,14 @@ export class AIEngineFacade {
         isEnabled: true,
       },
       select: {
+        id: true,
         modelId: true,
         displayName: true,
         provider: true,
         maxTokens: true,
         isReasoning: true,
+        icon: true,
+        isDefault: true,
       },
     });
 
@@ -585,21 +588,33 @@ export class AIEngineFacade {
 
       return {
         id: m.modelId,
+        dbId: m.id, // ★ 数据库主键 ID
         name: m.displayName || m.modelId, // ★ 回退到 modelId 确保总有显示名称
         provider: m.provider,
         isReasoning,
         isAvailable,
         maxTokens: m.maxTokens,
+        icon: m.icon, // ★ UI 显示图标
+        isDefault: m.isDefault, // ★ 是否默认模型
       };
     });
   }
 
   /**
    * 获取可用模型列表
+   *
+   * 返回简化的模型信息，包含 UI 显示所需的字段
    */
-  async getAvailableModels(
-    modelType: AIModelType = AIModelType.CHAT,
-  ): Promise<Array<{ id: string; name: string; provider: string }>> {
+  async getAvailableModels(modelType: AIModelType = AIModelType.CHAT): Promise<
+    Array<{
+      id: string;
+      dbId?: string;
+      name: string;
+      provider: string;
+      icon?: string | null;
+      isDefault?: boolean;
+    }>
+  > {
     this.logger.debug(`[getAvailableModels] modelType=${modelType}`);
 
     if (!this.prisma) {
@@ -612,24 +627,136 @@ export class AIEngineFacade {
       }));
     }
 
-    // 从数据库获取完整模型信息
+    // 从数据库获取完整模型信息（包含 UI 显示字段）
     const models = await this.prisma.aIModel.findMany({
       where: {
         modelType: modelType,
         isEnabled: true,
       },
       select: {
+        id: true,
         modelId: true,
         displayName: true,
         provider: true,
+        icon: true,
+        isDefault: true,
       },
     });
 
     return models.map((m) => ({
       id: m.modelId,
+      dbId: m.id, // ★ 数据库主键 ID
       name: m.displayName,
       provider: m.provider,
+      icon: m.icon, // ★ UI 显示图标
+      isDefault: m.isDefault, // ★ 是否默认模型
     }));
+  }
+
+  // ==================== 模型配置获取（供 AI Apps 使用）====================
+
+  /**
+   * ★ 获取默认文本模型配置
+   *
+   * 供 AI Apps 获取默认 CHAT 模型，无需直接访问 prisma.aIModel
+   * 内部已处理 Secret Manager 支持
+   */
+  async getDefaultTextModel(): Promise<{
+    id: string;
+    modelId: string;
+    displayName: string;
+    provider: string;
+    maxTokens?: number;
+  } | null> {
+    const config = await this.aiChatService.getDefaultModelByType(
+      AIModelType.CHAT,
+    );
+    if (!config) return null;
+    return {
+      id: config.id || config.modelId,
+      modelId: config.modelId,
+      displayName: config.displayName || config.modelId,
+      provider: config.provider,
+      maxTokens: config.maxTokens,
+    };
+  }
+
+  /**
+   * ★ 获取默认图像生成模型配置
+   *
+   * 供 AI Apps 获取默认 IMAGE_GENERATION 模型
+   */
+  async getDefaultImageModel(): Promise<{
+    id: string;
+    modelId: string;
+    displayName: string;
+    provider: string;
+    maxTokens?: number;
+  } | null> {
+    const config = await this.aiChatService.getDefaultModelByType(
+      AIModelType.IMAGE_GENERATION,
+    );
+    if (!config) return null;
+    return {
+      id: config.id || config.modelId,
+      modelId: config.modelId,
+      displayName: config.displayName || config.modelId,
+      provider: config.provider,
+      maxTokens: config.maxTokens,
+    };
+  }
+
+  /**
+   * ★ 根据模型 ID 获取模型配置
+   *
+   * 供 AI Apps 根据 modelId 获取完整配置，无需直接访问数据库
+   * API Key 由 aiChatService.chat() 内部处理，不对外暴露
+   *
+   * ★ 返回 isReasoning 字段，用于判断是否为推理模型（o1/o3/gpt-5 等）
+   */
+  async getModelById(modelId: string): Promise<{
+    id: string;
+    modelId: string;
+    displayName: string;
+    provider: string;
+    maxTokens?: number;
+    apiEndpoint?: string;
+    isReasoning?: boolean;
+  } | null> {
+    const config = await this.aiChatService.getModelConfig(modelId);
+    if (!config) return null;
+    return {
+      id: config.id || config.modelId,
+      modelId: config.modelId,
+      displayName: config.displayName || config.modelId,
+      provider: config.provider,
+      maxTokens: config.maxTokens,
+      apiEndpoint: config.apiEndpoint,
+      isReasoning: config.isReasoning ?? false,
+    };
+  }
+
+  /**
+   * ★ 根据模型类型获取默认模型配置
+   *
+   * 支持 CHAT, IMAGE_GENERATION, EMBEDDING 等类型
+   */
+  async getDefaultModelByType(modelType: AIModelType): Promise<{
+    id: string;
+    modelId: string;
+    displayName: string;
+    provider: string;
+    maxTokens?: number;
+  } | null> {
+    const config = await this.aiChatService.getDefaultModelByType(modelType);
+    if (!config) return null;
+    return {
+      id: config.id || config.modelId,
+      modelId: config.modelId,
+      displayName: config.displayName || config.modelId,
+      provider: config.provider,
+      maxTokens: config.maxTokens,
+    };
   }
 
   /**
@@ -1720,5 +1847,57 @@ export class AIEngineFacade {
       toolCalls: [],
       isError: result.isError,
     };
+  }
+
+  // ==================== 管理功能 ====================
+
+  /**
+   * ★ 管理功能：获取提供商可用的模型列表
+   *
+   * 供管理后台使用，用于配置新模型时获取可用模型列表
+   */
+  async fetchAvailableModels(
+    provider: string,
+    apiKey: string,
+    apiEndpoint?: string,
+    modelType?: string,
+  ): Promise<{
+    success: boolean;
+    models?: Array<{ id: string; name: string; description?: string }>;
+    error?: string;
+  }> {
+    this.logger.log(
+      `[fetchAvailableModels] provider=${provider}, modelType=${modelType}`,
+    );
+    return this.aiChatService.fetchAvailableModels(
+      provider,
+      apiKey,
+      apiEndpoint,
+      modelType,
+    );
+  }
+
+  /**
+   * ★ 管理功能：测试模型连接
+   *
+   * 供管理后台使用，验证模型配置是否正确
+   */
+  async testModelConnectionWithKey(
+    provider: string,
+    modelId: string,
+    apiKey: string,
+    apiEndpoint: string,
+    modelType?: string,
+  ): Promise<{ success: boolean; message: string; latency?: number }> {
+    this.logger.log(
+      `[testModelConnectionWithKey] provider=${provider}, modelId=${modelId}`,
+    );
+    return this.aiChatService.testModelConnectionWithKey(
+      provider,
+      modelId,
+      apiKey,
+      apiEndpoint,
+      modelType,
+    );
   }
 }

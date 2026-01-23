@@ -3,11 +3,9 @@ import { ConfigService } from "@nestjs/config";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import {
-  AiChatService,
-  ChatMessage,
-} from "../../ai-engine/llm/services/ai-chat.service";
+import { ChatMessage } from "../../ai-engine/llm/services/ai-chat.service";
 import { TaskProfile } from "../../ai-engine/llm/types/task-profile";
+import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
 import { WechatDataSourceService } from "./wechat-data-source.service";
 import { UrlFetchService } from "../../ai-app/rag/services/url-fetch.service";
 
@@ -62,7 +60,7 @@ export class WechatWorkService {
     private configService: ConfigService,
     private httpService: HttpService,
     private prisma: PrismaService,
-    private aiChatService: AiChatService,
+    private aiFacade: AIEngineFacade,
     private wechatDataSourceService: WechatDataSourceService,
     private urlFetchService: UrlFetchService,
   ) {
@@ -444,32 +442,15 @@ export class WechatWorkService {
     query: string,
     url?: string | null,
   ): Promise<string> {
-    // 获取默认 CHAT 模型配置（企业微信分析需要强模型）
-    let defaultModel = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        isDefault: true,
-        modelType: "CHAT",
-      },
-    });
-
-    // Fallback: 任意 CHAT 模型
-    if (!defaultModel) {
-      defaultModel = await this.prisma.aIModel.findFirst({
-        where: {
-          isEnabled: true,
-          modelType: "CHAT",
-        },
-        orderBy: { createdAt: "desc" },
-      });
-    }
+    // 使用 AIEngineFacade 获取默认 CHAT 模型
+    const defaultModel = await this.aiFacade.getDefaultTextModel();
 
     if (!defaultModel) {
       throw new Error("No CHAT AI model configured");
     }
 
     this.logger.log(
-      `[WechatWork] Using model: ${defaultModel.name} (${defaultModel.modelId})`,
+      `[WechatWork] Using model: ${defaultModel.displayName} (${defaultModel.modelId})`,
     );
 
     // 构建系统提示词
@@ -494,20 +475,15 @@ export class WechatWorkService {
     // 定义任务配置：对话任务，需要中等创意和中等长度输出
     const taskProfile: TaskProfile = {
       creativity: "medium", // temperature: 0.7
-      outputLength: "short", // maxTokens: 1500 (原 2000，调整为短输出)
+      outputLength: "short", // maxTokens: 1500
     };
 
-    // 调用 AI 服务
-    const result = await this.aiChatService.chat({
-      provider: defaultModel.provider,
+    // 调用 AI 服务（通过 Facade，只需传 model ID）
+    const result = await this.aiFacade.chat({
       model: defaultModel.modelId,
-      apiKey: defaultModel.apiKey ?? "",
-      apiEndpoint: defaultModel.apiEndpoint ?? undefined,
       systemPrompt,
       messages,
-      taskProfile, // 使用任务配置
-      maxTokens: 2000, // 保持向后兼容
-      temperature: 0.7, // 保持向后兼容
+      taskProfile,
     });
 
     return result.content;

@@ -35,6 +35,7 @@ import { ResearchEventEmitterService } from "./research-event-emitter.service";
 import { TopicCollaboratorService } from "./topic-collaborator.service";
 import { AgentActivityService } from "./agent-activity.service";
 import { CollaboratorRole } from "../dto/collaborator.dto";
+import { AIEngineFacade } from "@/modules/ai-engine/facade/ai-engine.facade";
 
 // ==================== Constants ====================
 
@@ -159,6 +160,7 @@ export class ResearchMissionService {
     private readonly researchEventEmitter: ResearchEventEmitterService,
     private readonly collaboratorService: TopicCollaboratorService,
     private readonly agentActivity: AgentActivityService,
+    private readonly aiFacade: AIEngineFacade,
   ) {}
 
   /**
@@ -1215,46 +1217,17 @@ export class ResearchMissionService {
 
   /**
    * ★ 查询各模型类型的默认模型名称
-   * 优先查询 isDefault=true 的模型，如果没有则使用第一个启用的模型
+   * 使用 AIEngineFacade 获取模型配置
    */
   private async getDefaultModelNames(): Promise<Map<AIModelType, string>> {
-    // 1. 先查询标记为默认的模型
-    const defaultModels = await this.prisma.aIModel.findMany({
-      where: {
-        isEnabled: true,
-        isDefault: true,
-      },
-      select: {
-        modelType: true,
-        displayName: true,
-        modelId: true,
-      },
-    });
-
     const map = new Map<AIModelType, string>();
-    for (const model of defaultModels) {
-      map.set(model.modelType, model.displayName || model.modelId);
-    }
 
-    // 2. 如果 CHAT 类型没有默认模型，查询第一个启用的 CHAT 模型
-    if (!map.has(AIModelType.CHAT)) {
-      const firstChatModel = await this.prisma.aIModel.findFirst({
-        where: {
-          isEnabled: true,
-          modelType: AIModelType.CHAT,
-        },
-        select: {
-          displayName: true,
-          modelId: true,
-        },
-        orderBy: { createdAt: "asc" },
-      });
-      if (firstChatModel) {
-        map.set(
-          AIModelType.CHAT,
-          firstChatModel.displayName || firstChatModel.modelId,
-        );
-      }
+    // 获取 CHAT 类型的默认模型
+    const chatModel = await this.aiFacade.getDefaultModelByType(
+      AIModelType.CHAT,
+    );
+    if (chatModel) {
+      map.set(AIModelType.CHAT, chatModel.displayName || chatModel.modelId);
     }
 
     return map;

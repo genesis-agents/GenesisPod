@@ -16,6 +16,7 @@ import {
 import { FunctionDefinition } from "../../tools/abstractions/tool.interface";
 import { AiChatService, ChatMessage } from "../services/ai-chat.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { SecretsService } from "../../../core/secrets/secrets.service";
 
 /**
  * Function Calling LLM 适配器配置
@@ -68,6 +69,7 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
   constructor(
     private readonly aiChatService: AiChatService,
     private readonly prisma: PrismaService,
+    private readonly secretsService: SecretsService,
   ) {}
 
   /**
@@ -377,6 +379,7 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
     }
 
     // 查找 AI Model 配置
+    // ★ 添加 secretKey 字段以支持 Secret Manager
     let aiModelConfig = await this.prisma.aIModel.findFirst({
       where: {
         modelId: {
@@ -389,6 +392,7 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
         modelId: true,
         provider: true,
         apiKey: true,
+        secretKey: true,
         apiEndpoint: true,
       },
     });
@@ -407,6 +411,7 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
           modelId: true,
           provider: true,
           apiKey: true,
+          secretKey: true,
           apiEndpoint: true,
         },
       });
@@ -416,7 +421,25 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
     const provider =
       aiModelConfig?.provider || this.inferProvider(aiMember.aiModel);
     const modelId = aiModelConfig?.modelId || aiMember.aiModel;
-    let apiKey = aiModelConfig?.apiKey || "";
+
+    // ★ 使用 SecretsService 解析 API Key
+    // 优先从 Secret Manager 获取（如果 secretKey 已配置），否则使用直接存储的 apiKey
+    let apiKey = "";
+    if (aiModelConfig?.secretKey) {
+      const secretValue = await this.secretsService.getValueInternal(
+        aiModelConfig.secretKey,
+      );
+      if (secretValue) {
+        apiKey = secretValue.trim();
+      } else {
+        this.logger.warn(
+          `[getAIMemberConfig] Secret '${aiModelConfig.secretKey}' not found, falling back to apiKey`,
+        );
+        apiKey = aiModelConfig?.apiKey?.trim() || "";
+      }
+    } else {
+      apiKey = aiModelConfig?.apiKey?.trim() || "";
+    }
 
     // 如果数据库没有 API Key，尝试从环境变量获取
     if (!apiKey) {

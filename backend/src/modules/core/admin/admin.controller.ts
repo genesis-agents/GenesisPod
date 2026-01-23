@@ -14,7 +14,7 @@ import {
 import { AdminService } from "./admin.service";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
+import { AIEngineFacade } from "../../ai-engine/facade/ai-engine.facade";
 import { AIModelType } from "@prisma/client";
 import { SecretsService } from "../secrets/secrets.service";
 
@@ -29,7 +29,7 @@ export class AdminController {
 
   constructor(
     private adminService: AdminService,
-    private aiChatService: AiChatService,
+    private aiEngineFacade: AIEngineFacade,
     private secretsService: SecretsService,
   ) {}
 
@@ -331,11 +331,11 @@ export class AdminController {
     );
 
     // 解析 API Key：优先使用直接提供的，否则从 Secret Manager 获取
-    let resolvedApiKey = body.apiKey;
+    let resolvedApiKey = body.apiKey?.trim();
     if (!resolvedApiKey && body.secretKey) {
       const secretValue = await this.secretsService.getValue(body.secretKey);
       if (secretValue) {
-        resolvedApiKey = secretValue;
+        resolvedApiKey = secretValue.trim();
       } else {
         return { success: false, error: "无法从 Secret Manager 获取 API Key" };
       }
@@ -343,7 +343,7 @@ export class AdminController {
     if (!resolvedApiKey) {
       return { success: false, error: "请提供 API Key 或选择有效的 Secret" };
     }
-    return this.aiChatService.fetchAvailableModels(
+    return this.aiEngineFacade.fetchAvailableModels(
       body.provider,
       resolvedApiKey,
       body.apiEndpoint,
@@ -438,7 +438,7 @@ export class AdminController {
     }
 
     // 使用数据库中的真实 API Key 测试连接
-    const result = await this.aiChatService.testModelConnectionWithKey(
+    const result = await this.aiEngineFacade.testModelConnectionWithKey(
       model.provider,
       model.modelId,
       apiKey,
@@ -734,7 +734,7 @@ export class AdminController {
 
     try {
       // Get API key - either directly provided or from Secret Manager
-      let apiKey = body.apiKey;
+      let apiKey = body.apiKey?.trim();
       if (!apiKey && body.secretKey) {
         const secretValue = await this.secretsService.getValue(body.secretKey);
         if (!secretValue) {
@@ -743,7 +743,7 @@ export class AdminController {
             message: `Secret '${body.secretKey}' not found or has no value`,
           };
         }
-        apiKey = secretValue;
+        apiKey = secretValue.trim();
       }
 
       if (!apiKey) {
@@ -904,7 +904,7 @@ export class AdminController {
 
     try {
       // Get API key - either directly provided or from Secret Manager
-      let apiKey = body.apiKey;
+      let apiKey = body.apiKey?.trim();
       if (!apiKey && body.secretKey) {
         const secretValue = await this.secretsService.getValue(body.secretKey);
         if (!secretValue) {
@@ -913,7 +913,7 @@ export class AdminController {
             message: `Secret '${body.secretKey}' not found or has no value`,
           };
         }
-        apiKey = secretValue;
+        apiKey = secretValue.trim();
       }
 
       if (!apiKey) {
@@ -1059,7 +1059,7 @@ export class AdminController {
 
     try {
       // Get API key - either directly provided or from Secret Manager
-      let apiKey = body.apiKey;
+      let apiKey = body.apiKey?.trim();
       if (!apiKey && body.secretKey) {
         const secretValue = await this.secretsService.getValue(body.secretKey);
         if (!secretValue) {
@@ -1068,7 +1068,7 @@ export class AdminController {
             message: `Secret '${body.secretKey}' not found or has no value`,
           };
         }
-        apiKey = secretValue;
+        apiKey = secretValue.trim();
       }
 
       if (!apiKey) {
@@ -1167,7 +1167,7 @@ export class AdminController {
 
     try {
       // Get API key - either directly provided or from Secret Manager
-      let apiKey = body.apiKey;
+      let apiKey = body.apiKey?.trim();
       if (!apiKey && body.secretKey) {
         const secretValue = await this.secretsService.getValue(body.secretKey);
         if (!secretValue) {
@@ -1176,7 +1176,7 @@ export class AdminController {
             message: `Secret '${body.secretKey}' not found or has no value`,
           };
         }
-        apiKey = secretValue;
+        apiKey = secretValue.trim();
       }
 
       if (!apiKey) {

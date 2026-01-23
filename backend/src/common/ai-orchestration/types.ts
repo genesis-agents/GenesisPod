@@ -45,6 +45,8 @@ export interface AiModelConfig {
   modelId: string;
   modelType: AIModelType;
   apiKey: string;
+  /** ★ Secret Manager 密钥名称，优先于 apiKey */
+  secretKey?: string;
   apiEndpoint?: string;
   capabilities?: string[];
 }

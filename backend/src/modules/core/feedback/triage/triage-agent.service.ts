@@ -14,8 +14,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { SimilarityMatcherService } from "./similarity-matcher.service";
 import { ScreenshotAnalyzerService } from "../analyzer/screenshot-analyzer.service";
-import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
-import { AIModelService } from "../../../ai-app/office/core/ai-model.service";
+import { AIEngineFacade } from "../../../ai-engine/facade/ai-engine.facade";
 import {
   TriageInput,
   TriageDecision,
@@ -109,8 +108,7 @@ export class TriageAgentService {
     private readonly configService: ConfigService,
     private readonly similarityMatcher: SimilarityMatcherService,
     private readonly screenshotAnalyzer: ScreenshotAnalyzerService,
-    private readonly aiChatService: AiChatService,
-    private readonly aiModelService: AIModelService,
+    private readonly aiFacade: AIEngineFacade,
   ) {
     // 加载配置（模型将在运行时从数据库获取）
     this.config = {
@@ -258,16 +256,21 @@ ${input.attachments.map((a) => `- ${a.filename} (${a.mimeType})`).join("\n")}
    * 调用 AI API（使用项目标准的 AI 服务）
    */
   private async callAiApi(userPrompt: string): Promise<string> {
-    // 从数据库获取默认的聊天模型
-    const defaultModel = await this.aiModelService.getDefaultTextModel();
-    const modelName = defaultModel.name;
+    // ★ 通过 AIEngineFacade 获取默认聊天模型
+    const defaultModel = await this.aiFacade.getDefaultTextModel();
+    if (!defaultModel) {
+      throw new Error("No default text model available for triage");
+    }
+    const modelName = defaultModel.modelId;
 
     this.logger.debug(`[callAiApi] Using model: ${modelName}`);
 
-    const result = await this.aiChatService.generateChatCompletion({
+    const result = await this.aiFacade.chat({
+      messages: [
+        { role: "system", content: TRIAGE_SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
       model: modelName,
-      systemPrompt: TRIAGE_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userPrompt }],
       maxTokens: this.config.maxTokens,
       temperature: this.config.temperature,
     });

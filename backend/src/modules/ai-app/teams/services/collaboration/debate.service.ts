@@ -253,7 +253,7 @@ export class DebateService {
     );
 
     // 获取AI模型配置
-    const aiModelConfig = await this.getAiModelConfig(agent.aiModel);
+    const aiModelConfig = await this.aiFacade.getModelById(agent.aiModel);
     if (!aiModelConfig) {
       throw new Error(`AI model not found: ${agent.aiModel}`);
     }
@@ -297,7 +297,7 @@ export class DebateService {
     ];
     const response = await this.aiFacade.chat({
       messages: debateMessages,
-      model: aiModelConfig.modelId,
+      model: agent.aiModel,
       taskProfile: {
         creativity: "medium",
         outputLength: "standard",
@@ -354,31 +354,6 @@ export class DebateService {
     );
 
     return { content: response.content, tokensUsed: response.tokensUsed || 0 };
-  }
-
-  /**
-   * 获取AI模型配置
-   */
-  private async getAiModelConfig(aiModel: string) {
-    // 优先用 modelId 精确匹配
-    let config = await this.prisma.aIModel.findFirst({
-      where: {
-        modelId: { equals: aiModel, mode: "insensitive" },
-        isEnabled: true,
-      },
-    });
-
-    // 降级用 name 匹配
-    if (!config) {
-      config = await this.prisma.aIModel.findFirst({
-        where: {
-          name: { equals: aiModel, mode: "insensitive" },
-          isEnabled: true,
-        },
-      });
-    }
-
-    return config;
   }
 
   /**
