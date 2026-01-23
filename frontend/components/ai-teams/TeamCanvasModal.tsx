@@ -1096,13 +1096,29 @@ export default function TeamCanvasModal({
                   {mission.tasks?.map((task, taskIndex) => {
                     const leaderId = mission.leaderId;
                     if (!leaderId) return null;
+
+                    // ★ 修复：添加 fallback 位置避免连线丢失
+                    const leaderFallback = { x: canvasWidth / 2, y: 90 };
+                    const agentIndex = aiMembers.findIndex(
+                      (a) => a.id === task.assignedToId
+                    );
+                    const agentFallback = {
+                      x:
+                        canvasWidth / 2 +
+                        (agentIndex >= 0
+                          ? (agentIndex - aiMembers.length / 2) * 120
+                          : taskIndex * 100),
+                      y: canvasHeight / 2,
+                    };
+
                     const leaderPos =
                       customPositions.get(leaderId) ||
-                      nodePositions.get(leaderId);
+                      nodePositions.get(leaderId) ||
+                      leaderFallback;
                     const agentPos =
                       customPositions.get(task.assignedToId) ||
-                      nodePositions.get(task.assignedToId);
-                    if (!leaderPos || !agentPos) return null;
+                      nodePositions.get(task.assignedToId) ||
+                      agentFallback;
 
                     const isHovered =
                       hoveredNode === task.assignedToId ||
@@ -1300,10 +1316,19 @@ export default function TeamCanvasModal({
                   })}
 
                   {/* Agent Nodes */}
-                  {aiMembers.map((agent) => {
+                  {aiMembers.map((agent, agentIndex) => {
                     const defaultPos = nodePositions.get(agent.id);
-                    const pos = customPositions.get(agent.id) || defaultPos;
-                    if (!pos) return null;
+                    // ★ 修复：当没有预计算位置时，提供默认位置避免节点丢失
+                    const fallbackPos = {
+                      x:
+                        canvasWidth / 2 +
+                        (agentIndex - aiMembers.length / 2) * 120,
+                      y: canvasHeight / 2,
+                    };
+                    const pos =
+                      customPositions.get(agent.id) ||
+                      defaultPos ||
+                      fallbackPos;
 
                     const isLeader = agent.id === mission.leaderId;
                     const isWorking = typingAIs.has(agent.id);

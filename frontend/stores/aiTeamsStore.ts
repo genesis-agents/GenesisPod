@@ -718,21 +718,35 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         status,
         previousStatus,
         totalTasks,
+        tasks,
       }: {
         missionId: string;
         status: MissionStatus;
         previousStatus: MissionStatus;
         totalTasks?: number;
+        tasks?: Array<{
+          id: string;
+          title: string;
+          description: string;
+          status: string;
+          priority: string;
+          taskType: string;
+          assignedToId: string;
+          dependsOnIds: string[];
+        }>;
       }) => {
         console.log('[WS] Mission status changed:', {
           missionId,
           status,
           previousStatus,
           totalTasks,
+          tasksCount: tasks?.length,
         });
         updateMissionState(missionId, {
           status,
           ...(totalTasks !== undefined && { totalTasks }),
+          // ★ 更新 tasks 数据用于 Canvas 渲染连线
+          ...(tasks && { tasks: tasks as any }),
         });
       }
     );

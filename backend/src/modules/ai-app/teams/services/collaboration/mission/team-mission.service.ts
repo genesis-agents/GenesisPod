@@ -1180,6 +1180,22 @@ export class TeamMissionService implements OnModuleInit {
       // 创建子任务
       await this.createTasksFromBreakdown(mission.id, breakdown, teamMembers);
 
+      // ★ 查询创建的任务，用于广播给前端
+      const createdTasks = await this.prisma.agentTask.findMany({
+        where: { missionId: mission.id },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          status: true,
+          priority: true,
+          taskType: true,
+          assignedToId: true,
+          dependsOnIds: true,
+        },
+        orderBy: { createdAt: "asc" },
+      });
+
       // 更新状态为执行中
       await this.prisma.teamMission.update({
         where: { id: mission.id },
@@ -1201,7 +1217,7 @@ export class TeamMissionService implements OnModuleInit {
         );
       }
 
-      // 广播状态变更
+      // 广播状态变更（包含 tasks 数据用于前端渲染连线）
       this.topicEventEmitter.emitToTopic(
         mission.topicId,
         "mission:status_changed",
@@ -1210,6 +1226,7 @@ export class TeamMissionService implements OnModuleInit {
           status: MissionStatus.IN_PROGRESS,
           previousStatus: MissionStatus.PLANNING,
           totalTasks: breakdown.tasks.length,
+          tasks: createdTasks, // ★ 新增：携带完整 tasks 数据
         },
       );
 
