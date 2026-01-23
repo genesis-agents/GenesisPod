@@ -88,102 +88,153 @@ export class WechatAdapter {
       }
       this.logger.log("Login status verified: logged in");
 
-      // Step 6: 点击"图文"/"Photo"按钮进入编辑器
-      // 关键：按钮是 DIV 元素（class="new-creation__menu-item"），点击会打开新标签页
-      // 必须通过点击按钮而不是直接导航，否则编辑器不会正确加载
-      this.logger.log("Looking for Photo/图文 button on home page...");
+      // Step 6: 获取 token 并进入编辑器
+      // 关键：等待页面重定向完成后，URL 中应该包含 token
+      this.logger.log("Waiting for page to settle and extracting token...");
 
-      // 等待首页完全加载
-      await page.waitForTimeout(2000);
+      // 等待首页完全加载并等待可能的重定向
+      await page.waitForTimeout(3000);
+
+      // 获取当前 URL 中的 token
+      let currentUrl = page.url();
+      this.logger.log(`Current URL after waiting: ${currentUrl}`);
+
+      let token = "";
+      const tokenMatch = currentUrl.match(/token=(\d+)/);
+      if (tokenMatch) {
+        token = tokenMatch[1];
+        this.logger.log(`Token extracted from URL: ${token}`);
+      }
+
+      // 如果 URL 中没有 token，尝试从页面 JS 中获取
+      if (!token) {
+        this.logger.log("No token in URL, trying to extract from page...");
+        try {
+          token = await page.evaluate(() => {
+            // 尝试从全局变量获取
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const win = window as any;
+            if (win.wx && win.wx.commonData && win.wx.commonData.t) {
+              return win.wx.commonData.t;
+            }
+            // 尝试从 URL 参数获取
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get("token") || "";
+          });
+          if (token) {
+            this.logger.log(`Token extracted from page JS: ${token}`);
+          }
+        } catch (evalError) {
+          this.logger.warn(
+            `Failed to extract token from page: ${(evalError as Error).message}`,
+          );
+        }
+      }
 
       // 获取 browser context 用于监听新页面
       const context = page.context();
-
-      // 查找并点击 Photo/图文 按钮
-      // 按钮结构: div.new-creation__menu-item > div.new-creation__menu-content > div.new-creation__menu-title
-      const photoButtonSelector =
-        '.new-creation__menu-item:has(.new-creation__menu-title:text-matches("Photo|图文"))';
-
       let editorPage = page; // 默认使用当前页面
+      let clickSucceeded = false;
 
-      try {
-        // 等待按钮出现
-        this.logger.log(
-          `Waiting for Photo button with selector: ${photoButtonSelector}`,
-        );
-        await page.waitForSelector(photoButtonSelector, { timeout: 10000 });
+      // 尝试点击 Photo/图文 按钮进入编辑器
+      this.logger.log("Looking for Photo/图文 button on home page...");
 
-        // 点击按钮并等待新页面打开
-        this.logger.log("Clicking Photo button and waiting for new tab...");
-        const [newPage] = await Promise.all([
-          context.waitForEvent("page", { timeout: 15000 }),
-          page.click(photoButtonSelector),
-        ]);
+      // 使用 Playwright 的 locator API 进行文本匹配（更可靠）
+      const buttonTexts = ["Photo", "图文"];
 
-        // 等待新页面加载
-        this.logger.log("New tab opened, waiting for it to load...");
-        await newPage.waitForLoadState("networkidle", { timeout: 30000 });
-        editorPage = newPage;
-        this.logger.log(`Editor page URL: ${editorPage.url()}`);
-      } catch (clickError) {
-        // 如果点击失败，尝试备用方案
-        this.logger.warn(
-          `Click approach failed: ${(clickError as Error).message}, trying fallback...`,
-        );
+      for (const buttonText of buttonTexts) {
+        if (clickSucceeded) break;
 
-        // 备用方案：尝试直接点击包含 Photo 或 图文 文本的元素
         try {
-          const fallbackSelectors = [
-            'div:has-text("Photo"):not(:has(div:has-text("Photo")))', // 最内层的 Photo 文本
-            'div:has-text("图文"):not(:has(div:has-text("图文")))',
-            '.new-creation__menu-content:has-text("Photo")',
-            '.new-creation__menu-content:has-text("图文")',
-          ];
+          // 使用 getByRole 或 getByText 进行定位
+          this.logger.log(`Looking for button with text: "${buttonText}"...`);
 
-          for (const selector of fallbackSelectors) {
-            try {
-              const element = await page.$(selector);
-              if (element) {
-                this.logger.log(
-                  `Found element with selector: ${selector}, clicking...`,
-                );
-                const [newPage] = await Promise.all([
-                  context
-                    .waitForEvent("page", { timeout: 15000 })
-                    .catch(() => null),
-                  element.click(),
-                ]);
-                if (newPage) {
-                  await newPage.waitForLoadState("networkidle", {
-                    timeout: 30000,
-                  });
-                  editorPage = newPage;
-                  this.logger.log(
-                    `Editor page URL (fallback): ${editorPage.url()}`,
-                  );
-                }
-                break;
-              }
-            } catch {
-              continue;
+          // 方法1: 直接通过文本定位
+          const locator = page.locator(
+            `.new-creation__menu-title:has-text("${buttonText}")`,
+          );
+          const count = await locator.count();
+          this.logger.log(`Found ${count} elements with text "${buttonText}"`);
+
+          if (count > 0) {
+            // 点击找到的元素的父级（菜单项）
+            const menuItem = page.locator(
+              `.new-creation__menu-item:has(.new-creation__menu-title:has-text("${buttonText}"))`,
+            );
+            const menuItemCount = await menuItem.count();
+            this.logger.log(
+              `Found ${menuItemCount} menu items for "${buttonText}"`,
+            );
+
+            if (menuItemCount > 0) {
+              this.logger.log(
+                `Clicking menu item for "${buttonText}" and waiting for new tab...`,
+              );
+              const [newPage] = await Promise.all([
+                context.waitForEvent("page", { timeout: 15000 }),
+                menuItem.first().click(),
+              ]);
+
+              // 等待新页面加载
+              this.logger.log("New tab opened, waiting for it to load...");
+              await newPage.waitForLoadState("networkidle", { timeout: 30000 });
+              editorPage = newPage;
+              clickSucceeded = true;
+              this.logger.log(`Editor page URL: ${editorPage.url()}`);
             }
           }
-        } catch (fallbackError) {
-          this.logger.error(
-            `Fallback also failed: ${(fallbackError as Error).message}`,
+        } catch (clickError) {
+          this.logger.warn(
+            `Click for "${buttonText}" failed: ${(clickError as Error).message}`,
           );
+        }
+      }
+
+      // 如果点击方式失败，尝试直接文本匹配
+      if (!clickSucceeded) {
+        this.logger.log("Menu item click failed, trying direct text match...");
+        for (const buttonText of buttonTexts) {
+          if (clickSucceeded) break;
+
+          try {
+            // 尝试直接通过文本内容点击
+            const textLocator = page.getByText(buttonText, { exact: true });
+            const textCount = await textLocator.count();
+            this.logger.log(
+              `Direct text search found ${textCount} for "${buttonText}"`,
+            );
+
+            if (textCount > 0) {
+              const [newPage] = await Promise.all([
+                context
+                  .waitForEvent("page", { timeout: 15000 })
+                  .catch(() => null),
+                textLocator.first().click(),
+              ]);
+
+              if (newPage) {
+                await newPage.waitForLoadState("networkidle", {
+                  timeout: 30000,
+                });
+                editorPage = newPage;
+                clickSucceeded = true;
+                this.logger.log(
+                  `Editor page URL (text match): ${editorPage.url()}`,
+                );
+              }
+            }
+          } catch {
+            continue;
+          }
         }
       }
 
       // 如果仍然没有打开编辑器页面，尝试直接导航（最后手段）
       const editPageUrl = editorPage.url();
-      if (!editPageUrl.includes("appmsg_edit")) {
+      if (!editPageUrl.includes("appmsg_edit") && !clickSucceeded) {
         this.logger.warn(
           "Editor page not opened via click, trying direct navigation...",
         );
-        const currentUrl = page.url();
-        const tokenMatch = currentUrl.match(/token=(\d+)/);
-        const token = tokenMatch ? tokenMatch[1] : "";
 
         if (token) {
           const editorUrl = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&createType=8&token=${token}`;
@@ -193,11 +244,47 @@ export class WechatAdapter {
             timeout: 30000,
           });
         } else {
-          this.logger.error("No token found, cannot navigate to editor");
-          return {
-            success: false,
-            errorMessage: "无法获取微信公众号 token，请重新连接",
-          };
+          // 最后尝试：从页面链接中提取 token
+          this.logger.log("Trying to find token from page links...");
+          const links = await page.evaluate(() => {
+            const anchors = Array.from(document.querySelectorAll("a[href]"));
+            return anchors
+              .map((a) => a.getAttribute("href"))
+              .filter((href) => href && href.includes("token="))
+              .slice(0, 5);
+          });
+          this.logger.log(`Found links with token: ${JSON.stringify(links)}`);
+
+          if (links.length > 0) {
+            const linkTokenMatch = links[0]?.match(/token=(\d+)/);
+            if (linkTokenMatch) {
+              token = linkTokenMatch[1];
+              const editorUrl = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&createType=8&token=${token}`;
+              this.logger.log(
+                `Found token from link, direct navigation to: ${editorUrl}`,
+              );
+              await editorPage.goto(editorUrl, {
+                waitUntil: "networkidle",
+                timeout: 30000,
+              });
+            } else {
+              this.logger.error(
+                "No token found anywhere, cannot navigate to editor",
+              );
+              await this.captureDebugInfo(page, "no_token_found");
+              return {
+                success: false,
+                errorMessage: "无法获取微信公众号 token，请重新连接",
+              };
+            }
+          } else {
+            this.logger.error("No token found in URL or page links");
+            await this.captureDebugInfo(page, "no_token_found");
+            return {
+              success: false,
+              errorMessage: "无法获取微信公众号 token，请重新连接",
+            };
+          }
         }
       }
 
