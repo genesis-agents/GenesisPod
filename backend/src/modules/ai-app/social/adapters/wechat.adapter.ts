@@ -88,132 +88,128 @@ export class WechatAdapter {
       }
       this.logger.log("Login status verified: logged in");
 
-      // Step 6: 在首页找到并点击"图文"按钮进入编辑器
-      // 微信公众号首页有"新的创作"区域，包含图标：文章、选择已有内容、图文、视频等
-      this.logger.log("Looking for '图文' button on home page...");
+      // Step 6: 点击"图文"/"Photo"按钮进入编辑器
+      // 关键：按钮是 DIV 元素（class="new-creation__menu-item"），点击会打开新标签页
+      // 必须通过点击按钮而不是直接导航，否则编辑器不会正确加载
+      this.logger.log("Looking for Photo/图文 button on home page...");
 
-      // 等待首页加载完成
-      await page.waitForTimeout(3000);
+      // 等待首页完全加载
+      await page.waitForTimeout(2000);
 
-      // 诊断首页内容
-      const homeDiagnosis = await page.evaluate(() => {
-        const pageText = document.body?.innerText?.substring(0, 500) || "";
-        const links = Array.from(document.querySelectorAll("a"))
-          .slice(0, 20)
-          .map((a) => ({
-            text: a.textContent?.trim().substring(0, 30),
-            href: a.href?.substring(0, 100),
-          }));
-        return { pageText, links };
-      });
-      this.logger.log(
-        `Home page diagnosis: ${JSON.stringify(homeDiagnosis).substring(0, 500)}`,
-      );
+      // 获取 browser context 用于监听新页面
+      const context = page.context();
 
-      // 查找"图文"/"Photo"按钮 - 它在"新的创作"/"New creation"区域
-      // 英文界面: "Photo"
-      // 中文界面: "图文"
-      const tuWenButton = await page.evaluate(() => {
-        // 策略1: 查找所有可点击元素，找到精确匹配"图文"或"Photo"的
-        const allElements = Array.from(
-          document.querySelectorAll(
-            "a, div[cursor], [class*='menu'], [class*='creation']",
-          ),
-        );
-        for (const el of allElements) {
-          const text = el.textContent?.trim() || "";
-          // 精确匹配 "图文"（两个字）或 "Photo"
-          if (text === "图文" || text === "Photo") {
-            return {
-              found: true,
-              text,
-              href: (el as HTMLAnchorElement).href || "",
-              tagName: el.tagName,
-              strategy: "exact_match",
-            };
-          }
-        }
+      // 查找并点击 Photo/图文 按钮
+      // 按钮结构: div.new-creation__menu-item > div.new-creation__menu-content > div.new-creation__menu-title
+      const photoButtonSelector =
+        '.new-creation__menu-item:has(.new-creation__menu-title:text-matches("Photo|图文"))';
 
-        // 策略2: 查找包含"图文"或"Photo"的链接
-        const links = Array.from(document.querySelectorAll("a"));
-        for (const link of links) {
-          const text = link.textContent?.trim() || "";
-          if (
-            (text.includes("图文") || text.includes("Photo")) &&
-            !text.includes("选择") &&
-            !text.includes("已有") &&
-            !text.includes("Select") &&
-            text.length < 15
-          ) {
-            return {
-              found: true,
-              text,
-              href: link.href || "",
-              tagName: "A",
-              strategy: "contains_match",
-            };
-          }
-        }
+      let editorPage = page; // 默认使用当前页面
 
-        // 策略3: 查找带有appmsg_edit链接的元素（type=77 是图文类型）
-        for (const link of links) {
-          if (
-            link.href?.includes("appmsg_edit") &&
-            link.href?.includes("type=77")
-          ) {
-            return {
-              found: true,
-              text: link.textContent?.trim() || "",
-              href: link.href,
-              tagName: "A",
-              strategy: "url_match",
-            };
-          }
-        }
-
-        return { found: false, strategy: "none" };
-      });
-
-      this.logger.log(
-        `图文 button search result: ${JSON.stringify(tuWenButton)}`,
-      );
-
-      // 从当前 URL 提取 token
-      const currentUrl = page.url();
-      const tokenMatch = currentUrl.match(/token=(\d+)/);
-      const token = tokenMatch ? tokenMatch[1] : "";
-      this.logger.log(`Extracted token from URL: ${token}`);
-
-      if (tuWenButton.found && tuWenButton.href) {
+      try {
+        // 等待按钮出现
         this.logger.log(
-          `Found 图文 link via ${tuWenButton.strategy}, navigating to: ${tuWenButton.href}`,
+          `Waiting for Photo button with selector: ${photoButtonSelector}`,
         );
-        await page.goto(tuWenButton.href, {
-          waitUntil: "networkidle",
-          timeout: 30000,
-        });
-      } else {
-        // 如果找不到图文按钮，使用正确的 v2 编辑器 URL（基于截图分析）
-        // URL 格式: /cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&createType=8&token=xxx
-        const editorUrl = token
-          ? `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&createType=8&token=${token}`
-          : `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&createType=8`;
-        this.logger.log(
-          `图文 button not found, trying direct URL: ${editorUrl}`,
+        await page.waitForSelector(photoButtonSelector, { timeout: 10000 });
+
+        // 点击按钮并等待新页面打开
+        this.logger.log("Clicking Photo button and waiting for new tab...");
+        const [newPage] = await Promise.all([
+          context.waitForEvent("page", { timeout: 15000 }),
+          page.click(photoButtonSelector),
+        ]);
+
+        // 等待新页面加载
+        this.logger.log("New tab opened, waiting for it to load...");
+        await newPage.waitForLoadState("networkidle", { timeout: 30000 });
+        editorPage = newPage;
+        this.logger.log(`Editor page URL: ${editorPage.url()}`);
+      } catch (clickError) {
+        // 如果点击失败，尝试备用方案
+        this.logger.warn(
+          `Click approach failed: ${(clickError as Error).message}, trying fallback...`,
         );
-        await page.goto(editorUrl, {
-          waitUntil: "networkidle",
-          timeout: 30000,
-        });
+
+        // 备用方案：尝试直接点击包含 Photo 或 图文 文本的元素
+        try {
+          const fallbackSelectors = [
+            'div:has-text("Photo"):not(:has(div:has-text("Photo")))', // 最内层的 Photo 文本
+            'div:has-text("图文"):not(:has(div:has-text("图文")))',
+            '.new-creation__menu-content:has-text("Photo")',
+            '.new-creation__menu-content:has-text("图文")',
+          ];
+
+          for (const selector of fallbackSelectors) {
+            try {
+              const element = await page.$(selector);
+              if (element) {
+                this.logger.log(
+                  `Found element with selector: ${selector}, clicking...`,
+                );
+                const [newPage] = await Promise.all([
+                  context
+                    .waitForEvent("page", { timeout: 15000 })
+                    .catch(() => null),
+                  element.click(),
+                ]);
+                if (newPage) {
+                  await newPage.waitForLoadState("networkidle", {
+                    timeout: 30000,
+                  });
+                  editorPage = newPage;
+                  this.logger.log(
+                    `Editor page URL (fallback): ${editorPage.url()}`,
+                  );
+                }
+                break;
+              }
+            } catch {
+              continue;
+            }
+          }
+        } catch (fallbackError) {
+          this.logger.error(
+            `Fallback also failed: ${(fallbackError as Error).message}`,
+          );
+        }
       }
 
-      const editPageUrl = page.url();
-      this.logger.log(`Current URL after navigation: ${editPageUrl}`);
+      // 如果仍然没有打开编辑器页面，尝试直接导航（最后手段）
+      const editPageUrl = editorPage.url();
+      if (!editPageUrl.includes("appmsg_edit")) {
+        this.logger.warn(
+          "Editor page not opened via click, trying direct navigation...",
+        );
+        const currentUrl = page.url();
+        const tokenMatch = currentUrl.match(/token=(\d+)/);
+        const token = tokenMatch ? tokenMatch[1] : "";
+
+        if (token) {
+          const editorUrl = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&createType=8&token=${token}`;
+          this.logger.log(`Direct navigation to: ${editorUrl}`);
+          await editorPage.goto(editorUrl, {
+            waitUntil: "networkidle",
+            timeout: 30000,
+          });
+        } else {
+          this.logger.error("No token found, cannot navigate to editor");
+          return {
+            success: false,
+            errorMessage: "无法获取微信公众号 token，请重新连接",
+          };
+        }
+      }
+
+      // 更新 page 引用为编辑器页面
+      page = editorPage;
+      const finalEditorUrl = page.url();
+      this.logger.log(`Current URL after navigation: ${finalEditorUrl}`);
 
       // Step 7: 检查是否成功进入编辑页面
       if (
-        editPageUrl.includes("bizlogin") ||
-        editPageUrl.includes("action=login")
+        finalEditorUrl.includes("bizlogin") ||
+        finalEditorUrl.includes("action=login")
       ) {
         await this.captureDebugInfo(page, "redirected_to_login");
         return {
