@@ -4209,10 +4209,20 @@ I'm ${aiName}, but I cannot generate a real response because no API key is confi
           return { success: false, error: `Unknown provider: ${provider}` };
       }
     } catch (error: any) {
-      this.logger.error(`Failed to fetch models for ${provider}: ${error}`);
-      const errorMessage =
+      // ★ 增强错误日志：显示 API 返回的详细错误信息
+      const apiError =
         error.response?.data?.error?.message ||
         error.response?.data?.message ||
+        error.response?.data?.error ||
+        null;
+      const statusCode = error.response?.status;
+
+      this.logger.error(
+        `Failed to fetch models for ${provider}: status=${statusCode}, apiError=${JSON.stringify(apiError)}, message=${error.message}`,
+      );
+
+      const errorMessage =
+        (typeof apiError === "string" ? apiError : apiError?.message) ||
         error.message ||
         "Unknown error";
       return { success: false, error: errorMessage };
