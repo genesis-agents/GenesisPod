@@ -382,6 +382,7 @@ export class MissionOrchestrator implements IMissionOrchestrator {
 
   /**
    * 使用 LLM 解析意图
+   * ★ 添加 30 秒超时，防止 parse 阶段无限挂起
    */
   private async parseWithLLM(
     input: MissionInput,
@@ -390,6 +391,9 @@ export class MissionOrchestrator implements IMissionOrchestrator {
 
     const adapter = this.llmFactory.getAdapter();
     if (!adapter) return null;
+
+    // ★ 30 秒超时用于 parse 阶段
+    const PARSE_TIMEOUT = 30000;
 
     try {
       const systemPrompt = `你是一个任务分析专家。分析用户输入，提取：
@@ -401,14 +405,22 @@ export class MissionOrchestrator implements IMissionOrchestrator {
 
 以 JSON 格式输出。`;
 
-      const response = await adapter.chat({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: input.prompt },
-        ],
-        model: this.llmFactory.getDefaultModel(),
-        temperature: 0.3,
+      // ★ 使用 Promise.race 强制超时
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("Parse timeout")), PARSE_TIMEOUT);
       });
+
+      const response = await Promise.race([
+        adapter.chat({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: input.prompt },
+          ],
+          model: this.llmFactory.getDefaultModel(),
+          temperature: 0.3,
+        }),
+        timeoutPromise,
+      ]);
 
       // 记录成本
       if (response.usage) {
@@ -524,6 +536,8 @@ export class MissionOrchestrator implements IMissionOrchestrator {
         dependencies: workflowStep.dependsOn,
         estimatedDuration: stepDuration,
         estimatedCost: stepCost,
+        // ★ 包含工作流配置的超时时间，用于强制执行超时
+        timeout: workflowStep.timeout,
       });
     }
 
@@ -618,7 +632,8 @@ export class MissionOrchestrator implements IMissionOrchestrator {
             await this.delegateToMember(team.leader, executor, step, missionId);
           }
 
-          return this.executeStepFull(
+          // ★ 使用超时包装器，防止 LLM 调用无限挂起
+          return this.executeStepWithTimeout(
             step,
             executor,
             missionId,
@@ -693,7 +708,8 @@ export class MissionOrchestrator implements IMissionOrchestrator {
             await this.delegateToMember(team.leader, executor, step, missionId);
           }
 
-          const output = await this.executeStepFull(
+          // ★ 使用超时包装器，防止 LLM 调用无限挂起
+          const output = await this.executeStepWithTimeout(
             step,
             executor,
             missionId,
@@ -796,6 +812,55 @@ export class MissionOrchestrator implements IMissionOrchestrator {
       this.logger.warn(
         `Member ${member.id} rejected task: ${handoffResponse.message}`,
       );
+    }
+  }
+
+  /**
+   * ★ 步骤执行超时包装器
+   * 使用 Promise.race 强制执行超时，防止 LLM 调用无限挂起
+   */
+  private async executeStepWithTimeout(
+    step: ExecutionStep,
+    executor: ITeamMember,
+    missionId: string,
+    state: MissionExecutionState,
+    constraints: ConstraintProfile,
+  ): Promise<StepExecutionResult> {
+    // 获取超时时间：步骤配置 > 默认 60 秒
+    const timeout = step.timeout || 60000;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(
+          new Error(
+            `步骤 "${step.name}" 执行超时 (${timeout / 1000}s)。这可能是因为 AI 模型响应缓慢或网络问题。`,
+          ),
+        );
+      }, timeout);
+    });
+
+    try {
+      // 使用 Promise.race 强制超时
+      return await Promise.race([
+        this.executeStepFull(step, executor, missionId, state, constraints),
+        timeoutPromise,
+      ]);
+    } catch (error) {
+      // 超时或其他错误，返回失败结果（符合 StepExecutionResult 接口）
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `[executeStepWithTimeout] ${step.id} failed: ${errorMessage}`,
+      );
+
+      return {
+        stepId: step.id,
+        executor: executor.id,
+        output: `执行失败: ${errorMessage}`,
+        timestamp: new Date(),
+        tokensUsed: 0,
+        costUsed: 0,
+      };
     }
   }
 

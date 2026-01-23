@@ -75,6 +75,9 @@ export interface ExecutionStep {
   /** 预估成本 */
   estimatedCost: number;
 
+  /** 执行超时（毫秒）- 来自工作流配置 */
+  timeout?: number;
+
   /** 输入参数 */
   input?: Record<string, unknown>;
 }

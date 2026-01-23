@@ -714,7 +714,7 @@ export class AIEngineFacade {
    *
    * ★ 返回 isReasoning 字段，用于判断是否为推理模型（o1/o3/gpt-5 等）
    */
-  async getModelById(modelId: string): Promise<{
+  async getModelById(idOrModelId: string): Promise<{
     id: string;
     modelId: string;
     displayName: string;
@@ -723,7 +723,30 @@ export class AIEngineFacade {
     apiEndpoint?: string;
     isReasoning?: boolean;
   } | null> {
-    const config = await this.aiChatService.getModelConfig(modelId);
+    // ★ 首先尝试按 modelId 查找（如 "imagen-4.0-generate-001"）
+    let config = await this.aiChatService.getModelConfig(idOrModelId);
+
+    // ★ 如果 modelId 查找失败，尝试按数据库 UUID 查找
+    // 前端的模型选择器可能发送的是数据库 UUID 而不是 modelId
+    if (
+      !config &&
+      this.prisma &&
+      idOrModelId.includes("-") &&
+      idOrModelId.length > 30
+    ) {
+      // 看起来像 UUID，尝试直接从数据库查询
+      const dbModel = await this.prisma.aIModel.findFirst({
+        where: {
+          id: idOrModelId,
+          isEnabled: true,
+        },
+      });
+      if (dbModel) {
+        // 使用数据库模型的 modelId 重新获取完整配置
+        config = await this.aiChatService.getModelConfig(dbModel.modelId);
+      }
+    }
+
     if (!config) return null;
     return {
       id: config.id || config.modelId,
