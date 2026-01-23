@@ -110,32 +110,40 @@ export class WechatAdapter {
         `Home page diagnosis: ${JSON.stringify(homeDiagnosis).substring(0, 500)}`,
       );
 
-      // 查找"图文"按钮 - 它在"新的创作"区域，通常是一个带图标的链接
+      // 查找"图文"/"Photo"按钮 - 它在"新的创作"/"New creation"区域
+      // 英文界面: "Photo"
+      // 中文界面: "图文"
       const tuWenButton = await page.evaluate(() => {
-        // 策略1: 查找所有链接，找到精确匹配"图文"的
-        const links = Array.from(document.querySelectorAll("a"));
-        for (const link of links) {
-          const text = link.textContent?.trim() || "";
-          // 精确匹配 "图文"（两个字）
-          if (text === "图文") {
+        // 策略1: 查找所有可点击元素，找到精确匹配"图文"或"Photo"的
+        const allElements = Array.from(
+          document.querySelectorAll(
+            "a, div[cursor], [class*='menu'], [class*='creation']",
+          ),
+        );
+        for (const el of allElements) {
+          const text = el.textContent?.trim() || "";
+          // 精确匹配 "图文"（两个字）或 "Photo"
+          if (text === "图文" || text === "Photo") {
             return {
               found: true,
               text,
-              href: link.href || "",
-              tagName: "A",
+              href: (el as HTMLAnchorElement).href || "",
+              tagName: el.tagName,
               strategy: "exact_match",
             };
           }
         }
 
-        // 策略2: 查找包含"图文"但不包含干扰词的链接
+        // 策略2: 查找包含"图文"或"Photo"的链接
+        const links = Array.from(document.querySelectorAll("a"));
         for (const link of links) {
           const text = link.textContent?.trim() || "";
           if (
-            text.includes("图文") &&
+            (text.includes("图文") || text.includes("Photo")) &&
             !text.includes("选择") &&
             !text.includes("已有") &&
-            text.length < 10
+            !text.includes("Select") &&
+            text.length < 15
           ) {
             return {
               found: true,
@@ -147,7 +155,7 @@ export class WechatAdapter {
           }
         }
 
-        // 策略3: 查找带有appmsg_edit链接的元素
+        // 策略3: 查找带有appmsg_edit链接的元素（type=77 是图文类型）
         for (const link of links) {
           if (
             link.href?.includes("appmsg_edit") &&
@@ -526,24 +534,27 @@ export class WechatAdapter {
       this.logger.log("Looking for title input in new editor...");
 
       const titleSelectors = [
-        // 新版 v2 编辑器选择器 - 基于截图分析
-        // 截图显示标题输入框有 placeholder "请在这里输入标题（选填）"
+        // v2 图文编辑器 - 基于 Playwright 实际访问分析
+        // 英文界面: "Enter title here (optional)"
+        // 中文界面: "请在这里输入标题（选填）"
+        '[placeholder*="Enter title here"]',
+        '[placeholder*="title here"]',
         '[placeholder*="请在这里输入标题"]',
         '[placeholder*="输入标题"]',
         '[placeholder*="标题"]',
-        'input[placeholder*="选填"]',
+        '[placeholder*="optional"]',
+        '[placeholder*="选填"]',
         // weui 组件选择器
         ".weui-desktop-form-input__input",
         ".weui-desktop-form__input",
         "input.weui-desktop-form__input-text",
-        // 通用选择器
+        // 通用选择器 - v2 编辑器的 input
+        'input[type="text"]',
+        "textarea",
+        // 旧版选择器保留兼容
         ".title-input",
         "#js_article_title",
         ".js_title",
-        // 第一个可见的 text input 通常是标题
-        'input[type="text"]:not([hidden])',
-        // contenteditable 元素（标题可能是 contenteditable）
-        '.weui-desktop-form__bd [contenteditable="true"]',
       ];
 
       let titleInput = null;
@@ -742,20 +753,26 @@ export class WechatAdapter {
     });
     this.logger.log(`All buttons on page: ${JSON.stringify(allButtons)}`);
 
-    // 尝试多个保存按钮选择器 - 基于截图，按钮文本是"保存为草稿"
+    // 尝试多个保存按钮选择器 - 基于 Playwright 实际访问分析
+    // 英文界面: "Save as draft"
+    // 中文界面: "保存为草稿"
     const saveSelectors = [
-      // v2 编辑器的保存按钮（基于截图分析）
+      // v2 编辑器的保存按钮 - 英文界面
+      'button:has-text("Save as draft")',
+      'button:has-text("Save draft")',
+      // v2 编辑器的保存按钮 - 中文界面
       'button:has-text("保存为草稿")',
-      'a:has-text("保存为草稿")',
-      '[class*="btn"]:has-text("保存为草稿")',
-      // 通用保存按钮
       'button:has-text("保存草稿")',
       'button:has-text("保存")',
+      // 通用选择器
+      'a:has-text("Save as draft")',
+      'a:has-text("保存为草稿")',
+      '[class*="btn"]:has-text("Save")',
+      '[class*="btn"]:has-text("保存")',
       ".js_save",
       ".weui-desktop-btn_primary",
       ".weui-desktop-btn_default",
       '[class*="save"]',
-      ".tool_bar .preview",
     ];
 
     let saveButton = null;
