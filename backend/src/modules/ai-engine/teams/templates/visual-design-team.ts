@@ -286,7 +286,7 @@ export const VISUAL_DESIGN_WORKFLOW: WorkflowConfig = {
       timeout: 20000, // 20s
     },
   ],
-  timeout: 2 * 60 * 1000, // 2 分钟总超时
+  timeout: 4 * 60 * 1000, // 4 分钟总超时（Parse + Plan + 4 Agent Execution + Deliver）
 };
 
 /**
@@ -340,7 +340,7 @@ export const VISUAL_DESIGN_TEAM_CONFIG: TeamConfig = {
       maxReworks: 0,
     },
     efficiency: {
-      maxDuration: 2 * 60 * 1000, // 2 分钟最大
+      maxDuration: 4 * 60 * 1000, // 4 分钟最大（留足余量给 Parse/Plan/Deliver 阶段）
       priority: "high" as const,
       allowParallel: false,
       maxParallelism: 1,
