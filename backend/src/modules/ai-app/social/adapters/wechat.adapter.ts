@@ -58,8 +58,61 @@ export class WechatAdapter {
 
       // Step 2: 恢复登录会话
       this.logger.log("Restoring session...");
-      await this.playwright.restoreSession(contextId, sessionData);
-      this.logger.log("Session restored successfully");
+
+      // 详细检查 cookies 状态
+      const now = Date.now() / 1000; // 当前时间戳（秒）
+      const validCookies = sessionData.cookies.filter((cookie: any) => {
+        // 检查 cookie 是否过期
+        if (cookie.expires && cookie.expires > 0 && cookie.expires < now) {
+          this.logger.warn(
+            `Cookie expired: ${cookie.name}, expired at: ${new Date(cookie.expires * 1000).toISOString()}`,
+          );
+          return false;
+        }
+        return true;
+      });
+
+      this.logger.log(
+        `Cookie analysis: total=${sessionData.cookies.length}, valid=${validCookies.length}, expired=${sessionData.cookies.length - validCookies.length}`,
+      );
+
+      // 检查关键 cookies 是否存在
+      const keyCookieNames = [
+        "slave_user",
+        "slave_sid",
+        "bizuin",
+        "data_bizuin",
+        "data_ticket",
+      ];
+      const keyCookies = validCookies.filter((c: any) =>
+        keyCookieNames.includes(c.name),
+      );
+      this.logger.log(
+        `Key cookies found: ${keyCookies.map((c: any) => c.name).join(", ") || "none"}`,
+      );
+
+      // 如果所有关键 cookies 都过期了，直接返回错误
+      if (keyCookies.length === 0) {
+        this.logger.error(
+          "All key authentication cookies are missing or expired",
+        );
+        return {
+          success: false,
+          errorMessage:
+            "微信公众号登录已过期（所有认证Cookie已失效），请在连接管理中重新扫码登录",
+        };
+      }
+
+      // 使用有效的 cookies 进行恢复
+      const sessionDataWithValidCookies = {
+        ...sessionData,
+        cookies: validCookies,
+      };
+      await this.playwright.restoreSession(
+        contextId,
+        sessionDataWithValidCookies,
+      );
+      this.logger.log("Session restored with valid cookies");
 
       // Step 3: 创建页面
       this.logger.log("Creating page...");
@@ -73,6 +126,25 @@ export class WechatAdapter {
         timeout: 30000,
       });
       this.logger.log(`Navigation complete, current URL: ${page.url()}`);
+
+      // 验证 cookies 是否被正确设置到浏览器上下文
+      const pageContext = page.context();
+      const browserCookies = await pageContext.cookies();
+      this.logger.log(
+        `Browser context cookies after navigation: ${browserCookies.length}`,
+      );
+      const mpCookies = browserCookies.filter(
+        (c: any) =>
+          c.domain.includes("mp.weixin.qq.com") || c.domain.includes(".qq.com"),
+      );
+      this.logger.log(
+        `WeChat MP related cookies in browser: ${mpCookies.length}`,
+      );
+      if (mpCookies.length > 0) {
+        this.logger.log(
+          `Cookie names in browser: ${mpCookies.map((c: any) => c.name).join(", ")}`,
+        );
+      }
 
       // Step 5: 检查登录状态
       this.logger.log("Checking login status...");
