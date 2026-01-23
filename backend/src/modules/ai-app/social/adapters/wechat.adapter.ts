@@ -472,44 +472,42 @@ export class WechatAdapter {
       `Page body preview: ${pageState.bodyText.substring(0, 200)}`,
     );
 
-    // 微信编辑器 v2 的容器选择器
-    const editorContainerSelectors = [
-      // v2 编辑器容器
-      ".weui-desktop-editor-form",
-      ".weui-desktop-form__bd",
-      ".appmsg_edit_area",
-      ".js_editor_area",
-      "#js_article_content",
-      ".editor-container",
-      ".weui-desktop-editor",
-      // 检查是否有任何表单元素
-      "form",
-      "[class*='editor']",
+    // 等待编辑器加载 - 基于 Playwright 实际访问发现的选择器
+    // 标题输入框是 TEXTAREA，id="title"，class="js_title js_article_title"
+    this.logger.log("Waiting for editor to load...");
+
+    const editorReadySelectors = [
+      "#title", // 标题输入框的 ID
+      ".js_title", // 标题输入框的 class
+      ".js_article_title", // 标题输入框的另一个 class
+      'textarea[placeholder*="title"]', // 通过 placeholder 匹配（英文）
+      'textarea[placeholder*="标题"]', // 通过 placeholder 匹配（中文）
+      "textarea.frm_input", // 通用 class
     ];
 
-    let editorContainerFound = false;
-    for (const selector of editorContainerSelectors) {
+    let editorReady = false;
+    for (const selector of editorReadySelectors) {
       try {
-        const element = await page.$(selector);
-        if (element) {
-          this.logger.log(`Editor container found with selector: ${selector}`);
-          editorContainerFound = true;
-          break;
-        }
+        this.logger.log(`Waiting for editor selector: ${selector}`);
+        await page.waitForSelector(selector, { timeout: 15000 });
+        this.logger.log(`Editor ready - found: ${selector}`);
+        editorReady = true;
+        break;
       } catch {
+        this.logger.log(`Selector ${selector} not found, trying next...`);
         continue;
       }
     }
 
-    if (!editorContainerFound) {
+    if (!editorReady) {
       this.logger.warn(
-        "Could not find editor container, waiting additional 3 seconds...",
+        "Could not find editor with specific selectors, waiting 5 more seconds...",
       );
-      await page.waitForTimeout(3000);
+      await page.waitForTimeout(5000);
     }
 
     // 额外等待确保 UI 完全渲染
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
 
     // 详细诊断页面上的所有输入元素
     const allInputs = await page.evaluate(() => {
@@ -534,27 +532,22 @@ export class WechatAdapter {
       this.logger.log("Looking for title input in new editor...");
 
       const titleSelectors = [
-        // v2 图文编辑器 - 基于 Playwright 实际访问分析
-        // 英文界面: "Enter title here (optional)"
-        // 中文界面: "请在这里输入标题（选填）"
+        // 基于 Playwright 实际访问发现的精确选择器
+        // 标题是 TEXTAREA 元素，id="title"，class="js_title js_article_title frm_input"
+        "#title", // 最精确 - 通过 ID
+        ".js_article_title", // 通过 class
+        ".js_title", // 通过 class
+        "textarea.frm_input", // 通过 class
+        // 通过 placeholder 匹配
+        'textarea[placeholder*="Enter title here"]', // 英文
+        'textarea[placeholder*="title"]', // 英文通用
+        'textarea[placeholder*="标题"]', // 中文
         '[placeholder*="Enter title here"]',
-        '[placeholder*="title here"]',
         '[placeholder*="请在这里输入标题"]',
-        '[placeholder*="输入标题"]',
         '[placeholder*="标题"]',
-        '[placeholder*="optional"]',
-        '[placeholder*="选填"]',
-        // weui 组件选择器
-        ".weui-desktop-form-input__input",
-        ".weui-desktop-form__input",
-        "input.weui-desktop-form__input-text",
-        // 通用选择器 - v2 编辑器的 input
-        'input[type="text"]',
+        // 备用选择器
         "textarea",
-        // 旧版选择器保留兼容
-        ".title-input",
-        "#js_article_title",
-        ".js_title",
+        'input[type="text"]',
       ];
 
       let titleInput = null;
