@@ -109,41 +109,90 @@ export class WechatAdapter {
         };
       }
 
-      // Step 7.5: 如果在列表页，点击"新建图文"按钮进入编辑器
-      const newArticleSelectors = [
-        'a[href*="appmsg_edit_v2"]',
-        'a:has-text("新建图文")',
-        'button:has-text("新建图文")',
-        ".weui-desktop-btn_primary:has-text('新建')",
-        '[class*="create"]:has-text("图文")',
-        "a.js_create_news",
-        ".appmsg_create_btn",
-      ];
+      // Step 7.5: 诊断当前页面结构
+      this.logger.log("Diagnosing page structure...");
+      const pageInfo = await page.evaluate(() => {
+        const allLinks = Array.from(document.querySelectorAll("a")).map(
+          (a) => ({
+            text: a.textContent?.trim().substring(0, 50),
+            href: a.href?.substring(0, 100),
+            className: a.className?.substring(0, 50),
+          }),
+        );
+        const allButtons = Array.from(document.querySelectorAll("button")).map(
+          (b) => ({
+            text: b.textContent?.trim().substring(0, 50),
+            className: b.className?.substring(0, 50),
+          }),
+        );
+        return {
+          linkCount: allLinks.length,
+          buttonCount: allButtons.length,
+          links: allLinks.slice(0, 10),
+          buttons: allButtons.slice(0, 5),
+        };
+      });
+      this.logger.log(
+        `Page has ${pageInfo.linkCount} links, ${pageInfo.buttonCount} buttons`,
+      );
+      this.logger.log(`Sample links: ${JSON.stringify(pageInfo.links)}`);
+      this.logger.log(`Sample buttons: ${JSON.stringify(pageInfo.buttons)}`);
 
+      // Step 7.6: 查找并点击"新建图文"按钮
       let clickedNewArticle = false;
-      for (const selector of newArticleSelectors) {
-        try {
-          const btn = await page.$(selector);
-          if (btn) {
-            this.logger.log(
-              `Found new article button with selector: ${selector}`,
-            );
-            await btn.click();
+
+      // 方法1: 通过文本内容查找链接
+      const newArticleLink = await page.evaluate(() => {
+        const links = Array.from(document.querySelectorAll("a"));
+        for (const link of links) {
+          const text = link.textContent?.trim() || "";
+          if (
+            text.includes("新建图文") ||
+            text.includes("新建") ||
+            text.includes("写图文") ||
+            text.includes("创建图文")
+          ) {
+            return {
+              found: true,
+              text,
+              href: link.href,
+              id: link.id,
+              className: link.className,
+            };
+          }
+        }
+        return { found: false };
+      });
+
+      if (newArticleLink.found) {
+        this.logger.log(
+          `Found new article link via text: "${newArticleLink.text}", href: ${newArticleLink.href}`,
+        );
+        // 直接导航到链接
+        if (newArticleLink.href && newArticleLink.href.includes("appmsg")) {
+          await page.goto(newArticleLink.href, {
+            waitUntil: "networkidle",
+            timeout: 30000,
+          });
+          clickedNewArticle = true;
+          this.logger.log("Navigated to new article page");
+        } else {
+          // 尝试点击
+          const linkElement = await page.$(
+            `a:has-text("${newArticleLink.text}")`,
+          );
+          if (linkElement) {
+            await linkElement.click();
             await page.waitForLoadState("networkidle");
             clickedNewArticle = true;
-            this.logger.log(
-              "Clicked new article button, waiting for editor...",
-            );
-            break;
+            this.logger.log("Clicked new article link");
           }
-        } catch {
-          continue;
         }
       }
 
       if (!clickedNewArticle) {
         this.logger.log(
-          "No new article button found, assuming already in editor",
+          "No new article button found, will try to use current page as editor",
         );
       }
 
