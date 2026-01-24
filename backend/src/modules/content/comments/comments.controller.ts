@@ -9,6 +9,7 @@ import {
   Request,
   UseGuards,
   UnauthorizedException,
+  HttpCode,
 } from "@nestjs/common";
 import { CommentsService } from "./comments.service";
 import { CreateCommentDto, UpdateCommentDto } from "./dto";
@@ -36,6 +37,7 @@ export class CommentsController {
    * 创建评论
    */
   @Post()
+  @HttpCode(201)
   @UseGuards(JwtAuthGuard)
   async createComment(@Request() req: any, @Body() dto: CreateCommentDto) {
     const userId = req.user?.id;

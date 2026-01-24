@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
   UnauthorizedException,
+  HttpCode,
 } from "@nestjs/common";
 import { NotesService } from "./notes.service";
 import { CreateNoteDto, UpdateNoteDto, AddHighlightDto } from "./dto";
@@ -42,8 +43,12 @@ export class NotesController {
    * 创建笔记
    */
   @Post()
+  @HttpCode(201)
   @UseGuards(JwtAuthGuard)
-  async createNote(@Request() req: RequestWithUser, @Body() dto: CreateNoteDto) {
+  async createNote(
+    @Request() req: RequestWithUser,
+    @Body() dto: CreateNoteDto,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -67,7 +72,12 @@ export class NotesController {
       throw new UnauthorizedException("User not authenticated");
     }
     const pagination = parsePagination(skip, take);
-    return this.notesService.getUserNotes(userId, pagination.skip, pagination.take, source);
+    return this.notesService.getUserNotes(
+      userId,
+      pagination.skip,
+      pagination.take,
+      source,
+    );
   }
 
   /**
@@ -128,7 +138,10 @@ export class NotesController {
    */
   @Post(":id/bookmark")
   @UseGuards(JwtAuthGuard)
-  async toggleBookmark(@Param("id") id: string, @Request() req: RequestWithUser) {
+  async toggleBookmark(
+    @Param("id") id: string,
+    @Request() req: RequestWithUser,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");

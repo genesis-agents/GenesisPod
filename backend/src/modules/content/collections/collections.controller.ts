@@ -10,6 +10,7 @@ import {
   Request,
   UseGuards,
   UnauthorizedException,
+  HttpCode,
 } from "@nestjs/common";
 import { CollectionsService } from "./collections.service";
 import {
@@ -42,6 +43,7 @@ export class CollectionsController {
    * 创建收藏集（需要认证）
    */
   @Post()
+  @HttpCode(201)
   @UseGuards(JwtAuthGuard)
   async createCollection(
     @Request() req: RequestWithUser,
@@ -71,7 +73,10 @@ export class CollectionsController {
    */
   @Get(":id")
   @UseGuards(OptionalJwtAuthGuard)
-  async getCollection(@Param("id") id: string, @Request() req: RequestWithUser) {
+  async getCollection(
+    @Param("id") id: string,
+    @Request() req: RequestWithUser,
+  ) {
     const userId = req.user?.id;
     return this.collectionsService.getCollection(id, userId);
   }
@@ -97,7 +102,10 @@ export class CollectionsController {
    */
   @Delete(":id")
   @UseGuards(JwtAuthGuard)
-  async deleteCollection(@Param("id") id: string, @Request() req: RequestWithUser) {
+  async deleteCollection(
+    @Param("id") id: string,
+    @Request() req: RequestWithUser,
+  ) {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
     }
@@ -108,6 +116,7 @@ export class CollectionsController {
    * 添加资源到收藏集（需要认证）
    */
   @Post(":id/items")
+  @HttpCode(201)
   @UseGuards(JwtAuthGuard)
   async addToCollection(
     @Param("id") id: string,
@@ -263,7 +272,10 @@ export class CollectionsController {
    */
   @Post("items/batch/move")
   @UseGuards(JwtAuthGuard)
-  async batchMoveItems(@Request() req: RequestWithUser, @Body() dto: BatchMoveItemsDto) {
+  async batchMoveItems(
+    @Request() req: RequestWithUser,
+    @Body() dto: BatchMoveItemsDto,
+  ) {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
     }
@@ -290,7 +302,10 @@ export class CollectionsController {
    */
   @Post("items/batch/tags")
   @UseGuards(JwtAuthGuard)
-  async batchUpdateTags(@Request() req: RequestWithUser, @Body() dto: BatchUpdateTagsDto) {
+  async batchUpdateTags(
+    @Request() req: RequestWithUser,
+    @Body() dto: BatchUpdateTagsDto,
+  ) {
     if (!req.user?.id) {
       throw new UnauthorizedException("User authentication required");
     }
