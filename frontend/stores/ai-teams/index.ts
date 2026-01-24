@@ -35,15 +35,16 @@ interface AiGroupState
   resetStore: () => void;
 }
 
-export const useAiGroupStore = create<AiGroupState>()((set, get) => {
-  const storeApi = { setState: set, getState: get };
-  const topicsSlice = createTopicsSlice(set, get, storeApi);
-  const messagesSlice = createMessagesSlice(set, get, storeApi);
-  const missionsSlice = createMissionsSlice(set, get, storeApi);
-  const websocketSlice = createWebSocketSlice(set, get, storeApi);
+export const useAiGroupStore = create<AiGroupState>()((set, get, api) => {
+  const topicsSlice = createTopicsSlice(set, get, api as any);
+  const messagesSlice = createMessagesSlice(set, get, api as any);
+  const missionsSlice = createMissionsSlice(set, get, api as any);
+  const websocketSlice = createWebSocketSlice(set, get, api as any);
 
   // Setup WebSocket event listeners
-  const setupWebSocketListeners = (socket: import('socket.io-client').Socket | null) => {
+  const setupWebSocketListeners = (
+    socket: import('socket.io-client').Socket | null
+  ) => {
     if (!socket) return;
 
     // Message events

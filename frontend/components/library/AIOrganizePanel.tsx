@@ -52,13 +52,62 @@ type TaskType =
   | 'images-cluster';
 type TaskStatus = 'idle' | 'running' | 'success' | 'error';
 
+interface KeyPoint {
+  insight?: string;
+  title?: string;
+  point?: string;
+  source?: string;
+}
+
+interface Connection {
+  from: string;
+  to: string;
+  reasoning: string;
+  note1Title?: string;
+  note2Title?: string;
+  noteIds?: string[];
+  note1?: string;
+  note2?: string;
+  relationship?: string;
+  reason?: string;
+  description?: string;
+  theme?: string;
+  strength?: 'strong' | 'moderate' | 'weak';
+}
+
+interface ImageTag {
+  id: string;
+  tags: string[];
+  prompt?: string;
+  title?: string;
+}
+
+interface Style {
+  style: string;
+  count: number;
+  name?: string;
+  description?: string;
+  colors?: string[];
+}
+
+interface Cluster {
+  name: string;
+  count: number;
+  theme?: string;
+  description?: string;
+  keywords?: string[];
+  images?: unknown[];
+}
+
 interface TaskResults {
-  clusters?: Array<{ name: string; count: number }>;
+  clusters?: Cluster[];
   suggestions?: Array<{ resourceTitle: string; suggestedCollection: string }>;
-  points?: Array<{ point: string; resourceIds: string[] }>;
-  connections?: Array<{ from: string; to: string; reasoning: string }>;
-  images?: Array<{ id: string; tags: string[] }>;
-  styles?: Array<{ style: string; count: number }>;
+  keyPoints?: Array<KeyPoint | string>;
+  connections?: Connection[];
+  images?: ImageTag[];
+  styles?: Style[];
+  summary?: string;
+  topics?: string[];
   [key: string]: unknown;
 }
 
@@ -238,7 +287,8 @@ export default function AIOrganizePanel({
     } catch (err: unknown) {
       updateTaskState('theme-cluster', {
         status: 'error',
-        message: err instanceof Error ? err.message : 'Failed to analyze themes',
+        message:
+          err instanceof Error ? err.message : 'Failed to analyze themes',
       });
     }
   };
@@ -278,7 +328,8 @@ export default function AIOrganizePanel({
     } catch (err: unknown) {
       updateTaskState('notes-keypoints', {
         status: 'error',
-        message: err instanceof Error ? err.message : 'Failed to extract key points',
+        message:
+          err instanceof Error ? err.message : 'Failed to extract key points',
       });
     }
   };
@@ -315,7 +366,8 @@ export default function AIOrganizePanel({
     } catch (err: unknown) {
       updateTaskState('notes-connections', {
         status: 'error',
-        message: err instanceof Error ? err.message : 'Failed to analyze connections',
+        message:
+          err instanceof Error ? err.message : 'Failed to analyze connections',
       });
     }
   };
@@ -352,7 +404,8 @@ export default function AIOrganizePanel({
     } catch (err: unknown) {
       updateTaskState('notes-summarize', {
         status: 'error',
-        message: err instanceof Error ? err.message : 'Failed to summarize notes',
+        message:
+          err instanceof Error ? err.message : 'Failed to summarize notes',
       });
     }
   };
@@ -392,7 +445,8 @@ export default function AIOrganizePanel({
     } catch (err: unknown) {
       updateTaskState('images-autotag', {
         status: 'error',
-        message: err instanceof Error ? err.message : 'Failed to auto-tag images',
+        message:
+          err instanceof Error ? err.message : 'Failed to auto-tag images',
       });
     }
   };
@@ -429,7 +483,8 @@ export default function AIOrganizePanel({
     } catch (err: unknown) {
       updateTaskState('images-style', {
         status: 'error',
-        message: err instanceof Error ? err.message : 'Failed to analyze styles',
+        message:
+          err instanceof Error ? err.message : 'Failed to analyze styles',
       });
     }
   };
@@ -466,7 +521,8 @@ export default function AIOrganizePanel({
     } catch (err: unknown) {
       updateTaskState('images-cluster', {
         status: 'error',
-        message: err instanceof Error ? err.message : 'Failed to cluster themes',
+        message:
+          err instanceof Error ? err.message : 'Failed to cluster themes',
       });
     }
   };
@@ -1180,7 +1236,8 @@ export default function AIOrganizePanel({
             <>
               {/* Results Display */}
               {taskStates['theme-cluster'].status === 'success' &&
-                taskStates['theme-cluster'].results?.clusters?.length > 0 && (
+                taskStates['theme-cluster'].results?.clusters &&
+                taskStates['theme-cluster'].results.clusters.length > 0 && (
                   <div className="mt-4 rounded-lg border border-purple-100 bg-purple-50/50 p-4">
                     <h4 className="mb-2 font-medium text-purple-900">
                       Discovered Themes
@@ -1201,8 +1258,8 @@ export default function AIOrganizePanel({
                 )}
 
               {taskStates['smart-classify'].status === 'success' &&
-                taskStates['smart-classify'].results?.suggestions?.length >
-                  0 && (
+                taskStates['smart-classify'].results?.suggestions &&
+                taskStates['smart-classify'].results.suggestions.length > 0 && (
                   <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50/50 p-4">
                     <h4 className="mb-2 font-medium text-blue-900">
                       Classification Suggestions
@@ -1284,30 +1341,40 @@ export default function AIOrganizePanel({
               {/* Notes Key Points */}
               {resultsModal === 'notes-keypoints' && (
                 <div className="space-y-4">
-                  {taskStates[resultsModal].results.keyPoints?.length > 0 ? (
+                  {taskStates[resultsModal].results?.keyPoints &&
+                  taskStates[resultsModal].results.keyPoints.length > 0 ? (
                     taskStates[resultsModal].results.keyPoints.map(
-                      (point, index: number) => (
-                        <div
-                          key={index}
-                          className="rounded-lg border border-green-100 bg-green-50 p-4"
-                        >
-                          <div className="mb-2 flex items-start gap-2">
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-500 text-xs font-bold text-white">
-                              {index + 1}
-                            </span>
-                            <div className="flex-1">
-                              <p className="font-medium text-green-900">
-                                {point.insight || point.title || point}
-                              </p>
-                              {point.source && (
-                                <p className="mt-1 text-xs text-green-600">
-                                  Source / 来源: {point.source}
+                      (point: KeyPoint | string, index: number) => {
+                        const pointText =
+                          typeof point === 'string'
+                            ? point
+                            : point.insight || point.title || point.point || '';
+                        const source =
+                          typeof point === 'object' ? point.source : undefined;
+
+                        return (
+                          <div
+                            key={index}
+                            className="rounded-lg border border-green-100 bg-green-50 p-4"
+                          >
+                            <div className="mb-2 flex items-start gap-2">
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-500 text-xs font-bold text-white">
+                                {index + 1}
+                              </span>
+                              <div className="flex-1">
+                                <p className="font-medium text-green-900">
+                                  {pointText}
                                 </p>
-                              )}
+                                {source && (
+                                  <p className="mt-1 text-xs text-green-600">
+                                    Source / 来源: {source}
+                                  </p>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )
+                        );
+                      }
                     )
                   ) : (
                     <p className="text-center text-gray-500">
@@ -1320,9 +1387,10 @@ export default function AIOrganizePanel({
               {/* Notes Connections */}
               {resultsModal === 'notes-connections' && (
                 <div className="space-y-4">
-                  {taskStates[resultsModal].results.connections?.length > 0 ? (
+                  {taskStates[resultsModal].results?.connections &&
+                  taskStates[resultsModal].results.connections.length > 0 ? (
                     taskStates[resultsModal].results.connections.map(
-                      (conn, index: number) => {
+                      (conn: Connection, index: number) => {
                         // 优先使用带标题的字段，fallback到ID
                         const note1Display =
                           conn.note1Title ||
@@ -1423,30 +1491,34 @@ export default function AIOrganizePanel({
               {/* Notes Summary */}
               {resultsModal === 'notes-summarize' && (
                 <div className="space-y-4">
-                  {taskStates[resultsModal].results.summary ? (
+                  {taskStates[resultsModal].results?.summary ? (
                     <div className="rounded-lg border border-teal-100 bg-teal-50 p-4">
                       <p className="whitespace-pre-wrap leading-relaxed text-teal-900">
                         {taskStates[resultsModal].results.summary}
                       </p>
-                      {taskStates[resultsModal].results.topics && (
-                        <div className="mt-4 border-t border-teal-200 pt-3">
-                          <p className="mb-2 text-xs font-medium text-teal-700">
-                            Main Topics / 主要主题:
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {taskStates[resultsModal].results.topics.map(
-                              (topic: string, i: number) => (
-                                <span
-                                  key={i}
-                                  className="rounded-full bg-teal-200 px-3 py-1 text-xs text-teal-800"
-                                >
-                                  {topic}
-                                </span>
-                              )
-                            )}
+                      {taskStates[resultsModal].results.topics &&
+                        Array.isArray(
+                          taskStates[resultsModal].results.topics
+                        ) &&
+                        taskStates[resultsModal].results.topics.length > 0 && (
+                          <div className="mt-4 border-t border-teal-200 pt-3">
+                            <p className="mb-2 text-xs font-medium text-teal-700">
+                              Main Topics / 主要主题:
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {taskStates[resultsModal].results.topics.map(
+                                (topic: string, i: number) => (
+                                  <span
+                                    key={i}
+                                    className="rounded-full bg-teal-200 px-3 py-1 text-xs text-teal-800"
+                                  >
+                                    {topic}
+                                  </span>
+                                )
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                     </div>
                   ) : (
                     <p className="text-center text-gray-500">
@@ -1459,9 +1531,10 @@ export default function AIOrganizePanel({
               {/* Images Auto Tag */}
               {resultsModal === 'images-autotag' && (
                 <div className="space-y-4">
-                  {taskStates[resultsModal].results.images?.length > 0 ? (
+                  {taskStates[resultsModal].results?.images &&
+                  taskStates[resultsModal].results.images.length > 0 ? (
                     taskStates[resultsModal].results.images.map(
-                      (img, index: number) => (
+                      (img: ImageTag, index: number) => (
                         <div
                           key={index}
                           className="rounded-lg border border-pink-100 bg-pink-50 p-4"
@@ -1496,9 +1569,10 @@ export default function AIOrganizePanel({
               {/* Images Style Analysis */}
               {resultsModal === 'images-style' && (
                 <div className="space-y-4">
-                  {taskStates[resultsModal].results.styles?.length > 0 ? (
+                  {taskStates[resultsModal].results?.styles &&
+                  taskStates[resultsModal].results.styles.length > 0 ? (
                     taskStates[resultsModal].results.styles.map(
-                      (style, index: number) => (
+                      (style: Style, index: number) => (
                         <div
                           key={index}
                           className="rounded-lg border border-rose-100 bg-rose-50 p-4"
@@ -1544,9 +1618,10 @@ export default function AIOrganizePanel({
               {/* Images Visual Clusters */}
               {resultsModal === 'images-cluster' && (
                 <div className="space-y-4">
-                  {taskStates[resultsModal].results.clusters?.length > 0 ? (
+                  {taskStates[resultsModal].results?.clusters &&
+                  taskStates[resultsModal].results.clusters.length > 0 ? (
                     taskStates[resultsModal].results.clusters.map(
-                      (cluster, index: number) => (
+                      (cluster: Cluster, index: number) => (
                         <div
                           key={index}
                           className="rounded-lg border border-fuchsia-100 bg-fuchsia-50 p-4"

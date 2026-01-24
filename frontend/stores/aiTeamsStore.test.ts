@@ -2,7 +2,12 @@ import { act, renderHook } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { useAiGroupStore } from './aiTeamsStore';
 import * as api from '@/lib/api/ai-teams';
-import { TopicResourceType } from '@/types/ai-teams';
+import {
+  TopicResourceType,
+  TopicType,
+  MessageContentType,
+  MissionStatus,
+} from '@/types/ai-teams';
 
 // Mock the API module
 vi.mock('@/lib/api/ai-teams');
@@ -43,17 +48,47 @@ describe('aiTeamsStore', () => {
         id: 'topic-1',
         name: 'Test Topic 1',
         description: 'Description 1',
+        type: TopicType.PUBLIC,
+        avatar: null,
+        createdById: 'user-1',
+        createdBy: {
+          id: 'user-1',
+          username: 'testuser',
+          fullName: 'Test User',
+          avatarUrl: null,
+        },
+        settings: null,
+        metadata: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        creatorId: 'user-1',
+        archivedAt: null,
+        members: [],
+        aiMembers: [],
+        memberCount: 0,
+        aiMemberCount: 0,
       },
       {
         id: 'topic-2',
         name: 'Test Topic 2',
         description: 'Description 2',
+        type: TopicType.PUBLIC,
+        avatar: null,
+        createdById: 'user-1',
+        createdBy: {
+          id: 'user-1',
+          username: 'testuser',
+          fullName: 'Test User',
+          avatarUrl: null,
+        },
+        settings: null,
+        metadata: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        creatorId: 'user-1',
+        archivedAt: null,
+        members: [],
+        aiMembers: [],
+        memberCount: 0,
+        aiMemberCount: 0,
       },
     ];
 
@@ -89,9 +124,24 @@ describe('aiTeamsStore', () => {
         id: 'topic-3',
         name: 'New Topic',
         description: 'New description',
+        type: TopicType.PUBLIC,
+        avatar: null,
+        createdById: 'user-1',
+        createdBy: {
+          id: 'user-1',
+          username: 'testuser',
+          fullName: 'Test User',
+          avatarUrl: null,
+        },
+        settings: null,
+        metadata: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        creatorId: 'user-1',
+        archivedAt: null,
+        members: [],
+        aiMembers: [],
+        memberCount: 0,
+        aiMemberCount: 0,
       };
       mockApi.createTopic.mockResolvedValue(newTopic);
 
@@ -113,6 +163,24 @@ describe('aiTeamsStore', () => {
         id: 'topic-1',
         name: 'Updated Topic',
         description: 'Updated description',
+        type: TopicType.PUBLIC,
+        avatar: null,
+        createdById: 'user-1',
+        createdBy: {
+          id: 'user-1',
+          username: 'testuser',
+          fullName: 'Test User',
+          avatarUrl: null,
+        },
+        settings: null,
+        metadata: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        archivedAt: null,
+        members: [],
+        aiMembers: [],
+        memberCount: 0,
+        aiMemberCount: 0,
       };
       mockApi.updateTopic.mockResolvedValue(updatedTopic);
 
@@ -124,6 +192,24 @@ describe('aiTeamsStore', () => {
           id: 'topic-1',
           name: 'Original Topic',
           description: 'Original description',
+          type: TopicType.PUBLIC,
+          avatar: null,
+          createdById: 'user-1',
+          createdBy: {
+            id: 'user-1',
+            username: 'testuser',
+            fullName: 'Test User',
+            avatarUrl: null,
+          },
+          settings: null,
+          metadata: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          archivedAt: null,
+          members: [],
+          aiMembers: [],
+          memberCount: 0,
+          aiMemberCount: 0,
         });
       });
 
@@ -139,7 +225,29 @@ describe('aiTeamsStore', () => {
     it('should delete a topic', async () => {
       mockApi.deleteTopic.mockResolvedValue(undefined);
       mockApi.getTopics.mockResolvedValue([
-        { id: 'topic-1', name: 'Topic 1' },
+        {
+          id: 'topic-1',
+          name: 'Topic 1',
+          description: null,
+          type: TopicType.PUBLIC,
+          avatar: null,
+          createdById: 'user-1',
+          createdBy: {
+            id: 'user-1',
+            username: 'testuser',
+            fullName: 'Test User',
+            avatarUrl: null,
+          },
+          settings: null,
+          metadata: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          archivedAt: null,
+          members: [],
+          aiMembers: [],
+          memberCount: 0,
+          aiMemberCount: 0,
+        },
       ]);
 
       const { result } = renderHook(() => useAiGroupStore());
@@ -162,6 +270,25 @@ describe('aiTeamsStore', () => {
       const topic = {
         id: 'topic-1',
         name: 'Test Topic',
+        description: null,
+        type: TopicType.PUBLIC,
+        avatar: null,
+        createdById: 'user-1',
+        createdBy: {
+          id: 'user-1',
+          username: 'testuser',
+          fullName: 'Test User',
+          avatarUrl: null,
+        },
+        settings: null,
+        metadata: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        archivedAt: null,
+        members: [],
+        aiMembers: [],
+        memberCount: 0,
+        aiMemberCount: 0,
       };
 
       const { result } = renderHook(() => useAiGroupStore());
@@ -182,14 +309,52 @@ describe('aiTeamsStore', () => {
           content: 'Hello',
           topicId: 'topic-1',
           senderId: 'user-1',
+          sender: {
+            id: 'user-1',
+            username: 'testuser',
+            fullName: 'Test User',
+            avatarUrl: null,
+          },
+          aiMemberId: null,
+          aiMember: null,
+          contentType: MessageContentType.TEXT,
+          prompt: null,
+          modelUsed: null,
+          tokensUsed: null,
+          replyToId: null,
+          replyTo: null,
+          mentions: [],
+          attachments: [],
+          reactions: [],
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          deletedAt: null,
         },
         {
           id: 'msg-2',
           content: 'World',
           topicId: 'topic-1',
           senderId: 'user-2',
+          sender: {
+            id: 'user-2',
+            username: 'testuser2',
+            fullName: 'Test User 2',
+            avatarUrl: null,
+          },
+          aiMemberId: null,
+          aiMember: null,
+          contentType: MessageContentType.TEXT,
+          prompt: null,
+          modelUsed: null,
+          tokensUsed: null,
+          replyToId: null,
+          replyTo: null,
+          mentions: [],
+          attachments: [],
+          reactions: [],
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          deletedAt: null,
         },
       ],
       hasMore: false,
@@ -212,12 +377,66 @@ describe('aiTeamsStore', () => {
 
     it('should append messages when cursor is provided', async () => {
       const initialResponse = {
-        messages: [{ id: 'msg-1', content: 'First' }],
+        messages: [
+          {
+            id: 'msg-1',
+            content: 'First',
+            topicId: 'topic-1',
+            senderId: 'user-1',
+            sender: {
+              id: 'user-1',
+              username: 'testuser',
+              fullName: 'Test User',
+              avatarUrl: null,
+            },
+            aiMemberId: null,
+            aiMember: null,
+            contentType: MessageContentType.TEXT,
+            prompt: null,
+            modelUsed: null,
+            tokensUsed: null,
+            replyToId: null,
+            replyTo: null,
+            mentions: [],
+            attachments: [],
+            reactions: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            deletedAt: null,
+          },
+        ],
         hasMore: true,
         nextCursor: 'cursor-1',
       };
       const appendResponse = {
-        messages: [{ id: 'msg-2', content: 'Second' }],
+        messages: [
+          {
+            id: 'msg-2',
+            content: 'Second',
+            topicId: 'topic-1',
+            senderId: 'user-1',
+            sender: {
+              id: 'user-1',
+              username: 'testuser',
+              fullName: 'Test User',
+              avatarUrl: null,
+            },
+            aiMemberId: null,
+            aiMember: null,
+            contentType: MessageContentType.TEXT,
+            prompt: null,
+            modelUsed: null,
+            tokensUsed: null,
+            replyToId: null,
+            replyTo: null,
+            mentions: [],
+            attachments: [],
+            reactions: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            deletedAt: null,
+          },
+        ],
         hasMore: false,
         nextCursor: null,
       };
@@ -247,6 +466,26 @@ describe('aiTeamsStore', () => {
         content: 'New message',
         topicId: 'topic-1',
         senderId: 'user-1',
+        sender: {
+          id: 'user-1',
+          username: 'testuser',
+          fullName: 'Test User',
+          avatarUrl: null,
+        },
+        aiMemberId: null,
+        aiMember: null,
+        contentType: MessageContentType.TEXT,
+        prompt: null,
+        modelUsed: null,
+        tokensUsed: null,
+        replyToId: null,
+        replyTo: null,
+        mentions: [],
+        attachments: [],
+        reactions: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        deletedAt: null,
       };
       mockApi.sendMessage.mockResolvedValue(newMessage);
 
@@ -264,7 +503,34 @@ describe('aiTeamsStore', () => {
     it('should delete a message', async () => {
       mockApi.deleteMessage.mockResolvedValue(undefined);
       mockApi.getMessages.mockResolvedValue({
-        messages: [{ id: 'msg-1', content: 'Hello' }],
+        messages: [
+          {
+            id: 'msg-1',
+            content: 'Hello',
+            topicId: 'topic-1',
+            senderId: 'user-1',
+            sender: {
+              id: 'user-1',
+              username: 'testuser',
+              fullName: 'Test User',
+              avatarUrl: null,
+            },
+            aiMemberId: null,
+            aiMember: null,
+            contentType: MessageContentType.TEXT,
+            prompt: null,
+            modelUsed: null,
+            tokensUsed: null,
+            replyToId: null,
+            replyTo: null,
+            mentions: [],
+            attachments: [],
+            reactions: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            deletedAt: null,
+          },
+        ],
         hasMore: false,
         nextCursor: null,
       });
@@ -303,10 +569,22 @@ describe('aiTeamsStore', () => {
     const mockResources = [
       {
         id: 'resource-1',
-        resourceId: 'res-1',
-        url: 'https://example.com/1',
         topicId: 'topic-1',
-        addedAt: new Date().toISOString(),
+        type: TopicResourceType.LINK,
+        name: 'Test Resource',
+        url: 'https://example.com/1',
+        resourceId: 'res-1',
+        fileUrl: null,
+        fileSize: null,
+        mimeType: null,
+        sourceMessageId: null,
+        addedById: 'user-1',
+        addedBy: {
+          id: 'user-1',
+          username: 'testuser',
+          fullName: 'Test User',
+        },
+        createdAt: new Date().toISOString(),
       },
     ];
 
@@ -327,10 +605,22 @@ describe('aiTeamsStore', () => {
     it('should add a resource', async () => {
       const newResource = {
         id: 'resource-2',
-        resourceId: 'res-2',
-        url: 'https://example.com/new',
         topicId: 'topic-1',
-        addedAt: new Date().toISOString(),
+        type: TopicResourceType.LINK,
+        name: 'Test Resource',
+        url: 'https://example.com/new',
+        resourceId: 'res-2',
+        fileUrl: null,
+        fileSize: null,
+        mimeType: null,
+        sourceMessageId: null,
+        addedById: 'user-1',
+        addedBy: {
+          id: 'user-1',
+          username: 'testuser',
+          fullName: 'Test User',
+        },
+        createdAt: new Date().toISOString(),
       };
       mockApi.addResource.mockResolvedValue(newResource);
 
@@ -351,7 +641,25 @@ describe('aiTeamsStore', () => {
     it('should remove a resource', async () => {
       mockApi.removeResource.mockResolvedValue(undefined);
       mockApi.getResources.mockResolvedValue([
-        { id: 'resource-1', resourceId: 'res-1' },
+        {
+          id: 'resource-1',
+          topicId: 'topic-1',
+          type: TopicResourceType.LINK,
+          name: 'Test Resource',
+          url: 'https://example.com/1',
+          resourceId: 'res-1',
+          fileUrl: null,
+          fileSize: null,
+          mimeType: null,
+          sourceMessageId: null,
+          addedById: 'user-1',
+          addedBy: {
+            id: 'user-1',
+            username: 'testuser',
+            fullName: 'Test User',
+          },
+          createdAt: new Date().toISOString(),
+        },
       ]);
 
       const { result } = renderHook(() => useAiGroupStore());
@@ -372,15 +680,43 @@ describe('aiTeamsStore', () => {
   });
 
   describe('Team Missions', () => {
-    const mockMissions = [
-      {
-        id: 'mission-1',
-        title: 'Test Mission',
-        status: 'PENDING',
-        topicId: 'topic-1',
-        leaderId: 'ai-1',
-      },
-    ];
+    const mockMissions = {
+      missions: [
+        {
+          id: 'mission-1',
+          topicId: 'topic-1',
+          title: 'Test Mission',
+          description: 'Test description',
+          objectives: [],
+          constraints: [],
+          deliverables: [],
+          status: MissionStatus.PENDING,
+          leaderId: 'ai-1',
+          leader: {
+            id: 'ai-1',
+            displayName: 'AI Leader',
+            agentName: 'Leader',
+            avatar: null,
+            aiModel: 'gpt-4',
+          },
+          totalTasks: 0,
+          completedTasks: 0,
+          progressPercent: 0,
+          createdById: 'user-1',
+          createdBy: {
+            id: 'user-1',
+            username: 'testuser',
+            fullName: 'Test User',
+          },
+          createdAt: new Date().toISOString(),
+          startedAt: null,
+          completedAt: null,
+          finalResult: null,
+          summary: null,
+        },
+      ],
+      total: 1,
+    };
 
     it('should fetch missions successfully', async () => {
       mockApi.getMissions.mockResolvedValue(mockMissions);
@@ -399,10 +735,35 @@ describe('aiTeamsStore', () => {
     it('should create a mission', async () => {
       const newMission = {
         id: 'mission-2',
-        title: 'New Mission',
-        status: 'PENDING',
         topicId: 'topic-1',
+        title: 'New Mission',
+        description: 'Test description',
+        objectives: [],
+        constraints: [],
+        deliverables: [],
+        status: MissionStatus.PENDING,
         leaderId: 'ai-1',
+        leader: {
+          id: 'ai-1',
+          displayName: 'AI Leader',
+          agentName: 'Leader',
+          avatar: null,
+          aiModel: 'gpt-4',
+        },
+        totalTasks: 0,
+        completedTasks: 0,
+        progressPercent: 0,
+        createdById: 'user-1',
+        createdBy: {
+          id: 'user-1',
+          username: 'testuser',
+          fullName: 'Test User',
+        },
+        createdAt: new Date().toISOString(),
+        startedAt: null,
+        completedAt: null,
+        finalResult: null,
+        summary: null,
       };
       mockApi.createMission.mockResolvedValue(newMission);
 
@@ -423,13 +784,74 @@ describe('aiTeamsStore', () => {
     it('should cancel a mission', async () => {
       const cancelledMission = {
         id: 'mission-1',
+        topicId: 'topic-1',
         title: 'Test Mission',
-        status: 'CANCELLED',
+        description: 'Test description',
+        objectives: [],
+        constraints: [],
+        deliverables: [],
+        status: MissionStatus.CANCELLED,
+        leaderId: 'ai-1',
+        leader: {
+          id: 'ai-1',
+          displayName: 'AI Leader',
+          agentName: 'Leader',
+          avatar: null,
+          aiModel: 'gpt-4',
+        },
+        totalTasks: 0,
+        completedTasks: 0,
+        progressPercent: 0,
+        createdById: 'user-1',
+        createdBy: {
+          id: 'user-1',
+          username: 'testuser',
+          fullName: 'Test User',
+        },
+        createdAt: new Date().toISOString(),
+        startedAt: null,
+        completedAt: null,
+        finalResult: null,
+        summary: null,
       };
       mockApi.cancelMission.mockResolvedValue(cancelledMission);
-      mockApi.getMissions.mockResolvedValue([
-        { id: 'mission-1', title: 'Test Mission', status: 'PENDING' },
-      ]);
+      mockApi.getMissions.mockResolvedValue({
+        missions: [
+          {
+            id: 'mission-1',
+            topicId: 'topic-1',
+            title: 'Test Mission',
+            description: 'Test description',
+            objectives: [],
+            constraints: [],
+            deliverables: [],
+            status: MissionStatus.PENDING,
+            leaderId: 'ai-1',
+            leader: {
+              id: 'ai-1',
+              displayName: 'AI Leader',
+              agentName: 'Leader',
+              avatar: null,
+              aiModel: 'gpt-4',
+            },
+            totalTasks: 0,
+            completedTasks: 0,
+            progressPercent: 0,
+            createdById: 'user-1',
+            createdBy: {
+              id: 'user-1',
+              username: 'testuser',
+              fullName: 'Test User',
+            },
+            createdAt: new Date().toISOString(),
+            startedAt: null,
+            completedAt: null,
+            finalResult: null,
+            summary: null,
+          },
+        ],
+        total: 1,
+      });
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -449,7 +871,35 @@ describe('aiTeamsStore', () => {
     it('should set current mission', () => {
       const mission = {
         id: 'mission-1',
+        topicId: 'topic-1',
         title: 'Test Mission',
+        description: 'Test description',
+        objectives: [],
+        constraints: [],
+        deliverables: [],
+        status: MissionStatus.PENDING,
+        leaderId: 'ai-1',
+        leader: {
+          id: 'ai-1',
+          displayName: 'AI Leader',
+          agentName: 'Leader',
+          avatar: null,
+          aiModel: 'gpt-4',
+        },
+        totalTasks: 0,
+        completedTasks: 0,
+        progressPercent: 0,
+        createdById: 'user-1',
+        createdBy: {
+          id: 'user-1',
+          username: 'testuser',
+          fullName: 'Test User',
+        },
+        createdAt: new Date().toISOString(),
+        startedAt: null,
+        completedAt: null,
+        finalResult: null,
+        summary: null,
       };
 
       const { result } = renderHook(() => useAiGroupStore());
@@ -464,11 +914,73 @@ describe('aiTeamsStore', () => {
 
   describe('Team Members', () => {
     const mockTeamMembers = {
-      leader: { id: 'ai-1', isLeader: true },
-      members: [{ id: 'ai-2', isLeader: false }],
+      leader: {
+        id: 'ai-1',
+        topicId: 'topic-1',
+        aiModel: 'gpt-4',
+        displayName: 'AI Leader',
+        avatar: null,
+        roleDescription: null,
+        systemPrompt: null,
+        contextWindow: 4096,
+        responseStyle: null,
+        autoRespond: false,
+        isLeader: true,
+        addedById: 'user-1',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      members: [
+        {
+          id: 'ai-2',
+          topicId: 'topic-1',
+          aiModel: 'gpt-4',
+          displayName: 'AI Member',
+          avatar: null,
+          roleDescription: null,
+          systemPrompt: null,
+          contextWindow: 4096,
+          responseStyle: null,
+          autoRespond: false,
+          isLeader: false,
+          addedById: 'user-1',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ],
       all: [
-        { id: 'ai-1', isLeader: true },
-        { id: 'ai-2', isLeader: false },
+        {
+          id: 'ai-1',
+          topicId: 'topic-1',
+          aiModel: 'gpt-4',
+          displayName: 'AI Leader',
+          avatar: null,
+          roleDescription: null,
+          systemPrompt: null,
+          contextWindow: 4096,
+          responseStyle: null,
+          autoRespond: false,
+          isLeader: true,
+          addedById: 'user-1',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 'ai-2',
+          topicId: 'topic-1',
+          aiModel: 'gpt-4',
+          displayName: 'AI Member',
+          avatar: null,
+          roleDescription: null,
+          systemPrompt: null,
+          contextWindow: 4096,
+          responseStyle: null,
+          autoRespond: false,
+          isLeader: false,
+          addedById: 'user-1',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
       ],
     };
 
@@ -486,9 +998,46 @@ describe('aiTeamsStore', () => {
     });
 
     it('should set team leader', async () => {
-      mockApi.setTeamLeader.mockResolvedValue({});
+      mockApi.setTeamLeader.mockResolvedValue({
+        id: 'ai-2',
+        topicId: 'topic-1',
+        aiModel: 'gpt-4',
+        displayName: 'AI Member',
+        avatar: null,
+        roleDescription: null,
+        systemPrompt: null,
+        contextWindow: 4096,
+        responseStyle: null,
+        autoRespond: false,
+        isLeader: true,
+        addedById: 'user-1',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
       mockApi.getTeamMembers.mockResolvedValue(mockTeamMembers);
-      mockApi.getTopicById.mockResolvedValue({ id: 'topic-1' });
+      mockApi.getTopicById.mockResolvedValue({
+        id: 'topic-1',
+        name: 'Test Topic',
+        description: null,
+        type: TopicType.PUBLIC,
+        avatar: null,
+        createdById: 'user-1',
+        createdBy: {
+          id: 'user-1',
+          username: 'testuser',
+          fullName: 'Test User',
+          avatarUrl: null,
+        },
+        settings: null,
+        metadata: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        archivedAt: null,
+        members: [],
+        aiMembers: [],
+        memberCount: 0,
+        aiMemberCount: 0,
+      });
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -502,9 +1051,60 @@ describe('aiTeamsStore', () => {
 
   describe('Store Reset', () => {
     it('should reset all state', async () => {
-      mockApi.getTopics.mockResolvedValue([{ id: 'topic-1' }]);
+      mockApi.getTopics.mockResolvedValue([
+        {
+          id: 'topic-1',
+          name: 'Test Topic',
+          description: null,
+          type: TopicType.PUBLIC,
+          avatar: null,
+          createdById: 'user-1',
+          createdBy: {
+            id: 'user-1',
+            username: 'testuser',
+            fullName: 'Test User',
+            avatarUrl: null,
+          },
+          settings: null,
+          metadata: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          archivedAt: null,
+          members: [],
+          aiMembers: [],
+          memberCount: 0,
+          aiMemberCount: 0,
+        },
+      ]);
       mockApi.getMessages.mockResolvedValue({
-        messages: [{ id: 'msg-1' }],
+        messages: [
+          {
+            id: 'msg-1',
+            content: 'Hello',
+            topicId: 'topic-1',
+            senderId: 'user-1',
+            sender: {
+              id: 'user-1',
+              username: 'testuser',
+              fullName: 'Test User',
+              avatarUrl: null,
+            },
+            aiMemberId: null,
+            aiMember: null,
+            contentType: MessageContentType.TEXT,
+            prompt: null,
+            modelUsed: null,
+            tokensUsed: null,
+            replyToId: null,
+            replyTo: null,
+            mentions: [],
+            attachments: [],
+            reactions: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            deletedAt: null,
+          },
+        ],
         hasMore: false,
         nextCursor: null,
       });

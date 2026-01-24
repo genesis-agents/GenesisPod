@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ScenarioFormAgent, ScenarioFormCompany } from '../types';
+import { ScenarioFormAgent, ScenarioFormCompany, Persona } from '../types';
 import { safeJson } from '../utils';
 
 interface AgentCardProps {
@@ -24,8 +24,12 @@ export function AgentCard({
   const [expanded, setExpanded] = useState(false);
 
   // 解析persona JSON - 使用useMemo确保响应式更新
-  const persona = useMemo(() => {
-    return agent.persona ? safeJson(agent.persona, {}) : {};
+  const persona = useMemo((): Persona => {
+    if (!agent.persona) return {};
+    if (typeof agent.persona === 'string') {
+      return safeJson<Persona>(agent.persona, {});
+    }
+    return agent.persona as Persona;
   }, [agent.persona]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic JSON value types

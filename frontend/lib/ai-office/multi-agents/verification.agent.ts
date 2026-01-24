@@ -146,13 +146,30 @@ export class VerificationAgent {
     documentType?: string
   ): string {
     const sourceSummaries = sources
-      .map(
-        (s, i) => `
-资源 ${i + 1}: ${s.title}
-${s.abstract && typeof s.abstract === 'string' ? `摘要: ${s.abstract.substring(0, 300)}` : ''}
-${s.authors && Array.isArray(s.authors) ? `作者: ${s.authors.join(', ')}` : ''}
-`
-      )
+      .map((s, i) => {
+        const title =
+          s.resourceType === 'youtube_video'
+            ? s.metadata.title
+            : s.resourceType === 'academic_paper'
+              ? s.metadata.title
+              : s.metadata.title;
+        const abstract =
+          s.resourceType === 'academic_paper'
+            ? s.metadata.abstract
+            : s.resourceType === 'web_page' && s.metadata.description
+              ? s.metadata.description
+              : null;
+        const authors =
+          s.resourceType === 'academic_paper'
+            ? s.metadata.authors.map((a) => a.name).join(', ')
+            : null;
+
+        return `
+资源 ${i + 1}: ${title}
+${abstract && typeof abstract === 'string' ? `摘要: ${abstract.substring(0, 300)}` : ''}
+${authors ? `作者: ${authors}` : ''}
+`;
+      })
       .join('\n');
 
     // 根据文档类型调整内容分割
@@ -256,33 +273,42 @@ ${sourceSummaries}
             const badge = b as Record<string, unknown>;
             return {
               section: (badge.section as string) || '未知',
-              status: validStatuses.includes(badge.status as VerificationStatus) ? (badge.status as VerificationStatus) : 'uncertain',
+              status: validStatuses.includes(badge.status as VerificationStatus)
+                ? (badge.status as VerificationStatus)
+                : 'uncertain',
               confidence:
                 typeof badge.confidence === 'number'
                   ? Math.max(0, Math.min(1, badge.confidence))
                   : 0.7,
               issues: Array.isArray(badge.issues)
-                ? badge.issues.filter((i) => typeof i === 'string') as string[]
+                ? (badge.issues.filter(
+                    (i) => typeof i === 'string'
+                  ) as string[])
                 : undefined,
               suggestions: Array.isArray(badge.suggestions)
-                ? badge.suggestions.filter((s) => typeof s === 'string') as string[]
+                ? (badge.suggestions.filter(
+                    (s) => typeof s === 'string'
+                  ) as string[])
                 : undefined,
             };
           })
         : [],
       suggestions: Array.isArray(r.suggestions)
-        ? r.suggestions.filter((s) => typeof s === 'string') as string[]
+        ? (r.suggestions.filter((s) => typeof s === 'string') as string[])
         : [],
       issues: Array.isArray(r.issues)
         ? r.issues.map((i) => {
             const issue = i as Record<string, unknown>;
             return {
-            severity: ['high', 'medium', 'low'].includes(issue.severity as string)
-              ? (issue.severity as 'high' | 'medium' | 'low')
-              : 'medium',
-            description: (issue.description as string) || '',
-            location: issue.location as string | undefined,
-          }})
+              severity: ['high', 'medium', 'low'].includes(
+                issue.severity as string
+              )
+                ? (issue.severity as 'high' | 'medium' | 'low')
+                : 'medium',
+              description: (issue.description as string) || '',
+              location: issue.location as string | undefined,
+            };
+          })
         : [],
       summary: (r.summary as string) || '验证完成',
     };

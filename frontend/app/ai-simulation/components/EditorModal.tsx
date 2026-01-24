@@ -251,8 +251,10 @@ export function EditorModal({
       } else {
         setMessage(data?.message || 'AI分析失败，请稍后重试');
       }
-    } catch (err) {
-      setMessage(err.message || 'AI分析失败');
+    } catch (err: unknown) {
+      setMessage(
+        (err instanceof Error ? err.message : String(err)) || 'AI分析失败'
+      );
     } finally {
       setAiAssisting(false);
     }
@@ -439,8 +441,10 @@ export function EditorModal({
       } else {
         setMessage(data?.message || 'AI推荐失败，请稍后重试');
       }
-    } catch (err) {
-      setMessage(err.message || 'AI推荐失败');
+    } catch (err: unknown) {
+      setMessage(
+        (err instanceof Error ? err.message : String(err)) || 'AI推荐失败'
+      );
     } finally {
       setAiAgentAssisting(false);
     }
@@ -570,8 +574,10 @@ export function EditorModal({
       } else {
         setMessage(data?.message || 'AI推荐失败，请稍后重试');
       }
-    } catch (err) {
-      setMessage(err.message || 'AI推荐失败');
+    } catch (err: unknown) {
+      setMessage(
+        (err instanceof Error ? err.message : String(err)) || 'AI推荐失败'
+      );
     } finally {
       setAiParamsAssisting(false);
     }
@@ -658,8 +664,10 @@ export function EditorModal({
       } else {
         setMessage(data?.message || '保存失败');
       }
-    } catch (err) {
-      setMessage(err.message || '保存失败');
+    } catch (err: unknown) {
+      setMessage(
+        (err instanceof Error ? err.message : String(err)) || '保存失败'
+      );
     } finally {
       setSaving(false);
     }
@@ -693,8 +701,10 @@ export function EditorModal({
       } else {
         setMessage(data?.message || '启动失败');
       }
-    } catch (err) {
-      setMessage(err.message || '启动失败');
+    } catch (err: unknown) {
+      setMessage(
+        (err instanceof Error ? err.message : String(err)) || '启动失败'
+      );
     } finally {
       setSaving(false);
     }
@@ -784,8 +794,10 @@ export function EditorModal({
       } else {
         setMessage(data?.message || '同步外部数据失败');
       }
-    } catch (err) {
-      setMessage(err.message || '同步外部数据失败');
+    } catch (err: unknown) {
+      setMessage(
+        (err instanceof Error ? err.message : String(err)) || '同步外部数据失败'
+      );
     } finally {
       setSyncing(false);
     }
@@ -847,19 +859,24 @@ export function EditorModal({
         .map((item, idx: number) => {
           const i = item as Record<string, unknown>;
           return {
-          name: (i.name || i.title || `Company ${idx + 1}`) as string,
-          type: (i.type || 'competitor') as string,
-          market: (i.market || form.region || 'Global') as string,
-          metrics: i.metrics || i,
-        }});
+            name: (i.name || i.title || `Company ${idx + 1}`) as string,
+            type: (i.type || 'competitor') as string,
+            market: (i.market || form.region || 'Global') as string,
+            metrics: i.metrics || i,
+          };
+        });
       setCompanies((prev) => mergeCompanies(prev, newCompanies));
       setMessage('已用外部市场数据填充公司，请确认类型/指标');
       return;
     }
 
     // 检查外部数据是否配置了但返回错误
-    if (external?.snapshot?.market?.error) {
-      const errorMsg = external.snapshot.market.error;
+    if (
+      external?.snapshot?.market &&
+      typeof external.snapshot.market === 'object' &&
+      'error' in external.snapshot.market
+    ) {
+      const errorMsg = (external.snapshot.market as { error?: string }).error;
       if (errorMsg === 'provider_not_configured') {
         setMessage(
           '外部市场数据源未配置。请在系统设置中配置 market 类型的数据提供商，或使用AI智能分析'
@@ -898,43 +915,50 @@ export function EditorModal({
       if (res.ok && data.companies && Array.isArray(data.companies)) {
         // AI分析成功，为每个公司生成量化指标
         const companiesWithMetrics = await Promise.all(
-          data.companies.map(async (c) => {
-            try {
-              const metricsRes = await fetch(
-                `${config.apiUrl}/simulation/ai-assist/generate-metrics`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    ...getAuthHeader(),
-                  },
-                  body: JSON.stringify({
-                    companyName: c.name,
-                    companyType: c.type || 'competitor',
-                    industry: form.industry,
-                    market: c.market || form.region || 'Global',
-                  }),
-                }
-              );
-              const metricsData = await metricsRes.json();
-              return {
-                name: c.name,
-                type: c.type || 'competitor',
-                market: c.market || form.region || 'Global',
-                metrics:
-                  metricsRes.ok && metricsData.metrics
-                    ? metricsData.metrics
-                    : {},
-              };
-            } catch {
-              return {
-                name: c.name,
-                type: c.type || 'competitor',
-                market: c.market || form.region || 'Global',
-                metrics: {},
-              };
+          data.companies.map(
+            async (c: {
+              name: string;
+              type?: string;
+              market?: string;
+              reason?: string;
+            }) => {
+              try {
+                const metricsRes = await fetch(
+                  `${config.apiUrl}/simulation/ai-assist/generate-metrics`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...getAuthHeader(),
+                    },
+                    body: JSON.stringify({
+                      companyName: c.name,
+                      companyType: c.type || 'competitor',
+                      industry: form.industry,
+                      market: c.market || form.region || 'Global',
+                    }),
+                  }
+                );
+                const metricsData = await metricsRes.json();
+                return {
+                  name: c.name,
+                  type: c.type || 'competitor',
+                  market: c.market || form.region || 'Global',
+                  metrics:
+                    metricsRes.ok && metricsData.metrics
+                      ? metricsData.metrics
+                      : {},
+                };
+              } catch {
+                return {
+                  name: c.name,
+                  type: c.type || 'competitor',
+                  market: c.market || form.region || 'Global',
+                  metrics: {},
+                };
+              }
             }
-          })
+          )
         );
         setCompanies((prev) => mergeCompanies(prev, companiesWithMetrics));
         setAiSuggestions(data);
@@ -946,8 +970,11 @@ export function EditorModal({
           data?.message || 'AI分析未返回公司数据，请手动添加公司或重试'
         );
       }
-    } catch (err) {
-      setMessage(err.message || 'AI分析失败，请手动添加公司');
+    } catch (err: unknown) {
+      setMessage(
+        (err instanceof Error ? err.message : String(err)) ||
+          'AI分析失败，请手动添加公司'
+      );
     } finally {
       setAiAssisting(false);
     }

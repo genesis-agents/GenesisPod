@@ -604,7 +604,11 @@ ${memberNames.map((name, i) => `${i + 1}. ${name}`).join("\n")}
     existingContext: MissionContextPackage | null,
     aiCaller: (
       messages: { role: string; content: string }[],
-      options?: { maxTokens?: number; temperature?: number },
+      options?: {
+        maxTokens?: number;
+        temperature?: number;
+        taskProfile?: { creativity: string; outputLength: string };
+      },
     ) => Promise<{ content: string }>,
   ): Promise<EstablishedFact[]> {
     // 如果输出太短，跳过提取
@@ -684,7 +688,7 @@ ${existingFacts.length > 0 ? `【已确立事实】（无需重复提取）\n${e
           },
           { role: "user", content: extractionPrompt },
         ],
-        { maxTokens: 2000, temperature: 0.2 },
+        { taskProfile: { creativity: "deterministic", outputLength: "short" } },
       );
 
       // 解析 JSON

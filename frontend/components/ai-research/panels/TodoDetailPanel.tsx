@@ -21,7 +21,12 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getTodoDetails, getTaskActivities } from '@/lib/api/topic-research';
-import type { ResearchTodo, ResearchTodoStatus } from '@/types/topic-research';
+import type {
+  ResearchTodo,
+  ResearchTodoStatus,
+  ResearchTodoType,
+  TodoResult,
+} from '@/types/topic-research';
 import type { AgentActivity } from '@/lib/api/topic-research';
 import { cn, safeString } from '@/lib/utils/common';
 
@@ -108,17 +113,15 @@ export function TodoDetailPanel({
             if (!initialTodoId && taskResponse.task) {
               // ★ 转换 task 数据为 todo 格式
               // 状态映射
-              const statusMap: Record<
-                string,
-                ResearchTodoStatus
-              > = {
+              const statusMap: Record<string, string> = {
                 COMPLETED: 'COMPLETED',
                 EXECUTING: 'IN_PROGRESS',
                 FAILED: 'FAILED',
                 PENDING: 'PENDING',
               };
-              const mappedStatus =
-                statusMap[taskResponse.task.status] || 'PENDING';
+              const mappedStatus = (statusMap[
+                taskResponse.task.status as string
+              ] || 'PENDING') as ResearchTodoStatus;
 
               // ★ 修复：根据状态计算真实进度
               // COMPLETED = 100%, FAILED = 100% (已结束), EXECUTING = 使用活动计数估算, PENDING = 0%
@@ -133,34 +136,49 @@ export function TodoDetailPanel({
                 progress = Math.min(90, 10 + activityCount * 20); // 10-90% 范围
               }
 
+              const task = taskResponse.task as {
+                id: string;
+                missionId?: string;
+                title: string;
+                description?: string;
+                dimensionName?: string;
+                assignedAgent?: string;
+                status: string;
+                priority?: number;
+                createdAt: string;
+                updatedAt: string;
+                startedAt?: string;
+                completedAt?: string;
+                result?: TodoResult;
+                resultSummary?: string;
+              };
+
               setTodo({
-                id: taskResponse.task.id,
+                id: task.id,
                 topicId: '',
-                missionId: taskResponse.task.missionId || '',
-                type: 'DIMENSION_RESEARCH',
-                title: taskResponse.task.title,
-                description: taskResponse.task.description,
-                dimensionName: taskResponse.task.dimensionName,
-                agentName: taskResponse.task.assignedAgent,
+                missionId: task.missionId || '',
+                type: 'DIMENSION_RESEARCH' as ResearchTodoType,
+                title: task.title,
+                description: task.description,
+                dimensionName: task.dimensionName,
+                agentName: task.assignedAgent,
                 status: mappedStatus,
                 progress,
-                priority: taskResponse.task.priority || 0,
+                priority: task.priority || 0,
                 dependsOn: [],
                 userCanPause: false,
                 userCanCancel: false,
                 userCanPrioritize: false,
-                createdAt: taskResponse.task.createdAt,
-                updatedAt: taskResponse.task.updatedAt,
-                startedAt: taskResponse.task.startedAt,
-                completedAt: taskResponse.task.completedAt,
-                result: taskResponse.task.result,
+                createdAt: task.createdAt,
+                updatedAt: task.updatedAt,
+                startedAt: task.startedAt,
+                completedAt: task.completedAt,
+                result: task.result,
                 // ★ 新增：如果失败，从 result.error 或 resultSummary 获取状态消息
                 statusMessage:
-                  taskResponse.task.status === 'FAILED'
-                    ? taskResponse.task.result?.error ||
-                      taskResponse.task.resultSummary ||
-                      '任务执行失败'
-                    : taskResponse.task.resultSummary,
+                  task.status === 'FAILED'
+                    ? task.result?.error || task.resultSummary || '任务执行失败'
+                    : task.resultSummary,
               });
             }
           } catch (taskErr) {

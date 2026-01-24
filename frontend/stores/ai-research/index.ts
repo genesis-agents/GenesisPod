@@ -19,109 +19,110 @@ interface TopicResearchState extends TopicSlice, ReportSlice, ResearchSlice {
   resetTopicData: () => void;
 }
 
-export const useTopicResearchStore = create<TopicResearchState>()(
-  (set, get) => {
-    const storeApi = { setState: set, getState: get };
-    const topicSlice = createTopicSlice(set, get, storeApi);
-    const reportSlice = createReportSlice(set, get, storeApi);
-    const researchSlice = createResearchSlice(set, get, storeApi);
+export const useTopicResearchStore = create<TopicResearchState>()((
+  set,
+  get,
+  api
+) => {
+  const topicSlice = createTopicSlice(set, get, api);
+  const reportSlice = createReportSlice(set, get, api);
+  const researchSlice = createResearchSlice(set, get, api);
 
-    return {
-      ...topicSlice,
-      ...reportSlice,
-      ...researchSlice,
+  return {
+    ...topicSlice,
+    ...reportSlice,
+    ...researchSlice,
 
-      resetStore: () => {
-        get().stopRefreshProgressStream();
-        get().stopMissionPolling();
-        set({
-          // Topics
-          topics: [],
-          currentTopic: null,
-          isLoadingTopics: false,
-          dimensions: [],
-          isLoadingDimensions: false,
-          schedule: null,
-          stats: null,
-          templates: [],
-          isLoadingTemplates: false,
-          // Reports
-          reports: [],
-          currentReport: null,
-          isLoadingReports: false,
-          hasMoreReports: false,
-          reportsCursor: null,
-          evidence: [],
-          isLoadingEvidence: false,
-          evidenceTotal: 0,
-          logs: [],
-          isLoadingLogs: false,
-          comparisonResult: null,
-          // Research
-          refreshStatus: null,
-          isRefreshing: false,
-          refreshProgress: null,
-          refreshStream: null,
-          currentMission: null,
-          missionStatus: null,
-          teamInfo: null,
-          isLoadingMission: false,
-          missionPollingInterval: null,
-          teamMessages: [],
-          agentActivities: [],
-          isLoadingTeamData: false,
-          todos: [],
-          todosSummary: null,
-          selectedTodoId: null,
-          isLoadingTodos: false,
-          error: null,
-        });
-      },
+    resetStore: () => {
+      get().stopRefreshProgressStream();
+      get().stopMissionPolling();
+      set({
+        // Topics
+        topics: [],
+        currentTopic: null,
+        isLoadingTopics: false,
+        dimensions: [],
+        isLoadingDimensions: false,
+        schedule: null,
+        stats: null,
+        templates: [],
+        isLoadingTemplates: false,
+        // Reports
+        reports: [],
+        currentReport: null,
+        isLoadingReports: false,
+        hasMoreReports: false,
+        reportsCursor: null,
+        evidence: [],
+        isLoadingEvidence: false,
+        evidenceTotal: 0,
+        logs: [],
+        isLoadingLogs: false,
+        comparisonResult: null,
+        // Research
+        refreshStatus: null,
+        isRefreshing: false,
+        refreshProgress: null,
+        refreshStream: null,
+        currentMission: null,
+        missionStatus: null,
+        teamInfo: null,
+        isLoadingMission: false,
+        missionPollingInterval: null,
+        teamMessages: [],
+        agentActivities: [],
+        isLoadingTeamData: false,
+        todos: [],
+        todosSummary: null,
+        selectedTodoId: null,
+        isLoadingTodos: false,
+        error: null,
+      });
+    },
 
-      resetTopicData: () => {
-        get().stopRefreshProgressStream();
-        get().stopMissionPolling();
-        set({
-          // Keep topics, currentTopic, isLoadingTopics (managed externally)
-          // Keep templates, isLoadingTemplates (global shared)
-          // Clear current topic-related data
-          dimensions: [],
-          isLoadingDimensions: false,
-          reports: [],
-          currentReport: null,
-          isLoadingReports: false,
-          hasMoreReports: false,
-          reportsCursor: null,
-          evidence: [],
-          isLoadingEvidence: false,
-          evidenceTotal: 0,
-          logs: [],
-          isLoadingLogs: false,
-          schedule: null,
-          stats: null,
-          comparisonResult: null,
-          refreshStatus: null,
-          isRefreshing: false,
-          refreshProgress: null,
-          refreshStream: null,
-          currentMission: null,
-          missionStatus: null,
-          teamInfo: null,
-          isLoadingMission: false,
-          missionPollingInterval: null,
-          teamMessages: [],
-          agentActivities: [],
-          isLoadingTeamData: false,
-          todos: [],
-          todosSummary: null,
-          selectedTodoId: null,
-          isLoadingTodos: false,
-          error: null,
-        });
-      },
-    };
-  }
-);
+    resetTopicData: () => {
+      get().stopRefreshProgressStream();
+      get().stopMissionPolling();
+      set({
+        // Keep topics, currentTopic, isLoadingTopics (managed externally)
+        // Keep templates, isLoadingTemplates (global shared)
+        // Clear current topic-related data
+        dimensions: [],
+        isLoadingDimensions: false,
+        reports: [],
+        currentReport: null,
+        isLoadingReports: false,
+        hasMoreReports: false,
+        reportsCursor: null,
+        evidence: [],
+        isLoadingEvidence: false,
+        evidenceTotal: 0,
+        logs: [],
+        isLoadingLogs: false,
+        schedule: null,
+        stats: null,
+        comparisonResult: null,
+        refreshStatus: null,
+        isRefreshing: false,
+        refreshProgress: null,
+        refreshStream: null,
+        currentMission: null,
+        missionStatus: null,
+        teamInfo: null,
+        isLoadingMission: false,
+        missionPollingInterval: null,
+        teamMessages: [],
+        agentActivities: [],
+        isLoadingTeamData: false,
+        todos: [],
+        todosSummary: null,
+        selectedTodoId: null,
+        isLoadingTodos: false,
+        error: null,
+      });
+    },
+  };
+});
 
 // Re-export types for convenience
 export type { TopicSlice, ReportSlice, ResearchSlice };

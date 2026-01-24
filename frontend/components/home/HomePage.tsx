@@ -540,9 +540,7 @@ function HomeContent() {
   }, []);
 
   // Helper function to convert page Resource to AI Office Resource
-  const convertToAIOfficeResource = (
-    resource: Resource
-  ): Partial<AIOfficeResource> => {
+  const convertToAIOfficeResource = (resource: Resource): AIOfficeResource => {
     const baseResource = {
       _id: resource.id,
       userId: 'current-user', // TODO: Get from auth
@@ -557,43 +555,94 @@ function HomeContent() {
       return {
         ...baseResource,
         resourceType: 'youtube_video',
+        url: resource.sourceUrl,
         metadata: {
           title: resource.title,
           description: resource.abstract || '',
+          channel: resource.metadata?.channelName || '',
+          duration: 0,
+          publishedAt: new Date(resource.publishedAt),
+          statistics: { views: 0, likes: 0, comments: 0 },
           thumbnails: {
             default: resource.thumbnailUrl || '',
             medium: resource.thumbnailUrl || '',
             high: resource.thumbnailUrl || '',
           },
+          tags: [],
+          category: '',
+        },
+        content: {
+          transcript: '',
+          chapters: [],
         },
         aiAnalysis: {
           summary: resource.aiSummary || resource.abstract || '',
+          keyPoints: [],
+          topics: [],
+          sentiment: 'neutral',
         },
-      };
+      } as unknown as AIOfficeResource;
     } else if (resource.type === 'paper') {
       return {
         ...baseResource,
         resourceType: 'academic_paper',
         metadata: {
           title: resource.title,
+          authors:
+            resource.authors?.map((a) => ({
+              name: a.name || a.username || '',
+              affiliation: '',
+              email: '',
+            })) || [],
           abstract: resource.abstract || '',
+          keywords: [],
+          publishedAt: new Date(resource.publishedAt),
+          venue: '',
+          citations: 0,
+          pdfUrl: resource.pdfUrl,
+        },
+        content: {
+          fullText: '',
+          sections: [],
+          figures: [],
+          tables: [],
+          equations: [],
+          references: [],
         },
         aiAnalysis: {
           summary: resource.aiSummary || resource.abstract || '',
+          contributions: [],
+          methodology: '',
+          results: '',
+          limitations: [],
+          futureWork: [],
+          impact: 'medium',
+          field: '',
+          subfields: [],
         },
-      };
+      } as unknown as AIOfficeResource;
     } else {
       return {
         ...baseResource,
         resourceType: 'web_page',
+        url: resource.sourceUrl,
         metadata: {
           title: resource.title,
           description: resource.abstract || '',
+          language: 'en',
+        },
+        content: {
+          cleanedText: resource.abstract || '',
+          images: [],
+          links: [],
         },
         aiAnalysis: {
           summary: resource.aiSummary || resource.abstract || '',
+          mainTopics: [],
+          keyInsights: [],
+          credibility: 0.5,
         },
-      };
+      } as unknown as AIOfficeResource;
     }
   };
 
@@ -625,7 +674,11 @@ function HomeContent() {
 
         // Find or create default collection
         let defaultCollection = collections.find(
-          (c) => c.name === '我的收藏'
+          (c: {
+            name: string;
+            id: string;
+            items?: Array<{ resourceId: string }>;
+          }) => c.name === '我的收藏'
         );
 
         if (!defaultCollection) {
@@ -657,7 +710,7 @@ function HomeContent() {
           // Load bookmarked resource IDs
           const bookmarkedIds = new Set<string>(
             (defaultCollection.items || []).map(
-              (item) => item.resourceId as string
+              (item: { resourceId: string }) => item.resourceId as string
             )
           );
           setBookmarks(bookmarkedIds);
@@ -688,9 +741,9 @@ function HomeContent() {
       if (
         resource.type === 'YOUTUBE' ||
         resource.type === 'YOUTUBE_VIDEO' ||
-        (resource).videoId
+        (resource as { videoId?: string }).videoId
       ) {
-        let videoId = (resource).videoId;
+        let videoId = (resource as { videoId?: string }).videoId;
 
         // If no videoId, extract from sourceUrl (handle multiple YouTube URL formats)
         if (!videoId && resource.sourceUrl) {
@@ -787,7 +840,9 @@ function HomeContent() {
           const page = await pdf.getPage(pageNum);
           const textContent = await page.getTextContent();
           const pageText = textContent.items
-            .map((item) => (item as { str: string }).str)
+            .map((item: { str?: string } | object) =>
+              'str' in item && typeof item.str === 'string' ? item.str : ''
+            )
             .join(' ');
           fullText += pageText + '\n';
 
@@ -824,15 +879,23 @@ function HomeContent() {
         const youtubeData = await youtubeRes.json();
         const youtubeVideos = (
           Array.isArray(youtubeData) ? youtubeData : youtubeData.data || []
-        ).map((video) => ({
-          id: video.id,
-          type: 'YOUTUBE',
-          title: video.title,
-          abstract: null,
-          sourceUrl: video.url,
-          publishedAt: video.createdAt,
-          videoId: video.videoId,
-        }));
+        ).map(
+          (video: {
+            id: string;
+            title: string;
+            url: string;
+            createdAt: string;
+            videoId: string;
+          }) => ({
+            id: video.id,
+            type: 'YOUTUBE',
+            title: video.title,
+            abstract: null,
+            sourceUrl: video.url,
+            publishedAt: video.createdAt,
+            videoId: video.videoId,
+          })
+        );
 
         // Fetch from resources table with type=YOUTUBE_VIDEO
         const resourcesUrl = `${config.apiUrl}/resources?type=YOUTUBE_VIDEO&take=50&skip=0`;
@@ -1029,9 +1092,9 @@ function HomeContent() {
     if (
       resource.type === 'YOUTUBE' ||
       resource.type === 'YOUTUBE_VIDEO' ||
-      (resource).videoId
+      (resource as { videoId?: string }).videoId
     ) {
-      let videoId = (resource).videoId;
+      let videoId = (resource as { videoId?: string }).videoId;
 
       // If no videoId, extract from sourceUrl (handle multiple YouTube URL formats)
       if (!videoId && resource.sourceUrl) {
@@ -2334,9 +2397,7 @@ function HomeContent() {
                                     // 添加资源
                                     const aiResource =
                                       convertToAIOfficeResource(resource);
-                                    aiOfficeStore.addResource(
-                                      aiResource
-                                    );
+                                    aiOfficeStore.addResource(aiResource);
                                   }
                                 }}
                                 className={`flex items-center gap-2 text-sm transition-colors ${
@@ -2382,9 +2443,32 @@ function HomeContent() {
                                     (s) => s.id === resource.id
                                   );
                                   if (!isAlreadyAdded) {
+                                    const validTypes = [
+                                      'paper',
+                                      'blog',
+                                      'report',
+                                      'youtube',
+                                      'news',
+                                      'project',
+                                    ];
+                                    const resourceType =
+                                      resource.type.toLowerCase();
+                                    const mappedType =
+                                      resourceType === 'youtube_video'
+                                        ? 'youtube'
+                                        : resourceType;
+
                                     addSource({
                                       id: resource.id,
-                                      type: resource.type.toLowerCase(),
+                                      type: validTypes.includes(mappedType)
+                                        ? (mappedType as
+                                            | 'paper'
+                                            | 'blog'
+                                            | 'report'
+                                            | 'youtube'
+                                            | 'news'
+                                            | 'project')
+                                        : 'paper',
                                       title: resource.title,
                                       url:
                                         resource.sourceUrl ||

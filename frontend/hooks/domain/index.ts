@@ -16,7 +16,6 @@ export { useResourceDetail } from './useResourceDetail';
 
 // AI hooks
 export { useAIImage } from './useAIImage';
-export { useAICoding } from './useAICoding';
 export {
   useAISocial,
   useSocialConnections,

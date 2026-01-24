@@ -18,6 +18,7 @@ import {
 } from "./interfaces";
 import { AiChatService } from "../../llm/services/ai-chat.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
+import type { TaskProfile } from "../../llm/types/task-profile";
 
 /**
  * 默认审核标准
@@ -280,14 +281,25 @@ ${content.substring(0, 10000)}${content.length > 10000 ? "\n...(内容已截断)
   async executeAICall(
     model: string,
     messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
-    options?: { maxTokens?: number; temperature?: number },
+    options?: {
+      maxTokens?: number;
+      temperature?: number;
+      taskProfile?: TaskProfile;
+    },
     aiCaller?: AiCallerFn,
   ): Promise<{ content: string; tokensUsed: number }> {
     const startTime = Date.now();
-    const opts = {
-      maxTokens: options?.maxTokens || 4000,
-      temperature: options?.temperature ?? 0.7,
-    };
+    // ★ 优先使用 taskProfile，否则使用 legacy 参数
+    const opts: {
+      maxTokens?: number;
+      temperature?: number;
+      taskProfile?: TaskProfile;
+    } = options?.taskProfile
+      ? { taskProfile: options.taskProfile }
+      : {
+          maxTokens: options?.maxTokens || 4000,
+          temperature: options?.temperature ?? 0.7,
+        };
 
     try {
       let result: { content: string; tokensUsed: number };

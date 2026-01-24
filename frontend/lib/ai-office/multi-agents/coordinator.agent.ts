@@ -159,14 +159,15 @@ ${input.existingDocumentId ? `现有文档ID: ${input.existingDocumentId}` : ''}
    * 验证并规范化计划
    */
   private validatePlan(raw: unknown): AgentPlan {
+    const r = raw as Record<string, unknown>;
     return {
-      needsResourceAnalysis: Boolean(raw.needsResourceAnalysis),
-      needsVerification: Boolean(raw.needsVerification),
-      focus: raw.focus || undefined,
-      depth: raw.depth === 'shallow' ? 'shallow' : 'deep',
-      model: raw.model === 'chatgpt' ? 'chatgpt' : 'grok',
-      confidence: typeof raw.confidence === 'number' ? raw.confidence : 0.8,
-      description: raw.description || undefined,
+      needsResourceAnalysis: Boolean(r.needsResourceAnalysis),
+      needsVerification: Boolean(r.needsVerification),
+      focus: (r.focus as string) || undefined,
+      depth: r.depth === 'shallow' ? 'shallow' : 'deep',
+      model: r.model === 'chatgpt' ? 'chatgpt' : 'grok',
+      confidence: typeof r.confidence === 'number' ? r.confidence : 0.8,
+      description: (r.description as string) || undefined,
     };
   }
 

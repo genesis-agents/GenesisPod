@@ -174,14 +174,44 @@ function StructuredContent({
   );
 }
 
+interface BlackSwanEvent {
+  name: string;
+  description: string;
+  affectedTeams?: string[];
+  triggeredAt?: string;
+}
+
+interface WorldDelta {
+  blackSwan?: BlackSwanEvent;
+  irrationalBias?: boolean;
+  last_submissions?: number;
+  [key: string]: unknown;
+}
+
+interface EvidenceRef {
+  provider: string;
+  note?: string;
+  status?: string;
+}
+
 interface TurnSubmission {
   team: string;
   action: string;
+  companyName?: string;
+  role?: string;
+  agentName?: string;
+  publicAction?: string;
+  innerMonologue?: string;
+  irrational?: boolean;
   [key: string]: unknown;
 }
 
 interface TurnAdjudication {
   result: string;
+  ruling?: string;
+  notes?: string;
+  evidenceRefs?: EvidenceRef[];
+  worldDelta?: WorldDelta;
   [key: string]: unknown;
 }
 
@@ -189,7 +219,18 @@ interface TurnEvidence {
   [key: string]: unknown;
 }
 
+interface InterventionRecord {
+  message: string;
+  round?: number;
+  timestamp?: string;
+}
+
 interface WorldState {
+  blackSwan?: BlackSwanEvent;
+  irrationalBias?: boolean;
+  last_submissions?: number;
+  interventions?: InterventionRecord[];
+  blackSwanHistory?: BlackSwanEvent[];
   [key: string]: unknown;
 }
 
@@ -210,6 +251,85 @@ interface MonologueEntry {
   [key: string]: unknown;
 }
 
+interface Company {
+  id?: string;
+  name: string;
+  type?: string;
+  market?: string;
+  metrics?: {
+    cash?: number;
+    share?: number;
+    revenue?: number;
+    profit?: number;
+  };
+  [key: string]: unknown;
+}
+
+interface Agent {
+  id?: string;
+  role: string;
+  team?: 'BLUE' | 'RED' | 'GREEN' | 'WHITE' | 'CHAOS';
+  company?: { name: string } | null;
+  companyName?: string;
+  [key: string]: unknown;
+}
+
+interface BiasDetected {
+  type: string;
+  description: string;
+  recommendation?: string;
+  round?: number;
+  team?: string;
+}
+
+interface Blindspot {
+  type: string;
+  description: string;
+  recommendation?: string;
+}
+
+interface Counterfactual {
+  round: number;
+  originalAction: string;
+  alternative: string;
+  impact: string;
+  scenario?: string;
+  potentialOutcome?: string;
+}
+
+interface BlackSwanEventRecord {
+  round: number;
+  team: string;
+  event: string;
+  name?: string;
+  impact?: 'high' | 'medium' | 'low';
+  description?: string;
+  affectedTeams?: string[];
+}
+
+interface CausalChainItem {
+  type: string;
+  description: string;
+  round?: number;
+  cause?: string;
+  effect?: {
+    changes?: string[];
+    [key: string]: unknown;
+  };
+}
+
+interface SummaryReport {
+  keyFindings?: string[];
+  biasesDetected?: BiasDetected[];
+  blindspots?: Blindspot[];
+  counterfactuals?: Counterfactual[];
+  blackSwanEvents?: BlackSwanEventRecord[];
+  causalChain?: CausalChainItem[];
+  internalReport?: SummaryReport;
+  publicReport?: SummaryReport;
+  monologueLog?: MonologueEntry[];
+}
+
 interface Run {
   id: string;
   scenarioId: string;
@@ -219,34 +339,14 @@ interface Run {
   params?: Record<string, unknown>;
   worldState?: WorldState;
   evidenceTrail?: unknown[];
-  summary?: {
-    keyFindings?: string[];
-    biasesDetected?: {
-      type: string;
-      description: string;
-      recommendation?: string;
-    }[];
-    blindspots?: {
-      type: string;
-      description: string;
-      recommendation?: string;
-    }[];
-    counterfactuals?: {
-      round: number;
-      originalAction: string;
-      alternative: string;
-      impact: string;
-    }[];
-    blackSwanEvents?: { round: number; team: string; event: string }[];
-    monologueLog?: MonologueEntry[];
-  };
+  summary?: SummaryReport;
   turns?: Turn[];
   scenario?: {
     id: string;
     name: string;
     industry: string;
-    companies?: Record<string, unknown>[];
-    agents?: Record<string, unknown>[];
+    companies?: Company[];
+    agents?: Agent[];
   };
   createdAt: string;
   updatedAt: string;
@@ -672,7 +772,7 @@ export default function RunConsolePage() {
         {viewMode === 'sandbox' ? (
           <div className="flex-1 overflow-hidden p-4">
             <SandboxView
-              run={run}
+              run={run as any}
               onPause={handlePause}
               onResume={handleResume}
               onIntervene={(message) => {
@@ -802,9 +902,9 @@ export default function RunConsolePage() {
                               {['BLUE', 'RED', 'GREEN', 'WHITE', 'CHAOS'].map(
                                 (teamName) => {
                                   const teamSubmissions =
-                                    turn.submissions.filter(
+                                    turn.submissions?.filter(
                                       (s) => s.team === teamName
-                                    );
+                                    ) || [];
                                   if (teamSubmissions.length === 0) return null;
 
                                   const teamConfig = {
@@ -1176,10 +1276,15 @@ export default function RunConsolePage() {
                     </h3>
                     <div className="grid grid-cols-2 gap-2">
                       {['market', 'finance', 'news', 'regulation'].map(
-                        (source) => {
-                          const data = run.worldState?.[source];
+                        (source: string) => {
+                          const data = run.worldState?.[source] as
+                            | Record<string, unknown>
+                            | undefined;
                           const hasError =
-                            data?.error || data?.['Error Message'];
+                            (data as { error?: unknown })?.error ||
+                            (data as { 'Error Message'?: unknown })?.[
+                              'Error Message'
+                            ];
                           const hasData = data && !hasError;
                           return (
                             <div
@@ -1372,8 +1477,8 @@ export default function RunConsolePage() {
                                           <span className="text-gray-600">
                                             {s.publicAction?.substring(0, 80) ||
                                               '...'}
-                                            {s.publicAction?.length > 80 &&
-                                              '...'}
+                                            {(s.publicAction?.length ?? 0) >
+                                              80 && '...'}
                                           </span>
                                         </div>
                                       ))}
@@ -1477,8 +1582,8 @@ export default function RunConsolePage() {
                         {/* 从 publicReport 或 internalReport 或直接从 summary 获取数据 */}
                         {(() => {
                           const report =
-                            (run.summary)?.internalReport ||
-                            (run.summary)?.publicReport ||
+                            run.summary?.internalReport ||
+                            run.summary?.publicReport ||
                             run.summary;
                           const keyFindings = report?.keyFindings || [];
                           const biasesDetected = report?.biasesDetected || [];
@@ -1520,26 +1625,23 @@ export default function RunConsolePage() {
                                     🔗 因果链分析
                                   </div>
                                   <div className="space-y-2">
-                                    {causalChain.map(
-                                      (item, idx: number) => (
-                                        <div
-                                          key={idx}
-                                          className="rounded-lg border border-cyan-200 bg-cyan-50 p-2 text-xs"
-                                        >
-                                          <div className="font-medium text-cyan-800">
-                                            回合 {item.round}: {item.cause}
-                                          </div>
-                                          {item.effect && (
-                                            <p className="mt-1 text-cyan-700">
-                                              → 影响:{' '}
-                                              {item.effect.changes?.join(
-                                                ', '
-                                              ) || JSON.stringify(item.effect)}
-                                            </p>
-                                          )}
+                                    {causalChain.map((item, idx: number) => (
+                                      <div
+                                        key={idx}
+                                        className="rounded-lg border border-cyan-200 bg-cyan-50 p-2 text-xs"
+                                      >
+                                        <div className="font-medium text-cyan-800">
+                                          回合 {item.round}: {item.cause}
                                         </div>
-                                      )
-                                    )}
+                                        {item.effect && (
+                                          <p className="mt-1 text-cyan-700">
+                                            → 影响:{' '}
+                                            {item.effect.changes?.join(', ') ||
+                                              JSON.stringify(item.effect)}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
                               )}
@@ -1551,38 +1653,36 @@ export default function RunConsolePage() {
                                     ⚠️ 偏见识别
                                   </div>
                                   <div className="space-y-2">
-                                    {biasesDetected.map(
-                                      (bias, idx: number) => (
-                                        <div
-                                          key={idx}
-                                          className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs"
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <span className="font-medium text-amber-800">
-                                              {bias.type}
+                                    {biasesDetected.map((bias, idx: number) => (
+                                      <div
+                                        key={idx}
+                                        className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-medium text-amber-800">
+                                            {bias.type}
+                                          </span>
+                                          {bias.round && (
+                                            <span className="rounded bg-amber-200 px-1 text-[10px]">
+                                              回合{bias.round}
                                             </span>
-                                            {bias.round && (
-                                              <span className="rounded bg-amber-200 px-1 text-[10px]">
-                                                回合{bias.round}
-                                              </span>
-                                            )}
-                                            {bias.team && (
-                                              <span className="rounded bg-amber-200 px-1 text-[10px]">
-                                                {bias.team}
-                                              </span>
-                                            )}
-                                          </div>
-                                          <p className="mt-1 text-amber-700">
-                                            {bias.description}
-                                          </p>
-                                          {bias.recommendation && (
-                                            <p className="mt-1 italic text-amber-600">
-                                              💡 建议: {bias.recommendation}
-                                            </p>
+                                          )}
+                                          {bias.team && (
+                                            <span className="rounded bg-amber-200 px-1 text-[10px]">
+                                              {bias.team}
+                                            </span>
                                           )}
                                         </div>
-                                      )
-                                    )}
+                                        <p className="mt-1 text-amber-700">
+                                          {bias.description}
+                                        </p>
+                                        {bias.recommendation && (
+                                          <p className="mt-1 italic text-amber-600">
+                                            💡 建议: {bias.recommendation}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
                               )}
@@ -1594,26 +1694,24 @@ export default function RunConsolePage() {
                                     🚨 识别盲点
                                   </div>
                                   <div className="space-y-2">
-                                    {blindspots.map(
-                                      (spot, idx: number) => (
-                                        <div
-                                          key={idx}
-                                          className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs"
-                                        >
-                                          <div className="font-medium text-red-800">
-                                            {spot.type}
-                                          </div>
-                                          <p className="text-red-700">
-                                            {spot.description}
-                                          </p>
-                                          {spot.recommendation && (
-                                            <p className="mt-1 italic text-red-600">
-                                              💡 建议: {spot.recommendation}
-                                            </p>
-                                          )}
+                                    {blindspots.map((spot, idx: number) => (
+                                      <div
+                                        key={idx}
+                                        className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs"
+                                      >
+                                        <div className="font-medium text-red-800">
+                                          {spot.type}
                                         </div>
-                                      )
-                                    )}
+                                        <p className="text-red-700">
+                                          {spot.description}
+                                        </p>
+                                        {spot.recommendation && (
+                                          <p className="mt-1 italic text-red-600">
+                                            💡 建议: {spot.recommendation}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
                               )}
@@ -1692,21 +1790,19 @@ export default function RunConsolePage() {
                                     🔮 反事实推理（如果...会怎样）
                                   </div>
                                   <div className="space-y-2">
-                                    {counterfactuals.map(
-                                      (cf, idx: number) => (
-                                        <div
-                                          key={idx}
-                                          className="rounded-lg border border-blue-200 bg-blue-50 p-2 text-xs"
-                                        >
-                                          <div className="font-medium text-blue-800">
-                                            回合{cf.round}：{cf.scenario}
-                                          </div>
-                                          <p className="mt-1 text-blue-700">
-                                            → {cf.potentialOutcome}
-                                          </p>
+                                    {counterfactuals.map((cf, idx: number) => (
+                                      <div
+                                        key={idx}
+                                        className="rounded-lg border border-blue-200 bg-blue-50 p-2 text-xs"
+                                      >
+                                        <div className="font-medium text-blue-800">
+                                          回合{cf.round}：{cf.scenario}
                                         </div>
-                                      )
-                                    )}
+                                        <p className="mt-1 text-blue-700">
+                                          → {cf.potentialOutcome}
+                                        </p>
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
                               )}
@@ -1761,10 +1857,11 @@ export default function RunConsolePage() {
                     </ul>
                   </div>
 
-                  {run.params?.humanBreakEvery && (
+                  {run.params?.humanBreakEvery != null && (
                     <div className="text-xs text-gray-600">
                       <p>
-                        每 {run.params.humanBreakEvery} 回合自动暂停等待干预
+                        每 {String(run.params.humanBreakEvery)}{' '}
+                        回合自动暂停等待干预
                       </p>
                     </div>
                   )}

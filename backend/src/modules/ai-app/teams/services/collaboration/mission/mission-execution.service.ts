@@ -20,6 +20,7 @@ import {
   MessageContentType,
 } from "@prisma/client";
 import { AIEngineFacade, ChatMessage } from "../../../../../ai-engine/facade";
+import type { TaskProfile } from "../../../../../ai-engine/llm/types/task-profile";
 // ★ 架构重构：通过 ToolRegistry 调用工具
 import { ToolRegistry } from "../../../../../ai-engine/tools/registry/tool-registry";
 import type { ToolContext } from "../../../../../ai-engine/tools/abstractions/tool.interface";
@@ -201,6 +202,10 @@ export class MissionExecutionService {
 
   /**
    * 调用 AI（带数据库 API Key）
+   *
+   * 推荐使用 taskProfile 直接配置：
+   * - taskProfile: { creativity: "medium", outputLength: "long" } ✅ 推荐
+   * - maxTokens/temperature: 仍支持但会被自动映射 ⚠️ 兼容
    */
   async callAIWithConfig(
     aiModel: string,
@@ -209,6 +214,7 @@ export class MissionExecutionService {
     options?: {
       maxTokens?: number;
       temperature?: number;
+      taskProfile?: TaskProfile;
       missionId?: string;
       enableSearch?: boolean;
     },
@@ -229,17 +235,18 @@ export class MissionExecutionService {
       ),
     ];
 
-    // Map legacy temperature/maxTokens to taskProfile
-    const creativity = this.mapTemperatureToCreativity(options?.temperature);
-    const outputLength = this.mapMaxTokensToOutputLength(options?.maxTokens);
+    // ★ 优先使用直接传入的 taskProfile，否则从 legacy 参数映射
+    const taskProfile: TaskProfile = options?.taskProfile
+      ? (options.taskProfile as TaskProfile)
+      : {
+          creativity: this.mapTemperatureToCreativity(options?.temperature),
+          outputLength: this.mapMaxTokensToOutputLength(options?.maxTokens),
+        };
 
     const result = await this.aiFacade.chat({
       messages: facadeMessages,
       model: modelConfig?.modelId ?? aiModel,
-      taskProfile: {
-        creativity,
-        outputLength,
-      },
+      taskProfile,
     });
 
     // 追踪 Token 消耗
@@ -343,7 +350,11 @@ export class MissionExecutionService {
     aiModel: string,
     messages: { role: string; content: string }[],
     systemPrompt: string,
-    options: { maxTokens?: number; temperature?: number },
+    options: {
+      maxTokens?: number;
+      temperature?: number;
+      taskProfile?: TaskProfile;
+    },
     taskContext: { taskId: string; taskTitle: string; missionId: string },
     heartbeatContext?: {
       topicId: string;
@@ -1259,7 +1270,7 @@ export class MissionExecutionService {
           mission.description || undefined,
           (mission.mustConstraints as unknown[]) || undefined,
         ),
-        { maxTokens: 8000, temperature: 0.7 },
+        { taskProfile: { creativity: "medium", outputLength: "long" } },
         {
           taskId: task.id,
           taskTitle: task.title,
@@ -1548,7 +1559,7 @@ export class MissionExecutionService {
           mission.description || undefined,
           (mission.mustConstraints as unknown[]) || undefined,
         ),
-        { maxTokens: 8000, temperature: 0.7 },
+        { taskProfile: { creativity: "medium", outputLength: "long" } },
         {
           taskId: task.id,
           taskTitle: task.title,
@@ -1627,7 +1638,10 @@ export class MissionExecutionService {
             modelConfig.modelId,
             [{ role: "user", content: replanPrompt }],
             systemPrompt,
-            { maxTokens: 4000, temperature: 0.7, missionId: mission.id },
+            {
+              taskProfile: { creativity: "medium", outputLength: "medium" },
+              missionId: mission.id,
+            },
           );
         },
         {

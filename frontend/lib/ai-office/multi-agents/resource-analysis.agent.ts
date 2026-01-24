@@ -140,16 +140,44 @@ export class ResourceAnalysisAgent {
     depth: 'shallow' | 'deep' = 'deep'
   ): string {
     const resourceSummaries = resources
-      .map(
-        (r, i) => `
-资源 ${i + 1}: ${r.title}
-类型: ${r.type}
-${r.abstract ? `摘要: ${r.abstract}` : ''}
-${r.authors ? `作者: ${r.authors.join(', ')}` : ''}
-${r.metadata?.year ? `年份: ${r.metadata.year}` : ''}
-${r.content && typeof r.content === 'string' ? `内容片段: ${r.content.substring(0, 800)}...` : ''}
-`
-      )
+      .map((r, i) => {
+        const title =
+          r.resourceType === 'youtube_video'
+            ? r.metadata.title
+            : r.resourceType === 'academic_paper'
+              ? r.metadata.title
+              : r.metadata.title;
+        const type = r.resourceType;
+        const abstract =
+          r.resourceType === 'academic_paper'
+            ? r.metadata.abstract
+            : r.resourceType === 'web_page' && r.metadata.description
+              ? r.metadata.description
+              : '';
+        const authors =
+          r.resourceType === 'academic_paper'
+            ? r.metadata.authors.map((a) => a.name).join(', ')
+            : '';
+        const year =
+          r.resourceType === 'academic_paper'
+            ? r.metadata.publishedAt?.getFullYear()
+            : undefined;
+        const contentPreview =
+          r.resourceType === 'academic_paper'
+            ? r.content.fullText.substring(0, 800)
+            : r.resourceType === 'web_page'
+              ? r.content.cleanedText.substring(0, 800)
+              : '';
+
+        return `
+资源 ${i + 1}: ${title}
+类型: ${type}
+${abstract ? `摘要: ${abstract}` : ''}
+${authors ? `作者: ${authors}` : ''}
+${year ? `年份: ${year}` : ''}
+${contentPreview ? `内容片段: ${contentPreview}...` : ''}
+`;
+      })
       .join('\n---\n');
 
     const depthInstruction =
@@ -217,30 +245,42 @@ ${depthInstruction}
    * 验证并规范化分析结果
    */
   private validateAnalysis(raw: unknown): Omit<ResourceAnalysis, 'analyzedAt'> {
+    const r = raw as Record<string, unknown>;
     return {
-      insights: Array.isArray(raw.insights)
-        ? raw.insights.filter((i) => typeof i === 'string')
+      insights: Array.isArray(r.insights)
+        ? r.insights.filter((i) => typeof i === 'string')
         : [],
-      findings: Array.isArray(raw.findings)
-        ? raw.findings.map((f) => ({
-            claim: f.claim || '',
-            evidence: f.evidence || '',
-            source: f.source || '',
-            confidence: typeof f.confidence === 'number' ? f.confidence : 0.7,
-          }))
+      findings: Array.isArray(r.findings)
+        ? r.findings.map((f: unknown) => {
+            const finding = f as Record<string, unknown>;
+            return {
+              claim: (finding.claim as string) || '',
+              evidence: (finding.evidence as string) || '',
+              source: (finding.source as string) || '',
+              confidence:
+                typeof finding.confidence === 'number'
+                  ? finding.confidence
+                  : 0.7,
+            };
+          })
         : [],
-      visualOpportunities: Array.isArray(raw.visualOpportunities)
-        ? raw.visualOpportunities.map((v) => ({
-            type: ['flow', 'chart', 'matrix', 'diagram'].includes(v.type)
-              ? v.type
-              : 'chart',
-            description: v.description || '',
-            dataHint: v.dataHint,
-          }))
+      visualOpportunities: Array.isArray(r.visualOpportunities)
+        ? r.visualOpportunities.map((v: unknown) => {
+            const viz = v as Record<string, unknown>;
+            return {
+              type: ['flow', 'chart', 'matrix', 'diagram'].includes(
+                viz.type as string
+              )
+                ? (viz.type as 'flow' | 'chart' | 'matrix' | 'diagram')
+                : 'chart',
+              description: (viz.description as string) || '',
+              dataHint: viz.dataHint as string | undefined,
+            };
+          })
         : [],
-      methodology: raw.methodology || undefined,
-      background: raw.background || undefined,
-      confidence: typeof raw.confidence === 'number' ? raw.confidence : 0.7,
+      methodology: (r.methodology as string) || undefined,
+      background: (r.background as string) || undefined,
+      confidence: typeof r.confidence === 'number' ? r.confidence : 0.7,
     };
   }
 
@@ -253,15 +293,28 @@ ${depthInstruction}
 
     // 从资源标题和摘要提取基础信息
     resources.forEach((resource) => {
-      if (resource.title) {
-        insights.push(`研究主题：${resource.title}`);
-      }
+      const title =
+        resource.resourceType === 'youtube_video'
+          ? resource.metadata.title
+          : resource.resourceType === 'academic_paper'
+            ? resource.metadata.title
+            : resource.metadata.title;
 
-      if (resource.abstract && typeof resource.abstract === 'string') {
+      insights.push(`研究主题：${title}`);
+
+      const abstract =
+        resource.resourceType === 'academic_paper'
+          ? resource.metadata.abstract
+          : resource.resourceType === 'web_page' &&
+              resource.metadata.description
+            ? resource.metadata.description
+            : null;
+
+      if (abstract && typeof abstract === 'string') {
         findings.push({
-          claim: `来自 ${resource.title} 的发现`,
-          evidence: resource.abstract.substring(0, 200),
-          source: resource.title,
+          claim: `来自 ${title} 的发现`,
+          evidence: abstract.substring(0, 200),
+          source: title,
           confidence: 0.5,
         });
       }

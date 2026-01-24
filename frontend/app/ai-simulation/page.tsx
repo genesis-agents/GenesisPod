@@ -36,8 +36,10 @@ export default function AISimulationPage() {
       } else {
         setMessage(t('aiSimulation.error.loadFailed'));
       }
-    } catch (err) {
-      setMessage(err.message || t('aiSimulation.error.loadFailed'));
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : t('aiSimulation.error.loadFailed');
+      setMessage(message);
     } finally {
       setLoading(false);
     }

@@ -25,11 +25,22 @@ export interface ScenarioFormCompany {
   metrics?: CompanyMetrics | Partial<CompanyMetrics>;
 }
 
+export interface Persona {
+  riskTolerance?: number;
+  compliance?: number;
+  traits?: string;
+  biases?: string;
+  pressure?: string;
+  timePref?: string;
+  [key: string]: unknown;
+}
+
 export interface ScenarioFormAgent {
   role: string;
   team: 'BLUE' | 'RED' | 'GREEN' | 'WHITE' | 'CHAOS';
+  company?: { name: string };
   companyName?: string;
-  persona?: string | object; // Can be JSON string or object from backend
+  persona?: Persona | string | object; // Can be JSON string, Persona object, or generic object from backend
   memoryPublic?: string | object;
   memoryPrivate?: string | object;
 }
@@ -82,6 +93,9 @@ export interface CompanyMetrics {
   arpu: number; // ARPU
   margin: number; // 毛利率 %
   debt: number; // 负债
+  patents?: number; // 专利数
+  channels?: string; // 渠道
+  brand?: string; // 品牌影响力
 }
 
 export interface CompanyMoat {
@@ -102,3 +116,131 @@ export interface CompanyFull extends ScenarioFormCompany {
 }
 
 export type TabType = 'basic' | 'companies' | 'agents' | 'params';
+
+// Agent interface for runtime use
+export interface Agent {
+  id: string;
+  role: string;
+  team?: 'BLUE' | 'RED' | 'GREEN' | 'WHITE' | 'CHAOS' | string;
+  companyId?: string;
+  company?: { name: string };
+  companyName?: string;
+  name?: string;
+  persona?: Persona | string;
+  memoryPublic?: string | object;
+  memoryPrivate?: string | object;
+}
+
+// Company interface for runtime use
+export interface Company {
+  id: string;
+  name: string;
+  type?: 'benchmark' | 'challenger' | 'startup' | string;
+  market?: string;
+  metrics?: CompanyMetrics | Partial<CompanyMetrics>;
+  description?: string;
+}
+
+// Adjudication interface for turn results
+export interface Adjudication {
+  ruling?: string;
+  summary?: string;
+  blackSwanEvent?: {
+    event: string;
+    team?: string;
+    impact?: string;
+  };
+  marketUpdate?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+// Submission interface for agent submissions in a turn
+export interface Submission {
+  agentId?: string;
+  agent?: {
+    role?: string;
+    team?: string;
+    name?: string;
+  };
+  response?: string;
+  decision?: string;
+  reasoning?: string;
+  metrics?: Record<string, unknown>;
+  status?: string;
+  timestamp?: string;
+  [key: string]: unknown;
+}
+
+// Turn interface for simulation turns
+export interface Turn {
+  id: string;
+  round: number;
+  agentId: string;
+  agent?: Agent;
+  action?: unknown;
+  result?: unknown;
+  adjudication?: Adjudication;
+  submissions?: Submission[];
+  createdAt?: string;
+  [key: string]: unknown;
+}
+
+// World state interface for simulation state
+export interface WorldState {
+  marketPrice?: number;
+  shortage?: number;
+  totalDemand?: number;
+  totalSupply?: number;
+  companies?: Record<string, Partial<CompanyMetrics>>;
+  [key: string]: unknown;
+}
+
+// Run summary interface
+export interface RunSummary {
+  keyFindings?: string[];
+  biasesDetected?: {
+    type: string;
+    description: string;
+    recommendation?: string;
+    severity?: string;
+  }[];
+  blindspots?: {
+    type: string;
+    description: string;
+    recommendation?: string;
+    severity?: string;
+  }[];
+  counterfactuals?: {
+    scenario: string;
+    outcome: string;
+    likelihood?: string;
+    impact?: string;
+  }[];
+  blackSwanEvents?: {
+    event: string;
+    impact: string;
+    round?: number;
+  }[];
+  internalReport?: string;
+  publicReport?: string;
+  winningTeam?: string;
+  finalMetrics?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+// Run interface for simulation runs
+export interface Run {
+  id: string;
+  scenarioId?: string;
+  status: 'PENDING' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED' | string;
+  currentRound?: number;
+  rounds?: number;
+  params?: Record<string, unknown>;
+  worldState?: WorldState;
+  evidenceTrail?: unknown[];
+  turns?: Turn[];
+  createdAt?: string;
+  updatedAt?: string;
+  summary?: RunSummary;
+  error?: string;
+}

@@ -107,6 +107,7 @@ interface Company {
   type?: 'benchmark' | 'challenger' | 'startup' | string;
   metrics?: string | Record<string, unknown>;
   description?: string;
+  market?: string;
 }
 
 interface Agent {
@@ -116,6 +117,8 @@ interface Agent {
   companyId?: string;
   persona?: string | Record<string, unknown>;
   name?: string;
+  companyName?: string;
+  company?: { name: string };
 }
 
 interface Run {
@@ -167,6 +170,8 @@ interface RunDetail {
   updatedAt: string;
 }
 
+type TabType = 'overview' | 'companies' | 'agents' | 'report' | 'runs';
+
 export default function ScenarioDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -176,9 +181,7 @@ export default function ScenarioDetailPage() {
   const [scenario, setScenario] = useState<ScenarioDetail | null>(null);
   const [activeRun, setActiveRun] = useState<RunDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<
-    'overview' | 'companies' | 'agents' | 'runs' | 'report'
-  >('overview');
+  const [tab, setTab] = useState<TabType>('overview');
   const [startingRun, setStartingRun] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string>('observer'); // observer or agent id
@@ -366,8 +369,7 @@ export default function ScenarioDetailPage() {
   }
 
   // 获取蓝军角色列表（用户可以扮演的角色）
-  const blueAgents =
-    scenario?.agents?.filter((a) => a.team === 'BLUE') || [];
+  const blueAgents = scenario?.agents?.filter((a) => a.team === 'BLUE') || [];
 
   return (
     <AppShell>
@@ -872,7 +874,7 @@ export default function ScenarioDetailPage() {
                 ].map((item) => (
                   <button
                     key={item.key}
-                    onClick={() => setTab(item.key)}
+                    onClick={() => setTab(item.key as TabType)}
                     className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
                       tab === item.key
                         ? 'border-indigo-600 text-indigo-600'
@@ -995,16 +997,15 @@ export default function ScenarioDetailPage() {
                     <div className="rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 p-4">
                       <div className="text-2xl font-bold text-green-600">
                         {scenario.companies?.filter(
-                          (c) =>
-                            c.type === 'challenger' || c.type === 'startup'
+                          (c) => c.type === 'challenger' || c.type === 'startup'
                         ).length || 0}
                       </div>
                       <div className="text-xs text-gray-600">挑战者</div>
                     </div>
                     <div className="rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 p-4">
                       <div className="text-2xl font-bold text-purple-600">
-                        {scenario.agents?.filter((a) => a.companyId)
-                          .length || 0}
+                        {scenario.agents?.filter((a) => a.companyId).length ||
+                          0}
                       </div>
                       <div className="text-xs text-gray-600">关联角色</div>
                     </div>
@@ -1012,11 +1013,13 @@ export default function ScenarioDetailPage() {
 
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {scenario.companies?.map((company, idx: number) => {
-                      const c = company as Record<string, unknown>;
+                      const c = company as unknown as Record<string, unknown>;
                       // 获取该公司关联的角色
                       const companyAgents =
                         scenario.agents?.filter(
-                          (a) => (a as Record<string, unknown>).companyId === c.id
+                          (a) =>
+                            (a as unknown as Record<string, unknown>)
+                              .companyId === c.id
                         ) || [];
                       // 解析 metrics（可能是 JSON 字符串）
                       let metrics: Record<string, unknown> = {};
@@ -1143,9 +1146,7 @@ export default function ScenarioDetailPage() {
                               <span className="text-gray-500">关联角色:</span>
                               <span className="font-medium text-gray-700">
                                 {companyAgents.length > 0
-                                  ? companyAgents
-                                      .map((a) => a.role)
-                                      .join(', ')
+                                  ? companyAgents.map((a) => a.role).join(', ')
                                   : '暂无'}
                               </span>
                             </div>
@@ -1155,10 +1156,12 @@ export default function ScenarioDetailPage() {
                           {hasMetrics ? (
                             <div className="space-y-3">
                               {/* Financial */}
-                              {(metrics.cash !== undefined ||
+                              {!!(
+                                metrics.cash !== undefined ||
                                 metrics.share !== undefined ||
                                 metrics.margin !== undefined ||
-                                metrics.debt !== undefined) && (
+                                metrics.debt !== undefined
+                              ) && (
                                 <div className="rounded-lg bg-gray-50 p-3">
                                   <div className="mb-2 text-xs font-medium text-gray-500">
                                     财务指标
@@ -1170,7 +1173,7 @@ export default function ScenarioDetailPage() {
                                           现金
                                         </span>
                                         <span className="text-sm font-semibold text-gray-900">
-                                          ${metrics.cash}M
+                                          ${String(metrics.cash)}M
                                         </span>
                                       </div>
                                     )}
@@ -1180,7 +1183,7 @@ export default function ScenarioDetailPage() {
                                           份额
                                         </span>
                                         <span className="text-sm font-semibold text-indigo-600">
-                                          {metrics.share}%
+                                          {String(metrics.share)}%
                                         </span>
                                       </div>
                                     )}
@@ -1190,7 +1193,7 @@ export default function ScenarioDetailPage() {
                                           毛利
                                         </span>
                                         <span className="text-sm font-semibold text-green-600">
-                                          {metrics.margin}%
+                                          {String(metrics.margin)}%
                                         </span>
                                       </div>
                                     )}
@@ -1200,7 +1203,7 @@ export default function ScenarioDetailPage() {
                                           负债
                                         </span>
                                         <span className="text-sm font-semibold text-red-600">
-                                          ${metrics.debt}M
+                                          ${String(metrics.debt)}M
                                         </span>
                                       </div>
                                     )}
@@ -1209,10 +1212,12 @@ export default function ScenarioDetailPage() {
                               )}
 
                               {/* Operations */}
-                              {(metrics.capacity !== undefined ||
+                              {!!(
+                                metrics.capacity !== undefined ||
                                 metrics.inventory !== undefined ||
                                 metrics.delivery ||
-                                metrics.priceBand) && (
+                                metrics.priceBand
+                              ) && (
                                 <div className="rounded-lg bg-gray-50 p-3">
                                   <div className="mb-2 text-xs font-medium text-gray-500">
                                     运营指标
@@ -1224,7 +1229,7 @@ export default function ScenarioDetailPage() {
                                           产能
                                         </span>
                                         <span className="text-sm font-medium text-gray-900">
-                                          {metrics.capacity}
+                                          {String(metrics.capacity)}
                                         </span>
                                       </div>
                                     )}
@@ -1234,27 +1239,27 @@ export default function ScenarioDetailPage() {
                                           库存
                                         </span>
                                         <span className="text-sm font-medium text-gray-900">
-                                          {metrics.inventory}
+                                          {String(metrics.inventory)}
                                         </span>
                                       </div>
                                     )}
-                                    {metrics.delivery && (
+                                    {!!metrics.delivery && (
                                       <div className="flex items-center justify-between">
                                         <span className="text-xs text-gray-500">
                                           交付
                                         </span>
                                         <span className="text-sm font-medium text-gray-900">
-                                          {metrics.delivery}
+                                          {String(metrics.delivery)}
                                         </span>
                                       </div>
                                     )}
-                                    {metrics.priceBand && (
+                                    {!!metrics.priceBand && (
                                       <div className="flex items-center justify-between">
                                         <span className="text-xs text-gray-500">
                                           价格带
                                         </span>
                                         <span className="text-sm font-medium text-gray-900">
-                                          {metrics.priceBand}
+                                          {String(metrics.priceBand)}
                                         </span>
                                       </div>
                                     )}
@@ -1270,14 +1275,14 @@ export default function ScenarioDetailPage() {
                                       市场份额
                                     </span>
                                     <span className="font-medium text-indigo-600">
-                                      {metrics.share}%
+                                      {String(metrics.share)}%
                                     </span>
                                   </div>
                                   <div className="h-2 rounded-full bg-gray-200">
                                     <div
                                       className="h-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500"
                                       style={{
-                                        width: `${Math.min(metrics.share, 100)}%`,
+                                        width: `${Math.min(Number(metrics.share), 100)}%`,
                                       }}
                                     />
                                   </div>
@@ -1350,8 +1355,8 @@ export default function ScenarioDetailPage() {
                     </div>
                     <div className="rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 p-4">
                       <div className="text-2xl font-bold text-amber-600">
-                        {scenario.agents?.filter((a) => a.companyId)
-                          .length || 0}
+                        {scenario.agents?.filter((a) => a.companyId).length ||
+                          0}
                       </div>
                       <div className="text-xs text-gray-600">🏢 有公司归属</div>
                     </div>
@@ -1359,7 +1364,7 @@ export default function ScenarioDetailPage() {
 
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {scenario.agents?.map((agent, idx: number) => {
-                      const a = agent as Record<string, unknown>;
+                      const a = agent as unknown as Record<string, unknown>;
                       // 解析 persona JSON
                       let persona: Record<string, unknown> = {};
                       try {
@@ -1440,14 +1445,14 @@ export default function ScenarioDetailPage() {
                             {persona.riskTolerance !== undefined && (
                               <span
                                 className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                  persona.riskTolerance > 70
+                                  Number(persona.riskTolerance) > 70
                                     ? 'bg-red-100 text-red-700'
-                                    : persona.riskTolerance > 40
+                                    : Number(persona.riskTolerance) > 40
                                       ? 'bg-amber-100 text-amber-700'
                                       : 'bg-green-100 text-green-700'
                                 }`}
                               >
-                                风险 {persona.riskTolerance}%
+                                风险 {String(persona.riskTolerance)}%
                               </span>
                             )}
                           </div>
@@ -1488,7 +1493,7 @@ export default function ScenarioDetailPage() {
                           {/* Persona - 友好显示 */}
                           {hasPersona ? (
                             <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
-                              {persona.traits && (
+                              {!!persona.traits && (
                                 <div className="flex items-start gap-2">
                                   <span className="text-xs text-gray-400">
                                     🎭
@@ -1498,12 +1503,12 @@ export default function ScenarioDetailPage() {
                                       性格
                                     </span>
                                     <p className="text-xs text-gray-700">
-                                      {persona.traits}
+                                      {String(persona.traits)}
                                     </p>
                                   </div>
                                 </div>
                               )}
-                              {persona.biases && (
+                              {!!persona.biases && (
                                 <div className="flex items-start gap-2">
                                   <span className="text-xs text-gray-400">
                                     ⚡
@@ -1513,12 +1518,12 @@ export default function ScenarioDetailPage() {
                                       偏见
                                     </span>
                                     <p className="text-xs text-gray-700">
-                                      {persona.biases}
+                                      {String(persona.biases)}
                                     </p>
                                   </div>
                                 </div>
                               )}
-                              {persona.pressure && (
+                              {!!persona.pressure && (
                                 <div className="flex items-start gap-2">
                                   <span className="text-xs text-gray-400">
                                     💢
@@ -1528,12 +1533,12 @@ export default function ScenarioDetailPage() {
                                       压力源
                                     </span>
                                     <p className="text-xs text-gray-700">
-                                      {persona.pressure}
+                                      {String(persona.pressure)}
                                     </p>
                                   </div>
                                 </div>
                               )}
-                              {persona.timePref && (
+                              {!!persona.timePref && (
                                 <div className="flex items-start gap-2">
                                   <span className="text-xs text-gray-400">
                                     ⏱️
@@ -1543,7 +1548,7 @@ export default function ScenarioDetailPage() {
                                       时间偏好
                                     </span>
                                     <p className="text-xs text-gray-700">
-                                      {persona.timePref}
+                                      {String(persona.timePref)}
                                     </p>
                                   </div>
                                 </div>
@@ -1676,13 +1681,15 @@ export default function ScenarioDetailPage() {
                           <div className="flex items-center gap-3">
                             <div className="text-right">
                               <div className="text-xs text-gray-500">
-                                {new Date(run.createdAt).toLocaleString()}
+                                {new Date(
+                                  run.createdAt || Date.now()
+                                ).toLocaleString()}
                               </div>
                               <div className="mt-1 h-1.5 w-24 rounded-full bg-gray-200">
                                 <div
                                   className="h-1.5 rounded-full bg-indigo-500"
                                   style={{
-                                    width: `${run.rounds ? (run.currentRound / run.rounds) * 100 : 0}%`,
+                                    width: `${run.rounds ? ((run.currentRound ?? 0) / run.rounds) * 100 : 0}%`,
                                   }}
                                 />
                               </div>

@@ -14,6 +14,16 @@ import {
   ProgressState,
   ToolType,
   AGENT_CONFIGS,
+  PlanReadyEvent,
+  StepStartEvent,
+  StepProgressEvent,
+  StepCompleteEvent,
+  ToolCallEvent,
+  ToolResultEvent,
+  ThinkingEvent,
+  CompleteEvent,
+  ErrorEvent,
+  ProgressEvent as AgentProgressEvent,
 } from '@/lib/ai-office/agents/types';
 
 /**
@@ -137,7 +147,7 @@ export const useAgentStore = create<AgentStore>()(
         switch (event.type) {
           case 'progress':
             // 处理进度更新事件
-            const progressEvent = event as ProgressEvent;
+            const progressEvent = event as AgentProgressEvent;
             const progressData = progressEvent.data || {
               phase: '',
               percentage: 0,
@@ -239,8 +249,7 @@ export const useAgentStore = create<AgentStore>()(
 
             // 创建思考步骤
             const stepStartId = `step_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            const stepTitle =
-              stepStartEvent.message || `步骤 ${stepIndex + 1}`;
+            const stepTitle = stepStartEvent.message || `步骤 ${stepIndex + 1}`;
 
             set({
               progress: {
@@ -248,7 +257,9 @@ export const useAgentStore = create<AgentStore>()(
                 phase: 'executing',
                 currentStep: stepStartEvent.stepId || stepStartId,
                 percentage: Math.min(stepProgress, 90),
-                message: stepStartEvent.message || `执行步骤 ${stepIndex + 1}/${total}`,
+                message:
+                  stepStartEvent.message ||
+                  `执行步骤 ${stepIndex + 1}/${total}`,
               },
               thinkingSteps: [
                 ...thinkingSteps,
@@ -483,7 +494,7 @@ function getToolDescription(tool: string | ToolType, input: unknown): string {
     file_operation: (input) => `文件操作: ${input?.operation || '...'}`,
   };
 
-  const toolKey = typeof tool === 'string' ? tool : tool.toString();
+  const toolKey = typeof tool === 'string' ? tool : String(tool);
   const descFn = toolDescriptions[toolKey];
   if (descFn) {
     try {
