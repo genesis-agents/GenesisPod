@@ -6,6 +6,9 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 
 /**
  * JWT 认证策略
+ *
+ * SECURITY: JWT_SECRET environment variable is REQUIRED
+ * Never use a default secret in production - it would allow token forgery
  */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -13,13 +16,29 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     configService: ConfigService,
     private prisma: PrismaService,
   ) {
+    const jwtSecret = configService.get<string>("JWT_SECRET");
+
+    // SECURITY: Fail fast if JWT_SECRET is not configured
+    if (!jwtSecret) {
+      const errorMessage =
+        "CRITICAL SECURITY ERROR: JWT_SECRET environment variable is not set. " +
+        "This is required for secure token generation and validation. " +
+        "Set JWT_SECRET to a cryptographically secure random string (min 32 characters).";
+      throw new Error(errorMessage);
+    }
+
+    // Warn if secret is too short (should be at least 32 characters)
+    if (jwtSecret.length < 32) {
+      console.warn(
+        "⚠️ WARNING: JWT_SECRET is less than 32 characters. " +
+          "For production security, use a longer secret (64+ characters recommended).",
+      );
+    }
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>(
-        "JWT_SECRET",
-        "deepdive-secret-key-change-in-production",
-      ),
+      secretOrKey: jwtSecret,
     });
   }
 

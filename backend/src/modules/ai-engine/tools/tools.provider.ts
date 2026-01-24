@@ -53,11 +53,15 @@ import {
 // ============================================================================
 // Execution Tools (代码执行)
 // ============================================================================
+// ⚠️ SECURITY: Dangerous execution tools disabled for security reasons
+// See: https://owasp.org/www-community/attacks/Command_Injection
+// These tools can execute arbitrary code and pose significant RCE risks
+// If you need code execution, use ContainerExecutorTool with proper isolation
 import {
-  PythonExecutorTool,
-  JavaScriptExecutorTool,
+  // PythonExecutorTool,      // DISABLED: RCE risk - arbitrary Python execution
+  // JavaScriptExecutorTool,  // DISABLED: RCE risk - arbitrary JS execution
   SQLExecutorTool,
-  ShellExecutorTool,
+  // ShellExecutorTool,       // DISABLED: RCE risk - arbitrary shell commands
   ContainerExecutorTool,
   OCRRecognitionTool,
 } from "./categories/execution";
@@ -143,10 +147,12 @@ export const ALL_TOOL_CLASSES: Type<ITool>[] = [
   TemplateRenderTool,
 
   // Execution Tools
-  PythonExecutorTool,
-  JavaScriptExecutorTool,
+  // ⚠️ SECURITY: PythonExecutorTool, JavaScriptExecutorTool, ShellExecutorTool DISABLED
+  // These tools pose significant RCE (Remote Code Execution) risks
+  // PythonExecutorTool,      // DISABLED
+  // JavaScriptExecutorTool,  // DISABLED
   SQLExecutorTool,
-  ShellExecutorTool,
+  // ShellExecutorTool,       // DISABLED
   ContainerExecutorTool,
   OCRRecognitionTool,
 
@@ -235,10 +241,11 @@ export const TOOL_ID_CLASS_MAP: Record<string, Type<ITool>> = {
   "template-render": TemplateRenderTool,
 
   // Execution
-  "python-executor": PythonExecutorTool,
-  "javascript-executor": JavaScriptExecutorTool,
+  // ⚠️ SECURITY: Dangerous execution tools disabled
+  // "python-executor": PythonExecutorTool,      // DISABLED: RCE risk
+  // "javascript-executor": JavaScriptExecutorTool, // DISABLED: RCE risk
   "sql-executor": SQLExecutorTool,
-  "shell-executor": ShellExecutorTool,
+  // "shell-executor": ShellExecutorTool,        // DISABLED: RCE risk
   "container-executor": ContainerExecutorTool,
   "ocr-recognition": OCRRecognitionTool,
 

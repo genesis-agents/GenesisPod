@@ -8,6 +8,7 @@ import {
   Request,
   Response,
   Logger,
+  HttpCode,
 } from "@nestjs/common";
 import {
   Request as ExpressRequest,
@@ -15,8 +16,16 @@ import {
 } from "express";
 import { AuthGuard } from "@nestjs/passport";
 import { ConfigService } from "@nestjs/config";
+import { Throttle } from "@nestjs/throttler";
 import { AuthService } from "./auth.service";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
+
+/**
+ * Auth rate limit configuration
+ * Protects against brute force attacks on login/register endpoints
+ */
+const AUTH_RATE_LIMIT = { default: { limit: 5, ttl: 60000 } }; // 5 requests per minute
+const REFRESH_RATE_LIMIT = { default: { limit: 10, ttl: 60000 } }; // 10 requests per minute
 
 /**
  * 认证控制器
@@ -40,8 +49,11 @@ export class AuthController {
   /**
    * 用户注册
    * POST /api/v1/auth/register
+   * Rate limited: 5 requests per minute to prevent abuse
    */
   @Post("register")
+  @HttpCode(201)
+  @Throttle(AUTH_RATE_LIMIT)
   async register(
     @Body("email") email: string,
     @Body("username") username: string,
@@ -54,8 +66,11 @@ export class AuthController {
   /**
    * 用户登录
    * POST /api/v1/auth/login
+   * Rate limited: 5 requests per minute to prevent brute force attacks
    */
   @Post("login")
+  @HttpCode(200)
+  @Throttle(AUTH_RATE_LIMIT)
   async login(
     @Request() req: ExpressRequest,
     @Body("email") email: string,
@@ -78,8 +93,11 @@ export class AuthController {
   /**
    * 刷新 token
    * POST /api/v1/auth/refresh
+   * Rate limited: 10 requests per minute
    */
   @Post("refresh")
+  @HttpCode(200)
+  @Throttle(REFRESH_RATE_LIMIT)
   @UseGuards(AuthGuard("jwt"))
   async refresh(@Request() req: { user: { id: string } }) {
     return this.authService.refreshToken(req.user.id);
@@ -145,8 +163,11 @@ export class AuthController {
   /**
    * 用授权码换取 token
    * POST /api/v1/auth/exchange
+   * Rate limited: 5 requests per minute
    */
   @Post("exchange")
+  @HttpCode(200)
+  @Throttle(AUTH_RATE_LIMIT)
   async exchangeAuthCode(@Body("code") code: string) {
     this.logger.log(
       `Token exchange request with code: ${code.substring(0, 8)}...`,

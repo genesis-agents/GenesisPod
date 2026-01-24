@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
 import TableOfContents from '../TableOfContents';
+import { sanitizeHtml } from '@/lib/utils/sanitize';
 
 import { logger } from '@/lib/utils/logger';
 interface ReaderViewProps {
@@ -681,16 +682,14 @@ export default function ReaderView({
                     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
                 }}
               >
-                {/* 智能处理 HTML 内容 */}
+                {/* 智能处理 HTML 内容 - sanitized to prevent XSS */}
                 {article.content.includes('<p>') ||
                 article.content.includes('<div>') ||
                 article.content.includes('<h') ? (
                   <div
                     dangerouslySetInnerHTML={{
-                      __html: processHtmlContent(
-                        article.content,
-                        currentTheme,
-                        theme
+                      __html: sanitizeHtml(
+                        processHtmlContent(article.content, currentTheme, theme)
                       ),
                     }}
                     className="processed-html"

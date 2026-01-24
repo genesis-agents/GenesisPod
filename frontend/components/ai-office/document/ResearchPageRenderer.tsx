@@ -3,6 +3,8 @@
 /**
  * Research Page渲染器
  * 专门用于显示结构化研究文档
+ *
+ * SECURITY: All HTML content is sanitized using DOMPurify to prevent XSS attacks
  */
 
 import React, { useState } from 'react';
@@ -14,6 +16,7 @@ import {
   Search,
   Download,
 } from 'lucide-react';
+import { sanitizeHtml } from '@/lib/utils/sanitize';
 import type { ResearchPageTemplate } from '@/lib/templates/research-page-templates';
 
 interface ResearchPageRendererProps {
@@ -95,6 +98,7 @@ export default function ResearchPageRenderer({
   };
 
   // 渲染Markdown内容（简化版）
+  // SECURITY: Output is sanitized to prevent XSS attacks
   const renderMarkdown = (text: string) => {
     let html = text;
 
@@ -114,7 +118,8 @@ export default function ResearchPageRenderer({
       '<ul class="list-disc ml-6 my-2 space-y-1">$&</ul>'
     );
 
-    return html;
+    // Sanitize the output to prevent XSS
+    return sanitizeHtml(html);
   };
 
   return (

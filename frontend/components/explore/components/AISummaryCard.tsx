@@ -4,15 +4,20 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { extractImagesFromMarkdown } from '../utils';
 import { Base64Image } from '../resources/Base64Image';
+import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
 
 interface AISummaryCardProps {
   aiSummary: string;
-  onContextMenu: (e: React.MouseEvent, text: string) => void;
+  resourceId?: string;
+  onContextMenu?: (e: React.MouseEvent, text: string) => void;
+  onAskAI?: (text: string) => void;
 }
 
 export default function AISummaryCard({
   aiSummary,
+  resourceId,
   onContextMenu,
+  onAskAI,
 }: AISummaryCardProps) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -36,29 +41,35 @@ export default function AISummaryCard({
           <div>
             <h3 className="text-sm font-bold text-gray-900">AI Summary</h3>
             <p className="text-[11px] text-gray-500">
-              Right-click to add to notes
+              Select text for more options
             </p>
           </div>
         </div>
       </div>
-      <div
-        className="prose prose-sm max-w-none cursor-text select-text p-3"
-        onContextMenu={(e) => onContextMenu(e, aiSummary)}
+      <TextSelectionToolbar
+        resourceId={resourceId}
+        onAskAI={onAskAI}
+        onAddToNotes={(text, note) => {
+          onContextMenu?.({} as React.MouseEvent, text);
+        }}
       >
-        {(() => {
-          const { images, textContent } = extractImagesFromMarkdown(aiSummary);
-          return (
-            <>
-              {images.map((img, idx) => (
-                <Base64Image key={idx} src={img.src} alt={img.alt} />
-              ))}
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {textContent}
-              </ReactMarkdown>
-            </>
-          );
-        })()}
-      </div>
+        <div className="prose prose-sm max-w-none cursor-text select-text p-3">
+          {(() => {
+            const { images, textContent } =
+              extractImagesFromMarkdown(aiSummary);
+            return (
+              <>
+                {images.map((img, idx) => (
+                  <Base64Image key={idx} src={img.src} alt={img.alt} />
+                ))}
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {textContent}
+                </ReactMarkdown>
+              </>
+            );
+          })()}
+        </div>
+      </TextSelectionToolbar>
     </div>
   );
 }

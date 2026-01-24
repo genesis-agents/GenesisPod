@@ -1,7 +1,11 @@
 /**
  * 高级 Markdown 解析器
  * 支持 Genspark 风格的可视化标记
+ *
+ * SECURITY: All HTML output is sanitized using DOMPurify to prevent XSS attacks
  */
+
+import { sanitizeHtml } from '@/lib/utils/sanitize';
 
 export interface ChartData {
   labels: string[];
@@ -315,12 +319,16 @@ function hasMultipleColumns(content: string[]): boolean {
 
 /**
  * 渲染单行内容（处理markdown格式）
+ * SECURITY: Output is sanitized to prevent XSS attacks
  */
 export function renderMarkdownLine(line: string): string {
-  return line
+  const rendered = line
     .replace(/^\*\*(.+?)\*\*[:：]\s*\*\*/, '') // 移除 **标题**: **
     .replace(/^\*\*(.+?)\*\*[:：]?/, '<strong>$1</strong>') // **粗体**:
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') // **粗体**
     .replace(/^-\s+/, '• ') // 列表符号
     .replace(/^\d+\.\s+/, (match) => match); // 数字列表
+
+  // Sanitize the output to prevent XSS
+  return sanitizeHtml(rendered);
 }

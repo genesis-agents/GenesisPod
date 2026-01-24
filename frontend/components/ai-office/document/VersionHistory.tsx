@@ -3,11 +3,14 @@
 /**
  * 文档版本历史组件
  * 提供版本查看、对比、回退功能
+ *
+ * SECURITY: All HTML content is sanitized using DOMPurify to prevent XSS attacks
  */
 
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { sanitizeHtml } from '@/lib/utils/sanitize';
 import type { DocumentVersion } from '@/types/ai-office';
 import { useDocumentStore } from '@/stores/aiOfficeStore';
 import VersionDiffViewer from './VersionDiffViewer';
@@ -379,9 +382,11 @@ export default function VersionHistory({
                                 <div
                                   className="flex min-h-[200px] flex-col justify-center rounded bg-gradient-to-br from-blue-500 to-blue-600 p-6 text-white"
                                   dangerouslySetInnerHTML={{
-                                    __html: slide.elements
-                                      .map((el: any) => el.content)
-                                      .join('<br>'),
+                                    __html: sanitizeHtml(
+                                      slide.elements
+                                        .map((el: any) => el.content)
+                                        .join('<br>')
+                                    ),
                                   }}
                                 />
                               </div>

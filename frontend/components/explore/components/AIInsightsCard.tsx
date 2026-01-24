@@ -1,15 +1,20 @@
 'use client';
 
 import { AIInsight } from '../utils/types';
+import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
 
 interface AIInsightsCardProps {
   aiInsights: AIInsight[];
-  onContextMenu: (e: React.MouseEvent, text: string) => void;
+  resourceId?: string;
+  onContextMenu?: (e: React.MouseEvent, text: string) => void;
+  onAskAI?: (text: string) => void;
 }
 
 export default function AIInsightsCard({
   aiInsights,
+  resourceId,
   onContextMenu,
+  onAskAI,
 }: AIInsightsCardProps) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -35,39 +40,44 @@ export default function AIInsightsCard({
               {aiInsights.length} Key Insights
             </h3>
             <p className="text-[11px] text-gray-500">
-              Right-click to add to notes
+              Select text for more options
             </p>
           </div>
         </div>
       </div>
-      <div className="space-y-2 p-3">
-        {aiInsights.map((insight, i) => (
-          <div
-            key={i}
-            className={`group cursor-pointer rounded-lg border-2 p-2.5 transition-all ${
-              insight.importance === 'high'
-                ? 'border-red-200 bg-red-50 hover:border-red-300 hover:bg-red-100'
-                : insight.importance === 'medium'
-                  ? 'border-orange-200 bg-orange-50 hover:border-orange-300 hover:bg-orange-100'
-                  : 'border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100'
-            }`}
-            onContextMenu={(e) =>
-              onContextMenu(e, `**${insight.title}**\n\n${insight.description}`)
-            }
-          >
-            <div className="flex items-start">
-              <div className="flex-1">
-                <h4 className="text-sm font-semibold leading-snug text-gray-900">
-                  {insight.title}
-                </h4>
-                <p className="mt-1 text-xs leading-relaxed text-gray-600">
-                  {insight.description}
-                </p>
+      <TextSelectionToolbar
+        resourceId={resourceId}
+        onAskAI={onAskAI}
+        onAddToNotes={(text) => {
+          onContextMenu?.({} as React.MouseEvent, text);
+        }}
+      >
+        <div className="space-y-2 p-3">
+          {aiInsights.map((insight, i) => (
+            <div
+              key={i}
+              className={`group cursor-text select-text rounded-lg border-2 p-2.5 transition-all ${
+                insight.importance === 'high'
+                  ? 'border-red-200 bg-red-50 hover:border-red-300 hover:bg-red-100'
+                  : insight.importance === 'medium'
+                    ? 'border-orange-200 bg-orange-50 hover:border-orange-300 hover:bg-orange-100'
+                    : 'border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100'
+              }`}
+            >
+              <div className="flex items-start">
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold leading-snug text-gray-900">
+                    {insight.title}
+                  </h4>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                    {insight.description}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </TextSelectionToolbar>
     </div>
   );
 }

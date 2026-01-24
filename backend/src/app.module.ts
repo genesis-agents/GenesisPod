@@ -3,7 +3,8 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ServeStaticModule } from "@nestjs/serve-static";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { EventEmitterModule } from "@nestjs/event-emitter";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
+import { ResponseTransformInterceptor } from "./common/interceptors/response-transform.interceptor";
 import { join } from "path";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
@@ -174,6 +175,12 @@ import { WebhooksModule } from "./modules/webhooks";
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    // 全局响应格式转换拦截器
+    // Ensures consistent API response format: { success, data, metadata }
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ResponseTransformInterceptor,
     },
   ],
 })
