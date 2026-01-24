@@ -559,7 +559,6 @@ export class CreditsService implements OnModuleInit {
       "ai-studio": CreditTransactionType.AI_STUDIO,
       "ai-teams": CreditTransactionType.AI_TEAMS,
       "ai-office": CreditTransactionType.AI_OFFICE,
-      "ai-coding": CreditTransactionType.AI_CODING,
       "ai-simulation": CreditTransactionType.AI_SIMULATION,
     };
 

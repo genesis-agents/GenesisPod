@@ -35,8 +35,8 @@ export default function AIModelSelector({
         className="cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium shadow-sm transition-all hover:border-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
       >
         {aiModels.map((model) => (
-          <option key={model.id} value={model.modelId}>
-            {model.name} ({model.provider})
+          <option key={model.id as string} value={model.modelId as string}>
+            {model.name as string} ({model.provider as string})
           </option>
         ))}
       </select>

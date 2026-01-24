@@ -286,7 +286,7 @@ export default function CommentItem({
                 placeholder={`回复 @${comment.user.username}...`}
                 onCommentAdded={(newComment) => {
                   setShowReplyInput(false);
-                  onCommentAdded?.(newComment);
+                  onCommentAdded?.(newComment as Comment);
                 }}
                 onCancel={() => setShowReplyInput(false)}
                 autoFocus

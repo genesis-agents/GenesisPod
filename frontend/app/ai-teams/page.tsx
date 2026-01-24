@@ -64,7 +64,10 @@ export default function AIGroupPage() {
     if (!authLoading && isAuthenticated) {
       fetchTopics();
       // Also fetch my join requests
-      api.getMyJoinRequests().then(setMyJoinRequests).catch((err) => logger.error('Failed to fetch join requests:', err));
+      api
+        .getMyJoinRequests()
+        .then(setMyJoinRequests)
+        .catch((err) => logger.error('Failed to fetch join requests:', err));
     }
   }, [authLoading, isAuthenticated, fetchTopics]);
 
@@ -87,7 +90,12 @@ export default function AIGroupPage() {
           );
           setPublicTopics(filteredTopics);
         })
-        .catch((err) => logger.error('Failed to fetch public topics:', err))
+        .catch((err) =>
+          logger.error(
+            'Failed to fetch public topics:',
+            err instanceof Error ? err.message : String(err)
+          )
+        )
         .finally(() => setIsLoadingPublicTopics(false));
     }
   }, [activeTab, isAuthenticated, searchQuery, myJoinRequests, topics]);
@@ -104,7 +112,11 @@ export default function AIGroupPage() {
       setJoinRequestMessage('');
       alert(t('aiTeams.joinRequest.sentAlert', { name: topic.name }));
     } catch (error) {
-      alert(error.message || t('aiTeams.joinRequest.sendFailed'));
+      alert(
+        error instanceof Error
+          ? error.message
+          : t('aiTeams.joinRequest.sendFailed')
+      );
     } finally {
       setJoiningTopicId(null);
     }
@@ -118,7 +130,11 @@ export default function AIGroupPage() {
       const requests = await api.getMyJoinRequests();
       setMyJoinRequests(requests);
     } catch (error) {
-      alert(error.message || t('aiTeams.pendingRequests.cancelFailed'));
+      alert(
+        error instanceof Error
+          ? error.message
+          : t('aiTeams.pendingRequests.cancelFailed')
+      );
     }
   };
 
@@ -896,23 +912,27 @@ function TopicCard({
         )}
 
         {/* Tags */}
-        {topic.metadata?.tags && topic.metadata.tags.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {topic.metadata.tags.slice(0, 3).map((tag: string, idx: number) => (
-              <span
-                key={idx}
-                className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600"
-              >
-                {tag}
-              </span>
-            ))}
-            {topic.metadata.tags.length > 3 && (
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-                +{topic.metadata.tags.length - 3}
-              </span>
-            )}
-          </div>
-        )}
+        {topic.metadata &&
+          Array.isArray((topic.metadata as any).tags) &&
+          (topic.metadata as any).tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {(topic.metadata as any).tags
+                .slice(0, 3)
+                .map((tag: string, idx: number) => (
+                  <span
+                    key={idx}
+                    className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              {(topic.metadata as any).tags.length > 3 && (
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                  +{(topic.metadata as any).tags.length - 3}
+                </span>
+              )}
+            </div>
+          )}
 
         {/* Stats */}
         <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">

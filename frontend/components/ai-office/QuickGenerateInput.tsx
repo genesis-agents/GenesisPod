@@ -71,7 +71,10 @@ export default function QuickGenerateInput() {
             result.summary +
             '\n\n' +
             result.sections
-              .map((s: { title: string; content: string }) => `## ${s.title}\n\n${s.content}`)
+              .map(
+                (s: { title: string; content: string }) =>
+                  `## ${s.title}\n\n${s.content}`
+              )
               .join('\n\n'),
         },
         metadata: {
@@ -94,7 +97,11 @@ export default function QuickGenerateInput() {
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       logger.error('Generation failed:', err);
-      setError(err.message || 'Failed to generate document. Please try again.');
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to generate document. Please try again.'
+      );
     } finally {
       setIsGenerating(false);
     }

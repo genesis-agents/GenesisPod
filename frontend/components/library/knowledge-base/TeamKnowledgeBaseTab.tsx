@@ -19,6 +19,8 @@ import {
   useKnowledgeBase,
   useKnowledgeBaseDetail,
   type KnowledgeBase,
+  type KnowledgeBaseDocument,
+  type CreateKnowledgeBaseDto,
 } from '@/hooks/domain/useKnowledgeBase';
 import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog';
 import EditKnowledgeBaseDialog from './EditKnowledgeBaseDialog';
@@ -54,7 +56,7 @@ export default function TeamKnowledgeBaseTab({
   const [showDocList, setShowDocList] = useState<{
     kbId: string;
     kbName: string;
-    documents: Array<Record<string, unknown>>;
+    documents: KnowledgeBaseDocument[];
   } | null>(null); // 文档列表弹窗
   const [showAddDocs, setShowAddDocs] = useState<{
     kbId: string;
@@ -121,7 +123,7 @@ export default function TeamKnowledgeBaseTab({
     );
   });
 
-  const handleCreate = async (dto: Record<string, unknown>) => {
+  const handleCreate = async (dto: CreateKnowledgeBaseDto) => {
     await createKnowledgeBase({ ...dto, type: 'TEAM' });
     setShowCreateDialog(false);
   };
@@ -636,7 +638,7 @@ export default function TeamKnowledgeBaseTab({
             setShowDetailKbId(null);
             setShowSearchTest(kbId);
           }}
-          onViewDocuments={(docs) => {
+          onViewDocuments={(docs: KnowledgeBaseDocument[]) => {
             const kb = teamKBs.find((k) => k.id === showDetailKbId);
             if (kb) {
               setShowDetailKbId(null);

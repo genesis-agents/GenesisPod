@@ -692,7 +692,9 @@ function YouTubeTLDWContent() {
         setContextMenu(null);
         setNotesRefreshKey((prev) => prev + 1);
       } else {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData: { message?: string } = await response
+          .json()
+          .catch(() => ({ message: undefined }));
         logger.error('Failed to save note:', {
           status: response.status,
           error: errorData,
@@ -902,7 +904,7 @@ function YouTubeTLDWContent() {
         logger.debug(
           `Translated merged segment ${activeMergedIndex}: "${currentMerged.text.substring(0, 50)}..." -> "${data.translation?.substring(0, 50)}..."`
         );
-      } catch (error) {
+      } catch (error: any) {
         logger.error('Failed to translate segment:', error?.message || error);
         // Fallback to original text on error
         setTranslations((prev) => {

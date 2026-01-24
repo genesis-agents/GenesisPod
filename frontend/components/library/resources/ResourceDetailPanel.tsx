@@ -218,7 +218,7 @@ export default function ResourceDetailPanel({
                 setNote({
                   ...note,
                   graphNodes: (note.graphNodes || []).filter(
-                    (n) => n.id !== nodeId
+                    (n: { id: string }) => n.id !== nodeId
                   ),
                 });
               }}

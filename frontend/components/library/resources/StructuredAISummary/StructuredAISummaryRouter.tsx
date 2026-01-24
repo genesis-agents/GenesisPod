@@ -160,10 +160,11 @@ export const StructuredAISummaryRouter: React.FC<StructuredAISummaryProps> = ({
  * 导出工具函数：检查摘要是否是结构化格式
  */
 export function isStructuredAISummary(
-  summary: Record<string, unknown>
+  summary: unknown
 ): summary is ResourceAISummary {
   return (
-    summary &&
+    summary !== null &&
+    summary !== undefined &&
     typeof summary === 'object' &&
     'overview' in summary &&
     'category' in summary &&

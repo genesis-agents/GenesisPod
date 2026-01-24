@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import type { SimulationNodeDatum, SimulationLinkDatum, ZoomBehavior, Selection, D3DragEvent } from 'd3';
+import type {
+  SimulationNodeDatum,
+  SimulationLinkDatum,
+  ZoomBehavior,
+  Selection,
+  D3DragEvent,
+} from 'd3';
 
 interface GraphNode extends SimulationNodeDatum {
   id: string;
@@ -183,13 +189,15 @@ export default function KnowledgeGraphView({
     // 计算每条边的权重（基于源节点和目标节点的连接数）
     const nodeConnectionCount = new Map<string, number>();
     edges.forEach((e) => {
+      const sourceId = typeof e.source === 'string' ? e.source : e.source.id;
+      const targetId = typeof e.target === 'string' ? e.target : e.target.id;
       nodeConnectionCount.set(
-        e.source,
-        (nodeConnectionCount.get(e.source) || 0) + 1
+        sourceId,
+        (nodeConnectionCount.get(sourceId) || 0) + 1
       );
       nodeConnectionCount.set(
-        e.target,
-        (nodeConnectionCount.get(e.target) || 0) + 1
+        targetId,
+        (nodeConnectionCount.get(targetId) || 0) + 1
       );
     });
 
@@ -214,8 +222,10 @@ export default function KnowledgeGraphView({
       .attr('stroke-opacity', 0.5)
       .attr('stroke-width', (d) => {
         // 根据连接强度调整粗细（源和目标节点的平均连接数）
-        const sourceCount = nodeConnectionCount.get(d.source) || 1;
-        const targetCount = nodeConnectionCount.get(d.target) || 1;
+        const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
+        const targetId = typeof d.target === 'string' ? d.target : d.target.id;
+        const sourceCount = nodeConnectionCount.get(sourceId) || 1;
+        const targetCount = nodeConnectionCount.get(targetId) || 1;
         const avgConnections = (sourceCount + targetCount) / 2;
         // 映射到1-4的粗细范围
         return Math.min(Math.max(avgConnections / 3, 1), 4);
@@ -231,9 +241,9 @@ export default function KnowledgeGraphView({
       .call(
         d3
           .drag<SVGGElement, GraphNode>()
-          .on('start', dragstarted)
-          .on('drag', dragged)
-          .on('end', dragended)
+          .on('start', dragstarted as any)
+          .on('drag', dragged as any)
+          .on('end', dragended as any) as any
       );
 
     // 节点圆形
@@ -341,7 +351,9 @@ export default function KnowledgeGraphView({
     });
 
     // 拖拽事件
-    function dragstarted(event: D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
+    function dragstarted(
+      event: D3DragEvent<SVGGElement, GraphNode, GraphNode>
+    ) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
       event.subject.fx = event.subject.x;
       event.subject.fy = event.subject.y;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Resource, AIMessage, AIInsight } from '../utils/types';
 import { extractImagesFromMarkdown } from '../utils';
 import { Base64Image } from '../resources/Base64Image';
@@ -355,7 +356,7 @@ export default function AIAssistantPanel({
                   if (
                     targetResource.type === 'YOUTUBE' ||
                     targetResource.type === 'YOUTUBE_VIDEO' ||
-                    (targetResource).videoId
+                    targetResource.videoId
                   ) {
                     const videoId = extractYouTubeVideoId(
                       targetResource.sourceUrl

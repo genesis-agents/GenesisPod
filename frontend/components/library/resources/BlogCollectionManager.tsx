@@ -427,21 +427,31 @@ export const BlogCollectionManager: React.FC<BlogCollectionManagerProps> = ({
           </h3>
 
           <div className="space-y-2">
-            {stats.recentPosts.map((post) => (
-              <a
-                key={post.id}
-                href={`/reports/${post.id}`}
-                className="block rounded bg-gray-50 p-3 hover:bg-blue-50"
-              >
-                <p className="line-clamp-2 font-medium text-blue-600 hover:underline">
-                  {post.title}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {post.publisherName} •{' '}
-                  {new Date(post.publishedAt).toLocaleString('zh-CN')}
-                </p>
-              </a>
-            ))}
+            {stats.recentPosts.map(
+              (post: {
+                id: string;
+                title: string;
+                createdAt: string;
+                publisherName?: string;
+                publishedAt?: string;
+              }) => (
+                <a
+                  key={post.id}
+                  href={`/reports/${post.id}`}
+                  className="block rounded bg-gray-50 p-3 hover:bg-blue-50"
+                >
+                  <p className="line-clamp-2 font-medium text-blue-600 hover:underline">
+                    {post.title}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {post.publisherName || 'Unknown'} •{' '}
+                    {new Date(
+                      post.publishedAt || post.createdAt
+                    ).toLocaleString('zh-CN')}
+                  </p>
+                </a>
+              )
+            )}
           </div>
         </div>
       )}

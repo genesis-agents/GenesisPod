@@ -346,16 +346,16 @@ export function memoize<T extends (...args: any[]) => unknown>(
   fn: T,
   getCacheKey?: (...args: Parameters<T>) => string
 ): T {
-  const cache = new Map<string, ReturnType<T>>();
+  const cache = new Map<string, any>();
 
   return ((...args: Parameters<T>): ReturnType<T> => {
     const key = getCacheKey ? getCacheKey(...args) : JSON.stringify(args);
 
     if (cache.has(key)) {
-      return cache.get(key)!;
+      return cache.get(key) as ReturnType<T>;
     }
 
-    const result = fn(...args);
+    const result = fn(...args) as ReturnType<T>;
     cache.set(key, result);
     return result;
   }) as T;

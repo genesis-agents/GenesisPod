@@ -110,7 +110,9 @@ function convertNotionBlock(block: NotionBlock): BlockNoteBlock | null {
       return {
         id,
         type: 'checkListItem',
-        props: { checked: block.to_do?.checked || false },
+        props: {
+          checked: (block.to_do as { checked?: boolean })?.checked || false,
+        },
         content,
       };
 
@@ -118,7 +120,10 @@ function convertNotionBlock(block: NotionBlock): BlockNoteBlock | null {
       return {
         id,
         type: 'codeBlock',
-        props: { language: block.code?.language || 'plain text' },
+        props: {
+          language:
+            (block.code as { language?: string })?.language || 'plain text',
+        },
         content,
       };
 
@@ -126,8 +131,10 @@ function convertNotionBlock(block: NotionBlock): BlockNoteBlock | null {
       return { id, type: 'paragraph', content }; // BlockNote 没有原生 quote，用段落代替
 
     case 'image':
-      const imageUrl =
-        block.image?.file?.url || block.image?.external?.url || '';
+      const imageData = block.image as
+        | { file?: { url?: string }; external?: { url?: string } }
+        | undefined;
+      const imageUrl = imageData?.file?.url || imageData?.external?.url || '';
       return {
         id,
         type: 'image',
@@ -136,7 +143,11 @@ function convertNotionBlock(block: NotionBlock): BlockNoteBlock | null {
       };
 
     case 'divider':
-      return { id, type: 'paragraph', content: [{ type: 'text', text: '---' }] };
+      return {
+        id,
+        type: 'paragraph',
+        content: [{ type: 'text', text: '---' }],
+      };
 
     default:
       // 对于不支持的块类型，尝试提取文本内容
@@ -150,11 +161,15 @@ function convertNotionBlock(block: NotionBlock): BlockNoteBlock | null {
 function getRichText(block: NotionBlock): NotionRichText[] {
   const blockContent = block[block.type] as Record<string, unknown> | undefined;
   if (!blockContent) return [];
-  const richText = (blockContent.rich_text || blockContent.text) as NotionRichText[] | undefined;
+  const richText = (blockContent.rich_text || blockContent.text) as
+    | NotionRichText[]
+    | undefined;
   return richText || [];
 }
 
-function convertRichTextToContent(richText: NotionRichText[]): BlockNoteTextContent[] {
+function convertRichTextToContent(
+  richText: NotionRichText[]
+): BlockNoteTextContent[] {
   if (!richText || richText.length === 0) return [];
 
   return richText
@@ -176,7 +191,9 @@ function convertRichTextToContent(richText: NotionRichText[]): BlockNoteTextCont
  * 将 BlockNote 格式转换回 Notion 格式（用于保存）
  */
 function blockNoteToNotion(blocks: BlockNoteBlock[]): NotionBlock[] {
-  return blocks.map((block) => convertBlockNoteBlock(block)).filter((b): b is NotionBlock => b !== null);
+  return blocks
+    .map((block) => convertBlockNoteBlock(block))
+    .filter((b): b is NotionBlock => b !== null);
 }
 
 function convertBlockNoteBlock(block: BlockNoteBlock): NotionBlock | null {
@@ -193,8 +210,11 @@ function convertBlockNoteBlock(block: BlockNoteBlock): NotionBlock | null {
       };
 
     case 'heading':
-      const level = block.props?.level || 1;
-      const headingType = `heading_${Math.min(level, 3)}` as 'heading_1' | 'heading_2' | 'heading_3';
+      const level = (block.props?.level as number) || 1;
+      const headingType = `heading_${Math.min(level, 3)}` as
+        | 'heading_1'
+        | 'heading_2'
+        | 'heading_3';
       return {
         id: block.id,
         type: headingType,
@@ -257,7 +277,9 @@ function convertBlockNoteBlock(block: BlockNoteBlock): NotionBlock | null {
   }
 }
 
-function convertContentToRichText(content: BlockNoteTextContent[]): NotionRichText[] {
+function convertContentToRichText(
+  content: BlockNoteTextContent[]
+): NotionRichText[] {
   if (!content || content.length === 0) return [];
 
   return content
@@ -297,13 +319,13 @@ export default function NotionPageEditor({
 
   // 防抖保存
   const debouncedSave = useCallback(
-    (blocks: BlockNoteBlock[]) => {
+    (blocks: unknown[]) => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
 
       saveTimeoutRef.current = setTimeout(() => {
-        const notionBlocks = blockNoteToNotion(blocks);
+        const notionBlocks = blockNoteToNotion(blocks as BlockNoteBlock[]);
         onChange?.(notionBlocks);
       }, 1000);
     },
@@ -333,7 +355,8 @@ export default function NotionPageEditor({
       />
       <style jsx global>{`
         .notion-editor .bn-container {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica,
+          font-family:
+            -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica,
             'Apple Color Emoji', Arial, sans-serif;
         }
 
@@ -376,8 +399,9 @@ export default function NotionPageEditor({
         }
 
         .notion-editor code {
-          font-family: 'SFMono-Regular', Menlo, Consolas, 'PT Mono',
-            'Liberation Mono', Courier, monospace;
+          font-family:
+            'SFMono-Regular', Menlo, Consolas, 'PT Mono', 'Liberation Mono',
+            Courier, monospace;
           font-size: 85%;
           background-color: rgba(135, 131, 120, 0.15);
           padding: 0.2em 0.4em;

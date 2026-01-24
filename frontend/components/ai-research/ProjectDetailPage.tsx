@@ -124,6 +124,21 @@ interface Chat {
   createdAt: string;
 }
 
+interface ChatMessageResponse {
+  aiMessage: {
+    id: string;
+    content: string;
+    timestamp: string;
+    citations?: string[];
+  };
+  sourceContext?: Array<{
+    id: string;
+    title: string;
+    content?: string | null;
+    abstract?: string | null;
+  }>;
+}
+
 interface Output {
   id: string;
   type: string;
@@ -474,11 +489,11 @@ function SourcesPanel({
     setSearchStats(null);
     setSearchResults([]);
     try {
-      const result: SearchResponse = await searchSourcesApi(
+      const result = (await searchSourcesApi(
         searchQuery,
         'quick',
         searchSources
-      );
+      )) as SearchResponse;
       setSearchResults(result.results || []);
       setSearchStats(result.stats);
     } catch (err) {
@@ -788,7 +803,23 @@ function SourcesPanel({
                 <FileUploader
                   projectId={projectId}
                   onFilesUploaded={(newSources) => {
-                    onAddSources(newSources);
+                    // Convert UploadedSource to Source format
+                    const convertedSources: Source[] = newSources.map((s) => ({
+                      id: s.id,
+                      title: s.title || s.fileName || 'Untitled',
+                      sourceType: s.type || 'file',
+                      sourceUrl: s.url || null,
+                      abstract: null,
+                      content: s.content || null,
+                      authors: null,
+                      publishedAt: null,
+                      analysisStatus: 'PENDING' as const,
+                      aiSummary: null,
+                      resourceId: null,
+                      metadata: {},
+                      createdAt: new Date().toISOString(),
+                    }));
+                    onAddSources(convertedSources);
                     setShowAddDialog(false);
                   }}
                   onClose={() => setShowAddDialog(false)}
@@ -2882,7 +2913,10 @@ export function ProjectDetailPage() {
 
       // 优先使用标准聊天(CHAT)类型的默认模型
       const chatModel = getDefaultChatModel(aiModels);
-      logger.debug('[AI Studio] getDefaultChatModel returned:', chatModel?.name);
+      logger.debug(
+        '[AI Studio] getDefaultChatModel returned:',
+        chatModel?.name
+      );
 
       const defaultModel =
         chatModel || aiModels.find((m) => m.isDefault) || aiModels[0];
@@ -3074,12 +3108,12 @@ export function ProjectDetailPage() {
       });
 
       // Send to API and get AI response
-      const result = await sendChatMessage(
+      const result = (await sendChatMessage(
         projectId,
         message,
         selectedSourceIds,
         selectedModel
-      );
+      )) as ChatMessageResponse;
 
       // Add AI response from backend
       if (result.aiMessage) {
@@ -3090,19 +3124,12 @@ export function ProjectDetailPage() {
           timestamp: result.aiMessage.timestamp,
           citations: result.aiMessage.citations,
           // Store source context in the order used for citations
-          sourceContext: result.sourceContext?.map(
-            (s: {
-              id: string;
-              title: string;
-              content?: string | null;
-              abstract?: string | null;
-            }) => ({
-              id: s.id,
-              title: s.title,
-              content: s.content,
-              abstract: s.abstract,
-            })
-          ),
+          sourceContext: result.sourceContext?.map((s) => ({
+            id: s.id,
+            title: s.title,
+            content: s.content,
+            abstract: s.abstract,
+          })),
         };
 
         setProject((prev) => {

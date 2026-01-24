@@ -117,7 +117,7 @@ export default function ResourceReader({
     }
   };
 
-  const handleHighlightAdded = (highlight) => {
+  const handleHighlightAdded = (highlight: any) => {
     setHighlights([...highlights, highlight]);
   };
 

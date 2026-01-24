@@ -304,8 +304,14 @@ export default function VersionHistory({
                     if (!version) return <p>版本不存在</p>;
 
                     // 检查是否是 markdown 内容（PPT 或 Article）
-                    if (version.content.markdown) {
-                      const markdown = version.content.markdown;
+                    const hasMarkdown =
+                      typeof version.content === 'object' &&
+                      version.content !== null &&
+                      'markdown' in version.content;
+
+                    if (hasMarkdown) {
+                      const markdown = (version.content as { markdown: string })
+                        .markdown;
 
                       // 如果版本元数据中有 slideCount，说明是 PPT
                       if (version.metadata.slideCount) {
@@ -317,7 +323,7 @@ export default function VersionHistory({
                         return (
                           <div className="space-y-6">
                             {slides.map(
-                              (slideContent, index: number) => {
+                              (slideContent: string, index: number) => {
                                 // 提取标题
                                 const titleMatch =
                                   slideContent.match(/^#{2,4}\s*(.+)$/m);

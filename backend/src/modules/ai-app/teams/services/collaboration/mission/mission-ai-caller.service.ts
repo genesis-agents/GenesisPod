@@ -13,12 +13,32 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { AIEngineFacade, ChatMessage } from "../../../../../ai-engine/facade";
+import type {
+  CreativityLevel,
+  OutputLengthLevel,
+} from "../../../../../ai-engine/llm/types/task-profile";
+
+/**
+ * TaskProfile 直接配置（推荐方式）
+ */
+export interface TaskProfileOptions {
+  creativity: CreativityLevel;
+  outputLength: OutputLengthLevel;
+}
 
 /**
  * AI 调用选项
+ *
+ * 推荐使用 taskProfile 直接配置，避免硬编码数字参数：
+ * - taskProfile: { creativity: "medium", outputLength: "long" } ✅ 推荐
+ * - maxTokens/temperature: 仍支持但会被自动映射 ⚠️ 兼容
  */
 export interface AICallOptions {
+  /** 推荐：直接使用语义化的 TaskProfile */
+  taskProfile?: TaskProfileOptions;
+  /** @deprecated 使用 taskProfile.outputLength 替代 */
   maxTokens?: number;
+  /** @deprecated 使用 taskProfile.creativity 替代 */
   temperature?: number;
   missionId?: string;
   enableSearch?: boolean;
@@ -86,17 +106,16 @@ export class MissionAICallerService {
       ),
     ];
 
-    // Map legacy temperature/maxTokens to taskProfile
-    const creativity = this.mapTemperatureToCreativity(options?.temperature);
-    const outputLength = this.mapMaxTokensToOutputLength(options?.maxTokens);
+    // ★ 优先使用直接传入的 taskProfile，否则从 legacy 参数映射
+    const taskProfile = options?.taskProfile ?? {
+      creativity: this.mapTemperatureToCreativity(options?.temperature),
+      outputLength: this.mapMaxTokensToOutputLength(options?.maxTokens),
+    };
 
     const result = await this.aiFacade.chat({
       messages: facadeMessages,
       model: modelConfig?.modelId ?? aiModel,
-      taskProfile: {
-        creativity,
-        outputLength,
-      },
+      taskProfile,
     });
 
     // ★ Track token consumption for mission

@@ -92,16 +92,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(data);
     } catch (fetchError) {
       clearTimeout(timeoutId);
-      if (fetchError.name === 'AbortError') {
+      if ((fetchError as Error).name === 'AbortError') {
         logger.error('Translation request timed out after 5 minutes');
         throw new Error('Translation request timed out');
       }
       throw fetchError;
     }
   } catch (error) {
-    logger.error('Translation error:', error?.message || error);
+    logger.error('Translation error:', (error as Error)?.message || error);
     return NextResponse.json(
-      { error: error?.message || 'Failed to translate segments' },
+      { error: (error as Error)?.message || 'Failed to translate segments' },
       { status: 500 }
     );
   }

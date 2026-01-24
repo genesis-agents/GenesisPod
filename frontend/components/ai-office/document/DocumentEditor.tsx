@@ -136,9 +136,7 @@ export default function DocumentEditor() {
   const documents = useDocumentStore((state) => state.documents);
   const updateDocument = useDocumentStore((state) => state.updateDocument);
 
-  const currentDocument = documents.find(
-    (d) => d._id === currentDocumentId
-  );
+  const currentDocument = documents.find((d) => d._id === currentDocumentId);
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
   const [exportLoading, setExportLoading] = useState<string | null>(null);
@@ -165,7 +163,12 @@ export default function DocumentEditor() {
     logger.debug('[DocumentEditor] currentDocumentId:', currentDocumentId);
 
     if (currentDocument) {
-      const markdown = currentDocument.content?.markdown || '';
+      const markdown =
+        typeof currentDocument.content === 'object' &&
+        currentDocument.content !== null &&
+        'markdown' in currentDocument.content
+          ? (currentDocument.content as { markdown: string }).markdown || ''
+          : '';
       logger.debug(
         '[DocumentEditor] Setting content from document, length:',
         markdown.length
@@ -193,10 +196,16 @@ export default function DocumentEditor() {
 
     setIsSaving(true);
     const timer = setTimeout(() => {
+      const currentMarkdown =
+        typeof currentDocument.content === 'object' &&
+        currentDocument.content !== null &&
+        'markdown' in currentDocument.content
+          ? (currentDocument.content as { markdown: string }).markdown || ''
+          : '';
+
       if (
         currentDocument.type === 'article' &&
-        (content !== currentDocument.content.markdown ||
-          title !== currentDocument.title)
+        (content !== currentMarkdown || title !== currentDocument.title)
       ) {
         updateDocument(currentDocumentId, {
           title: title,
@@ -248,6 +257,13 @@ export default function DocumentEditor() {
     setExportLoading(format);
 
     try {
+      const markdown =
+        typeof currentDocument.content === 'object' &&
+        currentDocument.content !== null &&
+        'markdown' in currentDocument.content
+          ? (currentDocument.content as { markdown: string }).markdown || ''
+          : '';
+
       const response = await fetch('/api/ai-office/export', {
         method: 'POST',
         headers: {
@@ -256,7 +272,7 @@ export default function DocumentEditor() {
         body: JSON.stringify({
           documentId: currentDocument._id,
           format,
-          content: currentDocument.content.markdown,
+          content: markdown,
           title: currentDocument.title,
           templateId: currentDocument.template?.id,
         }),
@@ -703,18 +719,7 @@ export default function DocumentEditor() {
               </div>
             );
           })()
-        ) : currentDocument?.type === 'research' ? (
-          // Research Page 专用渲染器
-          <ResearchPageRenderer
-            content={content}
-            template={
-              currentDocument?.template?.id
-                ? getResearchPageTemplateById(currentDocument.template.id)
-                : undefined
-            }
-            onEdit={() => setIsEditMode(true)}
-          />
-        ) : (
+        ) : currentDocument?.type === 'article' ? (
           // 普通文档编辑器
           <div className="mx-auto max-w-4xl rounded-lg bg-white shadow-sm">
             <textarea
@@ -732,7 +737,7 @@ export default function DocumentEditor() {
               }}
             />
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Version History Modal */}

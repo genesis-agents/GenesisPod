@@ -43,7 +43,6 @@ const TRIAGE_SYSTEM_PROMPT = `你是 DeepDive Engine 的反馈分诊专家（Tri
 - ai-ask: 智能问答
 - ai-studio: 深度研究
 - ai-teams: AI 团队协作
-- ai-coding: 代码生成
 - library: 资源库
 - data-collection: 数据采集
 - admin: 管理后台
@@ -402,7 +401,6 @@ ${input.attachments.map((a) => `- ${a.filename} (${a.mimeType})`).join("\n")}
       "ai-ask": ["问答", "ask", "对话", "chat"],
       "ai-studio": ["研究", "research", "studio", "报告"],
       "ai-teams": ["团队", "team", "协作", "辩论"],
-      "ai-coding": ["代码", "code", "编程"],
       library: ["资源", "library", "收藏"],
       "data-collection": ["采集", "爬虫", "collection"],
       admin: ["管理", "admin", "后台"],

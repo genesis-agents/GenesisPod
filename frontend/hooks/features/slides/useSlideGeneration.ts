@@ -606,7 +606,16 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
   const cancel = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      (abortControllerRef.current as Record<string, unknown>).eventSource?.close();
+      // Type-safe access to eventSource
+      const controller = abortControllerRef.current as unknown as {
+        eventSource?: { close: () => void };
+      };
+      if (
+        controller.eventSource &&
+        typeof controller.eventSource.close === 'function'
+      ) {
+        controller.eventSource.close();
+      }
     }
     setGenerating(false);
     setProgress(null);

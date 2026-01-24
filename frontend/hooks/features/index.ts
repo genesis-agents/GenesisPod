@@ -6,11 +6,9 @@
  * - useCollections: 资源集合管理
  * - useDeepResearch: 深度研究功能
  * - useExport: 文档导出功能
- * - useAiCodingSocket: AI 编程 WebSocket
  */
 
 export * from './useAIModels';
 export * from './useCollections';
 export * from './useDeepResearch';
 export * from './useExport';
-export * from './useAiCodingSocket';

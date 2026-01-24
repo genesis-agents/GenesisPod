@@ -172,7 +172,7 @@ export function ConversationPanel({
         items.push({
           id: `${event.type}-${timestamp.getTime()}-${index}`,
           role: 'system',
-          author: data.source || '系统',
+          author: String(data.source || '系统'),
           message: String(data.message),
           timestamp,
         });
@@ -191,7 +191,7 @@ export function ConversationPanel({
         items.push({
           id: `${event.type}-${timestamp.getTime()}-${index}`,
           role: 'agent',
-          author: data.agentName || data.agent || 'Agent',
+          author: String(data.agentName || data.agent || 'Agent'),
           message: String(message),
           timestamp,
         });

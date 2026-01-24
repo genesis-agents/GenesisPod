@@ -7,7 +7,9 @@
  */
 
 import { useTopicContent } from './TopicContentContext';
-import type { TopicMessage, TeamMission } from '@/types/ai-teams';
+import type { ResearchEvent as TopicResearchEvent } from './TopicContentContext';
+import type { TopicMessage } from '@/types/ai-teams';
+import type { MissionStatus } from '@/lib/api/topic-research';
 
 interface AgentActivity {
   id: string;
@@ -33,7 +35,7 @@ interface TopicCollaborationPanelProps {
     onClearEvents: () => void;
     persistedMessages: TopicMessage[];
     persistedActivities: AgentActivity[];
-    missionStatus: TeamMission | null;
+    missionStatus: MissionStatus | null;
   }>;
   onClearEvents: () => void;
   persistedMessages: TopicMessage[];
@@ -51,15 +53,28 @@ export function TopicCollaborationPanel({
 
   const safeEvents = Array.isArray(researchEvents) ? researchEvents : [];
 
+  // Convert TopicResearchEvent to ResearchEvent format
+  const convertedEvents: ResearchEvent[] = safeEvents.map((event) => ({
+    type: event.eventType,
+    data: {
+      agentType: event.agentType,
+      agentName: event.agentName,
+      dimensionName: event.dimensionName,
+      message: event.message,
+      details: event.details,
+    },
+    timestamp: event.timestamp.toISOString(),
+  }));
+
   return (
     <TeamInteractionTabContent
-      events={safeEvents}
+      events={convertedEvents}
       wsEvents={wsEvents}
       wsConnected={wsConnected}
       onClearEvents={onClearEvents}
       persistedMessages={persistedMessages}
       persistedActivities={persistedActivities}
-      missionStatus={missionStatus}
+      missionStatus={missionStatus ?? null}
     />
   );
 }

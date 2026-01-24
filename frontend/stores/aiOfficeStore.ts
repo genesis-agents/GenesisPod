@@ -369,21 +369,24 @@ export const useDocumentStore = create<DocumentState>()(
           if (!version) return state;
 
           // 恢复版本内容
+          const updatedDocuments = state.documents.map((d) =>
+            d._id === documentId
+              ? ({
+                  ...d,
+                  content: version.content,
+                  currentVersionId: versionId,
+                  metadata: {
+                    ...d.metadata,
+                    wordCount: version.metadata.wordCount,
+                    slideCount: version.metadata.slideCount,
+                  },
+                  updatedAt: new Date(),
+                } as Document)
+              : d
+          );
+
           return {
-            documents: state.documents.map((d) =>
-              d._id === documentId
-                ? ({
-                    ...d,
-                    content: version.content,
-                    currentVersionId: versionId,
-                    metadata: {
-                      ...d.metadata,
-                      ...version.metadata,
-                    },
-                    updatedAt: new Date(),
-                  } as typeof d)
-                : d
-            ),
+            documents: updatedDocuments,
           };
         });
       },
@@ -750,7 +753,7 @@ export const useTaskStore = create<TaskState>()(
             const restoredDocument: Document = {
               _id: task.context.documentId,
               userId: 'local', // 本地用户ID
-              title: task.context.documentMetadata.title || task.title,
+              title: task.title,
               type: documentType,
               content: task.context.documentContent,
               metadata: task.context.documentMetadata,
@@ -807,19 +810,18 @@ export const useTaskStore = create<TaskState>()(
                 );
               }
 
-              const updatePayload: Partial<Document> = {
+              const updatePayload = {
                 content: task.context.documentContent, // 直接替换 content，不是合并
                 updatedAt: new Date(),
+                metadata: task.context.documentMetadata
+                  ? {
+                      ...existingDoc.metadata,
+                      ...task.context.documentMetadata,
+                      slideCount:
+                        slideCount || task.context.documentMetadata.slideCount,
+                    }
+                  : existingDoc.metadata,
               };
-
-              // 恢复 metadata，确保 slideCount 正确
-              if (task.context.documentMetadata) {
-                updatePayload.metadata = {
-                  ...task.context.documentMetadata,
-                  slideCount:
-                    slideCount || task.context.documentMetadata.slideCount,
-                };
-              }
 
               logger.debug(
                 '[restoreTaskContext] Updating document with payload:',
@@ -844,7 +846,7 @@ export const useTaskStore = create<TaskState>()(
 
               documentStore.updateDocument(
                 task.context.documentId,
-                updatePayload
+                updatePayload as Partial<Document>
               );
 
               // 验证更新是否成功

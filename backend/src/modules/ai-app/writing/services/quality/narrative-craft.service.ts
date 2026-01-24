@@ -1093,14 +1093,16 @@ ${targetPart}
 
 请重写以上内容，删除或改写所有AI陋习表达，使其在具体的动作/对话/场景中自然${rewriteMode === "ending" ? "结束" : "衔接"}：`;
 
-    const taskProfile: TaskProfile = {
-      creativity: "high", // 创意写作需要高创造性
-      outputLength: rewriteMode === "full" ? "medium" : "short", // 全文模式需要更长输出
-    };
-
     // 重试机制：最多尝试3次
     const maxRetries = 3;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      // ★ 使用 TaskProfile 统一管理创意度，重试时保持 high 创意度
+      // 注：TaskProfile 的 "high" 对应 temperature 0.9，已足够创意多样性
+      const taskProfile: TaskProfile = {
+        creativity: "high", // 创意写作需要高创造性
+        outputLength: rewriteMode === "full" ? "medium" : "short",
+      };
+
       try {
         const response = await this.aiFacade.chat({
           messages: [
@@ -1108,7 +1110,6 @@ ${targetPart}
             { role: "user", content: userPrompt },
           ],
           taskProfile,
-          temperature: 0.8 + (attempt - 1) * 0.05, // 重试时稍微提高温度增加多样性
         });
 
         const newEnding = response.content?.trim();

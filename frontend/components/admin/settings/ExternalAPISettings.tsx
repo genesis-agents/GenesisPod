@@ -852,7 +852,7 @@ export default function ExternalAPISettings() {
         ...prev,
         [`youtube-${providerId}`]: {
           success: false,
-          message: err.message || '测试失败',
+          message: (err as Error).message || '测试失败',
         },
       }));
     } finally {
@@ -950,7 +950,7 @@ export default function ExternalAPISettings() {
         ...prev,
         [`tts-${providerId}`]: {
           success: false,
-          message: err.message || '测试失败',
+          message: (err as Error).message || '测试失败',
         },
       }));
     } finally {
@@ -1256,7 +1256,10 @@ export default function ExternalAPISettings() {
     } catch (err) {
       setTestResults((prev) => ({
         ...prev,
-        [providerId]: { success: false, message: err.message || '测试失败' },
+        [providerId]: {
+          success: false,
+          message: (err as Error).message || '测试失败',
+        },
       }));
     } finally {
       setTesting(null);
@@ -1321,7 +1324,7 @@ export default function ExternalAPISettings() {
         ...prev,
         [`extraction-${providerId}`]: {
           success: false,
-          message: err.message || '测试失败',
+          message: (err as Error).message || '测试失败',
         },
       }));
     } finally {

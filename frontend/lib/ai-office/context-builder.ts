@@ -466,7 +466,16 @@ class PaperContextBuilder extends BaseContextBuilder<PaperResource> {
     // Authors - Support both arXiv format (name, affiliation) and GitHub format (username, platform)
     if (resource.authors && resource.authors.length > 0) {
       const authorNames = resource.authors
-        .map((a) => a.name || a.username || a.platform || 'Unknown')
+        .map((a) => {
+          if (typeof a === 'object' && a !== null) {
+            return (
+              ('username' in a && a.username) ||
+              ('platform' in a && a.platform) ||
+              'Unknown'
+            );
+          }
+          return 'Unknown';
+        })
         .join(', ');
       parts.push(`Authors: ${authorNames}`);
     }

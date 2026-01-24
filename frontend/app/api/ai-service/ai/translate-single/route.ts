@@ -30,9 +30,9 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    logger.error('Translation error:', error?.message || error);
+    logger.error('Translation error:', (error as Error)?.message || error);
     return NextResponse.json(
-      { error: error?.message || 'Failed to translate text' },
+      { error: (error as Error)?.message || 'Failed to translate text' },
       { status: 500 }
     );
   }

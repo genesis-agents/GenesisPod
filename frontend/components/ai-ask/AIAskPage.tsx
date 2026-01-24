@@ -1980,7 +1980,7 @@ export function AIAskPage() {
                                 rehypePlugins={[rehypeKatex]}
                                 components={{
                                   blockquote: CollapsibleBlockquote,
-                                  code: CodeBlock,
+                                  code: CodeBlock as any,
                                 }}
                               >
                                 {message.content}
@@ -2123,7 +2123,7 @@ export function AIAskPage() {
                                     rehypePlugins={[rehypeKatex]}
                                     components={{
                                       blockquote: CollapsibleBlockquote,
-                                      code: CodeBlock,
+                                      code: CodeBlock as any,
                                     }}
                                   >
                                     {response.content}

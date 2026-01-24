@@ -63,7 +63,13 @@ function ResourceCardComponent({
     e.stopPropagation();
     addSource({
       id: resource.id,
-      type: resource.type.toLowerCase(),
+      type: resource.type.toLowerCase() as
+        | 'news'
+        | 'report'
+        | 'paper'
+        | 'blog'
+        | 'project'
+        | 'youtube',
       title: resource.title,
       url: resource.sourceUrl || resource.pdfUrl || '',
       thumbnailUrl: resource.thumbnailUrl,

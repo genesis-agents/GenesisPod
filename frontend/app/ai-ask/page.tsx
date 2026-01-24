@@ -1191,7 +1191,7 @@ export default function AskPage() {
           const data = await response.json();
           setCurrentSessionId(sessionId);
           setMessages(
-            data.messages.map((m) => ({
+            data.messages.map((m: any) => ({
               id: m.id,
               role: m.role,
               content: m.content,
@@ -1980,7 +1980,9 @@ export default function AskPage() {
                                 rehypePlugins={[rehypeKatex]}
                                 components={{
                                   blockquote: CollapsibleBlockquote,
-                                  code: CodeBlock as React.ComponentType<React.HTMLAttributes<HTMLElement>>,
+                                  code: CodeBlock as React.ComponentType<
+                                    React.HTMLAttributes<HTMLElement>
+                                  >,
                                 }}
                               >
                                 {message.content}
@@ -2123,7 +2125,9 @@ export default function AskPage() {
                                     rehypePlugins={[rehypeKatex]}
                                     components={{
                                       blockquote: CollapsibleBlockquote,
-                                      code: CodeBlock as React.ComponentType<React.HTMLAttributes<HTMLElement>>,
+                                      code: CodeBlock as React.ComponentType<
+                                        React.HTMLAttributes<HTMLElement>
+                                      >,
                                     }}
                                   >
                                     {response.content}

@@ -155,7 +155,7 @@ export default function SystemSettings() {
       setSearchTestResult({
         provider,
         success: false,
-        message: error.message || 'Test failed',
+        message: (error as Error).message || 'Test failed',
       });
     } finally {
       setSearchTesting(null);

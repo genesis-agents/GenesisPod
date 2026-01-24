@@ -280,8 +280,7 @@ export class MissionReviewService {
                 { role: "user", content: reviewPrompt },
               ],
               {
-                maxTokens: 4000,
-                temperature: 0.5,
+                taskProfile: { creativity: "low", outputLength: "medium" },
               },
               aiCaller,
             );
@@ -761,8 +760,7 @@ export class MissionReviewService {
             { role: "user", content: revisionPrompt },
           ],
           {
-            maxTokens: 8000,
-            temperature: 0.7,
+            taskProfile: { creativity: "medium", outputLength: "long" },
           },
           aiCaller,
         );
@@ -981,8 +979,7 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
           { role: "user", content: prompt },
         ],
         {
-          maxTokens: 1500,
-          temperature: 0.3,
+          taskProfile: { creativity: "low", outputLength: "short" },
         },
         aiCaller,
       );

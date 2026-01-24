@@ -86,7 +86,6 @@
     "aiOffice": "AI 办公",
     "aiReports": "AI 报告",
     "aiAsk": "AI 问答",
-    "aiCoding": "AI 编程",
     "aiTools": "AI 工具",
     "aiSkills": "AI 技能",
     "aiStore": "AI 商店",
@@ -967,119 +966,6 @@
     "createDocument": "创建文档",
     "templates": "模板",
     "recentDocuments": "最近文档"
-  },
-  "aiCoding": {
-    "title": "AI Coding",
-    "subtitle": "一句话需求，AI 团队帮你实现",
-    "signIn": {
-      "title": "请登录以访问 AI Coding",
-      "description": "AI 多智能体协作帮你开发软件"
-    },
-    "search": {
-      "placeholder": "搜索项目..."
-    },
-    "loading": "加载项目中...",
-    "error": {
-      "retry": "重试"
-    },
-    "hero": {
-      "title": "用自然语言描述需求",
-      "description": "AI 团队帮你完成从设计到编码的全流程",
-      "startButton": "开始新项目"
-    },
-    "features": {
-      "prd": {
-        "title": "PRD 自动生成",
-        "description": "AI 产品经理分析需求"
-      },
-      "architecture": {
-        "title": "架构设计",
-        "description": "AI 架构师设计方案"
-      },
-      "code": {
-        "title": "代码生成",
-        "description": "AI 工程师实现代码"
-      }
-    },
-    "projects": {
-      "recent": "最近项目",
-      "createNew": "创建新项目",
-      "progress": "进度"
-    },
-    "templates": {
-      "title": "模板快速开始",
-      "web-app": {
-        "name": "Web App",
-        "description": "全栈 Web 应用",
-        "example": "开发一个任务管理应用，支持添加、编辑、删除和标记完成任务"
-      },
-      "cli-tool": {
-        "name": "CLI Tool",
-        "description": "命令行工具",
-        "example": "开发一个文件批量重命名工具，支持正则表达式匹配"
-      },
-      "api-server": {
-        "name": "API Server",
-        "description": "RESTful API 服务",
-        "example": "开发一个用户认证 API，支持注册、登录、密码重置"
-      },
-      "data-analysis": {
-        "name": "Data Analysis",
-        "description": "数据分析脚本",
-        "example": "开发一个销售数据分析脚本，生成可视化报表"
-      }
-    },
-    "agents": {
-      "title": "AI 开发团队",
-      "teamDescription": "五个 AI 智能体协同工作，模拟真实软件开发团队",
-      "pm": {
-        "name": "产品经理",
-        "description": "需求分析与 PRD 编写"
-      },
-      "architect": {
-        "name": "架构师",
-        "description": "技术架构设计"
-      },
-      "projectManager": {
-        "name": "项目经理",
-        "description": "任务拆分与排期"
-      },
-      "engineer": {
-        "name": "工程师",
-        "description": "代码实现"
-      },
-      "qa": {
-        "name": "QA",
-        "description": "测试与代码审查"
-      }
-    },
-    "status": {
-      "draft": "草稿",
-      "inProgress": "进行中",
-      "completed": "已完成",
-      "failed": "失败"
-    },
-    "time": {
-      "justNow": "刚刚",
-      "mAgo": "{{count}}分钟前",
-      "hAgo": "{{count}}小时前",
-      "dAgo": "{{count}}天前"
-    },
-    "createDialog": {
-      "title": "描述你的项目需求",
-      "placeholder": "例如：开发一个简单的 Todo 待办事项应用，使用 React 前端和 Node.js 后端，支持添加、完成、删除任务功能...",
-      "examplesLabel": "示例需求：",
-      "examples": {
-        "blog": "开发一个博客系统",
-        "api": "创建一个 API 服务器",
-        "cli": "做一个命令行工具",
-        "data": "写一个数据分析脚本"
-      },
-      "cancel": "取消",
-      "submit": "开始创建"
-    },
-    "kanban": "看板",
-    "newProject": "新建项目"
   },
   "aiImage": {
     "title": "AI 绘图",

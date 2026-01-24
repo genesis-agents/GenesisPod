@@ -36,7 +36,7 @@ export default function AIChatMessages({
       resourceId={resourceId}
       onAskAI={onAskAI}
       onAddToNotes={(text) => {
-        onContextMenu?.({} as React.MouseEvent, text);
+        onContextMenu?.({} as React.MouseEvent<Element, MouseEvent>, text);
       }}
     >
       <div className="space-y-3 border-t border-gray-200 pt-4">
@@ -58,14 +58,14 @@ export default function AIChatMessages({
                     msg.content
                   );
                   return (
-                    <>
+                    <div>
                       {images.map((img, idx) => (
                         <Base64Image key={idx} src={img.src} alt={img.alt} />
                       ))}
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {textContent}
                       </ReactMarkdown>
-                    </>
+                    </div>
                   );
                 })()}
               </div>
@@ -87,8 +87,10 @@ export default function AIChatMessages({
               <div className="flex items-center gap-2">
                 <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-red-600"></div>
                 <p className="text-xs">
-                  {aiModels.find((m) => m.modelId === aiModel)?.name || aiModel}{' '}
-                  {t('explore.aiPanel.thinking') || 'is thinking...'}
+                  {(aiModels.find((m) => m.modelId === aiModel)
+                    ?.name as string) || aiModel}{' '}
+                  {(t('explore.aiPanel.thinking') as string) ||
+                    'is thinking...'}
                 </p>
               </div>
             </div>

@@ -17,6 +17,8 @@ import {
   useKnowledgeBase,
   useKnowledgeBaseDetail,
   type KnowledgeBase,
+  type KnowledgeBaseDocument,
+  type CreateKnowledgeBaseDto,
 } from '@/hooks/domain/useKnowledgeBase';
 import CreateKnowledgeBaseDialog from './CreateKnowledgeBaseDialog';
 import EditKnowledgeBaseDialog from './EditKnowledgeBaseDialog';
@@ -48,7 +50,7 @@ export default function PersonalKnowledgeBaseTab({
   const [showDocList, setShowDocList] = useState<{
     kbId: string;
     kbName: string;
-    documents: Array<Record<string, unknown>>;
+    documents: KnowledgeBaseDocument[];
   } | null>(null); // 文档列表弹窗
   const [showAddDocs, setShowAddDocs] = useState<{
     kbId: string;
@@ -127,7 +129,7 @@ export default function PersonalKnowledgeBaseTab({
     );
   });
 
-  const handleCreate = async (dto: Record<string, unknown>) => {
+  const handleCreate = async (dto: CreateKnowledgeBaseDto) => {
     await createKnowledgeBase({ ...dto, type: 'PERSONAL' });
     setShowCreateDialog(false);
   };
@@ -607,7 +609,7 @@ export default function PersonalKnowledgeBaseTab({
             setShowDetailKbId(null); // 先关闭详情弹窗
             setShowSearchTest(kbId);
           }}
-          onViewDocuments={(docs) => {
+          onViewDocuments={(docs: KnowledgeBaseDocument[]) => {
             const kb = personalKBs.find((k) => k.id === showDetailKbId);
             if (kb) {
               setShowDetailKbId(null); // 先关闭详情弹窗

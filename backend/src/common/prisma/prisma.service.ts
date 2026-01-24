@@ -29,16 +29,11 @@ export class PrismaService
    *    - Created via Prisma migration
    *    - Previously auto-created in runtime (removed 2025-01-24)
    *
-   * 2. AiCodingProject columns
-   *    - team_initialized: Added via Prisma migration
-   *    - current_mission_id: Added via Prisma migration
-   *    - Previously auto-created in runtime (removed 2025-01-24)
-   *
-   * 3. SystemSetting columns
+   * 2. SystemSetting columns
    *    - encrypted: Added via Prisma migration
    *    - Previously auto-created in runtime (removed 2025-01-24)
    *
-   * 4. WritingChapter columns
+   * 3. WritingChapter columns
    *    - metadata: Added via Prisma migration
    *    - Previously auto-created in runtime (removed 2025-01-24)
    *

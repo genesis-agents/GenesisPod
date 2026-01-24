@@ -129,9 +129,15 @@ export function parseMarkdownToEnhancedSlides(
       } else if (trimmed.match(/<!-- CHART:(line|pie|bar|radar|area) -->/)) {
         const match = trimmed.match(/<!-- CHART:(\w+) -->/);
         if (match) {
+          const chartType = match[1] as
+            | 'line'
+            | 'pie'
+            | 'bar'
+            | 'radar'
+            | 'area';
           currentSlide.type = 'chart';
           currentSlide.visualizationType = 'chart';
-          currentSlide.chartType = match[1];
+          currentSlide.chartType = chartType;
         }
       } else if (trimmed.startsWith('<!-- MATRIX -->')) {
         currentSlide.type = 'matrix';

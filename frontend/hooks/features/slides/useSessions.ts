@@ -69,17 +69,28 @@ export function useSessions(options: UseSessionsOptions = {}) {
       const data = await response.json();
 
       // 转换日期字段
-      const sessionsData = (data.sessions || []).map((session) => ({
-        ...session,
-        createdAt: new Date(session.createdAt),
-        updatedAt: new Date(session.updatedAt),
-        latestCheckpoint: session.latestCheckpoint
-          ? {
-              ...session.latestCheckpoint,
-              timestamp: new Date(session.latestCheckpoint.timestamp),
-            }
-          : null,
-      }));
+      const sessionsData = (data.sessions || []).map(
+        (
+          session: SlidesSession & {
+            latestCheckpoint?: {
+              id: string;
+              type: string;
+              timestamp: string | Date;
+              pagesCount: number;
+            } | null;
+          }
+        ) => ({
+          ...session,
+          createdAt: new Date(session.createdAt),
+          updatedAt: new Date(session.updatedAt),
+          latestCheckpoint: session.latestCheckpoint
+            ? {
+                ...session.latestCheckpoint,
+                timestamp: new Date(session.latestCheckpoint.timestamp),
+              }
+            : null,
+        })
+      );
 
       setSessions(sessionsData);
     } catch (err) {

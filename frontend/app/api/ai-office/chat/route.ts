@@ -3,7 +3,7 @@ import {
   CoordinatorAgent,
   ResourceAnalysisAgent,
 } from '@/lib/ai-office/multi-agents';
-import type { Resource } from '@/types/ai-office';
+import type { Resource, ResourceType } from '@/types/ai-office';
 
 import { logger } from '@/lib/utils/logger';
 // 服务器端使用内部域名进行服务间通信
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
             _id: '',
             userId: '',
             resourceId: '',
-            resourceType: r.resourceType,
+            resourceType: r.resourceType as ResourceType,
             status: 'collected' as const,
             collectedAt: new Date(),
             updatedAt: new Date(),
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
             metadata: r.metadata || {},
             content: {},
             aiAnalysis: r.aiAnalysis || { summary: '', keyPoints: [] },
-          }));
+          })) as Resource[];
 
           resourceAnalysis = await analyzer.analyze({
             resources: convertedResources,

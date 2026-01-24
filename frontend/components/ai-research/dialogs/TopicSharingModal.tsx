@@ -285,7 +285,7 @@ export function TopicSharingModal({
       setCollaborators((prev) => [...prev, newCollaborator]);
       setNewEmail('');
     } catch (err) {
-      setError(err.message || '添加协作者失败');
+      setError(err instanceof Error ? err.message : '添加协作者失败');
     } finally {
       setIsAdding(false);
     }

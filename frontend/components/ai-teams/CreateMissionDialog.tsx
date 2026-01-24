@@ -74,7 +74,7 @@ export default function CreateMissionDialog({
       onSuccess?.();
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to create mission');
+      setError(err instanceof Error ? err.message : 'Failed to create mission');
     } finally {
       setIsSubmitting(false);
     }

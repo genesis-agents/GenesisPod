@@ -730,7 +730,7 @@ export default function AICapabilitiesSettings() {
         ...prev,
         [`tool-${toolId}`]: {
           success: false,
-          message: err.message || '测试失败',
+          message: (err as Error).message || '测试失败',
         },
       }));
     } finally {

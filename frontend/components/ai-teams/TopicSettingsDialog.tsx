@@ -6,6 +6,7 @@ import {
   TopicAIMember,
   UpdateTopicDto,
   AddAIMemberDto,
+  TopicRole,
 } from '@/types/ai-teams';
 import { useAiGroupStore } from '@/stores/aiTeamsStore';
 import { useAIModels, AIModel } from '@/hooks';
@@ -72,7 +73,9 @@ export default function TopicSettingsDialog({
       // Refresh topic to update member count
       await fetchTopic(topic.id);
     } catch (error) {
-      alert(error.message || 'Failed to process request');
+      alert(
+        error instanceof Error ? error.message : 'Failed to process request'
+      );
     }
   };
 
@@ -414,7 +417,9 @@ function AddAIDialog({
       });
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to add AI assistant');
+      setError(
+        err instanceof Error ? err.message : 'Failed to add AI assistant'
+      );
     } finally {
       setIsAdding(false);
     }
@@ -700,7 +705,7 @@ function MemberSettings({
   onRemove,
 }: {
   topic: Topic;
-  onAdd: (topicId: string, userId: string, role?: string) => Promise<void>;
+  onAdd: (topicId: string, userId: string, role?: TopicRole) => Promise<void>;
   onRemove: (topicId: string, memberId: string) => Promise<void>;
 }) {
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -810,13 +815,13 @@ function AddMemberDialog({
 }: {
   topicId: string;
   existingMemberIds: string[];
-  onAdd: (topicId: string, userId: string, role?: string) => Promise<void>;
+  onAdd: (topicId: string, userId: string, role?: TopicRole) => Promise<void>;
   onClose: () => void;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchedUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<SearchedUser | null>(null);
-  const [role, setRole] = useState<'MEMBER' | 'ADMIN'>('MEMBER');
+  const [role, setRole] = useState<TopicRole>(TopicRole.MEMBER);
   const [isSearching, setIsSearching] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -871,7 +876,7 @@ function AddMemberDialog({
       await onAdd(topicId, userIdOrEmail, role);
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to add member');
+      setError(err instanceof Error ? err.message : 'Failed to add member');
     } finally {
       setIsAdding(false);
     }
@@ -1033,11 +1038,11 @@ function AddMemberDialog({
             </label>
             <select
               value={role}
-              onChange={(e) => setRole(e.target.value as 'MEMBER' | 'ADMIN')}
+              onChange={(e) => setRole(e.target.value as TopicRole)}
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             >
-              <option value="MEMBER">Member</option>
-              <option value="ADMIN">Admin</option>
+              <option value={TopicRole.MEMBER}>Member</option>
+              <option value={TopicRole.ADMIN}>Admin</option>
             </select>
           </div>
 

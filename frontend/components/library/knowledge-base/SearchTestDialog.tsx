@@ -62,7 +62,7 @@ export default function SearchTestDialog({
       );
       setResults(data.results || []);
     } catch (err) {
-      setError(err?.message || '搜索出错');
+      setError((err as { message?: string })?.message || '搜索出错');
     } finally {
       setSearching(false);
     }

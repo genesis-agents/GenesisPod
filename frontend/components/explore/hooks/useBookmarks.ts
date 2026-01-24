@@ -34,7 +34,7 @@ export function useBookmarks() {
 
         // Find or create default collection
         let defaultCollection = collections.find(
-          (c) => c.name === '我的收藏'
+          (c: any) => c.name === '我的收藏'
         );
 
         if (!defaultCollection) {
@@ -66,7 +66,7 @@ export function useBookmarks() {
           // Load bookmarked resource IDs
           const bookmarkedIds = new Set<string>(
             (defaultCollection.items || []).map(
-              (item) => item.resourceId as string
+              (item: any) => item.resourceId as string
             )
           );
           setBookmarks(bookmarkedIds);

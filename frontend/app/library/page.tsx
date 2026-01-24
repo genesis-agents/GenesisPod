@@ -32,7 +32,10 @@ import {
 } from '@/hooks';
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import { useImageSourceStore } from '@/stores';
-import type { Resource as AIOfficeResource } from '@/types/ai-office';
+import type {
+  Resource as AIOfficeResource,
+  WebMetadata,
+} from '@/types/ai-office';
 import type { Note } from '@/components/library/resources/NotesList';
 import { logger } from '@/lib/utils/logger';
 import AddToKnowledgeBaseDialog, {
@@ -98,7 +101,10 @@ const NotionTabContent = dynamicImport(
 );
 
 const GoogleDriveTabContent = dynamicImport(
-  () => import('@/components/library/integrations/google-drive/GoogleDriveTabContent'),
+  () =>
+    import(
+      '@/components/library/integrations/google-drive/GoogleDriveTabContent'
+    ),
   {
     ssr: false,
     loading: () => (
@@ -158,6 +164,16 @@ const DataSourcesTab = dynamicImport(
 );
 
 export const dynamic = 'force-dynamic';
+
+// Type for data source sub-tabs
+type DataSourceSubTab =
+  | 'overview'
+  | 'bookmarks'
+  | 'notes'
+  | 'images'
+  | 'notion'
+  | 'google-drive'
+  | 'wechat';
 
 interface YouTubeVideo {
   id: string;
@@ -224,18 +240,20 @@ function LibraryPageContent() {
   });
 
   // 数据源的初始子TAB（根据URL参数）
-  const [initialDataSourceSubTab] = useState<string | undefined>(() => {
-    if (tabParam === 'bookmarks') return 'bookmarks';
-    if (tabParam === 'notes') return 'notes';
-    if (tabParam === 'images') return 'images';
-    if (tabParam === 'notion') return 'notion';
-    if (tabParam === 'google-drive') return 'google-drive';
-    return undefined;
-  });
+  const [initialDataSourceSubTab] = useState<DataSourceSubTab | undefined>(
+    () => {
+      if (tabParam === 'bookmarks') return 'bookmarks';
+      if (tabParam === 'notes') return 'notes';
+      if (tabParam === 'images') return 'images';
+      if (tabParam === 'notion') return 'notion';
+      if (tabParam === 'google-drive') return 'google-drive';
+      return undefined;
+    }
+  );
 
   // 当前数据源子TAB（用于显示AI面板）
   const [currentDataSourceSubTab, setCurrentDataSourceSubTab] =
-    useState<string>(initialDataSourceSubTab || 'overview');
+    useState<DataSourceSubTab>(initialDataSourceSubTab || 'overview');
 
   // Update activeTab when URL parameter changes
   useEffect(() => {
@@ -398,9 +416,9 @@ function LibraryPageContent() {
     metadata: {
       title: resource.title,
       description: resource.abstract || '',
-      url: resource.sourceUrl,
-      thumbnailUrl: resource.thumbnailUrl,
-    },
+      siteName: resource.sourceUrl,
+      language: 'en',
+    } as WebMetadata,
   });
 
   // Handle adding a note to AI Office
@@ -418,13 +436,12 @@ function LibraryPageContent() {
       metadata: {
         title: note.resource?.title || 'Note',
         description: note.content.slice(0, 200),
-        url: '',
-        content: note.content,
-      },
+        language: 'en',
+      } as WebMetadata,
     };
 
     if (!aiOfficeStore.resources.some((r) => r._id === `note-${note.id}`)) {
-      aiOfficeStore.addResource(noteAsResource);
+      aiOfficeStore.addResource(noteAsResource as AIOfficeResource);
       setToast({
         message: 'Note added to AI Office',
         type: 'success',
@@ -1408,7 +1425,7 @@ function LibraryPageContent() {
                     !aiOfficeStore.resources.some((r) => r._id === resource.id)
                   ) {
                     const aiResource = convertToAIOfficeResource(resource);
-                    aiOfficeStore.addResource(aiResource);
+                    aiOfficeStore.addResource(aiResource as AIOfficeResource);
                     setToast({
                       message: `Added "${resource.title.slice(0, 30)}..." to AI Office`,
                       type: 'success',

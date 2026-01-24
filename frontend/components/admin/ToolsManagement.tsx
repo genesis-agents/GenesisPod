@@ -617,7 +617,7 @@ export default function ToolsManagement() {
         ...prev,
         [tool.id]: {
           success: false,
-          message: err.message || t('admin.tools.testFailed'),
+          message: (err as Error).message || t('admin.tools.testFailed'),
         },
       }));
     } finally {

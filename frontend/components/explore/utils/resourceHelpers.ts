@@ -106,7 +106,7 @@ export function convertToAIOfficeResource(
   if (resource.type === 'youtube') {
     return {
       ...baseResource,
-      resourceType: 'youtube_video',
+      resourceType: 'youtube_video' as const,
       metadata: {
         title: resource.title,
         description: resource.abstract || '',
@@ -115,34 +115,34 @@ export function convertToAIOfficeResource(
           medium: resource.thumbnailUrl || '',
           high: resource.thumbnailUrl || '',
         },
-      },
+      } as any,
       aiAnalysis: {
         summary: resource.aiSummary || resource.abstract || '',
-      },
+      } as any,
     };
   } else if (resource.type === 'paper') {
     return {
       ...baseResource,
-      resourceType: 'academic_paper',
+      resourceType: 'academic_paper' as const,
       metadata: {
         title: resource.title,
         abstract: resource.abstract || '',
-      },
+      } as any,
       aiAnalysis: {
         summary: resource.aiSummary || resource.abstract || '',
-      },
+      } as any,
     };
   } else {
     return {
       ...baseResource,
-      resourceType: 'web_page',
+      resourceType: 'web_page' as const,
       metadata: {
         title: resource.title,
         description: resource.abstract || '',
-      },
+      } as any,
       aiAnalysis: {
         summary: resource.aiSummary || resource.abstract || '',
-      },
+      } as any,
     };
   }
 }

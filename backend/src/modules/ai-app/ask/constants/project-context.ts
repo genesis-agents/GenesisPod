@@ -22,7 +22,6 @@ export const DEEPDIVE_ENGINE_CONTEXT = `
 | **AI Teams** | AI 团队协作，多 Agent 辩论和观点碰撞 | \`ai-teams/\` |
 | **AI Office** | AI 办公套件，PPT/文档/设计生成 | \`ai-office/\` |
 | **AI Ask** | 智能问答，支持多模型切换和 RAG | \`ai-ask/\` |
-| **AI Coding** | AI 编程助手，代码生成和分析 | \`ai-coding/\` |
 | **Library** | 资源库，统一内容管理和知识库 | \`resources/\` |
 | **Data Collection** | 数据采集，多源数据爬取 | \`data-services/\` |
 

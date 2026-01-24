@@ -43,7 +43,13 @@ export default function NotionBlockEditor({
   const initialContent = useRef(
     (() => {
       try {
-        const converted = notionBlocksToBlockNote(initialBlocks);
+        const converted = notionBlocksToBlockNote(
+          initialBlocks as Array<{
+            id: string;
+            type: string;
+            [key: string]: unknown;
+          }>
+        );
         return converted.length > 0 ? converted : undefined;
       } catch (error) {
         logger.error('Failed to convert Notion blocks:', error);

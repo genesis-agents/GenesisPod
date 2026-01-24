@@ -77,19 +77,6 @@ const DEFAULT_RULES = [
     baseCredits: 100,
     name: "生成图片",
   },
-  // AI Coding
-  {
-    moduleType: "ai-coding",
-    operationType: "code-generate",
-    baseCredits: 50,
-    name: "代码生成",
-  },
-  {
-    moduleType: "ai-coding",
-    operationType: "code-review",
-    baseCredits: 30,
-    name: "代码审查",
-  },
 ];
 
 /**
