@@ -252,6 +252,7 @@ export class ImageGenerationService {
       return this.generateWithOpenAI(
         apiKey,
         modelConfig.apiEndpoint,
+        modelConfig.modelId, // ★ 使用配置的模型 ID，不再硬编码
         prompt,
         dimensions,
       );
@@ -705,10 +706,12 @@ export class ImageGenerationService {
 
   /**
    * OpenAI DALL-E API
+   * ★ modelId 从配置读取，不再硬编码
    */
   private async generateWithOpenAI(
     apiKey: string,
     apiEndpoint: string | null,
+    modelId: string,
     prompt: string,
     dimensions: { width: number; height: number },
   ): Promise<string> {
@@ -726,7 +729,7 @@ export class ImageGenerationService {
       this.httpService.post(
         url,
         {
-          model: "dall-e-3",
+          model: modelId, // ★ 使用配置的模型 ID
           prompt,
           n: 1,
           size,

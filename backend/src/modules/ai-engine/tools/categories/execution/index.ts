@@ -1,46 +1,33 @@
 /**
  * Execution Tools
  * 代码执行工具集 - 安全执行各种代码和识别任务
+ *
+ * ============================================================================
+ * SECURITY NOTE
+ * ============================================================================
+ * The following tools have been DISABLED and moved to ../deprecated/:
+ * - PythonExecutorTool    (RCE risk - arbitrary Python execution)
+ * - JavaScriptExecutorTool (RCE risk - arbitrary JS execution)
+ * - ShellExecutorTool      (RCE risk - arbitrary shell commands)
+ *
+ * If you need code execution capabilities, use ContainerExecutorTool
+ * which provides proper isolation via Docker containers.
+ *
+ * See: https://owasp.org/www-community/attacks/Command_Injection
+ * ============================================================================
  */
 
 // ============================================================================
-// Tool Classes
+// Tool Classes (Active)
 // ============================================================================
-export { PythonExecutorTool } from "./python-executor.tool";
-export { JavaScriptExecutorTool } from "./javascript-executor.tool";
 export { SQLExecutorTool } from "./sql-executor.tool";
-export { ShellExecutorTool } from "./shell-executor.tool";
 export { ContainerExecutorTool } from "./container-executor.tool";
 export { OCRRecognitionTool } from "./ocr-recognition.tool";
-
-// ============================================================================
-// Types - Python Executor
-// ============================================================================
-export type {
-  PythonExecutorInput,
-  PythonExecutorOutput,
-} from "./python-executor.tool";
-
-// ============================================================================
-// Types - JavaScript Executor
-// ============================================================================
-export type {
-  JavaScriptExecutorInput,
-  JavaScriptExecutorOutput,
-} from "./javascript-executor.tool";
 
 // ============================================================================
 // Types - SQL Executor
 // ============================================================================
 export type { SQLExecutorInput, SQLExecutorOutput } from "./sql-executor.tool";
-
-// ============================================================================
-// Types - Shell Executor
-// ============================================================================
-export type {
-  ShellExecutorInput,
-  ShellExecutorOutput,
-} from "./shell-executor.tool";
 
 // ============================================================================
 // Types - Container Executor

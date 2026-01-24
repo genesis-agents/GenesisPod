@@ -1,3 +1,29 @@
+/**
+ * Search Service
+ * 底层搜索实现服务
+ *
+ * ============================================================================
+ * ARCHITECTURE NOTE
+ * ============================================================================
+ * 本服务是 AI Engine 的底层搜索实现，提供：
+ * - 多搜索提供商支持 (Tavily, Serper, DuckDuckGo)
+ * - 自动降级和 Key 轮换
+ * - 搜索结果排名和多样性过滤
+ *
+ * 使用指南：
+ * 1. 上层 AI Apps 应通过 AIEngineFacade.search() 调用（统一入口）
+ * 2. 底层服务（如 DeepResearchAgent）可直接注入本服务使用
+ * 3. AIEngineFacade.search() 通过 web-search Tool 实现，最终也调用本服务
+ *
+ * 分层架构：
+ *   AIEngineFacade.search()  ← 统一入口（推荐）
+ *         ↓
+ *   web-search Tool (ToolRegistry)
+ *         ↓
+ *   SearchService (本服务) ← 底层实现
+ * ============================================================================
+ */
+
 import {
   Injectable,
   Logger,

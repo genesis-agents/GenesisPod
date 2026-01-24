@@ -9,7 +9,7 @@
  * 4. 向下委托：Facade 只做路由和适配，具体实现委托给内部服务
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../llm/services/ai-chat.service";
 import { AiModelConfigService } from "../llm/services/ai-model-config.service";
@@ -20,22 +20,24 @@ import {
   CreateMissionDto,
   MissionStatus,
 } from "../teams/services/teams.service";
-import { ShortTermMemoryService } from "../memory/stores/short-term-memory.service";
-import { LongTermMemoryService } from "../memory/stores/long-term-memory.service";
-import {
-  CircuitBreakerService,
-  TaskCompletionType,
-} from "../orchestration/services/circuit-breaker.service";
-import { AgentExecutorService } from "../orchestration/services/agent-executor.service";
-import { ToolRegistry } from "../tools/registry/tool-registry";
+import { TaskCompletionType } from "../orchestration/services/circuit-breaker.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { SkillLoaderService } from "../skills/loader/skill-loader.service";
-import { SkillPromptBuilder } from "../skills/builder/skill-prompt-builder.service";
 import {
   AICapabilityResolver,
   AICapabilityContext,
 } from "../capabilities/ai-capability-resolver.service";
-import { FunctionCallingExecutor } from "../orchestration/executors/function-calling-executor";
+
+// ★ P1 重构：使用分组的 Feature Providers
+import {
+  MemoryFeature,
+  ToolFeature,
+  OrchestrationFeature,
+  SkillFeature,
+  MEMORY_FEATURE,
+  TOOL_FEATURE,
+  ORCHESTRATION_FEATURE,
+  SKILL_FEATURE,
+} from "./facade.providers";
 import { CapabilitySummary } from "../capabilities/types";
 import type {
   ChatWithSkillsRequest,
@@ -79,64 +81,60 @@ const SENSITIVE_PATTERNS = [
   /bearer\s+\S+/gi,
 ];
 
-// ==================== Feature Interfaces ====================
-
-/**
- * 记忆能力特性
- * 包含短期和长期记忆服务
- */
-interface MemoryFeature {
-  shortTerm: ShortTermMemoryService;
-  longTerm: LongTermMemoryService;
-}
-
-/**
- * 工具执行特性
- * 包含工具注册表和函数调用执行器
- */
-interface ToolFeature {
-  registry: ToolRegistry;
-  executor: FunctionCallingExecutor;
-}
-
-/**
- * 编排能力特性
- * 包含熔断器和 Agent 执行器
- */
-interface OrchestrationFeature {
-  circuitBreaker: CircuitBreakerService;
-  agentExecutor: AgentExecutorService;
-}
-
-/**
- * 技能特性
- * 包含技能加载器和提示词构建器
- */
-interface SkillFeature {
-  loader: SkillLoaderService;
-  promptBuilder: SkillPromptBuilder;
-}
-
 /**
  * AI Engine 统一入口
  *
  * 所有 AI Apps 应该通过此 Facade 消费 AI 能力，而不是直接依赖内部服务。
  *
- * ★ 架构优化：将 12 个可选依赖分组为 5 个特性模块，提高代码可预测性
+ * ============================================================================
+ * P1 架构优化：依赖分组
+ * ============================================================================
+ * 将 12 个可选依赖分组为 4 个特性模块 + 3 个独立服务：
+ *
+ * Feature 模块（通过 Injection Token 注入）：
+ * - MEMORY_FEATURE: 短期记忆 + 长期记忆
+ * - TOOL_FEATURE: 工具注册表 + 函数调用执行器
+ * - ORCHESTRATION_FEATURE: 熔断器 + Agent 执行器
+ * - SKILL_FEATURE: 技能加载器 + 提示词构建器
+ *
+ * 独立服务（直接注入）：
+ * - PrismaService: 数据库访问
+ * - TeamsService: 团队协作
+ * - AICapabilityResolver: 能力解析
+ *
+ * 这种设计的优点：
+ * 1. 构造函数更清晰（从 9 个参数减少到语义化的分组）
+ * 2. 特性可选降级（缺少某个特性时自动禁用相关功能）
+ * 3. 便于测试（可以 mock 整个特性模块）
+ * ============================================================================
  */
 @Injectable()
 export class AIEngineFacade {
   private readonly logger = new Logger(AIEngineFacade.name);
 
   constructor(
-    // 核心服务（必需）
+    // ==================== 核心服务（必需）====================
     private readonly aiChatService: AiChatService,
-    private readonly modelConfigService: AiModelConfigService, // ★ 统一模型配置服务
-    // 特性模块（可选）
-    @Optional() private readonly memory?: MemoryFeature,
-    @Optional() private readonly tools?: ToolFeature,
-    @Optional() private readonly orchestration?: OrchestrationFeature,
-    @Optional() private readonly skills?: SkillFeature,
+    private readonly modelConfigService: AiModelConfigService,
+
+    // ==================== 特性模块（可选，通过 Token 注入）====================
+    @Optional()
+    @Inject(MEMORY_FEATURE)
+    private readonly memory?: MemoryFeature,
+
+    @Optional()
+    @Inject(TOOL_FEATURE)
+    private readonly tools?: ToolFeature,
+
+    @Optional()
+    @Inject(ORCHESTRATION_FEATURE)
+    private readonly orchestration?: OrchestrationFeature,
+
+    @Optional()
+    @Inject(SKILL_FEATURE)
+    private readonly skills?: SkillFeature,
+
+    // ==================== 独立服务（可选）====================
     @Optional() private readonly prisma?: PrismaService,
     @Optional() private readonly teamsService?: TeamsService,
     @Optional() private readonly capabilityResolver?: AICapabilityResolver,
@@ -867,7 +865,30 @@ export class AIEngineFacade {
 
   /**
    * 智能搜索
-   * ★ 架构重构：优先使用 ToolRegistry，向后兼容 SearchService
+   *
+   * ============================================================================
+   * ARCHITECTURE NOTE
+   * ============================================================================
+   * 本方法是 AI Apps 调用搜索的统一入口。
+   *
+   * 实现方式：
+   * - 通过 ToolRegistry 调用 web-search Tool
+   * - web-search Tool 内部使用 SearchService
+   *
+   * 分层设计：
+   *   AI Apps (Research, Ask, etc.)
+   *         ↓
+   *   AIEngineFacade.search()  ← 你在这里
+   *         ↓
+   *   web-search Tool (ToolRegistry)
+   *         ↓
+   *   SearchService (底层实现)
+   *
+   * 为什么保留 SearchService？
+   * - 底层服务（如 DeepResearchAgent）需要直接访问搜索能力
+   * - SearchService 提供更多底层配置选项
+   * - 遵循分层架构：Facade → Tool → Service
+   * ============================================================================
    */
   async search(request: SearchRequest): Promise<SearchResponse> {
     this.logger.debug(

@@ -368,12 +368,14 @@ export class AiAskService {
           domain: "ask",
         };
 
-        // 执行配置
+        // 执行配置 - 使用 TaskProfile 替代硬编码参数
         const executionConfig: Partial<ExecutionConfig> = {
           maxIterations: 5,
           maxToolCalls: 10,
-          temperature: 0.7, // creativity: medium
-          maxTokens: 4000, // outputLength: standard
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "standard",
+          },
         };
 
         // T2 Fix: 使用 executeWithContext() 替代 execute()

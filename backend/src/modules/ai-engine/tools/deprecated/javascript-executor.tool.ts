@@ -4,14 +4,14 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { BaseTool } from "../../base/base-tool";
+import { BaseTool } from "../base/base-tool";
 import {
   ToolContext,
   JSONSchema,
   ToolCategory,
-} from "../../abstractions/tool.interface";
+} from "../abstractions/tool.interface";
 
-import { ValidationResult } from "../../../core";
+import { ValidationResult } from "../../core";
 import * as vm from "vm";
 
 /**

@@ -66,6 +66,7 @@ import { DocumentChunker } from "./rag/chunking";
 
 // Facade (统一入口)
 import { AIEngineFacade } from "./facade";
+import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
 
 // Collaboration (not in sub-modules yet)
 import { VotingManager } from "./collaboration/patterns/voting-pattern";
@@ -120,6 +121,9 @@ const handoffCoordinatorFactory = {
   ],
   controllers: [AiCoreController],
   providers: [
+    // === Facade Feature Providers (分组注入) ===
+    ...FACADE_FEATURE_PROVIDERS,
+
     // === API Service ===
     AiCoreService,
 

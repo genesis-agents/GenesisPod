@@ -1717,8 +1717,10 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
           maxToolCalls: 10,
           parallelToolCalls: false,
           enableRetry: true,
-          temperature: 0.7,
-          maxTokens: 4096,
+          taskProfile: {
+            creativity: "medium",
+            outputLength: "standard",
+          },
         },
       );
 

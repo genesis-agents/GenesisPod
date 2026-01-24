@@ -937,7 +937,7 @@ export class TeamMissionService implements OnModuleInit {
                 modelConfig.modelId,
                 [{ role: "user", content: currentPrompt }],
                 systemPrompt,
-                { maxTokens: 16000, temperature: 0.7, missionId: mission.id },
+                { taskProfile: { creativity: "medium", outputLength: "long" }, missionId: mission.id },
               );
             },
             {
@@ -1779,7 +1779,7 @@ export class TeamMissionService implements OnModuleInit {
             mission.description || undefined,
             (mission.mustConstraints as any[]) || undefined, // ★ 注入用户约束
           ),
-          { maxTokens: 8000, temperature: 0.7 },
+          { taskProfile: { creativity: "medium", outputLength: "long" } },
           {
             taskId: task.id,
             taskTitle: task.title,
@@ -1959,7 +1959,7 @@ export class TeamMissionService implements OnModuleInit {
                 mission.description || undefined,
                 (mission.mustConstraints as any[]) || undefined, // ★ 注入用户约束
               ),
-              { maxTokens: 8000, temperature: 0.7 },
+              { taskProfile: { creativity: "medium", outputLength: "long" } },
               {
                 taskId: task.id,
                 taskTitle: task.title,
@@ -2304,7 +2304,7 @@ export class TeamMissionService implements OnModuleInit {
             modelConfig.modelId,
             [{ role: "user", content: replanPrompt }],
             this.getLeaderSystemPrompt(leader),
-            { maxTokens: 4000, temperature: 0.7, missionId: mission.id },
+            { taskProfile: { creativity: "medium", outputLength: "standard" }, missionId: mission.id },
           );
         },
         {
@@ -2502,7 +2502,7 @@ export class TeamMissionService implements OnModuleInit {
               modelConfig.modelId,
               [{ role: "user", content: reviewPrompt }],
               this.getLeaderSystemPrompt(leader),
-              { maxTokens: 4000, temperature: 0.5, missionId: mission.id },
+              { taskProfile: { creativity: "low", outputLength: "standard" }, missionId: mission.id },
             );
           },
           {
@@ -2777,7 +2777,7 @@ export class TeamMissionService implements OnModuleInit {
             mission.description || undefined,
             (mission.mustConstraints as any[]) || undefined, // ★ 注入用户约束
           ),
-          { maxTokens: 8000, temperature: 0.7, missionId: mission.id },
+          { taskProfile: { creativity: "medium", outputLength: "long" }, missionId: mission.id },
         );
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
@@ -3012,7 +3012,7 @@ export class TeamMissionService implements OnModuleInit {
               modelConfig.modelId,
               [{ role: "user", content: summaryPrompt }],
               this.getLeaderSystemPrompt(mission.leader),
-              { maxTokens: 2000, temperature: 0.5, missionId },
+              { taskProfile: { creativity: "low", outputLength: "short" }, missionId },
             );
           },
           { operation: "mission_summary", context: { missionId } },
@@ -4241,7 +4241,7 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
             modelConfig.modelId,
             [{ role: "user", content: prompt }],
             "你是一位专业的内容审核助手，擅长快速提炼长文精华。请客观、准确地生成摘要。",
-            { maxTokens: 1500, temperature: 0.3, missionId },
+            { taskProfile: { creativity: "deterministic", outputLength: "short" }, missionId },
           );
         },
         { operation: "content_summary", context: { missionId } },

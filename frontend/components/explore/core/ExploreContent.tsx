@@ -378,9 +378,12 @@ function HomeContent() {
           createdAt: string;
           videoId: string;
         }
-        const youtubeVideos = (
-          Array.isArray(youtubeData) ? youtubeData : youtubeData.data || []
-        ).map((video: VideoData) => {
+        // API returns { success, data: [...] } or { success, data: { data: [...] } }
+        const ytResponseData = youtubeData?.data ?? youtubeData;
+        const ytVideosArray = Array.isArray(ytResponseData)
+          ? ytResponseData
+          : ytResponseData?.data || [];
+        const youtubeVideos = ytVideosArray.map((video: VideoData) => {
           const v = video;
           return {
           id: v.id,
@@ -396,9 +399,11 @@ function HomeContent() {
         const resourcesUrl = `${config.apiUrl}/resources?type=YOUTUBE_VIDEO&take=${PAGE_SIZE}&skip=${currentPage * PAGE_SIZE}`;
         const resourcesRes = await fetch(resourcesUrl);
         const resourcesData = await resourcesRes.json();
-        const resourceVideos = Array.isArray(resourcesData)
-          ? resourcesData
-          : resourcesData.data || [];
+        // API returns { success, data: { data: [...], pagination } } format
+        const resResponseData = resourcesData?.data ?? resourcesData;
+        const resourceVideos = Array.isArray(resResponseData)
+          ? resResponseData
+          : resResponseData?.data || [];
 
         // Merge both sources and deduplicate by videoId
         const seenVideoIds = new Set<string>();
