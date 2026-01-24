@@ -55,6 +55,16 @@
             "timeout": 90000
           }
         ]
+      },
+      {
+        "matcher": "Write(*.test.ts)|Write(*.spec.ts)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Test file created - run npm run test:quick to verify'",
+            "timeout": 5000
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -77,6 +87,16 @@
             "timeout": 120000
           }
         ]
+      },
+      {
+        "matcher": "Edit(backend/prisma/schema.prisma)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd backend && npx prisma validate",
+            "timeout": 30000
+          }
+        ]
       }
     ],
     "SubagentStop": [
@@ -85,7 +105,16 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '✓ 代码审查完成，请检查审查报告'"
+            "command": "echo 'Code review completed - check the review report'"
+          }
+        ]
+      },
+      {
+        "matcher": "tester",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Testing completed - check test results'"
           }
         ]
       }

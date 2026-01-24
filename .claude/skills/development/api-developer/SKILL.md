@@ -1,51 +1,50 @@
 ---
 name: API Developer
-description: Design and implement RESTful/GraphQL APIs with NestJS for DeepDive Engine backend
-allowed-tools:
-  - Bash
-  - Read
-  - Write
-  - Edit
-  - Grep
-  - Glob
-tags:
-  - api
-  - nestjs
-  - rest
-  - graphql
+description: |
+  Design and implement RESTful APIs with NestJS for DeepDive Engine.
+  Trigger keywords: api, rest, nestjs, controller, service, dto, endpoint
+  Not for: Schema design (-> schema-architect), Security (-> security-specialist)
+allowed-tools: [Bash, Read, Write, Edit, Grep, Glob]
+tags: [api, nestjs, rest, backend]
+boundaries:
+  includes:
+    - RESTful API design
+    - NestJS controller/service patterns
+    - DTO validation
+    - Swagger documentation
+  excludes:
+    - Database schema design
+    - Authentication/authorization design
+  handoff:
+    - skill: schema-architect
+      when: Schema changes needed
+    - skill: security-specialist
+      when: Auth design needed
 ---
 
-# API Development Expert
+# API Developer
 
-You are a senior backend engineer specializing in NestJS API development for DeepDive Engine.
+> NestJS API development for DeepDive Engine.
 
 ## Backend Architecture
 
 ```
 backend/src/
 ├── modules/
-│   ├── core/           # Auth, admin, storage, feedback
-│   ├── content/        # Resources, collections, comments
+│   ├── core/           # Auth, admin, storage
+│   ├── content/        # Resources, collections
 │   ├── ai/             # AI service integration
-│   ├── data-services/  # Crawlers, deduplication
-│   └── integrations/   # Third-party APIs
-├── shared/             # DTOs, guards, decorators, utils
-├── config/             # Database, swagger, security configs
-└── main.ts             # Application bootstrap
+│   └── data-services/  # Crawlers, deduplication
+├── shared/             # DTOs, guards, decorators
+└── config/             # Database, swagger configs
 ```
 
-## NestJS Patterns
-
-### Service Pattern
+## Service Pattern
 
 ```typescript
 @Injectable()
 export class ResourceService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly ai: AIClient,
-    private readonly cache: CacheService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async findAll(options: PaginationDto): Promise<PaginatedResult<Resource>> {
     const [items, total] = await Promise.all([
@@ -58,16 +57,10 @@ export class ResourceService {
     ]);
     return { items, total, ...options };
   }
-
-  async create(dto: CreateResourceDto): Promise<Resource> {
-    // Validate, transform, and persist
-    const data = await this.enrichData(dto);
-    return this.prisma.resource.create({ data });
-  }
 }
 ```
 
-### Controller Pattern
+## Controller Pattern
 
 ```typescript
 @Controller("resources")
@@ -77,14 +70,12 @@ export class ResourceController {
 
   @Get()
   @ApiOperation({ summary: "List all resources" })
-  @ApiResponse({ status: 200, type: PaginatedResourceResponse })
   async findAll(@Query() query: PaginationDto) {
     return this.service.findAll(query);
   }
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: "Create a resource" })
   @ApiBearerAuth()
   async create(@Body() dto: CreateResourceDto, @User() user: UserEntity) {
     return this.service.create(dto, user.id);
@@ -92,7 +83,7 @@ export class ResourceController {
 }
 ```
 
-### DTO Validation
+## DTO Validation
 
 ```typescript
 export class CreateResourceDto {
@@ -103,20 +94,17 @@ export class CreateResourceDto {
   title: string;
 
   @IsUrl()
-  @ApiProperty({ example: "https://example.com/article" })
+  @ApiProperty({ example: "https://example.com" })
   url: string;
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @ApiProperty({ required: false })
   tags?: string[];
 }
 ```
 
-## API Standards
-
-### RESTful Conventions
+## RESTful Conventions
 
 | Method | Endpoint                | Action   |
 | ------ | ----------------------- | -------- |
@@ -126,66 +114,20 @@ export class CreateResourceDto {
 | PATCH  | `/api/v1/resources/:id` | Update   |
 | DELETE | `/api/v1/resources/:id` | Delete   |
 
-### Response Format
+## Response Format
 
 ```typescript
 // Success
-{ "data": {...}, "meta": { "timestamp": "...", "version": "1.0" } }
+{ "data": {...}, "meta": { "timestamp": "..." } }
 
 // Error
 { "statusCode": 400, "message": "Validation failed", "errors": [...] }
 
 // Pagination
-{ "items": [...], "total": 100, "page": 1, "pageSize": 20, "hasMore": true }
+{ "items": [...], "total": 100, "page": 1, "pageSize": 20 }
 ```
 
-### Error Handling
-
-```typescript
-@Catch()
-export class AllExceptionsFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
-
-    response.status(status).json({
-      statusCode: status,
-      message: this.extractMessage(exception),
-      timestamp: new Date().toISOString(),
-    });
-  }
-}
-```
-
-## GraphQL (Optional)
-
-```typescript
-@Resolver(() => Resource)
-export class ResourceResolver {
-  constructor(private readonly service: ResourceService) {}
-
-  @Query(() => [Resource])
-  async resources(): Promise<Resource[]> {
-    return this.service.findAll();
-  }
-
-  @Mutation(() => Resource)
-  @UseGuards(GqlAuthGuard)
-  async createResource(
-    @Args("input") input: CreateResourceInput,
-    @CurrentUser() user: User,
-  ): Promise<Resource> {
-    return this.service.create(input, user.id);
-  }
-}
-```
-
-## Your Responsibilities
+## Responsibilities
 
 1. Design clean, RESTful API endpoints
 2. Implement proper input validation with DTOs

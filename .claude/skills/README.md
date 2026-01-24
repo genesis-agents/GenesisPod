@@ -1,6 +1,6 @@
 # Skills Directory
 
-> DeepDive Engine 的 Claude Code 技能库，按功能领域分类组织。
+> DeepDive Engine 的 Claude Code 技能库，采用 Progressive Disclosure 结构。
 
 ## Skills vs Commands
 
@@ -10,65 +10,76 @@
 | **调用方式** | AI 自动根据上下文使用 | 用户输入 `/command` 触发 |
 | **用途**     | 领域知识库、专业指导  | 快捷指令、工作流         |
 
-## 目录结构
+## 分类导航
+
+| 分类          | 技能数量 | 主要用途                   | 导航                                      |
+| ------------- | -------- | -------------------------- | ----------------------------------------- |
+| AI            | 8        | AI/LLM 开发、多 Agent 协作 | [ai/](ai/README.md)                       |
+| Development   | 9        | 前后端开发、数据库、Git    | [development/](development/README.md)     |
+| Architecture  | 4        | Schema、安全、文档处理     | [architecture/](architecture/README.md)   |
+| Data          | 2        | 数据管道、知识图谱         | [data/](data/README.md)                   |
+| Operations    | 4        | DevOps、调试、部署         | [operations/](operations/README.md)       |
+| Quality       | 3        | 测试、代码审查、性能       | [quality/](quality/README.md)             |
+| Workflow      | 3        | 规划、执行、验证           | [workflow/](workflow/README.md)           |
+| Collaboration | 1        | 并行调查                   | [collaboration/](collaboration/README.md) |
+| **总计**      | **34**   | -                          | -                                         |
+
+## Progressive Disclosure 结构
+
+每个技能采用分层结构，减少 Claude 上下文占用：
 
 ```
-skills/
-├── ai/                          # AI 相关技能
-│   ├── ai-app-developer/        # AI App 开发（Writing/Image/Research）
-│   ├── ai-architecture-layering/# AI 架构分层设计
-│   ├── ai-service-expert/       # AI 服务实现
-│   ├── ai-teams-expert/         # 多 Agent 团队协作
-│   ├── prompt-engineering/      # 提示词工程
-│   ├── writing-quality/         # 写作质量
-│   └── document-generation/     # 文档生成 (DOCX/PDF/PPTX/XLSX)
-│
-├── development/                 # 开发技能
-│   ├── api-developer/           # REST API 开发 (NestJS)
-│   ├── database-manager/        # 多数据库管理
-│   ├── database-migration/      # 数据库迁移 (Prisma)
-│   ├── frontend-expert/         # 前端开发与调试 (Next.js + React)
-│   ├── realtime-communication-expert/ # WebSocket/实时通信
-│   ├── state-management-expert/ # 状态管理 (Zustand)
-│   ├── webapp-testing/          # Web 应用测试 (Playwright)
-│   ├── git-automation/          # Git 自动化工作流
-│   └── complex-feature-implementation/ # 复杂功能实现
-│
-├── quality/                     # 质量保证技能
-│   ├── code-reviewer/           # 代码审查
-│   ├── performance-optimizer/   # 性能优化
-│   └── testing-suite/           # 测试套件 (Jest/Vitest/Playwright)
-│
-├── operations/                  # 运维技能
-│   ├── debug-ops/               # 调试运维
-│   ├── dev-environment/         # 开发环境配置
-│   ├── devops-platform/         # DevOps 平台 (Railway/Docker/PM2)
-│   └── git-workflow/            # Git 工作流
-│
-├── data/                        # 数据技能
-│   ├── data-pipeline-expert/    # 数据管道与质量
-│   └── knowledge-graph-expert/  # 知识图谱 (Neo4j)
-│
-└── architecture/                # 架构技能
-    ├── document-processor/      # 文档处理
-    ├── schema-architect/        # 系统架构设计
-    ├── security-specialist/     # 安全专家
-    └── mcp-builder/             # MCP 服务器构建
+skill-name/
+├── SKILL.md        # 核心概念 (<150 行)
+│   ├── YAML frontmatter (boundaries, handoff)
+│   ├── 快速参考
+│   └── 架构图
+└── references/     # 详细文档 (按需加载)
+    ├── implementation-guide.md
+    ├── code-examples.md
+    └── troubleshooting.md
 ```
 
-## 技能统计
+### SKILL.md 模板
 
-| 分类         | 技能数量 | 主要用途                          |
-| ------------ | -------- | --------------------------------- |
-| AI           | 7        | AI 应用开发、多 Agent 协作        |
-| Development  | 9        | 前后端开发、数据库迁移、测试、Git |
-| Quality      | 3        | 测试、代码审查、性能优化          |
-| Operations   | 4        | 部署、调试、环境配置              |
-| Data         | 2        | 数据管道、知识图谱                |
-| Architecture | 4        | 系统设计、安全、MCP               |
-| **总计**     | **29**   | -                                 |
+```yaml
+---
+name: skill-name
+description: |
+  简短描述（1-2 句）。
+  触发关键词: keyword1, keyword2
+  不适用于: 排除场景（→ 使用其他 skill）
+allowed-tools: [Bash, Read, Write, Edit, Grep, Glob]
+tags: [tag1, tag2]
+boundaries:
+  includes: [职责1, 职责2]
+  excludes: [排除1]
+  handoff:
+    - skill: other-skill
+      when: 移交条件
+---
+```
+
+## 快速查找
+
+```
+What are you building?
+├── AI feature → ai/
+├── API endpoint → development/api-developer
+├── Database change → architecture/schema-architect
+├── Frontend component → development/frontend-expert
+├── Production issue → operations/debug-ops
+└── Tests → quality/testing-suite
+```
 
 ## 最近更新 (2025-01)
+
+### Progressive Disclosure 重构
+
+- 所有 SKILL.md 精简至 <150 行（平均减少 73%）
+- 详细文档迁移至 `references/` 子目录
+- 添加 YAML frontmatter（boundaries, handoff）
+- 创建分类导航索引（README.md）
 
 ### 合并的技能
 
@@ -76,16 +87,6 @@ skills/
 - `devops-platform` ← deployment-ops + iac-manager + monitoring-ops
 - `frontend-expert` ← frontend-builder + frontend-ui-debugger
 - `data-pipeline-expert` ← data-collection-expert + data-quality-manager
-
-### 新增的技能
-
-- `realtime-communication-expert` - WebSocket/Socket.io Gateway 开发
-- `ai-app-developer` - AI App 模块开发（Writing/Image/Research）
-- `state-management-expert` - Zustand 状态管理
-
-### 移除的技能
-
-- `i18n-localization` - 当前项目无国际化需求
 
 ## 技能边界设计
 
