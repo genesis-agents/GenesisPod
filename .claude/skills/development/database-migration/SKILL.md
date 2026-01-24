@@ -223,6 +223,43 @@ npx prisma generate
 2. 如没有，创建迁移（标准或手动方式）
 3. 推送代码，等待 CI/CD 部署
 
+### 问题：迁移损坏（表不存在但迁移记录存在）
+
+**原因**：迁移执行过程中失败，但被错误标记为已完成
+
+**诊断**：
+
+```sql
+-- 检查迁移状态
+SELECT migration_name, finished_at, rolled_back_at
+FROM "_prisma_migrations"
+WHERE migration_name = 'YYYYMMDD_migration_name';
+
+-- 检查表是否存在
+SELECT EXISTS (
+  SELECT 1 FROM information_schema.tables
+  WHERE table_schema = 'public' AND table_name = 'your_table_name'
+) as exists;
+```
+
+**解决方案**：
+
+使用 Railway 公共数据库 URL 连接并修复：
+
+```bash
+# 获取公共 URL
+railway variables --service Postgres | grep DATABASE_PUBLIC_URL
+
+# 连接并执行修复
+DATABASE_URL="postgresql://..." npx tsx prisma/fix-script.ts
+```
+
+修复脚本逻辑：
+
+1. 删除损坏的迁移记录
+2. 手动创建表（使用 IF NOT EXISTS）
+3. 重新插入迁移记录
+
 ### 问题：迁移失败
 
 **解决方案**：
