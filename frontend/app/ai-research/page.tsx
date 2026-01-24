@@ -228,7 +228,9 @@ async function fetchProjects(options?: {
     throw new Error('Failed to fetch projects');
   }
 
-  return res.json();
+  const result = await res.json();
+  // Handle wrapped response { success: true, data: {...} }
+  return result?.data ?? result;
 }
 
 async function createProject(data: {
@@ -249,10 +251,17 @@ async function createProject(data: {
       throw new Error('Please sign in to create a project');
     }
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to create project');
+    // Handle wrapped error response
+    const errMsg =
+      errorData?.data?.message ??
+      errorData?.message ??
+      'Failed to create project';
+    throw new Error(errMsg);
   }
 
-  return res.json();
+  const result = await res.json();
+  // Handle wrapped response { success: true, data: {...} }
+  return result?.data ?? result;
 }
 
 async function deleteProject(id: string): Promise<void> {

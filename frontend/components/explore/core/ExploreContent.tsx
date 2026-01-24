@@ -169,7 +169,8 @@ function HomeContent() {
 
   const { models: allAiModels } = useAIModels();
   // 显示 CHAT、CHAT_FAST 和 MULTIMODAL 类型的模型（都支持文本聊天）
-  const aiModels = allAiModels.filter(
+  // Guard against undefined during SSR/hydration
+  const aiModels = (allAiModels || []).filter(
     (m) =>
       m.modelType === 'CHAT' ||
       m.modelType === 'CHAT_FAST' ||
