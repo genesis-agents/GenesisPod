@@ -58,8 +58,13 @@ export function CollectionMonitor() {
   const fetchTasks = async () => {
     try {
       const response = await fetch(`${config.apiUrl}/data-management/tasks`);
-      const data = await response.json();
-      if (data.success) {
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: [...] }
+      const data = result?.data ?? result;
+      if (Array.isArray(data)) {
+        setTasks(data);
+      } else if (data.success && data.data) {
+        // Legacy format support
         setTasks(data.data);
       }
     } catch (err) {

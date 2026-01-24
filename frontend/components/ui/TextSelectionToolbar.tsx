@@ -218,8 +218,11 @@ export default function TextSelectionToolbar({
         );
 
         if (response.ok) {
-          const data = await response.json();
-          const translatedText = data.translation || data.translatedText || '';
+          const result = await response.json();
+          // Handle wrapped response { success: true, data: {...} }
+          const data = result?.data ?? result;
+          const translatedText =
+            data?.translation || data?.translatedText || '';
           setTranslation(translatedText);
           onTranslate?.(textToTranslate, targetLang, translatedText);
         } else {

@@ -52,7 +52,19 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
     throw new Error(error.message || `HTTP ${response.status}`);
   }
 
-  return response.json();
+  const result = await response.json();
+
+  // Auto-unwrap standard response format { success: true, data: T }
+  if (
+    result &&
+    typeof result === 'object' &&
+    'success' in result &&
+    'data' in result
+  ) {
+    return result.data;
+  }
+
+  return result;
 }
 
 // ==================== Topic API ====================

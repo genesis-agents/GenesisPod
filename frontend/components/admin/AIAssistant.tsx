@@ -270,7 +270,9 @@ export default function AIAssistant({
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
         const assistantMessage: Message = {
           role: 'assistant',
           content:

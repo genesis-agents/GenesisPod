@@ -253,7 +253,9 @@ function HomeContent() {
         );
 
         if (response.ok) {
-          const data = await response.json();
+          const result = await response.json();
+          // Handle wrapped response { success: true, data: {...} }
+          const data = result?.data ?? result;
           setUpvotes(new Set(data.resourceIds || []));
         }
       } catch (error) {
@@ -289,11 +291,10 @@ function HomeContent() {
       if (
         resource.type === 'YOUTUBE' ||
         resource.type === 'YOUTUBE_VIDEO' ||
-        (resource).videoId
+        resource.videoId
       ) {
         const videoId =
-          (resource).videoId ||
-          extractYouTubeVideoId(resource.sourceUrl);
+          resource.videoId || extractYouTubeVideoId(resource.sourceUrl);
 
         if (videoId) {
           router.push(`/explore/youtube?videoId=${videoId}`);
@@ -331,7 +332,9 @@ function HomeContent() {
           }
         );
         if (response.ok) {
-          const data = await response.json();
+          const result = await response.json();
+          // Handle wrapped response { success: true, data: {...} }
+          const data = result?.data ?? result;
           handleResource(data);
         }
       } catch (error) {
@@ -386,14 +389,15 @@ function HomeContent() {
         const youtubeVideos = ytVideosArray.map((video: VideoData) => {
           const v = video;
           return {
-          id: v.id,
-          type: 'YOUTUBE' as const,
-          title: v.title,
-          abstract: null,
-          sourceUrl: v.url,
-          publishedAt: v.createdAt,
-          videoId: v.videoId,
-        }});
+            id: v.id,
+            type: 'YOUTUBE' as const,
+            title: v.title,
+            abstract: null,
+            sourceUrl: v.url,
+            publishedAt: v.createdAt,
+            videoId: v.videoId,
+          };
+        });
 
         // Fetch from resources table with type=YOUTUBE_VIDEO
         const resourcesUrl = `${config.apiUrl}/resources?type=YOUTUBE_VIDEO&take=${PAGE_SIZE}&skip=${currentPage * PAGE_SIZE}`;
@@ -659,7 +663,9 @@ function HomeContent() {
         throw new Error(error.message || '文件上传失败');
       }
 
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data = result?.data ?? result;
       logger.debug('File uploaded successfully:', data);
 
       // Show success message
@@ -689,10 +695,10 @@ function HomeContent() {
     if (
       resource.type === 'YOUTUBE' ||
       resource.type === 'YOUTUBE_VIDEO' ||
-      (resource).videoId
+      resource.videoId
     ) {
       const videoId =
-        (resource).videoId || extractYouTubeVideoId(resource.sourceUrl);
+        resource.videoId || extractYouTubeVideoId(resource.sourceUrl);
 
       if (videoId) {
         router.push(`/explore/youtube?videoId=${videoId}`);
@@ -907,7 +913,9 @@ function HomeContent() {
       });
 
       if (response.ok) {
-        const savedNote = await response.json();
+        const noteResult = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const savedNote = noteResult?.data ?? noteResult;
         logger.debug('Note saved successfully:', savedNote);
         setToast({ message: 'Note saved successfully!', type: 'success' });
 
@@ -1376,7 +1384,9 @@ function HomeContent() {
         throw new Error('Failed to toggle upvote');
       }
 
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data = result?.data ?? result;
 
       // Update with server state (authoritative)
       if (data.upvoted) {
@@ -3113,7 +3123,7 @@ function HomeContent() {
                       if (
                         targetResource.type === 'YOUTUBE' ||
                         targetResource.type === 'YOUTUBE_VIDEO' ||
-                        (targetResource).videoId
+                        targetResource.videoId
                       ) {
                         const videoId = extractYouTubeVideoId(
                           targetResource.sourceUrl

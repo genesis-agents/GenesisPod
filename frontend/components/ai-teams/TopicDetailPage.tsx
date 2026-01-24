@@ -2210,9 +2210,11 @@ export function TopicDetailPage() {
           }
         );
         if (response.ok) {
-          const users = await response.json();
+          const result = await response.json();
+          // Handle wrapped response { success: true, data: [...] }
+          const users = result?.data ?? result;
           // Filter out existing members
-          const filtered = users.filter(
+          const filtered = (Array.isArray(users) ? users : []).filter(
             (u: { id: string }) => !existingMemberIds.has(u.id)
           );
           setInviteSearchResults(filtered);

@@ -79,8 +79,13 @@ export function DataImportDialog({
       const response = await fetch(
         `${config.apiUrl}/data-management/whitelists/${resourceType}`
       );
-      const data = await response.json();
-      if (data.success) {
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data = result?.data ?? result;
+      if (data && typeof data === 'object' && 'resourceType' in data) {
+        setWhitelist(data as SourceWhitelist);
+      } else if (data.success && data.data) {
+        // Legacy format support
         setWhitelist(data.data);
       }
     } catch (err) {
@@ -171,15 +176,17 @@ export function DataImportDialog({
         }),
       });
 
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data = result?.data ?? result;
 
-      if (data.success) {
+      if (data.success !== false && response.ok) {
         // 导入成功
         onOpenChange(false);
         resetDialog();
         // 可以在这里触发刷新列表的回调
       } else {
-        setError(data.error || '导入失败');
+        setError(data.error || data.message || '导入失败');
       }
     } catch (err) {
       setError('导入失败，请重试');

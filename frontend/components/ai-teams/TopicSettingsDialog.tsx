@@ -841,9 +841,11 @@ function AddMemberDialog({
           { headers: { ...getAuthHeader() } }
         );
         if (response.ok) {
-          const users = await response.json();
+          const result = await response.json();
+          // Handle wrapped response { success: true, data: [...] }
+          const users = result?.data ?? result;
           // Filter out existing members
-          const filtered = users.filter(
+          const filtered = (Array.isArray(users) ? users : []).filter(
             (u: SearchedUser) => !existingMemberIds.includes(u.id)
           );
           setSearchResults(filtered);

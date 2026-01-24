@@ -66,10 +66,12 @@ export function useSessions(options: UseSessionsOptions = {}) {
         throw new Error('Failed to load sessions');
       }
 
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data = result?.data ?? result;
 
       // 转换日期字段
-      const sessionsData = (data.sessions || []).map(
+      const sessionsData = (data?.sessions || []).map(
         (
           session: SlidesSession & {
             latestCheckpoint?: {

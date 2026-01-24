@@ -73,7 +73,9 @@ export function useYoutubeSubtitleExport(): UseYoutubeSubtitleExportReturn {
           throw new Error(errorData.message || `HTTP error ${response.status}`);
         }
 
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
         return data as BilingualSubtitles;
       } catch (err) {
         const errorMessage =

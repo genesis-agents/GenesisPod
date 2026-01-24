@@ -73,10 +73,12 @@ const ImageIcon = ({ className }: { className?: string }) => (
 
 async function fetchPublicImage(id: string): Promise<SharedImage | null> {
   const response = await fetch(`${config.apiUrl}/ai-image/public/${id}`);
-  const data = await response.json();
+  const result = await response.json();
+  // Handle wrapped response { success: true, data: {...} }
+  const data = result?.data ?? result;
 
   // Check if we got a valid image or an error response
-  if (data.success === false || !data.id) {
+  if (data?.success === false || !data?.id) {
     return null;
   }
 

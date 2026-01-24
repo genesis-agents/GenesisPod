@@ -670,7 +670,9 @@ function HomeContent() {
       });
 
       if (response.ok) {
-        const collections = await response.json();
+        const collectionsResult = await response.json();
+        // Handle wrapped response { success: true, data: [...] }
+        const collections = collectionsResult?.data ?? collectionsResult;
 
         // Find or create default collection
         let defaultCollection = collections.find(
@@ -700,7 +702,9 @@ function HomeContent() {
           );
 
           if (createResponse.ok) {
-            defaultCollection = await createResponse.json();
+            const createResult = await createResponse.json();
+            // Handle wrapped response { success: true, data: {...} }
+            defaultCollection = createResult?.data ?? createResult;
           }
         }
 
@@ -796,7 +800,9 @@ function HomeContent() {
           }
         );
         if (response.ok) {
-          const data = await response.json();
+          const result = await response.json();
+          // Handle wrapped response { success: true, data: {...} }
+          const data = result?.data ?? result;
           handleResource(data);
         }
       } catch (error) {
@@ -1068,7 +1074,9 @@ function HomeContent() {
         throw new Error(error.message || '文件上传失败');
       }
 
-      const data = await response.json();
+      const uploadResult = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data = uploadResult?.data ?? uploadResult;
       logger.debug('File uploaded successfully:', data);
 
       // Show success message
@@ -1445,7 +1453,9 @@ function HomeContent() {
       });
 
       if (response.ok) {
-        const savedNote = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const savedNote = result?.data ?? result;
         logger.debug('Note saved successfully:', savedNote);
         setToast({ message: 'Note saved successfully!', type: 'success' });
 

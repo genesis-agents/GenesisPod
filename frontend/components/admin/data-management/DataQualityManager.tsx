@@ -60,8 +60,14 @@ export function DataQualityManager() {
       const response = await fetch(
         `${config.apiUrl}/data-management/quality-metrics`
       );
-      const data = await response.json();
-      if (data.success) {
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: [...] }
+      const data = result?.data ?? result;
+      if (Array.isArray(data)) {
+        setMetrics(data);
+        calculateStats(data);
+      } else if (data.success && data.data) {
+        // Legacy format support
         setMetrics(data.data);
         calculateStats(data.data);
       }

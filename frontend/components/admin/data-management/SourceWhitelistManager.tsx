@@ -42,8 +42,13 @@ export function SourceWhitelistManager() {
       const response = await fetch(
         `${config.apiUrl}/data-management/whitelists`
       );
-      const data = await response.json();
-      if (data.success) {
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: [...] }
+      const data = result?.data ?? result;
+      if (Array.isArray(data)) {
+        setWhitelists(data);
+      } else if (data.success && data.data) {
+        // Legacy format support
         setWhitelists(data.data);
       }
     } catch (err) {
@@ -69,8 +74,9 @@ export function SourceWhitelistManager() {
           body: JSON.stringify({ domain: newDomain }),
         }
       );
-      const data = await response.json();
-      if (data.success) {
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      if (response.ok) {
         setNewDomain('');
         setEditingId(null);
         await fetchWhitelists();
@@ -90,8 +96,9 @@ export function SourceWhitelistManager() {
         `${config.apiUrl}/data-management/whitelists/${resourceType}/domains/${encodeURIComponent(domain)}`,
         { method: 'DELETE' }
       );
-      const data = await response.json();
-      if (data.success) {
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      if (response.ok) {
         await fetchWhitelists();
       }
     } catch (err) {
@@ -116,8 +123,9 @@ export function SourceWhitelistManager() {
           body: JSON.stringify({ isActive: !isActive }),
         }
       );
-      const data = await response.json();
-      if (data.success) {
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      if (response.ok) {
         await fetchWhitelists();
       }
     } catch (err) {

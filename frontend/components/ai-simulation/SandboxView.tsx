@@ -471,7 +471,9 @@ export default function SandboxView({
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
         if (data.imageUrl) {
           setBackgroundImage(data.imageUrl);
           backgroundGeneratedRef.current = industry;
@@ -900,7 +902,10 @@ export default function SandboxView({
   };
 
   // 渲染底部辅助阵营（绿军/白方）- 紧凑样式
-  const renderAuxiliaryCamp = (team: string, Icon: React.ComponentType<{ className?: string }>) => {
+  const renderAuxiliaryCamp = (
+    team: string,
+    Icon: React.ComponentType<{ className?: string }>
+  ) => {
     const teamConfig = TEAM_COLORS[team];
     const teamAgents = agentsByTeam[team] || [];
     const teamSubmissions =

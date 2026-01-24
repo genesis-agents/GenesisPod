@@ -39,8 +39,13 @@ export function CollectionRuleManager() {
     try {
       setLoading(true);
       const response = await fetch(`${config.apiUrl}/data-management/rules`);
-      const data = await response.json();
-      if (data.success) {
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: [...] }
+      const data = result?.data ?? result;
+      if (Array.isArray(data)) {
+        setRules(data);
+      } else if (data.success && data.data) {
+        // Legacy format support
         setRules(data.data);
       }
     } catch (err) {
@@ -64,8 +69,10 @@ export function CollectionRuleManager() {
         `${config.apiUrl}/data-management/rules/${resourceType}/${endpoint}`,
         { method: 'POST' }
       );
-      const data = await response.json();
-      if (data.success) {
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data = result?.data ?? result;
+      if (response.ok) {
         await fetchRules();
       }
     } catch (err) {

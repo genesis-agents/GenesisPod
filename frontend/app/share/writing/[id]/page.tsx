@@ -108,11 +108,13 @@ export default function PublicReadPage() {
           }
           return;
         }
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
         setProject(data);
 
         // 默认选中第一章
-        const allChapters = data.volumes
+        const allChapters = data?.volumes
           ?.flatMap((v: Volume) => v.chapters || [])
           .sort((a: Chapter, b: Chapter) => a.chapterNumber - b.chapterNumber);
         if (allChapters?.length > 0) {

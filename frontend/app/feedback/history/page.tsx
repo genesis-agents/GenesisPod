@@ -94,8 +94,10 @@ export default function FeedbackHistoryPage() {
         headers: getAuthHeader(),
       });
       if (response.ok) {
-        const data = await response.json();
-        setFeedbacks(data.feedbacks || []);
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
+        setFeedbacks(data?.feedbacks || []);
       }
     } catch (error) {
       logger.error('Failed to fetch feedbacks:', error);

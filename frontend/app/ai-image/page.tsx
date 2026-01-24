@@ -67,8 +67,10 @@ export default function AIImagePage() {
         }
       );
       if (response.ok) {
-        const data = await response.json();
-        setImages(data || []);
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: [...] }
+        const data = result?.data ?? result;
+        setImages(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       logger.error('Failed to fetch history:', err);

@@ -102,9 +102,7 @@ const NotionTabContent = dynamicImport(
 
 const GoogleDriveTabContent = dynamicImport(
   () =>
-    import(
-      '@/components/library/integrations/google-drive/GoogleDriveTabContent'
-    ),
+    import('@/components/library/integrations/google-drive/GoogleDriveTabContent'),
   {
     ssr: false,
     loading: () => (
@@ -537,9 +535,12 @@ function LibraryPageContent() {
         headers: authHeaders,
       });
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: [...] }
+        const data = result?.data ?? result;
+        const collectionsArray = Array.isArray(data) ? data : [];
         // Deduplicate collections by id to avoid displaying duplicates
-        const uniqueCollections = data.filter(
+        const uniqueCollections = collectionsArray.filter(
           (collection: Collection, index: number, self: Collection[]) =>
             index === self.findIndex((c) => c.id === collection.id)
         );
@@ -576,8 +577,10 @@ function LibraryPageContent() {
           { headers: { ...getAuthHeader() } }
         );
         if (response.ok) {
-          const data: BookmarkedImage[] = await response.json();
-          setBookmarkedImages(data);
+          const result = await response.json();
+          // Handle wrapped response { success: true, data: [...] }
+          const data: BookmarkedImage[] = result?.data ?? result;
+          setBookmarkedImages(Array.isArray(data) ? data : []);
           setBookmarkedImagesLoaded(true);
         } else if (response.status === 429) {
           // Rate limit - 不设置 loaded，但设置错误信息，避免无限重试
@@ -644,7 +647,9 @@ function LibraryPageContent() {
         throw new Error('Failed to fetch knowledge graph');
       }
 
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data = result?.data ?? result;
       setGraphData(data);
     } catch (err) {
       logger.error('Error fetching graph:', err);

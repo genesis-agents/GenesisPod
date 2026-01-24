@@ -95,8 +95,10 @@ export default function ResourceSelectPanel({
         throw new Error('Failed to fetch resources');
       }
 
-      const data = await response.json();
-      const resourceList = Array.isArray(data) ? data : data.data || [];
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: [...] }
+      const data = result?.data ?? result;
+      const resourceList = Array.isArray(data) ? data : [];
       setResources(resourceList);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load resources');

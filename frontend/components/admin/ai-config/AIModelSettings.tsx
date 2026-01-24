@@ -309,13 +309,19 @@ function ModelIdSelector({
           body: JSON.stringify({ provider, apiKey, secretKey, modelType }),
         }
       );
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data = result?.data ?? result;
       if (data.success && data.models) {
         setAvailableModels(data.models);
         setHasFetched(true);
         if (data.models.length === 0) {
           setError(data.error || `该提供商没有可用的 ${modelType} 类型模型`);
         }
+      } else if (data.models) {
+        // Direct models array format
+        setAvailableModels(data.models);
+        setHasFetched(true);
       } else {
         setError(data.error || '获取模型列表失败');
       }
@@ -467,8 +473,10 @@ export default function AIModelSettings({
         headers: { ...getAuthHeader() },
       });
       if (response.ok) {
-        const data = await response.json();
-        setModels(data);
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: [...] }
+        const data = result?.data ?? result;
+        setModels(Array.isArray(data) ? data : []);
         setError(null);
       } else if (response.status === 401 || response.status === 403) {
         setError('Please sign in as an admin to manage AI models');
@@ -495,7 +503,9 @@ export default function AIModelSettings({
       );
 
       if (response.ok) {
-        const updated = await response.json();
+        const updateResult = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const updated = updateResult?.data ?? updateResult;
         setModels(models.map((m) => (m.id === model.id ? updated : m)));
         setSuccess(
           `${model.displayName} ${!model.isEnabled ? 'enabled' : 'disabled'}`
@@ -581,7 +591,9 @@ export default function AIModelSettings({
       );
 
       if (response.ok) {
-        const updated = await response.json();
+        const updateResult = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const updated = updateResult?.data ?? updateResult;
         setModels(models.map((m) => (m.id === model.id ? updated : m)));
         setEditingModel(null);
         setSuccess('Model settings saved');
@@ -625,7 +637,9 @@ export default function AIModelSettings({
         });
 
         if (response.ok) {
-          const result = await response.json();
+          const addResult = await response.json();
+          // Handle wrapped response { success: true, data: {...} }
+          const result = addResult?.data ?? addResult;
           if (result.isUpdate) {
             updatedModels.push(result);
           } else {
@@ -722,7 +736,9 @@ export default function AIModelSettings({
       );
 
       if (response.ok) {
-        const result = await response.json();
+        const testResult = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const result = testResult?.data ?? testResult;
         setTestResults((prev) => ({
           ...prev,
           [model.id]: {
@@ -758,7 +774,9 @@ export default function AIModelSettings({
       );
 
       if (response.ok) {
-        const result = await response.json();
+        const diagResult = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const result = diagResult?.data ?? diagResult;
         setDiagnoseResult(result);
         setShowDiagnose(true);
       } else {

@@ -4,6 +4,26 @@
 
 import { toast } from '@/stores';
 
+/**
+ * Unwrap standard API response format { success: true, data: T }
+ * Use this helper when making direct fetch() calls that return wrapped responses.
+ *
+ * @example
+ * const result = await response.json();
+ * const data = unwrapApiResponse(result);
+ */
+export function unwrapApiResponse<T>(result: unknown): T {
+  if (
+    result &&
+    typeof result === 'object' &&
+    'success' in result &&
+    'data' in result
+  ) {
+    return (result as { data: T }).data;
+  }
+  return result as T;
+}
+
 export interface ApiErrorResponse {
   message: string;
   statusCode?: number;
@@ -75,7 +95,10 @@ export async function apiFetch<T>(
       return {} as T;
     }
 
-    return JSON.parse(text) as T;
+    const parsed = JSON.parse(text);
+
+    // Auto-unwrap standard response format { success: true, data: T }
+    return unwrapApiResponse<T>(parsed);
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;

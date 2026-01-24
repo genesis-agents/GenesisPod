@@ -125,9 +125,13 @@ export default function NotesList({
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
         logger.debug('Notes loaded:', data);
-        setNotes(resourceId ? data : data.notes);
+        setNotes(
+          resourceId ? (Array.isArray(data) ? data : []) : data.notes || []
+        );
       } else {
         setError('Failed to load notes');
       }
@@ -216,7 +220,9 @@ export default function NotesList({
       );
 
       if (response.ok) {
-        const updatedNote = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const updatedNote = result?.data ?? result;
         setNotes(
           notes.map((n) =>
             n.id === editingNote.id
@@ -259,7 +265,9 @@ export default function NotesList({
       );
 
       if (response.ok) {
-        const updatedNote = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const updatedNote = result?.data ?? result;
         setNotes(
           notes.map((n) =>
             n.id === noteId

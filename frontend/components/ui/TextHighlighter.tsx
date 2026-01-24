@@ -121,9 +121,12 @@ export default function TextHighlighter({
         );
 
         if (response.ok) {
-          const updatedNote = await response.json();
-          const newHighlight =
-            updatedNote.highlights[updatedNote.highlights.length - 1];
+          const result = await response.json();
+          // Handle wrapped response { success: true, data: {...} }
+          const updatedNote = result?.data ?? result;
+          const newHighlight = (updatedNote?.highlights || [])[
+            (updatedNote?.highlights?.length || 1) - 1
+          ];
           onHighlightAdded?.(newHighlight);
 
           // Clear selection

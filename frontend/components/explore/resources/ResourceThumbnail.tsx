@@ -50,7 +50,9 @@ async function fetchThumbnailWithQueue(
         }
         const response = await fetch(apiUrl);
         if (response.ok) {
-          const data = await response.json();
+          const rawData = await response.json();
+          // Handle wrapped response { success: true, data: {...} }
+          const data = rawData?.data ?? rawData;
           const result = data.thumbnailUrl || null;
           thumbnailCache.set(cacheKey, result);
           resolve(result);

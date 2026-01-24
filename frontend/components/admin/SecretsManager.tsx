@@ -236,8 +236,10 @@ export default function SecretsManager({
         throw new Error('Failed to fetch secrets');
       }
 
-      const data = await response.json();
-      setSecrets(data);
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: [...] }
+      const data = result?.data ?? result;
+      setSecrets(Array.isArray(data) ? data : []);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -381,7 +383,9 @@ export default function SecretsManager({
         throw new Error('Failed to fetch secret value');
       }
 
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data = result?.data ?? result;
       setRevealedValue(data.value);
 
       // Also fetch references
@@ -392,8 +396,10 @@ export default function SecretsManager({
         }
       );
       if (refResponse.ok) {
-        const refData = await refResponse.json();
-        setReferences(refData);
+        const refResult = await refResponse.json();
+        // Handle wrapped response { success: true, data: [...] }
+        const refData = refResult?.data ?? refResult;
+        setReferences(Array.isArray(refData) ? refData : []);
       }
     } catch (err) {
       setRevealedValue(`Error: ${(err as Error).message}`);
@@ -418,8 +424,10 @@ export default function SecretsManager({
         throw new Error('Failed to fetch access logs');
       }
 
-      const data = await response.json();
-      setAccessLogs(data);
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: [...] }
+      const data = result?.data ?? result;
+      setAccessLogs(Array.isArray(data) ? data : []);
     } catch (err) {
       logger.error('Failed to fetch logs:', err);
     }

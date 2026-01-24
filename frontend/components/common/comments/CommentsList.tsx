@@ -62,8 +62,10 @@ export default function CommentsList({
       );
 
       if (response.ok) {
-        const data = await response.json();
-        setComments(data);
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: [...] }
+        const data = result?.data ?? result;
+        setComments(Array.isArray(data) ? data : []);
       } else {
         setError('Failed to load comments');
       }
@@ -83,7 +85,9 @@ export default function CommentsList({
       );
 
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
         setStats(data);
       }
     } catch (err) {
@@ -98,7 +102,9 @@ export default function CommentsList({
 
   const handleCommentUpdated = (commentId: string, content: string) => {
     // Update comment in local state
-    const updateComment = (comments: CommentWithReplies[]): CommentWithReplies[] => {
+    const updateComment = (
+      comments: CommentWithReplies[]
+    ): CommentWithReplies[] => {
       return comments.map((comment) => {
         if (comment.id === commentId) {
           return { ...comment, content, isEdited: true };

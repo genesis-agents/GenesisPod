@@ -22,7 +22,19 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     return undefined as T;
   }
 
-  return response.json();
+  const result = await response.json();
+
+  // Auto-unwrap standard response format { success: true, data: T }
+  if (
+    result &&
+    typeof result === 'object' &&
+    'success' in result &&
+    'data' in result
+  ) {
+    return result.data as T;
+  }
+
+  return result as T;
 }
 
 // ============ Types ============

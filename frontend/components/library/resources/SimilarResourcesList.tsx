@@ -127,8 +127,10 @@ export default function SimilarResourcesList({
         );
 
         if (response.ok) {
-          const data = await response.json();
-          setResources(data);
+          const result = await response.json();
+          // Handle wrapped response { success: true, data: [...] }
+          const data = result?.data ?? result;
+          setResources(Array.isArray(data) ? data : []);
         } else {
           setError('Failed to load similar resources');
         }

@@ -1030,9 +1030,12 @@ function ConfigureEnvDialog({
           headers: getAuthHeader(),
         });
         if (response.ok) {
-          const data = await response.json();
+          const result = await response.json();
+          // Handle wrapped response { success: true, data: [...] }
+          const data = result?.data ?? result;
+          const secretsArray = Array.isArray(data) ? data : [];
           setSecrets(
-            data.map(
+            secretsArray.map(
               (s: { name: string; displayName: string; category: string }) => ({
                 name: s.name,
                 displayName: s.displayName,

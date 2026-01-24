@@ -66,7 +66,9 @@ export default function ReportPage() {
         throw new Error('Failed to load report');
       }
 
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data = result?.data ?? result;
       setReport(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load report');

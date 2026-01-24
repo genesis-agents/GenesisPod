@@ -168,11 +168,13 @@ export default function Feedback() {
         body: formData,
       });
 
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data = result?.data ?? result;
 
       if (data.success) {
         setSubmitted(true);
-        setFeedbackId(data.feedbackId || null);
+        setFeedbackId(data?.feedbackId || null);
         // Clean up file previews
         files.forEach((f) => {
           if (f.preview) URL.revokeObjectURL(f.preview);

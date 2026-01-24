@@ -384,7 +384,9 @@ export default function AICapabilitiesSettings() {
         headers: { ...getAuthHeader() },
       });
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
         setTools(data.tools || []);
         setToolStats(data.stats || null);
       }
@@ -399,7 +401,9 @@ export default function AICapabilitiesSettings() {
         headers: { ...getAuthHeader() },
       });
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
         setSkills(data.skills || []);
         setSkillStats(data.stats || null);
       }
@@ -414,7 +418,9 @@ export default function AICapabilitiesSettings() {
         headers: { ...getAuthHeader() },
       });
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
         setMcpServers(data.servers || []);
       }
     } catch (err) {

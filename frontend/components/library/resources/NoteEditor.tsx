@@ -69,7 +69,9 @@ export default function NoteEditor({
         `${config.apiBaseUrl}/api/v1/notes/${noteId}`
       );
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
         setNote(data);
         setContent(data.content);
         setTags(data.tags || []);
@@ -120,7 +122,9 @@ export default function NoteEditor({
         }
 
         if (response.ok) {
-          const savedNote = await response.json();
+          const result = await response.json();
+          // Handle wrapped response { success: true, data: {...} }
+          const savedNote = result?.data ?? result;
           setNote(savedNote);
           onSave?.(savedNote);
         } else {

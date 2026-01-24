@@ -325,7 +325,9 @@ export default function ReaderView({
           );
         }
 
-        const data: Article = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data: Article = result?.data ?? result;
 
         if (!data.success || !data.content) {
           throw new Error('Failed to extract readable content from this page');

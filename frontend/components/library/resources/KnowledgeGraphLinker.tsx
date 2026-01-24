@@ -51,7 +51,9 @@ export default function KnowledgeGraphLinker({
       );
 
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
         setGraphData(data);
       }
     } catch (err) {

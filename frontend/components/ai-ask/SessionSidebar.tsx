@@ -60,8 +60,10 @@ export default function SessionSidebar({
       });
 
       if (response.ok) {
-        const data = await response.json();
-        setSessions(data.sessions || []);
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: { sessions: [...] } }
+        const data = result?.data ?? result;
+        setSessions(data?.sessions || []);
       }
     } catch (error) {
       logger.error('Failed to fetch sessions:', error);

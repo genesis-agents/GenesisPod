@@ -102,7 +102,9 @@ export default function ResourcePage() {
         `${config.apiBaseUrl}/api/v1/resources/${id}`
       );
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
         setResource(data);
       }
     } catch (err) {
@@ -125,7 +127,9 @@ export default function ResourcePage() {
       );
 
       if (response.ok) {
-        const updatedResource = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const updatedResource = result?.data ?? result;
         setResource((prev) =>
           prev ? { ...prev, ...updatedResource } : updatedResource
         );

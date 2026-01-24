@@ -81,7 +81,9 @@ export function AddToAIStudioDialog({
       if (!response.ok) {
         throw new Error('Failed to fetch projects');
       }
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data = result?.data ?? result;
       // Ensure we always set an array - API might return { projects: [...] } or [...] or { items: [...] }
       const projectsArray = Array.isArray(data.projects)
         ? data.projects

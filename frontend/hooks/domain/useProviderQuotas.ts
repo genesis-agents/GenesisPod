@@ -86,10 +86,12 @@ export function useProviderQuotas() {
         throw new Error('获取配额信息失败');
       }
 
-      const data: QuotaResponse = await response.json();
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data: QuotaResponse = result?.data ?? result;
 
       if (mountedRef.current) {
-        setQuotas(data.quotas);
+        setQuotas(data.quotas || []);
         setLastUpdated(data.lastUpdated ? new Date(data.lastUpdated) : null);
       }
     } catch (err) {
@@ -125,10 +127,12 @@ export function useProviderQuotas() {
         throw new Error('刷新配额信息失败');
       }
 
-      const data: QuotaResponse = await response.json();
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data: QuotaResponse = result?.data ?? result;
 
       if (mountedRef.current) {
-        setQuotas(data.quotas);
+        setQuotas(data.quotas || []);
         setLastUpdated(
           data.lastUpdated ? new Date(data.lastUpdated) : new Date()
         );
@@ -163,7 +167,9 @@ export function useProviderQuotas() {
         throw new Error(`刷新 ${provider} 配额失败`);
       }
 
-      const updatedQuota: ProviderQuota = await response.json();
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const updatedQuota: ProviderQuota = result?.data ?? result;
 
       if (mountedRef.current) {
         setQuotas((prev) =>

@@ -159,7 +159,9 @@ export default function AIOrganizePanel({
         }
       );
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
         setStats(data);
       }
     } catch (err) {
@@ -202,7 +204,9 @@ export default function AIOrganizePanel({
         throw new Error('Failed to generate tags');
       }
 
-      const result = await response.json();
+      const apiResult = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const result = apiResult?.data ?? apiResult;
       updateTaskState('batch-tags', {
         status: 'success',
         message: `Successfully tagged ${result.taggedCount} resources`,
@@ -240,7 +244,9 @@ export default function AIOrganizePanel({
         throw new Error('Failed to classify resources');
       }
 
-      const result = await response.json();
+      const apiResult = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const result = apiResult?.data ?? apiResult;
       updateTaskState('smart-classify', {
         status: 'success',
         message: `Suggested ${result.suggestions?.length || 0} classifications`,
@@ -278,7 +284,9 @@ export default function AIOrganizePanel({
         throw new Error('Failed to analyze themes');
       }
 
-      const result = await response.json();
+      const apiResult = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const result = apiResult?.data ?? apiResult;
       updateTaskState('theme-cluster', {
         status: 'success',
         message: `Found ${result.clusters?.length || 0} theme clusters`,
@@ -318,7 +326,9 @@ export default function AIOrganizePanel({
         throw new Error('Failed to extract key points');
       }
 
-      const result = await response.json();
+      const apiResult = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const result = apiResult?.data ?? apiResult;
       updateTaskState('notes-keypoints', {
         status: 'success',
         message: `Extracted ${result.keyPoints?.length || 0} key insights`,
@@ -357,7 +367,9 @@ export default function AIOrganizePanel({
         throw new Error('Failed to analyze connections');
       }
 
-      const result = await response.json();
+      const apiResult = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const result = apiResult?.data ?? apiResult;
       updateTaskState('notes-connections', {
         status: 'success',
         message: `Found ${result.connections?.length || 0} connections`,
@@ -395,7 +407,9 @@ export default function AIOrganizePanel({
         throw new Error('Failed to summarize notes');
       }
 
-      const result = await response.json();
+      const apiResult = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const result = apiResult?.data ?? apiResult;
       updateTaskState('notes-summarize', {
         status: 'success',
         message: 'Summary generated successfully',
@@ -435,7 +449,9 @@ export default function AIOrganizePanel({
         throw new Error('Failed to auto-tag images');
       }
 
-      const result = await response.json();
+      const apiResult = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const result = apiResult?.data ?? apiResult;
       updateTaskState('images-autotag', {
         status: 'success',
         message: `Tagged ${result.taggedCount || 0} images`,
@@ -474,7 +490,9 @@ export default function AIOrganizePanel({
         throw new Error('Failed to analyze styles');
       }
 
-      const result = await response.json();
+      const apiResult = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const result = apiResult?.data ?? apiResult;
       updateTaskState('images-style', {
         status: 'success',
         message: `Identified ${result.styles?.length || 0} styles`,
@@ -512,7 +530,9 @@ export default function AIOrganizePanel({
         throw new Error('Failed to cluster themes');
       }
 
-      const result = await response.json();
+      const apiResult = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const result = apiResult?.data ?? apiResult;
       updateTaskState('images-cluster', {
         status: 'success',
         message: `Found ${result.clusters?.length || 0} visual themes`,

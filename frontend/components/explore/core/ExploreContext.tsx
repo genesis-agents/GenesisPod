@@ -540,8 +540,10 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
       );
 
       if (response.ok) {
-        const data = await response.json();
-        setSearchSuggestions(data);
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: [...] }
+        const data = result?.data ?? result;
+        setSearchSuggestions(Array.isArray(data) ? data : []);
         setShowSuggestions(true);
       }
     } catch (error) {

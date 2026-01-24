@@ -169,7 +169,9 @@ function ResourceCardComponent({
               `${config.apiBaseUrl}/api/v1/resources/${resource.id}`
             );
             if (response.ok) {
-              const updatedResource = await response.json();
+              const result = await response.json();
+              // Handle wrapped response { success: true, data: {...} }
+              const updatedResource = result?.data ?? result;
               setLocalThumbnailUrl(updatedResource.thumbnailUrl);
             }
           }

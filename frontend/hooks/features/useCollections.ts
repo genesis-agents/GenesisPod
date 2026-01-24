@@ -5,6 +5,20 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
 import { logger } from '@/lib/utils/logger';
+
+// Helper to unwrap standard API response format { success: true, data: T }
+function unwrapResponse<T>(result: unknown): T {
+  if (
+    result &&
+    typeof result === 'object' &&
+    'success' in result &&
+    'data' in result
+  ) {
+    return (result as { data: T }).data;
+  }
+  return result as T;
+}
+
 export enum ReadStatus {
   UNREAD = 'UNREAD',
   READING = 'READING',
@@ -101,7 +115,7 @@ export function useCollections() {
         headers: getAuthHeader(),
       });
       if (!response.ok) throw new Error('Failed to fetch collections');
-      return await response.json();
+      return unwrapResponse(await response.json());
     } catch (err) {
       return handleError(err, 'Failed to load collections');
     } finally {
@@ -123,7 +137,7 @@ export function useCollections() {
         }
       );
       if (!response.ok) throw new Error('Failed to fetch collection');
-      return await response.json();
+      return unwrapResponse(await response.json());
     } catch (err) {
       return handleError(err, 'Failed to load collection');
     } finally {
@@ -157,7 +171,7 @@ export function useCollections() {
           }
         );
         if (!response.ok) throw new Error('Failed to create collection');
-        return await response.json();
+        return unwrapResponse(await response.json());
       } catch (err) {
         return handleError(err, 'Failed to create collection');
       } finally {
@@ -196,7 +210,7 @@ export function useCollections() {
           }
         );
         if (!response.ok) throw new Error('Failed to update collection');
-        return await response.json();
+        return unwrapResponse(await response.json());
       } catch (err) {
         return handleError(err, 'Failed to update collection');
       } finally {
@@ -252,7 +266,7 @@ export function useCollections() {
           }
         );
         if (!response.ok) throw new Error('Failed to add to collection');
-        return await response.json();
+        return unwrapResponse(await response.json());
       } catch (err) {
         return handleError(err, 'Failed to add to collection');
       } finally {
@@ -316,7 +330,7 @@ export function useCollections() {
           }
         );
         if (!response.ok) throw new Error('Failed to update item');
-        return await response.json();
+        return unwrapResponse(await response.json());
       } catch (err) {
         return handleError(err, 'Failed to update item');
       } finally {
@@ -340,7 +354,7 @@ export function useCollections() {
         }
       );
       if (!response.ok) throw new Error('Failed to fetch tags');
-      return await response.json();
+      return unwrapResponse(await response.json());
     } catch (err) {
       return handleError(err, 'Failed to load tags');
     } finally {
@@ -362,7 +376,7 @@ export function useCollections() {
         }
       );
       if (!response.ok) throw new Error('Failed to fetch stats');
-      return await response.json();
+      return unwrapResponse(await response.json());
     } catch (err) {
       return handleError(err, 'Failed to load stats');
     } finally {
@@ -405,7 +419,7 @@ export function useCollections() {
           }
         );
         if (!response.ok) throw new Error('Failed to fetch items');
-        return await response.json();
+        return unwrapResponse(await response.json());
       } catch (err) {
         return handleError(err, 'Failed to load items');
       } finally {
@@ -438,7 +452,7 @@ export function useCollections() {
           }
         );
         if (!response.ok) throw new Error('Failed to move items');
-        return await response.json();
+        return unwrapResponse(await response.json());
       } catch (err) {
         return handleError(err, 'Failed to move items');
       } finally {
@@ -470,7 +484,7 @@ export function useCollections() {
           }
         );
         if (!response.ok) throw new Error('Failed to delete items');
-        return await response.json();
+        return unwrapResponse(await response.json());
       } catch (err) {
         return handleError(err, 'Failed to delete items');
       } finally {
@@ -504,7 +518,7 @@ export function useCollections() {
           }
         );
         if (!response.ok) throw new Error('Failed to update tags');
-        return await response.json();
+        return unwrapResponse(await response.json());
       } catch (err) {
         return handleError(err, 'Failed to update tags');
       } finally {
@@ -537,7 +551,7 @@ export function useCollections() {
           }
         );
         if (!response.ok) throw new Error('Failed to update status');
-        return await response.json();
+        return unwrapResponse(await response.json());
       } catch (err) {
         return handleError(err, 'Failed to update status');
       } finally {

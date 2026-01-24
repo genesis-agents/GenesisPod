@@ -48,11 +48,13 @@ export default function PublicReportPage() {
         const response = await fetch(
           `${API_BASE}/api/v1/public/reports/${missionId}`
         );
-        const data = await response.json();
-        if (data.success && data.report) {
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
+        if (data?.success && data?.report) {
           setReport(data.report);
         } else {
-          setError(data.message || '无法加载报告');
+          setError(data?.message || '无法加载报告');
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : '加载失败');

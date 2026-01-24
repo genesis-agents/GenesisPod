@@ -337,7 +337,9 @@ export function SlidesTab() {
           );
 
           if (response.ok) {
-            const result = await response.json();
+            const apiResult = await response.json();
+            // Handle wrapped response { success: true, data: {...} }
+            const result = apiResult?.data ?? apiResult;
             addStreamEvent({
               type: 'system_message',
               timestamp: new Date(),

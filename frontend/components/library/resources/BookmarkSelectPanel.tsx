@@ -73,7 +73,9 @@ export default function BookmarkSelectPanel({
         throw new Error('Failed to fetch bookmarks');
       }
 
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const data = result?.data ?? result;
       setBookmarks(data.bookmarks || []);
       setTotal(data.total || 0);
     } catch (err) {
@@ -133,7 +135,9 @@ export default function BookmarkSelectPanel({
         throw new Error('Import failed');
       }
 
-      const result = await response.json();
+      const apiResult = await response.json();
+      // Handle wrapped response { success: true, data: {...} }
+      const result = apiResult?.data ?? apiResult;
       setImportResult({
         success: result.success,
         failed: result.failed?.length || 0,

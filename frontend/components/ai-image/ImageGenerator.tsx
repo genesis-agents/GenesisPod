@@ -1261,7 +1261,9 @@ export default function ImageGenerator({
         }
       );
       if (response.ok) {
-        const data: ModelsResponse = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data: ModelsResponse = result?.data ?? result;
         setModels(data);
         const defaultImageModel =
           data.imageModels.find((m) => m.isDefault) || data.imageModels[0];
@@ -1284,7 +1286,9 @@ export default function ImageGenerator({
         }
       );
       if (response.ok) {
-        const data: GeneratedImage[] = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: [...] }
+        const data: GeneratedImage[] = result?.data ?? result;
         if (data && data.length > 0) {
           setGeneratedImages(data);
           if (initialImageId) {
@@ -1513,7 +1517,9 @@ export default function ImageGenerator({
           throw new Error(errorData.message || 'Failed to generate image');
         }
 
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
         const newImage: GeneratedImage = {
           ...data,
           createdAt: new Date().toISOString(),
@@ -1583,7 +1589,9 @@ export default function ImageGenerator({
               const errorData = await response.json().catch(() => ({}));
               throw new Error(errorData.message || 'Failed to generate image');
             }
-            const data = await response.json();
+            const result = await response.json();
+            // Handle wrapped response { success: true, data: {...} }
+            const data = result?.data ?? result;
             const newImage: GeneratedImage = {
               ...data,
               createdAt: new Date().toISOString(),

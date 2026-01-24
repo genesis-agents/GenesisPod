@@ -69,7 +69,9 @@ export default function AIAssistant({
         );
 
         if (response.ok) {
-          const explanation = await response.json();
+          const result = await response.json();
+          // Handle wrapped response { success: true, data: {...} }
+          const explanation = result?.data ?? result;
           setCurrentExplanation(explanation);
           onExplanationAdded?.(explanation);
           setSelectedText('');

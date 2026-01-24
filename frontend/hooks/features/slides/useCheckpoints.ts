@@ -58,8 +58,10 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
           throw new Error('Failed to fetch checkpoints');
         }
 
-        const data = await response.json();
-        setCheckpoints(data.checkpoints || []);
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
+        setCheckpoints(data?.checkpoints || []);
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : '获取检查点失败';
@@ -239,12 +241,14 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
           throw new Error('Failed to prune checkpoints');
         }
 
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
 
         // 刷新检查点列表
         await fetchCheckpoints();
 
-        return data.prunedCount;
+        return data?.prunedCount || 0;
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : '清理检查点失败';

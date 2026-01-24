@@ -1090,7 +1090,9 @@ export default function AskPage() {
       });
 
       if (response.ok) {
-        const session = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: { id: ... } }
+        const session = result?.data ?? result;
         return session.id;
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -1151,7 +1153,9 @@ export default function AskPage() {
         );
 
         if (response.ok) {
-          const result = await response.json();
+          const rawResult = await response.json();
+          // Handle wrapped response { success: true, data: { ... } }
+          const result = rawResult?.data ?? rawResult;
           logger.debug('[AiAsk] sendMessageToSession response:', {
             hasRagSources: !!result.ragSources,
             ragSourcesCount: result.ragSources?.length || 0,
@@ -1188,10 +1192,12 @@ export default function AskPage() {
         );
 
         if (response.ok) {
-          const data = await response.json();
+          const result = await response.json();
+          // Handle wrapped response { success: true, data: { messages: [...] } }
+          const data = result?.data ?? result;
           setCurrentSessionId(sessionId);
           setMessages(
-            data.messages.map((m: any) => ({
+            (data.messages || []).map((m: any) => ({
               id: m.id,
               role: m.role,
               content: m.content,

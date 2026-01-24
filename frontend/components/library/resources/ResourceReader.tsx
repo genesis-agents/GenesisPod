@@ -58,7 +58,9 @@ export default function ResourceReader({
         `${config.apiBaseUrl}/api/v1/resources/${resourceId}`
       );
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const data = result?.data ?? result;
         setResource(data);
       }
     } catch (err) {
@@ -76,9 +78,12 @@ export default function ResourceReader({
       );
 
       if (response.ok) {
-        const notes = await response.json();
-        if (notes.length > 0) {
-          const userNote = notes[0]; // Get first note (user's own note)
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: [...] }
+        const notes = result?.data ?? result;
+        const notesArray = Array.isArray(notes) ? notes : [];
+        if (notesArray.length > 0) {
+          const userNote = notesArray[0]; // Get first note (user's own note)
           setNote(userNote);
           setHighlights(userNote.highlights || []);
         } else {
@@ -108,7 +113,9 @@ export default function ResourceReader({
       });
 
       if (response.ok) {
-        const newNote = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const newNote = result?.data ?? result;
         setNote(newNote);
         setHighlights([]);
       }

@@ -72,7 +72,9 @@ export default function CommentInput({
       });
 
       if (response.ok) {
-        const comment = await response.json();
+        const result = await response.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const comment = result?.data ?? result;
         setContent('');
         onCommentAdded?.(comment);
       } else {
