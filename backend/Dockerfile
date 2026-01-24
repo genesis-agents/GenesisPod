@@ -96,7 +96,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts ./scripts
 
 # Make entrypoint executable
-RUN chmod +x ./scripts/docker-entrypoint.sh
+RUN chmod +x ./scripts/devops/docker-entrypoint.sh
 
 # Note: Running as root for Chromium compatibility in containers
 # Chromium requires certain permissions that non-root users may not have
@@ -109,4 +109,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:4000/health || exit 1
 
 # Start command
-CMD ["./scripts/docker-entrypoint.sh"]
+CMD ["./scripts/devops/docker-entrypoint.sh"]
