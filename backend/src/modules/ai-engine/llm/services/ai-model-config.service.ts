@@ -167,13 +167,14 @@ export class AiModelConfigService {
 
   /**
    * 刷新模型配置缓存
-   * 从数据库加载所有启用的 CHAT 模型配置
+   * 从数据库加载所有启用的 CHAT 和 CHAT_FAST 模型配置
+   * ★ 必须同时加载 CHAT_FAST，否则快速模型无法通过工具调用
    */
   async refreshModelConfigCache(): Promise<void> {
     try {
       const models = await this.prisma.aIModel.findMany({
         where: {
-          modelType: "CHAT",
+          modelType: { in: ["CHAT", "CHAT_FAST"] },
           isEnabled: true,
         },
       });
@@ -191,7 +192,7 @@ export class AiModelConfigService {
 
       this.modelConfigCacheTime = Date.now();
       this.logger.log(
-        `[refreshModelConfigCache] Loaded ${models.length} CHAT models from database`,
+        `[refreshModelConfigCache] Loaded ${models.length} CHAT/CHAT_FAST models from database`,
       );
     } catch (error) {
       this.logger.error(`[refreshModelConfigCache] Failed: ${error}`);
@@ -261,6 +262,7 @@ export class AiModelConfigService {
     }
 
     // 3. 直接从数据库精确查询（同时支持 modelId 和 name 字段）
+    // ★ 必须同时查询 CHAT 和 CHAT_FAST，否则快速模型无法使用工具调用
     try {
       const model = await this.prisma.aIModel.findFirst({
         where: {
@@ -268,7 +270,7 @@ export class AiModelConfigService {
             { modelId: { equals: normalizedModelId, mode: "insensitive" } },
             { name: { equals: normalizedModelId, mode: "insensitive" } },
           ],
-          modelType: "CHAT",
+          modelType: { in: ["CHAT", "CHAT_FAST"] },
           isEnabled: true,
         },
       });
