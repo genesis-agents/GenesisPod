@@ -1088,7 +1088,7 @@ ${userInput || ''}
           taskId,
           hasDocumentContent: !!savedTask?.context.documentContent,
           contentMarkdownLength:
-            savedTask?.context.documentContent?.markdown?.length || 0,
+            (savedTask?.context.documentContent as { markdown?: string } | undefined)?.markdown?.length || 0,
         });
       }
     } catch (error) {

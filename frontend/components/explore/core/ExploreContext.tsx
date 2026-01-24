@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useCallback, ReactNode, useEffect 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
-import { getAuthHeader } from '@/lib/utils/auth';
+import { getAuthHeader, type User } from '@/lib/utils/auth';
 import type { TabType } from '@/components/layout/ResponsiveNav';
 import type { Resource, SearchSuggestion, AIMessage, AIInsight } from '../utils/types';
 import { PAGE_SIZE } from '../utils/constants';
@@ -130,7 +130,7 @@ interface ExploreContextValue {
   setNotesRefreshKey: (key: number | ((prev: number) => number)) => void;
 
   // Auth
-  user: Record<string, unknown> | null;
+  user: User | null;
   isAdmin: boolean;
   accessToken: string | null;
 }
@@ -265,8 +265,15 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
           headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
         });
         const youtubeData = await youtubeRes.json();
+        interface VideoData {
+          id: string;
+          title: string;
+          url: string;
+          createdAt: string;
+          videoId: string;
+        }
         const youtubeVideos = (Array.isArray(youtubeData) ? youtubeData : youtubeData.data || []).map(
-          (video) => ({
+          (video: VideoData) => ({
             id: video.id,
             type: 'YOUTUBE',
             title: video.title,
@@ -287,7 +294,7 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
         const seenVideoIds = new Set<string>();
         const allVideos: Resource[] = [];
 
-        const getVideoId = (video): string | null => {
+        const getVideoId = (video: { videoId?: string; sourceUrl?: string }): string | null => {
           if (video.videoId) return video.videoId;
           if (video.sourceUrl) {
             const match = video.sourceUrl.match(

@@ -13,6 +13,7 @@ interface SimilarResource {
   publishedAt: string;
   sourceUrl: string;
   thumbnailUrl?: string;
+  videoId?: string; // YouTube video ID
   categories?: string[];
   qualityScore?: string;
 }

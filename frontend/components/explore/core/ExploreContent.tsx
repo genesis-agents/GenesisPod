@@ -380,8 +380,8 @@ function HomeContent() {
         }
         const youtubeVideos = (
           Array.isArray(youtubeData) ? youtubeData : youtubeData.data || []
-        ).map((video) => {
-          const v = video as VideoData;
+        ).map((video: VideoData) => {
+          const v = video;
           return {
           id: v.id,
           type: 'YOUTUBE' as const,

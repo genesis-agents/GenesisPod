@@ -14,6 +14,7 @@ export interface Resource {
   sourceUrl: string;
   pdfUrl?: string;
   thumbnailUrl?: string;
+  videoId?: string; // YouTube video ID
   authors?: Array<{ username?: string; platform?: string; name?: string }>;
   categories?: string[];
   qualityScore?: string;

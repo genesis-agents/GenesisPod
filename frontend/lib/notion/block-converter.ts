@@ -57,14 +57,25 @@ interface NotionBlock {
   type: string;
   children?: NotionTableRow[];
   table?: { table_width?: number };
-  [key: string]: unknown | NotionBlockContent;
+  paragraph?: NotionBlockContent;
+  heading_1?: NotionBlockContent;
+  heading_2?: NotionBlockContent;
+  heading_3?: NotionBlockContent;
+  bulleted_list_item?: NotionBlockContent;
+  numbered_list_item?: NotionBlockContent;
+  to_do?: NotionBlockContent & { checked?: boolean };
+  quote?: NotionBlockContent;
+  code?: NotionBlockContent & { language?: string };
+  callout?: NotionBlockContent & { icon?: { emoji?: string } };
+  image?: NotionBlockContent;
+  [key: string]: unknown;
 }
 
 // Convert Notion rich text to BlockNote inline content
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockNote's inline content types are complex, using any for flexibility
 function convertNotionRichTextToInlineContent(
   richText: NotionRichText[] | undefined
-): Array<Record<string, unknown>> {
+): any[] {
   if (!richText || richText.length === 0) {
     return [];
   }
@@ -101,8 +112,9 @@ function convertNotionRichTextToInlineContent(
 }
 
 // Convert BlockNote inline content to Notion rich text
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockNote content types are complex
 function convertInlineContentToNotionRichText(
-  content: BlockNoteInlineContent[] | undefined
+  content: any[] | undefined
 ): NotionRichText[] {
   if (!content || content.length === 0) {
     return [];
@@ -110,7 +122,8 @@ function convertInlineContentToNotionRichText(
 
   const result: NotionRichText[] = [];
 
-  const processContent = (item: BlockNoteInlineContent): NotionRichText[] => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockNote content structure varies
+  const processContent = (item: any): NotionRichText[] => {
     if (item.type === 'text') {
       return [
         {
@@ -134,7 +147,8 @@ function convertInlineContentToNotionRichText(
 
     if (item.type === 'link') {
       const linkContent = item.content || [];
-      return linkContent.map((c: BlockNoteInlineContent) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockNote link content
+      return linkContent.map((c: any) => ({
         type: 'text' as const,
         text: {
           content: c.text || '',
@@ -518,8 +532,8 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
               table_row: {
                 cells:
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-                  row.cells?.map((cell) =>
-                    convertInlineContentToNotionRichText(cell)
+                  row.cells?.map((cell: unknown) =>
+                    convertInlineContentToNotionRichText(cell as any[])
                   ) || [],
               },
             })),
