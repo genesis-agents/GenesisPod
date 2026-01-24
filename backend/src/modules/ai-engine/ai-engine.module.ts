@@ -22,61 +22,59 @@
  * - AiEngineConstraintModule: 约束引擎
  */
 
-import { Module, Global, OnModuleInit, Logger, Inject } from '@nestjs/common';
-import { PrismaModule } from '../../common/prisma/prisma.module';
-import { PrismaService } from '../../common/prisma/prisma.service';
+import { Module, Global, OnModuleInit, Logger, Inject } from "@nestjs/common";
+import { PrismaModule } from "../../common/prisma/prisma.module";
+import { PrismaService } from "../../common/prisma/prisma.service";
+import { SecretsModule } from "../core/secrets/secrets.module";
 
 // ★ 子模块导入
-import { AiEngineLLMModule } from './ai-engine-llm.module';
-import { AiEngineToolsModule } from './ai-engine-tools.module';
-import { AiEngineSkillsModule } from './ai-engine-skills.module';
-import { AiEngineOrchestrationModule } from './ai-engine-orchestration.module';
-import { AiEngineMemoryModule } from './ai-engine-memory.module';
-import { AiEngineConstraintModule } from './ai-engine-constraint.module';
+import { AiEngineLLMModule } from "./ai-engine-llm.module";
+import { AiEngineToolsModule } from "./ai-engine-tools.module";
+import { AiEngineSkillsModule } from "./ai-engine-skills.module";
+import { AiEngineOrchestrationModule } from "./ai-engine-orchestration.module";
+import { AiEngineMemoryModule } from "./ai-engine-memory.module";
+import { AiEngineConstraintModule } from "./ai-engine-constraint.module";
 
 // Registries (从子模块重新导出，用于初始化)
-import { ToolRegistry } from './tools/registry/tool-registry';
-import { SkillRegistry } from './skills/registry/skill-registry';
-import { AgentRegistry } from './agents/registry';
+import { ToolRegistry } from "./tools/registry/tool-registry";
+import { SkillRegistry } from "./skills/registry/skill-registry";
+import { AgentRegistry } from "./agents/registry";
 
 // LLM Factory & Adapter (用于初始化)
-import { LLMFactory } from './llm/factory/llm-factory';
-import { UniversalLLMAdapter } from './llm/adapters/universal-llm-adapter';
+import { LLMFactory } from "./llm/factory/llm-factory";
+import { UniversalLLMAdapter } from "./llm/adapters/universal-llm-adapter";
 
 // Controllers
-import { AgentsController } from './agents/api';
-import { AiCoreController } from './api';
-import { SkillsController } from './skills/api';
+import { AgentsController } from "./agents/api";
+import { AiCoreController } from "./api";
+import { SkillsController } from "./skills/api";
 
 // Other Modules
-import { ImageModule } from './image/image.module';
-import { TeamsModule } from './teams/teams.module';
-import { LongContentModule } from './long-content/long-content.module';
+import { ImageModule } from "./image/image.module";
+import { TeamsModule } from "./teams/teams.module";
+import { LongContentModule } from "./long-content/long-content.module";
 
 // MCP
-import { MCPManager } from './mcp/manager/mcp-manager';
+import { MCPManager } from "./mcp/manager/mcp-manager";
 
 // Capabilities
-import { AICapabilityResolver } from './capabilities/ai-capability-resolver.service';
+import { AICapabilityResolver } from "./capabilities/ai-capability-resolver.service";
 
 // RAG
-import { EmbeddingService } from './rag/embedding';
-import { VectorService } from './rag/vector';
-import { DocumentChunker } from './rag/chunking';
+import { EmbeddingService } from "./rag/embedding";
+import { VectorService } from "./rag/vector";
+import { DocumentChunker } from "./rag/chunking";
 
 // Facade (统一入口)
-import { AIEngineFacade } from './facade';
+import { AIEngineFacade } from "./facade";
 
 // Collaboration (not in sub-modules yet)
-import { VotingManager } from './collaboration/patterns/voting-pattern';
-import { HandoffCoordinator } from './collaboration/patterns/handoff-pattern';
+import { VotingManager } from "./collaboration/patterns/voting-pattern";
+import { HandoffCoordinator } from "./collaboration/patterns/handoff-pattern";
 
 // Tools Token
-import {
-  ALL_TOOLS_TOKEN,
-  TOTAL_TOOL_COUNT,
-} from './tools/tools.provider';
-import { ITool } from './tools/abstractions/tool.interface';
+import { ALL_TOOLS_TOKEN, TOTAL_TOOL_COUNT } from "./tools/tools.provider";
+import { ITool } from "./tools/abstractions/tool.interface";
 
 /**
  * Voting Manager Factory
@@ -105,6 +103,7 @@ const handoffCoordinatorFactory = {
 @Module({
   imports: [
     PrismaModule,
+    SecretsModule, // Required for EmbeddingService
 
     // ★ 子模块
     AiEngineLLMModule,
@@ -119,11 +118,7 @@ const handoffCoordinatorFactory = {
     TeamsModule,
     LongContentModule,
   ],
-  controllers: [
-    AgentsController,
-    AiCoreController,
-    SkillsController,
-  ],
+  controllers: [AgentsController, AiCoreController, SkillsController],
   providers: [
     // === Collaboration (TODO: move to sub-module) ===
     votingManagerFactory,
@@ -199,7 +194,7 @@ export class AiEngineModule implements OnModuleInit {
       this.toolRegistry.register(tool);
     }
 
-    this.logger.log('AI Engine Module initialized');
+    this.logger.log("AI Engine Module initialized");
     this.logger.log(
       `  Tools: ${this.toolRegistry.size()} (expected: ${TOTAL_TOOL_COUNT})`,
     );
