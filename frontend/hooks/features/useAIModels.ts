@@ -102,11 +102,16 @@ export function useAIModels() {
         setLoading(true);
         const response = await fetch(`${config.apiUrl}/ai/models`);
         if (response.ok) {
-          const data = await response.json();
-          // Ensure data is an array, handle cases where API returns non-array
-          const modelsArray = Array.isArray(data) ? data : [];
-          if (!Array.isArray(data)) {
-            logger.warn('[useAIModels] API returned non-array data:', typeof data);
+          const result = await response.json();
+          // API returns { success: true, data: [...] } format
+          // Extract the data array from the response wrapper
+          const modelsArray = Array.isArray(result?.data)
+            ? result.data
+            : Array.isArray(result)
+              ? result
+              : [];
+          if (modelsArray.length === 0 && result?.data !== undefined) {
+            logger.warn('[useAIModels] API returned empty or invalid data');
           }
           cachedModels = modelsArray;
           cacheTimestamp = now;
