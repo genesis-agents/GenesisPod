@@ -367,10 +367,12 @@ export default function AIAssistantPanel({
                   }
 
                   if (newResource) {
-                    // This would need to be passed as a prop
-                    // setSelectedResource(newResource);
+                    // Resource found in local list - this would need setSelectedResource passed as a prop
+                    // For now, navigate to the resource detail page
+                    router.push(`/explore/resource/${resource.id}`);
                   } else {
-                    window.open(resource.sourceUrl, '_blank');
+                    // Navigate to resource detail page within the app
+                    router.push(`/explore/resource/${resource.id}`);
                   }
                 }}
               />

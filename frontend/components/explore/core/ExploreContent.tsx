@@ -3148,9 +3148,10 @@ function HomeContent() {
 
                       if (newResource) {
                         setSelectedResource(newResource);
+                        setViewMode('detail');
                       } else {
-                        // If not in current list, open in new tab
-                        window.open(resource.sourceUrl, '_blank');
+                        // If not in current list, navigate to resource detail page
+                        router.push(`/explore/resource/${resource.id}`);
                       }
                     }}
                   />
