@@ -1,6 +1,17 @@
 // Admin hooks
 export { useAdminModels } from './useAdminModels';
 export { useAdminUsers, useUserStats } from './useAdminUsers';
+export { useTableManagement } from './useTableManagement';
+export type {
+  TableCategory,
+  HealthStatus,
+  TableInfo,
+  TableDetail,
+  TableStats,
+  TableDiagnosis,
+  CleanupResult,
+  TableListQuery,
+} from './useTableManagement';
 export type {
   User,
   CreateUserData,

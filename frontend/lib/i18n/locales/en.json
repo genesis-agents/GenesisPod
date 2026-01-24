@@ -1941,6 +1941,111 @@
         "updateFailed": "Failed to update feedback"
       }
     },
+    "tables": {
+      "title": "Table Management",
+      "description": "View and manage all database tables, analyze health, and optimize storage",
+      "stats": {
+        "totalTables": "Total Tables",
+        "totalSize": "Total Size",
+        "cleanableSpace": "Cleanable Space",
+        "lastUpdated": "Last Updated"
+      },
+      "columns": {
+        "name": "Table Name",
+        "category": "Category",
+        "rows": "Rows",
+        "size": "Size",
+        "cleanable": "Cleanable",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "categories": {
+        "all": "All Categories",
+        "USER": "User",
+        "RESOURCE": "Resource",
+        "AI_SESSION": "AI Session",
+        "AI_CONFIG": "AI Config",
+        "KNOWLEDGE": "Knowledge",
+        "RESEARCH": "Research",
+        "OFFICE": "Office",
+        "INGESTION": "Ingestion",
+        "NOTIFICATION": "Notification",
+        "LOG": "Log",
+        "SYSTEM": "System",
+        "ANALYTICS": "Analytics",
+        "EXTERNAL": "External",
+        "CACHE": "Cache",
+        "OTHER": "Other"
+      },
+      "health": {
+        "all": "All Status",
+        "healthy": "Healthy",
+        "warning": "Warning",
+        "critical": "Critical"
+      },
+      "filter": {
+        "searchPlaceholder": "Search tables...",
+        "noResults": "No tables found",
+        "category": "Category",
+        "health": "Health",
+        "allCategories": "All Categories",
+        "allStatus": "All Status"
+      },
+      "actions": {
+        "diagnose": "Diagnose",
+        "cleanup": "Cleanup",
+        "viewDetails": "View Details",
+        "refresh": "Refresh",
+        "diagnoseAll": "Diagnose All"
+      },
+      "diagnosis": {
+        "title": "AI Diagnosis",
+        "analyzing": "Analyzing table...",
+        "noIssues": "No issues found. Table is healthy.",
+        "noIssuesFound": "No issues found in any table.",
+        "issuesFound": "Found issues in {{count}} tables",
+        "issues": "Issues Found",
+        "recommendations": "Recommendations",
+        "cleanupSuggestion": "Cleanup Suggestion",
+        "estimatedRows": "Estimated rows",
+        "estimatedSpace": "Estimated space",
+        "runCleanup": "Run Cleanup",
+        "healthScore": "Health Score",
+        "analyzedAt": "Analyzed at",
+        "noData": "No diagnosis data available"
+      },
+      "detail": {
+        "title": "Table Details",
+        "rows": "Rows",
+        "totalSize": "Total Size",
+        "dataSize": "Data Size",
+        "indexSize": "Index Size",
+        "schema": "Schema",
+        "column": "Column",
+        "type": "Type",
+        "nullable": "Nullable",
+        "key": "Key",
+        "relatedTables": "Related Tables",
+        "sampleData": "Sample Data",
+        "cleanupPolicy": "Cleanup Policy",
+        "cleanableEstimate": "Estimated {{rows}} rows ({{size}}) can be cleaned up",
+        "notFound": "Table not found"
+      },
+      "cleanup": {
+        "confirm": "Are you sure you want to cleanup this table?",
+        "estimatedRows": "Estimated rows to remove",
+        "estimatedSpace": "Estimated space to free",
+        "success": "Cleanup completed successfully",
+        "failed": "Cleanup failed"
+      },
+      "pagination": {
+        "showing": "Showing {{from}}-{{to}} of {{total}} tables",
+        "previous": "Previous",
+        "next": "Next"
+      },
+      "empty": "No tables to display",
+      "error": "Error loading tables"
+    },
     "system": {
       "description": "Configure system-wide settings, security policies, and email notifications",
       "cards": {

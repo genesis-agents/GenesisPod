@@ -28,6 +28,7 @@ import { NotificationModule } from "./modules/core/notifications/notification.mo
 import { ReleaseModule } from "./modules/core/release/release.module";
 import { SettingsModule } from "./modules/core/settings/settings.module";
 import { StorageModule } from "./modules/core/storage/storage.module";
+import { TableManagementModule } from "./modules/core/table-management/table-management.module";
 import { CreditsModule } from "./modules/credits/credits.module";
 // AI modules
 import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
@@ -125,6 +126,7 @@ import { WebhooksModule } from "./modules/webhooks";
     ReleaseModule,
     SettingsModule,
     StorageModule,
+    TableManagementModule,
     CreditsModule,
 
     // AI modules (ai-* prefix)

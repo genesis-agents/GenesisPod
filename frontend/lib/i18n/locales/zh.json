@@ -1942,6 +1942,111 @@
         "updateFailed": "更新反馈失败"
       }
     },
+    "tables": {
+      "title": "数据表管理",
+      "description": "查看和管理所有数据库表，分析健康状态并优化存储",
+      "stats": {
+        "totalTables": "数据表总数",
+        "totalSize": "总大小",
+        "cleanableSpace": "可清理空间",
+        "lastUpdated": "最后更新"
+      },
+      "columns": {
+        "name": "表名",
+        "category": "分类",
+        "rows": "行数",
+        "size": "大小",
+        "cleanable": "可清理",
+        "status": "状态",
+        "actions": "操作"
+      },
+      "categories": {
+        "all": "全部分类",
+        "USER": "用户",
+        "RESOURCE": "资源",
+        "AI_SESSION": "AI 会话",
+        "AI_CONFIG": "AI 配置",
+        "KNOWLEDGE": "知识库",
+        "RESEARCH": "研究",
+        "OFFICE": "办公",
+        "INGESTION": "数据采集",
+        "NOTIFICATION": "通知",
+        "LOG": "日志",
+        "SYSTEM": "系统",
+        "ANALYTICS": "分析",
+        "EXTERNAL": "外部",
+        "CACHE": "缓存",
+        "OTHER": "其他"
+      },
+      "health": {
+        "all": "全部状态",
+        "healthy": "健康",
+        "warning": "警告",
+        "critical": "严重"
+      },
+      "filter": {
+        "searchPlaceholder": "搜索数据表...",
+        "noResults": "未找到数据表",
+        "category": "分类",
+        "health": "健康状态",
+        "allCategories": "全部分类",
+        "allStatus": "全部状态"
+      },
+      "actions": {
+        "diagnose": "诊断",
+        "cleanup": "清理",
+        "viewDetails": "查看详情",
+        "refresh": "刷新",
+        "diagnoseAll": "全部诊断"
+      },
+      "diagnosis": {
+        "title": "AI 诊断",
+        "analyzing": "正在分析数据表...",
+        "noIssues": "未发现问题，数据表健康。",
+        "noIssuesFound": "所有数据表均未发现问题。",
+        "issuesFound": "在 {{count}} 个表中发现问题",
+        "issues": "发现的问题",
+        "recommendations": "建议",
+        "cleanupSuggestion": "清理建议",
+        "estimatedRows": "预计行数",
+        "estimatedSpace": "预计空间",
+        "runCleanup": "执行清理",
+        "healthScore": "健康评分",
+        "analyzedAt": "分析时间",
+        "noData": "无诊断数据"
+      },
+      "detail": {
+        "title": "表详情",
+        "rows": "行数",
+        "totalSize": "总大小",
+        "dataSize": "数据大小",
+        "indexSize": "索引大小",
+        "schema": "表结构",
+        "column": "列名",
+        "type": "类型",
+        "nullable": "可空",
+        "key": "键",
+        "relatedTables": "关联表",
+        "sampleData": "示例数据",
+        "cleanupPolicy": "清理策略",
+        "cleanableEstimate": "预计可清理 {{rows}} 行（{{size}}）",
+        "notFound": "未找到数据表"
+      },
+      "cleanup": {
+        "confirm": "确定要清理此数据表吗？",
+        "estimatedRows": "预计删除行数",
+        "estimatedSpace": "预计释放空间",
+        "success": "清理完成",
+        "failed": "清理失败"
+      },
+      "pagination": {
+        "showing": "显示 {{from}}-{{to}}，共 {{total}} 个表",
+        "previous": "上一页",
+        "next": "下一页"
+      },
+      "empty": "无数据表可显示",
+      "error": "加载数据表失败"
+    },
     "system": {
       "description": "配置系统全局设置、安全策略和邮件通知",
       "cards": {

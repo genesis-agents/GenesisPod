@@ -31,6 +31,7 @@ import {
   Lightbulb,
   Settings,
   Layers,
+  Coins,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -202,7 +203,7 @@ const aiEngineLayer: ArchitectureLayer = {
 };
 
 // Layer 1: Infrastructure Layer (Foundation)
-// 5 cards in even row layout: Storage, Data, Users, Secrets, System
+// 7 cards in grid layout: Storage, Data, Users, Credits, Secrets, Feedback, System
 const infrastructureLayer: ArchitectureLayer = {
   id: 'infrastructure',
   titleKey: 'admin.architecture.layers.infrastructure',
@@ -231,10 +232,24 @@ const infrastructureLayer: ArchitectureLayer = {
       clickable: true,
     },
     {
+      id: 'credits',
+      i18nKey: 'admin.nav.credits',
+      href: '/admin/access/credits',
+      icon: Coins,
+      clickable: true,
+    },
+    {
       id: 'secrets',
       i18nKey: 'admin.nav.secrets',
       href: '/admin/access/secrets',
       icon: Key,
+      clickable: true,
+    },
+    {
+      id: 'feedback',
+      i18nKey: 'admin.nav.feedback',
+      href: '/admin/feedback',
+      icon: MessageSquare,
       clickable: true,
     },
     {
