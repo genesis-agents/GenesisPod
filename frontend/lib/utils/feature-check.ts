@@ -3,6 +3,8 @@
  * 验证AI Office 2.0的所有核心功能是否正常工作
  */
 
+import { logger } from '@/lib/utils/logger';
+
 export interface FeatureCheckResult {
   feature: string;
   status: 'pass' | 'fail' | 'warn';

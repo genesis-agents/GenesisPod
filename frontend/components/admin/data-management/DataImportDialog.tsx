@@ -85,7 +85,10 @@ export function DataImportDialog({
       }
     } catch (err) {
       setError('获取白名单失败');
-      logger.error(err);
+      logger.error(
+        '获取白名单失败',
+        err instanceof Error ? err.message : String(err)
+      );
     } finally {
       setLoading(false);
     }
@@ -138,7 +141,10 @@ export function DataImportDialog({
       setError(
         '无法读取该URL的内容。请检查:\n• URL是否正确\n• 网络连接是否正常\n• 该网站是否支持'
       );
-      logger.error(err);
+      logger.error(
+        '验证URL失败',
+        err instanceof Error ? err.message : String(err)
+      );
     } finally {
       setLoading(false);
     }
@@ -177,7 +183,10 @@ export function DataImportDialog({
       }
     } catch (err) {
       setError('导入失败，请重试');
-      logger.error(err);
+      logger.error(
+        '导入失败',
+        err instanceof Error ? err.message : String(err)
+      );
     } finally {
       setLoading(false);
     }

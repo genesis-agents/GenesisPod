@@ -35,11 +35,10 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      logger.error(
-        '[Agents Execute] Backend error:',
-        response.status,
-        errorText
-      );
+      logger.error('[Agents Execute] Backend error:', {
+        status: response.status,
+        error: errorText,
+      });
       return NextResponse.json(
         { error: 'Failed to execute agent', details: errorText },
         { status: response.status }

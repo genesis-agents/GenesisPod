@@ -144,17 +144,15 @@ export function getDefaultModelByType(
 ): AIModel | undefined {
   // Debug: 输出所有模型的 modelType 信息
   if (process.env.NODE_ENV === 'development') {
-    logger.debug(
-      '[getDefaultModelByType] Looking for type:',
+    logger.debug('[getDefaultModelByType] Looking for type:', {
       modelType,
-      'Available models:',
-      models.map((m) => ({
+      availableModels: models.map((m) => ({
         name: m.name,
         modelName: m.modelName,
         modelType: m.modelType,
         isDefault: m.isDefault,
-      }))
-    );
+      })),
+    });
   }
 
   // 1. 优先查找该类型中标记为默认的模型

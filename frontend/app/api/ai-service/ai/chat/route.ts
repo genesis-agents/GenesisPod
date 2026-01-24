@@ -60,7 +60,10 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      logger.error('AI service error:', response.status, errorText);
+      logger.error('AI service error:', {
+        status: response.status,
+        error: errorText,
+      });
       throw new Error(`AI service responded with status: ${response.status}`);
     }
 

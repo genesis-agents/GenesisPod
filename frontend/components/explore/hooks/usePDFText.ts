@@ -47,7 +47,7 @@ export function usePDFText(selectedResource: Resource | null) {
         }
 
         setPdfText(fullText.substring(0, 15000));
-        logger.debug('PDF text extracted:', fullText.length, 'characters');
+        logger.debug('PDF text extracted:', { length: fullText.length });
       } catch (error) {
         logger.error('Failed to extract PDF text:', error);
         setPdfText('');

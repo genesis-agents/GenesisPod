@@ -249,7 +249,7 @@ export function useSlideGenerationTeam(
             const data = (event.data || {}) as Partial<PhaseStartedData>;
             const phase = data.phase || 'generating';
             const agent = data.agent || 'writer';
-            logger.debug('[Team SSE] Phase started:', phase, 'by', agent);
+            logger.debug('[Team SSE] Phase started:', { phase, agent });
 
             setTeamState((prev) => {
               if (!prev) return prev;
@@ -296,13 +296,10 @@ export function useSlideGenerationTeam(
           case 'phase:completed': {
             const data = (event.data || {}) as Partial<PhaseCompletedData>;
             const phase = data.phase || 'generating';
-            logger.debug(
-              '[Team SSE] Phase completed:',
+            logger.debug('[Team SSE] Phase completed:', {
               phase,
-              'in',
-              data.duration ?? 0,
-              'ms'
-            );
+              duration: data.duration ?? 0,
+            });
 
             // ★ 修复：阶段完成时更新进度到 100%
             setProgress({
@@ -389,12 +386,10 @@ export function useSlideGenerationTeam(
           case 'agent:handoff': {
             const data = (event.data || {}) as Partial<AgentHandoffData>;
             if (data.fromAgent && data.toAgent) {
-              logger.debug(
-                '[Team SSE] Handoff:',
-                data.fromAgent,
-                '->',
-                data.toAgent
-              );
+              logger.debug('[Team SSE] Handoff:', {
+                from: data.fromAgent,
+                to: data.toAgent,
+              });
 
               setTeamState((prev) => {
                 if (!prev) return prev;
@@ -416,12 +411,10 @@ export function useSlideGenerationTeam(
             const data = (event.data || {}) as Partial<SlideGeneratingData>;
             const pageNumber = data.pageNumber ?? 1;
             const totalPages = data.totalPages ?? 1;
-            logger.debug(
-              '[Team SSE] Slide generating:',
+            logger.debug('[Team SSE] Slide generating:', {
               pageNumber,
-              '/',
-              totalPages
-            );
+              totalPages,
+            });
 
             updatePage(pageNumber, { status: 'generating' });
 
@@ -536,12 +529,10 @@ export function useSlideGenerationTeam(
 
           case 'review:issue_found': {
             const data = (event.data || {}) as Partial<ReviewIssueData>;
-            logger.debug(
-              '[Team SSE] Issue found:',
-              data.type,
-              'on page',
-              data.pageNumber
-            );
+            logger.debug('[Team SSE] Issue found:', {
+              type: data.type,
+              pageNumber: data.pageNumber,
+            });
 
             if (data.type && data.pageNumber) {
               setTeamState((prev) => {
@@ -557,12 +548,10 @@ export function useSlideGenerationTeam(
 
           case 'review:auto_fixed': {
             const data = (event.data || {}) as Partial<ReviewFixedData>;
-            logger.debug(
-              '[Team SSE] Issue fixed:',
-              data.issueType,
-              'on page',
-              data.pageNumber
-            );
+            logger.debug('[Team SSE] Issue fixed:', {
+              issueType: data.issueType,
+              pageNumber: data.pageNumber,
+            });
 
             if (data.issueType && data.pageNumber) {
               setTeamState((prev) => {
@@ -578,14 +567,12 @@ export function useSlideGenerationTeam(
 
           case 'review:scoring': {
             const data = (event.data || {}) as Partial<ReviewScoringData>;
-            logger.debug(
-              '[Team SSE] Review scoring:',
-              data.phase,
-              data.score,
-              '/',
-              data.threshold,
-              data.passed ? '✓' : '✗'
-            );
+            logger.debug('[Team SSE] Review scoring:', {
+              phase: data.phase,
+              score: data.score,
+              threshold: data.threshold,
+              passed: data.passed,
+            });
 
             if (data.agent) {
               setTeamState((prev) => {
@@ -610,14 +597,11 @@ export function useSlideGenerationTeam(
 
           case 'review:rejected': {
             const data = (event.data || {}) as Partial<ReviewRejectedData>;
-            logger.debug(
-              '[Team SSE] Review rejected:',
-              data.phase,
-              'attempt',
-              data.attempt,
-              'score',
-              data.score
-            );
+            logger.debug('[Team SSE] Review rejected:', {
+              phase: data.phase,
+              attempt: data.attempt,
+              score: data.score,
+            });
 
             if (data.phase) {
               setTeamState((prev) => {
@@ -633,12 +617,10 @@ export function useSlideGenerationTeam(
 
           case 'review:max_retries_reached': {
             const data = (event.data || {}) as Partial<ReviewMaxRetriesData>;
-            logger.debug(
-              '[Team SSE] Max retries reached:',
-              data.phase,
-              'action:',
-              data.action
-            );
+            logger.debug('[Team SSE] Max retries reached:', {
+              phase: data.phase,
+              action: data.action,
+            });
             break;
           }
 
@@ -646,12 +628,10 @@ export function useSlideGenerationTeam(
             // v3.2: 接收诊断信息
             const data = (event.data || {}) as Partial<ReviewDiagnosticsData>;
             if (data.diagnostics && Array.isArray(data.diagnostics)) {
-              logger.debug(
-                '[Team SSE] Diagnostics received:',
-                data.diagnostics.length,
-                'pages, fix rate:',
-                (data.overallFixRate ?? 0) + '%'
-              );
+              logger.debug('[Team SSE] Diagnostics received:', {
+                pages: data.diagnostics.length,
+                fixRate: `${data.overallFixRate ?? 0}%`,
+              });
 
               setTeamState((prev) => {
                 if (!prev) return prev;
@@ -666,14 +646,11 @@ export function useSlideGenerationTeam(
 
           case 'phase:retry': {
             const data = (event.data || {}) as Partial<PhaseRetryData>;
-            logger.debug(
-              '[Team SSE] Phase retry:',
-              data.phase,
-              'attempt',
-              data.attempt,
-              '/',
-              data.maxAttempts
-            );
+            logger.debug('[Team SSE] Phase retry:', {
+              phase: data.phase,
+              attempt: data.attempt,
+              maxAttempts: data.maxAttempts,
+            });
 
             // 更新当前 Agent 的重试次数
             const currentAgent = teamState?.currentAgent;
@@ -688,12 +665,10 @@ export function useSlideGenerationTeam(
           case 'agent:switched': {
             const data = (event.data || {}) as Partial<AgentSwitchedData>;
             if (data.originalAgent && data.newAgent) {
-              logger.debug(
-                '[Team SSE] Agent switched:',
-                data.originalAgent,
-                '->',
-                data.newAgent
-              );
+              logger.debug('[Team SSE] Agent switched:', {
+                from: data.originalAgent,
+                to: data.newAgent,
+              });
 
               setTeamState((prev) => {
                 if (!prev) return prev;
@@ -719,13 +694,10 @@ export function useSlideGenerationTeam(
             const data = (event.data || {}) as Partial<ExecutionCompletedData>;
             const totalPages = data.totalPages ?? 0;
             const totalTime = data.totalTime ?? 0;
-            logger.debug(
-              '[Team SSE] Execution completed:',
+            logger.debug('[Team SSE] Execution completed:', {
               totalPages,
-              'pages in',
               totalTime,
-              'ms'
-            );
+            });
 
             setTeamState((prev) => {
               if (!prev) return prev;
@@ -882,14 +854,11 @@ export function useSlideGenerationTeam(
                   );
                   handleTeamEvent(event);
                 } catch (e) {
-                  logger.error(
-                    '[Team SSE] ★★★ PARSE ERROR ★★★:',
-                    e,
-                    'Data length:',
-                    jsonStr.length,
-                    'First 200 chars:',
-                    jsonStr.substring(0, 200)
-                  );
+                  logger.error('[Team SSE] ★★★ PARSE ERROR ★★★', {
+                    error: e,
+                    dataLength: jsonStr.length,
+                    preview: jsonStr.substring(0, 200),
+                  });
                 }
               }
             }

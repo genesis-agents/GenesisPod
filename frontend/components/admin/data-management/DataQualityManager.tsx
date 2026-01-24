@@ -67,7 +67,10 @@ export function DataQualityManager() {
       }
     } catch (err) {
       setError('获取质量指标失败');
-      logger.error(err);
+      logger.error(
+        '获取质量指标失败',
+        err instanceof Error ? err.message : String(err)
+      );
     } finally {
       setLoading(false);
     }
@@ -195,7 +198,7 @@ export function DataQualityManager() {
                         metric.resourceType}
                     </span>
                   </td>
-                  <td className="max-w-xs truncate px-6 py-4 font-mono text-xs">
+                  <td className="font-mono max-w-xs truncate px-6 py-4 text-xs">
                     {metric.resourceId.slice(0, 8)}...
                   </td>
                   <td className="px-6 py-4">

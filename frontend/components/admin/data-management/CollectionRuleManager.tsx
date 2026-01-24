@@ -45,7 +45,10 @@ export function CollectionRuleManager() {
       }
     } catch (err) {
       setError('获取采集规则失败');
-      logger.error(err);
+      logger.error(
+        '获取采集规则失败',
+        err instanceof Error ? err.message : String(err)
+      );
     } finally {
       setLoading(false);
     }
@@ -67,7 +70,10 @@ export function CollectionRuleManager() {
       }
     } catch (err) {
       setError('更新规则失败');
-      logger.error(err);
+      logger.error(
+        '更新规则失败',
+        err instanceof Error ? err.message : String(err)
+      );
     }
   };
 

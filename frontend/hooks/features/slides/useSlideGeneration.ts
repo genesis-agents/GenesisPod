@@ -140,12 +140,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
           const backendPhase = (data.phase as string) || '';
           const frontendPhase = mapPhase(backendPhase);
           const agent = data.agent as string | undefined;
-          logger.debug(
-            '[SSE] Phase started:',
-            backendPhase,
-            '-> mapped to:',
-            frontendPhase
-          );
+          logger.debug('[SSE] Phase started:', { backendPhase, frontendPhase });
 
           setProgress({
             phase: frontendPhase,
@@ -187,12 +182,10 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
           const backendPhase = (data.phase as string) || '';
           const frontendPhase = mapPhase(backendPhase);
           const result = data.result;
-          logger.debug(
-            '[SSE] Phase completed:',
+          logger.debug('[SSE] Phase completed:', {
             backendPhase,
-            '-> mapped to:',
-            frontendPhase
-          );
+            frontendPhase,
+          });
 
           handlePhaseCompleted(frontendPhase, result);
           options.onPhaseCompleted?.(frontendPhase, result);
@@ -204,7 +197,11 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
           const agentName = data.agentName as string;
           const task = data.task as string;
           const progressValue = data.progress as number;
-          logger.debug('[SSE] Agent working:', agentName, task, progressValue);
+          logger.debug('[SSE] Agent working:', {
+            agentName,
+            task,
+            progress: progressValue,
+          });
           // TODO: 可扩展为在 UI 显示 agent 状态
           break;
         }
@@ -224,14 +221,11 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
           const totalPages = (data.totalPages as number) || pageNumber;
           const html = data.html as string;
           const title = data.title as string;
-          logger.debug(
-            '[SSE] Slide generated:',
+          logger.debug('[SSE] Slide generated:', {
             pageNumber,
-            '/',
             totalPages,
-            'hasHtml:',
-            !!html
-          );
+            hasHtml: !!html,
+          });
 
           // 确保页面数组已初始化
           const currentPages = useSlidesStore.getState().pages;
@@ -394,12 +388,10 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
           const pageNumber = data.pageNumber as number;
           const totalPages = data.totalPages as number;
           const html = data.html as string;
-          logger.debug(
-            '[SSE] Page completed (legacy):',
+          logger.debug('[SSE] Page completed (legacy):', {
             pageNumber,
-            'hasHtml:',
-            !!html
-          );
+            hasHtml: !!html,
+          });
           updatePage(pageNumber, {
             status: 'completed',
             html,
@@ -481,7 +473,10 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
   const generate = useCallback(
     async (request: GenerateRequest) => {
       logger.debug('[SSE] Starting generation:', request.title);
-      logger.debug('[SSE] Source text length:', request.sourceText?.length || 0);
+      logger.debug(
+        '[SSE] Source text length:',
+        request.sourceText?.length || 0
+      );
 
       // 清理之前的状态
       clearStreamEvents();
@@ -562,12 +557,10 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
                       addStreamEvent(streamEvent);
                       handleStreamEvent(streamEvent);
                     } catch (e) {
-                      logger.error(
-                        '[SSE] Failed to parse stream event:',
-                        e,
-                        'Data:',
-                        data
-                      );
+                      logger.error('[SSE] Failed to parse stream event:', {
+                        error: e,
+                        data,
+                      });
                     }
                   }
                 }

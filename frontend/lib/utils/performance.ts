@@ -3,6 +3,8 @@
  * 用于监控AI Office的性能指标并提供优化建议
  */
 
+import { logger } from '@/lib/utils/logger';
+
 // 性能指标元数据类型
 export type MetricMetadata = Record<string, string | number | boolean>;
 

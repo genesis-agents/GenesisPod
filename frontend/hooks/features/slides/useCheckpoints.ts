@@ -122,12 +122,10 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
           updatedAt: new Date(),
         });
 
-        logger.debug(
-          '[restoreCheckpoint] Restored pages:',
-          checkpointState.pages?.length,
-          'with html:',
-          checkpointState.pages?.filter((p) => p.html).length
-        );
+        logger.debug('[restoreCheckpoint] Restored pages:', {
+          totalPages: checkpointState.pages?.length,
+          pagesWithHtml: checkpointState.pages?.filter((p) => p.html).length,
+        });
 
         options.onRestoreSuccess?.(checkpointId);
       } catch (err) {

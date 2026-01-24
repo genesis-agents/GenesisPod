@@ -63,22 +63,15 @@ export const createWebSocketSlice: StateCreator<
     });
 
     newSocket.on('connect', () => {
-      logger.debug(
-        '[WS] Connected, socket id:',
-        newSocket.id,
-        'transport:',
-        newSocket.io.engine?.transport?.name
-      );
+      logger.debug('[WS] Connected', {
+        socketId: newSocket.id,
+        transport: newSocket.io.engine?.transport?.name,
+      });
       set({ isConnected: true });
     });
 
     newSocket.on('disconnect', (reason) => {
-      logger.debug(
-        '[WS] Disconnected, reason:',
-        reason,
-        'socket id:',
-        newSocket.id
-      );
+      logger.debug('[WS] Disconnected', { reason, socketId: newSocket.id });
       set({
         isConnected: false,
         onlineUsers: new Set(),
@@ -91,12 +84,10 @@ export const createWebSocketSlice: StateCreator<
 
     // 重连事件
     newSocket.io.on('reconnect', (attempt) => {
-      logger.debug(
-        '[WS] Reconnected after',
-        attempt,
-        'attempts, transport:',
-        newSocket.io.engine?.transport?.name
-      );
+      logger.debug('[WS] Reconnected', {
+        attempts: attempt,
+        transport: newSocket.io.engine?.transport?.name,
+      });
     });
 
     newSocket.io.on('reconnect_attempt', (attempt) => {

@@ -34,11 +34,10 @@ export async function POST(
 
     if (!response.ok) {
       const errorText = await response.text();
-      logger.error(
-        '[Agents Cancel] Backend error:',
-        response.status,
-        errorText
-      );
+      logger.error('[Agents Cancel] Backend error:', {
+        status: response.status,
+        error: errorText,
+      });
       return NextResponse.json(
         { error: 'Failed to cancel task', details: errorText },
         { status: response.status }

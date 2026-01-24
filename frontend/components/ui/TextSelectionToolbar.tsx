@@ -280,7 +280,10 @@ export default function TextSelectionToolbar({
         }, 1500);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        logger.error('Failed to add note:', response.status, errorData);
+        logger.error('Failed to add note:', {
+          status: response.status,
+          error: errorData,
+        });
         setSuccessMessage('Failed to save. Please try again.');
         setMode('success');
         setTimeout(() => {

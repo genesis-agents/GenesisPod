@@ -433,22 +433,15 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
     });
 
     newSocket.on('connect', () => {
-      logger.debug(
-        '[WS] Connected, socket id:',
-        newSocket.id,
-        'transport:',
-        newSocket.io.engine?.transport?.name
-      );
+      logger.debug('[WS] Connected', {
+        socketId: newSocket.id,
+        transport: newSocket.io.engine?.transport?.name,
+      });
       set({ isConnected: true });
     });
 
     newSocket.on('disconnect', (reason) => {
-      logger.debug(
-        '[WS] Disconnected, reason:',
-        reason,
-        'socket id:',
-        newSocket.id
-      );
+      logger.debug('[WS] Disconnected', { reason, socketId: newSocket.id });
       set({
         isConnected: false,
         onlineUsers: new Set(),
@@ -464,12 +457,10 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
 
     // 重连事件
     newSocket.io.on('reconnect', (attempt) => {
-      logger.debug(
-        '[WS] Reconnected after',
-        attempt,
-        'attempts, transport:',
-        newSocket.io.engine?.transport?.name
-      );
+      logger.debug('[WS] Reconnected', {
+        attempts: attempt,
+        transport: newSocket.io.engine?.transport?.name,
+      });
     });
 
     newSocket.io.on('reconnect_attempt', (attempt) => {
@@ -941,7 +932,11 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         agentId: string;
         taskId: string | null;
       }) => {
-        logger.debug('[WS] Mission agent done:', { missionId, agentId, taskId });
+        logger.debug('[WS] Mission agent done:', {
+          missionId,
+          agentId,
+          taskId,
+        });
         set((state) => {
           const newSet = new Set(state.typingAIs);
           newSet.delete(agentId);
@@ -964,7 +959,10 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
         summary: string;
         participantAIIds?: string[];
       }) => {
-        logger.debug('[WS] Mission completed:', { missionId, participantAIIds });
+        logger.debug('[WS] Mission completed:', {
+          missionId,
+          participantAIIds,
+        });
         set((state) => {
           // 【关键修复】Mission 完成时，清除所有相关 AI 的 typing 状态
           // 优先使用后端传递的 participantAIIds，否则从本地 mission 中提取

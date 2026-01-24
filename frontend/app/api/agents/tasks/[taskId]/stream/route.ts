@@ -36,11 +36,10 @@ export async function GET(
     );
 
     if (!response.ok) {
-      logger.error(
-        '[Agents Stream] Backend error:',
-        response.status,
-        response.statusText
-      );
+      logger.error('[Agents Stream] Backend error:', {
+        status: response.status,
+        statusText: response.statusText,
+      });
       return new Response(
         JSON.stringify({
           error: `Backend error: ${response.status}`,

@@ -1413,12 +1413,10 @@ function MessageInput({
 
     // DEBUG: Log the content and available AI members
     logger.debug('[Mentions Debug] handleSend called with content:', content);
-    logger.debug(
-      '[Mentions Debug] topic.aiMembers exists:',
-      !!topic.aiMembers,
-      'length:',
-      topic.aiMembers?.length || 0
-    );
+    logger.debug('[Mentions Debug] topic.aiMembers', {
+      exists: !!topic.aiMembers,
+      length: topic.aiMembers?.length || 0,
+    });
     logger.debug(
       '[Mentions Debug] Available AI members:',
       topic.aiMembers?.map((a) => ({
@@ -1450,12 +1448,10 @@ function MessageInput({
         .toLowerCase()
         .replace(/-\(/, ' (')
         .replace(/\($/, '');
-      logger.debug(
-        '[Mentions Debug] Found mention match:',
-        match[0],
-        '-> name:',
-        name
-      );
+      logger.debug('[Mentions Debug] Found mention match:', {
+        match: match[0],
+        name,
+      });
 
       if (name === 'everyone') {
         mentions.push({ mentionType: MentionType.ALL });
@@ -1560,12 +1556,10 @@ function MessageInput({
           });
         }
 
-        logger.debug(
-          '[Mentions Debug] Final match for',
+        logger.debug('[Mentions Debug] Final match', {
           normalizedName,
-          '->',
-          ai?.displayName || 'none'
-        );
+          aiDisplayName: ai?.displayName || 'none',
+        });
 
         // Debug: log all AI member names for comparison
         logger.debug(
@@ -1577,14 +1571,11 @@ function MessageInput({
             hyphenated: a.displayName.toLowerCase().replace(/\s+/g, '-'),
           }))
         );
-        logger.debug(
-          '[Mentions Debug] Matching result for',
+        logger.debug('[Mentions Debug] Matching result', {
           name,
-          '-> user:',
-          user?.userId,
-          'ai:',
-          ai?.id
-        );
+          userId: user?.userId,
+          aiId: ai?.id,
+        });
 
         if (user) {
           mentions.push({ userId: user.userId, mentionType: MentionType.USER });

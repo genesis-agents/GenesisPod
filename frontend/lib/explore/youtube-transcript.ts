@@ -9,6 +9,8 @@
  * 注意：由于 CORS 限制，需要通过后端代理请求
  */
 
+import { logger } from '@/lib/utils/logger';
+
 export interface TranscriptSegment {
   text: string;
   start: number;

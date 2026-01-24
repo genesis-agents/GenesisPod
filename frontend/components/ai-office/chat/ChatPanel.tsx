@@ -254,12 +254,10 @@ export default function ChatPanel() {
       userInput = buildCommandPrompt(slashCommand, slashArgs, {
         selectedResourceCount: selectedResourceIds.length,
       });
-      logger.debug(
-        '[ChatPanel] Slash command detected:',
-        slashCommand.id,
-        'args:',
-        slashArgs
-      );
+      logger.debug('[ChatPanel] Slash command detected:', {
+        commandId: slashCommand.id,
+        args: slashArgs,
+      });
     }
 
     // 任务管理：创建或更新任务
@@ -589,7 +587,11 @@ export default function ChatPanel() {
             .documents.find((d: any) => d._id === targetDocumentId)
         : null;
       const existingContent =
-        currentDoc && shouldUpdateExisting && typeof currentDoc.content === 'object' && currentDoc.content !== null && 'markdown' in currentDoc.content
+        currentDoc &&
+        shouldUpdateExisting &&
+        typeof currentDoc.content === 'object' &&
+        currentDoc.content !== null &&
+        'markdown' in currentDoc.content
           ? (currentDoc.content as { markdown: string }).markdown || ''
           : '';
 
@@ -909,7 +911,9 @@ ${userInput || ''}
                       targetPages.length > 0 &&
                       existingContent
                     ) {
-                      logger.debug('[ChatPanel] Performing partial page update');
+                      logger.debug(
+                        '[ChatPanel] Performing partial page update'
+                      );
                       // 局部页面更新：合并页面
                       const existingSlides = existingContent
                         .split(/^---$/m)

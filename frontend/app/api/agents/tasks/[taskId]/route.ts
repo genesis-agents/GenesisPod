@@ -27,7 +27,10 @@ export async function GET(
 
     if (!response.ok) {
       const errorText = await response.text();
-      logger.error('[Agents Task] Backend error:', response.status, errorText);
+      logger.error('[Agents Task] Backend error:', {
+        status: response.status,
+        error: errorText,
+      });
       return NextResponse.json(
         { error: 'Failed to fetch task', details: errorText },
         { status: response.status }

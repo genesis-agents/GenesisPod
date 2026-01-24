@@ -92,13 +92,10 @@ export default function GoogleDriveFolderPicker({
   useEffect(() => {
     logger.debug('[GDrivePicker] Initial load, fetching folders...');
     fetchFolders().then((data) => {
-      logger.debug(
-        '[GDrivePicker] Fetched:',
-        data?.folders?.length,
-        'folders,',
-        data?.files?.length,
-        'files'
-      );
+      logger.debug('[GDrivePicker] Fetched:', {
+        foldersCount: data?.folders?.length,
+        filesCount: data?.files?.length,
+      });
     });
   }, [fetchFolders]);
 
@@ -142,16 +139,12 @@ export default function GoogleDriveFolderPicker({
   }, [selectedFileIds, files]);
 
   // Debug: log current state
-  logger.debug(
-    '[GDrivePicker] Current state - folders:',
-    folders.length,
-    'files:',
-    files.length,
-    'selectedFolderIds:',
+  logger.debug('[GDrivePicker] Current state', {
+    foldersCount: folders.length,
+    filesCount: files.length,
     selectedFolderIds,
-    'selectedFileIds:',
-    selectedFileIds
-  );
+    selectedFileIds,
+  });
 
   const toggleFolderSelection = (folder: GoogleDriveFolder) => {
     if (disabled) return;

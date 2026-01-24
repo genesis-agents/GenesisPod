@@ -133,7 +133,10 @@ export default function NotesList({
       }
     } catch (err) {
       setError('Error loading notes');
-      logger.error(err);
+      logger.error(
+        'Error loading notes',
+        err instanceof Error ? err.message : String(err)
+      );
     } finally {
       setLoading(false);
     }
@@ -159,7 +162,10 @@ export default function NotesList({
       }
     } catch (err) {
       alert('Error deleting note');
-      logger.error(err);
+      logger.error(
+        'Error deleting note',
+        err instanceof Error ? err.message : String(err)
+      );
     }
   };
 
@@ -228,7 +234,10 @@ export default function NotesList({
       }
     } catch (err) {
       alert('Error saving note');
-      logger.error(err);
+      logger.error(
+        'Error saving note',
+        err instanceof Error ? err.message : String(err)
+      );
     }
   };
 
@@ -263,7 +272,10 @@ export default function NotesList({
       }
     } catch (err) {
       alert('Error updating bookmark');
-      logger.error(err);
+      logger.error(
+        'Error updating bookmark',
+        err instanceof Error ? err.message : String(err)
+      );
     }
   };
 

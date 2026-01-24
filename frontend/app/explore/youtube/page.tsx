@@ -666,12 +666,10 @@ function YouTubeTLDWContent() {
 
     try {
       setSavingNote(true);
-      logger.debug(
-        'Saving note for video:',
+      logger.debug('Saving note for video:', {
         videoId,
-        'content:',
-        contextMenu.text.substring(0, 50) + '...'
-      );
+        contentPreview: contextMenu.text.substring(0, 50) + '...',
+      });
 
       // Note: Don't use resourceId for YouTube videos since videoId is not a UUID
       // Use source field to associate the note with the video instead
@@ -695,7 +693,10 @@ function YouTubeTLDWContent() {
         setNotesRefreshKey((prev) => prev + 1);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        logger.error('Failed to save note:', response.status, errorData);
+        logger.error('Failed to save note:', {
+          status: response.status,
+          error: errorData,
+        });
         alert(`Failed to save note: ${errorData.message || 'Unknown error'}`);
       }
     } catch (error) {

@@ -3,7 +3,7 @@
 import { AlertCircle, RefreshCw, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils/common';
-import { Button } from './button';
+import { Button } from '../primitives/button';
 
 interface ErrorStateProps {
   /** 错误对象或消息 */

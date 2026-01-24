@@ -30,11 +30,10 @@ export async function GET(
 
     if (!response.ok) {
       const errorText = await response.text();
-      logger.error(
-        '[Agents Templates] Backend error:',
-        response.status,
-        errorText
-      );
+      logger.error('[Agents Templates] Backend error:', {
+        status: response.status,
+        error: errorText,
+      });
       return NextResponse.json(
         { error: 'Failed to fetch templates', details: errorText },
         { status: response.status }

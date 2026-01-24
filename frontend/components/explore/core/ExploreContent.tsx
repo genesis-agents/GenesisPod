@@ -37,7 +37,12 @@ import { ThumbsUp, TrendingUp, Clock, Star, ChevronDown } from 'lucide-react';
 import { useAIModels } from '@/hooks';
 
 // Import extracted modules
-import type { Resource, SearchSuggestion, AIMessage, AIInsight } from '../utils/types';
+import type {
+  Resource,
+  SearchSuggestion,
+  AIMessage,
+  AIInsight,
+} from '../utils/types';
 import { PAGE_SIZE, FILE_RESTRICTIONS, TYPE_MAP } from '../utils/constants';
 import {
   extractImagesFromMarkdown,
@@ -871,12 +876,10 @@ function HomeContent() {
 
     try {
       setSavingNote(true);
-      logger.debug(
-        'Saving note to resource:',
-        selectedResource?.id || 'none',
-        'content:',
-        contextMenu.text.substring(0, 50) + '...'
-      );
+      logger.debug('Saving note to resource:', {
+        resourceId: selectedResource?.id || 'none',
+        contentPreview: contextMenu.text.substring(0, 50) + '...',
+      });
 
       const response = await fetch(`${config.apiBaseUrl}/api/v1/notes`, {
         method: 'POST',
@@ -910,7 +913,10 @@ function HomeContent() {
         }, 100);
       } else {
         const errorData = await response.json();
-        logger.error('Failed to save note:', response.status, errorData);
+        logger.error('Failed to save note:', {
+          status: response.status,
+          error: errorData,
+        });
         setToast({
           message: `Failed to save note: ${errorData.message || 'Unknown error'}`,
           type: 'error',

@@ -48,7 +48,10 @@ export function SourceWhitelistManager() {
       }
     } catch (err) {
       setError('获取白名单失败');
-      logger.error(err);
+      logger.error(
+        '获取白名单失败',
+        err instanceof Error ? err.message : String(err)
+      );
     } finally {
       setLoading(false);
     }
@@ -74,7 +77,10 @@ export function SourceWhitelistManager() {
       }
     } catch (err) {
       setError('添加域名失败');
-      logger.error(err);
+      logger.error(
+        '添加域名失败',
+        err instanceof Error ? err.message : String(err)
+      );
     }
   };
 
@@ -90,7 +96,10 @@ export function SourceWhitelistManager() {
       }
     } catch (err) {
       setError('移除域名失败');
-      logger.error(err);
+      logger.error(
+        '移除域名失败',
+        err instanceof Error ? err.message : String(err)
+      );
     }
   };
 
@@ -113,7 +122,10 @@ export function SourceWhitelistManager() {
       }
     } catch (err) {
       setError('更新白名单状态失败');
-      logger.error(err);
+      logger.error(
+        '更新白名单状态失败',
+        err instanceof Error ? err.message : String(err)
+      );
     }
   };
 

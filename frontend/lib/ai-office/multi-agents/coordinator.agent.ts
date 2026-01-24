@@ -5,6 +5,8 @@
  * @module ai-agents/coordinator
  */
 
+import { logger } from '@/lib/utils/logger';
+
 export interface AgentPlan {
   // 是否需要深度资源分析
   needsResourceAnalysis: boolean;

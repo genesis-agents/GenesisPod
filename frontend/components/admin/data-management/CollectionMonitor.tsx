@@ -64,7 +64,10 @@ export function CollectionMonitor() {
       }
     } catch (err) {
       setError('获取采集任务失败');
-      logger.error(err);
+      logger.error(
+        '获取采集任务失败',
+        err instanceof Error ? err.message : String(err)
+      );
     } finally {
       setLoading(false);
     }
@@ -133,7 +136,7 @@ export function CollectionMonitor() {
                         task.resourceType}
                     </span>
                   </td>
-                  <td className="max-w-xs truncate px-6 py-4 font-mono text-xs">
+                  <td className="font-mono max-w-xs truncate px-6 py-4 text-xs">
                     {task.sourceUrl.slice(0, 50)}...
                   </td>
                   <td className="px-6 py-4">

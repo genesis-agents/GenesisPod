@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
-import TableOfContents from './TableOfContents';
+import TableOfContents from '../TableOfContents';
 
 import { logger } from '@/lib/utils/logger';
 interface ReaderViewProps {
@@ -275,7 +275,7 @@ export default function ReaderView({
       try {
         // 根据资源类别选择合适的API端点
         // News类型使用html-reader-news（无域名限制），其他类型使用html-reader（有域名白名单）
-        logger.debug('[ReaderView] Category:', category, 'URL:', url);
+        logger.debug('[ReaderView]', { category, url });
 
         // 决定使用哪个端点：
         // 1. 已导入的资源（来自数据库）：使用无域名限制的 html-reader-news 端点
@@ -635,7 +635,7 @@ export default function ReaderView({
               {/* 文章元信息 - 紧凑的头部设计 */}
               <header className={`mb-6 ${currentTheme.border}`}>
                 <h1
-                  className={`mb-3 font-serif font-bold leading-snug tracking-tight ${currentFontSize.heading} ${currentTheme.heading}`}
+                  className={`font-serif mb-3 font-bold leading-snug tracking-tight ${currentFontSize.heading} ${currentTheme.heading}`}
                   style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
                 >
                   {article.title || propTitle || '无标题'}

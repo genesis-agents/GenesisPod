@@ -79,7 +79,7 @@ export default function NoteEditor({
       }
     } catch (err) {
       setError('Error loading note');
-      logger.error(err);
+      logger.error('Error loading note:', err);
     } finally {
       setLoading(false);
     }
@@ -128,7 +128,10 @@ export default function NoteEditor({
         }
       } catch (err) {
         setError('Error saving note');
-        logger.error(err);
+        logger.error(
+          'Error saving note',
+          err instanceof Error ? err.message : String(err)
+        );
       } finally {
         setSaving(false);
       }

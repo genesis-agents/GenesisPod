@@ -2,7 +2,7 @@
 
 import { Inbox, Search, FileX, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import { Button } from './button';
+import { Button } from '../primitives/button';
 
 type EmptyType = 'default' | 'search' | 'noData' | 'error';
 

@@ -44,7 +44,10 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      logger.error('[Slides Plan] Backend error:', response.status, errorText);
+      logger.error('[Slides Plan] Backend error:', {
+        status: response.status,
+        error: errorText,
+      });
       return NextResponse.json(
         {
           error: `Backend error: ${response.status}`,

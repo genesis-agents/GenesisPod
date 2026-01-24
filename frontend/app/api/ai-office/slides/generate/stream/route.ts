@@ -40,11 +40,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      logger.error(
-        '[Slides 3.0 Stream] Backend error:',
-        response.status,
-        response.statusText
-      );
+      logger.error('[Slides 3.0 Stream] Backend error:', {
+        status: response.status,
+        statusText: response.statusText,
+      });
       return new Response(
         JSON.stringify({
           error: `Backend error: ${response.status}`,

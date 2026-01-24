@@ -288,7 +288,12 @@ export const useDocumentStore = create<DocumentState>()(
 
           // 计算 slideCount（如果是PPT文档）
           let slideCount = document.metadata.slideCount;
-          if (document.type === 'ppt' && typeof document.content === 'object' && document.content !== null && 'markdown' in document.content) {
+          if (
+            document.type === 'ppt' &&
+            typeof document.content === 'object' &&
+            document.content !== null &&
+            'markdown' in document.content
+          ) {
             slideCount = calculateSlideCount(
               (document.content as { markdown: string }).markdown
             );
@@ -776,11 +781,9 @@ export const useTaskStore = create<TaskState>()(
             } as Document;
             documentStore.addDocument(restoredDocument);
             existingDoc = restoredDocument;
-            logger.debug(
-              '[restoreTaskContext] Document recreated with',
-              restoredDocument.versions?.length || 0,
-              'versions'
-            );
+            logger.debug('[restoreTaskContext] Document recreated', {
+              versionsCount: restoredDocument.versions?.length || 0,
+            });
           }
 
           // 只有当文档存在时才进行恢复和切换
@@ -796,7 +799,8 @@ export const useTaskStore = create<TaskState>()(
                 'markdown' in task.context.documentContent
               ) {
                 slideCount = calculateSlideCount(
-                  (task.context.documentContent as { markdown: string }).markdown
+                  (task.context.documentContent as { markdown: string })
+                    .markdown
                 );
               }
 
@@ -819,10 +823,18 @@ export const useTaskStore = create<TaskState>()(
                 {
                   documentId: task.context.documentId,
                   hasContent: !!updatePayload.content,
-                  hasMarkdown: !!(typeof updatePayload.content === 'object' && updatePayload.content !== null && 'markdown' in updatePayload.content),
-                  markdownLength: typeof updatePayload.content === 'object' && updatePayload.content !== null && 'markdown' in updatePayload.content
-                    ? (updatePayload.content as { markdown: string }).markdown?.length || 0
-                    : 0,
+                  hasMarkdown: !!(
+                    typeof updatePayload.content === 'object' &&
+                    updatePayload.content !== null &&
+                    'markdown' in updatePayload.content
+                  ),
+                  markdownLength:
+                    typeof updatePayload.content === 'object' &&
+                    updatePayload.content !== null &&
+                    'markdown' in updatePayload.content
+                      ? (updatePayload.content as { markdown: string }).markdown
+                          ?.length || 0
+                      : 0,
                   slideCount: updatePayload.metadata?.slideCount,
                 }
               );
@@ -838,8 +850,11 @@ export const useTaskStore = create<TaskState>()(
               );
               logger.debug(
                 '[restoreTaskContext] After update - document content length:',
-                typeof updatedDoc?.content === 'object' && updatedDoc.content !== null && 'markdown' in updatedDoc.content
-                  ? (updatedDoc.content as { markdown: string }).markdown?.length || 0
+                typeof updatedDoc?.content === 'object' &&
+                  updatedDoc.content !== null &&
+                  'markdown' in updatedDoc.content
+                  ? (updatedDoc.content as { markdown: string }).markdown
+                      ?.length || 0
                   : 0
               );
             } else {

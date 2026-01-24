@@ -5,6 +5,8 @@
  * 使用方式：通过 useMermaidWorker hook 调用
  */
 
+import { logger } from '@/lib/utils/logger';
+
 // Worker message types
 export interface MermaidWorkerRequest {
   id: string;

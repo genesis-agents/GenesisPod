@@ -3,6 +3,8 @@
  * 结构化研究文档格式，适用于学术研究和深度分析
  */
 
+import { logger } from '@/lib/utils/logger';
+
 export interface ResearchPageSection {
   id: string;
   title: string;

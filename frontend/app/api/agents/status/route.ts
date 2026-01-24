@@ -23,11 +23,10 @@ export async function GET() {
 
     if (!response.ok) {
       const errorText = await response.text();
-      logger.error(
-        '[Agents Status] Backend error:',
-        response.status,
-        errorText
-      );
+      logger.error('[Agents Status] Backend error:', {
+        status: response.status,
+        error: errorText,
+      });
       return NextResponse.json(
         { error: 'Failed to fetch status', details: errorText },
         { status: response.status }

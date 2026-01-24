@@ -1087,7 +1087,10 @@ export function AIAskPage() {
         return session.id;
       } else {
         const errorData = await response.json().catch(() => ({}));
-        logger.error('Failed to create session:', response.status, errorData);
+        logger.error('Failed to create session:', {
+          status: response.status,
+          error: errorData,
+        });
       }
     } catch (error) {
       logger.error('Failed to create session:', error);
@@ -1149,7 +1152,10 @@ export function AIAskPage() {
           return result;
         } else {
           const errorData = await response.json().catch(() => ({}));
-          logger.error('Failed to send message:', response.status, errorData);
+          logger.error('Failed to send message:', {
+            status: response.status,
+            error: errorData,
+          });
         }
       } catch (error) {
         logger.error('Failed to send message:', error);

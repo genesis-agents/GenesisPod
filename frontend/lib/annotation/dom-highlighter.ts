@@ -5,6 +5,8 @@
  * handling the complexity of ranges that span multiple elements.
  */
 
+import { logger } from '@/lib/utils/logger';
+
 export interface AnnotationData {
   id: string;
   color: 'yellow' | 'green' | 'blue' | 'pink' | 'purple';

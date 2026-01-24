@@ -3,6 +3,8 @@
  * Manages authentication state and token storage
  */
 
+import { logger } from '@/lib/utils/logger';
+
 export interface User {
   id: string;
   email: string;

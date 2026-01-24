@@ -11,6 +11,8 @@
  * - Returns DOM Range objects that can span multiple elements
  */
 
+import { logger } from '@/lib/utils/logger';
+
 export interface TextSelector {
   /** The exact text to find */
   exact: string;

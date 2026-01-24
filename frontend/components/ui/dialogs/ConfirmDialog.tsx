@@ -3,7 +3,7 @@
 import { AlertTriangle, Info, CheckCircle, XCircle } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { Modal } from './Modal';
-import { Button } from './button';
+import { Button } from '../primitives/button';
 import { cn } from '@/lib/utils/common';
 
 type ConfirmType = 'danger' | 'warning' | 'info' | 'success';
