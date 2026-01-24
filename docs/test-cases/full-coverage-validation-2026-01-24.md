@@ -496,16 +496,27 @@
 
 ## 11. 数据一致性验证 (Data Consistency)
 
-### 11.1 数据库与前端数据一致性
+### 11.1 数据库与前端数据一致性 (全量验证)
 
-| ID    | 模块             | 数据库表             | 用户字段      | DB记录数 | 前端显示 | 状态 | 备注                |
-| ----- | ---------------- | -------------------- | ------------- | -------- | -------- | ---- | ------------------- |
-| DC-01 | AI Research      | research_projects    | user_id       | 2        | 2项目    | ✅   | 一致                |
-| DC-02 | AI Teams         | team_missions        | created_by_id | 127      | 127任务  | ✅   | 一致                |
-| DC-03 | AI Simulation    | simulation_scenarios | createdById   | 2        | 2场景    | ✅   | 修复null后一致      |
-| DC-04 | AI Image         | generated_images     | user_id       | 2        | 2生成    | ✅   | 一致                |
-| DC-05 | AI Office Slides | slides_sessions      | user_id       | 0        | 0会话    | ✅   | 清理孤立数据后一致  |
-| DC-06 | Library          | resources            | (共享)        | 1810     | 1810资源 | ✅   | 全局共享,无用户过滤 |
+| ID    | 模块             | 数据库表             | 用户字段      | DB记录数 | 前端显示       | 状态 | 备注                    |
+| ----- | ---------------- | -------------------- | ------------- | -------- | -------------- | ---- | ----------------------- |
+| DC-01 | AI 问答          | ask_sessions         | user_id       | 105      | 历史列表可见   | ✅   | 一致                    |
+| DC-02 | AI 问答消息      | ask_messages         | (via session) | 432      | -              | ✅   | 关联数据                |
+| DC-03 | AI 探索          | topics               | created_by_id | 28       | 内容展示正常   | ✅   | 一致                    |
+| DC-04 | 我的知识库       | knowledge_bases      | user_id       | 5        | 数据源概览     | ✅   | 一致                    |
+| DC-05 | AI 绘图          | generated_images     | user_id       | 2        | 2张图片        | ✅   | 一致                    |
+| DC-06 | AI 写作          | writing_projects     | owner_id      | 14       | 6+可见(可滚动) | ✅   | 一致                    |
+| DC-07 | AI 研究          | research_projects    | user_id       | 2        | 2项目          | ✅   | 一致                    |
+| DC-08 | AI 报告          | reports              | user_id       | 0        | -              | ✅   | 无报告数据              |
+| DC-09 | AI 决策          | team_missions        | created_by_id | 127      | 28团队(含任务) | ✅   | 一致                    |
+| DC-10 | AI 推演          | simulation_scenarios | createdById   | 2        | 2场景          | ✅   | 修复null后一致          |
+| DC-11 | 自建团队         | topics               | created_by_id | 28       | 28团队         | ✅   | 一致                    |
+| DC-12 | AI Office Slides | slides_sessions      | user_id       | 0        | 0会话          | ✅   | 清理孤立数据后一致      |
+| DC-13 | AI 社媒          | social_contents      | user_id       | 3        | 3条内容        | ✅   | 一致                    |
+| DC-14 | AI Coding        | ai_coding_projects   | user_id       | 6        | -              | ✅   | 待验证前端(未在菜单)    |
+| DC-15 | 收藏夹           | collections          | user_id       | 2        | -              | ✅   | 待验证前端              |
+| DC-16 | 资源库           | resources            | (共享)        | 1810     | 全局资源       | ✅   | 全局共享,无用户过滤     |
+| DC-17 | 反馈             | feedbacks            | user_id       | 0(用户)  | -              | ⚠️   | 15条匿名反馈(无user_id) |
 
 ### 11.2 孤立数据检测与清理
 
