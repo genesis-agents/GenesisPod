@@ -161,7 +161,11 @@ export function useResources({
       const url = `${config.apiUrl}/resources?${params.toString()}`;
       const res = await fetch(url);
       const data = await res.json();
-      const newResources = Array.isArray(data) ? data : data.data || [];
+      // API returns { success, data: { data: [...], pagination } } format
+      const responseData = data?.data ?? data;
+      const newResources = Array.isArray(responseData)
+        ? responseData
+        : responseData?.data || [];
 
       if (loadMore) {
         setResources((prev) => [...prev, ...newResources]);

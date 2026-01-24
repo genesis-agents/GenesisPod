@@ -966,7 +966,12 @@ function HomeContent() {
       const url = `${config.apiUrl}/resources?${params.toString()}`;
       const res = await fetch(url);
       const data = await res.json();
-      setResources(Array.isArray(data) ? data : data.data || []);
+      // API returns { success, data: { data: [...], pagination } } format
+      const responseData = data?.data ?? data;
+      const newResources = Array.isArray(responseData)
+        ? responseData
+        : responseData?.data || [];
+      setResources(newResources);
     } catch (error) {
       logger.error('Failed to fetch:', error);
       setResources([]);
