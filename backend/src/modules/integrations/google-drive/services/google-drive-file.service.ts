@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from "@nestjs/common";
-import { google, drive_v3 } from "googleapis";
+import { drive, drive_v3 } from "@googleapis/drive";
 import { GoogleDriveAuthService } from "./google-drive-auth.service";
 import { ListFilesDto } from "../dto/google-drive.dto";
 
@@ -55,7 +55,7 @@ export class GoogleDriveFileService {
     options: ListFilesDto = {},
   ): Promise<ListFilesResult> {
     const client = await this.authService.getAuthenticatedClient(userId);
-    const drive = google.drive({ version: "v3", auth: client });
+    const driveClient = drive({ version: "v3", auth: client });
 
     try {
       // 规范化参数（处理前端兼容性别名）
@@ -94,7 +94,7 @@ export class GoogleDriveFileService {
 
       this.logger.debug(`Google Drive query: ${q}, orderBy: ${orderBy}`);
 
-      const response = await drive.files.list({
+      const response = await driveClient.files.list({
         q,
         pageSize,
         pageToken: options.pageToken,
@@ -156,10 +156,10 @@ export class GoogleDriveFileService {
    */
   async getFile(userId: string, fileId: string): Promise<DriveFile> {
     const client = await this.authService.getAuthenticatedClient(userId);
-    const drive = google.drive({ version: "v3", auth: client });
+    const driveClient = drive({ version: "v3", auth: client });
 
     try {
-      const response = await drive.files.get({
+      const response = await driveClient.files.get({
         fileId,
         fields:
           "id, name, mimeType, size, createdTime, modifiedTime, iconLink, thumbnailLink, webViewLink, webContentLink, parents, starred, trashed",
@@ -203,11 +203,11 @@ export class GoogleDriveFileService {
 
     try {
       const client = await this.authService.getAuthenticatedClient(userId);
-      const drive = google.drive({ version: "v3", auth: client });
+      const driveClient = drive({ version: "v3", auth: client });
 
       // 最多追溯 10 层，防止无限循环
       for (let i = 0; i < 10 && currentId && currentId !== "root"; i++) {
-        const response = await drive.files.get({
+        const response = await driveClient.files.get({
           fileId: currentId,
           fields: "id, name, parents",
         });
@@ -233,7 +233,7 @@ export class GoogleDriveFileService {
    */
   async downloadFile(userId: string, fileId: string): Promise<Buffer> {
     const client = await this.authService.getAuthenticatedClient(userId);
-    const drive = google.drive({ version: "v3", auth: client });
+    const driveClient = drive({ version: "v3", auth: client });
 
     try {
       // 首先获取文件元数据以确定 mimeType
@@ -246,14 +246,14 @@ export class GoogleDriveFileService {
 
       if (isGoogleWorkspaceFile) {
         return await this.exportGoogleWorkspaceFile(
-          drive,
+          driveClient,
           fileId,
           metadata.mimeType,
         );
       }
 
       // 普通文件直接下载
-      const response = await drive.files.get(
+      const response = await driveClient.files.get(
         {
           fileId,
           alt: "media",
@@ -274,7 +274,7 @@ export class GoogleDriveFileService {
    * 导出 Google Workspace 文件
    */
   private async exportGoogleWorkspaceFile(
-    drive: drive_v3.Drive,
+    driveClient: drive_v3.Drive,
     fileId: string,
     mimeType: string,
   ): Promise<Buffer> {
@@ -297,7 +297,7 @@ export class GoogleDriveFileService {
       exportMimeType = "application/pdf";
     }
 
-    const response = await drive.files.export(
+    const response = await driveClient.files.export(
       {
         fileId,
         mimeType: exportMimeType,
@@ -319,7 +319,7 @@ export class GoogleDriveFileService {
     mimeType: string,
   ): Promise<DriveFile> {
     const client = await this.authService.getAuthenticatedClient(userId);
-    const drive = google.drive({ version: "v3", auth: client });
+    const driveClient = drive({ version: "v3", auth: client });
 
     try {
       const fileMetadata: drive_v3.Schema$File = {
@@ -327,7 +327,7 @@ export class GoogleDriveFileService {
         parents: folderId ? [folderId] : undefined,
       };
 
-      const response = await drive.files.create({
+      const response = await driveClient.files.create({
         requestBody: fileMetadata,
         media: {
           mimeType,
@@ -372,7 +372,7 @@ export class GoogleDriveFileService {
     name: string,
   ): Promise<DriveFile> {
     const client = await this.authService.getAuthenticatedClient(userId);
-    const drive = google.drive({ version: "v3", auth: client });
+    const driveClient = drive({ version: "v3", auth: client });
 
     try {
       const fileMetadata: drive_v3.Schema$File = {
@@ -381,7 +381,7 @@ export class GoogleDriveFileService {
         parents: parentId ? [parentId] : undefined,
       };
 
-      const response = await drive.files.create({
+      const response = await driveClient.files.create({
         requestBody: fileMetadata,
         fields: "id, name, mimeType, createdTime, modifiedTime, webViewLink",
       });

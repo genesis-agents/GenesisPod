@@ -4,7 +4,8 @@ import {
   UnauthorizedException,
   BadRequestException,
 } from "@nestjs/common";
-import { google, Auth } from "googleapis";
+import { OAuth2Client } from "google-auth-library";
+import { oauth2 } from "@googleapis/oauth2";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 // Google Drive connection status
@@ -30,7 +31,7 @@ export class GoogleDriveAuthService {
   private readonly clientId: string;
   private readonly clientSecret: string;
   private readonly redirectUri: string;
-  private readonly oauth2Client: Auth.OAuth2Client;
+  private readonly oauth2Client: OAuth2Client;
 
   constructor(private readonly prisma: PrismaService) {
     this.clientId = process.env.GOOGLE_CLIENT_ID || "";
@@ -48,7 +49,7 @@ export class GoogleDriveAuthService {
     }
 
     // Initialize OAuth2 client
-    this.oauth2Client = new google.auth.OAuth2(
+    this.oauth2Client = new OAuth2Client(
       this.clientId,
       this.clientSecret,
       this.redirectUri,
@@ -107,8 +108,8 @@ export class GoogleDriveAuthService {
 
       // 使用 access_token 获取用户信息
       this.oauth2Client.setCredentials(tokens);
-      const oauth2 = google.oauth2({ version: "v2", auth: this.oauth2Client });
-      const userInfo = await oauth2.userinfo.get();
+      const oauth2Client = oauth2({ version: "v2", auth: this.oauth2Client });
+      const userInfo = await oauth2Client.userinfo.get();
 
       const email = userInfo.data.email || "";
       const googleId = userInfo.data.id || "";
@@ -392,7 +393,7 @@ export class GoogleDriveAuthService {
   /**
    * 获取有效的 OAuth2 客户端实例
    */
-  async getAuthenticatedClient(userId: string): Promise<Auth.OAuth2Client> {
+  async getAuthenticatedClient(userId: string): Promise<OAuth2Client> {
     const connection = await this.prisma.googleDriveConnection.findFirst({
       where: { userId },
       select: {
@@ -420,7 +421,7 @@ export class GoogleDriveAuthService {
       // Token 已过期，刷新
       const newAccessToken = await this.refreshAccessToken(connection.id);
 
-      const client = new google.auth.OAuth2(
+      const client = new OAuth2Client(
         this.clientId,
         this.clientSecret,
         this.redirectUri,
@@ -433,7 +434,7 @@ export class GoogleDriveAuthService {
     }
 
     // Token 仍然有效
-    const client = new google.auth.OAuth2(
+    const client = new OAuth2Client(
       this.clientId,
       this.clientSecret,
       this.redirectUri,
@@ -451,8 +452,8 @@ export class GoogleDriveAuthService {
   async validateConnection(userId: string): Promise<boolean> {
     try {
       const client = await this.getAuthenticatedClient(userId);
-      const oauth2 = google.oauth2({ version: "v2", auth: client });
-      const response = await oauth2.userinfo.get();
+      const oauth2Api = oauth2({ version: "v2", auth: client });
+      const response = await oauth2Api.userinfo.get();
       return !!response.data.id;
     } catch (error) {
       this.logger.warn(

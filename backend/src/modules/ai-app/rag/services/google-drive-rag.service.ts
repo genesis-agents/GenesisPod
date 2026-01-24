@@ -7,7 +7,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KnowledgeBaseService } from "./knowledge-base.service";
 import { KnowledgeBaseStatus } from "@prisma/client";
-import { google, drive_v3 } from "googleapis";
+import { OAuth2Client } from "google-auth-library";
+import { drive, drive_v3 } from "@googleapis/drive";
 import { SyncResult, GoogleDriveFile } from "../interfaces/rag.interfaces";
 import * as mammoth from "mammoth";
 
@@ -113,12 +114,12 @@ export class GoogleDriveRAGService {
 
       // Get OAuth2 client
       const oauth2Client = await this.getOAuthClient(kb.googleDriveConnection);
-      const drive = google.drive({ version: "v3", auth: oauth2Client });
+      const driveClient = drive({ version: "v3", auth: oauth2Client });
 
       // Get all files from selected folders
       const allFiles: GoogleDriveFile[] = [];
       for (const folderId of folderIds) {
-        const files = await this.listFilesInFolder(drive, folderId);
+        const files = await this.listFilesInFolder(driveClient, folderId);
         allFiles.push(...files);
       }
 
@@ -126,7 +127,7 @@ export class GoogleDriveRAGService {
       for (const fileId of fileIds) {
         try {
           this.logger.debug(`[getFileById] Fetching file: ${fileId}`);
-          const fileMetadata = await this.getFileById(drive, fileId);
+          const fileMetadata = await this.getFileById(driveClient, fileId);
           if (!fileMetadata) {
             this.logger.warn(
               `[getFileById] File ${fileId} not found or inaccessible`,
@@ -181,7 +182,7 @@ export class GoogleDriveRAGService {
 
               if (fileModified > docProcessed) {
                 // File was modified, update it
-                await this.updateDocumentFromFile(existingDocId, file, drive);
+                await this.updateDocumentFromFile(existingDocId, file, driveClient);
                 result.updated++;
               }
             }
@@ -191,7 +192,7 @@ export class GoogleDriveRAGService {
               knowledgeBaseId,
               kb.googleDriveConnection.id,
               file,
-              drive,
+              driveClient,
             );
             result.added++;
           }
@@ -270,7 +271,7 @@ export class GoogleDriveRAGService {
    * List all files in a Google Drive folder (recursively)
    */
   private async listFilesInFolder(
-    drive: drive_v3.Drive,
+    driveClient: drive_v3.Drive,
     folderId: string,
     maxDepth: number = 3,
     currentDepth: number = 0,
@@ -285,7 +286,7 @@ export class GoogleDriveRAGService {
       let pageToken: string | undefined;
 
       do {
-        const response = await drive.files.list({
+        const response = await driveClient.files.list({
           q: `'${folderId}' in parents and trashed = false`,
           fields:
             "nextPageToken, files(id, name, mimeType, size, modifiedTime, webViewLink)",
@@ -300,7 +301,7 @@ export class GoogleDriveRAGService {
           if (item.mimeType === "application/vnd.google-apps.folder") {
             // Recursively get files from subfolder
             const subFiles = await this.listFilesInFolder(
-              drive,
+              driveClient,
               item.id!,
               maxDepth,
               currentDepth + 1,
@@ -334,10 +335,10 @@ export class GoogleDriveRAGService {
     knowledgeBaseId: string,
     connectionId: string,
     file: GoogleDriveFile,
-    drive: drive_v3.Drive,
+    driveClient: drive_v3.Drive,
   ): Promise<void> {
     // Extract content from file
-    const content = await this.extractFileContent(drive, file);
+    const content = await this.extractFileContent(driveClient, file);
 
     if (!content || content.trim().length === 0) {
       throw new Error(`No content extracted from file: ${file.name}`);
@@ -368,10 +369,10 @@ export class GoogleDriveRAGService {
   private async updateDocumentFromFile(
     documentId: string,
     file: GoogleDriveFile,
-    drive: drive_v3.Drive,
+    driveClient: drive_v3.Drive,
   ): Promise<void> {
     // Extract new content
-    const content = await this.extractFileContent(drive, file);
+    const content = await this.extractFileContent(driveClient, file);
 
     if (!content || content.trim().length === 0) {
       throw new Error(`No content extracted from file: ${file.name}`);
@@ -405,23 +406,23 @@ export class GoogleDriveRAGService {
    * Extract content from a Google Drive file
    */
   private async extractFileContent(
-    drive: drive_v3.Drive,
+    driveClient: drive_v3.Drive,
     file: GoogleDriveFile,
   ): Promise<string> {
     // Handle Google Workspace documents (Docs, Sheets, etc.)
     if (file.mimeType.startsWith("application/vnd.google-apps.")) {
-      return this.exportGoogleDoc(drive, file);
+      return this.exportGoogleDoc(driveClient, file);
     }
 
     // Handle regular files
-    return this.downloadFileContent(drive, file);
+    return this.downloadFileContent(driveClient, file);
   }
 
   /**
    * Export Google Docs/Sheets to text
    */
   private async exportGoogleDoc(
-    drive: drive_v3.Drive,
+    driveClient: drive_v3.Drive,
     file: GoogleDriveFile,
   ): Promise<string> {
     const exportMimeType = GOOGLE_EXPORT_MIME_TYPES[file.mimeType];
@@ -430,7 +431,7 @@ export class GoogleDriveRAGService {
       throw new Error(`Unsupported Google Workspace type: ${file.mimeType}`);
     }
 
-    const response = await drive.files.export({
+    const response = await driveClient.files.export({
       fileId: file.id,
       mimeType: exportMimeType,
     });
@@ -442,10 +443,10 @@ export class GoogleDriveRAGService {
    * Download and extract content from regular files
    */
   private async downloadFileContent(
-    drive: drive_v3.Drive,
+    driveClient: drive_v3.Drive,
     file: GoogleDriveFile,
   ): Promise<string> {
-    const response = await drive.files.get(
+    const response = await driveClient.files.get(
       {
         fileId: file.id,
         alt: "media",
@@ -533,11 +534,11 @@ export class GoogleDriveRAGService {
    * Get a single file by ID from Google Drive
    */
   private async getFileById(
-    drive: drive_v3.Drive,
+    driveClient: drive_v3.Drive,
     fileId: string,
   ): Promise<GoogleDriveFile | null> {
     try {
-      const response = await drive.files.get({
+      const response = await driveClient.files.get({
         fileId,
         fields: "id, name, mimeType, size, modifiedTime, webViewLink",
       });
@@ -564,8 +565,8 @@ export class GoogleDriveRAGService {
   /**
    * Get OAuth2 client for Google Drive API
    */
-  private async getOAuthClient(connection: any): Promise<any> {
-    const oauth2Client = new google.auth.OAuth2(
+  private async getOAuthClient(connection: any): Promise<OAuth2Client> {
+    const oauth2Client = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
       process.env.GOOGLE_DRIVE_REDIRECT_URI,
@@ -625,7 +626,7 @@ export class GoogleDriveRAGService {
     }
 
     const oauth2Client = await this.getOAuthClient(connection);
-    const drive = google.drive({ version: "v3", auth: oauth2Client });
+    const driveApi = drive({ version: "v3", auth: oauth2Client });
 
     const parentCondition = parentFolderId
       ? `'${parentFolderId}' in parents`
@@ -633,7 +634,7 @@ export class GoogleDriveRAGService {
 
     // Get folders
     const folderQuery = `${parentCondition} and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-    const folderResponse = await drive.files.list({
+    const folderResponse = await driveApi.files.list({
       q: folderQuery,
       fields: "files(id, name)",
       pageSize: 100,
@@ -645,7 +646,7 @@ export class GoogleDriveRAGService {
     // Count files in each folder
     const foldersWithMeta = await Promise.all(
       folders.map(async (folder) => {
-        const childResponse = await drive.files.list({
+        const childResponse = await driveApi.files.list({
           q: `'${folder.id}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
           fields: "files(id)",
           pageSize: 100,
@@ -661,7 +662,7 @@ export class GoogleDriveRAGService {
 
     // Get files (non-folders) in current directory
     const fileQuery = `${parentCondition} and mimeType != 'application/vnd.google-apps.folder' and trashed = false`;
-    const fileResponse = await drive.files.list({
+    const fileResponse = await driveApi.files.list({
       q: fileQuery,
       fields: "files(id, name, mimeType, size)",
       pageSize: 100,

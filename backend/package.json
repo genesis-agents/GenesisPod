@@ -84,7 +84,9 @@
     "echarts": "^6.0.0",
     "exceljs": "^4.4.0",
     "fontkit": "^2.0.4",
-    "googleapis": "^169.0.0",
+    "@googleapis/drive": "^8.0.0",
+    "@googleapis/oauth2": "^1.0.0",
+    "google-auth-library": "^9.0.0",
     "graphql": "^16.8.0",
     "helmet": "^8.1.0",
     "js-yaml": "^4.1.1",
@@ -157,5 +159,8 @@
     "ts-loader": "^9.5.0",
     "ts-node": "^10.9.0",
     "tsconfig-paths": "^4.2.0"
+  },
+  "overrides": {
+    "pdfjs-dist": "^5.4.394"
   }
 }
