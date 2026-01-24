@@ -1,4 +1,11 @@
-// UI components export
+// Re-export from organized subdirectories
+export * from './primitives';
+export * from './states';
+export * from './dialogs';
+export * from './collapsible';
+export * from './viewers';
+
+// Root-level UI components
 export {
   default as ResponsiveCard,
   ResponsiveCardHeader,
@@ -8,21 +15,9 @@ export {
   ResponsiveCardActions,
 } from './ResponsiveCard';
 
-export { default as PDFThumbnail } from './PDFThumbnail';
-export { default as PDFViewer } from './PDFViewer';
-export { default as HTMLViewer } from './HTMLViewer';
-export { default as ReaderView } from './ReaderView';
-export { default as TextSelectionToolbar } from './TextSelectionToolbar';
-export { default as TextHighlighter } from './TextHighlighter';
 export { default as AIMessageRenderer } from './AIMessageRenderer';
+export { default as MermaidDiagram } from './MermaidDiagram';
 export { default as TableOfContents } from './TableOfContents';
-export { Modal } from './Modal';
-export type { ModalProps } from './Modal';
-
-// State components
-export { LoadingState, LoadingSkeleton, LoadingInline } from './LoadingState';
-export { ErrorState, ErrorInline } from './ErrorState';
-export { EmptyState } from './EmptyState';
-
-// Dialog components
-export { ConfirmDialog, useConfirm } from './ConfirmDialog';
+export { default as TextHighlighter } from './TextHighlighter';
+export { default as TextSelectionToolbar } from './TextSelectionToolbar';
+export { default as Toast } from './Toast';
