@@ -19,6 +19,7 @@ import {
   RAG_PIPELINE_SERVICE_TOKEN,
 } from "../interfaces/rag.interface";
 import { SecretsService } from "../../core/secrets/secrets.service";
+import { SearchService } from "../search/search.service";
 
 interface TranslateSingleRequest {
   text: string;
@@ -33,6 +34,7 @@ interface SimpleChatRequest {
   model?: string;
   stream?: boolean;
   knowledgeBaseIds?: string[]; // RAG knowledge base IDs
+  webSearch?: boolean; // Enable web search for real-time information
 }
 
 interface QuickActionRequest {
@@ -63,6 +65,7 @@ export class AiCoreController {
     @Inject(RAG_PIPELINE_SERVICE_TOKEN)
     private readonly ragPipelineService?: IRAGPipelineService,
     @Optional() private readonly secretsService?: SecretsService,
+    @Optional() private readonly searchService?: SearchService,
   ) {}
 
   /**
@@ -427,10 +430,11 @@ export class AiCoreController {
       model = "gemini",
       stream = true,
       knowledgeBaseIds,
+      webSearch = false,
     } = body;
 
     this.logger.log(
-      `Simple chat request: model=${model}, stream=${stream}, message_len=${message?.length || 0}, context_messages=${contextMessages?.length || 0}, kbIds=${knowledgeBaseIds?.join(",") || "none"}`,
+      `Simple chat request: model=${model}, stream=${stream}, message_len=${message?.length || 0}, context_messages=${contextMessages?.length || 0}, kbIds=${knowledgeBaseIds?.join(",") || "none"}, webSearch=${webSearch}`,
     );
 
     // Log RAG service availability (use log level to ensure visibility in production)
@@ -508,6 +512,41 @@ export class AiCoreController {
         }
       }
 
+      // Web Search: Search for real-time information if enabled
+      let webSearchContext = "";
+      let webSearchSources: Array<{ title: string; url: string }> = [];
+
+      if (webSearch && this.searchService) {
+        try {
+          this.logger.log(
+            `[simple-chat] Performing web search for: "${message.substring(0, 100)}..."`,
+          );
+          const searchResponse = await this.searchService.search(message, 5);
+
+          if (searchResponse.success && searchResponse.results.length > 0) {
+            webSearchContext = this.searchService.formatResultsForContext(
+              searchResponse.results,
+            );
+            webSearchSources = searchResponse.results.map((r) => ({
+              title: r.title,
+              url: r.url,
+            }));
+            this.logger.log(
+              `[simple-chat] Web search returned ${searchResponse.results.length} results (provider: ${searchResponse.provider})`,
+            );
+          } else {
+            this.logger.log(`[simple-chat] Web search returned no results`);
+          }
+        } catch (searchError) {
+          this.logger.warn(`[simple-chat] Web search failed: ${searchError}`);
+          // Web search failure should not block the normal response
+        }
+      } else if (webSearch && !this.searchService) {
+        this.logger.warn(
+          `[simple-chat] Web search requested but SearchService not available`,
+        );
+      }
+
       // ★ 使用 AIEngineFacade 统一获取模型（与 AI Ask 一致）
       let targetModelId = model;
       const facadeModel = await this.aiFacade.getModelById(model);
@@ -573,6 +612,35 @@ ${ragContext}
         ];
       }
 
+      // Add Web Search context as system message if available
+      if (webSearchContext && webSearchSources.length > 0) {
+        const currentDate = new Date().toLocaleDateString("zh-CN", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          weekday: "long",
+        });
+        chatMessages = [
+          {
+            role: "system",
+            content: `你是一个能够访问最新网络信息的AI助手。
+
+## 重要提示
+今天的日期是：${currentDate}
+以下是通过网络搜索获取的最新信息，请优先使用这些信息来回答用户的问题。
+
+${webSearchContext}
+
+## 回答要求
+1. 优先使用搜索结果中的最新信息来回答问题
+2. 如果引用了搜索结果，请说明信息来源
+3. 对于时间敏感的问题（如"今天是几号"），请使用上面提供的当前日期
+4. 保持回答准确、及时、有帮助`,
+          },
+          ...chatMessages,
+        ];
+      }
+
       if (stream) {
         // Set up SSE headers
         res.setHeader("Content-Type", "text/event-stream");
@@ -604,6 +672,12 @@ ${ragContext}
               `data: ${JSON.stringify({ ragSources, usedKnowledgeBase: true })}\n\n`,
             );
           }
+          // Send web search sources if available
+          if (webSearchSources.length > 0) {
+            res.write(
+              `data: ${JSON.stringify({ webSearchSources, usedWebSearch: true })}\n\n`,
+            );
+          }
           res.write("data: [DONE]\n\n");
           res.end();
         } catch (error) {
@@ -627,6 +701,11 @@ ${ragContext}
           ...(ragSources.length > 0 && {
             usedKnowledgeBase: true,
             ragSources,
+          }),
+          // Include web search sources if web search was used
+          ...(webSearchSources.length > 0 && {
+            usedWebSearch: true,
+            webSearchSources,
           }),
         });
       }

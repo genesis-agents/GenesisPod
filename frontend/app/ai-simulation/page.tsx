@@ -32,7 +32,9 @@ export default function AISimulationPage() {
         headers: { ...getAuthHeader() },
       });
       if (res.ok) {
-        setScenarios(await res.json());
+        const json = await res.json();
+        // Handle wrapped API response format {success: true, data: [...]}
+        setScenarios(json.data || json || []);
       } else {
         setMessage(t('aiSimulation.error.loadFailed'));
       }

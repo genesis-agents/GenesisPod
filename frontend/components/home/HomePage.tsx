@@ -427,7 +427,8 @@ function HomeContent() {
   const { models: allAiModels } = useAIModels();
   // 显示 CHAT、CHAT_FAST 和 MULTIMODAL 类型的模型（都支持文本聊天）
   // CHAT_FAST 包括 Gemini Flash, GPT-4o-mini, Claude Haiku 等快速模型
-  const aiModels = allAiModels.filter(
+  // Guard against undefined during SSR/hydration
+  const aiModels = (allAiModels || []).filter(
     (m) =>
       m.modelType === 'CHAT' ||
       m.modelType === 'CHAT_FAST' ||
@@ -3292,7 +3293,7 @@ function HomeContent() {
                       <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-red-600"></div>
                       <span className="text-sm text-gray-600">
                         {isStreaming
-                          ? `${aiModels.find((m) => m.modelId === aiModel)?.name || aiModel} is thinking...`
+                          ? `${(aiModels || []).find((m) => m.modelId === aiModel)?.name || aiModel} is thinking...`
                           : 'AI processing...'}
                       </span>
                     </div>
@@ -3487,8 +3488,9 @@ function HomeContent() {
                             <div className="flex items-center gap-2">
                               <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-red-600"></div>
                               <p className="text-xs">
-                                {aiModels.find((m) => m.modelId === aiModel)
-                                  ?.name || aiModel}
+                                {(aiModels || []).find(
+                                  (m) => m.modelId === aiModel
+                                )?.name || aiModel}
                                 正在思考...
                               </p>
                             </div>
