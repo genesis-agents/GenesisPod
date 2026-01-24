@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
-
 import { logger } from '@/lib/utils/logger';
+
 interface Feedback {
   id: string;
   type: 'BUG' | 'FEATURE' | 'IMPROVEMENT' | 'OTHER';
@@ -32,6 +32,7 @@ interface FeedbackStats {
   total: number;
   byType: Record<string, number>;
   byStatus: Record<string, number>;
+  byPriority?: Record<string, number>;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -72,10 +73,17 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 
 const PRIORITY_LABELS: Record<string, string> = {
-  CRITICAL: '🔴 Critical',
-  HIGH: '🟠 High',
+  CRITICAL: 'Critical',
+  HIGH: 'High',
   NORMAL: 'Normal',
   LOW: 'Low',
+};
+
+const PRIORITY_ICONS: Record<string, string> = {
+  CRITICAL: 'text-red-600',
+  HIGH: 'text-orange-500',
+  NORMAL: 'text-gray-400',
+  LOW: 'text-slate-400',
 };
 
 function formatRelativeTime(dateString: string): string {
@@ -103,6 +111,7 @@ export default function FeedbackPage() {
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('');
   const [filterPriority, setFilterPriority] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [adminNotes, setAdminNotes] = useState('');
   const [newStatus, setNewStatus] = useState('');
   const [newPriority, setNewPriority] = useState('');
@@ -122,16 +131,29 @@ export default function FeedbackPage() {
       );
       if (response.ok) {
         const result = await response.json();
-        // Handle wrapped API response { success: true, data: T }
         const data = result?.data ?? result;
-        setFeedbacks(data.feedbacks || []);
+        let feedbackList = data.feedbacks || [];
+
+        // Client-side search filtering
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          feedbackList = feedbackList.filter(
+            (f: Feedback) =>
+              f.title.toLowerCase().includes(query) ||
+              f.description.toLowerCase().includes(query) ||
+              f.user_email?.toLowerCase().includes(query) ||
+              f.id.toLowerCase().includes(query)
+          );
+        }
+
+        setFeedbacks(feedbackList);
       }
     } catch (error) {
       logger.error('Failed to fetch feedbacks:', error);
     } finally {
       setLoading(false);
     }
-  }, [filterStatus, filterType, filterPriority]);
+  }, [filterStatus, filterType, filterPriority, searchQuery]);
 
   const fetchStats = async () => {
     try {
@@ -140,7 +162,6 @@ export default function FeedbackPage() {
       });
       if (response.ok) {
         const result = await response.json();
-        // Handle wrapped API response { success: true, data: T }
         const data = result?.data ?? result;
         setStats(data);
       }
@@ -154,14 +175,14 @@ export default function FeedbackPage() {
     void fetchStats();
   }, [fetchFeedbacks]);
 
-  const handleUpdateStatus = async () => {
-    if (!selectedFeedback || !newStatus) return;
+  const handleUpdateFeedback = async () => {
+    if (!selectedFeedback) return;
 
     setUpdating(true);
     try {
-      const response = await fetch(
-        `${config.apiUrl}/feedback/${selectedFeedback.id}/status`,
-        {
+      // Update status if changed
+      if (newStatus !== selectedFeedback.status) {
+        await fetch(`${config.apiUrl}/feedback/${selectedFeedback.id}/status`, {
           method: 'PATCH',
           headers: {
             ...getAuthHeader(),
@@ -171,18 +192,32 @@ export default function FeedbackPage() {
             status: newStatus,
             adminNotes: adminNotes || undefined,
           }),
-        }
-      );
-
-      if (response.ok) {
-        await fetchFeedbacks();
-        await fetchStats();
-        setSelectedFeedback(null);
-        setAdminNotes('');
-        setNewStatus('');
+        });
       }
+
+      // Update priority if changed
+      if (newPriority !== selectedFeedback.priority) {
+        await fetch(
+          `${config.apiUrl}/feedback/${selectedFeedback.id}/priority`,
+          {
+            method: 'PATCH',
+            headers: {
+              ...getAuthHeader(),
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ priority: newPriority }),
+          }
+        );
+      }
+
+      await fetchFeedbacks();
+      await fetchStats();
+      setSelectedFeedback(null);
+      setAdminNotes('');
+      setNewStatus('');
+      setNewPriority('');
     } catch (error) {
-      logger.error('Failed to update status:', error);
+      logger.error('Failed to update feedback:', error);
     } finally {
       setUpdating(false);
     }
@@ -195,20 +230,52 @@ export default function FeedbackPage() {
     setAdminNotes(feedback.admin_notes || '');
   };
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    void fetchFeedbacks();
+  };
+
+  // Get critical/high priority count for badge
+  const urgentCount = feedbacks.filter(
+    (f) => f.priority === 'CRITICAL' || f.priority === 'HIGH'
+  ).length;
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Feedback Management
-          </h1>
-          <p className="text-gray-600">Review and manage user feedback</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Feedback Management
+              </h1>
+              <p className="text-gray-600">Review and manage user feedback</p>
+            </div>
+            {urgentCount > 0 && (
+              <div className="flex items-center gap-2 rounded-lg bg-red-100 px-4 py-2 text-red-800">
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
+                </svg>
+                <span className="font-medium">{urgentCount} urgent</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Stats Cards */}
         {stats && (
-          <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-5">
+          <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-6">
             <div className="rounded-lg bg-white p-4 shadow">
               <div className="text-2xl font-bold text-gray-900">
                 {stats.total}
@@ -239,11 +306,41 @@ export default function FeedbackPage() {
               </div>
               <div className="text-sm text-gray-500">Bugs</div>
             </div>
+            <div className="rounded-lg bg-white p-4 shadow">
+              <div className="text-2xl font-bold text-amber-600">
+                {stats.byType?.FEATURE || 0}
+              </div>
+              <div className="text-sm text-gray-500">Features</div>
+            </div>
           </div>
         )}
 
-        {/* Filters */}
-        <div className="mb-4 flex gap-4">
+        {/* Search and Filters */}
+        <div className="mb-4 flex flex-wrap gap-4">
+          <form onSubmit={handleSearch} className="flex-1">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by title, description, email, or ID..."
+                className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm"
+              />
+              <svg
+                className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </div>
+          </form>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -263,6 +360,18 @@ export default function FeedbackPage() {
           >
             <option value="">All Types</option>
             {Object.entries(TYPE_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filterPriority}
+            onChange={(e) => setFilterPriority(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm"
+          >
+            <option value="">All Priority</option>
+            {Object.entries(PRIORITY_LABELS).map(([key, label]) => (
               <option key={key} value={key}>
                 {label}
               </option>
@@ -289,19 +398,58 @@ export default function FeedbackPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="mb-2 flex items-center gap-2">
+                        {/* Priority indicator */}
                         <span
-                          className={`rounded-full px-2 py-1 text-xs font-medium ${TYPE_COLORS[feedback.type]}`}
+                          className={`flex h-6 w-6 items-center justify-center ${PRIORITY_ICONS[feedback.priority || 'NORMAL']}`}
+                        >
+                          {feedback.priority === 'CRITICAL' && (
+                            <svg
+                              className="h-4 w-4"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          )}
+                          {feedback.priority === 'HIGH' && (
+                            <svg
+                              className="h-4 w-4"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          )}
+                        </span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[feedback.type]}`}
                         >
                           {TYPE_LABELS[feedback.type]}
                         </span>
                         <span
-                          className={`rounded-full px-2 py-1 text-xs font-medium ${STATUS_COLORS[feedback.status]}`}
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[feedback.status]}`}
                         >
                           {STATUS_LABELS[feedback.status]}
                         </span>
+                        {feedback.priority &&
+                          feedback.priority !== 'NORMAL' && (
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${PRIORITY_COLORS[feedback.priority]}`}
+                            >
+                              {PRIORITY_LABELS[feedback.priority]}
+                            </span>
+                          )}
                         {feedback.attachments?.length > 0 && (
                           <span className="text-xs text-gray-500">
-                            {feedback.attachments.length} attachment(s)
+                            {feedback.attachments.length} file(s)
                           </span>
                         )}
                       </div>
@@ -355,8 +503,8 @@ export default function FeedbackPage() {
               </div>
 
               <div className="p-4">
-                {/* Type & Status */}
-                <div className="mb-4 flex items-center gap-2">
+                {/* Type, Status & Priority badges */}
+                <div className="mb-4 flex flex-wrap items-center gap-2">
                   <span
                     className={`rounded-full px-3 py-1 text-sm font-medium ${TYPE_COLORS[selectedFeedback.type]}`}
                   >
@@ -366,6 +514,11 @@ export default function FeedbackPage() {
                     className={`rounded-full px-3 py-1 text-sm font-medium ${STATUS_COLORS[selectedFeedback.status]}`}
                   >
                     {STATUS_LABELS[selectedFeedback.status]}
+                  </span>
+                  <span
+                    className={`rounded-full px-3 py-1 text-sm font-medium ${PRIORITY_COLORS[selectedFeedback.priority || 'NORMAL']}`}
+                  >
+                    {PRIORITY_LABELS[selectedFeedback.priority || 'NORMAL']}
                   </span>
                 </div>
 
@@ -459,39 +612,77 @@ export default function FeedbackPage() {
                   </div>
                 )}
 
-                {/* Update Status */}
-                <div className="border-t pt-4">
-                  <h4 className="mb-2 font-medium text-gray-700">
-                    Update Status
-                  </h4>
-                  <select
-                    value={newStatus}
-                    onChange={(e) => setNewStatus(e.target.value)}
-                    className="mb-3 w-full rounded-lg border border-gray-300 px-4 py-2"
-                  >
-                    {Object.entries(STATUS_LABELS).map(([key, label]) => (
-                      <option key={key} value={key}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
+                {/* Admin Notes (existing) */}
+                {selectedFeedback.admin_notes && (
+                  <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                    <h4 className="mb-2 font-medium text-blue-800">
+                      Previous Admin Notes
+                    </h4>
+                    <p className="whitespace-pre-wrap text-blue-700">
+                      {selectedFeedback.admin_notes}
+                    </p>
+                  </div>
+                )}
 
-                  <h4 className="mb-2 font-medium text-gray-700">
-                    Admin Notes
+                {/* Update Section */}
+                <div className="border-t pt-4">
+                  <h4 className="mb-3 font-medium text-gray-700">
+                    Update Feedback
                   </h4>
-                  <textarea
-                    value={adminNotes}
-                    onChange={(e) => setAdminNotes(e.target.value)}
-                    placeholder="Add notes about this feedback..."
-                    className="mb-3 h-24 w-full resize-none rounded-lg border border-gray-300 px-4 py-2"
-                  />
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        Status
+                      </label>
+                      <select
+                        value={newStatus}
+                        onChange={(e) => setNewStatus(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-4 py-2"
+                      >
+                        {Object.entries(STATUS_LABELS).map(([key, label]) => (
+                          <option key={key} value={key}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        Priority
+                      </label>
+                      <select
+                        value={newPriority}
+                        onChange={(e) => setNewPriority(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-4 py-2"
+                      >
+                        {Object.entries(PRIORITY_LABELS).map(([key, label]) => (
+                          <option key={key} value={key}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Admin Notes
+                    </label>
+                    <textarea
+                      value={adminNotes}
+                      onChange={(e) => setAdminNotes(e.target.value)}
+                      placeholder="Add notes about this feedback..."
+                      className="h-24 w-full resize-none rounded-lg border border-gray-300 px-4 py-2"
+                    />
+                  </div>
 
                   <button
-                    onClick={() => void handleUpdateStatus()}
+                    onClick={() => void handleUpdateFeedback()}
                     disabled={updating}
-                    className="w-full rounded-lg bg-blue-600 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    className="mt-4 w-full rounded-lg bg-blue-600 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {updating ? 'Updating...' : 'Update Feedback'}
+                    {updating ? 'Updating...' : 'Save Changes'}
                   </button>
                 </div>
               </div>

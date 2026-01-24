@@ -18,6 +18,8 @@ import {
   Globe,
   Mail,
   HardDrive,
+  Coins,
+  MessageSquare,
   type LucideIcon,
 } from 'lucide-react';
 import { type AdminDomain } from './styles';
@@ -126,10 +128,22 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         icon: Users,
       },
       {
+        key: 'credits',
+        labelKey: 'admin.nav.credits',
+        href: '/admin/access/credits',
+        icon: Coins,
+      },
+      {
         key: 'secrets',
         labelKey: 'admin.nav.secrets',
         href: '/admin/access/secrets',
         icon: Key,
+      },
+      {
+        key: 'feedback',
+        labelKey: 'admin.nav.feedback',
+        href: '/admin/feedback',
+        icon: MessageSquare,
       },
       {
         key: 'security',

@@ -178,7 +178,138 @@ export class AdminService {
    * @delegate UserManagementService
    */
   async toggleCreditFreeze(userId: string, freeze: boolean, reason?: string) {
-    return this.userManagementService.toggleCreditFreeze(userId, freeze, reason);
+    return this.userManagementService.toggleCreditFreeze(
+      userId,
+      freeze,
+      reason,
+    );
+  }
+
+  /**
+   * 获取所有积分账户列表（管理员面板）
+   */
+  async getCreditAccounts(page = 1, limit = 20, search?: string) {
+    const skip = (page - 1) * limit;
+
+    const where = search
+      ? {
+          user: {
+            OR: [
+              { email: { contains: search, mode: "insensitive" as const } },
+              { username: { contains: search, mode: "insensitive" as const } },
+            ],
+          },
+        }
+      : {};
+
+    const [accounts, total] = await Promise.all([
+      this.prisma.creditAccount.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              username: true,
+            },
+          },
+        },
+      }),
+      this.prisma.creditAccount.count({ where }),
+    ]);
+
+    return {
+      accounts: accounts.map((account) => ({
+        userId: account.userId,
+        email: account.user.email,
+        username: account.user.username,
+        balance: account.balance,
+        totalEarned: account.totalEarned,
+        totalSpent: account.totalSpent,
+        isFrozen: account.isFrozen,
+        createdAt: account.createdAt,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * 获取积分统计信息（管理员面板）
+   */
+  async getCreditsStats() {
+    const [totalAccounts, aggregates, frozenAccounts, lowBalanceAccounts] =
+      await Promise.all([
+        this.prisma.creditAccount.count(),
+        this.prisma.creditAccount.aggregate({
+          _sum: {
+            balance: true,
+            totalEarned: true,
+            totalSpent: true,
+          },
+        }),
+        this.prisma.creditAccount.count({ where: { isFrozen: true } }),
+        this.prisma.creditAccount.count({ where: { balance: { lt: 500 } } }),
+      ]);
+
+    return {
+      totalAccounts,
+      totalBalance: aggregates._sum.balance || 0,
+      totalEarned: aggregates._sum.totalEarned || 0,
+      totalSpent: aggregates._sum.totalSpent || 0,
+      frozenAccounts,
+      lowBalanceAccounts,
+    };
+  }
+
+  /**
+   * 获取用户积分交易记录（管理员面板）
+   */
+  async getCreditTransactions(userId: string, limit = 50, offset = 0) {
+    const account = await this.prisma.creditAccount.findUnique({
+      where: { userId },
+    });
+
+    if (!account) {
+      throw new NotFoundException(
+        `Credit account for user ${userId} not found`,
+      );
+    }
+
+    const [transactions, total] = await Promise.all([
+      this.prisma.creditTransaction.findMany({
+        where: { accountId: account.id },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        skip: offset,
+      }),
+      this.prisma.creditTransaction.count({
+        where: { accountId: account.id },
+      }),
+    ]);
+
+    return {
+      transactions: transactions.map((tx) => ({
+        id: tx.id,
+        type: tx.type,
+        amount: tx.amount,
+        balanceAfter: tx.balanceAfter,
+        description: tx.description,
+        moduleType: tx.moduleType,
+        operationType: tx.operationType,
+        createdAt: tx.createdAt,
+      })),
+      total,
+      limit,
+      offset,
+    };
   }
 
   /**

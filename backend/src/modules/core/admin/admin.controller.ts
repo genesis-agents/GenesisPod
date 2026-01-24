@@ -1977,4 +1977,54 @@ export class AdminController {
     );
     return this.adminService.resetCollectionData();
   }
+
+  // ============ Credits Management (Admin Dashboard) ============
+
+  /**
+   * 获取所有积分账户列表
+   * GET /api/v1/admin/credits/accounts
+   */
+  @Get("credits/accounts")
+  async getCreditAccounts(
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+    @Query("search") search?: string,
+  ) {
+    this.logger.log(
+      `Admin: Fetching credit accounts (page=${page}, search=${search})`,
+    );
+    return this.adminService.getCreditAccounts(
+      page ? parseInt(page) : 1,
+      limit ? parseInt(limit) : 20,
+      search,
+    );
+  }
+
+  /**
+   * 获取积分统计信息
+   * GET /api/v1/admin/credits/stats
+   */
+  @Get("credits/stats")
+  async getCreditsStats() {
+    this.logger.log("Admin: Fetching credits statistics");
+    return this.adminService.getCreditsStats();
+  }
+
+  /**
+   * 获取用户交易记录
+   * GET /api/v1/admin/credits/transactions/:userId
+   */
+  @Get("credits/transactions/:userId")
+  async getCreditTransactions(
+    @Param("userId") userId: string,
+    @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
+  ) {
+    this.logger.log(`Admin: Fetching transactions for user ${userId}`);
+    return this.adminService.getCreditTransactions(
+      userId,
+      limit ? parseInt(limit) : 50,
+      offset ? parseInt(offset) : 0,
+    );
+  }
 }
