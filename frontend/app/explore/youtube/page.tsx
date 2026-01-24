@@ -446,14 +446,18 @@ function YouTubeTLDWContent() {
       ]);
 
       if (commentsRes.ok) {
-        const data = await commentsRes.json();
-        setComments(data || []);
+        const result = await commentsRes.json();
+        // API returns { success, data: [...] } format
+        const data = result?.data ?? result;
+        setComments(Array.isArray(data) ? data : []);
       } else {
         setCommentsError('Failed to load comments');
       }
 
       if (statsRes.ok) {
-        const stats = await statsRes.json();
+        const result = await statsRes.json();
+        // API returns { success, data: { total } } format
+        const stats = result?.data ?? result;
         setCommentsTotalCount(stats.total || 0);
       }
     } catch (error) {
@@ -892,7 +896,9 @@ function YouTubeTLDWContent() {
           throw new Error('Failed to translate');
         }
 
-        const data = await res.json();
+        const result = await res.json();
+        // API returns { success, data: { translation } } format
+        const data = result?.data ?? result;
 
         // Update translations map using merged index
         setTranslations((prev) => {

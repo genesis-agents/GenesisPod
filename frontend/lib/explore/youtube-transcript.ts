@@ -197,7 +197,9 @@ export async function fetchTranscriptFromClient(
       return null;
     }
 
-    const data = await response.json();
+    const result = await response.json();
+    // API returns { success, data: { transcript, title, language } } format
+    const data = result?.data ?? result;
 
     if (data.transcript && data.transcript.length > 0) {
       return {
@@ -268,7 +270,9 @@ export async function fetchTranscriptSmart(
     );
 
     if (serverResponse.ok) {
-      const data = await serverResponse.json();
+      const result = await serverResponse.json();
+      // API returns { success, data: { transcript, title, fromCache } } format
+      const data = result?.data ?? result;
       if (
         data.transcript &&
         Array.isArray(data.transcript) &&
