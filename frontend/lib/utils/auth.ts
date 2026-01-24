@@ -14,15 +14,18 @@ export interface User {
   interests?: string[];
   createdAt: string;
   role?: 'USER' | 'ADMIN';
+  isAdmin?: boolean; // Returned by /auth/me, considers both role and ADMIN_EMAILS
 }
 
 /**
  * 检查用户是否是管理员
- * 仅依赖后端返回的角色，不使用前端硬编码的邮箱白名单
+ * 优先使用后端返回的 isAdmin 字段（考虑 role 和 ADMIN_EMAILS 环境变量）
+ * 兼容旧版本仅检查 role
  */
 export function isUserAdmin(user: User | null): boolean {
   if (!user) return false;
-  return user.role === 'ADMIN';
+  // isAdmin from API considers both role and email whitelist
+  return user.isAdmin === true || user.role === 'ADMIN';
 }
 
 export interface AuthTokens {

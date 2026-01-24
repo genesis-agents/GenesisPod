@@ -9,8 +9,12 @@ import {
   Response,
   Logger,
 } from "@nestjs/common";
-import { Request as ExpressRequest, Response as ExpressResponse } from "express";
+import {
+  Request as ExpressRequest,
+  Response as ExpressResponse,
+} from "express";
 import { AuthGuard } from "@nestjs/passport";
+import { ConfigService } from "@nestjs/config";
 import { AuthService } from "./auth.service";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 
@@ -20,8 +24,18 @@ import { UpdateProfileDto } from "./dto/update-profile.dto";
 @Controller("auth")
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
+  private readonly adminEmails: string[];
 
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private configService: ConfigService,
+  ) {
+    const emails = this.configService.get<string>("ADMIN_EMAILS", "");
+    this.adminEmails = emails
+      .split(",")
+      .map((e) => e.trim())
+      .filter((e) => e.length > 0);
+  }
 
   /**
    * 用户注册
@@ -77,8 +91,16 @@ export class AuthController {
    */
   @Get("me")
   @UseGuards(AuthGuard("jwt"))
-  getProfile(@Request() req: { user: unknown }) {
-    return req.user;
+  getProfile(@Request() req: { user: { email?: string; role?: string } }) {
+    const user = req.user;
+    // Check admin status: role === 'ADMIN' OR email in ADMIN_EMAILS
+    const isAdmin =
+      user.role === "ADMIN" ||
+      (user.email &&
+        this.adminEmails.some(
+          (email) => email.toLowerCase() === user.email?.toLowerCase(),
+        ));
+    return { ...user, isAdmin };
   }
 
   /**
@@ -126,7 +148,9 @@ export class AuthController {
    */
   @Post("exchange")
   async exchangeAuthCode(@Body("code") code: string) {
-    this.logger.log(`Token exchange request with code: ${code.substring(0, 8)}...`);
+    this.logger.log(
+      `Token exchange request with code: ${code.substring(0, 8)}...`,
+    );
     return this.authService.exchangeAuthCode(code);
   }
 
