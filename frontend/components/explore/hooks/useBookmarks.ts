@@ -30,7 +30,13 @@ export function useBookmarks() {
       });
 
       if (response.ok) {
-        const collections = await response.json();
+        const result = await response.json();
+        // API returns { success, data: [...] } format
+        const collections = Array.isArray(result?.data)
+          ? result.data
+          : Array.isArray(result)
+            ? result
+            : [];
 
         // Find or create default collection
         let defaultCollection = collections.find(
@@ -56,7 +62,9 @@ export function useBookmarks() {
           );
 
           if (createResponse.ok) {
-            defaultCollection = await createResponse.json();
+            const createResult = await createResponse.json();
+            // API returns { success, data: collection } format
+            defaultCollection = createResult?.data ?? createResult;
           }
         }
 

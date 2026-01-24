@@ -320,9 +320,12 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
             createdAt: string;
             videoId: string;
           }
-          const youtubeVideos = (
-            Array.isArray(youtubeData) ? youtubeData : youtubeData.data || []
-          ).map((video: VideoData) => ({
+          // API returns { success, data: [...] } or { success, data: { data: [...] } }
+          const ytResponseData = youtubeData?.data ?? youtubeData;
+          const ytVideosArray = Array.isArray(ytResponseData)
+            ? ytResponseData
+            : ytResponseData?.data || [];
+          const youtubeVideos = ytVideosArray.map((video: VideoData) => ({
             id: video.id,
             type: 'YOUTUBE',
             title: video.title,
@@ -336,9 +339,11 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
           const resourcesUrl = `${config.apiUrl}/resources?type=YOUTUBE_VIDEO&take=${PAGE_SIZE}&skip=${currentPage * PAGE_SIZE}`;
           const resourcesRes = await fetch(resourcesUrl);
           const resourcesData = await resourcesRes.json();
-          const resourceVideos = Array.isArray(resourcesData)
-            ? resourcesData
-            : resourcesData.data || [];
+          // API returns { success, data: { data: [...], pagination } } format
+          const resResponseData = resourcesData?.data ?? resourcesData;
+          const resourceVideos = Array.isArray(resResponseData)
+            ? resResponseData
+            : resResponseData?.data || [];
 
           // Merge and deduplicate by videoId
           const seenVideoIds = new Set<string>();
@@ -433,7 +438,11 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
         const url = `${config.apiUrl}/resources?${params.toString()}`;
         const res = await fetch(url);
         const data = await res.json();
-        const newResources = Array.isArray(data) ? data : data.data || [];
+        // API returns { success, data: { data: [...], pagination } } format
+        const responseData = data?.data ?? data;
+        const newResources = Array.isArray(responseData)
+          ? responseData
+          : responseData?.data || [];
 
         if (loadMore) {
           setResources((prev) => [...prev, ...newResources]);
