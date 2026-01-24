@@ -57,8 +57,19 @@ git commit -m "feat(db): add new table"
 mkdir backend/prisma/migrations/YYYYMMDD_description
 
 # 2. 创建 migration.sql 文件
-# 注意：SQL 必须是幂等的（使用 IF NOT EXISTS）
 ```
+
+> ⚠️ **关键要求：SQL 必须是幂等的**
+>
+> 所有手动创建的迁移 SQL **必须**使用幂等语法：
+>
+> - `CREATE TABLE IF NOT EXISTS` - 创建表
+> - `CREATE INDEX IF NOT EXISTS` - 创建索引
+> - `CREATE UNIQUE INDEX IF NOT EXISTS` - 创建唯一索引
+> - `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` - 添加列
+> - `DO $$ BEGIN ... EXCEPTION WHEN duplicate_object THEN null; END $$;` - 创建枚举
+>
+> **原因**：Railway 部署时迁移可能被中断后重试，非幂等 SQL 会导致重复执行失败。
 
 **手动迁移 SQL 模板**：
 
@@ -243,7 +254,11 @@ npx prisma generate
 
 ### 创建迁移后
 
-- [ ] SQL 是否幂等（IF NOT EXISTS）？
+- [ ] **SQL 是否幂等？（必须）**
+  - `CREATE TABLE IF NOT EXISTS`
+  - `CREATE INDEX IF NOT EXISTS`
+  - `CREATE UNIQUE INDEX IF NOT EXISTS`
+  - `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
 - [ ] 索引名称是否有描述性？
 - [ ] 是否有破坏性操作（DROP without backup）？
 - [ ] 本地测试是否通过？
@@ -319,5 +334,5 @@ ON "my_table"("field1", "field2");
 
 ---
 
-**最后更新**: 2025-01-15
+**最后更新**: 2026-01-24
 **维护者**: Claude Code

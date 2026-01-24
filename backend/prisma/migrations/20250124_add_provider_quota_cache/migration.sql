@@ -1,7 +1,7 @@
 -- CreateTable
 -- Provider Quota Cache - API 配额缓存表
 -- 用于存储各 AI Provider 的 API 使用量和配额信息
-CREATE TABLE "provider_quota_cache" (
+CREATE TABLE IF NOT EXISTS "provider_quota_cache" (
     "id" TEXT NOT NULL,
     "provider" VARCHAR(50) NOT NULL,
     "quota_type" VARCHAR(20) NOT NULL DEFAULT 'tokens',
@@ -23,7 +23,7 @@ CREATE TABLE "provider_quota_cache" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "provider_quota_cache_provider_key" ON "provider_quota_cache"("provider");
+CREATE UNIQUE INDEX IF NOT EXISTS "provider_quota_cache_provider_key" ON "provider_quota_cache"("provider");
 
 -- Add comment
 COMMENT ON TABLE "provider_quota_cache" IS 'API 配额缓存表 - 存储各 AI Provider 的配额使用情况';
