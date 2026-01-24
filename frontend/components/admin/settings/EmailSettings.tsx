@@ -64,7 +64,9 @@ export default function EmailSettings() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setConfig(data);
       }
     } catch (error) {
@@ -109,7 +111,9 @@ export default function EmailSettings() {
       });
 
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setConfig(data);
         setSmtpPassword('');
         setResendApiKey('');
@@ -145,7 +149,9 @@ export default function EmailSettings() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       setTestResult(data);
     } catch (error: unknown) {
       setTestResult({

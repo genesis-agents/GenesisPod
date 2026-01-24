@@ -95,7 +95,9 @@ export function AudioPlayer({
         throw new Error('Failed to generate audio');
       }
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
 
       if (data.available && data.audioUrl) {
         setAudioUrl(data.audioUrl);

@@ -142,7 +142,9 @@ export default function UrlImportPanel({
         throw new Error(error.message || 'Failed to fetch URL');
       }
 
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       setUrls((prev) =>
         prev.map((u) =>
           u.url === url

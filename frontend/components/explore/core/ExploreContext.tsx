@@ -437,12 +437,11 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
 
         const url = `${config.apiUrl}/resources?${params.toString()}`;
         const res = await fetch(url);
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
         // API returns { success, data: { data: [...], pagination } } format
-        const responseData = data?.data ?? data;
-        const newResources = Array.isArray(responseData)
-          ? responseData
-          : responseData?.data || [];
+        const data = result?.data ?? result;
+        const newResources = Array.isArray(data) ? data : data?.data || [];
 
         if (loadMore) {
           setResources((prev) => [...prev, ...newResources]);

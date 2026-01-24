@@ -65,7 +65,9 @@ export default function SystemSettings() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setSearchConfig(data);
       }
     } catch (error) {
@@ -92,7 +94,9 @@ export default function SystemSettings() {
       });
 
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setSearchConfig(data);
         setTavilyApiKey('');
         setSerperApiKey('');
@@ -149,7 +153,9 @@ export default function SystemSettings() {
         body: JSON.stringify({ provider, apiKey }),
       });
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       setSearchTestResult({ provider, ...data });
     } catch (error) {
       setSearchTestResult({

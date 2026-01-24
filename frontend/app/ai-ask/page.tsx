@@ -1275,7 +1275,9 @@ export default function AskPage() {
       throw new Error(error.message || `API Error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const result = await response.json();
+    // Handle wrapped API response { success: true, data: T }
+    const data = result?.data ?? result;
     logger.debug('[AiAsk] Response data:', {
       hasContent: !!data.content,
       usedKnowledgeBase: data.usedKnowledgeBase,

@@ -59,7 +59,9 @@ export default function DataQualityManagement() {
       );
       if (!res.ok) throw new Error('Failed to fetch quality metrics');
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       setStats(data.data?.statistics || []);
 
       // Fetch detailed metrics (in a real app, this would be paginated)

@@ -35,7 +35,9 @@ export interface ApiErrorResponse {
  */
 async function parseErrorResponse(response: Response): Promise<string> {
   try {
-    const data = await response.json();
+    const result = await response.json();
+    // Handle wrapped API response { success: true, data: T }
+    const data = result?.data ?? result;
     return data.message || data.error || `Error ${response.status}`;
   } catch {
     return response.statusText || `Error ${response.status}`;

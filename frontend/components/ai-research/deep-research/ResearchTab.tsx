@@ -128,8 +128,10 @@ export function ResearchTab({
           { headers: { ...getAuthHeader() } }
         );
         if (res.ok) {
-          const data = await res.json();
-          setSessions(data.data || []);
+          const result = await res.json();
+          // Handle wrapped API response { success: true, data: T }
+          const data = result?.data ?? result;
+          setSessions(data.data || data || []);
         }
       } catch (err) {
         logger.error('Failed to load research sessions:', err);

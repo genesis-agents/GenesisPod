@@ -8,7 +8,12 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
 import { logger } from '@/lib/utils/logger';
-import { ScenarioGoals, ScenarioParams, ScenarioFormCompany, ScenarioFormAgent } from '../../types';
+import {
+  ScenarioGoals,
+  ScenarioParams,
+  ScenarioFormCompany,
+  ScenarioFormAgent,
+} from '../../types';
 
 interface ScenarioDetail {
   id: string;
@@ -62,7 +67,9 @@ export default function EditScenarioPage() {
         }
       );
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setScenario(data);
       } else {
         setError(true);

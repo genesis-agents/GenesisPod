@@ -244,7 +244,9 @@ export function EditorModal({
           existingCompanies: companies.map((c) => c.name),
         }),
       });
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       if (res.ok) {
         setAiSuggestions(data);
         setMessage('AI已分析行业竞争格局，请查看建议并选择采纳');
@@ -432,7 +434,9 @@ export function EditorModal({
           }),
         }
       );
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       if (res.ok && data.agents) {
         setAiAgentSuggestions(data.agents);
         setMessage(
@@ -567,7 +571,9 @@ export function EditorModal({
           }),
         }
       );
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       if (res.ok) {
         setAiParamsSuggestions(data);
         setMessage('AI已分析行业特征并推荐最优参数配置，点击"采纳建议"应用');
@@ -652,8 +658,10 @@ export function EditorModal({
       });
 
       logger.debug('[saveScenario] Response status:', res.status);
-      const data = await res.json();
-      logger.debug('[saveScenario] Response data:', data);
+      const result = await res.json();
+      logger.debug('[saveScenario] Response data:', result);
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
 
       if (res.ok) {
         setMessage(isEditing ? '场景已更新' : '场景已保存');
@@ -692,7 +700,9 @@ export function EditorModal({
           params: form.constraints,
         }),
       });
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       if (res.ok) {
         setRunId(data.id);
         setMessage('推演已启动，正在跳转...');
@@ -787,7 +797,9 @@ export function EditorModal({
       const res = await fetch(`${config.apiUrl}/simulation/external/snapshot`, {
         headers: { ...getAuthHeader() },
       });
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       if (res.ok) {
         setExternal(data);
         setMessage('已同步外部数据，建议复核字段并人工调整');
@@ -911,7 +923,9 @@ export function EditorModal({
           existingCompanies: companies.map((c) => c.name),
         }),
       });
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       if (res.ok && data.companies && Array.isArray(data.companies)) {
         // AI分析成功，为每个公司生成量化指标
         const companiesWithMetrics = await Promise.all(
@@ -939,7 +953,9 @@ export function EditorModal({
                     }),
                   }
                 );
-                const metricsData = await metricsRes.json();
+                const metricsResult = await metricsRes.json();
+                // Handle wrapped API response { success: true, data: T }
+                const metricsData = metricsResult?.data ?? metricsResult;
                 return {
                   name: c.name,
                   type: c.type || 'competitor',

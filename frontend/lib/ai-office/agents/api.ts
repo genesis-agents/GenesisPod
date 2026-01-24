@@ -24,7 +24,9 @@ export async function getAgents(): Promise<AgentConfig[]> {
   if (!response.ok) {
     throw new Error('Failed to fetch agents');
   }
-  const data = await response.json();
+  const result = await response.json();
+  // Handle wrapped API response { success: true, data: T }
+  const data = result?.data ?? result;
   return data.agents;
 }
 
@@ -51,7 +53,9 @@ export async function getAgentTemplates(
   if (!response.ok) {
     throw new Error('Failed to fetch templates');
   }
-  const data = await response.json();
+  const result = await response.json();
+  // Handle wrapped API response { success: true, data: T }
+  const data = result?.data ?? result;
   return data.templates;
 }
 
@@ -152,7 +156,9 @@ export async function getArtifacts(taskId: string): Promise<Artifact[]> {
   if (!response.ok) {
     throw new Error('Failed to fetch artifacts');
   }
-  const data = await response.json();
+  const result = await response.json();
+  // Handle wrapped API response { success: true, data: T }
+  const data = result?.data ?? result;
   return data.artifacts;
 }
 

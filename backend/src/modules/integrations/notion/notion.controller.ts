@@ -94,7 +94,6 @@ export class NotionController {
     }
 
     return {
-      success: true,
       connectionId: result.connectionId,
       workspaceName: result.workspaceName,
       message: "Notion workspace connected successfully",
@@ -152,7 +151,7 @@ export class NotionController {
   ) {
     const userId = this.getUserId(req);
     await this.authService.disconnect(userId, connectionId);
-    return { success: true, message: "Notion workspace disconnected" };
+    return { message: "Notion workspace disconnected" };
   }
 
   // ============ Connections ============
@@ -218,7 +217,6 @@ export class NotionController {
       dto.fullSync,
     );
     return {
-      success: true,
       message: "Sync started",
       ...result,
     };
@@ -306,7 +304,7 @@ export class NotionController {
       body.pageId,
       body.resolution,
     );
-    return { success: true, message: "Conflict resolved" };
+    return { message: "Conflict resolved" };
   }
 
   // ============ Pages ============
@@ -365,7 +363,7 @@ export class NotionController {
   ) {
     const userId = this.getUserId(req);
     await this.pageService.pushToNotion(userId, pageId);
-    return { success: true, message: "Changes pushed to Notion" };
+    return { message: "Changes pushed to Notion" };
   }
 
   @Post("pages/:pageId/link")
@@ -379,7 +377,7 @@ export class NotionController {
   ) {
     const userId = this.getUserId(req);
     await this.pageService.linkToResource(userId, pageId, dto.resourceId);
-    return { success: true, message: "Page linked to resource" };
+    return { message: "Page linked to resource" };
   }
 
   @Delete("pages/:pageId/link")
@@ -392,7 +390,7 @@ export class NotionController {
   ) {
     const userId = this.getUserId(req);
     await this.pageService.unlinkFromResource(userId, pageId);
-    return { success: true, message: "Page unlinked from resource" };
+    return { message: "Page unlinked from resource" };
   }
 
   // ============ Databases ============

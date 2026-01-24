@@ -160,7 +160,7 @@ export class WechatDataSourceController {
   async deleteItem(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     const userId = this.getUserId(req);
     await this.wechatDataSourceService.deleteItem(userId, id);
-    return { success: true, message: "Item deleted successfully" };
+    return { message: "Item deleted successfully" };
   }
 
   /**
@@ -184,7 +184,7 @@ export class WechatDataSourceController {
       userId,
       body.ids,
     );
-    return { success: true, deletedCount: count };
+    return { deletedCount: count };
   }
 
   /**
@@ -234,7 +234,7 @@ export class WechatDataSourceController {
         syncSource: "manual",
       });
 
-      return { success: true, item };
+      return { item };
     } catch (error) {
       this.logger.error(`Failed to create item: ${error}`);
       throw new HttpException(

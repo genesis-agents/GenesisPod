@@ -435,7 +435,9 @@ export default function RunConsolePage() {
         headers: { ...getAuthHeader() },
       });
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setRun(data);
       }
     } catch (err) {

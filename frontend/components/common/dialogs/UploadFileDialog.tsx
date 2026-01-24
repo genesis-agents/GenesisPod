@@ -124,10 +124,12 @@ export function UploadFileDialog({
         }
       );
 
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || '文件上传失败');
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || '文件上传失败');
       }
 
       // 上传成功 - 直接关闭对话框

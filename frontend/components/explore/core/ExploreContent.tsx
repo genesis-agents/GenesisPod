@@ -513,7 +513,9 @@ function HomeContent() {
 
       const url = `${config.apiUrl}/resources?${params.toString()}`;
       const res = await fetch(url);
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       // API returns { success, data: { data: [...], pagination } } format
       const responseData = data?.data ?? data;
       const newResources = Array.isArray(responseData)
@@ -766,7 +768,9 @@ function HomeContent() {
 
       const url = `${config.apiUrl}/resources/search/suggestions?${params.toString()}`;
       const res = await fetch(url);
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
 
       if (data.suggestions && Array.isArray(data.suggestions)) {
         setSearchSuggestions(data.suggestions);
@@ -823,7 +827,9 @@ function HomeContent() {
   const fetchResourceById = async (id: string) => {
     try {
       const res = await fetch(`${config.apiUrl}/resources/${id}`);
-      const resource = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const resource = result?.data ?? result;
       if (resource) {
         handleResourceClick(resource);
       }
@@ -1219,7 +1225,9 @@ function HomeContent() {
         }),
       });
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
 
       // Parse and set the appropriate state based on action type
       if (action === 'summary') {
@@ -3144,9 +3152,11 @@ function HomeContent() {
                           `${config.apiBaseUrl}/api/v1/resources/${resource.id}`
                         )
                           .then((res) => res.json())
-                          .then((data) => {
-                            if (data) {
-                              setSelectedResource(data as Resource);
+                          .then((result) => {
+                            // Handle wrapped API response { success: true, data: {...} }
+                            const resourceData = result?.data ?? result;
+                            if (resourceData) {
+                              setSelectedResource(resourceData as Resource);
                               setViewMode('detail');
                             }
                           })

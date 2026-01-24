@@ -314,7 +314,9 @@ async function generateOutput(
     }
   );
   if (!res.ok) throw new Error('Failed to generate output');
-  const data = await res.json();
+  const result = await res.json();
+  // Handle wrapped API response { success: true, data: T }
+  const data = result?.data ?? result;
   return data.output;
 }
 

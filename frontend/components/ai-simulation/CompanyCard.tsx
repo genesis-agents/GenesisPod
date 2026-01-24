@@ -68,7 +68,9 @@ export function CompanyCard({
 
       if (!res.ok) throw new Error('AI生成失败');
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       setAiSuggestion(data);
       setShowConfirmDialog(true);
     } catch (err) {

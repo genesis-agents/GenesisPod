@@ -574,27 +574,37 @@ export default function ExternalAPISettings() {
       ]);
 
       if (searchRes.ok) {
-        const data = await searchRes.json();
+        const result = await searchRes.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setSearchConfig(data);
       }
 
       if (extractionRes.ok) {
-        const data = await extractionRes.json();
+        const result = await extractionRes.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setExtractionConfig(data);
       }
 
       if (youtubeRes.ok) {
-        const data = await youtubeRes.json();
+        const result = await youtubeRes.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setYoutubeConfig(data);
       }
 
       if (ttsRes.ok) {
-        const data = await ttsRes.json();
+        const result = await ttsRes.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setTtsConfig(data);
       }
 
       if (skillsmpRes.ok) {
-        const data = await skillsmpRes.json();
+        const result = await skillsmpRes.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setSkillsmpConfig(data);
         // Populate API key input with masked value if configured
         if (data.apiKey) {
@@ -603,7 +613,10 @@ export default function ExternalAPISettings() {
       }
 
       if (providersRes.ok) {
-        const providers: BackendProvider[] = await providersRes.json();
+        const providersResult = await providersRes.json();
+        // Handle wrapped API response { success: true, data: T }
+        const providers: BackendProvider[] =
+          providersResult?.data ?? providersResult;
         logger.debug('[ExternalAPI] Loaded providers from backend:', providers);
 
         // Group providers by category - ONLY include providers with valid data
@@ -704,7 +717,9 @@ export default function ExternalAPISettings() {
       });
 
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setSearchConfig(data);
         setSearchApiKeys({ perplexity: '' });
         setTavilyApiKeys(['']);
@@ -742,7 +757,9 @@ export default function ExternalAPISettings() {
       });
 
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setExtractionConfig(data);
         setExtractionApiKeys({ jina: '', firecrawl: '', tavily: '' });
         setMessage({ type: 'success', text: '内容提取配置保存成功' });
@@ -778,7 +795,9 @@ export default function ExternalAPISettings() {
       });
 
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setYoutubeConfig(data);
         setYoutubeApiKeys({ supadata: '' });
         setMessage({ type: 'success', text: 'YouTube 字幕配置保存成功' });
@@ -842,7 +861,9 @@ export default function ExternalAPISettings() {
         body: JSON.stringify({ provider: providerId, apiKey }),
       });
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       setTestResults((prev) => ({
         ...prev,
         [`youtube-${providerId}`]: data,
@@ -888,7 +909,9 @@ export default function ExternalAPISettings() {
       });
 
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setTtsConfig(data);
         setTtsApiKeys({ elevenlabs: '', google: '' });
         setMessage({ type: 'success', text: 'TTS 配置保存成功' });
@@ -940,7 +963,9 @@ export default function ExternalAPISettings() {
         body: JSON.stringify({ provider: providerId, apiKey }),
       });
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       setTestResults((prev) => ({
         ...prev,
         [`tts-${providerId}`]: data,
@@ -1251,7 +1276,9 @@ export default function ExternalAPISettings() {
         body: JSON.stringify({ provider: providerId, apiKey }),
       });
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       setTestResults((prev) => ({ ...prev, [providerId]: data }));
     } catch (err) {
       setTestResults((prev) => ({
@@ -1314,7 +1341,9 @@ export default function ExternalAPISettings() {
         body: JSON.stringify({ provider: providerId, apiKey }),
       });
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       setTestResults((prev) => ({
         ...prev,
         [`extraction-${providerId}`]: data,
@@ -1348,7 +1377,9 @@ export default function ExternalAPISettings() {
       );
 
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setBalances((prev) => ({ ...prev, [key]: data }));
       }
     } catch (err) {
@@ -2946,7 +2977,9 @@ export default function ExternalAPISettings() {
                             body: JSON.stringify({ apiKey: skillsmpApiKey }),
                           }
                         );
-                        const data = await res.json();
+                        const result = await res.json();
+                        // Handle wrapped API response { success: true, data: T }
+                        const data = result?.data ?? result;
                         setTestResults((prev) => ({
                           ...prev,
                           skillsmp: {
@@ -2987,7 +3020,9 @@ export default function ExternalAPISettings() {
                             },
                           }
                         );
-                        const data = await res.json();
+                        const result = await res.json();
+                        // Handle wrapped API response { success: true, data: T }
+                        const data = result?.data ?? result;
                         if (data.success) {
                           setSkillsmpConfig((prev) => ({
                             ...prev,
@@ -3093,7 +3128,9 @@ export default function ExternalAPISettings() {
                     }
                   );
                   if (res.ok) {
-                    const data = await res.json();
+                    const result = await res.json();
+                    // Handle wrapped API response { success: true, data: T }
+                    const data = result?.data ?? result;
                     setSkillsmpConfig(data);
                     // Update API key input with masked value from response
                     if (data.apiKey) {

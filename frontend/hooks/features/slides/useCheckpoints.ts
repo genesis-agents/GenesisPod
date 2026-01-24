@@ -91,7 +91,9 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
           throw new Error('Failed to fetch checkpoint details');
         }
 
-        const detailData = await detailResponse.json();
+        const detailResult = await detailResponse.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const detailData = detailResult?.data ?? detailResult;
         const checkpointState: CheckpointState = detailData.state;
 
         // 调用恢复 API
@@ -105,7 +107,9 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
         }
 
         // 获取恢复 API 返回的 sessionId
-        const restoreData = await restoreResponse.json();
+        const restoreResult = await restoreResponse.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const restoreData = restoreResult?.data ?? restoreResult;
         const restoredSessionId = restoreData.sessionId || checkpointId;
 
         // 更新本地状态
@@ -162,7 +166,9 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
           throw new Error('Failed to fetch session details');
         }
 
-        const sessionData = await sessionResponse.json();
+        const sessionResult = await sessionResponse.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const sessionData = sessionResult?.data ?? sessionResult;
 
         if (!sessionData.latestCheckpoint?.id) {
           throw new Error('Session has no checkpoints');
@@ -177,7 +183,9 @@ export function useCheckpoints(options: UseCheckpointsOptions = {}) {
           throw new Error('Failed to fetch checkpoint details');
         }
 
-        const detailData = await detailResponse.json();
+        const detailResult = await detailResponse.json();
+        // Handle wrapped response { success: true, data: {...} }
+        const detailData = detailResult?.data ?? detailResult;
         const checkpointState: CheckpointState = detailData.state;
 
         // 调用恢复 API

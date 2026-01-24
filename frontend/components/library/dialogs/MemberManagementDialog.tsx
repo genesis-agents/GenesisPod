@@ -81,7 +81,9 @@ export default function MemberManagementDialog({
         throw new Error('Failed to fetch members');
       }
 
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       setMembers(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch members');

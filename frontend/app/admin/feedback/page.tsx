@@ -121,7 +121,9 @@ export default function FeedbackPage() {
         { headers: getAuthHeader() }
       );
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setFeedbacks(data.feedbacks || []);
       }
     } catch (error) {
@@ -137,7 +139,9 @@ export default function FeedbackPage() {
         headers: getAuthHeader(),
       });
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setStats(data);
       }
     } catch (error) {

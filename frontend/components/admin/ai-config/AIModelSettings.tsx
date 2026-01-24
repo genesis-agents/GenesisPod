@@ -1339,7 +1339,9 @@ function EditModelModal({
           }
         );
         if (response.ok) {
-          const data = await response.json();
+          const result = await response.json();
+          // Handle wrapped API response { success: true, data: T }
+          const data = result?.data ?? result;
           setApiKey(data.apiKey || '');
         }
       } catch (err) {

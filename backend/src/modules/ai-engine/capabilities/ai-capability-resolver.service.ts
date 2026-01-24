@@ -569,45 +569,52 @@ export class AICapabilityResolver {
 
   /**
    * 获取全局启用的工具
-   * ★ 只返回已在 ToolRegistry 中注册的工具，确保可用性
+   * ★ 默认启用所有注册的工具，只有显式设置 enabled: false 的才禁用
+   * Fix: 之前的逻辑是"只返回 enabled: true 的工具"，导致未配置的工具不可用
    */
   private async getGlobalEnabledTools(): Promise<string[]> {
-    const configs = await this.prisma.toolConfig.findMany({
-      where: { enabled: true },
-      select: { toolId: true },
-    });
-
     // 获取所有已注册的工具 ID
     const registeredToolIds = new Set(
       this.toolRegistry.getAll().map((t) => t.id),
     );
 
-    // 如果没有配置，返回所有注册的工具（默认全部启用）
-    if (configs.length === 0) {
-      return Array.from(registeredToolIds);
-    }
+    // 获取显式禁用的工具（enabled: false）
+    const disabledConfigs = await this.prisma.toolConfig.findMany({
+      where: { enabled: false },
+      select: { toolId: true },
+    });
 
-    // ★ 只返回既在配置中启用，又在 ToolRegistry 中注册的工具
-    return configs
-      .map((c) => c.toolId)
-      .filter((toolId) => registeredToolIds.has(toolId));
+    const disabledToolIds = new Set(disabledConfigs.map((c) => c.toolId));
+
+    // ★ 返回所有已注册的工具，排除显式禁用的
+    // 这样未配置的工具默认为启用状态
+    return Array.from(registeredToolIds).filter(
+      (toolId) => !disabledToolIds.has(toolId),
+    );
   }
 
   /**
    * 获取全局启用的技能
+   * ★ 默认启用所有注册的技能，只有显式设置 enabled: false 的才禁用
    */
   private async getGlobalEnabledSkills(): Promise<string[]> {
-    const configs = await this.prisma.skillConfig.findMany({
-      where: { enabled: true },
+    // 获取所有已注册的技能 ID
+    const registeredSkillIds = new Set(
+      this.skillRegistry.getAll().map((s) => s.id),
+    );
+
+    // 获取显式禁用的技能（enabled: false）
+    const disabledConfigs = await this.prisma.skillConfig.findMany({
+      where: { enabled: false },
       select: { skillId: true },
     });
 
-    // 如果没有配置，返回所有注册的技能（默认全部启用）
-    if (configs.length === 0) {
-      return this.skillRegistry.getAll().map((s) => s.id);
-    }
+    const disabledSkillIds = new Set(disabledConfigs.map((c) => c.skillId));
 
-    return configs.map((c) => c.skillId);
+    // ★ 返回所有已注册的技能，排除显式禁用的
+    return Array.from(registeredSkillIds).filter(
+      (skillId) => !disabledSkillIds.has(skillId),
+    );
   }
 
   /**

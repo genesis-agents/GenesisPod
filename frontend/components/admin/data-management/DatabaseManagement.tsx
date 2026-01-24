@@ -152,7 +152,9 @@ export default function DatabaseManagement() {
       if (!res.ok) {
         throw new Error('Failed to fetch storage stats');
       }
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       setStats(data);
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to load storage statistics' });
@@ -171,7 +173,9 @@ export default function DatabaseManagement() {
       if (!res.ok) {
         throw new Error('Failed to fetch database analysis');
       }
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       setDbAnalysis(data);
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to load database analysis' });

@@ -121,7 +121,7 @@ export class GoogleDriveController {
   async disconnect(@Req() req: AuthenticatedRequest) {
     const userId = this.getUserId(req);
     await this.authService.disconnect(userId);
-    return { success: true, message: "Google Drive disconnected" };
+    return { message: "Google Drive disconnected" };
   }
 
   @Delete("disconnect/:connectionId")
@@ -139,7 +139,7 @@ export class GoogleDriveController {
       throw new HttpException("Connection not found", HttpStatus.NOT_FOUND);
     }
     await this.authService.disconnect(userId);
-    return { success: true, message: "Google Drive disconnected" };
+    return { message: "Google Drive disconnected" };
   }
 
   @Get("connection")
@@ -250,7 +250,6 @@ export class GoogleDriveController {
     const userId = this.getUserId(req);
     const result = await this.importService.importFiles(userId, dto);
     return {
-      success: true,
       message: `Imported ${result.imported} of ${result.totalFiles} files`,
       ...result,
     };
@@ -267,7 +266,6 @@ export class GoogleDriveController {
     const userId = this.getUserId(req);
     const result = await this.exportService.exportResources(userId, dto);
     return {
-      success: true,
       message: `Exported ${result.exported} of ${result.totalResources} resources`,
       ...result,
     };
@@ -323,7 +321,7 @@ export class GoogleDriveController {
       body.conflictId,
       body.resolution,
     );
-    return { success: true, message: "Conflict resolved" };
+    return { message: "Conflict resolved" };
   }
 
   @Post("sync/link")
@@ -340,7 +338,7 @@ export class GoogleDriveController {
       body.resourceId,
       body.googleFileId,
     );
-    return { success: true, message: "Resource linked" };
+    return { message: "Resource linked" };
   }
 
   @Delete("sync/link/:resourceId")
@@ -353,7 +351,7 @@ export class GoogleDriveController {
   ) {
     const userId = this.getUserId(req);
     await this.syncService.unlinkResource(userId, resourceId);
-    return { success: true, message: "Resource unlinked" };
+    return { message: "Resource unlinked" };
   }
 
   @Get("sync/history")

@@ -600,7 +600,9 @@ export default function ToolsManagement() {
         body: JSON.stringify(requestBody),
       });
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       setTestResults((prev) => ({
         ...prev,
         [tool.id]: {

@@ -133,23 +133,25 @@ export function ImportUrlDialog({
         }
       );
 
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Unable to parse URL');
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Unable to parse URL');
       }
 
-      if (!data.data || !data.data.metadata) {
+      if (!data || !data.metadata) {
         throw new Error('Invalid response data format');
       }
 
-      setMetadata(data.data.metadata);
-      setEditedTitle(data.data.metadata.title);
+      setMetadata(data.metadata);
+      setEditedTitle(data.metadata.title);
 
       // Set classification from AI
-      if (data.data.classification) {
-        setClassification(data.data.classification);
-        setSelectedResourceType(data.data.classification.resourceType);
+      if (data.classification) {
+        setClassification(data.classification);
+        setSelectedResourceType(data.classification.resourceType);
       }
 
       setStep('preview');
@@ -180,10 +182,12 @@ export function ImportUrlDialog({
         }
       );
 
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Import failed');
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Import failed');
       }
 
       handleClose();

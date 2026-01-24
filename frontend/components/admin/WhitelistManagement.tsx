@@ -106,8 +106,10 @@ export default function WhitelistManagement() {
       setError(null);
       const res = await fetch(`${config.apiUrl}/data-management/whitelists`);
       if (!res.ok) throw new Error('Failed to fetch whitelists');
-      const data = await res.json();
-      setWhitelists(data.data || []);
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
+      setWhitelists(data.data || data || []);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to load whitelists'
@@ -137,8 +139,10 @@ export default function WhitelistManagement() {
       const updated = await fetch(
         `${config.apiUrl}/data-management/whitelists`
       );
-      const data = await updated.json();
-      const updatedWhitelist = (data.data || []).find(
+      const result = await updated.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
+      const updatedWhitelist = (data.data || data || []).find(
         (w: Whitelist) => w.resourceType === resourceType
       );
       if (updatedWhitelist) setSelectedWhitelist(updatedWhitelist);
@@ -160,8 +164,10 @@ export default function WhitelistManagement() {
       const updated = await fetch(
         `${config.apiUrl}/data-management/whitelists`
       );
-      const data = await updated.json();
-      const updatedWhitelist = (data.data || []).find(
+      const result = await updated.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
+      const updatedWhitelist = (data.data || data || []).find(
         (w: Whitelist) => w.resourceType === resourceType
       );
       if (updatedWhitelist) setSelectedWhitelist(updatedWhitelist);

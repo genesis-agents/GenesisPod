@@ -39,11 +39,7 @@ export class CreditsController {
    */
   @Get()
   async getAccount(@Request() req: any) {
-    const account = await this.creditsService.getOrCreateAccount(req.user.id);
-    return {
-      success: true,
-      data: account,
-    };
+    return this.creditsService.getOrCreateAccount(req.user.id);
   }
 
   /**
@@ -51,11 +47,7 @@ export class CreditsController {
    */
   @Get("balance")
   async getBalance(@Request() req: any) {
-    const balance = await this.creditsService.getBalance(req.user.id);
-    return {
-      success: true,
-      data: balance,
-    };
+    return this.creditsService.getBalance(req.user.id);
   }
 
   /**
@@ -63,11 +55,7 @@ export class CreditsController {
    */
   @Get("stats")
   async getStats(@Request() req: any) {
-    const stats = await this.creditsService.getCreditsStats(req.user.id);
-    return {
-      success: true,
-      data: stats,
-    };
+    return this.creditsService.getCreditsStats(req.user.id);
   }
 
   /**
@@ -78,14 +66,7 @@ export class CreditsController {
     @Request() req: any,
     @Query() query: TransactionQueryDto,
   ) {
-    const transactions = await this.creditsService.getTransactions(
-      req.user.id,
-      query,
-    );
-    return {
-      success: true,
-      ...transactions,
-    };
+    return this.creditsService.getTransactions(req.user.id, query);
   }
 
   /**
@@ -93,11 +74,7 @@ export class CreditsController {
    */
   @Get("checkin/status")
   async getCheckinStatus(@Request() req: any) {
-    const status = await this.checkinService.getCheckinStatus(req.user.id);
-    return {
-      success: true,
-      data: status,
-    };
+    return this.checkinService.getCheckinStatus(req.user.id);
   }
 
   /**
@@ -106,11 +83,7 @@ export class CreditsController {
   @Post("checkin")
   @HttpCode(HttpStatus.OK)
   async performCheckin(@Request() req: any, @Ip() ip: string) {
-    const result = await this.checkinService.performCheckin(req.user.id, ip);
-    return {
-      success: result.success,
-      data: result,
-    };
+    return this.checkinService.performCheckin(req.user.id, ip);
   }
 
   /**
@@ -118,14 +91,7 @@ export class CreditsController {
    */
   @Get("checkin/history")
   async getCheckinHistory(@Request() req: any, @Query("limit") limit?: number) {
-    const history = await this.checkinService.getCheckinHistory(
-      req.user.id,
-      limit || 30,
-    );
-    return {
-      success: true,
-      data: history,
-    };
+    return this.checkinService.getCheckinHistory(req.user.id, limit || 30);
   }
 
   /**
@@ -134,16 +100,13 @@ export class CreditsController {
   @Get("rules")
   async getRules() {
     const rules = await this.creditRulesService.getAllRules();
-    return {
-      success: true,
-      data: rules.map((r) => ({
-        moduleType: r.moduleType,
-        operationType: r.operationType,
-        baseCredits: r.baseCredits,
-        name: r.name,
-        isActive: r.isActive,
-      })),
-    };
+    return rules.map((r) => ({
+      moduleType: r.moduleType,
+      operationType: r.operationType,
+      baseCredits: r.baseCredits,
+      name: r.name,
+      isActive: r.isActive,
+    }));
   }
 
   /**
@@ -163,12 +126,9 @@ export class CreditsController {
       modelName,
     );
     return {
-      success: true,
-      data: {
-        estimatedCredits: credits,
-        moduleType,
-        operationType,
-      },
+      estimatedCredits: credits,
+      moduleType,
+      operationType,
     };
   }
 }
@@ -190,16 +150,12 @@ export class AdminCreditsController {
   @Post("grant")
   @HttpCode(HttpStatus.OK)
   async grantCredits(@Body() dto: AdminGrantCreditsDto) {
-    const result = await this.creditsService.grantCredits(
+    return this.creditsService.grantCredits(
       dto.userId,
       dto.amount,
       dto.type!,
       dto.description,
     );
-    return {
-      success: true,
-      data: result,
-    };
   }
 
   /**
@@ -233,13 +189,10 @@ export class AdminCreditsController {
     const successCount = results.filter((r) => r.success).length;
 
     return {
-      success: true,
-      data: {
-        total: dto.userIds.length,
-        successCount,
-        failedCount: dto.userIds.length - successCount,
-        results,
-      },
+      total: dto.userIds.length,
+      successCount,
+      failedCount: dto.userIds.length - successCount,
+      results,
     };
   }
 
@@ -250,10 +203,7 @@ export class AdminCreditsController {
   @HttpCode(HttpStatus.OK)
   async freezeAccount(@Body() body: { userId: string; reason: string }) {
     await this.creditsService.freezeAccount(body.userId, body.reason);
-    return {
-      success: true,
-      message: "Account frozen successfully",
-    };
+    return { message: "Account frozen successfully" };
   }
 
   /**
@@ -263,10 +213,7 @@ export class AdminCreditsController {
   @HttpCode(HttpStatus.OK)
   async unfreezeAccount(@Body() body: { userId: string }) {
     await this.creditsService.unfreezeAccount(body.userId);
-    return {
-      success: true,
-      message: "Account unfrozen successfully",
-    };
+    return { message: "Account unfrozen successfully" };
   }
 
   /**
@@ -276,14 +223,7 @@ export class AdminCreditsController {
   async getUserAccount(@Param("userId") userId: string) {
     const account = await this.creditsService.getAccount(userId);
     const stats = await this.creditsService.getCreditsStats(userId);
-
-    return {
-      success: true,
-      data: {
-        account,
-        stats,
-      },
-    };
+    return { account, stats };
   }
 
   /**
@@ -302,15 +242,7 @@ export class AdminCreditsController {
     },
   ) {
     const { moduleType, operationType, ...data } = body;
-    const rule = await this.creditRulesService.updateRule(
-      moduleType,
-      operationType,
-      data,
-    );
-    return {
-      success: true,
-      data: rule,
-    };
+    return this.creditRulesService.updateRule(moduleType, operationType, data);
   }
 
   /**
@@ -320,10 +252,7 @@ export class AdminCreditsController {
   @HttpCode(HttpStatus.OK)
   async refreshRulesCache() {
     await this.creditRulesService.refreshCache();
-    return {
-      success: true,
-      message: "Rules cache refreshed",
-    };
+    return { message: "Rules cache refreshed" };
   }
 
   /**
@@ -332,10 +261,6 @@ export class AdminCreditsController {
   @Post("init-all")
   @HttpCode(HttpStatus.OK)
   async initAllUserAccounts() {
-    const result = await this.creditsService.initializeAllUserAccounts();
-    return {
-      success: true,
-      data: result,
-    };
+    return this.creditsService.initializeAllUserAccounts();
   }
 }

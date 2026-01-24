@@ -83,7 +83,9 @@ export async function generateSummary(
       return;
     }
 
-    const data = await res.json();
+    const result = await res.json();
+    // Handle wrapped API response { success: true, data: T }
+    const data = result?.data ?? result;
     setAiSummary(data.summary);
 
     // Save to database for future use
@@ -131,7 +133,9 @@ export async function generateInsights(
       }),
     });
 
-    const data = await res.json();
+    const result = await res.json();
+    // Handle wrapped API response { success: true, data: T }
+    const data = result?.data ?? result;
     const insights = data.insights || [];
     setAiInsights(insights);
 

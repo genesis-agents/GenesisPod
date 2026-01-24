@@ -33,10 +33,10 @@ export class DataCollectionSchedulerController {
    * GET /data-collection/scheduler/status
    */
   @Get("status")
-  async getStatus(): Promise<{ success: boolean; data: SchedulerStatus }> {
+  async getStatus(): Promise<SchedulerStatus> {
     this.logger.log("Getting scheduler status");
     const status = await this.schedulerService.getStatus();
-    return { success: true, data: status };
+    return status;
   }
 
   /**
@@ -47,13 +47,13 @@ export class DataCollectionSchedulerController {
   @HttpCode(HttpStatus.OK)
   async triggerByType(
     @Param("resourceType") resourceType: string,
-  ): Promise<{ success: boolean; data: TriggerResult }> {
+  ): Promise<TriggerResult> {
     this.logger.log(`Triggering collection for ${resourceType}`);
     const result =
       await this.schedulerService.executeCollectionForResourceType(
         resourceType,
       );
-    return { success: result.success, data: result };
+    return result;
   }
 
   /**
@@ -62,11 +62,10 @@ export class DataCollectionSchedulerController {
    */
   @Post("trigger-all")
   @HttpCode(HttpStatus.OK)
-  async triggerAll(): Promise<{ success: boolean; data: TriggerResult[] }> {
+  async triggerAll(): Promise<TriggerResult[]> {
     this.logger.log("Triggering collection for all resource types");
     const results = await this.schedulerService.triggerAll();
-    const allSuccess = results.every((r) => r.success);
-    return { success: allSuccess, data: results };
+    return results;
   }
 
   /**
@@ -76,10 +75,10 @@ export class DataCollectionSchedulerController {
   @Put("config")
   async updateConfig(
     @Body() dto: UpdateSchedulerConfigDto,
-  ): Promise<{ success: boolean; data: SchedulerStatus }> {
+  ): Promise<SchedulerStatus> {
     this.logger.log(`Updating scheduler config: ${JSON.stringify(dto)}`);
     const status = await this.schedulerService.updateConfig(dto);
-    return { success: true, data: status };
+    return status;
   }
 
   /**
@@ -88,9 +87,9 @@ export class DataCollectionSchedulerController {
    */
   @Post("restart")
   @HttpCode(HttpStatus.OK)
-  async restart(): Promise<{ success: boolean; message: string }> {
+  async restart(): Promise<{ message: string }> {
     this.logger.log("Restarting all schedulers");
     await this.schedulerService.restartSchedulers();
-    return { success: true, message: "Schedulers restarted successfully" };
+    return { message: "Schedulers restarted successfully" };
   }
 }

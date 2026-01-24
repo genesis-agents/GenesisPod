@@ -190,10 +190,12 @@ export function ImportFileDialog({
       clearInterval(progressInterval);
       setUploadProgress(100);
 
-      const data = await response.json();
+      const result = await response.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Upload failed');
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Upload failed');
       }
 
       // Success

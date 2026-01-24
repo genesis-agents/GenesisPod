@@ -35,7 +35,9 @@ export function WechatWorkBindingCard() {
         }
       );
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setStatus(data);
         if (data.wechatWorkUserId) {
           setWechatWorkUserId(data.wechatWorkUserId);
@@ -80,7 +82,9 @@ export function WechatWorkBindingCard() {
         setSuccess(t('profile.integrations.wechat.bindSuccess'));
         await fetchStatus();
       } else {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setError(data.message || t('profile.integrations.wechat.bindFailed'));
       }
     } catch (err) {
@@ -115,7 +119,9 @@ export function WechatWorkBindingCard() {
         setWechatWorkUserId('');
         await fetchStatus();
       } else {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setError(data.message || t('profile.integrations.wechat.unbindFailed'));
       }
     } catch (err) {

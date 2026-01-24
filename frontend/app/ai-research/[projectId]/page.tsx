@@ -187,7 +187,9 @@ async function fetchProject(id: string): Promise<Project> {
     headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error('Failed to fetch project');
-  return res.json();
+  const json = await res.json();
+  // Unwrap API response wrapper { success: true, data: T }
+  return json?.data ?? json;
 }
 
 async function addSource(
@@ -203,7 +205,8 @@ async function addSource(
     }
   );
   if (!res.ok) throw new Error('Failed to add source');
-  return res.json();
+  const json = await res.json();
+  return json?.data ?? json;
 }
 
 async function removeSource(
@@ -253,7 +256,8 @@ async function sendChatMessage(
     }
   );
   if (!res.ok) throw new Error('Failed to send message');
-  return res.json();
+  const json = await res.json();
+  return json?.data ?? json;
 }
 
 async function createNote(
@@ -269,7 +273,8 @@ async function createNote(
     }
   );
   if (!res.ok) throw new Error('Failed to create note');
-  return res.json();
+  const json = await res.json();
+  return json?.data ?? json;
 }
 
 async function updateNote(
@@ -286,7 +291,8 @@ async function updateNote(
     }
   );
   if (!res.ok) throw new Error('Failed to update note');
-  return res.json();
+  const json = await res.json();
+  return json?.data ?? json;
 }
 
 async function deleteNote(projectId: string, noteId: string): Promise<void> {
@@ -314,7 +320,8 @@ async function generateOutput(
     }
   );
   if (!res.ok) throw new Error('Failed to generate output');
-  const data = await res.json();
+  const json = await res.json();
+  const data = json?.data ?? json;
   return data.output;
 }
 
@@ -327,7 +334,8 @@ async function fetchOutput(
     { headers: getAuthHeaders() }
   );
   if (!res.ok) throw new Error('Failed to fetch output');
-  return res.json();
+  const json = await res.json();
+  return json?.data ?? json;
 }
 
 async function deleteOutput(
@@ -358,7 +366,8 @@ async function updateOutput(
     }
   );
   if (!res.ok) throw new Error('Failed to update output');
-  return res.json();
+  const json = await res.json();
+  return json?.data ?? json;
 }
 
 async function searchSourcesApi(
@@ -372,7 +381,8 @@ async function searchSourcesApi(
     body: JSON.stringify({ query, mode, sources, includeInternet: true }),
   });
   if (!res.ok) throw new Error('Search failed');
-  return res.json();
+  const json = await res.json();
+  return json?.data ?? json;
 }
 
 // ==================== Sources Panel ====================

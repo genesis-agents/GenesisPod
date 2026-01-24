@@ -41,7 +41,9 @@ export default function SkillsManagement() {
         headers: { ...getAuthHeader() },
       });
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setSkills(data.skills || []);
       }
     } catch (err) {
@@ -59,7 +61,9 @@ export default function SkillsManagement() {
         headers: { ...getAuthHeader() },
       });
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setUsageCounts(data.skills || {});
       }
     } catch (err) {
@@ -157,9 +161,11 @@ export default function SkillsManagement() {
         body: formData,
       });
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
 
-      if (res.ok && data.success) {
+      if (res.ok && (data.success || result.success)) {
         setMessage({
           type: 'success',
           text:
@@ -199,9 +205,11 @@ export default function SkillsManagement() {
         }
       );
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
 
-      if (res.ok && data.success) {
+      if (res.ok && (data.success || result.success)) {
         setMessage({
           type: 'success',
           text: t('admin.skills.marketplace.installSuccess'),

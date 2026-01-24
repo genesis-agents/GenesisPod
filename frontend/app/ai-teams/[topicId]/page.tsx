@@ -2263,7 +2263,9 @@ export default function TopicPage() {
           throw new Error('User not found');
         }
 
-        const userData = await searchResponse.json();
+        const result = await searchResponse.json();
+        // Handle wrapped API response { success: true, data: T }
+        const userData = result?.data ?? result;
         if (!userData || !userData.id) {
           throw new Error('User not found with this email');
         }

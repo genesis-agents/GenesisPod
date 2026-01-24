@@ -214,12 +214,16 @@ export function TopicSharingModal({
       ]);
 
       if (sharingRes.ok) {
-        const data = await sharingRes.json();
+        const result = await sharingRes.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setVisibility(data.visibility || 'PRIVATE');
       }
 
       if (collaboratorsRes.ok) {
-        const data = await collaboratorsRes.json();
+        const result = await collaboratorsRes.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setCollaborators(data.collaborators || []);
       }
     } catch (err) {
@@ -277,11 +281,15 @@ export function TopicSharingModal({
       );
 
       if (!res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         throw new Error(data.message || 'Failed to add collaborator');
       }
 
-      const newCollaborator = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const newCollaborator = result?.data ?? result;
       setCollaborators((prev) => [...prev, newCollaborator]);
       setNewEmail('');
     } catch (err) {

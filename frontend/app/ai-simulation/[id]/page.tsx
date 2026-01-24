@@ -205,7 +205,9 @@ export default function ScenarioDetailPage() {
         }
       );
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         logger.debug('[ScenarioDetail] Fetched scenario:', data);
         logger.debug('[ScenarioDetail] Agents count:', data.agents?.length);
         logger.debug('[ScenarioDetail] Agents:', data.agents);
@@ -228,7 +230,9 @@ export default function ScenarioDetailPage() {
         headers: { ...getAuthHeader() },
       });
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setActiveRun(data);
       }
     } catch (err) {
@@ -275,7 +279,9 @@ export default function ScenarioDetailPage() {
         }),
       });
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         if (data?.id) {
           // 立即导航到实际的run页面
           const actualUrl = `/ai-simulation/run/${data.id}?role=${selectedRole}&mode=${simulationMode}`;

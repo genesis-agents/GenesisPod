@@ -134,7 +134,7 @@ export class SecretsController {
     this.logger.debug(`Secret deletion requested`); // H4: Reduced log level, removed name;
     const context = this.getAuditContext(req);
     await this.secretsService.delete(name, context);
-    return { success: true, message: `Secret '${name}' deleted` };
+    return { message: `Secret '${name}' deleted` };
   }
 
   /**

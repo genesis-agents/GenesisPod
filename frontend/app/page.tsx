@@ -887,7 +887,9 @@ function HomeContent() {
             ? { Authorization: `Bearer ${accessToken}` }
             : {},
         });
-        const youtubeData = await youtubeRes.json();
+        const youtubeResult = await youtubeRes.json();
+        // Handle wrapped API response { success: true, data: T }
+        const youtubeData = youtubeResult?.data ?? youtubeResult;
         const youtubeVideos = (
           Array.isArray(youtubeData) ? youtubeData : youtubeData.data || []
         ).map(
@@ -911,7 +913,9 @@ function HomeContent() {
         // Fetch from resources table with type=YOUTUBE_VIDEO
         const resourcesUrl = `${config.apiUrl}/resources?type=YOUTUBE_VIDEO&take=50&skip=0`;
         const resourcesRes = await fetch(resourcesUrl);
-        const resourcesData = await resourcesRes.json();
+        const resourcesResult = await resourcesRes.json();
+        // Handle wrapped API response { success: true, data: T }
+        const resourcesData = resourcesResult?.data ?? resourcesResult;
         const resourceVideos = Array.isArray(resourcesData)
           ? resourcesData
           : resourcesData.data || [];
@@ -976,7 +980,9 @@ function HomeContent() {
 
       const url = `${config.apiUrl}/resources?${params.toString()}`;
       const res = await fetch(url);
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       // API returns { success, data: { data: [...], pagination } } format
       const responseData = data?.data ?? data;
       const newResources = Array.isArray(responseData)
@@ -1202,7 +1208,9 @@ function HomeContent() {
 
       const url = `${config.apiUrl}/resources/search/suggestions?${params.toString()}`;
       const res = await fetch(url);
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
 
       if (data.suggestions && Array.isArray(data.suggestions)) {
         setSearchSuggestions(data.suggestions);
@@ -1259,7 +1267,9 @@ function HomeContent() {
   const fetchResourceById = async (id: string) => {
     try {
       const res = await fetch(`${config.apiUrl}/resources/${id}`);
-      const resource = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const resource = result?.data ?? result;
       if (resource) {
         handleResourceClick(resource);
       }
@@ -1336,7 +1346,9 @@ function HomeContent() {
         return;
       }
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       setAiSummary(data.summary);
 
       // Save to database for future use
@@ -1377,7 +1389,9 @@ function HomeContent() {
         }),
       });
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
       const insights = data.insights || [];
       setAiInsights(insights);
 
@@ -1728,7 +1742,9 @@ function HomeContent() {
         }),
       });
 
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
 
       // Parse and set the appropriate state based on action type
       if (action === 'summary') {

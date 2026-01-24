@@ -69,7 +69,9 @@ export function SkillsMarketplaceTab({
         headers: { ...getAuthHeader() },
       });
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setSkillsmpConfig(data);
       }
     } catch (err) {
@@ -85,7 +87,9 @@ export function SkillsMarketplaceTab({
         headers: { ...getAuthHeader() },
       });
       if (res.ok) {
-        const data = await res.json();
+        const result = await res.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         const skills = data.skills || [];
         setLastSync(data.lastSync || null);
 
@@ -115,9 +119,11 @@ export function SkillsMarketplaceTab({
         method: 'POST',
         headers: { ...getAuthHeader() },
       });
-      const data = await res.json();
+      const result = await res.json();
+      // Handle wrapped API response { success: true, data: T }
+      const data = result?.data ?? result;
 
-      if (data.success) {
+      if (data.success || result.success) {
         setSyncMessage({
           type: 'success',
           text: data.message || t('admin.skills.marketplace.syncSuccess'),

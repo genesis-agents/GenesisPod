@@ -76,7 +76,9 @@ export default function WechatDataSourcePanel() {
         }
       );
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setStatus(data);
       }
     } catch (error) {
@@ -98,7 +100,9 @@ export default function WechatDataSourcePanel() {
         }
       );
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setItems(data.items || []);
       }
     } catch (error) {
@@ -213,7 +217,9 @@ export default function WechatDataSourcePanel() {
         fetchItems();
         fetchStatus();
       } else {
-        const data = await response.json();
+        const result = await response.json();
+        // Handle wrapped API response { success: true, data: T }
+        const data = result?.data ?? result;
         setError(data.message || '添加失败');
       }
     } catch (error) {

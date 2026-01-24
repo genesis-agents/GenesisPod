@@ -65,7 +65,7 @@ export class SettingsController {
     await this.settingsService.updateEmailSettings(dto);
     // Reinitialize email service with new settings
     await this.emailService.reinitialize();
-    return { success: true, message: "Email settings updated" };
+    return { message: "Email settings updated" };
   }
 
   @Post("email/test")
@@ -92,7 +92,7 @@ export class SettingsController {
     await this.settingsService.updateSmtpSettings(dto);
     // Reinitialize email service with new settings
     await this.emailService.reinitialize();
-    return { success: true, message: "SMTP settings updated" };
+    return { message: "SMTP settings updated" };
   }
 
   @Post("smtp/test")
@@ -113,7 +113,7 @@ export class SettingsController {
   async updateSiteSettings(@Body() dto: Partial<SiteSettings>) {
     this.logger.log("Updating site settings");
     await this.settingsService.updateSiteSettings(dto);
-    return { success: true, message: "Site settings updated" };
+    return { message: "Site settings updated" };
   }
 
   // ========== AI Settings ==========
@@ -127,7 +127,7 @@ export class SettingsController {
   async updateAiSettings(@Body() dto: Partial<AiSettings>) {
     this.logger.log("Updating AI settings");
     await this.settingsService.updateAiSettings(dto);
-    return { success: true, message: "AI settings updated" };
+    return { message: "AI settings updated" };
   }
 
   // ========== Security Settings ==========
@@ -141,7 +141,7 @@ export class SettingsController {
   async updateSecuritySettings(@Body() dto: Partial<SecuritySettings>) {
     this.logger.log("Updating security settings");
     await this.settingsService.updateSecuritySettings(dto);
-    return { success: true, message: "Security settings updated" };
+    return { message: "Security settings updated" };
   }
 
   // ========== Storage Settings ==========
@@ -155,7 +155,7 @@ export class SettingsController {
   async updateStorageSettings(@Body() dto: Partial<StorageSettings>) {
     this.logger.log("Updating storage settings");
     await this.settingsService.updateStorageSettings(dto);
-    return { success: true, message: "Storage settings updated" };
+    return { message: "Storage settings updated" };
   }
 
   // ========== Cache Management ==========
@@ -163,7 +163,7 @@ export class SettingsController {
   @Post("refresh-cache")
   async refreshCache() {
     await this.settingsService.refreshCache();
-    return { success: true, message: "Settings cache refreshed" };
+    return { message: "Settings cache refreshed" };
   }
 
   // ========== Encryption Diagnostics ==========
