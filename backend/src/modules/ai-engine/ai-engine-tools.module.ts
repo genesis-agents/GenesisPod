@@ -8,25 +8,29 @@
  * - All 46 Built-in Tools
  */
 
-import { Module } from '@nestjs/common';
-import { HttpModule } from '@nestjs/axios';
-import { PrismaModule } from '../../common/prisma/prisma.module';
-import { ExportModule } from '../../common/export/export.module';
-import { SecretsModule } from '../core/secrets/secrets.module';
+import { Module } from "@nestjs/common";
+import { HttpModule } from "@nestjs/axios";
+import { PrismaModule } from "../../common/prisma/prisma.module";
+import { ExportModule } from "../../common/export/export.module";
+import { SecretsModule } from "../core/secrets/secrets.module";
 
 // Registry
-import { ToolRegistry } from './tools/registry/tool-registry';
+import { ToolRegistry } from "./tools/registry/tool-registry";
 
 // Middleware
-import { ToolPipeline, ToolExecutor } from './tools/middleware/tool-pipeline';
-import { ValidationMiddleware } from './tools/middleware/validation.middleware';
-import { TimeoutMiddleware } from './tools/middleware/timeout.middleware';
+import { ToolPipeline, ToolExecutor } from "./tools/middleware/tool-pipeline";
+import { ValidationMiddleware } from "./tools/middleware/validation.middleware";
+import { TimeoutMiddleware } from "./tools/middleware/timeout.middleware";
 
 // Policy Data Service
-import { PolicyDataService } from './tools/categories/information/policy';
+import { PolicyDataService } from "./tools/categories/information/policy";
 
 // All Tools
-import { ALL_TOOL_PROVIDERS, allToolsProvider } from './tools/tools.provider';
+import {
+  ALL_TOOL_PROVIDERS,
+  allToolsProvider,
+  ALL_TOOLS_TOKEN,
+} from "./tools/tools.provider";
 
 /**
  * 工具管道工厂
@@ -80,6 +84,7 @@ const toolExecutorFactory = {
     ToolExecutor,
     PolicyDataService,
     ...ALL_TOOL_PROVIDERS,
+    ALL_TOOLS_TOKEN, // Export token for AiEngineModule injection
   ],
 })
 export class AiEngineToolsModule {}
