@@ -2,6 +2,7 @@
 
 import { Resource } from '../utils/types';
 import { ThumbsUp } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n/i18n-context';
 
 interface ResourceHeaderProps {
   selectedResource: Resource;
@@ -14,8 +15,6 @@ interface ResourceHeaderProps {
   onToggleUpvote: (resourceId: string, e: React.MouseEvent) => void;
   isBookmarked: (resourceId: string) => boolean;
   hasUpvoted: (resourceId: string) => boolean;
-  convertToAIOfficeResource: (resource: Resource) => any;
-  aiOfficeStore: any;
 }
 
 export default function ResourceHeader({
@@ -29,9 +28,9 @@ export default function ResourceHeader({
   onToggleUpvote,
   isBookmarked,
   hasUpvoted,
-  convertToAIOfficeResource,
-  aiOfficeStore,
 }: ResourceHeaderProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="flex-shrink-0 border-b border-gray-200 bg-white">
       {/* Top Toolbar */}
@@ -41,7 +40,7 @@ export default function ResourceHeader({
           <button
             onClick={onBackToList}
             className="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-            title="返回列表"
+            title={t('explore.header.backToList') || 'Back to list'}
           >
             <svg
               className="h-4 w-4"
@@ -62,9 +61,9 @@ export default function ResourceHeader({
           <nav className="flex items-center text-sm">
             <span className="text-gray-400">
               {selectedResource.type === 'POLICY'
-                ? 'Policy'
+                ? t('explore.tabs.policy') || 'Policy'
                 : selectedResource.type === 'PAPER'
-                  ? 'Papers'
+                  ? t('explore.tabs.papers') || 'Papers'
                   : selectedResource.type}
             </span>
             <svg
@@ -114,7 +113,7 @@ export default function ResourceHeader({
                   >
                     <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
                   </svg>
-                  Reader
+                  {t('explore.view.reader') || 'Reader'}
                 </button>
                 <button
                   onClick={() => setHtmlViewMode('original')}
@@ -137,7 +136,7 @@ export default function ResourceHeader({
                       d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
                     />
                   </svg>
-                  Original
+                  {t('explore.view.original') || 'Original'}
                 </button>
               </div>
             )}
@@ -150,7 +149,11 @@ export default function ResourceHeader({
                 ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                 : 'bg-gray-100 text-gray-700'
             }`}
-            title={isHeaderCollapsed ? '显示详情' : '隐藏详情'}
+            title={
+              isHeaderCollapsed
+                ? t('explore.header.showDetails') || 'Show details'
+                : t('explore.header.hideDetails') || 'Hide details'
+            }
           >
             <svg
               className="h-3.5 w-3.5"
@@ -165,7 +168,7 @@ export default function ResourceHeader({
                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            {isHeaderCollapsed ? 'Info' : 'Info'}
+            {t('explore.view.info') || 'Info'}
           </button>
         </div>
       </div>
@@ -235,7 +238,13 @@ export default function ResourceHeader({
                     </svg>
                     {selectedResource.authors
                       .slice(0, 2)
-                      .map((a) => a.name || a.username || 'Unknown')
+                      .map(
+                        (a) =>
+                          a.name ||
+                          a.username ||
+                          t('explore.card.unknown') ||
+                          'Unknown'
+                      )
                       .join(', ')}
                   </span>
                 )}
@@ -310,46 +319,7 @@ export default function ResourceHeader({
                     d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
                   />
                 </svg>
-                Save
-              </button>
-
-              {/* AI Office */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const aiResource =
-                    convertToAIOfficeResource(selectedResource);
-                  aiOfficeStore.addResource(aiResource);
-                }}
-                disabled={aiOfficeStore.resources.some(
-                  (r: any) => r._id === selectedResource.id
-                )}
-                className={`flex h-8 items-center gap-1.5 rounded-md px-3 text-sm transition-colors ${
-                  aiOfficeStore.resources.some(
-                    (r: any) => r._id === selectedResource.id
-                  )
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-white text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-                {aiOfficeStore.resources.some(
-                  (r: any) => r._id === selectedResource.id
-                )
-                  ? 'Added'
-                  : 'Add to AI'}
+                {t('explore.header.save') || 'Save'}
               </button>
 
               {/* External Link */}
@@ -372,7 +342,7 @@ export default function ResourceHeader({
                     d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                   />
                 </svg>
-                Open
+                {t('explore.header.open') || 'Open'}
               </a>
             </div>
           </div>

@@ -390,6 +390,154 @@
       "showMore": "Show more",
       "moreInsights": "more insights",
       "keyInsight": "key insight"
+    },
+    "header": {
+      "backToList": "Back to list",
+      "showDetails": "Show details",
+      "hideDetails": "Hide details",
+      "save": "Save",
+      "open": "Open"
+    },
+    "actions": {
+      "upvote": "Upvote",
+      "removeUpvote": "Remove upvote",
+      "upvoted": "Upvoted successfully",
+      "upvoteRemoved": "Upvote removed",
+      "upvoteFailed": "Failed to upvote",
+      "removeBookmark": "Remove bookmark",
+      "bookmarked": "Bookmarked successfully",
+      "bookmarkRemoved": "Bookmark removed",
+      "bookmarkFailed": "Failed to bookmark",
+      "loginToBookmark": "Please login to bookmark",
+      "share": "Share",
+      "linkCopied": "Link copied to clipboard",
+      "openNewTab": "Open in new tab",
+      "deleteResource": "Delete resource (Admin)"
+    },
+    "aiPanel": {
+      "title": "AI Assistant",
+      "expand": "Expand AI Assistant panel",
+      "collapse": "Collapse AI Assistant panel",
+      "chat": "Chat",
+      "notes": "Notes",
+      "comments": "Comments",
+      "similar": "Similar",
+      "thinking": "is thinking...",
+      "processing": "AI processing...",
+      "askPlaceholder": "Ask anything about this content...",
+      "selectResourceFirst": "Select a resource first...",
+      "uploadAttachment": "Upload attachment",
+      "saveToNotes": "Save conversation to notes",
+      "suggestions": {
+        "title": "You can ask:",
+        "mainContributions": "What are the main contributions of this article?",
+        "applications": "What are the practical applications?",
+        "limitations": "What are the limitations?"
+      },
+      "emptyState": {
+        "title": "No content selected",
+        "description": "Click on any paper, project, or news item to analyze it with AI"
+      }
+    },
+    "aiCards": {
+      "summary": {
+        "title": "AI Summary",
+        "hint": "Select text for more options"
+      },
+      "insights": {
+        "title": "Key Insights",
+        "hint": "Select text for more options"
+      },
+      "methodology": {
+        "title": "Research Methodology",
+        "hint": "Select text for more options"
+      }
+    },
+    "model": {
+      "label": "AI Model"
+    },
+    "list": {
+      "noResources": "No resources found",
+      "loadingMore": "Loading more...",
+      "noMoreResources": "No more resources to load",
+      "loading": "Loading...",
+      "allLoaded": "— All content loaded —",
+      "noContent": "No content available",
+      "tryRunCrawler": "Try running the data crawler first"
+    },
+    "preview": {
+      "noPreview": "No preview available for this resource",
+      "openInNewTab": "Open in new tab →",
+      "cannotLoadVideo": "Cannot load video",
+      "watchOnYouTube": "Watch on YouTube",
+      "previewNotAvailable": "Preview not available",
+      "noPdfOrHtml": "No PDF or HTML preview available for this resource"
+    },
+    "youtube": {
+      "keyMoments": {
+        "title": "Key Moments",
+        "points": "points",
+        "all": "All",
+        "important": "Important",
+        "normal": "Normal",
+        "minor": "Minor",
+        "nowPlaying": "▶ Now playing",
+        "noMoments": "No key moments",
+        "noMomentsInCategory": "No content in this category",
+        "note": "Note",
+        "noted": "Noted",
+        "clickToJump": "Click moment to jump"
+      },
+      "translation": {
+        "translate": "Translate",
+        "autoTranslating": "Auto translating",
+        "clickToTranslate": "Click to translate",
+        "bilingualSubtitles": "Bilingual subtitles",
+        "settings": "Translation Settings",
+        "mode": "Translation Mode",
+        "off": "Off",
+        "auto": "Auto Translate",
+        "click": "Click to Translate",
+        "bilingual": "Bilingual",
+        "position": "Display Position",
+        "belowSubtitle": "Below Subtitle",
+        "sidebar": "Sidebar",
+        "floating": "Floating",
+        "autoHide": "Auto hide after 3 seconds",
+        "hint": "Hint:",
+        "hintAuto": "Translation will appear automatically with video playback",
+        "hintClick": "Click on English sentence to see Chinese translation",
+        "hintBilingual": "English and Chinese will display together"
+      },
+      "export": {
+        "title": "Export Subtitles to PDF",
+        "description": "Select export format and options",
+        "format": "Export Format",
+        "bilingualSide": "Bilingual Side by Side",
+        "bilingualSideDesc": "English and Chinese in two columns",
+        "bilingualStack": "Bilingual Stacked",
+        "bilingualStackDesc": "English above, Chinese below",
+        "englishOnly": "English Only",
+        "englishOnlyDesc": "Only export English subtitles",
+        "chineseOnly": "Chinese Only",
+        "chineseOnlyDesc": "Only export Chinese translation",
+        "options": "Additional Options",
+        "includeTimestamps": "Include Timestamps",
+        "timestampsDesc": "Show time marks for each subtitle",
+        "includeVideoLink": "Include Video Link",
+        "videoLinkDesc": "Add YouTube video link at the top",
+        "includeMetadata": "Include Metadata",
+        "metadataDesc": "Show video title and export date",
+        "cancel": "Cancel",
+        "exporting": "Exporting...",
+        "exportPdf": "Export PDF",
+        "exportTooltip": "Export subtitles to PDF",
+        "fetchFailed": "Failed to fetch subtitles. Please try again.",
+        "noSubtitles": "No subtitles available. Please try again.",
+        "error": "Error",
+        "retry": "Retry",
+        "loadingSubtitles": "Loading subtitles..."
+      }
     }
   },
   "aiStudio": {

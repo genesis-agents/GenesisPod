@@ -2,6 +2,7 @@
 
 import { AIInsight } from '../utils/types';
 import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
+import { useTranslation } from '@/lib/i18n/i18n-context';
 
 interface AIInsightsCardProps {
   aiInsights: AIInsight[];
@@ -16,6 +17,8 @@ export default function AIInsightsCard({
   onContextMenu,
   onAskAI,
 }: AIInsightsCardProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-orange-50 to-yellow-50 px-3 py-2.5">
@@ -37,10 +40,12 @@ export default function AIInsightsCard({
           </div>
           <div>
             <h3 className="text-sm font-bold text-gray-900">
-              {aiInsights.length} Key Insights
+              {aiInsights.length}{' '}
+              {t('explore.aiCards.insights.title') || 'Key Insights'}
             </h3>
             <p className="text-[11px] text-gray-500">
-              Select text for more options
+              {t('explore.aiCards.insights.hint') ||
+                'Select text for more options'}
             </p>
           </div>
         </div>

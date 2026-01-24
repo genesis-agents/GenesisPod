@@ -31,9 +31,15 @@ import {
   AIContextBuilder,
   type Resource as AIResource,
 } from '@/lib/ai-office/context-builder';
-import { useResourceStore } from '@/stores/aiOfficeStore';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';
-import { ThumbsUp, TrendingUp, Clock, Star, ChevronDown } from 'lucide-react';
+import {
+  ThumbsUp,
+  TrendingUp,
+  Clock,
+  Star,
+  ChevronDown,
+  FlaskConical,
+} from 'lucide-react';
 import { useAIModels } from '@/hooks';
 
 // Import extracted modules
@@ -52,11 +58,7 @@ import {
   parseMarkdownToInsights,
 } from '../utils/utils';
 import { Base64Image } from '../resources/Base64Image';
-import {
-  getSourceName,
-  getSourceBadgeColor,
-  convertToAIOfficeResource,
-} from '../utils/resourceHelpers';
+import { getSourceName, getSourceBadgeColor } from '../utils/resourceHelpers';
 import {
   saveAIAnalysisToDatabase,
   generateSummary as generateSummaryHelper,
@@ -233,15 +235,6 @@ function HomeContent() {
 
   // Report workspace (legacy - for /workspace page)
   const { addResource, hasResource, canAddMore } = useReportWorkspace();
-
-  // AI Office resource store - defer initialization to avoid hydration mismatch
-  const [isHydrated, setIsHydrated] = useState(false);
-  const aiOfficeStore = useResourceStore();
-
-  useEffect(() => {
-    // Mark as hydrated to prevent hydration mismatches
-    setIsHydrated(true);
-  }, []);
 
   // Load user's upvoted resources on mount
   useEffect(() => {
@@ -2348,45 +2341,6 @@ function HomeContent() {
                           Save
                         </button>
 
-                        {/* AI Office */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const aiResource =
-                              convertToAIOfficeResource(selectedResource);
-                            aiOfficeStore.addResource(aiResource as any);
-                          }}
-                          disabled={aiOfficeStore.resources.some(
-                            (r) => r._id === selectedResource.id
-                          )}
-                          className={`flex h-8 items-center gap-1.5 rounded-md px-3 text-sm transition-colors ${
-                            aiOfficeStore.resources.some(
-                              (r) => r._id === selectedResource.id
-                            )
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-white text-gray-600 hover:bg-gray-100'
-                          }`}
-                        >
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                            />
-                          </svg>
-                          {aiOfficeStore.resources.some(
-                            (r) => r._id === selectedResource.id
-                          )
-                            ? 'Added'
-                            : 'Add to AI'}
-                        </button>
-
                         {/* 外部链接 */}
                         <a
                           href={selectedResource.sourceUrl}
@@ -2822,36 +2776,40 @@ function HomeContent() {
                               AI Summary
                             </h3>
                             <p className="text-[11px] text-gray-500">
-                              Right-click to add to notes
+                              Select text for more options
                             </p>
                           </div>
                         </div>
                       </div>
-                      <div
-                        className="prose prose-sm max-w-none cursor-text select-text p-3"
-                        onContextMenu={(e) => handleContextMenu(e, aiSummary)}
+                      <TextSelectionToolbar
+                        resourceId={selectedResource?.id}
+                        onAskAI={(text) => {
+                          setAiInput(text);
+                        }}
                       >
-                        {(() => {
-                          const { images, textContent } =
-                            extractImagesFromMarkdown(aiSummary);
-                          return (
-                            <>
-                              {/* Render extracted images first */}
-                              {images.map((img, idx) => (
-                                <Base64Image
-                                  key={idx}
-                                  src={img.src}
-                                  alt={img.alt}
-                                />
-                              ))}
-                              {/* Render text content with markdown */}
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                {textContent}
-                              </ReactMarkdown>
-                            </>
-                          );
-                        })()}
-                      </div>
+                        <div className="prose prose-sm max-w-none cursor-text select-text p-3">
+                          {(() => {
+                            const { images, textContent } =
+                              extractImagesFromMarkdown(aiSummary);
+                            return (
+                              <>
+                                {/* Render extracted images first */}
+                                {images.map((img, idx) => (
+                                  <Base64Image
+                                    key={idx}
+                                    src={img.src}
+                                    alt={img.alt}
+                                  />
+                                ))}
+                                {/* Render text content with markdown */}
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                  {textContent}
+                                </ReactMarkdown>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </TextSelectionToolbar>
                     </div>
                   )}
 
@@ -2892,42 +2850,43 @@ function HomeContent() {
                               {aiInsights.length} Key Insights
                             </h3>
                             <p className="text-[11px] text-gray-500">
-                              Right-click to add to notes
+                              Select text for more options
                             </p>
                           </div>
                         </div>
                       </div>
-                      <div className="space-y-2 p-3">
-                        {aiInsights.map((insight, i) => (
-                          <div
-                            key={i}
-                            className={`group cursor-pointer rounded-lg border-2 p-2.5 transition-all ${
-                              insight.importance === 'high'
-                                ? 'border-red-200 bg-red-50 hover:border-red-300 hover:bg-red-100'
-                                : insight.importance === 'medium'
-                                  ? 'border-orange-200 bg-orange-50 hover:border-orange-300 hover:bg-orange-100'
-                                  : 'border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100'
-                            }`}
-                            onContextMenu={(e) =>
-                              handleContextMenu(
-                                e,
-                                `**${insight.title}**\n\n${insight.description}`
-                              )
-                            }
-                          >
-                            <div className="flex items-start">
-                              <div className="flex-1">
-                                <h4 className="text-sm font-semibold leading-snug text-gray-900">
-                                  {insight.title}
-                                </h4>
-                                <p className="mt-1 text-xs leading-relaxed text-gray-600">
-                                  {insight.description}
-                                </p>
+                      <TextSelectionToolbar
+                        resourceId={selectedResource?.id}
+                        onAskAI={(text) => {
+                          setAiInput(text);
+                        }}
+                      >
+                        <div className="space-y-2 p-3">
+                          {aiInsights.map((insight, i) => (
+                            <div
+                              key={i}
+                              className={`group cursor-text select-text rounded-lg border-2 p-2.5 transition-all ${
+                                insight.importance === 'high'
+                                  ? 'border-red-200 bg-red-50 hover:border-red-300 hover:bg-red-100'
+                                  : insight.importance === 'medium'
+                                    ? 'border-orange-200 bg-orange-50 hover:border-orange-300 hover:bg-orange-100'
+                                    : 'border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100'
+                              }`}
+                            >
+                              <div className="flex items-start">
+                                <div className="flex-1">
+                                  <h4 className="text-sm font-semibold leading-snug text-gray-900">
+                                    {insight.title}
+                                  </h4>
+                                  <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                                    {insight.description}
+                                  </p>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      </TextSelectionToolbar>
                     </div>
                   )}
 
@@ -2956,43 +2915,44 @@ function HomeContent() {
                               Research Methodology
                             </h3>
                             <p className="text-[10px] text-gray-500">
-                              Right-click to add to notes
+                              Select text for more options
                             </p>
                           </div>
                         </div>
                       </div>
-                      <div className="space-y-2 p-3">
-                        {aiMethodology.map((method, i) => (
-                          <div
-                            key={i}
-                            className={`group cursor-pointer rounded-lg border-2 p-2.5 transition-all ${
-                              method.importance === 'high'
-                                ? 'border-blue-200 bg-blue-50 hover:border-blue-300 hover:bg-blue-100'
-                                : method.importance === 'medium'
-                                  ? 'border-cyan-200 bg-cyan-50 hover:border-cyan-300 hover:bg-cyan-100'
-                                  : 'border-teal-200 bg-teal-50 hover:border-teal-300 hover:bg-teal-100'
-                            }`}
-                            onContextMenu={(e) =>
-                              handleContextMenu(
-                                e,
-                                `**${method.title}**\n\n${method.description}`
-                              )
-                            }
-                          >
-                            <div className="flex items-start gap-2">
-                              <span className="text-base">🔬</span>
-                              <div className="flex-1">
-                                <h4 className="text-xs font-semibold leading-snug text-gray-900">
-                                  {method.title}
-                                </h4>
-                                <p className="mt-1 text-[11px] leading-relaxed text-gray-600">
-                                  {method.description}
-                                </p>
+                      <TextSelectionToolbar
+                        resourceId={selectedResource?.id}
+                        onAskAI={(text) => {
+                          setAiInput(text);
+                        }}
+                      >
+                        <div className="space-y-2 p-3">
+                          {aiMethodology.map((method, i) => (
+                            <div
+                              key={i}
+                              className={`group cursor-text select-text rounded-lg border-2 p-2.5 transition-all ${
+                                method.importance === 'high'
+                                  ? 'border-blue-200 bg-blue-50 hover:border-blue-300 hover:bg-blue-100'
+                                  : method.importance === 'medium'
+                                    ? 'border-cyan-200 bg-cyan-50 hover:border-cyan-300 hover:bg-cyan-100'
+                                    : 'border-teal-200 bg-teal-50 hover:border-teal-300 hover:bg-teal-100'
+                              }`}
+                            >
+                              <div className="flex items-start gap-2">
+                                <FlaskConical className="h-4 w-4 flex-shrink-0 text-blue-600" />
+                                <div className="flex-1">
+                                  <h4 className="text-xs font-semibold leading-snug text-gray-900">
+                                    {method.title}
+                                  </h4>
+                                  <p className="mt-1 text-[11px] leading-relaxed text-gray-600">
+                                    {method.description}
+                                  </p>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      </TextSelectionToolbar>
                     </div>
                   )}
 
@@ -3151,7 +3111,9 @@ function HomeContent() {
                         setViewMode('detail');
                       } else {
                         // If not in current list, fetch the resource and display it
-                        fetch(`${config.apiBaseUrl}/api/v1/resources/${resource.id}`)
+                        fetch(
+                          `${config.apiBaseUrl}/api/v1/resources/${resource.id}`
+                        )
                           .then((res) => res.json())
                           .then((data) => {
                             if (data) {
@@ -3160,7 +3122,10 @@ function HomeContent() {
                             }
                           })
                           .catch((err) => {
-                            logger.error('Failed to fetch similar resource:', err);
+                            logger.error(
+                              'Failed to fetch similar resource:',
+                              err
+                            );
                           });
                       }
                     }}

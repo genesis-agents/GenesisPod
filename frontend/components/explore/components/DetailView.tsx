@@ -28,8 +28,6 @@ interface DetailViewProps {
   }) => void;
   onAddToNotes: (text: string) => void;
   onAskAI: (text: string) => void;
-  convertToAIOfficeResource: (resource: Resource) => any;
-  aiOfficeStore: any;
 }
 
 export default function DetailView({
@@ -46,8 +44,6 @@ export default function DetailView({
   onArticleLoaded,
   onAddToNotes,
   onAskAI,
-  convertToAIOfficeResource,
-  aiOfficeStore,
 }: DetailViewProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -63,8 +59,6 @@ export default function DetailView({
         onToggleUpvote={onToggleUpvote}
         isBookmarked={isBookmarked}
         hasUpvoted={hasUpvoted}
-        convertToAIOfficeResource={convertToAIOfficeResource}
-        aiOfficeStore={aiOfficeStore}
       />
 
       {/* Content Preview */}

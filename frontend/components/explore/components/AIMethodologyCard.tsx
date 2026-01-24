@@ -3,6 +3,7 @@
 import { AIInsight } from '../utils/types';
 import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
 import { FlaskConical } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n/i18n-context';
 
 interface AIMethodologyCardProps {
   aiMethodology: AIInsight[];
@@ -17,6 +18,8 @@ export default function AIMethodologyCard({
   onContextMenu,
   onAskAI,
 }: AIMethodologyCardProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-blue-50 to-cyan-50 px-3 py-2.5">
@@ -38,10 +41,11 @@ export default function AIMethodologyCard({
           </div>
           <div>
             <h3 className="text-xs font-bold text-gray-900">
-              Research Methodology
+              {t('explore.aiCards.methodology.title') || 'Research Methodology'}
             </h3>
             <p className="text-[10px] text-gray-500">
-              Select text for more options
+              {t('explore.aiCards.methodology.hint') ||
+                'Select text for more options'}
             </p>
           </div>
         </div>

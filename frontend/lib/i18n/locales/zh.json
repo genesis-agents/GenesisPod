@@ -390,6 +390,154 @@
       "showMore": "显示更多",
       "moreInsights": "更多洞察",
       "keyInsight": "关键洞察"
+    },
+    "header": {
+      "backToList": "返回列表",
+      "showDetails": "显示详情",
+      "hideDetails": "隐藏详情",
+      "save": "保存",
+      "open": "打开"
+    },
+    "actions": {
+      "upvote": "点赞",
+      "removeUpvote": "取消点赞",
+      "upvoted": "点赞成功",
+      "upvoteRemoved": "已取消点赞",
+      "upvoteFailed": "点赞失败",
+      "removeBookmark": "取消收藏",
+      "bookmarked": "收藏成功",
+      "bookmarkRemoved": "已取消收藏",
+      "bookmarkFailed": "收藏失败",
+      "loginToBookmark": "请登录后再收藏",
+      "share": "分享",
+      "linkCopied": "链接已复制到剪贴板",
+      "openNewTab": "在新标签页中打开",
+      "deleteResource": "删除资源（管理员）"
+    },
+    "aiPanel": {
+      "title": "AI 助手",
+      "expand": "展开 AI 助手面板",
+      "collapse": "收起 AI 助手面板",
+      "chat": "对话",
+      "notes": "笔记",
+      "comments": "评论",
+      "similar": "相似",
+      "thinking": "正在思考...",
+      "processing": "AI 处理中...",
+      "askPlaceholder": "询问关于此内容的任何问题...",
+      "selectResourceFirst": "请先选择一个资源...",
+      "uploadAttachment": "上传附件",
+      "saveToNotes": "保存对话到笔记",
+      "suggestions": {
+        "title": "你可以问：",
+        "mainContributions": "这篇文章的主要贡献是什么？",
+        "applications": "有哪些实际应用场景？",
+        "limitations": "有什么局限性？"
+      },
+      "emptyState": {
+        "title": "未选择内容",
+        "description": "点击任意论文、项目或新闻，使用 AI 进行分析"
+      }
+    },
+    "aiCards": {
+      "summary": {
+        "title": "AI 摘要",
+        "hint": "选择文本获取更多选项"
+      },
+      "insights": {
+        "title": "关键洞察",
+        "hint": "选择文本获取更多选项"
+      },
+      "methodology": {
+        "title": "研究方法",
+        "hint": "选择文本获取更多选项"
+      }
+    },
+    "model": {
+      "label": "AI 模型"
+    },
+    "list": {
+      "noResources": "未找到资源",
+      "loadingMore": "加载更多...",
+      "noMoreResources": "没有更多资源了",
+      "loading": "加载中...",
+      "allLoaded": "— 已加载全部内容 —",
+      "noContent": "暂无内容",
+      "tryRunCrawler": "请先运行数据采集器"
+    },
+    "preview": {
+      "noPreview": "该资源暂无可用预览",
+      "openInNewTab": "在新标签页中打开 →",
+      "cannotLoadVideo": "无法加载视频",
+      "watchOnYouTube": "在 YouTube 上观看",
+      "previewNotAvailable": "预览不可用",
+      "noPdfOrHtml": "该资源暂无可用的 PDF 或 HTML 预览"
+    },
+    "youtube": {
+      "keyMoments": {
+        "title": "关键时刻",
+        "points": "个重点",
+        "all": "全部",
+        "important": "⭐ 重要",
+        "normal": "🔸 一般",
+        "minor": "• 次要",
+        "nowPlaying": "▶ 正在播放",
+        "noMoments": "暂无关键时刻",
+        "noMomentsInCategory": "此类别暂无内容",
+        "note": "笔记",
+        "noted": "已记录",
+        "clickToJump": "点击时刻快速跳转"
+      },
+      "translation": {
+        "translate": "翻译",
+        "autoTranslating": "自动翻译中",
+        "clickToTranslate": "点击翻译",
+        "bilingualSubtitles": "双语字幕",
+        "settings": "翻译设置",
+        "mode": "翻译模式",
+        "off": "关闭",
+        "auto": "自动翻译",
+        "click": "点击翻译",
+        "bilingual": "双语对照",
+        "position": "显示位置",
+        "belowSubtitle": "字幕下方",
+        "sidebar": "侧边栏",
+        "floating": "悬浮框",
+        "autoHide": "3秒后自动隐藏",
+        "hint": "提示：",
+        "hintAuto": "翻译会随视频播放自动显示",
+        "hintClick": "点击英文句子即可查看中文翻译",
+        "hintBilingual": "英文和中文会同时显示"
+      },
+      "export": {
+        "title": "导出字幕为 PDF",
+        "description": "选择导出格式和选项",
+        "format": "导出格式",
+        "bilingualSide": "双语并排",
+        "bilingualSideDesc": "英文和中文左右两列对照显示",
+        "bilingualStack": "双语上下",
+        "bilingualStackDesc": "英文在上，中文在下依次排列",
+        "englishOnly": "仅英文",
+        "englishOnlyDesc": "只导出英文原文字幕",
+        "chineseOnly": "仅中文",
+        "chineseOnlyDesc": "只导出中文翻译字幕",
+        "options": "附加选项",
+        "includeTimestamps": "包含时间戳",
+        "timestampsDesc": "显示每段字幕的时间标记",
+        "includeVideoLink": "包含视频链接",
+        "videoLinkDesc": "在文档头部添加 YouTube 视频链接",
+        "includeMetadata": "包含元信息",
+        "metadataDesc": "显示视频标题和导出日期",
+        "cancel": "取消",
+        "exporting": "导出中...",
+        "exportPdf": "导出 PDF",
+        "exportTooltip": "导出字幕为 PDF",
+        "fetchFailed": "获取字幕失败，请重试。",
+        "noSubtitles": "暂无可用字幕，请重试。",
+        "error": "错误",
+        "retry": "重试",
+        "loadingSubtitles": "加载字幕中..."
+      }
     }
   },
   "aiStudio": {
