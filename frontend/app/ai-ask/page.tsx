@@ -1323,7 +1323,7 @@ export default function AskPage() {
     // Add quoted content at the beginning if present
     // displayContent is for UI display (truncated), userContent is for AI (full)
     let displayContent = userContent;
-    if (currentQuote) {
+    if (currentQuote?.content) {
       // Full content for AI
       const quotedBlock = `> 引用内容:\n> ${currentQuote.content.split('\n').join('\n> ')}\n\n`;
       userContent = userContent
@@ -1650,7 +1650,7 @@ export default function AskPage() {
                     </span>
                     {user?.username && (
                       <span className="text-gray-700">
-                        , {user.username.split(' ')[0]}
+                        , {user.username?.split(' ')?.[0] || user.username}
                       </span>
                     )}
                   </h1>

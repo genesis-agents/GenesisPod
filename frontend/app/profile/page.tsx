@@ -92,8 +92,8 @@ function ProfileContent() {
   useEffect(() => {
     if (user) {
       setUserData({
-        name: user.username || user.email.split('@')[0],
-        email: user.email,
+        name: user.username || user.email?.split('@')[0] || 'User',
+        email: user.email || '',
         bio: user.bio || '',
         interests: user.interests || [],
       });

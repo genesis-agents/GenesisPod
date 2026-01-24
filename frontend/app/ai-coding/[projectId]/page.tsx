@@ -190,7 +190,7 @@ function CodeViewer({ files }: { files: ProjectFile[] }) {
                 {selectedFile.path}
               </span>
               <span className="text-xs text-gray-500">
-                {selectedFile.content.split('\n').length} 行
+                {selectedFile.content?.split('\n')?.length || 0} 行
               </span>
             </div>
           )}

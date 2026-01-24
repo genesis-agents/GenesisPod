@@ -109,7 +109,7 @@ export default function UserProfileButton({
         </div>
         {!isCollapsed && (
           <span className="flex-1 truncate text-left text-gray-900">
-            {user.username || user.email.split('@')[0]}
+            {user.username || user.email?.split('@')[0] || 'User'}
           </span>
         )}
       </button>
