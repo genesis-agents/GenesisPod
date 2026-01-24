@@ -347,15 +347,15 @@ export default function TextSelectionToolbar({
 
   // Render main toolbar buttons
   const renderMainToolbar = () => (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-0.5">
       {/* Copy */}
       <button
         onClick={handleCopy}
-        className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-100"
+        className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-100"
         title="Copy"
       >
         <svg
-          className="h-4 w-4"
+          className="h-3.5 w-3.5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -367,10 +367,10 @@ export default function TextSelectionToolbar({
             d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
           />
         </svg>
-        <span className="hidden sm:inline">Copy</span>
+        <span>Copy</span>
       </button>
 
-      <div className="mx-1 h-5 w-px bg-gray-200" />
+      <div className="mx-0.5 h-4 w-px bg-gray-200" />
 
       {/* Translate */}
       <button
@@ -378,11 +378,11 @@ export default function TextSelectionToolbar({
           setTranslation(''); // Clear stale translation when entering translate mode
           setMode('translate');
         }}
-        className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-100"
+        className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-100"
         title="Translate"
       >
         <svg
-          className="h-4 w-4"
+          className="h-3.5 w-3.5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -394,19 +394,19 @@ export default function TextSelectionToolbar({
             d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
           />
         </svg>
-        <span className="hidden sm:inline">Translate</span>
+        <span>Translate</span>
       </button>
 
-      <div className="mx-1 h-5 w-px bg-gray-200" />
+      <div className="mx-0.5 h-4 w-px bg-gray-200" />
 
       {/* Add to Notes */}
       <button
         onClick={() => setMode('note')}
-        className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-100"
+        className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-100"
         title="Add to Notes"
       >
         <svg
-          className="h-4 w-4"
+          className="h-3.5 w-3.5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -418,19 +418,19 @@ export default function TextSelectionToolbar({
             d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
           />
         </svg>
-        <span className="hidden sm:inline">Notes</span>
+        <span>Notes</span>
       </button>
 
-      <div className="mx-1 h-5 w-px bg-gray-200" />
+      <div className="mx-0.5 h-4 w-px bg-gray-200" />
 
       {/* Highlight */}
       <button
         onClick={() => setMode('highlight')}
-        className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-100"
+        className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-700 transition-colors hover:bg-gray-100"
         title="Highlight"
       >
         <svg
-          className="h-4 w-4"
+          className="h-3.5 w-3.5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -442,20 +442,20 @@ export default function TextSelectionToolbar({
             d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
           />
         </svg>
-        <span className="hidden sm:inline">Highlight</span>
+        <span>Highlight</span>
       </button>
 
       {onAskAI && (
         <>
-          <div className="mx-1 h-5 w-px bg-gray-200" />
+          <div className="mx-0.5 h-4 w-px bg-gray-200" />
           {/* Ask AI */}
           <button
             onClick={handleAskAI}
-            className="flex items-center gap-1.5 rounded-md bg-gradient-to-r from-red-500 to-red-600 px-2.5 py-1.5 text-sm text-white transition-colors hover:from-red-600 hover:to-red-700"
+            className="flex items-center gap-1 rounded bg-gradient-to-r from-red-500 to-red-600 px-2 py-1 text-xs text-white transition-colors hover:from-red-600 hover:to-red-700"
             title="Ask AI"
           >
             <svg
-              className="h-4 w-4"
+              className="h-3.5 w-3.5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -467,7 +467,7 @@ export default function TextSelectionToolbar({
                 d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
               />
             </svg>
-            <span className="hidden sm:inline">Ask AI</span>
+            <span>Ask AI</span>
           </button>
         </>
       )}
