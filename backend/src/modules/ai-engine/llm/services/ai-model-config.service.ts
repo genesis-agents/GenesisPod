@@ -260,11 +260,14 @@ export class AiModelConfigService {
       }
     }
 
-    // 3. 直接从数据库精确查询（不用模糊匹配，完全信任数据库配置）
+    // 3. 直接从数据库精确查询（同时支持 modelId 和 name 字段）
     try {
       const model = await this.prisma.aIModel.findFirst({
         where: {
-          modelId: { equals: normalizedModelId, mode: "insensitive" },
+          OR: [
+            { modelId: { equals: normalizedModelId, mode: "insensitive" } },
+            { name: { equals: normalizedModelId, mode: "insensitive" } },
+          ],
           modelType: "CHAT",
           isEnabled: true,
         },
@@ -274,6 +277,13 @@ export class AiModelConfigService {
         // ★ 使用统一的 buildModelConfig 方法
         const config = this.buildModelConfig(model);
         this.modelConfigCache.set(normalizedModelId, config);
+        // 同时缓存 modelId 和 name 以提高后续查找效率
+        if (model.modelId !== normalizedModelId) {
+          this.modelConfigCache.set(model.modelId, config);
+        }
+        if (model.name !== normalizedModelId && model.name !== model.modelId) {
+          this.modelConfigCache.set(model.name, config);
+        }
         return config;
       }
     } catch (error) {
@@ -460,12 +470,210 @@ export class AiModelConfigService {
     }
   }
 
-
   /**
    * 获取 provider 的 API 格式
    */
   getApiFormatForProvider(provider: string): string {
     return this.inferApiFormat(provider);
+  }
+
+  // ==================== 统一模型查询方法 ====================
+  // ★ 以下方法是数据库访问的唯一入口，其他服务应该委托给这里
+
+  /**
+   * 获取所有启用的模型列表（用于前端下拉列表）
+   * ★ 不包含 API Key，安全返回给前端
+   */
+  async getEnabledModelsForFrontend(modelType?: AIModelType): Promise<
+    {
+      id: string;
+      dbId: string;
+      name: string;
+      modelName: string;
+      provider: string;
+      modelId: string;
+      modelType: string;
+      icon: string | null;
+      iconUrl: string;
+      color: string | null;
+      description: string;
+      isDefault: boolean;
+    }[]
+  > {
+    const where: any = { isEnabled: true };
+    if (modelType) {
+      where.modelType = modelType;
+    }
+
+    const models = await this.prisma.aIModel.findMany({
+      where,
+      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+        provider: true,
+        modelId: true,
+        modelType: true,
+        icon: true,
+        color: true,
+        description: true,
+        isDefault: true,
+      },
+    });
+
+    return models.map((model) => ({
+      id: model.id,
+      dbId: model.id,
+      name: model.displayName,
+      modelName: model.name,
+      provider: model.provider,
+      modelId: model.modelId,
+      modelType: model.modelType,
+      icon: model.icon,
+      iconUrl: this.getIconUrl(model.name),
+      color: model.color,
+      description:
+        model.description || `${model.provider} ${model.displayName}`,
+      isDefault: model.isDefault,
+    }));
+  }
+
+  /**
+   * 根据模型名称获取图标 URL
+   */
+  private getIconUrl(name: string): string {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes("grok") || lowerName.includes("xai")) {
+      return "/icons/ai/grok.svg";
+    }
+    if (
+      lowerName.includes("gpt") ||
+      lowerName.includes("openai") ||
+      lowerName.includes("chatgpt")
+    ) {
+      return "/icons/ai/openai.svg";
+    }
+    if (lowerName.includes("claude") || lowerName.includes("anthropic")) {
+      return "/icons/ai/claude.svg";
+    }
+    if (lowerName.includes("gemini") || lowerName.includes("google")) {
+      return "/icons/ai/gemini.svg";
+    }
+    return "/icons/ai/openai.svg";
+  }
+
+  /**
+   * 根据 ID（数据库 UUID 或 modelId）查找模型
+   * ★ 统一入口，支持多种 ID 格式
+   */
+  async getModelById(idOrModelId: string): Promise<AIModelConfig | null> {
+    // 1. 先尝试按 modelId/name 查找（使用缓存）
+    const configByModelId = await this.getModelConfig(idOrModelId);
+    if (configByModelId) {
+      return configByModelId;
+    }
+
+    // 2. 如果是 UUID 格式，尝试按数据库 ID 查找
+    if (idOrModelId.length > 30) {
+      try {
+        const model = await this.prisma.aIModel.findFirst({
+          where: {
+            id: idOrModelId,
+            isEnabled: true,
+          },
+        });
+        if (model) {
+          return this.buildModelConfig(model);
+        }
+      } catch (error) {
+        this.logger.warn(`[getModelById] Database query failed: ${error}`);
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * 获取指定 provider 的模型列表
+   */
+  async getModelsByProvider(providerName: string): Promise<AIModelConfig[]> {
+    const models = await this.prisma.aIModel.findMany({
+      where: {
+        isEnabled: true,
+        OR: [
+          { provider: { contains: providerName, mode: "insensitive" } },
+          { modelId: { contains: providerName, mode: "insensitive" } },
+        ],
+      },
+    });
+    return models.map((m) => this.buildModelConfig(m));
+  }
+
+  /**
+   * 获取第一个可用的指定 provider 模型（带完整配置）
+   */
+  async getFirstModelByProvider(
+    providerName: string,
+  ): Promise<AIModelConfig | null> {
+    const model = await this.prisma.aIModel.findFirst({
+      where: {
+        isEnabled: true,
+        OR: [
+          { provider: { contains: providerName, mode: "insensitive" } },
+          { modelId: { contains: providerName, mode: "insensitive" } },
+        ],
+        apiKey: { not: null },
+      },
+    });
+    return model ? this.buildModelConfig(model) : null;
+  }
+
+  /**
+   * 获取所有模型（诊断用，包含 API Key 信息）
+   * ⚠️ 仅用于内部诊断，不要暴露给前端
+   */
+  async getAllModelsForDiagnostics(): Promise<
+    {
+      id: string;
+      name: string;
+      modelId: string;
+      provider: string;
+      modelType: string;
+      isEnabled: boolean;
+      isDefault: boolean;
+      hasApiKey: boolean;
+      hasSecretKey: boolean;
+      apiEndpoint: string | null;
+    }[]
+  > {
+    const models = await this.prisma.aIModel.findMany({
+      select: {
+        id: true,
+        name: true,
+        modelId: true,
+        provider: true,
+        modelType: true,
+        isEnabled: true,
+        isDefault: true,
+        apiKey: true,
+        secretKey: true,
+        apiEndpoint: true,
+      },
+    });
+
+    return models.map((m) => ({
+      id: m.id,
+      name: m.name,
+      modelId: m.modelId,
+      provider: m.provider,
+      modelType: m.modelType,
+      isEnabled: m.isEnabled,
+      isDefault: m.isDefault,
+      hasApiKey: !!m.apiKey,
+      hasSecretKey: !!m.secretKey,
+      apiEndpoint: m.apiEndpoint,
+    }));
   }
 
   /**

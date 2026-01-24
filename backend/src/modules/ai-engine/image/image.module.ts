@@ -5,12 +5,16 @@
  * 提供统一的图像生成能力：
  * - ImageFactory: 图像生成工厂
  * - 多提供商适配器: Gemini, OpenAI, Stability, Together
+ *
+ * ★ 密钥管理：优先使用 Secret Manager，回退到直接存储的 apiKey
  */
 
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+import { SecretsService } from "../../core/secrets/secrets.service";
+import { SecretsModule } from "../../core/secrets/secrets.module";
 import { AIModelType } from "@prisma/client";
 
 import { ImageFactory } from "./factory/image-factory";
@@ -20,7 +24,7 @@ import { StabilityImageAdapter } from "./adapters/stability-image-adapter";
 import { TogetherImageAdapter } from "./adapters/together-image-adapter";
 
 @Module({
-  imports: [HttpModule, PrismaModule],
+  imports: [HttpModule, PrismaModule, SecretsModule],
   providers: [
     ImageFactory,
     GeminiImageAdapter,
@@ -46,6 +50,7 @@ export class ImageModule implements OnModuleInit {
     private readonly stabilityAdapter: StabilityImageAdapter,
     private readonly togetherAdapter: TogetherImageAdapter,
     private readonly prisma: PrismaService,
+    private readonly secretsService: SecretsService,
   ) {}
 
   async onModuleInit() {
@@ -67,6 +72,7 @@ export class ImageModule implements OnModuleInit {
 
   /**
    * 从数据库加载 API Keys
+   * ★ 优先使用 Secret Manager，回退到直接存储的 apiKey
    */
   private async loadApiKeysFromDatabase(): Promise<void> {
     try {
@@ -79,7 +85,20 @@ export class ImageModule implements OnModuleInit {
 
       for (const model of imageModels) {
         const provider = model.provider.toLowerCase();
-        const apiKey = model.apiKey;
+
+        // ★ 统一密钥获取：优先 Secret Manager，回退 apiKey
+        let apiKey: string | null = null;
+        if (model.secretKey) {
+          apiKey = await this.secretsService.getValueInternal(model.secretKey);
+          if (apiKey) {
+            this.logger.debug(
+              `Loaded API key from Secret Manager for ${model.name}`,
+            );
+          }
+        }
+        if (!apiKey) {
+          apiKey = model.apiKey?.trim() || null;
+        }
 
         if (!apiKey) continue;
 

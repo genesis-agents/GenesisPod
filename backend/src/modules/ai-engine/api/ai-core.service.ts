@@ -1,91 +1,36 @@
 import { Injectable, Logger, HttpException, HttpStatus } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { AiChatService } from "../llm/services/ai-chat.service";
+import { AIEngineFacade } from "../facade/ai-engine.facade";
+import { AiModelConfigService } from "../llm/services/ai-model-config.service";
 import { AIModelType } from "@prisma/client";
 
+/**
+ * AI Core Service
+ * ★ 职责：提供 Controller 层需要的业务逻辑
+ * ★ 原则：所有模型查询委托给 AiModelConfigService，不直接访问数据库
+ */
 @Injectable()
 export class AiCoreService {
   private readonly logger = new Logger(AiCoreService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly aiChatService: AiChatService,
+    private readonly prisma: PrismaService, // 仅用于非模型相关的查询（如 Topic）
+    private readonly aiFacade: AIEngineFacade,
+    private readonly modelConfigService: AiModelConfigService,
   ) {}
 
   /**
    * 获取已启用的 AI 模型列表（公共 API）
-   * 返回前端需要的模型信息（不包含 API Key）
+   * ★ 委托给 AiModelConfigService
    */
   async getEnabledModels() {
-    const models = await this.prisma.aIModel.findMany({
-      where: {
-        isEnabled: true,
-      },
-      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-      select: {
-        id: true,
-        name: true,
-        displayName: true,
-        provider: true,
-        modelId: true,
-        modelType: true,
-        icon: true,
-        color: true,
-        description: true,
-        isDefault: true,
-      },
-    });
-
-    return models.map((model) => ({
-      id: model.id, // 使用数据库唯一 ID 作为前端 id（避免重复）
-      dbId: model.id, // 数据库实际 ID（保持兼容）
-      name: model.displayName,
-      modelName: model.name, // 模型标识名（如 gemini, gemini-image）
-      provider: model.provider,
-      modelId: model.modelId,
-      modelType: model.modelType, // 模型类型：CHAT, IMAGE_GENERATION, IMAGE_EDITING, MULTIMODAL
-      icon: model.icon,
-      iconUrl: this.getIconUrl(model.name),
-      color: model.color,
-      description:
-        model.description || `${model.provider} ${model.displayName}`,
-      isDefault: model.isDefault,
-    }));
+    return this.modelConfigService.getEnabledModelsForFrontend();
   }
 
   /**
-   * 根据模型名称获取图标 URL
-   * 使用模糊匹配来支持各种命名格式（如 "ChatGPT (OpenAI) #1", "Grok (xAI)"）
+   * 翻译文本
+   * ★ 使用 AIEngineFacade.chat()
    */
-  private getIconUrl(name: string): string {
-    const lowerName = name.toLowerCase();
-
-    // 模糊匹配规则
-    if (
-      lowerName.includes("grok") ||
-      lowerName.includes("xai") ||
-      lowerName.includes("x.ai")
-    ) {
-      return "/icons/ai/grok.svg";
-    }
-    if (
-      lowerName.includes("gpt") ||
-      lowerName.includes("openai") ||
-      lowerName.includes("chatgpt")
-    ) {
-      return "/icons/ai/openai.svg";
-    }
-    if (lowerName.includes("claude") || lowerName.includes("anthropic")) {
-      return "/icons/ai/claude.svg";
-    }
-    if (lowerName.includes("gemini") || lowerName.includes("google")) {
-      return "/icons/ai/gemini.svg";
-    }
-
-    // 默认返回 OpenAI 图标（最通用的）
-    return "/icons/ai/openai.svg";
-  }
-
   async translateText(
     text: string,
     sourceLang: string,
@@ -94,74 +39,36 @@ export class AiCoreService {
     this.logger.log(`Translating text from ${sourceLang} to ${targetLang}`);
 
     try {
-      // 优先使用 CHAT_FAST tier（低成本快速模型）
-      let defaultModel = await this.prisma.aIModel.findFirst({
-        where: {
-          isEnabled: true,
-          isDefault: true,
-          modelType: AIModelType.CHAT_FAST,
-        },
-      });
+      // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
+      const fastModel = await this.aiFacade.getDefaultModelByType(
+        AIModelType.CHAT_FAST,
+      );
+      const modelConfig =
+        fastModel || (await this.aiFacade.getDefaultTextModel());
 
-      // 如果没有默认的 CHAT_FAST 模型，查找任意可用的 CHAT_FAST 模型
-      if (!defaultModel) {
-        defaultModel = await this.prisma.aIModel.findFirst({
-          where: {
-            isEnabled: true,
-            modelType: AIModelType.CHAT_FAST,
-          },
-          orderBy: { createdAt: "desc" },
-        });
-      }
-
-      // Fallback: 如果没有 CHAT_FAST 模型，使用标准 CHAT 模型
-      if (!defaultModel) {
-        this.logger.warn("No CHAT_FAST model available, falling back to CHAT");
-        defaultModel = await this.prisma.aIModel.findFirst({
-          where: {
-            isEnabled: true,
-            isDefault: true,
-            modelType: AIModelType.CHAT,
-          },
-        });
-
-        if (!defaultModel) {
-          defaultModel = await this.prisma.aIModel.findFirst({
-            where: {
-              isEnabled: true,
-              modelType: AIModelType.CHAT,
-            },
-            orderBy: { createdAt: "desc" },
-          });
-        }
-      }
-
-      if (!defaultModel) {
+      if (!modelConfig) {
         throw new Error("No AI model available for translation");
       }
 
       this.logger.log(
-        `[Translation] Using model: ${defaultModel.name} (${defaultModel.modelId}) - Tier: CHAT_FAST`,
+        `[Translation] Using model: ${modelConfig.displayName} (${modelConfig.modelId}) - Tier: CHAT_FAST`,
       );
 
       const targetLangName = this.getLanguageName(targetLang);
       const prompt = `Translate the following text to ${targetLangName}. Only output the translated text, nothing else:\n\n${text}`;
 
       // Calculate dynamic maxTokens based on input length
-      // Translation typically produces similar length output, add buffer for safety
-      const estimatedTokens = Math.ceil(text.length / 3); // Rough estimate: 3 chars per token
-      const dynamicMaxTokens = Math.max(2000, estimatedTokens * 2); // At least 2000, or 2x input estimate
+      const estimatedTokens = Math.ceil(text.length / 3);
+      const dynamicMaxTokens = Math.max(2000, estimatedTokens * 2);
 
       this.logger.log(
         `[Translation] Text length: ${text.length}, estimated tokens: ${estimatedTokens}, using maxTokens: ${dynamicMaxTokens}`,
       );
 
-      const result = await this.aiChatService.chat({
-        provider: defaultModel.provider,
-        model: defaultModel.modelId,
-        apiKey: defaultModel.apiKey ?? "",
-        apiEndpoint: defaultModel.apiEndpoint ?? undefined,
+      // ★ 使用 AIEngineFacade.chat()
+      const result = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
+        model: modelConfig.modelId,
         maxTokens: dynamicMaxTokens,
         temperature: 0.3,
       });
@@ -203,60 +110,31 @@ export class AiCoreService {
 
   /**
    * 获取所有 AI 模型（诊断用）
+   * ★ 委托给 AiModelConfigService
    */
   async getAllModels() {
-    return this.prisma.aIModel.findMany({
-      select: {
-        id: true,
-        name: true,
-        modelId: true,
-        provider: true,
-        isEnabled: true,
-        isDefault: true,
-        apiKey: true,
-        apiEndpoint: true,
-      },
-    });
+    return this.modelConfigService.getAllModelsForDiagnostics();
   }
 
   /**
    * 获取 Google/Gemini 模型列表
+   * ★ 委托给 AiModelConfigService
    */
   async getGoogleModels() {
-    return this.prisma.aIModel.findMany({
-      where: {
-        OR: [
-          { provider: { contains: "google", mode: "insensitive" } },
-          { provider: { contains: "gemini", mode: "insensitive" } },
-          { modelId: { contains: "gemini", mode: "insensitive" } },
-        ],
-      },
-    });
+    return this.modelConfigService.getModelsByProvider("gemini");
   }
 
   /**
    * 获取第一个可用的 Google 模型（带 API Key）
+   * ★ 委托给 AiModelConfigService
    */
   async getFirstGoogleModelWithKey() {
-    return this.prisma.aIModel.findFirst({
-      where: {
-        AND: [
-          {
-            OR: [
-              { provider: { contains: "google", mode: "insensitive" } },
-              { provider: { contains: "gemini", mode: "insensitive" } },
-            ],
-          },
-          {
-            OR: [{ apiKey: { not: null } }, { secretKey: { not: null } }],
-          },
-        ],
-      },
-    });
+    return this.modelConfigService.getFirstModelByProvider("gemini");
   }
 
   /**
    * 获取 Topic 的 AI 成员配置
+   * ★ 这是 Topic 相关的查询，不是模型查询，保留直接访问
    */
   async getTopicWithAIMembers(topicId: string) {
     return this.prisma.topic.findUnique({
@@ -269,107 +147,17 @@ export class AiCoreService {
 
   /**
    * 根据 modelId 查找启用的 AI 模型
+   * ★ 委托给 AiModelConfigService
    */
   async findModelByModelId(modelId: string) {
-    return this.prisma.aIModel.findFirst({
-      where: {
-        modelId: { equals: modelId, mode: "insensitive" },
-        isEnabled: true,
-      },
-    });
+    return this.modelConfigService.getModelById(modelId);
   }
 
   /**
    * 根据 name 查找启用的 AI 模型
+   * ★ 委托给 AiModelConfigService
    */
   async findModelByName(name: string) {
-    return this.prisma.aIModel.findFirst({
-      where: {
-        name: { equals: name, mode: "insensitive" },
-        isEnabled: true,
-      },
-    });
-  }
-
-  /**
-   * 根据 name 或 modelId 查找启用的 AI 模型
-   */
-  async getModelConfig(model: string) {
-    const modelConfig = await this.prisma.aIModel.findFirst({
-      where: {
-        OR: [
-          { name: { equals: model, mode: "insensitive" } },
-          { modelId: { equals: model, mode: "insensitive" } },
-        ],
-        isEnabled: true,
-      },
-    });
-
-    return modelConfig;
-  }
-
-  /**
-   * 根据模型类型获取模型
-   */
-  async getModelByType(
-    modelType: AIModelType,
-    allowFallback: boolean = true,
-  ): Promise<{
-    id: string;
-    name: string;
-    provider: string;
-    modelId: string;
-    apiKey: string | null;
-    apiEndpoint: string;
-    maxTokens: number;
-    temperature: number;
-  } | null> {
-    // 首先尝试获取指定类型的默认模型
-    const defaultModel = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        isDefault: true,
-        modelType: modelType,
-      },
-    });
-
-    if (defaultModel) {
-      return defaultModel;
-    }
-
-    // 如果没有默认模型，查找任意该类型的可用模型
-    const anyModelOfType = await this.prisma.aIModel.findFirst({
-      where: {
-        isEnabled: true,
-        modelType: modelType,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (anyModelOfType) {
-      return anyModelOfType;
-    }
-
-    // 如果允许降级且不是 CHAT 类型，降级到 CHAT
-    if (allowFallback && modelType !== AIModelType.CHAT) {
-      this.logger.warn(`No ${modelType} model available, falling back to CHAT`);
-      return this.getModelByType(AIModelType.CHAT, false);
-    }
-
-    return null;
-  }
-
-  /**
-   * 获取快速/廉价模型（用于简单任务）
-   */
-  async getFastModelConfig() {
-    const model = await this.getModelByType(AIModelType.CHAT_FAST);
-    if (!model) {
-      throw new HttpException(
-        "No CHAT_FAST AI model is available",
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    return model;
+    return this.modelConfigService.getModelById(name);
   }
 }

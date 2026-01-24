@@ -12,6 +12,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../llm/services/ai-chat.service";
+import { AiModelConfigService } from "../llm/services/ai-model-config.service";
 // ★ 架构重构：通过 ToolRegistry 调用搜索工具
 import type { ToolContext } from "../tools/abstractions/tool.interface";
 import {
@@ -130,6 +131,7 @@ export class AIEngineFacade {
   constructor(
     // 核心服务（必需）
     private readonly aiChatService: AiChatService,
+    private readonly modelConfigService: AiModelConfigService, // ★ 统一模型配置服务
     // 特性模块（可选）
     @Optional() private readonly memory?: MemoryFeature,
     @Optional() private readonly tools?: ToolFeature,
@@ -607,66 +609,31 @@ export class AIEngineFacade {
       `[getAvailableModelsExtended] Querying models with modelType=${modelType}`,
     );
 
-    if (!this.prisma) {
-      const modelNames = await this.aiChatService.getAvailableModelsAsync();
-      this.logger.log(
-        `[getAvailableModelsExtended] Using cache: ${modelNames.length} models`,
-      );
-      return modelNames.map((name) => ({
-        id: name,
-        name: name,
-        provider: this.inferProviderFromModel(name),
-        isReasoning: this.aiChatService.isReasoningModel(name),
-        isAvailable:
-          this.orchestration?.circuitBreaker?.canExecute(`chat:${name}`) ??
-          true,
-      }));
-    }
-
-    const models = await this.prisma.aIModel.findMany({
-      where: {
-        modelType: modelType,
-        isEnabled: true,
-      },
-      select: {
-        id: true,
-        modelId: true,
-        displayName: true,
-        provider: true,
-        maxTokens: true,
-        isReasoning: true,
-        icon: true,
-        isDefault: true,
-      },
-    });
+    // ★ 统一委托给 AiModelConfigService
+    const models =
+      await this.modelConfigService.getAllEnabledModelsByType(modelType);
 
     this.logger.log(
-      `[getAvailableModelsExtended] Found ${models.length} models from DB`,
+      `[getAvailableModelsExtended] Found ${models.length} models`,
     );
 
     return models.map((m) => {
-      // ★ 修复：数据库 true 优先，否则用模式匹配（因为 ?? 不处理 false）
-      const dbIsReasoning = m.isReasoning === true;
-      const patternIsReasoning = this.aiChatService.isReasoningModel(m.modelId);
-      const isReasoning = dbIsReasoning || patternIsReasoning;
+      const isReasoning =
+        m.isReasoning ?? this.aiChatService.isReasoningModel(m.modelId);
       const isAvailable =
         this.orchestration?.circuitBreaker?.canExecute(`chat:${m.modelId}`) ??
         true;
 
-      this.logger.debug(
-        `[getAvailableModelsExtended] Model ${m.modelId}: db=${m.isReasoning}, pattern=${patternIsReasoning}, final=${isReasoning}, available=${isAvailable}`,
-      );
-
       return {
         id: m.modelId,
-        dbId: m.id, // ★ 数据库主键 ID
-        name: m.displayName || m.modelId, // ★ 回退到 modelId 确保总有显示名称
+        dbId: m.id,
+        name: m.displayName || m.modelId,
         provider: m.provider,
         isReasoning,
         isAvailable,
         maxTokens: m.maxTokens,
-        icon: m.icon, // ★ UI 显示图标
-        isDefault: m.isDefault, // ★ 是否默认模型
+        icon: undefined, // AiModelConfigService 不返回 icon，后续可扩展
+        isDefault: m.isDefault,
       };
     });
   }
@@ -688,39 +655,17 @@ export class AIEngineFacade {
   > {
     this.logger.debug(`[getAvailableModels] modelType=${modelType}`);
 
-    if (!this.prisma) {
-      // 从 AiChatService 缓存获取模型名称列表
-      const modelNames = await this.aiChatService.getAvailableModelsAsync();
-      return modelNames.map((name) => ({
-        id: name,
-        name: name,
-        provider: this.inferProviderFromModel(name),
-      }));
-    }
-
-    // 从数据库获取完整模型信息（包含 UI 显示字段）
-    const models = await this.prisma.aIModel.findMany({
-      where: {
-        modelType: modelType,
-        isEnabled: true,
-      },
-      select: {
-        id: true,
-        modelId: true,
-        displayName: true,
-        provider: true,
-        icon: true,
-        isDefault: true,
-      },
-    });
+    // ★ 统一委托给 AiModelConfigService
+    const models =
+      await this.modelConfigService.getEnabledModelsForFrontend(modelType);
 
     return models.map((m) => ({
       id: m.modelId,
-      dbId: m.id, // ★ 数据库主键 ID
-      name: m.displayName,
+      dbId: m.id,
+      name: m.name,
       provider: m.provider,
-      icon: m.icon, // ★ UI 显示图标
-      isDefault: m.isDefault, // ★ 是否默认模型
+      icon: m.icon,
+      isDefault: m.isDefault,
     }));
   }
 
@@ -798,60 +743,22 @@ export class AIEngineFacade {
     secretKey?: string | null;
     modelType?: string;
   } | null> {
-    // ★ 首先尝试按 modelId 查找（如 "imagen-4.0-generate-001"）
-    let config = await this.aiChatService.getModelConfig(idOrModelId);
-
-    // ★ 如果 modelId 查找失败，尝试按数据库 UUID 查找
-    // 前端的模型选择器可能发送的是数据库 UUID 而不是 modelId
-    if (
-      !config &&
-      this.prisma &&
-      idOrModelId.includes("-") &&
-      idOrModelId.length > 30
-    ) {
-      // 看起来像 UUID，尝试直接从数据库查询
-      const dbModel = await this.prisma.aIModel.findFirst({
-        where: {
-          id: idOrModelId,
-          isEnabled: true,
-        },
-      });
-      if (dbModel) {
-        // ★ 修复：对于非 CHAT 类型的模型（如 IMAGE_GENERATION），
-        // getModelConfig() 会返回 null，需要直接使用数据库记录
-        config = await this.aiChatService.getModelConfig(dbModel.modelId);
-
-        // ★ 如果 getModelConfig 返回 null（非 CHAT 类型），直接使用数据库记录
-        if (!config && dbModel) {
-          this.logger.debug(
-            `[getModelById] Model ${dbModel.modelId} is not CHAT type (${dbModel.modelType}), using db record directly`,
-          );
-          return {
-            id: dbModel.id,
-            modelId: dbModel.modelId,
-            displayName: dbModel.displayName || dbModel.name || dbModel.modelId,
-            provider: dbModel.provider,
-            maxTokens: dbModel.maxTokens,
-            apiEndpoint: dbModel.apiEndpoint,
-            isReasoning: (dbModel as any).isReasoning ?? false,
-            // ★ 额外字段供 ImageGenerationService 使用
-            apiKey: dbModel.apiKey,
-            secretKey: dbModel.secretKey,
-            modelType: dbModel.modelType,
-          };
-        }
-      }
-    }
+    // ★ 统一委托给 AiModelConfigService
+    const config = await this.modelConfigService.getModelById(idOrModelId);
 
     if (!config) return null;
+
     return {
-      id: config.id || config.modelId,
+      id: config.id,
       modelId: config.modelId,
       displayName: config.displayName || config.modelId,
       provider: config.provider,
       maxTokens: config.maxTokens,
       apiEndpoint: config.apiEndpoint,
       isReasoning: config.isReasoning ?? false,
+      // ★ 额外字段供 ImageGenerationService 等使用
+      apiKey: config.apiKey,
+      secretKey: config.secretKey,
     };
   }
 
@@ -886,56 +793,14 @@ export class AIEngineFacade {
     priceOutputPerMillion?: number | null;
     priority?: number | null;
   } | null> {
-    // ★ 首先尝试从 CHAT 模型缓存获取
-    let config = await this.aiChatService.getModelConfig(modelId);
-
-    // ★ 如果缓存未命中，直接从数据库查询（支持所有模型类型）
-    if (!config && this.prisma) {
-      const dbModel = await this.prisma.aIModel.findFirst({
-        where: {
-          OR: [
-            { modelId: { equals: modelId, mode: "insensitive" } },
-            { id: modelId },
-          ],
-          isEnabled: true,
-        },
-      });
-
-      if (dbModel) {
-        this.logger.debug(
-          `[getFullModelConfig] Found model ${dbModel.modelId} (type: ${dbModel.modelType}) directly from database`,
-        );
-        // ★ 直接使用数据库记录
-        return {
-          id: dbModel.id,
-          modelId: dbModel.modelId,
-          displayName: dbModel.displayName || dbModel.name || dbModel.modelId,
-          name: dbModel.name || dbModel.modelId,
-          provider: dbModel.provider,
-          apiKey: dbModel.apiKey || "",
-          secretKey: dbModel.secretKey || null,
-          apiEndpoint: dbModel.apiEndpoint || null,
-          maxTokens: dbModel.maxTokens || null,
-          temperature: dbModel.temperature ? Number(dbModel.temperature) : null,
-          isEnabled: dbModel.isEnabled,
-          isDefault: dbModel.isDefault,
-          isReasoning: (dbModel as any).isReasoning ?? false,
-          apiFormat: (dbModel as any).apiFormat || null,
-          supportsTemperature: (dbModel as any).supportsTemperature ?? true,
-          supportsStreaming: (dbModel as any).supportsStreaming ?? false,
-          supportsFunctionCalling:
-            (dbModel as any).supportsFunctionCalling ?? false,
-          supportsVision: (dbModel as any).supportsVision ?? false,
-          tokenParamName: (dbModel as any).tokenParamName || null,
-          defaultTimeoutMs: (dbModel as any).defaultTimeoutMs || null,
-          priceInputPerMillion: (dbModel as any).priceInputPerMillion || null,
-          priceOutputPerMillion: (dbModel as any).priceOutputPerMillion || null,
-          priority: (dbModel as any).priority || null,
-        };
-      }
-    }
+    // ★ 统一委托给 AiModelConfigService
+    const config = await this.modelConfigService.getModelById(modelId);
 
     if (!config) return null;
+
+    this.logger.debug(
+      `[getFullModelConfig] Found model ${config.modelId} via AiModelConfigService`,
+    );
     return {
       id: config.id || config.modelId,
       modelId: config.modelId,
@@ -984,22 +849,6 @@ export class AIEngineFacade {
       provider: config.provider,
       maxTokens: config.maxTokens,
     };
-  }
-
-  /**
-   * 根据模型名推断提供商
-   */
-  private inferProviderFromModel(modelName: string): string {
-    const lower = modelName.toLowerCase();
-    if (lower.includes("gpt") || lower.includes("o1") || lower.includes("o3")) {
-      return "openai";
-    }
-    if (lower.includes("claude")) return "anthropic";
-    if (lower.includes("gemini")) return "google";
-    if (lower.includes("grok")) return "xai";
-    if (lower.includes("deepseek")) return "deepseek";
-    if (lower.includes("llama") || lower.includes("mixtral")) return "meta";
-    return "unknown";
   }
 
   // ==================== 搜索能力 ====================

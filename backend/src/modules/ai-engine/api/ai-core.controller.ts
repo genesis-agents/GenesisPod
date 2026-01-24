@@ -13,7 +13,7 @@ import {
 } from "@nestjs/common";
 import { Response } from "express";
 import { AiCoreService } from "./ai-core.service";
-import { AiChatService } from "../llm/services/ai-chat.service";
+import { AIEngineFacade } from "../facade/ai-engine.facade";
 import {
   IRAGPipelineService,
   RAG_PIPELINE_SERVICE_TOKEN,
@@ -58,7 +58,7 @@ export class AiCoreController {
 
   constructor(
     private readonly aiCoreService: AiCoreService,
-    private readonly aiChatService: AiChatService,
+    private readonly aiFacade: AIEngineFacade,
     @Optional()
     @Inject(RAG_PIPELINE_SERVICE_TOKEN)
     private readonly ragPipelineService?: IRAGPipelineService,
@@ -95,16 +95,17 @@ export class AiCoreController {
     };
 
     // Build diagnosis report
+    // ★ 使用 AiModelConfigService 返回的安全格式（不暴露 API Key 明文）
     const modelsReport = allModels.map((m) => ({
       id: m.id,
       name: m.name,
       modelId: m.modelId,
       provider: m.provider,
+      modelType: m.modelType,
       isEnabled: m.isEnabled,
       isDefault: m.isDefault,
-      hasApiKey: !!m.apiKey,
-      apiKeyLength: m.apiKey?.length || 0,
-      apiKeyPrefix: m.apiKey ? m.apiKey.substring(0, 10) + "..." : null,
+      hasApiKey: m.hasApiKey,
+      hasSecretKey: m.hasSecretKey,
       hasApiEndpoint: !!m.apiEndpoint,
     }));
 
@@ -112,7 +113,8 @@ export class AiCoreController {
       timestamp: new Date().toISOString(),
       totalModels: allModels.length,
       enabledModels: allModels.filter((m) => m.isEnabled).length,
-      modelsWithApiKey: allModels.filter((m) => !!m.apiKey).length,
+      modelsWithApiKey: allModels.filter((m) => m.hasApiKey).length,
+      modelsWithSecretKey: allModels.filter((m) => m.hasSecretKey).length,
       environmentVariables: envVars,
       models: modelsReport,
       recommendation:
@@ -506,13 +508,28 @@ export class AiCoreController {
         }
       }
 
-      // Get model config from database
-      const modelConfig = await this.aiCoreService.getModelConfig(model);
+      // ★ 使用 AIEngineFacade 统一获取模型（与 AI Ask 一致）
+      let targetModelId = model;
+      const facadeModel = await this.aiFacade.getModelById(model);
 
-      if (!modelConfig) {
-        this.logger.warn(`Model ${model} not found or not enabled`);
-        throw new BadRequestException(`Model ${model} is not available`);
+      if (!facadeModel) {
+        // Fallback to default CHAT model
+        const defaultModel = await this.aiFacade.getDefaultTextModel();
+        if (!defaultModel) {
+          this.logger.warn(`Model ${model} not found and no default available`);
+          throw new BadRequestException(`Model ${model} is not available`);
+        }
+        this.logger.warn(
+          `[simple-chat] Model "${model}" not found, using default: ${defaultModel.modelId}`,
+        );
+        targetModelId = defaultModel.modelId;
+      } else {
+        targetModelId = facadeModel.modelId;
       }
+
+      this.logger.log(
+        `[simple-chat] Using model: ${targetModelId} (provider: ${facadeModel?.provider || "default"})`,
+      );
 
       // Build messages array - support multi-turn context
       let chatMessages: {
@@ -563,15 +580,11 @@ ${ragContext}
         res.setHeader("Connection", "keep-alive");
         res.flushHeaders();
 
-        // For streaming, we need to use the chat service and simulate SSE
-        // Since ai-chat.service doesn't have native streaming, we'll return the full response as a single chunk
+        // ★ 使用 AIEngineFacade.chat()，它会自动处理模型查找和 API Key
         try {
-          const result = await this.aiChatService.chat({
-            provider: modelConfig.provider,
-            model: modelConfig.modelId,
-            apiKey: modelConfig.apiKey ?? "",
-            apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+          const result = await this.aiFacade.chat({
             messages: chatMessages,
+            model: targetModelId,
             maxTokens: 4000,
             temperature: 0.7,
           });
@@ -599,13 +612,10 @@ ${ragContext}
           res.end();
         }
       } else {
-        // Non-streaming response
-        const result = await this.aiChatService.chat({
-          provider: modelConfig.provider,
-          model: modelConfig.modelId,
-          apiKey: modelConfig.apiKey ?? "",
-          apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+        // ★ 使用 AIEngineFacade.chat()，它会自动处理模型查找和 API Key
+        const result = await this.aiFacade.chat({
           messages: chatMessages,
+          model: targetModelId,
           maxTokens: 4000,
           temperature: 0.7,
         });
@@ -646,10 +656,23 @@ ${ragContext}
     }
 
     try {
-      const modelConfig = await this.aiCoreService.getModelConfig(model);
-      if (!modelConfig) {
-        throw new BadRequestException(`Model ${model} is not available`);
+      // ★ 使用 AIEngineFacade 统一获取模型（与 AI Ask 一致）
+      let targetModelId = model;
+      const facadeModel = await this.aiFacade.getModelById(model);
+
+      if (!facadeModel) {
+        const defaultModel = await this.aiFacade.getDefaultTextModel();
+        if (!defaultModel) {
+          throw new BadRequestException(`Model ${model} is not available`);
+        }
+        this.logger.warn(
+          `[quick-action] Model "${model}" not found, using default: ${defaultModel.modelId}`,
+        );
+        targetModelId = defaultModel.modelId;
+      } else {
+        targetModelId = facadeModel.modelId;
       }
+
       let prompt: string;
 
       if (action === "methodology") {
@@ -698,12 +721,10 @@ Output format:
 JSON output:`;
       }
 
-      const result = await this.aiChatService.chat({
-        provider: modelConfig.provider,
-        model: modelConfig.modelId,
-        apiKey: modelConfig.apiKey ?? "",
-        apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+      // ★ 使用 AIEngineFacade.chat()，它会自动处理模型查找和 API Key
+      const result = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
+        model: targetModelId,
         maxTokens: 1500,
         temperature: 0.7,
       });
@@ -744,10 +765,19 @@ JSON output:`;
     }
 
     try {
-      // 使用 CHAT_FAST tier（低成本快速模型）
-      const modelConfig = await this.aiCoreService.getFastModelConfig();
+      // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
+      const fastModel = await this.aiFacade.getDefaultModelByType(
+        "CHAT_FAST" as any,
+      );
+      // 如果没有 CHAT_FAST，fallback 到默认 CHAT
+      const modelConfig =
+        fastModel || (await this.aiFacade.getDefaultTextModel());
+      if (!modelConfig) {
+        throw new BadRequestException("No AI model available for summary");
+      }
+
       this.logger.log(
-        `[Summary] Using model: ${modelConfig.name} (${modelConfig.modelId}) - Tier: CHAT_FAST`,
+        `[Summary] Using model: ${modelConfig.displayName} (${modelConfig.modelId}) - Tier: CHAT_FAST`,
       );
 
       const prompt =
@@ -755,12 +785,10 @@ JSON output:`;
           ? `请为以下内容生成简洁的摘要：\n\n${content}\n\n要求：简明扼要，突出重点。`
           : `Please generate a concise summary of the following content:\n\n${content}`;
 
-      const result = await this.aiChatService.chat({
-        provider: modelConfig.provider,
-        model: modelConfig.modelId,
-        apiKey: modelConfig.apiKey ?? "",
-        apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+      // ★ 使用 AIEngineFacade.chat()
+      const result = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
+        model: modelConfig.modelId,
         maxTokens: 1000,
         temperature: 0.5,
       });
@@ -796,10 +824,18 @@ JSON output:`;
     }
 
     try {
-      // 使用 CHAT_FAST tier（低成本快速模型）
-      const modelConfig = await this.aiCoreService.getFastModelConfig();
+      // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
+      const fastModel = await this.aiFacade.getDefaultModelByType(
+        "CHAT_FAST" as any,
+      );
+      const modelConfig =
+        fastModel || (await this.aiFacade.getDefaultTextModel());
+      if (!modelConfig) {
+        throw new BadRequestException("No AI model available for insights");
+      }
+
       this.logger.log(
-        `[Insights] Using model: ${modelConfig.name} (${modelConfig.modelId}) - Tier: CHAT_FAST`,
+        `[Insights] Using model: ${modelConfig.displayName} (${modelConfig.modelId}) - Tier: CHAT_FAST`,
       );
 
       const prompt = `You are a JSON-only API. Extract key insights from the following content.
@@ -816,12 +852,10 @@ Requirements:
 
 JSON output:`;
 
-      const result = await this.aiChatService.generateChatCompletionWithKey({
-        provider: modelConfig.provider,
-        modelId: modelConfig.modelId,
-        apiKey: modelConfig.apiKey ?? "",
-        apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+      // ★ 使用 AIEngineFacade.chat()
+      const result = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
+        model: modelConfig.modelId,
         maxTokens: 1500,
         temperature: 0.7,
       });
@@ -893,10 +927,18 @@ JSON output:`;
       : "auto-detect";
 
     try {
-      // Use fast model for translation
-      const modelConfig = await this.aiCoreService.getFastModelConfig();
+      // ★ 使用 AIEngineFacade 获取 CHAT_FAST tier 模型
+      const fastModel = await this.aiFacade.getDefaultModelByType(
+        "CHAT_FAST" as any,
+      );
+      const modelConfig =
+        fastModel || (await this.aiFacade.getDefaultTextModel());
+      if (!modelConfig) {
+        throw new BadRequestException("No AI model available for translation");
+      }
+
       this.logger.log(
-        `[Translate] Using model: ${modelConfig.name} (${modelConfig.modelId})`,
+        `[Translate] Using model: ${modelConfig.displayName} (${modelConfig.modelId})`,
       );
 
       const prompt = `You are a professional translator. Translate the following text to ${targetLangName}.
@@ -921,12 +963,10 @@ Translation:`;
         `[Translate] Text length: ${body.text.length}, using maxTokens: ${dynamicMaxTokens}`,
       );
 
-      const result = await this.aiChatService.chat({
-        provider: modelConfig.provider,
-        model: modelConfig.modelId,
-        apiKey: modelConfig.apiKey ?? "",
-        apiEndpoint: modelConfig.apiEndpoint ?? undefined,
+      // ★ 使用 AIEngineFacade.chat()
+      const result = await this.aiFacade.chat({
         messages: [{ role: "user", content: prompt }],
+        model: modelConfig.modelId,
         maxTokens: dynamicMaxTokens,
         temperature: 0.3,
       });
