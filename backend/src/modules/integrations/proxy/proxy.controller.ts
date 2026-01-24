@@ -542,7 +542,6 @@ export class ProxyController {
               `All fallback methods failed for ${urlObj.hostname}, returning graceful degradation`,
             );
             return {
-              success: false,
               requiresCaptcha: true,
               title: this.extractTitleFromUrl(url),
               content: "",
@@ -590,7 +589,6 @@ export class ProxyController {
 
       // 返回提取的内容
       return {
-        success: true,
         title: result.title,
         content: result.content,
         textContent: result.textContent,
@@ -786,7 +784,6 @@ export class ProxyController {
               `All fallback methods failed for ${urlObj.hostname}, returning graceful degradation`,
             );
             return {
-              success: false,
               requiresCaptcha: true,
               title: this.extractTitleFromUrl(url),
               content: "",
@@ -861,7 +858,6 @@ export class ProxyController {
 
       // 返回统一格式的结果：HTML 内容 + 新闻元数据
       return {
-        success: true,
         title: title,
         content: contentResult.content, // 保留 HTML 结构（图片、表格等）
         textContent: contentResult.textContent,

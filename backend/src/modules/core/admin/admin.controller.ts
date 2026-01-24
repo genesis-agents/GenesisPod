@@ -10,6 +10,7 @@ import {
   Body,
   UseGuards,
   Logger,
+  BadRequestException,
 } from "@nestjs/common";
 import { AdminService } from "./admin.service";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
@@ -337,11 +338,11 @@ export class AdminController {
       if (secretValue) {
         resolvedApiKey = secretValue.trim();
       } else {
-        return { success: false, error: "无法从 Secret Manager 获取 API Key" };
+        throw new BadRequestException("无法从 Secret Manager 获取 API Key");
       }
     }
     if (!resolvedApiKey) {
-      return { success: false, error: "请提供 API Key 或选择有效的 Secret" };
+      throw new BadRequestException("请提供 API Key 或选择有效的 Secret");
     }
     return this.aiEngineFacade.fetchAvailableModels(
       body.provider,

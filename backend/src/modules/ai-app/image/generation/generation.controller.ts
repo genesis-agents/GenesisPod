@@ -14,6 +14,9 @@ import {
   Query,
   MessageEvent,
   Res,
+  NotFoundException,
+  UnauthorizedException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { FilesInterceptor } from "@nestjs/platform-express";
 import { Observable } from "rxjs";
@@ -348,7 +351,7 @@ export class AiImageController {
   async getPublicImage(@Param("id") id: string) {
     const image = await this.aiImageService.getPublicImage(id);
     if (!image) {
-      return { success: false, message: "Image not found or not public" };
+      throw new NotFoundException("Image not found or not public");
     }
     return image;
   }
@@ -359,7 +362,7 @@ export class AiImageController {
   @Get("stats")
   async getImageStats(@Query("key") key: string) {
     if (key !== "deepdive-admin-cleanup-2024") {
-      return { success: false, message: "Invalid key" };
+      throw new ForbiddenException("Invalid key");
     }
     return this.aiImageService.getImageStats();
   }
@@ -372,12 +375,11 @@ export class AiImageController {
   async adminDeleteAllImages(@Query("key") key: string) {
     // 简单的密钥验证
     if (key !== "deepdive-admin-cleanup-2024") {
-      return { success: false, message: "Invalid key" };
+      throw new ForbiddenException("Invalid key");
     }
     this.logger.log("Admin delete all images triggered");
     const result = await this.aiImageService.deleteAllImages();
     return {
-      success: true,
       deletedCount: result,
       message: `Deleted ${result} images`,
     };
@@ -437,7 +439,6 @@ export class AiImageController {
       req.user?.id,
     );
     return {
-      success: true,
       deletedCount,
       message: `Cleaned up ${deletedCount} old images`,
     };
@@ -451,12 +452,11 @@ export class AiImageController {
   async adminCleanupAllImages(@Query("key") key: string) {
     // 简单的密钥验证
     if (key !== "deepdive-admin-cleanup-2024") {
-      return { success: false, message: "Invalid key" };
+      throw new ForbiddenException("Invalid key");
     }
     this.logger.log("Admin cleanup all users images triggered");
     const result = await this.aiImageService.cleanupAllUsersImages();
     return {
-      success: true,
       ...result,
       message: `Cleaned up ${result.totalDeleted} images from ${result.usersCleaned} users`,
     };
@@ -473,7 +473,7 @@ export class AiImageController {
   async autoTagImages(@Request() req: any) {
     const userId = req.user?.id;
     if (!userId) {
-      return { success: false, message: "User not authenticated" };
+      throw new UnauthorizedException("User not authenticated");
     }
     return this.aiImageService.autoTagImages(userId);
   }
@@ -487,7 +487,7 @@ export class AiImageController {
   async analyzeStyles(@Request() req: any) {
     const userId = req.user?.id;
     if (!userId) {
-      return { success: false, message: "User not authenticated" };
+      throw new UnauthorizedException("User not authenticated");
     }
     return this.aiImageService.analyzeStyles(userId);
   }
@@ -501,7 +501,7 @@ export class AiImageController {
   async clusterVisualThemes(@Request() req: any) {
     const userId = req.user?.id;
     if (!userId) {
-      return { success: false, message: "User not authenticated" };
+      throw new UnauthorizedException("User not authenticated");
     }
     return this.aiImageService.clusterVisualThemes(userId);
   }

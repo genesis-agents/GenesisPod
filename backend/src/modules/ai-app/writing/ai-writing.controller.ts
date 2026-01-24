@@ -10,6 +10,7 @@ import {
   UseGuards,
   Request,
   Logger,
+  NotFoundException,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { Public } from "../../../common/decorators/public.decorator";
@@ -91,7 +92,10 @@ export class AiWritingController {
   // ==================== Project CRUD ====================
 
   @Post("projects")
-  async createProject(@Request() req: RequestWithUser, @Body() dto: CreateProjectDto) {
+  async createProject(
+    @Request() req: RequestWithUser,
+    @Body() dto: CreateProjectDto,
+  ) {
     this.logger.log(`Creating writing project for user ${req.user.id}`);
     return this.projectService.create(req.user.id, dto);
   }
@@ -125,7 +129,10 @@ export class AiWritingController {
   }
 
   @Delete("projects/:id")
-  async deleteProject(@Request() req: RequestWithUser, @Param("id") id: string) {
+  async deleteProject(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     return this.projectService.delete(id, req.user.id);
   }
 
@@ -256,7 +263,10 @@ export class AiWritingController {
   }
 
   @Get("projects/:projectId/volumes")
-  async getVolumes(@Request() req: RequestWithUser, @Param("projectId") projectId: string) {
+  async getVolumes(
+    @Request() req: RequestWithUser,
+    @Param("projectId") projectId: string,
+  ) {
     return this.projectService.getVolumes(projectId, req.user.id);
   }
 
@@ -272,7 +282,10 @@ export class AiWritingController {
   }
 
   @Get("volumes/:volumeId/chapters")
-  async getChapters(@Request() req: RequestWithUser, @Param("volumeId") volumeId: string) {
+  async getChapters(
+    @Request() req: RequestWithUser,
+    @Param("volumeId") volumeId: string,
+  ) {
     return this.chapterWritingService.getChapters(volumeId, req.user.id);
   }
 
@@ -319,7 +332,10 @@ export class AiWritingController {
   // ==================== Consistency ====================
 
   @Post("chapters/:id/check-consistency")
-  async checkConsistency(@Request() req: RequestWithUser, @Param("id") id: string) {
+  async checkConsistency(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     return this.consistencyEngine.validateChapter(id, req.user.id);
   }
 
@@ -497,7 +513,7 @@ export class AiWritingController {
     const project = await this.projectService.findPublic(projectId);
 
     if (!project) {
-      return { success: false, message: "Project not found or not public" };
+      throw new NotFoundException("Project not found or not public");
     }
 
     return project;
@@ -728,7 +744,7 @@ export class AiWritingController {
       annotationId,
       req.user.id,
     );
-    return { success: true };
+    return { message: "Annotation deleted successfully" };
   }
 
   /**

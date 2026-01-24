@@ -8,6 +8,9 @@ import {
   Param,
   Query,
   Logger,
+  BadRequestException,
+  NotFoundException,
+  InternalServerErrorException,
 } from "@nestjs/common";
 import { SourceWhitelistService } from "../services/source-whitelist.service";
 import { ResourceType } from "@prisma/client";
@@ -31,16 +34,12 @@ export class SourceWhitelistController {
     try {
       const whitelists = await this.whitelistService.getAllWhitelists();
       return {
-        success: true,
         data: whitelists,
         total: whitelists.length,
       };
     } catch (error) {
       this.logger.error(`Error fetching whitelists: ${error}`);
-      return {
-        success: false,
-        error: "Failed to fetch whitelists",
-      };
+      throw new InternalServerErrorException("Failed to fetch whitelists");
     }
   }
 
@@ -56,22 +55,16 @@ export class SourceWhitelistController {
       );
 
       if (!whitelist) {
-        return {
-          success: false,
-          error: `Whitelist not found for ${resourceType}`,
-        };
+        throw new NotFoundException(`Whitelist not found for ${resourceType}`);
       }
 
-      return {
-        success: true,
-        data: whitelist,
-      };
+      return whitelist;
     } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
       this.logger.error(`Error fetching whitelist: ${error}`);
-      return {
-        success: false,
-        error: "Failed to fetch whitelist",
-      };
+      throw new InternalServerErrorException("Failed to fetch whitelist");
     }
   }
 
@@ -91,23 +84,19 @@ export class SourceWhitelistController {
   ) {
     try {
       if (!body.resourceType || !body.allowedDomains) {
-        return {
-          success: false,
-          error: "Missing required fields: resourceType and allowedDomains",
-        };
+        throw new BadRequestException(
+          "Missing required fields: resourceType and allowedDomains",
+        );
       }
 
       const whitelist = await this.whitelistService.createWhitelist(body);
-      return {
-        success: true,
-        data: whitelist,
-      };
+      return whitelist;
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       this.logger.error(`Error creating whitelist: ${error}`);
-      return {
-        success: false,
-        error: "Failed to create whitelist",
-      };
+      throw new InternalServerErrorException("Failed to create whitelist");
     }
   }
 
@@ -132,16 +121,10 @@ export class SourceWhitelistController {
         body,
       );
 
-      return {
-        success: true,
-        data: whitelist,
-      };
+      return whitelist;
     } catch (error) {
       this.logger.error(`Error updating whitelist: ${error}`);
-      return {
-        success: false,
-        error: "Failed to update whitelist",
-      };
+      throw new InternalServerErrorException("Failed to update whitelist");
     }
   }
 
@@ -154,15 +137,11 @@ export class SourceWhitelistController {
     try {
       await this.whitelistService.deleteWhitelist(resourceType as ResourceType);
       return {
-        success: true,
         message: `Whitelist for ${resourceType} deleted successfully`,
       };
     } catch (error) {
       this.logger.error(`Error deleting whitelist: ${error}`);
-      return {
-        success: false,
-        error: "Failed to delete whitelist",
-      };
+      throw new InternalServerErrorException("Failed to delete whitelist");
     }
   }
 
@@ -178,10 +157,7 @@ export class SourceWhitelistController {
   ) {
     try {
       if (!url) {
-        return {
-          success: false,
-          error: "Missing required query parameter: url",
-        };
+        throw new BadRequestException("Missing required query parameter: url");
       }
 
       const result = await this.whitelistService.validateUrl(
@@ -189,16 +165,13 @@ export class SourceWhitelistController {
         url,
       );
 
-      return {
-        success: true,
-        data: result,
-      };
+      return result;
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       this.logger.error(`Error validating URL: ${error}`);
-      return {
-        success: false,
-        error: "Failed to validate URL",
-      };
+      throw new InternalServerErrorException("Failed to validate URL");
     }
   }
 
@@ -214,10 +187,7 @@ export class SourceWhitelistController {
   ) {
     try {
       if (!body.urls || !Array.isArray(body.urls)) {
-        return {
-          success: false,
-          error: "Missing required field: urls (array)",
-        };
+        throw new BadRequestException("Missing required field: urls (array)");
       }
 
       const results = await this.whitelistService.validateUrls(
@@ -226,18 +196,17 @@ export class SourceWhitelistController {
       );
 
       return {
-        success: true,
         data: results,
         total: results.length,
         validCount: results.filter((r) => r.isValid).length,
         invalidCount: results.filter((r) => !r.isValid).length,
       };
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       this.logger.error(`Error validating URLs: ${error}`);
-      return {
-        success: false,
-        error: "Failed to validate URLs",
-      };
+      throw new InternalServerErrorException("Failed to validate URLs");
     }
   }
 
@@ -253,10 +222,7 @@ export class SourceWhitelistController {
   ) {
     try {
       if (!body.domain) {
-        return {
-          success: false,
-          error: "Missing required field: domain",
-        };
+        throw new BadRequestException("Missing required field: domain");
       }
 
       const whitelist = await this.whitelistService.addAllowedDomain(
@@ -264,16 +230,13 @@ export class SourceWhitelistController {
         body.domain,
       );
 
-      return {
-        success: true,
-        data: whitelist,
-      };
+      return whitelist;
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       this.logger.error(`Error adding domain: ${error}`);
-      return {
-        success: false,
-        error: "Failed to add domain",
-      };
+      throw new InternalServerErrorException("Failed to add domain");
     }
   }
 
@@ -292,16 +255,10 @@ export class SourceWhitelistController {
         domain,
       );
 
-      return {
-        success: true,
-        data: whitelist,
-      };
+      return whitelist;
     } catch (error) {
       this.logger.error(`Error removing domain: ${error}`);
-      return {
-        success: false,
-        error: "Failed to remove domain",
-      };
+      throw new InternalServerErrorException("Failed to remove domain");
     }
   }
 
@@ -314,15 +271,13 @@ export class SourceWhitelistController {
     try {
       await this.whitelistService.initializeDefaultWhitelists();
       return {
-        success: true,
         message: "Default whitelists initialized successfully",
       };
     } catch (error) {
       this.logger.error(`Error initializing defaults: ${error}`);
-      return {
-        success: false,
-        error: "Failed to initialize default whitelists",
-      };
+      throw new InternalServerErrorException(
+        "Failed to initialize default whitelists",
+      );
     }
   }
 }
