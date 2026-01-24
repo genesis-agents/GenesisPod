@@ -3150,8 +3150,18 @@ function HomeContent() {
                         setSelectedResource(newResource);
                         setViewMode('detail');
                       } else {
-                        // If not in current list, navigate to resource detail page
-                        router.push(`/explore/resource/${resource.id}`);
+                        // If not in current list, fetch the resource and display it
+                        fetch(`${config.apiBaseUrl}/api/v1/resources/${resource.id}`)
+                          .then((res) => res.json())
+                          .then((data) => {
+                            if (data) {
+                              setSelectedResource(data as Resource);
+                              setViewMode('detail');
+                            }
+                          })
+                          .catch((err) => {
+                            logger.error('Failed to fetch similar resource:', err);
+                          });
                       }
                     }}
                   />
