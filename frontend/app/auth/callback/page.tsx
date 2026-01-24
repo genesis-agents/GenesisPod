@@ -34,7 +34,9 @@ function AuthCallbackContent() {
           throw new Error('Failed to fetch user info');
         }
 
-        const user = await response.json();
+        const result = await response.json();
+        // API returns { success: true, data: user } format
+        const user = result?.data ?? result;
 
         // Save authentication state
         login(user, token, refreshToken);

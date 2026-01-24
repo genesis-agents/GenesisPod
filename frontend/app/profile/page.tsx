@@ -127,7 +127,9 @@ function ProfileContent() {
         },
       });
       if (response.ok) {
-        const data = await response.json();
+        const result = await response.json();
+        // API returns { success: true, data: stats } format
+        const data = result?.data ?? result;
         setUserStats(data);
       }
     } catch (error) {

@@ -54,7 +54,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         if (response.ok) {
-          const user = await response.json();
+          const result = await response.json();
+          // API returns { success: true, data: user } format
+          const user = result?.data ?? result;
           // Token 有效，更新用户信息
           saveCurrentUser(user);
           setAuthState({

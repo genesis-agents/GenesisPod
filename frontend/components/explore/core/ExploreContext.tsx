@@ -1,12 +1,24 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  ReactNode,
+  useEffect,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader, type User } from '@/lib/utils/auth';
 import type { TabType } from '@/components/layout/ResponsiveNav';
-import type { Resource, SearchSuggestion, AIMessage, AIInsight } from '../utils/types';
+import type {
+  Resource,
+  SearchSuggestion,
+  AIMessage,
+  AIInsight,
+} from '../utils/types';
 import { PAGE_SIZE } from '../utils/constants';
 import { extractYouTubeVideoId } from '../utils/utils';
 import { useBookmarks } from '../hooks/useBookmarks';
@@ -15,7 +27,9 @@ import { logger } from '@/lib/utils/logger';
 interface ExploreContextValue {
   // Resources
   resources: Resource[];
-  setResources: (resources: Resource[] | ((prev: Resource[]) => Resource[])) => void;
+  setResources: (
+    resources: Resource[] | ((prev: Resource[]) => Resource[])
+  ) => void;
   loading: boolean;
   setLoading: (loading: boolean) => void;
   loadingMore: boolean;
@@ -62,7 +76,9 @@ interface ExploreContextValue {
   showSuggestions: boolean;
   setShowSuggestions: (show: boolean) => void;
   selectedSuggestionIndex: number;
-  setSelectedSuggestionIndex: (index: number | ((prev: number) => number)) => void;
+  setSelectedSuggestionIndex: (
+    index: number | ((prev: number) => number)
+  ) => void;
   searchMode: 'agent' | 'search';
   setSearchMode: (mode: 'agent' | 'search') => void;
   fetchSearchSuggestions: (query: string) => Promise<void>;
@@ -78,7 +94,9 @@ interface ExploreContextValue {
 
   // AI states
   aiMessages: AIMessage[];
-  setAiMessages: (messages: AIMessage[] | ((prev: AIMessage[]) => AIMessage[])) => void;
+  setAiMessages: (
+    messages: AIMessage[] | ((prev: AIMessage[]) => AIMessage[])
+  ) => void;
   aiInput: string;
   setAiInput: (input: string) => void;
   aiLoading: boolean;
@@ -112,7 +130,9 @@ interface ExploreContextValue {
 
   // Upvotes
   upvotes: Set<string>;
-  setUpvotes: (upvotes: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
+  setUpvotes: (
+    upvotes: Set<string> | ((prev: Set<string>) => Set<string>)
+  ) => void;
   upvotesLoading: boolean;
 
   // Import dialogs
@@ -123,7 +143,9 @@ interface ExploreContextValue {
 
   // Toast
   toast: { message: string; type: 'success' | 'error' } | null;
-  setToast: (toast: { message: string; type: 'success' | 'error' } | null) => void;
+  setToast: (
+    toast: { message: string; type: 'success' | 'error' } | null
+  ) => void;
 
   // Notes refresh
   notesRefreshKey: number;
@@ -135,7 +157,9 @@ interface ExploreContextValue {
   accessToken: string | null;
 }
 
-const ExploreContext = createContext<ExploreContextValue | undefined>(undefined);
+const ExploreContext = createContext<ExploreContextValue | undefined>(
+  undefined
+);
 
 export function ExploreProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -152,13 +176,19 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
   // Active resource and view mode
   const initialTab = (searchParams?.get('tab') || 'youtube') as TabType;
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
-  const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
+  const [selectedResource, setSelectedResource] = useState<Resource | null>(
+    null
+  );
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
-  const [htmlViewMode, setHtmlViewMode] = useState<'reader' | 'original'>('reader');
+  const [htmlViewMode, setHtmlViewMode] = useState<'reader' | 'original'>(
+    'reader'
+  );
 
   // Search and filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'publishedAt' | 'qualityScore' | 'trendingScore'>('trendingScore');
+  const [sortBy, setSortBy] = useState<
+    'publishedAt' | 'qualityScore' | 'trendingScore'
+  >('trendingScore');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterCategory, setFilterCategory] = useState<string>('');
 
@@ -166,11 +196,15 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState<'all' | '24h' | '7d' | '30d' | '90d'>('all');
+  const [dateRange, setDateRange] = useState<
+    'all' | '24h' | '7d' | '30d' | '90d'
+  >('all');
   const [minQualityScore, setMinQualityScore] = useState<number>(0);
 
   // Search suggestions
-  const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
+  const [searchSuggestions, setSearchSuggestions] = useState<
+    SearchSuggestion[]
+  >([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const [searchMode, setSearchMode] = useState<'agent' | 'search'>('search');
@@ -182,7 +216,9 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
   const [aiMethodology, setAiMethodology] = useState<AIInsight[]>([]);
-  const [aiRightTab, setAiRightTab] = useState<'assistant' | 'notes' | 'comments' | 'similar'>('assistant');
+  const [aiRightTab, setAiRightTab] = useState<
+    'assistant' | 'notes' | 'comments' | 'similar'
+  >('assistant');
   const [isAiPanelCollapsed, setIsAiPanelCollapsed] = useState(false);
   const [aiPanelWidth, setAiPanelWidth] = useState(420);
   const [aiModel, setAiModel] = useState('');
@@ -193,7 +229,8 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
   const [articleTextContent, setArticleTextContent] = useState<string>('');
 
   // Bookmarks
-  const { bookmarks, defaultCollectionId, isBookmarked, toggleBookmark } = useBookmarks();
+  const { bookmarks, defaultCollectionId, isBookmarked, toggleBookmark } =
+    useBookmarks();
 
   // Upvotes
   const [upvotes, setUpvotes] = useState<Set<string>>(new Set());
@@ -204,7 +241,10 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
   const [showImportFileDialog, setShowImportFileDialog] = useState(false);
 
   // Toast
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error';
+  } | null>(null);
 
   // Notes refresh
   const [notesRefreshKey, setNotesRefreshKey] = useState(0);
@@ -224,14 +264,19 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
 
       try {
         setUpvotesLoading(true);
-        const response = await fetch(`${config.apiUrl}/resources/user/upvotes`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
+        const response = await fetch(
+          `${config.apiUrl}/resources/user/upvotes`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
 
         if (response.ok) {
-          const data = await response.json();
+          const result = await response.json();
+          // API returns { success: true, data: { resourceIds: [...] } } format
+          const data = result?.data ?? result;
           setUpvotes(new Set(data.resourceIds || []));
         }
       } catch (error) {
@@ -245,35 +290,39 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
   }, [user, accessToken]);
 
   // Fetch resources
-  const fetchResources = useCallback(async (loadMore = false) => {
-    try {
-      if (loadMore) {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
-        setPage(0);
-        setHasMore(true);
-      }
-
-      const currentPage = loadMore ? page + 1 : 0;
-
-      // Handle YouTube tab separately - fetch from both sources
-      if (activeTab === 'youtube') {
-        // Fetch from youtube-videos table
-        const youtubeVideosUrl = `${config.apiUrl}/youtube-videos`;
-        const youtubeRes = await fetch(youtubeVideosUrl, {
-          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-        });
-        const youtubeData = await youtubeRes.json();
-        interface VideoData {
-          id: string;
-          title: string;
-          url: string;
-          createdAt: string;
-          videoId: string;
+  const fetchResources = useCallback(
+    async (loadMore = false) => {
+      try {
+        if (loadMore) {
+          setLoadingMore(true);
+        } else {
+          setLoading(true);
+          setPage(0);
+          setHasMore(true);
         }
-        const youtubeVideos = (Array.isArray(youtubeData) ? youtubeData : youtubeData.data || []).map(
-          (video: VideoData) => ({
+
+        const currentPage = loadMore ? page + 1 : 0;
+
+        // Handle YouTube tab separately - fetch from both sources
+        if (activeTab === 'youtube') {
+          // Fetch from youtube-videos table
+          const youtubeVideosUrl = `${config.apiUrl}/youtube-videos`;
+          const youtubeRes = await fetch(youtubeVideosUrl, {
+            headers: accessToken
+              ? { Authorization: `Bearer ${accessToken}` }
+              : {},
+          });
+          const youtubeData = await youtubeRes.json();
+          interface VideoData {
+            id: string;
+            title: string;
+            url: string;
+            createdAt: string;
+            videoId: string;
+          }
+          const youtubeVideos = (
+            Array.isArray(youtubeData) ? youtubeData : youtubeData.data || []
+          ).map((video: VideoData) => ({
             id: video.id,
             type: 'YOUTUBE',
             title: video.title,
@@ -281,119 +330,139 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
             sourceUrl: video.url,
             publishedAt: video.createdAt,
             videoId: video.videoId,
-          })
-        );
+          }));
 
-        // Fetch from resources table with type=YOUTUBE_VIDEO
-        const resourcesUrl = `${config.apiUrl}/resources?type=YOUTUBE_VIDEO&take=${PAGE_SIZE}&skip=${currentPage * PAGE_SIZE}`;
-        const resourcesRes = await fetch(resourcesUrl);
-        const resourcesData = await resourcesRes.json();
-        const resourceVideos = Array.isArray(resourcesData) ? resourcesData : resourcesData.data || [];
+          // Fetch from resources table with type=YOUTUBE_VIDEO
+          const resourcesUrl = `${config.apiUrl}/resources?type=YOUTUBE_VIDEO&take=${PAGE_SIZE}&skip=${currentPage * PAGE_SIZE}`;
+          const resourcesRes = await fetch(resourcesUrl);
+          const resourcesData = await resourcesRes.json();
+          const resourceVideos = Array.isArray(resourcesData)
+            ? resourcesData
+            : resourcesData.data || [];
 
-        // Merge and deduplicate by videoId
-        const seenVideoIds = new Set<string>();
-        const allVideos: Resource[] = [];
+          // Merge and deduplicate by videoId
+          const seenVideoIds = new Set<string>();
+          const allVideos: Resource[] = [];
 
-        const getVideoId = (video: { videoId?: string; sourceUrl?: string }): string | null => {
-          if (video.videoId) return video.videoId;
-          if (video.sourceUrl) {
-            const match = video.sourceUrl.match(
-              /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/
-            );
-            return match ? match[1] : null;
+          const getVideoId = (video: {
+            videoId?: string;
+            sourceUrl?: string;
+          }): string | null => {
+            if (video.videoId) return video.videoId;
+            if (video.sourceUrl) {
+              const match = video.sourceUrl.match(
+                /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/
+              );
+              return match ? match[1] : null;
+            }
+            return null;
+          };
+
+          for (const video of youtubeVideos) {
+            const videoId = getVideoId(video);
+            if (videoId && !seenVideoIds.has(videoId)) {
+              seenVideoIds.add(videoId);
+              allVideos.push(video);
+            } else if (!videoId) {
+              allVideos.push(video);
+            }
           }
-          return null;
+
+          for (const video of resourceVideos) {
+            const videoId = getVideoId(video);
+            if (videoId && !seenVideoIds.has(videoId)) {
+              seenVideoIds.add(videoId);
+              allVideos.push(video);
+            } else if (!videoId) {
+              allVideos.push(video);
+            }
+          }
+
+          if (loadMore) {
+            setResources((prev) => [...prev, ...allVideos]);
+          } else {
+            setResources(allVideos);
+          }
+          setHasMore(resourceVideos.length >= PAGE_SIZE);
+          setPage(currentPage);
+          setLoading(false);
+          setLoadingMore(false);
+          return;
+        }
+
+        // Build query params for other tabs
+        const params = new URLSearchParams({
+          take: PAGE_SIZE.toString(),
+          skip: (currentPage * PAGE_SIZE).toString(),
+          sortBy: sortBy,
+          sortOrder: sortOrder,
+        });
+
+        // Map tab to resource type
+        const typeMap: Record<
+          'papers' | 'blogs' | 'reports' | 'youtube' | 'news' | 'policy',
+          string
+        > = {
+          papers: 'PAPER',
+          blogs: 'BLOG',
+          reports: 'REPORT',
+          youtube: 'YOUTUBE_VIDEO',
+          news: 'NEWS',
+          policy: 'POLICY',
         };
+        params.append('type', typeMap[activeTab as keyof typeof typeMap]);
 
-        for (const video of youtubeVideos) {
-          const videoId = getVideoId(video);
-          if (videoId && !seenVideoIds.has(videoId)) {
-            seenVideoIds.add(videoId);
-            allVideos.push(video);
-          } else if (!videoId) {
-            allVideos.push(video);
-          }
+        if (searchQuery) {
+          params.append('search', searchQuery);
+        }
+        if (filterCategory) {
+          params.append('category', filterCategory);
         }
 
-        for (const video of resourceVideos) {
-          const videoId = getVideoId(video);
-          if (videoId && !seenVideoIds.has(videoId)) {
-            seenVideoIds.add(videoId);
-            allVideos.push(video);
-          } else if (!videoId) {
-            allVideos.push(video);
-          }
+        // Add advanced filter parameters
+        if (selectedCategories.length > 0) {
+          selectedCategories.forEach((cat) => params.append('categories', cat));
         }
+        if (dateRange !== 'all') {
+          params.append('dateRange', dateRange);
+        }
+        if (minQualityScore > 0) {
+          params.append('minQualityScore', minQualityScore.toString());
+        }
+
+        const url = `${config.apiUrl}/resources?${params.toString()}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const newResources = Array.isArray(data) ? data : data.data || [];
 
         if (loadMore) {
-          setResources((prev) => [...prev, ...allVideos]);
+          setResources((prev) => [...prev, ...newResources]);
         } else {
-          setResources(allVideos);
+          setResources(newResources);
         }
-        setHasMore(resourceVideos.length >= PAGE_SIZE);
+
+        setHasMore(newResources.length >= PAGE_SIZE);
         setPage(currentPage);
+      } catch (error) {
+        logger.error('Failed to fetch resources:', error);
+      } finally {
         setLoading(false);
         setLoadingMore(false);
-        return;
       }
-
-      // Build query params for other tabs
-      const params = new URLSearchParams({
-        take: PAGE_SIZE.toString(),
-        skip: (currentPage * PAGE_SIZE).toString(),
-        sortBy: sortBy,
-        sortOrder: sortOrder,
-      });
-
-      // Map tab to resource type
-      const typeMap: Record<'papers' | 'blogs' | 'reports' | 'youtube' | 'news' | 'policy', string> = {
-        papers: 'PAPER',
-        blogs: 'BLOG',
-        reports: 'REPORT',
-        youtube: 'YOUTUBE_VIDEO',
-        news: 'NEWS',
-        policy: 'POLICY',
-      };
-      params.append('type', typeMap[activeTab as keyof typeof typeMap]);
-
-      if (searchQuery) {
-        params.append('search', searchQuery);
-      }
-      if (filterCategory) {
-        params.append('category', filterCategory);
-      }
-
-      // Add advanced filter parameters
-      if (selectedCategories.length > 0) {
-        selectedCategories.forEach((cat) => params.append('categories', cat));
-      }
-      if (dateRange !== 'all') {
-        params.append('dateRange', dateRange);
-      }
-      if (minQualityScore > 0) {
-        params.append('minQualityScore', minQualityScore.toString());
-      }
-
-      const url = `${config.apiUrl}/resources?${params.toString()}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      const newResources = Array.isArray(data) ? data : data.data || [];
-
-      if (loadMore) {
-        setResources((prev) => [...prev, ...newResources]);
-      } else {
-        setResources(newResources);
-      }
-
-      setHasMore(newResources.length >= PAGE_SIZE);
-      setPage(currentPage);
-    } catch (error) {
-      logger.error('Failed to fetch resources:', error);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [activeTab, searchQuery, sortBy, sortOrder, filterCategory, selectedCategories, dateRange, minQualityScore, page, accessToken]);
+    },
+    [
+      activeTab,
+      searchQuery,
+      sortBy,
+      sortOrder,
+      filterCategory,
+      selectedCategories,
+      dateRange,
+      minQualityScore,
+      page,
+      accessToken,
+    ]
+  );
 
   // Fetch resources when dependencies change
   useEffect(() => {
@@ -401,24 +470,32 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
   }, [activeTab, searchQuery, sortBy, sortOrder, filterCategory]);
 
   // Handle resource click
-  const handleResourceClick = useCallback((resource: Resource) => {
-    // For YouTube videos, redirect to the YouTube page
-    if (resource.type === 'YOUTUBE' || resource.type === 'YOUTUBE_VIDEO' || (resource).videoId) {
-      const videoId = (resource).videoId || extractYouTubeVideoId(resource.sourceUrl);
-      if (videoId) {
-        router.push(`/explore/youtube?videoId=${videoId}`);
-        return;
+  const handleResourceClick = useCallback(
+    (resource: Resource) => {
+      // For YouTube videos, redirect to the YouTube page
+      if (
+        resource.type === 'YOUTUBE' ||
+        resource.type === 'YOUTUBE_VIDEO' ||
+        resource.videoId
+      ) {
+        const videoId =
+          resource.videoId || extractYouTubeVideoId(resource.sourceUrl);
+        if (videoId) {
+          router.push(`/explore/youtube?videoId=${videoId}`);
+          return;
+        }
       }
-    }
 
-    // For non-YouTube resources, show in detail view
-    setSelectedResource(resource);
-    setViewMode('detail');
-    setAiMessages([]);
-    setAiSummary(null);
-    setAiInsights([]);
-    setArticleTextContent('');
-  }, [router]);
+      // For non-YouTube resources, show in detail view
+      setSelectedResource(resource);
+      setViewMode('detail');
+      setAiMessages([]);
+      setAiSummary(null);
+      setAiInsights([]);
+      setArticleTextContent('');
+    },
+    [router]
+  );
 
   // Handle back to list
   const handleBackToList = useCallback(() => {
@@ -464,28 +541,36 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Handle suggestion click
-  const handleSuggestionClick = useCallback((suggestion: SearchSuggestion) => {
-    setSearchQuery(suggestion.title);
-    setShowSuggestions(false);
-    setSelectedSuggestionIndex(-1);
+  const handleSuggestionClick = useCallback(
+    (suggestion: SearchSuggestion) => {
+      setSearchQuery(suggestion.title);
+      setShowSuggestions(false);
+      setSelectedSuggestionIndex(-1);
 
-    // Fetch the full resource and open it
-    const fetchAndOpenResource = async () => {
-      try {
-        const response = await fetch(`${config.apiUrl}/resources/${suggestion.id}`, {
-          headers: getAuthHeader(),
-        });
-        if (response.ok) {
-          const resource = await response.json();
-          handleResourceClick(resource);
+      // Fetch the full resource and open it
+      const fetchAndOpenResource = async () => {
+        try {
+          const response = await fetch(
+            `${config.apiUrl}/resources/${suggestion.id}`,
+            {
+              headers: getAuthHeader(),
+            }
+          );
+          if (response.ok) {
+            const result = await response.json();
+            // API returns { success: true, data: resource } format
+            const resource = result?.data ?? result;
+            handleResourceClick(resource);
+          }
+        } catch (error) {
+          logger.error('Failed to fetch resource:', error);
         }
-      } catch (error) {
-        logger.error('Failed to fetch resource:', error);
-      }
-    };
+      };
 
-    fetchAndOpenResource();
-  }, [handleResourceClick]);
+      fetchAndOpenResource();
+    },
+    [handleResourceClick]
+  );
 
   // Handle opening resource from URL parameter
   useEffect(() => {
@@ -493,8 +578,13 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
     if (!resourceId) return;
 
     const handleResource = (resource: Resource) => {
-      if (resource.type === 'YOUTUBE' || resource.type === 'YOUTUBE_VIDEO' || (resource).videoId) {
-        const videoId = (resource).videoId || extractYouTubeVideoId(resource.sourceUrl);
+      if (
+        resource.type === 'YOUTUBE' ||
+        resource.type === 'YOUTUBE_VIDEO' ||
+        resource.videoId
+      ) {
+        const videoId =
+          resource.videoId || extractYouTubeVideoId(resource.sourceUrl);
         if (videoId) {
           router.push(`/explore/youtube?videoId=${videoId}`);
           return;
@@ -517,11 +607,16 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
 
     const fetchResourceById = async () => {
       try {
-        const response = await fetch(`${config.apiUrl}/resources/${resourceId}`, {
-          headers: getAuthHeader(),
-        });
+        const response = await fetch(
+          `${config.apiUrl}/resources/${resourceId}`,
+          {
+            headers: getAuthHeader(),
+          }
+        );
         if (response.ok) {
-          const data = await response.json();
+          const result = await response.json();
+          // API returns { success: true, data: resource } format
+          const data = result?.data ?? result;
           handleResource(data);
         }
       } catch (error) {
@@ -626,7 +721,9 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
     accessToken,
   };
 
-  return <ExploreContext.Provider value={value}>{children}</ExploreContext.Provider>;
+  return (
+    <ExploreContext.Provider value={value}>{children}</ExploreContext.Provider>
+  );
 }
 
 export function useExplore() {
