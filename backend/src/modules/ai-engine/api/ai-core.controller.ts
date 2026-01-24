@@ -10,6 +10,7 @@ import {
   Logger,
   Optional,
   Inject,
+  NotFoundException,
 } from "@nestjs/common";
 import { Response } from "express";
 import { AiCoreService } from "./ai-core.service";
@@ -139,11 +140,9 @@ export class AiCoreController {
     const geminiModels = await this.aiCoreService.getGoogleModels();
 
     if (geminiModels.length === 0) {
-      return {
-        error: "No Gemini models found in database",
-        suggestion:
-          "Add a Gemini model in the admin panel with provider=google",
-      };
+      throw new NotFoundException(
+        "No Gemini models found in database. Add a Gemini model in the admin panel with provider=google",
+      );
     }
 
     const results: any[] = [];
@@ -279,11 +278,9 @@ export class AiCoreController {
     }
 
     if (!apiKey) {
-      return {
-        error: "No Google AI API key found",
-        suggestion:
-          "Configure GOOGLE_AI_API_KEY environment variable or add a Google model with API key in admin panel",
-      };
+      throw new BadRequestException(
+        "No Google AI API key found. Configure GOOGLE_AI_API_KEY environment variable or add a Google model with API key in admin panel",
+      );
     }
 
     try {
@@ -293,10 +290,10 @@ export class AiCoreController {
 
       if (!response.ok) {
         const error = await response.json();
-        return {
-          error: error.error?.message || `HTTP ${response.status}`,
-          apiKeyPrefix: apiKey.substring(0, 10) + "...",
-        };
+        const errorMessage = error.error?.message || `HTTP ${response.status}`;
+        throw new BadRequestException(
+          `Google AI API error: ${errorMessage} (API key prefix: ${apiKey.substring(0, 10)}...)`,
+        );
       }
 
       const data = await response.json();
@@ -346,10 +343,12 @@ export class AiCoreController {
           "For image generation, use gemini-2.0-flash-exp or imagen-3.0-generate-001",
       };
     } catch (error: any) {
-      return {
-        error: error.message,
-        apiKeyPrefix: apiKey.substring(0, 10) + "...",
-      };
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new BadRequestException(
+        `Failed to fetch Google models: ${error.message} (API key prefix: ${apiKey.substring(0, 10)}...)`,
+      );
     }
   }
 
@@ -364,7 +363,7 @@ export class AiCoreController {
     const topic = await this.aiCoreService.getTopicWithAIMembers(topicId);
 
     if (!topic) {
-      return { error: "Topic not found" };
+      throw new NotFoundException(`Topic not found: ${topicId}`);
     }
 
     // Check each AI member's model lookup
@@ -1051,7 +1050,6 @@ Translation:`;
       });
 
       return {
-        success: true,
         translation: result.content.trim(),
         translatedText: result.content.trim(), // Alias for compatibility
         sourceLanguage: body.sourceLanguage || "auto",
@@ -1090,7 +1088,6 @@ Translation:`;
       );
 
       return {
-        success: true,
         original: body.text,
         translation,
         sourceLang,

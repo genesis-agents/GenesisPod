@@ -12,10 +12,7 @@ export class DashboardController {
   @Get("dashboard")
   async getStats() {
     const stats = await this.dashboardService.getStats();
-    return {
-      success: true,
-      data: stats,
-    };
+    return stats;
   }
 
   /**
@@ -27,9 +24,6 @@ export class DashboardController {
     const data = await this.dashboardService.getTimeSeries(
       days ? parseInt(days) : 7,
     );
-    return {
-      success: true,
-      data,
-    };
+    return data;
   }
 }

@@ -75,6 +75,6 @@ export class BrandKitController {
   @Delete(":id")
   async delete(@Param("id") id: string, @Req() req: any) {
     await this.brandKitService.delete(id, req.user.id);
-    return { success: true };
+    return { message: "Brand kit deleted successfully" };
   }
 }

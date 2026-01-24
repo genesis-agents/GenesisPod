@@ -13,8 +13,7 @@ import {
   Body,
   Res,
   Logger,
-  HttpException,
-  HttpStatus,
+  NotFoundException,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBody, ApiParam } from "@nestjs/swagger";
 import { Response } from "express";
@@ -94,7 +93,7 @@ export class AgentsController {
   async getTask(@Param("taskId") taskId: string): Promise<AgentTask> {
     const task = taskStore.tasks.get(taskId);
     if (!task) {
-      throw new HttpException("Task not found", HttpStatus.NOT_FOUND);
+      throw new NotFoundException("Task not found");
     }
     return task;
   }
@@ -175,12 +174,10 @@ export class AgentsController {
   @Post("tasks/:taskId/cancel")
   @ApiOperation({ summary: "Cancel a running task" })
   @ApiParam({ name: "taskId", description: "Task ID" })
-  async cancelTask(
-    @Param("taskId") taskId: string,
-  ): Promise<{ success: boolean }> {
+  async cancelTask(@Param("taskId") taskId: string): Promise<void> {
     const task = taskStore.tasks.get(taskId);
     if (!task) {
-      throw new HttpException("Task not found", HttpStatus.NOT_FOUND);
+      throw new NotFoundException("Task not found");
     }
 
     task.status = "cancelled";
@@ -193,8 +190,6 @@ export class AgentsController {
       taskId,
       data: { error: "Task cancelled by user" },
     });
-
-    return { success: true };
   }
 
   /**
@@ -203,15 +198,13 @@ export class AgentsController {
   @Get("tasks/:taskId/artifacts")
   @ApiOperation({ summary: "Get task artifacts" })
   @ApiParam({ name: "taskId", description: "Task ID" })
-  async getArtifacts(
-    @Param("taskId") taskId: string,
-  ): Promise<{ artifacts: unknown[] }> {
+  async getArtifacts(@Param("taskId") taskId: string): Promise<unknown[]> {
     const task = taskStore.tasks.get(taskId);
     if (!task) {
-      throw new HttpException("Task not found", HttpStatus.NOT_FOUND);
+      throw new NotFoundException("Task not found");
     }
 
-    return { artifacts: task.result?.artifacts || [] };
+    return task.result?.artifacts || [];
   }
 
   // ============================================

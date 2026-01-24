@@ -8,6 +8,7 @@ import {
   Res,
   Logger,
   HttpStatus,
+  BadRequestException,
 } from "@nestjs/common";
 import { Response } from "express";
 import { WechatWorkService } from "./wechat-work.service";
@@ -194,16 +195,12 @@ export class WechatWorkController {
 
     try {
       const result = await this.wechatWorkService.sendMessage(body);
-      return {
-        success: true,
-        ...result,
-      };
+      return result;
     } catch (error) {
       this.logger.error(`Failed to send message: ${error}`);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
+      throw new BadRequestException(
+        error instanceof Error ? error.message : "Unknown error",
+      );
     }
   }
 }

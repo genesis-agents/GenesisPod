@@ -13,10 +13,7 @@ export class MonitorController {
   @Get("tasks")
   async getRunningTasks() {
     const tasks = await this.monitorService.getRunningTasks();
-    return {
-      success: true,
-      data: tasks,
-    };
+    return tasks;
   }
 
   /**
@@ -35,10 +32,7 @@ export class MonitorController {
   @Get("metrics")
   async getMetrics() {
     const metrics = await this.monitorService.getSystemMetrics();
-    return {
-      success: true,
-      data: metrics,
-    };
+    return metrics;
   }
 
   /**
@@ -48,10 +42,7 @@ export class MonitorController {
   @Get("tasks/:id")
   async getTaskDetail(@Param("id") id: string) {
     const detail = await this.monitorService.getTaskDetail(id);
-    return {
-      success: true,
-      data: detail,
-    };
+    return detail;
   }
 
   /**
@@ -61,10 +52,7 @@ export class MonitorController {
   @Get("logs")
   async getLogs(@Query("taskId") taskId?: string) {
     const logs = await this.monitorService.getRecentLogs(taskId);
-    return {
-      success: true,
-      data: logs,
-    };
+    return logs;
   }
 
   /**
@@ -76,9 +64,6 @@ export class MonitorController {
     const metrics = await this.monitorService.getPerformanceMetrics(
       hours ? parseInt(hours) : 1,
     );
-    return {
-      success: true,
-      data: metrics,
-    };
+    return metrics;
   }
 }

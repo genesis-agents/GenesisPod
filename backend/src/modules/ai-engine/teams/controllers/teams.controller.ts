@@ -22,6 +22,7 @@ import {
   HttpStatus,
   Logger,
   BadRequestException,
+  NotFoundException,
 } from "@nestjs/common";
 import { Response } from "express";
 import {
@@ -51,42 +52,23 @@ class CreateMissionRequestDto {
  * 团队列表响应
  */
 interface TeamsListResponse {
-  success: boolean;
   data: TeamInfo[];
   total: number;
-}
-
-/**
- * 团队详情响应
- */
-interface TeamDetailResponse {
-  success: boolean;
-  data: TeamInfo;
 }
 
 /**
  * 任务创建响应
  */
 interface MissionCreatedResponse {
-  success: boolean;
   missionId: string;
   message: string;
 }
 
 /**
- * 任务状态响应
+ * 任务取消响应
  */
-interface MissionStatusResponse {
-  success: boolean;
-  data: MissionStatus;
-}
-
-/**
- * 任务结果响应
- */
-interface MissionResultResponse {
-  success: boolean;
-  data: MissionResult;
+interface MissionCancelResponse {
+  message: string;
 }
 
 // ==================== Controller ====================
@@ -108,7 +90,6 @@ export class TeamsController {
     this.logger.log("Listing all teams");
     const teams = this.teamsService.listTeams();
     return {
-      success: true,
       data: teams,
       total: teams.length,
     };
@@ -119,13 +100,13 @@ export class TeamsController {
    * GET /api/ai/teams/:id
    */
   @Get(":id")
-  getTeam(@Param("id") id: string): TeamDetailResponse {
+  getTeam(@Param("id") id: string): TeamInfo {
     this.logger.log(`Getting team: ${id}`);
     const team = this.teamsService.getTeam(id);
-    return {
-      success: true,
-      data: team,
-    };
+    if (!team) {
+      throw new NotFoundException(`Team with id ${id} not found`);
+    }
+    return team;
   }
 
   // ==================== 任务执行 ====================
@@ -159,7 +140,6 @@ export class TeamsController {
     const missionId = await this.teamsService.executeMission(missionDto);
 
     return {
-      success: true,
       missionId,
       message: `Mission ${missionId} created and started`,
     };
@@ -244,13 +224,13 @@ export class TeamsController {
    * GET /api/ai/teams/missions/:id
    */
   @Get("missions/:id")
-  getMissionStatus(@Param("id") id: string): MissionStatusResponse {
+  getMissionStatus(@Param("id") id: string): MissionStatus {
     this.logger.log(`Getting mission status: ${id}`);
     const status = this.teamsService.getMissionStatus(id);
-    return {
-      success: true,
-      data: status,
-    };
+    if (!status) {
+      throw new NotFoundException(`Mission with id ${id} not found`);
+    }
+    return status;
   }
 
   /**
@@ -258,15 +238,15 @@ export class TeamsController {
    * GET /api/ai/teams/missions/:id/result
    */
   @Get("missions/:id/result")
-  async getMissionResult(
-    @Param("id") id: string,
-  ): Promise<MissionResultResponse> {
+  async getMissionResult(@Param("id") id: string): Promise<MissionResult> {
     this.logger.log(`Getting mission result: ${id}`);
     const result = await this.teamsService.getMissionResult(id);
-    return {
-      success: true,
-      data: result,
-    };
+    if (!result) {
+      throw new NotFoundException(
+        `Mission result for id ${id} not found or not completed`,
+      );
+    }
+    return result;
   }
 
   /**
@@ -274,17 +254,14 @@ export class TeamsController {
    * POST /api/ai/teams/missions/:id/cancel
    */
   @Post("missions/:id/cancel")
-  cancelMission(@Param("id") id: string): {
-    success: boolean;
-    message: string;
-  } {
+  cancelMission(@Param("id") id: string): MissionCancelResponse {
     this.logger.log(`Cancelling mission: ${id}`);
     const cancelled = this.teamsService.cancelMission(id);
+    if (!cancelled) {
+      throw new BadRequestException(`Failed to cancel mission ${id}`);
+    }
     return {
-      success: cancelled,
-      message: cancelled
-        ? `Mission ${id} cancelled`
-        : `Failed to cancel mission ${id}`,
+      message: `Mission ${id} cancelled`,
     };
   }
 }

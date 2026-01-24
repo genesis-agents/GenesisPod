@@ -349,7 +349,6 @@ export class YoutubeController {
       );
 
       return {
-        success: true,
         videoId: cleanVideoId,
         segmentCount: transcript.length,
       };
@@ -408,7 +407,6 @@ export class YoutubeController {
       );
 
       return {
-        success: true,
         videoId: cleanVideoId,
         segmentCount: translatedTranscript.length,
         targetLanguage,

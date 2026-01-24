@@ -21,7 +21,6 @@ export class QualityController {
       limit: limit ? parseInt(limit) : undefined,
     });
     return {
-      success: true,
       data: issues,
       total: issues.length,
     };
@@ -34,10 +33,7 @@ export class QualityController {
   @Get("stats")
   async getStats() {
     const stats = await this.qualityService.getStats();
-    return {
-      success: true,
-      data: stats,
-    };
+    return stats;
   }
 
   /**
@@ -47,10 +43,7 @@ export class QualityController {
   @Post("assess/:resourceId")
   async assessQuality(@Param("resourceId") resourceId: string) {
     const result = await this.qualityService.assessResourceQuality(resourceId);
-    return {
-      success: true,
-      data: result,
-    };
+    return result;
   }
 
   /**
@@ -63,9 +56,8 @@ export class QualityController {
       limit ? parseInt(limit) : 100,
     );
     return {
-      success: true,
       message: `Assessed ${assessed} resources`,
-      data: { assessed },
+      assessed,
     };
   }
 
@@ -84,7 +76,6 @@ export class QualityController {
       body.note,
     );
     return {
-      success: true,
       message: "Review status updated",
     };
   }

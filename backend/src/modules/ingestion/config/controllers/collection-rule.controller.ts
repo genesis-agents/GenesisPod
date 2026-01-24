@@ -7,6 +7,8 @@ import {
   Body,
   Param,
   Logger,
+  NotFoundException,
+  BadRequestException,
 } from "@nestjs/common";
 import { CollectionRuleService } from "../services/collection-rule.service";
 import { ResourceType } from "@prisma/client";
@@ -30,16 +32,12 @@ export class CollectionRuleController {
     try {
       const rules = await this.ruleService.getAllRules();
       return {
-        success: true,
         data: rules,
         total: rules.length,
       };
     } catch (error) {
       this.logger.error(`Error fetching rules: ${error}`);
-      return {
-        success: false,
-        error: "Failed to fetch collection rules",
-      };
+      throw new BadRequestException("Failed to fetch collection rules");
     }
   }
 
@@ -52,16 +50,12 @@ export class CollectionRuleController {
     try {
       const rules = await this.ruleService.getActiveRules();
       return {
-        success: true,
         data: rules,
         total: rules.length,
       };
     } catch (error) {
       this.logger.error(`Error fetching active rules: ${error}`);
-      return {
-        success: false,
-        error: "Failed to fetch active rules",
-      };
+      throw new BadRequestException("Failed to fetch active rules");
     }
   }
 
@@ -75,22 +69,16 @@ export class CollectionRuleController {
       const rule = await this.ruleService.getRule(resourceType as ResourceType);
 
       if (!rule) {
-        return {
-          success: false,
-          error: `Rule not found for ${resourceType}`,
-        };
+        throw new NotFoundException(`Rule not found for ${resourceType}`);
       }
 
-      return {
-        success: true,
-        data: rule,
-      };
+      return rule;
     } catch (error) {
       this.logger.error(`Error fetching rule: ${error}`);
-      return {
-        success: false,
-        error: "Failed to fetch collection rule",
-      };
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException("Failed to fetch collection rule");
     }
   }
 
@@ -115,23 +103,17 @@ export class CollectionRuleController {
   ) {
     try {
       if (!body.resourceType) {
-        return {
-          success: false,
-          error: "Missing required field: resourceType",
-        };
+        throw new BadRequestException("Missing required field: resourceType");
       }
 
       const rule = await this.ruleService.createRule(body);
-      return {
-        success: true,
-        data: rule,
-      };
+      return rule;
     } catch (error) {
       this.logger.error(`Error creating rule: ${error}`);
-      return {
-        success: false,
-        error: "Failed to create collection rule",
-      };
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException("Failed to create collection rule");
     }
   }
 
@@ -161,16 +143,10 @@ export class CollectionRuleController {
         body,
       );
 
-      return {
-        success: true,
-        data: rule,
-      };
+      return rule;
     } catch (error) {
       this.logger.error(`Error updating rule: ${error}`);
-      return {
-        success: false,
-        error: "Failed to update collection rule",
-      };
+      throw new BadRequestException("Failed to update collection rule");
     }
   }
 
@@ -183,15 +159,11 @@ export class CollectionRuleController {
     try {
       await this.ruleService.deleteRule(resourceType as ResourceType);
       return {
-        success: true,
         message: `Rule for ${resourceType} deleted successfully`,
       };
     } catch (error) {
       this.logger.error(`Error deleting rule: ${error}`);
-      return {
-        success: false,
-        error: "Failed to delete collection rule",
-      };
+      throw new BadRequestException("Failed to delete collection rule");
     }
   }
 
@@ -206,16 +178,12 @@ export class CollectionRuleController {
         resourceType as ResourceType,
       );
       return {
-        success: true,
         data: rule,
         message: `Rule for ${resourceType} enabled successfully`,
       };
     } catch (error) {
       this.logger.error(`Error enabling rule: ${error}`);
-      return {
-        success: false,
-        error: "Failed to enable collection rule",
-      };
+      throw new BadRequestException("Failed to enable collection rule");
     }
   }
 
@@ -230,16 +198,12 @@ export class CollectionRuleController {
         resourceType as ResourceType,
       );
       return {
-        success: true,
         data: rule,
         message: `Rule for ${resourceType} disabled successfully`,
       };
     } catch (error) {
       this.logger.error(`Error disabling rule: ${error}`);
-      return {
-        success: false,
-        error: "Failed to disable collection rule",
-      };
+      throw new BadRequestException("Failed to disable collection rule");
     }
   }
 
@@ -252,15 +216,13 @@ export class CollectionRuleController {
     try {
       await this.ruleService.initializeDefaultRules();
       return {
-        success: true,
         message: "Default collection rules initialized successfully",
       };
     } catch (error) {
       this.logger.error(`Error initializing defaults: ${error}`);
-      return {
-        success: false,
-        error: "Failed to initialize default collection rules",
-      };
+      throw new BadRequestException(
+        "Failed to initialize default collection rules",
+      );
     }
   }
 }

@@ -37,7 +37,6 @@ export class HistoryController {
     });
 
     return {
-      success: true,
       data: result.records,
       total: result.total,
     };
@@ -50,10 +49,7 @@ export class HistoryController {
   @Get("stats")
   async getStats(@Query("period") period?: "day" | "week" | "month") {
     const stats = await this.historyService.getStats(period || "week");
-    return {
-      success: true,
-      data: stats,
-    };
+    return stats;
   }
 
   /**
@@ -63,10 +59,7 @@ export class HistoryController {
   @Get(":id")
   async getTaskHistory(@Param("id") id: string) {
     const history = await this.historyService.getTaskHistory(id);
-    return {
-      success: true,
-      data: history,
-    };
+    return history;
   }
 
   /**
@@ -89,9 +82,8 @@ export class HistoryController {
       days ? parseInt(days) : 30,
     );
     return {
-      success: true,
       message: `Cleaned ${cleaned} old records`,
-      data: { cleaned },
+      cleaned,
     };
   }
 }

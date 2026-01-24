@@ -16,6 +16,7 @@ import {
   UseGuards,
   Request,
   Logger,
+  NotFoundException,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -81,7 +82,7 @@ export class CustomTeamsController {
   async getTeamById(@Param("teamId") teamId: string) {
     const team = this.integrationService.getTeamById(teamId);
     if (!team) {
-      return { error: "Team not found", teamId };
+      throw new NotFoundException(`Team not found: ${teamId}`);
     }
     return team;
   }
@@ -134,7 +135,7 @@ export class CustomTeamsController {
     this.logger.log(
       `[deleteCustomTeam] User ${req.user.id} deleting team: ${teamId}`,
     );
-    const result = this.integrationService.deleteCustomTeam(teamId);
-    return { success: result, teamId };
+    this.integrationService.deleteCustomTeam(teamId);
+    return { teamId };
   }
 }

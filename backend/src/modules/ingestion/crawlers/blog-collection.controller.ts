@@ -7,6 +7,9 @@ import {
   Query,
   Param,
   Logger,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
 } from "@nestjs/common";
 import { BlogCollectionService } from "./blog-collection.service";
 import { BlogSchedulerService } from "./blog-scheduler.service";
@@ -33,16 +36,10 @@ export class BlogCollectionController {
   async getSources() {
     try {
       const sources = await this.blogCollectionService.getActiveSources();
-      return {
-        success: true,
-        data: sources,
-      };
+      return sources;
     } catch (error) {
       this.logger.error(`Error fetching sources: ${error}`);
-      return {
-        success: false,
-        error: "Failed to fetch sources",
-      };
+      throw new InternalServerErrorException("Failed to fetch sources");
     }
   }
 
@@ -57,16 +54,10 @@ export class BlogCollectionController {
       const task = await this.blogSchedulerService.triggerCollection(
         body.sourceId,
       );
-      return {
-        success: true,
-        data: task,
-      };
+      return task;
     } catch (error) {
       this.logger.error(`Error triggering collection: ${error}`);
-      return {
-        success: false,
-        error: "Failed to trigger collection",
-      };
+      throw new InternalServerErrorException("Failed to trigger collection");
     }
   }
 
@@ -81,21 +72,15 @@ export class BlogCollectionController {
       const schedulerStatus = this.blogSchedulerService.getSchedulerStatus();
 
       return {
-        success: true,
-        data: {
-          ...stats,
-          collectionStatus: schedulerStatus.enabled ? "active" : "inactive",
-          activeTasks: schedulerStatus.tasks.length,
-          lastCollectionTime: schedulerStatus.lastRun,
-          nextCollectionTime: schedulerStatus.nextRun,
-        },
+        ...stats,
+        collectionStatus: schedulerStatus.enabled ? "active" : "inactive",
+        activeTasks: schedulerStatus.tasks.length,
+        lastCollectionTime: schedulerStatus.lastRun,
+        nextCollectionTime: schedulerStatus.nextRun,
       };
     } catch (error) {
       this.logger.error(`Error fetching stats: ${error}`);
-      return {
-        success: false,
-        error: "Failed to fetch stats",
-      };
+      throw new InternalServerErrorException("Failed to fetch stats");
     }
   }
 
@@ -107,16 +92,12 @@ export class BlogCollectionController {
   async getSchedulerStatus() {
     try {
       const status = this.blogSchedulerService.getSchedulerStatus();
-      return {
-        success: true,
-        data: status,
-      };
+      return status;
     } catch (error) {
       this.logger.error(`Error fetching scheduler status: ${error}`);
-      return {
-        success: false,
-        error: "Failed to fetch scheduler status",
-      };
+      throw new InternalServerErrorException(
+        "Failed to fetch scheduler status",
+      );
     }
   }
 
@@ -128,16 +109,12 @@ export class BlogCollectionController {
   async updateSchedulerConfig(@Body() config: Partial<SchedulerConfig>) {
     try {
       const updated = await this.blogSchedulerService.updateConfig(config);
-      return {
-        success: true,
-        data: updated,
-      };
+      return updated;
     } catch (error) {
       this.logger.error(`Error updating scheduler config: ${error}`);
-      return {
-        success: false,
-        error: "Failed to update scheduler config",
-      };
+      throw new InternalServerErrorException(
+        "Failed to update scheduler config",
+      );
     }
   }
 
@@ -149,16 +126,10 @@ export class BlogCollectionController {
   async getActiveTasks() {
     try {
       const tasks = this.blogSchedulerService.getActiveTasks();
-      return {
-        success: true,
-        data: tasks,
-      };
+      return tasks;
     } catch (error) {
       this.logger.error(`Error fetching active tasks: ${error}`);
-      return {
-        success: false,
-        error: "Failed to fetch active tasks",
-      };
+      throw new InternalServerErrorException("Failed to fetch active tasks");
     }
   }
 
@@ -171,21 +142,15 @@ export class BlogCollectionController {
     try {
       const task = this.blogSchedulerService.getTaskDetail(taskId);
       if (!task) {
-        return {
-          success: false,
-          error: "Task not found",
-        };
+        throw new NotFoundException("Task not found");
       }
-      return {
-        success: true,
-        data: task,
-      };
+      return task;
     } catch (error) {
       this.logger.error(`Error fetching task detail: ${error}`);
-      return {
-        success: false,
-        error: "Failed to fetch task detail",
-      };
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException("Failed to fetch task detail");
     }
   }
 
@@ -203,20 +168,14 @@ export class BlogCollectionController {
       // TODO: 实现从数据库分页查询
       // 这里返回示例数据
       return {
-        success: true,
-        data: {
-          posts: [],
-          total: 0,
-          page,
-          limit,
-        },
+        posts: [],
+        total: 0,
+        page,
+        limit,
       };
     } catch (error) {
       this.logger.error(`Error fetching posts: ${error}`);
-      return {
-        success: false,
-        error: "Failed to fetch posts",
-      };
+      throw new InternalServerErrorException("Failed to fetch posts");
     }
   }
 
@@ -229,26 +188,20 @@ export class BlogCollectionController {
   async searchPosts(@Query("q") query: string) {
     try {
       if (!query) {
-        return {
-          success: false,
-          error: "Query parameter is required",
-        };
+        throw new BadRequestException("Query parameter is required");
       }
 
       // TODO: 实现全文搜索
       return {
-        success: true,
-        data: {
-          results: [],
-          total: 0,
-        },
+        results: [],
+        total: 0,
       };
     } catch (error) {
       this.logger.error(`Error searching posts: ${error}`);
-      return {
-        success: false,
-        error: "Failed to search posts",
-      };
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException("Failed to search posts");
     }
   }
 
@@ -261,17 +214,11 @@ export class BlogCollectionController {
     try {
       // TODO: 实现保存逻辑
       return {
-        success: true,
-        data: {
-          message: "Post saved successfully",
-        },
+        message: "Post saved successfully",
       };
     } catch (error) {
       this.logger.error(`Error saving post: ${error}`);
-      return {
-        success: false,
-        error: "Failed to save post",
-      };
+      throw new InternalServerErrorException("Failed to save post");
     }
   }
 
@@ -284,18 +231,12 @@ export class BlogCollectionController {
     try {
       // TODO: 实现获取用户保存文章的逻辑
       return {
-        success: true,
-        data: {
-          posts: [],
-          total: 0,
-        },
+        posts: [],
+        total: 0,
       };
     } catch (error) {
       this.logger.error(`Error fetching saved posts: ${error}`);
-      return {
-        success: false,
-        error: "Failed to fetch saved posts",
-      };
+      throw new InternalServerErrorException("Failed to fetch saved posts");
     }
   }
 
@@ -309,16 +250,10 @@ export class BlogCollectionController {
       const status = await this.blogSchedulerService.updateConfig({
         enabled: true,
       });
-      return {
-        success: true,
-        data: status,
-      };
+      return status;
     } catch (error) {
       this.logger.error(`Error starting scheduler: ${error}`);
-      return {
-        success: false,
-        error: "Failed to start scheduler",
-      };
+      throw new InternalServerErrorException("Failed to start scheduler");
     }
   }
 
@@ -332,16 +267,10 @@ export class BlogCollectionController {
       const status = await this.blogSchedulerService.updateConfig({
         enabled: false,
       });
-      return {
-        success: true,
-        data: status,
-      };
+      return status;
     } catch (error) {
       this.logger.error(`Error stopping scheduler: ${error}`);
-      return {
-        success: false,
-        error: "Failed to stop scheduler",
-      };
+      throw new InternalServerErrorException("Failed to stop scheduler");
     }
   }
 }

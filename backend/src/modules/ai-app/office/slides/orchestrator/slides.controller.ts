@@ -27,6 +27,9 @@ import {
   HttpException,
   Logger,
   MessageEvent,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
 } from "@nestjs/common";
 import { Response } from "express";
 import { Observable, map, catchError, of } from "rxjs";
@@ -159,7 +162,6 @@ export class SlidesController {
     this.logger.log("[getThemesList] Fetching available themes");
     const themes = getAllThemes();
     return {
-      success: true,
       themes: themes.map((theme) => ({
         id: theme.id,
         name: theme.name,
@@ -369,14 +371,13 @@ export class SlidesController {
       }
 
       return {
-        success: true,
         checkpoints,
       };
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to get checkpoints";
       this.logger.error(`[getCheckpoints] Error: ${errorMessage}`);
-      throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new InternalServerErrorException(errorMessage);
     }
   }
 
@@ -399,9 +400,8 @@ export class SlidesController {
         await this.checkpointService.getLatestCheckpoint(sessionId);
 
       if (!latestCheckpoint) {
-        throw new HttpException(
+        throw new BadRequestException(
           "No existing checkpoint found. Cannot create a new checkpoint without state.",
-          HttpStatus.BAD_REQUEST,
         );
       }
 
@@ -425,7 +425,6 @@ export class SlidesController {
       });
 
       return {
-        success: true,
         checkpoint: {
           id: checkpoint.id,
           name: checkpoint.name,
@@ -441,7 +440,7 @@ export class SlidesController {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to create checkpoint";
       this.logger.error(`[createCheckpoint] Error: ${errorMessage}`);
-      throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new InternalServerErrorException(errorMessage);
     }
   }
 
@@ -458,7 +457,6 @@ export class SlidesController {
       const result = await this.slidesEngine.restoreCheckpoint(checkpointId);
 
       return {
-        success: true,
         sessionId: result.sessionId,
         checkpointId,
         state: result.state,
@@ -467,7 +465,7 @@ export class SlidesController {
       const errorMessage =
         error instanceof Error ? error.message : "Checkpoint not found";
       this.logger.error(`[getCheckpoint] Error: ${errorMessage}`);
-      throw new HttpException(errorMessage, HttpStatus.NOT_FOUND);
+      throw new NotFoundException(errorMessage);
     }
   }
 
@@ -484,7 +482,6 @@ export class SlidesController {
       const result = await this.slidesEngine.restoreCheckpoint(checkpointId);
 
       return {
-        success: true,
         message: "Checkpoint restored successfully",
         sessionId: result.sessionId,
         checkpointId,
@@ -498,7 +495,7 @@ export class SlidesController {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to restore checkpoint";
       this.logger.error(`[restoreCheckpoint] Error: ${errorMessage}`);
-      throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new InternalServerErrorException(errorMessage);
     }
   }
 
@@ -524,14 +521,13 @@ export class SlidesController {
       );
 
       return {
-        success: true,
         events,
       };
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to rerender page";
       this.logger.error(`[rerenderPage] Error: ${errorMessage}`);
-      throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new InternalServerErrorException(errorMessage);
     }
   }
 
@@ -577,14 +573,13 @@ export class SlidesController {
       );
 
       return {
-        success: true,
         sessions: sessionsWithCheckpoints,
       };
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to get sessions";
       this.logger.error(`[getSessions] Error: ${errorMessage}`);
-      throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new InternalServerErrorException(errorMessage);
     }
   }
 
@@ -599,7 +594,7 @@ export class SlidesController {
       const session = await this.checkpointService.getSession(sessionId);
 
       if (!session) {
-        throw new HttpException("Session not found", HttpStatus.NOT_FOUND);
+        throw new NotFoundException("Session not found");
       }
 
       // 获取最新检查点
@@ -607,7 +602,6 @@ export class SlidesController {
         await this.checkpointService.getLatestCheckpoint(sessionId);
 
       return {
-        success: true,
         session,
         latestCheckpoint: latestCheckpoint
           ? {
@@ -625,7 +619,7 @@ export class SlidesController {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to get session";
       this.logger.error(`[getSession] Error: ${errorMessage}`);
-      throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new InternalServerErrorException(errorMessage);
     }
   }
 
@@ -704,14 +698,13 @@ export class SlidesController {
       await this.checkpointService.updateSessionStatus(sessionId, "archived");
 
       return {
-        success: true,
         message: "Session archived successfully",
       };
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to archive session";
       this.logger.error(`[archiveSession] Error: ${errorMessage}`);
-      throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new InternalServerErrorException(errorMessage);
     }
   }
 
@@ -734,14 +727,13 @@ export class SlidesController {
       );
 
       return {
-        success: true,
         session,
       };
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to update session";
       this.logger.error(`[updateSession] Error: ${errorMessage}`);
-      throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new InternalServerErrorException(errorMessage);
     }
   }
 
@@ -756,14 +748,13 @@ export class SlidesController {
       await this.checkpointService.deleteSession(sessionId);
 
       return {
-        success: true,
         message: "Session deleted successfully",
       };
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to delete session";
       this.logger.error(`[deleteSession] Error: ${errorMessage}`);
-      throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new InternalServerErrorException(errorMessage);
     }
   }
 
@@ -782,7 +773,6 @@ export class SlidesController {
       const count = await this.checkpointService.prune(sessionId, keepLast);
 
       return {
-        success: true,
         message: `Pruned ${count} checkpoints`,
         prunedCount: count,
       };
@@ -790,7 +780,7 @@ export class SlidesController {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to prune checkpoints";
       this.logger.error(`[pruneCheckpoints] Error: ${errorMessage}`);
-      throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new InternalServerErrorException(errorMessage);
     }
   }
 }

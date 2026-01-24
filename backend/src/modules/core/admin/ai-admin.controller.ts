@@ -176,7 +176,6 @@ export class AIAdminController {
       const result = await this.aiAdminService.uploadSkill(skillData);
 
       return {
-        success: true,
         message: `Successfully uploaded skill: ${result.displayName || result.skillId}`,
         skill: result,
       };

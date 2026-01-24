@@ -146,7 +146,7 @@ export class WechatDataSourceController {
   async getItem(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     const userId = this.getUserId(req);
     const item = await this.wechatDataSourceService.getItem(userId, id);
-    return { item };
+    return item;
   }
 
   /**
@@ -234,7 +234,7 @@ export class WechatDataSourceController {
         syncSource: "manual",
       });
 
-      return { item };
+      return item;
     } catch (error) {
       this.logger.error(`Failed to create item: ${error}`);
       throw new HttpException(
@@ -272,7 +272,6 @@ export class WechatDataSourceController {
     // This would call KnowledgeBaseService.addDocument and then markSyncedToRag
 
     return {
-      success: true,
       message: "Sync to RAG not yet implemented",
       item,
     };
@@ -324,7 +323,6 @@ export class WechatDataSourceController {
       );
 
       return {
-        success: true,
         message: "WeChat Work ID bound successfully",
         wechatWorkUserId: result.wechatWorkUserId,
       };
@@ -351,7 +349,6 @@ export class WechatDataSourceController {
     await this.wechatDataSourceService.unbindWechatWorkUserId(userId);
 
     return {
-      success: true,
       message: "WeChat Work ID unbound successfully",
     };
   }

@@ -7,6 +7,7 @@ import {
   UseGuards,
   Req,
   Logger,
+  BadRequestException,
 } from "@nestjs/common";
 import { Request } from "express";
 import {
@@ -55,8 +56,13 @@ export class AiFileOrganizerController {
 
     const result = await this.organizerService.batchAnalyze(dto.files);
 
+    if (!result.success) {
+      throw new BadRequestException(
+        result.errors?.join("; ") || "Failed to analyze files",
+      );
+    }
+
     return {
-      success: result.success,
       suggestions: result.suggestions,
       totalFiles: result.totalFiles,
       processedFiles: result.processedFiles,
@@ -76,10 +82,7 @@ export class AiFileOrganizerController {
 
     const suggestion = await this.organizerService.analyzeFile(file);
 
-    return {
-      success: true,
-      suggestion,
-    };
+    return { suggestion };
   }
 
   @Post("apply")
@@ -92,10 +95,7 @@ export class AiFileOrganizerController {
   ) {
     await this.organizerService.applySuggestion(dto.resourceId, dto.suggestion);
 
-    return {
-      success: true,
-      message: "Suggestion applied successfully",
-    };
+    return { message: "Suggestion applied successfully" };
   }
 
   @Get("categories")

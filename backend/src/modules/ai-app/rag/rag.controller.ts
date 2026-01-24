@@ -122,7 +122,10 @@ export class RAGController {
   @Get("knowledge-bases/:id/stats")
   @ApiOperation({ summary: "Get knowledge base statistics" })
   @ApiResponse({ status: 200, description: "Knowledge base statistics" })
-  async getKnowledgeBaseStats(@Req() req: RequestWithUser, @Param("id") id: string) {
+  async getKnowledgeBaseStats(
+    @Req() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     // Verify ownership
     await this.knowledgeBaseService.findById(id, req.user.id);
     return this.knowledgeBaseService.getStats(id);
@@ -157,9 +160,12 @@ export class RAGController {
   @Delete("knowledge-bases/:id")
   @ApiOperation({ summary: "Delete a knowledge base" })
   @ApiResponse({ status: 200, description: "Knowledge base deleted" })
-  async deleteKnowledgeBase(@Req() req: RequestWithUser, @Param("id") id: string) {
+  async deleteKnowledgeBase(
+    @Req() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     await this.knowledgeBaseService.delete(id, req.user.id);
-    return { success: true };
+    return { message: "Knowledge base deleted successfully" };
   }
 
   // ==================== Document Management ====================
@@ -188,7 +194,7 @@ export class RAGController {
   @ApiResponse({ status: 200, description: "Document deleted" })
   async deleteDocument(@Req() req: RequestWithUser, @Param("id") id: string) {
     await this.knowledgeBaseService.deleteDocument(id, req.user.id);
-    return { success: true };
+    return { message: "Document deleted successfully" };
   }
 
   @Post("knowledge-bases/:id/process")
@@ -249,7 +255,6 @@ export class RAGController {
       const syncResult = await this.googleDriveRAGService.syncKnowledgeBase(id);
 
       return {
-        success: true,
         count: googleDriveFileIds.length,
         syncResult,
       };
@@ -352,7 +357,6 @@ export class RAGController {
       }
 
       return {
-        success: true,
         count: results.length,
         documents: results,
       };
@@ -377,7 +381,6 @@ export class RAGController {
     }
 
     return {
-      success: true,
       count: results.length,
       documents: results,
     };
@@ -388,7 +391,10 @@ export class RAGController {
   @Post("knowledge-bases/:id/sync")
   @ApiOperation({ summary: "Sync knowledge base with Google Drive" })
   @ApiResponse({ status: 200, description: "Sync completed" })
-  async syncKnowledgeBase(@Req() req: RequestWithUser, @Param("id") id: string) {
+  async syncKnowledgeBase(
+    @Req() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     // Verify ownership
     await this.knowledgeBaseService.findById(id, req.user.id);
     return this.googleDriveRAGService.syncKnowledgeBase(id);
@@ -538,7 +544,7 @@ export class RAGController {
     }
 
     return {
-      success: results.length,
+      count: results.length,
       documentIds: results,
     };
   }
@@ -594,7 +600,7 @@ export class RAGController {
     @Param("memberId") memberId: string,
   ) {
     await this.knowledgeBaseService.removeMember(id, req.user.id, memberId);
-    return { success: true };
+    return { message: "Member removed successfully" };
   }
 
   // ==================== Query Endpoints ====================

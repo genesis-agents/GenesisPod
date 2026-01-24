@@ -16,6 +16,7 @@ import {
   UseInterceptors,
   UseGuards,
   Req,
+  BadRequestException,
 } from "@nestjs/common";
 import { SkipThrottle } from "@nestjs/throttler";
 import { FileInterceptor } from "@nestjs/platform-express";
@@ -76,15 +77,62 @@ export class ResourcesController {
    * GET /api/v1/resources?skip=0&take=20&type=PAPER&category=AI&search=machine+learning&sortBy=publishedAt&sortOrder=desc
    */
   @Get()
-  @ApiOperation({ summary: "获取资源列表", description: "分页查询资源列表，支持类型、分类、搜索和排序" })
-  @ApiQuery({ name: "skip", required: false, type: Number, description: "跳过的记录数", example: 0 })
-  @ApiQuery({ name: "take", required: false, type: Number, description: "获取的记录数", example: 20 })
-  @ApiQuery({ name: "type", required: false, type: String, description: "资源类型过滤", enum: ["PAPER", "BLOG", "REPORT", "NEWS", "YOUTUBE_VIDEO", "POLICY"] })
-  @ApiQuery({ name: "category", required: false, type: String, description: "分类过滤" })
-  @ApiQuery({ name: "search", required: false, type: String, description: "搜索关键词" })
-  @ApiQuery({ name: "sortBy", required: false, type: String, description: "排序字段", enum: ["publishedAt", "qualityScore", "trendingScore"] })
-  @ApiQuery({ name: "sortOrder", required: false, type: String, description: "排序方向", enum: ["asc", "desc"] })
-  @ApiResponse({ status: 200, description: "成功获取资源列表", type: ResourceListResponseDto })
+  @ApiOperation({
+    summary: "获取资源列表",
+    description: "分页查询资源列表，支持类型、分类、搜索和排序",
+  })
+  @ApiQuery({
+    name: "skip",
+    required: false,
+    type: Number,
+    description: "跳过的记录数",
+    example: 0,
+  })
+  @ApiQuery({
+    name: "take",
+    required: false,
+    type: Number,
+    description: "获取的记录数",
+    example: 20,
+  })
+  @ApiQuery({
+    name: "type",
+    required: false,
+    type: String,
+    description: "资源类型过滤",
+    enum: ["PAPER", "BLOG", "REPORT", "NEWS", "YOUTUBE_VIDEO", "POLICY"],
+  })
+  @ApiQuery({
+    name: "category",
+    required: false,
+    type: String,
+    description: "分类过滤",
+  })
+  @ApiQuery({
+    name: "search",
+    required: false,
+    type: String,
+    description: "搜索关键词",
+  })
+  @ApiQuery({
+    name: "sortBy",
+    required: false,
+    type: String,
+    description: "排序字段",
+    enum: ["publishedAt", "qualityScore", "trendingScore"],
+  })
+  @ApiQuery({
+    name: "sortOrder",
+    required: false,
+    type: String,
+    description: "排序方向",
+    enum: ["asc", "desc"],
+  })
+  @ApiResponse({
+    status: 200,
+    description: "成功获取资源列表",
+    type: ResourceListResponseDto,
+  })
   async findAll(
     @Query("skip", new DefaultValuePipe(0), ParseIntPipe) skip: number,
     @Query("take", new DefaultValuePipe(20), ParseIntPipe) take: number,
@@ -114,9 +162,23 @@ export class ResourcesController {
    * 注意：此路由必须在 @Get(':id') 之前，否则会被 :id 捕获
    */
   @Get("search/suggestions")
-  @ApiOperation({ summary: "获取搜索建议", description: "根据查询关键词获取实时搜索建议" })
-  @ApiQuery({ name: "q", required: true, type: String, description: "搜索关键词（至少2个字符）" })
-  @ApiQuery({ name: "limit", required: false, type: Number, description: "最大建议数", example: 5 })
+  @ApiOperation({
+    summary: "获取搜索建议",
+    description: "根据查询关键词获取实时搜索建议",
+  })
+  @ApiQuery({
+    name: "q",
+    required: true,
+    type: String,
+    description: "搜索关键词（至少2个字符）",
+  })
+  @ApiQuery({
+    name: "limit",
+    required: false,
+    type: Number,
+    description: "最大建议数",
+    example: 5,
+  })
   @ApiResponse({ status: 200, description: "成功获取搜索建议" })
   async searchSuggestions(
     @Query("q") query: string,
@@ -143,8 +205,15 @@ export class ResourcesController {
    * 注意：此路由必须在 @Get(':id') 之前，否则会被 :id 捕获
    */
   @Get("stats/summary")
-  @ApiOperation({ summary: "获取资源统计", description: "获取资源的统计信息（总数、分类统计等）" })
-  @ApiResponse({ status: 200, description: "成功获取统计信息", type: ResourceStatsDto })
+  @ApiOperation({
+    summary: "获取资源统计",
+    description: "获取资源的统计信息（总数、分类统计等）",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "成功获取统计信息",
+    type: ResourceStatsDto,
+  })
   async getStats() {
     this.logger.log("Fetching resource statistics");
 
@@ -185,7 +254,6 @@ export class ResourcesController {
     const result = await this.resourcesService.cleanupDuplicates(type);
 
     return {
-      success: true,
       message: `Cleaned up ${result.deleted} duplicate resources`,
       ...result,
     };
@@ -201,8 +269,15 @@ export class ResourcesController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Get("user/upvotes")
-  @ApiOperation({ summary: "获取用户点赞列表", description: "获取当前用户已点赞的所有资源ID列表" })
-  @ApiResponse({ status: 200, description: "成功获取点赞列表", type: UserUpvotesResponseDto })
+  @ApiOperation({
+    summary: "获取用户点赞列表",
+    description: "获取当前用户已点赞的所有资源ID列表",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "成功获取点赞列表",
+    type: UserUpvotesResponseDto,
+  })
   @ApiResponse({ status: 401, description: "未授权" })
   async getUserUpvotes(@Req() req: AuthenticatedRequest) {
     const userId = req.user?.id;
@@ -287,7 +362,6 @@ export class ResourcesController {
     }
 
     return {
-      success: !!thumbnailUrl,
       thumbnailUrl,
       sourceUrl: url,
       type,
@@ -322,11 +396,9 @@ export class ResourcesController {
 
     if (!thumbnailUrl) {
       this.logger.warn(`Failed to generate PDF preview for arXiv ${arxivId}`);
-      return {
-        success: false,
-        thumbnailUrl: null,
-        arxivId,
-      };
+      throw new BadRequestException(
+        `Failed to generate PDF preview for arXiv ${arxivId}`,
+      );
     }
 
     this.logger.log(
@@ -334,7 +406,6 @@ export class ResourcesController {
     );
 
     return {
-      success: true,
       thumbnailUrl,
       arxivId,
     };
@@ -347,9 +418,16 @@ export class ResourcesController {
    * 注意：动态路由必须放在所有具体路由之后，以免捕获其他路径
    */
   @Get(":id")
-  @ApiOperation({ summary: "获取资源详情", description: "根据资源ID获取详细信息" })
+  @ApiOperation({
+    summary: "获取资源详情",
+    description: "根据资源ID获取详细信息",
+  })
   @ApiParam({ name: "id", description: "资源ID" })
-  @ApiResponse({ status: 200, description: "成功获取资源详情", type: ResourceResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: "成功获取资源详情",
+    type: ResourceResponseDto,
+  })
   @ApiResponse({ status: 404, description: "资源不存在" })
   async findOne(@Param("id") id: string) {
     this.logger.log(`Fetching resource ${id}`);
@@ -365,9 +443,16 @@ export class ResourcesController {
    * 注意：此路由必须在 @Post() 之前，否则会被通用POST路由捕获
    */
   @Post("import-url")
-  @ApiOperation({ summary: "从URL导入资源", description: "从给定的URL自动提取并导入资源信息" })
+  @ApiOperation({
+    summary: "从URL导入资源",
+    description: "从给定的URL自动提取并导入资源信息",
+  })
   @ApiBody({ type: ImportUrlDto })
-  @ApiResponse({ status: 200, description: "导入成功", type: ImportUrlResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: "导入成功",
+    type: ImportUrlResponseDto,
+  })
   @ApiResponse({ status: 400, description: "无效的URL或资源类型" })
   @ApiResponse({ status: 500, description: "导入失败" })
   async importFromUrl(@Body() body: { url: string; type: string }) {
@@ -400,7 +485,6 @@ export class ResourcesController {
     try {
       const resource = await this.resourcesService.importFromUrl(url, type);
       return {
-        success: true,
         message: "URL imported successfully",
         resource,
       };
@@ -420,7 +504,11 @@ export class ResourcesController {
    */
   @Post()
   @ApiOperation({ summary: "创建资源", description: "手动创建新资源" })
-  @ApiResponse({ status: 201, description: "创建成功", type: ResourceResponseDto })
+  @ApiResponse({
+    status: 201,
+    description: "创建成功",
+    type: ResourceResponseDto,
+  })
   @ApiResponse({ status: 400, description: "无效的输入数据" })
   async create(@Body() createResourceDto: Prisma.ResourceCreateInput) {
     this.logger.log("Creating new resource");
@@ -435,7 +523,11 @@ export class ResourcesController {
   @Patch(":id")
   @ApiOperation({ summary: "更新资源", description: "更新指定资源的信息" })
   @ApiParam({ name: "id", description: "资源ID" })
-  @ApiResponse({ status: 200, description: "更新成功", type: ResourceResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: "更新成功",
+    type: ResourceResponseDto,
+  })
   @ApiResponse({ status: 404, description: "资源不存在" })
   async update(
     @Param("id") id: string,
@@ -470,9 +562,16 @@ export class ResourcesController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Post(":id/upvote")
-  @ApiOperation({ summary: "切换点赞状态", description: "切换当前用户对指定资源的点赞状态" })
+  @ApiOperation({
+    summary: "切换点赞状态",
+    description: "切换当前用户对指定资源的点赞状态",
+  })
   @ApiParam({ name: "id", description: "资源ID" })
-  @ApiResponse({ status: 200, description: "操作成功", type: UpvoteResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: "操作成功",
+    type: UpvoteResponseDto,
+  })
   @ApiResponse({ status: 401, description: "未授权" })
   @ApiResponse({ status: 404, description: "资源不存在" })
   async toggleUpvote(
@@ -489,10 +588,7 @@ export class ResourcesController {
 
     const result = await this.resourcesService.toggleUpvote(id, userId);
 
-    return {
-      success: true,
-      ...result,
-    };
+    return result;
   }
 
   /**
@@ -500,9 +596,16 @@ export class ResourcesController {
    * POST /api/v1/resources/:id/enrich
    */
   @Post(":id/enrich")
-  @ApiOperation({ summary: "AI增强资源", description: "使用AI生成资源摘要、洞察和分类信息" })
+  @ApiOperation({
+    summary: "AI增强资源",
+    description: "使用AI生成资源摘要、洞察和分类信息",
+  })
   @ApiParam({ name: "id", description: "资源ID" })
-  @ApiResponse({ status: 200, description: "增强成功", type: ResourceResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: "增强成功",
+    type: ResourceResponseDto,
+  })
   @ApiResponse({ status: 404, description: "资源不存在" })
   @ApiResponse({ status: 500, description: "AI服务错误" })
   async enrichResource(@Param("id") id: string) {
@@ -743,7 +846,10 @@ export class ResourcesController {
    * Uses S3/R2 storage
    */
   @Post("upload-file")
-  @ApiOperation({ summary: "上传文件", description: "上传文件到云存储（S3/R2）并返回文件信息" })
+  @ApiOperation({
+    summary: "上传文件",
+    description: "上传文件到云存储（S3/R2）并返回文件信息",
+  })
   @ApiConsumes("multipart/form-data")
   @ApiBody({
     description: "文件上传",
@@ -751,7 +857,10 @@ export class ResourcesController {
       type: "object",
       properties: {
         file: { type: "string", format: "binary" },
-        type: { type: "string", enum: ["PAPER", "PROJECT", "NEWS", "YOUTUBE_VIDEO"] },
+        type: {
+          type: "string",
+          enum: ["PAPER", "PROJECT", "NEWS", "YOUTUBE_VIDEO"],
+        },
       },
     },
   })

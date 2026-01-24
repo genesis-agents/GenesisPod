@@ -29,10 +29,7 @@ export class CollectionTaskController {
   @Post()
   async create(@Body() dto: CreateCollectionTaskDto) {
     const task = await this.taskService.create(dto);
-    return {
-      success: true,
-      data: task,
-    };
+    return task;
   }
 
   /**
@@ -53,7 +50,6 @@ export class CollectionTaskController {
       limit: limit ? parseInt(limit) : undefined,
     });
     return {
-      success: true,
       data: tasks,
       total: tasks.length,
     };
@@ -68,7 +64,6 @@ export class CollectionTaskController {
   async getRunning() {
     const tasks = await this.taskService.getRunningTasks();
     return {
-      success: true,
       data: tasks,
       total: tasks.length,
     };
@@ -83,7 +78,6 @@ export class CollectionTaskController {
   async getPending() {
     const tasks = await this.taskService.getPendingTasks();
     return {
-      success: true,
       data: tasks,
       total: tasks.length,
     };
@@ -97,10 +91,7 @@ export class CollectionTaskController {
   @Get(":id")
   async findOne(@Param("id") id: string) {
     const task = await this.taskService.findOne(id);
-    return {
-      success: true,
-      data: task,
-    };
+    return task;
   }
 
   /**
@@ -110,10 +101,7 @@ export class CollectionTaskController {
   @Put(":id")
   async update(@Param("id") id: string, @Body() dto: UpdateCollectionTaskDto) {
     const task = await this.taskService.update(id, dto);
-    return {
-      success: true,
-      data: task,
-    };
+    return task;
   }
 
   /**
@@ -147,7 +135,6 @@ export class CollectionTaskController {
     });
 
     return {
-      success: true,
       message: "Task execution started",
     };
   }
@@ -159,10 +146,7 @@ export class CollectionTaskController {
   @Post(":id/pause")
   async pause(@Param("id") id: string) {
     const task = await this.taskService.pause(id);
-    return {
-      success: true,
-      data: task,
-    };
+    return task;
   }
 
   /**
@@ -172,10 +156,7 @@ export class CollectionTaskController {
   @Post(":id/resume")
   async resume(@Param("id") id: string) {
     const task = await this.taskService.resume(id);
-    return {
-      success: true,
-      data: task,
-    };
+    return task;
   }
 
   /**
@@ -185,9 +166,6 @@ export class CollectionTaskController {
   @Post(":id/cancel")
   async cancel(@Param("id") id: string) {
     const task = await this.taskService.cancel(id);
-    return {
-      success: true,
-      data: task,
-    };
+    return task;
   }
 }

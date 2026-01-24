@@ -140,7 +140,10 @@ export class TopicResearchController {
   })
   @ApiResponse({ status: 201, description: "专题创建成功" })
   @ApiResponse({ status: 401, description: "未认证" })
-  async createTopic(@Request() req: RequestWithUser, @Body() dto: CreateTopicDto) {
+  async createTopic(
+    @Request() req: RequestWithUser,
+    @Body() dto: CreateTopicDto,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -163,7 +166,10 @@ export class TopicResearchController {
   @ApiQuery({ name: "skip", required: false, description: "跳过数量" })
   @ApiQuery({ name: "take", required: false, description: "返回数量" })
   @ApiResponse({ status: 200, description: "返回专题列表" })
-  async listTopics(@Request() req: RequestWithUser, @Query() query: ListTopicsDto) {
+  async listTopics(
+    @Request() req: RequestWithUser,
+    @Query() query: ListTopicsDto,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -262,7 +268,10 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回研究策略建议" })
-  async getResearchStrategy(@Request() req: RequestWithUser, @Param("id") id: string) {
+  async getResearchStrategy(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -280,7 +289,10 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回研究状态摘要" })
-  async quickCheckResearchStatus(@Request() req: RequestWithUser, @Param("id") id: string) {
+  async quickCheckResearchStatus(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -300,7 +312,10 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 202, description: "研究任务已创建" })
-  async smartStartResearch(@Request() req: RequestWithUser, @Param("id") id: string) {
+  async smartStartResearch(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -365,7 +380,10 @@ export class TopicResearchController {
   @ApiOperation({ summary: "获取当前刷新状态" })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回刷新状态" })
-  async getRefreshStatus(@Request() req: RequestWithUser, @Param("id") id: string) {
+  async getRefreshStatus(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -424,7 +442,10 @@ export class TopicResearchController {
   @ApiOperation({ summary: "获取专题的所有维度" })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回维度列表" })
-  async listDimensions(@Request() req: RequestWithUser, @Param("id") id: string) {
+  async listDimensions(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -587,7 +608,10 @@ export class TopicResearchController {
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回最新报告" })
   @ApiResponse({ status: 404, description: "报告不存在" })
-  async getLatestReport(@Request() req: RequestWithUser, @Param("id") id: string) {
+  async getLatestReport(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -1136,7 +1160,10 @@ export class TopicResearchController {
   @ApiOperation({ summary: "获取专题模板列表" })
   @ApiQuery({ name: "type", required: true, description: "专题类型" })
   @ApiResponse({ status: 200, description: "返回模板列表" })
-  async getTemplates(@Request() req: RequestWithUser, @Query() query: GetTemplatesDto) {
+  async getTemplates(
+    @Request() req: RequestWithUser,
+    @Query() query: GetTemplatesDto,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -1448,7 +1475,10 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回决策历史" })
-  async getLeaderDecisions(@Request() req: RequestWithUser, @Param("id") id: string) {
+  async getLeaderDecisions(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -1652,7 +1682,10 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "取消成功" })
-  async cancelMission(@Request() req: RequestWithUser, @Param("id") id: string) {
+  async cancelMission(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -1685,7 +1718,10 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回协作者列表" })
-  async getCollaborators(@Request() req: RequestWithUser, @Param("id") id: string) {
+  async getCollaborators(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -1774,7 +1810,7 @@ export class TopicResearchController {
       collaboratorId,
       userId,
     );
-    return { success: true };
+    return;
   }
 
   /**
@@ -1793,7 +1829,7 @@ export class TopicResearchController {
       throw new UnauthorizedException("User not authenticated");
     }
     await this.collaboratorService.leaveProject(id, userId);
-    return { success: true };
+    return;
   }
 
   /**
@@ -1832,7 +1868,10 @@ export class TopicResearchController {
   })
   @ApiParam({ name: "id", description: "专题ID" })
   @ApiResponse({ status: 200, description: "返回共享设置" })
-  async getSharingSettings(@Request() req: RequestWithUser, @Param("id") id: string) {
+  async getSharingSettings(
+    @Request() req: RequestWithUser,
+    @Param("id") id: string,
+  ) {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
@@ -2255,7 +2294,7 @@ export class TopicResearchController {
       throw new UnauthorizedException("User not authenticated");
     }
     const todo = await this.todoService.pauseTodo(todoId);
-    return { success: true, todo };
+    return todo;
   }
 
   /**
@@ -2280,7 +2319,7 @@ export class TopicResearchController {
       throw new UnauthorizedException("User not authenticated");
     }
     const todo = await this.todoService.resumeTodo(todoId);
-    return { success: true, todo };
+    return todo;
   }
 
   /**
@@ -2306,7 +2345,7 @@ export class TopicResearchController {
       throw new UnauthorizedException("User not authenticated");
     }
     const todo = await this.todoService.cancelTodo(todoId, dto.reason);
-    return { success: true, todo };
+    return todo;
   }
 
   /**
@@ -2336,7 +2375,7 @@ export class TopicResearchController {
     // ★ 先尝试作为 ResearchTodo 处理
     try {
       const todo = await this.todoService.retryTodo(todoId);
-      return { success: true, todo };
+      return todo;
     } catch (error) {
       // 如果是 NotFoundException，尝试作为 ResearchTask 处理
       if (error instanceof NotFoundException) {
@@ -2344,16 +2383,13 @@ export class TopicResearchController {
           const task = await this.missionService.retryTask(todoId);
           // 将 Task 转换为类似 TODO 的格式返回
           return {
-            success: true,
-            todo: {
-              id: task.id,
-              title: task.title,
-              status: task.status === "PENDING" ? "QUEUED" : task.status,
-              type: task.taskType,
-              dimensionName: task.dimensionName,
-              progress: 0,
-              statusMessage: "等待重试",
-            },
+            id: task.id,
+            title: task.title,
+            status: task.status === "PENDING" ? "QUEUED" : task.status,
+            type: task.taskType,
+            dimensionName: task.dimensionName,
+            progress: 0,
+            statusMessage: "等待重试",
           };
         } catch (taskError) {
           // 两个都失败，抛出原始错误
@@ -2387,7 +2423,7 @@ export class TopicResearchController {
       throw new UnauthorizedException("User not authenticated");
     }
     const result = await this.todoService.executeTodo(topicId, todoId);
-    return { success: true, ...result };
+    return result;
   }
 
   /**
@@ -2412,7 +2448,7 @@ export class TopicResearchController {
       throw new UnauthorizedException("User not authenticated");
     }
     const todo = await this.todoService.prioritizeTodo(todoId, dto.priority);
-    return { success: true, todo };
+    return todo;
   }
 
   /**
@@ -2440,7 +2476,7 @@ export class TopicResearchController {
       progress: dto.progress,
       statusMessage: dto.statusMessage,
     });
-    return { success: true, todo };
+    return todo;
   }
 
   /**
@@ -2470,7 +2506,7 @@ export class TopicResearchController {
       dto.title,
       dto.description,
     );
-    return { success: true, todo };
+    return todo;
   }
 
   /**
@@ -2495,7 +2531,7 @@ export class TopicResearchController {
       throw new UnauthorizedException("User not authenticated");
     }
     const todo = await this.todoService.updateTodoContent(todoId, dto);
-    return { success: true, todo };
+    return todo;
   }
 
   /**
@@ -2520,7 +2556,7 @@ export class TopicResearchController {
       throw new UnauthorizedException("User not authenticated");
     }
     await this.todoService.deleteTodo(todoId);
-    return { success: true };
+    return;
   }
 
   // ==================== Health Check & Recovery ====================
@@ -2546,7 +2582,7 @@ export class TopicResearchController {
       throw new UnauthorizedException("User not authenticated");
     }
     const health = await this.healthService.getMissionHealthStatus(missionId);
-    return { success: true, health };
+    return health;
   }
 
   /**
@@ -2571,11 +2607,11 @@ export class TopicResearchController {
     // 获取当前 Mission
     const mission = await this.missionService.getMissionByTopicId(topicId);
     if (!mission) {
-      return { success: true, health: null, message: "没有正在进行的研究任务" };
+      return { health: null, message: "没有正在进行的研究任务" };
     }
 
     const health = await this.healthService.getMissionHealthStatus(mission.id);
-    return { success: true, health };
+    return health;
   }
 
   /**
@@ -2599,7 +2635,7 @@ export class TopicResearchController {
       throw new UnauthorizedException("User not authenticated");
     }
     const result = await this.checkpointService.canResume(missionId);
-    return { success: true, ...result };
+    return result;
   }
 
   /**
@@ -2652,7 +2688,7 @@ export class TopicResearchController {
       throw new UnauthorizedException("User not authenticated");
     }
     const missions = await this.checkpointService.getResumableMissions(userId);
-    return { success: true, missions };
+    return missions;
   }
 
   /**
@@ -2671,6 +2707,6 @@ export class TopicResearchController {
     }
     // TODO: Add admin role check
     const result = await this.healthService.forceHealthCheck();
-    return { success: true, result };
+    return result;
   }
 }

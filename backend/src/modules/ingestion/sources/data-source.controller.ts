@@ -27,11 +27,7 @@ export class DataSourceController {
    */
   @Post()
   async create(@Body() dto: CreateDataSourceDto) {
-    const dataSource = await this.dataSourceService.create(dto);
-    return {
-      success: true,
-      data: dataSource,
-    };
+    return this.dataSourceService.create(dto);
   }
 
   /**
@@ -40,11 +36,7 @@ export class DataSourceController {
    */
   @Post("bulk")
   async bulkCreate(@Body() dtos: CreateDataSourceDto[]) {
-    const result = await this.dataSourceService.bulkCreate(dtos);
-    return {
-      success: true,
-      data: result,
-    };
+    return this.dataSourceService.bulkCreate(dtos);
   }
 
   /**
@@ -63,7 +55,6 @@ export class DataSourceController {
       category,
     });
     return {
-      success: true,
       data: sources,
       total: sources.length,
     };
@@ -75,11 +66,7 @@ export class DataSourceController {
    */
   @Get("stats")
   async getStats() {
-    const stats = await this.dataSourceService.getStatsSummary();
-    return {
-      success: true,
-      data: stats,
-    };
+    return this.dataSourceService.getStatsSummary();
   }
 
   /**
@@ -88,11 +75,7 @@ export class DataSourceController {
    */
   @Get(":id")
   async findOne(@Param("id") id: string) {
-    const dataSource = await this.dataSourceService.findOne(id);
-    return {
-      success: true,
-      data: dataSource,
-    };
+    return this.dataSourceService.findOne(id);
   }
 
   /**
@@ -101,11 +84,7 @@ export class DataSourceController {
    */
   @Put(":id")
   async update(@Param("id") id: string, @Body() dto: UpdateDataSourceDto) {
-    const dataSource = await this.dataSourceService.update(id, dto);
-    return {
-      success: true,
-      data: dataSource,
-    };
+    return this.dataSourceService.update(id, dto);
   }
 
   /**
@@ -124,11 +103,7 @@ export class DataSourceController {
    */
   @Post(":id/test")
   async test(@Param("id") id: string) {
-    const result = await this.dataSourceService.test(id);
-    return {
-      success: result.success,
-      message: result.message,
-    };
+    return this.dataSourceService.test(id);
   }
 
   /**
@@ -137,13 +112,9 @@ export class DataSourceController {
    */
   @Post(":id/pause")
   async pause(@Param("id") id: string) {
-    const dataSource = await this.dataSourceService.update(id, {
+    return this.dataSourceService.update(id, {
       status: "PAUSED",
     });
-    return {
-      success: true,
-      data: dataSource,
-    };
   }
 
   /**
@@ -152,13 +123,9 @@ export class DataSourceController {
    */
   @Post(":id/resume")
   async resume(@Param("id") id: string) {
-    const dataSource = await this.dataSourceService.update(id, {
+    return this.dataSourceService.update(id, {
       status: "ACTIVE",
     });
-    return {
-      success: true,
-      data: dataSource,
-    };
   }
 
   /**
@@ -167,10 +134,6 @@ export class DataSourceController {
    */
   @Post("fix-rss-urls")
   async fixRssUrls() {
-    const result = await this.dataSourceService.fixKnownRssUrls();
-    return {
-      success: true,
-      data: result,
-    };
+    return this.dataSourceService.fixKnownRssUrls();
   }
 }

@@ -7,6 +7,8 @@ import {
   Body,
   Res,
   Logger,
+  NotFoundException,
+  BadRequestException,
 } from "@nestjs/common";
 import { Response } from "express";
 import { DeepResearchAgentService } from "./deep-research-agent.service";
@@ -100,7 +102,6 @@ export class DeepResearchController {
     });
 
     return {
-      success: true,
       sessionId,
       message: "深度研究已启动",
     };
@@ -119,16 +120,10 @@ export class DeepResearchController {
     const session = await this.deepResearchAgent.getSession(sessionId);
 
     if (!session) {
-      return {
-        success: false,
-        error: "Session not found",
-      };
+      throw new NotFoundException("Session not found");
     }
 
-    return {
-      success: true,
-      data: session,
-    };
+    return session;
   }
 
   /**
@@ -140,10 +135,7 @@ export class DeepResearchController {
 
     const sessions = await this.deepResearchAgent.getProjectSessions(projectId);
 
-    return {
-      success: true,
-      data: sessions,
-    };
+    return sessions;
   }
 
   /**
@@ -159,14 +151,12 @@ export class DeepResearchController {
     try {
       await this.deepResearchAgent.deleteSession(sessionId);
       return {
-        success: true,
         message: "研究会话已删除",
       };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "删除失败",
-      };
+      throw new BadRequestException(
+        error instanceof Error ? error.message : "删除失败",
+      );
     }
   }
 
@@ -187,15 +177,13 @@ export class DeepResearchController {
         body.sessionIds,
       );
       return {
-        success: true,
         deleted: result.count,
         message: `已删除 ${result.count} 个研究会话`,
       };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "批量删除失败",
-      };
+      throw new BadRequestException(
+        error instanceof Error ? error.message : "批量删除失败",
+      );
     }
   }
 }

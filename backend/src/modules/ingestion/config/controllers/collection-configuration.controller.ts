@@ -8,8 +8,8 @@ import {
   Param,
   Query,
   Logger,
-  HttpException,
-  HttpStatus,
+  NotFoundException,
+  BadRequestException,
 } from "@nestjs/common";
 import { CollectionConfigurationService } from "../services/collection-configuration.service";
 import { ResourceType } from "@prisma/client";
@@ -48,19 +48,14 @@ export class CollectionConfigurationController {
   ) {
     try {
       if (!body.resourceType || !body.name) {
-        throw new HttpException(
+        throw new BadRequestException(
           "Missing required fields: resourceType, name",
-          HttpStatus.BAD_REQUEST,
         );
       }
 
       const config = await this.collectionConfigService.createConfig(body);
 
-      return {
-        success: true,
-        data: config,
-        message: "Collection configuration created successfully",
-      };
+      return config;
     } catch (error) {
       this.logger.error(`Error creating config: ${error}`);
       throw error;
@@ -85,10 +80,7 @@ export class CollectionConfigurationController {
         configs = await this.collectionConfigService.getActiveConfigs();
       }
 
-      return {
-        success: true,
-        data: configs,
-      };
+      return configs;
     } catch (error) {
       this.logger.error(`Error fetching configs: ${error}`);
       throw error;
@@ -105,16 +97,10 @@ export class CollectionConfigurationController {
       const config = await this.collectionConfigService.getConfig(configId);
 
       if (!config) {
-        throw new HttpException(
-          "Collection configuration not found",
-          HttpStatus.NOT_FOUND,
-        );
+        throw new NotFoundException("Collection configuration not found");
       }
 
-      return {
-        success: true,
-        data: config,
-      };
+      return config;
     } catch (error) {
       this.logger.error(`Error fetching config: ${error}`);
       throw error;
@@ -147,11 +133,7 @@ export class CollectionConfigurationController {
         body,
       );
 
-      return {
-        success: true,
-        data: config,
-        message: "Collection configuration updated successfully",
-      };
+      return config;
     } catch (error) {
       this.logger.error(`Error updating config: ${error}`);
       throw error;
@@ -167,10 +149,7 @@ export class CollectionConfigurationController {
     try {
       await this.collectionConfigService.deleteConfig(configId);
 
-      return {
-        success: true,
-        message: "Collection configuration deleted successfully",
-      };
+      return { message: "Collection configuration deleted successfully" };
     } catch (error) {
       this.logger.error(`Error deleting config: ${error}`);
       throw error;
@@ -186,11 +165,7 @@ export class CollectionConfigurationController {
     try {
       const config = await this.collectionConfigService.enableConfig(configId);
 
-      return {
-        success: true,
-        data: config,
-        message: "Collection configuration enabled successfully",
-      };
+      return config;
     } catch (error) {
       this.logger.error(`Error enabling config: ${error}`);
       throw error;
@@ -206,11 +181,7 @@ export class CollectionConfigurationController {
     try {
       const config = await this.collectionConfigService.disableConfig(configId);
 
-      return {
-        success: true,
-        data: config,
-        message: "Collection configuration disabled successfully",
-      };
+      return config;
     } catch (error) {
       this.logger.error(`Error disabling config: ${error}`);
       throw error;
@@ -234,10 +205,7 @@ export class CollectionConfigurationController {
       const config = await this.collectionConfigService.getConfig(configId);
 
       if (!config) {
-        throw new HttpException(
-          "Collection configuration not found",
-          HttpStatus.NOT_FOUND,
-        );
+        throw new NotFoundException("Collection configuration not found");
       }
 
       const urlPatterns = (config.urlPatterns as string[]) || [];
@@ -255,12 +223,9 @@ export class CollectionConfigurationController {
       );
 
       return {
-        success: true,
-        data: {
-          urlMatches,
-          contentMatches,
-          overallMatch: urlMatches && contentMatches,
-        },
+        urlMatches,
+        contentMatches,
+        overallMatch: urlMatches && contentMatches,
       };
     } catch (error) {
       this.logger.error(`Error validating content: ${error}`);

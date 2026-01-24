@@ -1,4 +1,11 @@
-import { Controller, Post, Get, Query, Logger } from "@nestjs/common";
+import {
+  Controller,
+  Post,
+  Get,
+  Query,
+  Logger,
+  BadRequestException,
+} from "@nestjs/common";
 import { ArxivService } from "./arxiv.service";
 import { GithubService } from "./github.service";
 import { HackernewsService } from "./hackernews.service";
@@ -36,7 +43,6 @@ export class CrawlerController {
     );
 
     return {
-      success: true,
       source: "arxiv",
       action: "fetch_latest",
       processed: count,
@@ -51,17 +57,13 @@ export class CrawlerController {
   @Post("arxiv/search")
   async searchArxiv(@Query("q") query: string, @Query("max") max?: string) {
     if (!query) {
-      return {
-        success: false,
-        error: 'Query parameter "q" is required',
-      };
+      throw new BadRequestException('Query parameter "q" is required');
     }
 
     const maxResults = max ? parseInt(max, 10) : 10;
     const count = await this.arxivService.searchPapers(query, maxResults);
 
     return {
-      success: true,
       source: "arxiv",
       action: "search",
       query,
@@ -87,7 +89,6 @@ export class CrawlerController {
     );
 
     return {
-      success: true,
       source: "github",
       action: "fetch_trending",
       processed: count,
@@ -102,10 +103,7 @@ export class CrawlerController {
   @Post("github/search")
   async searchGithub(@Query("q") query: string, @Query("max") max?: string) {
     if (!query) {
-      return {
-        success: false,
-        error: 'Query parameter "q" is required',
-      };
+      throw new BadRequestException('Query parameter "q" is required');
     }
 
     const maxResults = max ? parseInt(max, 10) : 10;
@@ -115,7 +113,6 @@ export class CrawlerController {
     );
 
     return {
-      success: true,
       source: "github",
       action: "search",
       query,
@@ -137,7 +134,6 @@ export class CrawlerController {
     const count = await this.hackernewsService.fetchTopStories(maxResults);
 
     return {
-      success: true,
       source: "hackernews",
       action: "fetch_top",
       processed: count,
@@ -153,7 +149,6 @@ export class CrawlerController {
     const count = await this.hackernewsService.fetchNewStories(maxResults);
 
     return {
-      success: true,
       source: "hackernews",
       action: "fetch_new",
       processed: count,
@@ -169,7 +164,6 @@ export class CrawlerController {
     const count = await this.hackernewsService.fetchBestStories(maxResults);
 
     return {
-      success: true,
       source: "hackernews",
       action: "fetch_best",
       processed: count,
@@ -190,7 +184,6 @@ export class CrawlerController {
     ]);
 
     return {
-      success: true,
       action: "fetch_all",
       results: results.map((r, index) => ({
         source: ["arxiv", "github", "hackernews"][index],

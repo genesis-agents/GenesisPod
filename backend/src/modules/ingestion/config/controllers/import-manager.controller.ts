@@ -6,6 +6,8 @@ import {
   Param,
   Query,
   Logger,
+  NotFoundException,
+  BadRequestException,
 } from "@nestjs/common";
 import { ImportManagerService } from "../services/import-manager.service";
 import { ImportTaskProcessorService } from "../services/import-task-processor.service";
@@ -40,50 +42,33 @@ export class ImportManagerController {
       resourceType?: ResourceType;
     },
   ) {
-    try {
-      if (!body.url) {
-        return {
-          success: false,
-          error: "Missing required field: url",
-        };
-      }
+    if (!body.url) {
+      throw new BadRequestException("Missing required field: url");
+    }
 
-      // 如果提供了资源类型，验证URL是否在白名单中
-      if (body.resourceType) {
-        const whitelist = await this.whitelistService.getWhitelist(
-          body.resourceType,
-        );
+    // 如果提供了资源类型，验证URL是否在白名单中
+    if (body.resourceType) {
+      const whitelist = await this.whitelistService.getWhitelist(
+        body.resourceType,
+      );
 
-        if (whitelist && whitelist.isActive) {
-          const allowedDomains = Array.isArray(whitelist.allowedDomains)
-            ? whitelist.allowedDomains.filter(
-                (d): d is string => typeof d === "string",
-              )
-            : [];
-          const isAllowed = this.validateDomain(body.url, allowedDomains);
-          if (!isAllowed) {
-            return {
-              success: false,
-              error: "URL domain not in whitelist for this resource type",
-              code: "DOMAIN_NOT_WHITELISTED",
-            };
-          }
+      if (whitelist && whitelist.isActive) {
+        const allowedDomains = Array.isArray(whitelist.allowedDomains)
+          ? whitelist.allowedDomains.filter(
+              (d): d is string => typeof d === "string",
+            )
+          : [];
+        const isAllowed = this.validateDomain(body.url, allowedDomains);
+        if (!isAllowed) {
+          throw new BadRequestException(
+            "URL domain not in whitelist for this resource type",
+          );
         }
       }
-
-      const parseResult = await this.importManagerService.parseUrl(body.url);
-
-      return {
-        success: true,
-        data: parseResult,
-      };
-    } catch (error) {
-      this.logger.error(`Error parsing URL: ${error}`);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to parse URL",
-      };
     }
+
+    const parseResult = await this.importManagerService.parseUrl(body.url);
+    return parseResult;
   }
 
   /**
@@ -100,57 +85,41 @@ export class ImportManagerController {
       ruleId?: string;
     },
   ) {
-    try {
-      if (!body.resourceType || !body.sourceUrl) {
-        return {
-          success: false,
-          error: "Missing required fields: resourceType, sourceUrl",
-        };
-      }
-
-      // 验证URL在白名单中
-      const whitelist = await this.whitelistService.getWhitelist(
-        body.resourceType,
+    if (!body.resourceType || !body.sourceUrl) {
+      throw new BadRequestException(
+        "Missing required fields: resourceType, sourceUrl",
       );
-
-      if (whitelist && whitelist.isActive) {
-        const allowedDomains = Array.isArray(whitelist.allowedDomains)
-          ? whitelist.allowedDomains.filter(
-              (d): d is string => typeof d === "string",
-            )
-          : [];
-        const isAllowed = this.validateDomain(body.sourceUrl, allowedDomains);
-
-        if (!isAllowed) {
-          return {
-            success: false,
-            error: "URL domain not in whitelist for this resource type",
-            code: "DOMAIN_NOT_WHITELISTED",
-          };
-        }
-      }
-
-      // 创建导入任务
-      const task = await this.importManagerService.createImportTask({
-        resourceType: body.resourceType,
-        sourceUrl: body.sourceUrl,
-        title: body.title,
-        ruleId: body.ruleId,
-      });
-
-      return {
-        success: true,
-        data: task,
-        message: "Import task created successfully",
-      };
-    } catch (error) {
-      this.logger.error(`Error submitting import: ${error}`);
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to submit import",
-      };
     }
+
+    // 验证URL在白名单中
+    const whitelist = await this.whitelistService.getWhitelist(
+      body.resourceType,
+    );
+
+    if (whitelist && whitelist.isActive) {
+      const allowedDomains = Array.isArray(whitelist.allowedDomains)
+        ? whitelist.allowedDomains.filter(
+            (d): d is string => typeof d === "string",
+          )
+        : [];
+      const isAllowed = this.validateDomain(body.sourceUrl, allowedDomains);
+
+      if (!isAllowed) {
+        throw new BadRequestException(
+          "URL domain not in whitelist for this resource type",
+        );
+      }
+    }
+
+    // 创建导入任务
+    const task = await this.importManagerService.createImportTask({
+      resourceType: body.resourceType,
+      sourceUrl: body.sourceUrl,
+      title: body.title,
+      ruleId: body.ruleId,
+    });
+
+    return task;
   }
 
   /**
@@ -164,35 +133,25 @@ export class ImportManagerController {
     @Query("limit") limit: string = "50",
     @Query("offset") offset: string = "0",
   ) {
-    try {
-      const limitNum = Math.min(Math.max(1, parseInt(limit) || 50), 200);
-      const offsetNum = Math.max(0, parseInt(offset) || 0);
+    const limitNum = Math.min(Math.max(1, parseInt(limit) || 50), 200);
+    const offsetNum = Math.max(0, parseInt(offset) || 0);
 
-      const result = await this.importManagerService.getImportTasks(
-        resourceType,
-        status as any,
-        limitNum,
-        offsetNum,
-      );
+    const result = await this.importManagerService.getImportTasks(
+      resourceType,
+      status as any,
+      limitNum,
+      offsetNum,
+    );
 
-      return {
-        success: true,
-        data: result.data,
-        pagination: {
-          total: result.total,
-          limit: result.limit,
-          offset: result.offset,
-          hasMore: result.offset + result.limit < result.total,
-        },
-      };
-    } catch (error) {
-      this.logger.error(`Error fetching tasks: ${error}`);
-      return {
-        success: false,
-        error: "Failed to fetch import tasks",
-        data: [],
-      };
-    }
+    return {
+      data: result.data,
+      pagination: {
+        total: result.total,
+        limit: result.limit,
+        offset: result.offset,
+        hasMore: result.offset + result.limit < result.total,
+      },
+    };
   }
 
   /**
@@ -201,27 +160,13 @@ export class ImportManagerController {
    */
   @Get("tasks/:taskId")
   async getTask(@Param("taskId") taskId: string) {
-    try {
-      const task = await this.importManagerService.getImportTask(taskId);
+    const task = await this.importManagerService.getImportTask(taskId);
 
-      if (!task) {
-        return {
-          success: false,
-          error: "Import task not found",
-        };
-      }
-
-      return {
-        success: true,
-        data: task,
-      };
-    } catch (error) {
-      this.logger.error(`Error fetching task: ${error}`);
-      return {
-        success: false,
-        error: "Failed to fetch import task",
-      };
+    if (!task) {
+      throw new NotFoundException("Import task not found");
     }
+
+    return task;
   }
 
   /**
@@ -230,29 +175,13 @@ export class ImportManagerController {
    */
   @Get("quality-metrics")
   async getQualityMetrics(@Query("resourceType") resourceType?: ResourceType) {
-    try {
-      const result =
-        await this.importManagerService.getDataQualityMetrics(resourceType);
+    const result =
+      await this.importManagerService.getDataQualityMetrics(resourceType);
 
-      return {
-        success: true,
-        data: result.data,
-        stats: result.stats,
-      };
-    } catch (error) {
-      this.logger.error(`Error fetching quality metrics: ${error}`);
-      return {
-        success: false,
-        error: "Failed to fetch quality metrics",
-        data: [],
-        stats: {
-          totalItems: 0,
-          duplicates: 0,
-          avgQuality: 0,
-          needsReview: 0,
-        },
-      };
-    }
+    return {
+      data: result.data,
+      stats: result.stats,
+    };
   }
 
   /**
@@ -267,58 +196,43 @@ export class ImportManagerController {
       resourceType: ResourceType;
     },
   ) {
-    try {
-      if (!body.url || !body.resourceType) {
-        return {
-          success: false,
-          error: "Missing required fields: url, resourceType",
-        };
-      }
-
-      // 验证URL是否在白名单中
-      const whitelist = await this.whitelistService.getWhitelist(
-        body.resourceType,
+    if (!body.url || !body.resourceType) {
+      throw new BadRequestException(
+        "Missing required fields: url, resourceType",
       );
-
-      if (!whitelist || !whitelist.isActive) {
-        return {
-          success: false,
-          error: "Whitelist not found or inactive for this resource type",
-        };
-      }
-
-      const allowedDomains = Array.isArray(whitelist.allowedDomains)
-        ? whitelist.allowedDomains.filter(
-            (d): d is string => typeof d === "string",
-          )
-        : [];
-
-      const isAllowed = this.validateDomain(body.url, allowedDomains);
-      if (!isAllowed) {
-        return {
-          success: false,
-          error: "URL domain not in whitelist for this resource type",
-          code: "DOMAIN_NOT_WHITELISTED",
-        };
-      }
-
-      // 使用ImportManagerService的新方法
-      const result = await this.importManagerService.parseUrlFull(
-        body.url,
-        body.resourceType,
-      );
-
-      return {
-        success: true,
-        data: result,
-      };
-    } catch (error) {
-      this.logger.error(`Error parsing URL full: ${error}`);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to parse URL",
-      };
     }
+
+    // 验证URL是否在白名单中
+    const whitelist = await this.whitelistService.getWhitelist(
+      body.resourceType,
+    );
+
+    if (!whitelist || !whitelist.isActive) {
+      throw new BadRequestException(
+        "Whitelist not found or inactive for this resource type",
+      );
+    }
+
+    const allowedDomains = Array.isArray(whitelist.allowedDomains)
+      ? whitelist.allowedDomains.filter(
+          (d): d is string => typeof d === "string",
+        )
+      : [];
+
+    const isAllowed = this.validateDomain(body.url, allowedDomains);
+    if (!isAllowed) {
+      throw new BadRequestException(
+        "URL domain not in whitelist for this resource type",
+      );
+    }
+
+    // 使用ImportManagerService的新方法
+    const result = await this.importManagerService.parseUrlFull(
+      body.url,
+      body.resourceType,
+    );
+
+    return result;
   }
 
   /**
@@ -335,64 +249,49 @@ export class ImportManagerController {
       skipDuplicateWarning?: boolean;
     },
   ) {
-    try {
-      if (!body.url || !body.resourceType || !body.metadata) {
-        return {
-          success: false,
-          error: "Missing required fields: url, resourceType, metadata",
-        };
-      }
-
-      // 验证URL是否在白名单中
-      const whitelist = await this.whitelistService.getWhitelist(
-        body.resourceType,
+    if (!body.url || !body.resourceType || !body.metadata) {
+      throw new BadRequestException(
+        "Missing required fields: url, resourceType, metadata",
       );
-
-      if (!whitelist || !whitelist.isActive) {
-        return {
-          success: false,
-          error: "Whitelist not found or inactive for this resource type",
-        };
-      }
-
-      const allowedDomains = Array.isArray(whitelist.allowedDomains)
-        ? whitelist.allowedDomains.filter(
-            (d): d is string => typeof d === "string",
-          )
-        : [];
-
-      const isAllowed = this.validateDomain(body.url, allowedDomains);
-      if (!isAllowed) {
-        return {
-          success: false,
-          error: "URL domain not in whitelist for this resource type",
-          code: "DOMAIN_NOT_WHITELISTED",
-        };
-      }
-
-      // 使用ImportManagerService的新方法
-      const importTask = await this.importManagerService.importWithMetadata(
-        body.url,
-        body.resourceType,
-        body.metadata,
-        body.skipDuplicateWarning,
-      );
-
-      return {
-        success: true,
-        data: {
-          taskId: importTask.id,
-          status: importTask.status,
-          sourceUrl: importTask.sourceUrl,
-        },
-      };
-    } catch (error) {
-      this.logger.error(`Error importing with metadata: ${error}`);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to import",
-      };
     }
+
+    // 验证URL是否在白名单中
+    const whitelist = await this.whitelistService.getWhitelist(
+      body.resourceType,
+    );
+
+    if (!whitelist || !whitelist.isActive) {
+      throw new BadRequestException(
+        "Whitelist not found or inactive for this resource type",
+      );
+    }
+
+    const allowedDomains = Array.isArray(whitelist.allowedDomains)
+      ? whitelist.allowedDomains.filter(
+          (d): d is string => typeof d === "string",
+        )
+      : [];
+
+    const isAllowed = this.validateDomain(body.url, allowedDomains);
+    if (!isAllowed) {
+      throw new BadRequestException(
+        "URL domain not in whitelist for this resource type",
+      );
+    }
+
+    // 使用ImportManagerService的新方法
+    const importTask = await this.importManagerService.importWithMetadata(
+      body.url,
+      body.resourceType,
+      body.metadata,
+      body.skipDuplicateWarning,
+    );
+
+    return {
+      taskId: importTask.id,
+      status: importTask.status,
+      sourceUrl: importTask.sourceUrl,
+    };
   }
 
   /**
@@ -403,26 +302,12 @@ export class ImportManagerController {
    */
   @Post("process-pending")
   async processPendingImports(@Query("limit") limit?: string) {
-    try {
-      const limitNum = limit ? parseInt(limit, 10) : 50;
+    const limitNum = limit ? parseInt(limit, 10) : 50;
 
-      const result =
-        await this.importTaskProcessorService.processPendingTasks(limitNum);
+    const result =
+      await this.importTaskProcessorService.processPendingTasks(limitNum);
 
-      return {
-        success: true,
-        data: result,
-      };
-    } catch (error) {
-      this.logger.error(`Error processing pending imports: ${error}`);
-      return {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to process pending imports",
-      };
-    }
+    return result;
   }
 
   /**
@@ -433,21 +318,8 @@ export class ImportManagerController {
    */
   @Get("task-stats")
   async getTaskStats() {
-    try {
-      const stats = await this.importTaskProcessorService.getTaskStats();
-
-      return {
-        success: true,
-        data: stats,
-      };
-    } catch (error) {
-      this.logger.error(`Error getting task stats: ${error}`);
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to get task stats",
-      };
-    }
+    const stats = await this.importTaskProcessorService.getTaskStats();
+    return stats;
   }
 
   /**
@@ -526,28 +398,12 @@ export class ImportManagerController {
       url: string;
     },
   ) {
-    try {
-      if (!body.url) {
-        return {
-          success: false,
-          error: "Missing required field: url",
-        };
-      }
-
-      const result = await this.aiClassifierService.classifyUrl(body.url);
-
-      return {
-        success: true,
-        data: result,
-      };
-    } catch (error) {
-      this.logger.error(`Error classifying URL: ${error}`);
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to classify URL",
-      };
+    if (!body.url) {
+      throw new BadRequestException("Missing required field: url");
     }
+
+    const result = await this.aiClassifierService.classifyUrl(body.url);
+    return result;
   }
 
   /**
@@ -569,112 +425,94 @@ export class ImportManagerController {
       url: string;
     },
   ) {
+    if (!body.url) {
+      throw new BadRequestException("Missing required field: url");
+    }
+
+    // 1. 尝试使用AI分类URL
+    let classification;
     try {
-      if (!body.url) {
-        return {
-          success: false,
-          error: "Missing required field: url",
-        };
-      }
-
-      // 1. 尝试使用AI分类URL
-      let classification;
-      try {
-        classification = await this.aiClassifierService.classifyUrl(body.url);
-      } catch (classifyError) {
-        // AI 分类失败时使用默认分类
-        this.logger.warn(
-          `AI classification failed, using URL-based fallback: ${classifyError}`,
-        );
-        classification = {
-          resourceType: "BLOG" as ResourceType,
-          confidence: 0.3,
-          reason: "AI classification unavailable, defaulted to BLOG",
-          extractedInfo: {
-            domain: new URL(body.url).hostname,
-          },
-        };
-      }
-
-      // 2. 尝试解析URL元数据
-      let parseResult;
-      let metadataSource: "direct" | "ai" | "url" = "direct";
-
-      try {
-        parseResult = await this.importManagerService.parseUrlFull(
-          body.url,
-          classification.resourceType,
-        );
-      } catch (parseError) {
-        // 如果直接获取失败（如403），使用fallback构造元数据
-        const errorMessage =
-          parseError instanceof Error ? parseError.message : "";
-
-        if (
-          errorMessage.includes("403") ||
-          errorMessage.includes("访问被拒绝")
-        ) {
-          this.logger.log(
-            `Direct fetch failed for ${body.url}, using fallback metadata`,
-          );
-
-          // 使用AI分类结果中的extractedInfo，如果没有则从URL推断
-          const extractedInfo = classification.extractedInfo;
-          metadataSource = extractedInfo?.title ? "ai" : "url";
-
-          parseResult = {
-            metadata: {
-              url: body.url,
-              domain: extractedInfo?.domain || new URL(body.url).hostname,
-              title:
-                extractedInfo?.title || this.generateTitleFromUrl(body.url),
-              description:
-                extractedInfo?.description ||
-                classification.reason ||
-                `Page from ${new URL(body.url).hostname}`,
-              language: "en",
-              contentType: extractedInfo?.contentType || "webpage",
-            },
-            validation: {
-              isValid: true,
-              warnings: [
-                metadataSource === "ai"
-                  ? "元数据通过AI分析获取，可能不完整，建议手动补充"
-                  : "无法直接获取页面，元数据从URL推断，请手动补充标题和描述",
-              ],
-            },
-            duplicateCheck: {
-              isDuplicate: false,
-              similarity: 0,
-              matchedItems: [],
-            },
-          };
-        } else {
-          // 其他错误继续抛出
-          throw parseError;
-        }
-      }
-
-      return {
-        success: true,
-        data: {
-          ...parseResult,
-          metadataSource,
-          classification: {
-            resourceType: classification.resourceType,
-            confidence: classification.confidence,
-            reason: classification.reason,
-            alternatives: classification.alternatives,
-          },
+      classification = await this.aiClassifierService.classifyUrl(body.url);
+    } catch (classifyError) {
+      // AI 分类失败时使用默认分类
+      this.logger.warn(
+        `AI classification failed, using URL-based fallback: ${classifyError}`,
+      );
+      classification = {
+        resourceType: "BLOG" as ResourceType,
+        confidence: 0.3,
+        reason: "AI classification unavailable, defaulted to BLOG",
+        extractedInfo: {
+          domain: new URL(body.url).hostname,
         },
       };
-    } catch (error) {
-      this.logger.error(`Error parsing URL auto: ${error}`);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to parse URL",
-      };
     }
+
+    // 2. 尝试解析URL元数据
+    let parseResult;
+    let metadataSource: "direct" | "ai" | "url" = "direct";
+
+    try {
+      parseResult = await this.importManagerService.parseUrlFull(
+        body.url,
+        classification.resourceType,
+      );
+    } catch (parseError) {
+      // 如果直接获取失败（如403），使用fallback构造元数据
+      const errorMessage =
+        parseError instanceof Error ? parseError.message : "";
+
+      if (errorMessage.includes("403") || errorMessage.includes("访问被拒绝")) {
+        this.logger.log(
+          `Direct fetch failed for ${body.url}, using fallback metadata`,
+        );
+
+        // 使用AI分类结果中的extractedInfo，如果没有则从URL推断
+        const extractedInfo = classification.extractedInfo;
+        metadataSource = extractedInfo?.title ? "ai" : "url";
+
+        parseResult = {
+          metadata: {
+            url: body.url,
+            domain: extractedInfo?.domain || new URL(body.url).hostname,
+            title: extractedInfo?.title || this.generateTitleFromUrl(body.url),
+            description:
+              extractedInfo?.description ||
+              classification.reason ||
+              `Page from ${new URL(body.url).hostname}`,
+            language: "en",
+            contentType: extractedInfo?.contentType || "webpage",
+          },
+          validation: {
+            isValid: true,
+            warnings: [
+              metadataSource === "ai"
+                ? "元数据通过AI分析获取，可能不完整，建议手动补充"
+                : "无法直接获取页面，元数据从URL推断，请手动补充标题和描述",
+            ],
+          },
+          duplicateCheck: {
+            isDuplicate: false,
+            similarity: 0,
+            matchedItems: [],
+          },
+        };
+      } else {
+        // 其他错误继续抛出
+        throw parseError;
+      }
+    }
+
+    return {
+      ...parseResult,
+      metadataSource,
+      classification: {
+        resourceType: classification.resourceType,
+        confidence: classification.confidence,
+        reason: classification.reason,
+        alternatives: classification.alternatives,
+      },
+    };
   }
 
   /**
@@ -718,114 +556,97 @@ export class ImportManagerController {
       skipDuplicateWarning?: boolean;
     },
   ) {
-    try {
-      if (!body.url) {
-        return {
-          success: false,
-          error: "Missing required field: url",
-        };
-      }
+    if (!body.url) {
+      throw new BadRequestException("Missing required field: url");
+    }
 
-      // 如果用户没有提供资源类型，使用AI分类
-      let resourceType = body.resourceType;
-      let classification;
+    // 如果用户没有提供资源类型，使用AI分类
+    let resourceType = body.resourceType;
+    let classification;
 
-      if (!resourceType) {
-        try {
-          classification = await this.aiClassifierService.classifyUrl(body.url);
-          resourceType = classification.resourceType;
-          this.logger.log(
-            `AI classified ${body.url} as ${resourceType} (confidence: ${classification.confidence})`,
-          );
-        } catch (classifyError) {
-          // AI 分类失败时使用默认类型
-          this.logger.warn(
-            `AI classification failed, defaulting to BLOG: ${classifyError}`,
-          );
-          resourceType = "BLOG" as ResourceType;
-        }
-      }
-
-      // 尝试解析URL获取元数据
-      let metadata;
-      let metadataSource: "direct" | "ai" | "manual" = "direct";
-
+    if (!resourceType) {
       try {
-        const parseResult = await this.importManagerService.parseUrlFull(
-          body.url,
-          resourceType,
+        classification = await this.aiClassifierService.classifyUrl(body.url);
+        resourceType = classification.resourceType;
+        this.logger.log(
+          `AI classified ${body.url} as ${resourceType} (confidence: ${classification.confidence})`,
         );
-        metadata = parseResult.metadata;
-      } catch (parseError) {
-        // 如果直接获取失败（如403），使用fallback元数据
-        const errorMessage =
-          parseError instanceof Error ? parseError.message : "";
-
-        if (
-          errorMessage.includes("403") ||
-          errorMessage.includes("访问被拒绝")
-        ) {
-          this.logger.log(
-            `Direct fetch failed for ${body.url}, using fallback metadata`,
-          );
-
-          // 优先使用用户手动提供的数据，其次是AI提取的，最后是URL推断的
-          const extractedInfo = classification?.extractedInfo;
-          metadataSource = body.title ? "manual" : "ai";
-
-          metadata = {
-            url: body.url,
-            domain: extractedInfo?.domain || new URL(body.url).hostname,
-            title:
-              body.title ||
-              extractedInfo?.title ||
-              this.generateTitleFromUrl(body.url),
-            description:
-              body.description ||
-              extractedInfo?.description ||
-              classification?.reason ||
-              `Imported from ${new URL(body.url).hostname}`,
-            language: "en",
-            contentType: extractedInfo?.contentType || "webpage",
-          };
-        } else {
-          // 其他错误继续抛出
-          throw parseError;
-        }
+      } catch (classifyError) {
+        // AI 分类失败时使用默认类型
+        this.logger.warn(
+          `AI classification failed, defaulting to BLOG: ${classifyError}`,
+        );
+        resourceType = "BLOG" as ResourceType;
       }
+    }
 
-      // 导入资源
-      const importTask = await this.importManagerService.importWithMetadata(
+    // 尝试解析URL获取元数据
+    let metadata;
+    let metadataSource: "direct" | "ai" | "manual" = "direct";
+
+    try {
+      const parseResult = await this.importManagerService.parseUrlFull(
         body.url,
         resourceType,
-        metadata,
-        body.skipDuplicateWarning,
       );
+      metadata = parseResult.metadata;
+    } catch (parseError) {
+      // 如果直接获取失败（如403），使用fallback元数据
+      const errorMessage =
+        parseError instanceof Error ? parseError.message : "";
 
-      return {
-        success: true,
-        data: {
-          taskId: importTask.id,
-          status: importTask.status,
-          sourceUrl: importTask.sourceUrl,
-          resourceType: resourceType,
-          metadataSource,
-          classification: classification
-            ? {
-                confidence: classification.confidence,
-                reason: classification.reason,
-                alternatives: classification.alternatives,
-              }
-            : undefined,
-        },
-      };
-    } catch (error) {
-      this.logger.error(`Error importing auto: ${error}`);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to import",
-      };
+      if (errorMessage.includes("403") || errorMessage.includes("访问被拒绝")) {
+        this.logger.log(
+          `Direct fetch failed for ${body.url}, using fallback metadata`,
+        );
+
+        // 优先使用用户手动提供的数据，其次是AI提取的，最后是URL推断的
+        const extractedInfo = classification?.extractedInfo;
+        metadataSource = body.title ? "manual" : "ai";
+
+        metadata = {
+          url: body.url,
+          domain: extractedInfo?.domain || new URL(body.url).hostname,
+          title:
+            body.title ||
+            extractedInfo?.title ||
+            this.generateTitleFromUrl(body.url),
+          description:
+            body.description ||
+            extractedInfo?.description ||
+            classification?.reason ||
+            `Imported from ${new URL(body.url).hostname}`,
+          language: "en",
+          contentType: extractedInfo?.contentType || "webpage",
+        };
+      } else {
+        // 其他错误继续抛出
+        throw parseError;
+      }
     }
+
+    // 导入资源
+    const importTask = await this.importManagerService.importWithMetadata(
+      body.url,
+      resourceType,
+      metadata,
+      body.skipDuplicateWarning,
+    );
+
+    return {
+      taskId: importTask.id,
+      status: importTask.status,
+      sourceUrl: importTask.sourceUrl,
+      resourceType: resourceType,
+      metadataSource,
+      classification: classification
+        ? {
+            confidence: classification.confidence,
+            reason: classification.reason,
+            alternatives: classification.alternatives,
+          }
+        : undefined,
+    };
   }
 
   /**
@@ -836,12 +657,9 @@ export class ImportManagerController {
   async getResourceTypes() {
     const descriptions = this.aiClassifierService.getResourceTypeDescriptions();
 
-    return {
-      success: true,
-      data: Object.entries(descriptions).map(([type, description]) => ({
-        type,
-        description,
-      })),
-    };
+    return Object.entries(descriptions).map(([type, description]) => ({
+      type,
+      description,
+    }));
   }
 }
