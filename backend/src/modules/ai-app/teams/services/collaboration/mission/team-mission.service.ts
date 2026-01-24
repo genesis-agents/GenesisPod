@@ -51,7 +51,10 @@ import { MissionStateManager } from "./mission-state.manager";
 import { MissionLifecycleService } from "./mission-lifecycle.service";
 import { MissionRetryService } from "./mission-retry.service";
 import { MissionHealthCheckService } from "./mission-health-check.service";
-import { MissionAICallerService } from "./mission-ai-caller.service";
+import {
+  MissionAICallerService,
+  AICallOptions,
+} from "./mission-ai-caller.service";
 import { TeamMessageService } from "./team-message.service";
 import { TeamMemberService } from "./team-member.service";
 // ★ AI Engine 能力下沉：使用 AI Engine 的上下文初始化服务
@@ -445,7 +448,7 @@ export class TeamMissionService implements OnModuleInit {
     aiModel: string,
     messages: { role: string; content: string }[],
     systemPrompt: string,
-    options: { maxTokens?: number; temperature?: number },
+    options: Omit<AICallOptions, "missionId">,
     taskContext: { taskId: string; taskTitle: string; missionId: string },
     heartbeatContext?: {
       topicId: string;
@@ -937,7 +940,10 @@ export class TeamMissionService implements OnModuleInit {
                 modelConfig.modelId,
                 [{ role: "user", content: currentPrompt }],
                 systemPrompt,
-                { taskProfile: { creativity: "medium", outputLength: "long" }, missionId: mission.id },
+                {
+                  taskProfile: { creativity: "medium", outputLength: "long" },
+                  missionId: mission.id,
+                },
               );
             },
             {
@@ -2304,7 +2310,10 @@ export class TeamMissionService implements OnModuleInit {
             modelConfig.modelId,
             [{ role: "user", content: replanPrompt }],
             this.getLeaderSystemPrompt(leader),
-            { taskProfile: { creativity: "medium", outputLength: "standard" }, missionId: mission.id },
+            {
+              taskProfile: { creativity: "medium", outputLength: "standard" },
+              missionId: mission.id,
+            },
           );
         },
         {
@@ -2502,7 +2511,10 @@ export class TeamMissionService implements OnModuleInit {
               modelConfig.modelId,
               [{ role: "user", content: reviewPrompt }],
               this.getLeaderSystemPrompt(leader),
-              { taskProfile: { creativity: "low", outputLength: "standard" }, missionId: mission.id },
+              {
+                taskProfile: { creativity: "low", outputLength: "standard" },
+                missionId: mission.id,
+              },
             );
           },
           {
@@ -2777,7 +2789,10 @@ export class TeamMissionService implements OnModuleInit {
             mission.description || undefined,
             (mission.mustConstraints as any[]) || undefined, // ★ 注入用户约束
           ),
-          { taskProfile: { creativity: "medium", outputLength: "long" }, missionId: mission.id },
+          {
+            taskProfile: { creativity: "medium", outputLength: "long" },
+            missionId: mission.id,
+          },
         );
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
@@ -3012,7 +3027,10 @@ export class TeamMissionService implements OnModuleInit {
               modelConfig.modelId,
               [{ role: "user", content: summaryPrompt }],
               this.getLeaderSystemPrompt(mission.leader),
-              { taskProfile: { creativity: "low", outputLength: "short" }, missionId },
+              {
+                taskProfile: { creativity: "low", outputLength: "short" },
+                missionId,
+              },
             );
           },
           { operation: "mission_summary", context: { missionId } },
@@ -4241,7 +4259,13 @@ ${content.substring(0, 8000)}${content.length > 8000 ? "\n...[后续内容省略
             modelConfig.modelId,
             [{ role: "user", content: prompt }],
             "你是一位专业的内容审核助手，擅长快速提炼长文精华。请客观、准确地生成摘要。",
-            { taskProfile: { creativity: "deterministic", outputLength: "short" }, missionId },
+            {
+              taskProfile: {
+                creativity: "deterministic",
+                outputLength: "short",
+              },
+              missionId,
+            },
           );
         },
         { operation: "content_summary", context: { missionId } },
