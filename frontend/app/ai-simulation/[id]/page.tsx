@@ -324,7 +324,7 @@ export default function ScenarioDetailPage() {
           if (!prev) return prev;
           return {
             ...prev,
-            runs: prev.runs?.filter((r: any) => r.id !== runId) || [],
+            runs: prev.runs?.filter((r) => r.id !== runId) || [],
           };
         });
       } else {
@@ -367,7 +367,7 @@ export default function ScenarioDetailPage() {
 
   // 获取蓝军角色列表（用户可以扮演的角色）
   const blueAgents =
-    scenario?.agents?.filter((a: any) => a.team === 'BLUE') || [];
+    scenario?.agents?.filter((a) => a.team === 'BLUE') || [];
 
   return (
     <AppShell>
@@ -639,7 +639,7 @@ export default function ScenarioDetailPage() {
 
               {/* 蓝军角色列表 */}
               {blueAgents.length > 0 ? (
-                blueAgents.map((agent: any) => (
+                blueAgents.map((agent) => (
                   <label
                     key={agent.role}
                     className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 p-4 transition-all ${
@@ -872,7 +872,7 @@ export default function ScenarioDetailPage() {
                 ].map((item) => (
                   <button
                     key={item.key}
-                    onClick={() => setTab(item.key as any)}
+                    onClick={() => setTab(item.key)}
                     className={`flex items-center gap-2 border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
                       tab === item.key
                         ? 'border-indigo-600 text-indigo-600'
@@ -987,7 +987,7 @@ export default function ScenarioDetailPage() {
                     <div className="rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 p-4">
                       <div className="text-2xl font-bold text-amber-600">
                         {scenario.companies?.filter(
-                          (c: any) => c.type === 'benchmark'
+                          (c) => c.type === 'benchmark'
                         ).length || 0}
                       </div>
                       <div className="text-xs text-gray-600">标杆企业</div>
@@ -995,7 +995,7 @@ export default function ScenarioDetailPage() {
                     <div className="rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 p-4">
                       <div className="text-2xl font-bold text-green-600">
                         {scenario.companies?.filter(
-                          (c: any) =>
+                          (c) =>
                             c.type === 'challenger' || c.type === 'startup'
                         ).length || 0}
                       </div>
@@ -1003,7 +1003,7 @@ export default function ScenarioDetailPage() {
                     </div>
                     <div className="rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 p-4">
                       <div className="text-2xl font-bold text-purple-600">
-                        {scenario.agents?.filter((a: any) => a.companyId)
+                        {scenario.agents?.filter((a) => a.companyId)
                           .length || 0}
                       </div>
                       <div className="text-xs text-gray-600">关联角色</div>
@@ -1011,19 +1011,20 @@ export default function ScenarioDetailPage() {
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {scenario.companies?.map((company: any, idx: number) => {
+                    {scenario.companies?.map((company, idx: number) => {
+                      const c = company as Record<string, unknown>;
                       // 获取该公司关联的角色
                       const companyAgents =
                         scenario.agents?.filter(
-                          (a: any) => a.companyId === company.id
+                          (a) => (a as Record<string, unknown>).companyId === c.id
                         ) || [];
                       // 解析 metrics（可能是 JSON 字符串）
-                      let metrics: any = {};
+                      let metrics: Record<string, unknown> = {};
                       try {
                         metrics =
-                          typeof company.metrics === 'string'
-                            ? JSON.parse(company.metrics)
-                            : company.metrics || {};
+                          typeof c.metrics === 'string'
+                            ? JSON.parse(c.metrics)
+                            : (c.metrics as Record<string, unknown>) || {};
                       } catch {
                         metrics = {};
                       }
@@ -1143,7 +1144,7 @@ export default function ScenarioDetailPage() {
                               <span className="font-medium text-gray-700">
                                 {companyAgents.length > 0
                                   ? companyAgents
-                                      .map((a: any) => a.role)
+                                      .map((a) => a.role)
                                       .join(', ')
                                   : '暂无'}
                               </span>
@@ -1314,42 +1315,42 @@ export default function ScenarioDetailPage() {
                   <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
                     <div className="rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
                       <div className="text-2xl font-bold text-blue-600">
-                        {scenario.agents?.filter((a: any) => a.team === 'BLUE')
+                        {scenario.agents?.filter((a) => a.team === 'BLUE')
                           .length || 0}
                       </div>
                       <div className="text-xs text-gray-600">🔵 蓝军</div>
                     </div>
                     <div className="rounded-lg bg-gradient-to-br from-red-50 to-rose-50 p-4">
                       <div className="text-2xl font-bold text-red-600">
-                        {scenario.agents?.filter((a: any) => a.team === 'RED')
+                        {scenario.agents?.filter((a) => a.team === 'RED')
                           .length || 0}
                       </div>
                       <div className="text-xs text-gray-600">🔴 红军</div>
                     </div>
                     <div className="rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 p-4">
                       <div className="text-2xl font-bold text-green-600">
-                        {scenario.agents?.filter((a: any) => a.team === 'GREEN')
+                        {scenario.agents?.filter((a) => a.team === 'GREEN')
                           .length || 0}
                       </div>
                       <div className="text-xs text-gray-600">🟢 绿军</div>
                     </div>
                     <div className="rounded-lg bg-gradient-to-br from-gray-50 to-slate-100 p-4">
                       <div className="text-2xl font-bold text-gray-600">
-                        {scenario.agents?.filter((a: any) => a.team === 'WHITE')
+                        {scenario.agents?.filter((a) => a.team === 'WHITE')
                           .length || 0}
                       </div>
                       <div className="text-xs text-gray-600">⚪ 白方</div>
                     </div>
                     <div className="rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 p-4">
                       <div className="text-2xl font-bold text-purple-600">
-                        {scenario.agents?.filter((a: any) => a.team === 'CHAOS')
+                        {scenario.agents?.filter((a) => a.team === 'CHAOS')
                           .length || 0}
                       </div>
                       <div className="text-xs text-gray-600">🟣 混沌</div>
                     </div>
                     <div className="rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 p-4">
                       <div className="text-2xl font-bold text-amber-600">
-                        {scenario.agents?.filter((a: any) => a.companyId)
+                        {scenario.agents?.filter((a) => a.companyId)
                           .length || 0}
                       </div>
                       <div className="text-xs text-gray-600">🏢 有公司归属</div>
@@ -1357,14 +1358,15 @@ export default function ScenarioDetailPage() {
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {scenario.agents?.map((agent: any, idx: number) => {
+                    {scenario.agents?.map((agent, idx: number) => {
+                      const a = agent as Record<string, unknown>;
                       // 解析 persona JSON
-                      let persona: any = {};
+                      let persona: Record<string, unknown> = {};
                       try {
                         persona =
-                          typeof agent.persona === 'string'
-                            ? JSON.parse(agent.persona)
-                            : agent.persona || {};
+                          typeof a.persona === 'string'
+                            ? JSON.parse(a.persona)
+                            : (a.persona as Record<string, unknown>) || {};
                       } catch {
                         persona = {};
                       }
@@ -1609,7 +1611,7 @@ export default function ScenarioDetailPage() {
               {tab === 'runs' && (
                 <div className="space-y-4">
                   {scenario.runs && scenario.runs.length > 0 ? (
-                    scenario.runs.map((run: any) => (
+                    scenario.runs.map((run) => (
                       <div
                         key={run.id}
                         className="cursor-pointer rounded-lg border border-gray-200 bg-gray-50 p-4 transition-all hover:border-indigo-300 hover:shadow-md"

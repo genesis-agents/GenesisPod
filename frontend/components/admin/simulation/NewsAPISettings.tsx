@@ -12,9 +12,19 @@ interface SimulationAPIProvider {
   isDefault: boolean;
 }
 
+interface APITemplate {
+  name: string;
+  description: string;
+  baseUrl: string;
+  apiKeyUrl: string;
+  apiKeyPlaceholder: string;
+  headers?: string;
+  freeQuota?: string;
+}
+
 interface NewsAPISettingsProps {
   providers: SimulationAPIProvider[];
-  onAddProvider: (template?: any) => void;
+  onAddProvider: (template?: APITemplate) => void;
   onUpdateProvider: (providerId: string, updates: Partial<SimulationAPIProvider>) => void;
   onRemoveProvider: (providerId: string) => void;
   onTestProvider: (categoryId: string, provider: SimulationAPIProvider) => Promise<void>;

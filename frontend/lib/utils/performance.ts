@@ -159,7 +159,8 @@ export const performanceMonitor = new PerformanceMonitor();
  * 防抖函数
  * 用于优化高频事件处理（如输入、滚动）
  */
-export function debounce<T extends (...args: any[]) => any>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function debounce<T extends (...args: any[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -182,7 +183,8 @@ export function debounce<T extends (...args: any[]) => any>(
  * 节流函数
  * 确保函数在指定时间内最多执行一次
  */
-export function throttle<T extends (...args: any[]) => any>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function throttle<T extends (...args: any[]) => unknown>(
   func: T,
   limit: number
 ): (...args: Parameters<T>) => void {
@@ -339,7 +341,8 @@ export function scheduleIdleTask(
  * 缓存装饰器工厂
  * 为函数添加结果缓存
  */
-export function memoize<T extends (...args: any[]) => any>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function memoize<T extends (...args: any[]) => unknown>(
   fn: T,
   getCacheKey?: (...args: Parameters<T>) => string
 ): T {

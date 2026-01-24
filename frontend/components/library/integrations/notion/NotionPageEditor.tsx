@@ -5,16 +5,57 @@ import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/mantine';
 import '@blocknote/mantine/style.css';
 
+// Notion Block Types
+interface NotionRichText {
+  type: 'text';
+  text: { content: string };
+  annotations?: {
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    strikethrough?: boolean;
+    code?: boolean;
+    color?: string;
+  };
+  plain_text: string;
+}
+
+interface NotionBlock {
+  id?: string;
+  type: string;
+  [key: string]: unknown;
+}
+
+// BlockNote Types
+interface BlockNoteTextContent {
+  type: 'text';
+  text: string;
+  styles?: {
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    strike?: boolean;
+    code?: boolean;
+  };
+}
+
+interface BlockNoteBlock {
+  id: string;
+  type: string;
+  content?: BlockNoteTextContent[];
+  props?: Record<string, unknown>;
+}
+
 interface NotionPageEditorProps {
-  initialBlocks: any[];
-  onChange?: (blocks: any[]) => void;
+  initialBlocks: NotionBlock[];
+  onChange?: (blocks: NotionBlock[]) => void;
   readOnly?: boolean;
 }
 
 /**
  * 将 Notion 块格式转换为 BlockNote 格式
  */
-function notionToBlockNote(notionBlocks: any[]): any[] {
+function notionToBlockNote(notionBlocks: NotionBlock[]): BlockNoteBlock[] {
   if (!notionBlocks || notionBlocks.length === 0) {
     return [
       {
@@ -25,7 +66,7 @@ function notionToBlockNote(notionBlocks: any[]): any[] {
     ];
   }
 
-  const blocks: any[] = [];
+  const blocks: BlockNoteBlock[] = [];
 
   for (const block of notionBlocks) {
     const converted = convertNotionBlock(block);
@@ -39,7 +80,7 @@ function notionToBlockNote(notionBlocks: any[]): any[] {
     : [{ id: 'initial-block', type: 'paragraph', content: [] }];
 }
 
-function convertNotionBlock(block: any): any | null {
+function convertNotionBlock(block: NotionBlock): BlockNoteBlock | null {
   if (!block || !block.type) return null;
 
   const id = block.id || `block-${Math.random().toString(36).substr(2, 9)}`;
@@ -106,13 +147,14 @@ function convertNotionBlock(block: any): any | null {
   }
 }
 
-function getRichText(block: any): any[] {
-  const blockContent = block[block.type];
+function getRichText(block: NotionBlock): NotionRichText[] {
+  const blockContent = block[block.type] as Record<string, unknown> | undefined;
   if (!blockContent) return [];
-  return blockContent.rich_text || blockContent.text || [];
+  const richText = (blockContent.rich_text || blockContent.text) as NotionRichText[] | undefined;
+  return richText || [];
 }
 
-function convertRichTextToContent(richText: any[]): any[] {
+function convertRichTextToContent(richText: NotionRichText[]): BlockNoteTextContent[] {
   if (!richText || richText.length === 0) return [];
 
   return richText
@@ -133,11 +175,11 @@ function convertRichTextToContent(richText: any[]): any[] {
 /**
  * 将 BlockNote 格式转换回 Notion 格式（用于保存）
  */
-function blockNoteToNotion(blocks: any[]): any[] {
-  return blocks.map((block) => convertBlockNoteBlock(block)).filter(Boolean);
+function blockNoteToNotion(blocks: BlockNoteBlock[]): NotionBlock[] {
+  return blocks.map((block) => convertBlockNoteBlock(block)).filter((b): b is NotionBlock => b !== null);
 }
 
-function convertBlockNoteBlock(block: any): any | null {
+function convertBlockNoteBlock(block: BlockNoteBlock): NotionBlock | null {
   if (!block) return null;
 
   const richText = convertContentToRichText(block.content || []);
@@ -215,7 +257,7 @@ function convertBlockNoteBlock(block: any): any | null {
   }
 }
 
-function convertContentToRichText(content: any[]): any[] {
+function convertContentToRichText(content: BlockNoteTextContent[]): NotionRichText[] {
   if (!content || content.length === 0) return [];
 
   return content
@@ -255,7 +297,7 @@ export default function NotionPageEditor({
 
   // 防抖保存
   const debouncedSave = useCallback(
-    (blocks: any[]) => {
+    (blocks: BlockNoteBlock[]) => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }

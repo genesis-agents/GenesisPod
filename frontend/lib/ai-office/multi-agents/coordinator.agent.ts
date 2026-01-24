@@ -158,7 +158,7 @@ ${input.existingDocumentId ? `现有文档ID: ${input.existingDocumentId}` : ''}
   /**
    * 验证并规范化计划
    */
-  private validatePlan(raw: any): AgentPlan {
+  private validatePlan(raw: unknown): AgentPlan {
     return {
       needsResourceAnalysis: Boolean(raw.needsResourceAnalysis),
       needsVerification: Boolean(raw.needsVerification),

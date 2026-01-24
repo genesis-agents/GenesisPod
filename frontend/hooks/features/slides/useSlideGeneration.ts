@@ -606,7 +606,7 @@ export function useSlideGeneration(options: UseSlideGenerationOptions = {}) {
   const cancel = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      (abortControllerRef.current as any).eventSource?.close();
+      (abortControllerRef.current as Record<string, unknown>).eventSource?.close();
     }
     setGenerating(false);
     setProgress(null);

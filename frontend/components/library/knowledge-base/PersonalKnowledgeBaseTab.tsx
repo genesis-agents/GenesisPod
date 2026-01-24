@@ -48,7 +48,7 @@ export default function PersonalKnowledgeBaseTab({
   const [showDocList, setShowDocList] = useState<{
     kbId: string;
     kbName: string;
-    documents: any[];
+    documents: Array<Record<string, unknown>>;
   } | null>(null); // 文档列表弹窗
   const [showAddDocs, setShowAddDocs] = useState<{
     kbId: string;
@@ -79,7 +79,7 @@ export default function PersonalKnowledgeBaseTab({
 
   const selectAll = () => {
     const personalKBs = knowledgeBases.filter(
-      (kb: any) => !kb.type || kb.type === 'PERSONAL'
+      (kb) => !kb.type || kb.type === 'PERSONAL'
     );
     if (selectedIds.size === personalKBs.length) {
       setSelectedIds(new Set());
@@ -116,7 +116,7 @@ export default function PersonalKnowledgeBaseTab({
 
   // Filter personal knowledge bases (type = PERSONAL or type is not set)
   // Also apply search query filter if provided
-  const personalKBs = knowledgeBases.filter((kb: any) => {
+  const personalKBs = knowledgeBases.filter((kb) => {
     const isPersonal = !kb.type || kb.type === 'PERSONAL';
     if (!isPersonal) return false;
     if (!searchQuery.trim()) return true;
@@ -127,7 +127,7 @@ export default function PersonalKnowledgeBaseTab({
     );
   });
 
-  const handleCreate = async (dto: any) => {
+  const handleCreate = async (dto: Record<string, unknown>) => {
     await createKnowledgeBase({ ...dto, type: 'PERSONAL' });
     setShowCreateDialog(false);
   };

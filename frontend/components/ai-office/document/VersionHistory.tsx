@@ -26,8 +26,8 @@ export default function VersionHistory({
 }: VersionHistoryProps) {
   const { restoreVersion, deleteVersion } = useDocumentStore();
   // 直接从store中读取document和versions，确保响应式更新
-  const currentDocument = useDocumentStore((state: any) =>
-    state.documents.find((d: any) => d._id === documentId)
+  const currentDocument = useDocumentStore((state) =>
+    state.documents.find((d) => d._id === documentId)
   );
   const versions = currentDocument?.versions || [];
 
@@ -260,10 +260,10 @@ export default function VersionHistory({
             {compareVersionId && selectedVersionId ? (
               (() => {
                 const oldVersion = versions.find(
-                  (v: any) => v.id === compareVersionId
+                  (v) => v.id === compareVersionId
                 );
                 const newVersion = versions.find(
-                  (v: any) => v.id === selectedVersionId
+                  (v) => v.id === selectedVersionId
                 );
 
                 if (!oldVersion || !newVersion) {
@@ -299,7 +299,7 @@ export default function VersionHistory({
                   </h3>
                   {(() => {
                     const version = versions.find(
-                      (v: any) => v.id === selectedVersionId
+                      (v) => v.id === selectedVersionId
                     );
                     if (!version) return <p>版本不存在</p>;
 
@@ -317,7 +317,7 @@ export default function VersionHistory({
                         return (
                           <div className="space-y-6">
                             {slides.map(
-                              (slideContent: string, index: number) => {
+                              (slideContent, index: number) => {
                                 // 提取标题
                                 const titleMatch =
                                   slideContent.match(/^#{2,4}\s*(.+)$/m);
@@ -367,11 +367,11 @@ export default function VersionHistory({
                     }
 
                     // 旧格式兼容：渲染PPT slides格式
-                    if (version.content.slides) {
+                    if ('slides' in version.content && version.content.slides) {
                       return (
                         <div className="space-y-6">
                           {version.content.slides.map(
-                            (slide: any, index: number) => (
+                            (slide, index: number) => (
                               <div
                                 key={slide.id || index}
                                 className="rounded-lg border border-gray-200 p-4"
@@ -384,7 +384,7 @@ export default function VersionHistory({
                                   dangerouslySetInnerHTML={{
                                     __html: sanitizeHtml(
                                       slide.elements
-                                        .map((el: any) => el.content)
+                                        .map((el) => el.content)
                                         .join('<br>')
                                     ),
                                   }}

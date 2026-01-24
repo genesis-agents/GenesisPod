@@ -21,21 +21,10 @@ interface TopicResearchState extends TopicSlice, ReportSlice, ResearchSlice {
 
 export const useTopicResearchStore = create<TopicResearchState>()(
   (set, get) => {
-    const topicSlice = createTopicSlice(
-      set,
-      get,
-      { setState: set, getState: get } as any
-    );
-    const reportSlice = createReportSlice(
-      set,
-      get,
-      { setState: set, getState: get } as any
-    );
-    const researchSlice = createResearchSlice(
-      set,
-      get,
-      { setState: set, getState: get } as any
-    );
+    const storeApi = { setState: set, getState: get };
+    const topicSlice = createTopicSlice(set, get, storeApi);
+    const reportSlice = createReportSlice(set, get, storeApi);
+    const researchSlice = createResearchSlice(set, get, storeApi);
 
     return {
       ...topicSlice,

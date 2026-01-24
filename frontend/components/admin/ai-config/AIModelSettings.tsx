@@ -2654,7 +2654,7 @@ function AddModelModal({
                     ...formData,
                     apiKey: formData.apiKey || null,
                     secretKey: formData.secretKey || null,
-                  } as any,
+                  },
                   workerCount
                 )
               }

@@ -8,6 +8,7 @@ import { ResponseTransformInterceptor } from "./common/interceptors/response-tra
 import { join } from "path";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
+import { CommonModule } from "./common/common.module";
 import { PrismaModule } from "./common/prisma/prisma.module";
 import { MongoDBModule } from "./common/mongodb/mongodb.module";
 import { GraphModule } from "./common/graph/graph.module";
@@ -98,6 +99,9 @@ import { WebhooksModule } from "./modules/webhooks";
       rootPath: join(__dirname, "..", "public"),
       serveRoot: "/",
     }),
+
+    // 公共基础模块
+    CommonModule,
 
     // 数据库模块
     PrismaModule,

@@ -54,7 +54,7 @@ export default function TeamKnowledgeBaseTab({
   const [showDocList, setShowDocList] = useState<{
     kbId: string;
     kbName: string;
-    documents: any[];
+    documents: Array<Record<string, unknown>>;
   } | null>(null); // 文档列表弹窗
   const [showAddDocs, setShowAddDocs] = useState<{
     kbId: string;
@@ -111,7 +111,7 @@ export default function TeamKnowledgeBaseTab({
 
   // Filter team knowledge bases (type = TEAM)
   // Also apply search query filter if provided
-  const teamKBs = knowledgeBases.filter((kb: any) => {
+  const teamKBs = knowledgeBases.filter((kb) => {
     if (kb.type !== 'TEAM') return false;
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
@@ -121,7 +121,7 @@ export default function TeamKnowledgeBaseTab({
     );
   });
 
-  const handleCreate = async (dto: any) => {
+  const handleCreate = async (dto: Record<string, unknown>) => {
     await createKnowledgeBase({ ...dto, type: 'TEAM' });
     setShowCreateDialog(false);
   };

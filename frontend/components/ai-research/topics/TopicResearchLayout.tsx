@@ -199,14 +199,14 @@ export function TopicResearchLayout({
     }
 
     // 先做本地快速检查：如果是所有者，立即设置权限
-    const ownerId = (topic as any).userId || (topic as any).createdById;
+    const ownerId = topic.userId || topic.createdById;
     if (ownerId === user.id) {
       setCanEdit(true);
       return;
     }
 
     // ★ 根据可见性决定是否需要检查协作者权限
-    const visibility = (topic as any).visibility;
+    const visibility = topic.visibility;
 
     // PRIVATE: 非所有者不可能有权限访问（能看到说明已经是所有者）
     // PUBLIC: 非所有者只有查看权限，没有编辑权限
@@ -228,9 +228,9 @@ export function TopicResearchLayout({
   }, [
     user?.id,
     topic.id,
-    (topic as any).userId,
-    (topic as any).createdById,
-    (topic as any).visibility,
+    topic.userId,
+    topic.createdById,
+    topic.visibility,
   ]);
 
   const handleExport = useCallback(

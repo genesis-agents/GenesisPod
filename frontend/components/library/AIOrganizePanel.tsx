@@ -52,11 +52,21 @@ type TaskType =
   | 'images-cluster';
 type TaskStatus = 'idle' | 'running' | 'success' | 'error';
 
+interface TaskResults {
+  clusters?: Array<{ name: string; count: number }>;
+  suggestions?: Array<{ resourceTitle: string; suggestedCollection: string }>;
+  points?: Array<{ point: string; resourceIds: string[] }>;
+  connections?: Array<{ from: string; to: string; reasoning: string }>;
+  images?: Array<{ id: string; tags: string[] }>;
+  styles?: Array<{ style: string; count: number }>;
+  [key: string]: unknown;
+}
+
 interface TaskState {
   status: TaskStatus;
   message: string;
   progress?: number;
-  results?: any;
+  results?: TaskResults;
 }
 
 export default function AIOrganizePanel({
@@ -1177,7 +1187,7 @@ export default function AIOrganizePanel({
                     </h4>
                     <div className="flex flex-wrap gap-2">
                       {taskStates['theme-cluster'].results.clusters.map(
-                        (cluster: any, index: number) => (
+                        (cluster, index: number) => (
                           <span
                             key={index}
                             className="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700"
@@ -1200,7 +1210,7 @@ export default function AIOrganizePanel({
                     <div className="space-y-2">
                       {taskStates['smart-classify'].results.suggestions
                         .slice(0, 5)
-                        .map((suggestion: any, index: number) => (
+                        .map((suggestion, index: number) => (
                           <div
                             key={index}
                             className="flex items-center justify-between rounded-lg bg-white p-2 text-sm"
@@ -1276,7 +1286,7 @@ export default function AIOrganizePanel({
                 <div className="space-y-4">
                   {taskStates[resultsModal].results.keyPoints?.length > 0 ? (
                     taskStates[resultsModal].results.keyPoints.map(
-                      (point: any, index: number) => (
+                      (point, index: number) => (
                         <div
                           key={index}
                           className="rounded-lg border border-green-100 bg-green-50 p-4"
@@ -1312,7 +1322,7 @@ export default function AIOrganizePanel({
                 <div className="space-y-4">
                   {taskStates[resultsModal].results.connections?.length > 0 ? (
                     taskStates[resultsModal].results.connections.map(
-                      (conn: any, index: number) => {
+                      (conn, index: number) => {
                         // 优先使用带标题的字段，fallback到ID
                         const note1Display =
                           conn.note1Title ||
@@ -1451,7 +1461,7 @@ export default function AIOrganizePanel({
                 <div className="space-y-4">
                   {taskStates[resultsModal].results.images?.length > 0 ? (
                     taskStates[resultsModal].results.images.map(
-                      (img: any, index: number) => (
+                      (img, index: number) => (
                         <div
                           key={index}
                           className="rounded-lg border border-pink-100 bg-pink-50 p-4"
@@ -1488,7 +1498,7 @@ export default function AIOrganizePanel({
                 <div className="space-y-4">
                   {taskStates[resultsModal].results.styles?.length > 0 ? (
                     taskStates[resultsModal].results.styles.map(
-                      (style: any, index: number) => (
+                      (style, index: number) => (
                         <div
                           key={index}
                           className="rounded-lg border border-rose-100 bg-rose-50 p-4"
@@ -1536,7 +1546,7 @@ export default function AIOrganizePanel({
                 <div className="space-y-4">
                   {taskStates[resultsModal].results.clusters?.length > 0 ? (
                     taskStates[resultsModal].results.clusters.map(
-                      (cluster: any, index: number) => (
+                      (cluster, index: number) => (
                         <div
                           key={index}
                           className="rounded-lg border border-fuchsia-100 bg-fuchsia-50 p-4"

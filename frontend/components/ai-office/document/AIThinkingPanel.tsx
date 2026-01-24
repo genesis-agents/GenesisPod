@@ -49,13 +49,13 @@ export interface AIThinkingStep {
   endTime?: Date;
   progress?: number; // 0-100 进度
   duration?: number; // 耗时（毫秒）
-  input?: any;
-  output?: any;
+  input?: unknown;
+  output?: unknown;
   subSteps?: {
     label: string;
     completed: boolean;
   }[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface AIThinkingPanelProps {

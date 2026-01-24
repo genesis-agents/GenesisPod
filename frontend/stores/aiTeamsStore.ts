@@ -3,6 +3,8 @@ import {
   Topic,
   TopicMessage,
   TopicResource,
+  TopicRole,
+  TopicType,
   SendMessageDto,
   CreateTopicDto,
   UpdateTopicDto,
@@ -60,7 +62,7 @@ interface AiGroupState {
   isLoadingTeamMembers: boolean;
 
   // Actions - Topics
-  fetchTopics: (options?: { type?: string; search?: string }) => Promise<void>;
+  fetchTopics: (options?: { type?: TopicType; search?: string }) => Promise<void>;
   fetchTopic: (topicId: string) => Promise<void>;
   createTopic: (dto: CreateTopicDto) => Promise<Topic>;
   updateTopic: (topicId: string, dto: UpdateTopicDto) => Promise<void>;
@@ -83,7 +85,7 @@ interface AiGroupState {
   ) => Promise<void>;
 
   // Actions - Members
-  addMember: (topicId: string, userId: string, role?: string) => Promise<void>;
+  addMember: (topicId: string, userId: string, role?: TopicRole) => Promise<void>;
   removeMember: (topicId: string, memberId: string) => Promise<void>;
   leaveTopicAsMember: (topicId: string) => Promise<void>;
 
@@ -178,7 +180,7 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
   fetchTopics: async (options) => {
     set({ isLoadingTopics: true });
     try {
-      const topics = await api.getTopics(options as any);
+      const topics = await api.getTopics(options);
       set({ topics, isLoadingTopics: false });
     } catch (error) {
       logger.error('Failed to fetch topics:', error);
@@ -306,11 +308,11 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
   addMember: async (topicId, userIdOrEmail, role) => {
     // Check if input looks like an email
     if (userIdOrEmail.includes('@')) {
-      await api.addMemberByEmail(topicId, userIdOrEmail, role as any);
+      await api.addMemberByEmail(topicId, userIdOrEmail, role);
     } else {
       await api.addMember(topicId, {
         userId: userIdOrEmail,
-        role: role as any,
+        role: role,
       });
     }
     await get().fetchTopic(topicId);
@@ -738,7 +740,8 @@ export const useAiGroupStore = create<AiGroupState>((set, get) => ({
           status,
           ...(totalTasks !== undefined && { totalTasks }),
           // ★ 更新 tasks 数据用于 Canvas 渲染连线
-          ...(tasks && { tasks: tasks as any }),
+          // WebSocket 发送的 tasks 是简化版本，需要转换为 Partial<AgentTask>[]
+          ...(tasks && { tasks: tasks as unknown as AgentTask[] }),
         });
       }
     );

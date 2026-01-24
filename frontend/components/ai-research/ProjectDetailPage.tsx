@@ -87,7 +87,7 @@ interface Source {
   analysisStatus: 'PENDING' | 'ANALYZING' | 'COMPLETED' | 'FAILED';
   aiSummary: string | null;
   resourceId?: string | null;
-  metadata: any;
+  metadata: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -130,7 +130,7 @@ interface Output {
   title: string;
   status: 'PENDING' | 'GENERATING' | 'COMPLETED' | 'FAILED';
   content: string | null;
-  metadata: any;
+  metadata: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -228,7 +228,7 @@ async function sendChatMessage(
   message: string,
   selectedSourceIds?: string[],
   model?: string
-): Promise<any> {
+): Promise<unknown> {
   const res = await fetch(
     `${API_BASE}/api/v1/ai-studio/projects/${projectId}/chat/messages`,
     {
@@ -350,7 +350,7 @@ async function searchSourcesApi(
   query: string,
   mode: 'quick' | 'deep' = 'quick',
   sources: string[] = ['local', 'web', 'arxiv', 'github']
-): Promise<any> {
+): Promise<unknown> {
   const res = await fetch(`${API_BASE}/api/v1/ai-studio/search`, {
     method: 'POST',
     headers: getAuthHeaders(),
@@ -369,8 +369,18 @@ interface SearchStats {
   errors?: string[];
 }
 
+interface SearchResult {
+  title: string;
+  url: string;
+  abstract?: string;
+  sourceType: string;
+  content?: string;
+  authors?: string[];
+  publishedAt?: string;
+}
+
 interface SearchResponse {
-  results: any[];
+  results: SearchResult[];
   query: string;
   mode: 'quick' | 'deep';
   sourcesSearched: string[];
@@ -3080,12 +3090,19 @@ export function ProjectDetailPage() {
           timestamp: result.aiMessage.timestamp,
           citations: result.aiMessage.citations,
           // Store source context in the order used for citations
-          sourceContext: result.sourceContext?.map((s: any) => ({
-            id: s.id,
-            title: s.title,
-            content: s.content,
-            abstract: s.abstract,
-          })),
+          sourceContext: result.sourceContext?.map(
+            (s: {
+              id: string;
+              title: string;
+              content?: string | null;
+              abstract?: string | null;
+            }) => ({
+              id: s.id,
+              title: s.title,
+              content: s.content,
+              abstract: s.abstract,
+            })
+          ),
         };
 
         setProject((prev) => {

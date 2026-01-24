@@ -73,7 +73,7 @@ export default function CreateMissionDialog({
       await createMission(topicId, dto);
       onSuccess?.();
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       setError(err.message || 'Failed to create mission');
     } finally {
       setIsSubmitting(false);

@@ -12,7 +12,7 @@ interface AIChatMessagesProps {
   aiMessages: AIMessage[];
   isStreaming: boolean;
   aiModel: string;
-  aiModels: any[];
+  aiModels: Array<Record<string, unknown>>;
   resourceId?: string;
   onContextMenu?: (e: React.MouseEvent, text: string) => void;
   onAskAI?: (text: string) => void;

@@ -9,7 +9,7 @@ export interface FeatureCheckResult {
   feature: string;
   status: 'pass' | 'fail' | 'warn';
   message: string;
-  details?: any;
+  details?: Record<string, unknown>;
 }
 
 export interface SystemHealthReport {

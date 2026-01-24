@@ -78,8 +78,8 @@ export interface Topic {
   avatar: string | null;
   createdById: string;
   createdBy: TopicUser;
-  settings: Record<string, any> | null;
-  metadata: Record<string, any> | null;
+  settings: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
@@ -285,7 +285,7 @@ export interface CreateTopicDto {
   }[];
   metadata?: {
     tags?: string[];
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -294,10 +294,10 @@ export interface UpdateTopicDto {
   description?: string;
   type?: TopicType;
   avatar?: string;
-  settings?: Record<string, any>;
+  settings?: Record<string, unknown>;
   metadata?: {
     tags?: string[];
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -539,7 +539,7 @@ export interface TeamMission {
     TopicAIMember,
     'id' | 'displayName' | 'agentName' | 'avatar' | 'aiModel'
   >;
-  taskBreakdown?: any;
+  taskBreakdown?: Record<string, unknown>;
   totalTasks: number;
   completedTasks: number;
   progressPercent: number;
@@ -597,7 +597,7 @@ export interface MissionLog {
   taskTitle: string | null;
   content: string;
   messageId: string | null;
-  metadata: any;
+  metadata: Record<string, unknown>;
   createdAt: string;
 }
 

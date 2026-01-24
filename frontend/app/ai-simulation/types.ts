@@ -22,7 +22,7 @@ export interface ScenarioFormCompany {
   name: string;
   type: string;
   market: string;
-  metrics?: any;
+  metrics?: CompanyMetrics | Partial<CompanyMetrics>;
 }
 
 export interface ScenarioFormAgent {
@@ -62,7 +62,7 @@ export interface ScenarioParams {
 }
 
 export interface ExternalSnapshot {
-  snapshot: Record<string, any>;
+  snapshot: Record<string, unknown>;
   evidence: Array<{
     provider: string;
     ok: boolean;

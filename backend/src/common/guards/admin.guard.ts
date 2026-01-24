@@ -5,8 +5,8 @@ import {
   ForbiddenException,
   Logger,
 } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
+import { AdminAuthService } from "../services";
 
 /**
  * 管理员守卫
@@ -17,22 +17,11 @@ import { PrismaService } from "../prisma/prisma.service";
 @Injectable()
 export class AdminGuard implements CanActivate {
   private readonly logger = new Logger(AdminGuard.name);
-  // 管理员邮箱列表（从环境变量读取）
-  private readonly adminEmails: string[];
 
   constructor(
-    private prisma: PrismaService,
-    private configService: ConfigService,
-  ) {
-    const emails = this.configService.get<string>("ADMIN_EMAILS", "");
-    this.adminEmails = emails
-      .split(",")
-      .map((e) => e.trim())
-      .filter((e) => e.length > 0);
-    this.logger.log(
-      `AdminGuard initialized with ${this.adminEmails.length} admin email(s)`,
-    );
-  }
+    private readonly prisma: PrismaService,
+    private readonly adminAuthService: AdminAuthService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -42,7 +31,7 @@ export class AdminGuard implements CanActivate {
       throw new ForbiddenException("Authentication required");
     }
 
-    // 检查用户是否为管理员（通过role字段或邮箱白名单）
+    // 从数据库获取用户完整信息
     const dbUser = await this.prisma.user.findUnique({
       where: { id: user.id },
       select: { role: true, email: true },
@@ -52,17 +41,13 @@ export class AdminGuard implements CanActivate {
       throw new ForbiddenException("User not found");
     }
 
-    // 检查role字段或邮箱白名单（邮箱比较不区分大小写）
-    const isAdmin =
-      dbUser.role === "ADMIN" ||
-      this.adminEmails.some(
-        (email) => email.toLowerCase() === dbUser.email.toLowerCase(),
-      );
+    // 使用 AdminAuthService 统一检查管理员权限
+    const isAdmin = this.adminAuthService.isAdmin(dbUser);
 
     if (!isAdmin) {
       this.logger.warn(
         `Admin access denied for user ${dbUser.email} (role: ${dbUser.role}). ` +
-          `Admin emails configured: ${this.adminEmails.length > 0 ? this.adminEmails.join(", ") : "none"}`,
+          `Admin emails configured: ${this.adminAuthService.getAdminEmailCount()}`,
       );
       throw new ForbiddenException("Admin access required");
     }

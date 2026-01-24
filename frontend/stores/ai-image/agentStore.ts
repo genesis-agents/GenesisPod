@@ -26,8 +26,8 @@ export interface ThinkingStep {
   status: 'pending' | 'processing' | 'completed' | 'error';
   startTime?: Date;
   endTime?: Date;
-  input?: any;
-  output?: any;
+  input?: unknown;
+  output?: unknown;
   duration?: number;
 }
 
@@ -137,7 +137,12 @@ export const useAgentStore = create<AgentStore>()(
         switch (event.type) {
           case 'progress':
             // 处理进度更新事件
-            const progressData = (event as any).data || {};
+            const progressEvent = event as ProgressEvent;
+            const progressData = progressEvent.data || {
+              phase: '',
+              percentage: 0,
+              message: '',
+            };
             const phase = progressData.phase || '';
             const percentage = progressData.percentage || 0;
             const message = progressData.message || '';
@@ -195,11 +200,9 @@ export const useAgentStore = create<AgentStore>()(
 
           case 'plan_ready':
             // 保存计划，计算总步骤数用于进度计算
-            const plan = (event as any).plan as AgentPlan;
-            const eventData = (event as any).data || {};
-            const outline = eventData.outline;
-            const sections = outline?.sections || [];
-            const totalSteps = sections.length || plan?.steps?.length || 1;
+            const planEvent = event as PlanReadyEvent;
+            const plan = planEvent.plan;
+            const totalSteps = plan?.steps?.length || 1;
 
             // 创建思考步骤（包含子步骤）
             const planStepId = `plan_${Date.now()}`;
@@ -228,24 +231,24 @@ export const useAgentStore = create<AgentStore>()(
 
           case 'step_start':
             // 记录当前步骤，更新进度
-            const stepIndex = (event as any).stepIndex || 0;
-            const total = (progress as any).totalSteps || 1;
+            const stepStartEvent = event as StepStartEvent;
+            const stepIndex = 0; // 使用步骤ID而非索引
+            const total = progress.totalSteps || 1;
             // 进度从 10% 到 90%，按步骤均分
             const stepProgress = 10 + (stepIndex / total) * 80;
 
             // 创建思考步骤
             const stepStartId = `step_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            const stepData = (event as any).data || {};
             const stepTitle =
-              stepData.title || event.message || `步骤 ${stepIndex + 1}`;
+              stepStartEvent.message || `步骤 ${stepIndex + 1}`;
 
             set({
               progress: {
                 ...progress,
                 phase: 'executing',
-                currentStep: (event as any).stepId || stepStartId,
+                currentStep: stepStartEvent.stepId || stepStartId,
                 percentage: Math.min(stepProgress, 90),
-                message: event.message || `执行步骤 ${stepIndex + 1}/${total}`,
+                message: stepStartEvent.message || `执行步骤 ${stepIndex + 1}/${total}`,
               },
               thinkingSteps: [
                 ...thinkingSteps,
@@ -262,21 +265,23 @@ export const useAgentStore = create<AgentStore>()(
 
           case 'step_progress':
             // 步骤内进度更新 - event.progress 是 0-100
+            const stepProgressEvent = event as StepProgressEvent;
             const baseProgress = progress.percentage || 10;
-            const stepTotal = (progress as any).totalSteps || 1;
+            const stepTotal = progress.totalSteps || 1;
             const increment =
-              (80 / stepTotal) * ((event as any).progress / 100);
+              (80 / stepTotal) * (stepProgressEvent.progress / 100);
             set({
               progress: {
                 ...progress,
                 percentage: Math.min(baseProgress + increment, 90),
-                message: event.message,
+                message: stepProgressEvent.message,
               },
             });
             break;
 
           case 'step_complete':
             // 完成最后一个处理中的思考步骤
+            const stepCompleteEvent = event as StepCompleteEvent;
             const completedThinkingSteps = thinkingSteps.map((step) => {
               if (step.status === 'processing') {
                 return {
@@ -296,7 +301,7 @@ export const useAgentStore = create<AgentStore>()(
                 ...progress,
                 completedSteps: [
                   ...progress.completedSteps,
-                  (event as any).stepId,
+                  stepCompleteEvent.stepId,
                 ],
               },
               thinkingSteps: completedThinkingSteps,
@@ -305,9 +310,10 @@ export const useAgentStore = create<AgentStore>()(
 
           case 'tool_call':
             // 创建新的思考步骤
+            const toolCallEvent = event as ToolCallEvent;
             const toolCallId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            const toolName = (event as any).tool || 'unknown';
-            const toolInput = (event as any).input;
+            const toolName = toolCallEvent.tool || 'unknown';
+            const toolInput = toolCallEvent.input;
 
             // 生成友好的工具描述
             const toolDescription = getToolDescription(toolName, toolInput);
@@ -339,13 +345,14 @@ export const useAgentStore = create<AgentStore>()(
             break;
 
           case 'tool_result':
+            const toolResultEvent = event as ToolResultEvent;
             const toolCalls = [...progress.toolCalls];
             const lastCall = toolCalls[toolCalls.length - 1];
-            const resultTool = (event as any).tool;
+            const resultTool = toolResultEvent.tool;
 
             if (lastCall && lastCall.tool === resultTool) {
-              lastCall.output = (event as any).output;
-              lastCall.duration = (event as any).duration;
+              lastCall.output = toolResultEvent.output;
+              lastCall.duration = toolResultEvent.duration;
             }
 
             // 更新对应的思考步骤状态
@@ -355,8 +362,8 @@ export const useAgentStore = create<AgentStore>()(
                   ...step,
                   status: 'completed' as const,
                   endTime: new Date(),
-                  output: (event as any).output,
-                  duration: (event as any).duration,
+                  output: toolResultEvent.output,
+                  duration: toolResultEvent.duration,
                 };
               }
               return step;
@@ -373,6 +380,7 @@ export const useAgentStore = create<AgentStore>()(
 
           case 'thinking':
             // 处理 AI 思考事件（新增事件类型）
+            const thinkingEvent = event as ThinkingEvent;
             const thinkingId = `thinking_${Date.now()}`;
             set({
               thinkingSteps: [
@@ -380,7 +388,7 @@ export const useAgentStore = create<AgentStore>()(
                 {
                   id: thinkingId,
                   tool: 'thinking',
-                  description: (event as any).content || '思考中...',
+                  description: thinkingEvent.content || '思考中...',
                   status: 'completed',
                   startTime: new Date(),
                   endTime: new Date(),
@@ -394,6 +402,7 @@ export const useAgentStore = create<AgentStore>()(
             break;
 
           case 'complete':
+            const completeEvent = event as CompleteEvent;
             set({
               progress: {
                 ...progress,
@@ -401,12 +410,13 @@ export const useAgentStore = create<AgentStore>()(
                 percentage: 100,
                 message: '任务完成',
               },
-              result: (event as any).result,
+              result: completeEvent.result,
             });
             break;
 
           case 'error':
             // 将最后一个处理中的思考步骤标记为错误
+            const errorEvent = event as ErrorEvent;
             const errorSteps = thinkingSteps.map((step) => {
               if (step.status === 'processing') {
                 return {
@@ -421,7 +431,7 @@ export const useAgentStore = create<AgentStore>()(
               progress: {
                 ...progress,
                 phase: 'error',
-                message: (event as any).error,
+                message: errorEvent.error,
               },
               thinkingSteps: errorSteps,
             });
@@ -442,11 +452,24 @@ export const useAgentStore = create<AgentStore>()(
   )
 );
 
+interface ToolInput {
+  prompt?: string;
+  language?: string;
+  query?: string;
+  operation?: string;
+  [key: string]: unknown;
+}
+
 /**
  * 获取工具的友好描述
  */
-function getToolDescription(tool: string, input: any): string {
-  const toolDescriptions: Record<string, (input: any) => string> = {
+function getToolDescription(tool: string | ToolType, input: unknown): string {
+  const typedInput = input as ToolInput | undefined;
+
+  const toolDescriptions: Record<
+    string,
+    (input: ToolInput | undefined) => string
+  > = {
     text_generation: (input) =>
       `生成文本: ${input?.prompt?.substring(0, 50) || '...'}`,
     code_generation: (input) => `生成代码: ${input?.language || 'code'}`,
@@ -460,15 +483,16 @@ function getToolDescription(tool: string, input: any): string {
     file_operation: (input) => `文件操作: ${input?.operation || '...'}`,
   };
 
-  const descFn = toolDescriptions[tool];
+  const toolKey = typeof tool === 'string' ? tool : tool.toString();
+  const descFn = toolDescriptions[toolKey];
   if (descFn) {
     try {
-      return descFn(input);
+      return descFn(typedInput);
     } catch {
-      return `使用工具: ${tool}`;
+      return `使用工具: ${toolKey}`;
     }
   }
-  return `使用工具: ${tool}`;
+  return `使用工具: ${toolKey}`;
 }
 
 // 选择器

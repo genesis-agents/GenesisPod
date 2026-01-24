@@ -26,7 +26,7 @@ export interface Resource {
     channelName?: string;
     sourceName?: string;
     imageUrl?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   sourceType?: string;
   // GitHub/原始数据增强
@@ -37,8 +37,8 @@ export interface Resource {
     forks?: number;
     language?: string;
     languages?: Record<string, number>;
-    contributors?: Array<any>;
-    [key: string]: any;
+    contributors?: Array<unknown>;
+    [key: string]: unknown;
   };
 }
 

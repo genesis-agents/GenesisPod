@@ -33,6 +33,8 @@ const EXTERNAL_CATEGORIES = [
   'policy-research',
 ] as const;
 
+type ExternalCategory = (typeof EXTERNAL_CATEGORIES)[number];
+
 export interface ExternalTool {
   id: string;
   name: string;
@@ -71,7 +73,7 @@ export default function ExternalToolsTab({
 
   // Filter only external tools
   const externalTools = tools.filter((tool) =>
-    EXTERNAL_CATEGORIES.includes(tool.category as any)
+    EXTERNAL_CATEGORIES.includes(tool.category as ExternalCategory)
   );
 
   if (loading) {

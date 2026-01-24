@@ -13,6 +13,7 @@ import {
   useTaskStore,
   Task,
 } from '@/stores/aiOfficeStore';
+import type { Document as AiOfficeDocument, DocumentType } from '@/types/ai-office';
 import {
   Send,
   Paperclip,
@@ -66,7 +67,7 @@ export default function ChatPanel() {
     setAgentStatus,
   } = useChatStore();
   const currentDocumentId =
-    useDocumentStore((state: any) => state.currentDocumentId) || 'default';
+    useDocumentStore((state) => state.currentDocumentId) || 'default';
   const messages = useChatStore(
     (state) => state.sessions[currentDocumentId] || []
   );
@@ -388,9 +389,9 @@ export default function ChatPanel() {
       useDocumentStore.getState().updateDocument(targetDocumentId, {
         status: 'generating',
         updatedAt: new Date(),
-      } as any);
+      });
     } else if (shouldCreateNewDocument) {
-      const documentType = isPPTRequest ? 'ppt' : 'article';
+      const documentType: DocumentType = isPPTRequest ? 'ppt' : 'article';
       const documentTitle = isPPTRequest ? '未命名演示文稿' : '未命名文档';
 
       // 如果是PPT，根据用户输入选择模板
@@ -413,7 +414,7 @@ export default function ChatPanel() {
       }
 
       const newDocumentId = `doc-${Date.now()}`;
-      const newDocument = {
+      const newDocument: AiOfficeDocument = {
         _id: newDocumentId,
         userId: 'current-user',
         type: documentType,
@@ -451,9 +452,9 @@ export default function ChatPanel() {
         collaborators: [],
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      } as AiOfficeDocument;
 
-      useDocumentStore.getState().addDocument(newDocument as any);
+      useDocumentStore.getState().addDocument(newDocument);
       useDocumentStore.getState().setCurrentDocument(newDocumentId);
       targetDocumentId = newDocumentId;
     }
@@ -584,7 +585,7 @@ export default function ChatPanel() {
       const currentDoc = targetDocumentId
         ? useDocumentStore
             .getState()
-            .documents.find((d: any) => d._id === targetDocumentId)
+            .documents.find((d) => d._id ===targetDocumentId)
         : null;
       const existingContent =
         currentDoc &&
@@ -607,11 +608,11 @@ export default function ChatPanel() {
               // 局部页面更新：提取指定页面
               const slides = existingContent
                 .split(/^---$/m)
-                .filter((s: any) => s.trim());
+                .filter((s) => s.trim());
               const targetSlides: string[] = [];
               const otherSlides: string[] = [];
 
-              slides.forEach((slide: any, index: number) => {
+              slides.forEach((slide, index) => {
                 if (targetPages.includes(index + 1)) {
                   targetSlides.push(slide);
                 } else {
@@ -897,7 +898,7 @@ ${userInput || ''}
                   // 实时同步到文档
                   const currentDoc = useDocumentStore
                     .getState()
-                    .documents.find((d: any) => d._id === targetDocumentId);
+                    .documents.find((d) => d._id ===targetDocumentId);
                   if (currentDoc) {
                     // 判断是局部更新还是全文更新
                     // 如果是带分隔符的局部更新，使用 contentPart；否则使用 aiContent
@@ -917,10 +918,10 @@ ${userInput || ''}
                       // 局部页面更新：合并页面
                       const existingSlides = existingContent
                         .split(/^---$/m)
-                        .filter((s: any) => s.trim());
+                        .filter((s) => s.trim());
                       const newSlides = contentForMerge
                         .split(/^---$/m)
-                        .filter((s: any) => s.trim());
+                        .filter((s) => s.trim());
 
                       logger.debug(
                         '[ChatPanel] Existing slides:',
@@ -983,7 +984,7 @@ ${userInput || ''}
                           slideCount: slideCount,
                         },
                         updatedAt: new Date(),
-                      } as any);
+                      });
                   }
                 }
               } catch (e) {
@@ -1000,7 +1001,7 @@ ${userInput || ''}
       // 获取最终的文档状态（确保是最新的）
       const finalDocument = useDocumentStore
         .getState()
-        .documents.find((d: any) => d._id === targetDocumentId);
+        .documents.find((d) => d._id ===targetDocumentId);
 
       // 如果是文档生成请求，更新文档状态并自动保存版本
       if (isDocumentGenerationRequest && finalDocument) {
@@ -1008,14 +1009,14 @@ ${userInput || ''}
         useDocumentStore.getState().updateDocument(targetDocumentId, {
           status: 'completed',
           updatedAt: new Date(),
-        } as any);
+        });
 
         // 立即保存版本（不使用 setTimeout，避免竞态条件）
         try {
           // 重新获取文档以确保状态最新
           const currentDocument = useDocumentStore
             .getState()
-            .documents.find((d: any) => d._id === targetDocumentId);
+            .documents.find((d) => d._id ===targetDocumentId);
 
           if (currentDocument) {
             // 判断是更新现有文档还是初始生成
@@ -1066,7 +1067,7 @@ ${userInput || ''}
         useTaskStore.getState().updateTask(taskId, {
           context: {
             resourceIds:
-              useTaskStore.getState().tasks.find((t: any) => t._id === taskId)
+              useTaskStore.getState().tasks.find((t) => t._id ===taskId)
                 ?.context.resourceIds || selectedResourceIds,
             documentId: targetDocumentId,
             documentContent: documentContentSnapshot, // 保存文档内容快照
@@ -1076,13 +1077,13 @@ ${userInput || ''}
           },
           metadata: {
             wordCount: aiContent.length,
-          } as any,
+          },
         });
 
         // 验证任务是否正确保存
         const savedTask = useTaskStore
           .getState()
-          .tasks.find((t: any) => t._id === taskId);
+          .tasks.find((t) => t._id ===taskId);
         logger.debug('[ChatPanel] Task saved verification:', {
           taskId,
           hasDocumentContent: !!savedTask?.context.documentContent,
@@ -1108,7 +1109,7 @@ ${userInput || ''}
         useTaskStore.getState().updateTask(taskId, {
           metadata: {
             description: `错误: ${error instanceof Error ? error.message : 'AI服务暂时不可用'}`,
-          } as any,
+          },
         });
       }
     }
@@ -1216,7 +1217,7 @@ ${userInput || ''}
         });
         // 更新任务进度
         useTaskStore.getState().updateTask(taskId, {
-          metadata: { progress: 20 } as any,
+          metadata: { progress: 20 },
         });
       }, 1000);
 
@@ -1234,7 +1235,7 @@ ${userInput || ''}
         });
         // 更新任务进度
         useTaskStore.getState().updateTask(taskId, {
-          metadata: { progress: 40 } as any,
+          metadata: { progress: 40 },
         });
       }, 3000);
 
@@ -1278,7 +1279,7 @@ ${userInput || ''}
         useDocumentStore.getState().updateDocument(newDocumentId, {
           status: 'generating',
           updatedAt: new Date(),
-        } as any);
+        });
       } else {
         // 创建新文档
         newDocumentId = `doc-${Date.now()}`;
@@ -1336,7 +1337,7 @@ ${userInput || ''}
         });
         // 更新任务进度
         useTaskStore.getState().updateTask(taskId, {
-          metadata: { progress: 60 } as any,
+          metadata: { progress: 60 },
         });
       }, 5000);
 
@@ -1353,7 +1354,7 @@ ${userInput || ''}
             // 标记文档状态为草稿
             useDocumentStore.getState().updateDocument(newDocumentId, {
               status: 'draft' as const,
-            } as any);
+            });
             break;
           }
 
@@ -1380,7 +1381,7 @@ ${userInput || ''}
                     metadata: {
                       wordCount: documentContent.length,
                     },
-                  } as any);
+                  });
                 }
               } catch (e) {
                 // 忽略解析错误
@@ -1402,7 +1403,7 @@ ${userInput || ''}
       });
       // 更新任务进度
       useTaskStore.getState().updateTask(taskId, {
-        metadata: { progress: 90 } as any,
+        metadata: { progress: 90 },
       });
 
       // 短暂延迟后完成
@@ -1414,7 +1415,7 @@ ${userInput || ''}
         // 完成任务并保存上下文（包含文档内容快照）
         const finalDocument = useDocumentStore
           .getState()
-          .documents.find((d: any) => d._id === newDocumentId);
+          .documents.find((d) => d._id ===newDocumentId);
 
         // 深拷贝文档内容和元数据
         const documentContentSnapshot = finalDocument?.content
@@ -1437,7 +1438,7 @@ ${userInput || ''}
           metadata: {
             progress: 100,
             wordCount: documentContent.length,
-          } as any,
+          },
         });
       }, 500);
 
@@ -1479,7 +1480,7 @@ ${userInput || ''}
       useTaskStore.getState().updateTask(taskId, {
         metadata: {
           error: error instanceof Error ? error.message : '文档生成失败',
-        } as any,
+        },
       });
     }
   };

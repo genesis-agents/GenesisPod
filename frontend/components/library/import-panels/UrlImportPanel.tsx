@@ -205,12 +205,12 @@ export default function UrlImportPanel({
 
       // Update URL statuses based on result
       if (result.failed && result.failed.length > 0) {
-        const failedUrls = new Set(result.failed.map((f: any) => f.url));
+        const failedUrls = new Set(result.failed.map((f) => f.url));
         setUrls((prev) =>
           prev.map((u) => ({
             ...u,
             status: failedUrls.has(u.url) ? 'error' : 'success',
-            error: result.failed.find((f: any) => f.url === u.url)?.error,
+            error: result.failed.find((f) => f.url === u.url)?.error,
           }))
         );
       } else {

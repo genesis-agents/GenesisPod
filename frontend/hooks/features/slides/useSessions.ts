@@ -69,7 +69,7 @@ export function useSessions(options: UseSessionsOptions = {}) {
       const data = await response.json();
 
       // 转换日期字段
-      const sessionsData = (data.sessions || []).map((session: any) => ({
+      const sessionsData = (data.sessions || []).map((session) => ({
         ...session,
         createdAt: new Date(session.createdAt),
         updatedAt: new Date(session.updatedAt),

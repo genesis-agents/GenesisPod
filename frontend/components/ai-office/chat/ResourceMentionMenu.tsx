@@ -272,7 +272,7 @@ export default function ResourceMentionMenu({
 // 资源项组件
 interface ResourceItemProps {
   resource: Resource;
-  Icon: any;
+  Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   colorClass: string;
   isSelected: boolean;
   isChecked: boolean;

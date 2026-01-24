@@ -1647,9 +1647,9 @@ function MessageInput({
               onClick={() => handleMentionSelect(entity)}
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50"
             >
-              {(entity as any).iconUrl ? (
+              {(entity).iconUrl ? (
                 <img
-                  src={(entity as any).iconUrl}
+                  src={(entity).iconUrl}
                   alt={entity.name}
                   className="h-5 w-5"
                 />
@@ -1685,9 +1685,9 @@ function MessageInput({
                     />
                   </svg>
                 </div>
-              ) : (entity as any).avatar ? (
+              ) : (entity).avatar ? (
                 <img
-                  src={(entity as any).avatar}
+                  src={(entity).avatar}
                   alt=""
                   className="h-6 w-6 rounded-full object-cover"
                 />
@@ -2293,7 +2293,7 @@ export default function TopicPage() {
       setInviteEmail('');
       setSelectedInviteUser(null);
       setInviteSearchResults([]);
-    } catch (error: any) {
+    } catch (error) {
       setInviteError(error.message || 'Failed to invite member');
     } finally {
       setIsInviting(false);

@@ -151,7 +151,7 @@ export default function SystemSettings() {
 
       const data = await res.json();
       setSearchTestResult({ provider, ...data });
-    } catch (error: any) {
+    } catch (error) {
       setSearchTestResult({
         provider,
         success: false,

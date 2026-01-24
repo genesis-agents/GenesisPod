@@ -4,9 +4,24 @@ import { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import CommentItem from './CommentItem';
-import CommentInput from './CommentInput';
+import CommentInput, { type Comment } from './CommentInput';
 
 import { logger } from '@/lib/utils/logger';
+
+interface CommentWithReplies extends Comment {
+  user: {
+    id: string;
+    username: string;
+    fullName?: string;
+    avatarUrl?: string;
+  };
+  upvoteCount: number;
+  replyCount: number;
+  isEdited: boolean;
+  isDeleted: boolean;
+  replies?: CommentWithReplies[];
+}
+
 interface CommentsListProps {
   resourceId: string;
   showInput?: boolean;
@@ -26,7 +41,7 @@ export default function CommentsList({
   resourceId,
   showInput = true,
 }: CommentsListProps) {
-  const [comments, setComments] = useState<any[]>([]);
+  const [comments, setComments] = useState<CommentWithReplies[]>([]);
   const [stats, setStats] = useState({ total: 0, topLevel: 0, replies: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,14 +91,14 @@ export default function CommentsList({
     }
   };
 
-  const handleCommentAdded = (newComment: any) => {
+  const handleCommentAdded = (newComment: Comment) => {
     loadComments();
     loadStats();
   };
 
   const handleCommentUpdated = (commentId: string, content: string) => {
     // Update comment in local state
-    const updateComment = (comments: any[]): any[] => {
+    const updateComment = (comments: CommentWithReplies[]): CommentWithReplies[] => {
       return comments.map((comment) => {
         if (comment.id === commentId) {
           return { ...comment, content, isEdited: true };

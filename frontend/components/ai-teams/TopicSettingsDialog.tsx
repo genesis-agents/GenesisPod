@@ -71,7 +71,7 @@ export default function TopicSettingsDialog({
       setJoinRequests(requests);
       // Refresh topic to update member count
       await fetchTopic(topic.id);
-    } catch (error: any) {
+    } catch (error) {
       alert(error.message || 'Failed to process request');
     }
   };
@@ -413,7 +413,7 @@ function AddAIDialog({
         autoRespond,
       });
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       setError(err.message || 'Failed to add AI assistant');
     } finally {
       setIsAdding(false);
@@ -870,7 +870,7 @@ function AddMemberDialog({
       const userIdOrEmail = selectedUser ? selectedUser.id : searchQuery.trim();
       await onAdd(topicId, userIdOrEmail, role);
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       setError(err.message || 'Failed to add member');
     } finally {
       setIsAdding(false);

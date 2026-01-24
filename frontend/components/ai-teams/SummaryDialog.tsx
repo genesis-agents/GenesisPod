@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Topic, TopicSummary, GenerateSummaryDto } from '@/types/ai-teams';
+import type { WebResource } from '@/types/ai-office';
 import { useAIModels } from '@/hooks';
 import * as api from '@/lib/api/ai-teams';
 import { useResourceStore } from '@/stores/aiOfficeStore';
@@ -73,27 +74,39 @@ export default function SummaryDialog({ topic, onClose }: SummaryDialogProps) {
     }
 
     // Convert summary to AI Office resource format
-    const summaryAsResource = {
+    const summaryAsResource: WebResource = {
       _id: resourceId,
       userId: 'current-user',
       resourceId: summary.id,
-      resourceType: 'text' as const,
-      status: 'collected' as const,
+      resourceType: 'web_page',
+      status: 'collected',
       collectedAt: new Date(),
       updatedAt: new Date(),
+      url: '',
       metadata: {
         title: summary.title,
         description: `AI Team Summary from "${topic.name}"`,
-        url: '',
-      },
-      extractedContent: {
-        summary: summary.content,
-        fullText: summary.content,
+        author: '',
+        publishedAt: new Date(),
         tags: ['ai-team-summary', topic.name],
+        thumbnailUrl: '',
+      },
+      content: {
+        html: '',
+        markdown: summary.content,
+        plainText: summary.content,
+        images: [],
+        links: [],
+      },
+      aiAnalysis: {
+        summary: summary.content,
+        mainTopics: ['ai-team-summary'],
+        keyInsights: [],
+        credibility: 100,
       },
     };
 
-    aiOfficeStore.addResource(summaryAsResource as any);
+    aiOfficeStore.addResource(summaryAsResource);
     setExportedSummaries((prev) => new Set([...prev, summary.id]));
   };
 

@@ -108,7 +108,10 @@ export function TodoDetailPanel({
             if (!initialTodoId && taskResponse.task) {
               // ★ 转换 task 数据为 todo 格式
               // 状态映射
-              const statusMap: Record<string, string> = {
+              const statusMap: Record<
+                string,
+                ResearchTodoStatus
+              > = {
                 COMPLETED: 'COMPLETED',
                 EXECUTING: 'IN_PROGRESS',
                 FAILED: 'FAILED',
@@ -139,7 +142,7 @@ export function TodoDetailPanel({
                 description: taskResponse.task.description,
                 dimensionName: taskResponse.task.dimensionName,
                 agentName: taskResponse.task.assignedAgent,
-                status: mappedStatus as any,
+                status: mappedStatus,
                 progress,
                 priority: taskResponse.task.priority || 0,
                 dependsOn: [],
@@ -158,7 +161,7 @@ export function TodoDetailPanel({
                       taskResponse.task.resultSummary ||
                       '任务执行失败'
                     : taskResponse.task.resultSummary,
-              } as any);
+              });
             }
           } catch (taskErr) {
             // 如果 getTaskActivities 失败，尝试 getTodoDetails 作为后备

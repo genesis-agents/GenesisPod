@@ -13,6 +13,7 @@ import {
   TopicMessage,
   MissionStatus,
   AgentTaskStatus,
+  AgentTask,
   TeamMission,
   AddAIMemberDto,
   UpdateAIMemberDto,
@@ -35,13 +36,14 @@ interface AiGroupState
 }
 
 export const useAiGroupStore = create<AiGroupState>()((set, get) => {
-  const topicsSlice = createTopicsSlice(set, get, { setState: set, getState: get } as any);
-  const messagesSlice = createMessagesSlice(set, get, { setState: set, getState: get } as any);
-  const missionsSlice = createMissionsSlice(set, get, { setState: set, getState: get } as any);
-  const websocketSlice = createWebSocketSlice(set, get, { setState: set, getState: get } as any);
+  const storeApi = { setState: set, getState: get };
+  const topicsSlice = createTopicsSlice(set, get, storeApi);
+  const messagesSlice = createMessagesSlice(set, get, storeApi);
+  const missionsSlice = createMissionsSlice(set, get, storeApi);
+  const websocketSlice = createWebSocketSlice(set, get, storeApi);
 
   // Setup WebSocket event listeners
-  const setupWebSocketListeners = (socket: any) => {
+  const setupWebSocketListeners = (socket: import('socket.io-client').Socket | null) => {
     if (!socket) return;
 
     // Message events
@@ -128,7 +130,7 @@ export const useAiGroupStore = create<AiGroupState>()((set, get) => {
         status: MissionStatus;
         previousStatus: MissionStatus;
         totalTasks?: number;
-        tasks?: any[];
+        tasks?: AgentTask[];
       }) => {
         missionsSlice.handleMissionStatusChanged(
           missionId,

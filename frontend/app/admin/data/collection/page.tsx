@@ -590,8 +590,8 @@ export default function ConfigPage() {
       await createDataSource({
         name: newSourceForm.name,
         description: newSourceForm.description,
-        type: newSourceForm.type as any,
-        category: showAddSourceModal as any,
+        type: newSourceForm.type,
+        category: showAddSourceModal,
         baseUrl: newSourceForm.baseUrl,
         apiEndpoint: newSourceForm.apiEndpoint,
         crawlerType,
@@ -1366,7 +1366,7 @@ export default function ConfigPage() {
                   Frequency
                 </label>
                 <select
-                  value={(editForm as any).scheduleFrequency || 'manual'}
+                  value={(editForm).scheduleFrequency || 'manual'}
                   onChange={(e) =>
                     setEditForm({
                       ...editForm,

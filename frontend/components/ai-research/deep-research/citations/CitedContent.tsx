@@ -6,6 +6,7 @@ import { parseCitations } from './citationParser';
 import type { SourceReference, ParsedMessage } from './types';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import type { Components } from 'react-markdown';
 
 interface CitedContentProps {
   content: string;
@@ -140,10 +141,10 @@ export function CitedMarkdown({
 
   // Custom component to render citation markers and annotation highlights
   // Override all common markdown elements to ensure citations/annotations are processed everywhere
-  const components = useMemo(
+  const components = useMemo<Components>(
     () => ({
       // Block elements
-      p: ({ children, ...props }: any) => {
+      p: ({ children, ...props }) => {
         return (
           <p {...props}>
             {processChildren(
@@ -155,7 +156,7 @@ export function CitedMarkdown({
           </p>
         );
       },
-      li: ({ children, ...props }: any) => {
+      li: ({ children, ...props }) => {
         return (
           <li {...props}>
             {processChildren(
@@ -167,7 +168,7 @@ export function CitedMarkdown({
           </li>
         );
       },
-      td: ({ children, ...props }: any) => {
+      td: ({ children, ...props }) => {
         return (
           <td {...props}>
             {processChildren(
@@ -179,7 +180,7 @@ export function CitedMarkdown({
           </td>
         );
       },
-      th: ({ children, ...props }: any) => {
+      th: ({ children, ...props }) => {
         return (
           <th {...props}>
             {processChildren(
@@ -191,7 +192,7 @@ export function CitedMarkdown({
           </th>
         );
       },
-      blockquote: ({ children, ...props }: any) => {
+      blockquote: ({ children, ...props }) => {
         return (
           <blockquote {...props}>
             {processChildren(
@@ -204,7 +205,7 @@ export function CitedMarkdown({
         );
       },
       // Headings
-      h1: ({ children, ...props }: any) => {
+      h1: ({ children, ...props }) => {
         return (
           <h1 {...props}>
             {processChildren(
@@ -216,7 +217,7 @@ export function CitedMarkdown({
           </h1>
         );
       },
-      h2: ({ children, ...props }: any) => {
+      h2: ({ children, ...props }) => {
         return (
           <h2 {...props}>
             {processChildren(
@@ -228,7 +229,7 @@ export function CitedMarkdown({
           </h2>
         );
       },
-      h3: ({ children, ...props }: any) => {
+      h3: ({ children, ...props }) => {
         return (
           <h3 {...props}>
             {processChildren(
@@ -240,7 +241,7 @@ export function CitedMarkdown({
           </h3>
         );
       },
-      h4: ({ children, ...props }: any) => {
+      h4: ({ children, ...props }) => {
         return (
           <h4 {...props}>
             {processChildren(
@@ -252,7 +253,7 @@ export function CitedMarkdown({
           </h4>
         );
       },
-      h5: ({ children, ...props }: any) => {
+      h5: ({ children, ...props }) => {
         return (
           <h5 {...props}>
             {processChildren(
@@ -264,7 +265,7 @@ export function CitedMarkdown({
           </h5>
         );
       },
-      h6: ({ children, ...props }: any) => {
+      h6: ({ children, ...props }) => {
         return (
           <h6 {...props}>
             {processChildren(
@@ -277,7 +278,7 @@ export function CitedMarkdown({
         );
       },
       // Inline elements
-      strong: ({ children, ...props }: any) => {
+      strong: ({ children, ...props }) => {
         return (
           <strong {...props}>
             {processChildren(
@@ -289,7 +290,7 @@ export function CitedMarkdown({
           </strong>
         );
       },
-      em: ({ children, ...props }: any) => {
+      em: ({ children, ...props }) => {
         return (
           <em {...props}>
             {processChildren(
@@ -301,7 +302,7 @@ export function CitedMarkdown({
           </em>
         );
       },
-      a: ({ children, ...props }: any) => {
+      a: ({ children, ...props }) => {
         return (
           <a {...props}>
             {processChildren(
@@ -313,7 +314,7 @@ export function CitedMarkdown({
           </a>
         );
       },
-      span: ({ children, ...props }: any) => {
+      span: ({ children, ...props }) => {
         return (
           <span {...props}>
             {processChildren(
@@ -325,7 +326,7 @@ export function CitedMarkdown({
           </span>
         );
       },
-      code: ({ children, className, ...props }: any) => {
+      code: ({ children, className, ...props }) => {
         // Detect inline code: no language class and no newlines
         const codeString = String(children).replace(/\n$/, '');
         const hasLanguage = /language-(\w+)/.test(className || '');

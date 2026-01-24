@@ -887,7 +887,7 @@ export interface TaskStatus {
     sourcesFound?: number;
     wordCount?: number;
     keyFindings?: number;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   /** 结果摘要 */
   resultSummary?: string;
@@ -1495,7 +1495,7 @@ export async function getTodoDetails(
 export async function getTaskActivities(
   topicId: string,
   taskId: string
-): Promise<{ task: any; activities: AgentActivity[] }> {
+): Promise<{ task: Record<string, unknown>; activities: AgentActivity[] }> {
   return fetchWithAuth(
     `${API_PREFIX}/topics/${topicId}/tasks/${taskId}/activities`
   );

@@ -31,8 +31,8 @@ export default function VersionSelector({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // 从store中读取document和versions
-  const currentDocument = useDocumentStore((state: any) =>
-    state.documents.find((d: any) => d._id === documentId)
+  const currentDocument = useDocumentStore((state) =>
+    state.documents.find((d) => d._id === documentId)
   );
   const { restoreVersion, saveVersion } = useDocumentStore();
 

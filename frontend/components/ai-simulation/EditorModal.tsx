@@ -80,10 +80,10 @@ export function EditorModal({
     const preset = (scenario || seed || {}) as Partial<ScenarioCard> &
       Partial<ScenarioTemplate>;
     if (preset.agents && preset.agents.length > 0) {
-      return preset.agents.map((a: any) => ({
+      return preset.agents.map((a) => ({
         role: a.role || '',
         team: a.team || 'BLUE',
-        companyName: a.companyName || a.company?.name || '',
+        companyName: a.companyName || (a as unknown as { company?: { name?: string } }).company?.name || '',
         persona: a.persona,
         memoryPublic: a.memoryPublic,
         memoryPrivate: a.memoryPrivate,
@@ -251,8 +251,8 @@ export function EditorModal({
       } else {
         setMessage(data?.message || 'AI分析失败，请稍后重试');
       }
-    } catch (err: any) {
-      setMessage(err.message || 'AI分析失败');
+    } catch (err) {
+      setMessage((err instanceof Error ? err.message : String(err)) || 'AI分析失败');
     } finally {
       setAiAssisting(false);
     }
@@ -392,7 +392,7 @@ export function EditorModal({
     role: string;
     team: string;
     companyName?: string;
-    persona?: any;
+    persona?: string | object;
     reason: string;
   }> | null>(null);
 
@@ -439,8 +439,8 @@ export function EditorModal({
       } else {
         setMessage(data?.message || 'AI推荐失败，请稍后重试');
       }
-    } catch (err: any) {
-      setMessage(err.message || 'AI推荐失败');
+    } catch (err) {
+      setMessage((err instanceof Error ? err.message : String(err)) || 'AI推荐失败');
     } finally {
       setAiAgentAssisting(false);
     }
@@ -570,8 +570,8 @@ export function EditorModal({
       } else {
         setMessage(data?.message || 'AI推荐失败，请稍后重试');
       }
-    } catch (err: any) {
-      setMessage(err.message || 'AI推荐失败');
+    } catch (err) {
+      setMessage((err instanceof Error ? err.message : String(err)) || 'AI推荐失败');
     } finally {
       setAiParamsAssisting(false);
     }
@@ -658,8 +658,8 @@ export function EditorModal({
       } else {
         setMessage(data?.message || '保存失败');
       }
-    } catch (err: any) {
-      setMessage(err.message || '保存失败');
+    } catch (err) {
+      setMessage((err instanceof Error ? err.message : String(err)) || '保存失败');
     } finally {
       setSaving(false);
     }
@@ -693,8 +693,8 @@ export function EditorModal({
       } else {
         setMessage(data?.message || '启动失败');
       }
-    } catch (err: any) {
-      setMessage(err.message || '启动失败');
+    } catch (err) {
+      setMessage((err instanceof Error ? err.message : String(err)) || '启动失败');
     } finally {
       setSaving(false);
     }
@@ -784,8 +784,8 @@ export function EditorModal({
       } else {
         setMessage(data?.message || '同步外部数据失败');
       }
-    } catch (err: any) {
-      setMessage(err.message || '同步外部数据失败');
+    } catch (err) {
+      setMessage((err instanceof Error ? err.message : String(err)) || '同步外部数据失败');
     } finally {
       setSyncing(false);
     }
@@ -844,10 +844,10 @@ export function EditorModal({
       // 使用外部API返回的公司列表
       const newCompanies = external.snapshot.market
         .slice(0, 6)
-        .map((item: any, idx: number) => ({
-          name: item.name || item.title || `Company ${idx + 1}`,
-          type: item.type || 'competitor',
-          market: item.market || form.region || 'Global',
+        .map((item: Record<string, unknown>, idx: number) => ({
+          name: (item.name as string) || (item.title as string) || `Company ${idx + 1}`,
+          type: (item.type as string) || 'competitor',
+          market: (item.market as string) || form.region || 'Global',
           metrics: item.metrics || item,
         }));
       setCompanies((prev) => mergeCompanies(prev, newCompanies));
@@ -896,7 +896,7 @@ export function EditorModal({
       if (res.ok && data.companies && Array.isArray(data.companies)) {
         // AI分析成功，为每个公司生成量化指标
         const companiesWithMetrics = await Promise.all(
-          data.companies.map(async (c: any) => {
+          data.companies.map(async (c: { name: string; type?: string; market?: string }) => {
             try {
               const metricsRes = await fetch(
                 `${config.apiUrl}/simulation/ai-assist/generate-metrics`,
@@ -944,8 +944,8 @@ export function EditorModal({
           data?.message || 'AI分析未返回公司数据，请手动添加公司或重试'
         );
       }
-    } catch (err: any) {
-      setMessage(err.message || 'AI分析失败，请手动添加公司');
+    } catch (err) {
+      setMessage((err instanceof Error ? err.message : String(err)) || 'AI分析失败，请手动添加公司');
     } finally {
       setAiAssisting(false);
     }

@@ -19,7 +19,7 @@ interface Note {
   id: string;
   resourceId: string;
   content: string;
-  highlights: any[];
+  highlights: Array<Record<string, unknown>>;
   tags: string[];
   isPublic: boolean;
 }
@@ -117,7 +117,7 @@ export default function ResourceReader({
     }
   };
 
-  const handleHighlightAdded = (highlight: any) => {
+  const handleHighlightAdded = (highlight) => {
     setHighlights([...highlights, highlight]);
   };
 
@@ -268,7 +268,7 @@ export default function ResourceReader({
             高亮总结 ({highlights.length})
           </h3>
           <div className="max-h-48 space-y-2 overflow-auto">
-            {highlights.slice(0, 5).map((highlight: any) => (
+            {highlights.slice(0, 5).map((highlight) => (
               <div
                 key={highlight.id}
                 className="rounded p-2 text-xs"

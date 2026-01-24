@@ -116,7 +116,13 @@ const defaultTimelineData: TimelineDataPoint[] = (() => {
 type ChartType = 'area' | 'bar';
 
 // Custom Tooltip component
-function CustomTooltip({ active, payload, label }: any) {
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{ value: number }>;
+  label?: string;
+}
+
+function CustomTooltip({ active, payload, label }: TooltipProps) {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg">

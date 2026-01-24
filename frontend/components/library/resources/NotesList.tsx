@@ -10,7 +10,7 @@ interface Note {
   id: string;
   resourceId: string;
   content: string;
-  highlights: any[];
+  highlights: Array<Record<string, unknown>>;
   tags: string[];
   isPublic: boolean;
   isBookmarked: boolean;

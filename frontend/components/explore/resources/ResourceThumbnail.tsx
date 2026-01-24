@@ -88,7 +88,7 @@ interface ResourceThumbnailProps {
     title: string;
     metadata?: {
       imageUrl?: string;
-      [key: string]: any;
+      [key: string]: unknown;
     };
   };
   className?: string;

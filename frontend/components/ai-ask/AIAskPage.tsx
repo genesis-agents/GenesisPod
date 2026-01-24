@@ -1188,10 +1188,10 @@ export function AIAskPage() {
         );
 
         if (response.ok) {
-          const data = await response.json();
+          const data: { messages: Message[] } = await response.json();
           setCurrentSessionId(sessionId);
           setMessages(
-            data.messages.map((m: any) => ({
+            data.messages.map((m) => ({
               id: m.id,
               role: m.role,
               content: m.content,

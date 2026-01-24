@@ -60,7 +60,7 @@ export function useResources({
         const youtubeData = await youtubeRes.json();
         const youtubeVideos = (
           Array.isArray(youtubeData) ? youtubeData : youtubeData.data || []
-        ).map((video: any) => ({
+        ).map((video) => ({
           id: video.id,
           type: 'YOUTUBE',
           title: video.title,
@@ -81,7 +81,7 @@ export function useResources({
         const seenVideoIds = new Set<string>();
         const allVideos: Resource[] = [];
 
-        const getVideoId = (video: any): string | null => {
+        const getVideoId = (video): string | null => {
           if (video.videoId) return video.videoId;
           if (video.sourceUrl) {
             const match = video.sourceUrl.match(

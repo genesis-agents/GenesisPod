@@ -1,8 +1,12 @@
 import { StateCreator } from 'zustand';
 import {
   Topic,
+  TopicType,
   CreateTopicDto,
   UpdateTopicDto,
+  AddAIMemberDto,
+  UpdateAIMemberDto,
+  TopicRole,
 } from '@/types/ai-teams';
 import * as api from '@/lib/api/ai-teams';
 
@@ -14,20 +18,20 @@ export interface TopicsSlice {
   isLoadingTopics: boolean;
 
   // Actions
-  fetchTopics: (options?: { type?: string; search?: string }) => Promise<void>;
+  fetchTopics: (options?: { type?: TopicType; search?: string }) => Promise<void>;
   fetchTopic: (topicId: string) => Promise<void>;
   createTopic: (dto: CreateTopicDto) => Promise<Topic>;
   updateTopic: (topicId: string, dto: UpdateTopicDto) => Promise<void>;
   deleteTopic: (topicId: string) => Promise<void>;
   setCurrentTopic: (topic: Topic | null) => void;
-  addMember: (topicId: string, userId: string, role?: string) => Promise<void>;
+  addMember: (topicId: string, userId: string, role?: TopicRole) => Promise<void>;
   removeMember: (topicId: string, memberId: string) => Promise<void>;
   leaveTopicAsMember: (topicId: string) => Promise<void>;
-  addAIMember: (topicId: string, dto: any) => Promise<void>;
+  addAIMember: (topicId: string, dto: AddAIMemberDto) => Promise<void>;
   updateAIMember: (
     topicId: string,
     aiMemberId: string,
-    dto: any
+    dto: UpdateAIMemberDto
   ) => Promise<void>;
   removeAIMember: (topicId: string, aiMemberId: string) => Promise<void>;
 }
@@ -47,7 +51,7 @@ export const createTopicsSlice: StateCreator<
   fetchTopics: async (options) => {
     set({ isLoadingTopics: true });
     try {
-      const topics = await api.getTopics(options as any);
+      const topics = await api.getTopics(options);
       set({ topics, isLoadingTopics: false });
     } catch (error) {
       logger.error('Failed to fetch topics:', error);
@@ -105,11 +109,11 @@ export const createTopicsSlice: StateCreator<
   addMember: async (topicId, userIdOrEmail, role) => {
     // Check if input looks like an email
     if (userIdOrEmail.includes('@')) {
-      await api.addMemberByEmail(topicId, userIdOrEmail, role as any);
+      await api.addMemberByEmail(topicId, userIdOrEmail, role);
     } else {
       await api.addMember(topicId, {
         userId: userIdOrEmail,
-        role: role as any,
+        role,
       });
     }
     await get().fetchTopic(topicId);

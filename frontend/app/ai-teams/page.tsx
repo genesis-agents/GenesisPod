@@ -103,7 +103,7 @@ export default function AIGroupPage() {
       setShowJoinDialog(null);
       setJoinRequestMessage('');
       alert(t('aiTeams.joinRequest.sentAlert', { name: topic.name }));
-    } catch (error: any) {
+    } catch (error) {
       alert(error.message || t('aiTeams.joinRequest.sendFailed'));
     } finally {
       setJoiningTopicId(null);
@@ -117,7 +117,7 @@ export default function AIGroupPage() {
       await api.cancelJoinRequest(requestId);
       const requests = await api.getMyJoinRequests();
       setMyJoinRequests(requests);
-    } catch (error: any) {
+    } catch (error) {
       alert(error.message || t('aiTeams.pendingRequests.cancelFailed'));
     }
   };

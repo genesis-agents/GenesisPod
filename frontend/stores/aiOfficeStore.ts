@@ -13,6 +13,7 @@ import type {
   ResourceType,
   DocumentType,
   DocumentVersion,
+  AIConfig,
 } from '@/types/ai-office';
 import { calculateSlideCount } from '@/lib/ai-office/ppt-utils';
 import { logger } from '@/lib/utils/logger';
@@ -596,11 +597,11 @@ export interface Task {
   context: {
     resourceIds: string[]; // 关联的资源
     documentId?: string; // 生成的文档
-    documentContent?: any; // 文档内容快照 - 用于恢复文档状态
-    documentMetadata?: any; // 文档元数据快照 - 用于恢复 slideCount 等信息
+    documentContent?: Document['content']; // 文档内容快照 - 用于恢复文档状态
+    documentMetadata?: Document['metadata']; // 文档元数据快照 - 用于恢复 slideCount 等信息
     documentVersions?: DocumentVersion[]; // 文档版本历史快照 - 用于恢复版本管理
     chatMessages: ChatMessage[]; // AI对话历史
-    aiConfig?: any; // AI配置
+    aiConfig?: Partial<AIConfig>; // AI配置
     prompt?: string; // 原始用户提示词
   };
 
@@ -609,6 +610,8 @@ export interface Task {
     thumbnail?: string; // 缩略图
     wordCount?: number; // 字数
     description?: string; // 任务描述
+    progress?: number; // 任务进度 (0-100)
+    error?: string; // 错误信息
   };
 }
 

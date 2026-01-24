@@ -141,7 +141,7 @@ export class ResourceAnalysisAgent {
   ): string {
     const resourceSummaries = resources
       .map(
-        (r: any, i) => `
+        (r, i) => `
 资源 ${i + 1}: ${r.title}
 类型: ${r.type}
 ${r.abstract ? `摘要: ${r.abstract}` : ''}
@@ -216,13 +216,13 @@ ${depthInstruction}
   /**
    * 验证并规范化分析结果
    */
-  private validateAnalysis(raw: any): Omit<ResourceAnalysis, 'analyzedAt'> {
+  private validateAnalysis(raw: unknown): Omit<ResourceAnalysis, 'analyzedAt'> {
     return {
       insights: Array.isArray(raw.insights)
-        ? raw.insights.filter((i: any) => typeof i === 'string')
+        ? raw.insights.filter((i) => typeof i === 'string')
         : [],
       findings: Array.isArray(raw.findings)
-        ? raw.findings.map((f: any) => ({
+        ? raw.findings.map((f) => ({
             claim: f.claim || '',
             evidence: f.evidence || '',
             source: f.source || '',
@@ -230,7 +230,7 @@ ${depthInstruction}
           }))
         : [],
       visualOpportunities: Array.isArray(raw.visualOpportunities)
-        ? raw.visualOpportunities.map((v: any) => ({
+        ? raw.visualOpportunities.map((v) => ({
             type: ['flow', 'chart', 'matrix', 'diagram'].includes(v.type)
               ? v.type
               : 'chart',
@@ -252,7 +252,7 @@ ${depthInstruction}
     const findings: ResourceAnalysis['findings'] = [];
 
     // 从资源标题和摘要提取基础信息
-    resources.forEach((resource: any) => {
+    resources.forEach((resource) => {
       if (resource.title) {
         insights.push(`研究主题：${resource.title}`);
       }

@@ -131,7 +131,7 @@ export function parseMarkdownToEnhancedSlides(
         if (match) {
           currentSlide.type = 'chart';
           currentSlide.visualizationType = 'chart';
-          currentSlide.chartType = match[1] as any;
+          currentSlide.chartType = match[1];
         }
       } else if (trimmed.startsWith('<!-- MATRIX -->')) {
         currentSlide.type = 'matrix';

@@ -289,10 +289,10 @@ function HomeContent() {
       if (
         resource.type === 'YOUTUBE' ||
         resource.type === 'YOUTUBE_VIDEO' ||
-        (resource as any).videoId
+        (resource).videoId
       ) {
         const videoId =
-          (resource as any).videoId ||
+          (resource).videoId ||
           extractYouTubeVideoId(resource.sourceUrl);
 
         if (videoId) {
@@ -371,17 +371,26 @@ function HomeContent() {
             : {},
         });
         const youtubeData = await youtubeRes.json();
+        interface VideoData {
+          id: string;
+          title: string;
+          url: string;
+          createdAt: string;
+          videoId: string;
+        }
         const youtubeVideos = (
           Array.isArray(youtubeData) ? youtubeData : youtubeData.data || []
-        ).map((video: any) => ({
-          id: video.id,
-          type: 'YOUTUBE',
-          title: video.title,
+        ).map((video) => {
+          const v = video as VideoData;
+          return {
+          id: v.id,
+          type: 'YOUTUBE' as const,
+          title: v.title,
           abstract: null,
-          sourceUrl: video.url,
-          publishedAt: video.createdAt,
-          videoId: video.videoId,
-        }));
+          sourceUrl: v.url,
+          publishedAt: v.createdAt,
+          videoId: v.videoId,
+        }});
 
         // Fetch from resources table with type=YOUTUBE_VIDEO
         const resourcesUrl = `${config.apiUrl}/resources?type=YOUTUBE_VIDEO&take=${PAGE_SIZE}&skip=${currentPage * PAGE_SIZE}`;
@@ -396,9 +405,9 @@ function HomeContent() {
         const allVideos: Resource[] = [];
 
         // Helper to extract videoId from URL or direct field
-        const getVideoId = (video: any): string | null => {
-          if (video.videoId) return video.videoId;
-          if (video.sourceUrl) {
+        const getVideoId = (video: Record<string, unknown>): string | null => {
+          if (video.videoId) return video.videoId as string;
+          if (video.sourceUrl && typeof video.sourceUrl === 'string') {
             const match = video.sourceUrl.match(
               /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/
             );
@@ -671,10 +680,10 @@ function HomeContent() {
     if (
       resource.type === 'YOUTUBE' ||
       resource.type === 'YOUTUBE_VIDEO' ||
-      (resource as any).videoId
+      (resource).videoId
     ) {
       const videoId =
-        (resource as any).videoId || extractYouTubeVideoId(resource.sourceUrl);
+        (resource).videoId || extractYouTubeVideoId(resource.sourceUrl);
 
       if (videoId) {
         router.push(`/explore/youtube?videoId=${videoId}`);
@@ -1033,7 +1042,7 @@ function HomeContent() {
       // Build context using AIContextBuilder
       const resourceForAI: AIResource = {
         ...selectedResource,
-        type: selectedResource.type as any, // Convert to AIResource type
+        type: selectedResource.type, // Convert to AIResource type
         pdfText: pdfText || undefined,
       } as AIResource;
 
@@ -3095,7 +3104,7 @@ function HomeContent() {
                       if (
                         targetResource.type === 'YOUTUBE' ||
                         targetResource.type === 'YOUTUBE_VIDEO' ||
-                        (targetResource as any).videoId
+                        (targetResource).videoId
                       ) {
                         const videoId = extractYouTubeVideoId(
                           targetResource.sourceUrl

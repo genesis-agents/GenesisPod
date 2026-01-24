@@ -26,8 +26,19 @@ import {
 
 const logger = createLogger('ToolsManagement');
 
+// External tool definition type
+interface ExternalToolDefinition {
+  id: string;
+  name: string;
+  category: string;
+  url: string;
+  noKeyRequired?: boolean;
+  freeQuota?: string;
+  pricing?: string;
+}
+
 // External tool definitions (from original file)
-const EXTERNAL_TOOL_DEFINITIONS = [
+const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
   // Search Tools
   {
     id: 'perplexity',
@@ -275,7 +286,7 @@ export default function ToolsManagement() {
 
       // Map external tools
       const externalToolsData: ExternalTool[] = EXTERNAL_TOOL_DEFINITIONS.map(
-        (def: any) => {
+        (def) => {
           let hasApiKey = false;
           let status: 'configured' | 'not_configured' | 'error' =
             'not_configured';
@@ -342,9 +353,27 @@ export default function ToolsManagement() {
       setExternalTools(externalToolsData);
 
       // Map MCP servers
+      interface BackendMCPServer {
+        serverId: string;
+        name: string;
+        description?: string;
+        transport: 'stdio' | 'sse';
+        command?: string;
+        args?: string[];
+        url?: string;
+        enabled: boolean;
+        connected?: boolean;
+        autoConnect?: boolean;
+        toolCount?: number;
+        tools?: Array<{
+          name: string;
+          description?: string;
+        }>;
+        env?: Record<string, string>;
+      }
       const mcpServersDataMapped: MCPServer[] = (
-        mcpServersData.servers || []
-      ).map((server: any) => ({
+        (mcpServersData.servers || []) as BackendMCPServer[]
+      ).map((server) => ({
         serverId: server.serverId,
         name: server.name,
         description: server.description,
@@ -452,7 +481,7 @@ export default function ToolsManagement() {
 
       // Legacy config endpoints for direct API key
       let endpoint = '';
-      let body: Record<string, any> = {};
+      let body: Record<string, unknown> = {};
 
       switch (tool.category) {
         case 'external-search':
@@ -583,7 +612,7 @@ export default function ToolsManagement() {
               : t('admin.tools.testFailed')),
         },
       }));
-    } catch (err: any) {
+    } catch (err) {
       setTestResults((prev) => ({
         ...prev,
         [tool.id]: {
@@ -983,7 +1012,7 @@ export default function ToolsManagement() {
       {/* Configure Modal for External Tools */}
       {configuringTool && (
         <ConfigureModal
-          tool={configuringTool as any}
+          tool={configuringTool}
           onClose={() => setConfiguringTool(null)}
           onSave={handleSaveExternalToolConfig}
           saving={saving}

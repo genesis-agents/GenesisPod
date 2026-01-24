@@ -205,7 +205,7 @@ interface Resource {
     feedTitle?: string;
     channelName?: string;
     sourceName?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   sourceType?: string;
   // GitHub/原始数据增强
@@ -216,8 +216,8 @@ interface Resource {
     forks?: number;
     language?: string;
     languages?: Record<string, number>;
-    contributors?: Array<any>;
-    [key: string]: any;
+    contributors?: Array<unknown>;
+    [key: string]: unknown;
   };
 }
 
@@ -569,7 +569,7 @@ function HomeContent() {
         aiAnalysis: {
           summary: resource.aiSummary || resource.abstract || '',
         },
-      } as any;
+      };
     } else if (resource.type === 'paper') {
       return {
         ...baseResource,
@@ -581,7 +581,7 @@ function HomeContent() {
         aiAnalysis: {
           summary: resource.aiSummary || resource.abstract || '',
         },
-      } as any;
+      };
     } else {
       return {
         ...baseResource,
@@ -593,7 +593,7 @@ function HomeContent() {
         aiAnalysis: {
           summary: resource.aiSummary || resource.abstract || '',
         },
-      } as any;
+      };
     }
   };
 
@@ -625,7 +625,7 @@ function HomeContent() {
 
         // Find or create default collection
         let defaultCollection = collections.find(
-          (c: any) => c.name === '我的收藏'
+          (c) => c.name === '我的收藏'
         );
 
         if (!defaultCollection) {
@@ -657,7 +657,7 @@ function HomeContent() {
           // Load bookmarked resource IDs
           const bookmarkedIds = new Set<string>(
             (defaultCollection.items || []).map(
-              (item: any) => item.resourceId as string
+              (item) => item.resourceId as string
             )
           );
           setBookmarks(bookmarkedIds);
@@ -688,9 +688,9 @@ function HomeContent() {
       if (
         resource.type === 'YOUTUBE' ||
         resource.type === 'YOUTUBE_VIDEO' ||
-        (resource as any).videoId
+        (resource).videoId
       ) {
-        let videoId = (resource as any).videoId;
+        let videoId = (resource).videoId;
 
         // If no videoId, extract from sourceUrl (handle multiple YouTube URL formats)
         if (!videoId && resource.sourceUrl) {
@@ -787,7 +787,7 @@ function HomeContent() {
           const page = await pdf.getPage(pageNum);
           const textContent = await page.getTextContent();
           const pageText = textContent.items
-            .map((item: any) => item.str)
+            .map((item) => item.str)
             .join(' ');
           fullText += pageText + '\n';
 
@@ -824,7 +824,7 @@ function HomeContent() {
         const youtubeData = await youtubeRes.json();
         const youtubeVideos = (
           Array.isArray(youtubeData) ? youtubeData : youtubeData.data || []
-        ).map((video: any) => ({
+        ).map((video) => ({
           id: video.id,
           type: 'YOUTUBE',
           title: video.title,
@@ -1029,9 +1029,9 @@ function HomeContent() {
     if (
       resource.type === 'YOUTUBE' ||
       resource.type === 'YOUTUBE_VIDEO' ||
-      (resource as any).videoId
+      (resource).videoId
     ) {
-      let videoId = (resource as any).videoId;
+      let videoId = (resource).videoId;
 
       // If no videoId, extract from sourceUrl (handle multiple YouTube URL formats)
       if (!videoId && resource.sourceUrl) {
@@ -1518,7 +1518,7 @@ function HomeContent() {
       // Build context using AIContextBuilder
       const resourceForAI: AIResource = {
         ...selectedResource,
-        type: selectedResource.type as any, // Convert to AIResource type
+        type: selectedResource.type, // Convert to AIResource type
         pdfText: pdfText || undefined,
       } as AIResource;
 
@@ -2335,7 +2335,7 @@ function HomeContent() {
                                     const aiResource =
                                       convertToAIOfficeResource(resource);
                                     aiOfficeStore.addResource(
-                                      aiResource as any
+                                      aiResource
                                     );
                                   }
                                 }}
@@ -2384,7 +2384,7 @@ function HomeContent() {
                                   if (!isAlreadyAdded) {
                                     addSource({
                                       id: resource.id,
-                                      type: resource.type.toLowerCase() as any,
+                                      type: resource.type.toLowerCase(),
                                       title: resource.title,
                                       url:
                                         resource.sourceUrl ||
@@ -2781,7 +2781,7 @@ function HomeContent() {
                             e.stopPropagation();
                             const aiResource =
                               convertToAIOfficeResource(selectedResource);
-                            aiOfficeStore.addResource(aiResource as any);
+                            aiOfficeStore.addResource(aiResource);
                           }}
                           disabled={aiOfficeStore.resources.some(
                             (r) => r._id === selectedResource.id

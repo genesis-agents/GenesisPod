@@ -174,14 +174,40 @@ function StructuredContent({
   );
 }
 
+interface TurnSubmission {
+  team: string;
+  action: string;
+  [key: string]: unknown;
+}
+
+interface TurnAdjudication {
+  result: string;
+  [key: string]: unknown;
+}
+
+interface TurnEvidence {
+  [key: string]: unknown;
+}
+
+interface WorldState {
+  [key: string]: unknown;
+}
+
 interface Turn {
   id: string;
   roundNumber: number;
-  submissions?: any;
-  adjudication?: any;
-  evidence?: any;
-  worldState?: any;
+  submissions?: TurnSubmission[];
+  adjudication?: TurnAdjudication;
+  evidence?: TurnEvidence;
+  worldState?: WorldState;
   createdAt: string;
+}
+
+interface MonologueEntry {
+  round: number;
+  team: string;
+  content: string;
+  [key: string]: unknown;
 }
 
 interface Run {
@@ -190,9 +216,9 @@ interface Run {
   status: 'PENDING' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED';
   currentRound: number;
   rounds: number;
-  params?: any;
-  worldState?: any;
-  evidenceTrail?: any;
+  params?: Record<string, unknown>;
+  worldState?: WorldState;
+  evidenceTrail?: unknown[];
   summary?: {
     keyFindings?: string[];
     biasesDetected?: {
@@ -212,15 +238,15 @@ interface Run {
       impact: string;
     }[];
     blackSwanEvents?: { round: number; team: string; event: string }[];
-    monologueLog?: any[];
+    monologueLog?: MonologueEntry[];
   };
   turns?: Turn[];
   scenario?: {
     id: string;
     name: string;
     industry: string;
-    companies?: any[];
-    agents?: any[];
+    companies?: Record<string, unknown>[];
+    agents?: Record<string, unknown>[];
   };
   createdAt: string;
   updatedAt: string;
@@ -777,7 +803,7 @@ export default function RunConsolePage() {
                                 (teamName) => {
                                   const teamSubmissions =
                                     turn.submissions.filter(
-                                      (s: any) => s.team === teamName
+                                      (s) => s.team === teamName
                                     );
                                   if (teamSubmissions.length === 0) return null;
 
@@ -864,7 +890,7 @@ export default function RunConsolePage() {
                                       {/* Submissions */}
                                       <div className="divide-y divide-gray-100 bg-white">
                                         {teamSubmissions.map(
-                                          (submission: any, idx: number) => (
+                                          (submission, idx: number) => (
                                             <div key={idx} className="p-4">
                                               {/* 公司/角色信息 - 更突出显示 */}
                                               <div className="mb-3 flex items-start justify-between">
@@ -1001,7 +1027,7 @@ export default function RunConsolePage() {
                               turn.adjudication.evidenceRefs.length > 0 && (
                                 <div className="mt-2 space-y-1">
                                   {turn.adjudication.evidenceRefs.map(
-                                    (ev: any, idx: number) => (
+                                    (ev, idx: number) => (
                                       <div
                                         key={idx}
                                         className="flex items-start gap-2 text-xs text-gray-600"
@@ -1291,7 +1317,7 @@ export default function RunConsolePage() {
                                 run.turns?.[run.turns.length - 1];
                               const teamSubmissions =
                                 latestTurn?.submissions?.filter(
-                                  (s: any) => s.team === team
+                                  (s) => s.team === team
                                 ) || [];
                               if (teamSubmissions.length === 0) return null;
 
@@ -1335,7 +1361,7 @@ export default function RunConsolePage() {
                                   <div className="space-y-1">
                                     {teamSubmissions
                                       .slice(0, 2)
-                                      .map((s: any, i: number) => (
+                                      .map((s, i: number) => (
                                         <div
                                           key={i}
                                           className="text-[11px] text-gray-700"
@@ -1368,7 +1394,7 @@ export default function RunConsolePage() {
                             </div>
                             <div className="space-y-2">
                               {run.worldState.interventions.map(
-                                (iv: any, idx: number) => (
+                                (iv, idx: number) => (
                                   <div
                                     key={idx}
                                     className="rounded bg-white p-2 text-xs"
@@ -1397,7 +1423,7 @@ export default function RunConsolePage() {
                             </div>
                             <div className="space-y-1.5">
                               {run.worldState.blackSwanHistory.map(
-                                (event: any, idx: number) => (
+                                (event, idx: number) => (
                                   <div
                                     key={idx}
                                     className="flex items-center gap-2 text-xs text-gray-600"
@@ -1451,8 +1477,8 @@ export default function RunConsolePage() {
                         {/* 从 publicReport 或 internalReport 或直接从 summary 获取数据 */}
                         {(() => {
                           const report =
-                            (run.summary as any)?.internalReport ||
-                            (run.summary as any)?.publicReport ||
+                            (run.summary)?.internalReport ||
+                            (run.summary)?.publicReport ||
                             run.summary;
                           const keyFindings = report?.keyFindings || [];
                           const biasesDetected = report?.biasesDetected || [];
@@ -1495,7 +1521,7 @@ export default function RunConsolePage() {
                                   </div>
                                   <div className="space-y-2">
                                     {causalChain.map(
-                                      (item: any, idx: number) => (
+                                      (item, idx: number) => (
                                         <div
                                           key={idx}
                                           className="rounded-lg border border-cyan-200 bg-cyan-50 p-2 text-xs"
@@ -1526,7 +1552,7 @@ export default function RunConsolePage() {
                                   </div>
                                   <div className="space-y-2">
                                     {biasesDetected.map(
-                                      (bias: any, idx: number) => (
+                                      (bias, idx: number) => (
                                         <div
                                           key={idx}
                                           className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs"
@@ -1569,7 +1595,7 @@ export default function RunConsolePage() {
                                   </div>
                                   <div className="space-y-2">
                                     {blindspots.map(
-                                      (spot: any, idx: number) => (
+                                      (spot, idx: number) => (
                                         <div
                                           key={idx}
                                           className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs"
@@ -1600,7 +1626,7 @@ export default function RunConsolePage() {
                                   </div>
                                   <div className="space-y-1">
                                     {blackSwanEvents.map(
-                                      (event: any, idx: number) => (
+                                      (event, idx: number) => (
                                         <div
                                           key={idx}
                                           className="rounded bg-purple-100 p-2 text-xs"
@@ -1667,7 +1693,7 @@ export default function RunConsolePage() {
                                   </div>
                                   <div className="space-y-2">
                                     {counterfactuals.map(
-                                      (cf: any, idx: number) => (
+                                      (cf, idx: number) => (
                                         <div
                                           key={idx}
                                           className="rounded-lg border border-blue-200 bg-blue-50 p-2 text-xs"
@@ -1757,7 +1783,7 @@ export default function RunConsolePage() {
                         </div>
                         <div className="max-h-32 space-y-2 overflow-y-auto">
                           {run.worldState.interventions.map(
-                            (iv: any, idx: number) => (
+                            (iv, idx: number) => (
                               <div
                                 key={idx}
                                 className="rounded bg-white p-2 text-xs"

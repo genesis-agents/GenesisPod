@@ -149,7 +149,7 @@ export function ConversationPanel({
     }> = [];
 
     streamEvents.forEach((event, index) => {
-      const data = (event.data || {}) as Record<string, any>;
+      const data = (event.data || {}) as Record<string, unknown>;
       const timestamp =
         event.timestamp instanceof Date
           ? event.timestamp

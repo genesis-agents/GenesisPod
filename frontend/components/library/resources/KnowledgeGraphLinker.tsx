@@ -125,8 +125,8 @@ export default function KnowledgeGraphLinker({
   }
 
   const availableNodes = graphData?.nodes || [];
-  const topics = availableNodes.filter((n: any) => n.labels?.includes('Topic'));
-  const authors = availableNodes.filter((n: any) =>
+  const topics = availableNodes.filter((n) => n.labels?.includes('Topic'));
+  const authors = availableNodes.filter((n) =>
     n.labels?.includes('Author')
   );
 
@@ -199,7 +199,7 @@ export default function KnowledgeGraphLinker({
                 主题 ({topics.length})
               </h4>
               <div className="max-h-48 space-y-2 overflow-auto">
-                {topics.map((topic: any) => {
+                {topics.map((topic) => {
                   const isLinked = linkedNodes.some(
                     (n) => n.id === topic.properties?.name
                   );
@@ -244,7 +244,7 @@ export default function KnowledgeGraphLinker({
                 作者 ({authors.length})
               </h4>
               <div className="max-h-48 space-y-2 overflow-auto">
-                {authors.map((author: any) => {
+                {authors.map((author) => {
                   const isLinked = linkedNodes.some(
                     (n) => n.id === author.properties?.username
                   );

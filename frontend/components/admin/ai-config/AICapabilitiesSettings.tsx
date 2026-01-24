@@ -725,7 +725,7 @@ export default function AICapabilitiesSettings() {
           message: data.message || (response.ok ? '测试成功' : '测试失败'),
         },
       }));
-    } catch (err: any) {
+    } catch (err) {
       setTestResults((prev) => ({
         ...prev,
         [`tool-${toolId}`]: {

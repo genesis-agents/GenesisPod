@@ -71,7 +71,7 @@ export default function QuickGenerateInput() {
             result.summary +
             '\n\n' +
             result.sections
-              .map((s: any) => `## ${s.title}\n\n${s.content}`)
+              .map((s: { title: string; content: string }) => `## ${s.title}\n\n${s.content}`)
               .join('\n\n'),
         },
         metadata: {
@@ -85,14 +85,14 @@ export default function QuickGenerateInput() {
         updatedAt: new Date(),
       };
 
-      addDocument(newDocument as any);
+      addDocument(newDocument);
       setCurrentDocument(newDocumentId);
       setSuccess(true);
       setInput('');
 
       // 3秒后清除成功提示
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err: any) {
+    } catch (err) {
       logger.error('Generation failed:', err);
       setError(err.message || 'Failed to generate document. Please try again.');
     } finally {

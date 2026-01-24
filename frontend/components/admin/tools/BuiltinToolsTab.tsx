@@ -23,6 +23,8 @@ const BUILTIN_CATEGORIES = [
   'collaboration',
 ] as const;
 
+type BuiltinCategory = (typeof BUILTIN_CATEGORIES)[number];
+
 export interface BuiltinTool {
   id: string;
   name: string;
@@ -49,7 +51,7 @@ export default function BuiltinToolsTab({
 
   // Filter only builtin tools
   const builtinTools = tools.filter((tool) =>
-    BUILTIN_CATEGORIES.includes(tool.category as any)
+    BUILTIN_CATEGORIES.includes(tool.category as BuiltinCategory)
   );
 
   const handleToggle = async (tool: BuiltinTool) => {

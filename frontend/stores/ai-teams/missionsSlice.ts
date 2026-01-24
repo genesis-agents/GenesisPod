@@ -55,7 +55,7 @@ export interface MissionsSlice {
     missionId: string,
     status: MissionStatus,
     totalTasks?: number,
-    tasks?: any[]
+    tasks?: AgentTask[]
   ) => void;
   handleMissionProgressUpdated: (
     missionId: string,
@@ -263,7 +263,7 @@ export const createMissionsSlice: StateCreator<
               ...m,
               status,
               ...(totalTasks !== undefined && { totalTasks }),
-              ...(tasks && { tasks: tasks as any }),
+              ...(tasks && { tasks }),
             }
           : m
       ),
@@ -273,7 +273,7 @@ export const createMissionsSlice: StateCreator<
               ...state.currentMission,
               status,
               ...(totalTasks !== undefined && { totalTasks }),
-              ...(tasks && { tasks: tasks as any }),
+              ...(tasks && { tasks }),
             }
           : state.currentMission,
     }));

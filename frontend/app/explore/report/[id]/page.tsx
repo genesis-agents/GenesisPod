@@ -16,12 +16,12 @@ interface Resource {
   type: string;
   title: string;
   abstract?: string;
-  authors?: any;
+  authors?: unknown;
   publishedAt?: string;
   thumbnailUrl?: string;
   sourceUrl?: string;
   pdfUrl?: string;
-  tags?: any;
+  tags?: unknown;
 }
 
 interface Report {
@@ -36,7 +36,7 @@ interface Report {
   resourceCount: number;
   createdAt: string;
   updatedAt: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   resources?: Resource[];
 }
 

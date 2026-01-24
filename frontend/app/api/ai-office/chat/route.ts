@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
             _id: '',
             userId: '',
             resourceId: '',
-            resourceType: r.resourceType as any,
+            resourceType: r.resourceType,
             status: 'collected' as const,
             collectedAt: new Date(),
             updatedAt: new Date(),
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
             metadata: r.metadata || {},
             content: {},
             aiAnalysis: r.aiAnalysis || { summary: '', keyPoints: [] },
-          })) as any;
+          }));
 
           resourceAnalysis = await analyzer.analyze({
             resources: convertedResources,

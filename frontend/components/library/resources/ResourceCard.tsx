@@ -27,7 +27,7 @@ interface Resource {
     feedTitle?: string;
     channelName?: string;
     sourceName?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   sourceType?: string;
 }
@@ -63,7 +63,7 @@ function ResourceCardComponent({
     e.stopPropagation();
     addSource({
       id: resource.id,
-      type: resource.type.toLowerCase() as any,
+      type: resource.type.toLowerCase(),
       title: resource.title,
       url: resource.sourceUrl || resource.pdfUrl || '',
       thumbnailUrl: resource.thumbnailUrl,

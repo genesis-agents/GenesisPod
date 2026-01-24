@@ -7,21 +7,37 @@
  */
 
 import { useTopicContent } from './TopicContentContext';
+import type { TopicMessage, TeamMission } from '@/types/ai-teams';
+
+interface AgentActivity {
+  id: string;
+  type: string;
+  content: string;
+  timestamp: string;
+  agentId?: string;
+  agentName?: string;
+}
+
+interface ResearchEvent {
+  type: string;
+  data: unknown;
+  timestamp: string;
+}
 
 interface TopicCollaborationPanelProps {
   // TeamInteractionTabContent的props会传递进来
   TeamInteractionTabContent: React.ComponentType<{
-    events: any[];
-    wsEvents: any[];
+    events: ResearchEvent[];
+    wsEvents: unknown[];
     wsConnected: boolean;
     onClearEvents: () => void;
-    persistedMessages: any[];
-    persistedActivities: any[];
-    missionStatus: any;
+    persistedMessages: TopicMessage[];
+    persistedActivities: AgentActivity[];
+    missionStatus: TeamMission | null;
   }>;
   onClearEvents: () => void;
-  persistedMessages: any[];
-  persistedActivities: any[];
+  persistedMessages: TopicMessage[];
+  persistedActivities: AgentActivity[];
 }
 
 export function TopicCollaborationPanel({

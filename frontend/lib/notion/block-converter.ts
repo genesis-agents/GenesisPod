@@ -25,16 +25,46 @@ interface NotionRichText {
   href?: string | null;
 }
 
+// BlockNote inline content types
+interface BlockNoteInlineContent {
+  type: string;
+  text?: string;
+  href?: string;
+  styles?: Record<string, boolean>;
+  content?: BlockNoteInlineContent[];
+  [key: string]: unknown;
+}
+
+interface NotionTableRow {
+  table_row?: {
+    cells?: NotionRichText[][];
+  };
+}
+
+interface NotionBlockContent {
+  rich_text?: NotionRichText[];
+  language?: string;
+  caption?: NotionRichText[];
+  icon?: unknown;
+  file?: { url: string };
+  external?: { url: string };
+  table_width?: number;
+  [key: string]: unknown;
+}
+
 interface NotionBlock {
   id: string;
   type: string;
-  [key: string]: any;
+  children?: NotionTableRow[];
+  table?: { table_width?: number };
+  [key: string]: unknown | NotionBlockContent;
 }
 
 // Convert Notion rich text to BlockNote inline content
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function convertNotionRichTextToInlineContent(
   richText: NotionRichText[] | undefined
-): any[] {
+): Array<Record<string, unknown>> {
   if (!richText || richText.length === 0) {
     return [];
   }
@@ -72,7 +102,7 @@ function convertNotionRichTextToInlineContent(
 
 // Convert BlockNote inline content to Notion rich text
 function convertInlineContentToNotionRichText(
-  content: any[] | undefined
+  content: BlockNoteInlineContent[] | undefined
 ): NotionRichText[] {
   if (!content || content.length === 0) {
     return [];
@@ -80,7 +110,7 @@ function convertInlineContentToNotionRichText(
 
   const result: NotionRichText[] = [];
 
-  const processContent = (item: any): NotionRichText[] => {
+  const processContent = (item: BlockNoteInlineContent): NotionRichText[] => {
     if (item.type === 'text') {
       return [
         {
@@ -104,7 +134,7 @@ function convertInlineContentToNotionRichText(
 
     if (item.type === 'link') {
       const linkContent = item.content || [];
-      return linkContent.map((c: any) => ({
+      return linkContent.map((c: BlockNoteInlineContent) => ({
         type: 'text' as const,
         text: {
           content: c.text || '',
@@ -296,14 +326,15 @@ export function notionBlocksToBlockNote(
 
       case 'image':
         flushList();
+        const imageBlock = block.image as NotionBlockContent | undefined;
         const imageUrl =
-          block.image?.file?.url || block.image?.external?.url || '';
+          imageBlock?.file?.url || imageBlock?.external?.url || '';
         if (imageUrl) {
           blocks.push({
             type: 'image',
             props: {
               url: imageUrl,
-              caption: block.image?.caption?.[0]?.plain_text || '',
+              caption: (imageBlock?.caption as NotionRichText[] | undefined)?.[0]?.plain_text || '',
             },
           });
         }
@@ -317,26 +348,27 @@ export function notionBlocksToBlockNote(
             type: 'table' as const,
             content: {
               type: 'tableContent' as const,
-              rows: block.children.map((row: any) => ({
+              rows: block.children.map((row: NotionTableRow) => ({
                 cells:
-                  row.table_row?.cells?.map((cell: any) =>
+                  row.table_row?.cells?.map((cell: NotionRichText[]) =>
                     convertNotionRichTextToInlineContent(cell)
                   ) || [],
               })),
             },
           };
-          blocks.push(tableContent as any);
+          blocks.push(tableContent as PartialBlock);
         }
         break;
 
       default:
         // For unsupported blocks, try to extract text content
         flushList();
-        if (block[type]?.rich_text) {
+        const blockContent = block[type] as NotionBlockContent | undefined;
+        if (blockContent?.rich_text) {
           blocks.push({
             type: 'paragraph',
             content: convertNotionRichTextToInlineContent(
-              block[type].rich_text
+              blockContent.rich_text
             ),
           });
         }
@@ -373,14 +405,14 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
           type: 'paragraph',
           paragraph: {
             rich_text: convertInlineContentToNotionRichText(
-              block.content as any
+              block.content
             ),
           },
         });
         break;
 
       case 'heading':
-        const level = (block.props as any)?.level || 1;
+        const level = (block.props)?.level || 1;
         const headingType = `heading_${level}` as
           | 'heading_1'
           | 'heading_2'
@@ -390,7 +422,7 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
           type: headingType,
           [headingType]: {
             rich_text: convertInlineContentToNotionRichText(
-              block.content as any
+              block.content
             ),
           },
         });
@@ -402,7 +434,7 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
           type: 'bulleted_list_item',
           bulleted_list_item: {
             rich_text: convertInlineContentToNotionRichText(
-              block.content as any
+              block.content
             ),
           },
         });
@@ -414,7 +446,7 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
           type: 'numbered_list_item',
           numbered_list_item: {
             rich_text: convertInlineContentToNotionRichText(
-              block.content as any
+              block.content
             ),
           },
         });
@@ -426,9 +458,9 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
           type: 'to_do',
           to_do: {
             rich_text: convertInlineContentToNotionRichText(
-              block.content as any
+              block.content
             ),
-            checked: (block.props as any)?.checked || false,
+            checked: (block.props)?.checked || false,
           },
         });
         break;
@@ -439,15 +471,15 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
           type: 'code',
           code: {
             rich_text: convertInlineContentToNotionRichText(
-              block.content as any
+              block.content
             ),
-            language: (block.props as any)?.language || 'plain text',
+            language: (block.props)?.language || 'plain text',
           },
         });
         break;
 
       case 'image':
-        const url = (block.props as any)?.url;
+        const url = (block.props)?.url;
         if (url) {
           notionBlocks.push({
             id,
@@ -455,12 +487,12 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
             image: {
               type: 'external',
               external: { url },
-              caption: (block.props as any)?.caption
+              caption: (block.props)?.caption
                 ? [
                     {
                       type: 'text',
-                      text: { content: (block.props as any).caption },
-                      plain_text: (block.props as any).caption,
+                      text: { content: (block.props).caption },
+                      plain_text: (block.props).caption,
                     },
                   ]
                 : [],
@@ -471,21 +503,22 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
 
       case 'table':
         // Handle table conversion
-        const tableContent = block.content as any;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const tableContent = block.content;
         if (tableContent?.rows) {
           notionBlocks.push({
             id,
             type: 'table',
             table: {
               table_width: tableContent.rows[0]?.cells?.length || 1,
-              has_column_header: false,
-              has_row_header: false,
-            },
-            children: tableContent.rows.map((row: any) => ({
+            } as { table_width: number; has_column_header: boolean; has_row_header: boolean },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            children: tableContent.rows.map((row) => ({
               type: 'table_row',
               table_row: {
                 cells:
-                  row.cells?.map((cell: any) =>
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
+                  row.cells?.map((cell) =>
                     convertInlineContentToNotionRichText(cell)
                   ) || [],
               },
@@ -502,7 +535,7 @@ export function blockNoteToNotionBlocks(blocks: Block[]): NotionBlock[] {
             type: 'paragraph',
             paragraph: {
               rich_text: convertInlineContentToNotionRichText(
-                block.content as any
+                block.content
               ),
             },
           });
@@ -527,7 +560,8 @@ export function extractPlainText(notionBlocks: NotionBlock[]): string {
 
   for (const block of notionBlocks) {
     const { type } = block;
-    const richText = block[type]?.rich_text;
+    const blockContent = block[type] as NotionBlockContent | undefined;
+    const richText = blockContent?.rich_text;
 
     if (richText) {
       textParts.push(

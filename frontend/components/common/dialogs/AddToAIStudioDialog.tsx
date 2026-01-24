@@ -157,7 +157,7 @@ export function AddToAIStudioDialog({
       setTimeout(() => {
         handleClose();
       }, 1500);
-    } catch (err: any) {
+    } catch (err) {
       setError(err.message || 'Failed to add resource to project');
     } finally {
       setIsAdding(false);

@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
+import type { SimulationNodeDatum, SimulationLinkDatum, ZoomBehavior, Selection, D3DragEvent } from 'd3';
 
-interface GraphNode {
+interface GraphNode extends SimulationNodeDatum {
   id: string;
   label: string;
   type:
@@ -34,9 +35,9 @@ interface GraphNode {
   };
 }
 
-interface GraphLink {
-  source: string;
-  target: string;
+interface GraphLink extends SimulationLinkDatum<GraphNode> {
+  source: string | GraphNode;
+  target: string | GraphNode;
   type: string;
 }
 
@@ -66,17 +67,17 @@ export default function KnowledgeGraphView({
 
     const svg = d3.select(svgRef.current);
 
+    const g = svg.append('g');
+
     // 创建缩放行为
     const zoom = d3
-      .zoom()
+      .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.1, 4])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
       });
 
-    svg.call(zoom as any);
-
-    const g = svg.append('g');
+    svg.call(zoom);
 
     // 颜色映射 - 包含所有节点类型
     const colorScale = d3
@@ -115,16 +116,16 @@ export default function KnowledgeGraphView({
       .range([8, 24]);
 
     // 创建力导向模拟
-    let simulation: d3.Simulation<any, any>;
+    let simulation: d3.Simulation<GraphNode, GraphLink>;
 
     if (layout === 'force') {
       simulation = d3
-        .forceSimulation(nodes as any)
+        .forceSimulation(nodes)
         .force(
           'link',
           d3
-            .forceLink(edges)
-            .id((d: any) => d.id)
+            .forceLink<GraphNode, GraphLink>(edges)
+            .id((d) => d.id)
             .distance(100)
         )
         .force('charge', d3.forceManyBody().strength(-300))
@@ -134,12 +135,12 @@ export default function KnowledgeGraphView({
       const angleStep = (2 * Math.PI) / nodes.length;
       const radius = Math.min(width, height) * 0.35;
       nodes.forEach((node, i) => {
-        (node as any).x = width / 2 + radius * Math.cos(i * angleStep);
-        (node as any).y = height / 2 + radius * Math.sin(i * angleStep);
-        (node as any).fx = (node as any).x;
-        (node as any).fy = (node as any).y;
+        node.x = width / 2 + radius * Math.cos(i * angleStep);
+        node.y = height / 2 + radius * Math.sin(i * angleStep);
+        node.fx = node.x;
+        node.fy = node.y;
       });
-      simulation = d3.forceSimulation(nodes as any);
+      simulation = d3.forceSimulation(nodes);
     } else {
       // Grouped layout - organize nodes by type in horizontal bands
       // This is more appropriate for knowledge graphs than tree layouts
@@ -169,14 +170,14 @@ export default function KnowledgeGraphView({
         const nodeSpacing = width / (nodesOfType.length + 1);
 
         nodesOfType.forEach((node, nodeIndex) => {
-          (node as any).x = nodeSpacing * (nodeIndex + 1);
-          (node as any).y = bandHeight * (bandIndex + 1);
-          (node as any).fx = (node as any).x;
-          (node as any).fy = (node as any).y;
+          node.x = nodeSpacing * (nodeIndex + 1);
+          node.y = bandHeight * (bandIndex + 1);
+          node.fx = node.x;
+          node.fy = node.y;
         });
       });
 
-      simulation = d3.forceSimulation(nodes as any);
+      simulation = d3.forceSimulation(nodes);
     }
 
     // 计算每条边的权重（基于源节点和目标节点的连接数）
@@ -229,10 +230,10 @@ export default function KnowledgeGraphView({
       .attr('cursor', 'pointer')
       .call(
         d3
-          .drag<any, any>()
+          .drag<SVGGElement, GraphNode>()
           .on('start', dragstarted)
           .on('drag', dragged)
-          .on('end', dragended) as any
+          .on('end', dragended)
       );
 
     // 节点圆形
@@ -304,11 +305,13 @@ export default function KnowledgeGraphView({
     // 更新位置
     simulation.on('tick', () => {
       // 使用二次贝塞尔曲线绘制边
-      link.attr('d', (d: any) => {
-        const sourceX = d.source.x;
-        const sourceY = d.source.y;
-        const targetX = d.target.x;
-        const targetY = d.target.y;
+      link.attr('d', (d) => {
+        const source = d.source as GraphNode;
+        const target = d.target as GraphNode;
+        const sourceX = source.x ?? 0;
+        const sourceY = source.y ?? 0;
+        const targetX = target.x ?? 0;
+        const targetY = target.y ?? 0;
 
         // 计算中点
         const midX = (sourceX + targetX) / 2;
@@ -334,22 +337,22 @@ export default function KnowledgeGraphView({
         return `M ${sourceX},${sourceY} Q ${controlX},${controlY} ${targetX},${targetY}`;
       });
 
-      node.attr('transform', (d: any) => `translate(${d.x},${d.y})`);
+      node.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
     });
 
     // 拖拽事件
-    function dragstarted(event: any) {
+    function dragstarted(event: D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
       event.subject.fx = event.subject.x;
       event.subject.fy = event.subject.y;
     }
 
-    function dragged(event: any) {
+    function dragged(event: D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
       event.subject.fx = event.x;
       event.subject.fy = event.y;
     }
 
-    function dragended(event: any) {
+    function dragended(event: D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
       if (!event.active) simulation.alphaTarget(0);
       if (layout === 'force') {
         event.subject.fx = null;

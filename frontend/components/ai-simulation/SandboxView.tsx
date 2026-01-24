@@ -81,7 +81,7 @@ interface Submission {
   publicAction?: string;
   visibility?: string;
   timestamp?: string;
-  tools?: any;
+  tools?: Record<string, unknown>;
   irrational?: boolean;
   chaosInjected?: boolean;
 }
@@ -97,9 +97,13 @@ interface Turn {
       event: string;
       team?: string;
     };
-    marketUpdate?: any;
+    marketUpdate?: Record<string, unknown>;
   };
-  worldState?: any;
+  worldState?: {
+    marketPrice?: number;
+    shortage?: number;
+    [key: string]: unknown;
+  };
   createdAt: string;
 }
 
@@ -108,8 +112,12 @@ interface Run {
   status: 'PENDING' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED';
   currentRound: number;
   rounds: number;
-  params?: any;
-  worldState?: any;
+  params?: Record<string, unknown>;
+  worldState?: {
+    marketPrice?: number;
+    shortage?: number;
+    [key: string]: unknown;
+  };
   turns?: Turn[];
   scenario?: {
     id: string;
@@ -556,7 +564,7 @@ export default function SandboxView({
 
   // 视角过滤 - 根据权限过滤可见内容
   const filterByPermission = useCallback(
-    (data: any, team?: string) => {
+    (data: Submission, team?: string): Submission | { hidden: true } => {
       if (perspective === 'GOD') return data;
       if (perspective === team) return data;
       // 非上帝视角只能看公开信息
@@ -736,7 +744,7 @@ export default function SandboxView({
   // 渲染阵营区块 - 战场态势图样式
   const renderCampSection = (
     team: string,
-    Icon: any,
+    Icon: React.ComponentType<{ className?: string }>,
     isMain: boolean = false
   ) => {
     const teamConfig = TEAM_COLORS[team];
@@ -892,7 +900,7 @@ export default function SandboxView({
   };
 
   // 渲染底部辅助阵营（绿军/白方）- 紧凑样式
-  const renderAuxiliaryCamp = (team: string, Icon: any) => {
+  const renderAuxiliaryCamp = (team: string, Icon: React.ComponentType<{ className?: string }>) => {
     const teamConfig = TEAM_COLORS[team];
     const teamAgents = agentsByTeam[team] || [];
     const teamSubmissions =

@@ -28,7 +28,8 @@ export function AgentCard({
     return agent.persona ? safeJson(agent.persona, {}) : {};
   }, [agent.persona]);
 
-  const updatePersona = (key: string, value: any) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic JSON value types
+  const updatePersona = (key: string, value: string | number | boolean) => {
     const newPersona = { ...persona, [key]: value };
     onUpdate({ ...agent, persona: JSON.stringify(newPersona) });
   };

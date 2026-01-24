@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
-import CommentInput from './CommentInput';
+import CommentInput, { type Comment as BaseComment } from './CommentInput';
 
 import { logger } from '@/lib/utils/logger';
 interface User {
@@ -13,13 +13,8 @@ interface User {
   avatarUrl?: string;
 }
 
-interface Comment {
-  id: string;
-  content: string;
-  userId: string;
+interface Comment extends BaseComment {
   user: User;
-  createdAt: string;
-  updatedAt: string;
   upvoteCount: number;
   replyCount: number;
   isEdited: boolean;
@@ -31,7 +26,7 @@ interface CommentItemProps {
   comment: Comment;
   resourceId: string;
   level?: number;
-  onCommentAdded?: (comment: any) => void;
+  onCommentAdded?: (comment: Comment) => void;
   onCommentUpdated?: (commentId: string, content: string) => void;
   onCommentDeleted?: (commentId: string) => void;
 }

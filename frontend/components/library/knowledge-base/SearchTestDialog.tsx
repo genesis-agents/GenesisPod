@@ -21,7 +21,7 @@ interface SearchResult {
   score: number;
   documentTitle?: string;
   documentId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface SearchTestDialogProps {
@@ -61,7 +61,7 @@ export default function SearchTestDialog({
         }
       );
       setResults(data.results || []);
-    } catch (err: any) {
+    } catch (err) {
       setError(err?.message || '搜索出错');
     } finally {
       setSearching(false);

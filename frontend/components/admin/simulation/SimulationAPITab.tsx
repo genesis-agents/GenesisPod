@@ -17,6 +17,16 @@ interface SimulationAPIProvider {
   isDefault: boolean;
 }
 
+interface APITemplate {
+  name: string;
+  description: string;
+  baseUrl: string;
+  apiKeyUrl: string;
+  apiKeyPlaceholder: string;
+  headers?: string;
+  freeQuota?: string;
+}
+
 interface SimulationAPICategory {
   id: string;
   name: string;
@@ -51,7 +61,7 @@ export function SimulationAPITab({
     return categories.find((c) => c.id === categoryId)?.providers || [];
   };
 
-  const handleAddProvider = (categoryId: string, template?: any) => {
+  const handleAddProvider = (categoryId: string, template?: APITemplate) => {
     onUpdateCategories(
       categories.map((cat) => {
         if (cat.id === categoryId) {

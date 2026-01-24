@@ -26,8 +26,8 @@ interface AIAssistantProps {
     | 'external-api'
     | 'storage'
     | 'settings';
-  currentData?: any; // 当前配置数据，用于AI分析
-  onApplySuggestion?: (suggestion: any) => void; // 应用AI建议的回调
+  currentData?: unknown; // 当前配置数据，用于AI分析
+  onApplySuggestion?: (suggestion: Suggestion) => void; // 应用AI建议的回调
 }
 
 interface Message {
@@ -40,7 +40,7 @@ interface Suggestion {
   id: string;
   title: string;
   description: string;
-  action?: any; // 可执行的动作数据
+  action?: unknown; // 可执行的动作数据
 }
 
 // 每个 context 的系统提示词

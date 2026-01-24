@@ -39,7 +39,7 @@ export interface NotionPage {
   url: string;
   parentType: string | null;
   parentId: string | null;
-  blocks?: any[];
+  blocks?: Array<Record<string, unknown>>;
   plainTextContent?: string;
   notionCreatedAt: string;
   notionUpdatedAt: string;
@@ -67,8 +67,8 @@ export interface NotionDatabase {
   description: string | null;
   icon: string | null;
   url: string;
-  properties?: Record<string, any>;
-  items?: any[];
+  properties?: Record<string, unknown>;
+  items?: Array<Record<string, unknown>>;
   itemCount: number;
   syncStatus: string;
   lastSyncedAt: string | null;
@@ -324,7 +324,7 @@ export async function getPage(pageId: string): Promise<{ page: NotionPage }> {
  */
 export async function updatePage(
   pageId: string,
-  blocks: any[]
+  blocks: Array<Record<string, unknown>>
 ): Promise<{ page: NotionPage }> {
   return apiClient.patch(
     `/notion/pages/${pageId}`,

@@ -78,6 +78,37 @@ export interface StreamConfig {
 }
 
 /**
+ * 背压控制策略
+ */
+export type BackpressureStrategy = 'drop' | 'pause' | 'error';
+
+/**
+ * 流式处理选项（支持背压控制）
+ */
+export interface StreamingOptions {
+  // 缓冲区大小（默认 10）
+  bufferSize?: number;
+
+  // 背压策略
+  backpressureStrategy?: BackpressureStrategy;
+
+  // 客户端断开时的回调
+  onClientDisconnect?: () => void;
+
+  // 心跳间隔（毫秒）
+  heartbeatInterval?: number;
+
+  // 事件映射函数
+  mapToEvent?: (item: any) => SSEEvent<any>;
+
+  // 完成事件回调
+  onComplete?: () => SSEEvent<any>;
+
+  // 错误事件回调
+  onError?: (error: Error) => SSEEvent<any>;
+}
+
+/**
  * NestJS SSE 返回的 MessageEvent 格式
  */
 export interface NestSSEMessageEvent {

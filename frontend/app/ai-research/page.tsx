@@ -211,7 +211,7 @@ async function fetchProjects(options?: {
   status?: string;
   search?: string;
   researchType?: 'FAST' | 'DEEP';
-}): Promise<{ data: ResearchProject[]; pagination: any }> {
+}): Promise<{ data: ResearchProject[]; pagination: Record<string, unknown> }> {
   const params = new URLSearchParams();
   if (options?.status) params.set('status', options.status);
   if (options?.search) params.set('search', options.search);

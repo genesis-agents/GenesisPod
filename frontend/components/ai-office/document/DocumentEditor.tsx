@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDocumentStore } from '@/stores/aiOfficeStore';
 import { getTemplateById, PPTTemplate } from '@/lib/ai-office/ppt-templates';
+import type { Document } from '@/types/ai-office';
 import {
   FileDown,
   FileText,
@@ -130,13 +131,13 @@ function finalizeSlideLayout(slide: Slide) {
 
 export default function DocumentEditor() {
   const currentDocumentId = useDocumentStore(
-    (state: any) => state.currentDocumentId
+    (state) => state.currentDocumentId
   );
-  const documents = useDocumentStore((state: any) => state.documents);
-  const updateDocument = useDocumentStore((state: any) => state.updateDocument);
+  const documents = useDocumentStore((state) => state.documents);
+  const updateDocument = useDocumentStore((state) => state.updateDocument);
 
   const currentDocument = documents.find(
-    (d: any) => d._id === currentDocumentId
+    (d) => d._id === currentDocumentId
   );
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
@@ -206,7 +207,7 @@ export default function DocumentEditor() {
             wordCount: content.length,
           },
           updatedAt: new Date(),
-        } as any);
+        });
         setLastSaved(new Date());
       }
       setIsSaving(false);
@@ -220,7 +221,7 @@ export default function DocumentEditor() {
 
   // 点击外部关闭导出菜单
   useEffect(() => {
-    const handleClickOutside = (event: any) => {
+    const handleClickOutside = (event: MouseEvent) => {
       if (
         exportMenuRef.current &&
         !exportMenuRef.current.contains(event.target as Node)
@@ -295,7 +296,7 @@ export default function DocumentEditor() {
 
   // 创建新空白文档
   const handleCreateBlankDocument = () => {
-    const newDocument: any = {
+    const newDocument: Document = {
       _id: `doc_${Date.now()}`,
       userId: 'current_user', // TODO: 从认证系统获取
       type: 'article',

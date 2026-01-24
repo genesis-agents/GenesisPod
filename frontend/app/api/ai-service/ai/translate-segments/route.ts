@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         `Translation completed: ${data.translations?.length || 0} translations`
       );
       return NextResponse.json(data);
-    } catch (fetchError: any) {
+    } catch (fetchError) {
       clearTimeout(timeoutId);
       if (fetchError.name === 'AbortError') {
         logger.error('Translation request timed out after 5 minutes');
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       }
       throw fetchError;
     }
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Translation error:', error?.message || error);
     return NextResponse.json(
       { error: error?.message || 'Failed to translate segments' },

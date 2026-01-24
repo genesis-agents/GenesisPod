@@ -8,16 +8,18 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
 import { logger } from '@/lib/utils/logger';
+import { ScenarioGoals, ScenarioParams, ScenarioFormCompany, ScenarioFormAgent } from '../../types';
+
 interface ScenarioDetail {
   id: string;
   name: string;
   industry: string;
   region?: string;
-  goals?: any;
-  constraints?: any;
-  params?: any;
-  companies?: any[];
-  agents?: any[];
+  goals?: ScenarioGoals;
+  constraints?: ScenarioParams;
+  params?: ScenarioParams;
+  companies?: ScenarioFormCompany[];
+  agents?: ScenarioFormAgent[];
   createdAt: string;
   updatedAt: string;
 }

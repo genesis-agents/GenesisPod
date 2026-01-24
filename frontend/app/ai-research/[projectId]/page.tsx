@@ -87,7 +87,7 @@ interface Source {
   analysisStatus: 'PENDING' | 'ANALYZING' | 'COMPLETED' | 'FAILED';
   aiSummary: string | null;
   resourceId?: string | null;
-  metadata: any;
+  metadata: Record<string, unknown> | null;
   createdAt: string;
 }
 
@@ -130,7 +130,7 @@ interface Output {
   title: string;
   status: 'PENDING' | 'GENERATING' | 'COMPLETED' | 'FAILED';
   content: string | null;
-  metadata: any;
+  metadata: Record<string, unknown> | null;
   createdAt: string;
 }
 
@@ -228,7 +228,7 @@ async function sendChatMessage(
   message: string,
   selectedSourceIds?: string[],
   model?: string
-): Promise<any> {
+): Promise<unknown> {
   const res = await fetch(
     `${API_BASE}/api/v1/ai-studio/projects/${projectId}/chat/messages`,
     {
@@ -350,7 +350,7 @@ async function searchSourcesApi(
   query: string,
   mode: 'quick' | 'deep' = 'quick',
   sources: string[] = ['local', 'web', 'arxiv', 'github']
-): Promise<any> {
+): Promise<unknown> {
   const res = await fetch(`${API_BASE}/api/v1/ai-studio/search`, {
     method: 'POST',
     headers: getAuthHeaders(),
@@ -370,7 +370,7 @@ interface SearchStats {
 }
 
 interface SearchResponse {
-  results: any[];
+  results: Array<Record<string, unknown>>;
   query: string;
   mode: 'quick' | 'deep';
   sourcesSearched: string[];
@@ -464,11 +464,11 @@ function SourcesPanel({
     setSearchStats(null);
     setSearchResults([]);
     try {
-      const result: SearchResponse = await searchSourcesApi(
+      const result = (await searchSourcesApi(
         searchQuery,
         'quick',
         searchSources
-      );
+      )) as SearchResponse;
       setSearchResults(result.results || []);
       setSearchStats(result.stats);
     } catch (err) {
@@ -3080,7 +3080,7 @@ export default function ProjectDetailPage() {
           timestamp: result.aiMessage.timestamp,
           citations: result.aiMessage.citations,
           // Store source context in the order used for citations
-          sourceContext: result.sourceContext?.map((s: any) => ({
+          sourceContext: result.sourceContext?.map((s) => ({
             id: s.id,
             title: s.title,
             content: s.content,

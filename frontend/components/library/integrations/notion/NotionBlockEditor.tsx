@@ -14,9 +14,9 @@ import {
 } from '@/lib/notion/block-converter';
 
 interface NotionBlockEditorProps {
-  initialBlocks?: any[];
-  onChange?: (blocks: any[]) => void;
-  onSave?: (blocks: any[]) => Promise<void>;
+  initialBlocks?: Array<Record<string, unknown>>;
+  onChange?: (blocks: Array<Record<string, unknown>>) => void;
+  onSave?: (blocks: Array<Record<string, unknown>>) => Promise<void>;
   readOnly?: boolean;
   className?: string;
 }

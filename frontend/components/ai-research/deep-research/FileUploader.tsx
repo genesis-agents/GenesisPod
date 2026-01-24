@@ -1,9 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-misused-promises */
 'use client';
 
 import React, { useState, useCallback } from 'react';
@@ -17,9 +11,28 @@ import {
   AlertCircle,
 } from 'lucide-react';
 
+interface UploadedSource {
+  id: string;
+  url?: string;
+  title?: string;
+  content?: string;
+  type: string;
+  fileName?: string;
+}
+
+interface UploadError {
+  fileName: string;
+  error: string;
+}
+
+interface UploadResponse {
+  sources?: UploadedSource[];
+  errors?: UploadError[];
+}
+
 interface FileUploaderProps {
   projectId: string;
-  onFilesUploaded: (sources: any[]) => void;
+  onFilesUploaded: (sources: UploadedSource[]) => void;
   onClose: () => void;
 }
 
@@ -123,17 +136,16 @@ export function FileUploader({
 
       if (!res.ok) throw new Error('Upload failed');
 
-      const result = await res.json();
+      const result = (await res.json()) as UploadResponse;
 
       // Update file statuses
       setFiles((prev) =>
         prev.map((f) => ({
           ...f,
-          status: result.errors?.some((e: any) => e.fileName === f.file.name)
+          status: result.errors?.some((e) => e.fileName === f.file.name)
             ? ('failed' as const)
             : ('completed' as const),
-          error: result.errors?.find((e: any) => e.fileName === f.file.name)
-            ?.error,
+          error: result.errors?.find((e) => e.fileName === f.file.name)?.error,
         }))
       );
 

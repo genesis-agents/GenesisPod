@@ -58,7 +58,7 @@ describe('aiTeamsStore', () => {
     ];
 
     it('should fetch topics successfully', async () => {
-      mockApi.getTopics.mockResolvedValue(mockTopics as any);
+      mockApi.getTopics.mockResolvedValue(mockTopics);
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -93,7 +93,7 @@ describe('aiTeamsStore', () => {
         updatedAt: new Date().toISOString(),
         creatorId: 'user-1',
       };
-      mockApi.createTopic.mockResolvedValue(newTopic as any);
+      mockApi.createTopic.mockResolvedValue(newTopic);
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -114,7 +114,7 @@ describe('aiTeamsStore', () => {
         name: 'Updated Topic',
         description: 'Updated description',
       };
-      mockApi.updateTopic.mockResolvedValue(updatedTopic as any);
+      mockApi.updateTopic.mockResolvedValue(updatedTopic);
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -124,7 +124,7 @@ describe('aiTeamsStore', () => {
           id: 'topic-1',
           name: 'Original Topic',
           description: 'Original description',
-        } as any);
+        });
       });
 
       await act(async () => {
@@ -140,7 +140,7 @@ describe('aiTeamsStore', () => {
       mockApi.deleteTopic.mockResolvedValue(undefined);
       mockApi.getTopics.mockResolvedValue([
         { id: 'topic-1', name: 'Topic 1' },
-      ] as any);
+      ]);
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -162,7 +162,7 @@ describe('aiTeamsStore', () => {
       const topic = {
         id: 'topic-1',
         name: 'Test Topic',
-      } as any;
+      };
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -197,7 +197,7 @@ describe('aiTeamsStore', () => {
     };
 
     it('should fetch messages successfully', async () => {
-      mockApi.getMessages.mockResolvedValue(mockMessagesResponse as any);
+      mockApi.getMessages.mockResolvedValue(mockMessagesResponse);
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -223,8 +223,8 @@ describe('aiTeamsStore', () => {
       };
 
       mockApi.getMessages
-        .mockResolvedValueOnce(initialResponse as any)
-        .mockResolvedValueOnce(appendResponse as any);
+        .mockResolvedValueOnce(initialResponse)
+        .mockResolvedValueOnce(appendResponse);
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -248,7 +248,7 @@ describe('aiTeamsStore', () => {
         topicId: 'topic-1',
         senderId: 'user-1',
       };
-      mockApi.sendMessage.mockResolvedValue(newMessage as any);
+      mockApi.sendMessage.mockResolvedValue(newMessage);
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -267,7 +267,7 @@ describe('aiTeamsStore', () => {
         messages: [{ id: 'msg-1', content: 'Hello' }],
         hasMore: false,
         nextCursor: null,
-      } as any);
+      });
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -311,7 +311,7 @@ describe('aiTeamsStore', () => {
     ];
 
     it('should fetch resources successfully', async () => {
-      mockApi.getResources.mockResolvedValue(mockResources as any);
+      mockApi.getResources.mockResolvedValue(mockResources);
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -332,7 +332,7 @@ describe('aiTeamsStore', () => {
         topicId: 'topic-1',
         addedAt: new Date().toISOString(),
       };
-      mockApi.addResource.mockResolvedValue(newResource as any);
+      mockApi.addResource.mockResolvedValue(newResource);
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -352,7 +352,7 @@ describe('aiTeamsStore', () => {
       mockApi.removeResource.mockResolvedValue(undefined);
       mockApi.getResources.mockResolvedValue([
         { id: 'resource-1', resourceId: 'res-1' },
-      ] as any);
+      ]);
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -383,7 +383,7 @@ describe('aiTeamsStore', () => {
     ];
 
     it('should fetch missions successfully', async () => {
-      mockApi.getMissions.mockResolvedValue(mockMissions as any);
+      mockApi.getMissions.mockResolvedValue(mockMissions);
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -404,7 +404,7 @@ describe('aiTeamsStore', () => {
         topicId: 'topic-1',
         leaderId: 'ai-1',
       };
-      mockApi.createMission.mockResolvedValue(newMission as any);
+      mockApi.createMission.mockResolvedValue(newMission);
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -426,10 +426,10 @@ describe('aiTeamsStore', () => {
         title: 'Test Mission',
         status: 'CANCELLED',
       };
-      mockApi.cancelMission.mockResolvedValue(cancelledMission as any);
+      mockApi.cancelMission.mockResolvedValue(cancelledMission);
       mockApi.getMissions.mockResolvedValue([
         { id: 'mission-1', title: 'Test Mission', status: 'PENDING' },
-      ] as any);
+      ]);
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -450,7 +450,7 @@ describe('aiTeamsStore', () => {
       const mission = {
         id: 'mission-1',
         title: 'Test Mission',
-      } as any;
+      };
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -473,7 +473,7 @@ describe('aiTeamsStore', () => {
     };
 
     it('should fetch team members successfully', async () => {
-      mockApi.getTeamMembers.mockResolvedValue(mockTeamMembers as any);
+      mockApi.getTeamMembers.mockResolvedValue(mockTeamMembers);
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -486,9 +486,9 @@ describe('aiTeamsStore', () => {
     });
 
     it('should set team leader', async () => {
-      mockApi.setTeamLeader.mockResolvedValue({} as any);
-      mockApi.getTeamMembers.mockResolvedValue(mockTeamMembers as any);
-      mockApi.getTopicById.mockResolvedValue({ id: 'topic-1' } as any);
+      mockApi.setTeamLeader.mockResolvedValue({});
+      mockApi.getTeamMembers.mockResolvedValue(mockTeamMembers);
+      mockApi.getTopicById.mockResolvedValue({ id: 'topic-1' });
 
       const { result } = renderHook(() => useAiGroupStore());
 
@@ -502,12 +502,12 @@ describe('aiTeamsStore', () => {
 
   describe('Store Reset', () => {
     it('should reset all state', async () => {
-      mockApi.getTopics.mockResolvedValue([{ id: 'topic-1' }] as any);
+      mockApi.getTopics.mockResolvedValue([{ id: 'topic-1' }]);
       mockApi.getMessages.mockResolvedValue({
         messages: [{ id: 'msg-1' }],
         hasMore: false,
         nextCursor: null,
-      } as any);
+      });
 
       const { result } = renderHook(() => useAiGroupStore());
 

@@ -24,7 +24,7 @@ export function CompanyCard({
   const [expanded, setExpanded] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<{
-    metrics: any;
+    metrics: Record<string, string | number>;
     reasoning: string;
     dataSource?: string; // 数据来源标识
   } | null>(null);
@@ -33,7 +33,7 @@ export function CompanyCard({
   // 从metrics中获取值，提供默认值
   const metrics = company.metrics || {};
 
-  const updateMetrics = (key: string, value: any) => {
+  const updateMetrics = (key: string, value: string | number) => {
     onUpdate({
       ...company,
       metrics: { ...metrics, [key]: value },

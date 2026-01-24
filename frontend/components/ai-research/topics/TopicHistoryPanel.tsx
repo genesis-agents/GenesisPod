@@ -7,13 +7,15 @@
  */
 
 import { ResearchTimeline } from '../collaboration/ResearchTimeline';
+import type { TopicRefreshLog } from '@/types/topic-research';
 
 import { logger } from '@/lib/utils/logger';
+
 interface TopicHistoryPanelProps {
   topicId: string;
-  onSelectResearch?: (history: any) => void;
-  onCompareVersions?: (from: any, to: any) => void;
-  onViewReport?: (version: any) => void;
+  onSelectResearch?: (history: TopicRefreshLog) => void;
+  onCompareVersions?: (from: number, to: number) => void;
+  onViewReport?: (version: number) => void;
 }
 
 export function TopicHistoryPanel({

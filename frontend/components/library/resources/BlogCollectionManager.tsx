@@ -427,7 +427,7 @@ export const BlogCollectionManager: React.FC<BlogCollectionManagerProps> = ({
           </h3>
 
           <div className="space-y-2">
-            {stats.recentPosts.map((post: any) => (
+            {stats.recentPosts.map((post) => (
               <a
                 key={post.id}
                 href={`/reports/${post.id}`}

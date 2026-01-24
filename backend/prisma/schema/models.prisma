@@ -8243,3 +8243,27 @@ model ProviderQuotaCache {
 
   @@map("provider_quota_cache")
 }
+
+// ============================================================================
+// Prompt Template - AI Prompt 模板版本管理
+// 用于管理 AI 任务的提示词模板，支持版本控制和灰度发布
+// ============================================================================
+
+model PromptTemplate {
+  id          String   @id @default(cuid())
+  taskType    String   @db.VarChar(100) // e.g., "PRD", "CODE_REVIEW", "SUMMARY", "RESEARCH_PLAN"
+  name        String   @db.VarChar(200)
+  version     Int      @default(1)
+  template    String   @db.Text
+  variables   Json?    // 支持的变量列表，例如: ["userInput", "context", "language"]
+  isActive    Boolean  @default(false) @map("is_active")
+  description String?  @db.Text
+  createdBy   String?  @map("created_by") @db.VarChar(100)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([taskType, version])
+  @@index([taskType, isActive])
+  @@index([taskType, version])
+  @@map("prompt_templates")
+}

@@ -19,6 +19,7 @@ import {
   HeartbeatEvent,
   StreamConfig,
   NestSSEMessageEvent,
+  StreamingOptions,
 } from "./types";
 
 @Injectable()
@@ -230,21 +231,53 @@ export class StreamingService {
   /**
    * 包装异步生成器为 SSE Observable
    *
-   * 用于将异步生成器（如 AI 流式响应）转换为 SSE 格式
+   * 用于将异步生成器（如 AI 流式响应）转换为 SSE 格式，支持背压控制
    */
   fromAsyncGenerator<T>(
     generator: AsyncGenerator<T>,
-    options?: {
-      mapToEvent?: (item: T) => SSEEvent<any>;
-      onComplete?: () => SSEEvent<any>;
-      onError?: (error: Error) => SSEEvent<any>;
-    },
+    options?: StreamingOptions,
   ): Observable<NestSSEMessageEvent> {
     const subject = new Subject<NestSSEMessageEvent>();
+    const buffer: T[] = [];
+    const maxBuffer = options?.bufferSize || 10;
+    const backpressureStrategy = options?.backpressureStrategy || 'pause';
 
     const processGenerator = async () => {
       try {
         for await (const item of generator) {
+          // 1. 检查客户端是否断连
+          if (subject.observers.length === 0) {
+            this.logger.warn('[fromAsyncGenerator] Client disconnected, cleaning up');
+            await generator.return?.(undefined);
+            options?.onClientDisconnect?.();
+            break;
+          }
+
+          // 2. 背压控制
+          if (buffer.length >= maxBuffer) {
+            switch (backpressureStrategy) {
+              case 'drop':
+                this.logger.warn(
+                  `[fromAsyncGenerator] Buffer full (${buffer.length}/${maxBuffer}), dropping item`,
+                );
+                continue; // 丢弃当前项
+              case 'error':
+                throw new Error(
+                  `Buffer overflow: ${buffer.length}/${maxBuffer} items`,
+                );
+              case 'pause':
+              default:
+                this.logger.debug(
+                  `[fromAsyncGenerator] Buffer full (${buffer.length}/${maxBuffer}), pausing`,
+                );
+                await this.waitForBufferDrain(buffer, Math.floor(maxBuffer / 2));
+            }
+          }
+
+          // 3. 将数据加入缓冲区
+          buffer.push(item);
+
+          // 4. 发送数据
           const event = options?.mapToEvent
             ? options.mapToEvent(item)
             : {
@@ -257,6 +290,9 @@ export class StreamingService {
             type: event.type,
             data: JSON.stringify(event),
           });
+
+          // 5. 发送后从缓冲区移除
+          buffer.shift();
         }
 
         // 发送完成事件
@@ -273,6 +309,8 @@ export class StreamingService {
 
         subject.complete();
       } catch (error) {
+        this.logger.error('[fromAsyncGenerator] Error processing generator', error);
+
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
 
@@ -294,5 +332,24 @@ export class StreamingService {
     processGenerator();
 
     return subject.asObservable();
+  }
+
+  /**
+   * 等待缓冲区排空到目标大小
+   *
+   * @param buffer 缓冲区数组
+   * @param target 目标大小
+   */
+  private async waitForBufferDrain(buffer: any[], target: number): Promise<void> {
+    return new Promise((resolve) => {
+      const check = () => {
+        if (buffer.length <= target) {
+          resolve();
+        } else {
+          setTimeout(check, 10);
+        }
+      };
+      check();
+    });
   }
 }

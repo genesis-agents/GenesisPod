@@ -400,7 +400,7 @@ function LibraryPageContent() {
       description: resource.abstract || '',
       url: resource.sourceUrl,
       thumbnailUrl: resource.thumbnailUrl,
-    } as any,
+    },
   });
 
   // Handle adding a note to AI Office
@@ -420,11 +420,11 @@ function LibraryPageContent() {
         description: note.content.slice(0, 200),
         url: '',
         content: note.content,
-      } as any,
+      },
     };
 
     if (!aiOfficeStore.resources.some((r) => r._id === `note-${note.id}`)) {
-      aiOfficeStore.addResource(noteAsResource as any);
+      aiOfficeStore.addResource(noteAsResource);
       setToast({
         message: 'Note added to AI Office',
         type: 'success',
@@ -1408,7 +1408,7 @@ function LibraryPageContent() {
                     !aiOfficeStore.resources.some((r) => r._id === resource.id)
                   ) {
                     const aiResource = convertToAIOfficeResource(resource);
-                    aiOfficeStore.addResource(aiResource as any);
+                    aiOfficeStore.addResource(aiResource);
                     setToast({
                       message: `Added "${resource.title.slice(0, 30)}..." to AI Office`,
                       type: 'success',
@@ -1770,7 +1770,7 @@ function LibraryPageContent() {
           {/* Data Sources Tab - 包含子TAB：书签、笔记、图片、Notion、Google Drive */}
           {activeTab === 'data-sources' && (
             <DataSourcesTab
-              initialSubTab={initialDataSourceSubTab as any}
+              initialSubTab={initialDataSourceSubTab}
               onSubTabChange={(subTab) => setCurrentDataSourceSubTab(subTab)}
               renderBookmarks={() => {
                 // 书签列表视图

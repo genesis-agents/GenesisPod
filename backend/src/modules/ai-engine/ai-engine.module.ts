@@ -51,6 +51,7 @@ import { AiCoreController, AiCoreService } from "./api";
 import { ImageModule } from "./image/image.module";
 import { TeamsModule } from "./teams/teams.module";
 import { LongContentModule } from "./long-content/long-content.module";
+import { PromptsModule } from "./prompts/prompts.module";
 
 // MCP
 import { MCPManager } from "./mcp/manager/mcp-manager";
@@ -115,6 +116,7 @@ const handoffCoordinatorFactory = {
     ImageModule,
     TeamsModule,
     LongContentModule,
+    PromptsModule,
   ],
   controllers: [AiCoreController],
   providers: [
@@ -152,6 +154,7 @@ const handoffCoordinatorFactory = {
     ImageModule,
     TeamsModule,
     LongContentModule,
+    PromptsModule,
 
     // === Collaboration ===
     VotingManager,

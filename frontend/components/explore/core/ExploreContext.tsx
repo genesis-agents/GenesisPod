@@ -130,7 +130,7 @@ interface ExploreContextValue {
   setNotesRefreshKey: (key: number | ((prev: number) => number)) => void;
 
   // Auth
-  user: any;
+  user: Record<string, unknown> | null;
   isAdmin: boolean;
   accessToken: string | null;
 }
@@ -266,7 +266,7 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
         });
         const youtubeData = await youtubeRes.json();
         const youtubeVideos = (Array.isArray(youtubeData) ? youtubeData : youtubeData.data || []).map(
-          (video: any) => ({
+          (video) => ({
             id: video.id,
             type: 'YOUTUBE',
             title: video.title,
@@ -287,7 +287,7 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
         const seenVideoIds = new Set<string>();
         const allVideos: Resource[] = [];
 
-        const getVideoId = (video: any): string | null => {
+        const getVideoId = (video): string | null => {
           if (video.videoId) return video.videoId;
           if (video.sourceUrl) {
             const match = video.sourceUrl.match(
@@ -396,8 +396,8 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
   // Handle resource click
   const handleResourceClick = useCallback((resource: Resource) => {
     // For YouTube videos, redirect to the YouTube page
-    if (resource.type === 'YOUTUBE' || resource.type === 'YOUTUBE_VIDEO' || (resource as any).videoId) {
-      const videoId = (resource as any).videoId || extractYouTubeVideoId(resource.sourceUrl);
+    if (resource.type === 'YOUTUBE' || resource.type === 'YOUTUBE_VIDEO' || (resource).videoId) {
+      const videoId = (resource).videoId || extractYouTubeVideoId(resource.sourceUrl);
       if (videoId) {
         router.push(`/explore/youtube?videoId=${videoId}`);
         return;
@@ -486,8 +486,8 @@ export function ExploreProvider({ children }: { children: ReactNode }) {
     if (!resourceId) return;
 
     const handleResource = (resource: Resource) => {
-      if (resource.type === 'YOUTUBE' || resource.type === 'YOUTUBE_VIDEO' || (resource as any).videoId) {
-        const videoId = (resource as any).videoId || extractYouTubeVideoId(resource.sourceUrl);
+      if (resource.type === 'YOUTUBE' || resource.type === 'YOUTUBE_VIDEO' || (resource).videoId) {
+        const videoId = (resource).videoId || extractYouTubeVideoId(resource.sourceUrl);
         if (videoId) {
           router.push(`/explore/youtube?videoId=${videoId}`);
           return;

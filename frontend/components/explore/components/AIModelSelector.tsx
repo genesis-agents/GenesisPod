@@ -3,7 +3,7 @@
 interface AIModelSelectorProps {
   aiModel: string;
   setAiModel: (model: string) => void;
-  aiModels: any[];
+  aiModels: Array<Record<string, unknown>>;
 }
 
 export default function AIModelSelector({

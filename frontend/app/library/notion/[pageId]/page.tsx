@@ -61,13 +61,13 @@ export default function NotionPageDetail() {
   }, [fetchPage]);
 
   // Handle block changes from editor
-  const handleBlocksChange = useCallback((blocks: any[]) => {
+  const handleBlocksChange = useCallback((blocks: Array<Record<string, unknown>>) => {
     setLocalBlocks(blocks);
   }, []);
 
   // Save blocks to backend
   const handleSave = useCallback(
-    async (blocks: any[]) => {
+    async (blocks: Array<Record<string, unknown>>) => {
       if (!pageId) return;
 
       try {

@@ -284,7 +284,7 @@ export function TopicSharingModal({
       const newCollaborator = await res.json();
       setCollaborators((prev) => [...prev, newCollaborator]);
       setNewEmail('');
-    } catch (err: any) {
+    } catch (err) {
       setError(err.message || '添加协作者失败');
     } finally {
       setIsAdding(false);

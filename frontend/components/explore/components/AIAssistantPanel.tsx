@@ -25,7 +25,7 @@ interface AIAssistantPanelProps {
   setAiRightTab: (tab: 'assistant' | 'notes' | 'comments' | 'similar') => void;
   aiModel: string;
   setAiModel: (model: string) => void;
-  aiModels: any[];
+  aiModels: Array<Record<string, unknown>>;
   aiLoading: boolean;
   isStreaming: boolean;
   aiSummary: string | null;
@@ -46,7 +46,7 @@ interface AIAssistantPanelProps {
   attachmentFileInputRef: React.RefObject<HTMLInputElement>;
   onAttachmentFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   resources: Resource[];
-  router: any;
+  router: ReturnType<typeof useRouter>;
   extractYouTubeVideoId: (url: string) => string | null;
 }
 
@@ -355,7 +355,7 @@ export default function AIAssistantPanel({
                   if (
                     targetResource.type === 'YOUTUBE' ||
                     targetResource.type === 'YOUTUBE_VIDEO' ||
-                    (targetResource as any).videoId
+                    (targetResource).videoId
                   ) {
                     const videoId = extractYouTubeVideoId(
                       targetResource.sourceUrl

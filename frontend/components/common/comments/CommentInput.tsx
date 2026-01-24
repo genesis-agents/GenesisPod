@@ -5,11 +5,23 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
 import { logger } from '@/lib/utils/logger';
+
+export interface Comment {
+  id: string;
+  content: string;
+  userId: string;
+  resourceId: string;
+  parentId?: string;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: unknown;
+}
+
 interface CommentInputProps {
   resourceId: string;
   parentId?: string;
   placeholder?: string;
-  onCommentAdded?: (comment: any) => void;
+  onCommentAdded?: (comment: Comment) => void;
   onCancel?: () => void;
   autoFocus?: boolean;
 }

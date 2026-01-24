@@ -4,6 +4,16 @@ import { useState, useMemo } from 'react';
 import { ScenarioFormAgent, ScenarioFormCompany } from '@/app/ai-simulation/types';
 import { safeJson } from '@/app/ai-simulation/utils';
 
+interface AgentPersona {
+  traits?: string;
+  biases?: string;
+  pressure?: string;
+  timePref?: string;
+  riskTolerance?: number;
+  compliance?: number;
+  [key: string]: string | number | undefined;
+}
+
 interface AgentCardProps {
   index: number;
   agent: ScenarioFormAgent;
@@ -24,11 +34,11 @@ export function AgentCard({
   const [expanded, setExpanded] = useState(false);
 
   // 解析persona JSON - 使用useMemo确保响应式更新
-  const persona = useMemo(() => {
-    return agent.persona ? safeJson(agent.persona, {}) : {};
+  const persona = useMemo<AgentPersona>(() => {
+    return agent.persona ? safeJson<AgentPersona>(agent.persona, {}) : {};
   }, [agent.persona]);
 
-  const updatePersona = (key: string, value: any) => {
+  const updatePersona = (key: string, value: string | number) => {
     const newPersona = { ...persona, [key]: value };
     onUpdate({ ...agent, persona: JSON.stringify(newPersona) });
   };

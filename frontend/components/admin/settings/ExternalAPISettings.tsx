@@ -250,6 +250,17 @@ interface SimulationAPIProvider {
   isDefault: boolean;
 }
 
+interface BackendProvider {
+  id: string;
+  name: string;
+  category: string;
+  baseUrl: string;
+  apiKey: string;
+  headers?: string;
+  enabled: boolean;
+  isDefault: boolean;
+}
+
 interface SimulationAPICategory {
   id: string;
   name: string;
@@ -592,14 +603,14 @@ export default function ExternalAPISettings() {
       }
 
       if (providersRes.ok) {
-        const providers = await providersRes.json();
+        const providers: BackendProvider[] = await providersRes.json();
         logger.debug('[ExternalAPI] Loaded providers from backend:', providers);
 
         // Group providers by category - ONLY include providers with valid data
         if (Array.isArray(providers) && providers.length > 0) {
           const categorized = DEFAULT_SIMULATION_API_CATEGORIES.map((cat) => {
             const categoryProviders = providers
-              .filter((p: any) => {
+              .filter((p) => {
                 // Filter by category
                 if (p.category !== cat.id) return false;
 
@@ -624,7 +635,7 @@ export default function ExternalAPISettings() {
 
                 return isValid;
               })
-              .map((p: any) => ({
+              .map((p) => ({
                 id: p.id.replace(`${cat.id}-`, ''),
                 name: p.name,
                 baseUrl: p.baseUrl || '',
@@ -836,7 +847,7 @@ export default function ExternalAPISettings() {
         ...prev,
         [`youtube-${providerId}`]: data,
       }));
-    } catch (err: any) {
+    } catch (err) {
       setTestResults((prev) => ({
         ...prev,
         [`youtube-${providerId}`]: {
@@ -934,7 +945,7 @@ export default function ExternalAPISettings() {
         ...prev,
         [`tts-${providerId}`]: data,
       }));
-    } catch (err: any) {
+    } catch (err) {
       setTestResults((prev) => ({
         ...prev,
         [`tts-${providerId}`]: {
@@ -1020,7 +1031,7 @@ export default function ExternalAPISettings() {
 
     try {
       // Flatten all providers from all categories - only save providers with valid data
-      const allProviders: any[] = [];
+      const allProviders: BackendProvider[] = [];
       simulationAPICategories.forEach((category) => {
         logger.debug(
           `[Save] Processing category ${category.id} with ${category.providers.length} providers`
@@ -1045,7 +1056,7 @@ export default function ExternalAPISettings() {
               enabled: provider.enabled,
               baseUrl: provider.baseUrl?.trim() || '',
               headers: provider.headers?.trim() || undefined,
-              apiKey: provider.apiKey?.trim() || undefined,
+              apiKey: provider.apiKey?.trim() || '',
               isDefault: provider.isDefault,
             };
             logger.debug('[Save] Adding provider:', providerToSave);
@@ -1242,7 +1253,7 @@ export default function ExternalAPISettings() {
 
       const data = await res.json();
       setTestResults((prev) => ({ ...prev, [providerId]: data }));
-    } catch (err: any) {
+    } catch (err) {
       setTestResults((prev) => ({
         ...prev,
         [providerId]: { success: false, message: err.message || '测试失败' },
@@ -1305,7 +1316,7 @@ export default function ExternalAPISettings() {
         ...prev,
         [`extraction-${providerId}`]: data,
       }));
-    } catch (err: any) {
+    } catch (err) {
       setTestResults((prev) => ({
         ...prev,
         [`extraction-${providerId}`]: {

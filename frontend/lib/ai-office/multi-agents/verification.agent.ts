@@ -147,7 +147,7 @@ export class VerificationAgent {
   ): string {
     const sourceSummaries = sources
       .map(
-        (s: any, i) => `
+        (s, i) => `
 资源 ${i + 1}: ${s.title}
 ${s.abstract && typeof s.abstract === 'string' ? `摘要: ${s.abstract.substring(0, 300)}` : ''}
 ${s.authors && Array.isArray(s.authors) ? `作者: ${s.authors.join(', ')}` : ''}
@@ -236,8 +236,9 @@ ${sourceSummaries}
    * 验证并规范化验证结果
    */
   private validateVerification(
-    raw: any
+    raw: unknown
   ): Omit<VerificationResult, 'verifiedAt'> {
+    const r = raw as Record<string, unknown>;
     const validStatuses: VerificationStatus[] = [
       'verified',
       'uncertain',
@@ -247,38 +248,43 @@ ${sourceSummaries}
 
     return {
       confidence:
-        typeof raw.confidence === 'number'
-          ? Math.max(0, Math.min(1, raw.confidence))
+        typeof r.confidence === 'number'
+          ? Math.max(0, Math.min(1, r.confidence))
           : 0.7,
-      badges: Array.isArray(raw.badges)
-        ? raw.badges.map((b: any) => ({
-            section: b.section || '未知',
-            status: validStatuses.includes(b.status) ? b.status : 'uncertain',
-            confidence:
-              typeof b.confidence === 'number'
-                ? Math.max(0, Math.min(1, b.confidence))
-                : 0.7,
-            issues: Array.isArray(b.issues)
-              ? b.issues.filter((i: any) => typeof i === 'string')
-              : undefined,
-            suggestions: Array.isArray(b.suggestions)
-              ? b.suggestions.filter((s: any) => typeof s === 'string')
-              : undefined,
-          }))
+      badges: Array.isArray(r.badges)
+        ? r.badges.map((b) => {
+            const badge = b as Record<string, unknown>;
+            return {
+              section: (badge.section as string) || '未知',
+              status: validStatuses.includes(badge.status as VerificationStatus) ? (badge.status as VerificationStatus) : 'uncertain',
+              confidence:
+                typeof badge.confidence === 'number'
+                  ? Math.max(0, Math.min(1, badge.confidence))
+                  : 0.7,
+              issues: Array.isArray(badge.issues)
+                ? badge.issues.filter((i) => typeof i === 'string') as string[]
+                : undefined,
+              suggestions: Array.isArray(badge.suggestions)
+                ? badge.suggestions.filter((s) => typeof s === 'string') as string[]
+                : undefined,
+            };
+          })
         : [],
-      suggestions: Array.isArray(raw.suggestions)
-        ? raw.suggestions.filter((s: any) => typeof s === 'string')
+      suggestions: Array.isArray(r.suggestions)
+        ? r.suggestions.filter((s) => typeof s === 'string') as string[]
         : [],
-      issues: Array.isArray(raw.issues)
-        ? raw.issues.map((i: any) => ({
-            severity: ['high', 'medium', 'low'].includes(i.severity)
-              ? i.severity
+      issues: Array.isArray(r.issues)
+        ? r.issues.map((i) => {
+            const issue = i as Record<string, unknown>;
+            return {
+            severity: ['high', 'medium', 'low'].includes(issue.severity as string)
+              ? (issue.severity as 'high' | 'medium' | 'low')
               : 'medium',
-            description: i.description || '',
-            location: i.location,
-          }))
+            description: (issue.description as string) || '',
+            location: issue.location as string | undefined,
+          }})
         : [],
-      summary: raw.summary || '验证完成',
+      summary: (r.summary as string) || '验证完成',
     };
   }
 

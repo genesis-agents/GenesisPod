@@ -119,7 +119,7 @@ export function convertToAIOfficeResource(
       aiAnalysis: {
         summary: resource.aiSummary || resource.abstract || '',
       },
-    } as any;
+    };
   } else if (resource.type === 'paper') {
     return {
       ...baseResource,
@@ -131,7 +131,7 @@ export function convertToAIOfficeResource(
       aiAnalysis: {
         summary: resource.aiSummary || resource.abstract || '',
       },
-    } as any;
+    };
   } else {
     return {
       ...baseResource,
@@ -143,6 +143,6 @@ export function convertToAIOfficeResource(
       aiAnalysis: {
         summary: resource.aiSummary || resource.abstract || '',
       },
-    } as any;
+    };
   }
 }
