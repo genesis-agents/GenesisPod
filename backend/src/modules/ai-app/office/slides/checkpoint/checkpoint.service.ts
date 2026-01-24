@@ -256,20 +256,59 @@ export class CheckpointService {
   }
 
   /**
-   * 删除会话及其所有检查点
+   * 删除会话及其所有关联数据
+   * 包括：checkpoints, missions, tasks, mission_events
    */
   async deleteSession(sessionId: string): Promise<void> {
     this.logger.log(`[deleteSession] Deleting session: ${sessionId}`);
 
-    // 先删除所有检查点
-    await this.prisma.slidesCheckpoint.deleteMany({
+    // 1. 获取所有关联的 missions
+    const missions = await this.prisma.slidesMission.findMany({
+      where: { sessionId },
+      select: { id: true },
+    });
+    const missionIds = missions.map((m) => m.id);
+
+    if (missionIds.length > 0) {
+      // 2. 删除 mission_events
+      const eventsDeleted = await this.prisma.slidesMissionEvent.deleteMany({
+        where: { missionId: { in: missionIds } },
+      });
+      this.logger.log(
+        `[deleteSession] Deleted ${eventsDeleted.count} mission events`,
+      );
+
+      // 3. 删除 tasks
+      const tasksDeleted = await this.prisma.slidesTask.deleteMany({
+        where: { missionId: { in: missionIds } },
+      });
+      this.logger.log(`[deleteSession] Deleted ${tasksDeleted.count} tasks`);
+
+      // 4. 删除 missions
+      const missionsDeleted = await this.prisma.slidesMission.deleteMany({
+        where: { id: { in: missionIds } },
+      });
+      this.logger.log(
+        `[deleteSession] Deleted ${missionsDeleted.count} missions`,
+      );
+    }
+
+    // 5. 删除所有检查点
+    const checkpointsDeleted = await this.prisma.slidesCheckpoint.deleteMany({
       where: { sessionId },
     });
+    this.logger.log(
+      `[deleteSession] Deleted ${checkpointsDeleted.count} checkpoints`,
+    );
 
-    // 再删除会话
+    // 6. 最后删除会话
     await this.prisma.slidesSession.delete({
       where: { id: sessionId },
     });
+
+    this.logger.log(
+      `[deleteSession] Session ${sessionId} deleted successfully`,
+    );
   }
 
   /**

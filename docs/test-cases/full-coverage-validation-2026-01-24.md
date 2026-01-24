@@ -491,3 +491,41 @@
 - [ ] DFX 验证 (0/15)
 
 **总计**: 约80%核心功能已验证通过
+
+---
+
+## 11. 数据一致性验证 (Data Consistency)
+
+### 11.1 数据库与前端数据一致性
+
+| ID    | 模块             | 数据库表             | 用户字段      | DB记录数 | 前端显示 | 状态 | 备注                |
+| ----- | ---------------- | -------------------- | ------------- | -------- | -------- | ---- | ------------------- |
+| DC-01 | AI Research      | research_projects    | user_id       | 2        | 2项目    | ✅   | 一致                |
+| DC-02 | AI Teams         | team_missions        | created_by_id | 127      | 127任务  | ✅   | 一致                |
+| DC-03 | AI Simulation    | simulation_scenarios | createdById   | 2        | 2场景    | ✅   | 修复null后一致      |
+| DC-04 | AI Image         | generated_images     | user_id       | 2        | 2生成    | ✅   | 一致                |
+| DC-05 | AI Office Slides | slides_sessions      | user_id       | 0        | 0会话    | ✅   | 清理孤立数据后一致  |
+| DC-06 | Library          | resources            | (共享)        | 1810     | 1810资源 | ✅   | 全局共享,无用户过滤 |
+
+### 11.2 孤立数据检测与清理
+
+| ID     | 问题                                 | 受影响表              | 影响记录数 | 修复动作       | 状态 |
+| ------ | ------------------------------------ | --------------------- | ---------- | -------------- | ---- |
+| DC-O01 | slides_missions引用不存在的session   | slides_missions       | 27         | 删除孤立数据   | ✅   |
+| DC-O02 | slides_mission_events关联孤立mission | slides_mission_events | 662        | 级联删除       | ✅   |
+| DC-O03 | slides_tasks关联孤立mission          | slides_tasks          | 137        | 级联删除       | ✅   |
+| DC-O04 | simulation_scenarios缺失createdById  | simulation_scenarios  | 2          | 更新为当前用户 | ✅   |
+| DC-O05 | office_agent_tasks缺失user_id        | office_agent_tasks    | 47         | 删除孤立数据   | ✅   |
+
+### 11.3 代码修复
+
+| ID     | 问题                            | 文件                  | 修复内容                          | 状态 |
+| ------ | ------------------------------- | --------------------- | --------------------------------- | ---- |
+| DC-C01 | deleteSession不级联删除missions | checkpoint.service.ts | 添加missions/tasks/events级联删除 | ✅   |
+
+### 11.4 待观察项
+
+| ID     | 问题                        | 风险等级 | 建议                         |
+| ------ | --------------------------- | -------- | ---------------------------- |
+| DC-W01 | listScenarios()不按用户过滤 | Low      | 确认是否为设计如此(共享场景) |
+| DC-W02 | writing_projects无user列    | Medium   | 需要确认写作项目的所有权模型 |
